@@ -14,7 +14,7 @@ metadata:
     install:
       - kind: go
         bins: [immybot-cli]
-        module: github.com/mvanhorn/printing-press-library/library/rmm/immybot/cmd/immybot-cli
+        module: github.com/mvanhorn/printing-press-library/library/monitoring/immybot/cmd/immybot-cli
 ---
 
 # ImmyBot - Printing Press CLI

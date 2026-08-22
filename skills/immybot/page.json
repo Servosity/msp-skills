@@ -97,21 +97,21 @@
       "a": "No. Onboarding, script authoring, and remote control stay in the portal. This is for the questions that span tenants or need history, which is where the portal runs out."
     }
   ],
-  "governance_summary": "The skill authenticates with a Microsoft Entra ID app registration you control, using the client-credentials flow, and its permissions inside ImmyBot are exactly those you granted the person record you created for it. It is read-first: every cross-tenant rollup, dossier, and reconciliation is non-mutating and safe to let an agent run unattended. Writes and deletes exist because the API exposes them, and the commands that reach an endpoint, in particular run-immy-service and the maintenance session and script paths, should sit behind an agent policy of preview with --dry-run then a reviewed write. Keep autonomous agents to reads.",
+  "governance_summary": "The skill authenticates with a Microsoft Entra ID app registration you control, using the client-credentials flow, and its permissions inside ImmyBot are exactly those you granted the person record you created for it. It is read-first: every cross-tenant rollup, dossier, and reconciliation is non-mutating and safe to let an agent run unattended. ImmyBot also deploys software and runs scripts on real client machines, so the commands that reach an endpoint - run-immy-service, the maintenance session and script paths, registry writes, and the target assignments that drive deployment - sit in their own Endpoint and fleet execution tier and need a human in the loop with explicit confirmation, not just a dry-run preview. Routine record writes preview with --dry-run then a reviewed write. Keep autonomous agents to reads.",
   "safety_tiers": [
     {
       "tier": "Read",
-      "examples": "session-triage, version-spread, fleet-diff, onboarding-stalled, deployment-health, assignment-explain, computer-dossier, drift, script-blast-radius, psa-reconcile, search, analytics, sync",
+      "examples": "session-triage, version-spread, fleet-diff, onboarding-stalled, deployment-health, assignment-explain, computer-dossier, drift, script-blast-radius, psa-reconcile, search",
       "policy": "Allow"
     },
     {
       "tier": "Endpoint and fleet execution",
-      "examples": "scripts create-run-adhoc-metascript, maintenance-actions create-latest-action-for-tenants, schedules create-bulk-run-now, maintenance-sessions rerun create, computers registry create-keys, target-assignments create, software create-global-upload",
+      "examples": "scripts create-run-adhoc-metascript, run-immy-service, maintenance-actions create-latest-action-for-tenants, schedules create-bulk-run-now, maintenance-sessions rerun create, computers registry create-keys, target-assignments create, software create-global-upload",
       "policy": "Human-in-the-loop, explicit confirmation. These run code or deploy software on real client machines."
     },
     {
-      "tier": "Write (routine)",
-      "examples": "tenants create, persons create, tags create, groups create, preferences update, import",
+      "tier": "Write (data)",
+      "examples": "tenants create, persons create, tags create, groups create, preferences update-application, import",
       "policy": "Preview with --dry-run, then a reviewed write"
     },
     {
@@ -123,6 +123,11 @@
       "tier": "Destructive",
       "examples": "computers create-bulk-delete, scripts delete-global-by-id, software delete-global-by-identifier, brandings delete-by-id",
       "policy": "Require explicit human approval; never autonomous"
+    },
+    {
+      "tier": "Local config",
+      "examples": "profile save, auth logout, sync, export, learnings, feedback",
+      "policy": "Allow (no server effect)"
     }
   ]
 }

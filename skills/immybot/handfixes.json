@@ -158,8 +158,8 @@
     },
     {
       "id": "agent-context-declares-all-four-auth-inputs",
-      "summary": "agent-context lists IMMYBOT_SUBDOMAIN alongside the OAuth trio, so an agent reading runtime truth sees all four required inputs",
-      "why": "AGENTS.md instructs agents to start from `immybot-cli agent-context --pretty` as 'current runtime truth', but its auth.env_vars carried only IMMYBOT_TENANT_ID, IMMYBOT_CLIENT_ID and IMMYBOT_CLIENT_SECRET. IMMYBOT_SUBDOMAIN is the one whose absence fails worst: it derives the OAuth scope https://<subdomain>.immy.bot/.default, and without it the scope falls back to api://{client_id}/.default, naming the caller's own app registration rather than ImmyBot, so Entra rejects the token opaquely. This is the same 3-of-4 undercount already fixed in doctor under `doctor-reports-instance-and-a-real-auth-command`; agent-context is its twin and was missed. The CLIENT_SECRET description also said 'Set during initial auth setup', naming the nonexistent `auth setup` command.",
+      "summary": "agent-context AND the MCP context tool both list IMMYBOT_SUBDOMAIN alongside the OAuth trio, so an agent reading runtime truth on either surface sees all four required inputs",
+      "why": "AGENTS.md instructs agents to start from `immybot-cli agent-context --pretty` as 'current runtime truth', but its auth.env_vars carried only IMMYBOT_TENANT_ID, IMMYBOT_CLIENT_ID and IMMYBOT_CLIENT_SECRET. IMMYBOT_SUBDOMAIN is the one whose absence fails worst: it derives the OAuth scope https://<subdomain>.immy.bot/.default, and without it the scope falls back to api://{client_id}/.default, naming the caller's own app registration rather than ImmyBot, so Entra rejects the token opaquely. This is the same 3-of-4 undercount already fixed in doctor under `doctor-reports-instance-and-a-real-auth-command`; agent-context is its twin and was missed. The CLIENT_SECRET description also said 'Set during initial auth setup', naming the nonexistent `auth setup` command. ROUND-2 ADDENDUM: the first pass fixed cli/agent_context.go only and missed its MCP twin, internal/mcp/tools.go handleContext - which is the surface most agents actually read, and whose own comment claims the two 'cannot drift'. They had drifted: env_vars listed 3 while the instructions field in the same payload named 4. Both surfaces are now asserted below, because asserting only one is what allowed the drift.",
       "status": "active",
       "spec_encode_followup": "In the press: build the agent-context auth env-var list from the same source as the doctor env-var check, so a connector cannot declare a different required set in two places. Any template variable required to construct the token request belongs in both.",
       "asserts": [
@@ -170,6 +170,15 @@
         },
         {
           "file": "cli/internal/cli/agent_context.go",
+          "not_contains": "Set during initial auth setup."
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "contains": "IMMYBOT_SUBDOMAIN",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
           "not_contains": "Set during initial auth setup."
         }
       ]

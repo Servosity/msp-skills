@@ -1039,6 +1039,17 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 			"type": "bearer_token",
 			"env_vars": []map[string]any{
 				{
+					"name":      "IMMYBOT_SUBDOMAIN",
+					"kind":      "auth_flow_input",
+					"required":  true,
+					"sensitive": false,
+					// Must match cli/agent_context.go: this handler and the CLI
+					// agent-context command are the same contract on two
+					// surfaces, and SUBDOMAIN is the one whose absence breaks
+					// the OAuth scope (see the doctor/agent-context handfixes).
+					"description": "ImmyBot instance subdomain (the \"acme\" in acme.immy.bot). Derives the OAuth scope.",
+				},
+				{
 					"name":        "IMMYBOT_TENANT_ID",
 					"kind":        "auth_flow_input",
 					"required":    true,
@@ -1057,7 +1068,7 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 					"kind":        "auth_flow_input",
 					"required":    true,
 					"sensitive":   true,
-					"description": "Set during initial auth setup.",
+					"description": "Client secret paired with IMMYBOT_CLIENT_ID, from the Entra app registration.",
 				},
 			},
 			"docs_url":     "https://www.immy.bot",

@@ -246,11 +246,12 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | `session-triage`, `drift`, `version-spread`, `fleet-diff`, `assignment-explain`, and every `list` / `get` | Allow |
-| Endpoint and fleet execution | `scripts create-run-adhoc-metascript` (runs a script body you supply on a named machine), `maintenance-actions create-latest-action-for-tenants`, `schedules create-bulk-run-now`, `maintenance-sessions rerun create`, `computers registry create-keys`, `target-assignments create`, `software create-global-upload` | Human-in-the-loop, explicit confirmation |
-| Write (data) | `tenants create`, `persons create`, `tags create`, `import` | Preview with `--dry-run`, then a reviewed write |
+| Read | `session-triage`, `drift`, `version-spread`, `fleet-diff`, `assignment-explain`, and every other `list` / `get` except the credential read below | Allow |
+| Endpoint and fleet execution | `scripts create-run-adhoc-metascript` (runs a script body you supply on a named machine), `run-immy-service`, `maintenance-actions create-latest-action-for-tenants`, `schedules create-bulk-run-now`, `computers registry create-keys`, `target-assignments create`, `software create-global-upload` | Human-in-the-loop, explicit confirmation |
+| Write (data) | `tenants create`, `persons create`, `tags create`, `preferences update-application`, `import` | Preview with `--dry-run`, then a reviewed write |
 | Credential / security | `auth login`, `oauth get-access-tokens`, `access get-get-azure-tenant-auth-details-by-azure-tenant-principal-id` (a read that returns a secret), `roles create` | Human-in-the-loop only |
-| Destructive | `computers create-bulk-delete`, `scripts delete-*`, `brandings delete-by-id` | Human-in-the-loop only, explicit confirmation |
+| Destructive | `computers create-bulk-delete`, `scripts delete-global-by-id`, `software delete-global-by-identifier`, `brandings delete-by-id` | Human-in-the-loop only, explicit confirmation |
+| Local config | `profile save`, `auth logout`, `sync`, `export`, `feedback` | Allow (no server effect) |
 
 ImmyBot deploys software and runs maintenance on real client machines, so the
 **Endpoint and fleet execution** tier is the one that matters most here: a single
