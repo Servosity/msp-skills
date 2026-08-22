@@ -202,7 +202,7 @@
     {
       "id": "mirror-fails-when-nothing-was-mirrored",
       "summary": "`mirror` exits non-zero and skips the sync stamp when the credential is rejected or every resource fails",
-      "why": "Scope, event, entity and exception failures were all downgraded to warnings; sync state was stamped whenever the run was not rate-limited, and the command returned success. With an expired credential every call 401s, the command exited 0, recorded zero rows as freshly synced, and every offline command then answered confidently from an empty mirror - the exact false-confidence failure this connector exists to prevent. Rate-limiting was already fatal; a rejected credential (401 only - 403 is a genuinely unlicensed engine the exception ingest must tolerate) and a run where every resource failed and nothing landed now are too. A reprint restores the warn-and-succeed shape.",
+      "why": "Scope, event, entity and exception failures were all downgraded to warnings; sync state was stamped whenever the run was not rate-limited, and the command returned success. With an expired credential every call 401s, the command exited 0, recorded zero rows as freshly synced, and every offline command then answered confidently from an empty mirror - the exact false-confidence failure this connector exists to prevent. Rate-limiting was already fatal; a rejected credential (401 only - 403 is a genuinely unlicensed engine the exception ingest must tolerate) and a run where every resource failed and nothing landed now are too. A reprint restores the warn-and-succeed shape. Live verification on 2026-08-22 added a third fatal case: a resource that returns records and stores none of them.",
       "status": "active",
       "spec_encode_followup": "Teach the press that a mirror/sync command must not stamp freshness for a run that stored nothing, and that auth rejection is fatal while per-resource authorization failures are not (filed as a retro item against the generator).",
       "asserts": [
@@ -224,6 +224,35 @@
         {
           "file": "cli/internal/cli/avanan_mirror_test.go",
           "contains": "TestIsCredentialRejection",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/avanan_mirror.go",
+          "contains": "mirror stored none of the",
+          "min_count": 1
+        }
+      ]
+    },
+    {
+      "id": "entity-id-is-nested-under-entity-info",
+      "summary": "recordID resolves dotted paths, because entity records carry their identifier at entityInfo.entityId and nothing at the top level",
+      "why": "idFields was a flat top-level lookup (eventId, entityId, id, exceptionId, _id). The entity search returns records shaped {entityInfo:{entityId,...}, entityPayload:{...}, entitySecurityResult:{...}} with no top-level identifier at all, so every entity record was dropped as unidentifiable. Confirmed live against smart-api-production-1-us on 2026-08-22: a mirror fetched 343 entities, stored 0, skipped 343, and exited 0 - so every offline command reading entities answered from a table that had never been written. The nested lookup must not be flattened into a recursive search: entitySecurityResult.ap[].entityId is a different id, and matching it would key rows on the wrong value. A reprint regenerates the flat lookup.",
+      "status": "active",
+      "spec_encode_followup": "Teach the press that identifier discovery must consider nested paths, and that a resource storing none of what it fetched is a failure rather than an empty result (filed as a retro item against the generator).",
+      "asserts": [
+        {
+          "file": "cli/internal/avananmirror/mirror.go",
+          "contains": "entityInfo.entityId",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/avananmirror/mirror.go",
+          "contains": "func lookupPath(",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/avananmirror/mirror_test.go",
+          "contains": "TestRecordIDResolvesNestedEntityIdentifier",
           "min_count": 1
         }
       ]

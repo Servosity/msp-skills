@@ -27,6 +27,14 @@ All notable changes to this skill are documented here. Format follows
   `infinity-us`); a tenant on any other Infinity gateway points `auth login` at
   it with `--base-url` or `AVANAN_BASE_URL`, since guessing an unverified
   gateway host fails identically to a bad credential.
+- Entity records are stored instead of silently dropped. Their identifier is
+  nested at `entityInfo.entityId` and absent from the top level, so the flat
+  identifier lookup skipped every one: a live mirror fetched 343 entities,
+  stored none, and exited 0, leaving every offline command that reads entities
+  answering from a table that had never been written.
+- `mirror` also fails when a resource returns records and stores none of them.
+  That is a record-shape mismatch rather than a thin day of data, and it is what
+  hid the entity bug above behind a successful-looking run.
 - The signing transport authenticates only the configured host. It runs once
   per redirect hop and after `CheckRedirect`, so a cross-host 3xx previously got
   a freshly signed request even though `CheckRedirect` had just stripped the
