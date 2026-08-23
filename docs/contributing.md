@@ -25,3 +25,43 @@ The single most valuable contribution is not code: it is one sentence from an MS
 - **Requesting a system we do not cover yet**: [the 90-second walkthrough](/requesting-a-skill/).
 - **Building one with us, live**: [Build Sessions](/build-sessions/).
 - **A security problem**: email security@servosity.com rather than filing publicly.
+
+## Copyright and how you get credit
+
+These are two different things, and the project keeps them separate on purpose.
+
+**Copyright is uniform.** Every generated file, every `cli/NOTICE` and every
+`cli/LICENSE` attribution line carries the same line as the root `LICENSE`:
+
+```
+Copyright 2026 Servosity Inc. and msp-skills contributors
+```
+
+You are one of those contributors the moment your PR merges. Individual names do
+not go in per-file headers: a header naming one person is wrong the first time
+somebody else edits that file, and it tells anyone adopting the code the wrong
+thing about who owns that subtree. `tools/maintainer/check_copyright.py` enforces
+this, because the generator stamps whoever ran it and a regeneration would
+otherwise undo it.
+
+**Credit is personal**, and lives in three places that survive a regeneration:
+
+| Where | What it looks like |
+| --- | --- |
+| `skills/<slug>/cli/NOTICE` | `The Avanan connector was contributed by Abhi Saini (@geekbrownbear).` |
+| `SKILL.md` frontmatter | `author: "Abhi Saini"` |
+| Git history + your DCO sign-off | the permanent, legal record |
+
+The `NOTICE` file is the Apache-2.0 attribution channel (§4(d)) and it ships
+inside every release artifact, so it reaches more people than a comment at the top
+of a source file.
+
+Tell us in the PR how you want to be named - handle, real name, company, or not at
+all - and that is what we will use.
+
+### If you are adopting a skill rather than contributing one
+
+Everything here is Apache-2.0. The single copyright line above is the whole
+ownership story: there is no per-file patchwork to audit, no CLA anyone signed,
+and no individual holding rights over one subdirectory. Contributors licensed
+their work under the DCO, which is recorded in the sign-off on every commit.
