@@ -1,0 +1,54 @@
+{
+  "manifest_version": "0.3",
+  "name": "avanan-mcp",
+  "display_name": "Avanan",
+  "version": "0.1.0",
+  "description": "Every Avanan (Check Point Harmony Email and Collaboration) API operation, plus shift-start triage, phishing campaign clustering, single-message lifecycle timelines, one exception lookup across all seven security engines, and cross-tenant MSP fleet rollups that a stateless API mirror cannot answer in a single call.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/avanan-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/avanan-mcp",
+      "args": [],
+      "env": {
+        "AVANAN_APP_ID": "${user_config.avanan_app_id}",
+        "AVANAN_CLIENT_SECRET": "${user_config.avanan_client_secret}"
+      }
+    }
+  },
+  "user_config": {
+    "avanan_app_id": {
+      "type": "string",
+      "title": "AVANAN_APP_ID",
+      "description": "Sets AVANAN_APP_ID (the Avanan application ID) for the Avanan MCP server.",
+      "sensitive": false,
+      "required": true
+    },
+    "avanan_client_secret": {
+      "type": "string",
+      "title": "AVANAN_CLIENT_SECRET",
+      "description": "Sets AVANAN_CLIENT_SECRET (the Avanan client secret) for the Avanan MCP server.",
+      "sensitive": true,
+      "required": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  },
+  "printing_press_version": "4.30.2",
+  "press_provenance": {
+    "printing_press_version": "4.30.2",
+    "generated_at": "2026-08-15T03:04:59.193735187Z",
+    "spec_checksum": "sha256:53aa7bbffcb89d1db74e26cee79e817a7410b611ae2cb7937fb42b16288b5930",
+    "spec_format": "openapi3"
+  }
+}

@@ -30,6 +30,9 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
 - Auvik (RMM) - ask "What hardware is past or approaching end-of-support across every client?" - 
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/auvik/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/auvik/install.sh)
+- Avanan (Security) - ask "What did Avanan catch across my tenants since the start of my shift?" - Triage today's phishing across every Avanan tenant, tell one campaign from forty problems, and prove what actually happened to a quarantined message.
+  Verification: Live-verified by @geekbrownbear (Bearium Networks, MSP) (2026-08-23). Page: https://msp-skills.compoundingteams.com/skills/avanan/
+  Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/avanan/install.sh)
 - AWS (Billing) - ask "Why did my bill change month-over-month?" - 
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/aws-billing/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/aws-billing/install.sh)

@@ -200,6 +200,32 @@
       },
       "install_auth_hint": "Then set your Auvik credentials: `export AUVIK_USERNAME=<your Auvik user email>` and `export AUVIK_API_KEY=<your API key>` (Auvik > Admin > Integrations > Auvik API), set `AUVIK_BASE_URL` to your region's host if you are not on us1, and run `auvik-cli doctor` to confirm it works"
     },
+    "avanan": {
+      "system": "Avanan (Check Point Harmony Email and Collaboration) email and SaaS collaboration security across every managed tenant",
+      "status": "beta",
+      "cli_binary": "avanan-cli",
+      "mcp_binary": "avanan-mcp",
+      "vendor": "Avanan",
+      "vendor_trademark_owner": "Check Point Software Technologies Ltd.",
+      "first_party": false,
+      "category": "Security",
+      "display_name": "Avanan",
+      "tagline": "Triage today's phishing across every Avanan tenant, tell one campaign from forty problems, and prove what actually happened to a quarantined message.",
+      "cli_hash": "sha256:d541af75e15f3ddb35b5cd018c67d150bffcf3f08b04dacf2b2f42b0f890855f",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": false,
+      "install_auth_hint": "Then set your Avanan API credentials: `export AVANAN_APP_ID=<your application id>` and `export AVANAN_CLIENT_SECRET=<your client secret>` (Avanan portal > Settings > API Keys), run `avanan-cli auth login --region <us|eu|ca|ap|uk|uae|in> --save`, and run `avanan-cli doctor` to confirm it works",
+      "live_verified": {
+        "status": "live-verified",
+        "date": "2026-08-23",
+        "source": "github",
+        "evidence": "https://github.com/Servosity/msp-skills/pull/271",
+        "verified_by": "@geekbrownbear (Bearium Networks, MSP)",
+        "issue_url": "https://github.com/Servosity/msp-skills/pull/271"
+      }
+    },
     "aws-billing": {
       "system": "AWS billing & Cost Explorer - plain-English bill breakdowns and waste flags",
       "status": "beta",
