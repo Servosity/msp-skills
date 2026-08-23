@@ -56,11 +56,11 @@
     "released_hash": "sha256:644f4892fc3fa3118e601cd3e3bdb03c049468e13a628a6d6bf99a3e76a1c7c1"
   },
   "avanan": {
-    "state": "never-released",
+    "state": "up-to-date",
     "version": "0.1.0",
-    "latest_tag": null,
+    "latest_tag": "avanan-v0.1.0",
     "current_hash": "sha256:cc0cf8f16e48efa354c8e5b7cdbd0e8958c8ca10cb09dd3149f999f3c3a81802",
-    "released_hash": null
+    "released_hash": "sha256:cc0cf8f16e48efa354c8e5b7cdbd0e8958c8ca10cb09dd3149f999f3c3a81802"
   },
   "aws-billing": {
     "state": "binary-pending",
