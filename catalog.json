@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-08-22",
+  "generated_at": "2026-08-23",
   "skills": [
     {
       "name": "msp-skills-concierge",
@@ -181,6 +181,26 @@
       "description": "Every Auvik endpoint as a command, plus the cross-client answers the Auvik UI and API cannot give you.",
       "verification": "awaiting",
       "category": "RMM"
+    },
+    {
+      "name": "avanan",
+      "system": "Avanan (Check Point Harmony Email and Collaboration) email and SaaS collaboration security across every managed tenant",
+      "status": "beta",
+      "skill_path": "skills/avanan",
+      "cli_binary": "avanan-cli",
+      "mcp_binary": "avanan-mcp",
+      "version": "0.1.0",
+      "printing_press_version": "4.30.2",
+      "license": "Apache-2.0",
+      "vendor": "Avanan",
+      "vendor_trademark_owner": "Check Point Software Technologies Ltd.",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/avanan/install.sh)",
+      "install_mcp_doc": "skills/avanan/mcp-install.md",
+      "description": "Every Avanan (Check Point Harmony Email and Collaboration) API operation, plus shift-start triage, phishing campaign clustering, single-message lifecycle timelines, one exception lookup across all seven security engines, and cross-tenant MSP fleet rollups that a stateless API mirror cannot answer in a single call.",
+      "verification": "awaiting",
+      "category": "Security",
+      "tagline": "Triage today's phishing across every Avanan tenant, tell one campaign from forty problems, and prove what actually happened to a quarantined message."
     },
     {
       "name": "aws-billing",

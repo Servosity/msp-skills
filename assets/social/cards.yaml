@@ -40,6 +40,10 @@ autotask:
   vendor: "Autotask"
   example_command: "Which approved time hasn't been invoiced?"
 
+avanan:
+  vendor: "Avanan"
+  example_command: "What did Avanan catch on my tenants in the last 24 hours?"
+
 aws-billing:
   vendor: "Amazon Web Services"
   example_command: "Why did my AWS bill go up?"
