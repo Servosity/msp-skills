@@ -34,19 +34,42 @@ func newAuthSetupCmd(_ *rootFlags) *cobra.Command {
 	var launch bool
 	cmd := &cobra.Command{
 		Use:     "setup",
-		Short:   "Print steps for obtaining a credential (use --launch to open the URL)",
-		Example: "  avanan-cli auth setup\n  avanan-cli auth setup --launch",
+		Short:   "Print the steps for obtaining a credential",
+		Example: "  avanan-cli auth setup",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			w := cmd.OutOrStdout()
-			fmt.Fprintln(w, "No setup URL is configured for this CLI; check the API's docs.")
+			// `doctor` and the HTTP 401/403 hints send operators here, so this
+			// has to answer with the real steps. Avanan publishes no stable
+			// deep link to the key page, hence no URL to launch -- but the
+			// steps below are exact, and are the same credentials `auth login`
+			// reads.
+			fmt.Fprintln(w, "Create an Avanan API key, then authenticate:")
+			fmt.Fprintln(w, "")
+			fmt.Fprintln(w, "  1. In the Avanan / Infinity Portal web console, open")
+			fmt.Fprintln(w, "     Settings -> API Keys and create a key. Note the region it is")
+			fmt.Fprintln(w, "     issued for: keys are region-scoped and a key issued for one")
+			fmt.Fprintln(w, "     region cannot read another region's data.")
+			fmt.Fprintln(w, "  2. Export the application ID and client secret:")
+			fmt.Fprintln(w, "")
+			fmt.Fprintln(w, "     export AVANAN_APP_ID=\"your-application-id\"")
+			fmt.Fprintln(w, "     export AVANAN_CLIENT_SECRET=\"your-client-secret\"")
+			fmt.Fprintln(w, "")
+			fmt.Fprintln(w, "  3. Exchange them for a session token, naming the same region:")
+			fmt.Fprintln(w, "")
+			fmt.Fprintln(w, "     avanan-cli auth login --region <us|eu|ca|ap|uk|uae|in|infinity|infinity-us> --save")
+			fmt.Fprintln(w, "")
+			fmt.Fprintln(w, "     For a gateway with no region code, set AVANAN_BASE_URL instead.")
+			fmt.Fprintln(w, "  4. Confirm it worked:")
+			fmt.Fprintln(w, "")
+			fmt.Fprintln(w, "     avanan-cli doctor")
 			if !launch {
 				return nil
 			}
-			fmt.Fprintln(cmd.ErrOrStderr(), "no setup URL configured; cannot launch")
+			fmt.Fprintln(cmd.ErrOrStderr(), "Avanan publishes no stable setup URL to open; follow the steps above.")
 			return nil
 		},
 	}
-	cmd.Flags().BoolVar(&launch, "launch", false, "Open the setup URL in your default browser")
+	cmd.Flags().BoolVar(&launch, "launch", false, "Deprecated: Avanan publishes no stable setup URL, so there is nothing to open")
 	return cmd
 }
 

@@ -1,6 +1,6 @@
 // Copyright 2026 geekbrownbear and contributors. Licensed under Apache-2.0. See LICENSE.
 
-// `timeline` — one message's full history.
+// `timeline` — one message's history, as far as the local mirror can attest.
 //
 // pp:data-source local
 //
@@ -50,7 +50,7 @@ func newNovelTimelineCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "timeline [id]",
-		Short: "Reconstruct one message's full history: detection, state changes, actions submitted, task outcomes",
+		Short: "Reconstruct one message's history from the local mirror: detection, latest state, actions this CLI submitted, task outcomes",
 		Long: strings.Trim(`
 Assemble everything the local mirror knows about a single message, in order:
 the detection event, the entity record, any actions this CLI submitted, and
@@ -63,7 +63,8 @@ action and task rows come from what this CLI recorded when it ran
 'remediate'. Actions taken in the web portal or by another tool will not
 appear.
 
-Use this command to see the full history of one message across detection,
+Use this command to see one message's history, as far as the local mirror can
+attest, across detection,
 action, and restore. Do NOT use this command to fetch the current record or
 decoded body; use 'avanan-search get-saas-entity', 'soar get-entity', or
 'event get' instead.

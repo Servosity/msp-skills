@@ -86,9 +86,9 @@
       "display_name": "Avanan",
       "tagline": "Triage today's phishing across every Avanan tenant, tell one campaign from forty problems, and prove what actually happened to a quarantined message.",
       "category": "Security",
-      "verification": "awaiting",
-      "verified_by": null,
-      "issue_url": null,
+      "verification": "live-verified",
+      "verified_by": "@geekbrownbear (Bearium Networks, MSP)",
+      "issue_url": "https://github.com/Servosity/msp-skills/pull/271",
       "url": "/skills/avanan/"
     },
     {

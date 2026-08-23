@@ -161,7 +161,7 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   avanan-cli campaign --since 7d --agent
   ```
-- **`timeline`**  -  Reconstruct one message's full history: detection, state changes, actions submitted, task outcomes, and restore disposition, in order.
+- **`timeline`**  -  Reconstruct one message's history from the local mirror: detection, the latest mirrored state, actions this CLI submitted, task outcomes, and restore disposition, in order. Actions taken in the Avanan portal or by another tool are not in the mirror and will not appear.
 
   _Reach for this when a user disputes a quarantine or a ticket needs evidence of what actually happened to a message._
 
@@ -177,7 +177,7 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   avanan-cli exceptions find partner-domain.com --agent
   ```
-- **`exceptions audit`**  -  Flag exceptions that contradict each other across sub-systems, exact duplicates, and entries that have never matched real traffic.
+- **`exceptions audit`**  -  Flag exceptions that contradict each other across sub-systems, exact duplicates, and entries that have not matched traffic in the mirrored window.
 
   _Reach for this on a policy review to find the contractor domain nobody removed and the string that is allowlisted in one engine and blocked in another._
 
@@ -439,18 +439,18 @@ The local store's schema version stamp is one-way: once this version of `avanan-
 
 ```bash
 # Human-readable table (default in terminal, JSON when piped)
-avanan-cli event get mock-value --scopes example-value --x-av-req-id 550e8400-e29b-41d4-a716-446655440000
+avanan-cli event get <event_id> --scopes <farm>:<tenant> --x-av-req-id 550e8400-e29b-41d4-a716-446655440000
 
 # JSON for scripting and agents
-avanan-cli event get mock-value --scopes example-value --x-av-req-id 550e8400-e29b-41d4-a716-446655440000 --json
+avanan-cli event get <event_id> --scopes <farm>:<tenant> --x-av-req-id 550e8400-e29b-41d4-a716-446655440000 --json
 # Filter to specific fields
-avanan-cli event get mock-value --scopes example-value --x-av-req-id 550e8400-e29b-41d4-a716-446655440000 --json --select actions,additionalData,availableEventActions
+avanan-cli event get <event_id> --scopes <farm>:<tenant> --x-av-req-id 550e8400-e29b-41d4-a716-446655440000 --json --select actions,additionalData,availableEventActions
 
 # Dry run  -  show the request without sending
-avanan-cli event get mock-value --scopes example-value --x-av-req-id 550e8400-e29b-41d4-a716-446655440000 --dry-run
+avanan-cli event get <event_id> --scopes <farm>:<tenant> --x-av-req-id 550e8400-e29b-41d4-a716-446655440000 --dry-run
 
 # Agent mode  -  JSON + compact + no prompts in one flag
-avanan-cli event get mock-value --scopes example-value --x-av-req-id 550e8400-e29b-41d4-a716-446655440000 --agent
+avanan-cli event get <event_id> --scopes <farm>:<tenant> --x-av-req-id 550e8400-e29b-41d4-a716-446655440000 --agent
 ```
 
 ## Agent Usage

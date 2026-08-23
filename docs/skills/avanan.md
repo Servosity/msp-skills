@@ -5,7 +5,7 @@ description: "Every Avanan (Check Point Harmony Email and Collaboration) API ope
 permalink: /skills/avanan/
 skill_name: "Avanan MCP"
 image: /assets/social/avanan/wide-1200x630.png
-verification: awaiting
+verification: live-verified
 faqs:
   - q: "Is there an MCP server for Avanan?"
     a: "Yes - this one. A free, open source MCP server and Claude Code Skill for Avanan, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds."
@@ -18,7 +18,7 @@ faqs:
   - q: "Is my Avanan data safe?"
     a: "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local, and the MCP server speaks stdio only so it opens no network listener. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills. Message bodies and raw .eml files are only fetched when you explicitly ask for a named message."
   - q: "Will this hit my Avanan API rate limits?"
-    a: "The skill syncs once into a local SQLite mirror, then answers most questions from local data, so repeated questions never touch the API. Avanan publishes no quota numbers but does return HTTP 429, so the client backs off on its own and the offline commands (triage, campaign, timeline, exceptions find, exceptions audit, msp fleet) cost nothing after the sync."
+    a: "The skill syncs once into a local SQLite mirror, then answers most questions from local data, so the offline commands answer without spending API quota. Avanan publishes no quota numbers but does return HTTP 429, so the client backs off on its own and the offline commands (triage, campaign, timeline, exceptions find, exceptions audit, msp fleet) cost nothing after the sync."
   - q: "Do I need an MSP account, or does this work on a single tenant?"
     a: "Both. The MSP commands and the fleet rollup need an application credential bound to multiple tenants, but triage, campaign, timeline, exception lookup, search, and remediation all work fine against a single-tenant credential."
   - q: "Why does my Avanan credential fail against a different region?"
@@ -46,11 +46,11 @@ howto:
 > under Apache-2.0 - built for the MSP community, vendor-neutral by design.
 > Not affiliated with, endorsed by, or sponsored by Check Point Software Technologies Ltd..
 
-**Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
+**✓ Live-verified by @geekbrownbear (Bearium Networks, MSP)** against a production tenant · 2026-08-23 · [receipt →](https://github.com/Servosity/msp-skills/pull/271).
 
 Yes - there is an MCP server for Avanan. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects Avanan to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
-Ask your AI what Avanan caught this morning and get a bucketed digest across every tenant you manage, not a page of raw detections you have to re-query. It reads the whole book of business at once: which sender domains are driving the volume, whether forty detections are one phishing campaign or forty separate problems, exactly what happened to the message a user is disputing, and whether the domain somebody wants allowlisted is already excepted in one of the seven engines nobody remembers to check.
+Ask your AI what Avanan caught this morning and get a bucketed digest across every tenant you manage, not a page of raw detections you have to re-query. It reads the whole book of business at once: which sender domains are driving the volume, whether forty detections are one phishing campaign or forty separate problems, what the local mirror recorded happening to the message a user is disputing, and whether the domain somebody wants allowlisted is already excepted in one of the seven engines nobody remembers to check.
 
 <sub>New to the term? An **MCP server** is the same thing ChatGPT calls an app or connector, Claude on the web calls a connector, and Claude Code calls a Skill. [One thing, many names →](/what-is-an-mcp-server/)</sub>
 
@@ -79,7 +79,7 @@ Ask your AI what Avanan caught this morning and get a bucketed digest across eve
 | Are these forty detections one phishing campaign or forty problems? | `avanan-cli campaign --since 7d` |
 | A user says we quarantined a legitimate email. What actually happened to it? | `avanan-cli timeline <entity-id>` |
 | Is this domain, sender, URL, or hash already excepted anywhere? | `avanan-cli exceptions find example.com` |
-| Which of our exceptions contradict each other or have never matched real traffic? | `avanan-cli exceptions audit` |
+| Which of our exceptions contradict each other or have not matched any traffic in the mirrored window? | `avanan-cli exceptions audit` |
 | Which tenant is over its seat count or having an unusual detection week? | `avanan-cli msp fleet` |
 | Quarantine this batch and tell me the real per-message outcome, not just that a task started. | `avanan-cli remediate quarantine --entity <entity-id> --scope <farm:tenant> --wait` |
 
@@ -87,7 +87,7 @@ Full command reference at [github.com/servosity/msp-skills/blob/main/skills/avan
 
 ## What makes this one different
 
-Every other Avanan integration is stateless, so it can answer one question about one tenant right now. This skill syncs events, entities, exceptions, and MSP objects into a local SQLite mirror and answers the questions that need history and fan-out as one offline join: a bucketed triage digest, campaign clustering by sender domain and normalized subject, a single message's full lifecycle in order, and one exception lookup across all seven engines and nine exception tables at once. It also implements the documented request signature exactly, including the request-string term the published docs omit, where the leading community MCP server ships a self-declared best-guess HMAC it warns users to replace.
+Every other Avanan integration is stateless, so it can answer one question about one tenant right now. This skill syncs events, entities, exceptions, and MSP objects into a local SQLite mirror and answers the questions that need history and fan-out as one offline join: a bucketed triage digest, campaign clustering by sender domain and normalized subject, a single message's history in order, as far as the local mirror can attest, and one exception lookup across all seven engines and nine exception tables at once. It also implements the documented request signature exactly, including the request-string term the published docs omit, where the leading community MCP server ships a self-declared best-guess HMAC it warns users to replace.
 
 The Avanan portal shows one tenant's detections, one engine's exception list, one message's current state. This skill answers the questions that span all of them at once - what came in across the fleet, which detections are the same campaign, where a domain is already allowlisted, which tenant is over its seats - and it turns quarantine and restore from fire-and-poll into a command that waits for the task and reports the real per-item outcome.
 
@@ -130,15 +130,16 @@ After install, authenticate once with your Avanan credentials, then verify with 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
 | Read | triage, campaign, timeline, exceptions find, exceptions audit, msp fleet, event query, event get, avanan-search query-saas-entity, scopes, task, msp list and describe commands, sectool and sectools list/get commands, sync, mirror, search, analytics, export | Allow |
-| Message content egress | download, download-large-email, soar get-entity | Allow only for a named message under an open investigation; never sweep |
+| Message content egress | download, download-large-email, avanan-search get-saas-entity (soar get-entity currently returns 404 on every tenant tested) | Allow only for a named message under an open investigation; never sweep |
 | Write (routine) | exceptions create, exceptions create-whitelist, exceptions update, exceptions update-whitelist, sectool-exceptions create, sectool-exceptions update, sectool-exceptions exceptions create-sectool-entry, sectools create-anomaly-exception, sectools create-ctp-item, sectools update-ctp-item, sectools update-ctp-items, report | Preview with --dry-run, then a reviewed write |
+| Bulk write (import) | import (bulk POST from JSONL; import action reaches live mail, import soar notifies end users, import msp mutates tenants) | Human-approved only; inherits the tier of the resource it targets. Preview with --dry-run first |
 | Mailbox-affecting | remediate quarantine, remediate restore, action post-entity, action post-event | Preview with --dry-run, then a human-approved write, always with an explicit --scope |
 | End-user contact | soar post-notify | Human-in-the-loop only |
 | Tenant and billing lifecycle | msp create, msp create-tenants, msp create-users, msp update, msp update-or-create-tenant-license | Human-in-the-loop only |
 | Destructive | msp delete, msp delete-tenants, msp delete-users, exceptions delete, sectool-exceptions delete, sectool-exceptions exceptions delete-sectool-entries, sectools delete-anomaly-exceptions, sectools delete-ctp-item, sectools delete-ctp-items, sectools delete-ctp-lists | Human-in-the-loop only, explicit confirmation |
 | Credential / security | auth login, auth set-token, auth logout | Operator-only, not for agents |
 
-The skill reads your Avanan detections, scanned messages and files, exceptions across all seven security engines, tenants, licenses, and usage, and it can create and delete exceptions, quarantine and restore live mail, report a mis-classification, notify an end user, download the raw .eml for a message, and create, update, or delete MSP tenants, users, and license assignments. Reads and sync are always safe to allow. Exception writes and reclassification should be previewed with --dry-run, then approved. Quarantine and restore reach into a real mailbox and should be human-approved with an explicit scope. Downloading message bodies is a privacy decision, not a lookup. Notifying end users, changing tenants or licenses, and every delete are human-in-the-loop only. The strongest control is the credential itself: Avanan application credentials are region-scoped and tenant-scoped, so a credential bound to one tenant puts the whole fleet out of reach. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/avanan/governance.md).
+The skill reads your Avanan detections, scanned messages and files, exceptions across all seven security engines, tenants, licenses, and usage, and it can create and delete exceptions, quarantine and restore live mail, report a mis-classification, notify an end user, download the raw .eml for a message, and create, update, or delete MSP tenants, users, and license assignments. Reads and sync cannot change anything, but safe to run is not the same as safe to sweep: the message-content reads listed in the tier table pull real customer email onto your machine, and `import` replays a file as live POSTs. Exception writes and reclassification should be previewed with --dry-run, then approved. Quarantine and restore reach into a real mailbox and should be human-approved with an explicit scope. Downloading message bodies is a privacy decision, not a lookup. Notifying end users, changing tenants or licenses, and every delete are human-in-the-loop only. The strongest control is the credential itself: Avanan application credentials are region-scoped and tenant-scoped, so a credential bound to one tenant puts the whole fleet out of reach. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/avanan/governance.md).
 
 ## Frequently asked questions
 
@@ -164,7 +165,7 @@ Your data stays on your machine. The CLI, MCP server, and the local mirror are a
 
 ### Will this hit my Avanan API rate limits?
 
-The skill syncs once into a local SQLite mirror, then answers most questions from local data, so repeated questions never touch the API. Avanan publishes no quota numbers but does return HTTP 429, so the client backs off on its own and the offline commands (triage, campaign, timeline, exceptions find, exceptions audit, msp fleet) cost nothing after the sync.
+The skill syncs once into a local SQLite mirror, then answers most questions from local data, so the offline commands answer without spending API quota. Avanan publishes no quota numbers but does return HTTP 429, so the client backs off on its own and the offline commands (triage, campaign, timeline, exceptions find, exceptions audit, msp fleet) cost nothing after the sync.
 
 ### Do I need an MSP account, or does this work on a single tenant?
 

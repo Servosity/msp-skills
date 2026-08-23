@@ -1,5 +1,5 @@
 {
-  "outcome_intro": "Ask your AI what Avanan caught this morning and get a bucketed digest across every tenant you manage, not a page of raw detections you have to re-query. It reads the whole book of business at once: which sender domains are driving the volume, whether forty detections are one phishing campaign or forty separate problems, exactly what happened to the message a user is disputing, and whether the domain somebody wants allowlisted is already excepted in one of the seven engines nobody remembers to check.",
+  "outcome_intro": "Ask your AI what Avanan caught this morning and get a bucketed digest across every tenant you manage, not a page of raw detections you have to re-query. It reads the whole book of business at once: which sender domains are driving the volume, whether forty detections are one phishing campaign or forty separate problems, what the local mirror recorded happening to the message a user is disputing, and whether the domain somebody wants allowlisted is already excepted in one of the seven engines nobody remembers to check.",
   "instead_of_say": [
     {
       "instead": "Re-run the same event query in the portal every hour and eyeball which detections you already handled",
@@ -40,7 +40,7 @@
       "command": "avanan-cli exceptions find example.com"
     },
     {
-      "question": "Which of our exceptions contradict each other or have never matched real traffic?",
+      "question": "Which of our exceptions contradict each other or have not matched any traffic in the mirrored window?",
       "command": "avanan-cli exceptions audit"
     },
     {
@@ -52,7 +52,7 @@
       "command": "avanan-cli remediate quarantine --entity <entity-id> --scope <farm:tenant> --wait"
     }
   ],
-  "different_vs_wrappers": "Every other Avanan integration is stateless, so it can answer one question about one tenant right now. This skill syncs events, entities, exceptions, and MSP objects into a local SQLite mirror and answers the questions that need history and fan-out as one offline join: a bucketed triage digest, campaign clustering by sender domain and normalized subject, a single message's full lifecycle in order, and one exception lookup across all seven engines and nine exception tables at once. It also implements the documented request signature exactly, including the request-string term the published docs omit, where the leading community MCP server ships a self-declared best-guess HMAC it warns users to replace.",
+  "different_vs_wrappers": "Every other Avanan integration is stateless, so it can answer one question about one tenant right now. This skill syncs events, entities, exceptions, and MSP objects into a local SQLite mirror and answers the questions that need history and fan-out as one offline join: a bucketed triage digest, campaign clustering by sender domain and normalized subject, a single message's history in order, as far as the local mirror can attest, and one exception lookup across all seven engines and nine exception tables at once. It also implements the documented request signature exactly, including the request-string term the published docs omit, where the leading community MCP server ships a self-declared best-guess HMAC it warns users to replace.",
   "different_vs_vendor": "The Avanan portal shows one tenant's detections, one engine's exception list, one message's current state. This skill answers the questions that span all of them at once - what came in across the fleet, which detections are the same campaign, where a domain is already allowlisted, which tenant is over its seats - and it turns quarantine and restore from fire-and-poll into a command that waits for the task and reports the real per-item outcome.",
   "faqs": [
     {
@@ -69,7 +69,7 @@
     },
     {
       "q": "Will this hit my Avanan API rate limits?",
-      "a": "The skill syncs once into a local SQLite mirror, then answers most questions from local data, so repeated questions never touch the API. Avanan publishes no quota numbers but does return HTTP 429, so the client backs off on its own and the offline commands (triage, campaign, timeline, exceptions find, exceptions audit, msp fleet) cost nothing after the sync."
+      "a": "The skill syncs once into a local SQLite mirror, then answers most questions from local data, so the offline commands answer without spending API quota. Avanan publishes no quota numbers but does return HTTP 429, so the client backs off on its own and the offline commands (triage, campaign, timeline, exceptions find, exceptions audit, msp fleet) cost nothing after the sync."
     },
     {
       "q": "Do I need an MSP account, or does this work on a single tenant?",
@@ -96,7 +96,7 @@
       "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
     }
   ],
-  "governance_summary": "The skill reads your Avanan detections, scanned messages and files, exceptions across all seven security engines, tenants, licenses, and usage, and it can create and delete exceptions, quarantine and restore live mail, report a mis-classification, notify an end user, download the raw .eml for a message, and create, update, or delete MSP tenants, users, and license assignments. Reads and sync are always safe to allow. Exception writes and reclassification should be previewed with --dry-run, then approved. Quarantine and restore reach into a real mailbox and should be human-approved with an explicit scope. Downloading message bodies is a privacy decision, not a lookup. Notifying end users, changing tenants or licenses, and every delete are human-in-the-loop only. The strongest control is the credential itself: Avanan application credentials are region-scoped and tenant-scoped, so a credential bound to one tenant puts the whole fleet out of reach.",
+  "governance_summary": "The skill reads your Avanan detections, scanned messages and files, exceptions across all seven security engines, tenants, licenses, and usage, and it can create and delete exceptions, quarantine and restore live mail, report a mis-classification, notify an end user, download the raw .eml for a message, and create, update, or delete MSP tenants, users, and license assignments. Reads and sync cannot change anything, but safe to run is not the same as safe to sweep: the message-content reads listed in the tier table pull real customer email onto your machine, and `import` replays a file as live POSTs. Exception writes and reclassification should be previewed with --dry-run, then approved. Quarantine and restore reach into a real mailbox and should be human-approved with an explicit scope. Downloading message bodies is a privacy decision, not a lookup. Notifying end users, changing tenants or licenses, and every delete are human-in-the-loop only. The strongest control is the credential itself: Avanan application credentials are region-scoped and tenant-scoped, so a credential bound to one tenant puts the whole fleet out of reach.",
   "safety_tiers": [
     {
       "tier": "Read",
@@ -105,13 +105,18 @@
     },
     {
       "tier": "Message content egress",
-      "examples": "download, download-large-email, soar get-entity",
+      "examples": "download, download-large-email, avanan-search get-saas-entity (soar get-entity currently returns 404 on every tenant tested)",
       "policy": "Allow only for a named message under an open investigation; never sweep"
     },
     {
       "tier": "Write (routine)",
       "examples": "exceptions create, exceptions create-whitelist, exceptions update, exceptions update-whitelist, sectool-exceptions create, sectool-exceptions update, sectool-exceptions exceptions create-sectool-entry, sectools create-anomaly-exception, sectools create-ctp-item, sectools update-ctp-item, sectools update-ctp-items, report",
       "policy": "Preview with --dry-run, then a reviewed write"
+    },
+    {
+      "tier": "Bulk write (import)",
+      "examples": "import (bulk POST from JSONL; import action reaches live mail, import soar notifies end users, import msp mutates tenants)",
+      "policy": "Human-approved only; inherits the tier of the resource it targets. Preview with --dry-run first"
     },
     {
       "tier": "Mailbox-affecting",

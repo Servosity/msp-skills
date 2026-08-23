@@ -38,9 +38,10 @@ application credential:
 - **`--dry-run` is opt-in - use it.** Mutating commands send immediately unless you
   pass `--dry-run` first to preview the exact request without sending it. Make your
   agent's policy: preview, show the command, get approval, then run the write.
-- **Read commands are always safe to run** (triage, campaign, timeline, exception
-  lookup and audit, MSP fleet rollup, search, and every list/get command); they
-  cannot change anything.
+- **Read commands cannot change anything** (triage, campaign, timeline, exception
+  lookup and audit, MSP fleet rollup, search, and every list/get command). Safe to
+  run is not the same as safe to sweep: the commands in the Message content egress
+  tier below are reads too, and they pull real customer email onto your machine.
 - **`sync` and `mirror` are read-only against the API.** They issue read requests
   and write only to the local SQLite mirror on your own machine.
 - **Agent mode is explicit.** `--agent` produces JSON for scripting but does not add
@@ -55,8 +56,9 @@ require a human for anything below the line.
 | Tier | What it does | Examples | Recommended agent policy |
 | --- | --- | --- | --- |
 | **Read** | Reports, rollups, search. No change. | `triage`, `campaign`, `timeline`, `exceptions find`, `exceptions audit`, `msp fleet`, `event query`, `event get`, `avanan-search query-saas-entity`, `scopes`, `task`, `msp list*`, `msp describe-*`, `sectool-exceptions exceptions list-sectool`, `sectools list-*`, `sync`, `mirror`, `search`, `analytics`, `export` | Allow |
-| **Message content egress** | Pulls real customer email out of Avanan and onto your machine (and into the agent's context). | `download`, `download-large-email`, `soar get-entity` | Allow only for a named message under an open investigation; never sweep |
+| **Message content egress** | Pulls real customer email out of Avanan and onto your machine (and into the agent's context). | `download`, `download-large-email`, `avanan-search get-saas-entity` (`soar get-entity` currently returns 404 on every tenant tested) | Allow only for a named message under an open investigation; never sweep |
 | **Write (routine)** | Policy exceptions and reclassification. Reversible. | `exceptions create`, `exceptions create-whitelist`, `exceptions update`, `exceptions update-whitelist`, `sectool-exceptions create`, `sectool-exceptions update`, `sectool-exceptions exceptions create-sectool-entry`, `sectools create-anomaly-exception`, `sectools create-ctp-item`, `sectools update-ctp-item`, `sectools update-ctp-items`, `report` | Preview with `--dry-run`, then an approved write |
+| **Bulk write (`import`)** | Replays a JSONL file as one POST per record against a chosen resource. | `import` (bulk POST from JSONL; `import action` reaches live mail, `import soar` notifies end users, `import msp` mutates tenants) | Human-approved only. It inherits the tier of whatever resource it targets, and the resources it accepts reach the mailbox-affecting and human-in-the-loop endpoints below. Preview with `--dry-run` first. |
 | **Mailbox-affecting** | Reaches into a real user's mailbox in Microsoft 365 or Google Workspace. | `remediate quarantine`, `remediate restore`, `action post-entity`, `action post-event` | Preview with `--dry-run`, then a human-approved write, always with an explicit `--scope` |
 | **End-user contact** | Sends mail to real people on your behalf. | `soar post-notify` | Human-in-the-loop only |
 | **Tenant and billing lifecycle** | Creates tenants, users, and license assignments that show up on an invoice. | `msp create`, `msp create-tenants`, `msp create-users`, `msp update`, `msp update-or-create-tenant-license` | Human-in-the-loop only |

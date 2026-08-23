@@ -250,9 +250,9 @@ func newRootCmd(flags *rootFlags) *cobra.Command {
 Highlights (not in the official API docs):
   • triage   See everything detected in a window you choose, bucketed by threat type, severity, and state, with the sender domains driving the volume.
   • campaign   Group detections into candidate phishing campaigns by sender domain and normalized subject, showing recipient spread and how many are still un-remediated.
-  • timeline   Reconstruct one message's full history: detection, state changes, actions submitted, task outcomes, and restore disposition, in order.
+  • timeline   Reconstruct one message's history from the local mirror: detection, the latest mirrored state, actions this CLI submitted, task outcomes, and restore disposition, in order.
   • exceptions find   Ask whether a domain, sender, URL, or hash is excepted anywhere across all seven engines and nine exception tables at once.
-  • exceptions audit   Flag exceptions that contradict each other across sub-systems, exact duplicates, and entries that have never matched real traffic.
+  • exceptions audit   Flag exceptions that contradict each other across sub-systems, exact duplicates, and entries that have not matched traffic in the mirrored window.
   • msp fleet   One ranked table across every tenant joining licensed seats, add-ons, usage, and detection volume.
   • remediate   Quarantine or restore a batch, wait for the async task to finish, and report the real per-item outcome.
 

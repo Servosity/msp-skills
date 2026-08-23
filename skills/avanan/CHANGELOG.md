@@ -78,14 +78,14 @@ All notable changes to this skill are documented here. Format follows
   - `campaign` clusters detections into candidate phishing campaigns by sender
     domain and normalized subject, with recipient spread and how many are still
     un-remediated.
-  - `timeline` reconstructs one message's full history in order: detection, state
-    changes, actions submitted, task outcomes, and restore disposition, which
+  - `timeline` reconstructs one message's history from the local mirror, in order: detection, state
+    changes, the actions this CLI submitted, task outcomes, and restore disposition, which
     otherwise spans three endpoints and a task record that ages out.
   - `exceptions find` asks whether a domain, sender, URL, or hash is excepted
     anywhere across all seven engines and nine exception tables at once.
   - `exceptions audit` flags exceptions that contradict each other across
-    sub-systems, exact duplicates, and entries that have never matched real
-    traffic.
+    sub-systems, exact duplicates, and entries that have not matched
+    traffic in the mirrored window.
   - `msp fleet` joins licensed seats, add-ons, usage, and detection volume into
     one ranked table across every tenant.
   - `remediate` submits a quarantine or restore, waits for the async task to

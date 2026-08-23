@@ -170,7 +170,7 @@ avanan-cli sync --resources msp
 | Are these forty detections one phishing campaign or forty problems? | `avanan-cli campaign --since 7d` |
 | A user disputes a quarantine. What actually happened to that message? | `avanan-cli timeline <entity-id>` |
 | Is this domain, sender, URL, or hash already excepted anywhere? | `avanan-cli exceptions find example.com` |
-| Which of our exceptions contradict each other or never matched traffic? | `avanan-cli exceptions audit` |
+| Which of our exceptions contradict each other or have not matched traffic in the mirrored window? | `avanan-cli exceptions audit` |
 | Which tenant is over its seat count or having an unusual week? | `avanan-cli msp fleet` |
 | Quarantine this batch and tell me the real per-message outcome | `avanan-cli remediate quarantine --entity <id> --scope <farm:tenant> --wait` |
 | Is my auth and connectivity actually working? | `avanan-cli doctor` |
@@ -191,8 +191,8 @@ And it implements the request signature correctly. The legacy handshake signs `r
 
 - The event endpoint hands back detections but never buckets them, so a shift starts by re-scrolling the query you already ran an hour ago. `avanan-cli triage` returns a digest by threat type, severity, and state with the sender domains driving the volume.
 - Nothing groups detections, so telling one phishing run from forty unrelated problems means sorting an export by sender and subject. `avanan-cli campaign` clusters them and shows recipient spread and remediation state.
-- A disputed quarantine spans five lookups across three endpoints, and the task record ages out. `avanan-cli timeline` reconstructs one message's full history in order, after the fact.
-- Exceptions live in seven engines and nine tables with different path shapes, ID schemes, and delete semantics, and nothing answers "is this already excepted." `avanan-cli exceptions find` asks all of them at once; `avanan-cli exceptions audit` finds the contradictions, duplicates, and dead entries.
+- A disputed quarantine spans five lookups across three endpoints, and the task record ages out. `avanan-cli timeline` reconstructs one message's history in order from what the mirror holds and what this CLI submitted, after the fact.
+- Exceptions live in seven engines and nine tables with different path shapes, ID schemes, and delete semantics, and nothing answers "is this already excepted." `avanan-cli exceptions find` asks all of them at once; `avanan-cli exceptions audit` finds the contradictions, duplicates, and entries that have not matched traffic in the mirrored window.
 - Actions are asynchronous and single-scope: the endpoint returns a task ID and rejects a multi-tenant credential with a bare HTTP 400. `avanan-cli remediate` waits for the task, reports the real per-item outcome, and turns that 400 into an error naming the scopes you can actually target.
 
 See [pain-point.md](./pain-point.md) for the longer narrative.
@@ -217,7 +217,7 @@ Your data stays on **your machine**. The CLI and MCP server are local binaries, 
 
 ### Will this hit my Avanan API rate limits?
 
-Mostly no. The skill mirrors once into local SQLite, then answers from local data, so repeated questions never touch the API. Avanan publishes no quota numbers but does return HTTP 429, so the client backs off on its own, and the six offline commands cost nothing after the mirror is populated.
+Mostly no. The skill mirrors once into local SQLite, then answers from local data, so the offline commands answer without spending API quota. Avanan publishes no quota numbers but does return HTTP 429, so the client backs off on its own, and the six offline commands cost nothing after the mirror is populated.
 
 ### Do I need an MSP account, or does this work on a single tenant?
 
@@ -247,9 +247,10 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | `triage`, `campaign`, `timeline`, `exceptions find`, `exceptions audit`, `msp fleet`, `event query`, `scopes`, `search`, `mirror`, `sync`, `export`, every `list` / `get` | Allow |
+| Read | `triage`, `campaign`, `timeline`, `exceptions find`, `exceptions audit`, `msp fleet`, `event query`, `scopes`, `search`, `mirror`, `sync`, `export`, and the `list` / `get` commands not named in the tiers below | Allow |
 | Message content egress | `download`, `download-large-email`, `avanan-search get-saas-entity` (`soar get-entity` currently returns 404 on every tenant tested) | Only for a named message under an open investigation; never sweep |
 | Write (routine) | `exceptions create`, `exceptions update`, `sectool-exceptions create`, `sectools create-ctp-item`, `report` | Preview with `--dry-run`, then a reviewed write |
+| Bulk write (`import`) | `import` (bulk POST from JSONL; `import action` reaches live mail, `import soar` notifies end users, `import msp` mutates tenants) | Human-approved only. It inherits the tier of whatever resource it targets, and the resources it accepts reach the mailbox-affecting and human-in-the-loop endpoints below. Preview with `--dry-run` first. |
 | Mailbox-affecting | `remediate quarantine`, `remediate restore`, `action post-entity`, `action post-event` | Human-approved, always with an explicit `--scope` |
 | End-user contact | `soar post-notify` | Human-in-the-loop only |
 | Tenant and billing lifecycle | `msp create-tenants`, `msp create-users`, `msp update-or-create-tenant-license` | Human-in-the-loop only |

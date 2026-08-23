@@ -72,7 +72,7 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   avanan-cli campaign --since 7d --agent
   ```
-- **`timeline`**  -  Reconstruct one message's full history: detection, state changes, actions submitted, task outcomes, and restore disposition, in order.
+- **`timeline`**  -  Reconstruct one message's history from what this CLI mirrored and did: detection, the latest mirrored state, actions this CLI submitted, task outcomes, and restore disposition, in order. Actions taken in the Avanan portal or by another tool are not in the mirror and will not appear.
 
   _Reach for this when a user disputes a quarantine or a ticket needs evidence of what actually happened to a message._
 
@@ -88,7 +88,7 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   avanan-cli exceptions find partner-domain.com --agent
   ```
-- **`exceptions audit`**  -  Flag exceptions that contradict each other across sub-systems, exact duplicates, and entries that have never matched real traffic.
+- **`exceptions audit`**  -  Flag exceptions that contradict each other across sub-systems, exact duplicates, and entries that have not matched traffic in the mirrored window.
 
   _Reach for this on a policy review to find the contractor domain nobody removed and the string that is allowlisted in one engine and blocked in another._
 
@@ -274,7 +274,7 @@ Add `--agent` to any command. Expands to: `--json --compact --no-input --no-colo
 - **Filterable**  -  `--select` keeps a subset of fields. Dotted paths descend into nested structures; arrays traverse element-wise. Critical for keeping context small on verbose APIs:
 
   ```bash
-  avanan-cli event get mock-value --scopes example-value --x-av-req-id 550e8400-e29b-41d4-a716-446655440000 --agent --select actions,additionalData,availableEventActions
+  avanan-cli event get <event_id> --scopes <farm>:<tenant> --x-av-req-id 550e8400-e29b-41d4-a716-446655440000 --agent --select actions,additionalData,availableEventActions
   ```
 - **Previewable**  -  `--dry-run` shows the request without sending
 - **Offline-friendly**  -  sync/search commands can use the local SQLite store when available
@@ -545,7 +545,7 @@ A profile is a saved set of flag values, reused across invocations. Use it when 
 
 ```
 avanan-cli profile save briefing --json
-avanan-cli --profile briefing event get mock-value --scopes example-value --x-av-req-id 550e8400-e29b-41d4-a716-446655440000
+avanan-cli --profile briefing event get <event_id> --scopes <farm>:<tenant> --x-av-req-id 550e8400-e29b-41d4-a716-446655440000
 avanan-cli profile list --json
 avanan-cli profile show briefing
 avanan-cli profile delete briefing --yes

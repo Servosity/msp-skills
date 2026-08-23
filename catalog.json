@@ -198,7 +198,7 @@
       "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/avanan/install.sh)",
       "install_mcp_doc": "skills/avanan/mcp-install.md",
       "description": "Every Avanan (Check Point Harmony Email and Collaboration) API operation, plus shift-start triage, phishing campaign clustering, single-message lifecycle timelines, one exception lookup across all seven security engines, and cross-tenant MSP fleet rollups that a stateless API mirror cannot answer in a single call.",
-      "verification": "awaiting",
+      "verification": "live-verified",
       "category": "Security",
       "tagline": "Triage today's phishing across every Avanan tenant, tell one campaign from forty problems, and prove what actually happened to a quarantined message."
     },

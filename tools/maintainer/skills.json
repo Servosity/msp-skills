@@ -218,12 +218,12 @@
       "has_video": false,
       "install_auth_hint": "Then set your Avanan API credentials: `export AVANAN_APP_ID=<your application id>` and `export AVANAN_CLIENT_SECRET=<your client secret>` (Avanan portal > Settings > API Keys), run `avanan-cli auth login --region <us|eu|ca|ap|uk|uae|in> --save`, and run `avanan-cli doctor` to confirm it works",
       "live_verified": {
-        "status": "awaiting",
-        "date": null,
-        "source": null,
-        "evidence": null,
-        "verified_by": null,
-        "issue_url": null
+        "status": "live-verified",
+        "date": "2026-08-23",
+        "source": "github",
+        "evidence": "https://github.com/Servosity/msp-skills/pull/271",
+        "verified_by": "@geekbrownbear (Bearium Networks, MSP)",
+        "issue_url": "https://github.com/Servosity/msp-skills/pull/271"
       }
     },
     "aws-billing": {

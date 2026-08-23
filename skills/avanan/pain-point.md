@@ -31,8 +31,8 @@ each cluster are still un-remediated.
 A user disputes a quarantine, or a ticket needs evidence. The detection, the state
 changes, the action that was submitted, the async task's outcome, and the restore
 disposition are five separate lookups across three endpoints, and the task record
-ages out. `avanan-cli timeline <entity-id>` reconstructs the whole history of one
-message in order, from the local mirror, after the fact.
+ages out. `avanan-cli timeline <entity-id>` reconstructs the history of one message in order
+from the local mirror, after the fact.
 
 ## "Is this domain already allowlisted?"
 
@@ -45,8 +45,8 @@ and in shipping XSOAR code. Nothing in the product answers "is this domain excep
 anywhere", so allowlist requests get granted a second time, get contradicted by a
 block in a different engine, and never get cleaned up. `avanan-cli exceptions find`
 asks all nine tables at once, and `avanan-cli exceptions audit` flags the entries
-that contradict each other, the exact duplicates, and the ones that have never
-matched real traffic.
+that contradict each other, the exact duplicates, and the ones that have not
+matched traffic in the mirrored window.
 
 ## "Which tenant is over its seats?"
 
