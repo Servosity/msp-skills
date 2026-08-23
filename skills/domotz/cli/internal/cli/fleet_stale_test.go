@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Tests for the fleet stale (sync-freshness) command: timestamp parsing
 // across the store's DATETIME shapes and threshold filtering against a
 // seeded store whose rows were just written (fresh).

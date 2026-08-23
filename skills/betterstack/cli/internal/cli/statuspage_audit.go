@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Novel feature (hand-built): status-page drift audit. Local pass reads status
 // pages, monitors, and incidents from the mirror; the live pass fans out to
 // /status-pages/{id}/resources (a nested, non-syncable resource) to map each

@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-written snapshot schema for Cove fleet history. Lives beside the
 // generated store.go (separate file, lazy init) so regeneration never
 // touches it. The vendor console keeps no history; these tables are what

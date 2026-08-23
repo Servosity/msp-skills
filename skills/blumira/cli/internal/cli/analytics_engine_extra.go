@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-built analytics engine extension for the 2026-06 reprint's new novel
 // commands (overview, reconcile, dc-roster, workload, evidence-search), plus
 // shared record decoders (decodeOwners) used by decodeFinding in

@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Transcendence feature (hand-authored, Phase 3): MTTR / MTTA analytics computed
 // from synced incident timestamps. The Rootly spec has no analytics endpoint —
 // this is the weekly ops-review spreadsheet as one local query.

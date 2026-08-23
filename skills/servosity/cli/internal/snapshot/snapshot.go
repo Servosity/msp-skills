@@ -1,4 +1,4 @@
-// Copyright 2026 servosity. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 
 // Package snapshot persists time-keyed JSON payloads for trend & drift commands.
 // Used by the `attention` and `drift` transcendence commands to record what

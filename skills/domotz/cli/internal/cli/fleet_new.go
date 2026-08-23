@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-authored novel feature. Fleet-wide new/rogue-device detection: devices
 // first-seen anywhere in the fleet within a time window — a security signal the
 // API has no single endpoint for.

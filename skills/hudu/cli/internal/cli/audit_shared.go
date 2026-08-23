@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-authored transcendence support: shared helpers for the audit/onboard/reconcile
 // features. These compute documentation-hygiene insights over the local SQLite mirror
 // that no single Hudu API call returns.

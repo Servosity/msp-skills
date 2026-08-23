@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 
 // insights.go holds the reprint-added offline analytics: customer
 // profitability, DSO, cash forecasting, journal-entry balance checks, the

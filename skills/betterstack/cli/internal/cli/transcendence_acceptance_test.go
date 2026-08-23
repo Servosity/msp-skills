@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Behavioral acceptance tests for the 6 transcendence commands. Seeds a local
 // SQLite mirror with realistic JSON:API fixtures (the {id,type,attributes,…}
 // envelope Better Stack returns) and asserts each command's --json output.

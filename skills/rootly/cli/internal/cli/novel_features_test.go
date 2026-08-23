@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Behavioral tests for the hand-authored transcendence commands. These seed a
 // synthetic JSON:API store and assert each command's actual output — the offline
 // correctness gate that stands in for live dogfooding when no API key is present.

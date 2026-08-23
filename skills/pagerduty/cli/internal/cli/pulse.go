@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 //
 // pulse: a live triage view over the local incident mirror. Buckets every open
 // incident by service with urgency/status counts and how long the oldest

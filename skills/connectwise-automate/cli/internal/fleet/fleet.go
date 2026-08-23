@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 
 // Package fleet holds the pure aggregation logic behind the ConnectWise Automate
 // CLI's transcendence commands (fleet-health, stale-agents, patch-compliance,

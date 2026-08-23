@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-authored novel-feature logic (Printing Press transcendence): cross-tenant
 // Flight Control sync. Mints a member_cid-scoped OAuth2 token per child CID and
 // pulls hosts/alerts/vulns/policies into the CID-keyed local store.

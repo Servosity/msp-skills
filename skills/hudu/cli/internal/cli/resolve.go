@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-authored transcendence feature: resolve-by-URL / by-name. Parses a Hudu
 // object URL or an exact name and assembles the object plus its company, layout,
 // and relations from local SQLite joins — the Get-HuduObjectByUrl pattern with

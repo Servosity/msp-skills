@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Seeded-store behavioral tests for the store-backed fleet commands. A real
 // temp SQLite store is populated with two agents and three devices, then each
 // command is executed and its JSON output asserted.

@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-authored novel-feature command (Printing Press transcendence): the
 // Flight Control fabric map. Joins the synced child_cid, cid_group,
 // cid_group_member, user_group, user_group_member, and mssp_role entities into

@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-authored novel feature. Fleet degraded-agent sweep: only the sites
 // (Collectors) that are offline or degraded right now, with location,
 // organization, and version — the filtered triage list the raw agent list

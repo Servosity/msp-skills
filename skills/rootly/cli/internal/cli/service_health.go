@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Transcendence feature (hand-authored, Phase 3): per-service reliability
 // scorecard joining incidents + services + on-call + action items + SLAs from the
 // local mirror. No single Rootly view assembles this.

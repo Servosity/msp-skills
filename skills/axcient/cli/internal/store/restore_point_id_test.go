@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 
 // Hand-authored regression tests for the restore_point ID-extraction hand-fix.
 // The live x360Recover restore-point endpoint returns items keyed by a

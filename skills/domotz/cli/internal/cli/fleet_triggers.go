@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-authored novel feature. Fleet down-sensor sweep: TCP service sensors
 // (eyes) currently DOWN across every device on every agent. The API exposes
 // eyes per agent only; the fleet-wide view is a live fan-out. SNMP eyes carry

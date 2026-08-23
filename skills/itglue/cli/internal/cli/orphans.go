@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-written novel feature. See internal/cli/itglue_records.go for shared helpers.
 // New in the 2026-06-06 reprint: orphaned-record detection across the local mirror.
 

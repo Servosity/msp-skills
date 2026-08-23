@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-authored transcendence feature: expiration radar. A windowed, typed view
 // of expiring SSL certs, domains, warranties, and passwords, unioning the local
 // expirations mirror with website SSL/domain dates — sorted by days remaining,

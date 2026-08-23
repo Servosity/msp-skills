@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 //
 // insights mttr: mean time to acknowledge (MTTA) and resolve (MTTR), grouped by
 // service, team, or priority, reconstructed offline from synced log-entry

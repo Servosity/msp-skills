@@ -1,4 +1,4 @@
-// Copyright 2026 Abhi Saini and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 //
 // Absorbed feature (manifest row 113): one local join replacing the N+1 call
 // pattern of SPSImmyBot's Get-ImmyComputerFullReport.

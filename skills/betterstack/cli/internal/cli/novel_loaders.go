@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-built transcendence layer (reprint 2026-06-06): loaders for the novel
 // commands added this run (down, triage, statuspage-audit, group-health).
 // Same contract as analytics.go: every loader reads the generic `resources`

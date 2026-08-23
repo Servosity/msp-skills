@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-built transcendence layer for the Action1 CLI.
 //
 // Action1's REST API is organization-siloed: nearly every endpoint requires an

@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Shared AWS read helpers for the cost / consolidated / compare / waste / ask
 // commands: period resolution, store queries, and store-first-with-live-fallback
 // data loading.

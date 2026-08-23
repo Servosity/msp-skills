@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-authored novel feature. Fleet event timeline: per-agent activity-log
 // history merged into one chronological fleet-wide feed. Events are exposed
 // per agent only; the cross-site "what happened recently" view is a live

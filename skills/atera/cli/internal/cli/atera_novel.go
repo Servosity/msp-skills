@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 
 // Shared helpers for the hand-built transcendence commands (agents stale,
 // agents inventory, tickets sla, tickets workload, customers book, alerts

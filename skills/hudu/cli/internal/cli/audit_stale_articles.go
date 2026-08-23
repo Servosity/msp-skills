@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-authored transcendence feature: knowledge-base staleness audit. Ranks KB
 // articles by how long since their last update from the local mirror — a verdict
 // competitors surface articles for but never compute.

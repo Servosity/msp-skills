@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // `accounts get <account_id>` — show one synced AWS account. Empty-tolerant:
 // reports a clear not-found (exit 0) rather than erroring on an unsynced store.
 //

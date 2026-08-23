@@ -221,6 +221,37 @@ you are seeing.
 This project is [Apache 2.0](./LICENSE). By contributing you agree your work is
 licensed the same way.
 
+### How you get credit
+
+You keep the credit; the copyright line stays uniform. Those are different things,
+and conflating them is what made 19,307 files disagree with each other before
+2026-08-23.
+
+**Every file carries one project copyright line**, matching the root LICENSE:
+
+```
+Copyright 2026 Servosity Inc. and msp-skills contributors
+```
+
+You are one of those contributors the moment your PR merges - that phrase is not
+decoration. We do not put individual names in per-file headers: a header naming
+one person goes stale the first time someone else edits the file, and it tells an
+adopter the wrong thing about who owns that subtree. `check_copyright.py` enforces
+this, because the generator stamps whoever ran it and a reprint would otherwise
+undo it.
+
+**Your name goes in the three places built to hold it**, all of which outlive a
+regeneration:
+
+- `skills/<slug>/cli/NOTICE` - "The <Vendor> connector was contributed by Your Name
+  (@yourhandle)." This is the Apache-2.0 attribution channel, and it ships inside
+  every release artifact.
+- `SKILL.md` frontmatter `author` - your name, shown on the skill's page.
+- Git history and your DCO sign-off - permanent, and the actual legal record.
+
+If you would rather be credited by handle, real name, or company, say so in the PR
+and we will use that. If you would rather not be named at all, say that too.
+
 We use the [Developer Certificate of Origin](https://developercertificate.org)
 rather than a contributor agreement, which means there is no paperwork to sign.
 You assert the right to contribute by signing off each commit:

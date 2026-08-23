@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 //
 // insights stale: open incidents with no log activity past a threshold — the
 // ones quietly rotting. Joins the synced incidents to their log entries and

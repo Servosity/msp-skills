@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 //
 // Hand-authored novel feature: fleet-wide quick-job verification. The API only
 // returns job results per device (/v2/job/{jobUid}/results/{deviceUid}); this

@@ -1,4 +1,4 @@
-// Copyright 2026 Abhi Saini and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 //
 // Hand-authored store extension for the fleet-diff novel command. Kept in its
 // own file with a lazy initialiser so `generate --force` preserves it and the

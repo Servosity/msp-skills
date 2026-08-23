@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Tests for the fleet events (timeline) command: timestamp parsing across the
 // activity-log shapes, parsed-time ordering (never raw string compare), and
 // the live-only data-source contract.

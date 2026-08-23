@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-authored insights: report-vs-click behavior and store freshness /
 // input-readiness. New in the 4.22 reprint (run 20260606-175947).
 

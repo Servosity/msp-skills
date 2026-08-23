@@ -1,4 +1,4 @@
-// Copyright 2026 damienstevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-authored novel feature (preserved across regen). CIPP-specific OAuth2
 // client-credentials login: CIPP is self-hosted and authenticates via an Azure
 // AD app registration (the "API client" created in CIPP > Integrations >

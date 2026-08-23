@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-authored novel-feature store extensions: property-history snapshots,
 // the local mutation audit log, and the pending-digest gate used by bulk-update.
 // Lives beside the generated store.go so regen-merge preserves it whole.

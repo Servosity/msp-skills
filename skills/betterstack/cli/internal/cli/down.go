@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Novel feature (hand-built): what's-down triage board — down/degraded monitors
 // joined to their open incidents and whether anyone is actually being paged.
 

@@ -1,4 +1,4 @@
-// Copyright 2026 Ricardo Cabral and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Novel command: see .printing-press-patches/ for context. Hand-authored, not
 // generator output — regen-merge preserves this file.
 

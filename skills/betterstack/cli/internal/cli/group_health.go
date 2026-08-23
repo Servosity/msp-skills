@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Novel feature (hand-built): per-group health rollup — monitors, heartbeats,
 // and open incidents aggregated to monitor-group / heartbeat-group level.
 // For MSP-style accounts where one group is one client, this is per-client health.

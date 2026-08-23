@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Transcendence feature (hand-authored, Phase 3): render a paste-ready
 // post-mortem markdown skeleton from synced incident + timeline + action items.
 // Pure local extraction, zero API round-trips.

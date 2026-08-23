@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // `report` — render a smart HTML/PDF bill breakdown and optionally post it to
 // Slack (delegating to the slack-pp-cli binary). Read-only against AWS; the
 // only side effect is writing a file and, with --post-slack, posting to Slack.

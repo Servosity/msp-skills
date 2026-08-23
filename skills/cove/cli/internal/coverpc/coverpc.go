@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-written JSON-RPC client for the Cove Data Protection Management
 // Service. The generated REST client cannot carry the session visa, which
 // lives inside the JSON-RPC request body, so every authenticated hand-built

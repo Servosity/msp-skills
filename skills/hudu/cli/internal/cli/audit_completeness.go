@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-authored transcendence feature: documentation-completeness scoring.
 // Joins each asset's custom_fields against its layout's field schema in the
 // local SQLite mirror — a populated-vs-required percentage no single Hudu API

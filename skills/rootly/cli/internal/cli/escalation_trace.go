@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Transcendence feature (hand-authored, Phase 3): resolve the full ordered
 // escalation ladder for a service or incident — every rung, the policy it comes
 // from, who currently sits at each level, and the delay before the next page.

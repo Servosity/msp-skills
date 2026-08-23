@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // AWS-aware doctor checks: resolve the credential chain, detect member-vs-
 // management account, and probe Cost Explorer / Organizations / EC2 access,
 // mapping any AccessDenied to the exact missing permission + iam-setup tier.

@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // AWS-backed sync: populates the local SQLite cache from the AWS SDK (Cost
 // Explorer + Organizations + EC2/CloudWatch/S3 inventory). This is a synthetic
 // CLI — the generated HTTP client is not used for AWS.

@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-authored novel-feature support: the shared data-source contract for
 // the cross-fleet (transcendence) commands. Centralizes the per-command
 // retrofit the dogfood gate expects from every hand-written novel command:
