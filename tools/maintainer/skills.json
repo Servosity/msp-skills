@@ -214,7 +214,7 @@
       "cli_hash": "sha256:d541af75e15f3ddb35b5cd018c67d150bffcf3f08b04dacf2b2f42b0f890855f",
       "template_version": 3,
       "version": "0.1.0",
-      "cli_hash_at_release": null,
+      "cli_hash_at_release": "sha256:cc0cf8f16e48efa354c8e5b7cdbd0e8958c8ca10cb09dd3149f999f3c3a81802",
       "has_video": false,
       "install_auth_hint": "Then set your Avanan API credentials: `export AVANAN_APP_ID=<your application id>` and `export AVANAN_CLIENT_SECRET=<your client secret>` (Avanan portal > Settings > API Keys), run `avanan-cli auth login --region <us|eu|ca|ap|uk|uae|in> --save`, and run `avanan-cli doctor` to confirm it works",
       "live_verified": {
