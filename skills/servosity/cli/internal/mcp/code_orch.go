@@ -1879,18 +1879,6 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		keywords:       codeOrchKeywords("current-user", "api-token-delete", "Delete the current user's API token. A new one will be generated when requested.", "/current-user/api-token/"),
 	},
 	{
-		ID:             "current-user.api-token-list",
-		Method:         "GET",
-		Path:           "/current-user/api-token/",
-		Summary:        "You will receive JSON response with `token`.",
-		Positional:     []string{},
-		TemplateParams: []codeOrchParamBinding{},
-		QueryParams:    []codeOrchParamBinding{},
-		HeaderParams:   []codeOrchParamBinding{{PublicName: "X-Servosity-Mfa", WireName: "X-Servosity-Mfa"}},
-		Mutating:       false,
-		keywords:       codeOrchKeywords("current-user", "api-token-list", "You will receive JSON response with `token`.", "/current-user/api-token/"),
-	},
-	{
 		ID:             "current-user.create",
 		Method:         "POST",
 		Path:           "/current-user/",

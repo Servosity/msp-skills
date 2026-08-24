@@ -91,7 +91,23 @@ func openStoreForRead(ctx context.Context, cliName string) (*store.Store, error)
 	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
 		return nil, nil
 	}
-	return store.OpenReadOnlyContext(ctx, dbPath)
+	db, err := store.OpenReadOnlyContext(ctx, dbPath)
+	if err != nil {
+		return nil, err
+	}
+	version, err := db.SchemaVersion()
+	if err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("reading local database schema: %w", err)
+	}
+	if version != store.StoreSchemaVersion {
+		_ = db.Close()
+		if version < store.StoreSchemaVersion {
+			return nil, fmt.Errorf("local database schema %d requires a security migration to version %d", version, store.StoreSchemaVersion)
+		}
+		return nil, fmt.Errorf("local database schema %d is newer than supported version %d; upgrade servosity-cli", version, store.StoreSchemaVersion)
+	}
+	return db, nil
 }
 
 // localProvenance builds a DataProvenance for local data reads.

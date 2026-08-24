@@ -112,6 +112,150 @@
             ]
         },
         {
+            "id": "api-token-secret-response-containment",
+            "summary": "current-user API-token retrieval is explicit human-only CLI behavior and is excluded from MCP, sync, archive, response caches, and the local search store; schema v10 purges previously mirrored copies (issue #254)",
+            "why": "The generated GET command returned a live credential through every CLI format, MCP code orchestration, default sync, workflow archive, the HTTP response cache, SQLite resources, FTS search, and arbitrary read-only MCP SQL. A reprint would restore all of those generated surfaces. The CLI now requires --reveal-token, forces live/no-cache resolution, and is mcp:hidden. MCP discovery, code orchestration, sync, and archive omit the endpoint. Store schema v10 purges known historical rows and rebuilds FTS before MCP may open an old store, while the generic persistence boundary rejects future sensitive rows. Constructor-time cache cleanup removes the old current-user response namespace for each active cache profile. Logical cleanup cannot erase old binaries, free pages, WAL files, backups, or transcripts, so the security release also requires rotation guidance.",
+            "status": "active",
+            "issue": 254,
+            "asserts": [
+                {
+                    "file": "cli/internal/cli/current-user_api-token-list.go",
+                    "contains": "if !flagRevealToken {",
+                    "min_count": 1
+                },
+                {
+                    "file": "cli/internal/cli/current-user_api-token-list.go",
+                    "contains": "\"mcp:hidden\": \"true\"",
+                    "min_count": 1
+                },
+                {
+                    "file": "cli/internal/cli/current-user_api-token-list.go",
+                    "contains": "c.NoCache = true",
+                    "min_count": 1
+                },
+                {
+                    "file": "cli/internal/cli/current-user_api-token-list.go",
+                    "contains": "flags, \"live\", \"current-user\"",
+                    "min_count": 1
+                },
+                {
+                    "file": "cli/internal/cli/api_discovery.go",
+                    "contains": "root.Name()",
+                    "min_count": 3
+                },
+                {
+                    "file": "cli/internal/cli/api_discovery.go",
+                    "not_contains": "\"servosity-msp\""
+                },
+                {
+                    "file": "cli/internal/cli/data_source.go",
+                    "contains": "requires a security migration to version",
+                    "min_count": 1
+                },
+                {
+                    "file": "cli/internal/cli/sync.go",
+                    "not_contains": "\"current-user-api-token\""
+                },
+                {
+                    "file": "cli/internal/cli/channel_workflow.go",
+                    "contains": "resources := defaultSyncResources()",
+                    "min_count": 1
+                },
+                {
+                    "file": "cli/internal/cli/channel_workflow.go",
+                    "not_contains": "\"current-user-api-token\""
+                },
+                {
+                    "file": "cli/internal/mcp/code_orch.go",
+                    "not_contains": "\"current-user.api-token-list\""
+                },
+                {
+                    "file": "cli/internal/mcp/tools.go",
+                    "not_contains": "\"api-token-list\""
+                },
+                {
+                    "file": "cli/internal/mcp/tools.go",
+                    "contains": "requires a security migration to version",
+                    "min_count": 1
+                },
+                {
+                    "file": "cli/internal/store/store.go",
+                    "contains": "const StoreSchemaVersion = 10",
+                    "min_count": 1
+                },
+                {
+                    "file": "cli/internal/store/store.go",
+                    "contains": "func migratePurgeSensitiveResources(",
+                    "min_count": 1
+                },
+                {
+                    "file": "cli/internal/store/store.go",
+                    "contains": "func sensitiveMirroredResource(",
+                    "min_count": 1
+                },
+                {
+                    "file": "cli/internal/client/client.go",
+                    "contains": "func purgeSensitiveResponseCache(",
+                    "min_count": 1
+                },
+                {
+                    "file": "cli/internal/client/client.go",
+                    "contains": "sensitiveResponseCachePurgeMarker",
+                    "min_count": 2
+                },
+                {
+                    "file": "cli/internal/cli/security_surfaces_test.go",
+                    "contains": "func TestAPITokenReadRequiresExplicitHumanConsent(",
+                    "min_count": 1
+                },
+                {
+                    "file": "cli/internal/cli/security_surfaces_test.go",
+                    "contains": "func TestCLIReadOnlyStoreRefusesPrePurgeSchema(",
+                    "min_count": 1
+                },
+                {
+                    "file": "cli/internal/mcp/sensitive_endpoint_test.go",
+                    "contains": "func TestMCPReadOnlyStoreRefusesPrePurgeSchema(",
+                    "min_count": 1
+                },
+                {
+                    "file": "cli/internal/store/sensitive_migration_test.go",
+                    "contains": "func TestSchemaV10PurgesMirroredAPITokens(",
+                    "min_count": 1
+                },
+                {
+                    "file": "cli/internal/client/sensitive_cache_test.go",
+                    "contains": "func TestNewPurgesSensitiveResponseCacheOnce(",
+                    "min_count": 1
+                },
+                {
+                    "file": "cli/internal/client/sensitive_cache_test.go",
+                    "contains": "func TestBindPlatformSessionPurgesSensitiveResponseCacheOnce(",
+                    "min_count": 1
+                },
+                {
+                    "file": "SKILL.md",
+                    "contains": "api-token-list --reveal-token",
+                    "min_count": 1
+                },
+                {
+                    "file": "guide.md",
+                    "contains": "api-token-list --reveal-token",
+                    "min_count": 1
+                },
+                {
+                    "file": "governance.md",
+                    "contains": "Secret-returning reads are excluded from MCP and sync.",
+                    "min_count": 1
+                },
+                {
+                    "file": "README.md",
+                    "contains": "api-token-list --reveal-token",
+                    "min_count": 1
+                }
+            ]
+        },
+        {
             "id": "explicit-config-credential-writes",
             "summary": "auth set-token and auth logout write and delete the credentials store colocated with an explicit --config / SERVOSITY_MSP_CONFIG file, not just the default data-dir store (PR #248)",
             "why": "The generated cliutil credentials layer is config-path-aware on READ (LoadCredentialsForConfigWithStatus resolves <dir-of-config>/data/credentials.toml and Load prefers it) but not on WRITE: SaveCredentials and RemoveCredentials always resolved the DEFAULT store. With --config or SERVOSITY_MSP_CONFIG set, `auth logout` printed 'Logged out. Credentials cleared.' while the sibling token stayed on disk and kept authenticating every later call, and `auth set-token` wrote the rotated token to the default store while the sibling kept serving the OLD one - a rotation the operator believes happened but did not. The fix adds SaveCredentialsForConfig / RemoveCredentialsForConfig mirroring the read-path resolution, records explicitConfigFile on Config so the write paths can honor it, routes saveCredentialsFirst/ClearTokens through them, and makes the path `auth set-token` prints follow the store it actually wrote. All four files are generated ('DO NOT EDIT'), so a reprint on an unfixed press silently restores the false-logout. Regression tests live in the hand-written cli/internal/config/config_test.go and fail without the fix.",

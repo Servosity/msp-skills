@@ -4,6 +4,28 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.6.0] - unreleased
+
+### Security
+
+- Retrieving the current user's live API token now requires the explicit,
+  human-only `--reveal-token` flag. The endpoint is no longer available through
+  MCP discovery or execution, default sync, or `workflow archive`. Live token
+  reads bypass both response caching and SQLite write-through caching.
+- Store schema v10 deletes API-token resource rows, related typed rows, sync
+  state, and rebuilt full-text index entries before MCP search or SQL can open
+  an older store. The store also rejects future attempts to persist this
+  sensitive resource.
+- Older binaries, SQLite free pages and WAL files, response caches, backups,
+  and prior MCP transcripts may still contain the credential. Users who ran
+  sync, archive, or the MCP endpoint should upgrade, remove obsolete local
+  stores and caches where appropriate, and rotate the Servosity token.
+
+### Fixed
+
+- `servosity-cli api` now prints the shipped binary name instead of the
+  internal `servosity-msp-cli` mint name (#254, reported by @DamienStevens).
+
 ## [0.5.1] - 2026-08-24
 
 ### Fixed

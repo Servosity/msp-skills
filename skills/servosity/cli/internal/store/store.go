@@ -48,13 +48,17 @@ func IsUUID(s string) bool {
 
 // StoreSchemaVersion is the on-disk schema version this binary understands.
 // It is stamped into SQLite's PRAGMA user_version on fresh databases and
-// checked on every open. Learn-enabled CLIs advance to v9 for the
+// checked on every open. Servosity advances to v10 to purge previously
+// mirrored current-user API-token rows before any local search or SQL path
+// can open the store. Learn-enabled CLIs advanced to v9 for the
 // learn_candidates and learn_events tables (CLI-side capture and
 // measurement), on top of the v8 learning_playbooks table for
 // hand-authored choreography keyed by query family and the v6 canonical
 // learn-loop tables ported from prediction-goat (including the v3
 // resources_fts rowid rehash and v4 resources_fts content extraction).
-const StoreSchemaVersion = 9
+const StoreSchemaVersion = 10
+
+const sensitiveResourcePurgeSchemaVersion = 10
 
 // resourcesFTSContentSchemaVersion pins the schema bump that rewrote
 // resources_fts content from raw JSON to searchable leaf values. Keep this
@@ -2117,6 +2121,11 @@ func (s *Store) migrate(ctx context.Context) error {
 		if err := s.migrateExtras(ctx, conn); err != nil {
 			return fmt.Errorf("running extra migrations: %w", err)
 		}
+		if current < sensitiveResourcePurgeSchemaVersion {
+			if err := migratePurgeSensitiveResources(ctx, conn); err != nil {
+				return fmt.Errorf("purging sensitive mirrored resources: %w", err)
+			}
+		}
 		if current < resourcesFTSContentSchemaVersion {
 			if err := s.migrateResourcesFTSContent(ctx, conn); err != nil {
 				return fmt.Errorf("migrating resources FTS content: %w", err)
@@ -2133,6 +2142,70 @@ func (s *Store) migrate(ctx context.Context) error {
 		}
 		return nil
 	})
+}
+
+// migratePurgeSensitiveResources removes credentials that older Servosity
+// builds mirrored into the generic local store. This migration runs during
+// every read-write store open before MCP search or SQL receives a handle.
+func migratePurgeSensitiveResources(ctx context.Context, conn *sql.Conn) error {
+	const tokenJSONPredicate = `CASE WHEN json_valid(data) THEN
+		json_type(data, '$.token') IS NOT NULL OR json_type(data, '$.data.token') IS NOT NULL
+		ELSE 0 END`
+	for _, stmt := range []string{
+		`DELETE FROM current_user WHERE ` + tokenJSONPredicate,
+		`DELETE FROM resources WHERE resource_type = 'current-user-api-token'
+			OR (resource_type = 'current-user' AND (` + tokenJSONPredicate + `))`,
+	} {
+		if _, err := conn.ExecContext(ctx, stmt); err != nil {
+			return err
+		}
+	}
+	hasResourceType, err := tableHasColumn(ctx, conn, "sync_state", "resource_type")
+	if err != nil {
+		return err
+	}
+	if hasResourceType {
+		if _, err := conn.ExecContext(ctx, `DELETE FROM sync_state WHERE resource_type = 'current-user-api-token'`); err != nil {
+			return err
+		}
+	}
+	// Rebuild instead of deleting selected FTS rows. FTS5 row deletes are
+	// unreliable on some SQLite builds, and a full rebuild also removes any
+	// orphaned sensitive index rows left by an interrupted older write.
+	if _, err := conn.ExecContext(ctx, `DROP TABLE IF EXISTS resources_fts`); err != nil {
+		return fmt.Errorf("dropping resources_fts: %w", err)
+	}
+	if _, err := conn.ExecContext(ctx, resourcesFTSCreateSQL); err != nil {
+		return fmt.Errorf("creating resources_fts: %w", err)
+	}
+	if err := rebuildResourcesFTS(ctx, conn); err != nil {
+		return fmt.Errorf("rebuilding resources_fts: %w", err)
+	}
+	return nil
+}
+
+func tableHasColumn(ctx context.Context, conn *sql.Conn, table, column string) (bool, error) {
+	rows, err := conn.QueryContext(ctx, fmt.Sprintf(`PRAGMA table_info("%s")`, table))
+	if err != nil {
+		return false, fmt.Errorf("table_info %s: %w", table, err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var cid int
+		var name, typ string
+		var notnull, pk int
+		var dflt sql.NullString
+		if err := rows.Scan(&cid, &name, &typ, &notnull, &dflt, &pk); err != nil {
+			return false, fmt.Errorf("scan table_info %s: %w", table, err)
+		}
+		if name == column {
+			return true, nil
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return false, fmt.Errorf("iterate table_info %s: %w", table, err)
+	}
+	return false, nil
 }
 
 func (s *Store) migrateResourcesCompositeKey(ctx context.Context, conn *sql.Conn) error {
@@ -2407,6 +2480,9 @@ func isSQLiteBusy(err error) bool {
 }
 
 func (s *Store) upsertGenericResourceTx(tx *sql.Tx, resourceType, id string, data json.RawMessage) error {
+	if sensitiveMirroredResource(resourceType, data) {
+		return fmt.Errorf("refusing to persist sensitive resource type %q", resourceType)
+	}
 	_, err := tx.Exec(
 		`INSERT INTO resources (id, resource_type, data, synced_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?)
@@ -2434,6 +2510,28 @@ func (s *Store) upsertGenericResourceTx(tx *sql.Tx, resourceType, id string, dat
 	}
 
 	return nil
+}
+
+func sensitiveMirroredResource(resourceType string, data json.RawMessage) bool {
+	if resourceType == "current-user-api-token" {
+		return true
+	}
+	if resourceType != "current-user" {
+		return false
+	}
+	var obj map[string]json.RawMessage
+	if json.Unmarshal(data, &obj) != nil {
+		return false
+	}
+	if _, ok := obj["token"]; ok {
+		return true
+	}
+	var nested map[string]json.RawMessage
+	if raw, ok := obj["data"]; ok && json.Unmarshal(raw, &nested) == nil {
+		_, ok = nested["token"]
+		return ok
+	}
+	return false
 }
 
 func (s *Store) Upsert(resourceType, id string, data json.RawMessage) error {

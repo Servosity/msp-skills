@@ -69,6 +69,7 @@ func (c *Client) BindPlatformSession(session *platform.Session) error {
 	}
 	c.platformSession = session
 	c.cacheDir = session.Paths.CacheDir
+	purgeSensitiveResponseCache(c.cacheDir)
 	c.platformLimiters = map[string]*platform.EndpointLimiter{}
 	c.platformBudgets = map[string]platform.EndpointBudget{}
 	return nil
@@ -257,6 +258,7 @@ func New(cfg *config.Config, timeout time.Duration, rateLimit float64) *Client {
 		cacheDir:   cacheDir,
 		limiter:    newRateLimiter(rateLimit),
 	}
+	purgeSensitiveResponseCache(cacheDir)
 	// CheckRedirect re-derives auth on each hop. Go's default replays the
 	// original Authorization header verbatim, which breaks nonce-bound
 	// schemes (OAuth 1.0a PLAINTEXT, SigV4, Hawk): the duplicate nonce
@@ -295,6 +297,28 @@ func New(cfg *config.Config, timeout time.Duration, rateLimit float64) *Client {
 		return nil
 	}
 	return c
+}
+
+const sensitiveResponseCachePurgeMarker = ".security-purge-current-user-v0.6.0"
+
+// purgeSensitiveResponseCache removes the namespace where older builds could
+// cache the raw /current-user/api-token/ response. The namespace is shared by
+// ordinary current-user reads, so a private marker makes this a one-time
+// upgrade cleanup per cache profile instead of disabling that cache forever.
+// Platform-bound clients call it again after switching to their isolated cache
+// directory.
+func purgeSensitiveResponseCache(cacheDir string) {
+	if cacheDir == "" {
+		return
+	}
+	marker := filepath.Join(cacheDir, sensitiveResponseCachePurgeMarker)
+	if _, err := os.Stat(marker); err == nil {
+		return
+	}
+	if err := os.RemoveAll(filepath.Join(cacheDir, "resources", "current-user")); err != nil {
+		return
+	}
+	_ = cliutil.AtomicWritePrivateFile(marker, []byte("completed\n"), 0o600, 0o700)
 }
 
 // credentialHeaderNames are header names that carry a credential outright,

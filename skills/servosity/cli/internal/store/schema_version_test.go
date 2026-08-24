@@ -764,7 +764,7 @@ func TestMigrate_V3ResourcesFTSRebuildsSearchableContent(t *testing.T) {
 	}
 }
 
-func TestMigrate_ResourcesFTSContentSchemaVersionNoRebuild(t *testing.T) {
+func TestMigrate_ResourcesFTSContentSecurityRebuildAtV10(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "data.db")
 
 	raw, err := sql.Open("sqlite", dbPath)
@@ -810,8 +810,8 @@ func TestMigrate_ResourcesFTSContentSchemaVersionNoRebuild(t *testing.T) {
 	if err := s.DB().QueryRow(`SELECT content FROM resources_fts WHERE id = 'shared' AND resource_type = 'biz'`).Scan(&content); err != nil {
 		t.Fatalf("read resources_fts content: %v", err)
 	}
-	if content != "sentinel fts" {
-		t.Fatalf("resources_fts content = %s, want sentinel row preserved", content)
+	if strings.Contains(content, "sentinel") || !strings.Contains(content, "canonical resource") || !strings.Contains(content, "biz") {
+		t.Fatalf("resources_fts content = %s, want v10 security rebuild from canonical data", content)
 	}
 }
 
@@ -1109,13 +1109,10 @@ func TestSchemaVersion_FreshDBHasCandidateAndEventTables(t *testing.T) {
 	}
 }
 
-// TestMigrate_V4ToV9AdditiveNoFTSContentRewrite verifies the FTS decouple:
-// a v4-stamped store opened by the v9 binary takes the additive-only path.
-// The learn tables are created, the version advances, and the FTS content
-// rewrite does NOT run — resourcesFTSContentSchemaVersion is pinned at 4,
-// so a store stamped at 4 already carries extracted-leaf content and a
-// sentinel FTS row must survive the open byte-for-byte at its rowid.
-func TestMigrate_V4ToV9AdditiveNoFTSContentRewrite(t *testing.T) {
+// TestMigrate_V4ToV10PreservesDataAcrossSecurityRebuild verifies that the v10
+// sensitive-resource purge rebuilds FTS from canonical resources without
+// changing resource rows or their content-addressed FTS rowids.
+func TestMigrate_V4ToV10PreservesDataAcrossSecurityRebuild(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "data.db")
 
 	raw, err := sql.Open("sqlite", dbPath)
@@ -1153,7 +1150,7 @@ func TestMigrate_V4ToV9AdditiveNoFTSContentRewrite(t *testing.T) {
 
 	s, err := Open(dbPath)
 	if err != nil {
-		t.Fatalf("open v4 db with v9 binary: %v", err)
+		t.Fatalf("open v4 db with v10 binary: %v", err)
 	}
 	defer s.Close()
 
@@ -1168,15 +1165,15 @@ func TestMigrate_V4ToV9AdditiveNoFTSContentRewrite(t *testing.T) {
 	requireTableExists(t, s, "learn_candidates")
 	requireTableExists(t, s, "learn_events")
 
-	// The rewrite gate must not have fired: the sentinel content is still
-	// exactly what the v4 binary wrote, at the same content-addressed rowid.
+	// The v10 security rebuild replaces stale FTS text while preserving the
+	// canonical content-addressed rowid.
 	var content string
 	var rowid int64
 	if err := s.DB().QueryRow(`SELECT rowid, content FROM resources_fts WHERE id = 'user-1' AND resource_type = 'user'`).Scan(&rowid, &content); err != nil {
 		t.Fatalf("read resources_fts after v4 open: %v", err)
 	}
-	if content != "sentinel fts" {
-		t.Fatalf("resources_fts content = %q; the v4->v9 open must not rewrite FTS content", content)
+	if content != "alice" {
+		t.Fatalf("resources_fts content = %q, want rebuilt canonical values", content)
 	}
 	if want := ftsRowID("user", "user-1"); rowid != want {
 		t.Fatalf("resources_fts rowid = %d, want preserved %d", rowid, want)
@@ -1191,11 +1188,10 @@ func TestMigrate_V4ToV9AdditiveNoFTSContentRewrite(t *testing.T) {
 	}
 }
 
-// TestMigrate_V8ToV9AddsCandidatesAndEvents verifies the v8->v9 upgrade is
-// purely additive: a v8-stamped store (learn tables through
-// learning_playbooks) gains learn_candidates and learn_events, keeps every
-// learn row intact, and never touches FTS content.
-func TestMigrate_V8ToV9AddsCandidatesAndEvents(t *testing.T) {
+// TestMigrate_V8ToV10AddsLearnTablesAndRebuildsFTS verifies that a v8-stamped
+// store gains the later learn tables, preserves learn rows, and performs the
+// v10 security rebuild from canonical resource data.
+func TestMigrate_V8ToV10AddsLearnTablesAndRebuildsFTS(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "data.db")
 
 	raw, err := sql.Open("sqlite", dbPath)
@@ -1299,13 +1295,13 @@ func TestMigrate_V8ToV9AddsCandidatesAndEvents(t *testing.T) {
 		t.Fatalf("preserved playbook notes = %q, want original", notes)
 	}
 
-	// v8 is past the FTS content pin (4), so the rewrite must not run.
+	// The v10 security rebuild replaces stale FTS content.
 	var content string
 	if err := s.DB().QueryRow(`SELECT content FROM resources_fts WHERE id = 'user-1' AND resource_type = 'user'`).Scan(&content); err != nil {
 		t.Fatalf("read resources_fts after v8 open: %v", err)
 	}
-	if content != "sentinel fts" {
-		t.Fatalf("resources_fts content = %q; the v8->v9 open must not rewrite FTS content", content)
+	if content != "alice" {
+		t.Fatalf("resources_fts content = %q, want rebuilt canonical values", content)
 	}
 }
 

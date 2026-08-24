@@ -394,7 +394,7 @@ Manage credentials
 Manage current user
 
 - **`servosity-cli current-user api-token-delete`** - Delete the current user's API token. A new one will be generated when requested.
-- **`servosity-cli current-user api-token-list`** - You will receive JSON response with `token`.
+- **`servosity-cli current-user api-token-list --reveal-token`** - Retrieve the live API token with explicit human consent. This sensitive command is excluded from MCP and sync.
 
 To make API calls with the token, add an `Authorization` header to your request in this form:
 
