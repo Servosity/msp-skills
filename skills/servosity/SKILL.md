@@ -259,7 +259,7 @@ These capabilities aren't available in any other tool for this API.
 **current-user**  -  Manage current user
 
 - `servosity-cli current-user api-token-delete`  -  Delete the current user's API token. A new one will be generated when requested.
-- `servosity-cli current-user api-token-list`  -  You will receive JSON response with `token`.
+- `servosity-cli current-user api-token-list --reveal-token`  -  Retrieve the live API token. Sensitive, human-only output; excluded from MCP and sync.
 - `servosity-cli current-user create`  -  Change the password of the current logged in user.
 - `servosity-cli current-user groups-list`  -  Groups list
 - `servosity-cli current-user helpjuice-sso-create`  -  Helpjuice sso create

@@ -473,16 +473,28 @@ const (
 	mcpStoreStatusReady mcpStoreStatusKind = "ready"
 )
 
-func openMCPReadOnlyStore(path string) (*store.Store, *mcplib.CallToolResult) {
+func openMCPReadOnlyStore(ctx context.Context, path string) (*store.Store, *mcplib.CallToolResult) {
 	if _, err := os.Stat(path); err != nil {
 		if os.IsNotExist(err) {
 			return nil, mcplib.NewToolResultError(mcpMissingStoreMessage(path))
 		}
 		return nil, mcplib.NewToolResultError(fmt.Sprintf("checking local data store %s: %v", path, err))
 	}
-	db, err := store.OpenReadOnly(path)
+	db, err := store.OpenReadOnlyContext(ctx, path)
 	if err != nil {
 		return nil, mcplib.NewToolResultError(fmt.Sprintf("opening local data store %s: %v. Run servosity-cli sync to refresh the store, or use live endpoint MCP tools for unsynced data.", path, err))
+	}
+	version, err := db.SchemaVersion()
+	if err != nil {
+		_ = db.Close()
+		return nil, mcplib.NewToolResultError(fmt.Sprintf("reading local data store schema: %v", err))
+	}
+	if version != store.StoreSchemaVersion {
+		_ = db.Close()
+		if version < store.StoreSchemaVersion {
+			return nil, mcplib.NewToolResultError(fmt.Sprintf("local data store schema %d requires a security migration to version %d. Run servosity-cli sync before using MCP search/sql.", version, store.StoreSchemaVersion))
+		}
+		return nil, mcplib.NewToolResultError(fmt.Sprintf("local data store schema %d is newer than supported version %d; upgrade servosity-cli before using MCP search/sql.", version, store.StoreSchemaVersion))
 	}
 	return db, nil
 }
@@ -522,7 +534,7 @@ func handleSearch(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.Call
 	if err != nil {
 		return mcplib.NewToolResultError(fmt.Sprintf("resolving database: %v", err)), nil
 	}
-	db, toolErr := openMCPReadOnlyStore(path)
+	db, toolErr := openMCPReadOnlyStore(ctx, path)
 	if toolErr != nil {
 		return toolErr, nil
 	}
@@ -725,7 +737,7 @@ func handleSQL(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToo
 	if err != nil {
 		return mcplib.NewToolResultError(fmt.Sprintf("resolving database: %v", err)), nil
 	}
-	db, toolErr := openMCPReadOnlyStore(path)
+	db, toolErr := openMCPReadOnlyStore(ctx, path)
 	if toolErr != nil {
 		return toolErr, nil
 	}
@@ -1229,7 +1241,7 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 			{
 				"name":        "current-user",
 				"description": "Manage current user",
-				"endpoints":   []string{"api-token-delete", "api-token-list", "create", "groups-list", "helpjuice-sso-create", "hubspot-sso-create", "list", "mfa-backup-codes-list", "mfa-backup-codes-update", "notifications-delete", "notifications-list", "profile-create", "profile-list", "start-mfa-create", "start-mfa-list", "start-mfa-verify-create", "verified-mfa-delete", "verified-mfa-list", "verified-mfa-send-code-create"},
+				"endpoints":   []string{"api-token-delete", "create", "groups-list", "helpjuice-sso-create", "hubspot-sso-create", "list", "mfa-backup-codes-list", "mfa-backup-codes-update", "notifications-delete", "notifications-list", "profile-create", "profile-list", "start-mfa-create", "start-mfa-list", "start-mfa-verify-create", "verified-mfa-delete", "verified-mfa-list", "verified-mfa-send-code-create"},
 				"syncable":    true,
 				"searchable":  true,
 				"writable":    true,

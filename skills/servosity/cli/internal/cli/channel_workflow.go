@@ -87,7 +87,7 @@ and full resync. After archiving, use 'search' for instant full-text search.`,
 			}
 			defer s.Close()
 
-			resources := []string{"agent-login", "backup-plans", "backup-search", "backups", "backups-mfa-codes", "companies", "companies-fully-managed", "companies-summary", "companies-summary-ng", "company-notes", "components", "contracts", "contracts-signatures", "credentials", "current-user", "current-user-api-token", "current-user-groups", "current-user-mfa-backup-codes", "current-user-notifications", "current-user-profile", "current-user-start-mfa", "current-user-verified-mfa", "download", "dr-backups", "fully_managed_companies", "issues", "reports", "reports-classic-usage", "reports-clients", "reports-dr-from-email", "reports-maxio-price-points", "reports-product", "reports-stale-backup-sets", "reports-usage", "reports-user-profiles", "restic-backups", "stats", "stats-live", "stats-user", "users"}
+			resources := defaultSyncResources()
 			if cliutil.IsDogfoodEnv() {
 				if len(resources) > 3 {
 					resources = resources[:3]

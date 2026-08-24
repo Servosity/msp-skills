@@ -215,7 +215,7 @@ The skill authenticates with one partner token, scoped to **your reseller accoun
 | --- | --- | --- |
 | Read | `attention`, `drift`, `stale-backups`, `backup-facts`, `qbr`, `fleet-health`, `unprovisioned`, `bill`, `email-draft` (drafts only - nothing is sent), `restore-queue watch`, `search` | Allow |
 | Write (routine) | `triage` (`--ignore`/`--archive`/`--reactivate`/`--comment`), `import`, raw create/update subcommands under the resource groups | Preview with `--dry-run`, then a reviewed write - never blanket `--yes` |
-| Credential / security | `credentials rotate/delete`, `current-user *-mfa-*`, `resellers agent-install-token`, `*-backups encryption-key update`, `auth set-token`/`logout` | Human-in-the-loop only |
+| Credential / security | `credentials rotate/delete`, `current-user api-token-list --reveal-token`, `current-user *-mfa-*`, `resellers agent-install-token`, `*-backups encryption-key update`, `auth set-token`/`logout` | Human-in-the-loop only; the API-token read is excluded from MCP and sync |
 | Destructive | `companies delete` (deletes all backup accounts and data), `backups delete`, `users delete` | Human-in-the-loop only |
 
 Keep autonomous agents to **Read plus previewed writes**; gate everything below that behind a human. Full matrix and lock-down guidance in [governance.md](./governance.md).

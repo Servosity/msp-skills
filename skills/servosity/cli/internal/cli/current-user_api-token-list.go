@@ -13,18 +13,25 @@ import (
 
 func newCurrentUserApiTokenListCmd(flags *rootFlags) *cobra.Command {
 	var flagXServosityMfa string
+	var flagRevealToken bool
 
 	cmd := &cobra.Command{
 		Use:         "api-token-list",
-		Short:       "You will receive JSON response with `token`.",
-		Example:     "  servosity-cli current-user api-token-list",
-		Annotations: map[string]string{"pp:endpoint": "current-user.api-token-list", "pp:method": "GET", "pp:path": "/current-user/api-token/", "mcp:read-only": "true"},
+		Short:       "Retrieve the live API token with explicit human consent",
+		Example:     "  # Sensitive: prints a live credential to stdout\n  servosity-cli current-user api-token-list --reveal-token",
+		Annotations: map[string]string{"pp:endpoint": "current-user.api-token-list", "pp:method": "GET", "pp:path": "/current-user/api-token/", "mcp:hidden": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if !flagRevealToken {
+				return fmt.Errorf("refusing to retrieve a live API token without explicit --reveal-token consent")
+			}
 			path := "/current-user/api-token/"
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
+			// A live credential must never enter either the HTTP response cache or
+			// the SQLite write-through cache used by ordinary generated reads.
+			c.NoCache = true
 			headerOverrides := map[string]string{}
 
 			if cmd.Flags().Changed("x-servosity-mfa") || flagXServosityMfa != "" {
@@ -32,7 +39,7 @@ func newCurrentUserApiTokenListCmd(flags *rootFlags) *cobra.Command {
 			}
 
 			params := map[string]string{}
-			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "auto", "current-user", false, path, params, headerOverrides, "", cmd.ErrOrStderr())
+			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "current-user", false, path, params, headerOverrides, "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
@@ -90,6 +97,7 @@ func newCurrentUserApiTokenListCmd(flags *rootFlags) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&flagXServosityMfa, "x-servosity-mfa", "", "X servosity mfa")
+	cmd.Flags().BoolVar(&flagRevealToken, "reveal-token", false, "Print the live API token to stdout (sensitive; human use only)")
 
 	return cmd
 }
