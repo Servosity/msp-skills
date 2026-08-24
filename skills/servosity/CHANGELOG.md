@@ -4,6 +4,15 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.5.1] - unreleased
+
+### Fixed
+
+- The MCP `context` tool no longer advertises the admin-only `issues archived`
+  and `issues ignored` endpoints that were removed from the reseller-scoped
+  connector. Regression coverage and the hand-fix ledger now protect this
+  generated surface from future reprints (#253, reported by @DamienStevens).
+
 ## [0.5.0] - 2026-08-17
 
 Regenerated the vendored `servosity-cli` / `servosity-mcp` source from
