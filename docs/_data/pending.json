@@ -385,10 +385,10 @@
     "released_hash": "sha256:079bce372091d0a7f84cca6b32c8a2bad72282855be5feebe5208876ad4749dd"
   },
   "servosity": {
-    "state": "up-to-date",
+    "state": "binary-pending",
     "version": "0.5.1",
     "latest_tag": "servosity-v0.5.1",
-    "current_hash": "sha256:b6c05e969af4cf6f09d3072a4464b520efa5ede8e46d93575b83ada6a408e3a6",
+    "current_hash": "sha256:328aeb008ed24ae140779d3f6b712015f5bf37a51bfe37c2314d88349f689696",
     "released_hash": "sha256:b6c05e969af4cf6f09d3072a4464b520efa5ede8e46d93575b83ada6a408e3a6"
   },
   "sherweb": {
