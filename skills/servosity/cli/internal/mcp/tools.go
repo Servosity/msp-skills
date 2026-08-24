@@ -1356,7 +1356,7 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 			{
 				"name":        "issues",
 				"description": "Manage issues",
-				"endpoints":   []string{"archived", "ignored", "list", "read"},
+				"endpoints":   []string{"list", "read"},
 				"syncable":    true,
 				"searchable":  true,
 			},

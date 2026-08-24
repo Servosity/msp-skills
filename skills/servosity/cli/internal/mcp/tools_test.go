@@ -109,6 +109,37 @@ func TestMCPRegisterToolsPreservesTypedSpecialTools(t *testing.T) {
 	}
 }
 
+func TestMCPContextOmitsAdminOnlyIssueEndpoints(t *testing.T) {
+	result, err := handleContext(context.Background(), mcplib.CallToolRequest{})
+	if err != nil {
+		t.Fatalf("handleContext returned transport error: %v", err)
+	}
+
+	var payload struct {
+		Resources []struct {
+			Name      string   `json:"name"`
+			Endpoints []string `json:"endpoints"`
+		} `json:"resources"`
+	}
+	if err := json.Unmarshal([]byte(mcpTextContent(t, result)), &payload); err != nil {
+		t.Fatalf("decode context payload: %v", err)
+	}
+
+	issuesResources := 0
+	for _, resource := range payload.Resources {
+		if resource.Name != "issues" {
+			continue
+		}
+		issuesResources++
+		if len(resource.Endpoints) != 2 || resource.Endpoints[0] != "list" || resource.Endpoints[1] != "read" {
+			t.Fatalf("context issues endpoints = %q, want exactly [list read]", resource.Endpoints)
+		}
+	}
+	if issuesResources != 1 {
+		t.Fatalf("context payload has %d issues resources, want exactly 1", issuesResources)
+	}
+}
+
 func TestMCPSearchMissingStoreIsActionable(t *testing.T) {
 	resetMCPPathEnv(t)
 
