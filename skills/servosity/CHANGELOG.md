@@ -12,10 +12,10 @@ All notable changes to this skill are documented here. Format follows
   human-only `--reveal-token` flag. The endpoint is no longer available through
   MCP discovery or execution, default sync, or `workflow archive`. Live token
   reads bypass both response caching and SQLite write-through caching.
-- Store schema v10 deletes API-token resource rows, related typed rows, sync
-  state, and rebuilt full-text index entries before MCP search or SQL can open
-  an older store. The store also rejects future attempts to persist this
-  sensitive resource.
+- During writable migration, store schema v10 deletes API-token resource rows,
+  related typed rows, sync state, and rebuilt full-text index entries. MCP
+  search and SQL refuse stores that require this security migration. The store
+  also rejects future attempts to persist this sensitive resource.
 - Older binaries, SQLite free pages and WAL files, response caches, backups,
   and prior MCP transcripts may still contain the credential. Users who ran
   sync, archive, or the MCP endpoint should upgrade, remove obsolete local

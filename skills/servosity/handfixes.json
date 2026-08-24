@@ -245,7 +245,7 @@
                 },
                 {
                     "file": "governance.md",
-                    "contains": "Secret-returning reads are excluded from MCP and sync.",
+                    "contains": "The `current-user api-token-list` read is excluded from MCP and sync.",
                     "min_count": 1
                 },
                 {
