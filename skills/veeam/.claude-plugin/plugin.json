@@ -1,6 +1,6 @@
 {
   "name": "veeam",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Every Veeam Service Provider Console endpoint as a typed command, plus a local multi-tenant mirror, cross-company rollups, and drift detection no per-instance Veeam tool offers.",
   "author": {
     "name": "Servosity",

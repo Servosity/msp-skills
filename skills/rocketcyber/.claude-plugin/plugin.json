@@ -1,6 +1,6 @@
 {
   "name": "rocketcyber",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "The first CLI and MCP server for RocketCyber Managed SOC, with triage and posture analytics no console page or API call computes.",
   "author": {
     "name": "Servosity",

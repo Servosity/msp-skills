@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/knowbe4-mcp",
   "title": "KnowBe4 MCP",
   "description": "Every KnowBe4 KMSAT reporting feature plus a local SQLite store that answers the cross-client",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/knowbe4/knowbe4-512x512.png",
@@ -21,8 +21,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/knowbe4-v0.1.1/knowbe4-mcp.mcpb",
-      "version": "0.1.1",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/knowbe4-v0.1.2/knowbe4-mcp.mcpb",
+      "version": "0.1.2",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"

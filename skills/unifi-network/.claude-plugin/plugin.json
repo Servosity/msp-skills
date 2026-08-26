@@ -1,6 +1,6 @@
 {
   "name": "unifi-network",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Every UniFi Network API operation, plus drift detection, topology, and rule prediction no other UniFi tool has.",
   "author": {
     "name": "Servosity",

@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "action1-mcp",
   "display_name": "Action1",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Every Action1 endpoint, plus fleet-wide patch and vulnerability views across all your organizations.",
   "author": {
     "name": "Servosity Inc."

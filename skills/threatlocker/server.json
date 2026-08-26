@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/threatlocker-mcp",
   "title": "ThreatLocker MCP",
   "description": "Every ThreatLocker Portal API feature, plus the write operations the read-only tools lack and a",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/threatlocker/threatlocker-512x512.png",
@@ -21,8 +21,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/threatlocker-v0.3.2/threatlocker-mcp.mcpb",
-      "version": "0.3.2",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/threatlocker-v0.3.3/threatlocker-mcp.mcpb",
+      "version": "0.3.3",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"
