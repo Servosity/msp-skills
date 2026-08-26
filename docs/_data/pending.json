@@ -210,51 +210,51 @@
     "released_hash": "sha256:713246e7036d61eec2e665ff0451f0f0cf0b14db1c8ceeb64574d6ecbb87a79c"
   },
   "itglue": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.1",
-    "latest_tag": "itglue-v0.1.0",
+    "latest_tag": "itglue-v0.1.1",
     "current_hash": "sha256:c28805c5c41a5966186c3d78de025c521bdb74d5ef062f5088f4c457ceafd25a",
     "released_hash": "sha256:c28805c5c41a5966186c3d78de025c521bdb74d5ef062f5088f4c457ceafd25a"
   },
   "kaseya-bms": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.1",
-    "latest_tag": "kaseya-bms-v0.1.0",
+    "latest_tag": "kaseya-bms-v0.1.1",
     "current_hash": "sha256:ee963c7d8f29f10d57e09aa00e777ebf481ffd914f9759cea5b54f6c6423f23b",
     "released_hash": "sha256:ee963c7d8f29f10d57e09aa00e777ebf481ffd914f9759cea5b54f6c6423f23b"
   },
   "knowbe4": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.1",
-    "latest_tag": "knowbe4-v0.1.0",
+    "latest_tag": "knowbe4-v0.1.1",
     "current_hash": "sha256:ddf0b83cb221f3d14899a11201b9a369f0cfe66d3949b0ba473e58425ec81487",
     "released_hash": "sha256:ddf0b83cb221f3d14899a11201b9a369f0cfe66d3949b0ba473e58425ec81487"
   },
   "levelio": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.1",
-    "latest_tag": "levelio-v0.1.0",
+    "latest_tag": "levelio-v0.1.1",
     "current_hash": "sha256:5604cb96f4124655ffd3c9cbea7f8c3f32f8e123ec959083d58bb2db36c9fe72",
     "released_hash": "sha256:5604cb96f4124655ffd3c9cbea7f8c3f32f8e123ec959083d58bb2db36c9fe72"
   },
   "liongard": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.1",
-    "latest_tag": "liongard-v0.1.0",
+    "latest_tag": "liongard-v0.1.1",
     "current_hash": "sha256:ed0463dd9dcba473433d8b24fef40ee75c77535be811441f8d548d411dfe50b1",
     "released_hash": "sha256:ed0463dd9dcba473433d8b24fef40ee75c77535be811441f8d548d411dfe50b1"
   },
   "maxio": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.1",
-    "latest_tag": "maxio-v0.1.0",
+    "latest_tag": "maxio-v0.1.1",
     "current_hash": "sha256:77ab3079d820a9e91676b60fa736ec2f2064d281f73c77807ca43c332d60e3b0",
     "released_hash": "sha256:77ab3079d820a9e91676b60fa736ec2f2064d281f73c77807ca43c332d60e3b0"
   },
   "microsoft-graph": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.2.1",
-    "latest_tag": "microsoft-graph-v0.2.0",
+    "latest_tag": "microsoft-graph-v0.2.1",
     "current_hash": "sha256:d379d683a80e12a757c60c54e2fb1daa9544dcdfad346f27b489cbbff0431260",
     "released_hash": "sha256:d379d683a80e12a757c60c54e2fb1daa9544dcdfad346f27b489cbbff0431260"
   },
@@ -266,16 +266,16 @@
     "released_hash": null
   },
   "mspbots": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.1",
-    "latest_tag": "mspbots-v0.1.0",
+    "latest_tag": "mspbots-v0.1.1",
     "current_hash": "sha256:3420cbda2add87622dc00a978d5b262cc79816f5329cd1392cb584554c366d2c",
     "released_hash": "sha256:3420cbda2add87622dc00a978d5b262cc79816f5329cd1392cb584554c366d2c"
   },
   "n-central": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.1",
-    "latest_tag": "n-central-v0.1.0",
+    "latest_tag": "n-central-v0.1.1",
     "current_hash": "sha256:d62e5e3c7aa914d830bd93e546b9bc2c100a183d0d03c182f906ef66fa25f21f",
     "released_hash": "sha256:d62e5e3c7aa914d830bd93e546b9bc2c100a183d0d03c182f906ef66fa25f21f"
   },
