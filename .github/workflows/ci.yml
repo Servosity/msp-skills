@@ -51,14 +51,12 @@ jobs:
         # fetch-depth: 0, so every tag is local and no network call is made.
         env:
           BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
-        # WARN for the first landing only. main carries a real backlog this gate
-        # exists to surface - 62 pins across 31 connectors whose releases were
-        # never cut - and those are cleared by the tag push that follows this
-        # merge, not by a code change. Gating before the backlog is cleared would
-        # block the commit that fixes it. Same posture as check_cli_claims.py and
-        # check_env_schema.py above.
-        # NOTE(calibration): drop --warn once the 31 tags are cut and this reads 0.
-        run: python3 tools/maintainer/check_pinned_artifacts.py --base "$BASE" --no-network --warn
+        # Hard gate. The backlog this shipped in warn mode for - 62 pins across
+        # 31 connectors whose releases were never cut - was cleared by the
+        # 65-tag push on 2026-08-26. All 192 pinned release URLs across 128
+        # files now resolve, verified by HTTP HEAD against every one of them, so
+        # any new finding here is a new defect and should block.
+        run: python3 tools/maintainer/check_pinned_artifacts.py --base "$BASE" --no-network
 
       - name: No TODO / placeholder markers in skill prose
         run: python3 tools/maintainer/check_no_todos.py
