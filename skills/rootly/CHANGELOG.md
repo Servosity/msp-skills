@@ -4,6 +4,26 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## Unreleased
+
+### Fixed
+- **Every sync of the incident-permission-set `resources` collection warned and stored nothing
+  in its own table.** Rootly has a sub-collection literally named `resources`, and the generated
+  database gave its table that exact name - the same name the connector already uses for its
+  general-purpose mirror of every record. The general-purpose table won, so each sync printed
+  `warning: N/N resources items: typed-table upsert failed`, the per-collection table stayed
+  empty, and looking those rows up by their parent permission set returned nothing. The
+  per-collection table is now named `incident_permission_sets_resources`, matching how the
+  connector already names `escalation_paths_escalation_levels`.
+
+  What this means for an existing database: every record you have already synced is still in
+  the general-purpose table and still returned by `list`, `search` and `sql` - the rename
+  touches nothing there and no existing database needs converting. The new
+  `incident_permission_sets_resources` table starts empty and fills on your next successful
+  `sync`. Rows for records the vendor has since deleted will not reappear in it, because a
+  sync only writes what the API still returns; those stay readable in the general-purpose
+  table.
+
 ## [0.1.1] - 2026-08-26
 
 ### Fixed

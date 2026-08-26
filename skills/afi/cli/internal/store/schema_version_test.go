@@ -1341,7 +1341,7 @@ func TestMigrate_AddsColumnsOnUpgrade_Resources(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open raw: %v", err)
 	}
-	if _, err := raw.Exec(`CREATE TABLE "resources" (
+	if _, err := raw.Exec(`CREATE TABLE "tenants_resources" (
 		id TEXT PRIMARY KEY,
 		data JSON NOT NULL,
 		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -1360,7 +1360,7 @@ func TestMigrate_AddsColumnsOnUpgrade_Resources(t *testing.T) {
 	defer s.Close()
 
 	// The migration must have added every generated column.
-	rows, err := s.DB().Query(`PRAGMA table_info("resources")`)
+	rows, err := s.DB().Query(`PRAGMA table_info("tenants_resources")`)
 	if err != nil {
 		t.Fatalf("table_info: %v", err)
 	}

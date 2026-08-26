@@ -5807,7 +5807,7 @@ func TestUpsertBatch_PopulatesResourcesTable(t *testing.T) {
 	}
 
 	var typed int
-	typedQuery := fmt.Sprintf(`SELECT COUNT(*) FROM "%s"`, "resources")
+	typedQuery := fmt.Sprintf(`SELECT COUNT(*) FROM "%s"`, "incident_permission_sets_resources")
 	if err := db.QueryRow(typedQuery).Scan(&typed); err != nil {
 		t.Fatalf("count resources: %v", err)
 	}
@@ -5860,7 +5860,7 @@ func TestUpsertBatch_TypedFailureDoesNotStrandResourcesGeneric(t *testing.T) {
 	}
 
 	var typed int
-	typedQuery := fmt.Sprintf(`SELECT COUNT(*) FROM "%s"`, "resources")
+	typedQuery := fmt.Sprintf(`SELECT COUNT(*) FROM "%s"`, "incident_permission_sets_resources")
 	if err := db.QueryRow(typedQuery).Scan(&typed); err != nil {
 		t.Fatalf("count resources: %v", err)
 	}
@@ -5909,7 +5909,7 @@ func TestUpsertBatch_KeysResourcesByChildAndParent(t *testing.T) {
 	}
 
 	var typed int
-	typedQuery := fmt.Sprintf(`SELECT COUNT(*) FROM "%s"`, "resources")
+	typedQuery := fmt.Sprintf(`SELECT COUNT(*) FROM "%s"`, "incident_permission_sets_resources")
 	if err := db.QueryRow(typedQuery).Scan(&typed); err != nil {
 		t.Fatalf("count resources: %v", err)
 	}
@@ -5918,7 +5918,7 @@ func TestUpsertBatch_KeysResourcesByChildAndParent(t *testing.T) {
 	}
 
 	var parentMatches int
-	parentQuery := fmt.Sprintf(`SELECT COUNT(*) FROM "%s" WHERE "incident_permission_sets_id" = ?`, "resources")
+	parentQuery := fmt.Sprintf(`SELECT COUNT(*) FROM "%s" WHERE "incident_permission_sets_id" = ?`, "incident_permission_sets_resources")
 	if err := db.QueryRow(parentQuery, "parent_A").Scan(&parentMatches); err != nil {
 		t.Fatalf("count by incident_permission_sets_id: %v", err)
 	}
@@ -5950,7 +5950,7 @@ func TestUpsertBatch_SetsResourcesParentID(t *testing.T) {
 	db := s.DB()
 
 	var matchedA int
-	parentQuery := fmt.Sprintf(`SELECT COUNT(*) FROM "%s" WHERE parent_id = ?`, "resources")
+	parentQuery := fmt.Sprintf(`SELECT COUNT(*) FROM "%s" WHERE parent_id = ?`, "incident_permission_sets_resources")
 	if err := db.QueryRow(parentQuery, "parent-A").Scan(&matchedA); err != nil {
 		t.Fatalf("count by parent_id: %v", err)
 	}

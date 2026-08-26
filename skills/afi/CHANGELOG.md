@@ -4,6 +4,24 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## Unreleased
+
+### Fixed
+- **Every sync of the `resources` collection warned and stored nothing in its own table.**
+  Afi has a collection literally named `resources`, and the generated database gave its
+  table that exact name - the same name the connector already uses for its general-purpose
+  mirror of every record. The general-purpose table won, so each sync printed
+  `warning: N/N resources items: typed-table upsert failed` and the per-collection table stayed
+  empty, which is what offline lookups by tenant read from. The per-collection table is now
+  named `tenants_resources`, matching how the connector already names `orgs_tenants`.
+
+  What this means for an existing database: every record you have already synced is still in
+  the general-purpose table and still returned by `list`, `search` and `sql` - the rename
+  touches nothing there and no existing database needs converting. The new
+  `tenants_resources` table starts empty and fills on your next successful `sync`. Rows for
+  records the vendor has since deleted will not reappear in it, because a sync only writes
+  what the API still returns; those stay readable in the general-purpose table.
+
 ## [0.1.1] - 2026-08-26
 
 ### Fixed

@@ -315,8 +315,15 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "ping", column: "heartbeats_id", decl: "TEXT"},
 		{table: "booleans", column: "incident_permission_sets_id", decl: "TEXT"},
 		{table: "booleans", column: "parent_id", decl: "TEXT"},
-		{table: "resources", column: "incident_permission_sets_id", decl: "TEXT"},
-		{table: "resources", column: "parent_id", decl: "TEXT"},
+		// The API resource named "resources" would collide with the
+		// framework's generic catch-all `resources` table, so its typed
+		// domain table is parent-prefixed to
+		// `incident_permission_sets_resources` (the same disambiguation
+		// the generator already applies to `escalation_paths_escalation_levels`
+		// and friends). Backfilling onto the catch-all table instead would
+		// pollute it with columns it never populates.
+		{table: "incident_permission_sets_resources", column: "incident_permission_sets_id", decl: "TEXT"},
+		{table: "incident_permission_sets_resources", column: "parent_id", decl: "TEXT"},
 		{table: "incident_roles_incident_role_tasks", column: "incident_roles_id", decl: "TEXT"},
 		{table: "incident_roles_incident_role_tasks", column: "parent_id", decl: "TEXT"},
 		{table: "incidents_action_items", column: "incidents_id", decl: "TEXT"},
@@ -683,15 +690,19 @@ func (s *Store) migrate(ctx context.Context) error {
 		)`,
 		`CREATE INDEX IF NOT EXISTS "idx_booleans_incident_permission_sets_id" ON "booleans"("incident_permission_sets_id")`,
 		`CREATE INDEX IF NOT EXISTS "idx_booleans_parent_id" ON "booleans"("parent_id")`,
-		`CREATE TABLE IF NOT EXISTS "resources" (
+		// Parent-prefixed to avoid colliding with the generic catch-all
+		// `resources` table created above. A bare "resources" typed table
+		// loses the CREATE TABLE IF NOT EXISTS race to the catch-all, and
+		// every typed insert then fails against the catch-all's column set.
+		`CREATE TABLE IF NOT EXISTS "incident_permission_sets_resources" (
 			"id" TEXT PRIMARY KEY,
 			"incident_permission_sets_id" TEXT NOT NULL,
 			"data" JSON NOT NULL,
 			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
 			"parent_id" TEXT
 		)`,
-		`CREATE INDEX IF NOT EXISTS "idx_resources_incident_permission_sets_id" ON "resources"("incident_permission_sets_id")`,
-		`CREATE INDEX IF NOT EXISTS "idx_resources_parent_id" ON "resources"("parent_id")`,
+		`CREATE INDEX IF NOT EXISTS "idx_incident_permission_sets_resources_incident_permission_sets_id" ON "incident_permission_sets_resources"("incident_permission_sets_id")`,
+		`CREATE INDEX IF NOT EXISTS "idx_incident_permission_sets_resources_parent_id" ON "incident_permission_sets_resources"("parent_id")`,
 		`CREATE TABLE IF NOT EXISTS "incident_roles_incident_role_tasks" (
 			"id" TEXT PRIMARY KEY,
 			"incident_roles_id" TEXT NOT NULL,
@@ -3330,7 +3341,7 @@ func (s *Store) UpsertBooleans(data json.RawMessage) error {
 // domain inserts per item without opening a per-item transaction.
 func (s *Store) upsertResourcesTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
 	if _, err := tx.Exec(
-		`INSERT INTO "resources" ("id", "incident_permission_sets_id", "data", "synced_at", "parent_id")
+		`INSERT INTO "incident_permission_sets_resources" ("id", "incident_permission_sets_id", "data", "synced_at", "parent_id")
 		 VALUES (?, ?, ?, ?, ?)
 		 ON CONFLICT("id") DO UPDATE SET "incident_permission_sets_id" = excluded."incident_permission_sets_id", "data" = excluded."data", "synced_at" = excluded."synced_at", "parent_id" = excluded."parent_id"`,
 		id,
@@ -3339,7 +3350,7 @@ func (s *Store) upsertResourcesTx(tx *sql.Tx, id string, obj map[string]any, dat
 		time.Now().UTC().Format(time.RFC3339),
 		lookupFieldValue(obj, "parent_id"),
 	); err != nil {
-		return fmt.Errorf("insert into resources: %w", err)
+		return fmt.Errorf("insert into incident_permission_sets_resources: %w", err)
 	}
 
 	return nil
