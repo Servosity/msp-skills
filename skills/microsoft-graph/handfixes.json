@@ -154,6 +154,35 @@
      "min_count": 1
     }
    ]
+  },
+  {
+   "id": "novel-fixtures-recent-relative-to-today",
+   "summary": "The novel-command seed store dates its security alert and its managed-device last-sync at now-1h instead of the literal 2099-01-01, so 'recent' keeps meaning recent, and the drift test now pins the absence of a stale reason",
+   "why": "This is the same class of TEST defect that PR #300 fixed in quickbooks, found by that PR's fleet-wide sweep of every YYYY-MM-DD literal under skills/*/cli/internal/**/*_test.go and reported-but-not-fixed there. The command under test reads the wall clock; the fixture pinned an absolute date. That pairing is only true until the calendar reaches the literal, at which point the assertion inverts and the test fails on the date rather than on a code change. Concretely: security triage computes since = time.Now().UTC() - window and drops alerts created before it (insights.SecurityTriage), and managed-devices drift computes staleBefore = time.Now().UTC() - days and appends a 'stale' reason to anything older (insights.DeviceDrift). Both fixtures used 2099-01-01 as a stand-in for 'recent', which only works while the calendar is short of it. Post-2099 the alert falls outside the 24h look-back and TestSecurityTriageCommand loses its only alert, and the device picks up a 'stale' reason it was never meant to have. The fix seeds both from a single clock read at now-1h: an hour is comfortably inside a 24h look-back and comfortably inside a 1-day freshness window, on any run date and in any time zone, since both the fixture and the command's cutoff are computed in UTC from the same clock. The device assertion was also made stronger rather than looser - it now asserts the device is NOT flagged stale, which keeps the seeded sync time load-bearing instead of decorative. Proven both directions by driving insights.SecurityTriage and insights.DeviceDrift directly: with a 48h-old createdDateTime (the post-2099 equivalent) totalOpen is 0 and the old assertion FAILS, and the drift reasons come back [noncompliant stale unencrypted] so the new no-stale assertion FAILS; with the now-1h fixtures totalOpen is 1 and the reasons are [noncompliant unencrypted], both PASSING.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: the acceptance/novel test templates should never emit an absolute date literal whose truth depends on the calendar not having reached it. A fixture that means 'in the future' or 'recently' must be rendered as an offset from a single clock read, the way this fix does it. Same retro as the quickbooks novel-acceptance-fixtures-relative-to-today entry. File via /printing-press-retro.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/novel_commands_test.go",
+     "contains": "recent := time.Now().UTC().Add(-time.Hour).Format(time.RFC3339)"
+    },
+    {
+     "file": "cli/internal/cli/novel_commands_test.go",
+     "contains": "\"createdDateTime\": recent"
+    },
+    {
+     "file": "cli/internal/cli/novel_commands_test.go",
+     "contains": "\"lastSyncDateTime\": recent"
+    },
+    {
+     "file": "cli/internal/cli/novel_commands_test.go",
+     "contains": "must not be flagged stale"
+    },
+    {
+     "file": "cli/internal/cli/novel_commands_test.go",
+     "not_contains": "2099-01-01T00:00:00Z"
+    }
+   ]
   }
  ]
 }

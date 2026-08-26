@@ -44,14 +44,18 @@ func TestCustomersProfileCard(t *testing.T) {
 	seedResource(t, db, "contracts", "c1", map[string]any{
 		"customer_id": "42", "name": "Gold MSA",
 	})
+	// The alert is seeded relative to the clock so it stays inside the
+	// window on any run date. It used to be the literal 2026-06-05 held in
+	// range by a ten-year --alert-window, which ages out around 2036 and
+	// silently drops alert_count_window to 0.
 	seedResource(t, db, "rmm_alerts", "al1", map[string]any{
-		"customer_id": "42", "created_at": "2026-06-05T08:00:00Z",
+		"customer_id": "42", "created_at": time.Now().UTC().Add(-time.Hour).Format(time.RFC3339),
 	})
 	db.Close()
 
 	flags := &rootFlags{asJSON: true}
 	cmd := newNovelCustomersProfileCmd(flags)
-	out, _ := execNovel(t, cmd, []string{"42", "--db", dbPath, "--alert-window", "3650d"})
+	out, _ := execNovel(t, cmd, []string{"42", "--db", dbPath, "--alert-window", "7d"})
 
 	if got := out["customer_name"]; got != "Acme Corp" {
 		t.Fatalf("customer_name = %v, want Acme Corp", got)

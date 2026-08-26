@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+	"time"
 )
 
 func TestNovelChangesCommand(t *testing.T) {
@@ -25,8 +26,21 @@ func TestNovelChangesCommand(t *testing.T) {
 		t.Errorf("row missing resource_type: %#v", rows[0])
 	}
 
-	// A future window matches nothing across all resources.
-	out2 := runITGCmd(t, "changes", "--since", "2030-01-01", "--json")
+	// A future window matches nothing across all resources. The boundary is
+	// derived from the clock rather than written as a literal: the newest
+	// seeded record is now-24h, so a --since one year ahead of the current
+	// day is later than every fixture on every possible run date.
+	//
+	// The old literal boundary was "2030-01-01", and the clock catches up
+	// with it. Not on 2030-01-01 itself: the eight fixtures that carry a
+	// relative timestamp are at now-24h, which is still 2029-12-31 that
+	// day, so they stay outside the window and the assertion holds one
+	// last time. From roughly 2030-01-02 those eight land at or after the
+	// boundary, come back as rows, and the assertion inverts. The other
+	// two fixtures are pinned at 2020-01-01 and 2021-06-01 and never enter
+	// a 2030 window at all, so the failure is eight rows, not ten.
+	future := time.Now().UTC().AddDate(1, 0, 0).Format("2006-01-02")
+	out2 := runITGCmd(t, "changes", "--since", future, "--json")
 	var rows2 []map[string]any
 	if err := json.Unmarshal([]byte(out2), &rows2); err != nil {
 		t.Fatalf("unmarshal future: %v\n%s", err, out2)

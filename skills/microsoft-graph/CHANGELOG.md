@@ -4,6 +4,18 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## Unreleased
+
+### Fixed
+- **Two test fixtures used the year 2099 to mean "just now".** `security triage` keeps alerts
+  raised inside its look-back window and `managed-devices drift` flags devices that have not
+  checked in recently, both measured against the current time. The fixtures they read were dated
+  `2099-01-01`, which reads as "recent" only while the calendar is short of it: past 2099 the
+  alert drops out of the 24-hour window and the device picks up a `stale` reason it was never
+  meant to have. Both are now seeded an hour before the clock, and the drift test additionally
+  pins that the device is *not* stale, so the seeded sync time is doing real work. No shipped
+  behaviour changed - the commands were correct throughout.
+
 ## [0.2.1] - 2026-08-26
 
 ### Fixed

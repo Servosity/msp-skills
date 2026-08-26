@@ -4,6 +4,17 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## Unreleased
+
+### Fixed
+- **A test held a fixed 2026 alert in range with a ten-year look-back.** `customers profile`
+  counts RMM alerts newer than the window you ask for, measured against the current time. The
+  test seeded an alert dated `2026-06-05` and stretched `--alert-window` to `3650d` so it would
+  still be counted - which buys ten years and no more. Around 2036 the alert ages out and the
+  count silently drops to zero. The alert is now seeded an hour before the clock and the window
+  is back to a realistic `7d`, matching the sibling test in the same file. No shipped behaviour
+  changed - the command was correct throughout.
+
 ## [0.1.1] - 2026-08-26
 
 ### Fixed
