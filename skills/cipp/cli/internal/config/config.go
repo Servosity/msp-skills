@@ -5,6 +5,7 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -71,7 +72,34 @@ func (c *Config) TokenEndpoint() string {
 	if authority == "" {
 		authority = DefaultAuthority
 	}
+	if !AuthorityIsSecure(authority) {
+		// Refuse rather than downgrade. The client-credentials POST body carries
+		// client_secret, so a plaintext authority puts the secret on the wire
+		// before TokenExchangeRedirectPolicy (which only governs 3xx hops) ever
+		// runs. Returning "" makes the caller report "no token endpoint", which
+		// is the honest verdict for an authority we will not dial.
+		return ""
+	}
 	return strings.TrimRight(authority, "/") + "/" + c.TenantID + "/oauth2/v2.0/token"
+}
+
+// AuthorityIsSecure reports whether an OAuth authority may receive the
+// client-credentials form. HTTPS always; plaintext only against the loopback
+// interface, which never leaves the machine and is what the test harness and a
+// local mock authority use.
+func AuthorityIsSecure(authority string) bool {
+	u, err := url.Parse(strings.TrimSpace(authority))
+	if err != nil || u.Host == "" {
+		return false
+	}
+	switch strings.ToLower(u.Scheme) {
+	case "https":
+		return true
+	case "http":
+		host := u.Hostname()
+		return host == "127.0.0.1" || host == "::1" || strings.EqualFold(host, "localhost")
+	}
+	return false
 }
 
 // OAuthScope returns the scope to request for a client-credentials mint,
@@ -363,6 +391,14 @@ func (c *Config) save() error {
 	}
 	if err := os.WriteFile(c.Path, data, 0o600); err != nil {
 		return err
+	}
+	// os.WriteFile honours the mode only when it CREATES the file. A config that
+	// already existed at 0644 - from an older build, an editor, or a restored
+	// backup - would keep the access token and client secret world-readable.
+	// Chmod every time so the permission is a property of the file, not of how
+	// it happened to be created.
+	if err := os.Chmod(c.Path, 0o600); err != nil {
+		return fmt.Errorf("restricting permissions on %s: %w", c.Path, err)
 	}
 	c.fileConfig = &persisted
 	c.fileConfig.envOverrides = nil

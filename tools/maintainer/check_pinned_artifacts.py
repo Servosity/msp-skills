@@ -22,24 +22,33 @@ lands), so that check would fail every release.
 The discriminator is therefore DIFF-scoped, not consistency-scoped:
 
   * tag exists locally                     -> OK.
-  * tag missing, and this change-set INTRODUCED or MOVED the pin (the exact pin
-    string is absent from the same file at BASE, following renames) -> allowed
-    as an in-flight release, provided ALL of: the tag is
-    "{slug}-v{manifest.version}"; it sorts strictly above the highest tag that
-    already exists for that slug; AND the version this slug carried at BASE was
-    itself tagged. Prints the exact `git tag ... && git push origin ...` command
-    as a reminder.
-  * tag missing, and the pin is byte-identical to BASE -> FAIL. The release was
-    never cut; main is publishing a 404.
+  * tag missing, and this change-set INTRODUCED the pin (the exact pin string
+    appears in NO tracked file at BASE) -> allowed as an in-flight release,
+    provided ALL of: the tag is "{slug}-v{manifest.version}"; it sorts strictly
+    above the highest tag that already exists for that slug; AND the version
+    this slug carried at BASE was itself tagged. Prints the exact
+    `git tag ... && git push origin ...` command as a reminder.
+  * tag missing, and the pin already existed ANYWHERE at BASE -> FAIL. The
+    release was never cut; main is publishing a 404.
 
-Two ways that escape hatch was laundered before, and how each is closed:
+Three ways that escape hatch was laundered before, and how each is closed:
 
   * A RENAME used to launder a hard failure into a green reminder. The BASE
     lookup was `git show BASE:<current path>`, which returns nothing when the
     path did not exist at BASE, so `git mv` made every pin in the file - even
     ones dead for months - read as introduced by this change-set with no content
-    change at all. The BASE lookup now follows `git diff --find-renames`, so a
-    moved file is compared against the content it moved FROM.
+    change at all. The pin lookup is now repo-wide (next bullet), which makes a
+    rename invisible to it; `git diff --find-renames` is still used for the
+    per-slug manifest-version lookup, which is inherently path-addressed.
+  * A CROSS-FILE MOVE laundered a dead pin even without a rename. The BASE
+    lookup was per-PATH: it asked only whether THIS file carried the URL at
+    BASE. Deleting a months-dead pin from `old.md` and pasting the same URL into
+    an already-existing `new.md` therefore read as newly introduced - absent
+    from `new.md` at BASE - and collected an in-flight reminder instead of a
+    failure. The BASE lookup is now repo-WIDE: the pin must appear in no tracked
+    file at BASE to count as introduced by this change-set. A genuine in-flight
+    release is unaffected, because a version bump mints a URL that exists
+    nowhere at BASE.
   * The grace was UNBOUNDED. Set-membership of the pin URL is renewed by every
     version bump, so three consecutive bumps with zero tags cut all stayed
     green. Grace now additionally requires that the version this slug shipped at
@@ -78,9 +87,13 @@ the CI job already call this script, and neither had to change.
 
 It is fail-SOFT, never fail-flaky. If gh is missing, unauthenticated, or a
 preflight `gh api repos/{owner}/{repo}` cannot reach GitHub, the asset pass
-prints a NOTE and is skipped rather than reporting every tag as missing. Pass
---network to require it (exit 2 when gh is unusable) or --no-network to force
-the offline-only pass.
+prints a NOTE and is skipped rather than reporting every tag as missing. The
+same discrimination is applied per TAG: only a 404/410 from GitHub itself counts
+as "no published release"; a 502, a secondary rate limit or a timeout skips that
+one tag with a NOTE, because telling a maintainer to cut a release that already
+exists is a false-RED, and a gate that fires on a healthy repo teaches people to
+ignore it. Pass --network to require the pass (exit 2 when gh is unusable) or
+--no-network to force the offline-only pass.
 
 There is deliberately NO whole-fleet release-completeness sweep. The earlier
 --require-complete-asset-set walked all 138 tags to catch auvik-v0.1.1's 16-of-25
@@ -196,11 +209,12 @@ def base_is_reachable(base: str | None) -> bool:
 def rename_map(base: str) -> dict[str, str]:
     """current path -> the path it was renamed FROM between BASE and the tree.
 
-    Without this, `git mv` launders a hard failure into a green reminder: the
-    BASE lookup for the NEW path finds nothing, so every pin in the moved file
-    reads as introduced by this change-set even though not one byte of it
-    changed. `git diff --find-renames` is git's own answer to that question, so
-    the escape hatch stops depending on the file keeping its name.
+    Used for the per-slug manifest-version lookup, which is path-addressed by
+    nature (`skills/<dir>/manifest.json`) and so still needs to know where that
+    file lived at BASE. Without it, moving a skill directory would make its
+    manifest read as absent at BASE - the brand-new-skill case - and hand a
+    second uncut bump the grace the unbounded-grace rule exists to deny. The
+    pin lookup itself no longer needs renames: it is repo-wide.
 
     -z is used because a path may contain a space or a quote: with it, git emits
     STATUS NUL PATH NUL for ordinary changes and STATUS NUL OLD NUL NEW NUL for
@@ -225,19 +239,46 @@ def rename_map(base: str) -> dict[str, str]:
     return out
 
 
-def pins_at_base(
-    base: str, path: str, owner: str, repo: str, renames: dict[str, str]
-) -> set[str]:
-    """The set of pin URLs this file carried at BASE, following renames.
+class BaseUnavailable(Exception):
+    """The BASE pin set could not be computed, so the in-flight grace is unsafe."""
 
-    A file that genuinely did not exist at BASE contributes an empty set, so
-    every pin in it reads as introduced by this change-set. A file that merely
-    MOVED is read from the path it moved from.
+
+def pins_at_base(base: str, owner: str, repo: str) -> set[str]:
+    """Every pin URL the repo carried at BASE, across ALL tracked files.
+
+    Repo-WIDE, not per-path, and that scope is the whole point. The lookup used
+    to ask "did THIS file carry this URL at BASE?", which made a cross-file MOVE
+    launder a dead pin: cut it out of `old.md`, paste it into an already-existing
+    `new.md`, and it is absent from `new.md` at BASE, so it read as introduced by
+    the change-set and collected a green in-flight reminder even though the tag
+    had been missing for months. Following renames did not help - no file was
+    renamed. Asking the repo-wide question instead means a pin counts as
+    introduced only when it exists nowhere at BASE, which is exactly what a real
+    version bump produces and exactly what a move does not.
     """
-    p = git("show", f"{base}:{renames.get(path, path)}")
-    if p.returncode != 0:
-        return set()
-    return {pin.url for pin in parse_pins(path, p.stdout, owner, repo)}
+    listing = git("grep", "-I", "-l", "-F", "-e", "/releases/", base)
+    if listing.returncode > 1:
+        # >1 is a real git failure (bad object, unreadable tree), not "no match".
+        # Returning an empty set here would make every pin in the repo look newly
+        # introduced and collect the in-flight grace - the entire gate off, with
+        # nothing said. Signal "unknown" so the caller withholds the grace.
+        raise BaseUnavailable(
+            f"git grep failed at {base!r} (exit {listing.returncode}): "
+            f"{(listing.stderr or '').strip()[:200]}"
+        )
+    if listing.returncode == 1:
+        return set()  # genuinely no pins at BASE
+    urls: set[str] = set()
+    for line in listing.stdout.split("\n"):
+        # `git grep -l <pattern> <rev>` prints "<rev>:<path>".
+        _, sep, path = line.partition(":")
+        if not sep or not path:
+            continue
+        blob = git("show", f"{base}:{path}")
+        if blob.returncode != 0:
+            continue
+        urls |= {pin.url for pin in parse_pins(path, blob.stdout, owner, repo)}
+    return urls
 
 
 def manifest_version(slug: str) -> str | None:
@@ -301,7 +342,8 @@ def check_offline(pins, meta, tags, base, strict, owner, repo):
 
     head = git("rev-parse", "HEAD").stdout.strip() or "HEAD"
     base_ok = base_is_reachable(base)
-    base_cache: dict[str, set[str]] = {}
+    base_pins: set[str] | None = None
+    base_pins_unavailable = False   # repo-wide, computed on first need
     renames = rename_map(base) if base_ok else {}
     base_version_cache: dict[str, str | None] = {}
 
@@ -352,14 +394,24 @@ def check_offline(pins, meta, tags, base, strict, owner, repo):
 
         # 3. Existence, with the diff-scoped escape hatch.
         if tags and base_ok and pin.tag not in tags:
-            if pin.path not in base_cache:
-                base_cache[pin.path] = pins_at_base(
-                    base, pin.path, owner, repo, renames
-                )
-            if pin.url in base_cache[pin.path]:
+            if base_pins is None:
+                try:
+                    base_pins = pins_at_base(base, owner, repo)
+                except BaseUnavailable as exc:
+                    # The BASE pin set is unknown, so "this change-set introduced
+                    # the pin" cannot be established. Withhold the grace and say
+                    # why, rather than granting it to every pin in the repo.
+                    notices.append(
+                        f"the BASE pin set could not be computed ({exc}); the in-flight-release "
+                        f"grace is WITHHELD, so a pin at an uncut tag fails until BASE is readable"
+                    )
+                    base_pins = set()
+                    base_pins_unavailable = True
+            if base_pins_unavailable or pin.url in base_pins:
                 errors.append(
-                    f"{pin.where} - tag does not exist and this pin is unchanged from "
-                    f"BASE: the {slug} release was never cut, so this URL 404s. Cut it "
+                    f"{pin.where} - tag does not exist and this URL was already in the "
+                    f"tree at BASE (in this file or another one): the {slug} release was "
+                    f"never cut, so this URL 404s. Cut it "
                     f"(`git tag {pin.tag} <sha> && git push origin {pin.tag}`) or repoint "
                     "the pin at a released version."
                 )
@@ -423,12 +475,43 @@ def check_offline(pins, meta, tags, base, strict, owner, repo):
     return errors, notices, reminders
 
 
+# A per-tag `gh api` call that failed for a reason that is NOT "this release
+# does not exist" - a 502, a secondary rate limit, a DNS blip, a timeout. It is
+# deliberately distinct from None: None means GitHub answered, authoritatively,
+# that there is no release for the tag.
+TRANSIENT = object()
+
+# gh renders an HTTP error as e.g. `gh: Not Found (HTTP 404)` on stderr. Only a
+# 404 (and 410, a release deleted out from under a pin) is an authoritative
+# "no such release"; everything else - and any failure with no HTTP status at
+# all, which is what a DNS failure or a timeout looks like - is transport.
+RE_GH_STATUS = re.compile(r"\(HTTP (\d{3})\)")
+DEFINITIVE_MISSING = {"404", "410"}
+
+
+def gh_error_is_definitive(proc: subprocess.CompletedProcess) -> bool:
+    """True only when GitHub itself said the release is not there."""
+    m = RE_GH_STATUS.search((proc.stderr or "") + (proc.stdout or ""))
+    return bool(m) and m.group(1) in DEFINITIVE_MISSING
+
+
 def gh_release(
     owner: str, repo: str, tag: str | None, cache: dict, preflight: bool = False
-) -> dict | None:
-    """One `gh api` call per DISTINCT tag, cached. With preflight=True it asks
-    for the repo itself instead, to tell "GitHub unreachable" apart from "this
-    tag has no release"."""
+):
+    """One `gh api` call per DISTINCT tag, cached.
+
+    Returns the release JSON, None when GitHub authoritatively answered 404/410,
+    or TRANSIENT when the call failed for any other reason. That third state is
+    load-bearing: every non-zero result used to read as "no published release",
+    so a 502 or a secondary rate limit produced a false-RED telling a maintainer
+    to cut a release that already exists. A gate that fires on a healthy repo is
+    as harmful as one that misses the defect - it teaches maintainers to ignore
+    it - so a transport failure now degrades to a NOTE, exactly like the
+    preflight already does for the whole pass.
+
+    With preflight=True it asks for the repo itself instead, to tell "GitHub
+    unreachable" apart from "this tag has no release".
+    """
     if not preflight and tag in cache:
         return cache[tag]
     path = f"repos/{owner}/{repo}" if preflight else f"repos/{owner}/{repo}/releases/tags/{tag}"
@@ -441,12 +524,13 @@ def gh_release(
         except json.JSONDecodeError:
             return None
     if p.returncode != 0:
-        cache[tag] = None
+        cache[tag] = None if gh_error_is_definitive(p) else TRANSIENT
     else:
         try:
             cache[tag] = json.loads(p.stdout)
         except json.JSONDecodeError:
-            cache[tag] = None
+            # A 200 whose body is not JSON is not evidence of a missing release.
+            cache[tag] = TRANSIENT
     return cache[tag]
 
 
@@ -495,6 +579,8 @@ def check_network(pins, tags, owner, repo):
         ]
 
     errors: list[str] = []
+    notices: list[str] = []
+    transient: set[str] = set()
     # Tag existence alone passes datto-rmm-v0.1.2: the release object is green
     # with 24 assets because its mcp-publish run was CANCELLED and the .mcpb
     # never uploaded. Only the asset LIST can see that.
@@ -504,6 +590,9 @@ def check_network(pins, tags, owner, repo):
         if tags and pin.tag not in tags:
             continue  # an uncut tag is the offline pass's finding, not this one
         rel = gh_release(owner, repo, pin.tag, cache)
+        if rel is TRANSIENT:
+            transient.add(pin.tag)
+            continue
         if rel is None:
             errors.append(f"{pin.where} - no published release for tag {pin.tag}")
             continue
@@ -514,7 +603,15 @@ def check_network(pins, tags, owner, repo):
                 f"{pin.asset!r} ({len(names)} assets present). A cancelled or failed "
                 "mcp-publish/release run leaves the tag green and the URL dead."
             )
-    return errors, []
+    if transient:
+        notices.append(
+            "gh could not read " + str(len(transient)) + " release(s) for a reason "
+            "GitHub did not report as 404 (transport error, 5xx, or a secondary rate "
+            "limit): " + ", ".join(sorted(transient)) + ". The pinned-ASSET check is "
+            "SKIPPED for those tags rather than reporting a release that exists as "
+            "missing. Re-run when GitHub is reachable."
+        )
+    return errors, notices
 
 
 def main() -> int:
@@ -568,6 +665,15 @@ def main() -> int:
             net_errors, net_notices = check_network(pins, tags, owner, repo)
             errors.extend(net_errors)
             notices.extend(net_notices)
+            # --network means "I require the asset check to actually run". A
+            # transient GitHub failure skips a tag with a NOTE, which is the
+            # right default - but under --network a run where every tag was
+            # skipped would print OK while checking nothing. Promote it.
+            if args.network and net_notices:
+                errors.append(
+                    "--network was passed, so the pinned-ASSET check is required, but "
+                    + "; ".join(net_notices)
+                )
         elif args.network:
             print(f"check_pinned_artifacts: --network requires gh - {why}")
             return 2

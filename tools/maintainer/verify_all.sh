@@ -3,8 +3,8 @@
 # monorepo so an onboarding (or any change) cannot slip a regression past.
 #
 # Hard gates (must pass): go build+vet per module, skill contract, repo guards,
-# markdown links, release contract, catalog idempotency, release matrix sanity,
-# install dry-run resolves cleanly.
+# markdown links, release contract, manifest env schema, catalog idempotency,
+# release matrix sanity, install dry-run resolves cleanly.
 # Best-effort gates (warn if the tool is absent locally; CI installs them):
 # shell linting, secret scanning, workflow linting, and plugin manifest
 # validation (`claude plugin validate --strict` for the marketplace + each skill;
@@ -57,9 +57,22 @@ echo "== Manifest env schema vs the binaries' env reads =="
 # manifest.json (server.mcp_config.env + user_config), and that nothing is
 # declared the binary never reads. Claude Desktop has no shell and no
 # config.toml, so an undeclared variable is a credential the operator is never
-# prompted for. WARN mode, mirroring the CLI-claims gate above.
-# NOTE(calibration): the fleet is clean today - drop --warn to make this gate.
-if run_show python3 tools/maintainer/check_env_schema.py --warn; then pass "manifest env schema (warn)"; else warn "manifest env schema reported findings"; fi
+# prompted for.
+#
+# HARD gate. It shipped behind --warn for fleet calibration, and --warn exits 0
+# on real findings - so `os.Getenv("COVE_PASSWORD")` with no manifest
+# declaration printed the defect and left the verdict green, which is not a gate
+# at all. The fleet has been clean since, so the crutch has no justification
+# left. The flag still exists for a local calibration run.
+#
+# --base makes the classification rules BASE-owned: without it a change-set can
+# add "COVE_" to internal_prefixes in env_schema_internal.json and silence its
+# own findings. origin/main is the local answer to "what did the rules say
+# before this change"; if it is unreachable the script says so loudly and falls
+# back to the working copy rather than failing (run_show keeps that notice
+# visible). A rules change therefore lands on the base branch first - the same
+# posture security_suppressions.json has.
+if run_show python3 tools/maintainer/check_env_schema.py --base origin/main; then pass "manifest env schema"; else fail "manifest env schema"; fi
 
 echo "== Doctor reports a verdict that tracks reality =="
 # Builds each CLI and runs `doctor --json` against a local stub in four states
@@ -73,6 +86,7 @@ if run python3 tools/maintainer/check_doctor_truth.py --all; then pass "doctor t
 
 echo "== Repo gates =="
 if run python3 tools/maintainer/check_registry_state.py;  then pass "registry state";      else fail "registry state";      fi
+if run python3 tools/maintainer/check_mcp_registry.py;    then pass "MCP registry schema"; else fail "MCP registry schema"; fi
 if run python3 tools/maintainer/check_skill_contract.py;  then pass "skill contract";      else fail "skill contract";      fi
 if run python3 tools/maintainer/check_md_links.py;        then pass "markdown links";      else fail "markdown links";      fi
 if run python3 tools/maintainer/check_release_contract.py; then pass "release contract";   else fail "release contract";    fi

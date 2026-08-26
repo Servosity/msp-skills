@@ -102,8 +102,17 @@ def is_positive(verdict: object) -> bool:
     return not any(p in low for p in NEGATIVE_PHRASES)
 
 
+# The literal the fixture config carries. The stub watches for it so the gate can
+# assert doctor actually SENT the credential, not merely that it classified
+# status codes correctly. Without this a doctor probing an unauthenticated
+# endpoint passes every state while never testing the installed credential.
+PROBE_TOKEN = "check-doctor-truth"
+
+
 class _Stub(http.server.BaseHTTPRequestHandler):
     mode = "healthy"
+    saw_credential = False
+    saw_request = False
 
     def log_message(self, *a):  # silence
         pass
@@ -117,6 +126,11 @@ class _Stub(http.server.BaseHTTPRequestHandler):
 
     def _handle(self) -> None:
         path = self.path.split("?")[0]
+        type(self).saw_request = True
+        # Look for the credential anywhere it can legitimately ride: a header
+        # value (Authorization or a vendor-specific one), or the query string.
+        if PROBE_TOKEN in self.path or any(PROBE_TOKEN in v for v in self.headers.values()):
+            type(self).saw_credential = True
         if self.mode == "healthy":
             self._send(200, b'{"data":[],"items":[],"results":[]}')
         elif self.mode == "expired":
@@ -134,6 +148,8 @@ class _Stub(http.server.BaseHTTPRequestHandler):
 
 def serve(mode: str):
     _Stub.mode = mode
+    _Stub.saw_credential = False
+    _Stub.saw_request = False
     srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), _Stub)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     return srv, f"http://127.0.0.1:{srv.server_address[1]}"
@@ -194,7 +210,9 @@ def run_doctor(binary: str, slug: str, home: str, base_url: str | None) -> dict:
     start = out.find("{")
     if start < 0:
         raise RuntimeError(f"{slug}: doctor emitted no JSON.\nstdout={out}\nstderr={r.stderr[:800]}")
-    return json.loads(out[start:])
+    report = json.loads(out[start:])
+    report["__exit_code"] = r.returncode
+    return report
 
 
 def config_is_json(slug: str) -> bool:
@@ -225,14 +243,31 @@ def has_api_probe(slug: str) -> bool:
         return False
 
 
-def check_state(slug: str, report: dict, state: str, base_env: str) -> list[str]:
-    """Apply the invariant for one state. Returns a list of failure messages."""
+def check_state(slug: str, report: dict, state: str, base_env: str,
+                saw_request: bool = False, saw_credential: bool = False) -> tuple[list[str], list[str]]:
+    """Apply the invariant for one state. Returns (failures, advisory notes)."""
     errs: list[str] = []
+    notes: list[str] = []
     creds = report.get("credentials")
     api = report.get("api")
     cred_pos, api_pos = is_positive(creds), is_positive(api)
 
     if state == "healthy":
+        if report.get("__exit_code") not in (0, None):
+            errs.append(f"[{slug}] healthy: doctor exited {report['__exit_code']} on a working install, so it "
+                        f"cannot be used in automation and reports failure when nothing is wrong")
+        if saw_request and not saw_credential:
+            # Reported, not failed. The check cannot mechanically separate two
+            # very different causes: a connector whose doctor genuinely probes
+            # unauthenticated (a real false-OK), and one whose credential shape
+            # this fixture cannot supply, so the client has nothing to attach.
+            # Against a real vendor API the second case answers 401 and doctor
+            # reports "rejected", which is honest - it is only a permissive stub
+            # that turns it into a false "valid". Failing here would be a
+            # false-RED on the second case; staying silent would hide the first.
+            notes.append(f"[{slug}] doctor probed the API but the probe carried no credential. Either it "
+                         f"probes unauthenticated (a false OK) or this fixture cannot supply this "
+                         f"connector's credential shape. Verify against a real tenant.")
         if creds is None:
             errs.append(f"[{slug}] healthy: doctor emitted no `credentials` row at all, so an operator "
                         f"is told nothing about whether the credential works")
@@ -262,7 +297,7 @@ def check_state(slug: str, report: dict, state: str, base_env: str) -> list[str]
         if not named:
             errs.append(f"[{slug}] placeholder: the report never names {base_env}, so a correctly "
                         f"credentialled operator is told they are broken without being told the fix")
-    return errs
+    return errs, notes
 
 
 def placeholder_default(slug: str) -> bool:
@@ -284,33 +319,55 @@ def placeholder_default(slug: str) -> bool:
                                    "example.com", "example.net", "example.org", "changeme")) or "YOUR_" in base
 
 
-def check_slug(slug: str, meta: dict, verbose: bool) -> list[str]:
+def check_slug(slug: str, meta: dict, verbose: bool) -> tuple[list[str], list[str]]:
     errs: list[str] = []
+    notes: list[str] = []
     base_env = f"{slug.upper().replace('-', '_')}_BASE_URL"
     with tempfile.TemporaryDirectory() as tmp:
         binary = build_cli(slug, meta, tmp)
         if binary is None:
-            return []
-        states = [("healthy", True), ("expired", True), ("wrong-base", True)]
-        for state, _ in states:
+            return [], []
+        verdicts: dict[str, object] = {}
+        for state in ("healthy", "expired", "wrong-base"):
             srv, url = serve(state)
             try:
                 home = os.path.join(tmp, "home-" + state)
                 os.makedirs(home, exist_ok=True)
                 report = run_doctor(binary, slug, home, url)
+                saw_request, saw_credential = _Stub.saw_request, _Stub.saw_credential
             finally:
                 srv.shutdown()
-            errs += check_state(slug, report, state, base_env)
+            verdicts[state] = report.get("credentials")
+            e, n = check_state(slug, report, state, base_env, saw_request, saw_credential)
+            errs += e
+            notes += n
             if verbose:
-                print(f"    {slug} {state}: api={report.get('api')!r} credentials={report.get('credentials')!r}")
+                print(f"    {slug} {state}: api={report.get('api')!r} credentials={report.get('credentials')!r}"
+                      f" [sent_credential={saw_credential}]")
+
+        # The sharpest check, and the one that needs no opinion about prose: a
+        # doctor that answers the SAME thing whether the credential works, is
+        # rejected, or points at the wrong host is not reporting a verdict. That
+        # identical-in-every-state report is exactly the defect issue #282 named.
+        probeable = ("no argument-free GET endpoint" not in str(verdicts.get("healthy") or "")
+                     and has_api_probe(slug))
+        if probeable:
+            for broken in ("expired", "wrong-base"):
+                if verdicts.get(broken) == verdicts.get("healthy"):
+                    errs.append(
+                        f"[{slug}] doctor reports the identical credentials verdict "
+                        f"({verdicts.get('healthy')!r}) whether the credential works or the install is "
+                        f"{broken}; it is not distinguishing the states")
         if placeholder_default(slug):
             home = os.path.join(tmp, "home-placeholder")
             os.makedirs(home, exist_ok=True)
             report = run_doctor(binary, slug, home, None)
-            errs += check_state(slug, report, "placeholder", base_env)
+            e, n = check_state(slug, report, "placeholder", base_env)
+            errs += e
+            notes += n
             if verbose:
                 print(f"    {slug} placeholder: api={report.get('api')!r} credentials={report.get('credentials')!r}")
-    return errs
+    return errs, notes
 
 
 def main() -> int:
@@ -331,17 +388,22 @@ def main() -> int:
         slugs = sorted(meta)
 
     errors: list[str] = []
+    all_notes: list[str] = []
     checked = 0
     for slug in slugs:
         if registry.is_markdown_only(slug):
             continue
         try:
-            found = check_slug(slug, meta[slug], args.verbose)
+            found, found_notes = check_slug(slug, meta[slug], args.verbose)
         except Exception as exc:  # a connector that cannot be built or run is a failure, not a skip
             errors.append(f"[{slug}] could not be checked: {exc}")
             continue
         checked += 1
         errors += found
+        all_notes += found_notes
+
+    for n in all_notes:
+        print(f"check_doctor_truth: NOTE {n}")
 
     if errors:
         print("check_doctor_truth FAILED:")

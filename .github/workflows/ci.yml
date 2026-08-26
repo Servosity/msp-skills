@@ -58,6 +58,36 @@ jobs:
         # any new finding here is a new defect and should block.
         run: python3 tools/maintainer/check_pinned_artifacts.py --base "$BASE" --no-network
 
+      - name: Manifest env schema matches the binaries' reads
+        # Asserts every operator-facing env var a connector READS is declared in
+        # manifest.json (server.mcp_config.env + a user_config prompt), in
+        # server.json (the MCP Registry), and in mcp-install.md (the manual
+        # path). Claude Desktop has no shell and no config.toml, so an
+        # undeclared variable is a credential the operator is never asked for:
+        # the server boots, tools/list looks healthy, and the first real call
+        # fails. Issue #282 - 60 of 65 connectors under-declared, cove 0 of 4
+        # and quickbooks 1 of 8.
+        #
+        # Runs HERE and not in the per-skill matrix for two reasons: the
+        # classification rules must be read from the merge BASE so a PR cannot
+        # widen its own internal-prefix list to silence a credential, and this
+        # job already checks out with fetch-depth: 0, so BASE resolves without
+        # adding a full-history clone to each of the 65 matrix legs.
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: python3 tools/maintainer/check_env_schema.py --base "$BASE"
+
+      - name: server.json is publishable to the MCP Registry
+        # The registry validates server.json and answers 422 on a violation, and
+        # mcp-publish.yml publishes AFTER the release assets are uploaded - so a
+        # rejection leaves a release that looks complete while the connector never
+        # reaches the registry or the six catalogues that fan out from it.
+        # avanan hit this on 2026-08-26: a 107-character description against a
+        # 100-character limit. Validated against the registry's own JSON Schema,
+        # vendored beside the checker so CI needs no network and a silently-updated
+        # remote schema cannot turn main red without a commit.
+        run: python3 tools/maintainer/check_mcp_registry.py
+
       - name: No TODO / placeholder markers in skill prose
         run: python3 tools/maintainer/check_no_todos.py
 
@@ -239,16 +269,3 @@ jobs:
         # and the fixture config carries a literal auth_header.
         run: python3 tools/maintainer/check_doctor_truth.py --slug ${{ matrix.skill.name }}
 
-      - name: Manifest env schema matches the binary's reads (this skill)
-        # Scans this skill's Go source for the env vars it actually reads and
-        # asserts every operator-facing one is declared in manifest.json
-        # server.mcp_config.env with a matching user_config prompt - and that
-        # nothing is declared the binary never reads. Claude Desktop has no
-        # shell and no config.toml, so an undeclared variable is a credential
-        # the operator is never asked for: the server boots, tools/list looks
-        # healthy, and the first real call fails. Issue #282; 60 of 65
-        # connectors under-declared, cove 0 of 4 and quickbooks 1 of 8.
-        # WARN mode, mirroring check_cli_claims.py above, so a connector added
-        # or reprinted before its manifest catches up cannot red main.
-        # NOTE(calibration): the fleet is clean today - drop --warn to gate.
-        run: python3 tools/maintainer/check_env_schema.py --warn --slug ${{ matrix.skill.name }}

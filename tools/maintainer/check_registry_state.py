@@ -14,12 +14,22 @@ Checks per slug, current file vs origin/main:
      (a null entry silently reads as awaiting in every consumer).
 
 Exit 0 = clean, 1 = violations (printed), 2 = environment error.
-When origin/main is unreachable the gate SKIPs (exit 0 with a notice) -
-offline runs are still covered by onboard.py register()'s in-process guard.
+
+The DOWNGRADE check needs a TRUSTED BASELINE (origin/main's skills.json). If
+that baseline cannot be read or parsed, the check cannot run - and a check that
+could not run is an environment error (exit 2), NOT a pass. Reporting success
+there is how a branch that destroyed a live_verified receipt sails through
+verify_all.sh: the one comparison that would have caught it never happened.
+
+`--allow-missing-baseline` is the deliberate opt-out for a genuinely offline
+checkout with no origin/main. It prints SKIP (never OK), runs the SHAPE check
+only, and CI never passes it. Offline runs remain covered by onboard.py
+register()'s in-process guard.
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import subprocess
 import sys
@@ -38,17 +48,30 @@ def load_current() -> dict:
         sys.exit(2)
 
 
-def load_base() -> dict | None:
-    p = subprocess.run(
-        ["git", "-C", str(REPO), "show", REGISTRY_REF],
-        capture_output=True, text=True,
-    )
-    if p.returncode != 0:
-        return None
+def load_base() -> tuple[dict | None, str | None]:
+    """Return (baseline, error). A non-None error means the trusted baseline is
+    UNAVAILABLE and the downgrade comparison cannot be made. Callers must not
+    treat that as "no downgrades found"."""
     try:
-        return json.loads(p.stdout)["skills"]
-    except (json.JSONDecodeError, KeyError):
-        return None
+        p = subprocess.run(
+            ["git", "-C", str(REPO), "show", REGISTRY_REF],
+            capture_output=True, text=True,
+        )
+    except (OSError, FileNotFoundError) as e:
+        return None, f"could not run git to read {REGISTRY_REF}: {e}"
+    if p.returncode != 0:
+        detail = (p.stderr or "").strip().splitlines()
+        why = detail[0] if detail else "git show returned non-zero"
+        return None, f"{REGISTRY_REF} is unreadable ({why})"
+    try:
+        skills = json.loads(p.stdout)["skills"]
+    except json.JSONDecodeError as e:
+        return None, f"{REGISTRY_REF} is not valid JSON ({e})"
+    except KeyError:
+        return None, f"{REGISTRY_REF} has no top-level 'skills' object"
+    if not isinstance(skills, dict):
+        return None, f"{REGISTRY_REF}: 'skills' is {type(skills).__name__}, expected an object"
+    return skills, None
 
 
 def lv_status(entry: dict):
@@ -57,6 +80,15 @@ def lv_status(entry: dict):
 
 
 def main() -> int:
+    ap = argparse.ArgumentParser(
+        description="Gate: skills.json stateful fields must not regress vs origin/main.")
+    ap.add_argument(
+        "--allow-missing-baseline", action="store_true",
+        help="if origin/main's skills.json cannot be read or parsed, print SKIP and run the "
+             "SHAPE check only instead of exiting 2. The DOWNGRADE check is NOT performed. "
+             "For genuinely offline checkouts; CI must never pass this.")
+    args = ap.parse_args()
+
     current = load_current()
     violations: list[str] = []
 
@@ -71,11 +103,22 @@ def main() -> int:
                 "(absence = awaiting)"
             )
 
-    base = load_base()
-    if base is None:
-        print("check_registry_state: origin/main unreachable - downgrade check "
-              "SKIPPED (onboard.py register() guard still applies)")
-    else:
+    base, base_err = load_base()
+    if base_err is not None:
+        if not args.allow_missing_baseline:
+            print("check_registry_state: ENVIRONMENT ERROR - the trusted baseline could not "
+                  "be loaded, so the DOWNGRADE check did not run.")
+            print(f"  reason: {base_err}")
+            print("  This is NOT a pass: without the baseline this gate cannot see a branch "
+                  "that downgraded a live_verified receipt.")
+            print("  Fix: `git fetch origin main` (CI checks out with the remote present). "
+                  "For a deliberate offline run, pass --allow-missing-baseline, which SKIPS "
+                  "the downgrade check and verifies only the shape.")
+            return 2
+        print(f"check_registry_state: SKIP (not a pass) - {base_err}; DOWNGRADE check did NOT "
+              "run (--allow-missing-baseline). Shape check only; onboard.py register() guard "
+              "still applies.")
+    if base is not None:
         for slug, base_entry in base.items():
             if lv_status(base_entry) != "live-verified":
                 continue
@@ -97,7 +140,9 @@ def main() -> int:
         for v in violations:
             print(f"  - {v}")
         return 1
-    print(f"check_registry_state: OK ({len(current)} entries; no stateful regressions)")
+    scope = ("shape only; downgrade check SKIPPED" if base is None
+             else "shape + downgrade vs origin/main")
+    print(f"check_registry_state: OK ({len(current)} entries; {scope})")
     return 0
 
 

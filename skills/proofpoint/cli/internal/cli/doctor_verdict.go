@@ -16,6 +16,10 @@
 // the answer by status code instead of by substring.
 //
 // See issue #282 and skills/proofpoint/handfixes.json.
+//
+// Generated from a template: the import block must be gofmt-sorted after
+// substitution, because the module path sorts before or after github.com/
+// depending on the slug. Always run gofmt -w over the generated files.
 
 package cli
 
@@ -32,6 +36,17 @@ import (
 // the operator's own instance. Named in remedies so the operator is told the
 // fix, not just the symptom.
 const doctorBaseURLEnv = "PROOFPOINT_BASE_URL"
+
+// doctorShippedBaseURL is the literal base_url this connector ships with. An
+// operator who never set doctorBaseURLEnv is still on this exact value.
+//
+// Matching it EXACTLY matters. An earlier version of this check matched any
+// host containing "your-", which refuses a real operator domain: an MSP at
+// cipp.your-itdepartment.co.uk would be told their working install is a
+// placeholder and doctor would never dial it. Refusing to check a healthy
+// install is the same class of defect as blessing a broken one, pointed the
+// other way.
+const doctorShippedBaseURL = "https://tap-api-v2.proofpoint.com/v2"
 
 // doctorInfoKeys are report entries rendered without a status indicator:
 // paths, versions, and the free-text hints that tell an operator how to get a
@@ -74,23 +89,30 @@ func doctorBaseURLIsPlaceholder(base string) bool {
 	if strings.ContainsAny(base, "{}") {
 		return true
 	}
-	lower := strings.ToLower(base)
-	// Strip scheme so the markers below anchor on the host, not on a path
-	// segment an operator legitimately controls.
-	host := lower
+	// Still exactly what shipped: the operator has set nothing.
+	if doctorShippedBaseURL != "" && strings.EqualFold(strings.TrimRight(base, "/"), strings.TrimRight(doctorShippedBaseURL, "/")) {
+		return true
+	}
+	// A literal upper-case stand-in left in the path, e.g. /company/YOUR_REALM_ID.
+	if strings.Contains(base, "YOUR_") {
+		return true
+	}
+	// Reserved example domains can never be a real instance (RFC 2606), so
+	// matching the host suffix here cannot hit an operator's own domain the way
+	// a bare "your-" substring could.
+	host := strings.ToLower(base)
 	if i := strings.Index(host, "://"); i >= 0 {
 		host = host[i+3:]
 	}
-	if i := strings.IndexAny(host, "/?#"); i >= 0 {
+	if i := strings.IndexAny(host, "/?#:"); i >= 0 {
 		host = host[:i]
 	}
-	for _, marker := range []string{"your-", "your_", "yourcompany", "yourdomain", "yourmsp", "example.com", "example.net", "example.org", "changeme"} {
-		if strings.Contains(host, marker) {
+	for _, reserved := range []string{"example.com", "example.net", "example.org", "example.edu", "invalid", "localhost.example"} {
+		if host == reserved || strings.HasSuffix(host, "."+reserved) {
 			return true
 		}
 	}
-	// A literal upper-case stand-in left in the path, e.g. /company/YOUR_REALM_ID.
-	return strings.Contains(base, "YOUR_")
+	return false
 }
 
 // doctorReadProbe walks the Cobra tree for an endpoint-mirror command that is
@@ -186,6 +208,16 @@ func doctorProbeableLeaf(cmd *cobra.Command) string {
 // page or login redirect answers happily; leaving it green next to a failed
 // credential probe is how an operator reads "reachable" as "working".
 func doctorProbeCredentials(ctx context.Context, c *client.Client, root *cobra.Command, bin string, report map[string]any) {
+	// Ask the CLIENT whether it has a credential, not the config doctor loaded.
+	// They can disagree - a connector that resolves credentials through a client
+	// profile leaves the client with nothing to send while doctor's own config
+	// still looks populated. Probing anyway produces "valid" from a request that
+	// carried no credential at all, which is the exact false-OK this file exists
+	// to remove. avanan was doing this.
+	if c == nil || c.Config == nil || c.Config.AuthHeader() == "" {
+		report["credentials"] = "ERROR not verified: the client has no credential to send, so any response would say nothing about authentication."
+		return
+	}
 	apiPath, cmdPath := doctorReadProbe(root)
 	if apiPath == "" {
 		report["credentials"] = "WARN not verified: this API exposes no argument-free GET endpoint to probe. Run any read command to confirm the credential works end-to-end."
