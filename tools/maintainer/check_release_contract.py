@@ -2,17 +2,25 @@
 """Assert the install scripts and the release workflow agree on asset names.
 
 This is the gate that guarantees a user's `curl | bash` one-liner resolves to a
-real GitHub Release asset. For every skill it cross-checks three things:
+real GitHub Release asset. For every skill it cross-checks:
 
   1. install.sh CLI_BIN/MCP_BIN  ==  install.ps1 CliBin/McpBin (minus .exe)
-     ==  tools/skills.json cli_binary/mcp_binary.
-  2. The set of asset names the install scripts will DOWNLOAD
-     (CLI_BIN/MCP_BIN x the os/arch each script covers).
-  3. The set of asset names the release workflow will PRODUCE
-     (release_matrix.py: cli_bin/mcp_bin x TARGETS, .exe on windows).
-  ... and asserts set (2) == set (3) exactly.
+     ==  tools/maintainer/skills.json cli_binary/mcp_binary.
+  2. The asset names the install scripts will DOWNLOAD, RENDERED FROM THE
+     SCRIPTS' OWN URL TEMPLATES (install.sh `cli_url=`/`mcp_url=`, install.ps1
+     `$cliUrl`/`$mcpUrl`) with the os/arch each script covers substituted in.
+  3. The asset names the release workflow will PRODUCE - read from the SAME
+     shared source the workflow itself consumes: registry.asset_map(), which
+     release_matrix.py embeds into the build matrix as literal filenames.
+  ... and asserts set (2) == set (3) exactly, per skill.
 
-Run locally:  python3 tools/check_release_contract.py
+Because (3) now comes from the one shared function rather than a second hand-
+written copy of the "-<goos>-<goarch>" + windows ".exe" rule, a workflow that
+disagrees with this gate is no longer possible: both read the same names. What
+the gate still independently proves is that the shipped install scripts - real
+text, parsed here, not a mirror of it - resolve to those exact names.
+
+Run locally:  python3 tools/maintainer/check_release_contract.py
 """
 
 from __future__ import annotations
@@ -42,23 +50,87 @@ def _ps_var(text: str, name: str) -> str | None:
     return m.group(1) if m else None
 
 
-def install_expected_assets(cli_bin: str, mcp_bin: str) -> set[str]:
-    assets = set()
-    for bin_ in (cli_bin, mcp_bin):
-        for os_, arch in SH_TARGETS:
-            assets.add(f"{bin_}-{os_}-{arch}")
-        for os_, arch in PS_TARGETS:
-            assets.add(f"{bin_}-{os_}-{arch}.exe")
-    return assets
+# The asset-name templates the shipped installers actually use. We parse these
+# out of the real script text rather than re-declaring the naming rule, so an
+# edit to an installer's URL line is caught instead of silently agreeing with a
+# copy of itself.
+SH_URL_RE = {
+    "cli": re.compile(r'^cli_url="\$\{RELEASE_BASE\}/(?P<t>[^"]+)"', re.MULTILINE),
+    "mcp": re.compile(r'^mcp_url="\$\{RELEASE_BASE\}/(?P<t>[^"]+)"', re.MULTILINE),
+}
+PS_URL_RE = {
+    "cli": re.compile(r'^\$cliUrl\s*=\s*"\$ReleaseBase/(?P<t>[^"]+)"', re.MULTILINE),
+    "mcp": re.compile(r'^\$mcpUrl\s*=\s*"\$ReleaseBase/(?P<t>[^"]+)"', re.MULTILINE),
+}
+
+
+# Only the variable belonging to THIS kind is substituted, so a cli_url line
+# that mistakenly interpolates ${MCP_BIN} leaves an unresolved "$" and is
+# reported instead of quietly rendering the right-looking name.
+SH_BIN_VAR = {"cli": "${CLI_BIN}", "mcp": "${MCP_BIN}"}
+PS_BIN_VAR = {"cli": "$($CliBin.Replace('.exe',''))",
+              "mcp": "$($McpBin.Replace('.exe',''))"}
+
+
+def _render_sh(template: str, kind: str, binary: str, os_: str, arch: str) -> str:
+    """Render an install.sh URL-tail template for one target."""
+    return (template
+            .replace(SH_BIN_VAR[kind], binary)
+            .replace("${os}", os_)
+            .replace("${arch}", arch))
+
+
+def _render_ps(template: str, kind: str, binary: str, arch: str) -> str:
+    """Render an install.ps1 URL-tail template for one target.
+
+    `$CliBin`/`$McpBin` carry the .exe suffix in PowerShell, and the script
+    strips it with .Replace('.exe','') before appending the target suffix; the
+    `binary` passed here is already the stripped registry name.
+    """
+    return (template
+            .replace(PS_BIN_VAR[kind], binary)
+            .replace("$arch", arch))
+
+
+def install_expected_assets(sh: str, ps: str, cli_bin: str, mcp_bin: str) -> tuple[set[str], list[str]]:
+    """Asset names the installers will fetch, rendered from their own templates.
+
+    Returns (names, problems); a problem is a missing template or one that still
+    has an unresolved variable after substitution.
+    """
+    assets: set[str] = set()
+    problems: list[str] = []
+
+    for kind, binary in (("cli", cli_bin), ("mcp", mcp_bin)):
+        m = SH_URL_RE[kind].search(sh)
+        if not m:
+            problems.append(f"install.sh: no {kind}_url=\"${{RELEASE_BASE}}/...\" line found")
+        else:
+            for os_, arch in SH_TARGETS:
+                name = _render_sh(m.group("t"), kind, binary, os_, arch)
+                if "$" in name:
+                    problems.append(f"install.sh {kind}_url template leaves an unresolved variable: {name!r}")
+                assets.add(name)
+
+        m = PS_URL_RE[kind].search(ps)
+        if not m:
+            problems.append(f"install.ps1: no ${kind}Url = \"$ReleaseBase/...\" line found")
+        else:
+            for _os, arch in PS_TARGETS:
+                name = _render_ps(m.group("t"), kind, binary, arch)
+                if "$" in name:
+                    problems.append(f"install.ps1 ${kind}Url template leaves an unresolved variable: {name!r}")
+                assets.add(name)
+
+    return assets, problems
 
 
 def release_produced_assets(cli_bin: str, mcp_bin: str) -> set[str]:
-    assets = set()
-    for bin_ in (cli_bin, mcp_bin):
-        for t in registry.TARGETS:
-            ext = ".exe" if t["goos"] == "windows" else ""
-            assets.add(f"{bin_}-{t['goos']}-{t['goarch']}{ext}")
-    return assets
+    """Asset names the release will upload - the SAME shared function the build
+    matrix (and therefore release.yml) resolves its upload filenames through."""
+    return {name
+            for per_target in registry.asset_map(cli_bin, mcp_bin).values()
+            for name in per_target.values()}
 
 
 def main() -> int:
@@ -91,7 +163,9 @@ def main() -> int:
                 errors.append(f"{slug}: {label} is {got!r}, expected {want!r} (from skills.json)")
 
         # (2) == (3): the assets installers fetch == the assets release builds.
-        expected = install_expected_assets(reg_cli, reg_mcp)
+        expected, problems = install_expected_assets(sh, ps, reg_cli, reg_mcp)
+        for p in problems:
+            errors.append(f"{slug}: {p}")
         produced = release_produced_assets(reg_cli, reg_mcp)
         missing = expected - produced
         extra = produced - expected

@@ -317,10 +317,11 @@ def expected_assets(slug: str, meta: dict) -> set[str]:
     """The complete asset set a release for this slug ships: the release
     workflow's binaries, their .sha256 sidecars, and the .mcpb bundle."""
     assets: set[str] = set()
-    for binary in (meta["cli_binary"], meta["mcp_binary"]):
-        for t in registry.TARGETS:
-            ext = ".exe" if t["goos"] == "windows" else ""
-            name = f"{binary}-{t['goos']}-{t['goarch']}{ext}"
+    # Names come from registry.asset_map - the same function release_matrix.py
+    # feeds into the build matrix release.yml uploads from - so this gate can
+    # never expect a filename the release does not actually produce.
+    for per_target in registry.asset_map(meta["cli_binary"], meta["mcp_binary"]).values():
+        for name in per_target.values():
             assets.add(name)
             assets.add(name + ".sha256")
     assets.add(f"{meta['mcp_binary']}.mcpb")

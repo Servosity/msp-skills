@@ -164,14 +164,26 @@ jobs:
           GOOS: ${{ matrix.target.goos }}
           GOARCH: ${{ matrix.target.goarch }}
           CGO_ENABLED: "0"
+          # SINGLE SOURCE OF TRUTH for asset filenames. These are the FINAL
+          # literal names, computed by registry.asset_map() and embedded in the
+          # matrix by tools/maintainer/release_matrix.py - the same function
+          # tools/maintainer/check_release_contract.py checks the install scripts
+          # against. This workflow no longer rebuilds the "-<goos>-<goarch>"
+          # suffix or the windows ".exe" rule in shell, so it cannot drift away
+          # from the gate that is supposed to police it (before this, the
+          # contract check could pass green while the workflow uploaded
+          # something else entirely).
+          CLI_ASSET: ${{ matrix.skill.assets[format('{0}-{1}', matrix.target.goos, matrix.target.goarch)].cli }}
+          MCP_ASSET: ${{ matrix.skill.assets[format('{0}-{1}', matrix.target.goos, matrix.target.goarch)].mcp }}
         run: |
           set -euo pipefail
           skill="${{ matrix.skill.name }}"
           # Each skill is tagged and released independently
           # (<slug>-v<semver>); a tag builds only its matching skill. The slug
           # is derived generically from the tag, so a new skill needs no edit
-          # here. Asset names match exactly what skills/<skill>/install.sh and
-          # install.ps1 download.
+          # here. Asset names come from the matrix (see CLI_ASSET/MCP_ASSET
+          # above) and are proven equal to what skills/<skill>/install.sh and
+          # install.ps1 download by tools/maintainer/check_release_contract.py.
           tag_skill="${TAG%-v*}"      # halopsa-v0.1.0 -> halopsa
           version="${TAG##*-v}"       # halopsa-v0.1.0 -> 0.1.0
 
@@ -188,11 +200,16 @@ jobs:
           # This matrix row builds only the skill the tag names.
           [ "$skill" = "$tag_skill" ] || { echo "Tag $TAG: skipping $skill (this tag releases $tag_skill)."; exit 0; }
 
-          ext=""
-          [ "$GOOS" = "windows" ] && ext=".exe"
-          suffix="${GOOS}-${GOARCH}${ext}"
-          cli="${{ matrix.skill.cli_bin }}-${suffix}"
-          mcp="${{ matrix.skill.mcp_bin }}-${suffix}"
+          # Asset names come from the matrix (registry.asset_map), never from
+          # string-building here. Fail loudly rather than uploading an empty or
+          # half-formed name if the matrix ever lacks this target's entry.
+          cli="$CLI_ASSET"
+          mcp="$MCP_ASSET"
+          if [ -z "$cli" ] || [ -z "$mcp" ]; then
+            echo "::error::matrix carries no asset names for ${GOOS}-${GOARCH};"
+            echo "::error::regenerate with tools/maintainer/release_matrix.py"
+            exit 1
+          fi
 
           # $version (derived above as ${TAG##*-v}) is stamped into the CLI,
           # matching the prior goreleaser config.
