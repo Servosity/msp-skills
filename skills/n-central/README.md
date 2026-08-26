@@ -46,7 +46,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download N-able N-central MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/n-central-v0.1.1/n-central-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every N-able N-central release on the [releases page](https://github.com/servosity/msp-skills/releases?q=n-central).)
+[**Download N-able N-central MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/n-central-v0.1.2/n-central-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every N-able N-central release on the [releases page](https://github.com/servosity/msp-skills/releases?q=n-central).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
