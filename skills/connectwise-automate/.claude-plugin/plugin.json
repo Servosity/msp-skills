@@ -1,6 +1,6 @@
 {
   "name": "connectwise-automate",
-  "version": "0.1.2",
+  "version": "0.1.1",
   "description": "Sync your entire ConnectWise Automate fleet into local SQLite and answer cross-client questions the per-server web UI can't: fleet-wide health roll-ups, stale-agent sweeps, patch-compliance-by-client, and overnight drift.",
   "author": {
     "name": "Servosity",

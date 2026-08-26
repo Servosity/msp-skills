@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "liongard-mcp",
   "display_name": "Liongard",
-  "version": "0.1.2",
+  "version": "0.1.1",
   "description": "Every Liongard endpoint, plus an offline copy of your whole MSP estate you can join, search, and drift-check from one command.",
   "author": {
     "name": "Servosity Inc."

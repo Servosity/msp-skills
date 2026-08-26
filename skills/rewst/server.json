@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/rewst-mcp",
   "title": "Rewst MCP",
   "description": "Operate and monitor Rewst RPA across every client org: automation health, failures, ROI, and drift.",
-  "version": "0.1.2",
+  "version": "0.1.1",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/rewst/rewst-512x512.png",
@@ -21,8 +21,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/rewst-v0.1.2/rewst-mcp.mcpb",
-      "version": "0.1.2",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/rewst-v0.1.1/rewst-mcp.mcpb",
+      "version": "0.1.1",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"

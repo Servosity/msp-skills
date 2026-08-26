@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "abnormal-mcp",
   "display_name": "Abnormal Security",
-  "version": "0.1.2",
+  "version": "0.1.1",
   "description": "The full Abnormal Security REST API as an agent-ready CLI \u2014 with a local threat store, ranked SOC triage, and one-shot reporting no SOAR pack offers.",
   "author": {
     "name": "Servosity Inc."

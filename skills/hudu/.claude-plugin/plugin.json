@@ -1,6 +1,6 @@
 {
   "name": "hudu",
-  "version": "0.1.8",
+  "version": "0.1.7",
   "description": "Every Hudu cmdlet, plus an offline SQLite mirror, cross-entity audits, and agent-native output no PowerShell module or read-only MCP ships.",
   "author": {
     "name": "Servosity",

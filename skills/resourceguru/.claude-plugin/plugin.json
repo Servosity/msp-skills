@@ -1,6 +1,6 @@
 {
   "name": "resourceguru",
-  "version": "0.1.2",
+  "version": "0.1.1",
   "description": "Every Resource Guru endpoint as a typed command, plus a local database and per-resource per-day utilization no Resource Guru report gives you.",
   "author": {
     "name": "Servosity",

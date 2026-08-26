@@ -1,6 +1,6 @@
 {
   "name": "itglue",
-  "version": "0.1.2",
+  "version": "0.1.1",
   "description": "Every IT Glue resource, plus an offline SQLite mirror, fleet-wide cross-resource search, and documentation-hygiene analytics no other IT Glue tool offers.",
   "author": {
     "name": "Servosity",
