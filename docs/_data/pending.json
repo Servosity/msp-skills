@@ -339,7 +339,7 @@
     "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "resourceguru-v0.1.1",
-    "current_hash": "sha256:8eafd76753b0c9ce85e81d233e7a867f42018463505bac16c3c1f342c82533a1",
+    "current_hash": "sha256:52b67e0d20812c75db62493f3a80b045e2ea1ac78c8412d6959849c7dfe4c017",
     "released_hash": "sha256:a18c5e6317cc3c621bba7cace80d4f7c5244cb9d7d77c39e352169188d7f498c"
   },
   "rewst": {
