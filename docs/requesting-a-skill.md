@@ -11,6 +11,10 @@ You don't see your PSA, RMM, backup, or M365 tool listed yet? Tell us. This is t
 
 No code experience required. No terminal. No GitHub-fu. If you can fill in a web form, you can do this.
 
+## No GitHub account?
+
+You don't need one. **[Use the plain web form instead →](/request-or-report/)** It takes about a minute, a person reads it, and we file the public issue for you. That page also covers the other direction: telling us a connector already worked against your tenant. The rest of this page is the GitHub route.
+
 ## What "filing an issue" actually means
 
 A GitHub "issue" is just a public note on the project. Anyone can read it, anyone can vote (👍) it. We use the votes to rank what to build next. Filing one takes about a minute.
