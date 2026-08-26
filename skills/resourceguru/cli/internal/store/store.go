@@ -48,15 +48,55 @@ func IsUUID(s string) bool {
 
 // StoreSchemaVersion is the on-disk schema version this binary understands.
 // It is stamped into SQLite's PRAGMA user_version on fresh databases and
-// checked on every open. Non-learn CLIs advance to v4 for the
-// resources_fts content extraction.
-const StoreSchemaVersion = 4
+// checked on every open, write-capable and read-only alike. Non-learn CLIs
+// advance to v4 for the resources_fts content extraction.
+//
+// v5 moves the typed `resources` projection off the generic catch-all table:
+// the typed table is now `accounts_resources`, and the 21 flattened columns
+// plus five indexes the old code ALTER-ed onto the catch-all are dropped from
+// it by catchAllProjectionSchemaVersion's migration. The bump is load-bearing,
+// not cosmetic. Without it a v4 binary (resourceguru-v0.1.0 / v0.1.1) opening
+// a migrated store would run its own backfillColumns and ALTER all 21 columns
+// straight back onto the catch-all - damage a newer binary cannot detect,
+// because the columns look identical whether they were re-added yesterday or
+// never removed. The gate below turns that into a refusal to open.
+//
+// SCOPE OF THAT REFUSAL, stated precisely. In the released v0.1.0 / v0.1.1
+// binaries the gate runs only inside migrate(), which only the WRITE-CAPABLE
+// OpenWithContext path calls. Their read-only path (OpenReadOnlyContext, which
+// the generated endpoint read commands reach through resolveLocal ->
+// openStoreForRead when --data-source is local or auto, and which both MCP data
+// tools take through OpenReadOnly) attaches without reading user_version at
+// all, so an already-released binary still ATTACHES a v5 store read-only. NOT
+// every CLI read command takes that path: the CLI's own `search` command, the
+// analytics commands (openUtilStore) and `pm load` open WRITE-CAPABLE through
+// OpenWithContext, so on those the released gate did fire. The damage class is bounded and
+// worth naming exactly: a mode=ro handle runs no migration and no
+// backfillColumns, so it cannot recreate the dropped columns or re-pollute the
+// catch-all, which is the whole point of the bump. What it can do is read a
+// schema it does not expect - its `search --type resources` finds no
+// resources_fts rows for the typed shape it thinks exists, and any query it
+// aims at the old flattened columns on the catch-all now errors with
+// "no such column" instead of answering NULLs. Nothing silently regresses; an
+// old read-only client either answers from the catch-all JSON, which is
+// unchanged, or fails loudly.
+//
+// This binary closes that hole going FORWARD: OpenReadOnlyContext runs the same
+// schemaVersionUnsupported gate, so a client built from this code onwards meets
+// a newer store with a clean refusal rather than an unexpected schema.
+const StoreSchemaVersion = 5
 
 // resourcesFTSContentSchemaVersion pins the schema bump that rewrote
 // resources_fts content from raw JSON to searchable leaf values. Keep this
 // separate from StoreSchemaVersion so future unrelated migrations do not
 // trigger an expensive full FTS rebuild.
 const resourcesFTSContentSchemaVersion = 4
+
+// catchAllProjectionSchemaVersion pins the schema bump that removed the typed
+// `resources` projection columns and indexes from the generic catch-all table.
+// Separate from StoreSchemaVersion for the same reason as the FTS constant: a
+// later unrelated bump must not re-run this sweep.
+const catchAllProjectionSchemaVersion = 5
 
 const resourcesFTSCreateSQL = `CREATE VIRTUAL TABLE IF NOT EXISTS resources_fts USING fts5(
 	id, resource_type, content, tokenize='porter unicode61'
@@ -109,6 +149,22 @@ func OpenReadOnly(dbPath string) (*Store, error) {
 
 // OpenReadOnlyContext is OpenReadOnly with a caller-supplied context honored by
 // the driver-init SQLITE_BUSY retry.
+//
+// It runs the same schemaVersionUnsupported gate the write-capable path runs,
+// which the released v0.1.0 / v0.1.1 binaries do NOT: their gate lives inside
+// migrate(), and a read-only open never calls it. Hand-added; see
+// handfixes.json, record `typed-resources-table-parent-prefixed`. Without it
+// the "older binaries cannot open a migrated store" property held for
+// write-capable opens only, and the read-only paths of this connector - the
+// generated endpoint read commands reaching resolveLocal -> openStoreForRead
+// with --data-source local or auto, and both MCP data tools (search, sql) -
+// attached to a future schema unchecked and answered from it. The CLI's own
+// `search` command is NOT one of them: it opens write-capable through
+// OpenWithContext, as do the analytics commands and `pm load`.
+//
+// Read-only, so it never stamps and never migrates: a database that predates
+// the gate reports user_version 0, which is older-than-supported and passes.
+// Only a store NEWER than this binary understands is refused.
 func OpenReadOnlyContext(ctx context.Context, dbPath string) (*Store, error) {
 	dsn := "file:" + dbPath + "?mode=ro&_pragma=busy_timeout(5000)&_pragma=foreign_keys(ON)&_pragma=temp_store(MEMORY)&_pragma=mmap_size(268435456)"
 	if err := ensureSQLiteDriverInitialized(ctx, dsn); err != nil {
@@ -120,6 +176,22 @@ func OpenReadOnlyContext(ctx context.Context, dbPath string) (*Store, error) {
 		return nil, fmt.Errorf("opening database (read-only): %w", err)
 	}
 	db.SetMaxOpenConns(2)
+
+	// Share the migration budget's shape: a read concurrent with a writer's WAL
+	// checkpoint can BUSY even this PRAGMA, and failing the open on a transient
+	// lock would be worse than the gate it guards.
+	var current int
+	if err := retryOnBusy(ctx, time.Now().Add(migrationLockTimeout), "reading schema version (read-only)", func() error {
+		return db.QueryRowContext(ctx, `PRAGMA user_version`).Scan(&current)
+	}); err != nil {
+		db.Close()
+		return nil, err
+	}
+	if err := schemaVersionUnsupported(current, StoreSchemaVersion); err != nil {
+		db.Close()
+		return nil, err
+	}
+
 	return &Store{db: db, path: dbPath}, nil
 }
 
@@ -495,27 +567,38 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "resource_types", column: "human", decl: "INTEGER"},
 		{table: "resource_types", column: "name", decl: "TEXT"},
 		{table: "resource_types", column: "updated_at", decl: "TEXT"},
-		{table: "resources", column: "archived", decl: "INTEGER"},
-		{table: "resources", column: "bookable", decl: "INTEGER"},
-		{table: "resources", column: "color", decl: "TEXT"},
-		{table: "resources", column: "created_at", decl: "TEXT"},
-		{table: "resources", column: "creator_id", decl: "INTEGER"},
-		{table: "resources", column: "email", decl: "TEXT"},
-		{table: "resources", column: "first_name", decl: "TEXT"},
-		{table: "resources", column: "human", decl: "INTEGER"},
-		{table: "resources", column: "image", decl: "TEXT"},
-		{table: "resources", column: "job_title", decl: "TEXT"},
-		{table: "resources", column: "last_name", decl: "TEXT"},
-		{table: "resources", column: "last_updated_by", decl: "INTEGER"},
-		{table: "resources", column: "minutes_per_day", decl: "INTEGER"},
-		{table: "resources", column: "name", decl: "TEXT"},
-		{table: "resources", column: "notes", decl: "TEXT"},
-		{table: "resources", column: "phone", decl: "TEXT"},
-		{table: "resources", column: "updated_at", decl: "TEXT"},
-		{table: "resources", column: "url", decl: "TEXT"},
-		{table: "resources", column: "user_id", decl: "INTEGER"},
-		{table: "resources", column: "vacation_allowance", decl: "INTEGER"},
-		{table: "resources", column: "parent_id", decl: "TEXT"},
+		// The API resource named "resources" would collide with the
+		// framework's generic catch-all `resources` table, so its typed
+		// domain table is parent-prefixed to `accounts_resources` - the
+		// same disambiguation the generator already applies to
+		// `resources_bookings` / `clients_bookings`, and the parent is the
+		// account the collection hangs off (/v1/{account}/resources).
+		// These backfills MUST name the typed table too. Pointed at the
+		// catch-all they add 21 columns nothing ever populates, so
+		// the MCP `sql` tool answers `SELECT name, email FROM resources`
+		// with a row of NULLs per synced record instead of erroring - a
+		// silent wrong answer on the connector's headline resource.
+		{table: "accounts_resources", column: "archived", decl: "INTEGER"},
+		{table: "accounts_resources", column: "bookable", decl: "INTEGER"},
+		{table: "accounts_resources", column: "color", decl: "TEXT"},
+		{table: "accounts_resources", column: "created_at", decl: "TEXT"},
+		{table: "accounts_resources", column: "creator_id", decl: "INTEGER"},
+		{table: "accounts_resources", column: "email", decl: "TEXT"},
+		{table: "accounts_resources", column: "first_name", decl: "TEXT"},
+		{table: "accounts_resources", column: "human", decl: "INTEGER"},
+		{table: "accounts_resources", column: "image", decl: "TEXT"},
+		{table: "accounts_resources", column: "job_title", decl: "TEXT"},
+		{table: "accounts_resources", column: "last_name", decl: "TEXT"},
+		{table: "accounts_resources", column: "last_updated_by", decl: "INTEGER"},
+		{table: "accounts_resources", column: "minutes_per_day", decl: "INTEGER"},
+		{table: "accounts_resources", column: "name", decl: "TEXT"},
+		{table: "accounts_resources", column: "notes", decl: "TEXT"},
+		{table: "accounts_resources", column: "phone", decl: "TEXT"},
+		{table: "accounts_resources", column: "updated_at", decl: "TEXT"},
+		{table: "accounts_resources", column: "url", decl: "TEXT"},
+		{table: "accounts_resources", column: "user_id", decl: "INTEGER"},
+		{table: "accounts_resources", column: "vacation_allowance", decl: "INTEGER"},
+		{table: "accounts_resources", column: "parent_id", decl: "TEXT"},
 		{table: "availability", column: "resources_id", decl: "TEXT"},
 		{table: "resources_bookings", column: "resources_id", decl: "TEXT"},
 		{table: "resources_bookings", column: "parent_id", decl: "TEXT"},
@@ -612,8 +695,8 @@ func (s *Store) migrate(ctx context.Context) error {
 	}); err != nil {
 		return err
 	}
-	if current > StoreSchemaVersion {
-		return fmt.Errorf("database schema version %d is newer than supported version %d; upgrade the CLI binary or open an older database", current, StoreSchemaVersion)
+	if err := schemaVersionUnsupported(current, StoreSchemaVersion); err != nil {
+		return err
 	}
 
 	migrations := []string{
@@ -1096,7 +1179,13 @@ func (s *Store) migrate(ctx context.Context) error {
 		)`,
 		`CREATE INDEX IF NOT EXISTS "idx_resource_types_created_at" ON "resource_types"("created_at")`,
 		`CREATE INDEX IF NOT EXISTS "idx_resource_types_updated_at" ON "resource_types"("updated_at")`,
-		`CREATE TABLE IF NOT EXISTS "resources" (
+		// Parent-prefixed to avoid colliding with the generic catch-all
+		// `resources` table created at the top of this slice. A bare
+		// "resources" typed table loses the CREATE TABLE IF NOT EXISTS race
+		// to the catch-all, and every typed insert then runs against the
+		// catch-all's column set. The parent is the account the collection
+		// hangs off (/v1/{account}/resources).
+		`CREATE TABLE IF NOT EXISTS "accounts_resources" (
 			"id" TEXT PRIMARY KEY,
 			"data" JSON NOT NULL,
 			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -1122,25 +1211,35 @@ func (s *Store) migrate(ctx context.Context) error {
 			"vacation_allowance" INTEGER,
 			"parent_id" TEXT
 		)`,
-		`CREATE INDEX IF NOT EXISTS "idx_resources_creator_id" ON "resources"("creator_id")`,
-		`CREATE INDEX IF NOT EXISTS "idx_resources_user_id" ON "resources"("user_id")`,
-		`CREATE INDEX IF NOT EXISTS "idx_resources_created_at" ON "resources"("created_at")`,
-		`CREATE INDEX IF NOT EXISTS "idx_resources_updated_at" ON "resources"("updated_at")`,
-		`CREATE INDEX IF NOT EXISTS "idx_resources_parent_id" ON "resources"("parent_id")`,
-		`CREATE VIRTUAL TABLE IF NOT EXISTS "resources_fts" USING fts5(
+		`CREATE INDEX IF NOT EXISTS "idx_accounts_resources_creator_id" ON "accounts_resources"("creator_id")`,
+		`CREATE INDEX IF NOT EXISTS "idx_accounts_resources_user_id" ON "accounts_resources"("user_id")`,
+		`CREATE INDEX IF NOT EXISTS "idx_accounts_resources_created_at" ON "accounts_resources"("created_at")`,
+		`CREATE INDEX IF NOT EXISTS "idx_accounts_resources_updated_at" ON "accounts_resources"("updated_at")`,
+		`CREATE INDEX IF NOT EXISTS "idx_accounts_resources_parent_id" ON "accounts_resources"("parent_id")`,
+		// The typed FTS shadow is parent-prefixed for the same reason as its
+		// content table: a bare "resources_fts" collides with the generic
+		// catch-all FTS index (id, resource_type, content) that
+		// upsertGenericResourceTx maintains by hand.
+		`CREATE VIRTUAL TABLE IF NOT EXISTS "accounts_resources_fts" USING fts5(
 			"name",
 			"notes",
-			content='resources',
+			content='accounts_resources',
 			content_rowid='rowid'
 		)`,
-		// NOTE: the typed resources_ai/ad/au FTS triggers were removed. The API
-		// has a resource literally named "resources", which collides with the
-		// framework's generic catch-all `resources` table. The typed-domain
-		// triggers referenced name/notes columns that the catch-all table does
-		// not have, so they fired and failed on every insert (all sync writes).
-		// The catch-all maintains resources_fts (id, resource_type, content)
-		// manually in upsertGenericResourceTx, so the triggers were pure
-		// collision debris. (Generator bug — filed for retro.)
+		`CREATE TRIGGER IF NOT EXISTS "accounts_resources_ai" AFTER INSERT ON "accounts_resources" BEGIN
+			INSERT INTO "accounts_resources_fts"(rowid, "name", "notes")
+			VALUES (new.rowid,new."name", new."notes");
+		END`,
+		`CREATE TRIGGER IF NOT EXISTS "accounts_resources_ad" AFTER DELETE ON "accounts_resources" BEGIN
+			INSERT INTO "accounts_resources_fts"("accounts_resources_fts", rowid, "name", "notes")
+			VALUES ('delete', old.rowid,old."name", old."notes");
+		END`,
+		`CREATE TRIGGER IF NOT EXISTS "accounts_resources_au" AFTER UPDATE ON "accounts_resources" BEGIN
+			INSERT INTO "accounts_resources_fts"("accounts_resources_fts", rowid, "name", "notes")
+			VALUES ('delete', old.rowid,old."name", old."notes");
+			INSERT INTO "accounts_resources_fts"(rowid, "name", "notes")
+			VALUES (new.rowid,new."name", new."notes");
+		END`,
 		`CREATE TABLE IF NOT EXISTS "availability" (
 			"id" TEXT PRIMARY KEY,
 			"resources_id" TEXT NOT NULL,
@@ -1291,8 +1390,8 @@ func (s *Store) migrate(ctx context.Context) error {
 		if err := conn.QueryRowContext(ctx, `PRAGMA user_version`).Scan(&current); err != nil {
 			return fmt.Errorf("reading schema version: %w", err)
 		}
-		if current > StoreSchemaVersion {
-			return fmt.Errorf("database schema version %d is newer than supported version %d; upgrade the CLI binary or open an older database", current, StoreSchemaVersion)
+		if err := schemaVersionUnsupported(current, StoreSchemaVersion); err != nil {
+			return err
 		}
 
 		if current < 2 {
@@ -1303,6 +1402,14 @@ func (s *Store) migrate(ctx context.Context) error {
 		if current == 2 {
 			if err := s.migrateResourcesFTSRowIDs(ctx, conn); err != nil {
 				return fmt.Errorf("migrating resources FTS rowids: %w", err)
+			}
+		}
+		// Runs before backfillColumns so the catch-all is clean before the
+		// index statements later in the slice run against it. backfillColumns
+		// now names accounts_resources, so nothing puts these columns back.
+		if current < catchAllProjectionSchemaVersion {
+			if err := s.dropCatchAllResourcesProjection(ctx, conn); err != nil {
+				return fmt.Errorf("dropping catch-all resources projection: %w", err)
 			}
 		}
 
@@ -1333,6 +1440,149 @@ func (s *Store) migrate(ctx context.Context) error {
 		}
 		return nil
 	})
+}
+
+// schemaVersionUnsupported is the version gate every open runs, twice: once
+// before the migration lock and once inside it. It is a named function rather
+// than an inline comparison so a test can drive it with the version an OLDER
+// released binary supported and prove that binary refuses a store this one
+// has migrated. Callers pass StoreSchemaVersion as supported.
+func schemaVersionUnsupported(current, supported int) error {
+	if current <= supported {
+		return nil
+	}
+	return fmt.Errorf("database schema version %d is newer than supported version %d; upgrade the CLI binary or open an older database", current, supported)
+}
+
+// catchAllGenericColumns is the generic catch-all `resources` table's own
+// declared shape. Anything else on that table is projection debris from the
+// pre-v5 backfill, and only names outside this set are eligible to be dropped.
+var catchAllGenericColumns = map[string]bool{
+	"id":            true,
+	"resource_type": true,
+	"data":          true,
+	"synced_at":     true,
+	"updated_at":    true,
+}
+
+// legacyCatchAllProjectionColumns is the flattened `resources` projection the
+// pre-v5 backfillColumns ALTER-ed onto the generic catch-all table, minus
+// `updated_at`, which the catch-all declares itself and which must survive.
+var legacyCatchAllProjectionColumns = []string{
+	"archived",
+	"bookable",
+	"color",
+	"created_at",
+	"creator_id",
+	"email",
+	"first_name",
+	"human",
+	"image",
+	"job_title",
+	"last_name",
+	"last_updated_by",
+	"minutes_per_day",
+	"name",
+	"notes",
+	"phone",
+	"url",
+	"user_id",
+	"vacation_allowance",
+	"parent_id",
+}
+
+// legacyCatchAllProjectionIndexes is the five indexes the pre-v5 migrations
+// slice created over those columns on the catch-all. SQLite refuses DROP
+// COLUMN while an index covers the column, so these go first. All five are
+// projection debris: the catch-all's own indexes are idx_resources_type and
+// idx_resources_synced, which this list deliberately does not touch.
+var legacyCatchAllProjectionIndexes = []string{
+	"idx_resources_creator_id",
+	"idx_resources_user_id",
+	"idx_resources_created_at",
+	"idx_resources_updated_at",
+	"idx_resources_parent_id",
+}
+
+// dropCatchAllResourcesProjection removes the flattened `resources` projection
+// columns and their indexes from the GENERIC catch-all table. It runs once, on
+// the v4-to-v5 upgrade.
+//
+// Why it is safe to drop rather than merely stop adding: no released binary has
+// ever written a value into any of these columns. `upsertResourcesTx` is a
+// no-op in both resourceguru-v0.1.0 and resourceguru-v0.1.1 (the two blobs are
+// byte-identical, and git log returns exactly one content commit for store.go
+// before this change), and the only statement any released code ever ran
+// against the catch-all is upsertGenericResourceTx's
+// `INSERT INTO resources (id, resource_type, data, synced_at, updated_at)`.
+// The columns were created by ALTER TABLE ADD COLUMN with no DEFAULT, so every
+// row holds NULL in all of them.
+//
+// That analysis is asserted at runtime rather than trusted: each column is
+// dropped only after a COUNT proves it holds no non-NULL value. A column that
+// somehow does carry data is KEPT and named on stderr, so the migration cannot
+// destroy a value under any history this reasoning failed to anticipate. The
+// JSON catch-all rows themselves are never touched.
+func (s *Store) dropCatchAllResourcesProjection(ctx context.Context, conn *sql.Conn) error {
+	exists, err := tableExists(ctx, conn, "resources")
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return nil
+	}
+
+	// Only ever operate on the genuine catch-all. A `resources` table without
+	// resource_type is the typed shape, which no released binary can produce
+	// and which the migrations slice rejects loudly a few statements later.
+	present := map[string]bool{}
+	rows, err := conn.QueryContext(ctx, `SELECT name FROM pragma_table_info('resources')`)
+	if err != nil {
+		return fmt.Errorf("reading catch-all columns: %w", err)
+	}
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			rows.Close()
+			return fmt.Errorf("scanning catch-all columns: %w", err)
+		}
+		present[name] = true
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return fmt.Errorf("reading catch-all columns: %w", err)
+	}
+	rows.Close()
+	if !present["resource_type"] {
+		return nil
+	}
+
+	for _, idx := range legacyCatchAllProjectionIndexes {
+		if _, err := conn.ExecContext(ctx, fmt.Sprintf(`DROP INDEX IF EXISTS %q`, idx)); err != nil {
+			return fmt.Errorf("dropping catch-all projection index %s: %w", idx, err)
+		}
+	}
+
+	for _, col := range legacyCatchAllProjectionColumns {
+		if catchAllGenericColumns[col] || !present[col] {
+			continue
+		}
+		quoted := `"` + strings.ReplaceAll(col, `"`, `""`) + `"`
+		var populated int
+		if err := conn.QueryRowContext(ctx,
+			fmt.Sprintf(`SELECT COUNT(*) FROM "resources" WHERE %s IS NOT NULL`, quoted),
+		).Scan(&populated); err != nil {
+			return fmt.Errorf("checking catch-all column %s for data: %w", col, err)
+		}
+		if populated > 0 {
+			fmt.Fprintf(os.Stderr, "warning: leaving column %q on the generic resources table: it holds %d non-NULL values and no released binary should ever have written one; report this database\n", col, populated)
+			continue
+		}
+		if _, err := conn.ExecContext(ctx, fmt.Sprintf(`ALTER TABLE "resources" DROP COLUMN %s`, quoted)); err != nil {
+			return fmt.Errorf("dropping catch-all projection column %s: %w", col, err)
+		}
+	}
+	return nil
 }
 
 func (s *Store) migrateResourcesCompositeKey(ctx context.Context, conn *sql.Conn) error {
@@ -3307,17 +3557,41 @@ func (s *Store) UpsertResourceTypes(data json.RawMessage) error {
 // and for committing the tx. Splitting this out lets UpsertBatch dispatch
 // domain inserts per item without opening a per-item transaction.
 func (s *Store) upsertResourcesTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
-	// NOTE: no-op. The API resource named "resources" collides with the
-	// framework's generic catch-all `resources` table, so the typed-domain
-	// `resources` table never gets created (the catch-all CREATE wins the
-	// IF NOT EXISTS race). The generic insert in upsertGenericResourceTx
-	// already persists the full resource JSON under resource_type='resources',
-	// which List/search/sql and the utilization engine read. A typed insert
-	// here would target the catch-all table's column set and fail.
-	// (Generator collision bug — filed for retro.)
-	_ = id
-	_ = obj
-	_ = data
+	// The typed table is `accounts_resources`, not a bare `resources`: that
+	// name belongs to the framework's generic catch-all table, and a typed
+	// insert against the catch-all's column set fails on every row.
+	if _, err := tx.Exec(
+		`INSERT INTO "accounts_resources" ("id", "data", "synced_at", "archived", "bookable", "color", "created_at", "creator_id", "email", "first_name", "human", "image", "job_title", "last_name", "last_updated_by", "minutes_per_day", "name", "notes", "phone", "updated_at", "url", "user_id", "vacation_allowance", "parent_id")
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "archived" = excluded."archived", "bookable" = excluded."bookable", "color" = excluded."color", "created_at" = excluded."created_at", "creator_id" = excluded."creator_id", "email" = excluded."email", "first_name" = excluded."first_name", "human" = excluded."human", "image" = excluded."image", "job_title" = excluded."job_title", "last_name" = excluded."last_name", "last_updated_by" = excluded."last_updated_by", "minutes_per_day" = excluded."minutes_per_day", "name" = excluded."name", "notes" = excluded."notes", "phone" = excluded."phone", "updated_at" = excluded."updated_at", "url" = excluded."url", "user_id" = excluded."user_id", "vacation_allowance" = excluded."vacation_allowance", "parent_id" = excluded."parent_id"`,
+		id,
+		string(data),
+		time.Now().UTC().Format(time.RFC3339),
+		lookupFieldValue(obj, "archived"),
+		lookupFieldValue(obj, "bookable"),
+		lookupFieldValue(obj, "color"),
+		lookupFieldValue(obj, "created_at"),
+		lookupFieldValue(obj, "creator_id"),
+		lookupFieldValue(obj, "email"),
+		lookupFieldValue(obj, "first_name"),
+		lookupFieldValue(obj, "human"),
+		lookupFieldValue(obj, "image"),
+		lookupFieldValue(obj, "job_title"),
+		lookupFieldValue(obj, "last_name"),
+		lookupFieldValue(obj, "last_updated_by"),
+		lookupFieldValue(obj, "minutes_per_day"),
+		lookupFieldValue(obj, "name"),
+		lookupFieldValue(obj, "notes"),
+		lookupFieldValue(obj, "phone"),
+		lookupFieldValue(obj, "updated_at"),
+		lookupFieldValue(obj, "url"),
+		lookupFieldValue(obj, "user_id"),
+		lookupFieldValue(obj, "vacation_allowance"),
+		lookupFieldValue(obj, "parent_id"),
+	); err != nil {
+		return fmt.Errorf("insert into accounts_resources: %w", err)
+	}
+
 	return nil
 }
 
@@ -4552,17 +4826,49 @@ func (s *Store) SearchReports(query string, limit int) ([]json.RawMessage, error
 	return results, rows.Err()
 }
 
-// SearchResources searches the resources_fts index with optional filters.
+// SearchResources searches the accounts_resources_fts index with optional
+// filters. The index is parent-prefixed for the same reason its content table
+// is: a bare `resources_fts` is the framework's generic catch-all index.
+//
+// NOTE, and see handfixes.json record `typed-resources-table-parent-prefixed`:
+// CLI search deliberately does NOT call this. `search --type resources` and the
+// no-`--type` branch both read the generic catch-all index instead, because it
+// is the authoritative and complete index for this type - see the block comment
+// `WHY search --type resources READS THE GENERIC INDEX ONLY` in
+// internal/cli/search.go for the measured reasons. This method is kept as part
+// of the generated store shape, and it is what the store-side receipts use to
+// prove the typed projection and its FTS shadow really are being maintained.
+// The ledger bans a `db.SearchResources(` call from internal/cli/search.go so a
+// reprint cannot quietly wire CLI search back onto it.
 func (s *Store) SearchResources(query string, limit int) ([]json.RawMessage, error) {
-	// Delegate to the generic FTS search scoped to resource_type='resources'.
-	// The typed resources table/FTS this method originally targeted never get
-	// created: the API resource named "resources" collides with the framework's
-	// catch-all `resources` table (the catch-all wins the IF NOT EXISTS race),
-	// and the typed FTS rowids would not align with the catch-all table's
-	// auto rowids anyway. The generic resources_fts (id, resource_type, content)
-	// is populated by upsertGenericResourceTx and joins on id+resource_type.
-	// (Generator collision bug — filed for retro.)
-	return s.Search(query, limit, "resources")
+	if limit <= 0 {
+		limit = 50
+	}
+	matchQuery := ftsMatchQuery(query)
+	if matchQuery == "" {
+		return nil, nil
+	}
+	rows, err := s.db.Query(
+		`SELECT t.data FROM "accounts_resources" t
+		 JOIN "accounts_resources_fts" ON "accounts_resources_fts".rowid = t.rowid
+		 WHERE "accounts_resources_fts" MATCH ?
+		 ORDER BY "accounts_resources_fts".rank LIMIT ?`,
+		matchQuery, limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []json.RawMessage
+	for rows.Next() {
+		var data string
+		if err := rows.Scan(&data); err != nil {
+			return nil, err
+		}
+		results = append(results, json.RawMessage(data))
+	}
+	return results, rows.Err()
 }
 
 func (s *Store) SaveSyncState(resourceType, cursor string, count int) error {
@@ -4613,6 +4919,39 @@ func (s *Store) GetSyncCursor(resourceType string) string {
 	return ""
 }
 
+// typedTableName maps a resource type to the SQL identifier of its typed
+// domain table. It is the identity for every resource type except `resources`,
+// whose typed table is parent-prefixed to `accounts_resources` because a bare
+// `resources` is the framework's own catch-all table.
+//
+// typedTableName resolves a resource type to the name of its typed domain
+// table. Only `resources` differs from its own type name, because its typed
+// table is parent-prefixed (accounts_resources) to keep it off the framework's
+// generic catch-all.
+//
+// This is HARDENING, not a live-defect fix. The three sqlite_master resolve
+// sites it feeds (ListIDs, ListIDsScoped, ListField) are unreachable with
+// `resources` in this connector as it stands: their only caller is
+// dependentParentRows, and the one declaration whose parent table is
+// `resources` carries two path params, so it routes to ListFieldSets, which
+// reads the catch-all directly under `WHERE resource_type = ?` and performs no
+// type-to-table resolve at all. An earlier draft of this change claimed that
+// resolving `resources` to the catch-all handed the dependent fan-out every
+// synced record of every type; that was false, and
+// TestDependentParentRows_ResourcesFanOutIsTypeFiltered pins the real routing
+// so the correction cannot rot back into the claim.
+//
+// The mapping is kept so that a future dependent declaration, a reprint that
+// changes the fan-out shape, or any new caller that DOES reach those three
+// entry points with `resources` resolves to the typed table rather than to the
+// catch-all.
+func typedTableName(resourceType string) string {
+	if resourceType == "resources" {
+		return "accounts_resources"
+	}
+	return resourceType
+}
+
 // ListIDs returns all IDs from a resource's domain table, or from the generic
 // resources table if no domain table exists. Used by dependent sync to iterate parents.
 // For parent-keyed resource types these are composite storage keys; run them
@@ -4625,7 +4964,7 @@ func (s *Store) ListIDs(resourceType string) ([]string, error) {
 	var table string
 	err := s.db.QueryRow(
 		`SELECT name FROM sqlite_master WHERE type='table' AND name=?`,
-		resourceType,
+		typedTableName(resourceType),
 	).Scan(&table)
 	var rows *sql.Rows
 	if err == nil && table != "" {
@@ -4668,7 +5007,7 @@ func (s *Store) ListIDsScoped(resourceType, scopeColumn, scopeValue string) ([]s
 	var table string
 	err := s.db.QueryRow(
 		`SELECT name FROM sqlite_master WHERE type='table' AND name=?`,
-		resourceType,
+		typedTableName(resourceType),
 	).Scan(&table)
 	if err == nil && table != "" {
 		var colName string
@@ -4741,7 +5080,7 @@ func (s *Store) ListField(resourceType, field string) ([]string, error) {
 	var table string
 	err := s.db.QueryRow(
 		`SELECT name FROM sqlite_master WHERE type='table' AND name=?`,
-		resourceType,
+		typedTableName(resourceType),
 	).Scan(&table)
 	var rows *sql.Rows
 	if err == nil && table != "" {

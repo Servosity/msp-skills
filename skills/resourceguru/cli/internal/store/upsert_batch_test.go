@@ -2876,12 +2876,12 @@ func TestUpsertBatch_PopulatesResourcesTable(t *testing.T) {
 	}
 
 	var typed int
-	typedQuery := fmt.Sprintf(`SELECT COUNT(*) FROM "%s"`, "resources")
+	typedQuery := fmt.Sprintf(`SELECT COUNT(*) FROM "%s"`, "accounts_resources")
 	if err := db.QueryRow(typedQuery).Scan(&typed); err != nil {
-		t.Fatalf("count resources: %v", err)
+		t.Fatalf("count accounts_resources: %v", err)
 	}
 	if typed != len(items) {
-		t.Fatalf("resources count = %d, want %d (typed table not populated by UpsertBatch)", typed, len(items))
+		t.Fatalf("accounts_resources count = %d, want %d (typed table not populated by UpsertBatch)", typed, len(items))
 	}
 }
 
@@ -2889,13 +2889,6 @@ func TestUpsertBatch_PopulatesResourcesTable(t *testing.T) {
 // sync (which injects parent_id into each item's JSON) populates the typed
 // parent_id column when items go through UpsertBatch. Regression for issue #268.
 func TestUpsertBatch_SetsResourcesParentID(t *testing.T) {
-	// Void for this API: the resource named "resources" collides with the
-	// framework's generic catch-all `resources` table, so the typed-domain
-	// resources table (with a parent_id column) is never created — the
-	// catch-all wins the CREATE-IF-NOT-EXISTS race. Resource rows live in the
-	// catch-all (id, resource_type, data) and are read from JSON. There is no
-	// parent_id column to assert. (Generator collision bug — filed for retro.)
-	t.Skip("typed resources table absent due to resources/catch-all name collision")
 	dbPath := filepath.Join(t.TempDir(), "data.db")
 	s, err := Open(dbPath)
 	if err != nil {
@@ -2915,7 +2908,7 @@ func TestUpsertBatch_SetsResourcesParentID(t *testing.T) {
 	db := s.DB()
 
 	var matchedA int
-	parentQuery := fmt.Sprintf(`SELECT COUNT(*) FROM "%s" WHERE parent_id = ?`, "resources")
+	parentQuery := fmt.Sprintf(`SELECT COUNT(*) FROM "%s" WHERE parent_id = ?`, "accounts_resources")
 	if err := db.QueryRow(parentQuery, "parent-A").Scan(&matchedA); err != nil {
 		t.Fatalf("count by parent_id: %v", err)
 	}

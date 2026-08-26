@@ -86,6 +86,12 @@ func isNetworkError(err error) bool {
 // and a read command never runs a schema migration as a side effect. ctx is
 // threaded into OpenReadOnlyContext so a cancelled command (SIGINT, deadline)
 // interrupts the driver-init SQLITE_BUSY retry rather than blocking on it.
+//
+// No migration does NOT mean no schema-version check: OpenReadOnlyContext runs
+// the same gate the write path runs, so this read path refuses a store written
+// by a newer binary instead of answering from a schema it does not understand.
+// The released v0.1.0 / v0.1.1 binaries had the gate only on the write path, so
+// this is the surface that was attaching unchecked.
 func openStoreForRead(ctx context.Context, cliName string) (*store.Store, error) {
 	dbPath := defaultDBPath(cliName)
 	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
