@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "avanan-mcp",
   "display_name": "Avanan",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Every Avanan (Check Point Harmony Email and Collaboration) API operation, plus shift-start triage, phishing campaign clustering, single-message lifecycle timelines, one exception lookup across all seven security engines, and cross-tenant MSP fleet rollups that a stateless API mirror cannot answer in a single call.",
   "author": {
     "name": "Servosity Inc."

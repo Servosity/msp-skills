@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "cork-mcp",
   "display_name": "Cork",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Every Cork API operation, plus cross-client risk attribution, exploitability-first vulnerability triage, overdue-compliance detection, and stale-connector health checks that a stateless API mirror cannot answer in a single call.",
   "author": {
     "name": "Servosity Inc."

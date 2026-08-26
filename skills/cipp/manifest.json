@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "cipp-mcp",
   "display_name": "CIPP",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "First single-binary CLI for CIPP \u2014 offline SQLite store, fleet posture analytics, and cross-tenant fan-out no other CIPP tool has.",
   "author": {
     "name": "Servosity Inc."

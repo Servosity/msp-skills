@@ -542,6 +542,13 @@ def main() -> int:
         "--no-network", dest="network", action="store_false",
         help="skip the pinned-ASSET check even when gh is available.",
     )
+    ap.add_argument(
+        "--warn", action="store_true",
+        help="report findings but exit 0. For the first landing only, while main "
+             "still carries the never-cut-release backlog this gate exists to "
+             "surface; that backlog is cleared by a tag push, not a code change, "
+             "so gating on it would block the commit that fixes it.",
+    )
     args = ap.parse_args()
 
     owner, repo = registry.owner_repo()
@@ -580,6 +587,9 @@ def main() -> int:
         print("check_pinned_artifacts: FAIL")
         for e in errors:
             print(f"  - {e}")
+        if args.warn:
+            print(f"\n  (warn mode: {len(errors)} finding(s), exit 0)")
+            return 0
         return 1
 
     files = len({p.path for p in pins})

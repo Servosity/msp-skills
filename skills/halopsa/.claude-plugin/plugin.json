@@ -1,6 +1,6 @@
 {
   "name": "halopsa",
-  "version": "0.2.12",
+  "version": "0.2.13",
   "description": "Every HaloPSA, HaloITSM and HaloCRM feature, plus a local SQLite store and cross-entity views the API can't return.",
   "author": {
     "name": "Servosity",

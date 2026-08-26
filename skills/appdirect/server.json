@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/appdirect-mcp",
   "title": "AppDirect MCP",
   "description": "AppDirect marketplace operations with an offline mirror and cross-company billing reconciliation.",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/appdirect/appdirect-512x512.png",
@@ -21,8 +21,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/appdirect-v0.1.1/appdirect-mcp.mcpb",
-      "version": "0.1.1",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/appdirect-v0.1.2/appdirect-mcp.mcpb",
+      "version": "0.1.2",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"

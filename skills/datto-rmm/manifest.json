@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "datto-rmm-mcp",
   "display_name": "Datto RMM",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Every Datto RMM API operation, plus a local SQLite fleet store and fleet-wide analytics no other Datto tool has.",
   "author": {
     "name": "Servosity Inc."

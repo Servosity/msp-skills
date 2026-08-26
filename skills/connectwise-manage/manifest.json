@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "connectwise-manage-mcp",
   "display_name": "ConnectWise PSA",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Every ConnectWise PSA workflow from the terminal \u2014 with a typed conditions query builder, offline SQLite sync, and cross-entity views (unbilled work, account 360, board triage) the PSA web UI can't give you.",
   "author": {
     "name": "Servosity Inc."

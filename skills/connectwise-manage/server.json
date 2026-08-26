@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/connectwise-manage-mcp",
   "title": "ConnectWise Manage MCP",
   "description": "Every ConnectWise PSA workflow from the terminal  -  with a typed conditions query builder, offline",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/connectwise-manage/connectwise-manage-512x512.png",
@@ -21,8 +21,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/connectwise-manage-v0.1.4/connectwise-manage-mcp.mcpb",
-      "version": "0.1.4",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/connectwise-manage-v0.1.5/connectwise-manage-mcp.mcpb",
+      "version": "0.1.5",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"

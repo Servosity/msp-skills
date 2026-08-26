@@ -1,6 +1,6 @@
 {
   "name": "appdirect",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Every documented AppDirect marketplace operation in one binary, plus offline sync and billing-reconciliation joins.",
   "author": {
     "name": "Servosity",
