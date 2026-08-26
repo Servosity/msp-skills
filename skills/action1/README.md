@@ -46,7 +46,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download Action1 MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/action1-v0.1.2/action1-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Action1 release on the [releases page](https://github.com/servosity/msp-skills/releases?q=action1).)
+[**Download Action1 MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/action1-v0.1.1/action1-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Action1 release on the [releases page](https://github.com/servosity/msp-skills/releases?q=action1).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 

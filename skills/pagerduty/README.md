@@ -46,7 +46,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download PagerDuty MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/pagerduty-v0.1.2/pagerduty-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every PagerDuty release on the [releases page](https://github.com/servosity/msp-skills/releases?q=pagerduty).)
+[**Download PagerDuty MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/pagerduty-v0.1.1/pagerduty-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every PagerDuty release on the [releases page](https://github.com/servosity/msp-skills/releases?q=pagerduty).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 

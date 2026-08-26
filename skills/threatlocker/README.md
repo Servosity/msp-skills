@@ -46,7 +46,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download ThreatLocker MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/threatlocker-v0.3.3/threatlocker-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every ThreatLocker release on the [releases page](https://github.com/servosity/msp-skills/releases?q=threatlocker).)
+[**Download ThreatLocker MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/threatlocker-v0.3.2/threatlocker-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every ThreatLocker release on the [releases page](https://github.com/servosity/msp-skills/releases?q=threatlocker).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 

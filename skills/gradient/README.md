@@ -46,7 +46,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download Gradient MSP MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/gradient-v0.1.2/gradient-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Gradient MSP release on the [releases page](https://github.com/servosity/msp-skills/releases?q=gradient).)
+[**Download Gradient MSP MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/gradient-v0.1.1/gradient-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Gradient MSP release on the [releases page](https://github.com/servosity/msp-skills/releases?q=gradient).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 

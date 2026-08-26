@@ -46,7 +46,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download Blumira MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/blumira-v0.1.2/blumira-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Blumira release on the [releases page](https://github.com/servosity/msp-skills/releases?q=blumira).)
+[**Download Blumira MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/blumira-v0.1.1/blumira-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Blumira release on the [releases page](https://github.com/servosity/msp-skills/releases?q=blumira).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
