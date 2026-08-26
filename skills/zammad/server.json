@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/zammad-mcp",
   "title": "Zammad MCP",
   "description": "Every Zammad ticket, article, and Knowledge Base operation as one CLI and MCP server  -  plus a",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/zammad/zammad-512x512.png",
@@ -21,8 +21,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/zammad-v0.1.1/zammad-mcp.mcpb",
-      "version": "0.1.1",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/zammad-v0.1.2/zammad-mcp.mcpb",
+      "version": "0.1.2",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"
@@ -33,6 +33,18 @@
           "description": "Set the ZAMMAD_API_TOKEN credential for the Zammad MCP server.",
           "isRequired": true,
           "isSecret": true
+        },
+        {
+          "name": "ZAMMAD_BASE_URL",
+          "description": "Explicit full API base, e.g. https://support.example.com/api/v1. Overrides the instance URL above. Leave blank unless your instance serves the API somewhere non-standard.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "ZAMMAD_URL",
+          "description": "Root URL of your Zammad instance, e.g. https://support.example.com. The CLI appends /api/v1 itself. Without it the CLI points at a placeholder host that is not your instance.",
+          "isRequired": true,
+          "isSecret": false
         }
       ]
     }

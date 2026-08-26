@@ -178,7 +178,15 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 			// Cloudflare-fronted, Akamai-fronted, or otherwise bot-detected
 			// sites. By going through flags.newClient(), the doctor's
 			// reachability verdict matches what real commands experience.
-			if cfg != nil && cfg.BaseURL != "" {
+			if cfg != nil && doctorBaseURLIsPlaceholder(cfg.BaseURL) {
+				// Refuse to dial a value the operator never set. Some placeholder
+				// hosts resolve through live wildcard DNS and answer real HTTP, so
+				// dialling one yields a confident verdict about a stranger's server;
+				// the rest yield a DNS error that reads as "your install is broken"
+				// when one unset variable is the whole story.
+				report["api"] = "ERROR base_url is still the shipped placeholder \"" + cfg.BaseURL + "\"; set " + doctorBaseURLEnv + " to your own instance URL"
+				report["credentials"] = "ERROR not verified: base_url is still the shipped placeholder; set " + doctorBaseURLEnv
+			} else if cfg != nil && cfg.BaseURL != "" {
 				c, clientErr := flags.newClient()
 				if clientErr != nil {
 					report["api"] = fmt.Sprintf("client init error: %s", clientErr)
@@ -221,7 +229,11 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 					// Step 2: Validate credentials with an authenticated probe.
 					authHeader := cfg.AuthHeader()
 					if authHeader == "" {
-						// No auth configured — skip credential validation
+						// No credential to probe. Say so: this row used to be omitted
+						// entirely, so the report simply had no Credentials line and an
+						// operator (or an agent parsing doctor --json) saw silence where
+						// the answer should have been.
+						report["credentials"] = "ERROR not verified: no credential is configured, so nothing was probed."
 					} else if reachErr != nil && !errors.As(reachErr, &reachAPIErr) {
 						report["credentials"] = "skipped (API unreachable)"
 					} else {
@@ -251,7 +263,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 								report["credentials"] = fmt.Sprintf("scope-limited (HTTP %d) — credentials are valid but lack permission for this endpoint. Check your dashboard's API key scope.", authAPIErr.StatusCode)
 							default:
 								// Non-auth HTTP error (404, 500, etc.) — don't blame credentials
-								report["credentials"] = fmt.Sprintf("ok (HTTP %d from %s, but auth was accepted)", authAPIErr.StatusCode, verifyPath)
+								doctorUnexpectedStatus(authAPIErr.StatusCode, verifyPath, report)
 							}
 						default:
 							report["credentials"] = fmt.Sprintf("error: %s", authErr)
@@ -367,7 +379,13 @@ func doctorExitForFailOn(failOn string, report map[string]any) error {
 	}
 	worstError := false
 	worstStale := false
-	for _, v := range report {
+	for k, v := range report {
+		// Informational rows (paths, versions, credential-acquisition
+		// hints) are not health checks. Scanning them for "error" /
+		// "missing" made --fail-on trip on healthy connectors.
+		if doctorIsInfoKey(k) {
+			continue
+		}
 		s, ok := v.(string)
 		if ok {
 			if strings.Contains(s, "error") || strings.Contains(s, "unreachable") || strings.Contains(s, "invalid") || strings.Contains(s, "missing") {

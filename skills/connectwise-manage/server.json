@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/connectwise-manage-mcp",
   "title": "ConnectWise Manage MCP",
   "description": "Every ConnectWise PSA workflow from the terminal  -  with a typed conditions query builder, offline",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/connectwise-manage/connectwise-manage-512x512.png",
@@ -21,18 +21,55 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/connectwise-manage-v0.1.4/connectwise-manage-mcp.mcpb",
-      "version": "0.1.4",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/connectwise-manage-v0.1.5/connectwise-manage-mcp.mcpb",
+      "version": "0.1.5",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"
       },
       "environmentVariables": [
         {
+          "name": "CONNECTWISE_MANAGE_BASE_URL",
+          "description": "Base URL for the ConnectWise PSA API. Leave the prefilled default unless your account uses a different regional or self-hosted host.",
+          "isRequired": false,
+          "isSecret": false,
+          "default": "https://api-na.myconnectwise.net/v4_6_release/apis/3.0"
+        },
+        {
+          "name": "CW_API_VERSION",
+          "description": "Pins the ConnectWise Manage API version sent on each request, e.g. 2025.1. Leave blank to use the version your instance defaults to.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
           "name": "CW_CLIENT_ID",
           "description": "Set the CW_CLIENT_ID credential for the ConnectWise Manage MCP server.",
           "isRequired": true,
           "isSecret": true
+        },
+        {
+          "name": "CW_COMPANY_ID",
+          "description": "ConnectWise Manage company ID/codebase used in the composite Basic auth username.",
+          "isRequired": true,
+          "isSecret": false
+        },
+        {
+          "name": "CW_PRIVATE_KEY",
+          "description": "API Member private key used as the composite Basic auth password.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "CW_PUBLIC_KEY",
+          "description": "API Member public key used with the company ID in the composite Basic auth username.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "CW_SITE",
+          "description": "ConnectWise Manage region host such as api-na.myconnectwise.net, api-eu.myconnectwise.net, api-au.myconnectwise.net, or your on-prem host.",
+          "isRequired": true,
+          "isSecret": false
         }
       ]
     }

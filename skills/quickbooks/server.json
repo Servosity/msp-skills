@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/quickbooks-mcp",
   "title": "QuickBooks Online MCP",
   "description": "Every QuickBooks Online Accounting entity, plus an offline SQLite mirror and AR/AP aging.",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/quickbooks/quickbooks-512x512.png",
@@ -21,8 +21,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/quickbooks-v0.1.5/quickbooks-mcp.mcpb",
-      "version": "0.1.5",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/quickbooks-v0.1.6/quickbooks-mcp.mcpb",
+      "version": "0.1.6",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"
@@ -33,6 +33,50 @@
           "description": "OAuth 2.0 bearer access token (scope com.intuit.quickbooks.accounting). Mint it from the Intuit OAuth 2.0 Playground or `quickbooks-cli auth refresh`.",
           "isRequired": true,
           "isSecret": true
+        },
+        {
+          "name": "QUICKBOOKS_BASE_URL",
+          "description": "Full company-scoped API base, e.g. https://quickbooks.api.intuit.com/v3/company/<realm-id>. Leave blank when you set the realm ID and environment above; the CLI builds this from them.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "QUICKBOOKS_CLIENT_ID",
+          "description": "Client ID of your Intuit app (developer.intuit.com > your app > Keys). Set it with the client secret and refresh token so the CLI can mint a fresh access token; leave blank if you paste an access token instead.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "QUICKBOOKS_CLIENT_SECRET",
+          "description": "Client secret paired with QUICKBOOKS_CLIENT_ID.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "QUICKBOOKS_ENVIRONMENT",
+          "description": "Which Intuit host the realm lives on: production or sandbox. Combined with the realm ID to build the base URL.",
+          "isRequired": false,
+          "isSecret": false,
+          "default": "production"
+        },
+        {
+          "name": "QUICKBOOKS_REALM_ID",
+          "description": "The QuickBooks company ('realm') ID every call is scoped to. Find it in the Intuit developer dashboard or the sandbox company URL. Without it the CLI cannot build a working base URL.",
+          "isRequired": true,
+          "isSecret": false
+        },
+        {
+          "name": "QUICKBOOKS_REFRESH_TOKEN",
+          "description": "OAuth 2.0 refresh token. Refresh tokens live ~100 days and rotate on every refresh, so the CLI writes the new one back to its config.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "QUICKBOOKS_TOKEN_URL",
+          "description": "Token endpoint the client-credentials exchange posts to. Leave the prefilled default unless your tenant uses a different token endpoint.",
+          "isRequired": false,
+          "isSecret": false,
+          "default": "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer"
         }
       ]
     }

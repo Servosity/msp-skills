@@ -7,6 +7,9 @@ This script is the single regenerator. One run refreshes:
   - the README catalog table + skills-count badge
   - the README generated blocks (hero-live, install-featured, agent-can-do,
     footer-releases) so prose that names skills can never go stale again
+  - the version-pinned `.mcpb` download URL in every skills/<slug>/README.md,
+    repointed at the newest tag that EXISTS for that slug (see
+    sync_skill_readme_mcpb for why the registry version is the wrong source)
   - docs/skills/<slug>.md via render_docs_page (so a live-verified flip or a
     page.json edit re-renders the site page in the same pass)
 
@@ -22,6 +25,7 @@ from __future__ import annotations
 import datetime as dt
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -42,6 +46,9 @@ IT_WORKS_FORM = ROOT / ".github" / "ISSUE_TEMPLATE" / "it-works.yml"
 # fails the build if one is reintroduced anywhere in the tree.
 OWNER, REPO = registry.owner_repo()
 SKILL_META = registry.load()["skills"]
+
+# A release tag: `<slug>-v<major.minor.patch>`.
+_TAG_RE = re.compile(r"^(?P<slug>[a-z0-9][a-z0-9.-]*)-v(?P<version>\d+\.\d+\.\d+)$")
 
 
 def install_url(skill: str, script: str) -> str:
@@ -392,6 +399,101 @@ def render_agent_can_do() -> str:
     return "\n".join(rows)
 
 
+def _released_tags() -> dict[str, str] | None:
+    """slug -> the highest `<slug>-v<x.y.z>` tag that EXISTS in this checkout.
+
+    Returns None when the checkout carries no tags at all (a shallow clone or a
+    source tarball). That is not the same as "nothing is released", so callers
+    must skip rather than treat every slug as unreleased.
+    """
+    p = subprocess.run(
+        ["git", "-C", str(ROOT), "tag"], capture_output=True, text=True
+    )
+    if p.returncode != 0 or not p.stdout.split():
+        return None
+    best: dict[str, tuple[tuple[int, ...], str]] = {}
+    for tag in p.stdout.split():
+        m = _TAG_RE.match(tag)
+        if not m:
+            continue
+        slug = m.group("slug")
+        ver = tuple(int(n) for n in m.group("version").split("."))
+        if slug not in best or ver > best[slug][0]:
+            best[slug] = (ver, tag)
+    return {slug: tag for slug, (_v, tag) in best.items()}
+
+
+def sync_skill_readme_mcpb() -> tuple[int, list[str]]:
+    """Repoint every skills/<slug>/README.md `.mcpb` download URL at the NEWEST
+    TAG THAT EXISTS for that slug - never at the registry version.
+
+    This line is generated, not hand-maintained, for the same reason the README
+    footer links are: release.py bumps the version in six files and nothing
+    rewrote this one, so 57 of 62 skill READMEs pointed at a version older than
+    the skill shipped and 8 pointed at a tag that was never cut at all (four of
+    them at a leaked printing-press ENGINE version such as v4.22.0, two at
+    v0.0.0). Only the tag segment of the URL is rewritten; the surrounding prose
+    and the asset name are left exactly as authored.
+
+    The source of the tag is `git tag`, NOT skills.json's version, and that
+    choice is the whole point. In this repo the version bump lands in the commit
+    and the tag is pushed by hand AFTERWARDS, so pinning the registry version is
+    precisely how you point at a tag that does not exist: doing that here turned
+    30 working one-click downloads into 404s in a single run. A generator that
+    can only ever emit a tag `git tag` already lists is structurally incapable
+    of emitting a 404.
+
+    The trade-off, stated honestly: on the release commit itself this link lags
+    by one version until the tag is cut, and the next build-catalog.py run after
+    the push advances it. That is a stale-but-working download instead of a
+    fresh-but-dead one. For a one-click `.mcpb` aimed at an MSP who is not going
+    to debug a 404, working beats fresh.
+
+    When a slug has no cut tag at all, the link is left EXACTLY as authored and
+    the slug is returned as a warning: the generator refuses to invent a tag,
+    and rewriting the prose would churn every newly onboarded connector's README
+    (a first release is authored before its tag is pushed). Catching a pin that
+    is already dead is check_pinned_artifacts.py's job, not this script's - the
+    division is: the generator never CREATES a dead pin, the gate CATCHES one.
+    As of 2026-08-25 every one of the 62 skill READMEs carrying a `.mcpb` link
+    has at least one cut tag, so this branch is empty on the real fleet.
+
+    Returns (READMEs changed, warnings).
+    """
+    warnings: list[str] = []
+    released = _released_tags()
+    if released is None:
+        return 0, [
+            "no local git tags in this checkout - skill-README .mcpb links left "
+            "untouched (fetch tags to let this script advance them)"
+        ]
+    changed = 0
+    for slug, meta in _connector_meta():
+        readme = registry.skill_path(slug) / "README.md"
+        if not readme.exists():
+            continue
+        asset = f"{meta.get('mcp_binary', slug + '-mcp')}.mcpb"
+        text = readme.read_text(encoding="utf-8")
+        pattern = re.compile(
+            rf"(https://github\.com/{re.escape(OWNER)}/{re.escape(REPO)}"
+            rf"/releases/download/)[A-Za-z0-9._-]+(/{re.escape(asset)})"
+        )
+        if not pattern.search(text):
+            continue
+        tag = released.get(slug)
+        if tag is None:
+            warnings.append(
+                f"skills/{registry.source_dir(slug)}/README.md pins {asset} but no "
+                f"{slug}-v* tag exists yet - link left as authored, not repointed"
+            )
+            continue
+        new_text = pattern.sub(rf"\g<1>{tag}\g<2>", text)
+        if new_text != text:
+            readme.write_text(new_text, encoding="utf-8")
+            changed += 1
+    return changed, warnings
+
+
 def render_footer_releases(generated_at: str) -> str:
     """The footer line: per-connector latest release links from the registry
     versions (each version has a `<slug>-v<version>` tag by release contract)."""
@@ -504,6 +606,14 @@ def main() -> int:
     )
     README.write_text(new_readme, encoding="utf-8")
 
+    # The per-skill README's one-click `.mcpb` link is version-pinned; own it
+    # here so it can only ever name a tag that `git tag` already lists. The
+    # registry version is deliberately NOT the source: the tag is cut by hand
+    # after the bump, so pinning it is how you point at a dead tag.
+    mcpb_synced, mcpb_warnings = sync_skill_readme_mcpb()
+    for w in mcpb_warnings:
+        print(f"build-catalog: WARN {w}")
+
     # Regenerate the it-works issue form's skill dropdown so a reporter can pick
     # the exact connector (not be forced into "other"); the catalog.yml drift
     # gate keeps it in lockstep with the registry. Skipped gracefully if the
@@ -520,7 +630,8 @@ def main() -> int:
 
     print(f"Regenerated catalog.json + docs/_data/catalog.json ({len(skills)} "
           f"skills, {connector_count} connectors), README generated blocks + "
-          f"count badge, and {connector_count} docs skill pages.")
+          f"count badge, {connector_count} docs skill pages, and "
+          f"{mcpb_synced} skill-README .mcpb link(s).")
     return 0
 
 

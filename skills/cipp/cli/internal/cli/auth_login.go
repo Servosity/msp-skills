@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"cipp-pp-cli/internal/client"
 	"cipp-pp-cli/internal/cliutil"
 	"cipp-pp-cli/internal/config"
 
@@ -94,7 +95,7 @@ static bearer token instead, set CIPP_API_KEY or run 'auth set-token'.`, "\n"),
 				return nil
 			}
 
-			token, expiry, err := cippClientCredentialsToken(cmd.Context(), authority, tenantID, clientID, clientSecret, scope)
+			token, expiry, lifetime, err := cippClientCredentialsToken(cmd.Context(), authority, tenantID, clientID, clientSecret, scope)
 			if err != nil {
 				return err
 			}
@@ -104,11 +105,25 @@ static bearer token instead, set CIPP_API_KEY or run 'auth set-token'.`, "\n"),
 				return configErr(err)
 			}
 			cfg.BaseURL = baseURL
+			// Persist the non-secret client-credentials context alongside the
+			// token. Without tenant_id the client has no Azure AD token
+			// endpoint to POST to, so an expired token could only be replaced
+			// by a human re-running this command; authority and scope are
+			// persisted too so a sovereign-cloud or custom-scope login is not
+			// silently downgraded to the defaults on the first re-mint.
+			cfg.SetOAuthContext(tenantID, authority, scope)
+			// Record the granted expires_in so the client can clamp its refresh
+			// safety skew to half the lifetime. Without it a token endpoint
+			// that issues short-lived tokens puts every fresh token inside the
+			// 5-minute skew immediately, and the client re-mints on every
+			// request behind a package-level mutex.
+			cfg.SetTokenLifetime(lifetime)
 			if err := cfg.SaveTokens(clientID, clientSecret, token, "", expiry); err != nil {
 				return fmt.Errorf("caching token: %w", err)
 			}
 
 			fmt.Fprintf(w, "Authenticated. Token cached to %s, expires %s.\n", cfg.Path, expiry.Format(time.RFC3339))
+			fmt.Fprintln(w, "The token refreshes automatically when it nears expiry; no need to re-run this command until the client secret rotates.")
 			fmt.Fprintf(w, "Base URL set to %s. Run 'cipp-cli doctor' to verify connectivity.\n", baseURL)
 			return nil
 		},
@@ -124,8 +139,9 @@ static bearer token instead, set CIPP_API_KEY or run 'auth set-token'.`, "\n"),
 }
 
 // cippClientCredentialsToken performs the Azure AD client-credentials grant and
-// returns the access token plus its computed expiry time.
-func cippClientCredentialsToken(ctx context.Context, authority, tenantID, clientID, clientSecret, scope string) (string, time.Time, error) {
+// returns the access token, its computed expiry time, and the expires_in the
+// endpoint granted (0 when it did not say).
+func cippClientCredentialsToken(ctx context.Context, authority, tenantID, clientID, clientSecret, scope string) (string, time.Time, int, error) {
 	tokenURL := fmt.Sprintf("%s/%s/oauth2/v2.0/token", strings.TrimRight(authority, "/"), tenantID)
 	form := url.Values{}
 	form.Set("client_id", clientID)
@@ -137,14 +153,24 @@ func cippClientCredentialsToken(ctx context.Context, authority, tenantID, client
 	defer cancel()
 	req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, tokenURL, strings.NewReader(form.Encode()))
 	if err != nil {
-		return "", time.Time{}, fmt.Errorf("building token request: %w", err)
+		return "", time.Time{}, 0, fmt.Errorf("building token request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := http.DefaultClient.Do(req)
+	// NOT http.DefaultClient. Its zero CheckRedirect is Go's default policy,
+	// which follows up to 10 hops and REPLAYS THE REQUEST BODY on 307/308 -
+	// and this body is the client-credentials form carrying client_secret. A
+	// token endpoint answering 307 to another host would be handed the secret.
+	// client.TokenExchangeRedirectPolicy refuses any cross-origin hop; the
+	// re-mint path in internal/client installs the identical policy.
+	httpClient := &http.Client{
+		Timeout:       30 * time.Second,
+		CheckRedirect: client.TokenExchangeRedirectPolicy,
+	}
+	resp, err := httpClient.Do(req)
 	if err != nil {
-		return "", time.Time{}, fmt.Errorf("requesting token from %s: %w", tokenURL, err)
+		return "", time.Time{}, 0, fmt.Errorf("requesting token from %s: %w", tokenURL, err)
 	}
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
@@ -160,9 +186,11 @@ func cippClientCredentialsToken(ctx context.Context, authority, tenantID, client
 			if i := strings.IndexByte(desc, '\n'); i > 0 {
 				desc = desc[:i]
 			}
-			return "", time.Time{}, fmt.Errorf("token request failed (HTTP %d): %s: %s", resp.StatusCode, aadErr.Error, desc)
+			// error_description is vendor-controlled free text; a
+			// misconfigured endpoint can echo the submitted form into it.
+			return "", time.Time{}, 0, fmt.Errorf("token request failed (HTTP %d): %s: %s", resp.StatusCode, aadErr.Error, maskSecret(desc, clientSecret))
 		}
-		return "", time.Time{}, fmt.Errorf("token request failed (HTTP %d): %s", resp.StatusCode, strings.TrimSpace(string(body)))
+		return "", time.Time{}, 0, fmt.Errorf("token request failed (HTTP %d): %s", resp.StatusCode, cliutil.SanitizeErrorBody(maskSecret(strings.TrimSpace(string(body)), clientSecret)))
 	}
 
 	var tok struct {
@@ -171,14 +199,37 @@ func cippClientCredentialsToken(ctx context.Context, authority, tenantID, client
 		TokenType   string `json:"token_type"`
 	}
 	if err := json.Unmarshal(body, &tok); err != nil {
-		return "", time.Time{}, fmt.Errorf("parsing token response: %w", err)
+		return "", time.Time{}, 0, fmt.Errorf("parsing token response: %w", err)
 	}
 	if tok.AccessToken == "" {
-		return "", time.Time{}, fmt.Errorf("token response contained no access_token")
+		return "", time.Time{}, 0, fmt.Errorf("token response contained no access_token")
 	}
 	expiry := time.Now().Add(time.Duration(tok.ExpiresIn) * time.Second)
-	if tok.ExpiresIn == 0 {
+	lifetime := tok.ExpiresIn
+	if tok.ExpiresIn <= 0 {
 		expiry = time.Now().Add(time.Hour) // conservative default
+		lifetime = 0                       // unknown: the client keeps its default skew
 	}
-	return tok.AccessToken, expiry, nil
+	return tok.AccessToken, expiry, lifetime, nil
+}
+
+// maskSecret redacts an exact credential value inside a server-supplied string.
+// The Azure AD error path echoes an arbitrary body, and a misconfigured or
+// hostile token endpoint can echo the submitted form - client_secret included -
+// straight back. cliutil.SanitizeErrorBody only knows generic patterns, so it
+// would let the secret through.
+func maskSecret(text, secret string) string {
+	secret = strings.TrimSpace(secret)
+	if text == "" || secret == "" {
+		return text
+	}
+	replacement := "****"
+	if len(secret) > 4 {
+		replacement = "****" + secret[len(secret)-4:]
+	}
+	text = strings.ReplaceAll(text, secret, replacement)
+	if escaped := url.QueryEscape(secret); escaped != secret {
+		text = strings.ReplaceAll(text, escaped, replacement)
+	}
+	return text
 }

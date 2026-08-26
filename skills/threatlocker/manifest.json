@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "threatlocker-pp-mcp",
   "display_name": "ThreatLocker",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Every ThreatLocker Portal API feature, plus the write operations the read-only tools lack and a cross-tenant offline store no other ThreatLocker tool has.",
   "author": {
     "name": "Servosity Inc."
@@ -15,7 +15,11 @@
       "command": "${__dirname}/bin/threatlocker-pp-mcp",
       "args": [],
       "env": {
-        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}",
+        "THREATLOCKER_API_KEY": "${user_config.threatlocker_api_key}",
+        "THREATLOCKER_BASE_URL": "${user_config.threatlocker_base_url}",
+        "THREATLOCKER_ORG_ID": "${user_config.threatlocker_org_id}",
+        "THREATLOCKER_USER_AGENT": "${user_config.threatlocker_user_agent}"
       }
     }
   },
@@ -24,7 +28,34 @@
       "type": "string",
       "title": "Client profile",
       "description": "Binds the MCP server to an existing tenant-gated Printing Press client profile.",
+      "required": true,
+      "sensitive": true
+    },
+    "threatlocker_api_key": {
+      "type": "string",
+      "title": "ThreatLocker API key",
+      "description": "Portal API key (ThreatLocker portal: Settings > API Keys), sent as the Authorization header on every call.",
+      "sensitive": true,
       "required": true
+    },
+    "threatlocker_base_url": {
+      "type": "string",
+      "title": "ThreatLocker API base URL",
+      "description": "Base URL for the ThreatLocker API. Leave the prefilled default unless your account uses a different regional or self-hosted host.",
+      "required": false,
+      "default": "https://portalapi.g.threatlocker.com/portalapi"
+    },
+    "threatlocker_org_id": {
+      "type": "string",
+      "title": "Managed organization ID",
+      "description": "Tenant GUID sent as ManagedOrganizationId (the --org flag overrides it). Most Portal API data calls answer 401/403 without it, so set it unless you pass --org on every call.",
+      "required": false
+    },
+    "threatlocker_user_agent": {
+      "type": "string",
+      "title": "User-Agent header",
+      "description": "Overrides the User-Agent the CLI sends on ThreatLocker requests. Leave blank to use the CLI's own built-in User-Agent.",
+      "required": false
     }
   },
   "compatibility": {

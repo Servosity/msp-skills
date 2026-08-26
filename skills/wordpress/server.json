@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/wordpress-mcp",
   "title": "WordPress MCP",
   "description": "Publish and manage WordPress pages, posts, media",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/wordpress/wordpress-512x512.png",
@@ -21,13 +21,20 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/wordpress-v0.1.1/wordpress-mcp.mcpb",
-      "version": "0.1.1",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/wordpress-v0.1.2/wordpress-mcp.mcpb",
+      "version": "0.1.2",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"
       },
       "environmentVariables": [
+        {
+          "name": "WORDPRESS_BASE_URL",
+          "description": "Base URL for the Wordpress API. Leave the prefilled default unless your account uses a different regional or self-hosted host.",
+          "isRequired": false,
+          "isSecret": false,
+          "default": "https://wordpress.org/news/wp-json/wp/v2"
+        },
         {
           "name": "WORDPRESS_BASIC_AUTH",
           "description": "Set the WORDPRESS_BASIC_AUTH credential for the WordPress MCP server.",

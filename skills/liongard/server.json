@@ -29,16 +29,23 @@
       },
       "environmentVariables": [
         {
-          "name": "LIONGARD_INSTANCE",
-          "description": "Your Liongard subdomain (the 'acme' in acme.app.liongard.com); builds the API URL.",
-          "isRequired": true,
-          "isSecret": false
-        },
-        {
           "name": "LIONGARD_API_KEY",
           "description": "Base64 X-ROAR-API-KEY for the Liongard API (or use LIONGARD_ACCESS_KEY_ID + LIONGARD_ACCESS_KEY_SECRET).",
           "isRequired": true,
           "isSecret": true
+        },
+        {
+          "name": "LIONGARD_BASE_URL",
+          "description": "Full API base URL. Leave blank: the CLI builds it from LIONGARD_INSTANCE. Set it only to point at a different host.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "LIONGARD_INSTANCE",
+          "description": "Your Liongard subdomain (the 'acme' in acme.app.liongard.com); builds the API URL.",
+          "isRequired": true,
+          "isSecret": false,
+          "default": "example"
         }
       ]
     }

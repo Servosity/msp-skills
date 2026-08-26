@@ -1,65 +1,290 @@
 {
-  "slug": "connectwise-manage",
-  "doc": "docs/reprint-survival.md",
-  "handfixes": [
+ "slug": "connectwise-manage",
+ "doc": "docs/reprint-survival.md",
+ "handfixes": [
+  {
+   "id": "composite-auth-doctor-check",
+   "summary": "doctor checks the composite ConnectWise auth (companyId+publicKey:privateKey Basic + clientId header)",
+   "why": "ConnectWise Manage needs composite Basic credentials PLUS a clientId header; the press's single-scheme auth model can't express this, so the doctor auth check is hand-wired to require all four. A reprint reverts doctor to the single-scheme check.",
+   "status": "active",
+   "asserts": [
     {
-      "id": "composite-auth-doctor-check",
-      "summary": "doctor checks the composite ConnectWise auth (companyId+publicKey:privateKey Basic + clientId header)",
-      "why": "ConnectWise Manage needs composite Basic credentials PLUS a clientId header; the press's single-scheme auth model can't express this, so the doctor auth check is hand-wired to require all four. A reprint reverts doctor to the single-scheme check.",
-      "status": "active",
-      "asserts": [
-        {"file": "cli/internal/cli/doctor.go", "contains": "Hand-wired: the generator's single-scheme model can't express", "min_count": 1},
-        {"file": "cli/internal/cli/doctor.go", "contains": "CW_COMPANY_ID", "min_count": 1}
-      ]
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "Hand-wired: the generator's single-scheme model can't express",
+     "min_count": 1
     },
     {
-      "id": "workload-open-ticket-prefilter",
-      "summary": "workload loads ONLY open tickets via cwLoadOpenTickets (SQL closedFlag prefilter), not the full history",
-      "why": "On a tenant with years of closed tickets (issue #146), cwLoad loaded every service-ticket row just to drop the closed ones in Go, pushing workload past its default timeout. cwLoadOpenTickets pushes the closedFlag filter into SQL so the working set scales with open-ticket count. A reprint reverts workload to cwLoad and drops cwLoadOpenTickets.",
-      "status": "active",
-      "asserts": [
-        {"file": "cli/internal/cli/cw_transcend.go", "contains": "func cwLoadOpenTickets", "min_count": 1},
-        {"file": "cli/internal/cli/cw_transcend.go", "contains": "$.closedFlag", "min_count": 1},
-        {"file": "cli/internal/cli/workload.go", "contains": "cwLoadOpenTickets(cmd.Context(), db)", "min_count": 1}
-      ]
-    },
-    {
-      "id": "search-auto-mode-timeout-fallback",
-      "summary": "search auto mode bounds the live-API leg and falls back to local FTS on a timeout, not only on a network error",
-      "why": "On a large tenant (issue #146) the live POST /project/tickets/search leg holds the call open until the caller's deadline; auto mode only fell back to local on a network error, so a slow API hung the whole call. The leg is now capped (autoLiveSearchTimeout) and isTimeoutError joins isNetworkError in the fallback condition. A reprint reverts both.",
-      "status": "active",
-      "asserts": [
-        {"file": "cli/internal/cli/data_source.go", "contains": "func isTimeoutError", "min_count": 1},
-        {"file": "cli/internal/cli/search.go", "contains": "autoLiveSearchTimeout", "min_count": 1},
-        {"file": "cli/internal/cli/search.go", "contains": "!isTimeoutError(getErr)", "min_count": 1}
-      ]
-    },
-    {
-      "id": "mcp-context-large-tenant-tips",
-      "summary": "MCP context tool query_tips teach the large-tenant playbook (conditions-scoped sync, local reads, --timeout) and note MCP search is local-only",
-      "why": "The escape hatches for a heavy tenant (--param conditions=, --data-source local, --timeout) existed in the binary but no agent-facing surface advertised them (issue #146). The query_tips block now teaches them. A reprint regenerates query_tips from the spec and drops these.",
-      "status": "active",
-      "asserts": [
-        {"file": "cli/internal/mcp/tools.go", "contains": "Large/historical tenant: sync is a FULL re-fetch today", "min_count": 1},
-        {"file": "cli/internal/mcp/tools.go", "contains": "resource_not_incremental", "min_count": 1}
-      ]
-    },
-    {
-      "id": "mcpb-manifest-packaging-v013",
-      "summary": "MCPB manifest stays Claude Desktop-valid and points at packaged suffixed binaries with all ConnectWise auth env vars",
-      "why": "connectwise-manage v0.1.3 shipped a press-generated MCPB manifest with invalid top-level press provenance keys, only CW_CLIENT_ID in user_config/env, and a generic bin/connectwise-manage-mcp command even though the bundle contains only architecture-suffixed binaries. A reprint from the unfixed press can restore all three packaging regressions.",
-      "status": "active",
-      "asserts": [
-        {"file": "manifest.json", "not_contains": "\"press_provenance\""},
-        {"file": "manifest.json", "contains": "\"_meta\"", "min_count": 1},
-        {"file": "manifest.json", "contains": "\"CW_COMPANY_ID\"", "min_count": 2},
-        {"file": "manifest.json", "contains": "\"CW_PRIVATE_KEY\"", "min_count": 2},
-        {"file": "manifest.json", "contains": "\"CW_SITE\"", "min_count": 2},
-        {"file": "manifest.json", "contains": "\"platform_overrides\"", "min_count": 1},
-        {"file": "manifest.json", "contains": "connectwise-manage-mcp-darwin-arm64", "min_count": 2},
-        {"file": "manifest.json", "contains": "connectwise-manage-mcp-linux-amd64", "min_count": 1},
-        {"file": "manifest.json", "contains": "connectwise-manage-mcp-windows-amd64.exe", "min_count": 1}
-      ]
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "CW_COMPANY_ID",
+     "min_count": 1
     }
-  ]
+   ]
+  },
+  {
+   "id": "workload-open-ticket-prefilter",
+   "summary": "workload loads ONLY open tickets via cwLoadOpenTickets (SQL closedFlag prefilter), not the full history",
+   "why": "On a tenant with years of closed tickets (issue #146), cwLoad loaded every service-ticket row just to drop the closed ones in Go, pushing workload past its default timeout. cwLoadOpenTickets pushes the closedFlag filter into SQL so the working set scales with open-ticket count. A reprint reverts workload to cwLoad and drops cwLoadOpenTickets.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/cw_transcend.go",
+     "contains": "func cwLoadOpenTickets",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/cw_transcend.go",
+     "contains": "$.closedFlag",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/workload.go",
+     "contains": "cwLoadOpenTickets(cmd.Context(), db)",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "search-auto-mode-timeout-fallback",
+   "summary": "search auto mode bounds the live-API leg and falls back to local FTS on a timeout, not only on a network error",
+   "why": "On a large tenant (issue #146) the live POST /project/tickets/search leg holds the call open until the caller's deadline; auto mode only fell back to local on a network error, so a slow API hung the whole call. The leg is now capped (autoLiveSearchTimeout) and isTimeoutError joins isNetworkError in the fallback condition. A reprint reverts both.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "func isTimeoutError",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/search.go",
+     "contains": "autoLiveSearchTimeout",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/search.go",
+     "contains": "!isTimeoutError(getErr)",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "mcp-context-large-tenant-tips",
+   "summary": "MCP context tool query_tips teach the large-tenant playbook (conditions-scoped sync, local reads, --timeout) and note MCP search is local-only",
+   "why": "The escape hatches for a heavy tenant (--param conditions=, --data-source local, --timeout) existed in the binary but no agent-facing surface advertised them (issue #146). The query_tips block now teaches them. A reprint regenerates query_tips from the spec and drops these.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "Large/historical tenant: sync is a FULL re-fetch today",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "resource_not_incremental",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "mcpb-manifest-packaging-v013",
+   "summary": "MCPB manifest stays Claude Desktop-valid and points at packaged suffixed binaries with all ConnectWise auth env vars",
+   "why": "connectwise-manage v0.1.3 shipped a press-generated MCPB manifest with invalid top-level press provenance keys, only CW_CLIENT_ID in user_config/env, and a generic bin/connectwise-manage-mcp command even though the bundle contains only architecture-suffixed binaries. A reprint from the unfixed press can restore all three packaging regressions.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "manifest.json",
+     "not_contains": "\"press_provenance\""
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"_meta\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"CW_COMPANY_ID\"",
+     "min_count": 2
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"CW_PRIVATE_KEY\"",
+     "min_count": 2
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"CW_SITE\"",
+     "min_count": 2
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"platform_overrides\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "connectwise-manage-mcp-darwin-arm64",
+     "min_count": 2
+    },
+    {
+     "file": "manifest.json",
+     "contains": "connectwise-manage-mcp-linux-amd64",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "connectwise-manage-mcp-windows-amd64.exe",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "doctor-verdict-tracks-reality",
+   "summary": "doctor probes a real GET endpoint with the real credential and refuses to dial a placeholder base_url, instead of calling any HTTP response 'reachable' and never checking the credential",
+   "why": "`doctor` is the command every SKILL, guide and docs page tells an operator to run to confirm the connector works, and it could not tell a working install from a broken one. It called any HTTP response to `GET /` \"reachable\" and rendered it green, so a base_url aimed at the vendor's web UI (where every API path 404s) and a token rejected with 401 on every call both produced an all-green report. On this connector family it also never probed the credential at all: it printed \"present, not verified\" and left the operator to guess. The mirror defect: a connector whose shipped base_url default is a placeholder dialled the placeholder host, and the DNS failure rendered as \"FAIL API: unreachable\" - telling a correctly-credentialled operator they were broken without naming the one variable that would fix it. Several placeholder hosts resolve through live wildcard DNS and answer real HTTP, so dialling one produced a confident green verdict against a stranger's server. Measured and gated by tools/maintainer/check_doctor_truth.py. See issue #282.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorProbeCredentials("
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorBaseURLIsPlaceholder("
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorIsInfoKey(k)"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorBaseURLIsPlaceholder(cfg.BaseURL)"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeCredentials(cmd.Context()"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "present, not verified. Run `%s %s`"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "for _, v := range report {"
+    }
+   ]
+  },
+  {
+   "id": "install-credentials-declared-on-every-channel",
+   "summary": "every operator credential this connector reads is declared on all three install channels: manifest.json (.mcpb), server.json (MCP Registry) and mcp-install.md (manual install)",
+   "why": "Issue #282 ('three live-verified connectors prompt for the wrong credentials'). A connector is installed through THREE independent channels that each carry their own copy of the credential list: manifest.json server.mcp_config.env (what the .mcpb bundle hands Claude Desktop, which has no shell profile, no config.toml and no export - so an undeclared variable is a variable nobody is ever asked for), server.json environmentVariables (the MCP Registry publish channel), and mcp-install.md's copy-paste JSON blocks plus its remote launch line (the manual path, which never touches the bundle at all). The fleet-wide audit found 60 of 65 connectors under-declaring 122 operator-facing variables in the manifest, 61 of 65 mcp-install.md pages omitting 125, and hudu's server.json missing the base URL its manifest marks required. For connectwise-manage the manifest gained: CONNECTWISE_MANAGE_BASE_URL, CW_API_VERSION. server.json gained: CONNECTWISE_MANAGE_BASE_URL, CW_API_VERSION, CW_COMPANY_ID, CW_PRIVATE_KEY, CW_PUBLIC_KEY, CW_SITE. mcp-install.md's env blocks gained: CONNECTWISE_MANAGE_BASE_URL, CW_API_VERSION, CW_COMPANY_ID, CW_PRIVATE_KEY, CW_PUBLIC_KEY, CW_SITE. manifest.json, server.json and mcp-install.md are ALL regenerated by /msp-skills-publish on an UPDATE or re-onboard, so without this ledger a regeneration silently drops every declaration and CI stays green (check_env_schema.py is wired --warn). The asserts below name the specific credentials, not a count, so dropping one and adding another cannot cancel out.",
+   "status": "active",
+   "spec_encode_followup": "cli-printing-press should emit server.mcp_config.env, the matching user_config prompts, server.json environmentVariables and mcp-install.md's env blocks from ONE declaration of the connector's operator-facing environment, so the three channels cannot be generated out of step. Until then check_env_schema.py compares all three and this ledger pins them.",
+   "asserts": [
+    {
+     "file": "manifest.json",
+     "contains": "\"CONNECTWISE_MANAGE_BASE_URL\": \"${user_config.connectwise_manage_base_url}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"CW_API_VERSION\": \"${user_config.cw_api_version}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"CW_CLIENT_ID\": \"${user_config.cw_client_id}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"CW_COMPANY_ID\": \"${user_config.cw_company_id}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"CW_PRIVATE_KEY\": \"${user_config.cw_private_key}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"CW_PUBLIC_KEY\": \"${user_config.cw_public_key}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"CW_SITE\": \"${user_config.cw_site}\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"CONNECTWISE_MANAGE_BASE_URL\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"CW_API_VERSION\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"CW_CLIENT_ID\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"CW_COMPANY_ID\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"CW_PRIVATE_KEY\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"CW_PUBLIC_KEY\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"CW_SITE\"",
+     "min_count": 1
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"CONNECTWISE_MANAGE_BASE_URL\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"CW_API_VERSION\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"CW_CLIENT_ID\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"CW_COMPANY_ID\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"CW_PRIVATE_KEY\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"CW_PUBLIC_KEY\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"CW_SITE\":",
+     "min_count": 3
+    }
+   ]
+  }
+ ]
 }

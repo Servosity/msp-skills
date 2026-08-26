@@ -37,7 +37,8 @@ Add (or merge with your existing `mcpServers` block):
     "pandadoc": {
       "command": "pandadoc-mcp",
       "env": {
-        "PANDADOC_API_KEY": "<your-pandadoc_api_key>"
+        "PANDADOC_API_KEY": "<your-pandadoc_api_key>",
+        "PANDADOC_BASE_URL": "https://api.pandadoc.com/public/v1"
       }
     }
   }
@@ -62,7 +63,8 @@ Configuration**) and add:
       "type": "stdio",
       "command": "pandadoc-mcp",
       "env": {
-        "PANDADOC_API_KEY": "<your-pandadoc_api_key>"
+        "PANDADOC_API_KEY": "<your-pandadoc_api_key>",
+        "PANDADOC_BASE_URL": "https://api.pandadoc.com/public/v1"
       }
     }
   }
@@ -83,7 +85,8 @@ Claude Desktop:
     "pandadoc": {
       "command": "pandadoc-mcp",
       "env": {
-        "PANDADOC_API_KEY": "<your-pandadoc_api_key>"
+        "PANDADOC_API_KEY": "<your-pandadoc_api_key>",
+        "PANDADOC_BASE_URL": "https://api.pandadoc.com/public/v1"
       }
     }
   }
@@ -101,7 +104,7 @@ All remote agents need `pandadoc-mcp` reachable as a public **HTTPS** endpoint. 
 in HTTP mode with your credentials in the environment:
 
 ```bash
-PANDADOC_API_KEY=<value> pandadoc-mcp --transport http --addr :7777
+PANDADOC_API_KEY=<value> PANDADOC_BASE_URL=<value> pandadoc-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

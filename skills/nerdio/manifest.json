@@ -28,14 +28,14 @@
       "type": "string",
       "title": "NERDIO_BASE_URL",
       "description": "Your NMM instance root URL (per-MSP install), e.g. https://nmm.contoso.com. Required - there is no vendor-global endpoint.",
-      "sensitive": false,
+      "sensitive": true,
       "required": true
     },
     "nerdio_token_url": {
       "type": "string",
       "title": "NERDIO_TOKEN_URL",
       "description": "Entra ID token endpoint for your tenant: https://login.microsoftonline.com/<TENANT_ID>/oauth2/v2.0/token",
-      "sensitive": false,
+      "sensitive": true,
       "required": true
     },
     "nerdio_client_id": {

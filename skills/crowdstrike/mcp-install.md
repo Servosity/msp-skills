@@ -37,7 +37,9 @@ Add (or merge with your existing `mcpServers` block):
     "crowdstrike": {
       "command": "crowdstrike-mcp",
       "env": {
+        "CROWDSTRIKE_BASE_URL": "https://api.crowdstrike.com",
         "CROWDSTRIKE_OAUTH_SCOPE": "<your-crowdstrike_oauth_scope>",
+        "CROWDSTRIKE_TOKEN_URL": "https://api.crowdstrike.com/oauth2/token",
         "FALCON_CLIENT_ID": "<your-falcon_client_id>",
         "FALCON_CLIENT_SECRET": "<your-falcon_client_secret>"
       }
@@ -64,7 +66,9 @@ Configuration**) and add:
       "type": "stdio",
       "command": "crowdstrike-mcp",
       "env": {
+        "CROWDSTRIKE_BASE_URL": "https://api.crowdstrike.com",
         "CROWDSTRIKE_OAUTH_SCOPE": "<your-crowdstrike_oauth_scope>",
+        "CROWDSTRIKE_TOKEN_URL": "https://api.crowdstrike.com/oauth2/token",
         "FALCON_CLIENT_ID": "<your-falcon_client_id>",
         "FALCON_CLIENT_SECRET": "<your-falcon_client_secret>"
       }
@@ -87,7 +91,9 @@ Claude Desktop:
     "crowdstrike": {
       "command": "crowdstrike-mcp",
       "env": {
+        "CROWDSTRIKE_BASE_URL": "https://api.crowdstrike.com",
         "CROWDSTRIKE_OAUTH_SCOPE": "<your-crowdstrike_oauth_scope>",
+        "CROWDSTRIKE_TOKEN_URL": "https://api.crowdstrike.com/oauth2/token",
         "FALCON_CLIENT_ID": "<your-falcon_client_id>",
         "FALCON_CLIENT_SECRET": "<your-falcon_client_secret>"
       }
@@ -107,7 +113,7 @@ All remote agents need `crowdstrike-mcp` reachable as a public **HTTPS** endpoin
 in HTTP mode with your credentials in the environment:
 
 ```bash
-CROWDSTRIKE_OAUTH_SCOPE=<value> FALCON_CLIENT_ID=<value> FALCON_CLIENT_SECRET=<value> crowdstrike-mcp --transport http --addr :7777
+CROWDSTRIKE_BASE_URL=<value> CROWDSTRIKE_OAUTH_SCOPE=<value> CROWDSTRIKE_TOKEN_URL=<value> FALCON_CLIENT_ID=<value> FALCON_CLIENT_SECRET=<value> crowdstrike-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

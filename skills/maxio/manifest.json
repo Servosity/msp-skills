@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "maxio-pp-mcp",
   "display_name": "Maxio",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Open, local revenue-intelligence CLI for Maxio Advanced Billing  -  MRR waterfalls, retention, and per-client history computed offline from a SQLite mirror, so the trended history survives even though the live API returns only point-in-time figures.",
   "author": {
     "name": "Servosity Inc."
@@ -15,6 +15,8 @@
       "command": "${__dirname}/bin/maxio-pp-mcp",
       "args": [],
       "env": {
+        "MAXIO_API_KEY": "${user_config.maxio_api_key}",
+        "MAXIO_BASE_URL": "${user_config.maxio_base_url}",
         "MAXIO_PASSWORD": "${user_config.maxio_password}",
         "MAXIO_SITE": "${user_config.maxio_site}",
         "MAXIO_USERNAME": "${user_config.maxio_username}"
@@ -33,7 +35,9 @@
       "type": "string",
       "title": "MAXIO_SITE",
       "description": "Sets MAXIO_SITE for the endpoint template variable {site}.",
-      "default": "subdomain"
+      "default": "subdomain",
+      "required": true,
+      "sensitive": true
     },
     "maxio_username": {
       "type": "string",
@@ -41,6 +45,19 @@
       "description": "Sets MAXIO_USERNAME for the Maxio MCP server. Get a credential from https://app.chargify.com/signup/maxio-billing-sandbox.",
       "sensitive": true,
       "required": true
+    },
+    "maxio_api_key": {
+      "type": "string",
+      "title": "Maxio API key",
+      "description": "Single-secret Maxio credential, sent as the HTTP Basic username with the constant 'x' as the password. Use this or the MAXIO_USERNAME + MAXIO_PASSWORD pair.",
+      "sensitive": true,
+      "required": false
+    },
+    "maxio_base_url": {
+      "type": "string",
+      "title": "Maxio API base URL",
+      "description": "Full API base URL. Leave blank: the CLI builds it from MAXIO_SITE. Set it only to point at a different host.",
+      "required": false
     }
   },
   "compatibility": {

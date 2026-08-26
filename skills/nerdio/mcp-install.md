@@ -37,6 +37,8 @@ Add (or merge with your existing `mcpServers` block):
     "nerdio": {
       "command": "nerdio-mcp",
       "env": {
+        "NERDIO_BASE_URL": "<your-nerdio_base_url>",
+        "NERDIO_TOKEN_URL": "<your-nerdio_token_url>",
         "NERDIO_CLIENT_ID": "<your-nerdio_client_id>",
         "NERDIO_CLIENT_SECRET": "<your-nerdio_client_secret>",
         "NERDIO_OAUTH_SCOPE": "<your-nerdio_oauth_scope>"
@@ -64,6 +66,8 @@ Configuration**) and add:
       "type": "stdio",
       "command": "nerdio-mcp",
       "env": {
+        "NERDIO_BASE_URL": "<your-nerdio_base_url>",
+        "NERDIO_TOKEN_URL": "<your-nerdio_token_url>",
         "NERDIO_CLIENT_ID": "<your-nerdio_client_id>",
         "NERDIO_CLIENT_SECRET": "<your-nerdio_client_secret>",
         "NERDIO_OAUTH_SCOPE": "<your-nerdio_oauth_scope>"
@@ -87,6 +91,8 @@ Claude Desktop:
     "nerdio": {
       "command": "nerdio-mcp",
       "env": {
+        "NERDIO_BASE_URL": "<your-nerdio_base_url>",
+        "NERDIO_TOKEN_URL": "<your-nerdio_token_url>",
         "NERDIO_CLIENT_ID": "<your-nerdio_client_id>",
         "NERDIO_CLIENT_SECRET": "<your-nerdio_client_secret>",
         "NERDIO_OAUTH_SCOPE": "<your-nerdio_oauth_scope>"
@@ -107,7 +113,7 @@ All remote agents need `nerdio-mcp` reachable as a public **HTTPS** endpoint. Ru
 in HTTP mode with your credentials in the environment:
 
 ```bash
-NERDIO_CLIENT_ID=<value> NERDIO_CLIENT_SECRET=<value> NERDIO_OAUTH_SCOPE=<value> nerdio-mcp --transport http --addr :7777
+NERDIO_BASE_URL=<value> NERDIO_CLIENT_ID=<value> NERDIO_CLIENT_SECRET=<value> NERDIO_OAUTH_SCOPE=<value> NERDIO_TOKEN_URL=<value> nerdio-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

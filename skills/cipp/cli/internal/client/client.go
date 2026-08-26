@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -197,7 +198,8 @@ func (c *Client) validateCachedRequestAuth(ctx context.Context) error {
 	if c == nil || c.Config == nil {
 		return nil
 	}
-	if authHeaderLooksLikePlaceholderCredential(c.Config.AuthHeader()) {
+	header, _ := c.configAuth()
+	if authHeaderLooksLikePlaceholderCredential(header) {
 		return authPlaceholderCredentialError(c.Config)
 	}
 	return nil
@@ -212,8 +214,12 @@ func (c *Client) cacheKey(path string, params map[string]string) string {
 	key := path
 	key += "|base_url=" + c.BaseURL
 	if c.Config != nil {
-		key += "|auth_source=" + c.Config.AuthSource
-		if authHeader := c.Config.AuthHeader(); authHeader != "" {
+		// Read the header and its source together under ccMu: a concurrent
+		// client_credentials re-mint rewrites both, and AuthHeader() itself
+		// back-fills AuthSource.
+		authHeader, authSource := c.configAuth()
+		key += "|auth_source=" + authSource
+		if authHeader != "" {
 			authHash := sha256.Sum256([]byte(authHeader))
 			key += "|auth=" + hex.EncodeToString(authHash[:8])
 		}
@@ -655,15 +661,411 @@ func (c *Client) ConfiguredTimeout() time.Duration {
 	return 60 * time.Second
 }
 
+// tokenExpirySkew is how far ahead of the stored expiry a cached OAuth2
+// client-credentials token is treated as spent. 5 minutes, deliberately wider
+// than the 60s most sibling connectors use: cipp's fan-out (internal/cli
+// fanout.go defaults --concurrency 5) and sync run a worker pool across an
+// entire tenant list on ONE token for many minutes, so a 60s window lets the
+// token die mid-run right after the check passed. 5 minutes costs about 8% of
+// a 60-minute Azure AD token, matches datto-rmm's in-tree choice, and is the
+// MSAL-family convention.
+const tokenExpirySkew = 5 * time.Minute
+
+// tokenRequestTimeout bounds the client-credentials exchange. ccMu is held for
+// its duration, so this is also the worst-case stall every other in-flight
+// request in the process can inherit from one hung token endpoint.
+const tokenRequestTimeout = 30 * time.Second
+
+// ccMu serializes reads of the credential material in c.Config together with
+// the client_credentials mint that rewrites it.
+//
+// It is package-level, NOT a *Client field, on purpose: the MCP server builds
+// a fresh *Client (and a fresh *Config) per tool call in
+// internal/mcp/tools.go newMCPClient, so a per-Client mutex could not
+// serialize concurrent mints inside a single process. The CLI's fan-out and
+// sync worker pools share one *Client, and for those the double-check below
+// collapses N goroutines to exactly one mint.
+//
+// Known and accepted limits: two *Client values that each loaded config before
+// the mint will still mint once apiece (their in-memory Configs are
+// independent), and separate processes cannot be serialized by any in-process
+// lock at all. Azure AD issues an independent valid token per
+// client_credentials grant, so the cost is a few redundant mints and a
+// last-writer-wins config.toml, never a broken request.
+var ccMu sync.Mutex
+
+// remintUnavailableWarnOnce keeps the "cannot auto-refresh" warning to one
+// line per process. Without it a 500-tenant fan-out would print it 500 times.
+var remintUnavailableWarnOnce sync.Once
+
 func (c *Client) authHeader(ctx context.Context) (string, error) {
 	if c.Config == nil {
 		return "", nil
+	}
+	ccMu.Lock()
+	defer ccMu.Unlock()
+	if err := c.ensureClientCredentialsTokenLocked(ctx); err != nil {
+		return "", err
 	}
 	authHeader := c.Config.AuthHeader()
 	if authHeaderLooksLikePlaceholderCredential(authHeader) {
 		return "", authPlaceholderCredentialError(c.Config)
 	}
 	return authHeader, nil
+}
+
+// configAuth returns the credential header and its resolved source, read under
+// ccMu so a concurrent re-mint cannot tear them. It never mints.
+func (c *Client) configAuth() (string, string) {
+	if c == nil || c.Config == nil {
+		return "", ""
+	}
+	ccMu.Lock()
+	defer ccMu.Unlock()
+	return c.Config.AuthHeader(), c.Config.AuthSource
+}
+
+// ensureClientCredentialsTokenLocked refreshes an expiring OAuth2
+// client-credentials access token. The caller must hold ccMu.
+func (c *Client) ensureClientCredentialsTokenLocked(ctx context.Context) error {
+	// --dry-run previews what WOULD be sent and must not dial; verify mode
+	// must not dial either. doInternal resolves the auth header before its
+	// dry-run branch precisely so the preview shows the cached credential,
+	// and its comment ("a token that requires a network refresh will be
+	// re-fetched on the live request path, not during dry-run") stays true
+	// only because of this short-circuit.
+	if c.DryRun || cliutil.IsVerifyEnv() {
+		return nil
+	}
+	if !needsClientCredentialsMint(c.Config) {
+		return nil
+	}
+	if c.Config.TokenEndpoint() == "" {
+		return c.remintUnavailable()
+	}
+	// A recent mint failed and the cached token has NOT actually expired yet.
+	// Re-attempting on every request would hold ccMu for up to
+	// tokenRequestTimeout apiece, so one degraded token endpoint would make a
+	// working install slower than a broken one. Ride the still-valid token
+	// until the cooldown lapses or the token genuinely dies.
+	if c.cachedTokenStillValidLocked() && !lastMintFailure.IsZero() && time.Since(lastMintFailure) < mintFailureCooldown {
+		return nil
+	}
+	if err := c.mintClientCredentials(ctx); err != nil {
+		lastMintFailure = time.Now()
+		return c.mintFailureWithCachedToken(err)
+	}
+	lastMintFailure = time.Time{}
+	return nil
+}
+
+// needsClientCredentialsMint reports whether the stored OAuth2
+// client-credentials token must be exchanged for a fresh one.
+//
+// The predicate is deliberately NOT the sibling connectors' `AccessToken == ""
+// -> mint`. cipp's AuthHeader() precedence is auth_header > CIPP_API_KEY >
+// access_token, so an operator running the documented static-token mode has
+// AccessToken == "" permanently. Under that predicate every single request
+// would attempt a mint, and because ccMu is package-level it would also
+// serialize the entire fan-out behind a doomed token exchange. A mint is
+// considered only when client_credentials state actually exists.
+func needsClientCredentialsMint(cfg *config.Config) bool {
+	if cfg == nil {
+		return false
+	}
+	// An explicit auth_header or a static CIPP_API_KEY is the operator's
+	// chosen credential and outranks access_token in AuthHeader(). Minting
+	// would burn a network round trip on a token nothing will read.
+	if cfg.AuthHeaderVal != "" || cfg.CippApiKey != "" {
+		return false
+	}
+	// Only a client_credentials install can re-mint. Everything else
+	// (set-token, auth_header, no credentials at all) has nothing to
+	// exchange, and `auth logout` zeroes both fields precisely so a logged
+	// out config can never re-mint unattended.
+	if cfg.ClientID == "" || cfg.ClientSecret == "" {
+		return false
+	}
+	if cfg.AccessToken == "" {
+		return true
+	}
+	// A zero expiry means "unknown", not "expired": a non-conformant token
+	// endpoint that answers expires_in: 0 would otherwise drive a re-mint on
+	// every single request forever.
+	if cfg.TokenExpiry.IsZero() {
+		return false
+	}
+	return time.Until(cfg.TokenExpiry) < effectiveTokenSkew(cfg)
+}
+
+// effectiveTokenSkew clamps the refresh safety margin to half the lifetime the
+// token endpoint actually granted.
+//
+// tokenExpirySkew (5 minutes) assumes an Azure-AD-shaped 60-minute token. An
+// endpoint that grants a 4-minute one would put every freshly minted token
+// inside the skew the instant it arrived, so needsClientCredentialsMint would
+// answer true on EVERY request - and because ccMu is package-level the whole
+// fan-out would then serialize behind one token exchange per request. Halving
+// the granted lifetime guarantees a new token is always outside its own skew,
+// so at most one mint happens per half-life.
+//
+// A zero lifetime means "unknown" - a config written before token_lifetime
+// existed, or a set-token install - and keeps the 5-minute default.
+func effectiveTokenSkew(cfg *config.Config) time.Duration {
+	if cfg == nil || cfg.TokenLifetime <= 0 {
+		return tokenExpirySkew
+	}
+	if half := (time.Duration(cfg.TokenLifetime) * time.Second) / 2; half < tokenExpirySkew {
+		return half
+	}
+	return tokenExpirySkew
+}
+
+// remintUnavailable handles the case where a refresh is due but the config
+// predates tenant_id, so there is no Azure AD token endpoint to POST to.
+// Every install created before this change is in that state.
+//
+// It never silently returns the stale token when that token is already dead:
+// doing so reproduces the exact 401 the operator reported, with no explanation
+// of what to do about it. The caller must hold ccMu.
+func (c *Client) remintUnavailable() error {
+	cfg := c.Config
+	loginHint := "cipp-cli auth login --client-id <client-id> --client-secret <client-secret> --tenant-id <tenant-id> --base-url https://cipp.example.com/api"
+	location := "the config file"
+	if cfg.Path != "" {
+		location = cfg.Path
+	}
+	// Inside the safety skew but not actually expired: the request will still
+	// succeed, so warn loudly rather than breaking a working install minutes
+	// early. Fail hard only once the token is genuinely spent.
+	if c.cachedTokenStillValidLocked() {
+		remintUnavailableWarnOnce.Do(func() {
+			fmt.Fprintf(os.Stderr,
+				"warning: the cached CIPP token expires at %s and cannot be refreshed automatically: %s has no tenant_id, so the Azure AD token endpoint is unknown.\nRun this once to re-authenticate and enable automatic refresh:\n  %s\n",
+				cfg.TokenExpiry.Format(time.RFC3339), location, loginHint)
+		})
+		return nil
+	}
+	state := "is expired"
+	if cfg.AccessToken == "" {
+		state = "is missing"
+	} else if !cfg.TokenExpiry.IsZero() {
+		state = "expired at " + cfg.TokenExpiry.Format(time.RFC3339)
+	}
+	return fmt.Errorf("the cached CIPP access token %s and cannot be refreshed automatically: %s has no tenant_id, so the Azure AD token endpoint is unknown. Run this once to re-authenticate and enable automatic refresh:\n  %s",
+		state, location, loginHint)
+}
+
+// cachedTokenStillValidLocked reports whether the token already sitting in the
+// config would be accepted by the API right now. It is the difference between
+// "inside the safety skew" (refresh due, still working) and "actually dead"
+// (nothing can be served), and both degrade paths below turn on it. The caller
+// must hold ccMu.
+func (c *Client) cachedTokenStillValidLocked() bool {
+	cfg := c.Config
+	return cfg != nil && cfg.AccessToken != "" && !cfg.TokenExpiry.IsZero() && time.Now().Before(cfg.TokenExpiry)
+}
+
+// mintFailureCooldown bounds how often a failing token exchange is retried
+// while the cached token is still genuinely valid. See the call site in
+// ensureClientCredentialsTokenLocked.
+const mintFailureCooldown = 30 * time.Second
+
+// lastMintFailure is when the most recent client_credentials exchange failed,
+// or the zero time when the last one succeeded. Every reader and writer already
+// holds ccMu, so it needs no lock of its own.
+var lastMintFailure time.Time
+
+// mintFailureWarnOnce keeps the degraded-refresh warning to one line per
+// process, the same way remintUnavailableWarnOnce does.
+var mintFailureWarnOnce sync.Once
+
+// mintFailureWithCachedToken decides what a FAILED re-mint means, and it makes
+// the same judgement remintUnavailable already makes for the missing-tenant_id
+// case. The safety skew is 5 of every 60 minutes, so roughly 8% of every token
+// lifetime is spent in a window where the cached token is still perfectly
+// good. Returning the mint error there would turn any transient token-endpoint
+// failure - an AAD 5xx, a DNS blip, a proxy hiccup - into a broken CLI, minutes
+// before the credential it is already holding actually expires.
+//
+// Warn loudly and proceed while the token is alive; fail hard, carrying the
+// token endpoint's own explanation, only once it is genuinely spent. The caller
+// must hold ccMu.
+func (c *Client) mintFailureWithCachedToken(mintErr error) error {
+	if !c.cachedTokenStillValidLocked() {
+		return mintErr
+	}
+	expiry := c.Config.TokenExpiry
+	detail := c.maskCredentialTextLocked(mintErr.Error())
+	mintFailureWarnOnce.Do(func() {
+		fmt.Fprintf(os.Stderr,
+			"warning: refreshing the CIPP access token failed: %s\nThe cached token is still valid until %s, so this request proceeds with it. If the token endpoint does not recover before then, requests will start failing.\n",
+			detail, expiry.Format(time.RFC3339))
+	})
+	return nil
+}
+
+// TokenExchangeRedirectPolicy is the CheckRedirect for every client-credentials
+// token exchange in this CLI: the re-mint in this package and `auth login`'s
+// first exchange both install it.
+//
+// It exists because CLEARING CheckRedirect does not disable redirects - it
+// restores Go's DEFAULT policy, which follows up to 10 hops and, on 307/308,
+// REPLAYS THE REQUEST BODY. A token exchange's body is the client-credentials
+// form carrying client_secret, so a token endpoint answering 307 to another
+// host would hand that secret to the redirect target, and the CLI would then
+// accept and cache whatever access_token came back. The most secret-bearing
+// request in the CLI gets the STRICTEST redirect policy, not the laxest.
+//
+// It is a plain function over its arguments, closing over no *Client and no
+// package state, and that is exactly why it is safe here. The policy New()
+// installs on c.HTTPClient cannot be reused for a mint: it calls c.authHeader,
+// which takes ccMu, and the mint already holds ccMu (sync.Mutex is not
+// reentrant), so a redirecting token endpoint would deadlock the process. A
+// same-origin comparison needs no shared mutable state, so this one cannot.
+func TokenExchangeRedirectPolicy(req *http.Request, via []*http.Request) error {
+	if len(via) >= 10 {
+		return errors.New("stopped after 10 redirects")
+	}
+	origin := via[0].URL
+	if !sameTokenExchangeOrigin(origin, req.URL) {
+		return fmt.Errorf("token endpoint redirected from %s to %s: refusing to resend the client_credentials form (it carries client_secret) to a different origin",
+			redirectOrigin(origin), redirectOrigin(req.URL))
+	}
+	return nil
+}
+
+// sameTokenExchangeOrigin reports whether a redirect target is the same origin
+// as the original token endpoint. Host comparison includes the port. An
+// http -> https upgrade on the same host is strictly safer than the hop already
+// made and is allowed; the https -> http downgrade, which would put the secret
+// on the wire in cleartext, is not.
+func sameTokenExchangeOrigin(from, to *url.URL) bool {
+	if from == nil || to == nil {
+		return false
+	}
+	if !strings.EqualFold(from.Host, to.Host) {
+		return false
+	}
+	if strings.EqualFold(from.Scheme, to.Scheme) {
+		return true
+	}
+	return strings.EqualFold(from.Scheme, "http") && strings.EqualFold(to.Scheme, "https")
+}
+
+// redirectOrigin renders scheme://host for an error message. Path, query and
+// userinfo are dropped on purpose: a token URL's query string is the one place
+// a misconfigured endpoint could echo a credential back into a log line.
+func redirectOrigin(u *url.URL) string {
+	if u == nil {
+		return "(none)"
+	}
+	return u.Scheme + "://" + u.Host
+}
+
+// mintHTTPClient returns the HTTP client used for the token exchange.
+//
+// It is a shallow copy of c.HTTPClient so the transport is reused: the test
+// harness swaps in a recording RoundTripper to assert nothing ever dials, and
+// operators configure proxies and TLS there. http.DefaultClient would escape
+// both. The copy swaps CheckRedirect for TokenExchangeRedirectPolicy rather
+// than clearing it - clearing restores Go's body-replaying default (see that
+// function), while c.HTTPClient's own policy would re-enter ccMu.
+func (c *Client) mintHTTPClient() (*http.Client, error) {
+	if c.HTTPClient == nil {
+		return nil, fmt.Errorf("OAuth client_credentials mint: no HTTP client configured")
+	}
+	cp := *c.HTTPClient
+	cp.CheckRedirect = TokenExchangeRedirectPolicy
+	if cp.Timeout <= 0 {
+		cp.Timeout = tokenRequestTimeout
+	}
+	return &cp, nil
+}
+
+// mintClientCredentials performs the Azure AD client-credentials grant and
+// installs the resulting token. The caller must hold ccMu.
+func (c *Client) mintClientCredentials(ctx context.Context) error {
+	cfg := c.Config
+	clientID, clientSecret := cfg.ClientID, cfg.ClientSecret
+	if authHeaderLooksLikePlaceholderCredential(clientID) || authHeaderLooksLikePlaceholderCredential(clientSecret) {
+		return authPlaceholderCredentialError(cfg)
+	}
+	tokenURL := cfg.TokenEndpoint()
+	form := url.Values{
+		"grant_type":    {"client_credentials"},
+		"client_id":     {clientID},
+		"client_secret": {clientSecret},
+	}
+	if scope := cfg.OAuthScope(); scope != "" {
+		form.Set("scope", scope)
+	}
+	reqCtx, cancel := context.WithTimeout(ctx, tokenRequestTimeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, tokenURL, strings.NewReader(form.Encode()))
+	if err != nil {
+		return fmt.Errorf("building token request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Accept", "application/json")
+
+	httpClient, err := c.mintHTTPClient()
+	if err != nil {
+		return err
+	}
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("calling token endpoint %s: %w", tokenURL, err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if resp.StatusCode >= 400 {
+		// Mask BEFORE sanitizing, and with the lock-free masker.
+		// cliutil.SanitizeErrorBody only knows generic patterns - it has never
+		// seen cfg.ClientSecret - so a token endpoint that echoes the submitted
+		// form back in its error body would print the secret verbatim. The real
+		// masker, c.maskCredentialText, takes ccMu, which this call path
+		// already holds. Order matters too: SanitizeErrorBody truncates at 200
+		// bytes, and a secret straddling that boundary would no longer match
+		// its own needle.
+		return fmt.Errorf("OAuth client_credentials mint: HTTP %d: %s", resp.StatusCode,
+			cliutil.SanitizeErrorBody(c.maskCredentialTextLocked(string(body), clientSecret)))
+	}
+	var tokenResp struct {
+		AccessToken string `json:"access_token"`
+		ExpiresIn   int    `json:"expires_in"`
+	}
+	if err := json.Unmarshal(body, &tokenResp); err != nil {
+		return fmt.Errorf("parsing token response: %w", err)
+	}
+	if tokenResp.AccessToken == "" {
+		return fmt.Errorf("OAuth client_credentials mint: response missing access_token")
+	}
+	// expires_in: 0 stores the zero time, which needsClientCredentialsMint
+	// reads as "unknown, do not re-mint". Storing time.Now() instead would
+	// make the token look expired the instant it arrived and re-mint on every
+	// request forever.
+	expiry := time.Time{}
+	lifetime := 0
+	if tokenResp.ExpiresIn > 0 {
+		expiry = time.Now().Add(time.Duration(tokenResp.ExpiresIn) * time.Second)
+		lifetime = tokenResp.ExpiresIn
+	}
+	// In memory FIRST, then persist best-effort. A read-only home directory
+	// (CI, a container with a mounted config, a hardened image) must degrade
+	// to "works for this process", never throw away a valid token. Nine
+	// sibling connectors instead return a wrapped error when the save fails,
+	// which discards a freshly minted, perfectly valid credential. That half
+	// of the pattern is deliberately NOT copied here, and the ledger in
+	// skills/cipp/handfixes.json bans it by name.
+	cfg.AccessToken = tokenResp.AccessToken
+	cfg.TokenExpiry = expiry
+	// Record the granted lifetime so effectiveTokenSkew can clamp the refresh
+	// margin. Without it a short-lived token is inside the 5-minute skew from
+	// the instant it is issued, and every subsequent request re-mints.
+	cfg.SetTokenLifetime(lifetime)
+	_ = cfg.SaveTokens(clientID, clientSecret, tokenResp.AccessToken, "", expiry)
+	return nil
 }
 
 func authHeaderLooksLikePlaceholderCredential(header string) bool {
@@ -840,7 +1242,21 @@ func (c *Client) maskError(err error, extraCredentials ...string) error {
 	return maskedError{msg: msg}
 }
 
+// maskCredentialText redacts every credential this client knows about. It
+// takes ccMu to read the config.
 func (c *Client) maskCredentialText(text string, extraCredentials ...string) string {
+	return c.maskCredentialTextWithLock(text, true, extraCredentials...)
+}
+
+// maskCredentialTextLocked is maskCredentialText for the callers that ALREADY
+// hold ccMu - the client_credentials mint is the only one. Before it existed
+// the mint had to fall back to cliutil.SanitizeErrorBody, which does not know
+// cfg.ClientSecret, because taking a non-reentrant mutex twice deadlocks.
+func (c *Client) maskCredentialTextLocked(text string, extraCredentials ...string) string {
+	return c.maskCredentialTextWithLock(text, false, extraCredentials...)
+}
+
+func (c *Client) maskCredentialTextWithLock(text string, takeLock bool, extraCredentials ...string) string {
 	if text == "" {
 		return text
 	}
@@ -885,12 +1301,28 @@ func (c *Client) maskCredentialText(text string, extraCredentials ...string) str
 		addCredential(value)
 	}
 	if c != nil && c.Config != nil {
-		addCredential(c.Config.AuthHeaderVal)
-		addCredential(c.Config.AuthHeader())
-		addCredential(c.Config.AccessToken)
-		addCredential(c.Config.RefreshToken)
-		addCredential(c.Config.ClientSecret)
-		addCredential(c.Config.CippApiKey)
+		// Read every credential field under ccMu: a concurrent
+		// client_credentials re-mint rewrites AccessToken and TokenExpiry
+		// while another worker is masking an error. Nothing in this block
+		// calls authHeader, so the non-reentrant lock is safe to take here.
+		if takeLock {
+			ccMu.Lock()
+		}
+		authHeaderVal := c.Config.AuthHeaderVal
+		resolvedHeader := c.Config.AuthHeader()
+		accessToken := c.Config.AccessToken
+		refreshToken := c.Config.RefreshToken
+		clientSecret := c.Config.ClientSecret
+		apiKey := c.Config.CippApiKey
+		if takeLock {
+			ccMu.Unlock()
+		}
+		addCredential(authHeaderVal)
+		addCredential(resolvedHeader)
+		addCredential(accessToken)
+		addCredential(refreshToken)
+		addCredential(clientSecret)
+		addCredential(apiKey)
 	}
 	sort.SliceStable(masks, func(i, j int) bool {
 		return len(masks[i].needle) > len(masks[j].needle)

@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "connectwise-control-mcp",
   "display_name": "ConnectWise Control",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Manage ConnectWise Control (ScreenConnect) remote support and access sessions from the terminal or your AI agent: list and inspect sessions across groups, run commands on guest machines, rename and tag sessions, manage instance users, and query the audit log - the whole instance from one CLI.",
   "author": {
     "name": "Servosity Inc."

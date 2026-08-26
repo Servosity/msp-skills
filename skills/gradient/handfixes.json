@@ -1,33 +1,170 @@
 {
-  "slug": "gradient",
-  "doc": "docs/reprint-survival.md",
-  "_comment": "Connector-specific edits to GENERATED/authored files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present and fails CI if a reprint dropped one. Provenance: project_onboard_missing_required_positional_defect.md (PR #75, 2026-06-07, Gradient MSP billing sync).",
-  "handfixes": [
+ "slug": "gradient",
+ "doc": "docs/reprint-survival.md",
+ "_comment": "Connector-specific edits to GENERATED/authored files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present and fails CI if a reprint dropped one. Provenance: project_onboard_missing_required_positional_defect.md (PR #75, 2026-06-07, Gradient MSP billing sync).",
+ "handfixes": [
+  {
+   "id": "required-positionals-in-doc-examples",
+   "summary": "Doc examples/Command-Reference rows keep their REQUIRED positional (billing <serviceId>, services get <serviceId>, mappings update <serviceId>, accounts update-one <accountId>); the press dropped them for some commands",
+   "why": "The press inconsistently annotates required positionals: in the SAME Command Reference it wrote `billing <serviceId>` for some commands but dropped the positional for siblings (accounts update-one, mappings update, services get) even though all require one (Usage: ... <foo> [flags]). check_cli_claims is blind (it parses the first bareword as the subcommand and ignores trailing positionals), so a non-runnable example sails through every mechanical gate - only iterated adversarial review caught it. A reprint reverts the examples to the no-positional form (e.g. `gradient-cli billing --account-id ...` which errors 'serviceId is required', exit 2).",
+   "status": "active",
+   "spec_encode_followup": "Fix belongs in the press doc generator: emit required positionals consistently in every Command-Reference row + runnable example. Tracked in project_onboard_missing_required_positional_defect.",
+   "asserts": [
     {
-      "id": "required-positionals-in-doc-examples",
-      "summary": "Doc examples/Command-Reference rows keep their REQUIRED positional (billing <serviceId>, services get <serviceId>, mappings update <serviceId>, accounts update-one <accountId>); the press dropped them for some commands",
-      "why": "The press inconsistently annotates required positionals: in the SAME Command Reference it wrote `billing <serviceId>` for some commands but dropped the positional for siblings (accounts update-one, mappings update, services get) even though all require one (Usage: ... <foo> [flags]). check_cli_claims is blind (it parses the first bareword as the subcommand and ignores trailing positionals), so a non-runnable example sails through every mechanical gate - only iterated adversarial review caught it. A reprint reverts the examples to the no-positional form (e.g. `gradient-cli billing --account-id ...` which errors 'serviceId is required', exit 2).",
-      "status": "active",
-      "spec_encode_followup": "Fix belongs in the press doc generator: emit required positionals consistently in every Command-Reference row + runnable example. Tracked in project_onboard_missing_required_positional_defect.",
-      "asserts": [
-        {"file": "README.md", "contains": "gradient-cli billing <serviceId>", "min_count": 1},
-        {"file": "page.json", "contains": "gradient-cli billing <serviceId>", "min_count": 1},
-        {"file": "SKILL.md", "contains": "billing <serviceId>", "min_count": 1},
-        {"file": "SKILL.md", "contains": "services get <serviceId>", "min_count": 1},
-        {"file": "guide.md", "contains": "accounts update-one <accountId>", "min_count": 1}
-      ]
+     "file": "README.md",
+     "contains": "gradient-cli billing <serviceId>",
+     "min_count": 1
     },
     {
-      "id": "governance-verbless-writes-promoted",
-      "summary": "Governance Write tier hand-promoted to include the 5 verb-less writes (usage push, billing, alert send, alerting, import) the keyword classifier missed; 14 total",
-      "why": "gen_governance keyed on write-verb keywords, so the 5 verb-less / non-standard-verb POSTs (usage push, billing, alert send, alerting, import) fell to the Read tier. Hand-authored governance.md Write tier names all 14 mutations (union, not replace). A reprint regenerates governance.md from the blind classifier and silently demotes the 5 to Read.",
-      "status": "active",
-      "spec_encode_followup": "Real fix is a method-aware gen_governance (classify from pp:method). Tracked in project_gen_governance_misses_verbless_writes / project_governance_rewrite_union_not_replace.",
-      "asserts": [
-        {"file": "governance.md", "contains": "usage push", "min_count": 1},
-        {"file": "governance.md", "contains": "alert send", "min_count": 1},
-        {"file": "governance.md", "contains": "(14 total)", "min_count": 1}
-      ]
+     "file": "page.json",
+     "contains": "gradient-cli billing <serviceId>",
+     "min_count": 1
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "billing <serviceId>",
+     "min_count": 1
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "services get <serviceId>",
+     "min_count": 1
+    },
+    {
+     "file": "guide.md",
+     "contains": "accounts update-one <accountId>",
+     "min_count": 1
     }
-  ]
+   ]
+  },
+  {
+   "id": "governance-verbless-writes-promoted",
+   "summary": "Governance Write tier hand-promoted to include the 5 verb-less writes (usage push, billing, alert send, alerting, import) the keyword classifier missed; 14 total",
+   "why": "gen_governance keyed on write-verb keywords, so the 5 verb-less / non-standard-verb POSTs (usage push, billing, alert send, alerting, import) fell to the Read tier. Hand-authored governance.md Write tier names all 14 mutations (union, not replace). A reprint regenerates governance.md from the blind classifier and silently demotes the 5 to Read.",
+   "status": "active",
+   "spec_encode_followup": "Real fix is a method-aware gen_governance (classify from pp:method). Tracked in project_gen_governance_misses_verbless_writes / project_governance_rewrite_union_not_replace.",
+   "asserts": [
+    {
+     "file": "governance.md",
+     "contains": "usage push",
+     "min_count": 1
+    },
+    {
+     "file": "governance.md",
+     "contains": "alert send",
+     "min_count": 1
+    },
+    {
+     "file": "governance.md",
+     "contains": "(14 total)",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "doctor-verdict-tracks-reality",
+   "summary": "doctor probes a real GET endpoint with the real credential and refuses to dial a placeholder base_url, instead of calling any HTTP response 'reachable' and never checking the credential",
+   "why": "`doctor` is the command every SKILL, guide and docs page tells an operator to run to confirm the connector works, and it could not tell a working install from a broken one. It called any HTTP response to `GET /` \"reachable\" and rendered it green, so a base_url aimed at the vendor's web UI (where every API path 404s) and a token rejected with 401 on every call both produced an all-green report. On this connector family it also never probed the credential at all: it printed \"present, not verified\" and left the operator to guess. The mirror defect: a connector whose shipped base_url default is a placeholder dialled the placeholder host, and the DNS failure rendered as \"FAIL API: unreachable\" - telling a correctly-credentialled operator they were broken without naming the one variable that would fix it. Several placeholder hosts resolve through live wildcard DNS and answer real HTTP, so dialling one produced a confident green verdict against a stranger's server. Measured and gated by tools/maintainer/check_doctor_truth.py. See issue #282.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorProbeCredentials("
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorBaseURLIsPlaceholder("
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorIsInfoKey(k)"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorBaseURLIsPlaceholder(cfg.BaseURL)"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeCredentials(cmd.Context()"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "present, not verified. Run `%s %s`"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "for _, v := range report {"
+    }
+   ]
+  },
+  {
+   "id": "install-credentials-declared-on-every-channel",
+   "summary": "every operator credential this connector reads is declared on all three install channels: manifest.json (.mcpb), server.json (MCP Registry) and mcp-install.md (manual install)",
+   "why": "Issue #282 ('three live-verified connectors prompt for the wrong credentials'). A connector is installed through THREE independent channels that each carry their own copy of the credential list: manifest.json server.mcp_config.env (what the .mcpb bundle hands Claude Desktop, which has no shell profile, no config.toml and no export - so an undeclared variable is a variable nobody is ever asked for), server.json environmentVariables (the MCP Registry publish channel), and mcp-install.md's copy-paste JSON blocks plus its remote launch line (the manual path, which never touches the bundle at all). The fleet-wide audit found 60 of 65 connectors under-declaring 122 operator-facing variables in the manifest, 61 of 65 mcp-install.md pages omitting 125, and hudu's server.json missing the base URL its manifest marks required. For gradient the manifest gained: GRADIENT_BASE_URL, GRADIENT_PARTNER_API_KEY, GRADIENT_VENDOR_API_KEY. server.json gained: GRADIENT_BASE_URL, GRADIENT_PARTNER_API_KEY, GRADIENT_VENDOR_API_KEY. mcp-install.md's env blocks gained: GRADIENT_BASE_URL, GRADIENT_PARTNER_API_KEY, GRADIENT_VENDOR_API_KEY. manifest.json, server.json and mcp-install.md are ALL regenerated by /msp-skills-publish on an UPDATE or re-onboard, so without this ledger a regeneration silently drops every declaration and CI stays green (check_env_schema.py is wired --warn). The asserts below name the specific credentials, not a count, so dropping one and adding another cannot cancel out.",
+   "status": "active",
+   "spec_encode_followup": "cli-printing-press should emit server.mcp_config.env, the matching user_config prompts, server.json environmentVariables and mcp-install.md's env blocks from ONE declaration of the connector's operator-facing environment, so the three channels cannot be generated out of step. Until then check_env_schema.py compares all three and this ledger pins them.",
+   "asserts": [
+    {
+     "file": "manifest.json",
+     "contains": "\"GRADIENT_BASE_URL\": \"${user_config.gradient_base_url}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"GRADIENT_PARTNER_API_KEY\": \"${user_config.gradient_partner_api_key}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"GRADIENT_TOKEN\": \"${user_config.gradient_token}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"GRADIENT_VENDOR_API_KEY\": \"${user_config.gradient_vendor_api_key}\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"GRADIENT_BASE_URL\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"GRADIENT_PARTNER_API_KEY\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"GRADIENT_TOKEN\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"GRADIENT_VENDOR_API_KEY\"",
+     "min_count": 1
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"GRADIENT_BASE_URL\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"GRADIENT_PARTNER_API_KEY\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"GRADIENT_TOKEN\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"GRADIENT_VENDOR_API_KEY\":",
+     "min_count": 3
+    }
+   ]
+  }
+ ]
 }

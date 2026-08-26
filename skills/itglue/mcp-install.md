@@ -37,7 +37,8 @@ Add (or merge with your existing `mcpServers` block):
     "itglue": {
       "command": "itglue-mcp",
       "env": {
-        "ITGLUE_API_KEY": "<your-itglue_api_key>"
+        "ITGLUE_API_KEY": "<your-itglue_api_key>",
+        "ITGLUE_BASE_URL": "https://api.itglue.com"
       }
     }
   }
@@ -62,7 +63,8 @@ Configuration**) and add:
       "type": "stdio",
       "command": "itglue-mcp",
       "env": {
-        "ITGLUE_API_KEY": "<your-itglue_api_key>"
+        "ITGLUE_API_KEY": "<your-itglue_api_key>",
+        "ITGLUE_BASE_URL": "https://api.itglue.com"
       }
     }
   }
@@ -83,7 +85,8 @@ Claude Desktop:
     "itglue": {
       "command": "itglue-mcp",
       "env": {
-        "ITGLUE_API_KEY": "<your-itglue_api_key>"
+        "ITGLUE_API_KEY": "<your-itglue_api_key>",
+        "ITGLUE_BASE_URL": "https://api.itglue.com"
       }
     }
   }
@@ -101,7 +104,7 @@ All remote agents need `itglue-mcp` reachable as a public **HTTPS** endpoint. Ru
 in HTTP mode with your credentials in the environment:
 
 ```bash
-ITGLUE_API_KEY=<value> itglue-mcp --transport http --addr :7777
+ITGLUE_API_KEY=<value> ITGLUE_BASE_URL=<value> itglue-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

@@ -37,7 +37,13 @@ Add (or merge with your existing `mcpServers` block):
     "connectwise-manage": {
       "command": "connectwise-manage-mcp",
       "env": {
-        "CW_CLIENT_ID": "<your-cw_client_id>"
+        "CONNECTWISE_MANAGE_BASE_URL": "https://api-na.myconnectwise.net/v4_6_release/apis/3.0",
+        "CW_API_VERSION": "",
+        "CW_CLIENT_ID": "<your-cw_client_id>",
+        "CW_COMPANY_ID": "<your-cw_company_id>",
+        "CW_PRIVATE_KEY": "<your-cw_private_key>",
+        "CW_PUBLIC_KEY": "<your-cw_public_key>",
+        "CW_SITE": "<your-cw_site>"
       }
     }
   }
@@ -62,7 +68,13 @@ Configuration**) and add:
       "type": "stdio",
       "command": "connectwise-manage-mcp",
       "env": {
-        "CW_CLIENT_ID": "<your-cw_client_id>"
+        "CONNECTWISE_MANAGE_BASE_URL": "https://api-na.myconnectwise.net/v4_6_release/apis/3.0",
+        "CW_API_VERSION": "",
+        "CW_CLIENT_ID": "<your-cw_client_id>",
+        "CW_COMPANY_ID": "<your-cw_company_id>",
+        "CW_PRIVATE_KEY": "<your-cw_private_key>",
+        "CW_PUBLIC_KEY": "<your-cw_public_key>",
+        "CW_SITE": "<your-cw_site>"
       }
     }
   }
@@ -83,7 +95,13 @@ Claude Desktop:
     "connectwise-manage": {
       "command": "connectwise-manage-mcp",
       "env": {
-        "CW_CLIENT_ID": "<your-cw_client_id>"
+        "CONNECTWISE_MANAGE_BASE_URL": "https://api-na.myconnectwise.net/v4_6_release/apis/3.0",
+        "CW_API_VERSION": "",
+        "CW_CLIENT_ID": "<your-cw_client_id>",
+        "CW_COMPANY_ID": "<your-cw_company_id>",
+        "CW_PRIVATE_KEY": "<your-cw_private_key>",
+        "CW_PUBLIC_KEY": "<your-cw_public_key>",
+        "CW_SITE": "<your-cw_site>"
       }
     }
   }
@@ -101,7 +119,7 @@ All remote agents need `connectwise-manage-mcp` reachable as a public **HTTPS** 
 in HTTP mode with your credentials in the environment:
 
 ```bash
-CW_CLIENT_ID=<value> connectwise-manage-mcp --transport http --addr :7777
+CONNECTWISE_MANAGE_BASE_URL=<value> CW_API_VERSION=<value> CW_CLIENT_ID=<value> CW_COMPANY_ID=<value> CW_PRIVATE_KEY=<value> CW_PUBLIC_KEY=<value> CW_SITE=<value> connectwise-manage-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

@@ -38,6 +38,7 @@ Add (or merge with your existing `mcpServers` block):
       "command": "proofpoint-mcp",
       "env": {
         "PROOFPOINT_API_SECRET": "<your-proofpoint_api_secret>",
+        "PROOFPOINT_BASE_URL": "https://tap-api-v2.proofpoint.com/v2",
         "PROOFPOINT_SERVICE_PRINCIPAL": "<your-proofpoint_service_principal>"
       }
     }
@@ -64,6 +65,7 @@ Configuration**) and add:
       "command": "proofpoint-mcp",
       "env": {
         "PROOFPOINT_API_SECRET": "<your-proofpoint_api_secret>",
+        "PROOFPOINT_BASE_URL": "https://tap-api-v2.proofpoint.com/v2",
         "PROOFPOINT_SERVICE_PRINCIPAL": "<your-proofpoint_service_principal>"
       }
     }
@@ -86,6 +88,7 @@ Claude Desktop:
       "command": "proofpoint-mcp",
       "env": {
         "PROOFPOINT_API_SECRET": "<your-proofpoint_api_secret>",
+        "PROOFPOINT_BASE_URL": "https://tap-api-v2.proofpoint.com/v2",
         "PROOFPOINT_SERVICE_PRINCIPAL": "<your-proofpoint_service_principal>"
       }
     }
@@ -104,7 +107,7 @@ All remote agents need `proofpoint-mcp` reachable as a public **HTTPS** endpoint
 in HTTP mode with your credentials in the environment:
 
 ```bash
-PROOFPOINT_API_SECRET=<value> PROOFPOINT_SERVICE_PRINCIPAL=<value> proofpoint-mcp --transport http --addr :7777
+PROOFPOINT_API_SECRET=<value> PROOFPOINT_BASE_URL=<value> PROOFPOINT_SERVICE_PRINCIPAL=<value> proofpoint-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

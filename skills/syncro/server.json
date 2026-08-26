@@ -35,10 +35,17 @@
           "isSecret": true
         },
         {
+          "name": "SYNCRO_BASE_URL",
+          "description": "Full API base URL. Leave blank: the CLI builds it from SYNCRO_SUBDOMAIN. Set it only to point at a different host.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
           "name": "SYNCRO_SUBDOMAIN",
           "description": "Set the SYNCRO_SUBDOMAIN credential for the Syncro MCP server.",
           "isRequired": true,
-          "isSecret": true
+          "isSecret": true,
+          "default": "your-subdomain"
         }
       ]
     }

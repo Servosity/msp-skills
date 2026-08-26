@@ -16,6 +16,7 @@
       "args": [],
       "env": {
         "BLUMIRA_API_TOKEN": "${user_config.blumira_api_token}",
+        "BLUMIRA_BASE_URL": "${user_config.blumira_base_url}",
         "BLUMIRA_CLIENT_ID": "${user_config.blumira_client_id}",
         "BLUMIRA_CLIENT_SECRET": "${user_config.blumira_client_secret}"
       }
@@ -31,13 +32,21 @@
     "blumira_client_id": {
       "type": "string",
       "title": "BLUMIRA_CLIENT_ID",
-      "description": "Optional. Blumira API Client ID (Settings > Organization > Generate API Credentials). Used with BLUMIRA_CLIENT_SECRET by `auth login` to mint a JWT."
+      "description": "Optional. Blumira API Client ID (Settings > Organization > Generate API Credentials). Used with BLUMIRA_CLIENT_SECRET by `auth login` to mint a JWT.",
+      "sensitive": true
     },
     "blumira_client_secret": {
       "type": "string",
       "title": "BLUMIRA_CLIENT_SECRET",
       "description": "Optional. Blumira API Client Secret. Used with BLUMIRA_CLIENT_ID by `auth login` to mint a JWT (client_credentials, audience=public-api).",
       "sensitive": true
+    },
+    "blumira_base_url": {
+      "type": "string",
+      "title": "Blumira API base URL",
+      "description": "Base URL for the Blumira API. Leave the prefilled default unless your account uses a different regional or self-hosted host.",
+      "required": false,
+      "default": "https://api.blumira.com/public-api/v1"
     }
   },
   "compatibility": {

@@ -38,7 +38,13 @@ Add (or merge with your existing `mcpServers` block):
       "command": "xero-mcp",
       "env": {
         "XERO_ACCESS_TOKEN": "<your-xero_access_token>",
-        "XERO_OAUTH2": "<your-xero_oauth2>"
+        "XERO_AUTHORIZATION_URL": "https://login.xero.com/identity/connect/authorize",
+        "XERO_BASE_URL": "https://api.xero.com/api.xro/2.0",
+        "XERO_CLIENT_ID": "",
+        "XERO_CLIENT_SECRET": "",
+        "XERO_OAUTH2": "<your-xero_oauth2>",
+        "XERO_TENANT_ID": "<your-xero_tenant_id>",
+        "XERO_TOKEN_URL": "https://identity.xero.com/connect/token"
       }
     }
   }
@@ -64,7 +70,13 @@ Configuration**) and add:
       "command": "xero-mcp",
       "env": {
         "XERO_ACCESS_TOKEN": "<your-xero_access_token>",
-        "XERO_OAUTH2": "<your-xero_oauth2>"
+        "XERO_AUTHORIZATION_URL": "https://login.xero.com/identity/connect/authorize",
+        "XERO_BASE_URL": "https://api.xero.com/api.xro/2.0",
+        "XERO_CLIENT_ID": "",
+        "XERO_CLIENT_SECRET": "",
+        "XERO_OAUTH2": "<your-xero_oauth2>",
+        "XERO_TENANT_ID": "<your-xero_tenant_id>",
+        "XERO_TOKEN_URL": "https://identity.xero.com/connect/token"
       }
     }
   }
@@ -86,7 +98,13 @@ Claude Desktop:
       "command": "xero-mcp",
       "env": {
         "XERO_ACCESS_TOKEN": "<your-xero_access_token>",
-        "XERO_OAUTH2": "<your-xero_oauth2>"
+        "XERO_AUTHORIZATION_URL": "https://login.xero.com/identity/connect/authorize",
+        "XERO_BASE_URL": "https://api.xero.com/api.xro/2.0",
+        "XERO_CLIENT_ID": "",
+        "XERO_CLIENT_SECRET": "",
+        "XERO_OAUTH2": "<your-xero_oauth2>",
+        "XERO_TENANT_ID": "<your-xero_tenant_id>",
+        "XERO_TOKEN_URL": "https://identity.xero.com/connect/token"
       }
     }
   }
@@ -104,7 +122,7 @@ All remote agents need `xero-mcp` reachable as a public **HTTPS** endpoint. Run 
 in HTTP mode with your credentials in the environment:
 
 ```bash
-XERO_ACCESS_TOKEN=<value> XERO_OAUTH2=<value> xero-mcp --transport http --addr :7777
+XERO_ACCESS_TOKEN=<value> XERO_AUTHORIZATION_URL=<value> XERO_BASE_URL=<value> XERO_CLIENT_ID=<value> XERO_CLIENT_SECRET=<value> XERO_OAUTH2=<value> XERO_TENANT_ID=<value> XERO_TOKEN_URL=<value> xero-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

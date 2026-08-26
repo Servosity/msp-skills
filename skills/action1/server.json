@@ -29,6 +29,13 @@
       },
       "environmentVariables": [
         {
+          "name": "ACTION1_BASE_URL",
+          "description": "Base URL for the Action1 API. Leave the prefilled default unless your account uses a different regional or self-hosted host.",
+          "isRequired": false,
+          "isSecret": false,
+          "default": "https://app.action1.com/api/3.0"
+        },
+        {
           "name": "ACTION1_CLIENT_ID",
           "description": "Set the ACTION1_CLIENT_ID credential for the Action1 MCP server.",
           "isRequired": true,
@@ -41,10 +48,16 @@
           "isSecret": true
         },
         {
-          "name": "ACTION1_REGION",
-          "description": "Set the ACTION1_REGION credential for the Action1 MCP server.",
-          "isRequired": true,
+          "name": "ACTION1_OAUTH2",
+          "description": "Pre-minted Action1 bearer token, used instead of ACTION1_CLIENT_ID + ACTION1_CLIENT_SECRET. Leave blank when you set the client ID and secret; the CLI mints and refreshes the token itself.",
+          "isRequired": false,
           "isSecret": true
+        },
+        {
+          "name": "ACTION1_ORG_ID",
+          "description": "Organization ID the fleet commands scope to by default (the --org flag overrides it). Leave blank to span every organization your credentials can see.",
+          "isRequired": false,
+          "isSecret": false
         }
       ]
     }

@@ -15,9 +15,12 @@
       "command": "${__dirname}/bin/pax8-mcp",
       "args": [],
       "env": {
+        "PAX8_AUDIENCE": "${user_config.pax8_audience}",
+        "PAX8_BASE_URL": "${user_config.pax8_base_url}",
         "PAX8_CLIENT_ID": "${user_config.pax8_client_id}",
         "PAX8_CLIENT_SECRET": "${user_config.pax8_client_secret}",
-        "PAX8_OAUTH_SCOPE": "${user_config.pax8_oauth_scope}"
+        "PAX8_OAUTH_SCOPE": "${user_config.pax8_oauth_scope}",
+        "PAX8_TOKEN_URL": "${user_config.pax8_token_url}"
       }
     }
   },
@@ -42,6 +45,27 @@
       "description": "Sets PAX8_OAUTH_SCOPE for the Pax8 MCP server. Required by the generated client for credential refresh or hand-written auth flow.",
       "sensitive": true,
       "required": true
+    },
+    "pax8_audience": {
+      "type": "string",
+      "title": "OAuth audience",
+      "description": "OAuth2 audience claim requested when minting the Pax8 token. The default is the partner API audience; change it only if Pax8 told you to.",
+      "required": false,
+      "default": "api://p8p.client"
+    },
+    "pax8_base_url": {
+      "type": "string",
+      "title": "Pax8 API base URL",
+      "description": "Base URL for the Pax8 API. Leave the prefilled default unless your account uses a different regional or self-hosted host.",
+      "required": false,
+      "default": "https://api.pax8.com/v1"
+    },
+    "pax8_token_url": {
+      "type": "string",
+      "title": "OAuth2 token URL",
+      "description": "Token endpoint the client-credentials exchange posts to. Leave the prefilled default unless your tenant uses a different token endpoint.",
+      "required": false,
+      "default": "https://token-manager.pax8.com/oauth/token"
     }
   },
   "compatibility": {

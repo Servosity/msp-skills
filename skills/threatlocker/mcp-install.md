@@ -37,7 +37,11 @@ Add (or merge with your existing `mcpServers` block):
     "threatlocker": {
       "command": "threatlocker-mcp",
       "env": {
-        "PRINTING_PRESS_CLIENT_PROFILE": "<your-printing_press_client_profile>"
+        "PRINTING_PRESS_CLIENT_PROFILE": "<your-printing_press_client_profile>",
+        "THREATLOCKER_API_KEY": "<your-threatlocker_api_key>",
+        "THREATLOCKER_BASE_URL": "https://portalapi.g.threatlocker.com/portalapi",
+        "THREATLOCKER_ORG_ID": "",
+        "THREATLOCKER_USER_AGENT": ""
       }
     }
   }
@@ -62,7 +66,11 @@ Configuration**) and add:
       "type": "stdio",
       "command": "threatlocker-mcp",
       "env": {
-        "PRINTING_PRESS_CLIENT_PROFILE": "<your-printing_press_client_profile>"
+        "PRINTING_PRESS_CLIENT_PROFILE": "<your-printing_press_client_profile>",
+        "THREATLOCKER_API_KEY": "<your-threatlocker_api_key>",
+        "THREATLOCKER_BASE_URL": "https://portalapi.g.threatlocker.com/portalapi",
+        "THREATLOCKER_ORG_ID": "",
+        "THREATLOCKER_USER_AGENT": ""
       }
     }
   }
@@ -83,7 +91,11 @@ Claude Desktop:
     "threatlocker": {
       "command": "threatlocker-mcp",
       "env": {
-        "PRINTING_PRESS_CLIENT_PROFILE": "<your-printing_press_client_profile>"
+        "PRINTING_PRESS_CLIENT_PROFILE": "<your-printing_press_client_profile>",
+        "THREATLOCKER_API_KEY": "<your-threatlocker_api_key>",
+        "THREATLOCKER_BASE_URL": "https://portalapi.g.threatlocker.com/portalapi",
+        "THREATLOCKER_ORG_ID": "",
+        "THREATLOCKER_USER_AGENT": ""
       }
     }
   }
@@ -101,7 +113,7 @@ All remote agents need `threatlocker-mcp` reachable as a public **HTTPS** endpoi
 in HTTP mode with your credentials in the environment:
 
 ```bash
-PRINTING_PRESS_CLIENT_PROFILE=<value> threatlocker-mcp --transport http --addr :7777
+PRINTING_PRESS_CLIENT_PROFILE=<value> THREATLOCKER_API_KEY=<value> THREATLOCKER_BASE_URL=<value> THREATLOCKER_ORG_ID=<value> THREATLOCKER_USER_AGENT=<value> threatlocker-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

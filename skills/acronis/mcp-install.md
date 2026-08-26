@@ -37,7 +37,10 @@ Add (or merge with your existing `mcpServers` block):
     "acronis": {
       "command": "acronis-mcp",
       "env": {
+        "ACRONIS_BASE_URL": "",
         "ACRONIS_BEARER_AUTH": "<your-acronis_bearer_auth>",
+        "ACRONIS_CLIENT_ID": "<your-acronis_client_id>",
+        "ACRONIS_CLIENT_SECRET": "<your-acronis_client_secret>",
         "ACRONIS_DATACENTER": "<your-acronis_datacenter>"
       }
     }
@@ -63,7 +66,10 @@ Configuration**) and add:
       "type": "stdio",
       "command": "acronis-mcp",
       "env": {
+        "ACRONIS_BASE_URL": "",
         "ACRONIS_BEARER_AUTH": "<your-acronis_bearer_auth>",
+        "ACRONIS_CLIENT_ID": "<your-acronis_client_id>",
+        "ACRONIS_CLIENT_SECRET": "<your-acronis_client_secret>",
         "ACRONIS_DATACENTER": "<your-acronis_datacenter>"
       }
     }
@@ -85,7 +91,10 @@ Claude Desktop:
     "acronis": {
       "command": "acronis-mcp",
       "env": {
+        "ACRONIS_BASE_URL": "",
         "ACRONIS_BEARER_AUTH": "<your-acronis_bearer_auth>",
+        "ACRONIS_CLIENT_ID": "<your-acronis_client_id>",
+        "ACRONIS_CLIENT_SECRET": "<your-acronis_client_secret>",
         "ACRONIS_DATACENTER": "<your-acronis_datacenter>"
       }
     }
@@ -104,7 +113,7 @@ All remote agents need `acronis-mcp` reachable as a public **HTTPS** endpoint. R
 in HTTP mode with your credentials in the environment:
 
 ```bash
-ACRONIS_BEARER_AUTH=<value> ACRONIS_DATACENTER=<value> acronis-mcp --transport http --addr :7777
+ACRONIS_BASE_URL=<value> ACRONIS_BEARER_AUTH=<value> ACRONIS_CLIENT_ID=<value> ACRONIS_CLIENT_SECRET=<value> ACRONIS_DATACENTER=<value> acronis-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

@@ -16,6 +16,7 @@
       "args": [],
       "env": {
         "SYNCRO_API_KEY": "${user_config.syncro_api_key}",
+        "SYNCRO_BASE_URL": "${user_config.syncro_base_url}",
         "SYNCRO_SUBDOMAIN": "${user_config.syncro_subdomain}"
       }
     }
@@ -32,7 +33,15 @@
       "type": "string",
       "title": "SYNCRO_SUBDOMAIN",
       "description": "Sets SYNCRO_SUBDOMAIN for the endpoint template variable {subdomain}.",
-      "default": "your-subdomain"
+      "default": "your-subdomain",
+      "required": true,
+      "sensitive": true
+    },
+    "syncro_base_url": {
+      "type": "string",
+      "title": "Syncro API base URL",
+      "description": "Full API base URL. Leave blank: the CLI builds it from SYNCRO_SUBDOMAIN. Set it only to point at a different host.",
+      "required": false
     }
   },
   "compatibility": {

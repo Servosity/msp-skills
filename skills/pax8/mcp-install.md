@@ -37,9 +37,12 @@ Add (or merge with your existing `mcpServers` block):
     "pax8": {
       "command": "pax8-mcp",
       "env": {
+        "PAX8_AUDIENCE": "api://p8p.client",
+        "PAX8_BASE_URL": "https://api.pax8.com/v1",
         "PAX8_CLIENT_ID": "<your-pax8_client_id>",
         "PAX8_CLIENT_SECRET": "<your-pax8_client_secret>",
-        "PAX8_OAUTH_SCOPE": "<your-pax8_oauth_scope>"
+        "PAX8_OAUTH_SCOPE": "<your-pax8_oauth_scope>",
+        "PAX8_TOKEN_URL": "https://token-manager.pax8.com/oauth/token"
       }
     }
   }
@@ -64,9 +67,12 @@ Configuration**) and add:
       "type": "stdio",
       "command": "pax8-mcp",
       "env": {
+        "PAX8_AUDIENCE": "api://p8p.client",
+        "PAX8_BASE_URL": "https://api.pax8.com/v1",
         "PAX8_CLIENT_ID": "<your-pax8_client_id>",
         "PAX8_CLIENT_SECRET": "<your-pax8_client_secret>",
-        "PAX8_OAUTH_SCOPE": "<your-pax8_oauth_scope>"
+        "PAX8_OAUTH_SCOPE": "<your-pax8_oauth_scope>",
+        "PAX8_TOKEN_URL": "https://token-manager.pax8.com/oauth/token"
       }
     }
   }
@@ -87,9 +93,12 @@ Claude Desktop:
     "pax8": {
       "command": "pax8-mcp",
       "env": {
+        "PAX8_AUDIENCE": "api://p8p.client",
+        "PAX8_BASE_URL": "https://api.pax8.com/v1",
         "PAX8_CLIENT_ID": "<your-pax8_client_id>",
         "PAX8_CLIENT_SECRET": "<your-pax8_client_secret>",
-        "PAX8_OAUTH_SCOPE": "<your-pax8_oauth_scope>"
+        "PAX8_OAUTH_SCOPE": "<your-pax8_oauth_scope>",
+        "PAX8_TOKEN_URL": "https://token-manager.pax8.com/oauth/token"
       }
     }
   }
@@ -107,7 +116,7 @@ All remote agents need `pax8-mcp` reachable as a public **HTTPS** endpoint. Run 
 in HTTP mode with your credentials in the environment:
 
 ```bash
-PAX8_CLIENT_ID=<value> PAX8_CLIENT_SECRET=<value> PAX8_OAUTH_SCOPE=<value> pax8-mcp --transport http --addr :7777
+PAX8_AUDIENCE=<value> PAX8_BASE_URL=<value> PAX8_CLIENT_ID=<value> PAX8_CLIENT_SECRET=<value> PAX8_OAUTH_SCOPE=<value> PAX8_TOKEN_URL=<value> pax8-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

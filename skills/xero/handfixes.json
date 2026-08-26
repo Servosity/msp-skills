@@ -1,25 +1,202 @@
 {
-  "slug": "xero",
-  "doc": "docs/reprint-survival.md",
-  "handfixes": [
+ "slug": "xero",
+ "doc": "docs/reprint-survival.md",
+ "handfixes": [
+  {
+   "id": "tenant-id-header-env",
+   "summary": "XERO_TENANT_ID is sourced into the per-request Headers map (Xero-Tenant-Id header on every call)",
+   "why": "Xero requires the Xero-Tenant-Id header on EVERY call alongside the bearer token. The env-var wiring (XERO_TENANT_ID -> Headers) is hand-wired in config.go and pinned by config_auth_test.go; a reprint drops it and every call 401/403s.",
+   "status": "active",
+   "asserts": [
     {
-      "id": "tenant-id-header-env",
-      "summary": "XERO_TENANT_ID is sourced into the per-request Headers map (Xero-Tenant-Id header on every call)",
-      "why": "Xero requires the Xero-Tenant-Id header on EVERY call alongside the bearer token. The env-var wiring (XERO_TENANT_ID -> Headers) is hand-wired in config.go and pinned by config_auth_test.go; a reprint drops it and every call 401/403s.",
-      "status": "active",
-      "asserts": [
-        {"file": "cli/internal/config/config.go", "contains": "XERO_TENANT_ID", "min_count": 1}
-      ]
+     "file": "cli/internal/config/config.go",
+     "contains": "XERO_TENANT_ID",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "hand-wired-resource-id-fields",
+   "summary": "5 of 7 resource primary-key fields are hand-wired (accounts/items templated; the rest hand-set)",
+   "why": "Xero's per-resource ID field names (BankTransactionID, ContactID, InvoiceID, JournalID, PaymentID) are hand-wired for ExtractResourceID; the generator only templated accounts/items. Pinned by TestExtractResourceID_Xero. A reprint reverts the five to a generic guess and breaks sync key extraction.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "hand-wired and pinned by TestExtractResourceID_Xero",
+     "min_count": 1
     },
     {
-      "id": "hand-wired-resource-id-fields",
-      "summary": "5 of 7 resource primary-key fields are hand-wired (accounts/items templated; the rest hand-set)",
-      "why": "Xero's per-resource ID field names (BankTransactionID, ContactID, InvoiceID, JournalID, PaymentID) are hand-wired for ExtractResourceID; the generator only templated accounts/items. Pinned by TestExtractResourceID_Xero. A reprint reverts the five to a generic guess and breaks sync key extraction.",
-      "status": "active",
-      "asserts": [
-        {"file": "cli/internal/store/store.go", "contains": "hand-wired and pinned by TestExtractResourceID_Xero", "min_count": 1},
-        {"file": "cli/internal/store/store.go", "contains": "BankTransactionID", "min_count": 1}
-      ]
+     "file": "cli/internal/store/store.go",
+     "contains": "BankTransactionID",
+     "min_count": 1
     }
-  ]
+   ]
+  },
+  {
+   "id": "doctor-verdict-tracks-reality",
+   "summary": "doctor probes a real GET endpoint with the real credential and refuses to dial a placeholder base_url, instead of calling any HTTP response 'reachable' and never checking the credential",
+   "why": "`doctor` is the command every SKILL, guide and docs page tells an operator to run to confirm the connector works, and it could not tell a working install from a broken one. It called any HTTP response to `GET /` \"reachable\" and rendered it green, so a base_url aimed at the vendor's web UI (where every API path 404s) and a token rejected with 401 on every call both produced an all-green report. On this connector family it also never probed the credential at all: it printed \"present, not verified\" and left the operator to guess. The mirror defect: a connector whose shipped base_url default is a placeholder dialled the placeholder host, and the DNS failure rendered as \"FAIL API: unreachable\" - telling a correctly-credentialled operator they were broken without naming the one variable that would fix it. Several placeholder hosts resolve through live wildcard DNS and answer real HTTP, so dialling one produced a confident green verdict against a stranger's server. Measured and gated by tools/maintainer/check_doctor_truth.py. See issue #282.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorProbeCredentials("
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorBaseURLIsPlaceholder("
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorIsInfoKey(k)"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorBaseURLIsPlaceholder(cfg.BaseURL)"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeCredentials(cmd.Context()"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "present, not verified. Run `%s %s`"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "for _, v := range report {"
+    }
+   ]
+  },
+  {
+   "id": "install-credentials-declared-on-every-channel",
+   "summary": "every operator credential this connector reads is declared on all three install channels: manifest.json (.mcpb), server.json (MCP Registry) and mcp-install.md (manual install)",
+   "why": "Issue #282 ('three live-verified connectors prompt for the wrong credentials'). A connector is installed through THREE independent channels that each carry their own copy of the credential list: manifest.json server.mcp_config.env (what the .mcpb bundle hands Claude Desktop, which has no shell profile, no config.toml and no export - so an undeclared variable is a variable nobody is ever asked for), server.json environmentVariables (the MCP Registry publish channel), and mcp-install.md's copy-paste JSON blocks plus its remote launch line (the manual path, which never touches the bundle at all). The fleet-wide audit found 60 of 65 connectors under-declaring 122 operator-facing variables in the manifest, 61 of 65 mcp-install.md pages omitting 125, and hudu's server.json missing the base URL its manifest marks required. For xero the manifest gained: XERO_AUTHORIZATION_URL, XERO_BASE_URL, XERO_CLIENT_ID, XERO_CLIENT_SECRET, XERO_TENANT_ID, XERO_TOKEN_URL. server.json gained: XERO_AUTHORIZATION_URL, XERO_BASE_URL, XERO_CLIENT_ID, XERO_CLIENT_SECRET, XERO_OAUTH2, XERO_TENANT_ID, XERO_TOKEN_URL. mcp-install.md's env blocks gained: XERO_AUTHORIZATION_URL, XERO_BASE_URL, XERO_CLIENT_ID, XERO_CLIENT_SECRET, XERO_TENANT_ID, XERO_TOKEN_URL. manifest.json, server.json and mcp-install.md are ALL regenerated by /msp-skills-publish on an UPDATE or re-onboard, so without this ledger a regeneration silently drops every declaration and CI stays green (check_env_schema.py is wired --warn). The asserts below name the specific credentials, not a count, so dropping one and adding another cannot cancel out.",
+   "status": "active",
+   "spec_encode_followup": "cli-printing-press should emit server.mcp_config.env, the matching user_config prompts, server.json environmentVariables and mcp-install.md's env blocks from ONE declaration of the connector's operator-facing environment, so the three channels cannot be generated out of step. Until then check_env_schema.py compares all three and this ledger pins them.",
+   "asserts": [
+    {
+     "file": "manifest.json",
+     "contains": "\"XERO_ACCESS_TOKEN\": \"${user_config.xero_access_token}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"XERO_AUTHORIZATION_URL\": \"${user_config.xero_authorization_url}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"XERO_BASE_URL\": \"${user_config.xero_base_url}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"XERO_CLIENT_ID\": \"${user_config.xero_client_id}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"XERO_CLIENT_SECRET\": \"${user_config.xero_client_secret}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"XERO_OAUTH2\": \"${user_config.xero_oauth2}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"XERO_TENANT_ID\": \"${user_config.xero_tenant_id}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"XERO_TOKEN_URL\": \"${user_config.xero_token_url}\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"XERO_ACCESS_TOKEN\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"XERO_AUTHORIZATION_URL\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"XERO_BASE_URL\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"XERO_CLIENT_ID\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"XERO_CLIENT_SECRET\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"XERO_OAUTH2\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"XERO_TENANT_ID\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"XERO_TOKEN_URL\"",
+     "min_count": 1
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"XERO_ACCESS_TOKEN\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"XERO_AUTHORIZATION_URL\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"XERO_BASE_URL\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"XERO_CLIENT_ID\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"XERO_CLIENT_SECRET\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"XERO_OAUTH2\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"XERO_TENANT_ID\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"XERO_TOKEN_URL\":",
+     "min_count": 3
+    }
+   ]
+  }
+ ]
 }

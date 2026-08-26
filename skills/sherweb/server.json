@@ -29,6 +29,13 @@
       },
       "environmentVariables": [
         {
+          "name": "SHERWEB_BASE_URL",
+          "description": "Base URL for the Sherweb API. Leave the prefilled default unless your account uses a different regional or self-hosted host.",
+          "isRequired": false,
+          "isSecret": false,
+          "default": "https://api.sherweb.com"
+        },
+        {
           "name": "SHERWEB_CLIENT_ID",
           "description": "Set the SHERWEB_CLIENT_ID credential for the Sherweb MCP server.",
           "isRequired": true,
@@ -51,6 +58,13 @@
           "description": "Set the SHERWEB_SUBSCRIPTION_KEY credential for the Sherweb MCP server.",
           "isRequired": true,
           "isSecret": true
+        },
+        {
+          "name": "SHERWEB_TOKEN_URL",
+          "description": "Token endpoint the client-credentials exchange posts to. Leave the prefilled default unless your tenant uses a different token endpoint.",
+          "isRequired": false,
+          "isSecret": false,
+          "default": "https://api.sherweb.com/auth/oidc/connect/token"
         }
       ]
     }

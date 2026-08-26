@@ -1,490 +1,670 @@
 {
-  "slug": "halopsa",
-  "doc": "CHANGELOG.md (#147, #203, #211, #213, #218, #264, #265)",
-  "_comment": "Connector-specific edits a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present and fails CI if a reprint dropped one. Provenance: issue #147 (reporter @Xenith-B), fixed 2026-06-20. The OAuth2 token-mint/refresh paths assembled the token URL ('https://{tenant}.{domain}/auth/token') outside the normal request flow and POSTed it WITHOUT substituting the {tenant}/{domain} placeholders that buildURL resolves for ordinary requests -- so every `auth login`, auto-mint, and refresh failed with `invalid character \"{\" in host name`, even when HALOPSA_TENANT/HALOPSA_DOMAIN were set correctly. Fix routes the token URL through a new exported ResolveTemplateURL helper (wrapping the existing buildURL substitution). This is a GENERATOR-class defect (the press emits token-URL literals it never resolves) tracked for an upstream retro; until the press is fixed, a reprint regenerates the unresolved literals and these markers guard the connector. No new flag/command/output; bug-fix-only.",
-  "handfixes": [
+ "slug": "halopsa",
+ "doc": "CHANGELOG.md (#147, #203, #211, #213, #218, #264, #265)",
+ "_comment": "Connector-specific edits a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present and fails CI if a reprint dropped one. Provenance: issue #147 (reporter @Xenith-B), fixed 2026-06-20. The OAuth2 token-mint/refresh paths assembled the token URL ('https://{tenant}.{domain}/auth/token') outside the normal request flow and POSTed it WITHOUT substituting the {tenant}/{domain} placeholders that buildURL resolves for ordinary requests -- so every `auth login`, auto-mint, and refresh failed with `invalid character \"{\" in host name`, even when HALOPSA_TENANT/HALOPSA_DOMAIN were set correctly. Fix routes the token URL through a new exported ResolveTemplateURL helper (wrapping the existing buildURL substitution). This is a GENERATOR-class defect (the press emits token-URL literals it never resolves) tracked for an upstream retro; until the press is fixed, a reprint regenerates the unresolved literals and these markers guard the connector. No new flag/command/output; bug-fix-only.",
+ "handfixes": [
+  {
+   "id": "token-url-template-substitution",
+   "summary": "OAuth2 token URL is run through ResolveTemplateURL so {tenant}/{domain} resolve before the POST (issue #147)",
+   "why": "The mint/refresh/auth-login paths build the token URL outside buildURL and would POST a literal 'https://{tenant}.{domain}/auth/token', which http.NewRequest rejects. A reprint regenerates these paths as unresolved literals; these markers ensure the substitution call survives.",
+   "status": "active",
+   "asserts": [
     {
-      "id": "token-url-template-substitution",
-      "summary": "OAuth2 token URL is run through ResolveTemplateURL so {tenant}/{domain} resolve before the POST (issue #147)",
-      "why": "The mint/refresh/auth-login paths build the token URL outside buildURL and would POST a literal 'https://{tenant}.{domain}/auth/token', which http.NewRequest rejects. A reprint regenerates these paths as unresolved literals; these markers ensure the substitution call survives.",
-      "status": "active",
-      "asserts": [
-        {
-          "file": "cli/internal/client/url.go",
-          "contains": "func ResolveTemplateURL(",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/client/client.go",
-          "contains": "ResolveTemplateURL(tokenURL, templateVarsFrom(c.Config))",
-          "min_count": 2
-        },
-        {
-          "file": "cli/internal/cli/auth.go",
-          "contains": "client.ResolveTemplateURL(tokenURL, cfg.TemplateVars)",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/client/url_token_resolution_test.go",
-          "contains": "TestResolveTemplateURL_TokenEndpoint",
-          "min_count": 1
-        }
-      ]
+     "file": "cli/internal/client/url.go",
+     "contains": "func ResolveTemplateURL(",
+     "min_count": 1
     },
     {
-      "id": "halo-pagination-contract",
-      "summary": "sync sends pageinate=true with a 1-based page_no seeded on the first request, and prefers the API's reported record_count over the page-length heuristic (issue #203)",
-      "why": "Halo only honours paging when pageinate=true AND page_no are BOTH present; otherwise it ignores page_size, returns the acting agent's configured default page size (50 for an API agent), and reports record_count as that same short count, so the page looks like a complete result set and the walk stops after one request. The profiler emitted cursorParam 'page', cursorType 'offset' and no enable parameter, so a sync of a 1254-ticket instance stored the first 50 and still reported sync_complete with a success exit, leaving every local view (triage, stale, sql) quietly reading a truncated table. Three further mismatches ride along: Halo's cursor parameter is page_no rather than page; page_no is a 1-based page NUMBER, so cursorType must be 'page' (advance 1,2,3) rather than 'offset' (advance 0,100,200) or Halo reads the row offset as a page index and skips whole pages; and page_no must be seeded on the FIRST request (startCursor) because Halo does not default it. A fourth mismatch is independent of the parameters: some endpoints ignore page_size and always answer with a fixed page (/Asset returns 50 rows however large page_size is), so the generated 'len(items) >= limit means more pages' heuristic sees 50 < 100 and stops after one page, storing 50 of 144 assets. The walk therefore prefers the record_count total (envelopeReportedTotal / moreByReportedTotal) over page length, falling back to the length heuristic only when no total is reported. The press cannot derive any of this from the OpenAPI spec, and a reprint regenerates the profiler defaults and the length-only heuristic, silently reintroducing both truncations, which is why these markers are asserted.",
-      "status": "active",
-      "spec_encode_followup": "Teach the cli-printing-press pagination profiler an enable-pagination parameter (a boolean query param an API requires before it honours any paging at all) and a startCursor for numeric paginators, so pageinate=true and page_no=1 become generated rather than hand-maintained.",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/sync.go",
-          "contains": "enableParam: \"pageinate\"",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/sync.go",
-          "contains": "cursorParam: \"page_no\"",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/sync.go",
-          "contains": "startCursor: \"1\"",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/sync.go",
-          "contains": "func envelopeReportedTotal",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/sync_pagination_test.go",
-          "contains": "TestPaginationDefaultsMatchHaloContract",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/sync.go",
-          "contains": "func cursorPinnedByUser",
-          "min_count": 1
-        }
-      ]
+     "file": "cli/internal/client/client.go",
+     "contains": "ResolveTemplateURL(tokenURL, templateVarsFrom(c.Config))",
+     "min_count": 2
     },
     {
-      "id": "max-pages-cap-uses-reported-total",
-      "summary": "the --max-pages cap decides truncation with pageLooksFull, so a capped walk over a fixed-short-page endpoint preserves its resume cursor (issue #203 follow-up)",
-      "why": "The cap block computed truncatedByCap from the bare 'len(items) >= pageSize.limit' heuristic, the same heuristic the pagination fix replaced everywhere else. An endpoint that ignores page_size and always answers with a fixed short page (/Asset returns 50 however large page_size is) fails that test on every page, so a --max-pages exit computed truncatedByCap=false, capExitHit stayed false, and the resume cursor was cleared as if the walk had finished naturally. The next sync then restarted at page 1 and truncated identically, so --max-pages could never advance through such a resource and the cache stayed silently incomplete. Gating on pageLooksFull consults the API's reported total, so a genuinely-truncated walk is recognised as truncated and its cursor is preserved. Surfaced by CodeRabbit on PR #204 as a bounded data-loss risk and fixed rather than accepted.",
-      "status": "active",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/sync.go",
-          "contains": "truncatedByCap = truncatedByCap && pageLooksFull",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/sync_pagination_test.go",
-          "contains": "TestPageLooksFullUsesReportedTotalForFixedShortPages",
-          "min_count": 1
-        }
-      ]
+     "file": "cli/internal/cli/auth.go",
+     "contains": "client.ResolveTemplateURL(tokenURL, cfg.TemplateVars)",
+     "min_count": 1
     },
     {
-      "id": "triage-agent-name-join",
-      "summary": "triage resolves agent names from the synced agent records, falls datecreated through to dateoccurred, and aggregates over a CTE so the grouping key cannot collide with tickets.who (issue #203)",
-      "why": "The triage view labelled every ticket '(unassigned)' and reported oldest_days as 0 for every agent, from two independent causes. First, it read tickets.agent_name and tickets.datecreated, generated columns Halo never fills: the ticket payload carries agent_id and dateoccurred instead, so both were blank on every row of a real sync (all 1254 on the reporting instance). The name is now resolved by joining agent_id against the synced agent records in the resources table, with any populated agent_name still preferred so a future Halo version needs no further change; datecreated falls through to dateoccurred, which is what zeroed oldest_days. Second, and subtler, the aggregate aliased its grouping expression AS who and then grouped on that name, but the generated tickets table has a real who TEXT column that is NULL on every row, and SQLite resolves GROUP BY names against source columns before output aliases. The query therefore grouped by that NULL column and collapsed every agent into a single output row no matter what the SELECT computed, which is why the symptom was one '(unassigned)' line rather than several; it would have survived a fix to the name lookup alone. The aggregate now runs over a CTE exposing only agent_label. triage.go is a hand-written novel command rather than generated, so regen-merge should preserve it, but these markers are a cheap backstop and pin the live-API truth the SQL encodes.",
-      "status": "active",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/triage.go",
-          "contains": "func buildTriageQuery",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/triage.go",
-          "contains": "GROUP BY agent_label",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/triage.go",
-          "contains": "json_extract(t.data, '$.dateoccurred')",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/triage_agent_join_test.go",
-          "contains": "TestTriageReportsOneRowPerAgent",
-          "min_count": 1
-        }
-      ]
-    },
-    {
-      "id": "actions-parent-key-ticket-id",
-      "summary": "actions rows are keyed by ticket_id + action id, legacy bare-id rows are purged on upgrade, and sync_complete.total is reconciled to the stored row count (issue #203)",
-      "why": "Halo numbers ticket actions within their ticket, so every ticket has an action 1, an action 2, and so on. resourceStorageID only qualifies a resource with its parent when the resource appears in resourceParentKeyColumns, and actions was absent, so action 1 of each ticket overwrote action 1 of the previous. On a live instance 8185 fetched actions collapsed into 149 stored rows, 149 being the largest action count on any single ticket, last writer winning. The failure was invisible from the sync output because sync_complete reports rows fetched and upserted rather than distinct rows stored, so it logged total 8185 while the table held 149; it was only visible by counting the table afterwards. That is also why it first looked like a resource ordering race: re-running the resource reported the full count again and appeared to fix it while the stored rows never changed. The generator cannot derive this key: /Actions is a flat top-level resource rather than a dependent one, and nothing in the OpenAPI spec says its ids are unique only within a parent. Every downstream consumer (contracts, time leaks, standup, agent workload, time gaps) joins via json_extract(data,'$.ticket_id') rather than the action id, so the key change is transparent to them and they simply see the full action set for the first time. Alongside the key fix, sync_complete.total is reconciled to the authoritative cache row count and a sync_anomaly is emitted when the upserted count exceeds the stored count, mirroring the #183 / #194 reconciliation in the hudu connector, so the next resource with non-unique ids is visible instead of silent.",
-      "status": "active",
-      "spec_encode_followup": "Teach cli-printing-press to derive parent-qualified storage keys for flat resources whose ids are only unique within a parent, or to detect the collision at sync time rather than relying on a hand-maintained map.",
-      "asserts": [
-        {
-          "file": "cli/internal/store/store.go",
-          "contains": "\"actions\": {\"ticket_id\"}",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/sync.go",
-          "contains": "upserted_exceeds_stored_rows",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/store/actions_parent_key_test.go",
-          "contains": "TestActionsStorageKeyIsQualifiedByTicket",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/store/store.go",
-          "contains": "func (s *Store) migratePurgeLegacyActionKeys",
-          "min_count": 1
-        }
-      ]
-    },
-    {
-      "id": "halo-ticket-column-exprs",
-      "summary": "every local view resolves the agent name from the synced agent records and falls ticket age through to dateoccurred, because HaloPSA populates neither tickets.agent_name nor tickets.datecreated (issue #211)",
-      "why": "agent_name and datecreated are generated columns the press derived from the OpenAPI schema, but Halo's live ticket payload carries agent_id and dateoccurred instead, so both are blank on every row of a real sync. #203 fixed triage; the identical defect was present in standup, agent workload, sla breaching, sla scorecard, tickets age-out, tickets reopens, asset history and client card, each silently reporting '(unassigned)' agents and zero-day ages. The shared haloAgentLabelExpr / haloTicketCreatedExpr / haloTicketActivityExpr fragments encode the live-API truth in one place. Both are conservative: a populated agent_name or datecreated still wins, so a future Halo version needs no change. standup and agent workload additionally grouped on names colliding with real ticket columns (who, agent_name), which SQLite resolves ahead of output aliases, collapsing every agent into one row; both now aggregate over a CTE. A reprint regenerates these novel commands from the prior sources and would reintroduce the blank-column reads.",
-      "status": "active",
-      "spec_encode_followup": "The durable fix is for the press to not emit generated columns for schema fields the live API never populates, or to mark them so novel-command authors do not read them by mistake.",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/halo_ticket_columns.go",
-          "contains": "func haloAgentLabelExpr",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/halo_ticket_columns.go",
-          "contains": "func haloTicketCreatedExpr",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/standup.go",
-          "contains": "GROUP BY agent_label",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/agent_workload.go",
-          "contains": "GROUP BY agent_label",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/halo_ticket_columns_test.go",
-          "contains": "TestStandupGroupsPerAgentNotCollapsed",
-          "min_count": 1
-        }
-      ]
-    },
-    {
-      "id": "sla-resolution-target-field",
-      "summary": "every SLA-facing view resolves the deadline from fixbydate (falling back to targetdate), treating the 1900-01-01 sentinel as absent (issue #213)",
-      "why": "tickets.targetdate is a legacy column HaloPSA parks at the sentinel 1900-01-01T00:00:00; the portal's Response and Resolution targets come from respondbydate and fixbydate. On the reporting tenant 1264 of 1265 tickets carried the sentinel while all 1265 carried real fixbydate values. Because a window comparison against 1900-01-01 can never be true, the failure was a silent zero rather than an error: sla breaching reported no tickets at risk on every tenant, triage's breach_count was 0 for every agent, sla scorecard counted every closed ticket as carrying an unsatisfiable target and reported 0 percent met on a tenant whose real attainment is 97-99 percent, and client card displayed 1900-01-01 as each ticket's target while its sla_at_risk overlay metric was permanently 0. Verified against the portal on six tickets, each UI value matching fixbydate/respondbydate exactly. targetdate is retained as a fallback because a small number of tickets genuinely populate it. This is the same family as the blank agent_name/datecreated columns in #203 and #211: a generated column the live API never fills, which the generator cannot detect because the spec describes all three date fields with no description.",
-      "status": "active",
-      "spec_encode_followup": "The press cannot tell which of several same-shaped date fields an API actually writes. Either surface unpopulated generated columns at sync time, or let a connector declare the live field so novel commands do not have to guess.",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/sla_target_sql.go",
-          "contains": "func slaResolutionTargetExpr",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/triage.go",
-          "contains": "slaResolutionTargetExpr",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/sla_breaching.go",
-          "contains": "slaResolutionTargetExpr",
-          "min_count": 3
-        },
-        {
-          "file": "cli/internal/cli/sla_scorecard.go",
-          "contains": "slaResolutionTargetExpr",
-          "min_count": 3
-        },
-        {
-          "file": "cli/internal/cli/client_card.go",
-          "contains": "slaResolutionTargetExpr",
-          "min_count": 3
-        },
-        {
-          "file": "cli/internal/cli/sla_target_sql_test.go",
-          "contains": "TestSLAResolutionTargetPrefersFixbydate",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/sla_target_sql_test.go",
-          "contains": "TestSLAPreFixTargetdateQueryFindsNothing",
-          "min_count": 1
-        }
-      ]
-    },
-    {
-      "id": "reopen-detection-from-actions",
-      "summary": "reopens are derived from the action trail (explicit Re-Open outcomes unioned with repeated Resolved actions) instead of a ticket-level $.reopened marker HaloPSA never writes (issue #218)",
-      "why": "No synced ticket carries $.reopened, so `tickets reopens` refused to report and `standup`'s reopened column was permanently 0. Refusing to assert zero was the right instinct, but the conclusion was wrong: the ticket-level fields record only the FINAL close (hasbeenclosed, dateclosed, date_fully_closed all point at the last one) while the action trail retains the whole history. Two independent signals are unioned because neither is sufficient: explicit Re-Open outcomes (11 actions across 7 tickets on the reporting tenant) miss a reopen driven by a customer email, which is how the operator-confirmed example reopened with zero Re-Open actions; repeated Resolved actions (24 tickets with 2+) miss a reopen not yet re-resolved. The stronger of the two is taken per ticket rather than the sum, so a reopen visible to both is not double-counted. Outcome names can be tenant-configured, which is why the repeat-resolution signal is configuration-independent and carries the feature alone where names differ. The honest cannot-tell note is retained but re-attached to its real precondition, an unsynced actions table.",
-      "status": "active",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/reopen_sql.go",
-          "contains": "const reopenCountsSQL",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/tickets_reopens.go",
-          "contains": "reopenCountsSQL",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/standup.go",
-          "contains": "reopenCountsSQL",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/reopen_sql_test.go",
-          "contains": "TestReopenDetectsCustomerEmailReopen",
-          "min_count": 1
-        }
-      ]
-    },
-    {
-      "id": "halo-envelope-declared-items-key",
-      "summary": "list responses are unwrapped via a spec-derived per-resource items key rather than by counting arrays, so a populated sidecar array no longer aborts the resource (issue #265)",
-      "why": "HaloPSA answers a list endpoint with a `<Entity>_View` object that carries the rows next to sidecar arrays: `columns` on most views, `statuses`/`priorities`/`agents` on the ticket views, `folders` on /Attachment, `actionsdetails` on /Actions. None of the generic extraction strategies can resolve that, because the wrapper key is the resource's own name rather than data/results/items, and extractSingleObjectArraySibling deliberately gives up when more than one array is populated since it cannot tell rows from sidecar. Until this was reported the ambiguity was invisible: Halo omits or empties the sidecars unless they are asked for, leaving exactly one array and letting the sibling scan land on it by luck. /Attachment is the endpoint that always ships its sidecar, so `folders` arrived populated, the scan counted two arrays, gave up, and the entire envelope fell through to the single-object path, which failed the whole resource with `missing id for attachment` and stored nothing. The all-empty envelope an unscoped /Attachment returns on a tenant with no attachments took the same path and failed identically, which is why the reporter saw it on 3 of 4 runs regardless of content. The regression test proves the other sidecar-heavy views (tickets, clients, asset, actions, users) break the same way the moment their second array is populated, so the fix is a table covering all 23 list resources rather than a special case for attachments. The two single-object endpoints, Client/me and Users/me, are deliberately absent from the table: they return an entity rather than a `_View`, and their nested arrays are fields of that entity, so unwrapping one would break a resource that works today.",
-      "status": "active",
-      "spec_encode_followup": "Teach cli-printing-press to emit the response envelope's items key from the declared OpenAPI response schema instead of inferring it at runtime by counting populated arrays. The count heuristic is silently wrong for any API whose list envelope carries a sidecar array, and 61 generated connectors share this extractor.",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/sync.go",
-          "contains": "var resourceEnvelopeItemsKeys = map[string]string{",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/sync.go",
-          "contains": "func envelopeDeclaredItems(",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/sync.go",
-          "contains": "\"attachment\":        \"attachments\",",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/attachment_envelope_test.go",
-          "contains": "TestAttachmentEnvelopeUnwrapsRowsBesideFolders",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/attachment_envelope_test.go",
-          "contains": "TestSingleObjectEndpointsAreNotUnwrapped",
-          "min_count": 1
-        }
-      ]
-    },
-    {
-      "id": "parent-scoped-keys-lookup-typeinfo-workflowstep-timesheet",
-      "summary": "lookup, asset-type-info, workflowstep and timesheet rows are keyed by their parent as well as their id, workflowstep and online-status resolve their real id fields, and legacy rows are purged on upgrade (issue #264)",
-      "why": "The same defect class as the actions fix in #203, found on a live tenant once that fix made the loss visible as a sync_anomaly instead of a silent one. Each resource numbers its rows within a parent, so the bare id collides across parents and the last writer wins: lookup restarts `id` per `lookupid` and stored 269 of 1020 fetched rows; asset-type-info's `id` is a field-row index scoped to `typeinfo_id` and stored 18 of 129; workflowstep restarts `step_id` per `fdid` and stored 144 of 211; timesheet returns a literal `\"id\": 0` on every record, so all 108 fetched rows collapsed onto a single key and its real key is the (agent_id, date) pair. workflowstep needs both halves of its fix and not just the parent key: it carries no `id` at all, so the generic fallback list reached `name` (the hazard the fallback ordering warns about in #1394) and two steps sharing a name inside one flow would still collide even once fdid qualified the key. online-status is the extraction-failure member of the family rather than a collision: it names its identifier `techID`, which no spelling of `id` reaches through LookupFieldValue, so every record failed extraction and the resource stored zero rows behind an all_items_failed_id_extraction anomaly. resourceParentKeyColumns became a list per resource to carry timesheet's two-column key; a single-column key stays byte-identical to the pre-#264 form and an absent column is skipped rather than padded, so rows written by 0.2.7 stay addressable. Cached rows are purged once on upgrade at schema 6 for the reason the #203 purge exists: qualifying the key governs only new writes, so without the purge a resync would leave stale collapsed rows sitting alongside the corrected set. Four further resources the reporter observed losing rows (feed, team-tree, integration-runbook-variable-group, timesheet-forecasting) are NOT addressed here: their payload shape could not be confirmed from the spec, which declares no response schema for any of them, and guessing a key would risk keying rows on the wrong column.",
-      "status": "active",
-      "spec_encode_followup": "Same upstream ask as #203, now with five more instances: teach cli-printing-press to derive parent-qualified storage keys for flat resources whose ids are only unique within a parent, to recognise a constant or zero id as unusable, and to fall back to a declared natural key instead of reaching for `name`.",
-      "asserts": [
-        {
-          "file": "cli/internal/store/store.go",
-          "contains": "\"lookup\":          {\"lookupid\"}",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/store/store.go",
-          "contains": "\"asset-type-info\": {\"typeinfo_id\"}",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/store/store.go",
-          "contains": "\"workflowstep\":    {\"fdid\"}",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/store/store.go",
-          "contains": "\"timesheet\":       {\"agent_id\", \"date\"}",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/store/store.go",
-          "contains": "\"workflowstep\":  \"step_id\"",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/store/store.go",
-          "contains": "\"online-status\": \"techID\"",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/store/store.go",
-          "contains": "func (s *Store) migratePurgeLegacyParentScopedKeys",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/store/parent_scoped_keys_test.go",
-          "contains": "TestWorkflowStepKeyedByStepIDWithinFlow",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/store/parent_scoped_keys_test.go",
-          "contains": "TestSingleParentKeyFormIsUnchanged",
-          "min_count": 1
-        }
-      ]
-    },
-    {
-      "id": "env-oauth-secrets-not-persisted",
-      "summary": "SaveTokens keeps the env-override marker on ClientID/ClientSecret, so env-supplied OAuth credentials are never written to config.toml (issue #266)",
-      "why": "Load() marks ClientID/ClientSecret as env overrides and configForSave() restores the file value for any field still marked -- the mechanism that keeps env-supplied secrets off disk. SaveTokens() cleared both markers on every save, so each token mint (an ordinary authenticated command, no `auth login` step needed) rewrote the live client_id and client_secret into ~/.config/<tool>-cli/config.toml in cleartext, defeating Keychain/Credential-Manager setups that inject the secret as an env var at process launch. SaveTokens now leaves those two markers alone; only MarkCredentialsExplicit clears them, and only `auth login` calls it, passing whether each value came from a flag rather than from the env fallback. Provenance must be declared, not inferred: comparing the incoming value against the loaded one cannot tell an explicit flag from the env value it duplicates, and `auth login` trims its env fallback while Load does not, so a padded variable compares unequal to itself and leaks. Reported by @Xenith-B against halopsa-cli/ninjaone-cli. GENERATOR-class defect (the press emits the unconditional deletes) tracked upstream as mvanhorn/cli-printing-press#4283; until the press is fixed, a reprint reintroduces the leak and these markers guard the connector. Bug-fix-only: no new flag, command, or output.",
-      "status": "active",
-      "spec_encode_followup": "cli-printing-press#4283: SaveTokens must not clear the ClientID/ClientSecret env-override markers. Only a credential the caller supplied through an explicit command-line flag may clear them, and the flag's provenance must be passed in by the caller -- NOT inferred by comparing the incoming value against the loaded one. An explicit flag whose value equals the environment's is still explicit and must persist; conversely `auth login` trims its env fallback while Load does not, so a padded variable compares unequal to itself and a value-based rule leaks it.",
-      "asserts": [
-        {
-          "file": "cli/internal/config/config.go",
-          "contains": "func (c *Config) MarkCredentialsExplicit(clientID, clientSecret bool) {",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/auth.go",
-          "contains": "cfg.MarkCredentialsExplicit(explicitClientID, explicitClientSecret)",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/config/config.go",
-          "contains": "markers now survive a save; only MarkCredentialsExplicit clears them.",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/config/config.go",
-          "not_contains": "delete(c.envOverrides, \"ClientID\")\n\tdelete(c.envOverrides, \"ClientSecret\")\n\tdelete(c.envOverrides, \"AccessToken\")"
-        }
-      ]
-    },
-    {
-      "id": "parent-scoped-keys-round2-teamtree-forecasting-runbookvars",
-      "summary": "team-tree keys on its guid, timesheet-forecasting on (agent_id, date), and integration-runbook-variable-group on its value; both timesheet resources key on the calendar day so a drifting DATETIME cannot duplicate rows; legacy rows purged at schema 7 (issue #264, second round)",
-      "why": "The last three of the nine resources reported in #264. The other five shipped in 0.2.8; these three could not be keyed safely until the reporter supplied sanitized sample records, because the spec declares no response schema for any of them and a guessed key would have traded a visible sync_anomaly for a different silent loss. team-tree numbers its nodes within a node type, so two nodes both carry id 16 (one under type 1 Opportunities, one under type 2 Projects) and 45 fetched rows stored 44; every row also carries a guid, unique by construction, which the generic fallback list reaches only after `id` and so never used. Keying on the guid is correct whichever way the duplicate arose: distinct nodes stay distinct, and a genuinely re-fetched node still collapses to one row. timesheet-forecasting mirrors timesheet exactly, returning a literal `\"id\": 0` on every record with agent_id, date, target_hours, actual_hours and workdayid carrying the content, and the reporter confirmed no forecasting_id field exists, so all 132 fetched rows collapsed onto a single key; workdayid is deliberately excluded from the key because over-keying turns a legitimate update into a duplicate row. integration-runbook-variable-group carries no id-shaped field at all: its rows are {label, value} pairs where value is the stable key (runbook<uuid>, integration<n>, or a short constant such as faults) and label is display text, so all 39 rows failed extraction and the resource stored nothing behind an all_items_failed_id_extraction anomaly. A string key needs no special handling since ResourceIDString returns it unchanged, so the reporter's suggestion of a dedicated code path was not needed. feed was reported in the same family and is deliberately NOT rekeyed: its id is globally unique (the endpoint's own newer_than_id/older_than_id paging contract depends on that), so its 100-fetched/62-stored gap is honest dedup of rows re-read by a page-number walk over a live activity stream, not row loss; a regression test pins feed out of resourceParentKeyColumns so a future reader cannot 'fix' it into storing duplicates. The day-normalisation is keyed on the COLUMN NAME rather than on the value looking date-shaped, so a future parent column carrying an opaque id with a date-like prefix cannot be silently truncated into a collision; raised as a P2 by the pre-merge adversarial review.",
-      "status": "active",
-      "spec_encode_followup": "Same upstream ask as #203 and the first #264 round: teach cli-printing-press to derive parent-qualified storage keys, to recognise a constant or zero id as unusable, and to prefer a declared unique field (a guid, or a documented natural key) over the positional `id` fallback. Additionally: the generic page-number walk is wrong for time-ordered feed endpoints that expose keyset parameters, which is the separate feed defect.",
-      "asserts": [
-        {
-          "file": "cli/internal/store/store.go",
-          "contains": "\"team-tree\":                          \"guid\"",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/store/store.go",
-          "contains": "\"integration-runbook-variable-group\": \"value\"",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/store/store.go",
-          "contains": "\"timesheet-forecasting\": {\"agent_id\", \"date\"}",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/store/store.go",
-          "contains": "func (s *Store) migratePurgeLegacyRound2Keys",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/store/round2_keys_test.go",
-          "contains": "TestTeamTreeKeyedByGUID",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/store/round2_keys_test.go",
-          "contains": "TestFeedIsNotParentScoped",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/store/store.go",
-          "contains": "func parentKeyValue(",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/store/round2_keys_test.go",
-          "contains": "TestTimesheetKeyIsStableAcrossTimestampDrift",
-          "min_count": 1
-        }
-      ]
-    },
-    {
-      "id": "feed-is-not-page-walkable",
-      "summary": "feed is excluded from the page-number walk and asks for one window via count, because /Feed is a keyset activity stream with no page_no (issue #273)",
-      "why": "determinePaginationDefaults describes ONE paging contract for the whole connector - pageinate=true plus page_size and an incrementing page_no - because that is what Halo's list endpoints honour (#203). /Feed is not one of those: it is a time-ordered activity stream whose own parameters are count for the window size and newer_than_id/older_than_id for position. Page numbers are the wrong shape for it twice over. Halo has no page_no to honour there, and paging a live stream by ordinal re-reads rows regardless, because new events arrive between requests and shift the ones already seen across the page boundary. Reported in #264 as feed fetching 100 rows and storing 62, which looked like the parent-scoped-id family the rest of that issue was about but is not: /Feed identifies rows with a globally unique id, so the repeats were one row fetched twice and the mirror collapsed them correctly. The defect was the walk, not the key, which is why feed is deliberately absent from resourceParentKeyColumns and a regression test pins it there - adding a parent key would have converted honest dedup into duplicate rows. A second, worse failure rides along: the page-int cursor is computed client-side, so the sticky-cursor guard cannot fire, and a full window returned to every request keeps pageLooksFull true, leaving the loop with no termination condition under the default --max-pages 0. A fixture that always fills the window reproduces a non-terminating walk. Excluding feed from resourceSupportsPagination removes both problems, and resourceFixedParams supplies the count the endpoint actually takes, applied before user --param so an operator can still widen the window. NOT extended to the other endpoints that expose count rather than page numbers (address, crmnote, version-info-*): /Actions also documents no page_no yet demonstrably honours it, so Halo's parameter lists are not evidence of what it ignores, and depaginating a resource that currently walks correctly would truncate it. Those need a live tenant to settle.",
-      "status": "active",
-      "spec_encode_followup": "Teach cli-printing-press that one paging contract per API is not always right: an endpoint exposing keyset parameters (newer_than/older_than plus a count) alongside the API's normal page parameters needs its own contract, and the generic page-int fallback should not advance a client-side cursor on an endpoint that never returns one. The unbounded case is the sharper ask: a walk whose cursor the client invents has no natural termination when the API keeps answering with a full page.",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/sync.go",
-          "contains": "var resourceFixedParams = map[string]map[string]string{",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/sync.go",
-          "contains": "\"feed\": {\"count\": \"100\"}",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/feed_walk_test.go",
-          "contains": "TestFeedIsFetchedInOneWindow",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/feed_walk_test.go",
-          "contains": "TestFeedWindowIsUserOverridable",
-          "min_count": 1
-        }
-      ]
-    },
-    {
-      "id": "doctor-auth-hint-names-a-real-command",
-      "summary": "doctor, the CLI error path and the MCP error path all point at `halopsa-cli auth login` instead of a nonexistent `auth setup` subcommand (issue #277, #278)",
-      "why": "This CLI's `auth` parent defines login, status, set-token and logout. It has never defined `setup`, yet three generated surfaces told operators to run it: doctor.go's auth_hint (fires when cfg.AuthHeader() is empty), helpers.go's HTTP 400/401/403 remediation, and internal/mcp/tools.go's tool-error text -- 7 occurrences in all. Cobra does not error on an unknown subcommand of a NON-root parent (legacyArgs only rejects unknown args for the root), and the generated parent runs parentNoSubcommandRunE, which returns cmd.Help() -- a nil error. So `halopsa-cli auth setup` printed help and exited 0. There was no 'unknown command' error and no non-zero exit anywhere in the journey: an operator saw a success code and was no closer to credentials, and because these are agent-first CLIs with typed exit codes, an agent performing setup read exit 0 as success and carried on unauthenticated. The hint fires exactly when it matters -- fresh install, rotated secret, new machine, expired token. This skill emits no auth_instructions field, so these hints are the only setup guidance it gives. The replacements name the real command and, in doctor, the variables `auth login` actually reads: HALOPSA_TENANT, HALOPSA_CLIENT_ID and HALOPSA_CLIENT_SECRET (plus HALOPSA_DOMAIN when self-hosted), taken from the login command's own env fallbacks rather than composed. Reported by @geekbrownbear, who verified halopsa and ninjaone live against an empty config (PR #277) and filed appdirect/crowdstrike as issue #278; the fleet scan that found the other two surfaces and confirmed only these four connectors are affected was done during triage. GENERATOR-class defect: until the press is fixed, a reprint reintroduces all 7 strings and these asserts guard them. Bug-fix-only: no new flag, command, or output field.",
-      "status": "active",
-      "spec_encode_followup": "cli-printing-press#4315: Derive the auth hint from the subcommand set the connector actually generates instead of the fixed \"Run '<cli> auth setup' for credential setup steps.\" string in internal/generator/generator.go. 52 of 56 connectors do define `auth setup`, which is why the hard-coded string went unnoticed; the four OAuth client-credentials connectors that scaffold `auth login` instead (appdirect, crowdstrike, halopsa, ninjaone) each shipped it 7 times. The same string is emitted into three surfaces -- doctor.go's auth_hint, helpers.go's 400/401/403 remediation, and the MCP server's tool-error text -- so a generator fix must cover all three.",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/doctor.go",
-          "not_contains": "halopsa-cli auth setup"
-        },
-        {
-          "file": "cli/internal/cli/helpers.go",
-          "not_contains": "halopsa-cli auth setup"
-        },
-        {
-          "file": "cli/internal/mcp/tools.go",
-          "not_contains": "halopsa-cli auth setup"
-        },
-        {
-          "file": "cli/internal/cli/doctor.go",
-          "contains": "Set HALOPSA_TENANT, HALOPSA_CLIENT_ID and HALOPSA_CLIENT_SECRET (plus HALOPSA_DOMAIN if self-hosted), then run 'halopsa-cli auth login' to mint a token.",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/helpers.go",
-          "contains": "halopsa-cli auth login' to re-authenticate.",
-          "min_count": 3
-        },
-        {
-          "file": "cli/internal/mcp/tools.go",
-          "contains": "halopsa-cli auth login' to re-authenticate.",
-          "min_count": 3
-        },
-        {
-          "file": "cli/internal/cli/auth.go",
-          "contains": "cmd.AddCommand(newAuthLoginCmd(flags))",
-          "min_count": 1
-        }
-      ]
+     "file": "cli/internal/client/url_token_resolution_test.go",
+     "contains": "TestResolveTemplateURL_TokenEndpoint",
+     "min_count": 1
     }
-  ]
+   ]
+  },
+  {
+   "id": "halo-pagination-contract",
+   "summary": "sync sends pageinate=true with a 1-based page_no seeded on the first request, and prefers the API's reported record_count over the page-length heuristic (issue #203)",
+   "why": "Halo only honours paging when pageinate=true AND page_no are BOTH present; otherwise it ignores page_size, returns the acting agent's configured default page size (50 for an API agent), and reports record_count as that same short count, so the page looks like a complete result set and the walk stops after one request. The profiler emitted cursorParam 'page', cursorType 'offset' and no enable parameter, so a sync of a 1254-ticket instance stored the first 50 and still reported sync_complete with a success exit, leaving every local view (triage, stale, sql) quietly reading a truncated table. Three further mismatches ride along: Halo's cursor parameter is page_no rather than page; page_no is a 1-based page NUMBER, so cursorType must be 'page' (advance 1,2,3) rather than 'offset' (advance 0,100,200) or Halo reads the row offset as a page index and skips whole pages; and page_no must be seeded on the FIRST request (startCursor) because Halo does not default it. A fourth mismatch is independent of the parameters: some endpoints ignore page_size and always answer with a fixed page (/Asset returns 50 rows however large page_size is), so the generated 'len(items) >= limit means more pages' heuristic sees 50 < 100 and stops after one page, storing 50 of 144 assets. The walk therefore prefers the record_count total (envelopeReportedTotal / moreByReportedTotal) over page length, falling back to the length heuristic only when no total is reported. The press cannot derive any of this from the OpenAPI spec, and a reprint regenerates the profiler defaults and the length-only heuristic, silently reintroducing both truncations, which is why these markers are asserted.",
+   "status": "active",
+   "spec_encode_followup": "Teach the cli-printing-press pagination profiler an enable-pagination parameter (a boolean query param an API requires before it honours any paging at all) and a startCursor for numeric paginators, so pageinate=true and page_no=1 become generated rather than hand-maintained.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "enableParam: \"pageinate\"",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "cursorParam: \"page_no\"",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "startCursor: \"1\"",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "func envelopeReportedTotal",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sync_pagination_test.go",
+     "contains": "TestPaginationDefaultsMatchHaloContract",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "func cursorPinnedByUser",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "max-pages-cap-uses-reported-total",
+   "summary": "the --max-pages cap decides truncation with pageLooksFull, so a capped walk over a fixed-short-page endpoint preserves its resume cursor (issue #203 follow-up)",
+   "why": "The cap block computed truncatedByCap from the bare 'len(items) >= pageSize.limit' heuristic, the same heuristic the pagination fix replaced everywhere else. An endpoint that ignores page_size and always answers with a fixed short page (/Asset returns 50 however large page_size is) fails that test on every page, so a --max-pages exit computed truncatedByCap=false, capExitHit stayed false, and the resume cursor was cleared as if the walk had finished naturally. The next sync then restarted at page 1 and truncated identically, so --max-pages could never advance through such a resource and the cache stayed silently incomplete. Gating on pageLooksFull consults the API's reported total, so a genuinely-truncated walk is recognised as truncated and its cursor is preserved. Surfaced by CodeRabbit on PR #204 as a bounded data-loss risk and fixed rather than accepted.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "truncatedByCap = truncatedByCap && pageLooksFull",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sync_pagination_test.go",
+     "contains": "TestPageLooksFullUsesReportedTotalForFixedShortPages",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "triage-agent-name-join",
+   "summary": "triage resolves agent names from the synced agent records, falls datecreated through to dateoccurred, and aggregates over a CTE so the grouping key cannot collide with tickets.who (issue #203)",
+   "why": "The triage view labelled every ticket '(unassigned)' and reported oldest_days as 0 for every agent, from two independent causes. First, it read tickets.agent_name and tickets.datecreated, generated columns Halo never fills: the ticket payload carries agent_id and dateoccurred instead, so both were blank on every row of a real sync (all 1254 on the reporting instance). The name is now resolved by joining agent_id against the synced agent records in the resources table, with any populated agent_name still preferred so a future Halo version needs no further change; datecreated falls through to dateoccurred, which is what zeroed oldest_days. Second, and subtler, the aggregate aliased its grouping expression AS who and then grouped on that name, but the generated tickets table has a real who TEXT column that is NULL on every row, and SQLite resolves GROUP BY names against source columns before output aliases. The query therefore grouped by that NULL column and collapsed every agent into a single output row no matter what the SELECT computed, which is why the symptom was one '(unassigned)' line rather than several; it would have survived a fix to the name lookup alone. The aggregate now runs over a CTE exposing only agent_label. triage.go is a hand-written novel command rather than generated, so regen-merge should preserve it, but these markers are a cheap backstop and pin the live-API truth the SQL encodes.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/triage.go",
+     "contains": "func buildTriageQuery",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/triage.go",
+     "contains": "GROUP BY agent_label",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/triage.go",
+     "contains": "json_extract(t.data, '$.dateoccurred')",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/triage_agent_join_test.go",
+     "contains": "TestTriageReportsOneRowPerAgent",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "actions-parent-key-ticket-id",
+   "summary": "actions rows are keyed by ticket_id + action id, legacy bare-id rows are purged on upgrade, and sync_complete.total is reconciled to the stored row count (issue #203)",
+   "why": "Halo numbers ticket actions within their ticket, so every ticket has an action 1, an action 2, and so on. resourceStorageID only qualifies a resource with its parent when the resource appears in resourceParentKeyColumns, and actions was absent, so action 1 of each ticket overwrote action 1 of the previous. On a live instance 8185 fetched actions collapsed into 149 stored rows, 149 being the largest action count on any single ticket, last writer winning. The failure was invisible from the sync output because sync_complete reports rows fetched and upserted rather than distinct rows stored, so it logged total 8185 while the table held 149; it was only visible by counting the table afterwards. That is also why it first looked like a resource ordering race: re-running the resource reported the full count again and appeared to fix it while the stored rows never changed. The generator cannot derive this key: /Actions is a flat top-level resource rather than a dependent one, and nothing in the OpenAPI spec says its ids are unique only within a parent. Every downstream consumer (contracts, time leaks, standup, agent workload, time gaps) joins via json_extract(data,'$.ticket_id') rather than the action id, so the key change is transparent to them and they simply see the full action set for the first time. Alongside the key fix, sync_complete.total is reconciled to the authoritative cache row count and a sync_anomaly is emitted when the upserted count exceeds the stored count, mirroring the #183 / #194 reconciliation in the hudu connector, so the next resource with non-unique ids is visible instead of silent.",
+   "status": "active",
+   "spec_encode_followup": "Teach cli-printing-press to derive parent-qualified storage keys for flat resources whose ids are only unique within a parent, or to detect the collision at sync time rather than relying on a hand-maintained map.",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\"actions\": {\"ticket_id\"}",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "upserted_exceeds_stored_rows",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/actions_parent_key_test.go",
+     "contains": "TestActionsStorageKeyIsQualifiedByTicket",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "func (s *Store) migratePurgeLegacyActionKeys",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "halo-ticket-column-exprs",
+   "summary": "every local view resolves the agent name from the synced agent records and falls ticket age through to dateoccurred, because HaloPSA populates neither tickets.agent_name nor tickets.datecreated (issue #211)",
+   "why": "agent_name and datecreated are generated columns the press derived from the OpenAPI schema, but Halo's live ticket payload carries agent_id and dateoccurred instead, so both are blank on every row of a real sync. #203 fixed triage; the identical defect was present in standup, agent workload, sla breaching, sla scorecard, tickets age-out, tickets reopens, asset history and client card, each silently reporting '(unassigned)' agents and zero-day ages. The shared haloAgentLabelExpr / haloTicketCreatedExpr / haloTicketActivityExpr fragments encode the live-API truth in one place. Both are conservative: a populated agent_name or datecreated still wins, so a future Halo version needs no change. standup and agent workload additionally grouped on names colliding with real ticket columns (who, agent_name), which SQLite resolves ahead of output aliases, collapsing every agent into one row; both now aggregate over a CTE. A reprint regenerates these novel commands from the prior sources and would reintroduce the blank-column reads.",
+   "status": "active",
+   "spec_encode_followup": "The durable fix is for the press to not emit generated columns for schema fields the live API never populates, or to mark them so novel-command authors do not read them by mistake.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/halo_ticket_columns.go",
+     "contains": "func haloAgentLabelExpr",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/halo_ticket_columns.go",
+     "contains": "func haloTicketCreatedExpr",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/standup.go",
+     "contains": "GROUP BY agent_label",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/agent_workload.go",
+     "contains": "GROUP BY agent_label",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/halo_ticket_columns_test.go",
+     "contains": "TestStandupGroupsPerAgentNotCollapsed",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "sla-resolution-target-field",
+   "summary": "every SLA-facing view resolves the deadline from fixbydate (falling back to targetdate), treating the 1900-01-01 sentinel as absent (issue #213)",
+   "why": "tickets.targetdate is a legacy column HaloPSA parks at the sentinel 1900-01-01T00:00:00; the portal's Response and Resolution targets come from respondbydate and fixbydate. On the reporting tenant 1264 of 1265 tickets carried the sentinel while all 1265 carried real fixbydate values. Because a window comparison against 1900-01-01 can never be true, the failure was a silent zero rather than an error: sla breaching reported no tickets at risk on every tenant, triage's breach_count was 0 for every agent, sla scorecard counted every closed ticket as carrying an unsatisfiable target and reported 0 percent met on a tenant whose real attainment is 97-99 percent, and client card displayed 1900-01-01 as each ticket's target while its sla_at_risk overlay metric was permanently 0. Verified against the portal on six tickets, each UI value matching fixbydate/respondbydate exactly. targetdate is retained as a fallback because a small number of tickets genuinely populate it. This is the same family as the blank agent_name/datecreated columns in #203 and #211: a generated column the live API never fills, which the generator cannot detect because the spec describes all three date fields with no description.",
+   "status": "active",
+   "spec_encode_followup": "The press cannot tell which of several same-shaped date fields an API actually writes. Either surface unpopulated generated columns at sync time, or let a connector declare the live field so novel commands do not have to guess.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sla_target_sql.go",
+     "contains": "func slaResolutionTargetExpr",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/triage.go",
+     "contains": "slaResolutionTargetExpr",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sla_breaching.go",
+     "contains": "slaResolutionTargetExpr",
+     "min_count": 3
+    },
+    {
+     "file": "cli/internal/cli/sla_scorecard.go",
+     "contains": "slaResolutionTargetExpr",
+     "min_count": 3
+    },
+    {
+     "file": "cli/internal/cli/client_card.go",
+     "contains": "slaResolutionTargetExpr",
+     "min_count": 3
+    },
+    {
+     "file": "cli/internal/cli/sla_target_sql_test.go",
+     "contains": "TestSLAResolutionTargetPrefersFixbydate",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sla_target_sql_test.go",
+     "contains": "TestSLAPreFixTargetdateQueryFindsNothing",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "reopen-detection-from-actions",
+   "summary": "reopens are derived from the action trail (explicit Re-Open outcomes unioned with repeated Resolved actions) instead of a ticket-level $.reopened marker HaloPSA never writes (issue #218)",
+   "why": "No synced ticket carries $.reopened, so `tickets reopens` refused to report and `standup`'s reopened column was permanently 0. Refusing to assert zero was the right instinct, but the conclusion was wrong: the ticket-level fields record only the FINAL close (hasbeenclosed, dateclosed, date_fully_closed all point at the last one) while the action trail retains the whole history. Two independent signals are unioned because neither is sufficient: explicit Re-Open outcomes (11 actions across 7 tickets on the reporting tenant) miss a reopen driven by a customer email, which is how the operator-confirmed example reopened with zero Re-Open actions; repeated Resolved actions (24 tickets with 2+) miss a reopen not yet re-resolved. The stronger of the two is taken per ticket rather than the sum, so a reopen visible to both is not double-counted. Outcome names can be tenant-configured, which is why the repeat-resolution signal is configuration-independent and carries the feature alone where names differ. The honest cannot-tell note is retained but re-attached to its real precondition, an unsynced actions table.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/reopen_sql.go",
+     "contains": "const reopenCountsSQL",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/tickets_reopens.go",
+     "contains": "reopenCountsSQL",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/standup.go",
+     "contains": "reopenCountsSQL",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/reopen_sql_test.go",
+     "contains": "TestReopenDetectsCustomerEmailReopen",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "halo-envelope-declared-items-key",
+   "summary": "list responses are unwrapped via a spec-derived per-resource items key rather than by counting arrays, so a populated sidecar array no longer aborts the resource (issue #265)",
+   "why": "HaloPSA answers a list endpoint with a `<Entity>_View` object that carries the rows next to sidecar arrays: `columns` on most views, `statuses`/`priorities`/`agents` on the ticket views, `folders` on /Attachment, `actionsdetails` on /Actions. None of the generic extraction strategies can resolve that, because the wrapper key is the resource's own name rather than data/results/items, and extractSingleObjectArraySibling deliberately gives up when more than one array is populated since it cannot tell rows from sidecar. Until this was reported the ambiguity was invisible: Halo omits or empties the sidecars unless they are asked for, leaving exactly one array and letting the sibling scan land on it by luck. /Attachment is the endpoint that always ships its sidecar, so `folders` arrived populated, the scan counted two arrays, gave up, and the entire envelope fell through to the single-object path, which failed the whole resource with `missing id for attachment` and stored nothing. The all-empty envelope an unscoped /Attachment returns on a tenant with no attachments took the same path and failed identically, which is why the reporter saw it on 3 of 4 runs regardless of content. The regression test proves the other sidecar-heavy views (tickets, clients, asset, actions, users) break the same way the moment their second array is populated, so the fix is a table covering all 23 list resources rather than a special case for attachments. The two single-object endpoints, Client/me and Users/me, are deliberately absent from the table: they return an entity rather than a `_View`, and their nested arrays are fields of that entity, so unwrapping one would break a resource that works today.",
+   "status": "active",
+   "spec_encode_followup": "Teach cli-printing-press to emit the response envelope's items key from the declared OpenAPI response schema instead of inferring it at runtime by counting populated arrays. The count heuristic is silently wrong for any API whose list envelope carries a sidecar array, and 61 generated connectors share this extractor.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "var resourceEnvelopeItemsKeys = map[string]string{",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "func envelopeDeclaredItems(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"attachment\":        \"attachments\",",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/attachment_envelope_test.go",
+     "contains": "TestAttachmentEnvelopeUnwrapsRowsBesideFolders",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/attachment_envelope_test.go",
+     "contains": "TestSingleObjectEndpointsAreNotUnwrapped",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "parent-scoped-keys-lookup-typeinfo-workflowstep-timesheet",
+   "summary": "lookup, asset-type-info, workflowstep and timesheet rows are keyed by their parent as well as their id, workflowstep and online-status resolve their real id fields, and legacy rows are purged on upgrade (issue #264)",
+   "why": "The same defect class as the actions fix in #203, found on a live tenant once that fix made the loss visible as a sync_anomaly instead of a silent one. Each resource numbers its rows within a parent, so the bare id collides across parents and the last writer wins: lookup restarts `id` per `lookupid` and stored 269 of 1020 fetched rows; asset-type-info's `id` is a field-row index scoped to `typeinfo_id` and stored 18 of 129; workflowstep restarts `step_id` per `fdid` and stored 144 of 211; timesheet returns a literal `\"id\": 0` on every record, so all 108 fetched rows collapsed onto a single key and its real key is the (agent_id, date) pair. workflowstep needs both halves of its fix and not just the parent key: it carries no `id` at all, so the generic fallback list reached `name` (the hazard the fallback ordering warns about in #1394) and two steps sharing a name inside one flow would still collide even once fdid qualified the key. online-status is the extraction-failure member of the family rather than a collision: it names its identifier `techID`, which no spelling of `id` reaches through LookupFieldValue, so every record failed extraction and the resource stored zero rows behind an all_items_failed_id_extraction anomaly. resourceParentKeyColumns became a list per resource to carry timesheet's two-column key; a single-column key stays byte-identical to the pre-#264 form and an absent column is skipped rather than padded, so rows written by 0.2.7 stay addressable. Cached rows are purged once on upgrade at schema 6 for the reason the #203 purge exists: qualifying the key governs only new writes, so without the purge a resync would leave stale collapsed rows sitting alongside the corrected set. Four further resources the reporter observed losing rows (feed, team-tree, integration-runbook-variable-group, timesheet-forecasting) are NOT addressed here: their payload shape could not be confirmed from the spec, which declares no response schema for any of them, and guessing a key would risk keying rows on the wrong column.",
+   "status": "active",
+   "spec_encode_followup": "Same upstream ask as #203, now with five more instances: teach cli-printing-press to derive parent-qualified storage keys for flat resources whose ids are only unique within a parent, to recognise a constant or zero id as unusable, and to fall back to a declared natural key instead of reaching for `name`.",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\"lookup\":          {\"lookupid\"}",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\"asset-type-info\": {\"typeinfo_id\"}",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\"workflowstep\":    {\"fdid\"}",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\"timesheet\":       {\"agent_id\", \"date\"}",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\"workflowstep\":  \"step_id\"",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\"online-status\": \"techID\"",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "func (s *Store) migratePurgeLegacyParentScopedKeys",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/parent_scoped_keys_test.go",
+     "contains": "TestWorkflowStepKeyedByStepIDWithinFlow",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/parent_scoped_keys_test.go",
+     "contains": "TestSingleParentKeyFormIsUnchanged",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "env-oauth-secrets-not-persisted",
+   "summary": "SaveTokens keeps the env-override marker on ClientID/ClientSecret, so env-supplied OAuth credentials are never written to config.toml (issue #266)",
+   "why": "Load() marks ClientID/ClientSecret as env overrides and configForSave() restores the file value for any field still marked -- the mechanism that keeps env-supplied secrets off disk. SaveTokens() cleared both markers on every save, so each token mint (an ordinary authenticated command, no `auth login` step needed) rewrote the live client_id and client_secret into ~/.config/<tool>-cli/config.toml in cleartext, defeating Keychain/Credential-Manager setups that inject the secret as an env var at process launch. SaveTokens now leaves those two markers alone; only MarkCredentialsExplicit clears them, and only `auth login` calls it, passing whether each value came from a flag rather than from the env fallback. Provenance must be declared, not inferred: comparing the incoming value against the loaded one cannot tell an explicit flag from the env value it duplicates, and `auth login` trims its env fallback while Load does not, so a padded variable compares unequal to itself and leaks. Reported by @Xenith-B against halopsa-cli/ninjaone-cli. GENERATOR-class defect (the press emits the unconditional deletes) tracked upstream as mvanhorn/cli-printing-press#4283; until the press is fixed, a reprint reintroduces the leak and these markers guard the connector. Bug-fix-only: no new flag, command, or output.",
+   "status": "active",
+   "spec_encode_followup": "cli-printing-press#4283: SaveTokens must not clear the ClientID/ClientSecret env-override markers. Only a credential the caller supplied through an explicit command-line flag may clear them, and the flag's provenance must be passed in by the caller -- NOT inferred by comparing the incoming value against the loaded one. An explicit flag whose value equals the environment's is still explicit and must persist; conversely `auth login` trims its env fallback while Load does not, so a padded variable compares unequal to itself and a value-based rule leaks it.",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "func (c *Config) MarkCredentialsExplicit(clientID, clientSecret bool) {",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "cfg.MarkCredentialsExplicit(explicitClientID, explicitClientSecret)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "markers now survive a save; only MarkCredentialsExplicit clears them.",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "not_contains": "delete(c.envOverrides, \"ClientID\")\n\tdelete(c.envOverrides, \"ClientSecret\")\n\tdelete(c.envOverrides, \"AccessToken\")"
+    }
+   ]
+  },
+  {
+   "id": "parent-scoped-keys-round2-teamtree-forecasting-runbookvars",
+   "summary": "team-tree keys on its guid, timesheet-forecasting on (agent_id, date), and integration-runbook-variable-group on its value; both timesheet resources key on the calendar day so a drifting DATETIME cannot duplicate rows; legacy rows purged at schema 7 (issue #264, second round)",
+   "why": "The last three of the nine resources reported in #264. The other five shipped in 0.2.8; these three could not be keyed safely until the reporter supplied sanitized sample records, because the spec declares no response schema for any of them and a guessed key would have traded a visible sync_anomaly for a different silent loss. team-tree numbers its nodes within a node type, so two nodes both carry id 16 (one under type 1 Opportunities, one under type 2 Projects) and 45 fetched rows stored 44; every row also carries a guid, unique by construction, which the generic fallback list reaches only after `id` and so never used. Keying on the guid is correct whichever way the duplicate arose: distinct nodes stay distinct, and a genuinely re-fetched node still collapses to one row. timesheet-forecasting mirrors timesheet exactly, returning a literal `\"id\": 0` on every record with agent_id, date, target_hours, actual_hours and workdayid carrying the content, and the reporter confirmed no forecasting_id field exists, so all 132 fetched rows collapsed onto a single key; workdayid is deliberately excluded from the key because over-keying turns a legitimate update into a duplicate row. integration-runbook-variable-group carries no id-shaped field at all: its rows are {label, value} pairs where value is the stable key (runbook<uuid>, integration<n>, or a short constant such as faults) and label is display text, so all 39 rows failed extraction and the resource stored nothing behind an all_items_failed_id_extraction anomaly. A string key needs no special handling since ResourceIDString returns it unchanged, so the reporter's suggestion of a dedicated code path was not needed. feed was reported in the same family and is deliberately NOT rekeyed: its id is globally unique (the endpoint's own newer_than_id/older_than_id paging contract depends on that), so its 100-fetched/62-stored gap is honest dedup of rows re-read by a page-number walk over a live activity stream, not row loss; a regression test pins feed out of resourceParentKeyColumns so a future reader cannot 'fix' it into storing duplicates. The day-normalisation is keyed on the COLUMN NAME rather than on the value looking date-shaped, so a future parent column carrying an opaque id with a date-like prefix cannot be silently truncated into a collision; raised as a P2 by the pre-merge adversarial review.",
+   "status": "active",
+   "spec_encode_followup": "Same upstream ask as #203 and the first #264 round: teach cli-printing-press to derive parent-qualified storage keys, to recognise a constant or zero id as unusable, and to prefer a declared unique field (a guid, or a documented natural key) over the positional `id` fallback. Additionally: the generic page-number walk is wrong for time-ordered feed endpoints that expose keyset parameters, which is the separate feed defect.",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\"team-tree\":                          \"guid\"",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\"integration-runbook-variable-group\": \"value\"",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\"timesheet-forecasting\": {\"agent_id\", \"date\"}",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "func (s *Store) migratePurgeLegacyRound2Keys",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/round2_keys_test.go",
+     "contains": "TestTeamTreeKeyedByGUID",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/round2_keys_test.go",
+     "contains": "TestFeedIsNotParentScoped",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "func parentKeyValue(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/round2_keys_test.go",
+     "contains": "TestTimesheetKeyIsStableAcrossTimestampDrift",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "feed-is-not-page-walkable",
+   "summary": "feed is excluded from the page-number walk and asks for one window via count, because /Feed is a keyset activity stream with no page_no (issue #273)",
+   "why": "determinePaginationDefaults describes ONE paging contract for the whole connector - pageinate=true plus page_size and an incrementing page_no - because that is what Halo's list endpoints honour (#203). /Feed is not one of those: it is a time-ordered activity stream whose own parameters are count for the window size and newer_than_id/older_than_id for position. Page numbers are the wrong shape for it twice over. Halo has no page_no to honour there, and paging a live stream by ordinal re-reads rows regardless, because new events arrive between requests and shift the ones already seen across the page boundary. Reported in #264 as feed fetching 100 rows and storing 62, which looked like the parent-scoped-id family the rest of that issue was about but is not: /Feed identifies rows with a globally unique id, so the repeats were one row fetched twice and the mirror collapsed them correctly. The defect was the walk, not the key, which is why feed is deliberately absent from resourceParentKeyColumns and a regression test pins it there - adding a parent key would have converted honest dedup into duplicate rows. A second, worse failure rides along: the page-int cursor is computed client-side, so the sticky-cursor guard cannot fire, and a full window returned to every request keeps pageLooksFull true, leaving the loop with no termination condition under the default --max-pages 0. A fixture that always fills the window reproduces a non-terminating walk. Excluding feed from resourceSupportsPagination removes both problems, and resourceFixedParams supplies the count the endpoint actually takes, applied before user --param so an operator can still widen the window. NOT extended to the other endpoints that expose count rather than page numbers (address, crmnote, version-info-*): /Actions also documents no page_no yet demonstrably honours it, so Halo's parameter lists are not evidence of what it ignores, and depaginating a resource that currently walks correctly would truncate it. Those need a live tenant to settle.",
+   "status": "active",
+   "spec_encode_followup": "Teach cli-printing-press that one paging contract per API is not always right: an endpoint exposing keyset parameters (newer_than/older_than plus a count) alongside the API's normal page parameters needs its own contract, and the generic page-int fallback should not advance a client-side cursor on an endpoint that never returns one. The unbounded case is the sharper ask: a walk whose cursor the client invents has no natural termination when the API keeps answering with a full page.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "var resourceFixedParams = map[string]map[string]string{",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"feed\": {\"count\": \"100\"}",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/feed_walk_test.go",
+     "contains": "TestFeedIsFetchedInOneWindow",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/feed_walk_test.go",
+     "contains": "TestFeedWindowIsUserOverridable",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "doctor-auth-hint-names-a-real-command",
+   "summary": "doctor, the CLI error path and the MCP error path all point at `halopsa-cli auth login` instead of a nonexistent `auth setup` subcommand (issue #277, #278)",
+   "why": "This CLI's `auth` parent defines login, status, set-token and logout. It has never defined `setup`, yet three generated surfaces told operators to run it: doctor.go's auth_hint (fires when cfg.AuthHeader() is empty), helpers.go's HTTP 400/401/403 remediation, and internal/mcp/tools.go's tool-error text -- 7 occurrences in all. Cobra does not error on an unknown subcommand of a NON-root parent (legacyArgs only rejects unknown args for the root), and the generated parent runs parentNoSubcommandRunE, which returns cmd.Help() -- a nil error. So `halopsa-cli auth setup` printed help and exited 0. There was no 'unknown command' error and no non-zero exit anywhere in the journey: an operator saw a success code and was no closer to credentials, and because these are agent-first CLIs with typed exit codes, an agent performing setup read exit 0 as success and carried on unauthenticated. The hint fires exactly when it matters -- fresh install, rotated secret, new machine, expired token. This skill emits no auth_instructions field, so these hints are the only setup guidance it gives. The replacements name the real command and, in doctor, the variables `auth login` actually reads: HALOPSA_TENANT, HALOPSA_CLIENT_ID and HALOPSA_CLIENT_SECRET (plus HALOPSA_DOMAIN when self-hosted), taken from the login command's own env fallbacks rather than composed. Reported by @geekbrownbear, who verified halopsa and ninjaone live against an empty config (PR #277) and filed appdirect/crowdstrike as issue #278; the fleet scan that found the other two surfaces and confirmed only these four connectors are affected was done during triage. GENERATOR-class defect: until the press is fixed, a reprint reintroduces all 7 strings and these asserts guard them. Bug-fix-only: no new flag, command, or output field.",
+   "status": "active",
+   "spec_encode_followup": "cli-printing-press#4315: Derive the auth hint from the subcommand set the connector actually generates instead of the fixed \"Run '<cli> auth setup' for credential setup steps.\" string in internal/generator/generator.go. 52 of 56 connectors do define `auth setup`, which is why the hard-coded string went unnoticed; the four OAuth client-credentials connectors that scaffold `auth login` instead (appdirect, crowdstrike, halopsa, ninjaone) each shipped it 7 times. The same string is emitted into three surfaces -- doctor.go's auth_hint, helpers.go's 400/401/403 remediation, and the MCP server's tool-error text -- so a generator fix must cover all three.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "halopsa-cli auth setup"
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "not_contains": "halopsa-cli auth setup"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "halopsa-cli auth setup"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "Set HALOPSA_TENANT, HALOPSA_CLIENT_ID and HALOPSA_CLIENT_SECRET (plus HALOPSA_DOMAIN if self-hosted), then run 'halopsa-cli auth login' to mint a token.",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "halopsa-cli auth login' to re-authenticate.",
+     "min_count": 3
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "halopsa-cli auth login' to re-authenticate.",
+     "min_count": 3
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "cmd.AddCommand(newAuthLoginCmd(flags))",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "doctor-verdict-tracks-reality",
+   "summary": "doctor probes a real GET endpoint with the real credential and refuses to dial a placeholder base_url, instead of calling any HTTP response 'reachable' and never checking the credential",
+   "why": "`doctor` is the command every SKILL, guide and docs page tells an operator to run to confirm the connector works, and it could not tell a working install from a broken one. It called any HTTP response to `GET /` \"reachable\" and rendered it green, so a base_url aimed at the vendor's web UI (where every API path 404s) and a token rejected with 401 on every call both produced an all-green report. On this connector family it also never probed the credential at all: it printed \"present, not verified\" and left the operator to guess. The mirror defect: a connector whose shipped base_url default is a placeholder dialled the placeholder host, and the DNS failure rendered as \"FAIL API: unreachable\" - telling a correctly-credentialled operator they were broken without naming the one variable that would fix it. Several placeholder hosts resolve through live wildcard DNS and answer real HTTP, so dialling one produced a confident green verdict against a stranger's server. Measured and gated by tools/maintainer/check_doctor_truth.py. See issue #282.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorProbeCredentials("
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorBaseURLIsPlaceholder("
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorIsInfoKey(k)"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorBaseURLIsPlaceholder(cfg.BaseURL)"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorUnexpectedStatus(authAPIErr.StatusCode"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "but auth was accepted"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "for _, v := range report {"
+    }
+   ]
+  },
+  {
+   "id": "install-credentials-declared-on-every-channel",
+   "summary": "every operator credential this connector reads is declared on all three install channels: manifest.json (.mcpb), server.json (MCP Registry) and mcp-install.md (manual install)",
+   "why": "Issue #282 ('three live-verified connectors prompt for the wrong credentials'). A connector is installed through THREE independent channels that each carry their own copy of the credential list: manifest.json server.mcp_config.env (what the .mcpb bundle hands Claude Desktop, which has no shell profile, no config.toml and no export - so an undeclared variable is a variable nobody is ever asked for), server.json environmentVariables (the MCP Registry publish channel), and mcp-install.md's copy-paste JSON blocks plus its remote launch line (the manual path, which never touches the bundle at all). The fleet-wide audit found 60 of 65 connectors under-declaring 122 operator-facing variables in the manifest, 61 of 65 mcp-install.md pages omitting 125, and hudu's server.json missing the base URL its manifest marks required. For halopsa the manifest gained: HALOPSA_BASE_URL, HALOPSA_TOKEN_URL. server.json gained: HALOPSA_BASE_URL, HALOPSA_OAUTH_SCOPE, HALOPSA_SCOPE, HALOPSA_TOKEN, HALOPSA_TOKEN_URL. mcp-install.md's env blocks gained: HALOPSA_BASE_URL, HALOPSA_TOKEN_URL. manifest.json, server.json and mcp-install.md are ALL regenerated by /msp-skills-publish on an UPDATE or re-onboard, so without this ledger a regeneration silently drops every declaration and CI stays green (check_env_schema.py is wired --warn). The asserts below name the specific credentials, not a count, so dropping one and adding another cannot cancel out.",
+   "status": "active",
+   "spec_encode_followup": "cli-printing-press should emit server.mcp_config.env, the matching user_config prompts, server.json environmentVariables and mcp-install.md's env blocks from ONE declaration of the connector's operator-facing environment, so the three channels cannot be generated out of step. Until then check_env_schema.py compares all three and this ledger pins them.",
+   "asserts": [
+    {
+     "file": "manifest.json",
+     "contains": "\"HALOPSA_BASE_URL\": \"${user_config.halopsa_base_url}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"HALOPSA_CLIENT_ID\": \"${user_config.halopsa_client_id}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"HALOPSA_CLIENT_SECRET\": \"${user_config.halopsa_client_secret}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"HALOPSA_DOMAIN\": \"${user_config.halopsa_domain}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"HALOPSA_OAUTH_SCOPE\": \"${user_config.halopsa_oauth_scope}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"HALOPSA_SCOPE\": \"${user_config.halopsa_scope}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"HALOPSA_TENANT\": \"${user_config.halopsa_tenant}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"HALOPSA_TOKEN\": \"${user_config.halopsa_token}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"HALOPSA_TOKEN_URL\": \"${user_config.halopsa_token_url}\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"HALOPSA_BASE_URL\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"HALOPSA_CLIENT_ID\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"HALOPSA_CLIENT_SECRET\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"HALOPSA_DOMAIN\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"HALOPSA_OAUTH_SCOPE\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"HALOPSA_SCOPE\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"HALOPSA_TENANT\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"HALOPSA_TOKEN\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"HALOPSA_TOKEN_URL\"",
+     "min_count": 1
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"HALOPSA_BASE_URL\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"HALOPSA_CLIENT_ID\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"HALOPSA_CLIENT_SECRET\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"HALOPSA_DOMAIN\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"HALOPSA_OAUTH_SCOPE\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"HALOPSA_SCOPE\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"HALOPSA_TENANT\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"HALOPSA_TOKEN\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"HALOPSA_TOKEN_URL\":",
+     "min_count": 3
+    }
+   ]
+  }
+ ]
 }

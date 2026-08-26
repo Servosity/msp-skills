@@ -15,7 +15,10 @@
       "command": "${__dirname}/bin/gradient-mcp",
       "args": [],
       "env": {
-        "GRADIENT_TOKEN": "${user_config.gradient_token}"
+        "GRADIENT_BASE_URL": "${user_config.gradient_base_url}",
+        "GRADIENT_PARTNER_API_KEY": "${user_config.gradient_partner_api_key}",
+        "GRADIENT_TOKEN": "${user_config.gradient_token}",
+        "GRADIENT_VENDOR_API_KEY": "${user_config.gradient_vendor_api_key}"
       }
     }
   },
@@ -26,6 +29,27 @@
       "description": "Sets GRADIENT_TOKEN for the Gradient MSP MCP server.",
       "sensitive": true,
       "required": true
+    },
+    "gradient_partner_api_key": {
+      "type": "string",
+      "title": "Gradient partner API key",
+      "description": "Partner API key issued alongside the vendor key. Both halves are sent in the GRADIENT-TOKEN header.",
+      "sensitive": true,
+      "required": true
+    },
+    "gradient_vendor_api_key": {
+      "type": "string",
+      "title": "Gradient vendor API key",
+      "description": "Vendor API key from Synthesize (Integrations > Custom > Generate API Tokens). Shown once.",
+      "sensitive": true,
+      "required": true
+    },
+    "gradient_base_url": {
+      "type": "string",
+      "title": "Gradient MSP API base URL",
+      "description": "Base URL for the Gradient MSP API. Leave the prefilled default unless your account uses a different regional or self-hosted host.",
+      "required": false,
+      "default": "https://app.usegradient.com/api"
     }
   },
   "compatibility": {

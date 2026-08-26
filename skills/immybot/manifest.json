@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "immybot-mcp",
   "display_name": "ImmyBot",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Every ImmyBot endpoint typed, plus a local SQLite mirror that answers the cross-tenant questions the web UI cannot.",
   "author": {
     "name": "Servosity Inc."
@@ -15,10 +15,14 @@
       "command": "${__dirname}/bin/immybot-mcp",
       "args": [],
       "env": {
+        "IMMYBOT_BASE_URL": "${user_config.immybot_base_url}",
+        "IMMYBOT_CLIENT_ID": "${user_config.immybot_client_id}",
+        "IMMYBOT_CLIENT_SECRET": "${user_config.immybot_client_secret}",
         "IMMYBOT_SUBDOMAIN": "${user_config.immybot_subdomain}",
         "IMMYBOT_TENANT_ID": "${user_config.immybot_tenant_id}",
-        "IMMYBOT_CLIENT_ID": "${user_config.immybot_client_id}",
-        "IMMYBOT_CLIENT_SECRET": "${user_config.immybot_client_secret}"
+        "IMMYBOT_TOKEN_URL": "${user_config.immybot_token_url}",
+        "IMMYBOT_USER_AGENT": "${user_config.immybot_user_agent}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
       }
     }
   },
@@ -26,24 +30,53 @@
     "immybot_subdomain": {
       "type": "string",
       "title": "IMMYBOT_SUBDOMAIN",
-      "description": "Your ImmyBot instance subdomain - the \"acme\" in acme.immy.bot. Required: it derives the OAuth scope, and without it the token request falls back to a scope naming your own app registration and Entra rejects it."
+      "description": "Your ImmyBot instance subdomain - the \"acme\" in acme.immy.bot. Required: it derives the OAuth scope, and without it the token request falls back to a scope naming your own app registration and Entra rejects it.",
+      "required": true
     },
     "immybot_tenant_id": {
       "type": "string",
       "title": "IMMYBOT_TENANT_ID",
-      "description": "Directory (tenant) ID of the Microsoft Entra tenant your ImmyBot instance trusts."
+      "description": "Directory (tenant) ID of the Microsoft Entra tenant your ImmyBot instance trusts.",
+      "required": true
     },
     "immybot_client_id": {
       "type": "string",
       "title": "IMMYBOT_CLIENT_ID",
       "description": "Application (client) ID of the Entra app registration. Add that app's Enterprise Application object ID as an admin person in ImmyBot (Show More > People > New > AD External ID).",
-      "sensitive": true
+      "sensitive": true,
+      "required": true
     },
     "immybot_client_secret": {
       "type": "string",
       "title": "IMMYBOT_CLIENT_SECRET",
       "description": "Client secret paired with IMMYBOT_CLIENT_ID, from the Entra app registration.",
-      "sensitive": true
+      "sensitive": true,
+      "required": true
+    },
+    "immybot_base_url": {
+      "type": "string",
+      "title": "ImmyBot API base URL",
+      "description": "Full API base URL. Leave blank: the CLI builds it from IMMYBOT_SUBDOMAIN. Set it only to point at a different host.",
+      "required": false
+    },
+    "immybot_token_url": {
+      "type": "string",
+      "title": "OAuth2 token URL",
+      "description": "Token endpoint the client-credentials exchange posts to. Leave the prefilled default unless your tenant uses a different token endpoint.",
+      "required": false,
+      "default": "https://login.microsoftonline.com/common/oauth2/v2.0/token"
+    },
+    "immybot_user_agent": {
+      "type": "string",
+      "title": "User-Agent header",
+      "description": "Overrides the User-Agent the CLI sends on ImmyBot requests. Leave blank to use the CLI's own built-in User-Agent.",
+      "required": false
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile",
+      "description": "Binds this MCP server to one tenant-gated client profile, so every call answers for that customer. Leave blank to use the profile configured as default_client_profile.",
+      "required": false
     }
   },
   "compatibility": {

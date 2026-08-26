@@ -37,7 +37,8 @@ Add (or merge with your existing `mcpServers` block):
     "runzero": {
       "command": "runzero-mcp",
       "env": {
-        "RUNZERO_API_KEY": "<your-runzero_api_key>"
+        "RUNZERO_API_KEY": "<your-runzero_api_key>",
+        "RUNZERO_BASE_URL": "https://console.runzero.com/api/v1.0"
       }
     }
   }
@@ -62,7 +63,8 @@ Configuration**) and add:
       "type": "stdio",
       "command": "runzero-mcp",
       "env": {
-        "RUNZERO_API_KEY": "<your-runzero_api_key>"
+        "RUNZERO_API_KEY": "<your-runzero_api_key>",
+        "RUNZERO_BASE_URL": "https://console.runzero.com/api/v1.0"
       }
     }
   }
@@ -83,7 +85,8 @@ Claude Desktop:
     "runzero": {
       "command": "runzero-mcp",
       "env": {
-        "RUNZERO_API_KEY": "<your-runzero_api_key>"
+        "RUNZERO_API_KEY": "<your-runzero_api_key>",
+        "RUNZERO_BASE_URL": "https://console.runzero.com/api/v1.0"
       }
     }
   }
@@ -101,7 +104,7 @@ All remote agents need `runzero-mcp` reachable as a public **HTTPS** endpoint. R
 in HTTP mode with your credentials in the environment:
 
 ```bash
-RUNZERO_API_KEY=<value> runzero-mcp --transport http --addr :7777
+RUNZERO_API_KEY=<value> RUNZERO_BASE_URL=<value> runzero-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

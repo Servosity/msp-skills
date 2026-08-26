@@ -29,16 +29,41 @@
       },
       "environmentVariables": [
         {
-          "name": "KASEYA_BMS_TOKEN",
-          "description": "Pre-minted Kaseya BMS JWT, sent as a Bearer token. Set this OR KASEYA_BMS_BEARER_AUTH; alternatively run 'kaseya-bms-cli auth login' to mint one from username/password/tenant.",
+          "name": "KASEYA_BMS_BASE_URL",
+          "description": "Base URL for the Kaseya BMS API. Leave the prefilled default unless your account uses a different regional or self-hosted host.",
           "isRequired": false,
-          "isSecret": true
+          "isSecret": false,
+          "default": "https://api.bms.kaseya.com"
         },
         {
           "name": "KASEYA_BMS_BEARER_AUTH",
           "description": "Alias for KASEYA_BMS_TOKEN - a pre-minted Kaseya BMS JWT sent as a Bearer token. Set one of the two, or use 'auth login'.",
           "isRequired": false,
           "isSecret": true
+        },
+        {
+          "name": "KASEYA_BMS_PASSWORD",
+          "description": "Password for KASEYA_BMS_USERNAME. Exchanged for a JWT; never sent on data calls.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "KASEYA_BMS_TENANT",
+          "description": "Your company name exactly as it appears under My Settings in BMS. The authenticate call rejects the login without it.",
+          "isRequired": true,
+          "isSecret": false
+        },
+        {
+          "name": "KASEYA_BMS_TOKEN",
+          "description": "Pre-minted Kaseya BMS JWT, sent as a Bearer token. Set this OR KASEYA_BMS_BEARER_AUTH; alternatively run 'kaseya-bms-cli auth login' to mint one from username/password/tenant.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "KASEYA_BMS_USERNAME",
+          "description": "Kaseya BMS login used by `auth login` to exchange for a short-lived JWT.",
+          "isRequired": true,
+          "isSecret": false
         }
       ]
     }

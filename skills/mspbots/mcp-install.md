@@ -37,7 +37,8 @@ Add (or merge with your existing `mcpServers` block):
     "mspbots": {
       "command": "mspbots-mcp",
       "env": {
-        "MSPBOTS_API_KEY": "<your-mspbots_api_key>"
+        "MSPBOTS_API_KEY": "<your-mspbots_api_key>",
+        "MSPBOTS_BASE_URL": "https://api.mspbots.ai"
       }
     }
   }
@@ -62,7 +63,8 @@ Configuration**) and add:
       "type": "stdio",
       "command": "mspbots-mcp",
       "env": {
-        "MSPBOTS_API_KEY": "<your-mspbots_api_key>"
+        "MSPBOTS_API_KEY": "<your-mspbots_api_key>",
+        "MSPBOTS_BASE_URL": "https://api.mspbots.ai"
       }
     }
   }
@@ -83,7 +85,8 @@ Claude Desktop:
     "mspbots": {
       "command": "mspbots-mcp",
       "env": {
-        "MSPBOTS_API_KEY": "<your-mspbots_api_key>"
+        "MSPBOTS_API_KEY": "<your-mspbots_api_key>",
+        "MSPBOTS_BASE_URL": "https://api.mspbots.ai"
       }
     }
   }
@@ -101,7 +104,7 @@ All remote agents need `mspbots-mcp` reachable as a public **HTTPS** endpoint. R
 in HTTP mode with your credentials in the environment:
 
 ```bash
-MSPBOTS_API_KEY=<value> mspbots-mcp --transport http --addr :7777
+MSPBOTS_API_KEY=<value> MSPBOTS_BASE_URL=<value> mspbots-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

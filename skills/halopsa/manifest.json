@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "halopsa-mcp",
   "display_name": "HaloPSA",
-  "version": "0.2.12",
+  "version": "0.2.13",
   "description": "Every HaloPSA, HaloITSM and HaloCRM feature, plus a local SQLite store and cross-entity views the API can't return.",
   "author": {
     "name": "Servosity Inc."
@@ -15,13 +15,15 @@
       "command": "${__dirname}/bin/halopsa-mcp",
       "args": [],
       "env": {
+        "HALOPSA_BASE_URL": "${user_config.halopsa_base_url}",
         "HALOPSA_CLIENT_ID": "${user_config.halopsa_client_id}",
         "HALOPSA_CLIENT_SECRET": "${user_config.halopsa_client_secret}",
         "HALOPSA_DOMAIN": "${user_config.halopsa_domain}",
         "HALOPSA_OAUTH_SCOPE": "${user_config.halopsa_oauth_scope}",
         "HALOPSA_SCOPE": "${user_config.halopsa_scope}",
         "HALOPSA_TENANT": "${user_config.halopsa_tenant}",
-        "HALOPSA_TOKEN": "${user_config.halopsa_token}"
+        "HALOPSA_TOKEN": "${user_config.halopsa_token}",
+        "HALOPSA_TOKEN_URL": "${user_config.halopsa_token_url}"
       }
     }
   },
@@ -30,7 +32,8 @@
       "type": "string",
       "title": "HALOPSA_CLIENT_ID",
       "description": "OAuth2 client ID from your Halo API application",
-      "required": true
+      "required": true,
+      "sensitive": true
     },
     "halopsa_client_secret": {
       "type": "string",
@@ -61,13 +64,26 @@
       "type": "string",
       "title": "HALOPSA_TENANT",
       "description": "Sets HALOPSA_TENANT for the endpoint template variable {tenant}.",
-      "default": "demo"
+      "default": "demo",
+      "required": true
     },
     "halopsa_token": {
       "type": "string",
       "title": "HALOPSA_TOKEN",
       "description": "Optional. Pre-issued Bearer access token. Overrides the client_credentials flow when set.",
       "sensitive": true
+    },
+    "halopsa_base_url": {
+      "type": "string",
+      "title": "HaloPSA API base URL",
+      "description": "Full API base URL. Leave blank: the CLI builds it from HALOPSA_TENANT and HALOPSA_DOMAIN. Set it only to point at a different host.",
+      "required": false
+    },
+    "halopsa_token_url": {
+      "type": "string",
+      "title": "OAuth2 token URL",
+      "description": "Token endpoint the client-credentials exchange posts to. Leave blank: the CLI derives it from the base URL.",
+      "required": false
     }
   },
   "compatibility": {

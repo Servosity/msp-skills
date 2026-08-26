@@ -21,12 +21,100 @@ type Config struct {
 	AccessToken   string            `toml:"access_token"`
 	RefreshToken  string            `toml:"refresh_token"`
 	TokenExpiry   time.Time         `toml:"token_expiry"`
-	ClientID      string            `toml:"client_id"`
-	ClientSecret  string            `toml:"client_secret"`
-	Path          string            `toml:"-"`
-	envOverrides  map[string]bool   `toml:"-"`
-	fileConfig    *Config           `toml:"-"`
-	CippApiKey    string            `toml:"api_key"`
+	// TokenLifetime is the expires_in, in seconds, that the token endpoint
+	// granted for the token currently in AccessToken; 0 means "unknown" (a
+	// config written before this field existed, or a pasted set-token
+	// credential). internal/client clamps its refresh safety skew to half this
+	// value, so a short-lived token is never inside its own skew the moment it
+	// is issued. It is connection metadata, not a secret.
+	TokenLifetime int             `toml:"token_lifetime"`
+	ClientID      string          `toml:"client_id"`
+	ClientSecret  string          `toml:"client_secret"`
+	Path          string          `toml:"-"`
+	envOverrides  map[string]bool `toml:"-"`
+	fileConfig    *Config         `toml:"-"`
+	CippApiKey    string          `toml:"api_key"`
+
+	// OAuth2 client-credentials context, persisted by `auth login` so the
+	// client can rebuild the Azure AD token endpoint and re-mint the access
+	// token when it expires (AAD client-credentials tokens live ~60-90
+	// minutes). Before these fields existed the token URL was known only
+	// inside `auth login`'s flag set and was discarded, so an expired token
+	// could never be refreshed without a human re-running `auth login`.
+	//
+	// These are connection metadata, not secrets: TenantID and Authority are
+	// public identifiers and Scope is derived from the client ID. They are
+	// deliberately NOT env-overridable. An env-supplied re-mint input would
+	// survive `auth logout` (ClearTokens can only wipe the file), which is
+	// exactly the unattended-re-mint hole the ClearTokens comment guards
+	// against for ClientID/ClientSecret.
+	TenantID  string `toml:"tenant_id"`
+	Authority string `toml:"authority"`
+	Scope     string `toml:"scope"`
+}
+
+// DefaultAuthority is the Azure AD authority used when a config predates the
+// --authority flag or the operator did not override it. Sovereign clouds
+// (US Gov, China) use a different host, which is why `auth login` persists
+// whatever it was given rather than hardcoding this at the mint site.
+const DefaultAuthority = "https://login.microsoftonline.com"
+
+// TokenEndpoint returns the Azure AD client-credentials token URL implied by
+// the stored tenant, or "" when no tenant was persisted (every install created
+// before tenant_id was recorded). Callers MUST treat "" as "cannot re-mint"
+// and say so out loud rather than falling through to a stale access token.
+func (c *Config) TokenEndpoint() string {
+	if c == nil || c.TenantID == "" {
+		return ""
+	}
+	authority := c.Authority
+	if authority == "" {
+		authority = DefaultAuthority
+	}
+	return strings.TrimRight(authority, "/") + "/" + c.TenantID + "/oauth2/v2.0/token"
+}
+
+// OAuthScope returns the scope to request for a client-credentials mint,
+// falling back to the same `api://<client-id>/.default` default `auth login`
+// applies. A stored scope wins so a custom-scope login is not silently
+// downgraded on re-mint.
+func (c *Config) OAuthScope() string {
+	if c == nil {
+		return ""
+	}
+	if c.Scope != "" {
+		return c.Scope
+	}
+	if c.ClientID == "" {
+		return ""
+	}
+	return "api://" + c.ClientID + "/.default"
+}
+
+// SetTokenLifetime records the expires_in the token endpoint granted for the
+// token now held in AccessToken. Like SetOAuthContext it does not write to disk
+// on its own; the caller pairs it with SaveTokens, whose save() persists every
+// field of the live config. It is a separate setter rather than a SaveTokens
+// parameter because SaveTokens' signature is called from `auth set-token` and
+// from nine sibling code paths.
+func (c *Config) SetTokenLifetime(seconds int) {
+	if seconds < 0 {
+		seconds = 0
+	}
+	c.TokenLifetime = seconds
+	c.updateFileConfigField("TokenLifetime")
+}
+
+// SetOAuthContext records the non-secret client-credentials context. It does
+// not write to disk on its own; the caller pairs it with SaveTokens, whose
+// save() persists every field of the live config.
+func (c *Config) SetOAuthContext(tenantID, authority, scope string) {
+	c.TenantID = tenantID
+	c.Authority = authority
+	c.Scope = scope
+	c.updateFileConfigField("TenantID")
+	c.updateFileConfigField("Authority")
+	c.updateFileConfigField("Scope")
 }
 
 func Load(configPath string) (*Config, error) {
@@ -162,22 +250,30 @@ func (c *Config) ClearTokens() error {
 	c.AccessToken = ""
 	c.RefreshToken = ""
 	c.TokenExpiry = time.Time{}
+	c.TokenLifetime = 0
 	c.ClientID = ""
 	c.ClientSecret = ""
 	delete(c.envOverrides, "AuthHeaderVal")
 	delete(c.envOverrides, "AccessToken")
 	delete(c.envOverrides, "RefreshToken")
 	delete(c.envOverrides, "TokenExpiry")
+	delete(c.envOverrides, "TokenLifetime")
 	delete(c.envOverrides, "ClientID")
 	delete(c.envOverrides, "ClientSecret")
 	c.updateFileConfigField("AuthHeaderVal")
 	c.updateFileConfigField("AccessToken")
 	c.updateFileConfigField("RefreshToken")
 	c.updateFileConfigField("TokenExpiry")
+	c.updateFileConfigField("TokenLifetime")
 	c.updateFileConfigField("ClientID")
 	c.updateFileConfigField("ClientSecret")
 	c.CippApiKey = ""
 	delete(c.envOverrides, "CippApiKey")
+	// TenantID/Authority/Scope deliberately survive logout. They are public
+	// connection metadata (the same class as base_url, which logout also
+	// leaves alone) and they cannot be used to mint anything on their own:
+	// the re-mint predicate in internal/client requires ClientID AND
+	// ClientSecret, both zeroed above.
 	return c.save()
 }
 
@@ -238,12 +334,20 @@ func (c *Config) updateFileConfigField(field string) {
 		c.fileConfig.RefreshToken = c.RefreshToken
 	case "TokenExpiry":
 		c.fileConfig.TokenExpiry = c.TokenExpiry
+	case "TokenLifetime":
+		c.fileConfig.TokenLifetime = c.TokenLifetime
 	case "ClientID":
 		c.fileConfig.ClientID = c.ClientID
 	case "ClientSecret":
 		c.fileConfig.ClientSecret = c.ClientSecret
 	case "CippApiKey":
 		c.fileConfig.CippApiKey = c.CippApiKey
+	case "TenantID":
+		c.fileConfig.TenantID = c.TenantID
+	case "Authority":
+		c.fileConfig.Authority = c.Authority
+	case "Scope":
+		c.fileConfig.Scope = c.Scope
 	}
 }
 

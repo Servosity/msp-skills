@@ -29,20 +29,27 @@
       },
       "environmentVariables": [
         {
-          "name": "BLUMIRA_CLIENT_ID",
-          "description": "Blumira API Client ID (Settings > Organization > Generate API Credentials). With BLUMIRA_CLIENT_SECRET, the server mints and auto-refreshes a JWT.",
-          "isRequired": false,
-          "isSecret": false
-        },
-        {
-          "name": "BLUMIRA_CLIENT_SECRET",
-          "description": "Blumira API Client Secret, paired with BLUMIRA_CLIENT_ID to mint a JWT (OAuth2 client_credentials, audience public-api).",
+          "name": "BLUMIRA_API_TOKEN",
+          "description": "Pre-minted Blumira JWT. An alternative to BLUMIRA_CLIENT_ID + BLUMIRA_CLIENT_SECRET: set this OR the Client ID/Secret pair.",
           "isRequired": false,
           "isSecret": true
         },
         {
-          "name": "BLUMIRA_API_TOKEN",
-          "description": "Pre-minted Blumira JWT. An alternative to BLUMIRA_CLIENT_ID + BLUMIRA_CLIENT_SECRET: set this OR the Client ID/Secret pair.",
+          "name": "BLUMIRA_BASE_URL",
+          "description": "Base URL for the Blumira API. Leave the prefilled default unless your account uses a different regional or self-hosted host.",
+          "isRequired": false,
+          "isSecret": false,
+          "default": "https://api.blumira.com/public-api/v1"
+        },
+        {
+          "name": "BLUMIRA_CLIENT_ID",
+          "description": "Blumira API Client ID (Settings > Organization > Generate API Credentials). With BLUMIRA_CLIENT_SECRET, the server mints and auto-refreshes a JWT.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "BLUMIRA_CLIENT_SECRET",
+          "description": "Blumira API Client Secret, paired with BLUMIRA_CLIENT_ID to mint a JWT (OAuth2 client_credentials, audience public-api).",
           "isRequired": false,
           "isSecret": true
         }

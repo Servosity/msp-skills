@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/maxio-mcp",
   "title": "Maxio MCP",
   "description": "Open, local revenue-intelligence CLI for Maxio Advanced Billing  -  MRR waterfalls",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/maxio/maxio-512x512.png",
@@ -21,13 +21,25 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/maxio-v0.1.0/maxio-mcp.mcpb",
-      "version": "0.1.0",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/maxio-v0.1.1/maxio-mcp.mcpb",
+      "version": "0.1.1",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"
       },
       "environmentVariables": [
+        {
+          "name": "MAXIO_API_KEY",
+          "description": "Single-secret Maxio credential, sent as the HTTP Basic username with the constant 'x' as the password. Use this or the MAXIO_USERNAME + MAXIO_PASSWORD pair.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "MAXIO_BASE_URL",
+          "description": "Full API base URL. Leave blank: the CLI builds it from MAXIO_SITE. Set it only to point at a different host.",
+          "isRequired": false,
+          "isSecret": false
+        },
         {
           "name": "MAXIO_PASSWORD",
           "description": "Set the MAXIO_PASSWORD credential for the Maxio MCP server.",
@@ -38,7 +50,8 @@
           "name": "MAXIO_SITE",
           "description": "Set the MAXIO_SITE credential for the Maxio MCP server.",
           "isRequired": true,
-          "isSecret": true
+          "isSecret": true,
+          "default": "subdomain"
         },
         {
           "name": "MAXIO_USERNAME",

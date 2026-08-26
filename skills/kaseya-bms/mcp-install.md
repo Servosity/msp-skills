@@ -37,8 +37,12 @@ Add (or merge with your existing `mcpServers` block):
     "kaseya-bms": {
       "command": "kaseya-bms-mcp",
       "env": {
+        "KASEYA_BMS_BASE_URL": "https://api.bms.kaseya.com",
         "KASEYA_BMS_BEARER_AUTH": "<your-kaseya_bms_bearer_auth>",
-        "KASEYA_BMS_TOKEN": "<your-kaseya_bms_token>"
+        "KASEYA_BMS_PASSWORD": "<your-kaseya_bms_password>",
+        "KASEYA_BMS_TENANT": "<your-kaseya_bms_tenant>",
+        "KASEYA_BMS_TOKEN": "<your-kaseya_bms_token>",
+        "KASEYA_BMS_USERNAME": "<your-kaseya_bms_username>"
       }
     }
   }
@@ -63,8 +67,12 @@ Configuration**) and add:
       "type": "stdio",
       "command": "kaseya-bms-mcp",
       "env": {
+        "KASEYA_BMS_BASE_URL": "https://api.bms.kaseya.com",
         "KASEYA_BMS_BEARER_AUTH": "<your-kaseya_bms_bearer_auth>",
-        "KASEYA_BMS_TOKEN": "<your-kaseya_bms_token>"
+        "KASEYA_BMS_PASSWORD": "<your-kaseya_bms_password>",
+        "KASEYA_BMS_TENANT": "<your-kaseya_bms_tenant>",
+        "KASEYA_BMS_TOKEN": "<your-kaseya_bms_token>",
+        "KASEYA_BMS_USERNAME": "<your-kaseya_bms_username>"
       }
     }
   }
@@ -85,8 +93,12 @@ Claude Desktop:
     "kaseya-bms": {
       "command": "kaseya-bms-mcp",
       "env": {
+        "KASEYA_BMS_BASE_URL": "https://api.bms.kaseya.com",
         "KASEYA_BMS_BEARER_AUTH": "<your-kaseya_bms_bearer_auth>",
-        "KASEYA_BMS_TOKEN": "<your-kaseya_bms_token>"
+        "KASEYA_BMS_PASSWORD": "<your-kaseya_bms_password>",
+        "KASEYA_BMS_TENANT": "<your-kaseya_bms_tenant>",
+        "KASEYA_BMS_TOKEN": "<your-kaseya_bms_token>",
+        "KASEYA_BMS_USERNAME": "<your-kaseya_bms_username>"
       }
     }
   }
@@ -104,7 +116,7 @@ All remote agents need `kaseya-bms-mcp` reachable as a public **HTTPS** endpoint
 in HTTP mode with your credentials in the environment:
 
 ```bash
-KASEYA_BMS_BEARER_AUTH=<value> KASEYA_BMS_TOKEN=<value> kaseya-bms-mcp --transport http --addr :7777
+KASEYA_BMS_BASE_URL=<value> KASEYA_BMS_BEARER_AUTH=<value> KASEYA_BMS_PASSWORD=<value> KASEYA_BMS_TENANT=<value> KASEYA_BMS_TOKEN=<value> KASEYA_BMS_USERNAME=<value> kaseya-bms-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

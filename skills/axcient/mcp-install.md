@@ -37,7 +37,8 @@ Add (or merge with your existing `mcpServers` block):
     "axcient": {
       "command": "axcient-mcp",
       "env": {
-        "AXCIENT_API_KEY": "<your-axcient_api_key>"
+        "AXCIENT_API_KEY": "<your-axcient_api_key>",
+        "AXCIENT_BASE_URL": "https://axapi.axcient.com/x360recover"
       }
     }
   }
@@ -62,7 +63,8 @@ Configuration**) and add:
       "type": "stdio",
       "command": "axcient-mcp",
       "env": {
-        "AXCIENT_API_KEY": "<your-axcient_api_key>"
+        "AXCIENT_API_KEY": "<your-axcient_api_key>",
+        "AXCIENT_BASE_URL": "https://axapi.axcient.com/x360recover"
       }
     }
   }
@@ -83,7 +85,8 @@ Claude Desktop:
     "axcient": {
       "command": "axcient-mcp",
       "env": {
-        "AXCIENT_API_KEY": "<your-axcient_api_key>"
+        "AXCIENT_API_KEY": "<your-axcient_api_key>",
+        "AXCIENT_BASE_URL": "https://axapi.axcient.com/x360recover"
       }
     }
   }
@@ -101,7 +104,7 @@ All remote agents need `axcient-mcp` reachable as a public **HTTPS** endpoint. R
 in HTTP mode with your credentials in the environment:
 
 ```bash
-AXCIENT_API_KEY=<value> axcient-mcp --transport http --addr :7777
+AXCIENT_API_KEY=<value> AXCIENT_BASE_URL=<value> axcient-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

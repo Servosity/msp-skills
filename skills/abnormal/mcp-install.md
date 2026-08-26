@@ -37,7 +37,8 @@ Add (or merge with your existing `mcpServers` block):
     "abnormal": {
       "command": "abnormal-mcp",
       "env": {
-        "ABNORMAL_API_TOKEN": "<your-abnormal_api_token>"
+        "ABNORMAL_API_TOKEN": "<your-abnormal_api_token>",
+        "ABNORMAL_BASE_URL": "https://api.abnormalplatform.com/v1"
       }
     }
   }
@@ -62,7 +63,8 @@ Configuration**) and add:
       "type": "stdio",
       "command": "abnormal-mcp",
       "env": {
-        "ABNORMAL_API_TOKEN": "<your-abnormal_api_token>"
+        "ABNORMAL_API_TOKEN": "<your-abnormal_api_token>",
+        "ABNORMAL_BASE_URL": "https://api.abnormalplatform.com/v1"
       }
     }
   }
@@ -83,7 +85,8 @@ Claude Desktop:
     "abnormal": {
       "command": "abnormal-mcp",
       "env": {
-        "ABNORMAL_API_TOKEN": "<your-abnormal_api_token>"
+        "ABNORMAL_API_TOKEN": "<your-abnormal_api_token>",
+        "ABNORMAL_BASE_URL": "https://api.abnormalplatform.com/v1"
       }
     }
   }
@@ -101,7 +104,7 @@ All remote agents need `abnormal-mcp` reachable as a public **HTTPS** endpoint. 
 in HTTP mode with your credentials in the environment:
 
 ```bash
-ABNORMAL_API_TOKEN=<value> abnormal-mcp --transport http --addr :7777
+ABNORMAL_API_TOKEN=<value> ABNORMAL_BASE_URL=<value> abnormal-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

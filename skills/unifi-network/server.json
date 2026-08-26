@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/unifi-network-mcp",
   "title": "UniFi MCP",
   "description": "Every UniFi Network API operation, plus drift detection, topology, and rule prediction no other",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/unifi-network/unifi-network-512x512.png",
@@ -21,18 +21,36 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/unifi-network-v0.1.1/unifi-network-mcp.mcpb",
-      "version": "0.1.1",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/unifi-network-v0.1.2/unifi-network-mcp.mcpb",
+      "version": "0.1.2",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"
       },
       "environmentVariables": [
         {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Binds this MCP server to one tenant-gated client profile, so every call answers for that customer. Leave blank to use the profile configured as default_client_profile.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
           "name": "UNIFI_API_KEY",
           "description": "Set the UNIFI_API_KEY credential for the UniFi MCP server.",
           "isRequired": true,
           "isSecret": true
+        },
+        {
+          "name": "UNIFI_BASE_PATH",
+          "description": "Path segment appended to the gateway host, when your controller does not serve the Network API at the standard location. Leave blank for a stock UniFi OS gateway.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "UNIFI_BASE_URL",
+          "description": "Full API base URL, e.g. https://10.0.0.1/proxy/network. Leave blank when you set the gateway host above; the CLI builds this from it.",
+          "isRequired": false,
+          "isSecret": false
         },
         {
           "name": "UNIFI_GATEWAY_HOST",

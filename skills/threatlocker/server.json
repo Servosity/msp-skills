@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/threatlocker-mcp",
   "title": "ThreatLocker MCP",
   "description": "Every ThreatLocker Portal API feature, plus the write operations the read-only tools lack and a",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/threatlocker/threatlocker-512x512.png",
@@ -21,8 +21,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/threatlocker-v0.3.1/threatlocker-mcp.mcpb",
-      "version": "0.3.1",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/threatlocker-v0.3.2/threatlocker-mcp.mcpb",
+      "version": "0.3.2",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"
@@ -33,6 +33,31 @@
           "description": "Set the PRINTING_PRESS_CLIENT_PROFILE credential for the ThreatLocker MCP server.",
           "isRequired": true,
           "isSecret": true
+        },
+        {
+          "name": "THREATLOCKER_API_KEY",
+          "description": "Portal API key (ThreatLocker portal: Settings > API Keys), sent as the Authorization header on every call.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "THREATLOCKER_BASE_URL",
+          "description": "Base URL for the ThreatLocker API. Leave the prefilled default unless your account uses a different regional or self-hosted host.",
+          "isRequired": false,
+          "isSecret": false,
+          "default": "https://portalapi.g.threatlocker.com/portalapi"
+        },
+        {
+          "name": "THREATLOCKER_ORG_ID",
+          "description": "Tenant GUID sent as ManagedOrganizationId (the --org flag overrides it). Most Portal API data calls answer 401/403 without it, so set it unless you pass --org on every call.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "THREATLOCKER_USER_AGENT",
+          "description": "Overrides the User-Agent the CLI sends on ThreatLocker requests. Leave blank to use the CLI's own built-in User-Agent.",
+          "isRequired": false,
+          "isSecret": false
         }
       ]
     }

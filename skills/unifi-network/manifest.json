@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "unifi-network-pp-mcp",
   "display_name": "UniFi",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Every UniFi Network API operation, plus drift detection, topology, and rule prediction no other UniFi tool has.",
   "author": {
     "name": "Servosity Inc."
@@ -15,7 +15,10 @@
       "command": "${__dirname}/bin/unifi-network-pp-mcp",
       "args": [],
       "env": {
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}",
         "UNIFI_API_KEY": "${user_config.unifi_api_key}",
+        "UNIFI_BASE_PATH": "${user_config.unifi_base_path}",
+        "UNIFI_BASE_URL": "${user_config.unifi_base_url}",
         "UNIFI_GATEWAY_HOST": "${user_config.unifi_gateway_host}"
       }
     }
@@ -32,7 +35,26 @@
       "type": "string",
       "title": "Gateway host",
       "required": true,
-      "description": "Hostname or IP of the UniFi OS gateway on your network, e.g. 10.0.0.1 (the CLI adds the /proxy/network prefix)."
+      "description": "Hostname or IP of the UniFi OS gateway on your network, e.g. 10.0.0.1 (the CLI adds the /proxy/network prefix).",
+      "sensitive": true
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile",
+      "description": "Binds this MCP server to one tenant-gated client profile, so every call answers for that customer. Leave blank to use the profile configured as default_client_profile.",
+      "required": false
+    },
+    "unifi_base_path": {
+      "type": "string",
+      "title": "API base path",
+      "description": "Path segment appended to the gateway host, when your controller does not serve the Network API at the standard location. Leave blank for a stock UniFi OS gateway.",
+      "required": false
+    },
+    "unifi_base_url": {
+      "type": "string",
+      "title": "UniFi API base URL",
+      "description": "Full API base URL, e.g. https://10.0.0.1/proxy/network. Leave blank when you set the gateway host above; the CLI builds this from it.",
+      "required": false
     }
   },
   "compatibility": {

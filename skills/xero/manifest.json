@@ -16,7 +16,13 @@
       "args": [],
       "env": {
         "XERO_ACCESS_TOKEN": "${user_config.xero_access_token}",
-        "XERO_OAUTH2": "${user_config.xero_oauth2}"
+        "XERO_AUTHORIZATION_URL": "${user_config.xero_authorization_url}",
+        "XERO_BASE_URL": "${user_config.xero_base_url}",
+        "XERO_CLIENT_ID": "${user_config.xero_client_id}",
+        "XERO_CLIENT_SECRET": "${user_config.xero_client_secret}",
+        "XERO_OAUTH2": "${user_config.xero_oauth2}",
+        "XERO_TENANT_ID": "${user_config.xero_tenant_id}",
+        "XERO_TOKEN_URL": "${user_config.xero_token_url}"
       }
     }
   },
@@ -25,13 +31,55 @@
       "type": "string",
       "title": "XERO_ACCESS_TOKEN",
       "description": "Optional. Sets XERO_ACCESS_TOKEN for the Xero MCP server.",
-      "sensitive": true
+      "sensitive": true,
+      "required": true
     },
     "xero_oauth2": {
       "type": "string",
       "title": "XERO_OAUTH2",
       "description": "Optional. Sets XERO_OAUTH2 for the Xero MCP server.",
       "sensitive": true
+    },
+    "xero_tenant_id": {
+      "type": "string",
+      "title": "Xero tenant ID",
+      "description": "The Xero organisation ('tenant') GUID sent as the Xero-Tenant-Id header. Every call requires it; `connections list` returns the tenants your token can reach.",
+      "required": true
+    },
+    "xero_authorization_url": {
+      "type": "string",
+      "title": "OAuth authorization URL",
+      "description": "Authorization endpoint the login flow opens. Change it only if Xero moves the endpoint.",
+      "required": false,
+      "default": "https://login.xero.com/identity/connect/authorize"
+    },
+    "xero_base_url": {
+      "type": "string",
+      "title": "Xero API base URL",
+      "description": "Base URL for the Xero API. Leave the prefilled default unless your account uses a different regional or self-hosted host.",
+      "required": false,
+      "default": "https://api.xero.com/api.xro/2.0"
+    },
+    "xero_client_id": {
+      "type": "string",
+      "title": "Xero app client ID",
+      "description": "Client ID of your Xero app (developer.xero.com > My Apps). Set it with the client secret to run the OAuth2 flow; leave blank if you paste an access token instead.",
+      "required": false,
+      "sensitive": true
+    },
+    "xero_client_secret": {
+      "type": "string",
+      "title": "Xero app client secret",
+      "description": "Client secret paired with XERO_CLIENT_ID.",
+      "sensitive": true,
+      "required": false
+    },
+    "xero_token_url": {
+      "type": "string",
+      "title": "OAuth2 token URL",
+      "description": "Token endpoint the client-credentials exchange posts to. Leave the prefilled default unless your tenant uses a different token endpoint.",
+      "required": false,
+      "default": "https://identity.xero.com/connect/token"
     }
   },
   "compatibility": {

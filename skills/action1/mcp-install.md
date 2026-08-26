@@ -37,9 +37,11 @@ Add (or merge with your existing `mcpServers` block):
     "action1": {
       "command": "action1-mcp",
       "env": {
+        "ACTION1_BASE_URL": "https://app.action1.com/api/3.0",
         "ACTION1_CLIENT_ID": "<your-action1_client_id>",
         "ACTION1_CLIENT_SECRET": "<your-action1_client_secret>",
-        "ACTION1_REGION": "<your-action1_region>"
+        "ACTION1_OAUTH2": "",
+        "ACTION1_ORG_ID": ""
       }
     }
   }
@@ -64,9 +66,11 @@ Configuration**) and add:
       "type": "stdio",
       "command": "action1-mcp",
       "env": {
+        "ACTION1_BASE_URL": "https://app.action1.com/api/3.0",
         "ACTION1_CLIENT_ID": "<your-action1_client_id>",
         "ACTION1_CLIENT_SECRET": "<your-action1_client_secret>",
-        "ACTION1_REGION": "<your-action1_region>"
+        "ACTION1_OAUTH2": "",
+        "ACTION1_ORG_ID": ""
       }
     }
   }
@@ -87,9 +91,11 @@ Claude Desktop:
     "action1": {
       "command": "action1-mcp",
       "env": {
+        "ACTION1_BASE_URL": "https://app.action1.com/api/3.0",
         "ACTION1_CLIENT_ID": "<your-action1_client_id>",
         "ACTION1_CLIENT_SECRET": "<your-action1_client_secret>",
-        "ACTION1_REGION": "<your-action1_region>"
+        "ACTION1_OAUTH2": "",
+        "ACTION1_ORG_ID": ""
       }
     }
   }
@@ -107,7 +113,7 @@ All remote agents need `action1-mcp` reachable as a public **HTTPS** endpoint. R
 in HTTP mode with your credentials in the environment:
 
 ```bash
-ACTION1_CLIENT_ID=<value> ACTION1_CLIENT_SECRET=<value> ACTION1_REGION=<value> action1-mcp --transport http --addr :7777
+ACTION1_BASE_URL=<value> ACTION1_CLIENT_ID=<value> ACTION1_CLIENT_SECRET=<value> ACTION1_OAUTH2=<value> ACTION1_ORG_ID=<value> action1-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

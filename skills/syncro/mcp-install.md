@@ -38,6 +38,7 @@ Add (or merge with your existing `mcpServers` block):
       "command": "syncro-mcp",
       "env": {
         "SYNCRO_API_KEY": "<your-syncro_api_key>",
+        "SYNCRO_BASE_URL": "",
         "SYNCRO_SUBDOMAIN": "<your-syncro_subdomain>"
       }
     }
@@ -64,6 +65,7 @@ Configuration**) and add:
       "command": "syncro-mcp",
       "env": {
         "SYNCRO_API_KEY": "<your-syncro_api_key>",
+        "SYNCRO_BASE_URL": "",
         "SYNCRO_SUBDOMAIN": "<your-syncro_subdomain>"
       }
     }
@@ -86,6 +88,7 @@ Claude Desktop:
       "command": "syncro-mcp",
       "env": {
         "SYNCRO_API_KEY": "<your-syncro_api_key>",
+        "SYNCRO_BASE_URL": "",
         "SYNCRO_SUBDOMAIN": "<your-syncro_subdomain>"
       }
     }
@@ -104,7 +107,7 @@ All remote agents need `syncro-mcp` reachable as a public **HTTPS** endpoint. Ru
 in HTTP mode with your credentials in the environment:
 
 ```bash
-SYNCRO_API_KEY=<value> SYNCRO_SUBDOMAIN=<value> syncro-mcp --transport http --addr :7777
+SYNCRO_API_KEY=<value> SYNCRO_BASE_URL=<value> SYNCRO_SUBDOMAIN=<value> syncro-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

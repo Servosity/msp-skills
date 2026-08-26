@@ -1,103 +1,268 @@
 {
-  "slug": "appdirect",
-  "doc": "docs/reprint-survival.md",
-  "_comment": "Connector-specific edits to GENERATED/authored files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and banned anti-patterns absent) and fails CI if a reprint dropped one. Provenance: project_appdirect_onboard_oauth_scope_default.md (PR #74, 2026-06-07).",
-  "handfixes": [
+ "slug": "appdirect",
+ "doc": "docs/reprint-survival.md",
+ "_comment": "Connector-specific edits to GENERATED/authored files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and banned anti-patterns absent) and fails CI if a reprint dropped one. Provenance: project_appdirect_onboard_oauth_scope_default.md (PR #74, 2026-06-07).",
+ "handfixes": [
+  {
+   "id": "oauth-scope-optional-nonsecret",
+   "summary": "APPDIRECT_OAUTH_SCOPE is optional + non-secret (has a working default 'ROLE_PARTNER ROLE_PARTNER_READ'); the press marked it required + sensitive",
+   "why": "client.go/auth.go resolveClientCredentialsScope() returns the working default 'ROLE_PARTNER ROLE_PARTNER_READ' when APPDIRECT_OAUTH_SCOPE is empty and SENDS it (form.Set('scope', ...)), so the scope is not a credential and the user need not supply one. The press emitted required:true / sensitive:true in BOTH manifest.json user_config AND server.json environmentVariables. Fixed to optional + non-secret. This is the OPPOSITE of the halopsa bug (scope wired but never sent -> 401): here scope IS sent with a default. A reprint reverts both to required+secret.",
+   "status": "active",
+   "spec_encode_followup": "Spec hook: mark OAUTH_SCOPE optional + non-secret in x-auth-env-vars metadata so the press emits required:false / sensitive:false by construction. Always read the binary's scope-resolver before classifying OAUTH_SCOPE.",
+   "asserts": [
     {
-      "id": "oauth-scope-optional-nonsecret",
-      "summary": "APPDIRECT_OAUTH_SCOPE is optional + non-secret (has a working default 'ROLE_PARTNER ROLE_PARTNER_READ'); the press marked it required + sensitive",
-      "why": "client.go/auth.go resolveClientCredentialsScope() returns the working default 'ROLE_PARTNER ROLE_PARTNER_READ' when APPDIRECT_OAUTH_SCOPE is empty and SENDS it (form.Set('scope', ...)), so the scope is not a credential and the user need not supply one. The press emitted required:true / sensitive:true in BOTH manifest.json user_config AND server.json environmentVariables. Fixed to optional + non-secret. This is the OPPOSITE of the halopsa bug (scope wired but never sent -> 401): here scope IS sent with a default. A reprint reverts both to required+secret.",
-      "status": "active",
-      "spec_encode_followup": "Spec hook: mark OAUTH_SCOPE optional + non-secret in x-auth-env-vars metadata so the press emits required:false / sensitive:false by construction. Always read the binary's scope-resolver before classifying OAUTH_SCOPE.",
-      "asserts": [
-        {"file": "manifest.json", "contains": "\"appdirect_oauth_scope\"", "min_count": 1},
-        {"file": "server.json", "contains": "APPDIRECT_OAUTH_SCOPE", "min_count": 1}
-      ]
+     "file": "manifest.json",
+     "contains": "\"appdirect_oauth_scope\"",
+     "min_count": 1
     },
     {
-      "id": "mcp-binary-rename",
-      "summary": "MCP binary renamed appdirect-pp-mcp -> appdirect-mcp in manifest.json (name/entry_point); the press emits the -pp- name",
-      "why": "onboard re-vendors+patches manifest.json from source every run, so the -pp-mcp -> appdirect-mcp rename in name/entry_point must be re-applied after the final --resume. release.yml builds <slug>-mcp from skills.json and doesn't build a .mcpb, so manifest name/entry_point are effectively inert - but renamed anyway to honor the autotask #35 convention. A reprint/re-onboard reverts the name to appdirect-pp-mcp.",
-      "status": "active",
-      "asserts": [
-        {"file": "manifest.json", "contains": "appdirect-mcp", "min_count": 1},
-        {"file": "manifest.json", "not_contains": "appdirect-pp-mcp"}
-      ]
-    },
-    {
-      "id": "governance-method-aware-tiers",
-      "summary": "Governance reclassified method-aware: ~35 verb-less writes promoted out of Read, with explicit Credential (7) and Destructive (34) tiers (DELETE/expire = destructive; payment/password = credential)",
-      "why": "gen_governance missed ~35 verb-less writes (add/apply/change/clone/edit/execute/finalize/remove/request/notify/upload/invite/save/bill-usage/expire) plus appwise events/provisioning -> all fell to Read. Reclassified method-aware from agent-context pp:method (Read 168 / Write 118 / Credential 7 / Destructive 34): all DELETE + expire destructive; payment-method/instrument + password credential; POST-as-query (get-pricing-summary/preview-shopping-cart) stay Read. A reprint regenerates governance.md from the keyword classifier and silently demotes the writes.",
-      "status": "active",
-      "spec_encode_followup": "Real fix is a method-aware gen_governance (classify from pp:method, not the command-name verb). Tracked in project_gen_governance_misses_verbless_writes / project_governance_rewrite_union_not_replace.",
-      "asserts": [
-        {"file": "governance.md", "contains": "Destructive", "min_count": 1},
-        {"file": "governance.md", "contains": "Credential", "min_count": 1},
-        {"file": "governance.md", "contains": "expire", "min_count": 1}
-      ]
-    },
-    {
-      "id": "trademark-no-double-period",
-      "summary": "Vendor trademark owner stored without a trailing period ('AppDirect, Inc') so the non-affiliation banner doesn't double-period",
-      "why": "Owner 'AppDirect, Inc.' + the template's '.' produced 'Inc..'; the owner is stored without the trailing period (like knowbe4). A reprint with the period-terminated owner string reintroduces the double period.",
-      "status": "active",
-      "asserts": [
-        {"file": "README.md", "not_contains": "Inc.."}
-      ]
-    },
-    {
-      "id": "env-oauth-secrets-not-persisted",
-      "summary": "SaveTokens keeps the env-override marker on ClientID/ClientSecret, so env-supplied OAuth credentials are never written to config.toml (issue #266)",
-      "why": "Load() marks ClientID/ClientSecret as env overrides and configForSave() restores the file value for any field still marked -- the mechanism that keeps env-supplied secrets off disk. SaveTokens() cleared both markers on every save, so each token mint (an ordinary authenticated command, no `auth login` step needed) rewrote the live client_id and client_secret into ~/.config/<tool>-cli/config.toml in cleartext, defeating Keychain/Credential-Manager setups that inject the secret as an env var at process launch. SaveTokens now leaves those two markers alone; only MarkCredentialsExplicit clears them, and only `auth login` calls it, passing whether each value came from a flag rather than from the env fallback. Provenance must be declared, not inferred: comparing the incoming value against the loaded one cannot tell an explicit flag from the env value it duplicates, and `auth login` trims its env fallback while Load does not, so a padded variable compares unequal to itself and leaks. Reported by @Xenith-B against halopsa-cli/ninjaone-cli. GENERATOR-class defect (the press emits the unconditional deletes) tracked for an upstream retro; until the press is fixed, a reprint reintroduces the leak and these markers guard the connector. Bug-fix-only: no new flag, command, or output.",
-      "status": "active",
-      "spec_encode_followup": "cli-printing-press#4283: SaveTokens must not clear the ClientID/ClientSecret env-override markers. Only a credential the caller supplied through an explicit command-line flag may clear them, and the flag's provenance must be passed in by the caller -- NOT inferred by comparing the incoming value against the loaded one. An explicit flag whose value equals the environment's is still explicit and must persist; conversely `auth login` trims its env fallback while Load does not, so a padded variable compares unequal to itself and a value-based rule leaks it.",
-      "asserts": [
-        {"file": "cli/internal/config/config.go", "contains": "func (c *Config) MarkCredentialsExplicit(clientID, clientSecret bool) {", "min_count": 1},
-        {"file": "cli/internal/cli/auth.go", "contains": "cfg.MarkCredentialsExplicit(explicitClientID, explicitClientSecret)", "min_count": 1},
-        {"file": "cli/internal/config/config.go", "contains": "markers now survive a save; only MarkCredentialsExplicit clears them.", "min_count": 1},
-        {"file": "cli/internal/config/config.go", "not_contains": "delete(c.envOverrides, \"ClientID\")\n\tdelete(c.envOverrides, \"ClientSecret\")\n\tdelete(c.envOverrides, \"AccessToken\")"}
-      ]
-    },
-    {
-      "id": "doctor-auth-hint-names-a-real-command",
-      "summary": "doctor, the CLI error path and the MCP error path all point at `appdirect-cli auth login` instead of a nonexistent `auth setup` subcommand (issue #277, #278)",
-      "why": "This CLI's `auth` parent defines login, status, set-token and logout. It has never defined `setup`, yet three generated surfaces told operators to run it: doctor.go's auth_hint (fires when cfg.AuthHeader() is empty), helpers.go's HTTP 400/401/403 remediation, and internal/mcp/tools.go's tool-error text -- 7 occurrences in all. Cobra does not error on an unknown subcommand of a NON-root parent (legacyArgs only rejects unknown args for the root), and the generated parent runs parentNoSubcommandRunE, which returns cmd.Help() -- a nil error. So `appdirect-cli auth setup` printed help and exited 0. There was no 'unknown command' error and no non-zero exit anywhere in the journey: an operator saw a success code and was no closer to credentials, and because these are agent-first CLIs with typed exit codes, an agent performing setup read exit 0 as success and carried on unauthenticated. The hint fires exactly when it matters -- fresh install, rotated secret, new machine, expired token. This skill emits no auth_instructions field, so these hints are the only setup guidance it gives. The replacements name the real command and, in doctor, the variables `auth login` actually reads: APPDIRECT_CLIENT_ID and APPDIRECT_CLIENT_SECRET (plus the optional APPDIRECT_OAUTH_SCOPE), taken from the login command's own env fallbacks rather than composed. Reported by @geekbrownbear, who verified halopsa and ninjaone live against an empty config (PR #277) and filed appdirect/crowdstrike as issue #278; the fleet scan that found the other two surfaces and confirmed only these four connectors are affected was done during triage. GENERATOR-class defect: until the press is fixed, a reprint reintroduces all 7 strings and these asserts guard them. Bug-fix-only: no new flag, command, or output field.",
-      "status": "active",
-      "spec_encode_followup": "cli-printing-press#4315: Derive the auth hint from the subcommand set the connector actually generates instead of the fixed \"Run '<cli> auth setup' for credential setup steps.\" string in internal/generator/generator.go. 52 of 56 connectors do define `auth setup`, which is why the hard-coded string went unnoticed; the four OAuth client-credentials connectors that scaffold `auth login` instead (appdirect, crowdstrike, halopsa, ninjaone) each shipped it 7 times. The same string is emitted into three surfaces -- doctor.go's auth_hint, helpers.go's 400/401/403 remediation, and the MCP server's tool-error text -- so a generator fix must cover all three.",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/doctor.go",
-          "not_contains": "appdirect-cli auth setup"
-        },
-        {
-          "file": "cli/internal/cli/helpers.go",
-          "not_contains": "appdirect-cli auth setup"
-        },
-        {
-          "file": "cli/internal/mcp/tools.go",
-          "not_contains": "appdirect-cli auth setup"
-        },
-        {
-          "file": "cli/internal/cli/doctor.go",
-          "contains": "Set APPDIRECT_CLIENT_ID and APPDIRECT_CLIENT_SECRET (plus APPDIRECT_OAUTH_SCOPE if your account needs a non-default scope), then run 'appdirect-cli auth login' to mint a token.",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/helpers.go",
-          "contains": "appdirect-cli auth login' to re-authenticate.",
-          "min_count": 3
-        },
-        {
-          "file": "cli/internal/mcp/tools.go",
-          "contains": "appdirect-cli auth login' to re-authenticate.",
-          "min_count": 3
-        },
-        {
-          "file": "cli/internal/cli/auth.go",
-          "contains": "cmd.AddCommand(newAuthLoginCmd(flags))",
-          "min_count": 1
-        }
-      ]
+     "file": "server.json",
+     "contains": "APPDIRECT_OAUTH_SCOPE",
+     "min_count": 1
     }
-  ]
+   ]
+  },
+  {
+   "id": "mcp-binary-rename",
+   "summary": "MCP binary renamed appdirect-pp-mcp -> appdirect-mcp in manifest.json (name/entry_point); the press emits the -pp- name",
+   "why": "onboard re-vendors+patches manifest.json from source every run, so the -pp-mcp -> appdirect-mcp rename in name/entry_point must be re-applied after the final --resume. release.yml builds <slug>-mcp from skills.json and doesn't build a .mcpb, so manifest name/entry_point are effectively inert - but renamed anyway to honor the autotask #35 convention. A reprint/re-onboard reverts the name to appdirect-pp-mcp.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "manifest.json",
+     "contains": "appdirect-mcp",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "not_contains": "appdirect-pp-mcp"
+    }
+   ]
+  },
+  {
+   "id": "governance-method-aware-tiers",
+   "summary": "Governance reclassified method-aware: ~35 verb-less writes promoted out of Read, with explicit Credential (7) and Destructive (34) tiers (DELETE/expire = destructive; payment/password = credential)",
+   "why": "gen_governance missed ~35 verb-less writes (add/apply/change/clone/edit/execute/finalize/remove/request/notify/upload/invite/save/bill-usage/expire) plus appwise events/provisioning -> all fell to Read. Reclassified method-aware from agent-context pp:method (Read 168 / Write 118 / Credential 7 / Destructive 34): all DELETE + expire destructive; payment-method/instrument + password credential; POST-as-query (get-pricing-summary/preview-shopping-cart) stay Read. A reprint regenerates governance.md from the keyword classifier and silently demotes the writes.",
+   "status": "active",
+   "spec_encode_followup": "Real fix is a method-aware gen_governance (classify from pp:method, not the command-name verb). Tracked in project_gen_governance_misses_verbless_writes / project_governance_rewrite_union_not_replace.",
+   "asserts": [
+    {
+     "file": "governance.md",
+     "contains": "Destructive",
+     "min_count": 1
+    },
+    {
+     "file": "governance.md",
+     "contains": "Credential",
+     "min_count": 1
+    },
+    {
+     "file": "governance.md",
+     "contains": "expire",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "trademark-no-double-period",
+   "summary": "Vendor trademark owner stored without a trailing period ('AppDirect, Inc') so the non-affiliation banner doesn't double-period",
+   "why": "Owner 'AppDirect, Inc.' + the template's '.' produced 'Inc..'; the owner is stored without the trailing period (like knowbe4). A reprint with the period-terminated owner string reintroduces the double period.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "README.md",
+     "not_contains": "Inc.."
+    }
+   ]
+  },
+  {
+   "id": "env-oauth-secrets-not-persisted",
+   "summary": "SaveTokens keeps the env-override marker on ClientID/ClientSecret, so env-supplied OAuth credentials are never written to config.toml (issue #266)",
+   "why": "Load() marks ClientID/ClientSecret as env overrides and configForSave() restores the file value for any field still marked -- the mechanism that keeps env-supplied secrets off disk. SaveTokens() cleared both markers on every save, so each token mint (an ordinary authenticated command, no `auth login` step needed) rewrote the live client_id and client_secret into ~/.config/<tool>-cli/config.toml in cleartext, defeating Keychain/Credential-Manager setups that inject the secret as an env var at process launch. SaveTokens now leaves those two markers alone; only MarkCredentialsExplicit clears them, and only `auth login` calls it, passing whether each value came from a flag rather than from the env fallback. Provenance must be declared, not inferred: comparing the incoming value against the loaded one cannot tell an explicit flag from the env value it duplicates, and `auth login` trims its env fallback while Load does not, so a padded variable compares unequal to itself and leaks. Reported by @Xenith-B against halopsa-cli/ninjaone-cli. GENERATOR-class defect (the press emits the unconditional deletes) tracked for an upstream retro; until the press is fixed, a reprint reintroduces the leak and these markers guard the connector. Bug-fix-only: no new flag, command, or output.",
+   "status": "active",
+   "spec_encode_followup": "cli-printing-press#4283: SaveTokens must not clear the ClientID/ClientSecret env-override markers. Only a credential the caller supplied through an explicit command-line flag may clear them, and the flag's provenance must be passed in by the caller -- NOT inferred by comparing the incoming value against the loaded one. An explicit flag whose value equals the environment's is still explicit and must persist; conversely `auth login` trims its env fallback while Load does not, so a padded variable compares unequal to itself and a value-based rule leaks it.",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "func (c *Config) MarkCredentialsExplicit(clientID, clientSecret bool) {",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "cfg.MarkCredentialsExplicit(explicitClientID, explicitClientSecret)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "markers now survive a save; only MarkCredentialsExplicit clears them.",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "not_contains": "delete(c.envOverrides, \"ClientID\")\n\tdelete(c.envOverrides, \"ClientSecret\")\n\tdelete(c.envOverrides, \"AccessToken\")"
+    }
+   ]
+  },
+  {
+   "id": "doctor-auth-hint-names-a-real-command",
+   "summary": "doctor, the CLI error path and the MCP error path all point at `appdirect-cli auth login` instead of a nonexistent `auth setup` subcommand (issue #277, #278)",
+   "why": "This CLI's `auth` parent defines login, status, set-token and logout. It has never defined `setup`, yet three generated surfaces told operators to run it: doctor.go's auth_hint (fires when cfg.AuthHeader() is empty), helpers.go's HTTP 400/401/403 remediation, and internal/mcp/tools.go's tool-error text -- 7 occurrences in all. Cobra does not error on an unknown subcommand of a NON-root parent (legacyArgs only rejects unknown args for the root), and the generated parent runs parentNoSubcommandRunE, which returns cmd.Help() -- a nil error. So `appdirect-cli auth setup` printed help and exited 0. There was no 'unknown command' error and no non-zero exit anywhere in the journey: an operator saw a success code and was no closer to credentials, and because these are agent-first CLIs with typed exit codes, an agent performing setup read exit 0 as success and carried on unauthenticated. The hint fires exactly when it matters -- fresh install, rotated secret, new machine, expired token. This skill emits no auth_instructions field, so these hints are the only setup guidance it gives. The replacements name the real command and, in doctor, the variables `auth login` actually reads: APPDIRECT_CLIENT_ID and APPDIRECT_CLIENT_SECRET (plus the optional APPDIRECT_OAUTH_SCOPE), taken from the login command's own env fallbacks rather than composed. Reported by @geekbrownbear, who verified halopsa and ninjaone live against an empty config (PR #277) and filed appdirect/crowdstrike as issue #278; the fleet scan that found the other two surfaces and confirmed only these four connectors are affected was done during triage. GENERATOR-class defect: until the press is fixed, a reprint reintroduces all 7 strings and these asserts guard them. Bug-fix-only: no new flag, command, or output field.",
+   "status": "active",
+   "spec_encode_followup": "cli-printing-press#4315: Derive the auth hint from the subcommand set the connector actually generates instead of the fixed \"Run '<cli> auth setup' for credential setup steps.\" string in internal/generator/generator.go. 52 of 56 connectors do define `auth setup`, which is why the hard-coded string went unnoticed; the four OAuth client-credentials connectors that scaffold `auth login` instead (appdirect, crowdstrike, halopsa, ninjaone) each shipped it 7 times. The same string is emitted into three surfaces -- doctor.go's auth_hint, helpers.go's 400/401/403 remediation, and the MCP server's tool-error text -- so a generator fix must cover all three.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "appdirect-cli auth setup"
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "not_contains": "appdirect-cli auth setup"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "appdirect-cli auth setup"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "Set APPDIRECT_CLIENT_ID and APPDIRECT_CLIENT_SECRET (plus APPDIRECT_OAUTH_SCOPE if your account needs a non-default scope), then run 'appdirect-cli auth login' to mint a token.",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "appdirect-cli auth login' to re-authenticate.",
+     "min_count": 3
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "appdirect-cli auth login' to re-authenticate.",
+     "min_count": 3
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "cmd.AddCommand(newAuthLoginCmd(flags))",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "doctor-verdict-tracks-reality",
+   "summary": "doctor probes a real GET endpoint with the real credential and refuses to dial a placeholder base_url, instead of calling any HTTP response 'reachable' and never checking the credential",
+   "why": "`doctor` is the command every SKILL, guide and docs page tells an operator to run to confirm the connector works, and it could not tell a working install from a broken one. It called any HTTP response to `GET /` \"reachable\" and rendered it green, so a base_url aimed at the vendor's web UI (where every API path 404s) and a token rejected with 401 on every call both produced an all-green report. On this connector family it also never probed the credential at all: it printed \"present, not verified\" and left the operator to guess. The mirror defect: a connector whose shipped base_url default is a placeholder dialled the placeholder host, and the DNS failure rendered as \"FAIL API: unreachable\" - telling a correctly-credentialled operator they were broken without naming the one variable that would fix it. Several placeholder hosts resolve through live wildcard DNS and answer real HTTP, so dialling one produced a confident green verdict against a stranger's server. Measured and gated by tools/maintainer/check_doctor_truth.py. See issue #282.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorProbeCredentials("
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorBaseURLIsPlaceholder("
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorIsInfoKey(k)"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorBaseURLIsPlaceholder(cfg.BaseURL)"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeCredentials(cmd.Context()"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "present, not verified. Run `%s %s`"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "for _, v := range report {"
+    }
+   ]
+  },
+  {
+   "id": "install-credentials-declared-on-every-channel",
+   "summary": "every operator credential this connector reads is declared on all three install channels: manifest.json (.mcpb), server.json (MCP Registry) and mcp-install.md (manual install)",
+   "why": "Issue #282 ('three live-verified connectors prompt for the wrong credentials'). A connector is installed through THREE independent channels that each carry their own copy of the credential list: manifest.json server.mcp_config.env (what the .mcpb bundle hands Claude Desktop, which has no shell profile, no config.toml and no export - so an undeclared variable is a variable nobody is ever asked for), server.json environmentVariables (the MCP Registry publish channel), and mcp-install.md's copy-paste JSON blocks plus its remote launch line (the manual path, which never touches the bundle at all). The fleet-wide audit found 60 of 65 connectors under-declaring 122 operator-facing variables in the manifest, 61 of 65 mcp-install.md pages omitting 125, and hudu's server.json missing the base URL its manifest marks required. For appdirect the manifest gained: APPDIRECT_BASE_URL, APPDIRECT_TOKEN_URL. server.json gained: APPDIRECT_BASE_URL, APPDIRECT_TOKEN_URL. mcp-install.md's env blocks gained: APPDIRECT_BASE_URL, APPDIRECT_TOKEN_URL. manifest.json, server.json and mcp-install.md are ALL regenerated by /msp-skills-publish on an UPDATE or re-onboard, so without this ledger a regeneration silently drops every declaration and CI stays green (check_env_schema.py is wired --warn). The asserts below name the specific credentials, not a count, so dropping one and adding another cannot cancel out.",
+   "status": "active",
+   "spec_encode_followup": "cli-printing-press should emit server.mcp_config.env, the matching user_config prompts, server.json environmentVariables and mcp-install.md's env blocks from ONE declaration of the connector's operator-facing environment, so the three channels cannot be generated out of step. Until then check_env_schema.py compares all three and this ledger pins them.",
+   "asserts": [
+    {
+     "file": "manifest.json",
+     "contains": "\"APPDIRECT_BASE_URL\": \"${user_config.appdirect_base_url}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"APPDIRECT_CLIENT_ID\": \"${user_config.appdirect_client_id}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"APPDIRECT_CLIENT_SECRET\": \"${user_config.appdirect_client_secret}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"APPDIRECT_OAUTH_SCOPE\": \"${user_config.appdirect_oauth_scope}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"APPDIRECT_TOKEN_URL\": \"${user_config.appdirect_token_url}\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"APPDIRECT_BASE_URL\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"APPDIRECT_CLIENT_ID\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"APPDIRECT_CLIENT_SECRET\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"APPDIRECT_OAUTH_SCOPE\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"APPDIRECT_TOKEN_URL\"",
+     "min_count": 1
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"APPDIRECT_BASE_URL\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"APPDIRECT_CLIENT_ID\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"APPDIRECT_CLIENT_SECRET\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"APPDIRECT_OAUTH_SCOPE\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"APPDIRECT_TOKEN_URL\":",
+     "min_count": 3
+    }
+   ]
+  }
+ ]
 }

@@ -37,7 +37,8 @@ Add (or merge with your existing `mcpServers` block):
     "cipp": {
       "command": "cipp-mcp",
       "env": {
-        "CIPP_API_KEY": "<your-cipp_api_key>"
+        "CIPP_API_KEY": "<your-cipp_api_key>",
+        "CIPP_BASE_URL": "<your-cipp_base_url>"
       }
     }
   }
@@ -62,7 +63,8 @@ Configuration**) and add:
       "type": "stdio",
       "command": "cipp-mcp",
       "env": {
-        "CIPP_API_KEY": "<your-cipp_api_key>"
+        "CIPP_API_KEY": "<your-cipp_api_key>",
+        "CIPP_BASE_URL": "<your-cipp_base_url>"
       }
     }
   }
@@ -83,7 +85,8 @@ Claude Desktop:
     "cipp": {
       "command": "cipp-mcp",
       "env": {
-        "CIPP_API_KEY": "<your-cipp_api_key>"
+        "CIPP_API_KEY": "<your-cipp_api_key>",
+        "CIPP_BASE_URL": "<your-cipp_base_url>"
       }
     }
   }
@@ -101,7 +104,7 @@ All remote agents need `cipp-mcp` reachable as a public **HTTPS** endpoint. Run 
 in HTTP mode with your credentials in the environment:
 
 ```bash
-CIPP_API_KEY=<value> cipp-mcp --transport http --addr :7777
+CIPP_API_KEY=<value> CIPP_BASE_URL=<value> cipp-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

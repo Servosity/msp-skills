@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/halopsa-mcp",
   "title": "HaloPSA MCP",
   "description": "HaloPSA ticket triage, SLA-breach pre-emption, and cross-client analytics for any MCP agent.",
-  "version": "0.2.12",
+  "version": "0.2.13",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/halopsa/halopsa-512x512.png",
@@ -21,17 +21,17 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/halopsa-v0.2.12/halopsa-mcp.mcpb",
-      "version": "0.2.12",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/halopsa-v0.2.13/halopsa-mcp.mcpb",
+      "version": "0.2.13",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"
       },
       "environmentVariables": [
         {
-          "name": "HALOPSA_TENANT",
-          "description": "Your HaloPSA tenant identifier.",
-          "isRequired": true,
+          "name": "HALOPSA_BASE_URL",
+          "description": "Full API base URL. Leave blank: the CLI builds it from HALOPSA_TENANT and HALOPSA_DOMAIN. Set it only to point at a different host.",
+          "isRequired": false,
           "isSecret": false
         },
         {
@@ -52,6 +52,37 @@
           "isRequired": false,
           "isSecret": false,
           "default": "halopsa.com"
+        },
+        {
+          "name": "HALOPSA_OAUTH_SCOPE",
+          "description": "Sets HALOPSA_OAUTH_SCOPE for the HaloPSA MCP server. Required by the generated client for credential refresh or hand-written auth flow.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "HALOPSA_SCOPE",
+          "description": "Optional. OAuth2 scope (defaults to \"all\"); set to a narrower scope when your API application requires it",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "HALOPSA_TENANT",
+          "description": "Your HaloPSA tenant identifier.",
+          "isRequired": true,
+          "isSecret": false,
+          "default": "demo"
+        },
+        {
+          "name": "HALOPSA_TOKEN",
+          "description": "Optional. Pre-issued Bearer access token. Overrides the client_credentials flow when set.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "HALOPSA_TOKEN_URL",
+          "description": "Token endpoint the client-credentials exchange posts to. Leave blank: the CLI derives it from the base URL.",
+          "isRequired": false,
+          "isSecret": false
         }
       ]
     }

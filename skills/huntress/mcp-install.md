@@ -38,7 +38,8 @@ Add (or merge with your existing `mcpServers` block):
       "command": "huntress-mcp",
       "env": {
         "HUNTRESS_API_KEY": "<your-huntress_api_key>",
-        "HUNTRESS_API_SECRET": "<your-huntress_api_secret>"
+        "HUNTRESS_API_SECRET": "<your-huntress_api_secret>",
+        "HUNTRESS_BASE_URL": "https://api.huntress.io"
       }
     }
   }
@@ -64,7 +65,8 @@ Configuration**) and add:
       "command": "huntress-mcp",
       "env": {
         "HUNTRESS_API_KEY": "<your-huntress_api_key>",
-        "HUNTRESS_API_SECRET": "<your-huntress_api_secret>"
+        "HUNTRESS_API_SECRET": "<your-huntress_api_secret>",
+        "HUNTRESS_BASE_URL": "https://api.huntress.io"
       }
     }
   }
@@ -86,7 +88,8 @@ Claude Desktop:
       "command": "huntress-mcp",
       "env": {
         "HUNTRESS_API_KEY": "<your-huntress_api_key>",
-        "HUNTRESS_API_SECRET": "<your-huntress_api_secret>"
+        "HUNTRESS_API_SECRET": "<your-huntress_api_secret>",
+        "HUNTRESS_BASE_URL": "https://api.huntress.io"
       }
     }
   }
@@ -104,7 +107,7 @@ All remote agents need `huntress-mcp` reachable as a public **HTTPS** endpoint. 
 in HTTP mode with your credentials in the environment:
 
 ```bash
-HUNTRESS_API_KEY=<value> HUNTRESS_API_SECRET=<value> huntress-mcp --transport http --addr :7777
+HUNTRESS_API_KEY=<value> HUNTRESS_API_SECRET=<value> HUNTRESS_BASE_URL=<value> huntress-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

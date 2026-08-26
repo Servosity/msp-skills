@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "sentinelone-mcp",
   "display_name": "SentinelOne",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Every SentinelOne v2.1 management endpoint, plus an offline SQLite store and cross-entity analytics \u2014 fleet health, threat triage, blast radius, drift \u2014 that no console view offers.",
   "author": {
     "name": "Servosity Inc."
@@ -15,7 +15,8 @@
       "command": "${__dirname}/bin/sentinelone-mcp",
       "args": [],
       "env": {
-        "SENTINELONE_API_TOKEN": "${user_config.sentinelone_api_token}"
+        "SENTINELONE_API_TOKEN": "${user_config.sentinelone_api_token}",
+        "SENTINELONE_BASE_URL": "${user_config.sentinelone_base_url}"
       }
     }
   },
@@ -25,6 +26,12 @@
       "title": "SENTINELONE_API_TOKEN",
       "description": "Sets SENTINELONE_API_TOKEN for the SentinelOne MCP server.",
       "sensitive": true,
+      "required": true
+    },
+    "sentinelone_base_url": {
+      "type": "string",
+      "title": "SentinelOne console API base URL",
+      "description": "Base URL of your SentinelOne management console API, including the version path, e.g. https://usea1-partners.sentinelone.net/web/api/v2.1. The shipped default points at an example host.",
       "required": true
     }
   },

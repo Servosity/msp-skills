@@ -16,6 +16,7 @@
       "args": [],
       "env": {
         "LIONGARD_API_KEY": "${user_config.liongard_api_key}",
+        "LIONGARD_BASE_URL": "${user_config.liongard_base_url}",
         "LIONGARD_INSTANCE": "${user_config.liongard_instance}"
       }
     }
@@ -32,7 +33,14 @@
       "type": "string",
       "title": "LIONGARD_INSTANCE",
       "description": "Sets LIONGARD_INSTANCE for the endpoint template variable {instance}.",
-      "default": "example"
+      "default": "example",
+      "required": true
+    },
+    "liongard_base_url": {
+      "type": "string",
+      "title": "Liongard API base URL",
+      "description": "Full API base URL. Leave blank: the CLI builds it from LIONGARD_INSTANCE. Set it only to point at a different host.",
+      "required": false
     }
   },
   "compatibility": {

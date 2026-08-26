@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "auvik-pp-mcp",
   "display_name": "Auvik",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Every Auvik endpoint as a command, plus the cross-client answers the Auvik UI and API cannot give you.",
   "author": {
     "name": "Servosity Inc."
@@ -15,9 +15,12 @@
       "command": "${__dirname}/bin/auvik-pp-mcp",
       "args": [],
       "env": {
-        "AUVIK_USERNAME": "${user_config.auvik_username}",
         "AUVIK_API_KEY": "${user_config.auvik_api_key}",
-        "AUVIK_BASE_URL": "${user_config.auvik_base_url}"
+        "AUVIK_BASE_URL": "${user_config.auvik_base_url}",
+        "AUVIK_TENANT": "${user_config.auvik_tenant}",
+        "AUVIK_USERNAME": "${user_config.auvik_username}",
+        "AUVIK_USER_AGENT": "${user_config.auvik_user_agent}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
       }
     }
   },
@@ -43,6 +46,24 @@
       "required": true,
       "sensitive": false,
       "default": "https://auvikapi.us1.my.auvik.com"
+    },
+    "auvik_tenant": {
+      "type": "string",
+      "title": "Default Auvik tenant ID",
+      "description": "Tenant ID the inventory reads and sync default to (the --tenant flag overrides it). Child tenants are included in the response. Leave blank to use your credential's own tenant.",
+      "required": false
+    },
+    "auvik_user_agent": {
+      "type": "string",
+      "title": "User-Agent header",
+      "description": "Overrides the User-Agent the CLI sends on Auvik requests. Leave blank to use the CLI's own built-in User-Agent.",
+      "required": false
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile",
+      "description": "Binds this MCP server to one tenant-gated client profile, so every call answers for that customer. Leave blank to use the profile configured as default_client_profile.",
+      "required": false
     }
   },
   "compatibility": {

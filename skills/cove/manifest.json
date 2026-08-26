@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "cove-mcp",
   "display_name": "Cove Data Protection",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "The first CLI and MCP server for Cove Data Protection \u2014 fleet-wide backup health, billing usage, and storage trends from a terminal, with the local history the vendor console doesn't keep.",
   "author": {
     "name": "Servosity Inc."
@@ -13,7 +13,41 @@
     "entry_point": "bin/cove-mcp",
     "mcp_config": {
       "command": "${__dirname}/bin/cove-mcp",
-      "args": []
+      "args": [],
+      "env": {
+        "COVE_BASE_URL": "${user_config.cove_base_url}",
+        "COVE_PARTNER": "${user_config.cove_partner}",
+        "COVE_PASSWORD": "${user_config.cove_password}",
+        "COVE_USERNAME": "${user_config.cove_username}"
+      }
+    }
+  },
+  "user_config": {
+    "cove_partner": {
+      "type": "string",
+      "title": "Cove customer/partner",
+      "description": "The full customer/partner string exactly as it appears in the Cove console dropdown, including the parenthesised email, e.g. 'Acme Corp (admin@acme.com)'. API users require it, and a wrong format returns the same error as a bad password.",
+      "required": true
+    },
+    "cove_password": {
+      "type": "string",
+      "title": "Cove API token",
+      "description": "API token issued with the Cove API user. Cove shows it once, at creation.",
+      "sensitive": true,
+      "required": true
+    },
+    "cove_username": {
+      "type": "string",
+      "title": "Cove API user login",
+      "description": "Login name of the Cove API user (Cove console: Settings > API users). This is the API user's login, not your console email.",
+      "required": true
+    },
+    "cove_base_url": {
+      "type": "string",
+      "title": "Cove Data Protection API base URL",
+      "description": "Base URL for the Cove Data Protection API. Leave the prefilled default unless your account uses a different regional or self-hosted host.",
+      "required": false,
+      "default": "https://api.backup.management"
     }
   },
   "compatibility": {

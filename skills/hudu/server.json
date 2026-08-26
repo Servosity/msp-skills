@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/hudu-mcp",
   "title": "Hudu MCP",
   "description": "Every Hudu cmdlet, plus an offline SQLite mirror, cross-entity audits, and agent-native output no",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/hudu/hudu-512x512.png",
@@ -21,8 +21,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/hudu-v0.1.6/hudu-mcp.mcpb",
-      "version": "0.1.6",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/hudu-v0.1.7/hudu-mcp.mcpb",
+      "version": "0.1.7",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"
@@ -33,6 +33,12 @@
           "description": "Set the HUDU_API_KEY credential for the Hudu MCP server.",
           "isRequired": true,
           "isSecret": true
+        },
+        {
+          "name": "HUDU_BASE_URL",
+          "description": "Your Hudu instance's API base URL, including the /api/v1 path, e.g. https://your-subdomain.huducloud.com/api/v1 (self-hosted, *.huducloud.com, or a custom domain).",
+          "isRequired": true,
+          "isSecret": false
         }
       ]
     }

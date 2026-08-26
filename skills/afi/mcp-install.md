@@ -37,7 +37,8 @@ Add (or merge with your existing `mcpServers` block):
     "afi": {
       "command": "afi-mcp",
       "env": {
-        "AFI_API_KEY": "<your-afi_api_key>"
+        "AFI_API_KEY": "<your-afi_api_key>",
+        "AFI_BASE_URL": "https://papi.afi.ai"
       }
     }
   }
@@ -62,7 +63,8 @@ Configuration**) and add:
       "type": "stdio",
       "command": "afi-mcp",
       "env": {
-        "AFI_API_KEY": "<your-afi_api_key>"
+        "AFI_API_KEY": "<your-afi_api_key>",
+        "AFI_BASE_URL": "https://papi.afi.ai"
       }
     }
   }
@@ -83,7 +85,8 @@ Claude Desktop:
     "afi": {
       "command": "afi-mcp",
       "env": {
-        "AFI_API_KEY": "<your-afi_api_key>"
+        "AFI_API_KEY": "<your-afi_api_key>",
+        "AFI_BASE_URL": "https://papi.afi.ai"
       }
     }
   }
@@ -101,7 +104,7 @@ All remote agents need `afi-mcp` reachable as a public **HTTPS** endpoint. Run i
 in HTTP mode with your credentials in the environment:
 
 ```bash
-AFI_API_KEY=<value> afi-mcp --transport http --addr :7777
+AFI_API_KEY=<value> AFI_BASE_URL=<value> afi-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

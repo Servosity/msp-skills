@@ -38,7 +38,8 @@ Add (or merge with your existing `mcpServers` block):
       "command": "rootly-mcp",
       "env": {
         "ROOTLY_API_KEY": "<your-rootly_api_key>",
-        "ROOTLY_API_TOKEN": "<your-rootly_api_token>"
+        "ROOTLY_API_TOKEN": "<your-rootly_api_token>",
+        "ROOTLY_BASE_URL": "https://api.rootly.com"
       }
     }
   }
@@ -64,7 +65,8 @@ Configuration**) and add:
       "command": "rootly-mcp",
       "env": {
         "ROOTLY_API_KEY": "<your-rootly_api_key>",
-        "ROOTLY_API_TOKEN": "<your-rootly_api_token>"
+        "ROOTLY_API_TOKEN": "<your-rootly_api_token>",
+        "ROOTLY_BASE_URL": "https://api.rootly.com"
       }
     }
   }
@@ -86,7 +88,8 @@ Claude Desktop:
       "command": "rootly-mcp",
       "env": {
         "ROOTLY_API_KEY": "<your-rootly_api_key>",
-        "ROOTLY_API_TOKEN": "<your-rootly_api_token>"
+        "ROOTLY_API_TOKEN": "<your-rootly_api_token>",
+        "ROOTLY_BASE_URL": "https://api.rootly.com"
       }
     }
   }
@@ -104,7 +107,7 @@ All remote agents need `rootly-mcp` reachable as a public **HTTPS** endpoint. Ru
 in HTTP mode with your credentials in the environment:
 
 ```bash
-ROOTLY_API_KEY=<value> ROOTLY_API_TOKEN=<value> rootly-mcp --transport http --addr :7777
+ROOTLY_API_KEY=<value> ROOTLY_API_TOKEN=<value> ROOTLY_BASE_URL=<value> rootly-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

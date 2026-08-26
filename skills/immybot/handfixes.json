@@ -1,229 +1,386 @@
 {
-  "slug": "immybot",
-  "doc": "docs/reprint-survival.md",
-  "_comment": "Connector-specific edits to GENERATED files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and banned anti-patterns absent) and fails CI if a reprint dropped one. status: active = connector-only, a reprint would clobber it; upstreamed = also fixed in the press, a reprint from a fixed press regenerates it, but the back-port must still be present today.",
-  "handfixes": [
+ "slug": "immybot",
+ "doc": "docs/reprint-survival.md",
+ "_comment": "Connector-specific edits to GENERATED files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and banned anti-patterns absent) and fails CI if a reprint dropped one. status: active = connector-only, a reprint would clobber it; upstreamed = also fixed in the press, a reprint from a fixed press regenerates it, but the back-port must still be present today.",
+ "handfixes": [
+  {
+   "id": "save-tokens-keeps-env-credential-markers",
+   "summary": "`SaveTokens` no longer clears the ClientID and ClientSecret env-override markers, so an env-supplied client secret is never written to the credentials file",
+   "why": "PR #268 established that a credential supplied through the environment is never persisted. It is enforced by two guards that both read Config.envOverrides: configForSave() substitutes the file's value for any env-marked field, and updateFileConfigField() returns early for one. SaveTokens deleted the ClientID and ClientSecret markers before calling either, which defeated both, so `auth login` wrote the operator's long-lived client secret into credentials.toml. Observed live against a real ImmyBot tenant: with IMMYBOT_CLIENT_SECRET set only as a session variable and no --save flag passed, credentials.toml came back containing client_secret in plaintext, while `doctor` still reported credentials_location as env:IMMYBOT_CLIENT_SECRET. That mismatch is the whole danger: an operator who deliberately keeps secrets in session-scoped variables is told the secret is not on disk while a copy of it is. The minted access token, refresh token, and expiry keep their markers cleared, because those values originate in SaveTokens and login is exactly when they should be written. ClearCredentials (logout) also keeps clearing all five deliberately: it zeroes the fields and must overwrite whatever is already on disk, so an early return there would strand the secret. 61 of the 66 skills in this repo emit the same SaveTokens body, so this is an engine-level defect and not an ImmyBot quirk.",
+   "status": "active",
+   "spec_encode_followup": "Fix in the press template so SaveTokens preserves env-override markers for the credential inputs (ClientID, ClientSecret) while still persisting the minted trio. Until then every reprint reintroduces the leak, and the same fix is owed to the other 60 connectors that emit this body.",
+   "asserts": [
     {
-      "id": "save-tokens-keeps-env-credential-markers",
-      "summary": "`SaveTokens` no longer clears the ClientID and ClientSecret env-override markers, so an env-supplied client secret is never written to the credentials file",
-      "why": "PR #268 established that a credential supplied through the environment is never persisted. It is enforced by two guards that both read Config.envOverrides: configForSave() substitutes the file's value for any env-marked field, and updateFileConfigField() returns early for one. SaveTokens deleted the ClientID and ClientSecret markers before calling either, which defeated both, so `auth login` wrote the operator's long-lived client secret into credentials.toml. Observed live against a real ImmyBot tenant: with IMMYBOT_CLIENT_SECRET set only as a session variable and no --save flag passed, credentials.toml came back containing client_secret in plaintext, while `doctor` still reported credentials_location as env:IMMYBOT_CLIENT_SECRET. That mismatch is the whole danger: an operator who deliberately keeps secrets in session-scoped variables is told the secret is not on disk while a copy of it is. The minted access token, refresh token, and expiry keep their markers cleared, because those values originate in SaveTokens and login is exactly when they should be written. ClearCredentials (logout) also keeps clearing all five deliberately: it zeroes the fields and must overwrite whatever is already on disk, so an early return there would strand the secret. 61 of the 66 skills in this repo emit the same SaveTokens body, so this is an engine-level defect and not an ImmyBot quirk.",
-      "status": "active",
-      "spec_encode_followup": "Fix in the press template so SaveTokens preserves env-override markers for the credential inputs (ClientID, ClientSecret) while still persisting the minted trio. Until then every reprint reintroduces the leak, and the same fix is owed to the other 60 connectors that emit this body.",
-      "asserts": [
-        {
-          "file": "cli/internal/config/config.go",
-          "contains": "ClientID and ClientSecret deliberately keep their env-override markers",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/config/config_envcreds_test.go",
-          "contains": "func TestSaveTokens_KeepsEnvSuppliedClientSecretOffDisk(",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/config/config_envcreds_test.go",
-          "contains": "func TestSaveTokens_PersistsExplicitlyPassedClientSecret(",
-          "min_count": 1
-        }
-      ]
+     "file": "cli/internal/config/config.go",
+     "contains": "ClientID and ClientSecret deliberately keep their env-override markers",
+     "min_count": 1
     },
     {
-      "id": "oauth-scope-derived-from-instance-url",
-      "summary": "the client-credentials scope is derived from the ImmyBot instance URL instead of the generator's `api://{client_id}/.default` default",
-      "why": "ImmyBot's Entra application publishes the tenant's own instance URL as its App ID URI, so the correct client-credentials scope is https://<subdomain>.immy.bot/.default. ImmyBot's published API reference builds exactly that value (scope=$ApiEndpointUri/.default where $ApiEndpointUri is the instance base URL), confirmed against their documentation. The generator's default for any Microsoft Entra token URL is api://{client_id}/.default, which names the caller's own app registration as the resource rather than ImmyBot, and is therefore always wrong here. applyDerivedOAuthScope populates IMMYBOT_OAUTH_SCOPE before any token mint, which is the durable seam because the generated resolveClientCredentialsScope reads that variable first. Verified live: with the derivation in place, `auth login` mints a token against a real tenant and `sync` returns 119,654 records.",
-      "status": "active",
-      "spec_encode_followup": "Teach the press to read a server-URL-derived audience for Entra client-credentials flows so instance-scoped App ID URIs do not need a per-connector hand-fix.",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/immybot_scope.go",
-          "contains": "func applyDerivedOAuthScope()",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/immybot_scope.go",
-          "contains": "/.default",
-          "min_count": 1
-        }
-      ]
+     "file": "cli/internal/config/config_envcreds_test.go",
+     "contains": "func TestSaveTokens_KeepsEnvSuppliedClientSecretOffDisk(",
+     "min_count": 1
     },
     {
-      "id": "computers-page-size-ceiling-raised",
-      "summary": "the `computers` resource requests pageSize=1000 instead of the spec default 25, because GET /api/v1/computers is a capped-limit endpoint with no way to fetch a second page",
-      "why": "GET /api/v1/computers declares exactly four query parameters (name, tenantId, orderByUpdatedDate, pageSize), confirmed by reading a live instance's swagger.json. There is no cursor, page, skip or offset, so the empty cursorParam is correct and no pagination fix is possible: probing page=1, page=2, Page=2 and skip=5 against a real tenant returned byte-identical result sets every time. pageSize is a ceiling on a single response, and the profiler mistook its spec default of 25 for a page size. The consequence was a silent cap rather than an error: a tenant holding 57 computers mirrored 25 of them and sync reported success. `computers` is the resource the offline commands join on most (149 references across internal/cli), so every command answered from 44% of the fleet while presenting a complete-looking result. Verified live before and after: pageSize=25 returns 25 rows, pageSize=100 returns 57, pageSize=1000 returns 57; after the change `sync --resources computers` stores 57 and, because a short page proves completeness, last_synced_at advances to a real timestamp instead of the zero value it had been stuck on. Raising the ceiling is the only lever the endpoint offers, so the existing full-page warning stays the truncation signal for an instance larger than the ceiling, and computers-paged (real skip/take pagination) is the alternative source for those.",
-      "status": "active",
-      "spec_encode_followup": "Teach the profiler to distinguish a response-size ceiling from a page size when an endpoint declares a limit parameter but no cursor, page, skip or offset parameter. Emitting the spec default as the page size silently truncates every such resource.",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/sync.go",
-          "contains": "GET /api/v1/computers is a capped-limit endpoint",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/sync.go",
-          "not_contains": "limit:          25,"
-        }
-      ]
-    },
-    {
-      "id": "parameter-required-lookups-out-of-default-sync",
-      "summary": "three parameter-required lookup endpoints are removed from defaultSyncResources, because sync cannot supply their required query parameter and they answer HTTP 400 on every run",
-      "why": "The profiler wired /api/v1/chocolatey/find-packages-by-id, /api/v1/maintenance-actions/maintenance-item and /api/v1/maintenance-actions/version into the default sync walk as if they were list endpoints. None of them is: each requires a query parameter (packageId, maintenanceItem, version respectively) that a bulk sync has no value for, so all three answered HTTP 400 'The <field> field is required.' on every run. This is the same class of defect as the ThreatLocker sync fixed in PR #222, where the profiler wired sync to GET dropdown helpers that were never bulk-list surfaces. The three names stay in knownSyncResourceNames and syncResourcePath so an explicit --resources selection still resolves and no other code path breaks; only the default walk drops them. Verified live: sync errored=3 before, errored=0 after, with resource count 68 -> 65 and no loss of records.",
-      "status": "active",
-      "spec_encode_followup": "Teach the profiler to keep endpoints with required query parameters out of the generated sync surface. An endpoint that cannot be called without a caller-supplied value is not a list endpoint.",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/sync.go",
-          "contains": "is deliberately absent. /api/v1/chocolatey/",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/sync.go",
-          "contains": "are deliberately absent, for the same",
-          "min_count": 1
-        }
-      ]
-    },
-    {
-      "id": "doctor-reports-instance-and-a-real-auth-command",
-      "summary": "doctor reports the instance subdomain as its own check and stops pointing at a nonexistent `auth setup` subcommand",
-      "why": "Two separate inaccuracies in the same output. First, env_vars counts only the OAuth trio and prints 'OK 3/3 available', while the auth_instructions in the same payload tell the operator to set four variables. The one it omitted, IMMYBOT_SUBDOMAIN, is the one whose absence fails worst: without it applyDerivedOAuthScope cannot build https://<subdomain>.immy.bot/.default, the scope silently falls back to the generated api://{client_id}/.default, which names the caller's own app registration rather than ImmyBot, and the operator gets an opaque Entra rejection or a 401 rather than being told which variable is missing. A dedicated instance check now names it. Second, auth_hint told operators to run 'immybot-cli auth setup', which does not exist; the real subcommands are login, logout, set-token and status, so the hint sent people to a dead command at the exact moment they were stuck. Note this bad hint is not ImmyBot-specific: five skills in this repo emit it while defining no such command (appdirect, crowdstrike, halopsa, immybot, ninjaone), and halopsa and ninjaone are shipped connectors.",
-      "status": "active",
-      "spec_encode_followup": "In the press: emit the auth hint from the set of subcommands the connector actually generates rather than a fixed string, and include every required template variable in the doctor env-var check rather than only the auth credentials. Also worth a repo-wide sweep for the four other skills already emitting the dead `auth setup` hint.",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/doctor.go",
-          "contains": "report[\"instance\"]",
-          "min_count": 3
-        },
-        {
-          "file": "cli/internal/cli/doctor.go",
-          "not_contains": "immybot-cli auth setup"
-        }
-      ]
-    },
-    {
-      "id": "zero-watermark-sentinel-not-an-age",
-      "summary": "the zero last_synced_at is treated as \"never completed a pass\" rather than a timestamp, so staleness stops reporting a 292-year age against fresh data",
-      "why": "A resource that has never completed a full sync pass stores the zero time rather than NULL: SaveSyncProgress writes a parseable zero so GetSyncState can scan without a NULL conversion error, and the watermark only advances when sync can prove it saw the whole result set (a page-capped or truncated run correctly withholds it). That makes the zero a sentinel, not a timestamp. Two places read it as one. sync_hint filtered with `last_synced_at IS NOT NULL`, which does not exclude a non-NULL zero, so ORDER BY last_synced_at ASC LIMIT 1 selected the sentinel as the oldest row every time; doctor gated on lastSynced.Valid, which is likewise true for a zero. time.Since(zero) then saturates time.Duration at its 292-year maximum, so every offline command printed 'local store data is 2562047h47m0s old' against data written seconds earlier and doctor reported status stale with oldest_age 2562047h47m0s on a mirror that had just synced. Measured live on a 64-resource store: before, oldest_age 2562047h47m0s; after, oldest_age 50m0s with never_synced 40 reported separately. doctor now also separates the two reasons a store is not fresh, because 'older than stale_after' and 'never completed a pass' need different actions, and the hint distinguishes an empty store from one holding partial data from a truncated run.",
-      "status": "active",
-      "spec_encode_followup": "In the press: give the never-completed state its own representation rather than overloading the zero time, or make every reader treat a zero watermark as a distinct state. Any connector whose API returns full pages without a usable cursor hits this, so the failure is not ImmyBot-specific.",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/sync_hint.go",
-          "contains": "syncHintHasRealWatermark",
-          "min_count": 3
-        },
-        {
-          "file": "cli/internal/cli/sync_hint.go",
-          "not_contains": "last_synced_at IS NOT NULL`"
-        },
-        {
-          "file": "cli/internal/cli/doctor.go",
-          "contains": "lastSynced.Valid && !lastSynced.Time.IsZero()",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/sync_hint_sentinel_test.go",
-          "contains": "func TestSyncHintPrefersRealWatermarkOverSentinel(",
-          "min_count": 1
-        }
-      ]
-    },
-    {
-      "id": "dead-auth-setup-hint-all-emission-sites",
-      "summary": "the runtime error paths and the MCP tool errors stop pointing at a nonexistent `auth setup` subcommand (doctor.go was fixed first; these 7 sites were missed)",
-      "why": "`auth setup` does not exist in this CLI - the real subcommands are login, logout, set-token and status. The doctor hint was corrected under `doctor-reports-instance-and-a-real-auth-command`, but the same dead string was emitted from seven other places that fire on the exact failures a new operator hits: helpers.go's HTTP 400-auth, 401, 403 and HTML-instead-of-JSON branches, and three auth branches in the MCP tool layer. Cobra answers an unrecognised subcommand by printing help and exiting 0, so an operator who followed the hint saw a help screen, got exit 0, re-ran doctor and was still 'not configured' - nothing signalled that the advice itself was wrong, and these are agent-first CLIs where exit 0 reads as success. All seven now point at `auth login` (with `auth status` as the inspection command). Fixing one surface and missing its twin is exactly the failure this ledger exists to prevent.",
-      "status": "active",
-      "spec_encode_followup": "Same press fix as the doctor entry, applied to EVERY auth-hint emission site rather than only the doctor payload: generate the hint from the connector's real auth subcommand set. A template that hardcodes `auth setup` is wrong for any connector that does not generate it.",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/helpers.go",
-          "not_contains": "immybot-cli auth setup"
-        },
-        {
-          "file": "cli/internal/mcp/tools.go",
-          "not_contains": "immybot-cli auth setup"
-        },
-        {
-          "file": "cli/internal/cli/helpers.go",
-          "contains": "immybot-cli auth login",
-          "min_count": 4
-        },
-        {
-          "file": "cli/internal/mcp/tools.go",
-          "contains": "immybot-cli auth login",
-          "min_count": 3
-        },
-        {
-          "file": "guide.md",
-          "not_contains": "Set during initial auth setup."
-        }
-      ]
-    },
-    {
-      "id": "agent-context-declares-all-four-auth-inputs",
-      "summary": "agent-context AND the MCP context tool both list IMMYBOT_SUBDOMAIN alongside the OAuth trio, so an agent reading runtime truth on either surface sees all four required inputs",
-      "why": "AGENTS.md instructs agents to start from `immybot-cli agent-context --pretty` as 'current runtime truth', but its auth.env_vars carried only IMMYBOT_TENANT_ID, IMMYBOT_CLIENT_ID and IMMYBOT_CLIENT_SECRET. IMMYBOT_SUBDOMAIN is the one whose absence fails worst: it derives the OAuth scope https://<subdomain>.immy.bot/.default, and without it the scope falls back to api://{client_id}/.default, naming the caller's own app registration rather than ImmyBot, so Entra rejects the token opaquely. This is the same 3-of-4 undercount already fixed in doctor under `doctor-reports-instance-and-a-real-auth-command`; agent-context is its twin and was missed. The CLIENT_SECRET description also said 'Set during initial auth setup', naming the nonexistent `auth setup` command. ROUND-2 ADDENDUM: the first pass fixed cli/agent_context.go only and missed its MCP twin, internal/mcp/tools.go handleContext - which is the surface most agents actually read, and whose own comment claims the two 'cannot drift'. They had drifted: env_vars listed 3 while the instructions field in the same payload named 4. Both surfaces are now asserted below, because asserting only one is what allowed the drift. ROUND-4 ADDENDUM: `auth status` and `auth login --help` still declared only CLIENT_ID and CLIENT_SECRET. Following that hint literally produced 'Logged in.' exit 0 with the scope falling back to api://<client-id>/.default - the silent wrong-scope failure this ledger describes, on the one surface a human actually reads when they are not yet authenticated. auth.go now names all four.",
-      "status": "active",
-      "spec_encode_followup": "In the press: build the agent-context auth env-var list from the same source as the doctor env-var check, so a connector cannot declare a different required set in two places. Any template variable required to construct the token request belongs in both.",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/agent_context.go",
-          "contains": "IMMYBOT_SUBDOMAIN",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/agent_context.go",
-          "not_contains": "Set during initial auth setup."
-        },
-        {
-          "file": "cli/internal/mcp/tools.go",
-          "contains": "IMMYBOT_SUBDOMAIN",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/mcp/tools.go",
-          "not_contains": "Set during initial auth setup."
-        },
-        {
-          "file": "cli/internal/cli/auth.go",
-          "contains": "IMMYBOT_SUBDOMAIN",
-          "min_count": 1
-        }
-      ]
-    },
-    {
-      "id": "mcp-parent-group-annotation-suppresses-noop-tools",
-      "summary": "cobratree/classify.go honours the `pp:parent-group` annotation, so parent command groups do not each ship as a no-op MCP tool (44 tools instead of 121)",
-      "why": "Press 4.30.3 fixed the default-deny MCP gate but reintroduced ~77 no-op parent-group tools: every intermediate command group was emitted as its own callable tool that does nothing but print help. Measured on this connector: 44 tools with the annotation handling, 121 without. A 121-tool server buries the 44 real ones and burns the agent's tool budget. This handling exists in 0 of the 63 shipped connectors, so it is NOT something a reprint will regenerate - a reprint against a press without the equivalent fix silently reinstates all 77. Recorded here because the edit arrived inside the bulk vendoring commit, which check_handfixes.py --changed exempts as a reprint, so CI would not otherwise have caught its loss.",
-      "status": "active",
-      "spec_encode_followup": "In the press: suppress parent-group commands from the MCP tool surface at generation time rather than requiring a per-connector annotation handler. Track against the 4.30.3 no-op-tool regression.",
-      "asserts": [
-        {
-          "file": "cli/internal/mcp/cobratree/classify.go",
-          "contains": "ParentGroupAnnotation",
-          "min_count": 2
-        },
-        {
-          "file": "cli/internal/mcp/cobratree/classify.go",
-          "contains": "pp:parent-group",
-          "min_count": 1
-        }
-      ]
-    },
-    {
-      "id": "vacuum-into-uses-a-bound-parameter",
-      "summary": "platform/migration.go passes the backup destination to `VACUUM INTO` as a bound parameter instead of interpolating a hand-quoted path",
-      "why": "SQLite takes VACUUM INTO's destination as an expression, so the generated code built it by string-quoting the target path. A path containing a single quote (or any crafted sequence) breaks out of that quoting and is executed as SQL, on a path that can come from --db / IMMYBOT_HOME / the data dir. Binding the value removes the injection surface entirely. Present in 0 of 63 shipped connectors, so a reprint reverts it silently, and no test exercises this path - the assert below is the only thing standing between a reprint and the reintroduced defect.",
-      "status": "active",
-      "spec_encode_followup": "In the press: emit `VACUUM INTO ?` with a bound argument in the migration template. Worth a fleet sweep - every shipped connector still interpolates the path.",
-      "asserts": [
-        {
-          "file": "cli/internal/platform/migration.go",
-          "contains": "VACUUM INTO ?",
-          "min_count": 1
-        }
-      ]
+     "file": "cli/internal/config/config_envcreds_test.go",
+     "contains": "func TestSaveTokens_PersistsExplicitlyPassedClientSecret(",
+     "min_count": 1
     }
-  ]
+   ]
+  },
+  {
+   "id": "oauth-scope-derived-from-instance-url",
+   "summary": "the client-credentials scope is derived from the ImmyBot instance URL instead of the generator's `api://{client_id}/.default` default",
+   "why": "ImmyBot's Entra application publishes the tenant's own instance URL as its App ID URI, so the correct client-credentials scope is https://<subdomain>.immy.bot/.default. ImmyBot's published API reference builds exactly that value (scope=$ApiEndpointUri/.default where $ApiEndpointUri is the instance base URL), confirmed against their documentation. The generator's default for any Microsoft Entra token URL is api://{client_id}/.default, which names the caller's own app registration as the resource rather than ImmyBot, and is therefore always wrong here. applyDerivedOAuthScope populates IMMYBOT_OAUTH_SCOPE before any token mint, which is the durable seam because the generated resolveClientCredentialsScope reads that variable first. Verified live: with the derivation in place, `auth login` mints a token against a real tenant and `sync` returns 119,654 records.",
+   "status": "active",
+   "spec_encode_followup": "Teach the press to read a server-URL-derived audience for Entra client-credentials flows so instance-scoped App ID URIs do not need a per-connector hand-fix.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/immybot_scope.go",
+     "contains": "func applyDerivedOAuthScope()",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/immybot_scope.go",
+     "contains": "/.default",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "computers-page-size-ceiling-raised",
+   "summary": "the `computers` resource requests pageSize=1000 instead of the spec default 25, because GET /api/v1/computers is a capped-limit endpoint with no way to fetch a second page",
+   "why": "GET /api/v1/computers declares exactly four query parameters (name, tenantId, orderByUpdatedDate, pageSize), confirmed by reading a live instance's swagger.json. There is no cursor, page, skip or offset, so the empty cursorParam is correct and no pagination fix is possible: probing page=1, page=2, Page=2 and skip=5 against a real tenant returned byte-identical result sets every time. pageSize is a ceiling on a single response, and the profiler mistook its spec default of 25 for a page size. The consequence was a silent cap rather than an error: a tenant holding 57 computers mirrored 25 of them and sync reported success. `computers` is the resource the offline commands join on most (149 references across internal/cli), so every command answered from 44% of the fleet while presenting a complete-looking result. Verified live before and after: pageSize=25 returns 25 rows, pageSize=100 returns 57, pageSize=1000 returns 57; after the change `sync --resources computers` stores 57 and, because a short page proves completeness, last_synced_at advances to a real timestamp instead of the zero value it had been stuck on. Raising the ceiling is the only lever the endpoint offers, so the existing full-page warning stays the truncation signal for an instance larger than the ceiling, and computers-paged (real skip/take pagination) is the alternative source for those.",
+   "status": "active",
+   "spec_encode_followup": "Teach the profiler to distinguish a response-size ceiling from a page size when an endpoint declares a limit parameter but no cursor, page, skip or offset parameter. Emitting the spec default as the page size silently truncates every such resource.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "GET /api/v1/computers is a capped-limit endpoint",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "limit:          25,"
+    }
+   ]
+  },
+  {
+   "id": "parameter-required-lookups-out-of-default-sync",
+   "summary": "three parameter-required lookup endpoints are removed from defaultSyncResources, because sync cannot supply their required query parameter and they answer HTTP 400 on every run",
+   "why": "The profiler wired /api/v1/chocolatey/find-packages-by-id, /api/v1/maintenance-actions/maintenance-item and /api/v1/maintenance-actions/version into the default sync walk as if they were list endpoints. None of them is: each requires a query parameter (packageId, maintenanceItem, version respectively) that a bulk sync has no value for, so all three answered HTTP 400 'The <field> field is required.' on every run. This is the same class of defect as the ThreatLocker sync fixed in PR #222, where the profiler wired sync to GET dropdown helpers that were never bulk-list surfaces. The three names stay in knownSyncResourceNames and syncResourcePath so an explicit --resources selection still resolves and no other code path breaks; only the default walk drops them. Verified live: sync errored=3 before, errored=0 after, with resource count 68 -> 65 and no loss of records.",
+   "status": "active",
+   "spec_encode_followup": "Teach the profiler to keep endpoints with required query parameters out of the generated sync surface. An endpoint that cannot be called without a caller-supplied value is not a list endpoint.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "is deliberately absent. /api/v1/chocolatey/",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "are deliberately absent, for the same",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "doctor-reports-instance-and-a-real-auth-command",
+   "summary": "doctor reports the instance subdomain as its own check and stops pointing at a nonexistent `auth setup` subcommand",
+   "why": "Two separate inaccuracies in the same output. First, env_vars counts only the OAuth trio and prints 'OK 3/3 available', while the auth_instructions in the same payload tell the operator to set four variables. The one it omitted, IMMYBOT_SUBDOMAIN, is the one whose absence fails worst: without it applyDerivedOAuthScope cannot build https://<subdomain>.immy.bot/.default, the scope silently falls back to the generated api://{client_id}/.default, which names the caller's own app registration rather than ImmyBot, and the operator gets an opaque Entra rejection or a 401 rather than being told which variable is missing. A dedicated instance check now names it. Second, auth_hint told operators to run 'immybot-cli auth setup', which does not exist; the real subcommands are login, logout, set-token and status, so the hint sent people to a dead command at the exact moment they were stuck. Note this bad hint is not ImmyBot-specific: five skills in this repo emit it while defining no such command (appdirect, crowdstrike, halopsa, immybot, ninjaone), and halopsa and ninjaone are shipped connectors.",
+   "status": "active",
+   "spec_encode_followup": "In the press: emit the auth hint from the set of subcommands the connector actually generates rather than a fixed string, and include every required template variable in the doctor env-var check rather than only the auth credentials. Also worth a repo-wide sweep for the four other skills already emitting the dead `auth setup` hint.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"instance\"]",
+     "min_count": 3
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "immybot-cli auth setup"
+    }
+   ]
+  },
+  {
+   "id": "zero-watermark-sentinel-not-an-age",
+   "summary": "the zero last_synced_at is treated as \"never completed a pass\" rather than a timestamp, so staleness stops reporting a 292-year age against fresh data",
+   "why": "A resource that has never completed a full sync pass stores the zero time rather than NULL: SaveSyncProgress writes a parseable zero so GetSyncState can scan without a NULL conversion error, and the watermark only advances when sync can prove it saw the whole result set (a page-capped or truncated run correctly withholds it). That makes the zero a sentinel, not a timestamp. Two places read it as one. sync_hint filtered with `last_synced_at IS NOT NULL`, which does not exclude a non-NULL zero, so ORDER BY last_synced_at ASC LIMIT 1 selected the sentinel as the oldest row every time; doctor gated on lastSynced.Valid, which is likewise true for a zero. time.Since(zero) then saturates time.Duration at its 292-year maximum, so every offline command printed 'local store data is 2562047h47m0s old' against data written seconds earlier and doctor reported status stale with oldest_age 2562047h47m0s on a mirror that had just synced. Measured live on a 64-resource store: before, oldest_age 2562047h47m0s; after, oldest_age 50m0s with never_synced 40 reported separately. doctor now also separates the two reasons a store is not fresh, because 'older than stale_after' and 'never completed a pass' need different actions, and the hint distinguishes an empty store from one holding partial data from a truncated run.",
+   "status": "active",
+   "spec_encode_followup": "In the press: give the never-completed state its own representation rather than overloading the zero time, or make every reader treat a zero watermark as a distinct state. Any connector whose API returns full pages without a usable cursor hits this, so the failure is not ImmyBot-specific.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync_hint.go",
+     "contains": "syncHintHasRealWatermark",
+     "min_count": 3
+    },
+    {
+     "file": "cli/internal/cli/sync_hint.go",
+     "not_contains": "last_synced_at IS NOT NULL`"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "lastSynced.Valid && !lastSynced.Time.IsZero()",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sync_hint_sentinel_test.go",
+     "contains": "func TestSyncHintPrefersRealWatermarkOverSentinel(",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "dead-auth-setup-hint-all-emission-sites",
+   "summary": "the runtime error paths and the MCP tool errors stop pointing at a nonexistent `auth setup` subcommand (doctor.go was fixed first; these 7 sites were missed)",
+   "why": "`auth setup` does not exist in this CLI - the real subcommands are login, logout, set-token and status. The doctor hint was corrected under `doctor-reports-instance-and-a-real-auth-command`, but the same dead string was emitted from seven other places that fire on the exact failures a new operator hits: helpers.go's HTTP 400-auth, 401, 403 and HTML-instead-of-JSON branches, and three auth branches in the MCP tool layer. Cobra answers an unrecognised subcommand by printing help and exiting 0, so an operator who followed the hint saw a help screen, got exit 0, re-ran doctor and was still 'not configured' - nothing signalled that the advice itself was wrong, and these are agent-first CLIs where exit 0 reads as success. All seven now point at `auth login` (with `auth status` as the inspection command). Fixing one surface and missing its twin is exactly the failure this ledger exists to prevent.",
+   "status": "active",
+   "spec_encode_followup": "Same press fix as the doctor entry, applied to EVERY auth-hint emission site rather than only the doctor payload: generate the hint from the connector's real auth subcommand set. A template that hardcodes `auth setup` is wrong for any connector that does not generate it.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "not_contains": "immybot-cli auth setup"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "immybot-cli auth setup"
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "immybot-cli auth login",
+     "min_count": 4
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "immybot-cli auth login",
+     "min_count": 3
+    },
+    {
+     "file": "guide.md",
+     "not_contains": "Set during initial auth setup."
+    }
+   ]
+  },
+  {
+   "id": "agent-context-declares-all-four-auth-inputs",
+   "summary": "agent-context AND the MCP context tool both list IMMYBOT_SUBDOMAIN alongside the OAuth trio, so an agent reading runtime truth on either surface sees all four required inputs",
+   "why": "AGENTS.md instructs agents to start from `immybot-cli agent-context --pretty` as 'current runtime truth', but its auth.env_vars carried only IMMYBOT_TENANT_ID, IMMYBOT_CLIENT_ID and IMMYBOT_CLIENT_SECRET. IMMYBOT_SUBDOMAIN is the one whose absence fails worst: it derives the OAuth scope https://<subdomain>.immy.bot/.default, and without it the scope falls back to api://{client_id}/.default, naming the caller's own app registration rather than ImmyBot, so Entra rejects the token opaquely. This is the same 3-of-4 undercount already fixed in doctor under `doctor-reports-instance-and-a-real-auth-command`; agent-context is its twin and was missed. The CLIENT_SECRET description also said 'Set during initial auth setup', naming the nonexistent `auth setup` command. ROUND-2 ADDENDUM: the first pass fixed cli/agent_context.go only and missed its MCP twin, internal/mcp/tools.go handleContext - which is the surface most agents actually read, and whose own comment claims the two 'cannot drift'. They had drifted: env_vars listed 3 while the instructions field in the same payload named 4. Both surfaces are now asserted below, because asserting only one is what allowed the drift. ROUND-4 ADDENDUM: `auth status` and `auth login --help` still declared only CLIENT_ID and CLIENT_SECRET. Following that hint literally produced 'Logged in.' exit 0 with the scope falling back to api://<client-id>/.default - the silent wrong-scope failure this ledger describes, on the one surface a human actually reads when they are not yet authenticated. auth.go now names all four.",
+   "status": "active",
+   "spec_encode_followup": "In the press: build the agent-context auth env-var list from the same source as the doctor env-var check, so a connector cannot declare a different required set in two places. Any template variable required to construct the token request belongs in both.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/agent_context.go",
+     "contains": "IMMYBOT_SUBDOMAIN",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/agent_context.go",
+     "not_contains": "Set during initial auth setup."
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "IMMYBOT_SUBDOMAIN",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "Set during initial auth setup."
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "IMMYBOT_SUBDOMAIN",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "mcp-parent-group-annotation-suppresses-noop-tools",
+   "summary": "cobratree/classify.go honours the `pp:parent-group` annotation, so parent command groups do not each ship as a no-op MCP tool (44 tools instead of 121)",
+   "why": "Press 4.30.3 fixed the default-deny MCP gate but reintroduced ~77 no-op parent-group tools: every intermediate command group was emitted as its own callable tool that does nothing but print help. Measured on this connector: 44 tools with the annotation handling, 121 without. A 121-tool server buries the 44 real ones and burns the agent's tool budget. This handling exists in 0 of the 63 shipped connectors, so it is NOT something a reprint will regenerate - a reprint against a press without the equivalent fix silently reinstates all 77. Recorded here because the edit arrived inside the bulk vendoring commit, which check_handfixes.py --changed exempts as a reprint, so CI would not otherwise have caught its loss.",
+   "status": "active",
+   "spec_encode_followup": "In the press: suppress parent-group commands from the MCP tool surface at generation time rather than requiring a per-connector annotation handler. Track against the 4.30.3 no-op-tool regression.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/cobratree/classify.go",
+     "contains": "ParentGroupAnnotation",
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/classify.go",
+     "contains": "pp:parent-group",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "vacuum-into-uses-a-bound-parameter",
+   "summary": "platform/migration.go passes the backup destination to `VACUUM INTO` as a bound parameter instead of interpolating a hand-quoted path",
+   "why": "SQLite takes VACUUM INTO's destination as an expression, so the generated code built it by string-quoting the target path. A path containing a single quote (or any crafted sequence) breaks out of that quoting and is executed as SQL, on a path that can come from --db / IMMYBOT_HOME / the data dir. Binding the value removes the injection surface entirely. Present in 0 of 63 shipped connectors, so a reprint reverts it silently, and no test exercises this path - the assert below is the only thing standing between a reprint and the reintroduced defect.",
+   "status": "active",
+   "spec_encode_followup": "In the press: emit `VACUUM INTO ?` with a bound argument in the migration template. Worth a fleet sweep - every shipped connector still interpolates the path.",
+   "asserts": [
+    {
+     "file": "cli/internal/platform/migration.go",
+     "contains": "VACUUM INTO ?",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "doctor-verdict-tracks-reality",
+   "summary": "doctor probes a real GET endpoint with the real credential and refuses to dial a placeholder base_url, instead of calling any HTTP response 'reachable' and never checking the credential",
+   "why": "`doctor` is the command every SKILL, guide and docs page tells an operator to run to confirm the connector works, and it could not tell a working install from a broken one. It called any HTTP response to `GET /` \"reachable\" and rendered it green, so a base_url aimed at the vendor's web UI (where every API path 404s) and a token rejected with 401 on every call both produced an all-green report. On this connector family it also never probed the credential at all: it printed \"present, not verified\" and left the operator to guess. The mirror defect: a connector whose shipped base_url default is a placeholder dialled the placeholder host, and the DNS failure rendered as \"FAIL API: unreachable\" - telling a correctly-credentialled operator they were broken without naming the one variable that would fix it. Several placeholder hosts resolve through live wildcard DNS and answer real HTTP, so dialling one produced a confident green verdict against a stranger's server. Measured and gated by tools/maintainer/check_doctor_truth.py. See issue #282.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorProbeCredentials("
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorBaseURLIsPlaceholder("
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorIsInfoKey(k)"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorBaseURLIsPlaceholder(cfg.BaseURL)"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "for _, v := range report {"
+    }
+   ]
+  },
+  {
+   "id": "install-credentials-declared-on-every-channel",
+   "summary": "every operator credential this connector reads is declared on all three install channels: manifest.json (.mcpb), server.json (MCP Registry) and mcp-install.md (manual install)",
+   "why": "Issue #282 ('three live-verified connectors prompt for the wrong credentials'). A connector is installed through THREE independent channels that each carry their own copy of the credential list: manifest.json server.mcp_config.env (what the .mcpb bundle hands Claude Desktop, which has no shell profile, no config.toml and no export - so an undeclared variable is a variable nobody is ever asked for), server.json environmentVariables (the MCP Registry publish channel), and mcp-install.md's copy-paste JSON blocks plus its remote launch line (the manual path, which never touches the bundle at all). The fleet-wide audit found 60 of 65 connectors under-declaring 122 operator-facing variables in the manifest, 61 of 65 mcp-install.md pages omitting 125, and hudu's server.json missing the base URL its manifest marks required. For immybot the manifest gained: IMMYBOT_BASE_URL, IMMYBOT_TOKEN_URL, IMMYBOT_USER_AGENT, PRINTING_PRESS_CLIENT_PROFILE. server.json gained: IMMYBOT_BASE_URL, IMMYBOT_TOKEN_URL, IMMYBOT_USER_AGENT, PRINTING_PRESS_CLIENT_PROFILE. mcp-install.md's env blocks gained: IMMYBOT_BASE_URL, IMMYBOT_TOKEN_URL, IMMYBOT_USER_AGENT, PRINTING_PRESS_CLIENT_PROFILE. manifest.json, server.json and mcp-install.md are ALL regenerated by /msp-skills-publish on an UPDATE or re-onboard, so without this ledger a regeneration silently drops every declaration and CI stays green (check_env_schema.py is wired --warn). The asserts below name the specific credentials, not a count, so dropping one and adding another cannot cancel out.",
+   "status": "active",
+   "spec_encode_followup": "cli-printing-press should emit server.mcp_config.env, the matching user_config prompts, server.json environmentVariables and mcp-install.md's env blocks from ONE declaration of the connector's operator-facing environment, so the three channels cannot be generated out of step. Until then check_env_schema.py compares all three and this ledger pins them.",
+   "asserts": [
+    {
+     "file": "manifest.json",
+     "contains": "\"IMMYBOT_BASE_URL\": \"${user_config.immybot_base_url}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"IMMYBOT_CLIENT_ID\": \"${user_config.immybot_client_id}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"IMMYBOT_CLIENT_SECRET\": \"${user_config.immybot_client_secret}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"IMMYBOT_SUBDOMAIN\": \"${user_config.immybot_subdomain}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"IMMYBOT_TENANT_ID\": \"${user_config.immybot_tenant_id}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"IMMYBOT_TOKEN_URL\": \"${user_config.immybot_token_url}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"IMMYBOT_USER_AGENT\": \"${user_config.immybot_user_agent}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"PRINTING_PRESS_CLIENT_PROFILE\": \"${user_config.printing_press_client_profile}\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"IMMYBOT_BASE_URL\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"IMMYBOT_CLIENT_ID\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"IMMYBOT_CLIENT_SECRET\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"IMMYBOT_SUBDOMAIN\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"IMMYBOT_TENANT_ID\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"IMMYBOT_TOKEN_URL\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"IMMYBOT_USER_AGENT\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"PRINTING_PRESS_CLIENT_PROFILE\"",
+     "min_count": 1
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"IMMYBOT_BASE_URL\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"IMMYBOT_CLIENT_ID\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"IMMYBOT_CLIENT_SECRET\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"IMMYBOT_SUBDOMAIN\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"IMMYBOT_TENANT_ID\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"IMMYBOT_TOKEN_URL\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"IMMYBOT_USER_AGENT\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"PRINTING_PRESS_CLIENT_PROFILE\":",
+     "min_count": 3
+    }
+   ]
+  }
+ ]
 }

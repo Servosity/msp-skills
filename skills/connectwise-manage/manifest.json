@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "connectwise-manage-mcp",
   "display_name": "ConnectWise PSA",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Every ConnectWise PSA workflow from the terminal \u2014 with a typed conditions query builder, offline SQLite sync, and cross-entity views (unbilled work, account 360, board triage) the PSA web UI can't give you.",
   "author": {
     "name": "Servosity Inc."
@@ -15,11 +15,13 @@
       "command": "${__dirname}/bin/connectwise-manage-mcp-darwin-arm64",
       "args": [],
       "env": {
+        "CONNECTWISE_MANAGE_BASE_URL": "${user_config.connectwise_manage_base_url}",
+        "CW_API_VERSION": "${user_config.cw_api_version}",
+        "CW_CLIENT_ID": "${user_config.cw_client_id}",
         "CW_COMPANY_ID": "${user_config.cw_company_id}",
-        "CW_PUBLIC_KEY": "${user_config.cw_public_key}",
         "CW_PRIVATE_KEY": "${user_config.cw_private_key}",
-        "CW_SITE": "${user_config.cw_site}",
-        "CW_CLIENT_ID": "${user_config.cw_client_id}"
+        "CW_PUBLIC_KEY": "${user_config.cw_public_key}",
+        "CW_SITE": "${user_config.cw_site}"
       },
       "platform_overrides": {
         "darwin": {
@@ -67,6 +69,19 @@
       "description": "Registered ConnectWise integration clientId GUID from developer.connectwise.com. Sent in the clientId header on every request.",
       "sensitive": true,
       "required": true
+    },
+    "connectwise_manage_base_url": {
+      "type": "string",
+      "title": "ConnectWise PSA API base URL",
+      "description": "Base URL for the ConnectWise PSA API. Leave the prefilled default unless your account uses a different regional or self-hosted host.",
+      "required": false,
+      "default": "https://api-na.myconnectwise.net/v4_6_release/apis/3.0"
+    },
+    "cw_api_version": {
+      "type": "string",
+      "title": "ConnectWise API version",
+      "description": "Pins the ConnectWise Manage API version sent on each request, e.g. 2025.1. Leave blank to use the version your instance defaults to.",
+      "required": false
     }
   },
   "compatibility": {

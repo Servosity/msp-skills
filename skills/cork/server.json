@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/cork-mcp",
   "title": "Cork MCP",
   "description": "Every Cork API operation, plus cross-client risk attribution and exploitability-first vuln triage.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/cork/cork-512x512.png",
@@ -21,8 +21,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/cork-v0.1.0/cork-mcp.mcpb",
-      "version": "0.1.0",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/cork-v0.1.1/cork-mcp.mcpb",
+      "version": "0.1.1",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"
@@ -33,6 +33,25 @@
           "description": "Set the CORK_API_KEY credential for the Cork MCP server.",
           "isRequired": true,
           "isSecret": true
+        },
+        {
+          "name": "CORK_BASE_URL",
+          "description": "Base URL for the Cork API. Leave the prefilled default unless your account uses a different regional or self-hosted host.",
+          "isRequired": false,
+          "isSecret": false,
+          "default": "https://api.corkinc.com/api/v1"
+        },
+        {
+          "name": "CORK_USER_AGENT",
+          "description": "Overrides the User-Agent the CLI sends on Cork requests. Leave blank to use the CLI's own built-in User-Agent.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Binds this MCP server to one tenant-gated client profile, so every call answers for that customer. Leave blank to use the profile configured as default_client_profile.",
+          "isRequired": false,
+          "isSecret": false
         }
       ]
     }

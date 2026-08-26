@@ -1,59 +1,207 @@
 {
-  "slug": "connectwise-automate",
-  "doc": "docs/reprint-survival.md",
-  "_comment": "Connector-specific edits a cli-printing-press reprint or onboard --resume must NOT clobber. check_handfixes.py asserts every marker below is still present (and banned anti-patterns absent) and FAILS CI if a reprint dropped one.",
-  "handfixes": [
+ "slug": "connectwise-automate",
+ "doc": "docs/reprint-survival.md",
+ "_comment": "Connector-specific edits a cli-printing-press reprint or onboard --resume must NOT clobber. check_handfixes.py asserts every marker below is still present (and banned anti-patterns absent) and FAILS CI if a reprint dropped one.",
+ "handfixes": [
+  {
+   "id": "manifest-clean-mcp-binary-name",
+   "summary": "manifest.json name/entry_point/command use the clean `connectwise-automate-mcp`, not the press `-pp-mcp`",
+   "why": "onboard.py re-copies the SOURCE manifest.json on every --resume, and the printing-press source keeps the `-pp-mcp` convention. The repo builds/ships `connectwise-automate-mcp`, so a stale `-pp-mcp` name/entry_point/command mismatches the .mcpb the release matrix produces. See project_onboard_manifest_deleak_and_envvar.",
+   "status": "active",
+   "asserts": [
     {
-      "id": "manifest-clean-mcp-binary-name",
-      "summary": "manifest.json name/entry_point/command use the clean `connectwise-automate-mcp`, not the press `-pp-mcp`",
-      "why": "onboard.py re-copies the SOURCE manifest.json on every --resume, and the printing-press source keeps the `-pp-mcp` convention. The repo builds/ships `connectwise-automate-mcp`, so a stale `-pp-mcp` name/entry_point/command mismatches the .mcpb the release matrix produces. See project_onboard_manifest_deleak_and_envvar.",
-      "status": "active",
-      "asserts": [
-        {"file": "manifest.json", "contains": "connectwise-automate-mcp", "min_count": 2},
-        {"file": "manifest.json", "not_contains": "connectwise-automate-pp-mcp"}
-      ]
+     "file": "manifest.json",
+     "contains": "connectwise-automate-mcp",
+     "min_count": 2
     },
     {
-      "id": "manifest-server-clientid-env",
-      "summary": "CONNECTWISE_AUTOMATE_CLIENT_ID is a required env var in manifest.json + server.json (per-request clientId header)",
-      "why": "config.go injects CONNECTWISE_AUTOMATE_CLIENT_ID as the `clientId` header on EVERY request for Automate v2020.11+; without it the MCP server 401s on modern servers. The press generated the manifest with only SERVER+TOKEN (the per-instance env-omission pattern), so a fresh reprint drops it again. See project_onboard_perinstance_baseurl_and_bareword_claims.",
-      "status": "active",
-      "asserts": [
-        {"file": "manifest.json", "contains": "CONNECTWISE_AUTOMATE_CLIENT_ID", "min_count": 2},
-        {"file": "server.json", "contains": "CONNECTWISE_AUTOMATE_CLIENT_ID", "min_count": 1}
-      ]
-    },
-    {
-      "id": "governance-endpoint-fleet-execution-tier",
-      "summary": "Hand-added an 'Endpoint and fleet actions' tier; gen_governance.py is method-blind and dropped `computers command-execute` entirely and mis-tiered `patching deploy-*` as routine",
-      "why": "ConnectWise Automate is an RMM whose members RUN CODE/PATCHES on live client endpoints. gen_governance.py keyword-matches and ignores pp:method, so `computers command-execute` (arbitrary command on an agent) fell out of the table and `patching deploy-approved`/`deploy-security`/`reattempt-failed` (fleet-wide patch deployment) landed in 'Write (routine)'. governance.md was rewritten to put all four under Endpoint/fleet, human-in-the-loop. A full reprint re-runs the classifier and reverts. See project_action1_onboard_traps + project_domotz_onboard_gotchas.",
-      "status": "active",
-      "asserts": [
-        {"file": "governance.md", "contains": "Endpoint and fleet actions", "min_count": 1},
-        {"file": "governance.md", "contains": "computers command-execute", "min_count": 1},
-        {"file": "governance.md", "contains": "fleet-wide patch deployment", "min_count": 1}
-      ]
-    },
-    {
-      "id": "skill-alert-triage-select-keys",
-      "summary": "alert-triage --select example uses the real TriagedAlert json keys `client,computer,priority,message`, not `client_name,computer_name`",
-      "why": "The generated SKILL.md recipe asserted `--select client_name,computer_name,priority,message`, but fleet.TriagedAlert json tags are `client`/`computer`/`priority`/`message` (the binary's own --help example agrees). The wrong keys silently drop fields. See project_onboard_select_placeholder_fields.",
-      "status": "active",
-      "asserts": [
-        {"file": "SKILL.md", "contains": "--select client,computer,priority,message", "min_count": 1},
-        {"file": "SKILL.md", "not_contains": "client_name,computer_name"}
-      ]
-    },
-    {
-      "id": "skill-guide-deleak",
-      "summary": "SKILL.md + guide.md stay free of Printing Press / npx-library / public-library install leaks",
-      "why": "onboard.py only de-leaks the SKILL.md description, not the body H1/prereqs/HeyGen-Beacon/public-library lines or guide.md's npx install section. A reprint re-vendors both and re-introduces the leaks. See project_onboard_skillmd_guide_deleak.",
-      "status": "active",
-      "asserts": [
-        {"file": "SKILL.md", "not_contains": "@mvanhorn/printing-press-library"},
-        {"file": "SKILL.md", "not_contains": "public-library entry"},
-        {"file": "guide.md", "not_contains": "npx -y @mvanhorn"}
-      ]
+     "file": "manifest.json",
+     "not_contains": "connectwise-automate-pp-mcp"
     }
-  ]
+   ]
+  },
+  {
+   "id": "manifest-server-clientid-env",
+   "summary": "CONNECTWISE_AUTOMATE_CLIENT_ID is a required env var in manifest.json + server.json (per-request clientId header)",
+   "why": "config.go injects CONNECTWISE_AUTOMATE_CLIENT_ID as the `clientId` header on EVERY request for Automate v2020.11+; without it the MCP server 401s on modern servers. The press generated the manifest with only SERVER+TOKEN (the per-instance env-omission pattern), so a fresh reprint drops it again. See project_onboard_perinstance_baseurl_and_bareword_claims.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "manifest.json",
+     "contains": "CONNECTWISE_AUTOMATE_CLIENT_ID",
+     "min_count": 2
+    },
+    {
+     "file": "server.json",
+     "contains": "CONNECTWISE_AUTOMATE_CLIENT_ID",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "governance-endpoint-fleet-execution-tier",
+   "summary": "Hand-added an 'Endpoint and fleet actions' tier; gen_governance.py is method-blind and dropped `computers command-execute` entirely and mis-tiered `patching deploy-*` as routine",
+   "why": "ConnectWise Automate is an RMM whose members RUN CODE/PATCHES on live client endpoints. gen_governance.py keyword-matches and ignores pp:method, so `computers command-execute` (arbitrary command on an agent) fell out of the table and `patching deploy-approved`/`deploy-security`/`reattempt-failed` (fleet-wide patch deployment) landed in 'Write (routine)'. governance.md was rewritten to put all four under Endpoint/fleet, human-in-the-loop. A full reprint re-runs the classifier and reverts. See project_action1_onboard_traps + project_domotz_onboard_gotchas.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "governance.md",
+     "contains": "Endpoint and fleet actions",
+     "min_count": 1
+    },
+    {
+     "file": "governance.md",
+     "contains": "computers command-execute",
+     "min_count": 1
+    },
+    {
+     "file": "governance.md",
+     "contains": "fleet-wide patch deployment",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "skill-alert-triage-select-keys",
+   "summary": "alert-triage --select example uses the real TriagedAlert json keys `client,computer,priority,message`, not `client_name,computer_name`",
+   "why": "The generated SKILL.md recipe asserted `--select client_name,computer_name,priority,message`, but fleet.TriagedAlert json tags are `client`/`computer`/`priority`/`message` (the binary's own --help example agrees). The wrong keys silently drop fields. See project_onboard_select_placeholder_fields.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "SKILL.md",
+     "contains": "--select client,computer,priority,message",
+     "min_count": 1
+    },
+    {
+     "file": "SKILL.md",
+     "not_contains": "client_name,computer_name"
+    }
+   ]
+  },
+  {
+   "id": "skill-guide-deleak",
+   "summary": "SKILL.md + guide.md stay free of Printing Press / npx-library / public-library install leaks",
+   "why": "onboard.py only de-leaks the SKILL.md description, not the body H1/prereqs/HeyGen-Beacon/public-library lines or guide.md's npx install section. A reprint re-vendors both and re-introduces the leaks. See project_onboard_skillmd_guide_deleak.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "SKILL.md",
+     "not_contains": "@mvanhorn/printing-press-library"
+    },
+    {
+     "file": "SKILL.md",
+     "not_contains": "public-library entry"
+    },
+    {
+     "file": "guide.md",
+     "not_contains": "npx -y @mvanhorn"
+    }
+   ]
+  },
+  {
+   "id": "doctor-verdict-tracks-reality",
+   "summary": "doctor probes a real GET endpoint with the real credential and refuses to dial a placeholder base_url, instead of calling any HTTP response 'reachable' and never checking the credential",
+   "why": "`doctor` is the command every SKILL, guide and docs page tells an operator to run to confirm the connector works, and it could not tell a working install from a broken one. It called any HTTP response to `GET /` \"reachable\" and rendered it green, so a base_url aimed at the vendor's web UI (where every API path 404s) and a token rejected with 401 on every call both produced an all-green report. On this connector family it also never probed the credential at all: it printed \"present, not verified\" and left the operator to guess. The mirror defect: a connector whose shipped base_url default is a placeholder dialled the placeholder host, and the DNS failure rendered as \"FAIL API: unreachable\" - telling a correctly-credentialled operator they were broken without naming the one variable that would fix it. Several placeholder hosts resolve through live wildcard DNS and answer real HTTP, so dialling one produced a confident green verdict against a stranger's server. Measured and gated by tools/maintainer/check_doctor_truth.py. See issue #282.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorProbeCredentials("
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorBaseURLIsPlaceholder("
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorIsInfoKey(k)"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorBaseURLIsPlaceholder(cfg.BaseURL)"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorUnexpectedStatus(authAPIErr.StatusCode"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "but auth was accepted"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "for _, v := range report {"
+    }
+   ]
+  },
+  {
+   "id": "install-credentials-declared-on-every-channel",
+   "summary": "every operator credential this connector reads is declared on all three install channels: manifest.json (.mcpb), server.json (MCP Registry) and mcp-install.md (manual install)",
+   "why": "Issue #282 ('three live-verified connectors prompt for the wrong credentials'). A connector is installed through THREE independent channels that each carry their own copy of the credential list: manifest.json server.mcp_config.env (what the .mcpb bundle hands Claude Desktop, which has no shell profile, no config.toml and no export - so an undeclared variable is a variable nobody is ever asked for), server.json environmentVariables (the MCP Registry publish channel), and mcp-install.md's copy-paste JSON blocks plus its remote launch line (the manual path, which never touches the bundle at all). The fleet-wide audit found 60 of 65 connectors under-declaring 122 operator-facing variables in the manifest, 61 of 65 mcp-install.md pages omitting 125, and hudu's server.json missing the base URL its manifest marks required. For connectwise-automate the manifest gained: CONNECTWISE_AUTOMATE_BASE_URL. server.json gained: CONNECTWISE_AUTOMATE_BASE_URL. mcp-install.md's env blocks gained: CONNECTWISE_AUTOMATE_BASE_URL. manifest.json, server.json and mcp-install.md are ALL regenerated by /msp-skills-publish on an UPDATE or re-onboard, so without this ledger a regeneration silently drops every declaration and CI stays green (check_env_schema.py is wired --warn). The asserts below name the specific credentials, not a count, so dropping one and adding another cannot cancel out.",
+   "status": "active",
+   "spec_encode_followup": "cli-printing-press should emit server.mcp_config.env, the matching user_config prompts, server.json environmentVariables and mcp-install.md's env blocks from ONE declaration of the connector's operator-facing environment, so the three channels cannot be generated out of step. Until then check_env_schema.py compares all three and this ledger pins them.",
+   "asserts": [
+    {
+     "file": "manifest.json",
+     "contains": "\"CONNECTWISE_AUTOMATE_BASE_URL\": \"${user_config.connectwise_automate_base_url}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"CONNECTWISE_AUTOMATE_CLIENT_ID\": \"${user_config.connectwise_automate_client_id}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"CONNECTWISE_AUTOMATE_SERVER\": \"${user_config.connectwise_automate_server}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"CONNECTWISE_AUTOMATE_TOKEN\": \"${user_config.connectwise_automate_token}\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"CONNECTWISE_AUTOMATE_BASE_URL\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"CONNECTWISE_AUTOMATE_CLIENT_ID\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"CONNECTWISE_AUTOMATE_SERVER\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"CONNECTWISE_AUTOMATE_TOKEN\"",
+     "min_count": 1
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"CONNECTWISE_AUTOMATE_BASE_URL\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"CONNECTWISE_AUTOMATE_CLIENT_ID\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"CONNECTWISE_AUTOMATE_SERVER\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"CONNECTWISE_AUTOMATE_TOKEN\":",
+     "min_count": 3
+    }
+   ]
+  }
+ ]
 }

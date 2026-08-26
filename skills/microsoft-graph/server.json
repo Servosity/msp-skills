@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/microsoft-graph-mcp",
   "title": "Microsoft Graph MCP",
   "description": "The maintained single-binary successor to the retiring mgc  -  every MSP-relevant Microsoft Graph",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/microsoft-graph/microsoft-graph-512x512.png",
@@ -21,13 +21,20 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/microsoft-graph-v0.2.0/microsoft-graph-mcp.mcpb",
-      "version": "0.2.0",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/microsoft-graph-v0.2.1/microsoft-graph-mcp.mcpb",
+      "version": "0.2.1",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"
       },
       "environmentVariables": [
+        {
+          "name": "MICROSOFT_GRAPH_BASE_URL",
+          "description": "Base URL for the Microsoft Graph API. Leave the prefilled default unless your account uses a different regional or self-hosted host.",
+          "isRequired": false,
+          "isSecret": false,
+          "default": "https://graph.microsoft.com/v1.0"
+        },
         {
           "name": "MICROSOFT_GRAPH_TOKEN",
           "description": "Set the MICROSOFT_GRAPH_TOKEN credential for the Microsoft Graph MCP server.",

@@ -46,7 +46,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download Hudu MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/hudu-v0.1.0/hudu-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Hudu release on the [releases page](https://github.com/servosity/msp-skills/releases?q=hudu).)
+[**Download Hudu MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/hudu-v0.1.6/hudu-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Hudu release on the [releases page](https://github.com/servosity/msp-skills/releases?q=hudu).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 

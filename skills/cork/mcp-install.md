@@ -37,7 +37,10 @@ Add (or merge with your existing `mcpServers` block):
     "cork": {
       "command": "cork-mcp",
       "env": {
-        "CORK_API_KEY": "<your-cork_api_token>"
+        "CORK_API_KEY": "<your-cork_api_token>",
+        "CORK_BASE_URL": "https://api.corkinc.com/api/v1",
+        "CORK_USER_AGENT": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
@@ -62,7 +65,10 @@ Configuration**) and add:
       "type": "stdio",
       "command": "cork-mcp",
       "env": {
-        "CORK_API_KEY": "<your-cork_api_token>"
+        "CORK_API_KEY": "<your-cork_api_token>",
+        "CORK_BASE_URL": "https://api.corkinc.com/api/v1",
+        "CORK_USER_AGENT": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
@@ -83,7 +89,10 @@ Claude Desktop:
     "cork": {
       "command": "cork-mcp",
       "env": {
-        "CORK_API_KEY": "<your-cork_api_token>"
+        "CORK_API_KEY": "<your-cork_api_token>",
+        "CORK_BASE_URL": "https://api.corkinc.com/api/v1",
+        "CORK_USER_AGENT": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }

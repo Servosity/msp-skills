@@ -35,6 +35,31 @@ jobs:
       - name: Markdown local links
         run: python3 tools/maintainer/check_md_links.py
 
+      - name: Pinned release URLs resolve (tag cut, or an in-flight release)
+        # check_md_links.py skips http(s) entirely, so nothing verified that the
+        # version-pinned .mcpb identifiers and release links this repo publishes
+        # point at a tag that exists. On 2026-08-25 seventy of them did not: a
+        # version bump rewrites the pin, the tag is cut by hand afterwards, and
+        # skipping that step leaves main serving a 404 forever.
+        #
+        # BASE is what makes this checkable without failing every release
+        # commit: a pin that is NEW or MOVED in this change-set is an in-flight
+        # release (allowed, with a reminder), a pin byte-identical to BASE whose
+        # tag still does not exist is a release that was never cut (failure).
+        # On a push BASE must be github.event.before, NOT origin/main: the
+        # runner's origin/main already contains the push. The checkout above is
+        # fetch-depth: 0, so every tag is local and no network call is made.
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        # WARN for the first landing only. main carries a real backlog this gate
+        # exists to surface - 62 pins across 31 connectors whose releases were
+        # never cut - and those are cleared by the tag push that follows this
+        # merge, not by a code change. Gating before the backlog is cleared would
+        # block the commit that fixes it. Same posture as check_cli_claims.py and
+        # check_env_schema.py above.
+        # NOTE(calibration): drop --warn once the 31 tags are cut and this reads 0.
+        run: python3 tools/maintainer/check_pinned_artifacts.py --base "$BASE" --no-network --warn
+
       - name: No TODO / placeholder markers in skill prose
         run: python3 tools/maintainer/check_no_todos.py
 
@@ -195,3 +220,37 @@ jobs:
         # were all green - only tools/call could see it. Needs no credentials
         # and runs in about a second on a warm build cache.
         run: python3 tools/maintainer/check_mcp_gate.py --slug ${{ matrix.skill.name }}
+
+      - name: Doctor reports a verdict that tracks reality (this skill)
+        # Hard gate: build this skill's CLI and run `doctor --json` against a
+        # local stub HTTP server in four states - healthy, expired credential,
+        # a base URL where every API path 404s, and the connector's own shipped
+        # placeholder default. Assert doctor never reports a healthy verdict in
+        # a state that is provably broken, and never tells a correctly
+        # credentialled operator they are broken without naming the variable
+        # that fixes it.
+        #
+        # Issue #282: `cipp-cli doctor` printed an identical all-green report
+        # for a wrong base URL, a correct config, and a token rejected with 401
+        # on every call; `zammad-cli doctor` printed every row green - including
+        # "Credentials: ok" - against its own placeholder host with the literal
+        # token "totally-bogus-token", and exited 0 under --fail-on error.
+        # 41 of 65 connectors never probed the credential at all.
+        #
+        # Needs no vendor credentials and no network: the stub binds 127.0.0.1
+        # and the fixture config carries a literal auth_header.
+        run: python3 tools/maintainer/check_doctor_truth.py --slug ${{ matrix.skill.name }}
+
+      - name: Manifest env schema matches the binary's reads (this skill)
+        # Scans this skill's Go source for the env vars it actually reads and
+        # asserts every operator-facing one is declared in manifest.json
+        # server.mcp_config.env with a matching user_config prompt - and that
+        # nothing is declared the binary never reads. Claude Desktop has no
+        # shell and no config.toml, so an undeclared variable is a credential
+        # the operator is never asked for: the server boots, tools/list looks
+        # healthy, and the first real call fails. Issue #282; 60 of 65
+        # connectors under-declared, cove 0 of 4 and quickbooks 1 of 8.
+        # WARN mode, mirroring check_cli_claims.py above, so a connector added
+        # or reprinted before its manifest catches up cannot red main.
+        # NOTE(calibration): the fleet is clean today - drop --warn to gate.
+        run: python3 tools/maintainer/check_env_schema.py --warn --slug ${{ matrix.skill.name }}

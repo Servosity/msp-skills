@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/auvik-mcp",
   "title": "Auvik MCP",
   "description": "Every Auvik endpoint as a command, plus the cross-client answers the Auvik UI and API cannot give",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/auvik/auvik-512x512.png",
@@ -21,19 +21,13 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/auvik-v0.2.0/auvik-mcp.mcpb",
-      "version": "0.2.0",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/auvik-v0.2.1/auvik-mcp.mcpb",
+      "version": "0.2.1",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"
       },
       "environmentVariables": [
-        {
-          "name": "AUVIK_USERNAME",
-          "description": "The Auvik user email whose API key you are using (Basic auth username).",
-          "isRequired": true,
-          "isSecret": false
-        },
         {
           "name": "AUVIK_API_KEY",
           "description": "Auvik API key (Basic auth password). Auvik > Admin > Integrations > Auvik API.",
@@ -44,6 +38,31 @@
           "name": "AUVIK_BASE_URL",
           "description": "Your Auvik regional API host with no path suffix, e.g. https://auvikapi.us1.my.auvik.com",
           "isRequired": true,
+          "isSecret": false,
+          "default": "https://auvikapi.us1.my.auvik.com"
+        },
+        {
+          "name": "AUVIK_TENANT",
+          "description": "Tenant ID the inventory reads and sync default to (the --tenant flag overrides it). Child tenants are included in the response. Leave blank to use your credential's own tenant.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "AUVIK_USERNAME",
+          "description": "The Auvik user email whose API key you are using (Basic auth username).",
+          "isRequired": true,
+          "isSecret": false
+        },
+        {
+          "name": "AUVIK_USER_AGENT",
+          "description": "Overrides the User-Agent the CLI sends on Auvik requests. Leave blank to use the CLI's own built-in User-Agent.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Binds this MCP server to one tenant-gated client profile, so every call answers for that customer. Leave blank to use the profile configured as default_client_profile.",
+          "isRequired": false,
           "isSecret": false
         }
       ]

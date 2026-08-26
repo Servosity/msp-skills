@@ -1,28 +1,374 @@
 {
-  "slug": "cipp",
-  "doc": "docs/reprint-survival.md",
-  "_comment": "Connector-specific edits to GENERATED/authored files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and banned anti-patterns absent) and fails CI if a reprint dropped one. Provenance: live-verification report from Abhi Saini (Bearium Networks) in the Compounding Teams Community Discussion, 2026-08-13 (badge flip PR #199).",
-  "handfixes": [
+ "slug": "cipp",
+ "doc": "docs/reprint-survival.md",
+ "_comment": "Connector-specific edits to GENERATED/authored files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and banned anti-patterns absent) and fails CI if a reprint dropped one. Provenance: live-verification report from Abhi Saini (Bearium Networks) in the Compounding Teams Community Discussion, 2026-08-13 (badge flip PR #199).",
+ "handfixes": [
+  {
+   "id": "sync-empty-hint-points-at-fanout",
+   "summary": "The empty-sync hint tells the user to run `fanout --endpoint <x> --all-tenants --save`, not the press's generic `--resources` suggestion",
+   "why": "CIPP's API is tenant-scoped end to end and exposes no bulk-list endpoints, so `syncResourcePath()`'s path map is generated EMPTY and `knownSyncResourceNames()` returns nothing. The press's generic empty-sync hint tells the user to 'use --resources for explicit sync targets' - a dead end here, because every --resources value errors 'unknown sync resource'. The hint pointed at the one remedy that cannot work while the real mechanism (per-endpoint fan-out across tenants) went unmentioned. Abhi Saini hit exactly this and had to derive fanout from scratch with an agent. A reprint re-emits the generic wording.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: a connector whose generated sync path-map is empty should emit a connector-aware remedy (or, per upstream cli-printing-press #3659 'gate zero-sync data surfaces', not advertise the sync surface at all) instead of pointing at --resources. Re-check on the next reprint - cipp is on the 4.24.0 engine and #3659 landed after it.",
+   "asserts": [
     {
-      "id": "sync-empty-hint-points-at-fanout",
-      "summary": "The empty-sync hint tells the user to run `fanout --endpoint <x> --all-tenants --save`, not the press's generic `--resources` suggestion",
-      "why": "CIPP's API is tenant-scoped end to end and exposes no bulk-list endpoints, so `syncResourcePath()`'s path map is generated EMPTY and `knownSyncResourceNames()` returns nothing. The press's generic empty-sync hint tells the user to 'use --resources for explicit sync targets' - a dead end here, because every --resources value errors 'unknown sync resource'. The hint pointed at the one remedy that cannot work while the real mechanism (per-endpoint fan-out across tenants) went unmentioned. Abhi Saini hit exactly this and had to derive fanout from scratch with an agent. A reprint re-emits the generic wording.",
-      "status": "active",
-      "spec_encode_followup": "Press-side: a connector whose generated sync path-map is empty should emit a connector-aware remedy (or, per upstream cli-printing-press #3659 'gate zero-sync data surfaces', not advertise the sync surface at all) instead of pointing at --resources. Re-check on the next reprint - cipp is on the 4.24.0 engine and #3659 landed after it.",
-      "asserts": [
-        {"file": "cli/internal/cli/sync.go", "contains": "--all-tenants --save", "min_count": 2},
-        {"file": "cli/internal/cli/sync.go", "not_contains": "use --resources for explicit sync targets"}
-      ]
+     "file": "cli/internal/cli/sync.go",
+     "contains": "--all-tenants --save",
+     "min_count": 2
     },
     {
-      "id": "tenant-list-envelope-unwrap",
-      "summary": "parseTenantArray unwraps a {\"Results\": [...]} envelope before falling back to the lone-tenant path, so --all-tenants fan-out enumerates the fleet",
-      "why": "Current CIPP returns /ListTenants as {\"Results\":[...]}; the novel cross-tenant code only handled a bare array and fell back to 'treat the whole payload as one tenant object'. That object resolves no defaultDomainName, gets dropped, and every --all-tenants fan-out reports ZERO tenants against a healthy CIPP with a 6.6 KB response on the wire. The rest of the tree already knew the key - promoted_list-tenants.go writes the store from \"Results\" and sync.go's pageItemKeys lists results/Results - only the novel path missed it. cipp_tenants.go is a NOVEL (non-generated) file, so this survives a reprint as a carried novel; the assert guards against a novel-rewrite dropping it.",
-      "status": "active",
-      "asserts": [
-        {"file": "cli/internal/cli/cipp_tenants.go", "contains": "tenantEnvelopeArray", "min_count": 2},
-        {"file": "cli/internal/cli/cipp_tenants_test.go", "contains": "Results envelope", "min_count": 1}
-      ]
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "use --resources for explicit sync targets"
     }
-  ]
+   ]
+  },
+  {
+   "id": "tenant-list-envelope-unwrap",
+   "summary": "parseTenantArray unwraps a {\"Results\": [...]} envelope before falling back to the lone-tenant path, so --all-tenants fan-out enumerates the fleet",
+   "why": "Current CIPP returns /ListTenants as {\"Results\":[...]}; the novel cross-tenant code only handled a bare array and fell back to 'treat the whole payload as one tenant object'. That object resolves no defaultDomainName, gets dropped, and every --all-tenants fan-out reports ZERO tenants against a healthy CIPP with a 6.6 KB response on the wire. The rest of the tree already knew the key - promoted_list-tenants.go writes the store from \"Results\" and sync.go's pageItemKeys lists results/Results - only the novel path missed it. cipp_tenants.go is a NOVEL (non-generated) file, so this survives a reprint as a carried novel; the assert guards against a novel-rewrite dropping it.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/cipp_tenants.go",
+     "contains": "tenantEnvelopeArray",
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/cli/cipp_tenants_test.go",
+     "contains": "Results envelope",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "client-credentials-token-refresh",
+   "summary": "The client re-mints the OAuth2 client-credentials access token when it nears expiry, and `auth login` persists the tenant_id/authority/scope that a re-mint needs",
+   "why": "As generated, `auth login` cached an access token plus a token_expiry that NOTHING ever read: config.AuthHeader() returned 'Bearer '+access_token forever and client.go retried only 429/5xx, never 401. Azure AD client-credentials tokens live about 60 to 90 minutes, so a cipp install stopped working roughly an hour after login and every request 401'd until a human re-ran `auth login`. The long-lived MCP server re-reads config.toml per tool call, so it kept serving the dead token indefinitely. The generated `auth login` also accepted --tenant-id and DISCARDED it, leaving no Azure AD token endpoint to refresh against; tenant_id, authority and scope are now persisted, and a config that predates them fails with an actionable error naming the exact command rather than silently reproducing the 401. Three constraints are load-bearing and easy for a reprint or a well-meaning refactor to undo: (1) the re-mint predicate must NOT be the sibling connectors' 'empty access_token means mint', because cipp's documented static CIPP_API_KEY mode has an empty access_token permanently and would mint on every request behind a package-level mutex, serializing the entire fan-out; (2) the mint must ride c.HTTPClient, not http.DefaultClient, or it escapes the test harness, --dry-run and verify mode; (3) the save must be best-effort, unlike the nine sibling connectors that return a wrapped error and throw away a valid token on a read-only home dir. Covered by internal/client/token_refresh_test.go, internal/config/oauth_context_test.go and internal/cli/auth_token_context_test.go. An adversarial review then found the ledger itself was presence-only: every assert pinned a string INSIDE a helper, so a reprint that regenerated authHeader() would drop the four-line CALL SITE while every asserted string survived as dead code - green CI, fix gone. The call site is now asserted verbatim.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: the generated client.go emits a stub authHeader with no expiry gate even when the connector's auth flow is client_credentials, and the generated config.Config carries no tenant/authority/scope/token_url fields for an Azure AD grant. Six connectors in this repo mint a token and never refresh it: cipp, blumira, microsoft-graph, kaseya-bms, datto-rmm, quickbooks. blumira and microsoft-graph carry a byte-identical stub and the same missing-tenant gap, so this fix ports directly to them.",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "needsClientCredentialsMint",
+     "min_count": 4
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "func (c *Client) mintClientCredentials",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "var ccMu sync.Mutex",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "tokenExpirySkew = 5 * time.Minute",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.mintHTTPClient()",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "_ = cfg.SaveTokens(clientID, clientSecret, tokenResp.AccessToken, \"\", expiry)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.remintUnavailable()",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "return fmt.Errorf(\"saving minted token: %w\", err)"
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "http.DefaultClient.Do(req)"
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "TenantID  string `toml:\"tenant_id\"`",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "func (c *Config) TokenEndpoint() string",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "func (c *Config) SetOAuthContext(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/auth_login.go",
+     "contains": "cfg.SetOAuthContext(tenantID, authority, scope)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "cfg.SaveTokens(\"\", \"\", args[0], \"\", time.Time{})",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "not_contains": "cfg.SaveTokens(\"\", \"\", args[0], \"\", cfg.TokenExpiry)"
+    },
+    {
+     "file": "cli/internal/client/token_refresh_test.go",
+     "contains": "TestAuthHeader_StaticAPIKeyNeverMints",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/token_refresh_test.go",
+     "contains": "TestAuthHeader_ConcurrentMintExactlyOnce",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/token_refresh_test.go",
+     "contains": "TestAuthHeader_MissingTenantIDIsLoudNotSilent",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "\tif err := c.ensureClientCredentialsTokenLocked(ctx); err != nil {\n\t\treturn \"\", err\n\t}\n\tauthHeader := c.Config.AuthHeader()",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "cfg.SetTokenLifetime(lifetime)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/auth_login.go",
+     "contains": "cfg.SetTokenLifetime(lifetime)",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "client-credentials-mint-hardening",
+   "summary": "The client-credentials token exchange refuses cross-origin redirects, degrades to the still-valid cached token when a re-mint fails, clamps its refresh skew to half the granted lifetime, and masks client_secret in the token endpoint's error body",
+   "why": "Four defects an adversarial review found in the re-mint above, all of them regressions a reprint or a well-meaning refactor would reintroduce. (1) SECURITY: the mint set `cp.CheckRedirect = nil` to dodge a ccMu re-entrancy deadlock. Clearing CheckRedirect does not disable redirects - it restores Go's DEFAULT policy, which follows up to 10 hops and REPLAYS THE POST BODY on 307/308. That body is the client-credentials form carrying client_secret, so the single most secret-bearing request in the CLI was the only one that opted out of the threat model client.New()'s own CheckRedirect states ('a cross-domain 3xx must not receive the auth credential'), and the CLI then accepted and cached whatever access_token the redirect target returned. `auth login` had the identical hole via http.DefaultClient. Both now install TokenExchangeRedirectPolicy, which is a plain function over its arguments: it closes over no *Client and no package state, so a same-origin comparison cannot re-enter ccMu the way the authHeader-calling policy did. Do NOT 'simplify' it back to nil, and do NOT make it a *Client method that reads c.Config. (2) AVAILABILITY: a failed mint returned its error straight to authHeader, so during the 5-minute safety skew - about 8% of every token lifetime - any transient token-endpoint failure (AAD 5xx, DNS, proxy blip) converted a working CLI into a broken one while the cached token was still perfectly valid. mintFailureWithCachedToken now makes the same judgement remintUnavailable already made for the missing-tenant_id case: warn and proceed while the token is genuinely alive, fail hard only once it is actually spent. A 30-second cooldown keeps a fan-out from re-attempting a known-down endpoint on every request while HOLDING ccMu for up to tokenRequestTimeout apiece. (3) MINT STORM: the predicate compared the remaining lifetime against a fixed 5-minute skew, so a token endpoint granting anything shorter than 10 minutes put every freshly minted token inside the skew the instant it arrived - re-minting on every request and serializing the whole fan-out behind the package-level mutex. effectiveTokenSkew clamps to half the granted lifetime, which needs the new non-secret config field token_lifetime to survive to disk. (4) SECRET IN ERROR: the mint's HTTP-error path used cliutil.SanitizeErrorBody, which only knows generic token shapes and has never seen cfg.ClientSecret, because the real masker c.maskCredentialText takes ccMu and the mint already holds it. maskCredentialTextLocked is the lock-free variant; it runs BEFORE SanitizeErrorBody because that helper truncates at 200 bytes and a secret straddling the boundary would no longer match its own needle. Covered by internal/client/token_hardening_test.go, internal/cli/auth_login_redirect_test.go and internal/config/token_lifetime_test.go, each proved in both directions.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: every generated client_credentials mint in this repo has the same three holes. The press should emit a same-origin CheckRedirect on any token exchange (never a nil one), should degrade a failed re-mint to a still-valid cached token, and should record the granted expires_in so the refresh skew can be clamped. Six connectors mint a token this way: cipp, blumira, microsoft-graph, kaseya-bms, datto-rmm, quickbooks.",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "func TokenExchangeRedirectPolicy(req *http.Request, via []*http.Request) error",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "func sameTokenExchangeOrigin(from, to *url.URL) bool",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "cp.CheckRedirect = TokenExchangeRedirectPolicy",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "cp.CheckRedirect = nil"
+    },
+    {
+     "file": "cli/internal/cli/auth_login.go",
+     "contains": "CheckRedirect: client.TokenExchangeRedirectPolicy",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/auth_login.go",
+     "not_contains": "http.DefaultClient.Do(req)"
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "func (c *Client) mintFailureWithCachedToken(mintErr error) error",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "return c.mintFailureWithCachedToken(err)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "func (c *Client) cachedTokenStillValidLocked() bool",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "mintFailureCooldown = 30 * time.Second",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "func effectiveTokenSkew(cfg *config.Config) time.Duration",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "return time.Until(cfg.TokenExpiry) < effectiveTokenSkew(cfg)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "return time.Until(cfg.TokenExpiry) < tokenExpirySkew"
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "func (c *Config) SetTokenLifetime(seconds int)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "`toml:\"token_lifetime\"`",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "func (c *Client) maskCredentialTextLocked(text string, extraCredentials ...string) string",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "cliutil.SanitizeErrorBody(c.maskCredentialTextLocked(string(body), clientSecret))",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "cliutil.SanitizeErrorBody(string(body))"
+    },
+    {
+     "file": "cli/internal/cli/auth_login.go",
+     "contains": "func maskSecret(text, secret string) string",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/token_hardening_test.go",
+     "contains": "func TestMintRefusesCrossHostRedirect(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/token_hardening_test.go",
+     "contains": "func TestDefaultRedirectPolicyLeaksTheSecretAndOursDoesNot(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/token_hardening_test.go",
+     "contains": "func TestMintFollowsSameHostRedirectWithBody(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/token_hardening_test.go",
+     "contains": "func TestAuthHeader_MintFailureKeepsStillValidToken(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/token_hardening_test.go",
+     "contains": "func TestAuthHeader_MintFailureOnDeadTokenStillFailsHard(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/token_hardening_test.go",
+     "contains": "func TestAuthHeader_ShortLivedTokenDoesNotStorm(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/token_hardening_test.go",
+     "contains": "func TestMintErrorBodyMasksClientSecret(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/auth_login_redirect_test.go",
+     "contains": "func TestAuthLogin_RefusesCrossHostRedirect(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/config/token_lifetime_test.go",
+     "contains": "func TestTokenLifetime_RoundTripsThroughDisk(",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "doctor-verdict-tracks-reality",
+   "summary": "doctor probes a real GET endpoint with the real credential and refuses to dial a placeholder base_url, instead of calling any HTTP response 'reachable' and never checking the credential",
+   "why": "`doctor` is the command every SKILL, guide and docs page tells an operator to run to confirm the connector works, and it could not tell a working install from a broken one. It called any HTTP response to `GET /` \"reachable\" and rendered it green, so a base_url aimed at the vendor's web UI (where every API path 404s) and a token rejected with 401 on every call both produced an all-green report. On this connector family it also never probed the credential at all: it printed \"present, not verified\" and left the operator to guess. The mirror defect: a connector whose shipped base_url default is a placeholder dialled the placeholder host, and the DNS failure rendered as \"FAIL API: unreachable\" - telling a correctly-credentialled operator they were broken without naming the one variable that would fix it. Several placeholder hosts resolve through live wildcard DNS and answer real HTTP, so dialling one produced a confident green verdict against a stranger's server. Measured and gated by tools/maintainer/check_doctor_truth.py. See issue #282.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorProbeCredentials("
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorBaseURLIsPlaceholder("
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorIsInfoKey(k)"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorBaseURLIsPlaceholder(cfg.BaseURL)"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeCredentials(cmd.Context()"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "present, not verified. Run `%s %s`"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "for _, v := range report {"
+    }
+   ]
+  },
+  {
+   "id": "install-credentials-declared-on-every-channel",
+   "summary": "every operator credential this connector reads is declared on all three install channels: manifest.json (.mcpb), server.json (MCP Registry) and mcp-install.md (manual install)",
+   "why": "Issue #282 ('three live-verified connectors prompt for the wrong credentials'). A connector is installed through THREE independent channels that each carry their own copy of the credential list: manifest.json server.mcp_config.env (what the .mcpb bundle hands Claude Desktop, which has no shell profile, no config.toml and no export - so an undeclared variable is a variable nobody is ever asked for), server.json environmentVariables (the MCP Registry publish channel), and mcp-install.md's copy-paste JSON blocks plus its remote launch line (the manual path, which never touches the bundle at all). The fleet-wide audit found 60 of 65 connectors under-declaring 122 operator-facing variables in the manifest, 61 of 65 mcp-install.md pages omitting 125, and hudu's server.json missing the base URL its manifest marks required. For cipp the manifest gained: CIPP_BASE_URL. server.json gained: CIPP_BASE_URL. mcp-install.md's env blocks gained: CIPP_BASE_URL. manifest.json, server.json and mcp-install.md are ALL regenerated by /msp-skills-publish on an UPDATE or re-onboard, so without this ledger a regeneration silently drops every declaration and CI stays green (check_env_schema.py is wired --warn). The asserts below name the specific credentials, not a count, so dropping one and adding another cannot cancel out.",
+   "status": "active",
+   "spec_encode_followup": "cli-printing-press should emit server.mcp_config.env, the matching user_config prompts, server.json environmentVariables and mcp-install.md's env blocks from ONE declaration of the connector's operator-facing environment, so the three channels cannot be generated out of step. Until then check_env_schema.py compares all three and this ledger pins them.",
+   "asserts": [
+    {
+     "file": "manifest.json",
+     "contains": "\"CIPP_API_KEY\": \"${user_config.cipp_api_key}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"CIPP_BASE_URL\": \"${user_config.cipp_base_url}\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"CIPP_API_KEY\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"CIPP_BASE_URL\"",
+     "min_count": 1
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"CIPP_API_KEY\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"CIPP_BASE_URL\":",
+     "min_count": 3
+    }
+   ]
+  }
+ ]
 }

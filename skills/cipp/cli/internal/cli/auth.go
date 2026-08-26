@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"time"
 )
 
 func newAuthCmd(flags *rootFlags) *cobra.Command {
@@ -149,7 +150,15 @@ func newAuthSetTokenCmd(flags *rootFlags) *cobra.Command {
 			// log line): a masked-tail variant could leak token bytes through
 			// scripted dogfood that captures stderr.
 			cfg.AuthHeaderVal = ""
-			if err := cfg.SaveTokens("", "", args[0], "", cfg.TokenExpiry); err != nil {
+			// Zero the expiry rather than carrying the OLD token's expiry
+			// forward onto a brand-new token. A static token pasted here has
+			// no expires_in for us to read, and re-saving the previous
+			// token_expiry means a freshly-set token can look already-expired
+			// on arrival to the client's re-mint gate. SaveTokens also blanks
+			// client_id/client_secret, which is correct: set-token replaces
+			// an OAuth2 install with a static credential, and the re-mint
+			// predicate requires both of those to be present.
+			if err := cfg.SaveTokens("", "", args[0], "", time.Time{}); err != nil {
 				return configErr(fmt.Errorf("saving token: %w", err))
 			}
 

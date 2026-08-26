@@ -39,6 +39,8 @@ Add (or merge with your existing `mcpServers` block):
       "env": {
         "DATTO_RMM_API_KEY": "<your-datto_rmm_api_key>",
         "DATTO_RMM_API_SECRET_KEY": "<your-datto_rmm_api_secret_key>",
+        "DATTO_RMM_BASE_URL": "",
+        "DATTO_RMM_PLATFORM": "",
         "DATTO_RMM_TOKEN": "<your-datto_rmm_token>"
       }
     }
@@ -66,6 +68,8 @@ Configuration**) and add:
       "env": {
         "DATTO_RMM_API_KEY": "<your-datto_rmm_api_key>",
         "DATTO_RMM_API_SECRET_KEY": "<your-datto_rmm_api_secret_key>",
+        "DATTO_RMM_BASE_URL": "",
+        "DATTO_RMM_PLATFORM": "",
         "DATTO_RMM_TOKEN": "<your-datto_rmm_token>"
       }
     }
@@ -89,6 +93,8 @@ Claude Desktop:
       "env": {
         "DATTO_RMM_API_KEY": "<your-datto_rmm_api_key>",
         "DATTO_RMM_API_SECRET_KEY": "<your-datto_rmm_api_secret_key>",
+        "DATTO_RMM_BASE_URL": "",
+        "DATTO_RMM_PLATFORM": "",
         "DATTO_RMM_TOKEN": "<your-datto_rmm_token>"
       }
     }
@@ -107,7 +113,7 @@ All remote agents need `datto-rmm-mcp` reachable as a public **HTTPS** endpoint.
 in HTTP mode with your credentials in the environment:
 
 ```bash
-DATTO_RMM_API_KEY=<value> DATTO_RMM_API_SECRET_KEY=<value> DATTO_RMM_TOKEN=<value> datto-rmm-mcp --transport http --addr :7777
+DATTO_RMM_API_KEY=<value> DATTO_RMM_API_SECRET_KEY=<value> DATTO_RMM_BASE_URL=<value> DATTO_RMM_PLATFORM=<value> DATTO_RMM_TOKEN=<value> datto-rmm-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

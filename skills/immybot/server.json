@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/immybot-mcp",
   "title": "ImmyBot MCP",
   "description": "Every ImmyBot endpoint typed, plus a local SQLite mirror that answers the cross-tenant questions",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/immybot/immybot-512x512.png",
@@ -21,23 +21,17 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/immybot-v0.1.0/immybot-mcp.mcpb",
-      "version": "0.1.0",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/immybot-v0.1.1/immybot-mcp.mcpb",
+      "version": "0.1.1",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"
       },
       "environmentVariables": [
         {
-          "name": "IMMYBOT_SUBDOMAIN",
-          "description": "Set the IMMYBOT_SUBDOMAIN credential for the ImmyBot MCP server.",
-          "isRequired": true,
-          "isSecret": false
-        },
-        {
-          "name": "IMMYBOT_TENANT_ID",
-          "description": "Set the IMMYBOT_TENANT_ID credential for the ImmyBot MCP server.",
-          "isRequired": true,
+          "name": "IMMYBOT_BASE_URL",
+          "description": "Full API base URL. Leave blank: the CLI builds it from IMMYBOT_SUBDOMAIN. Set it only to point at a different host.",
+          "isRequired": false,
           "isSecret": false
         },
         {
@@ -51,6 +45,37 @@
           "description": "Set the IMMYBOT_CLIENT_SECRET credential for the ImmyBot MCP server.",
           "isRequired": true,
           "isSecret": true
+        },
+        {
+          "name": "IMMYBOT_SUBDOMAIN",
+          "description": "Set the IMMYBOT_SUBDOMAIN credential for the ImmyBot MCP server.",
+          "isRequired": true,
+          "isSecret": false
+        },
+        {
+          "name": "IMMYBOT_TENANT_ID",
+          "description": "Set the IMMYBOT_TENANT_ID credential for the ImmyBot MCP server.",
+          "isRequired": true,
+          "isSecret": false
+        },
+        {
+          "name": "IMMYBOT_TOKEN_URL",
+          "description": "Token endpoint the client-credentials exchange posts to. Leave the prefilled default unless your tenant uses a different token endpoint.",
+          "isRequired": false,
+          "isSecret": false,
+          "default": "https://login.microsoftonline.com/common/oauth2/v2.0/token"
+        },
+        {
+          "name": "IMMYBOT_USER_AGENT",
+          "description": "Overrides the User-Agent the CLI sends on ImmyBot requests. Leave blank to use the CLI's own built-in User-Agent.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Binds this MCP server to one tenant-gated client profile, so every call answers for that customer. Leave blank to use the profile configured as default_client_profile.",
+          "isRequired": false,
+          "isSecret": false
         }
       ]
     }

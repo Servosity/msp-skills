@@ -29,10 +29,35 @@
       },
       "environmentVariables": [
         {
+          "name": "ACRONIS_BASE_URL",
+          "description": "Full API base URL. Leave blank: the CLI builds it from ACRONIS_DATACENTER. Set it only to point at a different host.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "ACRONIS_BEARER_AUTH",
+          "description": "Sets ACRONIS_BEARER_AUTH for the Acronis Cyber Protect Cloud MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "ACRONIS_CLIENT_ID",
+          "description": "OAuth2 client ID of the Acronis API client (Acronis console: Settings > API clients). Used with ACRONIS_CLIENT_SECRET to mint a bearer token.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "ACRONIS_CLIENT_SECRET",
+          "description": "OAuth2 client secret paired with ACRONIS_CLIENT_ID. Acronis shows it once, when the API client is created.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
           "name": "ACRONIS_DATACENTER",
           "description": "Acronis datacenter host prefix (for example eu2-cloud or us-cloud).",
           "isRequired": false,
-          "isSecret": false
+          "isSecret": false,
+          "default": "eu2-cloud"
         }
       ]
     }

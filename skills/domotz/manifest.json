@@ -16,6 +16,7 @@
       "args": [],
       "env": {
         "DOMOTZ_API_KEY": "${user_config.domotz_api_key}",
+        "DOMOTZ_BASE_URL": "${user_config.domotz_base_url}",
         "DOMOTZ_REGION": "${user_config.domotz_region}"
       }
     }
@@ -33,6 +34,12 @@
       "title": "DOMOTZ_REGION",
       "description": "Sets DOMOTZ_REGION for the endpoint template variable {region}.",
       "default": "us-east-1-cell-1"
+    },
+    "domotz_base_url": {
+      "type": "string",
+      "title": "Domotz API base URL",
+      "description": "Full API base URL. Leave blank: the CLI builds it from DOMOTZ_REGION. Set it only to point at a different host.",
+      "required": false
     }
   },
   "compatibility": {

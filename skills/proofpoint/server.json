@@ -35,6 +35,13 @@
           "isSecret": true
         },
         {
+          "name": "PROOFPOINT_BASE_URL",
+          "description": "Base URL for the Proofpoint TAP API. Leave the prefilled default unless your account uses a different regional or self-hosted host.",
+          "isRequired": false,
+          "isSecret": false,
+          "default": "https://tap-api-v2.proofpoint.com/v2"
+        },
+        {
           "name": "PROOFPOINT_SERVICE_PRINCIPAL",
           "description": "Set the PROOFPOINT_SERVICE_PRINCIPAL credential for the Proofpoint MCP server.",
           "isRequired": true,

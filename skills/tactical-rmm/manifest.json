@@ -15,6 +15,7 @@
       "command": "${__dirname}/bin/tactical-rmm-mcp",
       "args": [],
       "env": {
+        "TACTICAL_RMM_BASE_URL": "${user_config.tactical_rmm_base_url}",
         "TRMM_API_KEY": "${user_config.trmm_api_key}"
       }
     }
@@ -25,6 +26,12 @@
       "title": "TRMM_API_KEY",
       "description": "Tactical RMM API key (Settings > Global Settings > API Keys). Bypasses 2FA.",
       "sensitive": true,
+      "required": true
+    },
+    "tactical_rmm_base_url": {
+      "type": "string",
+      "title": "Tactical RMM API base URL",
+      "description": "Base URL of your Tactical RMM API host, e.g. https://api.rmm.example.com. It is the api.* hostname from your Tactical RMM install, not the web UI hostname. The shipped default points at an example host.",
       "required": true
     }
   },
