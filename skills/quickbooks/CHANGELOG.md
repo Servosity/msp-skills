@@ -4,6 +4,20 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## Unreleased
+
+### Fixed
+- **The novel-command acceptance tests failed on the calendar, not on a code change.** Their
+  seeded books used fixed 2026 dates while the commands under test read today's clock, so once
+  the calendar passed the newest seeded due date every invoice looked overdue: the cash-forecast
+  test saw 800 of overdue inflows instead of 500 and an entirely empty eight-week window, and the
+  stale-invoice test saw a not-yet-due invoice join the collections list. The seeded dates are now
+  whole-day offsets from the day the test runs, so the books hold the same shape on any future
+  date and in any time zone. Test-only - no shipped behaviour changed; `cash-forecast`,
+  `invoices stale` and the aging commands always forecast from the real current date. The tests
+  are also stricter now that "today" is known: they assert the overdue split, the beyond-window
+  amounts, the net inside the window, and which forward week each open item buckets into.
+
 ## [0.1.6] - 2026-08-26
 
 ### Fixed
