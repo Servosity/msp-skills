@@ -46,7 +46,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download Huntress MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/huntress-v0.1.3/huntress-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Huntress release on the [releases page](https://github.com/servosity/msp-skills/releases?q=huntress).)
+[**Download Huntress MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/huntress-v0.1.4/huntress-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Huntress release on the [releases page](https://github.com/servosity/msp-skills/releases?q=huntress).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 

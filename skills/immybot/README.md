@@ -46,7 +46,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download ImmyBot MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/immybot-v0.1.1/immybot-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every ImmyBot release on the [releases page](https://github.com/servosity/msp-skills/releases?q=immybot).)
+[**Download ImmyBot MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/immybot-v0.1.2/immybot-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every ImmyBot release on the [releases page](https://github.com/servosity/msp-skills/releases?q=immybot).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
