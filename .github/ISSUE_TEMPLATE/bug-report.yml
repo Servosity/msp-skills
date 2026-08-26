@@ -13,7 +13,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Sorry it broke. The two fields that get this fixed fastest are the exact command (or question) you ran and the exact error text - paste both verbatim, even if they look obvious. Redact tenant names, hostnames, keys, and tokens before you post.
+        Sorry it broke. The field that gets this fixed fastest is the exact command (or question) you ran - paste it verbatim, even if it looks obvious. If there was error text, paste that verbatim too. If there was not - it hung, returned nothing, or answered wrong - describe what came back instead. Redact tenant names, hostnames, keys, and tokens before you post.
 
   - type: dropdown
     id: skill
@@ -131,11 +131,9 @@ body:
   - type: textarea
     id: error
     attributes:
-      label: Exact error output
-      description: Paste the full output, including any stack trace or HTTP status. Redact tenant names, hostnames, keys, and tokens first. This box renders as code, so no backticks needed.
+      label: What you saw (exact error output if any)
+      description: If there was error text, paste it verbatim - the full output, including any stack trace or HTTP status. If there was no error - it hung, returned nothing, or gave a wrong answer - describe what came back instead and what you expected. Redact tenant names, hostnames, keys, and tokens first. This box renders as code, so no backticks needed.
       render: shell
-    validations:
-      required: true
 
   - type: dropdown
     id: ever_worked

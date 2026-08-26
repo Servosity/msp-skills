@@ -13,8 +13,8 @@ contact_links:
     about: Discussion and Build Session recordings.
 
   - name: Request a connector or send an it-works receipt without a GitHub account
-    url: https://msp-skills.compoundingteams.com/requesting-a-skill/
-    about: No GitHub account, no terminal. Tell us what to build, or tell us a Skill worked against your real tenant.
+    url: mailto:hello@servosity.com
+    about: Email hello@servosity.com - plain text is fine. Tell us what to build, or tell us a Skill worked against your real tenant. A web form is coming.
 
   - name: Report a security issue privately
     url: mailto:security@servosity.com
