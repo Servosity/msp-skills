@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-authored regression suite for the credential lifecycle commands:
 // `auth login` must persist the client-credentials context the client needs to
 // re-mint, and `auth set-token` must not carry the previous token's expiry

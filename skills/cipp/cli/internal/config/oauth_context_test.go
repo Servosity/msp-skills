@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-authored regression suite for the OAuth2 client-credentials context
 // (tenant_id / authority / scope) that `auth login` persists so the client can
 // re-mint an expired token. Before these fields existed the tenant was

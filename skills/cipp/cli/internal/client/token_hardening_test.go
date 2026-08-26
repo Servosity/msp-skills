@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-authored regression suite for the two P1 defects an adversarial review
 // found in the client-credentials re-mint, plus the mint-storm and
 // secret-in-error-body follow-ons.
