@@ -126,6 +126,31 @@
      "min_count": 1
     }
    ]
+  },
+  {
+   "id": "credential-precedence-tests-decode-basic-header",
+   "summary": "the credentials-precedence tests decode the Basic Authorization header before asserting which secret it carries, instead of grepping the raw secret out of base64",
+   "why": "The generated credentials-precedence tests (credentials file beats legacy config, corrupt credentials fall back to legacy, corrupt falls back to env, an empty credentials file does not clear legacy) were emitted in a bearer-style shape: they assert the RAW secret appears in cfg.AuthHeader(). This connector authenticates with HTTP Basic, so AuthHeader() returns \"Basic \" + base64(\"<credential>:\") and the substring check can never match - all four tests failed from the day the connector landed even though the precedence chain is correct. The two wrong resolutions are deleting the assertions and t.Skip-ing the tests (what resourceguru did, which drops the precedence coverage entirely); the right one is to decode the header and assert on the credential payload, which is strictly stronger than the original because it also names the payload in the failure message. A reprint re-emits the bearer-shaped test file and re-breaks it.",
+   "status": "active",
+   "spec_encode_followup": "Make the press emit scheme-aware credential-precedence tests (decode Basic before asserting) so Basic-auth connectors are not born red. Until then this recurs on every reprint.",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/credentials_test.go",
+     "contains": "func authHeaderPayload("
+    },
+    {
+     "file": "cli/internal/cliutil/credentials_test.go",
+     "contains": "func assertAuthHeaderCarries("
+    },
+    {
+     "file": "cli/internal/cliutil/credentials_test.go",
+     "contains": "assertAuthHeaderCarries(t, cfg, \"data-secret\", \"legacy-secret\")"
+    },
+    {
+     "file": "cli/internal/cliutil/credentials_test.go",
+     "not_contains": "t.Skip(\"bearer-style credential test incompatible"
+    }
+   ]
   }
  ]
 }

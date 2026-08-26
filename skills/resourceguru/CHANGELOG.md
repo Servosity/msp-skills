@@ -4,6 +4,18 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## Unreleased
+
+### Fixed
+- **The credential-precedence tests were skipped, so nothing was watching which secret goes on the
+  wire.** The four tests that pin the order - a saved credentials file beats an old secret left in
+  `config.toml`, a corrupt credentials file falls back to that config and then to the environment,
+  an empty one clears nothing - looked for the raw secret inside the `Authorization` header and set
+  only the email half of this connector's email plus password pair. They were skipped rather than
+  corrected, which left the precedence chain untested. The fixtures now supply both halves and the
+  assertion decodes the header, so all four run and were checked to fail when the order is broken.
+  Runtime behaviour is unchanged.
+
 ## [0.1.1] - 2026-08-26
 
 ### Fixed

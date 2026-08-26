@@ -141,6 +141,31 @@
      "min_count": 1
     }
    ]
+  },
+  {
+   "id": "credential-precedence-tests-decode-basic-header",
+   "summary": "the four credentials-precedence tests run for real (fixtures populate both halves of the Basic pair, and the header is decoded before asserting) instead of being t.Skip-ed",
+   "why": "The generated credentials-precedence tests assert the RAW secret appears in cfg.AuthHeader(). This connector authenticates with HTTP Basic over an email + password pair, so AuthHeader() returns \"Basic \" + base64(\"<email>:<password>\") and short-circuits to \"\" when either half is empty - the bearer-shaped fixtures set only the email. The tests were previously t.Skip-ed with that diagnosis, which is correct about the cause but leaves the connector with ZERO coverage of the credential precedence chain (credentials file beats legacy config, corrupt credentials fall back to legacy then env, an empty credentials file does not clear legacy) - the exact chain that decides which secret goes on the wire. The fixtures now populate both halves and the assertion decodes the header, so the tests assert what they were written to assert. Verified to fail when precedence is broken, not merely to pass. Same defect class as wordpress.",
+   "status": "active",
+   "spec_encode_followup": "Make the press emit scheme-aware credential-precedence tests (two-var Basic fixtures, decode before asserting) so Basic-auth connectors are not born skipped or red.",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/credentials_test.go",
+     "contains": "func authHeaderPayload("
+    },
+    {
+     "file": "cli/internal/cliutil/credentials_test.go",
+     "contains": "func assertAuthHeaderCarries("
+    },
+    {
+     "file": "cli/internal/cliutil/credentials_test.go",
+     "contains": "func testCredentialPair("
+    },
+    {
+     "file": "cli/internal/cliutil/credentials_test.go",
+     "not_contains": "t.Skip(\"bearer-style credential test incompatible"
+    }
+   ]
   }
  ]
 }

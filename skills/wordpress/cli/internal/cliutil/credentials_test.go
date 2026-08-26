@@ -5,6 +5,7 @@ package cliutil_test
 
 import (
 	"bytes"
+	"encoding/base64"
 	"io"
 	"os"
 	"path/filepath"
@@ -60,9 +61,7 @@ func TestCredentialsFileWinsWhenLegacyConfigAlsoHasSecrets(t *testing.T) {
 		t.Fatalf("Load() error = %v", err)
 	}
 	assertConfigCredential(t, cfg, "data-secret")
-	if got := cfg.AuthHeader(); !strings.Contains(got, "data-secret") || strings.Contains(got, "legacy-secret") {
-		t.Fatalf("AuthHeader() = %q, want credentials-file value and not legacy value", got)
-	}
+	assertAuthHeaderCarries(t, cfg, "data-secret", "legacy-secret")
 }
 
 func TestCorruptCredentialsFallsBackToLegacyConfig(t *testing.T) {
@@ -87,9 +86,7 @@ func TestCorruptCredentialsFallsBackToLegacyConfig(t *testing.T) {
 			t.Fatalf("Load() error = %v", err)
 		}
 		assertConfigCredential(t, cfg, "legacy-secret")
-		if got := cfg.AuthHeader(); !strings.Contains(got, "legacy-secret") {
-			t.Fatalf("AuthHeader() = %q, want legacy credential", got)
-		}
+		assertAuthHeaderCarries(t, cfg, "legacy-secret")
 	})
 	if !strings.Contains(stderr, credentialsPath) || !strings.Contains(stderr, "parse") {
 		t.Fatalf("stderr %q does not mention corrupt credentials path and parse action", stderr)
@@ -111,9 +108,7 @@ func TestCorruptCredentialsFallsBackToEnvCredential(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Load() error = %v", err)
 		}
-		if got := cfg.AuthHeader(); !strings.Contains(got, "env-secret") {
-			t.Fatalf("AuthHeader() = %q, want env credential", got)
-		}
+		assertAuthHeaderCarries(t, cfg, "env-secret")
 	})
 	if !strings.Contains(stderr, credentialsPath) || !strings.Contains(stderr, "parse") {
 		t.Fatalf("stderr %q does not mention corrupt credentials path and parse action", stderr)
@@ -141,9 +136,7 @@ func TestEmptyCredentialsFileDoesNotClearLegacyConfig(t *testing.T) {
 		t.Fatalf("Load() error = %v", err)
 	}
 	assertConfigCredential(t, cfg, "legacy-secret")
-	if got := cfg.AuthHeader(); !strings.Contains(got, "legacy-secret") {
-		t.Fatalf("AuthHeader() = %q, want legacy credential", got)
-	}
+	assertAuthHeaderCarries(t, cfg, "legacy-secret")
 }
 
 func TestAuthWriteMigratesLegacyConfigToCredentialsOnly(t *testing.T) {
@@ -356,6 +349,43 @@ func assertConfigCredential(t *testing.T, cfg *config.Config, want string) {
 
 func configCredentialValue(cfg *config.Config) string {
 	return cfg.WordpressBasicAuth
+}
+
+// authHeaderPayload returns the credential material an Authorization header
+// actually carries. This connector authenticates with the HTTP Basic scheme,
+// so AuthHeader() returns "Basic " + base64("<credential>:") and a plain
+// substring check for the credential can never match - decode first, then
+// assert. A header in any other shape (bearer, raw api-key) carries the
+// credential verbatim and passes through unchanged, so the same helper works
+// whichever scheme the connector uses.
+func authHeaderPayload(t *testing.T, header string) string {
+	t.Helper()
+	rest, ok := strings.CutPrefix(header, "Basic ")
+	if !ok {
+		return header
+	}
+	decoded, err := base64.StdEncoding.DecodeString(strings.TrimSpace(rest))
+	if err != nil {
+		t.Fatalf("AuthHeader() = %q, Basic payload is not valid base64: %v", header, err)
+	}
+	return string(decoded)
+}
+
+// assertAuthHeaderCarries asserts the outgoing Authorization header is built
+// from the credential the precedence chain was supposed to pick (want), and
+// carries none of the credentials it was supposed to lose to (notWant).
+func assertAuthHeaderCarries(t *testing.T, cfg *config.Config, want string, notWant ...string) {
+	t.Helper()
+	header := cfg.AuthHeader()
+	payload := authHeaderPayload(t, header)
+	if !strings.Contains(payload, want) {
+		t.Fatalf("AuthHeader() = %q (credential payload %q), want it to carry %q", header, payload, want)
+	}
+	for _, forbidden := range notWant {
+		if strings.Contains(payload, forbidden) {
+			t.Fatalf("AuthHeader() = %q (credential payload %q), must not carry %q", header, payload, forbidden)
+		}
+	}
 }
 
 func assertCredentialsValue(t *testing.T, creds *cliutil.Credentials, want string) {
