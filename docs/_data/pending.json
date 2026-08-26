@@ -213,7 +213,7 @@
     "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "itglue-v0.1.1",
-    "current_hash": "sha256:c75e32d9a006bd3c750192ad181dfecd3db898f050cfbca4b4165bb4c261e6d5",
+    "current_hash": "sha256:802940807df9ac47804001023a8645e889eaed3999247602894fb8451a39e4bf",
     "released_hash": "sha256:c28805c5c41a5966186c3d78de025c521bdb74d5ef062f5088f4c457ceafd25a"
   },
   "kaseya-bms": {
@@ -255,7 +255,7 @@
     "state": "binary-pending",
     "version": "0.2.1",
     "latest_tag": "microsoft-graph-v0.2.1",
-    "current_hash": "sha256:c657c14480d8d8d85c056d61f88df4af695f0faa9fd75376dd9f091a82e3bc1e",
+    "current_hash": "sha256:dbd883ea07522eb42401c67edd284d2c26b50ca2f664db2622d1754f4051d623",
     "released_hash": "sha256:d379d683a80e12a757c60c54e2fb1daa9544dcdfad346f27b489cbbff0431260"
   },
   "msp-skills-concierge": {
@@ -318,7 +318,7 @@
     "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "pipedrive-v0.1.1",
-    "current_hash": "sha256:1ecced72a353d4bb391d082adc5a6ab70b977d62061570a21c67453d7be1becb",
+    "current_hash": "sha256:f9adc12b92d136544d612fce51ffecfe9bdfc1fc5db757bd8ab0972f86abcb01",
     "released_hash": "sha256:283c979a1f65f222d3737ca2bb1cb888c50a18a2691ac3f7ed96e48e1122dce2"
   },
   "proofpoint": {
@@ -416,7 +416,7 @@
     "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "syncro-v0.1.1",
-    "current_hash": "sha256:bcabff25a7f7c2fe48dd16d91840170d7feb68db0cc8ab99a9b57bafff90f674",
+    "current_hash": "sha256:665ea0c272aa574e9f0f41b224eba398c1bcba8feb2076d08f39271a19854cb6",
     "released_hash": "sha256:7de200bee34f8ae40b39a258c14d8c021cb27f42c91fcfe56a415b30ecbf6042"
   },
   "tactical-rmm": {
