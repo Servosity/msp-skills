@@ -52,6 +52,7 @@ REQUIRE_TITLE_DESC_PERMALINKS = {
     "/skills/",
     "/governance/",
     "/verified/",
+    "/request-or-report/",
     "/build-sessions/",
     "/reprint-survival/",
     "/answers/are-mcp-servers-safe-for-msp-client-data/",

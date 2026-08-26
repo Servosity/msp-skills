@@ -37,17 +37,13 @@ Each of these passed all four mechanical gates and is ready to run. Be the first
 
 ## Tell us it worked {#receipt}
 
-You ran a connector against your tenant and it did the job. That's a receipt - and it's the single most useful thing you can send us. **No GitHub account needed.** Drop your email and which connector worked, or just email us. We'll add it to the wall and follow up if we have a question.
+You ran a connector against your tenant and it did the job. That's a receipt - and it's the single most useful thing you can send us. **No GitHub account needed.** Fill in the short form below, or just email us. We'll add it to the wall and follow up if we have a question.
 
 <div class="email-capture">
   <p class="ec-title">Send us a receipt</p>
   <p>Tell us which connector you verified against a live tenant. We'll put it on the wall.</p>
-  <!-- TODO: swap action to Brevo/HubSpot form endpoint when creds land -->
-  <form action="mailto:hello@servosity.com" method="post" enctype="text/plain">
-    <input type="email" name="email" placeholder="you@yourmsp.com" aria-label="Your work email" autocomplete="email">
-    <button type="submit">It worked - tell us</button>
-  </form>
-  <p style="margin-top:0.75rem; margin-bottom:0;">Or just email <a href="mailto:hello@servosity.com?subject=MSP%20Skills%20receipt">hello@servosity.com</a> with the connector name and your MSP. Plain text is perfect - no markdown, no issue tracker.</p>
+  <p style="margin-bottom:0.75rem;"><a class="ec-cta" href="https://252473a9.sibforms.com/serve/MUIFAGZKATvCi87szPFu2P0ozML4WjSk4glC-5q9NK-833eR0BSliyYP_52804bWZERF1fSrvhvUxma0-YU5AKx8i_OeYNF3JMoEnXbl2F45xE_Kum2jcVsFrrSOTyJeVCUed2DR7q_IrrRrIfsvLYa8cnbyrObpRSNYzOpJy6E922yhUu7gFkCuBSpgXMhZ2E0s7XJAq1eOn6ZG2g==">It worked - open the receipt form →</a></p>
+  <p style="margin-top:0.75rem; margin-bottom:0;">Or just email <a href="mailto:hello@servosity.com?subject=MSP%20Skills%20receipt">hello@servosity.com</a> with the connector name and your MSP. Plain text is perfect - no markdown, no issue tracker. <a href="/request-or-report/">What happens to a receipt after you send it →</a></p>
 </div>
 
 Want to see what these connectors actually do first? [Browse every connector →](/skills/) · [Read why MSP owners use them →](/why/) · [The Trust Center →](/governance/)
