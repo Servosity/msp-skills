@@ -29,6 +29,43 @@ TARGETS = [
 ]
 
 
+def target_key(goos: str, goarch: str) -> str:
+    """The stable key naming one build target ("darwin-arm64").
+
+    Used to index the per-target asset map from a GitHub Actions matrix row:
+    `matrix.skill.assets[format('{0}-{1}', matrix.target.goos, matrix.target.goarch)]`.
+    """
+    return f"{goos}-{goarch}"
+
+
+def asset_name(binary: str, goos: str, goarch: str) -> str:
+    """THE one place that turns (binary, goos, goarch) into a release asset filename.
+
+    Every consumer - the release workflow's upload step, the install scripts'
+    download URLs, and the release-contract gate - must resolve names through
+    here (directly, or through the matrix JSON this feeds). Reconstructing the
+    "-<goos>-<goarch>" suffix or the windows ".exe" rule anywhere else is how the
+    workflow silently drifted from the gate that is supposed to police it.
+    """
+    ext = ".exe" if goos == "windows" else ""
+    return f"{binary}-{goos}-{goarch}{ext}"
+
+
+def asset_map(cli_binary: str, mcp_binary: str) -> dict[str, dict[str, str]]:
+    """Literal asset filenames for one skill, keyed by target ("darwin-arm64").
+
+    {"darwin-arm64": {"cli": "halopsa-cli-darwin-arm64",
+                      "mcp": "halopsa-mcp-darwin-arm64"}, ...}
+    """
+    return {
+        target_key(t["goos"], t["goarch"]): {
+            "cli": asset_name(cli_binary, t["goos"], t["goarch"]),
+            "mcp": asset_name(mcp_binary, t["goos"], t["goarch"]),
+        }
+        for t in TARGETS
+    }
+
+
 def load() -> dict:
     return json.loads(REGISTRY.read_text(encoding="utf-8"))
 

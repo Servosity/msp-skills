@@ -24,6 +24,14 @@ Each skill entry carries everything the build step needs:
     name, dir, module, cli_cmd, mcp_cmd, cli_bin, mcp_bin
 cmd paths are introspected, so they are correct whether the source is stripped
 (cmd/<slug>-cli) or not (cmd/<slug>-pp-cli).
+
+The FULL matrix (the release.yml shape, i.e. not --skills-only) additionally
+carries `assets`: the FINAL literal asset filenames per target, keyed
+"<goos>-<goarch>", straight from registry.asset_map(). release.yml reads those
+names instead of re-deriving the "-<goos>-<goarch>" suffix and the windows
+".exe" rule in shell, so the workflow and tools/maintainer/check_release_contract.py
+can no longer disagree about what a release asset is called. --skills-only omits
+`assets` - that shape (ci.yml build+vet) has no target axis to key them by.
 """
 
 from __future__ import annotations
@@ -37,24 +45,28 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import registry  # noqa: E402  (local tools/ module)
 
 
-def skill_entries() -> list[dict]:
+def skill_entries(with_assets: bool = True) -> list[dict]:
     entries = []
     for slug, meta in registry.skills().items():
         # markdown-only skills have no vendored cli/ - nothing to build or release.
         if registry.is_markdown_only(slug):
             continue
         cli_cmd, mcp_cmd = registry.cmd_dirs(slug)
-        entries.append(
-            {
-                "name": slug,
-                "dir": f"skills/{slug}/cli",
-                "module": registry.module_path(slug),
-                "cli_cmd": cli_cmd,
-                "mcp_cmd": mcp_cmd,
-                "cli_bin": meta["cli_binary"],
-                "mcp_bin": meta["mcp_binary"],
-            }
-        )
+        entry = {
+            "name": slug,
+            "dir": f"skills/{slug}/cli",
+            "module": registry.module_path(slug),
+            "cli_cmd": cli_cmd,
+            "mcp_cmd": mcp_cmd,
+            "cli_bin": meta["cli_binary"],
+            "mcp_bin": meta["mcp_binary"],
+        }
+        if with_assets:
+            # Final literal filenames, one entry per registry.TARGETS row. The
+            # release workflow uploads exactly these; nothing downstream rebuilds
+            # the suffix or the .exe rule by hand.
+            entry["assets"] = registry.asset_map(meta["cli_binary"], meta["mcp_binary"])
+        entries.append(entry)
     return entries
 
 
@@ -113,7 +125,7 @@ def main(argv: list[str]) -> int:
     if "--changed-only" in argv:
         base_ref = argv[argv.index("--changed-only") + 1]
 
-    entries = skill_entries()
+    entries = skill_entries(with_assets=not skills_only)
 
     if tag:
         # <slug>-v<semver> -> <slug>; unknown slug -> empty matrix (the
