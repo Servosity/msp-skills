@@ -46,7 +46,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download SuperOps MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/superops-v0.1.4/superops-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every SuperOps release on the [releases page](https://github.com/servosity/msp-skills/releases?q=superops).)
+[**Download SuperOps MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/superops-v0.1.5/superops-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every SuperOps release on the [releases page](https://github.com/servosity/msp-skills/releases?q=superops).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 

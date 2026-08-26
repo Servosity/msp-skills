@@ -378,9 +378,9 @@
     "released_hash": "sha256:19ee030b296b02ac543feed2a00f9a226a9672567df144a32d65b78ee9240c25"
   },
   "sentinelone": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.3",
-    "latest_tag": "sentinelone-v0.1.2",
+    "latest_tag": "sentinelone-v0.1.3",
     "current_hash": "sha256:4156c91d5e242018161d1b19a4c9f10e1606e47d1cb8bfab195832e278d95a8b",
     "released_hash": "sha256:4156c91d5e242018161d1b19a4c9f10e1606e47d1cb8bfab195832e278d95a8b"
   },
@@ -406,9 +406,9 @@
     "released_hash": "sha256:8b31290b6c962cbbd6f55a4fda37f4a980a6d1459c24dcf959db18d9c92dc794"
   },
   "superops": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.5",
-    "latest_tag": "superops-v0.1.4",
+    "latest_tag": "superops-v0.1.5",
     "current_hash": "sha256:571a8ba0e3a779bba7e4e4cd9c3df4ba9f26fa5ef078300d006efbe74b0a80a1",
     "released_hash": "sha256:571a8ba0e3a779bba7e4e4cd9c3df4ba9f26fa5ef078300d006efbe74b0a80a1"
   },
@@ -427,9 +427,9 @@
     "released_hash": "sha256:32e677809771d9bc5a7a89502d7da0d6e892c4409f7c345596d4b12e7d620487"
   },
   "threatlocker": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.3.2",
-    "latest_tag": "threatlocker-v0.3.1",
+    "latest_tag": "threatlocker-v0.3.2",
     "current_hash": "sha256:d22c78b975dc90c1684a5c4bdf8247910850cf29da05a6d81c9748aaa31ff943",
     "released_hash": "sha256:d22c78b975dc90c1684a5c4bdf8247910850cf29da05a6d81c9748aaa31ff943"
   },
