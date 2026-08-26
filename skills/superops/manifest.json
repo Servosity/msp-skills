@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "superops-mcp",
   "display_name": "SuperOps",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Every SuperOps PSA+RMM entity in your terminal, plus a local SQLite mirror that answers cross-entity questions the web UI can't.",
   "author": {
     "name": "Servosity Inc."

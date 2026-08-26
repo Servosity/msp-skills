@@ -1,6 +1,6 @@
 {
   "name": "abnormal",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "The full Abnormal Security REST API as an agent-ready CLI \u2014 with a local threat store, ranked SOC triage, and one-shot reporting no SOAR pack offers.",
   "author": {
     "name": "Servosity",

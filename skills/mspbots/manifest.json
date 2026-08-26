@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "mspbots-mcp",
   "display_name": "MSPbots",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "The first MSPbots tool anywhere \u2014 readable filters, alias-named resources, full exports, and the KPI history MSPbots itself doesn't keep.",
   "author": {
     "name": "Servosity Inc."

@@ -1,6 +1,6 @@
 {
   "name": "tactical-rmm",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Every Tactical RMM endpoint as a typed command, plus an offline SQLite mirror and cross-entity fleet queries the web UI can't express.",
   "author": {
     "name": "Servosity",

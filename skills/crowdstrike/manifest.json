@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "crowdstrike-mcp",
   "display_name": "CrowdStrike Falcon",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Every CrowdStrike Falcon MSP operation, plus a Flight-Control-aware local store that answers fleet-wide questions across all your tenants at once \u2014 something no other Falcon tool (including the official MCP server) does.",
   "author": {
     "name": "Servosity Inc."

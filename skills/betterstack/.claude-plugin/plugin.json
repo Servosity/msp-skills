@@ -1,6 +1,6 @@
 {
   "name": "betterstack",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Every Better Stack Uptime feature, plus an offline SQLite mirror and cross-resource fleet analytics \u2014 what's down and who's paged, coverage gaps, MTTA/MTTR, flapping, on-call gaps, and status-page drift \u2014 that the API alone can't answer.",
   "author": {
     "name": "Servosity",

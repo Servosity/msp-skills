@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "rootly-mcp",
   "display_name": "Rootly",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Every Rootly incident, alert, and on-call object as a typed command, with a local SQLite mirror for offline analytics.",
   "author": {
     "name": "Servosity Inc."
