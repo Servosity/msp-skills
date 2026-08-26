@@ -5,6 +5,7 @@ package cliutil_test
 
 import (
 	"bytes"
+	"encoding/base64"
 	"io"
 	"os"
 	"path/filepath"
@@ -45,16 +46,14 @@ func resetCredentialEnv(t *testing.T) (home, configPath string) {
 }
 
 func TestCredentialsFileWinsWhenLegacyConfigAlsoHasSecrets(t *testing.T) {
-	// Skipped for HTTP Basic auth: these are bearer-style credential-precedence tests that assert the RAW secret appears in AuthHeader(). Basic auth base64-encodes email:password, and the fixtures only populate the email var, so AuthHeader() correctly returns "" / an encoded value the raw-substring check can never match. The runtime AuthHeader is correct; the generated tests are mis-emitted for a Basic-auth CLI. (Generator bug — filed for retro.)
-	t.Skip("bearer-style credential test incompatible with HTTP Basic two-var auth")
 	_, configPath := resetCredentialEnv(t)
 	if err := os.MkdirAll(filepath.Dir(configPath), 0o700); err != nil {
 		t.Fatalf("mkdir config: %v", err)
 	}
-	if err := os.WriteFile(configPath, []byte("base_url = \"https://legacy.example\"\n"+legacyCredentialTOML("legacy-secret")), 0o600); err != nil {
+	if err := os.WriteFile(configPath, []byte("base_url = \"https://legacy.example\"\n"+legacyCredentialPairTOML("legacy-secret")), 0o600); err != nil {
 		t.Fatalf("write legacy config: %v", err)
 	}
-	if err := cliutil.SaveCredentials(testCredentials("data-secret")); err != nil {
+	if err := cliutil.SaveCredentials(testCredentialPair("data-secret")); err != nil {
 		t.Fatalf("SaveCredentials() error = %v", err)
 	}
 
@@ -63,19 +62,15 @@ func TestCredentialsFileWinsWhenLegacyConfigAlsoHasSecrets(t *testing.T) {
 		t.Fatalf("Load() error = %v", err)
 	}
 	assertConfigCredential(t, cfg, "data-secret")
-	if got := cfg.AuthHeader(); !strings.Contains(got, "data-secret") || strings.Contains(got, "legacy-secret") {
-		t.Fatalf("AuthHeader() = %q, want credentials-file value and not legacy value", got)
-	}
+	assertAuthHeaderCarries(t, cfg, "data-secret", "legacy-secret")
 }
 
 func TestCorruptCredentialsFallsBackToLegacyConfig(t *testing.T) {
-	// Skipped for HTTP Basic auth: these are bearer-style credential-precedence tests that assert the RAW secret appears in AuthHeader(). Basic auth base64-encodes email:password, and the fixtures only populate the email var, so AuthHeader() correctly returns "" / an encoded value the raw-substring check can never match. The runtime AuthHeader is correct; the generated tests are mis-emitted for a Basic-auth CLI. (Generator bug — filed for retro.)
-	t.Skip("bearer-style credential test incompatible with HTTP Basic two-var auth")
 	home, configPath := resetCredentialEnv(t)
 	if err := os.MkdirAll(filepath.Dir(configPath), 0o700); err != nil {
 		t.Fatalf("mkdir config: %v", err)
 	}
-	if err := os.WriteFile(configPath, []byte("base_url = \"https://legacy.example\"\n"+legacyCredentialTOML("legacy-secret")), 0o600); err != nil {
+	if err := os.WriteFile(configPath, []byte("base_url = \"https://legacy.example\"\n"+legacyCredentialPairTOML("legacy-secret")), 0o600); err != nil {
 		t.Fatalf("write legacy config: %v", err)
 	}
 	credentialsPath := filepath.Join(home, ".local", "share", "resourceguru-cli", "credentials.toml")
@@ -92,19 +87,16 @@ func TestCorruptCredentialsFallsBackToLegacyConfig(t *testing.T) {
 			t.Fatalf("Load() error = %v", err)
 		}
 		assertConfigCredential(t, cfg, "legacy-secret")
-		if got := cfg.AuthHeader(); !strings.Contains(got, "legacy-secret") {
-			t.Fatalf("AuthHeader() = %q, want legacy credential", got)
-		}
+		assertAuthHeaderCarries(t, cfg, "legacy-secret")
 	})
 	if !strings.Contains(stderr, credentialsPath) || !strings.Contains(stderr, "parse") {
 		t.Fatalf("stderr %q does not mention corrupt credentials path and parse action", stderr)
 	}
 }
 func TestCorruptCredentialsFallsBackToEnvCredential(t *testing.T) {
-	// Skipped for HTTP Basic auth: these are bearer-style credential-precedence tests that assert the RAW secret appears in AuthHeader(). Basic auth base64-encodes email:password, and the fixtures only populate the email var, so AuthHeader() correctly returns "" / an encoded value the raw-substring check can never match. The runtime AuthHeader is correct; the generated tests are mis-emitted for a Basic-auth CLI. (Generator bug — filed for retro.)
-	t.Skip("bearer-style credential test incompatible with HTTP Basic two-var auth")
 	home, _ := resetCredentialEnv(t)
 	t.Setenv("RESOURCEGURU_EMAIL", "env-secret")
+	t.Setenv("RESOURCEGURU_PASSWORD", "env-secret-password")
 	credentialsPath := filepath.Join(home, ".local", "share", "resourceguru-cli", "credentials.toml")
 	if err := os.MkdirAll(filepath.Dir(credentialsPath), 0o700); err != nil {
 		t.Fatalf("mkdir credentials dir: %v", err)
@@ -118,9 +110,7 @@ func TestCorruptCredentialsFallsBackToEnvCredential(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Load() error = %v", err)
 		}
-		if got := cfg.AuthHeader(); !strings.Contains(got, "env-secret") {
-			t.Fatalf("AuthHeader() = %q, want env credential", got)
-		}
+		assertAuthHeaderCarries(t, cfg, "env-secret")
 	})
 	if !strings.Contains(stderr, credentialsPath) || !strings.Contains(stderr, "parse") {
 		t.Fatalf("stderr %q does not mention corrupt credentials path and parse action", stderr)
@@ -128,13 +118,11 @@ func TestCorruptCredentialsFallsBackToEnvCredential(t *testing.T) {
 }
 
 func TestEmptyCredentialsFileDoesNotClearLegacyConfig(t *testing.T) {
-	// Skipped for HTTP Basic auth: these are bearer-style credential-precedence tests that assert the RAW secret appears in AuthHeader(). Basic auth base64-encodes email:password, and the fixtures only populate the email var, so AuthHeader() correctly returns "" / an encoded value the raw-substring check can never match. The runtime AuthHeader is correct; the generated tests are mis-emitted for a Basic-auth CLI. (Generator bug — filed for retro.)
-	t.Skip("bearer-style credential test incompatible with HTTP Basic two-var auth")
 	home, configPath := resetCredentialEnv(t)
 	if err := os.MkdirAll(filepath.Dir(configPath), 0o700); err != nil {
 		t.Fatalf("mkdir config: %v", err)
 	}
-	if err := os.WriteFile(configPath, []byte("base_url = \"https://legacy.example\"\n"+legacyCredentialTOML("legacy-secret")), 0o600); err != nil {
+	if err := os.WriteFile(configPath, []byte("base_url = \"https://legacy.example\"\n"+legacyCredentialPairTOML("legacy-secret")), 0o600); err != nil {
 		t.Fatalf("write legacy config: %v", err)
 	}
 	credentialsPath := filepath.Join(home, ".local", "share", "resourceguru-cli", "credentials.toml")
@@ -150,9 +138,7 @@ func TestEmptyCredentialsFileDoesNotClearLegacyConfig(t *testing.T) {
 		t.Fatalf("Load() error = %v", err)
 	}
 	assertConfigCredential(t, cfg, "legacy-secret")
-	if got := cfg.AuthHeader(); !strings.Contains(got, "legacy-secret") {
-		t.Fatalf("AuthHeader() = %q, want legacy credential", got)
-	}
+	assertAuthHeaderCarries(t, cfg, "legacy-secret")
 }
 
 func TestAuthWriteMigratesLegacyConfigToCredentialsOnly(t *testing.T) {
@@ -365,6 +351,61 @@ func assertConfigCredential(t *testing.T, cfg *config.Config, want string) {
 
 func configCredentialValue(cfg *config.Config) string {
 	return cfg.ResourceguruEmail
+}
+
+// testCredentialPair builds a credentials-file fixture carrying BOTH halves of
+// the HTTP Basic pair. AuthHeader() short-circuits to "" when either half is
+// empty, so a single-value fixture cannot exercise the precedence chain all
+// the way to the wire header.
+func testCredentialPair(token string) *cliutil.Credentials {
+	creds := &cliutil.Credentials{}
+	setCredentialValue(creds, token)
+	creds.ResourceguruPassword = token + "-password"
+	return creds
+}
+
+// legacyCredentialPairTOML is legacyCredentialTOML for the Basic pair: the
+// legacy config fixture needs a password alongside the email for the same
+// reason.
+func legacyCredentialPairTOML(token string) string {
+	return legacyCredentialTOML(token) + "password = \"" + token + "-password\"\n"
+}
+
+// authHeaderPayload returns the credential material an Authorization header
+// actually carries. This connector authenticates with the HTTP Basic scheme,
+// so AuthHeader() returns "Basic " + base64("<email>:<password>") and a plain
+// substring check for the credential can never match - decode first, then
+// assert. A header in any other shape (bearer, raw api-key) carries the
+// credential verbatim and passes through unchanged, so the same helper works
+// whichever scheme the connector uses.
+func authHeaderPayload(t *testing.T, header string) string {
+	t.Helper()
+	rest, ok := strings.CutPrefix(header, "Basic ")
+	if !ok {
+		return header
+	}
+	decoded, err := base64.StdEncoding.DecodeString(strings.TrimSpace(rest))
+	if err != nil {
+		t.Fatalf("AuthHeader() = %q, Basic payload is not valid base64: %v", header, err)
+	}
+	return string(decoded)
+}
+
+// assertAuthHeaderCarries asserts the outgoing Authorization header is built
+// from the credential the precedence chain was supposed to pick (want), and
+// carries none of the credentials it was supposed to lose to (notWant).
+func assertAuthHeaderCarries(t *testing.T, cfg *config.Config, want string, notWant ...string) {
+	t.Helper()
+	header := cfg.AuthHeader()
+	payload := authHeaderPayload(t, header)
+	if !strings.Contains(payload, want) {
+		t.Fatalf("AuthHeader() = %q (credential payload %q), want it to carry %q", header, payload, want)
+	}
+	for _, forbidden := range notWant {
+		if strings.Contains(payload, forbidden) {
+			t.Fatalf("AuthHeader() = %q (credential payload %q), must not carry %q", header, payload, forbidden)
+		}
+	}
 }
 
 func assertCredentialsValue(t *testing.T, creds *cliutil.Credentials, want string) {

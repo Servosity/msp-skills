@@ -15,6 +15,8 @@
       "command": "${__dirname}/bin/liongard-mcp",
       "args": [],
       "env": {
+        "LIONGARD_ACCESS_KEY_ID": "${user_config.liongard_access_key_id}",
+        "LIONGARD_ACCESS_KEY_SECRET": "${user_config.liongard_access_key_secret}",
         "LIONGARD_API_KEY": "${user_config.liongard_api_key}",
         "LIONGARD_BASE_URL": "${user_config.liongard_base_url}",
         "LIONGARD_INSTANCE": "${user_config.liongard_instance}"
@@ -25,9 +27,9 @@
     "liongard_api_key": {
       "type": "string",
       "title": "LIONGARD_API_KEY",
-      "description": "Sets LIONGARD_API_KEY for the Liongard MCP server.",
+      "description": "Pre-encoded X-ROAR-API-KEY: base64 of 'accessKeyId:accessKeySecret'. One of two ways to authenticate - set EITHER this key OR the LIONGARD_ACCESS_KEY_ID + LIONGARD_ACCESS_KEY_SECRET pair, never both. This key wins when it is set, and the pair is ignored.",
       "sensitive": true,
-      "required": true
+      "required": false
     },
     "liongard_instance": {
       "type": "string",
@@ -40,6 +42,20 @@
       "type": "string",
       "title": "Liongard API base URL",
       "description": "Full API base URL. Leave blank: the CLI builds it from LIONGARD_INSTANCE. Set it only to point at a different host.",
+      "required": false
+    },
+    "liongard_access_key_id": {
+      "type": "string",
+      "title": "Liongard Access Key ID",
+      "description": "Liongard Access Key ID, the half that pairs with LIONGARD_ACCESS_KEY_SECRET; the server composes the two into the base64 X-ROAR-API-KEY. One of two ways to authenticate - set EITHER this pair OR the pre-encoded LIONGARD_API_KEY, never both. LIONGARD_API_KEY wins when it is set, so leave it blank to use this pair.",
+      "sensitive": true,
+      "required": false
+    },
+    "liongard_access_key_secret": {
+      "type": "string",
+      "title": "Liongard Access Key Secret",
+      "description": "Liongard Access Key Secret, the other half of LIONGARD_ACCESS_KEY_ID. One of two ways to authenticate - set EITHER this pair OR the pre-encoded LIONGARD_API_KEY, never both. LIONGARD_API_KEY wins when it is set, so leave it blank to use this pair.",
+      "sensitive": true,
       "required": false
     }
   },

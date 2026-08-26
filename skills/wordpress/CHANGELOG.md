@@ -4,6 +4,18 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## Unreleased
+
+### Fixed
+- **The credential-precedence tests could never pass, so nothing was watching which secret goes on
+  the wire.** The four tests that pin the order - a saved credentials file beats an old secret left
+  in `config.toml`, a corrupt credentials file falls back to that config and then to the
+  environment, an empty one clears nothing - looked for the raw secret inside the `Authorization`
+  header. This connector uses HTTP Basic, so the header carries the secret base64-encoded and the
+  check could never match, whatever the code did. The tests now decode the header first and assert
+  which credential it was built from. Runtime behaviour is unchanged: the precedence order was
+  always correct, and is now actually verified.
+
 ## [0.1.2] - 2026-08-26
 
 ### Fixed

@@ -145,9 +145,17 @@ LIONGARD_INSTANCE=<your-subdomain> LIONGARD_API_KEY=<value> liongard-cli doctor
   CLI falls back to the placeholder `example.app.liongard.com`, which will not reach
   your data, so always set it. (Advanced: set `LIONGARD_BASE_URL` instead to point
   at a full custom URL.)
-- **`LIONGARD_API_KEY`** (required) is your base64 X-ROAR-API-KEY. Prefer to keep
-  the parts separate? Set `LIONGARD_ACCESS_KEY_ID` and `LIONGARD_ACCESS_KEY_SECRET`
-  and the CLI composes the header for you.
+- **The credential** (required) comes in one of two shapes, and you set exactly one
+  of them. Either `LIONGARD_API_KEY`, your pre-encoded base64 X-ROAR-API-KEY (the
+  line above), or the pair `LIONGARD_ACCESS_KEY_ID` + `LIONGARD_ACCESS_KEY_SECRET`,
+  the two strings Liongard hands you, which the CLI encodes for you:
+
+  ```bash
+  LIONGARD_INSTANCE=<your-subdomain> LIONGARD_ACCESS_KEY_ID=<value> LIONGARD_ACCESS_KEY_SECRET=<value> liongard-cli doctor
+  ```
+
+  Do not set both shapes: `LIONGARD_API_KEY` wins whenever it is non-empty and the
+  ID/secret pair is ignored.
 - **`LIONGARD_ENDPOINTS_API_KEY`** (optional) is only needed for the Liongard
   Endpoints API surface; leave it unset if you do not use it.
 
