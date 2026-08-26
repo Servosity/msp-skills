@@ -14,7 +14,7 @@ Every connector passes four mechanical gates before it ships - build, command-su
 
 {% include proof-strip.html %}
 
-> **Where these receipts come from.** Most of the live verifications below came from outside Servosity: independent MSPs who ran a connector against their own production tenant and told us it worked. Every badge names who confirmed it and links the receipt where there is one, so you can weigh each one yourself. The badges that read **Servosity (maintainer)** are first-party - our own tenants, labeled as such on purpose, because a receipt from us is not the same as a receipt from another MSP. If you run any connector against your tenant and it works, [tell us below](#receipt) and your name goes on the wall next to theirs.
+> **Where these receipts come from.** Most of the live verifications below came from outside Servosity: independent MSPs who ran a connector against their own production tenant and told us it worked. Every badge carries the source of the receipt behind it: most name the reporting MSP and link the receipt itself, and a receipt that reached us without a name is credited to the channel it arrived on rather than to a person. The badges that read **Servosity (maintainer)** are first-party - our own tenants, labeled as such on purpose, because a receipt from us is not the same as a receipt from another MSP. If you run any connector against your tenant and it works, [tell us below](#receipt) and your name goes on the wall next to theirs.
 
 {% assign verified = site.data.catalog.connectors | where: "verification", "live-verified" %}
 {% assign awaiting = site.data.catalog.connectors | where_exp: "c", "c.verification != 'live-verified'" %}
