@@ -15,6 +15,7 @@
       "command": "${__dirname}/bin/datto-bcdr-mcp",
       "args": [],
       "env": {
+        "DATTO_BCDR_BASE_URL": "${user_config.datto_bcdr_base_url}",
         "DATTO_BCDR_PUBLIC_KEY": "${user_config.datto_bcdr_public_key}",
         "DATTO_BCDR_SECRET_KEY": "${user_config.datto_bcdr_secret_key}"
       }
@@ -34,6 +35,13 @@
       "description": "Sets DATTO_BCDR_SECRET_KEY for the Datto BCDR MCP server.",
       "sensitive": true,
       "required": true
+    },
+    "datto_bcdr_base_url": {
+      "type": "string",
+      "title": "Datto BCDR API base URL",
+      "description": "Base URL for the Datto BCDR API. Leave the prefilled default unless your account uses a different regional or self-hosted host.",
+      "required": false,
+      "default": "https://api.datto.com/v1"
     }
   },
   "compatibility": {

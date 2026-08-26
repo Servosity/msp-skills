@@ -33,6 +33,12 @@
           "description": "Set the CIPP_API_KEY credential for the CIPP MCP server.",
           "isRequired": true,
           "isSecret": true
+        },
+        {
+          "name": "CIPP_BASE_URL",
+          "description": "Base URL of your self-hosted CIPP instance's API, e.g. https://cipp.example.com/api. The shipped default points at an example host, so until you set this the CLI is not talking to your tenant at all.",
+          "isRequired": true,
+          "isSecret": false
         }
       ]
     }

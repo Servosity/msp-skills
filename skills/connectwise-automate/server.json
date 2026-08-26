@@ -29,16 +29,23 @@
       },
       "environmentVariables": [
         {
-          "name": "CONNECTWISE_AUTOMATE_SERVER",
-          "description": "Your Automate host, e.g. company.hostedrmm.com (endpoint base URL).",
-          "isRequired": true,
+          "name": "CONNECTWISE_AUTOMATE_BASE_URL",
+          "description": "Full API base URL. Leave blank: the CLI builds it from CONNECTWISE_AUTOMATE_SERVER. Set it only to point at a different host.",
+          "isRequired": false,
           "isSecret": false
         },
         {
           "name": "CONNECTWISE_AUTOMATE_CLIENT_ID",
           "description": "Registered integration clientId GUID, sent as the clientId header (required for v2020.11+).",
           "isRequired": true,
-          "isSecret": false
+          "isSecret": true
+        },
+        {
+          "name": "CONNECTWISE_AUTOMATE_SERVER",
+          "description": "Your Automate host, e.g. company.hostedrmm.com (endpoint base URL).",
+          "isRequired": true,
+          "isSecret": false,
+          "default": "YOUR_SERVER.hostedrmm.com"
         },
         {
           "name": "CONNECTWISE_AUTOMATE_TOKEN",

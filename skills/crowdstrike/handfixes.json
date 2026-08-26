@@ -1,60 +1,195 @@
 {
-  "slug": "crowdstrike",
-  "doc": "docs/reprint-survival.md",
-  "handfixes": [
+ "slug": "crowdstrike",
+ "doc": "docs/reprint-survival.md",
+ "handfixes": [
+  {
+   "id": "env-oauth-secrets-not-persisted",
+   "summary": "SaveTokens keeps the env-override marker on ClientID/ClientSecret, so env-supplied OAuth credentials are never written to config.toml (issue #266)",
+   "why": "Load() marks ClientID/ClientSecret as env overrides and configForSave() restores the file value for any field still marked -- the mechanism that keeps env-supplied secrets off disk. SaveTokens() cleared both markers on every save, so each token mint (an ordinary authenticated command, no `auth login` step needed) rewrote the live client_id and client_secret into ~/.config/<tool>-cli/config.toml in cleartext, defeating Keychain/Credential-Manager setups that inject the secret as an env var at process launch. SaveTokens now leaves those two markers alone; only MarkCredentialsExplicit clears them, and only `auth login` calls it, passing whether each value came from a flag rather than from the env fallback. Provenance must be declared, not inferred: comparing the incoming value against the loaded one cannot tell an explicit flag from the env value it duplicates, and `auth login` trims its env fallback while Load does not, so a padded variable compares unequal to itself and leaks. Reported by @Xenith-B against halopsa-cli/ninjaone-cli. GENERATOR-class defect (the press emits the unconditional deletes) tracked for an upstream retro; until the press is fixed, a reprint reintroduces the leak and these markers guard the connector. Bug-fix-only: no new flag, command, or output.",
+   "status": "active",
+   "spec_encode_followup": "cli-printing-press#4283: SaveTokens must not clear the ClientID/ClientSecret env-override markers. Only a credential the caller supplied through an explicit command-line flag may clear them, and the flag's provenance must be passed in by the caller -- NOT inferred by comparing the incoming value against the loaded one. An explicit flag whose value equals the environment's is still explicit and must persist; conversely `auth login` trims its env fallback while Load does not, so a padded variable compares unequal to itself and a value-based rule leaks it.",
+   "asserts": [
     {
-      "id": "env-oauth-secrets-not-persisted",
-      "summary": "SaveTokens keeps the env-override marker on ClientID/ClientSecret, so env-supplied OAuth credentials are never written to config.toml (issue #266)",
-      "why": "Load() marks ClientID/ClientSecret as env overrides and configForSave() restores the file value for any field still marked -- the mechanism that keeps env-supplied secrets off disk. SaveTokens() cleared both markers on every save, so each token mint (an ordinary authenticated command, no `auth login` step needed) rewrote the live client_id and client_secret into ~/.config/<tool>-cli/config.toml in cleartext, defeating Keychain/Credential-Manager setups that inject the secret as an env var at process launch. SaveTokens now leaves those two markers alone; only MarkCredentialsExplicit clears them, and only `auth login` calls it, passing whether each value came from a flag rather than from the env fallback. Provenance must be declared, not inferred: comparing the incoming value against the loaded one cannot tell an explicit flag from the env value it duplicates, and `auth login` trims its env fallback while Load does not, so a padded variable compares unequal to itself and leaks. Reported by @Xenith-B against halopsa-cli/ninjaone-cli. GENERATOR-class defect (the press emits the unconditional deletes) tracked for an upstream retro; until the press is fixed, a reprint reintroduces the leak and these markers guard the connector. Bug-fix-only: no new flag, command, or output.",
-      "status": "active",
-      "spec_encode_followup": "cli-printing-press#4283: SaveTokens must not clear the ClientID/ClientSecret env-override markers. Only a credential the caller supplied through an explicit command-line flag may clear them, and the flag's provenance must be passed in by the caller -- NOT inferred by comparing the incoming value against the loaded one. An explicit flag whose value equals the environment's is still explicit and must persist; conversely `auth login` trims its env fallback while Load does not, so a padded variable compares unequal to itself and a value-based rule leaks it.",
-      "asserts": [
-        {"file": "cli/internal/config/config.go", "contains": "func (c *Config) MarkCredentialsExplicit(clientID, clientSecret bool) {", "min_count": 1},
-        {"file": "cli/internal/cli/auth.go", "contains": "cfg.MarkCredentialsExplicit(explicitClientID, explicitClientSecret)", "min_count": 1},
-        {"file": "cli/internal/config/config.go", "contains": "markers now survive a save; only MarkCredentialsExplicit clears them.", "min_count": 1},
-        {"file": "cli/internal/config/config.go", "not_contains": "delete(c.envOverrides, \"ClientID\")\n\tdelete(c.envOverrides, \"ClientSecret\")\n\tdelete(c.envOverrides, \"AccessToken\")"}
-      ]
+     "file": "cli/internal/config/config.go",
+     "contains": "func (c *Config) MarkCredentialsExplicit(clientID, clientSecret bool) {",
+     "min_count": 1
     },
     {
-      "id": "doctor-auth-hint-names-a-real-command",
-      "summary": "doctor, the CLI error path and the MCP error path all point at `crowdstrike-cli auth login` instead of a nonexistent `auth setup` subcommand (issue #277, #278)",
-      "why": "This CLI's `auth` parent defines login, status, set-token and logout. It has never defined `setup`, yet three generated surfaces told operators to run it: doctor.go's auth_hint (fires when cfg.AuthHeader() is empty), helpers.go's HTTP 400/401/403 remediation, and internal/mcp/tools.go's tool-error text -- 7 occurrences in all. Cobra does not error on an unknown subcommand of a NON-root parent (legacyArgs only rejects unknown args for the root), and the generated parent runs parentNoSubcommandRunE, which returns cmd.Help() -- a nil error. So `crowdstrike-cli auth setup` printed help and exited 0. There was no 'unknown command' error and no non-zero exit anywhere in the journey: an operator saw a success code and was no closer to credentials, and because these are agent-first CLIs with typed exit codes, an agent performing setup read exit 0 as success and carried on unauthenticated. The hint fires exactly when it matters -- fresh install, rotated secret, new machine, expired token. This skill emits no auth_instructions field, so these hints are the only setup guidance it gives. The replacements name the real command and, in doctor, the variables `auth login` actually reads: FALCON_CLIENT_ID and FALCON_CLIENT_SECRET (plus the optional CROWDSTRIKE_OAUTH_SCOPE), taken from the login command's own env fallbacks rather than composed. Reported by @geekbrownbear, who verified halopsa and ninjaone live against an empty config (PR #277) and filed appdirect/crowdstrike as issue #278; the fleet scan that found the other two surfaces and confirmed only these four connectors are affected was done during triage. GENERATOR-class defect: until the press is fixed, a reprint reintroduces all 7 strings and these asserts guard them. Bug-fix-only: no new flag, command, or output field.",
-      "status": "active",
-      "spec_encode_followup": "cli-printing-press#4315: Derive the auth hint from the subcommand set the connector actually generates instead of the fixed \"Run '<cli> auth setup' for credential setup steps.\" string in internal/generator/generator.go. 52 of 56 connectors do define `auth setup`, which is why the hard-coded string went unnoticed; the four OAuth client-credentials connectors that scaffold `auth login` instead (appdirect, crowdstrike, halopsa, ninjaone) each shipped it 7 times. The same string is emitted into three surfaces -- doctor.go's auth_hint, helpers.go's 400/401/403 remediation, and the MCP server's tool-error text -- so a generator fix must cover all three.",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/doctor.go",
-          "not_contains": "crowdstrike-cli auth setup"
-        },
-        {
-          "file": "cli/internal/cli/helpers.go",
-          "not_contains": "crowdstrike-cli auth setup"
-        },
-        {
-          "file": "cli/internal/mcp/tools.go",
-          "not_contains": "crowdstrike-cli auth setup"
-        },
-        {
-          "file": "cli/internal/cli/doctor.go",
-          "contains": "Set FALCON_CLIENT_ID and FALCON_CLIENT_SECRET (plus CROWDSTRIKE_OAUTH_SCOPE if your instance needs a scope), then run 'crowdstrike-cli auth login' to mint a token.",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/helpers.go",
-          "contains": "crowdstrike-cli auth login' to re-authenticate.",
-          "min_count": 3
-        },
-        {
-          "file": "cli/internal/mcp/tools.go",
-          "contains": "crowdstrike-cli auth login' to re-authenticate.",
-          "min_count": 3
-        },
-        {
-          "file": "cli/internal/cli/auth.go",
-          "contains": "cmd.AddCommand(newAuthLoginCmd(flags))",
-          "min_count": 1
-        }
-      ]
+     "file": "cli/internal/cli/auth.go",
+     "contains": "cfg.MarkCredentialsExplicit(explicitClientID, explicitClientSecret)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "markers now survive a save; only MarkCredentialsExplicit clears them.",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "not_contains": "delete(c.envOverrides, \"ClientID\")\n\tdelete(c.envOverrides, \"ClientSecret\")\n\tdelete(c.envOverrides, \"AccessToken\")"
     }
-  ]
+   ]
+  },
+  {
+   "id": "doctor-auth-hint-names-a-real-command",
+   "summary": "doctor, the CLI error path and the MCP error path all point at `crowdstrike-cli auth login` instead of a nonexistent `auth setup` subcommand (issue #277, #278)",
+   "why": "This CLI's `auth` parent defines login, status, set-token and logout. It has never defined `setup`, yet three generated surfaces told operators to run it: doctor.go's auth_hint (fires when cfg.AuthHeader() is empty), helpers.go's HTTP 400/401/403 remediation, and internal/mcp/tools.go's tool-error text -- 7 occurrences in all. Cobra does not error on an unknown subcommand of a NON-root parent (legacyArgs only rejects unknown args for the root), and the generated parent runs parentNoSubcommandRunE, which returns cmd.Help() -- a nil error. So `crowdstrike-cli auth setup` printed help and exited 0. There was no 'unknown command' error and no non-zero exit anywhere in the journey: an operator saw a success code and was no closer to credentials, and because these are agent-first CLIs with typed exit codes, an agent performing setup read exit 0 as success and carried on unauthenticated. The hint fires exactly when it matters -- fresh install, rotated secret, new machine, expired token. This skill emits no auth_instructions field, so these hints are the only setup guidance it gives. The replacements name the real command and, in doctor, the variables `auth login` actually reads: FALCON_CLIENT_ID and FALCON_CLIENT_SECRET (plus the optional CROWDSTRIKE_OAUTH_SCOPE), taken from the login command's own env fallbacks rather than composed. Reported by @geekbrownbear, who verified halopsa and ninjaone live against an empty config (PR #277) and filed appdirect/crowdstrike as issue #278; the fleet scan that found the other two surfaces and confirmed only these four connectors are affected was done during triage. GENERATOR-class defect: until the press is fixed, a reprint reintroduces all 7 strings and these asserts guard them. Bug-fix-only: no new flag, command, or output field.",
+   "status": "active",
+   "spec_encode_followup": "cli-printing-press#4315: Derive the auth hint from the subcommand set the connector actually generates instead of the fixed \"Run '<cli> auth setup' for credential setup steps.\" string in internal/generator/generator.go. 52 of 56 connectors do define `auth setup`, which is why the hard-coded string went unnoticed; the four OAuth client-credentials connectors that scaffold `auth login` instead (appdirect, crowdstrike, halopsa, ninjaone) each shipped it 7 times. The same string is emitted into three surfaces -- doctor.go's auth_hint, helpers.go's 400/401/403 remediation, and the MCP server's tool-error text -- so a generator fix must cover all three.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "crowdstrike-cli auth setup"
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "not_contains": "crowdstrike-cli auth setup"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "crowdstrike-cli auth setup"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "Set FALCON_CLIENT_ID and FALCON_CLIENT_SECRET (plus CROWDSTRIKE_OAUTH_SCOPE if your instance needs a scope), then run 'crowdstrike-cli auth login' to mint a token.",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "crowdstrike-cli auth login' to re-authenticate.",
+     "min_count": 3
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "crowdstrike-cli auth login' to re-authenticate.",
+     "min_count": 3
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "cmd.AddCommand(newAuthLoginCmd(flags))",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "doctor-verdict-tracks-reality",
+   "summary": "doctor probes a real GET endpoint with the real credential and refuses to dial a placeholder base_url, instead of calling any HTTP response 'reachable' and never checking the credential",
+   "why": "`doctor` is the command every SKILL, guide and docs page tells an operator to run to confirm the connector works, and it could not tell a working install from a broken one. It called any HTTP response to `GET /` \"reachable\" and rendered it green, so a base_url aimed at the vendor's web UI (where every API path 404s) and a token rejected with 401 on every call both produced an all-green report. On this connector family it also never probed the credential at all: it printed \"present, not verified\" and left the operator to guess. The mirror defect: a connector whose shipped base_url default is a placeholder dialled the placeholder host, and the DNS failure rendered as \"FAIL API: unreachable\" - telling a correctly-credentialled operator they were broken without naming the one variable that would fix it. Several placeholder hosts resolve through live wildcard DNS and answer real HTTP, so dialling one produced a confident green verdict against a stranger's server. Measured and gated by tools/maintainer/check_doctor_truth.py. See issue #282.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorProbeCredentials("
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorBaseURLIsPlaceholder("
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorIsInfoKey(k)"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorBaseURLIsPlaceholder(cfg.BaseURL)"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeCredentials(cmd.Context()"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "present, not verified. Run `%s %s`"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "for _, v := range report {"
+    }
+   ]
+  },
+  {
+   "id": "install-credentials-declared-on-every-channel",
+   "summary": "every operator credential this connector reads is declared on all three install channels: manifest.json (.mcpb), server.json (MCP Registry) and mcp-install.md (manual install)",
+   "why": "Issue #282 ('three live-verified connectors prompt for the wrong credentials'). A connector is installed through THREE independent channels that each carry their own copy of the credential list: manifest.json server.mcp_config.env (what the .mcpb bundle hands Claude Desktop, which has no shell profile, no config.toml and no export - so an undeclared variable is a variable nobody is ever asked for), server.json environmentVariables (the MCP Registry publish channel), and mcp-install.md's copy-paste JSON blocks plus its remote launch line (the manual path, which never touches the bundle at all). The fleet-wide audit found 60 of 65 connectors under-declaring 122 operator-facing variables in the manifest, 61 of 65 mcp-install.md pages omitting 125, and hudu's server.json missing the base URL its manifest marks required. For crowdstrike the manifest gained: CROWDSTRIKE_BASE_URL, CROWDSTRIKE_TOKEN_URL. server.json gained: CROWDSTRIKE_BASE_URL, CROWDSTRIKE_TOKEN_URL. mcp-install.md's env blocks gained: CROWDSTRIKE_BASE_URL, CROWDSTRIKE_TOKEN_URL. manifest.json, server.json and mcp-install.md are ALL regenerated by /msp-skills-publish on an UPDATE or re-onboard, so without this ledger a regeneration silently drops every declaration and CI stays green (check_env_schema.py is wired --warn). The asserts below name the specific credentials, not a count, so dropping one and adding another cannot cancel out.",
+   "status": "active",
+   "spec_encode_followup": "cli-printing-press should emit server.mcp_config.env, the matching user_config prompts, server.json environmentVariables and mcp-install.md's env blocks from ONE declaration of the connector's operator-facing environment, so the three channels cannot be generated out of step. Until then check_env_schema.py compares all three and this ledger pins them.",
+   "asserts": [
+    {
+     "file": "manifest.json",
+     "contains": "\"CROWDSTRIKE_BASE_URL\": \"${user_config.crowdstrike_base_url}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"CROWDSTRIKE_OAUTH_SCOPE\": \"${user_config.crowdstrike_oauth_scope}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"CROWDSTRIKE_TOKEN_URL\": \"${user_config.crowdstrike_token_url}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"FALCON_CLIENT_ID\": \"${user_config.falcon_client_id}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"FALCON_CLIENT_SECRET\": \"${user_config.falcon_client_secret}\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"CROWDSTRIKE_BASE_URL\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"CROWDSTRIKE_OAUTH_SCOPE\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"CROWDSTRIKE_TOKEN_URL\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"FALCON_CLIENT_ID\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"FALCON_CLIENT_SECRET\"",
+     "min_count": 1
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"CROWDSTRIKE_BASE_URL\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"CROWDSTRIKE_OAUTH_SCOPE\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"CROWDSTRIKE_TOKEN_URL\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"FALCON_CLIENT_ID\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"FALCON_CLIENT_SECRET\":",
+     "min_count": 3
+    }
+   ]
+  }
+ ]
 }

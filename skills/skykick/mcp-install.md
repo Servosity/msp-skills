@@ -37,9 +37,11 @@ Add (or merge with your existing `mcpServers` block):
     "skykick": {
       "command": "skykick-mcp",
       "env": {
+        "SKYKICK_BASE_URL": "https://apis.cloudservices.connectwise.com",
         "SKYKICK_CLIENT_ID": "<your-skykick_client_id>",
         "SKYKICK_CLIENT_SECRET": "<your-skykick_client_secret>",
-        "SKYKICK_OAUTH_SCOPE": "<your-skykick_oauth_scope>"
+        "SKYKICK_OAUTH_SCOPE": "<your-skykick_oauth_scope>",
+        "SKYKICK_TOKEN_URL": "https://apis.cloudservices.connectwise.com/auth/token"
       }
     }
   }
@@ -64,9 +66,11 @@ Configuration**) and add:
       "type": "stdio",
       "command": "skykick-mcp",
       "env": {
+        "SKYKICK_BASE_URL": "https://apis.cloudservices.connectwise.com",
         "SKYKICK_CLIENT_ID": "<your-skykick_client_id>",
         "SKYKICK_CLIENT_SECRET": "<your-skykick_client_secret>",
-        "SKYKICK_OAUTH_SCOPE": "<your-skykick_oauth_scope>"
+        "SKYKICK_OAUTH_SCOPE": "<your-skykick_oauth_scope>",
+        "SKYKICK_TOKEN_URL": "https://apis.cloudservices.connectwise.com/auth/token"
       }
     }
   }
@@ -87,9 +91,11 @@ Claude Desktop:
     "skykick": {
       "command": "skykick-mcp",
       "env": {
+        "SKYKICK_BASE_URL": "https://apis.cloudservices.connectwise.com",
         "SKYKICK_CLIENT_ID": "<your-skykick_client_id>",
         "SKYKICK_CLIENT_SECRET": "<your-skykick_client_secret>",
-        "SKYKICK_OAUTH_SCOPE": "<your-skykick_oauth_scope>"
+        "SKYKICK_OAUTH_SCOPE": "<your-skykick_oauth_scope>",
+        "SKYKICK_TOKEN_URL": "https://apis.cloudservices.connectwise.com/auth/token"
       }
     }
   }
@@ -107,7 +113,7 @@ All remote agents need `skykick-mcp` reachable as a public **HTTPS** endpoint. R
 in HTTP mode with your credentials in the environment:
 
 ```bash
-SKYKICK_CLIENT_ID=<value> SKYKICK_CLIENT_SECRET=<value> SKYKICK_OAUTH_SCOPE=<value> skykick-mcp --transport http --addr :7777
+SKYKICK_BASE_URL=<value> SKYKICK_CLIENT_ID=<value> SKYKICK_CLIENT_SECRET=<value> SKYKICK_OAUTH_SCOPE=<value> SKYKICK_TOKEN_URL=<value> skykick-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

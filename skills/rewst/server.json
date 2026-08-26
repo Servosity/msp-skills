@@ -32,7 +32,8 @@
           "name": "REWST_BASE_URL",
           "description": "Rewst API base URL for your region (default https://api.rewst.io; set for EU/AU).",
           "isRequired": false,
-          "isSecret": false
+          "isSecret": false,
+          "default": "https://api.rewst.io"
         },
         {
           "name": "REWST_API_TOKEN",

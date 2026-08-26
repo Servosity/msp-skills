@@ -37,9 +37,11 @@ Add (or merge with your existing `mcpServers` block):
     "appdirect": {
       "command": "appdirect-mcp",
       "env": {
+        "APPDIRECT_BASE_URL": "https://marketplace.appdirect.com/api",
         "APPDIRECT_CLIENT_ID": "<your-appdirect_client_id>",
         "APPDIRECT_CLIENT_SECRET": "<your-appdirect_client_secret>",
-        "APPDIRECT_OAUTH_SCOPE": "<your-appdirect_oauth_scope>"
+        "APPDIRECT_OAUTH_SCOPE": "<your-appdirect_oauth_scope>",
+        "APPDIRECT_TOKEN_URL": "https://marketplace.appdirect.com/oauth2/token"
       }
     }
   }
@@ -64,9 +66,11 @@ Configuration**) and add:
       "type": "stdio",
       "command": "appdirect-mcp",
       "env": {
+        "APPDIRECT_BASE_URL": "https://marketplace.appdirect.com/api",
         "APPDIRECT_CLIENT_ID": "<your-appdirect_client_id>",
         "APPDIRECT_CLIENT_SECRET": "<your-appdirect_client_secret>",
-        "APPDIRECT_OAUTH_SCOPE": "<your-appdirect_oauth_scope>"
+        "APPDIRECT_OAUTH_SCOPE": "<your-appdirect_oauth_scope>",
+        "APPDIRECT_TOKEN_URL": "https://marketplace.appdirect.com/oauth2/token"
       }
     }
   }
@@ -87,9 +91,11 @@ Claude Desktop:
     "appdirect": {
       "command": "appdirect-mcp",
       "env": {
+        "APPDIRECT_BASE_URL": "https://marketplace.appdirect.com/api",
         "APPDIRECT_CLIENT_ID": "<your-appdirect_client_id>",
         "APPDIRECT_CLIENT_SECRET": "<your-appdirect_client_secret>",
-        "APPDIRECT_OAUTH_SCOPE": "<your-appdirect_oauth_scope>"
+        "APPDIRECT_OAUTH_SCOPE": "<your-appdirect_oauth_scope>",
+        "APPDIRECT_TOKEN_URL": "https://marketplace.appdirect.com/oauth2/token"
       }
     }
   }
@@ -107,7 +113,7 @@ All remote agents need `appdirect-mcp` reachable as a public **HTTPS** endpoint.
 in HTTP mode with your credentials in the environment:
 
 ```bash
-APPDIRECT_CLIENT_ID=<value> APPDIRECT_CLIENT_SECRET=<value> APPDIRECT_OAUTH_SCOPE=<value> appdirect-mcp --transport http --addr :7777
+APPDIRECT_BASE_URL=<value> APPDIRECT_CLIENT_ID=<value> APPDIRECT_CLIENT_SECRET=<value> APPDIRECT_OAUTH_SCOPE=<value> APPDIRECT_TOKEN_URL=<value> appdirect-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

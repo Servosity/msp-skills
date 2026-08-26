@@ -37,7 +37,10 @@ Add (or merge with your existing `mcpServers` block):
     "gradient": {
       "command": "gradient-mcp",
       "env": {
-        "GRADIENT_TOKEN": "<your-gradient_token>"
+        "GRADIENT_BASE_URL": "https://app.usegradient.com/api",
+        "GRADIENT_PARTNER_API_KEY": "<your-gradient_partner_api_key>",
+        "GRADIENT_TOKEN": "<your-gradient_token>",
+        "GRADIENT_VENDOR_API_KEY": "<your-gradient_vendor_api_key>"
       }
     }
   }
@@ -62,7 +65,10 @@ Configuration**) and add:
       "type": "stdio",
       "command": "gradient-mcp",
       "env": {
-        "GRADIENT_TOKEN": "<your-gradient_token>"
+        "GRADIENT_BASE_URL": "https://app.usegradient.com/api",
+        "GRADIENT_PARTNER_API_KEY": "<your-gradient_partner_api_key>",
+        "GRADIENT_TOKEN": "<your-gradient_token>",
+        "GRADIENT_VENDOR_API_KEY": "<your-gradient_vendor_api_key>"
       }
     }
   }
@@ -83,7 +89,10 @@ Claude Desktop:
     "gradient": {
       "command": "gradient-mcp",
       "env": {
-        "GRADIENT_TOKEN": "<your-gradient_token>"
+        "GRADIENT_BASE_URL": "https://app.usegradient.com/api",
+        "GRADIENT_PARTNER_API_KEY": "<your-gradient_partner_api_key>",
+        "GRADIENT_TOKEN": "<your-gradient_token>",
+        "GRADIENT_VENDOR_API_KEY": "<your-gradient_vendor_api_key>"
       }
     }
   }
@@ -101,7 +110,7 @@ All remote agents need `gradient-mcp` reachable as a public **HTTPS** endpoint. 
 in HTTP mode with your credentials in the environment:
 
 ```bash
-GRADIENT_TOKEN=<value> gradient-mcp --transport http --addr :7777
+GRADIENT_BASE_URL=<value> GRADIENT_PARTNER_API_KEY=<value> GRADIENT_TOKEN=<value> GRADIENT_VENDOR_API_KEY=<value> gradient-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

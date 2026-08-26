@@ -37,13 +37,15 @@ Add (or merge with your existing `mcpServers` block):
     "halopsa": {
       "command": "halopsa-mcp",
       "env": {
+        "HALOPSA_BASE_URL": "",
         "HALOPSA_CLIENT_ID": "<your-halopsa_client_id>",
         "HALOPSA_CLIENT_SECRET": "<your-halopsa_client_secret>",
         "HALOPSA_DOMAIN": "<your-halopsa_domain>",
         "HALOPSA_OAUTH_SCOPE": "<your-halopsa_oauth_scope>",
         "HALOPSA_SCOPE": "<your-halopsa_scope>",
         "HALOPSA_TENANT": "<your-halopsa_tenant>",
-        "HALOPSA_TOKEN": "<your-halopsa_token>"
+        "HALOPSA_TOKEN": "<your-halopsa_token>",
+        "HALOPSA_TOKEN_URL": ""
       }
     }
   }
@@ -68,13 +70,15 @@ Configuration**) and add:
       "type": "stdio",
       "command": "halopsa-mcp",
       "env": {
+        "HALOPSA_BASE_URL": "",
         "HALOPSA_CLIENT_ID": "<your-halopsa_client_id>",
         "HALOPSA_CLIENT_SECRET": "<your-halopsa_client_secret>",
         "HALOPSA_DOMAIN": "<your-halopsa_domain>",
         "HALOPSA_OAUTH_SCOPE": "<your-halopsa_oauth_scope>",
         "HALOPSA_SCOPE": "<your-halopsa_scope>",
         "HALOPSA_TENANT": "<your-halopsa_tenant>",
-        "HALOPSA_TOKEN": "<your-halopsa_token>"
+        "HALOPSA_TOKEN": "<your-halopsa_token>",
+        "HALOPSA_TOKEN_URL": ""
       }
     }
   }
@@ -95,13 +99,15 @@ Claude Desktop:
     "halopsa": {
       "command": "halopsa-mcp",
       "env": {
+        "HALOPSA_BASE_URL": "",
         "HALOPSA_CLIENT_ID": "<your-halopsa_client_id>",
         "HALOPSA_CLIENT_SECRET": "<your-halopsa_client_secret>",
         "HALOPSA_DOMAIN": "<your-halopsa_domain>",
         "HALOPSA_OAUTH_SCOPE": "<your-halopsa_oauth_scope>",
         "HALOPSA_SCOPE": "<your-halopsa_scope>",
         "HALOPSA_TENANT": "<your-halopsa_tenant>",
-        "HALOPSA_TOKEN": "<your-halopsa_token>"
+        "HALOPSA_TOKEN": "<your-halopsa_token>",
+        "HALOPSA_TOKEN_URL": ""
       }
     }
   }
@@ -119,7 +125,7 @@ All remote agents need `halopsa-mcp` reachable as a public **HTTPS** endpoint. R
 in HTTP mode with your credentials in the environment:
 
 ```bash
-HALOPSA_CLIENT_ID=<value> HALOPSA_CLIENT_SECRET=<value> HALOPSA_DOMAIN=<value> HALOPSA_OAUTH_SCOPE=<value> HALOPSA_SCOPE=<value> HALOPSA_TENANT=<value> HALOPSA_TOKEN=<value> halopsa-mcp --transport http --addr :7777
+HALOPSA_BASE_URL=<value> HALOPSA_CLIENT_ID=<value> HALOPSA_CLIENT_SECRET=<value> HALOPSA_DOMAIN=<value> HALOPSA_OAUTH_SCOPE=<value> HALOPSA_SCOPE=<value> HALOPSA_TENANT=<value> HALOPSA_TOKEN=<value> HALOPSA_TOKEN_URL=<value> halopsa-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

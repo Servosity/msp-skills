@@ -37,6 +37,7 @@ Add (or merge with your existing `mcpServers` block):
     "wordpress": {
       "command": "wordpress-mcp",
       "env": {
+        "WORDPRESS_BASE_URL": "https://wordpress.org/news/wp-json/wp/v2",
         "WORDPRESS_BASIC_AUTH": "<your-wordpress_basic_auth>"
       }
     }
@@ -62,6 +63,7 @@ Configuration**) and add:
       "type": "stdio",
       "command": "wordpress-mcp",
       "env": {
+        "WORDPRESS_BASE_URL": "https://wordpress.org/news/wp-json/wp/v2",
         "WORDPRESS_BASIC_AUTH": "<your-wordpress_basic_auth>"
       }
     }
@@ -83,6 +85,7 @@ Claude Desktop:
     "wordpress": {
       "command": "wordpress-mcp",
       "env": {
+        "WORDPRESS_BASE_URL": "https://wordpress.org/news/wp-json/wp/v2",
         "WORDPRESS_BASIC_AUTH": "<your-wordpress_basic_auth>"
       }
     }
@@ -101,7 +104,7 @@ All remote agents need `wordpress-mcp` reachable as a public **HTTPS** endpoint.
 in HTTP mode with your credentials in the environment:
 
 ```bash
-WORDPRESS_BASIC_AUTH=<value> wordpress-mcp --transport http --addr :7777
+WORDPRESS_BASE_URL=<value> WORDPRESS_BASIC_AUTH=<value> wordpress-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

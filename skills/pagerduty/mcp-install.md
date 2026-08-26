@@ -37,7 +37,8 @@ Add (or merge with your existing `mcpServers` block):
     "pagerduty": {
       "command": "pagerduty-mcp",
       "env": {
-        "PAGERDUTY_API_KEY": "<your-pagerduty_api_key>"
+        "PAGERDUTY_API_KEY": "<your-pagerduty_api_key>",
+        "PAGERDUTY_BASE_URL": "https://api.pagerduty.com"
       }
     }
   }
@@ -62,7 +63,8 @@ Configuration**) and add:
       "type": "stdio",
       "command": "pagerduty-mcp",
       "env": {
-        "PAGERDUTY_API_KEY": "<your-pagerduty_api_key>"
+        "PAGERDUTY_API_KEY": "<your-pagerduty_api_key>",
+        "PAGERDUTY_BASE_URL": "https://api.pagerduty.com"
       }
     }
   }
@@ -83,7 +85,8 @@ Claude Desktop:
     "pagerduty": {
       "command": "pagerduty-mcp",
       "env": {
-        "PAGERDUTY_API_KEY": "<your-pagerduty_api_key>"
+        "PAGERDUTY_API_KEY": "<your-pagerduty_api_key>",
+        "PAGERDUTY_BASE_URL": "https://api.pagerduty.com"
       }
     }
   }
@@ -101,7 +104,7 @@ All remote agents need `pagerduty-mcp` reachable as a public **HTTPS** endpoint.
 in HTTP mode with your credentials in the environment:
 
 ```bash
-PAGERDUTY_API_KEY=<value> pagerduty-mcp --transport http --addr :7777
+PAGERDUTY_API_KEY=<value> PAGERDUTY_BASE_URL=<value> pagerduty-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

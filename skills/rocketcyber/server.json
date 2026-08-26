@@ -33,6 +33,13 @@
           "description": "Set the ROCKETCYBER_API_TOKEN credential for the RocketCyber MCP server.",
           "isRequired": true,
           "isSecret": true
+        },
+        {
+          "name": "ROCKETCYBER_BASE_URL",
+          "description": "Base URL for the RocketCyber API. Leave the prefilled default unless your account uses a different regional or self-hosted host.",
+          "isRequired": false,
+          "isSecret": false,
+          "default": "https://api-us.rocketcyber.com/v3"
         }
       ]
     }

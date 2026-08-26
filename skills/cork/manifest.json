@@ -15,7 +15,10 @@
       "command": "${__dirname}/bin/cork-mcp",
       "args": [],
       "env": {
-        "CORK_API_KEY": "${user_config.cork_api_key}"
+        "CORK_API_KEY": "${user_config.cork_api_key}",
+        "CORK_BASE_URL": "${user_config.cork_base_url}",
+        "CORK_USER_AGENT": "${user_config.cork_user_agent}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
       }
     }
   },
@@ -26,6 +29,25 @@
       "description": "Sets CORK_API_KEY for the Cork MCP server.",
       "sensitive": true,
       "required": true
+    },
+    "cork_base_url": {
+      "type": "string",
+      "title": "Cork API base URL",
+      "description": "Base URL for the Cork API. Leave the prefilled default unless your account uses a different regional or self-hosted host.",
+      "required": false,
+      "default": "https://api.corkinc.com/api/v1"
+    },
+    "cork_user_agent": {
+      "type": "string",
+      "title": "User-Agent header",
+      "description": "Overrides the User-Agent the CLI sends on Cork requests. Leave blank to use the CLI's own built-in User-Agent.",
+      "required": false
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile",
+      "description": "Binds this MCP server to one tenant-gated client profile, so every call answers for that customer. Leave blank to use the profile configured as default_client_profile.",
+      "required": false
     }
   },
   "compatibility": {

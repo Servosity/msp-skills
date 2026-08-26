@@ -16,7 +16,11 @@
       "args": [],
       "env": {
         "AVANAN_APP_ID": "${user_config.avanan_app_id}",
-        "AVANAN_CLIENT_SECRET": "${user_config.avanan_client_secret}"
+        "AVANAN_BASE_URL": "${user_config.avanan_base_url}",
+        "AVANAN_CLIENT_SECRET": "${user_config.avanan_client_secret}",
+        "AVANAN_TOKEN": "${user_config.avanan_token}",
+        "AVANAN_USER_AGENT": "${user_config.avanan_user_agent}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
       }
     }
   },
@@ -25,7 +29,7 @@
       "type": "string",
       "title": "AVANAN_APP_ID",
       "description": "Sets AVANAN_APP_ID (the Avanan application ID) for the Avanan MCP server.",
-      "sensitive": false,
+      "sensitive": true,
       "required": true
     },
     "avanan_client_secret": {
@@ -34,6 +38,32 @@
       "description": "Sets AVANAN_CLIENT_SECRET (the Avanan client secret) for the Avanan MCP server.",
       "sensitive": true,
       "required": true
+    },
+    "avanan_token": {
+      "type": "string",
+      "title": "Avanan API token",
+      "description": "Bearer token for the Avanan Smart API. Minted from your Avanan client ID and secret by `auth login`, or pasted here directly.",
+      "sensitive": true,
+      "required": true
+    },
+    "avanan_base_url": {
+      "type": "string",
+      "title": "Avanan API base URL",
+      "description": "Base URL for the Avanan API. Leave the prefilled default unless your account uses a different regional or self-hosted host.",
+      "required": false,
+      "default": "https://smart-api-production-1-us.avanan.net"
+    },
+    "avanan_user_agent": {
+      "type": "string",
+      "title": "User-Agent header",
+      "description": "Overrides the User-Agent the CLI sends on Avanan requests. Leave blank to use the CLI's own built-in User-Agent.",
+      "required": false
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile",
+      "description": "Binds this MCP server to one tenant-gated client profile, so every call answers for that customer. Leave blank to use the profile configured as default_client_profile.",
+      "required": false
     }
   },
   "compatibility": {

@@ -38,6 +38,7 @@ Add (or merge with your existing `mcpServers` block):
       "command": "blumira-mcp",
       "env": {
         "BLUMIRA_API_TOKEN": "<your-blumira_api_token>",
+        "BLUMIRA_BASE_URL": "https://api.blumira.com/public-api/v1",
         "BLUMIRA_CLIENT_ID": "<your-blumira_client_id>",
         "BLUMIRA_CLIENT_SECRET": "<your-blumira_client_secret>"
       }
@@ -65,6 +66,7 @@ Configuration**) and add:
       "command": "blumira-mcp",
       "env": {
         "BLUMIRA_API_TOKEN": "<your-blumira_api_token>",
+        "BLUMIRA_BASE_URL": "https://api.blumira.com/public-api/v1",
         "BLUMIRA_CLIENT_ID": "<your-blumira_client_id>",
         "BLUMIRA_CLIENT_SECRET": "<your-blumira_client_secret>"
       }
@@ -88,6 +90,7 @@ Claude Desktop:
       "command": "blumira-mcp",
       "env": {
         "BLUMIRA_API_TOKEN": "<your-blumira_api_token>",
+        "BLUMIRA_BASE_URL": "https://api.blumira.com/public-api/v1",
         "BLUMIRA_CLIENT_ID": "<your-blumira_client_id>",
         "BLUMIRA_CLIENT_SECRET": "<your-blumira_client_secret>"
       }
@@ -107,7 +110,7 @@ All remote agents need `blumira-mcp` reachable as a public **HTTPS** endpoint. R
 in HTTP mode with your credentials in the environment:
 
 ```bash
-BLUMIRA_API_TOKEN=<value> BLUMIRA_CLIENT_ID=<value> BLUMIRA_CLIENT_SECRET=<value> blumira-mcp --transport http --addr :7777
+BLUMIRA_API_TOKEN=<value> BLUMIRA_BASE_URL=<value> BLUMIRA_CLIENT_ID=<value> BLUMIRA_CLIENT_SECRET=<value> blumira-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

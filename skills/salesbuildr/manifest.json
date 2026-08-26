@@ -16,6 +16,7 @@
       "args": [],
       "env": {
         "SALESBUILDR_API_KEY": "${user_config.salesbuildr_api_key}",
+        "SALESBUILDR_BASE_URL": "${user_config.salesbuildr_base_url}",
         "SALESBUILDR_TENANT": "${user_config.salesbuildr_tenant}"
       }
     }
@@ -32,7 +33,14 @@
       "type": "string",
       "title": "SALESBUILDR_TENANT",
       "description": "Sets SALESBUILDR_TENANT for the endpoint template variable {tenant}.",
-      "default": "your-tenant"
+      "default": "your-tenant",
+      "required": true
+    },
+    "salesbuildr_base_url": {
+      "type": "string",
+      "title": "Salesbuildr API base URL",
+      "description": "Full API base URL. Leave blank: the CLI builds it from SALESBUILDR_TENANT. Set it only to point at a different host.",
+      "required": false
     }
   },
   "compatibility": {

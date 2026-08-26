@@ -15,7 +15,8 @@
       "command": "${__dirname}/bin/afi-mcp",
       "args": [],
       "env": {
-        "AFI_API_KEY": "${user_config.afi_api_key}"
+        "AFI_API_KEY": "${user_config.afi_api_key}",
+        "AFI_BASE_URL": "${user_config.afi_base_url}"
       }
     }
   },
@@ -26,6 +27,13 @@
       "description": "Sets AFI_API_KEY for the Afi MCP server.",
       "sensitive": true,
       "required": true
+    },
+    "afi_base_url": {
+      "type": "string",
+      "title": "Afi API base URL",
+      "description": "Base URL for the Afi API. Leave the prefilled default unless your account uses a different regional or self-hosted host.",
+      "required": false,
+      "default": "https://papi.afi.ai"
     }
   },
   "compatibility": {

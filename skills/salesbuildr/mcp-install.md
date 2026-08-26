@@ -38,6 +38,7 @@ Add (or merge with your existing `mcpServers` block):
       "command": "salesbuildr-mcp",
       "env": {
         "SALESBUILDR_API_KEY": "<your-salesbuildr_api_key>",
+        "SALESBUILDR_BASE_URL": "",
         "SALESBUILDR_TENANT": "<your-salesbuildr_tenant>"
       }
     }
@@ -64,6 +65,7 @@ Configuration**) and add:
       "command": "salesbuildr-mcp",
       "env": {
         "SALESBUILDR_API_KEY": "<your-salesbuildr_api_key>",
+        "SALESBUILDR_BASE_URL": "",
         "SALESBUILDR_TENANT": "<your-salesbuildr_tenant>"
       }
     }
@@ -86,6 +88,7 @@ Claude Desktop:
       "command": "salesbuildr-mcp",
       "env": {
         "SALESBUILDR_API_KEY": "<your-salesbuildr_api_key>",
+        "SALESBUILDR_BASE_URL": "",
         "SALESBUILDR_TENANT": "<your-salesbuildr_tenant>"
       }
     }
@@ -104,7 +107,7 @@ All remote agents need `salesbuildr-mcp` reachable as a public **HTTPS** endpoin
 in HTTP mode with your credentials in the environment:
 
 ```bash
-SALESBUILDR_API_KEY=<value> SALESBUILDR_TENANT=<value> salesbuildr-mcp --transport http --addr :7777
+SALESBUILDR_API_KEY=<value> SALESBUILDR_BASE_URL=<value> SALESBUILDR_TENANT=<value> salesbuildr-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

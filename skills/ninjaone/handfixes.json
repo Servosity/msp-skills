@@ -1,247 +1,382 @@
 {
-  "slug": "ninjaone",
-  "doc": "docs/reprint-survival.md",
-  "_comment": "Connector-specific edits to GENERATED (\"DO NOT EDIT\") files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present and fails CI if a reprint dropped one. Provenance: issue #88 (reporter @AndrewITLive), fixed 2026-06-15 on press 4.24.0; issues #136 queries-* composite-key + object-cursor (reporter @Xenith-B), fixed 2026-06-17; issue #179 stable object-cursor offset (reporter @Xenith-B), fixed 2026-07-07.",
-  "handfixes": [
+ "slug": "ninjaone",
+ "doc": "docs/reprint-survival.md",
+ "_comment": "Connector-specific edits to GENERATED (\"DO NOT EDIT\") files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present and fails CI if a reprint dropped one. Provenance: issue #88 (reporter @AndrewITLive), fixed 2026-06-15 on press 4.24.0; issues #136 queries-* composite-key + object-cursor (reporter @Xenith-B), fixed 2026-06-17; issue #179 stable object-cursor offset (reporter @Xenith-B), fixed 2026-07-07.",
+ "handfixes": [
+  {
+   "id": "after-id-pagination",
+   "summary": "Sync loop fetches all pages for NinjaOne after-id (keyset) endpoints. NinjaOne list endpoints (/v2/devices, /v2/organizations, ...) return a bare JSON array and paginate via ?after=<lastEntityId> - no body cursor, no envelope has_more. The generated loop only handled envelope-cursor / page / offset paginators, so it stopped at the first full page and reported a truncated dataset (e.g. 1000 of 1115 devices) as complete. --max-pages 0 had no effect because the loop broke on !hasMore before the cap mattered.",
+   "why": "determinePaginationDefaults() hard-codes cursorParam/cursorType \"cursor\", and extractPageItems() returns hasMore=false for a bare array (sync.go), so the natural-end break (`if !hasMore || len(items) < pageSize.limit`) fired after page 1. The press's pagination profiler does not model after-id/keyset cursors; a plain reprint regenerates the same defaults (the 0.1.1 4.24.0 regen produced byte-identical code, confirming this). The fix adds a response-shape-driven after-id fallback: when a bare-array page is full and the last item exposes an id, advance under ?after=<lastId>. Object-enveloped responses (/v2/queries/* carry a `cursor` object) are unaffected. Applied to BOTH the flat syncResource loop and the syncDependentResource loop.",
+   "status": "active",
+   "spec_encode_followup": "DURABLE FIX belongs in cli-printing-press: teach the pagination profiler to detect after-id/keyset pagination (bare-array list + ?after param + id-derived cursor) and emit it natively. File via printing-press-retro. Until the press learns it, this hand-fix must survive every reprint.",
+   "asserts": [
     {
-      "id": "after-id-pagination",
-      "summary": "Sync loop fetches all pages for NinjaOne after-id (keyset) endpoints. NinjaOne list endpoints (/v2/devices, /v2/organizations, ...) return a bare JSON array and paginate via ?after=<lastEntityId> - no body cursor, no envelope has_more. The generated loop only handled envelope-cursor / page / offset paginators, so it stopped at the first full page and reported a truncated dataset (e.g. 1000 of 1115 devices) as complete. --max-pages 0 had no effect because the loop broke on !hasMore before the cap mattered.",
-      "why": "determinePaginationDefaults() hard-codes cursorParam/cursorType \"cursor\", and extractPageItems() returns hasMore=false for a bare array (sync.go), so the natural-end break (`if !hasMore || len(items) < pageSize.limit`) fired after page 1. The press's pagination profiler does not model after-id/keyset cursors; a plain reprint regenerates the same defaults (the 0.1.1 4.24.0 regen produced byte-identical code, confirming this). The fix adds a response-shape-driven after-id fallback: when a bare-array page is full and the last item exposes an id, advance under ?after=<lastId>. Object-enveloped responses (/v2/queries/* carry a `cursor` object) are unaffected. Applied to BOTH the flat syncResource loop and the syncDependentResource loop.",
-      "status": "active",
-      "spec_encode_followup": "DURABLE FIX belongs in cli-printing-press: teach the pagination profiler to detect after-id/keyset pagination (bare-array list + ?after param + id-derived cursor) and emit it natively. File via printing-press-retro. Until the press learns it, this hand-fix must survive every reprint.",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/sync.go",
-          "contains": "const afterIDParam = \"after\"",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/sync.go",
-          "contains": "func isBareArrayResponse",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/sync.go",
-          "contains": "func extractLastItemID",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/sync.go",
-          "contains": "afterIDMode = true",
-          "min_count": 2
-        },
-        {
-          "file": "cli/internal/cli/sync.go",
-          "contains": "cursorParam = afterIDParam",
-          "min_count": 2
-        },
-        {
-          "file": "cli/internal/cli/sync_after_id_test.go",
-          "contains": "func TestExtractLastItemID",
-          "min_count": 1
-        }
-      ]
+     "file": "cli/internal/cli/sync.go",
+     "contains": "const afterIDParam = \"after\"",
+     "min_count": 1
     },
     {
-      "id": "queries-composite-key-extraction",
-      "summary": "The device-scoped /v2/queries/* report family stored wrong/zero rows because the generic key path mis-keyed it. Two sub-symptoms: (a) the id-less reports (queries-antivirus-status, queries-device-health, queries-network-interfaces, queries-logged-on-users, queries-policy-overrides, queries-raid-controllers, queries-raid-drives) returned objects with NO top-level id -> ExtractResourceID returned \"\" -> every row skipped (all_items_failed_id_extraction, zero stored); (b) a broader set (queries-os-patches, queries-os-patch-installs, queries-software-patches, queries-software-patch-installs, queries-software, queries-operating-systems, queries-computer-systems, queries-processors, queries-volumes, queries-windows-services, queries-antivirus-threats) fell to genericIDFieldFallbacks and keyed on a PATCH id or a name WITHOUT a deviceId prefix, collapsing rows ACROSS devices (every 'Windows 11' device -> one stored row). Fix forces deviceId as the PRIMARY key for the whole family via resourceIDFieldOverrides, plus a per-row discriminator (productName/threatId/interfaceIndex/userName/controllerIndex/driveId/patch id/name) via the resourceCompositeKeyColumns map consulted by resourceStorageID for multi-row-per-device resources; single-row reports (operating-systems, computer-systems, device-health, policy-overrides) key on deviceId alone. The four queries-custom-fields* variants are now keyed too (#137): the source OpenAPI schema confirmed their shapes - custom-fields/custom-fields-detailed (NodeAttributes/NodeAttributesDetailed) are one row per device keyed on deviceId alone; scoped-custom-fields/scoped-custom-fields-detailed (ScopedAttributes/ScopedAttributesDetailed) are one row per (scope, entityId) keyed on entityId plus a `scope` discriminator (entityId is unique only WITHIN a scope, so a device #5 and an org #5 would otherwise collide). All four stored ZERO rows before the fix (id-less), so the overrides can only add rows.",
-      "why": "The press id profiler derives resourceIDFieldOverrides from the spec's x-resource-id / response-schema id field. NinjaOne's /v2/queries/* schemas either declare no id (so the generic fallback id/name/slug missed entirely) or declare an `id` that is a per-patch identifier shared across devices (so the fallback keyed on it and collapsed cross-device). A plain reprint regenerates the same gap. Every key/discriminator is grounded in the connector's own internal/types/types.go structs (DeviceOSPatch.id, DeviceSoftwarePatch.id, DeviceAntivirusThreat.threatId, DeviceProcessor.name, DeviceVolume.name, DeviceWindowsService.name, DeviceOperatingSystem/DeviceComputerSystem single-row, plus the #136 reporter's confirmed live shapes), never from the issue's suggested-fix text. resourceStorageID was refactored to append the resourceCompositeKeyColumns discriminator in addition to the existing resourceParentKeyColumns parent value; existing dependent-resource behavior is byte-equivalent (appends only when the field is present and non-empty). deviceId always leads the key so cross-device collapse is structurally impossible.",
-      "status": "active",
-      "spec_encode_followup": "DURABLE FIX belongs in cli-printing-press: teach the id profiler to detect device-scoped report endpoints and emit a composite key (scope id + a per-row discriminator) rather than keying on a non-unique id/name. File via printing-press-retro alongside the after-id/keyset profiler gap. Until the press learns it, this hand-fix must survive every reprint. Known bounded residual (deviceId always leads, so NO cross-device loss): for queries-software/queries-processors/queries-volumes the single within-device discriminator (name) can collide on rare duplicate-name rows (dual-socket identical CPUs, dup-named software variants, blank-named volumes); a multi-field composite would tighten this if a report arrives. queries-software's row shape (assumed DeviceApplication) is the one discriminator not confirmed by a typed struct. The four queries-custom-fields* variants are now keyed too (#137), grounded in the source OpenAPI schemas (NodeAttributes.deviceId; ScopedAttributes.scope+entityId), not the issue text. One bounded residual: NodeAttributesDetailed.deviceId is marked writeOnly in the spec, so if the live response omits it the override is a no-op and queries-custom-fields-detailed stays at the zero rows it already stored (never a regression); a captured live /v2/queries/custom-fields-detailed response would confirm it definitively. Second bounded residual (same class as the name-discriminator note above): the scoped variants rely on a populated `scope` to disambiguate entityId across scopes - resourceStorageID appends the discriminator only when non-empty (the shared #136 conditional-append shape), so an empty/absent scope would collapse same-id entities; this is contract-dependent (scope is the report's always-set grouping dimension) and still strictly more than today's zero rows, not a regression.",
-      "asserts": [
-        {
-          "file": "cli/internal/store/store.go",
-          "contains": "var resourceCompositeKeyColumns",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/store/store.go",
-          "contains": "resourceCompositeKeyColumns[resourceType]",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/store/store.go",
-          "contains": "\"queries-antivirus-status\"",
-          "min_count": 2
-        },
-        {
-          "file": "cli/internal/store/store.go",
-          "contains": "\"queries-device-health\"",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/store/store.go",
-          "contains": "\"queries-os-patches\"",
-          "min_count": 2
-        },
-        {
-          "file": "cli/internal/store/store.go",
-          "contains": "\"queries-operating-systems\"",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/store/queries_composite_key_test.go",
-          "contains": "func TestQueriesCompositeKeysDoNotCollide",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/store/queries_composite_key_test.go",
-          "contains": "func TestQueriesNoCrossDeviceCollapse",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/store/store.go",
-          "contains": "\"queries-custom-fields\"",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/store/store.go",
-          "contains": "\"queries-custom-fields-detailed\"",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/store/store.go",
-          "contains": "\"queries-scoped-custom-fields-detailed\"",
-          "min_count": 2
-        },
-        {
-          "file": "cli/internal/store/queries_custom_fields_key_test.go",
-          "contains": "func TestScopedCustomFieldsKeyDisambiguatesScope",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/store/queries_custom_fields_key_test.go",
-          "contains": "func TestCustomFieldsKeyOnDeviceID",
-          "min_count": 1
-        }
-      ]
+     "file": "cli/internal/cli/sync.go",
+     "contains": "func isBareArrayResponse",
+     "min_count": 1
     },
     {
-      "id": "queries-object-cursor-pagination",
-      "summary": "NinjaOne /v2/queries/* endpoints paginate via an OBJECT-valued cursor: \"cursor\":{\"name\":\"<token>\",\"offset\":0,\"count\":\"N\",\"expires\":...}. findCursorInMap only unmarshalled a string cursor, so the next-page token was never found; sync stopped after the first page and capped each queries resource at 100 rows (sync_warning pagination_cursor_missing). Fix adds cursorTokenFromObject, consulted by findCursorInMap only after the string unmarshal fails, which descends into the object and returns the first non-empty string token field (name/next_cursor/...). Issue #179 showed live tenants can keep cursor.name stable while cursor.offset advances; paginationProgress now compares an offset-qualified progress key and requires the same token's numeric offset to advance monotonically, so the sticky-cursor guard does not abort a progressing object cursor at 200 rows and still stops repeated or regressed offsets.",
-      "why": "determinePaginationDefaults() emits cursorParam/cursorType \"cursor\" but the press models a string cursor only; it does not model an object cursor whose token is nested under a field. The natural-end (len<limit), sticky-cursor, and empty-page guards already in the loop make object-cursor advance terminate safely. String-cursor APIs are unaffected because the object descent runs only after the scalar unmarshal fails. A plain reprint regenerates the string-only findCursorInMap. The #179 extension keeps sending the API's valid cursor.name token but compares cursor.name plus cursor.offset internally, so a repeated session token with advancing offset is treated as progress while repeated or regressed offsets still trip the loop-safety guard.",
-      "status": "active",
-      "spec_encode_followup": "DURABLE FIX belongs in cli-printing-press: teach the pagination profiler to detect object-valued cursors (cursor field is an object; token nested under name/next/cursor) and emit the descent natively, including object-cursor progress keys that can use offset when the API keeps the token stable. File via printing-press-retro. Until then this hand-fix must survive every reprint. Verification residual: multi-page completeness assumes NinjaOne advances server-side when the same cursor.name token is sent again; if a live tenant ever shows repeated rows with advancing offset, the fix must also send an offset query parameter, but the current OpenAPI surface only declares cursor plus pageSize for these report endpoints. This is monotonic vs main regardless (the sticky-cursor + max-pages guards still prevent any hang).",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/sync.go",
-          "contains": "func cursorTokenFromObject",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/sync.go",
-          "contains": "cursorTokenFromObject(raw)",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/sync.go",
-          "contains": "func paginationAdvanceKey",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/sync.go",
-          "contains": "func (p paginationProgress) stuckAfter",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/sync.go",
-          "contains": "func cursorObjectOffsetAdvanceKey",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/queries_cursor_test.go",
-          "contains": "func TestExtractPageItemsFollowsObjectCursor",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/queries_cursor_test.go",
-          "contains": "func TestPaginationAdvanceKeyUsesObjectCursorOffset",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/queries_cursor_test.go",
-          "contains": "func TestPaginationProgressRequiresMonotonicObjectOffset",
-          "min_count": 1
-        }
-      ]
+     "file": "cli/internal/cli/sync.go",
+     "contains": "func extractLastItemID",
+     "min_count": 1
     },
     {
-      "id": "code-orch-string-path-params",
-      "summary": "The MCP code-orchestration executor substitutes string path parameters from the params object, so endpoints such as custom-fields.get-node-attribute-signed-urls and tag.set-for-asset do not send literal {entityType} or {assetType} URL tokens.",
-      "why": "The generated command files call replacePathParam for string path flags, but the MCP code-orchestration path rebuilds requests from endpoint metadata. It only substituted ep.Positional placeholders before routing remaining params into the query string or JSON body. Numeric IDs worked because they were positional (for example entityId or assetId), while string path params such as entityType and assetType were left in params and the URL template stayed unresolved. The fix applies path params from positional metadata, template bindings, and any remaining params whose names still match placeholders before query/body routing.",
-      "status": "active",
-      "spec_encode_followup": "DURABLE FIX belongs in cli-printing-press: teach the code-orchestration executor template to consume any params matching unresolved path placeholders before query/body routing, or emit complete path binding metadata for all path params. Until then this hand-fix must survive every reprint.",
-      "asserts": [
-        {
-          "file": "cli/internal/mcp/code_orch.go",
-          "contains": "func codeOrchApplyPathParams",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/mcp/code_orch.go",
-          "contains": "neturl.PathEscape(formatMCPParamValue(v))",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/mcp/code_orch_path_test.go",
-          "contains": "func TestCodeOrchExecuteSubstitutesStringPathParams",
-          "min_count": 1
-        }
-      ]
+     "file": "cli/internal/cli/sync.go",
+     "contains": "afterIDMode = true",
+     "min_count": 2
     },
     {
-      "id": "env-oauth-secrets-not-persisted",
-      "summary": "SaveTokens keeps the env-override marker on ClientID/ClientSecret, so env-supplied OAuth credentials are never written to config.toml (issue #266)",
-      "why": "Load() marks ClientID/ClientSecret as env overrides and configForSave() restores the file value for any field still marked -- the mechanism that keeps env-supplied secrets off disk. SaveTokens() cleared both markers on every save, so each token mint (an ordinary authenticated command, no `auth login` step needed) rewrote the live client_id and client_secret into ~/.config/<tool>-cli/config.toml in cleartext, defeating Keychain/Credential-Manager setups that inject the secret as an env var at process launch. SaveTokens now leaves those two markers alone; only MarkCredentialsExplicit clears them, and only `auth login` calls it, passing whether each value came from a flag rather than from the env fallback. Provenance must be declared, not inferred: comparing the incoming value against the loaded one cannot tell an explicit flag from the env value it duplicates, and `auth login` trims its env fallback while Load does not, so a padded variable compares unequal to itself and leaks. Reported by @Xenith-B against halopsa-cli/ninjaone-cli. GENERATOR-class defect (the press emits the unconditional deletes) tracked for an upstream retro; until the press is fixed, a reprint reintroduces the leak and these markers guard the connector. Bug-fix-only: no new flag, command, or output.",
-      "status": "active",
-      "spec_encode_followup": "cli-printing-press#4283: SaveTokens must not clear the ClientID/ClientSecret env-override markers. Only a credential the caller supplied through an explicit command-line flag may clear them, and the flag's provenance must be passed in by the caller -- NOT inferred by comparing the incoming value against the loaded one. An explicit flag whose value equals the environment's is still explicit and must persist; conversely `auth login` trims its env fallback while Load does not, so a padded variable compares unequal to itself and a value-based rule leaks it.",
-      "asserts": [
-        {"file": "cli/internal/config/config.go", "contains": "func (c *Config) MarkCredentialsExplicit(clientID, clientSecret bool) {", "min_count": 1},
-        {"file": "cli/internal/cli/auth.go", "contains": "cfg.MarkCredentialsExplicit(explicitClientID, explicitClientSecret)", "min_count": 1},
-        {"file": "cli/internal/config/config.go", "contains": "markers now survive a save; only MarkCredentialsExplicit clears them.", "min_count": 1},
-        {"file": "cli/internal/config/config.go", "not_contains": "delete(c.envOverrides, \"ClientID\")\n\tdelete(c.envOverrides, \"ClientSecret\")\n\tdelete(c.envOverrides, \"AccessToken\")"}
-      ]
+     "file": "cli/internal/cli/sync.go",
+     "contains": "cursorParam = afterIDParam",
+     "min_count": 2
     },
     {
-      "id": "doctor-auth-hint-names-a-real-command",
-      "summary": "doctor, the CLI error path and the MCP error path all point at `ninjaone-cli auth login` instead of a nonexistent `auth setup` subcommand (issue #277, #278)",
-      "why": "This CLI's `auth` parent defines login, status, set-token and logout. It has never defined `setup`, yet three generated surfaces told operators to run it: doctor.go's auth_hint (fires when cfg.AuthHeader() is empty), helpers.go's HTTP 400/401/403 remediation, and internal/mcp/tools.go's tool-error text -- 7 occurrences in all. Cobra does not error on an unknown subcommand of a NON-root parent (legacyArgs only rejects unknown args for the root), and the generated parent runs parentNoSubcommandRunE, which returns cmd.Help() -- a nil error. So `ninjaone-cli auth setup` printed help and exited 0. There was no 'unknown command' error and no non-zero exit anywhere in the journey: an operator saw a success code and was no closer to credentials, and because these are agent-first CLIs with typed exit codes, an agent performing setup read exit 0 as success and carried on unauthenticated. The hint fires exactly when it matters -- fresh install, rotated secret, new machine, expired token. This skill emits no auth_instructions field, so these hints are the only setup guidance it gives. The replacements name the real command and, in doctor, the variables `auth login` actually reads: NINJAONE_CLIENT_ID and NINJAONE_CLIENT_SECRET (plus the optional NINJAONE_OAUTH_SCOPE), taken from the login command's own env fallbacks rather than composed. Reported by @geekbrownbear, who verified halopsa and ninjaone live against an empty config (PR #277) and filed appdirect/crowdstrike as issue #278; the fleet scan that found the other two surfaces and confirmed only these four connectors are affected was done during triage. GENERATOR-class defect: until the press is fixed, a reprint reintroduces all 7 strings and these asserts guard them. Bug-fix-only: no new flag, command, or output field.",
-      "status": "active",
-      "spec_encode_followup": "cli-printing-press#4315: Derive the auth hint from the subcommand set the connector actually generates instead of the fixed \"Run '<cli> auth setup' for credential setup steps.\" string in internal/generator/generator.go. 52 of 56 connectors do define `auth setup`, which is why the hard-coded string went unnoticed; the four OAuth client-credentials connectors that scaffold `auth login` instead (appdirect, crowdstrike, halopsa, ninjaone) each shipped it 7 times. The same string is emitted into three surfaces -- doctor.go's auth_hint, helpers.go's 400/401/403 remediation, and the MCP server's tool-error text -- so a generator fix must cover all three.",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/doctor.go",
-          "not_contains": "ninjaone-cli auth setup"
-        },
-        {
-          "file": "cli/internal/cli/helpers.go",
-          "not_contains": "ninjaone-cli auth setup"
-        },
-        {
-          "file": "cli/internal/mcp/tools.go",
-          "not_contains": "ninjaone-cli auth setup"
-        },
-        {
-          "file": "cli/internal/cli/doctor.go",
-          "contains": "Set NINJAONE_CLIENT_ID and NINJAONE_CLIENT_SECRET (plus NINJAONE_OAUTH_SCOPE if your instance needs a scope), then run 'ninjaone-cli auth login' to mint a token.",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/helpers.go",
-          "contains": "ninjaone-cli auth login' to re-authenticate.",
-          "min_count": 3
-        },
-        {
-          "file": "cli/internal/mcp/tools.go",
-          "contains": "ninjaone-cli auth login' to re-authenticate.",
-          "min_count": 3
-        },
-        {
-          "file": "cli/internal/cli/auth.go",
-          "contains": "cmd.AddCommand(newAuthLoginCmd(flags))",
-          "min_count": 1
-        }
-      ]
+     "file": "cli/internal/cli/sync_after_id_test.go",
+     "contains": "func TestExtractLastItemID",
+     "min_count": 1
     }
-  ]
+   ]
+  },
+  {
+   "id": "queries-composite-key-extraction",
+   "summary": "The device-scoped /v2/queries/* report family stored wrong/zero rows because the generic key path mis-keyed it. Two sub-symptoms: (a) the id-less reports (queries-antivirus-status, queries-device-health, queries-network-interfaces, queries-logged-on-users, queries-policy-overrides, queries-raid-controllers, queries-raid-drives) returned objects with NO top-level id -> ExtractResourceID returned \"\" -> every row skipped (all_items_failed_id_extraction, zero stored); (b) a broader set (queries-os-patches, queries-os-patch-installs, queries-software-patches, queries-software-patch-installs, queries-software, queries-operating-systems, queries-computer-systems, queries-processors, queries-volumes, queries-windows-services, queries-antivirus-threats) fell to genericIDFieldFallbacks and keyed on a PATCH id or a name WITHOUT a deviceId prefix, collapsing rows ACROSS devices (every 'Windows 11' device -> one stored row). Fix forces deviceId as the PRIMARY key for the whole family via resourceIDFieldOverrides, plus a per-row discriminator (productName/threatId/interfaceIndex/userName/controllerIndex/driveId/patch id/name) via the resourceCompositeKeyColumns map consulted by resourceStorageID for multi-row-per-device resources; single-row reports (operating-systems, computer-systems, device-health, policy-overrides) key on deviceId alone. The four queries-custom-fields* variants are now keyed too (#137): the source OpenAPI schema confirmed their shapes - custom-fields/custom-fields-detailed (NodeAttributes/NodeAttributesDetailed) are one row per device keyed on deviceId alone; scoped-custom-fields/scoped-custom-fields-detailed (ScopedAttributes/ScopedAttributesDetailed) are one row per (scope, entityId) keyed on entityId plus a `scope` discriminator (entityId is unique only WITHIN a scope, so a device #5 and an org #5 would otherwise collide). All four stored ZERO rows before the fix (id-less), so the overrides can only add rows.",
+   "why": "The press id profiler derives resourceIDFieldOverrides from the spec's x-resource-id / response-schema id field. NinjaOne's /v2/queries/* schemas either declare no id (so the generic fallback id/name/slug missed entirely) or declare an `id` that is a per-patch identifier shared across devices (so the fallback keyed on it and collapsed cross-device). A plain reprint regenerates the same gap. Every key/discriminator is grounded in the connector's own internal/types/types.go structs (DeviceOSPatch.id, DeviceSoftwarePatch.id, DeviceAntivirusThreat.threatId, DeviceProcessor.name, DeviceVolume.name, DeviceWindowsService.name, DeviceOperatingSystem/DeviceComputerSystem single-row, plus the #136 reporter's confirmed live shapes), never from the issue's suggested-fix text. resourceStorageID was refactored to append the resourceCompositeKeyColumns discriminator in addition to the existing resourceParentKeyColumns parent value; existing dependent-resource behavior is byte-equivalent (appends only when the field is present and non-empty). deviceId always leads the key so cross-device collapse is structurally impossible.",
+   "status": "active",
+   "spec_encode_followup": "DURABLE FIX belongs in cli-printing-press: teach the id profiler to detect device-scoped report endpoints and emit a composite key (scope id + a per-row discriminator) rather than keying on a non-unique id/name. File via printing-press-retro alongside the after-id/keyset profiler gap. Until the press learns it, this hand-fix must survive every reprint. Known bounded residual (deviceId always leads, so NO cross-device loss): for queries-software/queries-processors/queries-volumes the single within-device discriminator (name) can collide on rare duplicate-name rows (dual-socket identical CPUs, dup-named software variants, blank-named volumes); a multi-field composite would tighten this if a report arrives. queries-software's row shape (assumed DeviceApplication) is the one discriminator not confirmed by a typed struct. The four queries-custom-fields* variants are now keyed too (#137), grounded in the source OpenAPI schemas (NodeAttributes.deviceId; ScopedAttributes.scope+entityId), not the issue text. One bounded residual: NodeAttributesDetailed.deviceId is marked writeOnly in the spec, so if the live response omits it the override is a no-op and queries-custom-fields-detailed stays at the zero rows it already stored (never a regression); a captured live /v2/queries/custom-fields-detailed response would confirm it definitively. Second bounded residual (same class as the name-discriminator note above): the scoped variants rely on a populated `scope` to disambiguate entityId across scopes - resourceStorageID appends the discriminator only when non-empty (the shared #136 conditional-append shape), so an empty/absent scope would collapse same-id entities; this is contract-dependent (scope is the report's always-set grouping dimension) and still strictly more than today's zero rows, not a regression.",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "var resourceCompositeKeyColumns",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "resourceCompositeKeyColumns[resourceType]",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\"queries-antivirus-status\"",
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\"queries-device-health\"",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\"queries-os-patches\"",
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\"queries-operating-systems\"",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/queries_composite_key_test.go",
+     "contains": "func TestQueriesCompositeKeysDoNotCollide",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/queries_composite_key_test.go",
+     "contains": "func TestQueriesNoCrossDeviceCollapse",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\"queries-custom-fields\"",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\"queries-custom-fields-detailed\"",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\"queries-scoped-custom-fields-detailed\"",
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/store/queries_custom_fields_key_test.go",
+     "contains": "func TestScopedCustomFieldsKeyDisambiguatesScope",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/queries_custom_fields_key_test.go",
+     "contains": "func TestCustomFieldsKeyOnDeviceID",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "queries-object-cursor-pagination",
+   "summary": "NinjaOne /v2/queries/* endpoints paginate via an OBJECT-valued cursor: \"cursor\":{\"name\":\"<token>\",\"offset\":0,\"count\":\"N\",\"expires\":...}. findCursorInMap only unmarshalled a string cursor, so the next-page token was never found; sync stopped after the first page and capped each queries resource at 100 rows (sync_warning pagination_cursor_missing). Fix adds cursorTokenFromObject, consulted by findCursorInMap only after the string unmarshal fails, which descends into the object and returns the first non-empty string token field (name/next_cursor/...). Issue #179 showed live tenants can keep cursor.name stable while cursor.offset advances; paginationProgress now compares an offset-qualified progress key and requires the same token's numeric offset to advance monotonically, so the sticky-cursor guard does not abort a progressing object cursor at 200 rows and still stops repeated or regressed offsets.",
+   "why": "determinePaginationDefaults() emits cursorParam/cursorType \"cursor\" but the press models a string cursor only; it does not model an object cursor whose token is nested under a field. The natural-end (len<limit), sticky-cursor, and empty-page guards already in the loop make object-cursor advance terminate safely. String-cursor APIs are unaffected because the object descent runs only after the scalar unmarshal fails. A plain reprint regenerates the string-only findCursorInMap. The #179 extension keeps sending the API's valid cursor.name token but compares cursor.name plus cursor.offset internally, so a repeated session token with advancing offset is treated as progress while repeated or regressed offsets still trip the loop-safety guard.",
+   "status": "active",
+   "spec_encode_followup": "DURABLE FIX belongs in cli-printing-press: teach the pagination profiler to detect object-valued cursors (cursor field is an object; token nested under name/next/cursor) and emit the descent natively, including object-cursor progress keys that can use offset when the API keeps the token stable. File via printing-press-retro. Until then this hand-fix must survive every reprint. Verification residual: multi-page completeness assumes NinjaOne advances server-side when the same cursor.name token is sent again; if a live tenant ever shows repeated rows with advancing offset, the fix must also send an offset query parameter, but the current OpenAPI surface only declares cursor plus pageSize for these report endpoints. This is monotonic vs main regardless (the sticky-cursor + max-pages guards still prevent any hang).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "func cursorTokenFromObject",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "cursorTokenFromObject(raw)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "func paginationAdvanceKey",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "func (p paginationProgress) stuckAfter",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "func cursorObjectOffsetAdvanceKey",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/queries_cursor_test.go",
+     "contains": "func TestExtractPageItemsFollowsObjectCursor",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/queries_cursor_test.go",
+     "contains": "func TestPaginationAdvanceKeyUsesObjectCursorOffset",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/queries_cursor_test.go",
+     "contains": "func TestPaginationProgressRequiresMonotonicObjectOffset",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "code-orch-string-path-params",
+   "summary": "The MCP code-orchestration executor substitutes string path parameters from the params object, so endpoints such as custom-fields.get-node-attribute-signed-urls and tag.set-for-asset do not send literal {entityType} or {assetType} URL tokens.",
+   "why": "The generated command files call replacePathParam for string path flags, but the MCP code-orchestration path rebuilds requests from endpoint metadata. It only substituted ep.Positional placeholders before routing remaining params into the query string or JSON body. Numeric IDs worked because they were positional (for example entityId or assetId), while string path params such as entityType and assetType were left in params and the URL template stayed unresolved. The fix applies path params from positional metadata, template bindings, and any remaining params whose names still match placeholders before query/body routing.",
+   "status": "active",
+   "spec_encode_followup": "DURABLE FIX belongs in cli-printing-press: teach the code-orchestration executor template to consume any params matching unresolved path placeholders before query/body routing, or emit complete path binding metadata for all path params. Until then this hand-fix must survive every reprint.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "func codeOrchApplyPathParams",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "neturl.PathEscape(formatMCPParamValue(v))",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/mcp/code_orch_path_test.go",
+     "contains": "func TestCodeOrchExecuteSubstitutesStringPathParams",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "env-oauth-secrets-not-persisted",
+   "summary": "SaveTokens keeps the env-override marker on ClientID/ClientSecret, so env-supplied OAuth credentials are never written to config.toml (issue #266)",
+   "why": "Load() marks ClientID/ClientSecret as env overrides and configForSave() restores the file value for any field still marked -- the mechanism that keeps env-supplied secrets off disk. SaveTokens() cleared both markers on every save, so each token mint (an ordinary authenticated command, no `auth login` step needed) rewrote the live client_id and client_secret into ~/.config/<tool>-cli/config.toml in cleartext, defeating Keychain/Credential-Manager setups that inject the secret as an env var at process launch. SaveTokens now leaves those two markers alone; only MarkCredentialsExplicit clears them, and only `auth login` calls it, passing whether each value came from a flag rather than from the env fallback. Provenance must be declared, not inferred: comparing the incoming value against the loaded one cannot tell an explicit flag from the env value it duplicates, and `auth login` trims its env fallback while Load does not, so a padded variable compares unequal to itself and leaks. Reported by @Xenith-B against halopsa-cli/ninjaone-cli. GENERATOR-class defect (the press emits the unconditional deletes) tracked for an upstream retro; until the press is fixed, a reprint reintroduces the leak and these markers guard the connector. Bug-fix-only: no new flag, command, or output.",
+   "status": "active",
+   "spec_encode_followup": "cli-printing-press#4283: SaveTokens must not clear the ClientID/ClientSecret env-override markers. Only a credential the caller supplied through an explicit command-line flag may clear them, and the flag's provenance must be passed in by the caller -- NOT inferred by comparing the incoming value against the loaded one. An explicit flag whose value equals the environment's is still explicit and must persist; conversely `auth login` trims its env fallback while Load does not, so a padded variable compares unequal to itself and a value-based rule leaks it.",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "func (c *Config) MarkCredentialsExplicit(clientID, clientSecret bool) {",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "cfg.MarkCredentialsExplicit(explicitClientID, explicitClientSecret)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "markers now survive a save; only MarkCredentialsExplicit clears them.",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "not_contains": "delete(c.envOverrides, \"ClientID\")\n\tdelete(c.envOverrides, \"ClientSecret\")\n\tdelete(c.envOverrides, \"AccessToken\")"
+    }
+   ]
+  },
+  {
+   "id": "doctor-auth-hint-names-a-real-command",
+   "summary": "doctor, the CLI error path and the MCP error path all point at `ninjaone-cli auth login` instead of a nonexistent `auth setup` subcommand (issue #277, #278)",
+   "why": "This CLI's `auth` parent defines login, status, set-token and logout. It has never defined `setup`, yet three generated surfaces told operators to run it: doctor.go's auth_hint (fires when cfg.AuthHeader() is empty), helpers.go's HTTP 400/401/403 remediation, and internal/mcp/tools.go's tool-error text -- 7 occurrences in all. Cobra does not error on an unknown subcommand of a NON-root parent (legacyArgs only rejects unknown args for the root), and the generated parent runs parentNoSubcommandRunE, which returns cmd.Help() -- a nil error. So `ninjaone-cli auth setup` printed help and exited 0. There was no 'unknown command' error and no non-zero exit anywhere in the journey: an operator saw a success code and was no closer to credentials, and because these are agent-first CLIs with typed exit codes, an agent performing setup read exit 0 as success and carried on unauthenticated. The hint fires exactly when it matters -- fresh install, rotated secret, new machine, expired token. This skill emits no auth_instructions field, so these hints are the only setup guidance it gives. The replacements name the real command and, in doctor, the variables `auth login` actually reads: NINJAONE_CLIENT_ID and NINJAONE_CLIENT_SECRET (plus the optional NINJAONE_OAUTH_SCOPE), taken from the login command's own env fallbacks rather than composed. Reported by @geekbrownbear, who verified halopsa and ninjaone live against an empty config (PR #277) and filed appdirect/crowdstrike as issue #278; the fleet scan that found the other two surfaces and confirmed only these four connectors are affected was done during triage. GENERATOR-class defect: until the press is fixed, a reprint reintroduces all 7 strings and these asserts guard them. Bug-fix-only: no new flag, command, or output field.",
+   "status": "active",
+   "spec_encode_followup": "cli-printing-press#4315: Derive the auth hint from the subcommand set the connector actually generates instead of the fixed \"Run '<cli> auth setup' for credential setup steps.\" string in internal/generator/generator.go. 52 of 56 connectors do define `auth setup`, which is why the hard-coded string went unnoticed; the four OAuth client-credentials connectors that scaffold `auth login` instead (appdirect, crowdstrike, halopsa, ninjaone) each shipped it 7 times. The same string is emitted into three surfaces -- doctor.go's auth_hint, helpers.go's 400/401/403 remediation, and the MCP server's tool-error text -- so a generator fix must cover all three.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "ninjaone-cli auth setup"
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "not_contains": "ninjaone-cli auth setup"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "ninjaone-cli auth setup"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "Set NINJAONE_CLIENT_ID and NINJAONE_CLIENT_SECRET (plus NINJAONE_OAUTH_SCOPE if your instance needs a scope), then run 'ninjaone-cli auth login' to mint a token.",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "ninjaone-cli auth login' to re-authenticate.",
+     "min_count": 3
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "ninjaone-cli auth login' to re-authenticate.",
+     "min_count": 3
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "cmd.AddCommand(newAuthLoginCmd(flags))",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "doctor-verdict-tracks-reality",
+   "summary": "doctor probes a real GET endpoint with the real credential and refuses to dial a placeholder base_url, instead of calling any HTTP response 'reachable' and never checking the credential",
+   "why": "`doctor` is the command every SKILL, guide and docs page tells an operator to run to confirm the connector works, and it could not tell a working install from a broken one. It called any HTTP response to `GET /` \"reachable\" and rendered it green, so a base_url aimed at the vendor's web UI (where every API path 404s) and a token rejected with 401 on every call both produced an all-green report. On this connector family it also never probed the credential at all: it printed \"present, not verified\" and left the operator to guess. The mirror defect: a connector whose shipped base_url default is a placeholder dialled the placeholder host, and the DNS failure rendered as \"FAIL API: unreachable\" - telling a correctly-credentialled operator they were broken without naming the one variable that would fix it. Several placeholder hosts resolve through live wildcard DNS and answer real HTTP, so dialling one produced a confident green verdict against a stranger's server. Measured and gated by tools/maintainer/check_doctor_truth.py. See issue #282.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorProbeCredentials("
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorBaseURLIsPlaceholder("
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorIsInfoKey(k)"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorBaseURLIsPlaceholder(cfg.BaseURL)"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeCredentials(cmd.Context()"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "present, not verified. Run `%s %s`"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "for _, v := range report {"
+    }
+   ]
+  },
+  {
+   "id": "install-credentials-declared-on-every-channel",
+   "summary": "every operator credential this connector reads is declared on all three install channels: manifest.json (.mcpb), server.json (MCP Registry) and mcp-install.md (manual install)",
+   "why": "Issue #282 ('three live-verified connectors prompt for the wrong credentials'). A connector is installed through THREE independent channels that each carry their own copy of the credential list: manifest.json server.mcp_config.env (what the .mcpb bundle hands Claude Desktop, which has no shell profile, no config.toml and no export - so an undeclared variable is a variable nobody is ever asked for), server.json environmentVariables (the MCP Registry publish channel), and mcp-install.md's copy-paste JSON blocks plus its remote launch line (the manual path, which never touches the bundle at all). The fleet-wide audit found 60 of 65 connectors under-declaring 122 operator-facing variables in the manifest, 61 of 65 mcp-install.md pages omitting 125, and hudu's server.json missing the base URL its manifest marks required. For ninjaone the manifest gained: NINJAONE_BASE_URL, NINJAONE_TOKEN_URL. server.json gained: NINJAONE_BASE_URL, NINJAONE_TOKEN_URL. mcp-install.md's env blocks gained: NINJAONE_BASE_URL, NINJAONE_TOKEN_URL. manifest.json, server.json and mcp-install.md are ALL regenerated by /msp-skills-publish on an UPDATE or re-onboard, so without this ledger a regeneration silently drops every declaration and CI stays green (check_env_schema.py is wired --warn). The asserts below name the specific credentials, not a count, so dropping one and adding another cannot cancel out.",
+   "status": "active",
+   "spec_encode_followup": "cli-printing-press should emit server.mcp_config.env, the matching user_config prompts, server.json environmentVariables and mcp-install.md's env blocks from ONE declaration of the connector's operator-facing environment, so the three channels cannot be generated out of step. Until then check_env_schema.py compares all three and this ledger pins them.",
+   "asserts": [
+    {
+     "file": "manifest.json",
+     "contains": "\"NINJAONE_BASE_URL\": \"${user_config.ninjaone_base_url}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"NINJAONE_CLIENT_ID\": \"${user_config.ninjaone_client_id}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"NINJAONE_CLIENT_SECRET\": \"${user_config.ninjaone_client_secret}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"NINJAONE_OAUTH_SCOPE\": \"${user_config.ninjaone_oauth_scope}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"NINJAONE_TOKEN_URL\": \"${user_config.ninjaone_token_url}\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"NINJAONE_BASE_URL\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"NINJAONE_CLIENT_ID\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"NINJAONE_CLIENT_SECRET\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"NINJAONE_OAUTH_SCOPE\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"NINJAONE_TOKEN_URL\"",
+     "min_count": 1
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"NINJAONE_BASE_URL\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"NINJAONE_CLIENT_ID\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"NINJAONE_CLIENT_SECRET\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"NINJAONE_OAUTH_SCOPE\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"NINJAONE_TOKEN_URL\":",
+     "min_count": 3
+    }
+   ]
+  }
+ ]
 }

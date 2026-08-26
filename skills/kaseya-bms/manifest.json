@@ -15,8 +15,12 @@
       "command": "${__dirname}/bin/kaseya-bms-mcp",
       "args": [],
       "env": {
+        "KASEYA_BMS_BASE_URL": "${user_config.kaseya_bms_base_url}",
         "KASEYA_BMS_BEARER_AUTH": "${user_config.kaseya_bms_bearer_auth}",
-        "KASEYA_BMS_TOKEN": "${user_config.kaseya_bms_token}"
+        "KASEYA_BMS_PASSWORD": "${user_config.kaseya_bms_password}",
+        "KASEYA_BMS_TENANT": "${user_config.kaseya_bms_tenant}",
+        "KASEYA_BMS_TOKEN": "${user_config.kaseya_bms_token}",
+        "KASEYA_BMS_USERNAME": "${user_config.kaseya_bms_username}"
       }
     }
   },
@@ -32,6 +36,32 @@
       "title": "KASEYA_BMS_TOKEN",
       "description": "Optional. Sets KASEYA_BMS_TOKEN for the Kaseya BMS MCP server.",
       "sensitive": true
+    },
+    "kaseya_bms_password": {
+      "type": "string",
+      "title": "BMS password",
+      "description": "Password for KASEYA_BMS_USERNAME. Exchanged for a JWT; never sent on data calls.",
+      "sensitive": true,
+      "required": true
+    },
+    "kaseya_bms_tenant": {
+      "type": "string",
+      "title": "BMS tenant",
+      "description": "Your company name exactly as it appears under My Settings in BMS. The authenticate call rejects the login without it.",
+      "required": true
+    },
+    "kaseya_bms_username": {
+      "type": "string",
+      "title": "BMS username",
+      "description": "Kaseya BMS login used by `auth login` to exchange for a short-lived JWT.",
+      "required": true
+    },
+    "kaseya_bms_base_url": {
+      "type": "string",
+      "title": "Kaseya BMS API base URL",
+      "description": "Base URL for the Kaseya BMS API. Leave the prefilled default unless your account uses a different regional or self-hosted host.",
+      "required": false,
+      "default": "https://api.bms.kaseya.com"
     }
   },
   "compatibility": {

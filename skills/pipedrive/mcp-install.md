@@ -37,7 +37,8 @@ Add (or merge with your existing `mcpServers` block):
     "pipedrive": {
       "command": "pipedrive-mcp",
       "env": {
-        "PIPEDRIVE_API_KEY": "<your-pipedrive_api_key>"
+        "PIPEDRIVE_API_KEY": "<your-pipedrive_api_key>",
+        "PIPEDRIVE_BASE_URL": "https://api.pipedrive.com/v1"
       }
     }
   }
@@ -62,7 +63,8 @@ Configuration**) and add:
       "type": "stdio",
       "command": "pipedrive-mcp",
       "env": {
-        "PIPEDRIVE_API_KEY": "<your-pipedrive_api_key>"
+        "PIPEDRIVE_API_KEY": "<your-pipedrive_api_key>",
+        "PIPEDRIVE_BASE_URL": "https://api.pipedrive.com/v1"
       }
     }
   }
@@ -83,7 +85,8 @@ Claude Desktop:
     "pipedrive": {
       "command": "pipedrive-mcp",
       "env": {
-        "PIPEDRIVE_API_KEY": "<your-pipedrive_api_key>"
+        "PIPEDRIVE_API_KEY": "<your-pipedrive_api_key>",
+        "PIPEDRIVE_BASE_URL": "https://api.pipedrive.com/v1"
       }
     }
   }
@@ -101,7 +104,7 @@ All remote agents need `pipedrive-mcp` reachable as a public **HTTPS** endpoint.
 in HTTP mode with your credentials in the environment:
 
 ```bash
-PIPEDRIVE_API_KEY=<value> pipedrive-mcp --transport http --addr :7777
+PIPEDRIVE_API_KEY=<value> PIPEDRIVE_BASE_URL=<value> pipedrive-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

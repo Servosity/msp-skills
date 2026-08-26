@@ -1,125 +1,340 @@
 {
-  "slug": "hudu",
-  "doc": "docs/reprint-survival.md",
-  "_comment": "Connector-specific edits to GENERATED/authored files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and banned anti-patterns absent) and fails CI if a reprint dropped one. Provenance: project_onboard_perinstance_baseurl_and_bareword_claims.md (PR #41, 2026-06-06).",
-  "handfixes": [
+ "slug": "hudu",
+ "doc": "docs/reprint-survival.md",
+ "_comment": "Connector-specific edits to GENERATED/authored files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and banned anti-patterns absent) and fails CI if a reprint dropped one. Provenance: project_onboard_perinstance_baseurl_and_bareword_claims.md (PR #41, 2026-06-06).",
+ "handfixes": [
+  {
+   "id": "per-instance-base-url-completed",
+   "summary": "HUDU_BASE_URL (per-tenant API base) is in manifest.json user_config + mcp_config.env + mcp-install.md + README; the press shipped only the HUDU_API_KEY secret",
+   "why": "Hudu's API base is per-tenant (https://<sub>.huducloud.com/api/v1). The press derives auth_env_vars from the SECRET only (HUDU_API_KEY), treating the base URL as a verify-time override, so manifest user_config + mcp_config.env, mcp-install.md, and the README auth example all shipped with only the key while config.go's default base URL is a NON-FUNCTIONAL placeholder (your-domain.huducloud.com) - the .mcpb extension and every env example point at a dead domain and fail silently. verify_all stays green (no gate checks env-var COMPLETENESS vs config.go). Hand-added HUDU_BASE_URL to manifest + mcp-install + README (server.json stays credential-only to match the n-central precedent). A reprint drops the base URL again.",
+   "status": "active",
+   "spec_encode_followup": "Fix belongs in the press: per-instance connectors should carry every required non-secret config var (base_url/region/tenant) into manifest user_config + mcp env + docs, not just the secret. Sibling of project_onboard_manifest_deleak_and_envvar (NAME mismatch) - this is env-var OMISSION.",
+   "asserts": [
     {
-      "id": "per-instance-base-url-completed",
-      "summary": "HUDU_BASE_URL (per-tenant API base) is in manifest.json user_config + mcp_config.env + mcp-install.md + README; the press shipped only the HUDU_API_KEY secret",
-      "why": "Hudu's API base is per-tenant (https://<sub>.huducloud.com/api/v1). The press derives auth_env_vars from the SECRET only (HUDU_API_KEY), treating the base URL as a verify-time override, so manifest user_config + mcp_config.env, mcp-install.md, and the README auth example all shipped with only the key while config.go's default base URL is a NON-FUNCTIONAL placeholder (your-domain.huducloud.com) - the .mcpb extension and every env example point at a dead domain and fail silently. verify_all stays green (no gate checks env-var COMPLETENESS vs config.go). Hand-added HUDU_BASE_URL to manifest + mcp-install + README (server.json stays credential-only to match the n-central precedent). A reprint drops the base URL again.",
-      "status": "active",
-      "spec_encode_followup": "Fix belongs in the press: per-instance connectors should carry every required non-secret config var (base_url/region/tenant) into manifest user_config + mcp env + docs, not just the secret. Sibling of project_onboard_manifest_deleak_and_envvar (NAME mismatch) - this is env-var OMISSION.",
-      "asserts": [
-        {"file": "manifest.json", "contains": "HUDU_BASE_URL", "min_count": 1},
-        {"file": "mcp-install.md", "contains": "HUDU_BASE_URL", "min_count": 1},
-        {"file": "README.md", "contains": "HUDU_BASE_URL", "min_count": 1}
-      ]
+     "file": "manifest.json",
+     "contains": "HUDU_BASE_URL",
+     "min_count": 1
     },
     {
-      "id": "assets-list-by-company-positional-corrected",
-      "summary": "Docs reference `assets list-by-company <company_id>` with the real positional, not the press's bogus `--company-id` flag form",
-      "why": "check_cli_claims only validates full <binary> ... invocations, so it missed (a) a bare-command backtick ref `assets list-by-company --company-id <id>` (the real command takes a positional <company_id>; --company-id is 'unknown flag') and (b) a trailing positional after a zero-positional command (`api-info get`). Both were generator-emitted prose in the vendored SKILL.md + guide.md; only the fresh-context adversarial reviewer catches them. Corrected to the real positional form. A reprint re-emits the bogus flag form.",
-      "status": "active",
-      "spec_encode_followup": "Not fully press-encodable - the adversarial reviewer must check bare-command refs AND trailing positionals semantically, built from agent-context. Sibling of project_onboard_missing_required_positional_defect.",
-      "asserts": [
-        {"file": "guide.md", "contains": "list-by-company <company_id>", "min_count": 1},
-        {"file": "SKILL.md", "not_contains": "list-by-company --company-id"}
-      ]
+     "file": "mcp-install.md",
+     "contains": "HUDU_BASE_URL",
+     "min_count": 1
     },
     {
-      "id": "trademark-no-double-period",
-      "summary": "Non-affiliation banner does not double-period a trademark owner ending in 'Inc.'",
-      "why": "A --trademark-owner ending in 'Inc.' + the template's trailing '.' produced 'Inc..' in the README non-affiliation banner. Stripped to a single period. A reprint with the same owner string reintroduces the double period.",
-      "status": "active",
-      "asserts": [
-        {"file": "README.md", "not_contains": "Inc.."}
-      ]
-    },
-    {
-      "id": "ipam-endpoints-reject-page-size",
-      "summary": "Five Hudu IPAM-family list endpoints (ip-addresses, networks, vlans, vlan-zones, rack-storage-items) are NON-paginated: sync/list send them neither page_size NOR page (both 400), the --page-size + --page flags and the page-size + page MCP args are removed for them, and sync fetches the full collection in one request",
-      "why": "issues #153 + #158: the press emits a single global pagination profile and registers every list endpoint as paginated. Hudu rejects page_size on these five with HTTP 400 ('page_size is not a valid filter parameter.'; rack-storage-items: '...not a valid parameter.'). #153 carved out page_size but ASSUMED they page by `page` and walked page=1,2,...; #158 proved that assumption wrong - they reject `page` with the same 400 (they are non-paginated and return the whole collection in one response, confirmed on a live huducloud tenant + the n8n-nodes-hudu project, which likewise removed pagination here). Fix: resourceRejectsPageSize() now means 'non-paginated' - sync sends no pagination params and stops after the single response (the page-int fallback and more-pages walk both opt these out), the 5 list cmds drop both --page-size and --page, and code_orch.go drops both the page-size and page MCP args. A reprint re-adds page_size+page everywhere and re-breaks all five.",
-      "status": "active",
-      "spec_encode_followup": "Press gap: the profiler must support PER-ENDPOINT pagination shape, not one global profile for the whole API. Some endpoints accept page+page_size, some are non-paginated. Filed as a printing-press-retro. Sibling of project_ninjaone_after_id_pagination_defect.",
-      "asserts": [
-        {"file": "cli/internal/cli/sync.go", "contains": "func resourceRejectsPageSize", "min_count": 1},
-        {"file": "cli/internal/cli/sync.go", "contains": "\"ip-addresses\", \"networks\", \"vlans\", \"vlan-zones\", \"rack-storage-items\"", "min_count": 1},
-        {"file": "cli/internal/cli/sync_page_size_test.go", "contains": "TestSyncResource_NonPaginatedEndpoint_FetchesOnceNoPageParam", "min_count": 1},
-        {"file": "cli/internal/cli/ip-addresses_list.go", "not_contains": "page_size"},
-        {"file": "cli/internal/cli/networks_list.go", "not_contains": "page_size"},
-        {"file": "cli/internal/cli/vlans_list.go", "not_contains": "page_size"},
-        {"file": "cli/internal/cli/vlan-zones_list.go", "not_contains": "page_size"},
-        {"file": "cli/internal/cli/rack-storage-items_list.go", "not_contains": "page_size"},
-        {"file": "cli/internal/cli/ip-addresses_list.go", "not_contains": "flagPage"},
-        {"file": "cli/internal/cli/networks_list.go", "not_contains": "flagPage"},
-        {"file": "cli/internal/cli/vlans_list.go", "not_contains": "flagPage"},
-        {"file": "cli/internal/cli/vlan-zones_list.go", "not_contains": "flagPage"},
-        {"file": "cli/internal/cli/rack-storage-items_list.go", "not_contains": "flagPage"}
-      ]
-    },
-    {
-      "id": "pagination-cursor-type-page",
-      "summary": "determinePaginationDefaults() sets cursorType \"page\" so the ?page=N page-int fallback is live; cursorType \"\" disabled it and silently truncated every multi-page resource at the first 100 rows",
-      "why": "issue #158 (Bug 2): the press emitted cursorType \"\" while cursorParam was \"page\". The page-int fallback in sync.go guards on cursorType==\"page\", so with \"\" it was dead code - and Hudu returns no body cursor, so sync could not advance past page 1 for ANY resource. v0.1.0 truncated silently; the 4.24 engine's new 'data may be truncated' warning surfaced it on the high-cardinality resources (expirations/folders/public-photos/relations/procedure-tasks). Fix: cursorType \"page\". Sibling connectors generated correctly (connectwise-manage has cursorType \"page\"); this was a Hudu-specific profiler miss. A reprint re-emits cursorType \"\".",
-      "status": "active",
-      "spec_encode_followup": "Press gap: when cursorParam resolves to a page-integer spelling (page/page_number/...), cursorType must be set to 'page', not left ''. Filed in the same printing-press-retro as the per-endpoint pagination shape.",
-      "asserts": [
-        {"file": "cli/internal/cli/sync.go", "contains": "cursorType: \"page\"", "min_count": 1},
-        {"file": "cli/internal/cli/sync_page_size_test.go", "contains": "TestSyncResource_PageType_AdvancesUntilShortPage", "min_count": 1}
-      ]
-    },
-    {
-      "id": "procedure-tasks-duplicate-page-before-upsert",
-      "summary": "procedure-tasks sync detects a repeated primary-key set before upsert and reconciles sync_complete.total to distinct stored rows",
-      "why": "Issue #183 confirmed on a live Hudu tenant that /procedure_tasks ignores page and page_size. The generated page-int walk fetched the complete collection, requested page 2, received the collection again, and upserted every row before the duplicate fingerprint stopped the loop. sync_complete.total therefore counted successful conflict updates while the unique-ID cache correctly contained one set of rows. The duplicate guard now compares the complete sorted primary-key set before upsert, preserving the validation request for deployments that honor pagination and handling response reordering or field updates. The completion metric is reconciled to SQLite so overlapping pages and pre-existing rows cannot inflate or understate the stored-row count. A reprint restores the duplicate upsert and misleading metric.",
-      "status": "active",
-      "spec_encode_followup": "Press gap: the profiler must support per-endpoint pagination shape, including endpoints that accept but ignore pagination parameters and return the complete collection. Track with upstream issue #3481.",
-      "asserts": [
-        {"file": "cli/internal/cli/sync.go", "contains": "seenPageFingerprints[fp]", "min_count": 2},
-        {"file": "cli/internal/cli/sync.go", "contains": "if resource == \"procedure-tasks\"", "min_count": 1},
-        {"file": "cli/internal/cli/sync_page_size_test.go", "contains": "TestSyncResource_ProcedureTasks_IgnoredPaginationSkipsDuplicateUpsert", "min_count": 1},
-        {"file": "cli/internal/cli/sync_page_size_test.go", "contains": "TestSyncResource_ProcedureTasks_PaginatedDeploymentStillDrainsPages", "min_count": 1},
-        {"file": "cli/internal/cli/sync_page_size_test.go", "contains": "TestSyncResource_ProcedureTasks_TotalIncludesExistingRows", "min_count": 1},
-        {"file": "cli/internal/cli/sync_page_size_test.go", "contains": "TestSyncResource_PageFingerprintTerminatesMultiPageCycle", "min_count": 1}
-      ]
-    },
-    {
-      "id": "matchers-requires-integration-id",
-      "summary": "Flat `sync` skips the matchers resource (with a warning) unless integration_id is supplied, because Hudu's /matchers returns HTTP 500 without one and there is no integrations-list endpoint to enumerate IDs",
-      "why": "issue #159: /matchers requires an integration_id query param (Hudu 500s without it). The press registers matchers as a flat-syncable list, so every `sync` 500'd on it and exhausted retries. Fix: syncResource skips matchers when the user did not pass integration_id (via --resource-param matchers:integration_id=<id> / --global-param), via the new syncUserParams.hasParam() accessor; users fetch per-integration with `matchers list --integration-id <id>`. A reprint re-adds matchers to the flat sync set and re-breaks it.",
-      "status": "active",
-      "spec_encode_followup": "Press gap: an endpoint with a REQUIRED query param that flat-list sync cannot supply (and no enumerable parent) should be excluded from the default sync set, not registered as flat-syncable. Sibling of the unresolved-path-key skip already in sync.go.",
-      "asserts": [
-        {"file": "cli/internal/cli/sync.go", "contains": "skipped matchers: requires integration_id", "min_count": 1},
-        {"file": "cli/internal/cli/helpers.go", "contains": "func (p *syncUserParams) hasParam", "min_count": 1},
-        {"file": "cli/internal/cli/sync_page_size_test.go", "contains": "TestSyncResource_Matchers_SkippedWithoutIntegrationID", "min_count": 1}
-      ]
-    },
-    {
-      "id": "relations-page-size-25",
-      "summary": "sync pages the relations resource at page_size=25 (per-resource resourcePageSize override), not the global 100; relations list also defaults --page-size to 25",
-      "why": "issue #167: Hudu's /relations endpoint returns HTTP 500 when sync walks it at the global page_size=100 (page-2 request onward), so every sync failed on relations and exhausted retries. A live relations list at page_size 100/25/1 all succeed, so relations is NOT non-paginated like the IPAM family (resourceRejectsPageSize) - it accepts page_size and pages by ?page=N, it just 500s at size 100. Fix: resourcePageSize() returns 25 for relations (Hudu's documented default, and the size n8n-nodes-hudu uses to retrieve all relations), applied to pageSize.limit in syncResource; relations_list.go defaults --page-size to 25 so manual paging does not hit the same 500. A reprint re-emits the global 100 for relations and re-breaks sync.",
-      "status": "active",
-      "spec_encode_followup": "Press gap: PER-ENDPOINT page_size (some endpoints 500 at the API max page size and need a smaller one). Filed in the same printing-press-retro as the per-endpoint pagination shape. Sibling of ipam-endpoints-reject-page-size.",
-      "asserts": [
-        {"file": "cli/internal/cli/sync.go", "contains": "func resourcePageSize", "min_count": 1},
-        {"file": "cli/internal/cli/sync.go", "contains": "if lim := resourcePageSize(resource); lim > 0", "min_count": 1},
-        {"file": "cli/internal/cli/relations_list.go", "contains": "\"page-size\", 25", "min_count": 1},
-        {"file": "cli/internal/cli/sync_page_size_test.go", "contains": "TestSyncResource_Relations_PagesAt25NotGlobal100", "min_count": 1}
-      ]
-    },
-    {
-      "id": "sync-exclude-flag",
-      "summary": "sync has an --exclude flag that drops named resources from the effective set (after --resources or the default), with loud validation of unknown names",
-      "why": "issue #169: sync ran every resource on every run with no way to skip the slow ones (public-photos/procedures/procedure-tasks), making a scheduled daily sync impractical; the only workaround was to enumerate all 20+ resources to keep via --resources. Added --exclude (StringSliceVar) plus validateExcludeNames (rejects unknown names, same contract as --resource-param) and filterExcludedResources (order-preserving set difference). A reprint drops the flag and both helpers.",
-      "status": "active",
-      "spec_encode_followup": "Press gap: sync should offer a native --exclude complement to --resources. Filed in the printing-press-retro.",
-      "asserts": [
-        {"file": "cli/internal/cli/sync.go", "contains": "func filterExcludedResources", "min_count": 1},
-        {"file": "cli/internal/cli/sync.go", "contains": "func validateExcludeNames", "min_count": 1},
-        {"file": "cli/internal/cli/sync.go", "contains": "StringSliceVar(&exclude, \"exclude\"", "min_count": 1},
-        {"file": "cli/internal/cli/sync_page_size_test.go", "contains": "TestExcludeResources", "min_count": 1}
-      ]
+     "file": "README.md",
+     "contains": "HUDU_BASE_URL",
+     "min_count": 1
     }
-  ]
+   ]
+  },
+  {
+   "id": "assets-list-by-company-positional-corrected",
+   "summary": "Docs reference `assets list-by-company <company_id>` with the real positional, not the press's bogus `--company-id` flag form",
+   "why": "check_cli_claims only validates full <binary> ... invocations, so it missed (a) a bare-command backtick ref `assets list-by-company --company-id <id>` (the real command takes a positional <company_id>; --company-id is 'unknown flag') and (b) a trailing positional after a zero-positional command (`api-info get`). Both were generator-emitted prose in the vendored SKILL.md + guide.md; only the fresh-context adversarial reviewer catches them. Corrected to the real positional form. A reprint re-emits the bogus flag form.",
+   "status": "active",
+   "spec_encode_followup": "Not fully press-encodable - the adversarial reviewer must check bare-command refs AND trailing positionals semantically, built from agent-context. Sibling of project_onboard_missing_required_positional_defect.",
+   "asserts": [
+    {
+     "file": "guide.md",
+     "contains": "list-by-company <company_id>",
+     "min_count": 1
+    },
+    {
+     "file": "SKILL.md",
+     "not_contains": "list-by-company --company-id"
+    }
+   ]
+  },
+  {
+   "id": "trademark-no-double-period",
+   "summary": "Non-affiliation banner does not double-period a trademark owner ending in 'Inc.'",
+   "why": "A --trademark-owner ending in 'Inc.' + the template's trailing '.' produced 'Inc..' in the README non-affiliation banner. Stripped to a single period. A reprint with the same owner string reintroduces the double period.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "README.md",
+     "not_contains": "Inc.."
+    }
+   ]
+  },
+  {
+   "id": "ipam-endpoints-reject-page-size",
+   "summary": "Five Hudu IPAM-family list endpoints (ip-addresses, networks, vlans, vlan-zones, rack-storage-items) are NON-paginated: sync/list send them neither page_size NOR page (both 400), the --page-size + --page flags and the page-size + page MCP args are removed for them, and sync fetches the full collection in one request",
+   "why": "issues #153 + #158: the press emits a single global pagination profile and registers every list endpoint as paginated. Hudu rejects page_size on these five with HTTP 400 ('page_size is not a valid filter parameter.'; rack-storage-items: '...not a valid parameter.'). #153 carved out page_size but ASSUMED they page by `page` and walked page=1,2,...; #158 proved that assumption wrong - they reject `page` with the same 400 (they are non-paginated and return the whole collection in one response, confirmed on a live huducloud tenant + the n8n-nodes-hudu project, which likewise removed pagination here). Fix: resourceRejectsPageSize() now means 'non-paginated' - sync sends no pagination params and stops after the single response (the page-int fallback and more-pages walk both opt these out), the 5 list cmds drop both --page-size and --page, and code_orch.go drops both the page-size and page MCP args. A reprint re-adds page_size+page everywhere and re-breaks all five.",
+   "status": "active",
+   "spec_encode_followup": "Press gap: the profiler must support PER-ENDPOINT pagination shape, not one global profile for the whole API. Some endpoints accept page+page_size, some are non-paginated. Filed as a printing-press-retro. Sibling of project_ninjaone_after_id_pagination_defect.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "func resourceRejectsPageSize",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"ip-addresses\", \"networks\", \"vlans\", \"vlan-zones\", \"rack-storage-items\"",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sync_page_size_test.go",
+     "contains": "TestSyncResource_NonPaginatedEndpoint_FetchesOnceNoPageParam",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/ip-addresses_list.go",
+     "not_contains": "page_size"
+    },
+    {
+     "file": "cli/internal/cli/networks_list.go",
+     "not_contains": "page_size"
+    },
+    {
+     "file": "cli/internal/cli/vlans_list.go",
+     "not_contains": "page_size"
+    },
+    {
+     "file": "cli/internal/cli/vlan-zones_list.go",
+     "not_contains": "page_size"
+    },
+    {
+     "file": "cli/internal/cli/rack-storage-items_list.go",
+     "not_contains": "page_size"
+    },
+    {
+     "file": "cli/internal/cli/ip-addresses_list.go",
+     "not_contains": "flagPage"
+    },
+    {
+     "file": "cli/internal/cli/networks_list.go",
+     "not_contains": "flagPage"
+    },
+    {
+     "file": "cli/internal/cli/vlans_list.go",
+     "not_contains": "flagPage"
+    },
+    {
+     "file": "cli/internal/cli/vlan-zones_list.go",
+     "not_contains": "flagPage"
+    },
+    {
+     "file": "cli/internal/cli/rack-storage-items_list.go",
+     "not_contains": "flagPage"
+    }
+   ]
+  },
+  {
+   "id": "pagination-cursor-type-page",
+   "summary": "determinePaginationDefaults() sets cursorType \"page\" so the ?page=N page-int fallback is live; cursorType \"\" disabled it and silently truncated every multi-page resource at the first 100 rows",
+   "why": "issue #158 (Bug 2): the press emitted cursorType \"\" while cursorParam was \"page\". The page-int fallback in sync.go guards on cursorType==\"page\", so with \"\" it was dead code - and Hudu returns no body cursor, so sync could not advance past page 1 for ANY resource. v0.1.0 truncated silently; the 4.24 engine's new 'data may be truncated' warning surfaced it on the high-cardinality resources (expirations/folders/public-photos/relations/procedure-tasks). Fix: cursorType \"page\". Sibling connectors generated correctly (connectwise-manage has cursorType \"page\"); this was a Hudu-specific profiler miss. A reprint re-emits cursorType \"\".",
+   "status": "active",
+   "spec_encode_followup": "Press gap: when cursorParam resolves to a page-integer spelling (page/page_number/...), cursorType must be set to 'page', not left ''. Filed in the same printing-press-retro as the per-endpoint pagination shape.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "cursorType: \"page\"",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sync_page_size_test.go",
+     "contains": "TestSyncResource_PageType_AdvancesUntilShortPage",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "procedure-tasks-duplicate-page-before-upsert",
+   "summary": "procedure-tasks sync detects a repeated primary-key set before upsert and reconciles sync_complete.total to distinct stored rows",
+   "why": "Issue #183 confirmed on a live Hudu tenant that /procedure_tasks ignores page and page_size. The generated page-int walk fetched the complete collection, requested page 2, received the collection again, and upserted every row before the duplicate fingerprint stopped the loop. sync_complete.total therefore counted successful conflict updates while the unique-ID cache correctly contained one set of rows. The duplicate guard now compares the complete sorted primary-key set before upsert, preserving the validation request for deployments that honor pagination and handling response reordering or field updates. The completion metric is reconciled to SQLite so overlapping pages and pre-existing rows cannot inflate or understate the stored-row count. A reprint restores the duplicate upsert and misleading metric.",
+   "status": "active",
+   "spec_encode_followup": "Press gap: the profiler must support per-endpoint pagination shape, including endpoints that accept but ignore pagination parameters and return the complete collection. Track with upstream issue #3481.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "seenPageFingerprints[fp]",
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "if resource == \"procedure-tasks\"",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sync_page_size_test.go",
+     "contains": "TestSyncResource_ProcedureTasks_IgnoredPaginationSkipsDuplicateUpsert",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sync_page_size_test.go",
+     "contains": "TestSyncResource_ProcedureTasks_PaginatedDeploymentStillDrainsPages",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sync_page_size_test.go",
+     "contains": "TestSyncResource_ProcedureTasks_TotalIncludesExistingRows",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sync_page_size_test.go",
+     "contains": "TestSyncResource_PageFingerprintTerminatesMultiPageCycle",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "matchers-requires-integration-id",
+   "summary": "Flat `sync` skips the matchers resource (with a warning) unless integration_id is supplied, because Hudu's /matchers returns HTTP 500 without one and there is no integrations-list endpoint to enumerate IDs",
+   "why": "issue #159: /matchers requires an integration_id query param (Hudu 500s without it). The press registers matchers as a flat-syncable list, so every `sync` 500'd on it and exhausted retries. Fix: syncResource skips matchers when the user did not pass integration_id (via --resource-param matchers:integration_id=<id> / --global-param), via the new syncUserParams.hasParam() accessor; users fetch per-integration with `matchers list --integration-id <id>`. A reprint re-adds matchers to the flat sync set and re-breaks it.",
+   "status": "active",
+   "spec_encode_followup": "Press gap: an endpoint with a REQUIRED query param that flat-list sync cannot supply (and no enumerable parent) should be excluded from the default sync set, not registered as flat-syncable. Sibling of the unresolved-path-key skip already in sync.go.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "skipped matchers: requires integration_id",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "func (p *syncUserParams) hasParam",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sync_page_size_test.go",
+     "contains": "TestSyncResource_Matchers_SkippedWithoutIntegrationID",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "relations-page-size-25",
+   "summary": "sync pages the relations resource at page_size=25 (per-resource resourcePageSize override), not the global 100; relations list also defaults --page-size to 25",
+   "why": "issue #167: Hudu's /relations endpoint returns HTTP 500 when sync walks it at the global page_size=100 (page-2 request onward), so every sync failed on relations and exhausted retries. A live relations list at page_size 100/25/1 all succeed, so relations is NOT non-paginated like the IPAM family (resourceRejectsPageSize) - it accepts page_size and pages by ?page=N, it just 500s at size 100. Fix: resourcePageSize() returns 25 for relations (Hudu's documented default, and the size n8n-nodes-hudu uses to retrieve all relations), applied to pageSize.limit in syncResource; relations_list.go defaults --page-size to 25 so manual paging does not hit the same 500. A reprint re-emits the global 100 for relations and re-breaks sync.",
+   "status": "active",
+   "spec_encode_followup": "Press gap: PER-ENDPOINT page_size (some endpoints 500 at the API max page size and need a smaller one). Filed in the same printing-press-retro as the per-endpoint pagination shape. Sibling of ipam-endpoints-reject-page-size.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "func resourcePageSize",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "if lim := resourcePageSize(resource); lim > 0",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/relations_list.go",
+     "contains": "\"page-size\", 25",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sync_page_size_test.go",
+     "contains": "TestSyncResource_Relations_PagesAt25NotGlobal100",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "sync-exclude-flag",
+   "summary": "sync has an --exclude flag that drops named resources from the effective set (after --resources or the default), with loud validation of unknown names",
+   "why": "issue #169: sync ran every resource on every run with no way to skip the slow ones (public-photos/procedures/procedure-tasks), making a scheduled daily sync impractical; the only workaround was to enumerate all 20+ resources to keep via --resources. Added --exclude (StringSliceVar) plus validateExcludeNames (rejects unknown names, same contract as --resource-param) and filterExcludedResources (order-preserving set difference). A reprint drops the flag and both helpers.",
+   "status": "active",
+   "spec_encode_followup": "Press gap: sync should offer a native --exclude complement to --resources. Filed in the printing-press-retro.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "func filterExcludedResources",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "func validateExcludeNames",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "StringSliceVar(&exclude, \"exclude\"",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sync_page_size_test.go",
+     "contains": "TestExcludeResources",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "doctor-verdict-tracks-reality",
+   "summary": "doctor probes a real GET endpoint with the real credential and refuses to dial a placeholder base_url, instead of calling any HTTP response 'reachable' and never checking the credential",
+   "why": "`doctor` is the command every SKILL, guide and docs page tells an operator to run to confirm the connector works, and it could not tell a working install from a broken one. It called any HTTP response to `GET /` \"reachable\" and rendered it green, so a base_url aimed at the vendor's web UI (where every API path 404s) and a token rejected with 401 on every call both produced an all-green report. On this connector family it also never probed the credential at all: it printed \"present, not verified\" and left the operator to guess. The mirror defect: a connector whose shipped base_url default is a placeholder dialled the placeholder host, and the DNS failure rendered as \"FAIL API: unreachable\" - telling a correctly-credentialled operator they were broken without naming the one variable that would fix it. Several placeholder hosts resolve through live wildcard DNS and answer real HTTP, so dialling one produced a confident green verdict against a stranger's server. Measured and gated by tools/maintainer/check_doctor_truth.py. See issue #282.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorProbeCredentials("
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorBaseURLIsPlaceholder("
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorIsInfoKey(k)"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorBaseURLIsPlaceholder(cfg.BaseURL)"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeCredentials(cmd.Context()"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "present, not verified. Run `%s %s`"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "for _, v := range report {"
+    }
+   ]
+  },
+  {
+   "id": "install-credentials-declared-on-every-channel",
+   "summary": "every operator credential this connector reads is declared on all three install channels: manifest.json (.mcpb), server.json (MCP Registry) and mcp-install.md (manual install)",
+   "why": "Issue #282 ('three live-verified connectors prompt for the wrong credentials'). A connector is installed through THREE independent channels that each carry their own copy of the credential list: manifest.json server.mcp_config.env (what the .mcpb bundle hands Claude Desktop, which has no shell profile, no config.toml and no export - so an undeclared variable is a variable nobody is ever asked for), server.json environmentVariables (the MCP Registry publish channel), and mcp-install.md's copy-paste JSON blocks plus its remote launch line (the manual path, which never touches the bundle at all). The fleet-wide audit found 60 of 65 connectors under-declaring 122 operator-facing variables in the manifest, 61 of 65 mcp-install.md pages omitting 125, and hudu's server.json missing the base URL its manifest marks required. server.json gained: HUDU_BASE_URL. manifest.json, server.json and mcp-install.md are ALL regenerated by /msp-skills-publish on an UPDATE or re-onboard, so without this ledger a regeneration silently drops every declaration and CI stays green (check_env_schema.py is wired --warn). The asserts below name the specific credentials, not a count, so dropping one and adding another cannot cancel out.",
+   "status": "active",
+   "spec_encode_followup": "cli-printing-press should emit server.mcp_config.env, the matching user_config prompts, server.json environmentVariables and mcp-install.md's env blocks from ONE declaration of the connector's operator-facing environment, so the three channels cannot be generated out of step. Until then check_env_schema.py compares all three and this ledger pins them.",
+   "asserts": [
+    {
+     "file": "manifest.json",
+     "contains": "\"HUDU_API_KEY\": \"${user_config.hudu_api_key}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"HUDU_BASE_URL\": \"${user_config.hudu_base_url}\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"HUDU_API_KEY\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"HUDU_BASE_URL\"",
+     "min_count": 1
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"HUDU_API_KEY\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"HUDU_BASE_URL\":",
+     "min_count": 3
+    }
+   ]
+  }
+ ]
 }

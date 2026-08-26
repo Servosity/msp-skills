@@ -46,7 +46,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download NinjaOne MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/ninjaone-v0.1.0/ninjaone-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every NinjaOne release on the [releases page](https://github.com/servosity/msp-skills/releases?q=ninjaone).)
+[**Download NinjaOne MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/ninjaone-v0.1.9/ninjaone-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every NinjaOne release on the [releases page](https://github.com/servosity/msp-skills/releases?q=ninjaone).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 

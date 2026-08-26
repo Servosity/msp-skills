@@ -35,9 +35,22 @@
           "isSecret": true
         },
         {
+          "name": "KNOWBE4_BASE_URL",
+          "description": "Full API base URL. Leave blank: the CLI builds it from KNOWBE4_REGION. Set it only to point at a different host.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
           "name": "KNOWBE4_REGION",
           "description": "Set the KNOWBE4_REGION credential for the KnowBe4 MCP server.",
           "isRequired": true,
+          "isSecret": true,
+          "default": "us"
+        },
+        {
+          "name": "KNOWBE4_USER_EVENT_API_KEY",
+          "description": "Separate bearer key for the KnowBe4 User Events API, which has its own host and key. Needed only for the `events` commands; leave blank otherwise.",
+          "isRequired": false,
           "isSecret": true
         }
       ]

@@ -15,7 +15,8 @@
       "command": "${__dirname}/bin/n-central-mcp",
       "args": [],
       "env": {
-        "NCENTRAL_JWT": "${user_config.ncentral_jwt}"
+        "NCENTRAL_JWT": "${user_config.ncentral_jwt}",
+        "N_CENTRAL_BASE_URL": "${user_config.n_central_base_url}"
       }
     }
   },
@@ -26,6 +27,13 @@
       "description": "Sets NCENTRAL_JWT for the N-central MCP server.",
       "sensitive": true,
       "required": true
+    },
+    "n_central_base_url": {
+      "type": "string",
+      "title": "N-central API base URL",
+      "description": "Base URL for the N-central API. Leave the prefilled default unless your account uses a different regional or self-hosted host.",
+      "required": false,
+      "default": "https://ncod.n-able.com/api"
     }
   },
   "compatibility": {

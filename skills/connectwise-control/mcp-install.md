@@ -107,7 +107,7 @@ All remote agents need `connectwise-control-mcp` reachable as a public **HTTPS**
 in HTTP mode with your credentials in the environment:
 
 ```bash
-CONNECTWISE_CONTROL_BASE_URL=<value> CONNECTWISE_CONTROL_USERNAME=<value> CONNECTWISE_CONTROL_PASSWORD=<value> connectwise-control-mcp --transport http --addr :7777
+CONNECTWISE_CONTROL_BASE_URL=<value> CONNECTWISE_CONTROL_PASSWORD=<value> CONNECTWISE_CONTROL_USERNAME=<value> connectwise-control-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

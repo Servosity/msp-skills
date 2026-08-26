@@ -37,9 +37,11 @@ Add (or merge with your existing `mcpServers` block):
     "ninjaone": {
       "command": "ninjaone-mcp",
       "env": {
+        "NINJAONE_BASE_URL": "https://app.ninjarmm.com",
         "NINJAONE_CLIENT_ID": "<your-ninjaone_client_id>",
         "NINJAONE_CLIENT_SECRET": "<your-ninjaone_client_secret>",
-        "NINJAONE_OAUTH_SCOPE": "<your-ninjaone_oauth_scope>"
+        "NINJAONE_OAUTH_SCOPE": "<your-ninjaone_oauth_scope>",
+        "NINJAONE_TOKEN_URL": "https://app.ninjarmm.com/ws/oauth/token"
       }
     }
   }
@@ -64,9 +66,11 @@ Configuration**) and add:
       "type": "stdio",
       "command": "ninjaone-mcp",
       "env": {
+        "NINJAONE_BASE_URL": "https://app.ninjarmm.com",
         "NINJAONE_CLIENT_ID": "<your-ninjaone_client_id>",
         "NINJAONE_CLIENT_SECRET": "<your-ninjaone_client_secret>",
-        "NINJAONE_OAUTH_SCOPE": "<your-ninjaone_oauth_scope>"
+        "NINJAONE_OAUTH_SCOPE": "<your-ninjaone_oauth_scope>",
+        "NINJAONE_TOKEN_URL": "https://app.ninjarmm.com/ws/oauth/token"
       }
     }
   }
@@ -87,9 +91,11 @@ Claude Desktop:
     "ninjaone": {
       "command": "ninjaone-mcp",
       "env": {
+        "NINJAONE_BASE_URL": "https://app.ninjarmm.com",
         "NINJAONE_CLIENT_ID": "<your-ninjaone_client_id>",
         "NINJAONE_CLIENT_SECRET": "<your-ninjaone_client_secret>",
-        "NINJAONE_OAUTH_SCOPE": "<your-ninjaone_oauth_scope>"
+        "NINJAONE_OAUTH_SCOPE": "<your-ninjaone_oauth_scope>",
+        "NINJAONE_TOKEN_URL": "https://app.ninjarmm.com/ws/oauth/token"
       }
     }
   }
@@ -107,7 +113,7 @@ All remote agents need `ninjaone-mcp` reachable as a public **HTTPS** endpoint. 
 in HTTP mode with your credentials in the environment:
 
 ```bash
-NINJAONE_CLIENT_ID=<value> NINJAONE_CLIENT_SECRET=<value> NINJAONE_OAUTH_SCOPE=<value> ninjaone-mcp --transport http --addr :7777
+NINJAONE_BASE_URL=<value> NINJAONE_CLIENT_ID=<value> NINJAONE_CLIENT_SECRET=<value> NINJAONE_OAUTH_SCOPE=<value> NINJAONE_TOKEN_URL=<value> ninjaone-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

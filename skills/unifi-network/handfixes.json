@@ -1,140 +1,260 @@
 {
-  "slug": "unifi-network",
-  "doc": "docs/reprint-survival.md",
-  "_comment": "Connector-specific edits a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present and fails CI if a reprint dropped one. Provenance: the 2026-08-14 onboarding of the upstream unifi print (printing-press 4.30.1, contributed by Ricardo Cabral / @phoenix-server) into msp-skills as unifi-network. Every entry corrects a claim or value that the generated tree got wrong; the adversarial review that caught the topology claim is the reason this ledger exists.",
-  "handfixes": [
+ "slug": "unifi-network",
+ "doc": "docs/reprint-survival.md",
+ "_comment": "Connector-specific edits a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present and fails CI if a reprint dropped one. Provenance: the 2026-08-14 onboarding of the upstream unifi print (printing-press 4.30.1, contributed by Ricardo Cabral / @phoenix-server) into msp-skills as unifi-network. Every entry corrects a claim or value that the generated tree got wrong; the adversarial review that caught the topology claim is the reason this ledger exists.",
+ "handfixes": [
+  {
+   "id": "topology-is-device-to-client-not-physical-tree",
+   "summary": "topology is described as the device-to-client tree it actually builds, not a gateway-to-switch-to-AP physical tree",
+   "why": "The generated description (in the Cobra Short, the root --help highlights, the `which` feature index, the MCP feature list, SKILL.md and guide.md) claimed topology shows 'the physical device tree (gateway to switches to APs)'. The command's own Long description contradicts that: 'The API's device-list response does not include device-to-device uplink chaining (that only appears on a per-device detail fetch), so a switch-behind-switch or AP-behind-switch relationship is not shown - every device is listed at the top level.' topology.go groups clients under their uplinkDeviceId, producing a two-level device-to-client tree. Shipping the original wording would have promised a network map the command cannot draw. If a reprint restores the phrase 'physical device tree', the claim is false again.",
+   "status": "active",
+   "spec_encode_followup": "The novel-feature description in .printing-press.json was written from the feature's intent rather than its implemented behaviour, and the press propagated it to six surfaces. A reprint should regenerate these strings from the corrected .printing-press.json novel_features entry.",
+   "asserts": [
     {
-      "id": "topology-is-device-to-client-not-physical-tree",
-      "summary": "topology is described as the device-to-client tree it actually builds, not a gateway-to-switch-to-AP physical tree",
-      "why": "The generated description (in the Cobra Short, the root --help highlights, the `which` feature index, the MCP feature list, SKILL.md and guide.md) claimed topology shows 'the physical device tree (gateway to switches to APs)'. The command's own Long description contradicts that: 'The API's device-list response does not include device-to-device uplink chaining (that only appears on a per-device detail fetch), so a switch-behind-switch or AP-behind-switch relationship is not shown - every device is listed at the top level.' topology.go groups clients under their uplinkDeviceId, producing a two-level device-to-client tree. Shipping the original wording would have promised a network map the command cannot draw. If a reprint restores the phrase 'physical device tree', the claim is false again.",
-      "status": "active",
-      "spec_encode_followup": "The novel-feature description in .printing-press.json was written from the feature's intent rather than its implemented behaviour, and the press propagated it to six surfaces. A reprint should regenerate these strings from the corrected .printing-press.json novel_features entry.",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/topology.go",
-          "contains": "Group every synced client under the device it is attached to",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/root.go",
-          "contains": "Group every synced client under the device it is attached to",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/which.go",
-          "contains": "which clients sit behind which device",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/mcp/tools.go",
-          "contains": "Group every synced client under the device it is attached to",
-          "min_count": 1
-        }
-      ]
+     "file": "cli/internal/cli/topology.go",
+     "contains": "Group every synced client under the device it is attached to",
+     "min_count": 1
     },
     {
-      "id": "drift-baseline-is-the-last-drift-run",
-      "summary": "drift's one-line description says the baseline is the last drift run, not the last sync",
-      "why": "The generated Short said drift shows what changed 'since the last sync snapshot'. drift.go's own Long says the comparison is 'against a snapshot captured the last time drift itself ran for this site' - running sync does not set or move the baseline. An agent that believed the Short would run sync, then drift, and report the diff as covering the sync window.",
-      "status": "active",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/drift.go",
-          "contains": "since the last drift run for this site",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/root.go",
-          "contains": "since the last drift run for this site",
-          "min_count": 1
-        }
-      ]
+     "file": "cli/internal/cli/root.go",
+     "contains": "Group every synced client under the device it is attached to",
+     "min_count": 1
     },
     {
-      "id": "adopt-example-mac-address",
-      "summary": "sites devices adopt's example passes a MAC address, not a street address",
-      "why": "The generated example was `--mac-address 123 Test St, Anytown, ST 12345` - a mock-value collision that put a postal address in a MAC field. Copy-pasteable examples are the first thing an agent tries.",
-      "status": "active",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/sites_devices_adopt.go",
-          "contains": "--mac-address 00:11:22:33:44:55",
-          "min_count": 1
-        }
-      ]
+     "file": "cli/internal/cli/which.go",
+     "contains": "which clients sit behind which device",
+     "min_count": 1
     },
     {
-      "id": "unifi-brand-casing",
-      "summary": "user-facing strings say UniFi, not Unifi",
-      "why": "The generated root Short/Long, the auth command's Short, and the MCP server name used 'Unifi'. The vendor's brand is UniFi; the mis-cased form appeared in the first line of --help.",
-      "status": "active",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/root.go",
-          "contains": "UniFi CLI",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/auth.go",
-          "contains": "Manage authentication for UniFi Network",
-          "min_count": 1
-        }
-      ]
-    },
-    {
-      "id": "dev-version-not-upstream-release",
-      "summary": "var version is 0.0.0-dev, not the upstream public-library release number",
-      "why": "The vendored tree carried `var version = \"2026.8.1\"`, the version this CLI was released under in mvanhorn/printing-press-library. In msp-skills the release workflow injects the tag version via ldflags (-X <module>/internal/cli.version=), and every other connector ships 0.0.0-dev as the source default. Leaving 2026.8.1 in makes an unreleased local build claim a version that does not correspond to any msp-skills tag.",
-      "status": "active",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/version.go",
-          "contains": "var version = \"0.0.0-dev\"",
-          "min_count": 1
-        }
-      ]
-    },
-    {
-      "id": "api-hint-binary-name",
-      "summary": "the `api` command's hint text names unifi-network-cli, not the nonexistent unifi-cli",
-      "why": "api_discovery.go hardcoded the bare slug string \"unifi\" in three Fprintf/Errorf calls that build '%s-cli ...', so `api` printed copy-pasteable hints for a binary named `unifi-cli` - which does not exist; the binary is `unifi-network-cli`. It survived the -pp- strip because the literal is the bare original slug, not a -pp- suffixed name, so no rename rule matched it.",
-      "status": "active",
-      "spec_encode_followup": "The press should derive this hint from the CLI's own binary name (os.Args[0] or the generated cliName const) rather than baking the slug in as a literal.",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/api_discovery.go",
-          "contains": "\"unifi-network\"",
-          "min_count": 3
-        }
-      ]
-    },
-    {
-      "id": "mcp-tenant-gate-allows-ungated-invocation",
-      "summary": "the MCP tenant gate falls through to the tool handler when no platform source is registered, instead of default-denying every non-mirror tool",
-      "why": "cli.VerifyMCPInvocation returns (nil, nil) when registeredPlatformSource is nil, which means 'there is nothing to gate' - and no connector in this repo registers a platform source (registerPlatformSource has zero callers outside internal/cli/platform_client.go). The 4.30.1/4.30.2 gate read that nil session as a failure and answered 'MCP tenant gate is not configured' for every tool that is not a Cobra mirror. Cobra mirrors carry pp:tenant-gate = \"child-cli\" and pass through, so the damage was invisible in a tool count: 6 tools per connector were dead while the server still listed them. Those 6 are the entire offline-mirror surface (context, search, sql) plus the entire code-orchestration surface (<prefix>_search / _get / _execute) - exactly the capabilities this connector's own description says a plain read-only MCP does not ship. Measured over stdio before the fix: 6/6 returned isError with the gate message; after, all 6 reach their handler. Fixed upstream in cli-printing-press 4.30.3 (issue #4157, PR #4171); this is the surgical back-port, byte-identical to what 4.30.3 emits. TestMCPUngatedInvocationUsesRealVerifier is the regression test that ships with the 4.30.3 template: it drives the wrapper with the REAL verifier (not the fake the other two tests install) and fails if the handler is blocked. Reverting either the fall-through or the test fails check_handfixes.py.",
-      "status": "upstreamed",
-      "spec_encode_followup": "Already fixed in the press at 4.30.3 (mvanhorn/cli-printing-press#4171). A reprint on 4.30.3 or later regenerates both the fall-through and the conformance test, so this entry exists to keep the back-port from being dropped by a reprint on an older engine or by a regen-merge that resurrects the 4.30.2 body.",
-      "asserts": [
-        {
-          "file": "cli/internal/mcp/platform_gate.go",
-          "not_contains": "NewToolResultError(\"MCP tenant gate is not configured\")"
-        },
-        {
-          "file": "cli/internal/mcp/platform_gate.go",
-          "contains": "return next(ctx, request)",
-          "min_count": 2
-        },
-        {
-          "file": "cli/internal/mcp/platform_gate_test.go",
-          "contains": "func TestMCPUngatedInvocationUsesRealVerifier(",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/mcp/platform_gate_test.go",
-          "contains": "verifyFreshMCPInvocation = cli.VerifyMCPInvocation",
-          "min_count": 1
-        }
-      ]
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "Group every synced client under the device it is attached to",
+     "min_count": 1
     }
-  ]
+   ]
+  },
+  {
+   "id": "drift-baseline-is-the-last-drift-run",
+   "summary": "drift's one-line description says the baseline is the last drift run, not the last sync",
+   "why": "The generated Short said drift shows what changed 'since the last sync snapshot'. drift.go's own Long says the comparison is 'against a snapshot captured the last time drift itself ran for this site' - running sync does not set or move the baseline. An agent that believed the Short would run sync, then drift, and report the diff as covering the sync window.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/drift.go",
+     "contains": "since the last drift run for this site",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "since the last drift run for this site",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "adopt-example-mac-address",
+   "summary": "sites devices adopt's example passes a MAC address, not a street address",
+   "why": "The generated example was `--mac-address 123 Test St, Anytown, ST 12345` - a mock-value collision that put a postal address in a MAC field. Copy-pasteable examples are the first thing an agent tries.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sites_devices_adopt.go",
+     "contains": "--mac-address 00:11:22:33:44:55",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "unifi-brand-casing",
+   "summary": "user-facing strings say UniFi, not Unifi",
+   "why": "The generated root Short/Long, the auth command's Short, and the MCP server name used 'Unifi'. The vendor's brand is UniFi; the mis-cased form appeared in the first line of --help.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "UniFi CLI",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "Manage authentication for UniFi Network",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "dev-version-not-upstream-release",
+   "summary": "var version is 0.0.0-dev, not the upstream public-library release number",
+   "why": "The vendored tree carried `var version = \"2026.8.1\"`, the version this CLI was released under in mvanhorn/printing-press-library. In msp-skills the release workflow injects the tag version via ldflags (-X <module>/internal/cli.version=), and every other connector ships 0.0.0-dev as the source default. Leaving 2026.8.1 in makes an unreleased local build claim a version that does not correspond to any msp-skills tag.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/version.go",
+     "contains": "var version = \"0.0.0-dev\"",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "api-hint-binary-name",
+   "summary": "the `api` command's hint text names unifi-network-cli, not the nonexistent unifi-cli",
+   "why": "api_discovery.go hardcoded the bare slug string \"unifi\" in three Fprintf/Errorf calls that build '%s-cli ...', so `api` printed copy-pasteable hints for a binary named `unifi-cli` - which does not exist; the binary is `unifi-network-cli`. It survived the -pp- strip because the literal is the bare original slug, not a -pp- suffixed name, so no rename rule matched it.",
+   "status": "active",
+   "spec_encode_followup": "The press should derive this hint from the CLI's own binary name (os.Args[0] or the generated cliName const) rather than baking the slug in as a literal.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/api_discovery.go",
+     "contains": "\"unifi-network\"",
+     "min_count": 3
+    }
+   ]
+  },
+  {
+   "id": "mcp-tenant-gate-allows-ungated-invocation",
+   "summary": "the MCP tenant gate falls through to the tool handler when no platform source is registered, instead of default-denying every non-mirror tool",
+   "why": "cli.VerifyMCPInvocation returns (nil, nil) when registeredPlatformSource is nil, which means 'there is nothing to gate' - and no connector in this repo registers a platform source (registerPlatformSource has zero callers outside internal/cli/platform_client.go). The 4.30.1/4.30.2 gate read that nil session as a failure and answered 'MCP tenant gate is not configured' for every tool that is not a Cobra mirror. Cobra mirrors carry pp:tenant-gate = \"child-cli\" and pass through, so the damage was invisible in a tool count: 6 tools per connector were dead while the server still listed them. Those 6 are the entire offline-mirror surface (context, search, sql) plus the entire code-orchestration surface (<prefix>_search / _get / _execute) - exactly the capabilities this connector's own description says a plain read-only MCP does not ship. Measured over stdio before the fix: 6/6 returned isError with the gate message; after, all 6 reach their handler. Fixed upstream in cli-printing-press 4.30.3 (issue #4157, PR #4171); this is the surgical back-port, byte-identical to what 4.30.3 emits. TestMCPUngatedInvocationUsesRealVerifier is the regression test that ships with the 4.30.3 template: it drives the wrapper with the REAL verifier (not the fake the other two tests install) and fails if the handler is blocked. Reverting either the fall-through or the test fails check_handfixes.py.",
+   "status": "upstreamed",
+   "spec_encode_followup": "Already fixed in the press at 4.30.3 (mvanhorn/cli-printing-press#4171). A reprint on 4.30.3 or later regenerates both the fall-through and the conformance test, so this entry exists to keep the back-port from being dropped by a reprint on an older engine or by a regen-merge that resurrects the 4.30.2 body.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/platform_gate.go",
+     "not_contains": "NewToolResultError(\"MCP tenant gate is not configured\")"
+    },
+    {
+     "file": "cli/internal/mcp/platform_gate.go",
+     "contains": "return next(ctx, request)",
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/mcp/platform_gate_test.go",
+     "contains": "func TestMCPUngatedInvocationUsesRealVerifier(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/mcp/platform_gate_test.go",
+     "contains": "verifyFreshMCPInvocation = cli.VerifyMCPInvocation",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "doctor-verdict-tracks-reality",
+   "summary": "doctor probes a real GET endpoint with the real credential and refuses to dial a placeholder base_url, instead of calling any HTTP response 'reachable' and never checking the credential",
+   "why": "`doctor` is the command every SKILL, guide and docs page tells an operator to run to confirm the connector works, and it could not tell a working install from a broken one. It called any HTTP response to `GET /` \"reachable\" and rendered it green, so a base_url aimed at the vendor's web UI (where every API path 404s) and a token rejected with 401 on every call both produced an all-green report. On this connector family it also never probed the credential at all: it printed \"present, not verified\" and left the operator to guess. The mirror defect: a connector whose shipped base_url default is a placeholder dialled the placeholder host, and the DNS failure rendered as \"FAIL API: unreachable\" - telling a correctly-credentialled operator they were broken without naming the one variable that would fix it. Several placeholder hosts resolve through live wildcard DNS and answer real HTTP, so dialling one produced a confident green verdict against a stranger's server. Measured and gated by tools/maintainer/check_doctor_truth.py. See issue #282.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorProbeCredentials("
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorBaseURLIsPlaceholder("
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorIsInfoKey(k)"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorBaseURLIsPlaceholder(cfg.BaseURL)"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeCredentials(cmd.Context()"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "present, not verified. Run `%s %s`"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "for _, v := range report {"
+    }
+   ]
+  },
+  {
+   "id": "install-credentials-declared-on-every-channel",
+   "summary": "every operator credential this connector reads is declared on all three install channels: manifest.json (.mcpb), server.json (MCP Registry) and mcp-install.md (manual install)",
+   "why": "Issue #282 ('three live-verified connectors prompt for the wrong credentials'). A connector is installed through THREE independent channels that each carry their own copy of the credential list: manifest.json server.mcp_config.env (what the .mcpb bundle hands Claude Desktop, which has no shell profile, no config.toml and no export - so an undeclared variable is a variable nobody is ever asked for), server.json environmentVariables (the MCP Registry publish channel), and mcp-install.md's copy-paste JSON blocks plus its remote launch line (the manual path, which never touches the bundle at all). The fleet-wide audit found 60 of 65 connectors under-declaring 122 operator-facing variables in the manifest, 61 of 65 mcp-install.md pages omitting 125, and hudu's server.json missing the base URL its manifest marks required. For unifi-network the manifest gained: PRINTING_PRESS_CLIENT_PROFILE, UNIFI_BASE_PATH, UNIFI_BASE_URL. server.json gained: PRINTING_PRESS_CLIENT_PROFILE, UNIFI_BASE_PATH, UNIFI_BASE_URL. mcp-install.md's env blocks gained: PRINTING_PRESS_CLIENT_PROFILE, UNIFI_BASE_PATH, UNIFI_BASE_URL. manifest.json, server.json and mcp-install.md are ALL regenerated by /msp-skills-publish on an UPDATE or re-onboard, so without this ledger a regeneration silently drops every declaration and CI stays green (check_env_schema.py is wired --warn). The asserts below name the specific credentials, not a count, so dropping one and adding another cannot cancel out.",
+   "status": "active",
+   "spec_encode_followup": "cli-printing-press should emit server.mcp_config.env, the matching user_config prompts, server.json environmentVariables and mcp-install.md's env blocks from ONE declaration of the connector's operator-facing environment, so the three channels cannot be generated out of step. Until then check_env_schema.py compares all three and this ledger pins them.",
+   "asserts": [
+    {
+     "file": "manifest.json",
+     "contains": "\"PRINTING_PRESS_CLIENT_PROFILE\": \"${user_config.printing_press_client_profile}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"UNIFI_API_KEY\": \"${user_config.unifi_api_key}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"UNIFI_BASE_PATH\": \"${user_config.unifi_base_path}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"UNIFI_BASE_URL\": \"${user_config.unifi_base_url}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"UNIFI_GATEWAY_HOST\": \"${user_config.unifi_gateway_host}\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"PRINTING_PRESS_CLIENT_PROFILE\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"UNIFI_API_KEY\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"UNIFI_BASE_PATH\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"UNIFI_BASE_URL\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"UNIFI_GATEWAY_HOST\"",
+     "min_count": 1
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"PRINTING_PRESS_CLIENT_PROFILE\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"UNIFI_API_KEY\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"UNIFI_BASE_PATH\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"UNIFI_BASE_URL\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"UNIFI_GATEWAY_HOST\":",
+     "min_count": 3
+    }
+   ]
+  }
+ ]
 }

@@ -37,7 +37,9 @@ Add (or merge with your existing `mcpServers` block):
     "hubspot": {
       "command": "hubspot-mcp",
       "env": {
-        "HUBSPOT_ACCESS_TOKEN": "<your-hubspot_access_token>"
+        "HUBSPOT_ACCESS_TOKEN": "<your-hubspot_access_token>",
+        "HUBSPOT_BASE_URL": "https://api.hubapi.com",
+        "HUBSPOT_OWNER_EMAIL": ""
       }
     }
   }
@@ -62,7 +64,9 @@ Configuration**) and add:
       "type": "stdio",
       "command": "hubspot-mcp",
       "env": {
-        "HUBSPOT_ACCESS_TOKEN": "<your-hubspot_access_token>"
+        "HUBSPOT_ACCESS_TOKEN": "<your-hubspot_access_token>",
+        "HUBSPOT_BASE_URL": "https://api.hubapi.com",
+        "HUBSPOT_OWNER_EMAIL": ""
       }
     }
   }
@@ -83,7 +87,9 @@ Claude Desktop:
     "hubspot": {
       "command": "hubspot-mcp",
       "env": {
-        "HUBSPOT_ACCESS_TOKEN": "<your-hubspot_access_token>"
+        "HUBSPOT_ACCESS_TOKEN": "<your-hubspot_access_token>",
+        "HUBSPOT_BASE_URL": "https://api.hubapi.com",
+        "HUBSPOT_OWNER_EMAIL": ""
       }
     }
   }
@@ -101,7 +107,7 @@ All remote agents need `hubspot-mcp` reachable as a public **HTTPS** endpoint. R
 in HTTP mode with your credentials in the environment:
 
 ```bash
-HUBSPOT_ACCESS_TOKEN=<value> hubspot-mcp --transport http --addr :7777
+HUBSPOT_ACCESS_TOKEN=<value> HUBSPOT_BASE_URL=<value> HUBSPOT_OWNER_EMAIL=<value> hubspot-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

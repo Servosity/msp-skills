@@ -104,7 +104,7 @@ All remote agents need `rewst-mcp` reachable as a public **HTTPS** endpoint. Run
 in HTTP mode with your credentials in the environment:
 
 ```bash
-REWST_BASE_URL=<value> REWST_API_TOKEN=<value> rewst-mcp --transport http --addr :7777
+REWST_API_TOKEN=<value> REWST_BASE_URL=<value> rewst-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

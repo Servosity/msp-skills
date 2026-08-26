@@ -37,7 +37,12 @@ Add (or merge with your existing `mcpServers` block):
     "aws-billing": {
       "command": "aws-billing-mcp",
       "env": {
-        "EXAMPLE_TOKEN": "<your-token>"
+        "AWS_ACCESS_KEY_ID": "<your-aws_access_key_id>",
+        "AWS_BILLING_BASE_URL": "https://ce.us-east-1.amazonaws.com",
+        "AWS_BILLING_SLACK_CHANNEL": "",
+        "AWS_REGION": "us-east-1",
+        "AWS_SECRET_ACCESS_KEY": "<your-aws_secret_access_key>",
+        "AWS_SESSION_TOKEN": ""
       }
     }
   }
@@ -62,7 +67,12 @@ Configuration**) and add:
       "type": "stdio",
       "command": "aws-billing-mcp",
       "env": {
-        "EXAMPLE_TOKEN": "<your-token>"
+        "AWS_ACCESS_KEY_ID": "<your-aws_access_key_id>",
+        "AWS_BILLING_BASE_URL": "https://ce.us-east-1.amazonaws.com",
+        "AWS_BILLING_SLACK_CHANNEL": "",
+        "AWS_REGION": "us-east-1",
+        "AWS_SECRET_ACCESS_KEY": "<your-aws_secret_access_key>",
+        "AWS_SESSION_TOKEN": ""
       }
     }
   }
@@ -83,7 +93,12 @@ Claude Desktop:
     "aws-billing": {
       "command": "aws-billing-mcp",
       "env": {
-        "EXAMPLE_TOKEN": "<your-token>"
+        "AWS_ACCESS_KEY_ID": "<your-aws_access_key_id>",
+        "AWS_BILLING_BASE_URL": "https://ce.us-east-1.amazonaws.com",
+        "AWS_BILLING_SLACK_CHANNEL": "",
+        "AWS_REGION": "us-east-1",
+        "AWS_SECRET_ACCESS_KEY": "<your-aws_secret_access_key>",
+        "AWS_SESSION_TOKEN": ""
       }
     }
   }
@@ -101,7 +116,7 @@ All remote agents need `aws-billing-mcp` reachable as a public **HTTPS** endpoin
 in HTTP mode with your credentials in the environment:
 
 ```bash
-TOKEN=<value> aws-billing-mcp --transport http --addr :7777
+AWS_ACCESS_KEY_ID=<value> AWS_BILLING_BASE_URL=<value> AWS_BILLING_SLACK_CHANNEL=<value> AWS_REGION=<value> AWS_SECRET_ACCESS_KEY=<value> AWS_SESSION_TOKEN=<value> TOKEN=<value> aws-billing-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

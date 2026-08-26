@@ -1,427 +1,562 @@
 {
-  "slug": "avanan",
-  "doc": "docs/reprint-survival.md",
-  "_comment": "Connector-specific edits to GENERATED files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and banned anti-patterns absent) and fails CI if a reprint dropped one. status: active = connector-only, a reprint would clobber it; upstreamed = also fixed in the press, a reprint from a fixed press regenerates it, but the back-port must still be present today.",
-  "handfixes": [
+ "slug": "avanan",
+ "doc": "docs/reprint-survival.md",
+ "_comment": "Connector-specific edits to GENERATED files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and banned anti-patterns absent) and fails CI if a reprint dropped one. status: active = connector-only, a reprint would clobber it; upstreamed = also fixed in the press, a reprint from a fixed press regenerates it, but the back-port must still be present today.",
+ "handfixes": [
+  {
+   "id": "x-text-above-go-2026-5970",
+   "summary": "`golang.org/x/text` is pinned at v0.41.0, above the v0.39.0 fix for GO-2026-5970",
+   "why": "The press emits `golang.org/x/text v0.14.0` as an indirect dependency of modernc.org/sqlite. Every version below v0.39.0 carries GO-2026-5970 (CVE-2026-56852): a norm.Iter infinite loop on input containing invalid UTF-8 bytes. Because a new connector's go.mod counts as introducing every version in it, the repo security gate scores that advisory P1 and blocks the merge. A reprint from a press that still emits v0.14.0 reintroduces the P1.",
+   "status": "active",
+   "spec_encode_followup": "Raise the floor on golang.org/x/text in the press module template so generated go.mod files ship above the GO-2026-5970 fix by construction (filed as a retro item against the generator).",
+   "asserts": [
     {
-      "id": "x-text-above-go-2026-5970",
-      "summary": "`golang.org/x/text` is pinned at v0.41.0, above the v0.39.0 fix for GO-2026-5970",
-      "why": "The press emits `golang.org/x/text v0.14.0` as an indirect dependency of modernc.org/sqlite. Every version below v0.39.0 carries GO-2026-5970 (CVE-2026-56852): a norm.Iter infinite loop on input containing invalid UTF-8 bytes. Because a new connector's go.mod counts as introducing every version in it, the repo security gate scores that advisory P1 and blocks the merge. A reprint from a press that still emits v0.14.0 reintroduces the P1.",
-      "status": "active",
-      "spec_encode_followup": "Raise the floor on golang.org/x/text in the press module template so generated go.mod files ship above the GO-2026-5970 fix by construction (filed as a retro item against the generator).",
-      "asserts": [
-        {
-          "file": "cli/go.mod",
-          "contains": "golang.org/x/text v0.41.0",
-          "min_count": 1
-        },
-        {
-          "file": "cli/go.mod",
-          "not_contains": "golang.org/x/text v0.14.0"
-        }
-      ]
+     "file": "cli/go.mod",
+     "contains": "golang.org/x/text v0.41.0",
+     "min_count": 1
     },
     {
-      "id": "mcp-tenant-gate-allows-ungated-invocation",
-      "summary": "the MCP tenant gate falls through to the tool handler when no platform source is registered, instead of default-denying every non-mirror tool",
-      "why": "cli.VerifyMCPInvocation returns (nil, nil) when registeredPlatformSource is nil, which means 'there is nothing to gate' - and no connector in this repo registers a platform source (registerPlatformSource has zero callers outside internal/cli/platform_client.go). The 4.30.1/4.30.2 gate read that nil session as a failure and answered 'MCP tenant gate is not configured' for every tool that is not a Cobra mirror. Cobra mirrors carry pp:tenant-gate = \"child-cli\" and pass through, so the damage was invisible in a tool count: 5 tools on this connector were dead while the server still listed them. Those 5 are the entire offline-mirror surface (context, search, sql) plus the code-orchestration surface (avanan_search, avanan_get) - exactly the capabilities this connector's own description says a plain read-only MCP does not ship. Measured with check_mcp_gate.py before the fix: all 5 were reported DEFAULT-DENIED; after, none are. Fixed upstream in cli-printing-press 4.30.3 (issue #4157, PR #4171); this is the surgical back-port, byte-identical to what 4.30.3 emits and to the same back-port already merged on cork. TestMCPUngatedInvocationUsesRealVerifier is the regression test that ships with the 4.30.3 template: it drives the wrapper with the REAL verifier (not the fake the other two tests install) and fails if the handler is blocked. Reverting either the fall-through or the test fails check_handfixes.py.",
-      "status": "upstreamed",
-      "spec_encode_followup": "Already fixed in the press at 4.30.3 (mvanhorn/cli-printing-press#4171). A reprint on 4.30.3 or later regenerates both the fall-through and the conformance test, so this entry exists to keep the back-port from being dropped by a reprint on an older engine or by a regen-merge that resurrects the 4.30.2 body.",
-      "asserts": [
-        {
-          "file": "cli/internal/mcp/platform_gate.go",
-          "not_contains": "NewToolResultError(\"MCP tenant gate is not configured\")"
-        },
-        {
-          "file": "cli/internal/mcp/platform_gate.go",
-          "contains": "return next(ctx, request)",
-          "min_count": 2
-        },
-        {
-          "file": "cli/internal/mcp/platform_gate_test.go",
-          "contains": "func TestMCPUngatedInvocationUsesRealVerifier(",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/mcp/platform_gate_test.go",
-          "contains": "verifyFreshMCPInvocation = cli.VerifyMCPInvocation",
-          "min_count": 1
-        }
-      ]
-    },
-    {
-      "id": "x-av-date-no-zone-suffix",
-      "summary": "x-av-date is sent as microsecond precision with no zone suffix, because the server parses the value and returns HTTP 500 on a trailing Z",
-      "why": "avanansig.DateFormat originally used \"2006-01-02T15:04:05.000Z\" on the reasoning that the vendor's samples are inconsistent and any format works so long as the header and the signed preimage are byte-identical. That reasoning is wrong: the server parses x-av-date rather than echoing it, and a trailing Z makes the parse fail. The API then answers HTTP 500 for every request, including one carrying a deliberately fabricated app id, so the failure presents as a vendor outage or an unprovisioned credential rather than a client bug. Verified live against smart-api-production-1-us on 2026-08-20: microsecond precision with no zone suffix returns a JWT, millisecond precision with Z returns 500, and x-av-token is irrelevant in both cases. This matches Avanan's own MSP sample client, which sends datetime.datetime.utcnow().isoformat(). The \"2021-04-10T00:00:00.000Z\" literal in the API Reference Guide is the input to the guide's worked signature example, not an accepted x-av-date value.",
-      "status": "active",
-      "spec_encode_followup": "Press has no way to express \"this header is parsed by the server, so the layout is load-bearing\". If a date-format annotation is ever added, encode it on the security scheme rather than leaving it to a hand-fix.",
-      "asserts": [
-        {
-          "file": "cli/internal/avanansig/avanansig.go",
-          "contains": "const DateFormat = \"2006-01-02T15:04:05.000000\"",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/avanansig/avanansig_test.go",
-          "contains": "2021-04-10T00:00:00.000000",
-          "min_count": 1
-        }
-      ]
-    },
-    {
-      "id": "no-required-transport-or-scope-flags",
-      "summary": "the generated commands no longer refuse to run without --x-av-req-id or --scopes; both are supplied by the transport or decided by the API",
-      "why": "The press promoted two parameters to required CLI flags on 32 commands. x-av-req-id is a per-request transport header that AvananTransport already generates and sets (avanan_transport.go), so demanding it from the caller asks for a value the client is about to overwrite. --scopes is worse: it was required on the `scopes` command itself, whose entire job is to discover which scopes a credential reaches, so the only way to list your scopes was to already know one. The API is the correct enforcement point and answers a multi-scope client with HTTP 400 naming the requirement, which the connector already surfaces. 47 enforcement blocks were removed across 32 files; the flags themselves remain available for callers who want to pin a scope or correlate a request id.",
-      "status": "active",
-      "spec_encode_followup": "Press should not promote a security-scheme or transport-generated header to a required command flag, and should not mark a discovery endpoint's own filter parameter required.",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/promoted_scopes.go",
-          "not_contains": "required flag \\\"%s\\\" not set\", \"scopes\""
-        },
-        {
-          "file": "cli/internal/cli/promoted_scopes.go",
-          "not_contains": "required flag \\\"%s\\\" not set\", \"x-av-req-id\""
-        },
-        {
-          "file": "cli/internal/cli/event_query.go",
-          "not_contains": "required flag \\\"%s\\\" not set\", \"x-av-req-id\""
-        }
-      ]
-    },
-    {
-      "id": "entity-search-requires-entity-filter",
-      "summary": "the entity mirror sends requestData.entityFilter with a saas value and the window inside it, one pass per platform",
-      "why": "Entities and Events shared one request builder that sent a flat {startDate, scopes, pageSize} requestData. That is correct for /v1.0/event/query and wrong for /v1.0/search/query, which requires requestData.entityFilter and reads the window from inside it. The endpoint answered HTTP 422 with 'entityFilter Field required' and the entity mirror stored zero rows on every run while the command still reported success. The endpoint also accepts exactly one saas per query, so a full entity mirror is one pass per platform rather than a single call; EntitySaaS carries the nine platform identifiers and a per-platform failure no longer empties the whole mirror.",
-      "status": "active",
-      "spec_encode_followup": "Press generated the correct nested entityFilter for the query-saas-entity command from the spec but the hand-written mirror did not reuse it. If the mirror is ever regenerated, take the body shape from the generated command rather than from the event query.",
-      "asserts": [
-        {
-          "file": "cli/internal/avananmirror/mirror.go",
-          "contains": "requestData := map[string]any{\"entityFilter\": entityFilter}",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/avananmirror/mirror.go",
-          "contains": "var EntitySaaS = []string{",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/avananmirror/mirror_test.go",
-          "contains": "func TestEntitiesSendsEntityFilterPerSaaS(",
-          "min_count": 1
-        }
-      ]
-    },
-    {
-      "id": "mirror-resolves-scopes-before-fanout",
-      "summary": "mirror resolves an empty --scope to the credential's real scope list instead of issuing one unscoped request",
-      "why": "Options.Scopes documents empty as 'every scope the credential can reach', but Exceptions turned an empty list into a single request carrying no scope param. A multi-scope app client rejects that on all nine exception sub-systems and the sectool paths with HTTP 400 'Must provide a single scope in as scope in query string due to multi scope app client', so the documented behaviour and the implemented behaviour disagreed and the exception mirror stored nothing for a multi-tenant MSP. DiscoverScopes reads GET /v1.0/scopes and the mirror command resolves the list before building Options, so the per-scope fan-out Exceptions already implements is actually reached. Discovery failure warns and continues rather than aborting, because a single-scope credential does not need it.",
-      "status": "active",
-      "spec_encode_followup": "None. This is a behavioural contract between two hand-written pieces, not a spec gap.",
-      "asserts": [
-        {
-          "file": "cli/internal/avananmirror/mirror.go",
-          "contains": "func DiscoverScopes(",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/avanan_mirror.go",
-          "contains": "avananmirror.DiscoverScopes(ctx, c)",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/avananmirror/mirror_test.go",
-          "contains": "func TestDiscoverScopesReturnsEveryReachableScope(",
-          "min_count": 1
-        }
-      ]
-    },
-    {
-      "id": "region-flag-reaches-infinity-portal",
-      "summary": "`auth login --region` resolves the two confirmed Infinity Portal gateways, and `--base-url` reaches any other gateway",
-      "why": "The press emits a single region table built from the eight legacy *.avanan.net farms, so an Infinity Portal tenant has no region code at all and the unknown-region error points them back at --region, which cannot get them there. The only way through was AVANAN_BASE_URL, which nothing in the CLI mentions. The fix adds a separate Infinity table holding only gateways this project has actually reached (a guessed gateway host fails identically to a bad credential), a --base-url flag for every other gateway, and an unknown-region error that names all three routes. A reprint from an unfixed press restores the legacy-only table and drops --base-url.",
-      "status": "active",
-      "spec_encode_followup": "Teach the press that a dual-generation API needs one region table per generation plus an explicit base-URL escape hatch, rather than a single table keyed on the legacy hosts (filed as a retro item against the generator).",
-      "asserts": [
-        {
-          "file": "cli/internal/avanansig/avanansig.go",
-          "contains": "func InfinityRegionBaseURL(",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/avanansig/avanansig.go",
-          "contains": "cloudinfra-gw-us.portal.checkpoint.com",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/avanan_auth.go",
-          "contains": "\"base-url\"",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/avanan_auth.go",
-          "contains": "avanansig.InfinityRegionBaseURL(region)",
-          "min_count": 1
-        }
-      ]
-    },
-    {
-      "id": "auth-never-follows-a-cross-host-redirect",
-      "summary": "the signing transport refuses any host other than the configured base URL, and IsInfinityHost is anchored to .portal.checkpoint.com",
-      "why": "RoundTrip runs once per redirect hop, after CheckRedirect. CheckRedirect deleted x-av-token on a cross-host hop, but the transport then re-signed and re-stamped the next hop, undoing that defence one instruction later. Worse, the Infinity branch derived its handshake endpoint from the redirect target and IsInfinityHost was strings.Contains(host, \"cloudinfra\"), so a 302 to cloudinfra.attacker.example was classified as Infinity and POSTed the raw client secret as {\"accessKey\": ...}. The press has no other production RoundTripper, so there was no prior art to copy a host gate from and a reprint would regenerate the ungated form.",
-      "status": "active",
-      "spec_encode_followup": "Teach the press that a transport-level auth hook must gate on the configured host, since it runs per redirect hop and after CheckRedirect (filed as a retro item against the generator).",
-      "asserts": [
-        {
-          "file": "cli/internal/client/avanan_transport.go",
-          "contains": "func (t *AvananTransport) authorizeHost(",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/client/avanan_transport.go",
-          "contains": "refusing to send credentials to",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/avanansig/avanansig.go",
-          "contains": "infinityHostSuffix",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/avanansig/avanansig.go",
-          "not_contains": "strings.Contains(h, \"cloudinfra\")"
-        },
-        {
-          "file": "cli/internal/client/avanan_transport_test.go",
-          "contains": "TestCrossHostRedirectNeverReceivesCredentials",
-          "min_count": 1
-        }
-      ]
-    },
-    {
-      "id": "mirror-fails-when-nothing-was-mirrored",
-      "summary": "`mirror` exits non-zero and skips the sync stamp when the credential is rejected or every resource fails",
-      "why": "Scope, event, entity and exception failures were all downgraded to warnings; sync state was stamped whenever the run was not rate-limited, and the command returned success. With an expired credential every call 401s, the command exited 0, recorded zero rows as freshly synced, and every offline command then answered confidently from an empty mirror - the exact false-confidence failure this connector exists to prevent. Rate-limiting was already fatal; a rejected credential (401 only - 403 is a genuinely unlicensed engine the exception ingest must tolerate) and a run where every resource failed and nothing landed now are too. A reprint restores the warn-and-succeed shape. Live verification on 2026-08-22 added a third fatal case: a resource that returns records and stores none of them.",
-      "status": "active",
-      "spec_encode_followup": "Teach the press that a mirror/sync command must not stamp freshness for a run that stored nothing, and that auth rejection is fatal while per-resource authorization failures are not (filed as a retro item against the generator).",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/avanan_mirror.go",
-          "contains": "func isCredentialRejection(",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/avanan_mirror.go",
-          "contains": "mirrorFailure",
-          "min_count": 4
-        },
-        {
-          "file": "cli/internal/cli/avanan_mirror.go",
-          "contains": "mirror stored nothing",
-          "min_count": 2
-        },
-        {
-          "file": "cli/internal/cli/avanan_mirror_test.go",
-          "contains": "TestIsCredentialRejection",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/avanan_mirror.go",
-          "contains": "mirror stored none of the",
-          "min_count": 1
-        }
-      ]
-    },
-    {
-      "id": "entity-id-is-nested-under-entity-info",
-      "summary": "recordID resolves dotted paths, because entity records carry their identifier at entityInfo.entityId and nothing at the top level",
-      "why": "idFields was a flat top-level lookup (eventId, entityId, id, exceptionId, _id). The entity search returns records shaped {entityInfo:{entityId,...}, entityPayload:{...}, entitySecurityResult:{...}} with no top-level identifier at all, so every entity record was dropped as unidentifiable. Confirmed live against smart-api-production-1-us on 2026-08-22: a mirror fetched 343 entities, stored 0, skipped 343, and exited 0 - so every offline command reading entities answered from a table that had never been written. The nested lookup must not be flattened into a recursive search: entitySecurityResult.ap[].entityId is a different id, and matching it would key rows on the wrong value. A reprint regenerates the flat lookup.",
-      "status": "active",
-      "spec_encode_followup": "Teach the press that identifier discovery must consider nested paths, and that a resource storing none of what it fetched is a failure rather than an empty result (filed as a retro item against the generator).",
-      "asserts": [
-        {
-          "file": "cli/internal/avananmirror/mirror.go",
-          "contains": "entityInfo.entityId",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/avananmirror/mirror.go",
-          "contains": "func lookupPath(",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/avananmirror/mirror_test.go",
-          "contains": "TestRecordIDResolvesNestedEntityIdentifier",
-          "min_count": 1
-        }
-      ]
-    },
-    {
-      "id": "scroll-cursor-is-stable-not-per-page",
-      "summary": "the mirror walk continues through an unchanged scrollId and ends on a short page instead",
-      "why": "Avanan returns a STABLE server-side cursor handle: every page of a walk carries the same scrollId while the records advance underneath it. ingestQuery read an unchanged scrollId as a looping server and stopped, capping every resource at 2 pages / 200 records while reporting success - so the offline store, the connector's headline feature, silently held a fraction of the tenant. Verified live 2026-08-22: five consecutive pages returned scrollId 242d8f7d7800 with a different first record each time against an endpoint reporting 10,000 available, and a 24h mirror went from 605 to 3,788 records once fixed. The end-of-walk signal is a short page, since the server honours pageSize. A reprint regenerates the loop-detection form.",
-      "status": "active",
-      "spec_encode_followup": "Teach the press that a cursor token may be stable across pages, so page-walk termination must key on a short or empty page rather than on an unchanged cursor (filed as a retro item against the generator).",
-      "asserts": [
-        {
-          "file": "cli/internal/avananmirror/mirror.go",
-          "contains": "len(records) < opts.pageSize()",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/avananmirror/mirror.go",
-          "contains": "maxScrollPages",
-          "min_count": 2
-        },
-        {
-          "file": "cli/internal/avananmirror/mirror.go",
-          "not_contains": "next == scrollID"
-        },
-        {
-          "file": "cli/internal/avananmirror/mirror_test.go",
-          "contains": "TestScrollWalkContinuesThroughAStableScrollId",
-          "min_count": 1
-        }
-      ]
-    },
-    {
-      "id": "action-entity-type-is-per-saas",
-      "summary": "remediate resolves saasEntityType from the entity instead of sending a hardcoded \"email\"",
-      "why": "POST /v1.0/action/entity looks entityType up per SaaS and throws server-side on a miss, returning HTTP 500 internal_error[KeyError] - indistinguishable from a vendor outage. remediate.go hardcoded \"email\", so BOTH remediation commands were unusable on every tenant. The real values are office365_emails_email and google_mail_email, confirmed live against both platforms on 2026-08-22. Resolution reads entityInfo.saasEntityType from GET /v1.0/search/entity/{id}, falls back to the local mirror, and fails closed with instructions rather than guessing; --entity-type overrides. A reprint restores the hardcoded value.",
-      "status": "active",
-      "spec_encode_followup": "Teach the press not to hardcode an enum-like request field whose value is a property of the referenced object (filed as a retro item against the generator).",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/remediate.go",
-          "contains": "func resolveEntityType(",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/remediate.go",
-          "contains": "/v1.0/search/entity/",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/remediate.go",
-          "not_contains": "requestData[\"entityType\"] = \"email\""
-        },
-        {
-          "file": "cli/internal/cli/remediate_test.go",
-          "contains": "TestResolveEntityTypeUsesTheEntitysOwnType",
-          "min_count": 1
-        }
-      ]
-    },
-    {
-      "id": "task-poll-needs-query-string-scope",
-      "summary": "pollTask sends the scope the task endpoint requires, and reports a poll it could not make",
-      "why": "GET /v1.0/task/{id} takes scope as a QUERY-STRING parameter - a third transport, after requestData.scope for actions and requestData.scopes for search. pollTask passed nil params, so every poll on a multi-scope credential returned HTTP 400, and the error was swallowed by an `if err == nil` guard: --wait spun to its timeout and reported the action as not terminal when it had already succeeded. Also: google_mail applies actions synchronously and returns taskId null (not a gap), and an Office 365 task can still read inprogress after the entity reports quarantined - the entity is the ground truth and the task trails it. All verified live 2026-08-22.",
-      "status": "active",
-      "spec_encode_followup": "Teach the press that a tenant/scope selector can differ in transport per endpoint within one API, and that a poll error must be distinguished from a task that is still running (filed as a retro item against the generator).",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/remediate.go",
-          "contains": "params[\"scope\"] = scope",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/remediate.go",
-          "contains": "could not read task status",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/remediate.go",
-          "contains": "the task lags the entity",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/remediate.go",
-          "contains": "func getFresh(",
-          "min_count": 1
-        }
-      ]
-    },
-    {
-      "id": "mirror-window-is-ingest-time",
-      "summary": "--since and the Options.Since docs state that the API window filters on ingest time, not the message date",
-      "why": "entityFilter.startDate/endDate match entityCreated - when Avanan scanned the message - not the received header. Measured 2026-08-22: received 19:08:22Z vs entityCreated 20:49:36Z, 1h41m apart, so every window built around the received time returned nothing while the message existed. They usually track within seconds, which is what makes the difference dangerous. The flag help previously read as message age.",
-      "status": "active",
-      "spec_encode_followup": "Teach the press to describe a date-window flag in the API's own terms when the field filters on an ingest timestamp rather than a business date (filed as a retro item against the generator).",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/avanan_mirror.go",
-          "contains": "by Avanan ingest time rather than message date",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/avananmirror/mirror.go",
-          "contains": "filter on entityCreated",
-          "min_count": 1
-        }
-      ]
-    },
-    {
-      "id": "poll-loops-must-bypass-the-response-cache",
-      "summary": "remediate's task and entity poll loops read through GetNoCache, and a null task id is confirmed against the entity rather than assumed applied",
-      "why": "Two faults in one path. First, the response cache is keyed on path plus params, so a loop watching for a value to CHANGE saw the pre-action state on every iteration: measured 2026-08-22, an entity that flipped to quarantined three seconds after submission was still reported unchanged after a full two-minute poll, so the command reported a successful action as unfinished. pollTask had the same defect from the start. Second, a 200 with taskId null means accepted, not landed - Google Mail applies asynchronously without a task - so reporting completed off the back of the response was the same false confidence this command exists to prevent. With --wait and no task, the entity's own isQuarantined/isRestored is now polled, which is the ground truth the task only ever trails. A reprint restores cached reads and the assume-applied shortcut.",
-      "status": "active",
-      "spec_encode_followup": "Teach the press that any poll-for-change loop must bypass the response cache, and that an accepted-but-async action needs confirmation against the resource rather than the submission response (filed as a retro item against the generator).",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/remediate.go",
-          "contains": "func pollEntityApplied(",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/remediate.go",
-          "contains": "getFresh(ctx, c, \"/v1.0/search/entity/\"",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/remediate.go",
-          "contains": "getFresh(ctx, c, \"/v1.0/task/\"",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/remediate_test.go",
-          "contains": "TestGetFreshBypassesTheResponseCache",
-          "min_count": 1
-        }
-      ]
-    },
-    {
-      "id": "auth-setup-prints-the-real-steps",
-      "summary": "`auth setup` prints the actual credential steps instead of the generator's bare \"No setup URL is configured\" line",
-      "why": "doctor's auth_hint plus the HTTP 401/403 remediation in helpers.go and the MCP tool-error text send operators to `avanan-cli auth setup` (8 references across the three surfaces). The press emits that command from a spec `auth_key_url`; Avanan publishes no stable deep link to its key page, so the generated body degraded to the single line \"No setup URL is configured for this CLI; check the API's docs.\" and exited 0. Every other connector prints that line AND then real guidance (see datto-rmm, n-central, wordpress); avanan printed only the bare line, so the one command the whole product points at for credential help answered with nothing and a success code -- the same silent dead-end as #277, reached by a different mechanism. The replacement names the portal path, the two env vars `auth login` actually reads (AVANAN_APP_ID, AVANAN_CLIENT_SECRET), the exact --region value list taken from the login command's own flag help, the AVANAN_BASE_URL escape hatch for a gateway with no region code, and `doctor` as the confirmation step. --launch now says plainly that there is no URL to open rather than erroring about a missing one. Found by running the built binary during the inbound-contribution adversarial review, not by reading it.",
-      "status": "active",
-      "spec_encode_followup": "Generator: when a spec carries no auth_key_url, `auth setup` should still emit the credential env vars and the auth-login invocation the connector actually scaffolds, rather than a bare \"No setup URL is configured\" line. A command that doctor points at must never answer with nothing and exit 0. Related: cli-printing-press#4315 (the auth-hint naming a command the connector does not define).",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/auth.go",
-          "not_contains": "fmt.Fprintln(w, \"No setup URL is configured for this CLI; check the API's docs.\")"
-        },
-        {
-          "file": "cli/internal/cli/auth.go",
-          "contains": "Create an Avanan API key, then authenticate:",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/auth.go",
-          "contains": "AVANAN_APP_ID",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/auth.go",
-          "contains": "AVANAN_CLIENT_SECRET",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/auth.go",
-          "contains": "avanan-cli auth login --region",
-          "min_count": 1
-        }
-      ]
+     "file": "cli/go.mod",
+     "not_contains": "golang.org/x/text v0.14.0"
     }
-  ]
+   ]
+  },
+  {
+   "id": "mcp-tenant-gate-allows-ungated-invocation",
+   "summary": "the MCP tenant gate falls through to the tool handler when no platform source is registered, instead of default-denying every non-mirror tool",
+   "why": "cli.VerifyMCPInvocation returns (nil, nil) when registeredPlatformSource is nil, which means 'there is nothing to gate' - and no connector in this repo registers a platform source (registerPlatformSource has zero callers outside internal/cli/platform_client.go). The 4.30.1/4.30.2 gate read that nil session as a failure and answered 'MCP tenant gate is not configured' for every tool that is not a Cobra mirror. Cobra mirrors carry pp:tenant-gate = \"child-cli\" and pass through, so the damage was invisible in a tool count: 5 tools on this connector were dead while the server still listed them. Those 5 are the entire offline-mirror surface (context, search, sql) plus the code-orchestration surface (avanan_search, avanan_get) - exactly the capabilities this connector's own description says a plain read-only MCP does not ship. Measured with check_mcp_gate.py before the fix: all 5 were reported DEFAULT-DENIED; after, none are. Fixed upstream in cli-printing-press 4.30.3 (issue #4157, PR #4171); this is the surgical back-port, byte-identical to what 4.30.3 emits and to the same back-port already merged on cork. TestMCPUngatedInvocationUsesRealVerifier is the regression test that ships with the 4.30.3 template: it drives the wrapper with the REAL verifier (not the fake the other two tests install) and fails if the handler is blocked. Reverting either the fall-through or the test fails check_handfixes.py.",
+   "status": "upstreamed",
+   "spec_encode_followup": "Already fixed in the press at 4.30.3 (mvanhorn/cli-printing-press#4171). A reprint on 4.30.3 or later regenerates both the fall-through and the conformance test, so this entry exists to keep the back-port from being dropped by a reprint on an older engine or by a regen-merge that resurrects the 4.30.2 body.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/platform_gate.go",
+     "not_contains": "NewToolResultError(\"MCP tenant gate is not configured\")"
+    },
+    {
+     "file": "cli/internal/mcp/platform_gate.go",
+     "contains": "return next(ctx, request)",
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/mcp/platform_gate_test.go",
+     "contains": "func TestMCPUngatedInvocationUsesRealVerifier(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/mcp/platform_gate_test.go",
+     "contains": "verifyFreshMCPInvocation = cli.VerifyMCPInvocation",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "x-av-date-no-zone-suffix",
+   "summary": "x-av-date is sent as microsecond precision with no zone suffix, because the server parses the value and returns HTTP 500 on a trailing Z",
+   "why": "avanansig.DateFormat originally used \"2006-01-02T15:04:05.000Z\" on the reasoning that the vendor's samples are inconsistent and any format works so long as the header and the signed preimage are byte-identical. That reasoning is wrong: the server parses x-av-date rather than echoing it, and a trailing Z makes the parse fail. The API then answers HTTP 500 for every request, including one carrying a deliberately fabricated app id, so the failure presents as a vendor outage or an unprovisioned credential rather than a client bug. Verified live against smart-api-production-1-us on 2026-08-20: microsecond precision with no zone suffix returns a JWT, millisecond precision with Z returns 500, and x-av-token is irrelevant in both cases. This matches Avanan's own MSP sample client, which sends datetime.datetime.utcnow().isoformat(). The \"2021-04-10T00:00:00.000Z\" literal in the API Reference Guide is the input to the guide's worked signature example, not an accepted x-av-date value.",
+   "status": "active",
+   "spec_encode_followup": "Press has no way to express \"this header is parsed by the server, so the layout is load-bearing\". If a date-format annotation is ever added, encode it on the security scheme rather than leaving it to a hand-fix.",
+   "asserts": [
+    {
+     "file": "cli/internal/avanansig/avanansig.go",
+     "contains": "const DateFormat = \"2006-01-02T15:04:05.000000\"",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/avanansig/avanansig_test.go",
+     "contains": "2021-04-10T00:00:00.000000",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "no-required-transport-or-scope-flags",
+   "summary": "the generated commands no longer refuse to run without --x-av-req-id or --scopes; both are supplied by the transport or decided by the API",
+   "why": "The press promoted two parameters to required CLI flags on 32 commands. x-av-req-id is a per-request transport header that AvananTransport already generates and sets (avanan_transport.go), so demanding it from the caller asks for a value the client is about to overwrite. --scopes is worse: it was required on the `scopes` command itself, whose entire job is to discover which scopes a credential reaches, so the only way to list your scopes was to already know one. The API is the correct enforcement point and answers a multi-scope client with HTTP 400 naming the requirement, which the connector already surfaces. 47 enforcement blocks were removed across 32 files; the flags themselves remain available for callers who want to pin a scope or correlate a request id.",
+   "status": "active",
+   "spec_encode_followup": "Press should not promote a security-scheme or transport-generated header to a required command flag, and should not mark a discovery endpoint's own filter parameter required.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/promoted_scopes.go",
+     "not_contains": "required flag \\\"%s\\\" not set\", \"scopes\""
+    },
+    {
+     "file": "cli/internal/cli/promoted_scopes.go",
+     "not_contains": "required flag \\\"%s\\\" not set\", \"x-av-req-id\""
+    },
+    {
+     "file": "cli/internal/cli/event_query.go",
+     "not_contains": "required flag \\\"%s\\\" not set\", \"x-av-req-id\""
+    }
+   ]
+  },
+  {
+   "id": "entity-search-requires-entity-filter",
+   "summary": "the entity mirror sends requestData.entityFilter with a saas value and the window inside it, one pass per platform",
+   "why": "Entities and Events shared one request builder that sent a flat {startDate, scopes, pageSize} requestData. That is correct for /v1.0/event/query and wrong for /v1.0/search/query, which requires requestData.entityFilter and reads the window from inside it. The endpoint answered HTTP 422 with 'entityFilter Field required' and the entity mirror stored zero rows on every run while the command still reported success. The endpoint also accepts exactly one saas per query, so a full entity mirror is one pass per platform rather than a single call; EntitySaaS carries the nine platform identifiers and a per-platform failure no longer empties the whole mirror.",
+   "status": "active",
+   "spec_encode_followup": "Press generated the correct nested entityFilter for the query-saas-entity command from the spec but the hand-written mirror did not reuse it. If the mirror is ever regenerated, take the body shape from the generated command rather than from the event query.",
+   "asserts": [
+    {
+     "file": "cli/internal/avananmirror/mirror.go",
+     "contains": "requestData := map[string]any{\"entityFilter\": entityFilter}",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/avananmirror/mirror.go",
+     "contains": "var EntitySaaS = []string{",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/avananmirror/mirror_test.go",
+     "contains": "func TestEntitiesSendsEntityFilterPerSaaS(",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "mirror-resolves-scopes-before-fanout",
+   "summary": "mirror resolves an empty --scope to the credential's real scope list instead of issuing one unscoped request",
+   "why": "Options.Scopes documents empty as 'every scope the credential can reach', but Exceptions turned an empty list into a single request carrying no scope param. A multi-scope app client rejects that on all nine exception sub-systems and the sectool paths with HTTP 400 'Must provide a single scope in as scope in query string due to multi scope app client', so the documented behaviour and the implemented behaviour disagreed and the exception mirror stored nothing for a multi-tenant MSP. DiscoverScopes reads GET /v1.0/scopes and the mirror command resolves the list before building Options, so the per-scope fan-out Exceptions already implements is actually reached. Discovery failure warns and continues rather than aborting, because a single-scope credential does not need it.",
+   "status": "active",
+   "spec_encode_followup": "None. This is a behavioural contract between two hand-written pieces, not a spec gap.",
+   "asserts": [
+    {
+     "file": "cli/internal/avananmirror/mirror.go",
+     "contains": "func DiscoverScopes(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/avanan_mirror.go",
+     "contains": "avananmirror.DiscoverScopes(ctx, c)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/avananmirror/mirror_test.go",
+     "contains": "func TestDiscoverScopesReturnsEveryReachableScope(",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "region-flag-reaches-infinity-portal",
+   "summary": "`auth login --region` resolves the two confirmed Infinity Portal gateways, and `--base-url` reaches any other gateway",
+   "why": "The press emits a single region table built from the eight legacy *.avanan.net farms, so an Infinity Portal tenant has no region code at all and the unknown-region error points them back at --region, which cannot get them there. The only way through was AVANAN_BASE_URL, which nothing in the CLI mentions. The fix adds a separate Infinity table holding only gateways this project has actually reached (a guessed gateway host fails identically to a bad credential), a --base-url flag for every other gateway, and an unknown-region error that names all three routes. A reprint from an unfixed press restores the legacy-only table and drops --base-url.",
+   "status": "active",
+   "spec_encode_followup": "Teach the press that a dual-generation API needs one region table per generation plus an explicit base-URL escape hatch, rather than a single table keyed on the legacy hosts (filed as a retro item against the generator).",
+   "asserts": [
+    {
+     "file": "cli/internal/avanansig/avanansig.go",
+     "contains": "func InfinityRegionBaseURL(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/avanansig/avanansig.go",
+     "contains": "cloudinfra-gw-us.portal.checkpoint.com",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/avanan_auth.go",
+     "contains": "\"base-url\"",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/avanan_auth.go",
+     "contains": "avanansig.InfinityRegionBaseURL(region)",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "auth-never-follows-a-cross-host-redirect",
+   "summary": "the signing transport refuses any host other than the configured base URL, and IsInfinityHost is anchored to .portal.checkpoint.com",
+   "why": "RoundTrip runs once per redirect hop, after CheckRedirect. CheckRedirect deleted x-av-token on a cross-host hop, but the transport then re-signed and re-stamped the next hop, undoing that defence one instruction later. Worse, the Infinity branch derived its handshake endpoint from the redirect target and IsInfinityHost was strings.Contains(host, \"cloudinfra\"), so a 302 to cloudinfra.attacker.example was classified as Infinity and POSTed the raw client secret as {\"accessKey\": ...}. The press has no other production RoundTripper, so there was no prior art to copy a host gate from and a reprint would regenerate the ungated form.",
+   "status": "active",
+   "spec_encode_followup": "Teach the press that a transport-level auth hook must gate on the configured host, since it runs per redirect hop and after CheckRedirect (filed as a retro item against the generator).",
+   "asserts": [
+    {
+     "file": "cli/internal/client/avanan_transport.go",
+     "contains": "func (t *AvananTransport) authorizeHost(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/avanan_transport.go",
+     "contains": "refusing to send credentials to",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/avanansig/avanansig.go",
+     "contains": "infinityHostSuffix",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/avanansig/avanansig.go",
+     "not_contains": "strings.Contains(h, \"cloudinfra\")"
+    },
+    {
+     "file": "cli/internal/client/avanan_transport_test.go",
+     "contains": "TestCrossHostRedirectNeverReceivesCredentials",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "mirror-fails-when-nothing-was-mirrored",
+   "summary": "`mirror` exits non-zero and skips the sync stamp when the credential is rejected or every resource fails",
+   "why": "Scope, event, entity and exception failures were all downgraded to warnings; sync state was stamped whenever the run was not rate-limited, and the command returned success. With an expired credential every call 401s, the command exited 0, recorded zero rows as freshly synced, and every offline command then answered confidently from an empty mirror - the exact false-confidence failure this connector exists to prevent. Rate-limiting was already fatal; a rejected credential (401 only - 403 is a genuinely unlicensed engine the exception ingest must tolerate) and a run where every resource failed and nothing landed now are too. A reprint restores the warn-and-succeed shape. Live verification on 2026-08-22 added a third fatal case: a resource that returns records and stores none of them.",
+   "status": "active",
+   "spec_encode_followup": "Teach the press that a mirror/sync command must not stamp freshness for a run that stored nothing, and that auth rejection is fatal while per-resource authorization failures are not (filed as a retro item against the generator).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/avanan_mirror.go",
+     "contains": "func isCredentialRejection(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/avanan_mirror.go",
+     "contains": "mirrorFailure",
+     "min_count": 4
+    },
+    {
+     "file": "cli/internal/cli/avanan_mirror.go",
+     "contains": "mirror stored nothing",
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/cli/avanan_mirror_test.go",
+     "contains": "TestIsCredentialRejection",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/avanan_mirror.go",
+     "contains": "mirror stored none of the",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "entity-id-is-nested-under-entity-info",
+   "summary": "recordID resolves dotted paths, because entity records carry their identifier at entityInfo.entityId and nothing at the top level",
+   "why": "idFields was a flat top-level lookup (eventId, entityId, id, exceptionId, _id). The entity search returns records shaped {entityInfo:{entityId,...}, entityPayload:{...}, entitySecurityResult:{...}} with no top-level identifier at all, so every entity record was dropped as unidentifiable. Confirmed live against smart-api-production-1-us on 2026-08-22: a mirror fetched 343 entities, stored 0, skipped 343, and exited 0 - so every offline command reading entities answered from a table that had never been written. The nested lookup must not be flattened into a recursive search: entitySecurityResult.ap[].entityId is a different id, and matching it would key rows on the wrong value. A reprint regenerates the flat lookup.",
+   "status": "active",
+   "spec_encode_followup": "Teach the press that identifier discovery must consider nested paths, and that a resource storing none of what it fetched is a failure rather than an empty result (filed as a retro item against the generator).",
+   "asserts": [
+    {
+     "file": "cli/internal/avananmirror/mirror.go",
+     "contains": "entityInfo.entityId",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/avananmirror/mirror.go",
+     "contains": "func lookupPath(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/avananmirror/mirror_test.go",
+     "contains": "TestRecordIDResolvesNestedEntityIdentifier",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "scroll-cursor-is-stable-not-per-page",
+   "summary": "the mirror walk continues through an unchanged scrollId and ends on a short page instead",
+   "why": "Avanan returns a STABLE server-side cursor handle: every page of a walk carries the same scrollId while the records advance underneath it. ingestQuery read an unchanged scrollId as a looping server and stopped, capping every resource at 2 pages / 200 records while reporting success - so the offline store, the connector's headline feature, silently held a fraction of the tenant. Verified live 2026-08-22: five consecutive pages returned scrollId 242d8f7d7800 with a different first record each time against an endpoint reporting 10,000 available, and a 24h mirror went from 605 to 3,788 records once fixed. The end-of-walk signal is a short page, since the server honours pageSize. A reprint regenerates the loop-detection form.",
+   "status": "active",
+   "spec_encode_followup": "Teach the press that a cursor token may be stable across pages, so page-walk termination must key on a short or empty page rather than on an unchanged cursor (filed as a retro item against the generator).",
+   "asserts": [
+    {
+     "file": "cli/internal/avananmirror/mirror.go",
+     "contains": "len(records) < opts.pageSize()",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/avananmirror/mirror.go",
+     "contains": "maxScrollPages",
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/avananmirror/mirror.go",
+     "not_contains": "next == scrollID"
+    },
+    {
+     "file": "cli/internal/avananmirror/mirror_test.go",
+     "contains": "TestScrollWalkContinuesThroughAStableScrollId",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "action-entity-type-is-per-saas",
+   "summary": "remediate resolves saasEntityType from the entity instead of sending a hardcoded \"email\"",
+   "why": "POST /v1.0/action/entity looks entityType up per SaaS and throws server-side on a miss, returning HTTP 500 internal_error[KeyError] - indistinguishable from a vendor outage. remediate.go hardcoded \"email\", so BOTH remediation commands were unusable on every tenant. The real values are office365_emails_email and google_mail_email, confirmed live against both platforms on 2026-08-22. Resolution reads entityInfo.saasEntityType from GET /v1.0/search/entity/{id}, falls back to the local mirror, and fails closed with instructions rather than guessing; --entity-type overrides. A reprint restores the hardcoded value.",
+   "status": "active",
+   "spec_encode_followup": "Teach the press not to hardcode an enum-like request field whose value is a property of the referenced object (filed as a retro item against the generator).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/remediate.go",
+     "contains": "func resolveEntityType(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/remediate.go",
+     "contains": "/v1.0/search/entity/",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/remediate.go",
+     "not_contains": "requestData[\"entityType\"] = \"email\""
+    },
+    {
+     "file": "cli/internal/cli/remediate_test.go",
+     "contains": "TestResolveEntityTypeUsesTheEntitysOwnType",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "task-poll-needs-query-string-scope",
+   "summary": "pollTask sends the scope the task endpoint requires, and reports a poll it could not make",
+   "why": "GET /v1.0/task/{id} takes scope as a QUERY-STRING parameter - a third transport, after requestData.scope for actions and requestData.scopes for search. pollTask passed nil params, so every poll on a multi-scope credential returned HTTP 400, and the error was swallowed by an `if err == nil` guard: --wait spun to its timeout and reported the action as not terminal when it had already succeeded. Also: google_mail applies actions synchronously and returns taskId null (not a gap), and an Office 365 task can still read inprogress after the entity reports quarantined - the entity is the ground truth and the task trails it. All verified live 2026-08-22.",
+   "status": "active",
+   "spec_encode_followup": "Teach the press that a tenant/scope selector can differ in transport per endpoint within one API, and that a poll error must be distinguished from a task that is still running (filed as a retro item against the generator).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/remediate.go",
+     "contains": "params[\"scope\"] = scope",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/remediate.go",
+     "contains": "could not read task status",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/remediate.go",
+     "contains": "the task lags the entity",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/remediate.go",
+     "contains": "func getFresh(",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "mirror-window-is-ingest-time",
+   "summary": "--since and the Options.Since docs state that the API window filters on ingest time, not the message date",
+   "why": "entityFilter.startDate/endDate match entityCreated - when Avanan scanned the message - not the received header. Measured 2026-08-22: received 19:08:22Z vs entityCreated 20:49:36Z, 1h41m apart, so every window built around the received time returned nothing while the message existed. They usually track within seconds, which is what makes the difference dangerous. The flag help previously read as message age.",
+   "status": "active",
+   "spec_encode_followup": "Teach the press to describe a date-window flag in the API's own terms when the field filters on an ingest timestamp rather than a business date (filed as a retro item against the generator).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/avanan_mirror.go",
+     "contains": "by Avanan ingest time rather than message date",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/avananmirror/mirror.go",
+     "contains": "filter on entityCreated",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "poll-loops-must-bypass-the-response-cache",
+   "summary": "remediate's task and entity poll loops read through GetNoCache, and a null task id is confirmed against the entity rather than assumed applied",
+   "why": "Two faults in one path. First, the response cache is keyed on path plus params, so a loop watching for a value to CHANGE saw the pre-action state on every iteration: measured 2026-08-22, an entity that flipped to quarantined three seconds after submission was still reported unchanged after a full two-minute poll, so the command reported a successful action as unfinished. pollTask had the same defect from the start. Second, a 200 with taskId null means accepted, not landed - Google Mail applies asynchronously without a task - so reporting completed off the back of the response was the same false confidence this command exists to prevent. With --wait and no task, the entity's own isQuarantined/isRestored is now polled, which is the ground truth the task only ever trails. A reprint restores cached reads and the assume-applied shortcut.",
+   "status": "active",
+   "spec_encode_followup": "Teach the press that any poll-for-change loop must bypass the response cache, and that an accepted-but-async action needs confirmation against the resource rather than the submission response (filed as a retro item against the generator).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/remediate.go",
+     "contains": "func pollEntityApplied(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/remediate.go",
+     "contains": "getFresh(ctx, c, \"/v1.0/search/entity/\"",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/remediate.go",
+     "contains": "getFresh(ctx, c, \"/v1.0/task/\"",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/remediate_test.go",
+     "contains": "TestGetFreshBypassesTheResponseCache",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "auth-setup-prints-the-real-steps",
+   "summary": "`auth setup` prints the actual credential steps instead of the generator's bare \"No setup URL is configured\" line",
+   "why": "doctor's auth_hint plus the HTTP 401/403 remediation in helpers.go and the MCP tool-error text send operators to `avanan-cli auth setup` (8 references across the three surfaces). The press emits that command from a spec `auth_key_url`; Avanan publishes no stable deep link to its key page, so the generated body degraded to the single line \"No setup URL is configured for this CLI; check the API's docs.\" and exited 0. Every other connector prints that line AND then real guidance (see datto-rmm, n-central, wordpress); avanan printed only the bare line, so the one command the whole product points at for credential help answered with nothing and a success code -- the same silent dead-end as #277, reached by a different mechanism. The replacement names the portal path, the two env vars `auth login` actually reads (AVANAN_APP_ID, AVANAN_CLIENT_SECRET), the exact --region value list taken from the login command's own flag help, the AVANAN_BASE_URL escape hatch for a gateway with no region code, and `doctor` as the confirmation step. --launch now says plainly that there is no URL to open rather than erroring about a missing one. Found by running the built binary during the inbound-contribution adversarial review, not by reading it.",
+   "status": "active",
+   "spec_encode_followup": "Generator: when a spec carries no auth_key_url, `auth setup` should still emit the credential env vars and the auth-login invocation the connector actually scaffolds, rather than a bare \"No setup URL is configured\" line. A command that doctor points at must never answer with nothing and exit 0. Related: cli-printing-press#4315 (the auth-hint naming a command the connector does not define).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/auth.go",
+     "not_contains": "fmt.Fprintln(w, \"No setup URL is configured for this CLI; check the API's docs.\")"
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "Create an Avanan API key, then authenticate:",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "AVANAN_APP_ID",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "AVANAN_CLIENT_SECRET",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "avanan-cli auth login --region",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "doctor-verdict-tracks-reality",
+   "summary": "doctor probes a real GET endpoint with the real credential and refuses to dial a placeholder base_url, instead of calling any HTTP response 'reachable' and never checking the credential",
+   "why": "`doctor` is the command every SKILL, guide and docs page tells an operator to run to confirm the connector works, and it could not tell a working install from a broken one. It called any HTTP response to `GET /` \"reachable\" and rendered it green, so a base_url aimed at the vendor's web UI (where every API path 404s) and a token rejected with 401 on every call both produced an all-green report. On this connector family it also never probed the credential at all: it printed \"present, not verified\" and left the operator to guess. The mirror defect: a connector whose shipped base_url default is a placeholder dialled the placeholder host, and the DNS failure rendered as \"FAIL API: unreachable\" - telling a correctly-credentialled operator they were broken without naming the one variable that would fix it. Several placeholder hosts resolve through live wildcard DNS and answer real HTTP, so dialling one produced a confident green verdict against a stranger's server. Measured and gated by tools/maintainer/check_doctor_truth.py. See issue #282.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorProbeCredentials("
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorBaseURLIsPlaceholder("
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorIsInfoKey(k)"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorBaseURLIsPlaceholder(cfg.BaseURL)"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeCredentials(cmd.Context()"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "present, not verified. Run `%s %s`"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "for _, v := range report {"
+    }
+   ]
+  },
+  {
+   "id": "install-credentials-declared-on-every-channel",
+   "summary": "every operator credential this connector reads is declared on all three install channels: manifest.json (.mcpb), server.json (MCP Registry) and mcp-install.md (manual install)",
+   "why": "Issue #282 ('three live-verified connectors prompt for the wrong credentials'). A connector is installed through THREE independent channels that each carry their own copy of the credential list: manifest.json server.mcp_config.env (what the .mcpb bundle hands Claude Desktop, which has no shell profile, no config.toml and no export - so an undeclared variable is a variable nobody is ever asked for), server.json environmentVariables (the MCP Registry publish channel), and mcp-install.md's copy-paste JSON blocks plus its remote launch line (the manual path, which never touches the bundle at all). The fleet-wide audit found 60 of 65 connectors under-declaring 122 operator-facing variables in the manifest, 61 of 65 mcp-install.md pages omitting 125, and hudu's server.json missing the base URL its manifest marks required. For avanan the manifest gained: AVANAN_BASE_URL, AVANAN_TOKEN, AVANAN_USER_AGENT, PRINTING_PRESS_CLIENT_PROFILE. server.json gained: AVANAN_BASE_URL, AVANAN_TOKEN, AVANAN_USER_AGENT, PRINTING_PRESS_CLIENT_PROFILE. mcp-install.md's env blocks gained: AVANAN_BASE_URL, AVANAN_TOKEN, AVANAN_USER_AGENT, PRINTING_PRESS_CLIENT_PROFILE. manifest.json, server.json and mcp-install.md are ALL regenerated by /msp-skills-publish on an UPDATE or re-onboard, so without this ledger a regeneration silently drops every declaration and CI stays green (check_env_schema.py is wired --warn). The asserts below name the specific credentials, not a count, so dropping one and adding another cannot cancel out.",
+   "status": "active",
+   "spec_encode_followup": "cli-printing-press should emit server.mcp_config.env, the matching user_config prompts, server.json environmentVariables and mcp-install.md's env blocks from ONE declaration of the connector's operator-facing environment, so the three channels cannot be generated out of step. Until then check_env_schema.py compares all three and this ledger pins them.",
+   "asserts": [
+    {
+     "file": "manifest.json",
+     "contains": "\"AVANAN_APP_ID\": \"${user_config.avanan_app_id}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"AVANAN_BASE_URL\": \"${user_config.avanan_base_url}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"AVANAN_CLIENT_SECRET\": \"${user_config.avanan_client_secret}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"AVANAN_TOKEN\": \"${user_config.avanan_token}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"AVANAN_USER_AGENT\": \"${user_config.avanan_user_agent}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"PRINTING_PRESS_CLIENT_PROFILE\": \"${user_config.printing_press_client_profile}\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"AVANAN_APP_ID\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"AVANAN_BASE_URL\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"AVANAN_CLIENT_SECRET\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"AVANAN_TOKEN\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"AVANAN_USER_AGENT\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"PRINTING_PRESS_CLIENT_PROFILE\"",
+     "min_count": 1
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"AVANAN_APP_ID\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"AVANAN_BASE_URL\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"AVANAN_CLIENT_SECRET\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"AVANAN_TOKEN\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"AVANAN_USER_AGENT\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"PRINTING_PRESS_CLIENT_PROFILE\":",
+     "min_count": 3
+    }
+   ]
+  }
+ ]
 }

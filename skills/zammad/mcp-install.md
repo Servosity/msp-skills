@@ -37,7 +37,9 @@ Add (or merge with your existing `mcpServers` block):
     "zammad": {
       "command": "zammad-mcp",
       "env": {
-        "ZAMMAD_API_TOKEN": "<your-zammad_api_token>"
+        "ZAMMAD_API_TOKEN": "<your-zammad_api_token>",
+        "ZAMMAD_BASE_URL": "",
+        "ZAMMAD_URL": "<your-zammad_url>"
       }
     }
   }
@@ -62,7 +64,9 @@ Configuration**) and add:
       "type": "stdio",
       "command": "zammad-mcp",
       "env": {
-        "ZAMMAD_API_TOKEN": "<your-zammad_api_token>"
+        "ZAMMAD_API_TOKEN": "<your-zammad_api_token>",
+        "ZAMMAD_BASE_URL": "",
+        "ZAMMAD_URL": "<your-zammad_url>"
       }
     }
   }
@@ -83,7 +87,9 @@ Claude Desktop:
     "zammad": {
       "command": "zammad-mcp",
       "env": {
-        "ZAMMAD_API_TOKEN": "<your-zammad_api_token>"
+        "ZAMMAD_API_TOKEN": "<your-zammad_api_token>",
+        "ZAMMAD_BASE_URL": "",
+        "ZAMMAD_URL": "<your-zammad_url>"
       }
     }
   }
@@ -101,7 +107,7 @@ All remote agents need `zammad-mcp` reachable as a public **HTTPS** endpoint. Ru
 in HTTP mode with your credentials in the environment:
 
 ```bash
-ZAMMAD_API_TOKEN=<value> zammad-mcp --transport http --addr :7777
+ZAMMAD_API_TOKEN=<value> ZAMMAD_BASE_URL=<value> ZAMMAD_URL=<value> zammad-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

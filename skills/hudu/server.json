@@ -33,6 +33,12 @@
           "description": "Set the HUDU_API_KEY credential for the Hudu MCP server.",
           "isRequired": true,
           "isSecret": true
+        },
+        {
+          "name": "HUDU_BASE_URL",
+          "description": "Your Hudu instance's API base URL, including the /api/v1 path, e.g. https://your-subdomain.huducloud.com/api/v1 (self-hosted, *.huducloud.com, or a custom domain).",
+          "isRequired": true,
+          "isSecret": false
         }
       ]
     }

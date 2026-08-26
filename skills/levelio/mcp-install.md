@@ -37,6 +37,7 @@ Add (or merge with your existing `mcpServers` block):
     "levelio": {
       "command": "levelio-mcp",
       "env": {
+        "LEVELIO_BASE_URL": "https://api.level.io",
         "LEVEL_API_TOKEN": "<your-level_api_token>"
       }
     }
@@ -62,6 +63,7 @@ Configuration**) and add:
       "type": "stdio",
       "command": "levelio-mcp",
       "env": {
+        "LEVELIO_BASE_URL": "https://api.level.io",
         "LEVEL_API_TOKEN": "<your-level_api_token>"
       }
     }
@@ -83,6 +85,7 @@ Claude Desktop:
     "levelio": {
       "command": "levelio-mcp",
       "env": {
+        "LEVELIO_BASE_URL": "https://api.level.io",
         "LEVEL_API_TOKEN": "<your-level_api_token>"
       }
     }
@@ -101,7 +104,7 @@ All remote agents need `levelio-mcp` reachable as a public **HTTPS** endpoint. R
 in HTTP mode with your credentials in the environment:
 
 ```bash
-LEVEL_API_TOKEN=<value> levelio-mcp --transport http --addr :7777
+LEVELIO_BASE_URL=<value> LEVEL_API_TOKEN=<value> levelio-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

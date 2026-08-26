@@ -37,6 +37,7 @@ Add (or merge with your existing `mcpServers` block):
     "resourceguru": {
       "command": "resourceguru-mcp",
       "env": {
+        "RESOURCEGURU_BASE_URL": "https://api.resourceguruapp.com",
         "RESOURCEGURU_EMAIL": "<your-resourceguru_email>",
         "RESOURCEGURU_PASSWORD": "<your-resourceguru_password>"
       }
@@ -63,6 +64,7 @@ Configuration**) and add:
       "type": "stdio",
       "command": "resourceguru-mcp",
       "env": {
+        "RESOURCEGURU_BASE_URL": "https://api.resourceguruapp.com",
         "RESOURCEGURU_EMAIL": "<your-resourceguru_email>",
         "RESOURCEGURU_PASSWORD": "<your-resourceguru_password>"
       }
@@ -85,6 +87,7 @@ Claude Desktop:
     "resourceguru": {
       "command": "resourceguru-mcp",
       "env": {
+        "RESOURCEGURU_BASE_URL": "https://api.resourceguruapp.com",
         "RESOURCEGURU_EMAIL": "<your-resourceguru_email>",
         "RESOURCEGURU_PASSWORD": "<your-resourceguru_password>"
       }
@@ -104,7 +107,7 @@ All remote agents need `resourceguru-mcp` reachable as a public **HTTPS** endpoi
 in HTTP mode with your credentials in the environment:
 
 ```bash
-RESOURCEGURU_EMAIL=<value> RESOURCEGURU_PASSWORD=<value> resourceguru-mcp --transport http --addr :7777
+RESOURCEGURU_BASE_URL=<value> RESOURCEGURU_EMAIL=<value> RESOURCEGURU_PASSWORD=<value> resourceguru-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

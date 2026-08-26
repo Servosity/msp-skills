@@ -35,10 +35,17 @@
           "isSecret": true
         },
         {
+          "name": "DOMOTZ_BASE_URL",
+          "description": "Full API base URL. Leave blank: the CLI builds it from DOMOTZ_REGION. Set it only to point at a different host.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
           "name": "DOMOTZ_REGION",
           "description": "Selects the Domotz API cell for your portal (default us-east-1-cell-1).",
           "isRequired": false,
-          "isSecret": false
+          "isSecret": false,
+          "default": "us-east-1-cell-1"
         }
       ]
     }

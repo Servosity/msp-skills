@@ -1,75 +1,236 @@
 {
-  "slug": "autotask",
-  "doc": "docs/reprint-survival.md",
-  "_comment": "Connector-specific edits to GENERATED files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and banned anti-patterns absent) and fails CI if a reprint dropped one. These are spec-shape-triggered PSA gotchas; the next PSA reprint (connectwise-manage, halopsa) will hit several again.",
-  "handfixes": [
+ "slug": "autotask",
+ "doc": "docs/reprint-survival.md",
+ "_comment": "Connector-specific edits to GENERATED files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and banned anti-patterns absent) and fails CI if a reprint dropped one. These are spec-shape-triggered PSA gotchas; the next PSA reprint (connectwise-manage, halopsa) will hit several again.",
+ "handfixes": [
+  {
+   "id": "psa-resources-table-shadow-rename",
+   "summary": "The API entity 'Resources' collides with the framework's generic `resources` table; shadow-renamed to `psa_resources` (table + FTS + triggers + upsert + Search)",
+   "why": "Autotask has an entity literally named 'Resources'. The generator emits a typed table `resources` that collides with the framework's generic `resources` store table; 4.22's typed-FTS triggers then crash EVERY sync insert (`resources_fts has no column named name`). The generator shadow-renames colliding Cobra commands but NOT store tables, so the typed Resources table was hand-renamed to `psa_resources` (with its FTS index, triggers, backfill, typed upsert, SearchX, and upgrade test).",
+   "status": "active",
+   "spec_encode_followup": "Press should shadow-rename a typed store table that collides with a reserved/generic framework table (filed via printing-press-retro).",
+   "asserts": [
     {
-      "id": "psa-resources-table-shadow-rename",
-      "summary": "The API entity 'Resources' collides with the framework's generic `resources` table; shadow-renamed to `psa_resources` (table + FTS + triggers + upsert + Search)",
-      "why": "Autotask has an entity literally named 'Resources'. The generator emits a typed table `resources` that collides with the framework's generic `resources` store table; 4.22's typed-FTS triggers then crash EVERY sync insert (`resources_fts has no column named name`). The generator shadow-renames colliding Cobra commands but NOT store tables, so the typed Resources table was hand-renamed to `psa_resources` (with its FTS index, triggers, backfill, typed upsert, SearchX, and upgrade test).",
-      "status": "active",
-      "spec_encode_followup": "Press should shadow-rename a typed store table that collides with a reserved/generic framework table (filed via printing-press-retro).",
-      "asserts": [
-        {"file": "cli/internal/store/store.go", "contains": "psa_resources", "min_count": 5}
-      ]
-    },
-    {
-      "id": "multi-apikey-no-header-blanking",
-      "summary": "The composed-apiKey header-blanking bug must stay fixed: client must NOT re-Set UserName/Secret to empty after setting them",
-      "why": "The 4.22 generated client.go emitted unconditional `req.Header.Set(\"UserName\", \"\"); req.Header.Set(\"Secret\", \"\")` resets right after setting the sibling apiKey credentials, blanking them -> all live calls 401. The hand-fix removes the reset lines (the buggy pattern now survives only as an explanatory NOTE comment, pinned by autotask_headers_test.go) and sets the real values. NOTE: the literal blanked-Set string intentionally remains inside the explanatory comment, so this entry asserts the FIX (the documenting comment + the real value-Sets) rather than banning a substring that legitimately appears in the comment.",
-      "status": "active",
-      "spec_encode_followup": "Press must stop emitting empty-string header resets for composed-apiKey schemes (filed via printing-press-retro).",
-      "asserts": [
-        {"file": "cli/internal/client/client.go", "contains": "those reset lines are removed", "min_count": 1},
-        {"file": "cli/internal/client/client.go", "contains": "req.Header.Set(\"UserName\", v)", "min_count": 1},
-        {"file": "cli/internal/client/client.go", "contains": "req.Header.Set(\"Secret\", v)", "min_count": 1}
-      ]
-    },
-    {
-      "id": "redirect-strips-sibling-credentials",
-      "summary": "CheckRedirect deletes ALL custom auth headers (ApiIntegrationCode + sibling UserName/Secret) before a cross-host redirect, not just the primary",
-      "why": "Go's default cross-host redirect handling strips only standard auth; the generated CheckRedirect deleted only the PRIMARY custom header, so sibling apiKey headers (UserName/Secret) forwarded verbatim to cross-host redirect targets -> credential leak. The hand-fix adds the extra Header.Del calls for the sibling credentials.",
-      "status": "active",
-      "spec_encode_followup": "Press CheckRedirect should delete every custom auth header for composed-apiKey schemes on cross-host hops.",
-      "asserts": [
-        {"file": "cli/internal/client/client.go", "contains": "req.Header.Del(\"UserName\")", "min_count": 1},
-        {"file": "cli/internal/client/client.go", "contains": "req.Header.Del(\"Secret\")", "min_count": 1}
-      ]
-    },
-    {
-      "id": "novel-stub-collision-data-gaps-and-stale",
-      "summary": "Novel commands renamed/registered to avoid framework-name collisions: generic newStaleCmd (pm_stale.go) dropped, novel `data-gaps` keeps a unique name",
-      "why": "The 4.22 novel-stub emitter re-emits framework-named commands alongside same-name novels (dup-cobra, first-added wins). pm_stale.go (generic data-layer `stale`) collided with the hand-built novel `stale`; pm_stale.go was deleted and its registration dropped (the transcendence spec keeps the novel impl). The novel aggregation was named `data-gaps` (not a framework name like pm_orphans' `orphans`). A reprint must not re-register the generic newStaleCmd (the root.go comment documents the dropped registration) and must keep the unique `data-gaps` name. (The gate cannot assert pm_stale.go's absence directly - it asserts the documenting comment + the data-gaps name/registration instead.)",
-      "status": "active",
-      "spec_encode_followup": "Press novel-stub emitter must not emit a stub whose name collides with a declared novel/framework command.",
-      "asserts": [
-        {"file": "cli/internal/cli/data_gaps.go", "contains": "Use:   \"data-gaps\"", "min_count": 1},
-        {"file": "cli/internal/cli/root.go", "contains": "newNovelDataGapsCmd(flags)", "min_count": 1},
-        {"file": "cli/internal/cli/root.go", "contains": "the generic pm_stale", "min_count": 1}
-      ]
-    },
-    {
-      "id": "novel-store-list-uncapped",
-      "summary": "Hand-written novel aggregations pass math.MaxInt32 to store.List so they are not silently capped at 200 rows",
-      "why": "store.List(rt, 0) silently means LIMIT 200, not unlimited (same unabsorbed press gap as sherweb/pax8). Every hand-written novel that aggregates across the fleet must pass math.MaxInt32 or it truncates at 200 rows and reports wrong PSA rollups.",
-      "status": "active",
-      "spec_encode_followup": "Fix store.List limit<=0 semantics in the press (no cap means no cap).",
-      "asserts": [
-        {"file": "cli/internal/cli/novel_shared.go", "contains": "math.MaxInt32", "min_count": 1}
-      ]
-    },
-    {
-      "id": "sync-post-query-requires-seeded-filter",
-      "summary": "POST-query sync seeds the id-walk filter on the FIRST page (`id gte 0`) and coerces array/CSV body params, so page 1 is never sent filterless",
-      "why": "Autotask's query endpoints require a filter: a filterless body answers HTTP 500 \"Value cannot be null. Parameter name: filters\", so every POST sync resource failed on its first page and synced nothing (issue #257). The press emits syncResourceStaticBody entries only for body fields carrying an OpenAPI `default`, and Autotask's `filter` declares none, so the generated static body is empty and appendIDWalkFilter ran only once a cursor already existed. The seed is the walk's own `id gte 0` condition, NOT an empty array: Autotask matches records against the filter conditions, so `filter: []` returns HTTP 200 with zero rows and turns a loud failure into a silent empty sync. coerceSyncBodyParam also gained the array/string_csv_array cases the generated query commands already had, so a --param override reaches the wire as JSON instead of the literal string \"[...]\".",
-      "status": "active",
-      "spec_encode_followup": "Press should seed the id-walk filter param on the first page of any POST-query sync whose body declares a required filter array (or emit a static body for required array params with no default), and coerceSyncBodyParam should decode array/string_csv_array the way the generated query commands do (filed via printing-press-retro).",
-      "asserts": [
-        {"file": "cli/internal/cli/sync.go", "contains": "\"op\":    \"gte\"", "min_count": 1},
-        {"file": "cli/internal/cli/sync.go", "contains": "case \"string_csv_array\":", "min_count": 1},
-        {"file": "cli/internal/cli/sync.go", "contains": "empty id-walk filter", "min_count": 1},
-        {"file": "cli/internal/cli/sync_post_filter_test.go", "contains": "TestSyncPostFirstPageSeedsIDWalkFilter", "min_count": 1}
-      ]
+     "file": "cli/internal/store/store.go",
+     "contains": "psa_resources",
+     "min_count": 5
     }
-  ]
+   ]
+  },
+  {
+   "id": "multi-apikey-no-header-blanking",
+   "summary": "The composed-apiKey header-blanking bug must stay fixed: client must NOT re-Set UserName/Secret to empty after setting them",
+   "why": "The 4.22 generated client.go emitted unconditional `req.Header.Set(\"UserName\", \"\"); req.Header.Set(\"Secret\", \"\")` resets right after setting the sibling apiKey credentials, blanking them -> all live calls 401. The hand-fix removes the reset lines (the buggy pattern now survives only as an explanatory NOTE comment, pinned by autotask_headers_test.go) and sets the real values. NOTE: the literal blanked-Set string intentionally remains inside the explanatory comment, so this entry asserts the FIX (the documenting comment + the real value-Sets) rather than banning a substring that legitimately appears in the comment.",
+   "status": "active",
+   "spec_encode_followup": "Press must stop emitting empty-string header resets for composed-apiKey schemes (filed via printing-press-retro).",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "those reset lines are removed",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "req.Header.Set(\"UserName\", v)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "req.Header.Set(\"Secret\", v)",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "redirect-strips-sibling-credentials",
+   "summary": "CheckRedirect deletes ALL custom auth headers (ApiIntegrationCode + sibling UserName/Secret) before a cross-host redirect, not just the primary",
+   "why": "Go's default cross-host redirect handling strips only standard auth; the generated CheckRedirect deleted only the PRIMARY custom header, so sibling apiKey headers (UserName/Secret) forwarded verbatim to cross-host redirect targets -> credential leak. The hand-fix adds the extra Header.Del calls for the sibling credentials.",
+   "status": "active",
+   "spec_encode_followup": "Press CheckRedirect should delete every custom auth header for composed-apiKey schemes on cross-host hops.",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "req.Header.Del(\"UserName\")",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "req.Header.Del(\"Secret\")",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "novel-stub-collision-data-gaps-and-stale",
+   "summary": "Novel commands renamed/registered to avoid framework-name collisions: generic newStaleCmd (pm_stale.go) dropped, novel `data-gaps` keeps a unique name",
+   "why": "The 4.22 novel-stub emitter re-emits framework-named commands alongside same-name novels (dup-cobra, first-added wins). pm_stale.go (generic data-layer `stale`) collided with the hand-built novel `stale`; pm_stale.go was deleted and its registration dropped (the transcendence spec keeps the novel impl). The novel aggregation was named `data-gaps` (not a framework name like pm_orphans' `orphans`). A reprint must not re-register the generic newStaleCmd (the root.go comment documents the dropped registration) and must keep the unique `data-gaps` name. (The gate cannot assert pm_stale.go's absence directly - it asserts the documenting comment + the data-gaps name/registration instead.)",
+   "status": "active",
+   "spec_encode_followup": "Press novel-stub emitter must not emit a stub whose name collides with a declared novel/framework command.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/data_gaps.go",
+     "contains": "Use:   \"data-gaps\"",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "newNovelDataGapsCmd(flags)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "the generic pm_stale",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "novel-store-list-uncapped",
+   "summary": "Hand-written novel aggregations pass math.MaxInt32 to store.List so they are not silently capped at 200 rows",
+   "why": "store.List(rt, 0) silently means LIMIT 200, not unlimited (same unabsorbed press gap as sherweb/pax8). Every hand-written novel that aggregates across the fleet must pass math.MaxInt32 or it truncates at 200 rows and reports wrong PSA rollups.",
+   "status": "active",
+   "spec_encode_followup": "Fix store.List limit<=0 semantics in the press (no cap means no cap).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/novel_shared.go",
+     "contains": "math.MaxInt32",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "sync-post-query-requires-seeded-filter",
+   "summary": "POST-query sync seeds the id-walk filter on the FIRST page (`id gte 0`) and coerces array/CSV body params, so page 1 is never sent filterless",
+   "why": "Autotask's query endpoints require a filter: a filterless body answers HTTP 500 \"Value cannot be null. Parameter name: filters\", so every POST sync resource failed on its first page and synced nothing (issue #257). The press emits syncResourceStaticBody entries only for body fields carrying an OpenAPI `default`, and Autotask's `filter` declares none, so the generated static body is empty and appendIDWalkFilter ran only once a cursor already existed. The seed is the walk's own `id gte 0` condition, NOT an empty array: Autotask matches records against the filter conditions, so `filter: []` returns HTTP 200 with zero rows and turns a loud failure into a silent empty sync. coerceSyncBodyParam also gained the array/string_csv_array cases the generated query commands already had, so a --param override reaches the wire as JSON instead of the literal string \"[...]\".",
+   "status": "active",
+   "spec_encode_followup": "Press should seed the id-walk filter param on the first page of any POST-query sync whose body declares a required filter array (or emit a static body for required array params with no default), and coerceSyncBodyParam should decode array/string_csv_array the way the generated query commands do (filed via printing-press-retro).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"op\":    \"gte\"",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "case \"string_csv_array\":",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "empty id-walk filter",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sync_post_filter_test.go",
+     "contains": "TestSyncPostFirstPageSeedsIDWalkFilter",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "doctor-verdict-tracks-reality",
+   "summary": "doctor probes a real GET endpoint with the real credential and refuses to dial a placeholder base_url, instead of calling any HTTP response 'reachable' and never checking the credential",
+   "why": "`doctor` is the command every SKILL, guide and docs page tells an operator to run to confirm the connector works, and it could not tell a working install from a broken one. It called any HTTP response to `GET /` \"reachable\" and rendered it green, so a base_url aimed at the vendor's web UI (where every API path 404s) and a token rejected with 401 on every call both produced an all-green report. On this connector family it also never probed the credential at all: it printed \"present, not verified\" and left the operator to guess. The mirror defect: a connector whose shipped base_url default is a placeholder dialled the placeholder host, and the DNS failure rendered as \"FAIL API: unreachable\" - telling a correctly-credentialled operator they were broken without naming the one variable that would fix it. Several placeholder hosts resolve through live wildcard DNS and answer real HTTP, so dialling one produced a confident green verdict against a stranger's server. Measured and gated by tools/maintainer/check_doctor_truth.py. See issue #282.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorProbeCredentials("
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorBaseURLIsPlaceholder("
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorIsInfoKey(k)"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorBaseURLIsPlaceholder(cfg.BaseURL)"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeCredentials(cmd.Context()"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "present, not verified. Run `%s %s`"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "for _, v := range report {"
+    }
+   ]
+  },
+  {
+   "id": "install-credentials-declared-on-every-channel",
+   "summary": "every operator credential this connector reads is declared on all three install channels: manifest.json (.mcpb), server.json (MCP Registry) and mcp-install.md (manual install)",
+   "why": "Issue #282 ('three live-verified connectors prompt for the wrong credentials'). A connector is installed through THREE independent channels that each carry their own copy of the credential list: manifest.json server.mcp_config.env (what the .mcpb bundle hands Claude Desktop, which has no shell profile, no config.toml and no export - so an undeclared variable is a variable nobody is ever asked for), server.json environmentVariables (the MCP Registry publish channel), and mcp-install.md's copy-paste JSON blocks plus its remote launch line (the manual path, which never touches the bundle at all). The fleet-wide audit found 60 of 65 connectors under-declaring 122 operator-facing variables in the manifest, 61 of 65 mcp-install.md pages omitting 125, and hudu's server.json missing the base URL its manifest marks required. For autotask the manifest gained: AUTOTASK_BASE_URL. server.json gained: AUTOTASK_API_INTEGRATION_CODE, AUTOTASK_BASE_URL. mcp-install.md's env blocks gained: AUTOTASK_BASE_URL. manifest.json, server.json and mcp-install.md are ALL regenerated by /msp-skills-publish on an UPDATE or re-onboard, so without this ledger a regeneration silently drops every declaration and CI stays green (check_env_schema.py is wired --warn). The asserts below name the specific credentials, not a count, so dropping one and adding another cannot cancel out.",
+   "status": "active",
+   "spec_encode_followup": "cli-printing-press should emit server.mcp_config.env, the matching user_config prompts, server.json environmentVariables and mcp-install.md's env blocks from ONE declaration of the connector's operator-facing environment, so the three channels cannot be generated out of step. Until then check_env_schema.py compares all three and this ledger pins them.",
+   "asserts": [
+    {
+     "file": "manifest.json",
+     "contains": "\"AUTOTASK_API_INTEGRATION_CODE\": \"${user_config.autotask_api_integration_code}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"AUTOTASK_BASE_URL\": \"${user_config.autotask_base_url}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"AUTOTASK_PSA_SECRET\": \"${user_config.autotask_psa_secret}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"AUTOTASK_PSA_USER_NAME\": \"${user_config.autotask_psa_user_name}\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"AUTOTASK_API_INTEGRATION_CODE\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"AUTOTASK_BASE_URL\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"AUTOTASK_PSA_SECRET\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"AUTOTASK_PSA_USER_NAME\"",
+     "min_count": 1
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"AUTOTASK_API_INTEGRATION_CODE\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"AUTOTASK_BASE_URL\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"AUTOTASK_PSA_SECRET\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"AUTOTASK_PSA_USER_NAME\":",
+     "min_count": 3
+    }
+   ]
+  }
+ ]
 }

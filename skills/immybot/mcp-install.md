@@ -37,10 +37,14 @@ Add (or merge with your existing `mcpServers` block):
     "immybot": {
       "command": "immybot-mcp",
       "env": {
+        "IMMYBOT_BASE_URL": "",
+        "IMMYBOT_CLIENT_ID": "<your-entra-client-id>",
+        "IMMYBOT_CLIENT_SECRET": "<your-entra-client-secret>",
         "IMMYBOT_SUBDOMAIN": "<your-immybot-subdomain>",
         "IMMYBOT_TENANT_ID": "<your-entra-tenant-id>",
-        "IMMYBOT_CLIENT_ID": "<your-entra-client-id>",
-        "IMMYBOT_CLIENT_SECRET": "<your-entra-client-secret>"
+        "IMMYBOT_TOKEN_URL": "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+        "IMMYBOT_USER_AGENT": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
@@ -65,10 +69,14 @@ Configuration**) and add:
       "type": "stdio",
       "command": "immybot-mcp",
       "env": {
+        "IMMYBOT_BASE_URL": "",
+        "IMMYBOT_CLIENT_ID": "<your-entra-client-id>",
+        "IMMYBOT_CLIENT_SECRET": "<your-entra-client-secret>",
         "IMMYBOT_SUBDOMAIN": "<your-immybot-subdomain>",
         "IMMYBOT_TENANT_ID": "<your-entra-tenant-id>",
-        "IMMYBOT_CLIENT_ID": "<your-entra-client-id>",
-        "IMMYBOT_CLIENT_SECRET": "<your-entra-client-secret>"
+        "IMMYBOT_TOKEN_URL": "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+        "IMMYBOT_USER_AGENT": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
@@ -89,10 +97,14 @@ Claude Desktop:
     "immybot": {
       "command": "immybot-mcp",
       "env": {
+        "IMMYBOT_BASE_URL": "",
+        "IMMYBOT_CLIENT_ID": "<your-entra-client-id>",
+        "IMMYBOT_CLIENT_SECRET": "<your-entra-client-secret>",
         "IMMYBOT_SUBDOMAIN": "<your-immybot-subdomain>",
         "IMMYBOT_TENANT_ID": "<your-entra-tenant-id>",
-        "IMMYBOT_CLIENT_ID": "<your-entra-client-id>",
-        "IMMYBOT_CLIENT_SECRET": "<your-entra-client-secret>"
+        "IMMYBOT_TOKEN_URL": "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+        "IMMYBOT_USER_AGENT": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
@@ -111,7 +123,7 @@ in HTTP mode with your credentials in the environment:
 
 ```bash
 IMMYBOT_SUBDOMAIN=<value> IMMYBOT_TENANT_ID=<value> IMMYBOT_CLIENT_ID=<value> IMMYBOT_CLIENT_SECRET=<value> \
-  immybot-mcp --transport http --addr :7777
+  IMMYBOT_BASE_URL=<value> IMMYBOT_CLIENT_ID=<value> IMMYBOT_CLIENT_SECRET=<value> IMMYBOT_SUBDOMAIN=<value> IMMYBOT_TENANT_ID=<value> IMMYBOT_TOKEN_URL=<value> IMMYBOT_USER_AGENT=<value> PRINTING_PRESS_CLIENT_PROFILE=<value> immybot-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

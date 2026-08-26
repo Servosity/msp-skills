@@ -13,7 +13,58 @@
     "entry_point": "bin/aws-billing-pp-mcp",
     "mcp_config": {
       "command": "${__dirname}/bin/aws-billing-pp-mcp",
-      "args": []
+      "args": [],
+      "env": {
+        "AWS_ACCESS_KEY_ID": "${user_config.aws_access_key_id}",
+        "AWS_BILLING_BASE_URL": "${user_config.aws_billing_base_url}",
+        "AWS_BILLING_SLACK_CHANNEL": "${user_config.aws_billing_slack_channel}",
+        "AWS_REGION": "${user_config.aws_region}",
+        "AWS_SECRET_ACCESS_KEY": "${user_config.aws_secret_access_key}",
+        "AWS_SESSION_TOKEN": "${user_config.aws_session_token}"
+      }
+    }
+  },
+  "user_config": {
+    "aws_access_key_id": {
+      "type": "string",
+      "title": "AWS access key ID",
+      "description": "Access key ID for an IAM principal with Cost Explorer read access. Resolved by the AWS SDK's default credential chain.",
+      "required": true,
+      "sensitive": true
+    },
+    "aws_secret_access_key": {
+      "type": "string",
+      "title": "AWS secret access key",
+      "description": "Secret access key paired with AWS_ACCESS_KEY_ID.",
+      "sensitive": true,
+      "required": true
+    },
+    "aws_billing_base_url": {
+      "type": "string",
+      "title": "AWS Billing Intelligence API base URL",
+      "description": "Base URL for the AWS Billing Intelligence API. Leave the prefilled default unless your account uses a different regional or self-hosted host.",
+      "required": false,
+      "default": "https://ce.us-east-1.amazonaws.com"
+    },
+    "aws_billing_slack_channel": {
+      "type": "string",
+      "title": "Default Slack channel ID",
+      "description": "Slack channel or DM ID that `report --slack` posts to by default (the --slack-channel flag overrides it). Leave blank to pass the destination on every run.",
+      "required": false
+    },
+    "aws_region": {
+      "type": "string",
+      "title": "AWS region",
+      "description": "Region for the EC2, CloudWatch and S3 calls. Cost Explorer is always served from us-east-1 regardless of this value.",
+      "required": false,
+      "default": "us-east-1"
+    },
+    "aws_session_token": {
+      "type": "string",
+      "title": "AWS session token",
+      "description": "Session token, required only when the keys above are temporary STS or SSO credentials. Leave blank for long-lived IAM user keys.",
+      "sensitive": true,
+      "required": false
     }
   },
   "compatibility": {

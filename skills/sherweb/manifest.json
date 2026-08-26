@@ -15,10 +15,12 @@
       "command": "${__dirname}/bin/sherweb-mcp",
       "args": [],
       "env": {
+        "SHERWEB_BASE_URL": "${user_config.sherweb_base_url}",
         "SHERWEB_CLIENT_ID": "${user_config.sherweb_client_id}",
         "SHERWEB_CLIENT_SECRET": "${user_config.sherweb_client_secret}",
         "SHERWEB_OAUTH_SCOPE": "${user_config.sherweb_oauth_scope}",
-        "SHERWEB_SUBSCRIPTION_KEY": "${user_config.sherweb_subscription_key}"
+        "SHERWEB_SUBSCRIPTION_KEY": "${user_config.sherweb_subscription_key}",
+        "SHERWEB_TOKEN_URL": "${user_config.sherweb_token_url}"
       }
     }
   },
@@ -50,6 +52,20 @@
       "description": "APIM gateway subscription key from cumulus.sherweb.com Security > APIs.",
       "sensitive": true,
       "required": true
+    },
+    "sherweb_base_url": {
+      "type": "string",
+      "title": "Sherweb API base URL",
+      "description": "Base URL for the Sherweb API. Leave the prefilled default unless your account uses a different regional or self-hosted host.",
+      "required": false,
+      "default": "https://api.sherweb.com"
+    },
+    "sherweb_token_url": {
+      "type": "string",
+      "title": "OAuth2 token URL",
+      "description": "Token endpoint the client-credentials exchange posts to. Leave the prefilled default unless your tenant uses a different token endpoint.",
+      "required": false,
+      "default": "https://api.sherweb.com/auth/oidc/connect/token"
     }
   },
   "compatibility": {

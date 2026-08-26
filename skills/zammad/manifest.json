@@ -15,7 +15,9 @@
       "command": "${__dirname}/bin/zammad-pp-mcp",
       "args": [],
       "env": {
-        "ZAMMAD_API_TOKEN": "${user_config.zammad_api_token}"
+        "ZAMMAD_API_TOKEN": "${user_config.zammad_api_token}",
+        "ZAMMAD_BASE_URL": "${user_config.zammad_base_url}",
+        "ZAMMAD_URL": "${user_config.zammad_url}"
       }
     }
   },
@@ -26,6 +28,18 @@
       "description": "Sets ZAMMAD_API_TOKEN for the Zammad MCP server.",
       "sensitive": true,
       "required": true
+    },
+    "zammad_url": {
+      "type": "string",
+      "title": "Zammad instance URL",
+      "description": "Root URL of your Zammad instance, e.g. https://support.example.com. The CLI appends /api/v1 itself. Without it the CLI points at a placeholder host that is not your instance.",
+      "required": true
+    },
+    "zammad_base_url": {
+      "type": "string",
+      "title": "Zammad API base URL",
+      "description": "Explicit full API base, e.g. https://support.example.com/api/v1. Overrides the instance URL above. Leave blank unless your instance serves the API somewhere non-standard.",
+      "required": false
     }
   },
   "compatibility": {

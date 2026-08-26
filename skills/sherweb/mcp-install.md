@@ -37,10 +37,12 @@ Add (or merge with your existing `mcpServers` block):
     "sherweb": {
       "command": "sherweb-mcp",
       "env": {
+        "SHERWEB_BASE_URL": "https://api.sherweb.com",
         "SHERWEB_CLIENT_ID": "<your-sherweb_client_id>",
         "SHERWEB_CLIENT_SECRET": "<your-sherweb_client_secret>",
         "SHERWEB_OAUTH_SCOPE": "<your-sherweb_oauth_scope>",
-        "SHERWEB_SUBSCRIPTION_KEY": "<your-sherweb_subscription_key>"
+        "SHERWEB_SUBSCRIPTION_KEY": "<your-sherweb_subscription_key>",
+        "SHERWEB_TOKEN_URL": "https://api.sherweb.com/auth/oidc/connect/token"
       }
     }
   }
@@ -65,10 +67,12 @@ Configuration**) and add:
       "type": "stdio",
       "command": "sherweb-mcp",
       "env": {
+        "SHERWEB_BASE_URL": "https://api.sherweb.com",
         "SHERWEB_CLIENT_ID": "<your-sherweb_client_id>",
         "SHERWEB_CLIENT_SECRET": "<your-sherweb_client_secret>",
         "SHERWEB_OAUTH_SCOPE": "<your-sherweb_oauth_scope>",
-        "SHERWEB_SUBSCRIPTION_KEY": "<your-sherweb_subscription_key>"
+        "SHERWEB_SUBSCRIPTION_KEY": "<your-sherweb_subscription_key>",
+        "SHERWEB_TOKEN_URL": "https://api.sherweb.com/auth/oidc/connect/token"
       }
     }
   }
@@ -89,10 +93,12 @@ Claude Desktop:
     "sherweb": {
       "command": "sherweb-mcp",
       "env": {
+        "SHERWEB_BASE_URL": "https://api.sherweb.com",
         "SHERWEB_CLIENT_ID": "<your-sherweb_client_id>",
         "SHERWEB_CLIENT_SECRET": "<your-sherweb_client_secret>",
         "SHERWEB_OAUTH_SCOPE": "<your-sherweb_oauth_scope>",
-        "SHERWEB_SUBSCRIPTION_KEY": "<your-sherweb_subscription_key>"
+        "SHERWEB_SUBSCRIPTION_KEY": "<your-sherweb_subscription_key>",
+        "SHERWEB_TOKEN_URL": "https://api.sherweb.com/auth/oidc/connect/token"
       }
     }
   }
@@ -110,7 +116,7 @@ All remote agents need `sherweb-mcp` reachable as a public **HTTPS** endpoint. R
 in HTTP mode with your credentials in the environment:
 
 ```bash
-SHERWEB_CLIENT_ID=<value> SHERWEB_CLIENT_SECRET=<value> SHERWEB_OAUTH_SCOPE=<value> SHERWEB_SUBSCRIPTION_KEY=<value> sherweb-mcp --transport http --addr :7777
+SHERWEB_BASE_URL=<value> SHERWEB_CLIENT_ID=<value> SHERWEB_CLIENT_SECRET=<value> SHERWEB_OAUTH_SCOPE=<value> SHERWEB_SUBSCRIPTION_KEY=<value> SHERWEB_TOKEN_URL=<value> sherweb-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

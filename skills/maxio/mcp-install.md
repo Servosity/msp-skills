@@ -37,6 +37,8 @@ Add (or merge with your existing `mcpServers` block):
     "maxio": {
       "command": "maxio-mcp",
       "env": {
+        "MAXIO_API_KEY": "",
+        "MAXIO_BASE_URL": "",
         "MAXIO_PASSWORD": "<your-maxio_password>",
         "MAXIO_SITE": "<your-maxio_site>",
         "MAXIO_USERNAME": "<your-maxio_username>"
@@ -64,6 +66,8 @@ Configuration**) and add:
       "type": "stdio",
       "command": "maxio-mcp",
       "env": {
+        "MAXIO_API_KEY": "",
+        "MAXIO_BASE_URL": "",
         "MAXIO_PASSWORD": "<your-maxio_password>",
         "MAXIO_SITE": "<your-maxio_site>",
         "MAXIO_USERNAME": "<your-maxio_username>"
@@ -87,6 +91,8 @@ Claude Desktop:
     "maxio": {
       "command": "maxio-mcp",
       "env": {
+        "MAXIO_API_KEY": "",
+        "MAXIO_BASE_URL": "",
         "MAXIO_PASSWORD": "<your-maxio_password>",
         "MAXIO_SITE": "<your-maxio_site>",
         "MAXIO_USERNAME": "<your-maxio_username>"
@@ -107,7 +113,7 @@ All remote agents need `maxio-mcp` reachable as a public **HTTPS** endpoint. Run
 in HTTP mode with your credentials in the environment:
 
 ```bash
-MAXIO_PASSWORD=<value> MAXIO_SITE=<value> MAXIO_USERNAME=<value> maxio-mcp --transport http --addr :7777
+MAXIO_API_KEY=<value> MAXIO_BASE_URL=<value> MAXIO_PASSWORD=<value> MAXIO_SITE=<value> MAXIO_USERNAME=<value> maxio-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

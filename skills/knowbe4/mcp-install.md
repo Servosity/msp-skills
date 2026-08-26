@@ -38,7 +38,9 @@ Add (or merge with your existing `mcpServers` block):
       "command": "knowbe4-mcp",
       "env": {
         "KNOWBE4_API_KEY": "<your-knowbe4_api_key>",
-        "KNOWBE4_REGION": "<your-knowbe4_region>"
+        "KNOWBE4_BASE_URL": "",
+        "KNOWBE4_REGION": "<your-knowbe4_region>",
+        "KNOWBE4_USER_EVENT_API_KEY": ""
       }
     }
   }
@@ -64,7 +66,9 @@ Configuration**) and add:
       "command": "knowbe4-mcp",
       "env": {
         "KNOWBE4_API_KEY": "<your-knowbe4_api_key>",
-        "KNOWBE4_REGION": "<your-knowbe4_region>"
+        "KNOWBE4_BASE_URL": "",
+        "KNOWBE4_REGION": "<your-knowbe4_region>",
+        "KNOWBE4_USER_EVENT_API_KEY": ""
       }
     }
   }
@@ -86,7 +90,9 @@ Claude Desktop:
       "command": "knowbe4-mcp",
       "env": {
         "KNOWBE4_API_KEY": "<your-knowbe4_api_key>",
-        "KNOWBE4_REGION": "<your-knowbe4_region>"
+        "KNOWBE4_BASE_URL": "",
+        "KNOWBE4_REGION": "<your-knowbe4_region>",
+        "KNOWBE4_USER_EVENT_API_KEY": ""
       }
     }
   }
@@ -104,7 +110,7 @@ All remote agents need `knowbe4-mcp` reachable as a public **HTTPS** endpoint. R
 in HTTP mode with your credentials in the environment:
 
 ```bash
-KNOWBE4_API_KEY=<value> KNOWBE4_REGION=<value> knowbe4-mcp --transport http --addr :7777
+KNOWBE4_API_KEY=<value> KNOWBE4_BASE_URL=<value> KNOWBE4_REGION=<value> KNOWBE4_USER_EVENT_API_KEY=<value> knowbe4-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

@@ -33,6 +33,13 @@
           "description": "Set the RUNZERO_API_KEY credential for the runZero MCP server.",
           "isRequired": true,
           "isSecret": true
+        },
+        {
+          "name": "RUNZERO_BASE_URL",
+          "description": "Base URL for the runZero API. Leave the prefilled default unless your account uses a different regional or self-hosted host.",
+          "isRequired": false,
+          "isSecret": false,
+          "default": "https://console.runzero.com/api/v1.0"
         }
       ]
     }

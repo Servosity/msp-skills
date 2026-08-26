@@ -41,7 +41,14 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 			}
 
 			// Check auth
-			report["auth"] = "not required"
+			// This connector resolves credentials through the AWS SDK's default
+			// chain (environment, shared config/credentials file, SSO cache, IMDS),
+			// not through this CLI's own config. "not required" was wrong in the
+			// most damaging direction: an operator with no AWS credentials at all
+			// was told authentication was not needed, and the report carried no
+			// credentials row to contradict it.
+			report["auth"] = "resolved by the AWS SDK default chain (environment, shared config, SSO cache, or instance role)"
+			report["credentials"] = "WARN not verified here - run `aws sts get-caller-identity` to confirm the chain resolves, or set AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY / AWS_REGION (or AWS_PROFILE)."
 
 			// Check auth environment variables
 
@@ -171,7 +178,13 @@ func doctorExitForFailOn(failOn string, report map[string]any) error {
 	}
 	worstError := false
 	worstStale := false
-	for _, v := range report {
+	for k, v := range report {
+		// Informational rows (paths, versions, credential-acquisition
+		// hints) are not health checks. Scanning them for "error" /
+		// "missing" made --fail-on trip on healthy connectors.
+		if doctorIsInfoKey(k) {
+			continue
+		}
 		s, ok := v.(string)
 		if ok {
 			if strings.Contains(s, "error") || strings.Contains(s, "unreachable") || strings.Contains(s, "invalid") || strings.Contains(s, "missing") {

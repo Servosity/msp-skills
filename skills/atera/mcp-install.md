@@ -38,7 +38,8 @@ Add (or merge with your existing `mcpServers` block):
       "command": "atera-mcp",
       "env": {
         "ATERA_ACCOUNT_API": "<your-atera_account_api>",
-        "ATERA_API_KEY": "<your-atera_api_key>"
+        "ATERA_API_KEY": "<your-atera_api_key>",
+        "ATERA_BASE_URL": "https://app.atera.com/api/v3"
       }
     }
   }
@@ -64,7 +65,8 @@ Configuration**) and add:
       "command": "atera-mcp",
       "env": {
         "ATERA_ACCOUNT_API": "<your-atera_account_api>",
-        "ATERA_API_KEY": "<your-atera_api_key>"
+        "ATERA_API_KEY": "<your-atera_api_key>",
+        "ATERA_BASE_URL": "https://app.atera.com/api/v3"
       }
     }
   }
@@ -86,7 +88,8 @@ Claude Desktop:
       "command": "atera-mcp",
       "env": {
         "ATERA_ACCOUNT_API": "<your-atera_account_api>",
-        "ATERA_API_KEY": "<your-atera_api_key>"
+        "ATERA_API_KEY": "<your-atera_api_key>",
+        "ATERA_BASE_URL": "https://app.atera.com/api/v3"
       }
     }
   }
@@ -104,7 +107,7 @@ All remote agents need `atera-mcp` reachable as a public **HTTPS** endpoint. Run
 in HTTP mode with your credentials in the environment:
 
 ```bash
-ATERA_ACCOUNT_API=<value> ATERA_API_KEY=<value> atera-mcp --transport http --addr :7777
+ATERA_ACCOUNT_API=<value> ATERA_API_KEY=<value> ATERA_BASE_URL=<value> atera-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

@@ -15,7 +15,8 @@
       "command": "${__dirname}/bin/pipedrive-mcp",
       "args": [],
       "env": {
-        "PIPEDRIVE_API_KEY": "${user_config.pipedrive_api_key}"
+        "PIPEDRIVE_API_KEY": "${user_config.pipedrive_api_key}",
+        "PIPEDRIVE_BASE_URL": "${user_config.pipedrive_base_url}"
       }
     }
   },
@@ -26,6 +27,13 @@
       "description": "Sets PIPEDRIVE_API_KEY for the Pipedrive MCP server. Get a credential from https://app.pipedrive.com/settings/personal/api.",
       "sensitive": true,
       "required": true
+    },
+    "pipedrive_base_url": {
+      "type": "string",
+      "title": "Pipedrive API base URL",
+      "description": "Base URL for the Pipedrive API. Leave the prefilled default unless your account uses a different regional or self-hosted host.",
+      "required": false,
+      "default": "https://api.pipedrive.com/v1"
     }
   },
   "compatibility": {

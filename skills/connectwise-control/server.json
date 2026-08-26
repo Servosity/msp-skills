@@ -32,7 +32,8 @@
           "name": "CONNECTWISE_CONTROL_BASE_URL",
           "description": "Your ScreenConnect instance base URL, e.g. https://company.screenconnect.com (per-instance).",
           "isRequired": true,
-          "isSecret": false
+          "isSecret": false,
+          "default": "https://your-instance.screenconnect.com"
         },
         {
           "name": "CONNECTWISE_CONTROL_USERNAME",

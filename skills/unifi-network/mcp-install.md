@@ -37,7 +37,10 @@ Add (or merge with your existing `mcpServers` block):
     "unifi-network": {
       "command": "unifi-network-mcp",
       "env": {
+        "PRINTING_PRESS_CLIENT_PROFILE": "",
         "UNIFI_API_KEY": "<your-unifi_api_key>",
+        "UNIFI_BASE_PATH": "",
+        "UNIFI_BASE_URL": "",
         "UNIFI_GATEWAY_HOST": "<your-unifi_gateway_host>"
       }
     }
@@ -63,7 +66,10 @@ Configuration**) and add:
       "type": "stdio",
       "command": "unifi-network-mcp",
       "env": {
+        "PRINTING_PRESS_CLIENT_PROFILE": "",
         "UNIFI_API_KEY": "<your-unifi_api_key>",
+        "UNIFI_BASE_PATH": "",
+        "UNIFI_BASE_URL": "",
         "UNIFI_GATEWAY_HOST": "<your-unifi_gateway_host>"
       }
     }
@@ -85,7 +91,10 @@ Claude Desktop:
     "unifi-network": {
       "command": "unifi-network-mcp",
       "env": {
+        "PRINTING_PRESS_CLIENT_PROFILE": "",
         "UNIFI_API_KEY": "<your-unifi_api_key>",
+        "UNIFI_BASE_PATH": "",
+        "UNIFI_BASE_URL": "",
         "UNIFI_GATEWAY_HOST": "<your-unifi_gateway_host>"
       }
     }
@@ -104,7 +113,7 @@ All remote agents need `unifi-network-mcp` reachable as a public **HTTPS** endpo
 in HTTP mode with your credentials in the environment:
 
 ```bash
-UNIFI_API_KEY=<value> UNIFI_GATEWAY_HOST=<value> unifi-network-mcp --transport http --addr :7777
+PRINTING_PRESS_CLIENT_PROFILE=<value> UNIFI_API_KEY=<value> UNIFI_BASE_PATH=<value> UNIFI_BASE_URL=<value> UNIFI_GATEWAY_HOST=<value> unifi-network-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

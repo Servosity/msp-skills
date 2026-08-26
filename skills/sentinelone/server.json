@@ -33,6 +33,12 @@
           "description": "Set the SENTINELONE_API_TOKEN credential for the SentinelOne MCP server.",
           "isRequired": true,
           "isSecret": true
+        },
+        {
+          "name": "SENTINELONE_BASE_URL",
+          "description": "Base URL of your SentinelOne management console API, including the version path, e.g. https://usea1-partners.sentinelone.net/web/api/v2.1. The shipped default points at an example host.",
+          "isRequired": true,
+          "isSecret": false
         }
       ]
     }

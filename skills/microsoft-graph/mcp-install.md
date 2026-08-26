@@ -37,6 +37,7 @@ Add (or merge with your existing `mcpServers` block):
     "microsoft-graph": {
       "command": "microsoft-graph-mcp",
       "env": {
+        "MICROSOFT_GRAPH_BASE_URL": "https://graph.microsoft.com/v1.0",
         "MICROSOFT_GRAPH_TOKEN": "<your-microsoft_graph_token>"
       }
     }
@@ -62,6 +63,7 @@ Configuration**) and add:
       "type": "stdio",
       "command": "microsoft-graph-mcp",
       "env": {
+        "MICROSOFT_GRAPH_BASE_URL": "https://graph.microsoft.com/v1.0",
         "MICROSOFT_GRAPH_TOKEN": "<your-microsoft_graph_token>"
       }
     }
@@ -83,6 +85,7 @@ Claude Desktop:
     "microsoft-graph": {
       "command": "microsoft-graph-mcp",
       "env": {
+        "MICROSOFT_GRAPH_BASE_URL": "https://graph.microsoft.com/v1.0",
         "MICROSOFT_GRAPH_TOKEN": "<your-microsoft_graph_token>"
       }
     }
@@ -101,7 +104,7 @@ All remote agents need `microsoft-graph-mcp` reachable as a public **HTTPS** end
 in HTTP mode with your credentials in the environment:
 
 ```bash
-MICROSOFT_GRAPH_TOKEN=<value> microsoft-graph-mcp --transport http --addr :7777
+MICROSOFT_GRAPH_BASE_URL=<value> MICROSOFT_GRAPH_TOKEN=<value> microsoft-graph-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

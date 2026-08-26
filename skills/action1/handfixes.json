@@ -1,27 +1,163 @@
 {
-  "slug": "action1",
-  "doc": "docs/reprint-survival.md",
-  "_comment": "Connector-specific edits a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present and fails CI if a reprint dropped one. governance.md is preserved by onboard.py --resume but a FULL reprint re-runs gen_governance.py and would re-introduce the mis-tiering.",
-  "handfixes": [
+ "slug": "action1",
+ "doc": "docs/reprint-survival.md",
+ "_comment": "Connector-specific edits a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present and fails CI if a reprint dropped one. governance.md is preserved by onboard.py --resume but a FULL reprint re-runs gen_governance.py and would re-introduce the mis-tiering.",
+ "handfixes": [
+  {
+   "id": "governance-endpoint-patch-execution-tier",
+   "summary": "Hand-added an 'Endpoint / patch execution' tier; gen_governance is method-blind and missed all 31 POSTs (run-automation, approve-updates, remote-sessions, scripts)",
+   "why": "Action1 is a patch/RMM connector whose members RUN CODE/PATCHES on live managed endpoints. gen_governance.py keyword-matches and ignores pp:method, so it caught only -patch/-delete suffixes and missed every POST: `automations policies-instances-org-id-post` (run an automation), the stop-automation, `updates approvals updates-org-id` (approve updates for deployment), `endpoints ...-remote-sessions-post/-patch`, `installed-software requery ...post`, `scripts org-id-post`/`org-id-id-patch`. governance.md was rewritten method-aware from the authoritative agent-context pp:method. A full reprint re-runs the keyword classifier and drops these execution writes to Read. See project_action1_onboard_traps.",
+   "status": "active",
+   "asserts": [
     {
-      "id": "governance-endpoint-patch-execution-tier",
-      "summary": "Hand-added an 'Endpoint / patch execution' tier; gen_governance is method-blind and missed all 31 POSTs (run-automation, approve-updates, remote-sessions, scripts)",
-      "why": "Action1 is a patch/RMM connector whose members RUN CODE/PATCHES on live managed endpoints. gen_governance.py keyword-matches and ignores pp:method, so it caught only -patch/-delete suffixes and missed every POST: `automations policies-instances-org-id-post` (run an automation), the stop-automation, `updates approvals updates-org-id` (approve updates for deployment), `endpoints ...-remote-sessions-post/-patch`, `installed-software requery ...post`, `scripts org-id-post`/`org-id-id-patch`. governance.md was rewritten method-aware from the authoritative agent-context pp:method. A full reprint re-runs the keyword classifier and drops these execution writes to Read. See project_action1_onboard_traps.",
-      "status": "active",
-      "asserts": [
-        {"file": "governance.md", "contains": "Endpoint / patch execution", "min_count": 1},
-        {"file": "governance.md", "contains": "run an automation", "min_count": 1},
-        {"file": "governance.md", "contains": "approve updates for deployment", "min_count": 1}
-      ]
+     "file": "governance.md",
+     "contains": "Endpoint / patch execution",
+     "min_count": 1
     },
     {
-      "id": "governance-oauth2-mint-credential-tier",
-      "summary": "`oauth2` (mints a bearer token) + user/role management are in the Credential tier, not Read",
-      "why": "gen_governance put `(none detected)` for Credential and missed the `oauth2` token mint plus users/roles management entirely (method-blind, all POSTs). These touch identity/credentials and must be human-in-the-loop. A full reprint re-runs the classifier and leaves Credential empty. See project_action1_onboard_traps.",
-      "status": "active",
-      "asserts": [
-        {"file": "governance.md", "contains": "`oauth2` (mints a bearer token)", "min_count": 1}
-      ]
+     "file": "governance.md",
+     "contains": "run an automation",
+     "min_count": 1
+    },
+    {
+     "file": "governance.md",
+     "contains": "approve updates for deployment",
+     "min_count": 1
     }
-  ]
+   ]
+  },
+  {
+   "id": "governance-oauth2-mint-credential-tier",
+   "summary": "`oauth2` (mints a bearer token) + user/role management are in the Credential tier, not Read",
+   "why": "gen_governance put `(none detected)` for Credential and missed the `oauth2` token mint plus users/roles management entirely (method-blind, all POSTs). These touch identity/credentials and must be human-in-the-loop. A full reprint re-runs the classifier and leaves Credential empty. See project_action1_onboard_traps.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "governance.md",
+     "contains": "`oauth2` (mints a bearer token)",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "doctor-verdict-tracks-reality",
+   "summary": "doctor probes a real GET endpoint with the real credential and refuses to dial a placeholder base_url, instead of calling any HTTP response 'reachable' and never checking the credential",
+   "why": "`doctor` is the command every SKILL, guide and docs page tells an operator to run to confirm the connector works, and it could not tell a working install from a broken one. It called any HTTP response to `GET /` \"reachable\" and rendered it green, so a base_url aimed at the vendor's web UI (where every API path 404s) and a token rejected with 401 on every call both produced an all-green report. On this connector family it also never probed the credential at all: it printed \"present, not verified\" and left the operator to guess. The mirror defect: a connector whose shipped base_url default is a placeholder dialled the placeholder host, and the DNS failure rendered as \"FAIL API: unreachable\" - telling a correctly-credentialled operator they were broken without naming the one variable that would fix it. Several placeholder hosts resolve through live wildcard DNS and answer real HTTP, so dialling one produced a confident green verdict against a stranger's server. Measured and gated by tools/maintainer/check_doctor_truth.py. See issue #282.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorProbeCredentials("
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorBaseURLIsPlaceholder("
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorIsInfoKey(k)"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorBaseURLIsPlaceholder(cfg.BaseURL)"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorUnexpectedStatus(authAPIErr.StatusCode"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "but auth was accepted"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "for _, v := range report {"
+    }
+   ]
+  },
+  {
+   "id": "install-credentials-declared-on-every-channel",
+   "summary": "every operator credential this connector reads is declared on all three install channels: manifest.json (.mcpb), server.json (MCP Registry) and mcp-install.md (manual install)",
+   "why": "Issue #282 ('three live-verified connectors prompt for the wrong credentials'). A connector is installed through THREE independent channels that each carry their own copy of the credential list: manifest.json server.mcp_config.env (what the .mcpb bundle hands Claude Desktop, which has no shell profile, no config.toml and no export - so an undeclared variable is a variable nobody is ever asked for), server.json environmentVariables (the MCP Registry publish channel), and mcp-install.md's copy-paste JSON blocks plus its remote launch line (the manual path, which never touches the bundle at all). The fleet-wide audit found 60 of 65 connectors under-declaring 122 operator-facing variables in the manifest, 61 of 65 mcp-install.md pages omitting 125, and hudu's server.json missing the base URL its manifest marks required. For action1 the manifest gained: ACTION1_BASE_URL, ACTION1_OAUTH2, ACTION1_ORG_ID. Phantom prompt(s) the binary never reads were removed: ACTION1_REGION. server.json gained: ACTION1_BASE_URL, ACTION1_OAUTH2, ACTION1_ORG_ID. mcp-install.md's env blocks gained: ACTION1_BASE_URL, ACTION1_OAUTH2, ACTION1_ORG_ID. manifest.json, server.json and mcp-install.md are ALL regenerated by /msp-skills-publish on an UPDATE or re-onboard, so without this ledger a regeneration silently drops every declaration and CI stays green (check_env_schema.py is wired --warn). The asserts below name the specific credentials, not a count, so dropping one and adding another cannot cancel out.",
+   "status": "active",
+   "spec_encode_followup": "cli-printing-press should emit server.mcp_config.env, the matching user_config prompts, server.json environmentVariables and mcp-install.md's env blocks from ONE declaration of the connector's operator-facing environment, so the three channels cannot be generated out of step. Until then check_env_schema.py compares all three and this ledger pins them.",
+   "asserts": [
+    {
+     "file": "manifest.json",
+     "contains": "\"ACTION1_BASE_URL\": \"${user_config.action1_base_url}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"ACTION1_CLIENT_ID\": \"${user_config.action1_client_id}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"ACTION1_CLIENT_SECRET\": \"${user_config.action1_client_secret}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"ACTION1_OAUTH2\": \"${user_config.action1_oauth2}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"ACTION1_ORG_ID\": \"${user_config.action1_org_id}\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"ACTION1_BASE_URL\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"ACTION1_CLIENT_ID\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"ACTION1_CLIENT_SECRET\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"ACTION1_OAUTH2\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"ACTION1_ORG_ID\"",
+     "min_count": 1
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"ACTION1_BASE_URL\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"ACTION1_CLIENT_ID\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"ACTION1_CLIENT_SECRET\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"ACTION1_OAUTH2\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"ACTION1_ORG_ID\":",
+     "min_count": 3
+    }
+   ]
+  }
+ ]
 }

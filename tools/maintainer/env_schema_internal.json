@@ -1,0 +1,96 @@
+{
+  "_comment": "BASE-OWNED classification rules + waivers for check_env_schema.py. An environment variable a connector's Go source reads is OPERATOR-FACING (it must appear in skills/<slug>/manifest.json server.mcp_config.env so Claude Desktop prompts for it) UNLESS it matches one of the internal rules below. The default is fail-safe: an unrecognised new variable is treated as operator-facing and fails the gate until a human classifies it here. This file is intentionally NOT self-grantable from a connector diff - the same posture as security_suppressions.json - because adding a rule here is what makes a credential prompt disappear. Every waiver carries a mandatory human-written reason.",
+
+  "internal_exact": [
+    "AGENT_ID",
+    "GITHUB_TOKEN",
+    "HOME",
+    "NO_COLOR",
+    "PATH",
+    "PP_MCP_TRANSPORT",
+    "TERM",
+    "USERNAME",
+    "USERPROFILE"
+  ],
+
+  "internal_prefixes": [
+    "PP_",
+    "PRESEED_",
+    "PRINTING_PRESS_",
+    "XDG_"
+  ],
+
+  "_internal_suffixes_comment": "PREFIX-ANCHORED: a name is internal by suffix only when it is exactly <the connector's own env prefix><suffix> - AUVIK_DB counts for auvik, a bare VENDOR_DB never does. check_env_schema.is_internal() enforces that anchoring; it used to match the bare suffix against the whole name, which made ANY variable ending in _DB / _CONFIG / _HOME / _DATA_DIR silently internal in BOTH directions (a real credential named that way was never prompted for, and a phantom prompt for one was never reported). The connector prefix is read from `const envPrefix` where the press ships it (servosity is SERVOSITY_MSP, not SERVOSITY) and derived from the slug otherwise. _CONFIG_DIR and _LEARN_NO_CAPTURE are load-bearing: internal/cliutil/paths.go reaches <PREFIX>_CONFIG_DIR through envDir(kindEnvVar(kind)) and internal/learn/journal.go reaches <PREFIX>_LEARN_NO_CAPTURE through journalEnvTruthy(journalNoCaptureEnvVar). Both hide behind a name-as-parameter helper, so a scan that only reads os.Getenv(\"LITERAL\") never sees them - and without these two rules the gate false-REDs 18 connectors with two press-internal path/telemetry knobs an operator must never be prompted for.",
+  "internal_suffixes": [
+    "_CACHE_DIR",
+    "_CLI_PATH",
+    "_CONFIG",
+    "_CONFIG_DIR",
+    "_DATA_DIR",
+    "_DATA_FILE",
+    "_DATABASE",
+    "_DB",
+    "_DB_PATH",
+    "_FEEDBACK_AUTO_SEND",
+    "_FEEDBACK_ENDPOINT",
+    "_HOME",
+    "_LEARN_NO_CAPTURE",
+    "_LEARN_SESSION",
+    "_LEARN_SURFACE",
+    "_LEDGER_DIR",
+    "_NO_AUTO_REFRESH",
+    "_NO_LEARN",
+    "_STATE_DIR"
+  ],
+
+  "_operator_exact_comment": "Carve-backs: variables that match an internal rule above but ARE operator input. PRINTING_PRESS_CLIENT_PROFILE binds a tenant-gated MCP server to one client profile; without it a multi-tenant connector answers for the wrong customer, so it belongs in the install prompt (threatlocker already declares it).",
+  "operator_exact": [
+    "PRINTING_PRESS_CLIENT_PROFILE"
+  ],
+
+  "_waivers_comment": "Per-slug exemptions from BOTH directions of the comparison (read-but-not-declared and declared-but-not-read). `var` and `reason` are mandatory; a waiver without a non-empty reason is itself a gate failure.",
+  "waivers": {
+    "aws-billing": [
+      {
+        "var": "AWS_ACCESS_KEY_ID",
+        "reason": "Read inside aws-sdk-go-v2, not this repo's source: internal/awsx/client.go calls config.LoadDefaultConfig, whose default credential chain resolves AWS_ACCESS_KEY_ID itself. No source scan of skills/aws-billing/cli can see it, so it is declared in the manifest (operators DO need the prompt) and exempted from the declared-but-not-read direction."
+      },
+      {
+        "var": "AWS_SECRET_ACCESS_KEY",
+        "reason": "Same aws-sdk-go-v2 default credential chain as AWS_ACCESS_KEY_ID. Declared so Claude Desktop prompts for it; invisible to a source scan."
+      },
+      {
+        "var": "AWS_SESSION_TOKEN",
+        "reason": "Same aws-sdk-go-v2 default credential chain. Optional - only STS/SSO temporary credentials set it - but an operator pasting temporary keys needs the field or the other two are useless."
+      },
+      {
+        "var": "AWS_REGION",
+        "reason": "Resolved by aws-sdk-go-v2's config.LoadDefaultConfig region chain (internal/awsx/client.go), not by any os.Getenv in this repo. Cost Explorer is pinned to us-east-1 regardless; this steers the EC2/CloudWatch/S3 clients."
+      }
+    ],
+    "autotask": [
+      {
+        "var": "AUTOTASK_USERNAME",
+        "reason": "Pure alias. internal/cli/zone.go reads firstNonEmptyEnv(\"AUTOTASK_USERNAME\", \"AUTOTASK_PSA_USER_NAME\"), and AUTOTASK_PSA_USER_NAME - the canonical name Autotask's own docs use - is already declared and required. Prompting twice for the same API-user email would make the install worse, not safer."
+      }
+    ],
+    "datto-rmm": [
+      {
+        "var": "DATTO_RMM_API_URL",
+        "reason": "Pure alias for DATTO_RMM_BASE_URL, which is declared. internal/config/datto_oauth.go accepts either and returns early when DATTO_RMM_BASE_URL is set; a third URL prompt next to the base URL and the platform shortcut is noise, not a missing credential."
+      }
+    ],
+    "immybot": [
+      {
+        "var": "IMMYBOT_OAUTH_SCOPE",
+        "reason": "Self-derived, not operator input: init() computes the scope from the configured base URL and calls os.Setenv before any read, so the connector works with it unset. Surfacing it as an install prompt would ask an operator for a value the binary already knows."
+      }
+    ],
+    "unifi-network": [
+      {
+        "var": "UNIFI_INSECURE_SKIP_VERIFY",
+        "reason": "SECURITY CARVE-OUT: this disables TLS certificate verification. UniFi is self-hosted, so its audience is exactly the population most likely to tick a box labelled 'my controller has a self-signed cert' - surfacing a verification bypass as a first-run install prompt manufactures silent MITM exposure at fleet scale. It stays an expert-only environment variable, documented in the skill prose, never a prompt."
+      }
+    ]
+  }
+}

@@ -41,6 +41,18 @@
           "isSecret": true
         },
         {
+          "name": "DATTO_RMM_BASE_URL",
+          "description": "Full API base URL, e.g. https://merlot-api.centrastage.net/api. Overrides the platform shortcut above. Leave blank when you set the platform.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "DATTO_RMM_PLATFORM",
+          "description": "Regional platform shortcut that selects the API host: pinotage, merlot, concord, vidal, zinfandel, or syrah. It is the 'merlot' in merlot.centrastage.net. Leave blank if you set the base URL directly.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
           "name": "DATTO_RMM_TOKEN",
           "description": "Set the DATTO_RMM_TOKEN credential for the Datto RMM MCP server.",
           "isRequired": true,

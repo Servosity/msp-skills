@@ -15,6 +15,7 @@
       "command": "${__dirname}/bin/resourceguru-mcp",
       "args": [],
       "env": {
+        "RESOURCEGURU_BASE_URL": "${user_config.resourceguru_base_url}",
         "RESOURCEGURU_EMAIL": "${user_config.resourceguru_email}",
         "RESOURCEGURU_PASSWORD": "${user_config.resourceguru_password}"
       }
@@ -25,7 +26,7 @@
       "type": "string",
       "title": "RESOURCEGURU_EMAIL",
       "description": "Your Resource Guru account email, used for HTTP Basic auth to the Resource Guru API.",
-      "sensitive": false,
+      "sensitive": true,
       "required": true
     },
     "resourceguru_password": {
@@ -34,6 +35,13 @@
       "description": "Your Resource Guru account password, used for HTTP Basic auth to the Resource Guru API.",
       "sensitive": true,
       "required": true
+    },
+    "resourceguru_base_url": {
+      "type": "string",
+      "title": "Resource Guru API base URL",
+      "description": "Base URL for the Resource Guru API. Leave the prefilled default unless your account uses a different regional or self-hosted host.",
+      "required": false,
+      "default": "https://api.resourceguruapp.com"
     }
   },
   "compatibility": {

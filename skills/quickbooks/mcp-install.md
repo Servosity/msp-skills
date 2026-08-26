@@ -37,7 +37,14 @@ Add (or merge with your existing `mcpServers` block):
     "quickbooks": {
       "command": "quickbooks-mcp",
       "env": {
-        "QUICKBOOKS_ACCESS_TOKEN": "<your-quickbooks_access_token>"
+        "QUICKBOOKS_ACCESS_TOKEN": "<your-quickbooks_access_token>",
+        "QUICKBOOKS_BASE_URL": "",
+        "QUICKBOOKS_CLIENT_ID": "",
+        "QUICKBOOKS_CLIENT_SECRET": "",
+        "QUICKBOOKS_ENVIRONMENT": "production",
+        "QUICKBOOKS_REALM_ID": "<your-quickbooks_realm_id>",
+        "QUICKBOOKS_REFRESH_TOKEN": "",
+        "QUICKBOOKS_TOKEN_URL": "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer"
       }
     }
   }
@@ -62,7 +69,14 @@ Configuration**) and add:
       "type": "stdio",
       "command": "quickbooks-mcp",
       "env": {
-        "QUICKBOOKS_ACCESS_TOKEN": "<your-quickbooks_access_token>"
+        "QUICKBOOKS_ACCESS_TOKEN": "<your-quickbooks_access_token>",
+        "QUICKBOOKS_BASE_URL": "",
+        "QUICKBOOKS_CLIENT_ID": "",
+        "QUICKBOOKS_CLIENT_SECRET": "",
+        "QUICKBOOKS_ENVIRONMENT": "production",
+        "QUICKBOOKS_REALM_ID": "<your-quickbooks_realm_id>",
+        "QUICKBOOKS_REFRESH_TOKEN": "",
+        "QUICKBOOKS_TOKEN_URL": "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer"
       }
     }
   }
@@ -83,7 +97,14 @@ Claude Desktop:
     "quickbooks": {
       "command": "quickbooks-mcp",
       "env": {
-        "QUICKBOOKS_ACCESS_TOKEN": "<your-quickbooks_access_token>"
+        "QUICKBOOKS_ACCESS_TOKEN": "<your-quickbooks_access_token>",
+        "QUICKBOOKS_BASE_URL": "",
+        "QUICKBOOKS_CLIENT_ID": "",
+        "QUICKBOOKS_CLIENT_SECRET": "",
+        "QUICKBOOKS_ENVIRONMENT": "production",
+        "QUICKBOOKS_REALM_ID": "<your-quickbooks_realm_id>",
+        "QUICKBOOKS_REFRESH_TOKEN": "",
+        "QUICKBOOKS_TOKEN_URL": "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer"
       }
     }
   }
@@ -101,7 +122,7 @@ All remote agents need `quickbooks-mcp` reachable as a public **HTTPS** endpoint
 in HTTP mode with your credentials in the environment:
 
 ```bash
-QUICKBOOKS_ACCESS_TOKEN=<value> quickbooks-mcp --transport http --addr :7777
+QUICKBOOKS_ACCESS_TOKEN=<value> QUICKBOOKS_BASE_URL=<value> QUICKBOOKS_CLIENT_ID=<value> QUICKBOOKS_CLIENT_SECRET=<value> QUICKBOOKS_ENVIRONMENT=<value> QUICKBOOKS_REALM_ID=<value> QUICKBOOKS_REFRESH_TOKEN=<value> QUICKBOOKS_TOKEN_URL=<value> quickbooks-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

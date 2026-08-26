@@ -37,9 +37,10 @@ Add (or merge with your existing `mcpServers` block):
     "cove": {
       "command": "cove-mcp",
       "env": {
+        "COVE_BASE_URL": "https://api.backup.management",
         "COVE_PARTNER": "<full customer string from Cove console dropdown, e.g. Acme Corp (admin@acme.com)>",
-        "COVE_USERNAME": "<api-user-login-name>",
-        "COVE_PASSWORD": "<api-token>"
+        "COVE_PASSWORD": "<api-token>",
+        "COVE_USERNAME": "<api-user-login-name>"
       }
     }
   }
@@ -64,9 +65,10 @@ Configuration**) and add:
       "type": "stdio",
       "command": "cove-mcp",
       "env": {
+        "COVE_BASE_URL": "https://api.backup.management",
         "COVE_PARTNER": "<full customer string from Cove console dropdown, e.g. Acme Corp (admin@acme.com)>",
-        "COVE_USERNAME": "<api-user-login-name>",
-        "COVE_PASSWORD": "<api-token>"
+        "COVE_PASSWORD": "<api-token>",
+        "COVE_USERNAME": "<api-user-login-name>"
       }
     }
   }
@@ -87,9 +89,10 @@ Claude Desktop:
     "cove": {
       "command": "cove-mcp",
       "env": {
+        "COVE_BASE_URL": "https://api.backup.management",
         "COVE_PARTNER": "<full customer string from Cove console dropdown, e.g. Acme Corp (admin@acme.com)>",
-        "COVE_USERNAME": "<api-user-login-name>",
-        "COVE_PASSWORD": "<api-token>"
+        "COVE_PASSWORD": "<api-token>",
+        "COVE_USERNAME": "<api-user-login-name>"
       }
     }
   }
@@ -107,7 +110,7 @@ All remote agents need `cove-mcp` reachable as a public **HTTPS** endpoint. Run 
 in HTTP mode with your credentials in the environment:
 
 ```bash
-COVE_PARTNER="<full customer string from Cove console dropdown, e.g. Acme Corp (admin@acme.com)>" COVE_USERNAME=<api-user-login-name> COVE_PASSWORD=<api-token> cove-mcp --transport http --addr :7777
+COVE_PARTNER="<full customer string from Cove console dropdown, e.g. Acme Corp (admin@acme.com)>" COVE_PASSWORD=<api-token> COVE_USERNAME=<api-user-login-name> cove-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

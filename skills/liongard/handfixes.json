@@ -1,19 +1,121 @@
 {
-  "slug": "liongard",
-  "doc": "docs/reprint-survival.md",
-  "_comment": "Connector-specific edits a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present and fails CI if a reprint dropped one. These are governance-tier hand-corrections: onboard.py --resume preserves governance.md, but a FULL reprint re-runs gen_governance.py and would re-introduce the mis-tiering.",
-  "handfixes": [
+ "slug": "liongard",
+ "doc": "docs/reprint-survival.md",
+ "_comment": "Connector-specific edits a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present and fails CI if a reprint dropped one. These are governance-tier hand-corrections: onboard.py --resume preserves governance.md, but a FULL reprint re-runs gen_governance.py and would re-introduce the mis-tiering.",
+ "handfixes": [
+  {
+   "id": "governance-write-tier-union-agents-update-plus-verbless",
+   "summary": "Write tier unions the keyword-matched mutations (incl. `agents update`) WITH the verb-less writes (`import`) and inspection triggers (`launchpoints run`/`bulk-run`)",
+   "why": "gen_governance.py keyword-matches command paths and ignores pp:method. It correctly placed `agents update` (a real PUT) in Write but missed verb-less/action writes (`import` bulk upsert, the inspection triggers `launchpoints run`/`bulk-run`/`run-stale`, `agents flush job-queue`). When hand-adding the verb-less writes you must UNION (keep `agents update`), not replace - a prior draft dropped `agents update` so it fell into NO tier and an agent following SKILL.md routing would run a config write ungated (round-1 adversarial P1). A full reprint re-runs gen_governance and re-introduces both the drop risk and the missing verb-less writes. See project_governance_rewrite_union_not_replace, project_gen_governance_misses_verbless_writes.",
+   "status": "active",
+   "spec_encode_followup": "Make gen_governance method-aware off agent-context pp:method (fleet-wide). Until then this hand-correction recurs on every reprint.",
+   "asserts": [
     {
-      "id": "governance-write-tier-union-agents-update-plus-verbless",
-      "summary": "Write tier unions the keyword-matched mutations (incl. `agents update`) WITH the verb-less writes (`import`) and inspection triggers (`launchpoints run`/`bulk-run`)",
-      "why": "gen_governance.py keyword-matches command paths and ignores pp:method. It correctly placed `agents update` (a real PUT) in Write but missed verb-less/action writes (`import` bulk upsert, the inspection triggers `launchpoints run`/`bulk-run`/`run-stale`, `agents flush job-queue`). When hand-adding the verb-less writes you must UNION (keep `agents update`), not replace - a prior draft dropped `agents update` so it fell into NO tier and an agent following SKILL.md routing would run a config write ungated (round-1 adversarial P1). A full reprint re-runs gen_governance and re-introduces both the drop risk and the missing verb-less writes. See project_governance_rewrite_union_not_replace, project_gen_governance_misses_verbless_writes.",
-      "status": "active",
-      "spec_encode_followup": "Make gen_governance method-aware off agent-context pp:method (fleet-wide). Until then this hand-correction recurs on every reprint.",
-      "asserts": [
-        {"file": "governance.md", "contains": "agents update", "min_count": 1},
-        {"file": "governance.md", "contains": "`import` (bulk create/upsert)", "min_count": 1},
-        {"file": "governance.md", "contains": "launchpoints run", "min_count": 1}
-      ]
+     "file": "governance.md",
+     "contains": "agents update",
+     "min_count": 1
+    },
+    {
+     "file": "governance.md",
+     "contains": "`import` (bulk create/upsert)",
+     "min_count": 1
+    },
+    {
+     "file": "governance.md",
+     "contains": "launchpoints run",
+     "min_count": 1
     }
-  ]
+   ]
+  },
+  {
+   "id": "doctor-verdict-tracks-reality",
+   "summary": "doctor probes a real GET endpoint with the real credential and refuses to dial a placeholder base_url, instead of calling any HTTP response 'reachable' and never checking the credential",
+   "why": "`doctor` is the command every SKILL, guide and docs page tells an operator to run to confirm the connector works, and it could not tell a working install from a broken one. It called any HTTP response to `GET /` \"reachable\" and rendered it green, so a base_url aimed at the vendor's web UI (where every API path 404s) and a token rejected with 401 on every call both produced an all-green report. On this connector family it also never probed the credential at all: it printed \"present, not verified\" and left the operator to guess. The mirror defect: a connector whose shipped base_url default is a placeholder dialled the placeholder host, and the DNS failure rendered as \"FAIL API: unreachable\" - telling a correctly-credentialled operator they were broken without naming the one variable that would fix it. Several placeholder hosts resolve through live wildcard DNS and answer real HTTP, so dialling one produced a confident green verdict against a stranger's server. Measured and gated by tools/maintainer/check_doctor_truth.py. See issue #282.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorProbeCredentials("
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorBaseURLIsPlaceholder("
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorIsInfoKey(k)"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorBaseURLIsPlaceholder(cfg.BaseURL)"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeCredentials(cmd.Context()"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "present, not verified. Run `%s %s`"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "for _, v := range report {"
+    }
+   ]
+  },
+  {
+   "id": "install-credentials-declared-on-every-channel",
+   "summary": "every operator credential this connector reads is declared on all three install channels: manifest.json (.mcpb), server.json (MCP Registry) and mcp-install.md (manual install)",
+   "why": "Issue #282 ('three live-verified connectors prompt for the wrong credentials'). A connector is installed through THREE independent channels that each carry their own copy of the credential list: manifest.json server.mcp_config.env (what the .mcpb bundle hands Claude Desktop, which has no shell profile, no config.toml and no export - so an undeclared variable is a variable nobody is ever asked for), server.json environmentVariables (the MCP Registry publish channel), and mcp-install.md's copy-paste JSON blocks plus its remote launch line (the manual path, which never touches the bundle at all). The fleet-wide audit found 60 of 65 connectors under-declaring 122 operator-facing variables in the manifest, 61 of 65 mcp-install.md pages omitting 125, and hudu's server.json missing the base URL its manifest marks required. For liongard the manifest gained: LIONGARD_BASE_URL. server.json gained: LIONGARD_BASE_URL. mcp-install.md's env blocks gained: LIONGARD_BASE_URL. manifest.json, server.json and mcp-install.md are ALL regenerated by /msp-skills-publish on an UPDATE or re-onboard, so without this ledger a regeneration silently drops every declaration and CI stays green (check_env_schema.py is wired --warn). The asserts below name the specific credentials, not a count, so dropping one and adding another cannot cancel out.",
+   "status": "active",
+   "spec_encode_followup": "cli-printing-press should emit server.mcp_config.env, the matching user_config prompts, server.json environmentVariables and mcp-install.md's env blocks from ONE declaration of the connector's operator-facing environment, so the three channels cannot be generated out of step. Until then check_env_schema.py compares all three and this ledger pins them.",
+   "asserts": [
+    {
+     "file": "manifest.json",
+     "contains": "\"LIONGARD_API_KEY\": \"${user_config.liongard_api_key}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"LIONGARD_BASE_URL\": \"${user_config.liongard_base_url}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"LIONGARD_INSTANCE\": \"${user_config.liongard_instance}\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"LIONGARD_API_KEY\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"LIONGARD_BASE_URL\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"LIONGARD_INSTANCE\"",
+     "min_count": 1
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"LIONGARD_API_KEY\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"LIONGARD_BASE_URL\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"LIONGARD_INSTANCE\":",
+     "min_count": 3
+    }
+   ]
+  }
+ ]
 }

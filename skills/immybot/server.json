@@ -29,15 +29,9 @@
       },
       "environmentVariables": [
         {
-          "name": "IMMYBOT_SUBDOMAIN",
-          "description": "Set the IMMYBOT_SUBDOMAIN credential for the ImmyBot MCP server.",
-          "isRequired": true,
-          "isSecret": false
-        },
-        {
-          "name": "IMMYBOT_TENANT_ID",
-          "description": "Set the IMMYBOT_TENANT_ID credential for the ImmyBot MCP server.",
-          "isRequired": true,
+          "name": "IMMYBOT_BASE_URL",
+          "description": "Full API base URL. Leave blank: the CLI builds it from IMMYBOT_SUBDOMAIN. Set it only to point at a different host.",
+          "isRequired": false,
           "isSecret": false
         },
         {
@@ -51,6 +45,37 @@
           "description": "Set the IMMYBOT_CLIENT_SECRET credential for the ImmyBot MCP server.",
           "isRequired": true,
           "isSecret": true
+        },
+        {
+          "name": "IMMYBOT_SUBDOMAIN",
+          "description": "Set the IMMYBOT_SUBDOMAIN credential for the ImmyBot MCP server.",
+          "isRequired": true,
+          "isSecret": false
+        },
+        {
+          "name": "IMMYBOT_TENANT_ID",
+          "description": "Set the IMMYBOT_TENANT_ID credential for the ImmyBot MCP server.",
+          "isRequired": true,
+          "isSecret": false
+        },
+        {
+          "name": "IMMYBOT_TOKEN_URL",
+          "description": "Token endpoint the client-credentials exchange posts to. Leave the prefilled default unless your tenant uses a different token endpoint.",
+          "isRequired": false,
+          "isSecret": false,
+          "default": "https://login.microsoftonline.com/common/oauth2/v2.0/token"
+        },
+        {
+          "name": "IMMYBOT_USER_AGENT",
+          "description": "Overrides the User-Agent the CLI sends on ImmyBot requests. Leave blank to use the CLI's own built-in User-Agent.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Binds this MCP server to one tenant-gated client profile, so every call answers for that customer. Leave blank to use the profile configured as default_client_profile.",
+          "isRequired": false,
+          "isSecret": false
         }
       ]
     }

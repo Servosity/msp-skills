@@ -37,6 +37,7 @@ Add (or merge with your existing `mcpServers` block):
     "datto-bcdr": {
       "command": "datto-bcdr-mcp",
       "env": {
+        "DATTO_BCDR_BASE_URL": "https://api.datto.com/v1",
         "DATTO_BCDR_PUBLIC_KEY": "<your-datto_bcdr_public_key>",
         "DATTO_BCDR_SECRET_KEY": "<your-datto_bcdr_secret_key>"
       }
@@ -63,6 +64,7 @@ Configuration**) and add:
       "type": "stdio",
       "command": "datto-bcdr-mcp",
       "env": {
+        "DATTO_BCDR_BASE_URL": "https://api.datto.com/v1",
         "DATTO_BCDR_PUBLIC_KEY": "<your-datto_bcdr_public_key>",
         "DATTO_BCDR_SECRET_KEY": "<your-datto_bcdr_secret_key>"
       }
@@ -85,6 +87,7 @@ Claude Desktop:
     "datto-bcdr": {
       "command": "datto-bcdr-mcp",
       "env": {
+        "DATTO_BCDR_BASE_URL": "https://api.datto.com/v1",
         "DATTO_BCDR_PUBLIC_KEY": "<your-datto_bcdr_public_key>",
         "DATTO_BCDR_SECRET_KEY": "<your-datto_bcdr_secret_key>"
       }
@@ -104,7 +107,7 @@ All remote agents need `datto-bcdr-mcp` reachable as a public **HTTPS** endpoint
 in HTTP mode with your credentials in the environment:
 
 ```bash
-DATTO_BCDR_PUBLIC_KEY=<value> DATTO_BCDR_SECRET_KEY=<value> datto-bcdr-mcp --transport http --addr :7777
+DATTO_BCDR_BASE_URL=<value> DATTO_BCDR_PUBLIC_KEY=<value> DATTO_BCDR_SECRET_KEY=<value> datto-bcdr-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

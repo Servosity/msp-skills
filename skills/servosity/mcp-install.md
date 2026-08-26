@@ -37,7 +37,11 @@ Add (or merge with your existing `mcpServers` block):
     "servosity": {
       "command": "servosity-mcp",
       "env": {
-        "SERVOSITY_MSP_TOKEN": "<your-servosity_msp_token>"
+        "PRINTING_PRESS_CLIENT_PROFILE": "",
+        "SERVOSITY_MSP_BASE_URL": "https://api.servosity.com/api/v1",
+        "SERVOSITY_MSP_RESELLER_ID": "",
+        "SERVOSITY_MSP_TOKEN": "<your-servosity_msp_token>",
+        "SERVOSITY_MSP_USER_AGENT": ""
       }
     }
   }
@@ -62,7 +66,11 @@ Configuration**) and add:
       "type": "stdio",
       "command": "servosity-mcp",
       "env": {
-        "SERVOSITY_MSP_TOKEN": "<your-servosity_msp_token>"
+        "PRINTING_PRESS_CLIENT_PROFILE": "",
+        "SERVOSITY_MSP_BASE_URL": "https://api.servosity.com/api/v1",
+        "SERVOSITY_MSP_RESELLER_ID": "",
+        "SERVOSITY_MSP_TOKEN": "<your-servosity_msp_token>",
+        "SERVOSITY_MSP_USER_AGENT": ""
       }
     }
   }
@@ -83,7 +91,11 @@ Claude Desktop:
     "servosity": {
       "command": "servosity-mcp",
       "env": {
-        "SERVOSITY_MSP_TOKEN": "<your-servosity_msp_token>"
+        "PRINTING_PRESS_CLIENT_PROFILE": "",
+        "SERVOSITY_MSP_BASE_URL": "https://api.servosity.com/api/v1",
+        "SERVOSITY_MSP_RESELLER_ID": "",
+        "SERVOSITY_MSP_TOKEN": "<your-servosity_msp_token>",
+        "SERVOSITY_MSP_USER_AGENT": ""
       }
     }
   }
@@ -101,7 +113,7 @@ All remote agents need `servosity-mcp` reachable as a public **HTTPS** endpoint.
 in HTTP mode with your credentials in the environment:
 
 ```bash
-SERVOSITY_MSP_TOKEN=<value> servosity-mcp --transport http --addr :7777
+PRINTING_PRESS_CLIENT_PROFILE=<value> SERVOSITY_MSP_BASE_URL=<value> SERVOSITY_MSP_RESELLER_ID=<value> SERVOSITY_MSP_TOKEN=<value> SERVOSITY_MSP_USER_AGENT=<value> servosity-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

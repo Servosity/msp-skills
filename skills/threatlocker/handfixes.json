@@ -1,302 +1,426 @@
 {
-  "slug": "threatlocker",
-  "doc": "docs/reprint-survival.md",
-  "_comment": "Connector-specific edits a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present and fails CI if a reprint dropped one. Provenance: issue #208 (diagnosis and live-tenant measurements by @geekbrownbear, superseding PR #215), plus an adversarial Codex review of the reprint diff. This ledger was created during the 4.24.0 -> 4.30.2 reprint, and its absence is exactly why that reprint silently dropped the multi-tenant header wiring, the ThreatLocker doctor diagnosis, the novel-command registrations AND six implemented novel commands (replaced by TODO scaffolds that still answered --help). Every entry below was verified to fail check_handfixes.py when reverted. A reprint recipe lives at skills/threatlocker/reprint-patches.py: run it after `printing-press generate --spec <spec> --research-dir <dir>` and the -pp- strip to replay every patch below without rediscovering them by hand.",
-  "handfixes": [
+ "slug": "threatlocker",
+ "doc": "docs/reprint-survival.md",
+ "_comment": "Connector-specific edits a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present and fails CI if a reprint dropped one. Provenance: issue #208 (diagnosis and live-tenant measurements by @geekbrownbear, superseding PR #215), plus an adversarial Codex review of the reprint diff. This ledger was created during the 4.24.0 -> 4.30.2 reprint, and its absence is exactly why that reprint silently dropped the multi-tenant header wiring, the ThreatLocker doctor diagnosis, the novel-command registrations AND six implemented novel commands (replaced by TODO scaffolds that still answered --help). Every entry below was verified to fail check_handfixes.py when reverted. A reprint recipe lives at skills/threatlocker/reprint-patches.py: run it after `printing-press generate --spec <spec> --research-dir <dir>` and the -pp- strip to replay every patch below without rediscovering them by hand.",
+ "handfixes": [
+  {
+   "id": "sync-canonical-post-list-endpoints",
+   "summary": "sync's canonical resources map to ThreatLocker's real list endpoints, and resources that cannot enumerate are kept out of the default sync set",
+   "why": "The 4.30.2 engine generates the whole POST sync path correctly from the spec (method, paged body, id_field). Two profiler behaviours still need correcting. FIRST, applySyncCandidates picks which candidate owns the CANONICAL resource name by SHORTEST PATH, so the portal's picker endpoints win: /Computer/ComputerGetForNewComputer is 3 characters shorter than /Computer/ComputerGetByAllParameters, and /Organization/OrganizationGetForMoveComputers is shorter than the child-organizations route. The real list is then parked under a sibling name, so rows land in a sibling table while devices health, search, analytics and every --data-source local read keep reading the empty canonical tables. (computers install-info only becomes a candidate at all because profiler.containsAny does SUBSTRING matching and \"inst-ALL-info\" contains the list term \"all\".) SECOND, the generated default set shipped resources that cannot enumerate: the computer-groups dropdown twin duplicated computer-groups into a second table, scheduled-actions always answers HTTP 417, and audit resolved to a by-file-path detail route. Verified against a local fixture: a full default sync stores 225 rows across all eight resources in their canonical TYPED tables (computers 58, organizations 7, applications 23, approvals 11, computer-groups 4, online-devices 9, tags 1, versions 112), and a 250-row fixture walks pages 1-3 without truncation. Before the fix the shipped 0.1.1 stored 0 rows for all 9 resources while exiting 0. Two more resources were recovered the same way in #223. scheduled-actions resolved to GET /ScheduledAgentAction/List, which answers HTTP 417 'Invalid Scheduled Agent Action Type provided' unless a scheduledType flat sync cannot know is supplied; the real collection is the paginated POST /ScheduledAgentAction/GetByParameters, which lost the canonical name on path length. reports returns CATEGORIES ({categoryName, reports}) rather than individual reports, so the row key is the category name; without it every row failed id extraction.",
+   "status": "active",
+   "spec_encode_followup": "Press should not choose the canonical sync resource by shortest path: prefer the endpoint the spec names `list`, or let a spec key nominate the sync source explicitly. profiler.containsAny should match on word/segment boundaries so \"install-info\" stops being classified as a list endpoint via the substring \"all\". Filed upstream as part of the #208 retro.",
+   "asserts": [
     {
-      "id": "sync-canonical-post-list-endpoints",
-      "summary": "sync's canonical resources map to ThreatLocker's real list endpoints, and resources that cannot enumerate are kept out of the default sync set",
-      "why": "The 4.30.2 engine generates the whole POST sync path correctly from the spec (method, paged body, id_field). Two profiler behaviours still need correcting. FIRST, applySyncCandidates picks which candidate owns the CANONICAL resource name by SHORTEST PATH, so the portal's picker endpoints win: /Computer/ComputerGetForNewComputer is 3 characters shorter than /Computer/ComputerGetByAllParameters, and /Organization/OrganizationGetForMoveComputers is shorter than the child-organizations route. The real list is then parked under a sibling name, so rows land in a sibling table while devices health, search, analytics and every --data-source local read keep reading the empty canonical tables. (computers install-info only becomes a candidate at all because profiler.containsAny does SUBSTRING matching and \"inst-ALL-info\" contains the list term \"all\".) SECOND, the generated default set shipped resources that cannot enumerate: the computer-groups dropdown twin duplicated computer-groups into a second table, scheduled-actions always answers HTTP 417, and audit resolved to a by-file-path detail route. Verified against a local fixture: a full default sync stores 225 rows across all eight resources in their canonical TYPED tables (computers 58, organizations 7, applications 23, approvals 11, computer-groups 4, online-devices 9, tags 1, versions 112), and a 250-row fixture walks pages 1-3 without truncation. Before the fix the shipped 0.1.1 stored 0 rows for all 9 resources while exiting 0. Two more resources were recovered the same way in #223. scheduled-actions resolved to GET /ScheduledAgentAction/List, which answers HTTP 417 'Invalid Scheduled Agent Action Type provided' unless a scheduledType flat sync cannot know is supplied; the real collection is the paginated POST /ScheduledAgentAction/GetByParameters, which lost the canonical name on path length. reports returns CATEGORIES ({categoryName, reports}) rather than individual reports, so the row key is the category name; without it every row failed id extraction.",
-      "status": "active",
-      "spec_encode_followup": "Press should not choose the canonical sync resource by shortest path: prefer the endpoint the spec names `list`, or let a spec key nominate the sync source explicitly. profiler.containsAny should match on word/segment boundaries so \"install-info\" stops being classified as a list endpoint via the substring \"all\". Filed upstream as part of the #208 retro.",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/sync.go",
-          "contains": "\"computers\":         \"/Computer/ComputerGetByAllParameters\"",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/sync.go",
-          "contains": "\"organizations\":     \"/Organization/OrganizationGetChildOrganizationsByParameters\"",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/sync.go",
-          "contains": "\"computers\":         \"computerId\"",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/store/store.go",
-          "contains": "\"computers\":         \"computerId\"",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/sync.go",
-          "contains": "\"scheduled-actions\": \"/ScheduledAgentAction/GetByParameters\"",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/sync.go",
-          "contains": "\"reports\":           \"categoryName\"",
-          "min_count": 1
-        }
-      ]
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"computers\":         \"/Computer/ComputerGetByAllParameters\"",
+     "min_count": 1
     },
     {
-      "id": "multi-tenant-org-header",
-      "summary": "one shared helper injects the ManagedOrganizationId / OverrideManagedOrganizationId headers on BOTH the CLI and MCP surfaces, and the response cache is partitioned by tenant",
-      "why": "Most ThreatLocker Portal API data calls are scoped by the ManagedOrganizationId header, which the press does not generate from the spec's auth block. Three defects, all of which an MSP would hit. (1) The 4.30.2 reprint dropped the whole CLI wiring (rootFlags field, persistent flag, header injection) because no ledger asserted it. (2) The injection only ever lived in rootFlags.newClient, so the MCP server -- which builds its client in newMCPClientFromConfig and never touches rootFlags -- issued every live call with NO tenant scoping at all, silently, on a connector whose entire premise is many customer tenants. (3) client.cacheKeyFor hashes the token plus a representation-header whitelist that excludes both tenant headers, so two --org invocations sharing a path, params and token collided on one cache entry and served tenant A's rows to a request targeting tenant B for the life of the cache TTL. tenant_scope.go is now the single source of truth for (1) and (2); tenantScopeCacheHeaders partitions the cache for (3), guarded by TestCacheKeyPartitionsByTenant, which fails with an identical key across tenants when the partitioning is removed.",
-      "status": "active",
-      "spec_encode_followup": "Press should support a spec-declared per-request tenant header (name + env var + flag) so per-tenant scoping is generated for every surface, and should treat any such header as cache-partitioning rather than leaving it to the representation-header whitelist.",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/tenant_scope.go",
-          "contains": "func ApplyTenantScopeHeaders(",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/root.go",
-          "contains": "ApplyTenantScopeHeaders(cfg, ResolveTenantOrg(f.orgID))",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/mcp/tools.go",
-          "contains": "cli.ApplyTenantScopeHeaders(cfg, cli.ResolveTenantOrg(\"\"))",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/client/client.go",
-          "contains": "var tenantScopeCacheHeaders = []string{\"ManagedOrganizationId\", \"OverrideManagedOrganizationId\"}",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/client/tenant_cache_key_test.go",
-          "contains": "func TestCacheKeyPartitionsByTenant(",
-          "min_count": 1
-        }
-      ]
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"organizations\":     \"/Organization/OrganizationGetChildOrganizationsByParameters\"",
+     "min_count": 1
     },
     {
-      "id": "sync-typed-table-honesty",
-      "summary": "sync refuses to report success when it stored nothing this run, when the API declared failure, when enumeration ended abnormally, or when rows landed only generic tables",
-      "why": "#208's real damage was not that sync failed, it was that sync failed SILENTLY: it printed sync_complete and exited 0 with an empty store for months. Three paths could still do that after the endpoint fix. (1) UpsertBatch's `stored` counts GENERIC resources rows and downgraded typed-table failures to a stderr line, so every typed row could fail while sync reported a healthy count and the typed tables that power devices health, applications hunt and analytics stayed empty. UpsertBatchDetailed now returns typedFailures and sync surfaces it. (2) A resource that consumed items but stored none only emitted an anomaly event and still aggregated as success. (3) A walk that ended abnormally (non-JSON 200, stuck cursor) also aggregated as success. All three now return a Warn, so the run reports warned instead of success. Verified against a fixture returning rows with no extractable primary key: the run reports success:0 warned:1 where the shipped 0.1.1 reported success:8 warned:0 with an empty store. A second adversarial review found three more paths to the same silent success. (4) The zero-row guard originally tested db.Count(resource), the size of the WHOLE mirror including earlier syncs, so a resource that stored nothing today passed because yesterday's rows were still there; it now tests rows stored by this run, and sync_complete reports `stored` alongside `total`. (5) A 200 body declaring its own failure ({\"success\":false,\"data\":null}) was classified by the generated empty-page check as a legitimate empty page, ending the walk \"complete\", advancing the watermark and reporting a clean sync on an API error; responseReportsFailure now ends the walk abnormally instead. (6) A failed resume checkpoint returned \"saving sync progress for ...\" while the critical-error classifier only recognised \"saving sync state for \", so a broken checkpoint could still exit 0 alongside another successful resource. (7) `workflow archive` logged each per-resource error and warning and then reported resources_synced equal to the FULL resource list and returned nil, so the same false success survived one command over; archiveOutcomeError now gates its exit status and the JSON payload reports archived/warned/errored separately.",
-      "status": "active",
-      "spec_encode_followup": "Press should treat 'consumed rows but stored none', 'typed-table projection failed' and 'enumeration ended abnormally' as first-class non-success outcomes in the generated sync aggregation, rather than anomaly events layered on a success return.",
-      "asserts": [
-        {
-          "file": "cli/internal/store/store.go",
-          "contains": "func (s *Store) UpsertBatchDetailed(",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/sync.go",
-          "contains": "\"reason\":\"typed_table_projection_failed\"",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/sync.go",
-          "contains": "consumed %d items but stored 0 rows",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/sync.go",
-          "contains": "ended enumeration abnormally",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/sync.go",
-          "contains": "func responseReportsFailure(",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/sync.go",
-          "contains": "\"reason\":\"api_reported_failure\"",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/sync.go",
-          "contains": "if consumedTotal > 0 && totalCount == 0 {",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/channel_workflow.go",
-          "contains": "resources := orderDependentsLast(defaultSyncResources())",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/channel_workflow.go",
-          "contains": "func archiveOutcomeError(",
-          "min_count": 1
-        }
-      ]
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"computers\":         \"computerId\"",
+     "min_count": 1
     },
     {
-      "id": "novel-command-implementations",
-      "summary": "the seven hand-authored novel commands keep their real implementations and their wiring into the command tree",
-      "why": "Two distinct ways a reprint silently guts these. FIRST, wiring: before 4.30.2 the registrations were hand-edits inside generated parents (applications.go, approvals.go, audit.go, root.go), so every regeneration unregistered the commands while leaving their source on disk. novel_commands_register.go now registers `applications hunt` through the generator's own novelCommandHooks mechanism, which runs after the generated tree is built and therefore survives regeneration. SECOND, and worse: generating WITH --research-dir makes the press emit the other six novel commands as TODO SCAFFOLDS whose RunE returns `TODO: implement novel feature`. Those scaffolds still register and still answer --help, so a smoke test that only walks --help passes while devices health, approvals triage, approvals approve-batch, audit drift, audit export and audit retention-check all error at runtime. That is the connector's entire headline surface, including the devices health rollup that #208 is about. The implementations are grafted from the prior print; these markers assert real bodies rather than scaffolds. huntWhereClause is kept private to applications_hunt.go because the shared whereClause it used to call lived in the pre-4.30.2 hand-authored audit_export.go.",
-      "status": "active",
-      "spec_encode_followup": "Press should not regress an implemented novel command to a TODO scaffold on regeneration when the prior print carries a real body; and `verify` should execute a novel command's RunE rather than accepting a --help response as proof it works.",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/novel_commands_register.go",
-          "contains": "addNovelCommandIfAbsent(applications, newNovelApplicationsHuntCmd(flags))",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/applications_hunt.go",
-          "contains": "func huntWhereClause(",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/devices_health.go",
-          "contains": "SELECT c.computer_id, c.computer_name, c.organization_id",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/audit_export.go",
-          "contains": "func whereClause(",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/which.go",
-          "contains": "{Command: \"applications hunt\"",
-          "min_count": 1
-        }
-      ]
+     "file": "cli/internal/store/store.go",
+     "contains": "\"computers\":         \"computerId\"",
+     "min_count": 1
     },
     {
-      "id": "doctor-threatlocker-auth-diagnosis",
-      "summary": "doctor validates the raw 64-hex token format, reports the ManagedOrganizationId state, and maps a 401/403 to its likely ThreatLocker cause",
-      "why": "This is the connector's headline diagnostic and the answer to the #1 ThreatLocker integration complaint (cryptic 401s from a Bearer-prefixed or idle-expired token, or a missing org header). Both cli/internal/cli/which.go and cli/internal/mcp/tools.go advertise doctor as doing exactly this, so when the reprint dropped the block (as 4.30.2 did) the CLI advertised a capability it no longer had. isTLTokenWellFormed and tlAuthDiagnosis live in the novel file threatlocker_novel.go; these markers assert the generated doctor.go still calls them.",
-      "status": "active",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/doctor.go",
-          "contains": "isTLTokenWellFormed(h)",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/doctor.go",
-          "contains": "report[\"managed_org\"]",
-          "min_count": 2
-        },
-        {
-          "file": "cli/internal/cli/doctor.go",
-          "contains": "tlAuthDiagnosis(authConfigured, tlTokenOK, tlOrg != \"\")",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/threatlocker_novel.go",
-          "contains": "func isTLTokenWellFormed(",
-          "min_count": 1
-        }
-      ]
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"scheduled-actions\": \"/ScheduledAgentAction/GetByParameters\"",
+     "min_count": 1
     },
     {
-      "id": "sync-dependent-fanout",
-      "summary": "application-files and maintenance sync by fanning out over their parent tables, because their collection endpoints are keyed by a required QUERY parameter the generated flat walk never sends",
-      "why": "The press detects parent-child relationships from paths carrying a {placeholder}. /ApplicationFile/ApplicationFileGetByApplicationId and /MaintenanceMode/MaintenanceModeGetByComputerIdV2 take their parent key as an ordinary query param, so detectDependentResources never sees them and the profiler registers both as FLAT syncable resources. A flat walk sends only pagination, the API rejects every call, and both tables stay empty - two of the four resources #223 tracked. sync_dependents.go reads the parent ids already in the store and walks each child collection with its key supplied. maintenance has no unique id of its own, so it keys on the window start and store.RegisterDependentKey declares computerId as the parent column, which resourceStorageID appends to make the pair unique. The worker pool consumes one unordered channel, so the scheduler was split into two waves: every flat resource drains before any dependent starts, otherwise a dependent could run first and find an empty parent table. Verified against a fixture that rejects a request missing the parent key: 46 file rules across 23 applications and 58 maintenance windows across 58 computers, all with unique composite keys. An adversarial review then closed five more holes in the fan-out itself: a {\"success\":false} envelope unmarshalled cleanly into an empty slice and read as a legitimately empty child collection; `workflow archive` walks the resource list sequentially and the default list now begins with the dependents, so orderDependentsLast keeps them behind their parents there too; a parent that errored or warned left a partial table the dependent then reported clean success over, so parentOutcomes propagates the degradation; SaveSyncState claimed a completion watermark after a partial walk and discarded its error; and keying maintenance on startDateTime alone collapsed two windows sharing a start, so identityFields synthesizes a deterministic hash over every distinguishing field instead.",
-      "status": "active",
-      "spec_encode_followup": "Press should treat a required query param that names a parent resource's key as a dependent-resource relationship, so this fan-out is generated rather than hand-authored. Filed as item 8 of mvanhorn/cli-printing-press#4165.",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/sync_dependents.go",
-          "contains": "var dependentSyncSpecs = map[string]dependentSyncSpec{",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/sync_dependents.go",
-          "contains": "func syncDependentResource(",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/sync.go",
-          "contains": "if spec, ok := dependentSyncSpecs[resource]; ok {",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/sync.go",
-          "contains": "dependentBarrier.Wait()",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/store/store.go",
-          "contains": "func RegisterDependentKey(",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/sync_dependents.go",
-          "contains": "if responseReportsFailure(raw) {",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/sync_dependents.go",
-          "contains": "func synthesizeIdentity(",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/channel_workflow.go",
-          "contains": "func orderDependentsLast(",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/sync.go",
-          "contains": "parentOutcomes.Store(resource, true)",
-          "min_count": 1
-        }
-      ]
-    },
-    {
-      "id": "doctor-verify-command-runnable",
-      "summary": "doctor suggests a credential-verification command that actually reaches the API",
-      "why": "The generated suggestReadCommand returns the FIRST leaf that looks like a read, which for ThreatLocker is `applications get`. That command requires --application-id, and the generator deliberately prints help rather than pflag's terse error on a bare invocation, so it exits 0 without ever touching the API. An operator follows doctor's own instruction, sees a clean exit, and concludes their credentials are fine. That is not hypothetical: it cost the reporter of #208 a diagnostic cycle and they filed it as #217. isSuggestableReadLeaf cannot tell the difference because the requirement is enforced inside RunE - no annotation, no MarkFlagRequired, no positional in Use. threatlockerVerifyCommand names a command that runs, falling back to the generic 'run any read command' message rather than naming a broken one. TestDoctorVerifyCandidatesAreRunnable drives each candidate against a fixture and fails if it makes no HTTP request, so asserting mere existence (which the broken suggestion also satisfied) cannot pass.",
-      "status": "active",
-      "spec_encode_followup": "Press should annotate required-flag commands so isSuggestableReadLeaf can see them, and rank candidates instead of taking the first alphabetically. Filed as item 7 of mvanhorn/cli-printing-press#4165; affects 38 connectors' generated doctor.go.",
-      "asserts": [
-        {
-          "file": "cli/internal/cli/doctor_verify_command.go",
-          "contains": "var doctorVerifyCandidates = []string{",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/doctor.go",
-          "contains": "suggestion := threatlockerVerifyCommand(cmd.Root())",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/cli/doctor_verify_command_test.go",
-          "contains": "func TestDoctorVerifyCandidatesAreRunnable(",
-          "min_count": 1
-        }
-      ]
-    },
-    {
-      "id": "mcp-tenant-gate-allows-ungated-invocation",
-      "summary": "the MCP tenant gate falls through to the tool handler when no platform source is registered, instead of default-denying every non-mirror tool",
-      "why": "cli.VerifyMCPInvocation returns (nil, nil) when registeredPlatformSource is nil, which means 'there is nothing to gate' - and no connector in this repo registers a platform source (registerPlatformSource has zero callers outside internal/cli/platform_client.go). The 4.30.1/4.30.2 gate read that nil session as a failure and answered 'MCP tenant gate is not configured' for every tool that is not a Cobra mirror. Cobra mirrors carry pp:tenant-gate = \"child-cli\" and pass through, so the damage was invisible in a tool count: 6 tools per connector were dead while the server still listed them. Those 6 are the entire offline-mirror surface (context, search, sql) plus the entire code-orchestration surface (<prefix>_search / _get / _execute) - exactly the capabilities this connector's own description says a plain read-only MCP does not ship. Measured over stdio before the fix: 6/6 returned isError with the gate message; after, all 6 reach their handler. Fixed upstream in cli-printing-press 4.30.3 (issue #4157, PR #4171); this is the surgical back-port, byte-identical to what 4.30.3 emits. TestMCPUngatedInvocationUsesRealVerifier is the regression test that ships with the 4.30.3 template: it drives the wrapper with the REAL verifier (not the fake the other two tests install) and fails if the handler is blocked. Reverting either the fall-through or the test fails check_handfixes.py.",
-      "status": "upstreamed",
-      "spec_encode_followup": "Already fixed in the press at 4.30.3 (mvanhorn/cli-printing-press#4171). A reprint on 4.30.3 or later regenerates both the fall-through and the conformance test, so this entry exists to keep the back-port from being dropped by a reprint on an older engine or by a regen-merge that resurrects the 4.30.2 body.",
-      "asserts": [
-        {
-          "file": "cli/internal/mcp/platform_gate.go",
-          "not_contains": "NewToolResultError(\"MCP tenant gate is not configured\")"
-        },
-        {
-          "file": "cli/internal/mcp/platform_gate.go",
-          "contains": "return next(ctx, request)",
-          "min_count": 2
-        },
-        {
-          "file": "cli/internal/mcp/platform_gate_test.go",
-          "contains": "func TestMCPUngatedInvocationUsesRealVerifier(",
-          "min_count": 1
-        },
-        {
-          "file": "cli/internal/mcp/platform_gate_test.go",
-          "contains": "verifyFreshMCPInvocation = cli.VerifyMCPInvocation",
-          "min_count": 1
-        }
-      ]
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"reports\":           \"categoryName\"",
+     "min_count": 1
     }
-  ]
+   ]
+  },
+  {
+   "id": "multi-tenant-org-header",
+   "summary": "one shared helper injects the ManagedOrganizationId / OverrideManagedOrganizationId headers on BOTH the CLI and MCP surfaces, and the response cache is partitioned by tenant",
+   "why": "Most ThreatLocker Portal API data calls are scoped by the ManagedOrganizationId header, which the press does not generate from the spec's auth block. Three defects, all of which an MSP would hit. (1) The 4.30.2 reprint dropped the whole CLI wiring (rootFlags field, persistent flag, header injection) because no ledger asserted it. (2) The injection only ever lived in rootFlags.newClient, so the MCP server -- which builds its client in newMCPClientFromConfig and never touches rootFlags -- issued every live call with NO tenant scoping at all, silently, on a connector whose entire premise is many customer tenants. (3) client.cacheKeyFor hashes the token plus a representation-header whitelist that excludes both tenant headers, so two --org invocations sharing a path, params and token collided on one cache entry and served tenant A's rows to a request targeting tenant B for the life of the cache TTL. tenant_scope.go is now the single source of truth for (1) and (2); tenantScopeCacheHeaders partitions the cache for (3), guarded by TestCacheKeyPartitionsByTenant, which fails with an identical key across tenants when the partitioning is removed.",
+   "status": "active",
+   "spec_encode_followup": "Press should support a spec-declared per-request tenant header (name + env var + flag) so per-tenant scoping is generated for every surface, and should treat any such header as cache-partitioning rather than leaving it to the representation-header whitelist.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/tenant_scope.go",
+     "contains": "func ApplyTenantScopeHeaders(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "ApplyTenantScopeHeaders(cfg, ResolveTenantOrg(f.orgID))",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "cli.ApplyTenantScopeHeaders(cfg, cli.ResolveTenantOrg(\"\"))",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "var tenantScopeCacheHeaders = []string{\"ManagedOrganizationId\", \"OverrideManagedOrganizationId\"}",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/tenant_cache_key_test.go",
+     "contains": "func TestCacheKeyPartitionsByTenant(",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "sync-typed-table-honesty",
+   "summary": "sync refuses to report success when it stored nothing this run, when the API declared failure, when enumeration ended abnormally, or when rows landed only generic tables",
+   "why": "#208's real damage was not that sync failed, it was that sync failed SILENTLY: it printed sync_complete and exited 0 with an empty store for months. Three paths could still do that after the endpoint fix. (1) UpsertBatch's `stored` counts GENERIC resources rows and downgraded typed-table failures to a stderr line, so every typed row could fail while sync reported a healthy count and the typed tables that power devices health, applications hunt and analytics stayed empty. UpsertBatchDetailed now returns typedFailures and sync surfaces it. (2) A resource that consumed items but stored none only emitted an anomaly event and still aggregated as success. (3) A walk that ended abnormally (non-JSON 200, stuck cursor) also aggregated as success. All three now return a Warn, so the run reports warned instead of success. Verified against a fixture returning rows with no extractable primary key: the run reports success:0 warned:1 where the shipped 0.1.1 reported success:8 warned:0 with an empty store. A second adversarial review found three more paths to the same silent success. (4) The zero-row guard originally tested db.Count(resource), the size of the WHOLE mirror including earlier syncs, so a resource that stored nothing today passed because yesterday's rows were still there; it now tests rows stored by this run, and sync_complete reports `stored` alongside `total`. (5) A 200 body declaring its own failure ({\"success\":false,\"data\":null}) was classified by the generated empty-page check as a legitimate empty page, ending the walk \"complete\", advancing the watermark and reporting a clean sync on an API error; responseReportsFailure now ends the walk abnormally instead. (6) A failed resume checkpoint returned \"saving sync progress for ...\" while the critical-error classifier only recognised \"saving sync state for \", so a broken checkpoint could still exit 0 alongside another successful resource. (7) `workflow archive` logged each per-resource error and warning and then reported resources_synced equal to the FULL resource list and returned nil, so the same false success survived one command over; archiveOutcomeError now gates its exit status and the JSON payload reports archived/warned/errored separately.",
+   "status": "active",
+   "spec_encode_followup": "Press should treat 'consumed rows but stored none', 'typed-table projection failed' and 'enumeration ended abnormally' as first-class non-success outcomes in the generated sync aggregation, rather than anomaly events layered on a success return.",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "func (s *Store) UpsertBatchDetailed(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"reason\":\"typed_table_projection_failed\"",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "consumed %d items but stored 0 rows",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "ended enumeration abnormally",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "func responseReportsFailure(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"reason\":\"api_reported_failure\"",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "if consumedTotal > 0 && totalCount == 0 {",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/channel_workflow.go",
+     "contains": "resources := orderDependentsLast(defaultSyncResources())",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/channel_workflow.go",
+     "contains": "func archiveOutcomeError(",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "novel-command-implementations",
+   "summary": "the seven hand-authored novel commands keep their real implementations and their wiring into the command tree",
+   "why": "Two distinct ways a reprint silently guts these. FIRST, wiring: before 4.30.2 the registrations were hand-edits inside generated parents (applications.go, approvals.go, audit.go, root.go), so every regeneration unregistered the commands while leaving their source on disk. novel_commands_register.go now registers `applications hunt` through the generator's own novelCommandHooks mechanism, which runs after the generated tree is built and therefore survives regeneration. SECOND, and worse: generating WITH --research-dir makes the press emit the other six novel commands as TODO SCAFFOLDS whose RunE returns `TODO: implement novel feature`. Those scaffolds still register and still answer --help, so a smoke test that only walks --help passes while devices health, approvals triage, approvals approve-batch, audit drift, audit export and audit retention-check all error at runtime. That is the connector's entire headline surface, including the devices health rollup that #208 is about. The implementations are grafted from the prior print; these markers assert real bodies rather than scaffolds. huntWhereClause is kept private to applications_hunt.go because the shared whereClause it used to call lived in the pre-4.30.2 hand-authored audit_export.go.",
+   "status": "active",
+   "spec_encode_followup": "Press should not regress an implemented novel command to a TODO scaffold on regeneration when the prior print carries a real body; and `verify` should execute a novel command's RunE rather than accepting a --help response as proof it works.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/novel_commands_register.go",
+     "contains": "addNovelCommandIfAbsent(applications, newNovelApplicationsHuntCmd(flags))",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/applications_hunt.go",
+     "contains": "func huntWhereClause(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/devices_health.go",
+     "contains": "SELECT c.computer_id, c.computer_name, c.organization_id",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/audit_export.go",
+     "contains": "func whereClause(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/which.go",
+     "contains": "{Command: \"applications hunt\"",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "doctor-threatlocker-auth-diagnosis",
+   "summary": "doctor validates the raw 64-hex token format, reports the ManagedOrganizationId state, and maps a 401/403 to its likely ThreatLocker cause",
+   "why": "This is the connector's headline diagnostic and the answer to the #1 ThreatLocker integration complaint (cryptic 401s from a Bearer-prefixed or idle-expired token, or a missing org header). Both cli/internal/cli/which.go and cli/internal/mcp/tools.go advertise doctor as doing exactly this, so when the reprint dropped the block (as 4.30.2 did) the CLI advertised a capability it no longer had. isTLTokenWellFormed and tlAuthDiagnosis live in the novel file threatlocker_novel.go; these markers assert the generated doctor.go still calls them.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "isTLTokenWellFormed(h)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"managed_org\"]",
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "tlAuthDiagnosis(authConfigured, tlTokenOK, tlOrg != \"\")",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/threatlocker_novel.go",
+     "contains": "func isTLTokenWellFormed(",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "sync-dependent-fanout",
+   "summary": "application-files and maintenance sync by fanning out over their parent tables, because their collection endpoints are keyed by a required QUERY parameter the generated flat walk never sends",
+   "why": "The press detects parent-child relationships from paths carrying a {placeholder}. /ApplicationFile/ApplicationFileGetByApplicationId and /MaintenanceMode/MaintenanceModeGetByComputerIdV2 take their parent key as an ordinary query param, so detectDependentResources never sees them and the profiler registers both as FLAT syncable resources. A flat walk sends only pagination, the API rejects every call, and both tables stay empty - two of the four resources #223 tracked. sync_dependents.go reads the parent ids already in the store and walks each child collection with its key supplied. maintenance has no unique id of its own, so it keys on the window start and store.RegisterDependentKey declares computerId as the parent column, which resourceStorageID appends to make the pair unique. The worker pool consumes one unordered channel, so the scheduler was split into two waves: every flat resource drains before any dependent starts, otherwise a dependent could run first and find an empty parent table. Verified against a fixture that rejects a request missing the parent key: 46 file rules across 23 applications and 58 maintenance windows across 58 computers, all with unique composite keys. An adversarial review then closed five more holes in the fan-out itself: a {\"success\":false} envelope unmarshalled cleanly into an empty slice and read as a legitimately empty child collection; `workflow archive` walks the resource list sequentially and the default list now begins with the dependents, so orderDependentsLast keeps them behind their parents there too; a parent that errored or warned left a partial table the dependent then reported clean success over, so parentOutcomes propagates the degradation; SaveSyncState claimed a completion watermark after a partial walk and discarded its error; and keying maintenance on startDateTime alone collapsed two windows sharing a start, so identityFields synthesizes a deterministic hash over every distinguishing field instead.",
+   "status": "active",
+   "spec_encode_followup": "Press should treat a required query param that names a parent resource's key as a dependent-resource relationship, so this fan-out is generated rather than hand-authored. Filed as item 8 of mvanhorn/cli-printing-press#4165.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync_dependents.go",
+     "contains": "var dependentSyncSpecs = map[string]dependentSyncSpec{",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sync_dependents.go",
+     "contains": "func syncDependentResource(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "if spec, ok := dependentSyncSpecs[resource]; ok {",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "dependentBarrier.Wait()",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "func RegisterDependentKey(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sync_dependents.go",
+     "contains": "if responseReportsFailure(raw) {",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sync_dependents.go",
+     "contains": "func synthesizeIdentity(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/channel_workflow.go",
+     "contains": "func orderDependentsLast(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "parentOutcomes.Store(resource, true)",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "doctor-verify-command-runnable",
+   "summary": "doctor verifies the credential against a command that actually reaches the API - now by RUNNING an argument-free GET probe rather than suggesting a command and hoping",
+   "why": "The generated suggestReadCommand returns the FIRST leaf that looks like a read, which for ThreatLocker is `applications get`. That command requires --application-id, and the generator deliberately prints help rather than pflag's terse error on a bare invocation, so it exits 0 without ever touching the API. An operator follows doctor's own instruction, sees a clean exit, and concludes their credentials are fine. That is not hypothetical: it cost the reporter of #208 a diagnostic cycle and they filed it as #217. isSuggestableReadLeaf cannot tell the difference because the requirement is enforced inside RunE - no annotation, no MarkFlagRequired, no positional in Use. threatlockerVerifyCommand names a command that runs, falling back to the generic 'run any read command' message rather than naming a broken one. TestDoctorVerifyCandidatesAreRunnable drives each candidate against a fixture and fails if it makes no HTTP request, so asserting mere existence (which the broken suggestion also satisfied) cannot pass. SUPERSEDED-IN-PLACE 2026-08-25 (issue #282): the intent is unchanged and now enforced more strongly. doctorProbeCredentials (cli/internal/cli/doctor_verdict.go) replaces both suggestReadCommand and threatlockerVerifyCommand at the doctor call site. It requires pp:method GET and a concrete argument-free pp:path, so it structurally cannot pick `applications get` (positional/required-flag shapes are rejected) - and it cannot pick any of the three doctorVerifyCandidates either, because all three are POST, which this ledger entry did not previously catch. Most importantly it no longer SUGGESTS a command for the operator to run: it issues the authenticated GET itself and reports what came back, so an operator can no longer mistake a clean exit for a working credential. tools/maintainer/check_doctor_truth.py drives the real binary against a stub in four states and fails if doctor claims health while the credential is rejected or the base_url is wrong.",
+   "status": "active",
+   "spec_encode_followup": "Press should annotate required-flag commands so isSuggestableReadLeaf can see them, and rank candidates instead of taking the first alphabetically. Filed as item 7 of mvanhorn/cli-printing-press#4165; affects 38 connectors' generated doctor.go.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor_verify_command.go",
+     "contains": "var doctorVerifyCandidates = []string{",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeCredentials(cmd.Context(), c, cmd.Root(), \"threatlocker-cli\", report)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "present, not verified. Run `%s %s`"
+    },
+    {
+     "file": "cli/internal/cli/doctor_verify_command_test.go",
+     "contains": "func TestDoctorVerifyCandidatesAreRunnable(",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "mcp-tenant-gate-allows-ungated-invocation",
+   "summary": "the MCP tenant gate falls through to the tool handler when no platform source is registered, instead of default-denying every non-mirror tool",
+   "why": "cli.VerifyMCPInvocation returns (nil, nil) when registeredPlatformSource is nil, which means 'there is nothing to gate' - and no connector in this repo registers a platform source (registerPlatformSource has zero callers outside internal/cli/platform_client.go). The 4.30.1/4.30.2 gate read that nil session as a failure and answered 'MCP tenant gate is not configured' for every tool that is not a Cobra mirror. Cobra mirrors carry pp:tenant-gate = \"child-cli\" and pass through, so the damage was invisible in a tool count: 6 tools per connector were dead while the server still listed them. Those 6 are the entire offline-mirror surface (context, search, sql) plus the entire code-orchestration surface (<prefix>_search / _get / _execute) - exactly the capabilities this connector's own description says a plain read-only MCP does not ship. Measured over stdio before the fix: 6/6 returned isError with the gate message; after, all 6 reach their handler. Fixed upstream in cli-printing-press 4.30.3 (issue #4157, PR #4171); this is the surgical back-port, byte-identical to what 4.30.3 emits. TestMCPUngatedInvocationUsesRealVerifier is the regression test that ships with the 4.30.3 template: it drives the wrapper with the REAL verifier (not the fake the other two tests install) and fails if the handler is blocked. Reverting either the fall-through or the test fails check_handfixes.py.",
+   "status": "upstreamed",
+   "spec_encode_followup": "Already fixed in the press at 4.30.3 (mvanhorn/cli-printing-press#4171). A reprint on 4.30.3 or later regenerates both the fall-through and the conformance test, so this entry exists to keep the back-port from being dropped by a reprint on an older engine or by a regen-merge that resurrects the 4.30.2 body.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/platform_gate.go",
+     "not_contains": "NewToolResultError(\"MCP tenant gate is not configured\")"
+    },
+    {
+     "file": "cli/internal/mcp/platform_gate.go",
+     "contains": "return next(ctx, request)",
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/mcp/platform_gate_test.go",
+     "contains": "func TestMCPUngatedInvocationUsesRealVerifier(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/mcp/platform_gate_test.go",
+     "contains": "verifyFreshMCPInvocation = cli.VerifyMCPInvocation",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "doctor-verdict-tracks-reality",
+   "summary": "doctor probes a real GET endpoint with the real credential and refuses to dial a placeholder base_url, instead of calling any HTTP response 'reachable' and never checking the credential",
+   "why": "`doctor` is the command every SKILL, guide and docs page tells an operator to run to confirm the connector works, and it could not tell a working install from a broken one. It called any HTTP response to `GET /` \"reachable\" and rendered it green, so a base_url aimed at the vendor's web UI (where every API path 404s) and a token rejected with 401 on every call both produced an all-green report. On this connector family it also never probed the credential at all: it printed \"present, not verified\" and left the operator to guess. The mirror defect: a connector whose shipped base_url default is a placeholder dialled the placeholder host, and the DNS failure rendered as \"FAIL API: unreachable\" - telling a correctly-credentialled operator they were broken without naming the one variable that would fix it. Several placeholder hosts resolve through live wildcard DNS and answer real HTTP, so dialling one produced a confident green verdict against a stranger's server. Measured and gated by tools/maintainer/check_doctor_truth.py. See issue #282.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorProbeCredentials("
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorBaseURLIsPlaceholder("
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorIsInfoKey(k)"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorBaseURLIsPlaceholder(cfg.BaseURL)"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeCredentials(cmd.Context()"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "present, not verified. Run `%s %s`"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "for _, v := range report {"
+    }
+   ]
+  },
+  {
+   "id": "install-credentials-declared-on-every-channel",
+   "summary": "every operator credential this connector reads is declared on all three install channels: manifest.json (.mcpb), server.json (MCP Registry) and mcp-install.md (manual install)",
+   "why": "Issue #282 ('three live-verified connectors prompt for the wrong credentials'). A connector is installed through THREE independent channels that each carry their own copy of the credential list: manifest.json server.mcp_config.env (what the .mcpb bundle hands Claude Desktop, which has no shell profile, no config.toml and no export - so an undeclared variable is a variable nobody is ever asked for), server.json environmentVariables (the MCP Registry publish channel), and mcp-install.md's copy-paste JSON blocks plus its remote launch line (the manual path, which never touches the bundle at all). The fleet-wide audit found 60 of 65 connectors under-declaring 122 operator-facing variables in the manifest, 61 of 65 mcp-install.md pages omitting 125, and hudu's server.json missing the base URL its manifest marks required. For threatlocker the manifest gained: THREATLOCKER_API_KEY, THREATLOCKER_BASE_URL, THREATLOCKER_ORG_ID, THREATLOCKER_USER_AGENT. server.json gained: THREATLOCKER_API_KEY, THREATLOCKER_BASE_URL, THREATLOCKER_ORG_ID, THREATLOCKER_USER_AGENT. mcp-install.md's env blocks gained: THREATLOCKER_API_KEY, THREATLOCKER_BASE_URL, THREATLOCKER_ORG_ID, THREATLOCKER_USER_AGENT. manifest.json, server.json and mcp-install.md are ALL regenerated by /msp-skills-publish on an UPDATE or re-onboard, so without this ledger a regeneration silently drops every declaration and CI stays green (check_env_schema.py is wired --warn). The asserts below name the specific credentials, not a count, so dropping one and adding another cannot cancel out.",
+   "status": "active",
+   "spec_encode_followup": "cli-printing-press should emit server.mcp_config.env, the matching user_config prompts, server.json environmentVariables and mcp-install.md's env blocks from ONE declaration of the connector's operator-facing environment, so the three channels cannot be generated out of step. Until then check_env_schema.py compares all three and this ledger pins them.",
+   "asserts": [
+    {
+     "file": "manifest.json",
+     "contains": "\"PRINTING_PRESS_CLIENT_PROFILE\": \"${user_config.printing_press_client_profile}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"THREATLOCKER_API_KEY\": \"${user_config.threatlocker_api_key}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"THREATLOCKER_BASE_URL\": \"${user_config.threatlocker_base_url}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"THREATLOCKER_ORG_ID\": \"${user_config.threatlocker_org_id}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"THREATLOCKER_USER_AGENT\": \"${user_config.threatlocker_user_agent}\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"PRINTING_PRESS_CLIENT_PROFILE\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"THREATLOCKER_API_KEY\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"THREATLOCKER_BASE_URL\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"THREATLOCKER_ORG_ID\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"THREATLOCKER_USER_AGENT\"",
+     "min_count": 1
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"PRINTING_PRESS_CLIENT_PROFILE\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"THREATLOCKER_API_KEY\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"THREATLOCKER_BASE_URL\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"THREATLOCKER_ORG_ID\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"THREATLOCKER_USER_AGENT\":",
+     "min_count": 3
+    }
+   ]
+  }
+ ]
 }

@@ -37,7 +37,10 @@ Add (or merge with your existing `mcpServers` block):
     "superops": {
       "command": "superops-mcp",
       "env": {
-        "SUPEROPS_API_TOKEN": "<your-superops_api_token>"
+        "SUPEROPS_API_TOKEN": "<your-superops_api_token>",
+        "SUPEROPS_BASE_URL": "https://api.superops.ai",
+        "SUPEROPS_REGION": "us",
+        "SUPEROPS_SUBDOMAIN": "<your-superops_subdomain>"
       }
     }
   }
@@ -62,7 +65,10 @@ Configuration**) and add:
       "type": "stdio",
       "command": "superops-mcp",
       "env": {
-        "SUPEROPS_API_TOKEN": "<your-superops_api_token>"
+        "SUPEROPS_API_TOKEN": "<your-superops_api_token>",
+        "SUPEROPS_BASE_URL": "https://api.superops.ai",
+        "SUPEROPS_REGION": "us",
+        "SUPEROPS_SUBDOMAIN": "<your-superops_subdomain>"
       }
     }
   }
@@ -83,7 +89,10 @@ Claude Desktop:
     "superops": {
       "command": "superops-mcp",
       "env": {
-        "SUPEROPS_API_TOKEN": "<your-superops_api_token>"
+        "SUPEROPS_API_TOKEN": "<your-superops_api_token>",
+        "SUPEROPS_BASE_URL": "https://api.superops.ai",
+        "SUPEROPS_REGION": "us",
+        "SUPEROPS_SUBDOMAIN": "<your-superops_subdomain>"
       }
     }
   }
@@ -101,7 +110,7 @@ All remote agents need `superops-mcp` reachable as a public **HTTPS** endpoint. 
 in HTTP mode with your credentials in the environment:
 
 ```bash
-SUPEROPS_API_TOKEN=<value> superops-mcp --transport http --addr :7777
+SUPEROPS_API_TOKEN=<value> SUPEROPS_BASE_URL=<value> SUPEROPS_REGION=<value> SUPEROPS_SUBDOMAIN=<value> superops-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

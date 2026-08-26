@@ -15,7 +15,14 @@
       "command": "${__dirname}/bin/quickbooks-mcp",
       "args": [],
       "env": {
-        "QUICKBOOKS_ACCESS_TOKEN": "${user_config.quickbooks_access_token}"
+        "QUICKBOOKS_ACCESS_TOKEN": "${user_config.quickbooks_access_token}",
+        "QUICKBOOKS_BASE_URL": "${user_config.quickbooks_base_url}",
+        "QUICKBOOKS_CLIENT_ID": "${user_config.quickbooks_client_id}",
+        "QUICKBOOKS_CLIENT_SECRET": "${user_config.quickbooks_client_secret}",
+        "QUICKBOOKS_ENVIRONMENT": "${user_config.quickbooks_environment}",
+        "QUICKBOOKS_REALM_ID": "${user_config.quickbooks_realm_id}",
+        "QUICKBOOKS_REFRESH_TOKEN": "${user_config.quickbooks_refresh_token}",
+        "QUICKBOOKS_TOKEN_URL": "${user_config.quickbooks_token_url}"
       }
     }
   },
@@ -26,6 +33,53 @@
       "description": "OAuth 2.0 bearer access token sent as `Authorization: Bearer <token>`. Obtain one\nfrom the Intuit OAuth 2.0 Playground or mint it from a refresh token. Also set the\ncompany scope via QUICKBOOKS_REALM_ID (+ QUICKBOOKS_ENVIRONMENT=production|sandbox)\nor the full QUICKBOOKS_BASE_URL. Required scope: com.intuit.quickbooks.accounting.",
       "sensitive": true,
       "required": true
+    },
+    "quickbooks_realm_id": {
+      "type": "string",
+      "title": "Company realm ID",
+      "description": "The QuickBooks company ('realm') ID every call is scoped to. Find it in the Intuit developer dashboard or the sandbox company URL. Without it the CLI cannot build a working base URL.",
+      "required": true
+    },
+    "quickbooks_base_url": {
+      "type": "string",
+      "title": "QuickBooks API base URL",
+      "description": "Full company-scoped API base, e.g. https://quickbooks.api.intuit.com/v3/company/<realm-id>. Leave blank when you set the realm ID and environment above; the CLI builds this from them.",
+      "required": false
+    },
+    "quickbooks_client_id": {
+      "type": "string",
+      "title": "Intuit app client ID",
+      "description": "Client ID of your Intuit app (developer.intuit.com > your app > Keys). Set it with the client secret and refresh token so the CLI can mint a fresh access token; leave blank if you paste an access token instead.",
+      "required": false,
+      "sensitive": true
+    },
+    "quickbooks_client_secret": {
+      "type": "string",
+      "title": "Intuit app client secret",
+      "description": "Client secret paired with QUICKBOOKS_CLIENT_ID.",
+      "sensitive": true,
+      "required": false
+    },
+    "quickbooks_environment": {
+      "type": "string",
+      "title": "Intuit environment",
+      "description": "Which Intuit host the realm lives on: production or sandbox. Combined with the realm ID to build the base URL.",
+      "required": false,
+      "default": "production"
+    },
+    "quickbooks_refresh_token": {
+      "type": "string",
+      "title": "Intuit refresh token",
+      "description": "OAuth 2.0 refresh token. Refresh tokens live ~100 days and rotate on every refresh, so the CLI writes the new one back to its config.",
+      "sensitive": true,
+      "required": false
+    },
+    "quickbooks_token_url": {
+      "type": "string",
+      "title": "OAuth2 token URL",
+      "description": "Token endpoint the client-credentials exchange posts to. Leave the prefilled default unless your tenant uses a different token endpoint.",
+      "required": false,
+      "default": "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer"
     }
   },
   "compatibility": {

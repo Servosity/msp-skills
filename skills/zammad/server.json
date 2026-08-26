@@ -33,6 +33,18 @@
           "description": "Set the ZAMMAD_API_TOKEN credential for the Zammad MCP server.",
           "isRequired": true,
           "isSecret": true
+        },
+        {
+          "name": "ZAMMAD_BASE_URL",
+          "description": "Explicit full API base, e.g. https://support.example.com/api/v1. Overrides the instance URL above. Leave blank unless your instance serves the API somewhere non-standard.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "ZAMMAD_URL",
+          "description": "Root URL of your Zammad instance, e.g. https://support.example.com. The CLI appends /api/v1 itself. Without it the CLI points at a placeholder host that is not your instance.",
+          "isRequired": true,
+          "isSecret": false
         }
       ]
     }

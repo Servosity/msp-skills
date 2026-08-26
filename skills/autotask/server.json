@@ -29,6 +29,19 @@
       },
       "environmentVariables": [
         {
+          "name": "AUTOTASK_API_INTEGRATION_CODE",
+          "description": "Sets AUTOTASK_API_INTEGRATION_CODE for the Autotask PSA MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "AUTOTASK_BASE_URL",
+          "description": "Base URL for the Autotask PSA API. Leave the prefilled default unless your account uses a different regional or self-hosted host.",
+          "isRequired": false,
+          "isSecret": false,
+          "default": "https://webservices5.autotask.net/atservicesrest/V1.0"
+        },
+        {
           "name": "AUTOTASK_PSA_SECRET",
           "description": "Set the AUTOTASK_PSA_SECRET credential for the Autotask MCP server.",
           "isRequired": true,

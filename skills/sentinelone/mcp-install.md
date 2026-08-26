@@ -37,7 +37,8 @@ Add (or merge with your existing `mcpServers` block):
     "sentinelone": {
       "command": "sentinelone-mcp",
       "env": {
-        "SENTINELONE_API_TOKEN": "<your-sentinelone_api_token>"
+        "SENTINELONE_API_TOKEN": "<your-sentinelone_api_token>",
+        "SENTINELONE_BASE_URL": "<your-sentinelone_base_url>"
       }
     }
   }
@@ -62,7 +63,8 @@ Configuration**) and add:
       "type": "stdio",
       "command": "sentinelone-mcp",
       "env": {
-        "SENTINELONE_API_TOKEN": "<your-sentinelone_api_token>"
+        "SENTINELONE_API_TOKEN": "<your-sentinelone_api_token>",
+        "SENTINELONE_BASE_URL": "<your-sentinelone_base_url>"
       }
     }
   }
@@ -83,7 +85,8 @@ Claude Desktop:
     "sentinelone": {
       "command": "sentinelone-mcp",
       "env": {
-        "SENTINELONE_API_TOKEN": "<your-sentinelone_api_token>"
+        "SENTINELONE_API_TOKEN": "<your-sentinelone_api_token>",
+        "SENTINELONE_BASE_URL": "<your-sentinelone_base_url>"
       }
     }
   }
@@ -101,7 +104,7 @@ All remote agents need `sentinelone-mcp` reachable as a public **HTTPS** endpoin
 in HTTP mode with your credentials in the environment:
 
 ```bash
-SENTINELONE_API_TOKEN=<value> sentinelone-mcp --transport http --addr :7777
+SENTINELONE_API_TOKEN=<value> SENTINELONE_BASE_URL=<value> sentinelone-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

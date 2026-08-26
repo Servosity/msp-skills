@@ -16,7 +16,9 @@
       "args": [],
       "env": {
         "KNOWBE4_API_KEY": "${user_config.knowbe4_api_key}",
-        "KNOWBE4_REGION": "${user_config.knowbe4_region}"
+        "KNOWBE4_BASE_URL": "${user_config.knowbe4_base_url}",
+        "KNOWBE4_REGION": "${user_config.knowbe4_region}",
+        "KNOWBE4_USER_EVENT_API_KEY": "${user_config.knowbe4_user_event_api_key}"
       }
     }
   },
@@ -32,7 +34,22 @@
       "type": "string",
       "title": "KNOWBE4_REGION",
       "description": "Sets KNOWBE4_REGION for the endpoint template variable {region}.",
-      "default": "us"
+      "default": "us",
+      "required": true,
+      "sensitive": true
+    },
+    "knowbe4_base_url": {
+      "type": "string",
+      "title": "KnowBe4 API base URL",
+      "description": "Full API base URL. Leave blank: the CLI builds it from KNOWBE4_REGION. Set it only to point at a different host.",
+      "required": false
+    },
+    "knowbe4_user_event_api_key": {
+      "type": "string",
+      "title": "User Events API key",
+      "description": "Separate bearer key for the KnowBe4 User Events API, which has its own host and key. Needed only for the `events` commands; leave blank otherwise.",
+      "sensitive": true,
+      "required": false
     }
   },
   "compatibility": {

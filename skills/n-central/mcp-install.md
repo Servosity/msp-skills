@@ -37,7 +37,8 @@ Add (or merge with your existing `mcpServers` block):
     "n-central": {
       "command": "n-central-mcp",
       "env": {
-        "NCENTRAL_JWT": "<your-ncentral_jwt>"
+        "NCENTRAL_JWT": "<your-ncentral_jwt>",
+        "N_CENTRAL_BASE_URL": "https://ncod.n-able.com/api"
       }
     }
   }
@@ -62,7 +63,8 @@ Configuration**) and add:
       "type": "stdio",
       "command": "n-central-mcp",
       "env": {
-        "NCENTRAL_JWT": "<your-ncentral_jwt>"
+        "NCENTRAL_JWT": "<your-ncentral_jwt>",
+        "N_CENTRAL_BASE_URL": "https://ncod.n-able.com/api"
       }
     }
   }
@@ -83,7 +85,8 @@ Claude Desktop:
     "n-central": {
       "command": "n-central-mcp",
       "env": {
-        "NCENTRAL_JWT": "<your-ncentral_jwt>"
+        "NCENTRAL_JWT": "<your-ncentral_jwt>",
+        "N_CENTRAL_BASE_URL": "https://ncod.n-able.com/api"
       }
     }
   }
@@ -101,7 +104,7 @@ All remote agents need `n-central-mcp` reachable as a public **HTTPS** endpoint.
 in HTTP mode with your credentials in the environment:
 
 ```bash
-NCENTRAL_JWT=<value> n-central-mcp --transport http --addr :7777
+NCENTRAL_JWT=<value> N_CENTRAL_BASE_URL=<value> n-central-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

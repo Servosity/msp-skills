@@ -37,7 +37,8 @@ Add (or merge with your existing `mcpServers` block):
     "rocketcyber": {
       "command": "rocketcyber-mcp",
       "env": {
-        "ROCKETCYBER_API_TOKEN": "<your-rocketcyber_api_token>"
+        "ROCKETCYBER_API_TOKEN": "<your-rocketcyber_api_token>",
+        "ROCKETCYBER_BASE_URL": "https://api-us.rocketcyber.com/v3"
       }
     }
   }
@@ -62,7 +63,8 @@ Configuration**) and add:
       "type": "stdio",
       "command": "rocketcyber-mcp",
       "env": {
-        "ROCKETCYBER_API_TOKEN": "<your-rocketcyber_api_token>"
+        "ROCKETCYBER_API_TOKEN": "<your-rocketcyber_api_token>",
+        "ROCKETCYBER_BASE_URL": "https://api-us.rocketcyber.com/v3"
       }
     }
   }
@@ -83,7 +85,8 @@ Claude Desktop:
     "rocketcyber": {
       "command": "rocketcyber-mcp",
       "env": {
-        "ROCKETCYBER_API_TOKEN": "<your-rocketcyber_api_token>"
+        "ROCKETCYBER_API_TOKEN": "<your-rocketcyber_api_token>",
+        "ROCKETCYBER_BASE_URL": "https://api-us.rocketcyber.com/v3"
       }
     }
   }
@@ -101,7 +104,7 @@ All remote agents need `rocketcyber-mcp` reachable as a public **HTTPS** endpoin
 in HTTP mode with your credentials in the environment:
 
 ```bash
-ROCKETCYBER_API_TOKEN=<value> rocketcyber-mcp --transport http --addr :7777
+ROCKETCYBER_API_TOKEN=<value> ROCKETCYBER_BASE_URL=<value> rocketcyber-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

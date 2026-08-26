@@ -44,7 +44,11 @@ Add (or merge with your existing `mcpServers` block):
       "command": "avanan-mcp",
       "env": {
         "AVANAN_APP_ID": "<your-avanan-application-id>",
-        "AVANAN_CLIENT_SECRET": "<your-avanan-client-secret>"
+        "AVANAN_BASE_URL": "https://smart-api-production-1-us.avanan.net",
+        "AVANAN_CLIENT_SECRET": "<your-avanan-client-secret>",
+        "AVANAN_TOKEN": "<your-avanan_token>",
+        "AVANAN_USER_AGENT": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
@@ -70,7 +74,11 @@ Configuration**) and add:
       "command": "avanan-mcp",
       "env": {
         "AVANAN_APP_ID": "<your-avanan-application-id>",
-        "AVANAN_CLIENT_SECRET": "<your-avanan-client-secret>"
+        "AVANAN_BASE_URL": "https://smart-api-production-1-us.avanan.net",
+        "AVANAN_CLIENT_SECRET": "<your-avanan-client-secret>",
+        "AVANAN_TOKEN": "<your-avanan_token>",
+        "AVANAN_USER_AGENT": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
@@ -92,7 +100,11 @@ Claude Desktop:
       "command": "avanan-mcp",
       "env": {
         "AVANAN_APP_ID": "<your-avanan-application-id>",
-        "AVANAN_CLIENT_SECRET": "<your-avanan-client-secret>"
+        "AVANAN_BASE_URL": "https://smart-api-production-1-us.avanan.net",
+        "AVANAN_CLIENT_SECRET": "<your-avanan-client-secret>",
+        "AVANAN_TOKEN": "<your-avanan_token>",
+        "AVANAN_USER_AGENT": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
@@ -110,7 +122,7 @@ All remote agents need `avanan-mcp` reachable as a public **HTTPS** endpoint. Ru
 in HTTP mode with your credentials in the environment:
 
 ```bash
-AVANAN_APP_ID=<value> AVANAN_CLIENT_SECRET=<value> avanan-mcp --transport http --addr :7777
+AVANAN_APP_ID=<value> AVANAN_BASE_URL=<value> AVANAN_CLIENT_SECRET=<value> AVANAN_TOKEN=<value> AVANAN_USER_AGENT=<value> PRINTING_PRESS_CLIENT_PROFILE=<value> avanan-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

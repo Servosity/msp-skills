@@ -29,6 +29,12 @@
       },
       "environmentVariables": [
         {
+          "name": "TACTICAL_RMM_BASE_URL",
+          "description": "Base URL of your Tactical RMM API host, e.g. https://api.rmm.example.com. It is the api.* hostname from your Tactical RMM install, not the web UI hostname. The shipped default points at an example host.",
+          "isRequired": true,
+          "isSecret": false
+        },
+        {
           "name": "TRMM_API_KEY",
           "description": "Set the TRMM_API_KEY credential for the Tactical RMM MCP server.",
           "isRequired": true,

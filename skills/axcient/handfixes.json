@@ -1,195 +1,459 @@
 {
-  "slug": "axcient",
-  "doc": "docs/reprint-survival.md",
-  "_comment": "Connector-specific edits to GENERATED files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and banned anti-patterns absent) and fails CI if a reprint dropped one. status: active = connector-only, a reprint would clobber it; upstreamed = also fixed in the press, a reprint from a fixed press regenerates it, but the back-port must still be present today.",
-  "handfixes": [
+ "slug": "axcient",
+ "doc": "docs/reprint-survival.md",
+ "_comment": "Connector-specific edits to GENERATED files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and banned anti-patterns absent) and fails CI if a reprint dropped one. status: active = connector-only, a reprint would clobber it; upstreamed = also fixed in the press, a reprint from a fixed press regenerates it, but the back-port must still be present today.",
+ "handfixes": [
+  {
+   "id": "id-key-primary-fallback",
+   "summary": "Live x360Recover emits Python-style `id_` keys; primary-key resolution must include id_",
+   "why": "The live API keys records `id_` (not `id`) for devices/appliances/vaults/users. Without id_ in the fallback list, extraction falls through to `name` (wrong primary key) or returns \"\" (0 rows / all_items_failed_id_extraction). Verified live; the 4.24 templates do not emit id_.",
+   "status": "active",
+   "spec_encode_followup": "Best durable home is a spec annotation (`x-resource-id: id_` on the affected resources) so the press emits the fallback by construction. The generated code itself recommends this ('Annotate the spec with x-resource-id to fix').",
+   "asserts": [
     {
-      "id": "id-key-primary-fallback",
-      "summary": "Live x360Recover emits Python-style `id_` keys; primary-key resolution must include id_",
-      "why": "The live API keys records `id_` (not `id`) for devices/appliances/vaults/users. Without id_ in the fallback list, extraction falls through to `name` (wrong primary key) or returns \"\" (0 rows / all_items_failed_id_extraction). Verified live; the 4.24 templates do not emit id_.",
-      "status": "active",
-      "spec_encode_followup": "Best durable home is a spec annotation (`x-resource-id: id_` on the affected resources) so the press emits the fallback by construction. The generated code itself recommends this ('Annotate the spec with x-resource-id to fix').",
-      "asserts": [
-        {"file": "cli/internal/store/store.go", "contains": "\"id_\"", "min_count": 2},
-        {"file": "cli/internal/cli/sync.go", "contains": "\"id_\"", "min_count": 1}
-      ]
+     "file": "cli/internal/store/store.go",
+     "contains": "\"id_\"",
+     "min_count": 2
     },
     {
-      "id": "hand-wired-sync-synthesis",
-      "summary": "autoverify items have no native id (synthesized); org-level device rows may omit client_id (injected)",
-      "why": "`/device/{device_id}/autoverify` items carry no native identifier, so sync synthesizes one; org-level device rows on the live API may omit client_id, so the typed client_device table injects it. Both are live-discovered quirks marked `Hand-wired:` and absent from press templates.",
-      "status": "active",
-      "asserts": [
-        {"file": "cli/internal/cli/sync.go", "contains": "Hand-wired:", "min_count": 5},
-        {"file": "cli/internal/store/store.go", "contains": "Hand-wired:", "min_count": 2}
-      ]
-    },
-    {
-      "id": "device-select-real-field-paths",
-      "summary": "device `--select` examples use the real serialized JSON field paths (id_, current_health_status.status)",
-      "why": "The press emits placeholder `--select id,name,status`; axcient's real serialized keys differ (`id_`, `current_health_status.status`). Corrected in the docs during onboarding (PR #70). A reprint reverts the examples to the placeholder fields.",
-      "status": "active",
-      "asserts": [
-        {"file": "SKILL.md", "contains": "id_,name,current_health_status.status", "min_count": 1},
-        {"file": "guide.md", "contains": "id_,name,current_health_status.status", "min_count": 1}
-      ]
-    },
-    {
-      "id": "mcp-numeric-id-format",
-      "summary": "D1: MCP path/query params render through formatMCPParamValue (no scientific-notation 404)",
-      "why": "JSON-number device_id/appliance_id decode to float64; fmt's %v renders 7-digit IDs as 1.234567e+06, so the URL 404s. Fixed upstream in press 4.24 (formatMCPParamValue); this is the surgical back-port until a reprint absorbs it.",
-      "status": "upstreamed",
-      "asserts": [
-        {"file": "cli/internal/mcp/tools.go", "contains": "formatMCPParamValue", "min_count": 4},
-        {"file": "cli/internal/mcp/tools.go", "not_contains": "strings.Replace(path, placeholder, fmt.Sprintf(\"%v\", v), 1)"}
-      ]
-    },
-    {
-      "id": "sync-dryrun-no-mutation",
-      "summary": "D3: sync --dry-run does not mutate sync_state (dependent loop + cursor clears guarded)",
-      "why": "The dependent-resource sync loop wrote sync_state unconditionally and --full/--latest-only cleared cursors unconditionally, so a documented side-effect-free dry run corrupted the local bookkeeping. Fixed in the press via mvanhorn/cli-printing-press#2946; surgical back-port here.",
-      "status": "upstreamed",
-      "asserts": [
-        {"file": "cli/internal/cli/sync.go", "contains": "isDryRunResponse(data)", "min_count": 2},
-        {"file": "cli/internal/cli/sync.go", "contains": "if full && !c.DryRun {", "min_count": 1},
-        {"file": "cli/internal/cli/restore_point_sync_wiring_test.go", "contains": "TestSyncDependentResource_DryRunDoesNotMutateSyncState", "min_count": 1}
-      ]
-    },
-    {
-      "id": "restore-point-id-synthesis",
-      "summary": "restore_point items key on a per-device timestamp string (restore_point_id); synthesize a collision-safe composite id",
-      "why": "The live /device/{device_id}/restore_point endpoint returns items keyed by restore_point_id (a YYYY_MM_DD_HH_MM_SS timestamp string), not a numeric id. ExtractResourceID's override map and generic fallback list both miss it, so UpsertBatch skipped every item and the restore_point table stored zero rows (all_items_failed_id_extraction); the live `device restore-point` write-through warned 'not cached locally'. restore_point_id is unique within a device but not across the fleet, so the fix composes rp:<device_id>:<restore_point_id> (device_id/parent_id are injected by the sync loop) and falls back to the bare restore_point_id for the live single-device path. Verified live; press 4.24 templates emit neither.",
-      "status": "active",
-      "spec_encode_followup": "No single x-resource-id can express a composite (device_id + restore_point_id) key, so this stays a hand-fix; the closest spec hook would be a per-resource composite-key annotation the press does not yet support. Errors are tracked in the v0.2.1 GitHub issue.",
-      "asserts": [
-        {"file": "cli/internal/store/store.go", "contains": "restore_point_id", "min_count": 1},
-        {"file": "cli/internal/store/store.go", "contains": "\"rp:\"", "min_count": 1}
-      ]
-    },
-    {
-      "id": "sync-skip-dependent-flat-names",
-      "summary": "flat sync enqueue drops dependent-resource names (autoverify/restore_point/client_device) so `--resources ...,autoverify` does not fail as a flat resource",
-      "why": "Dependent resources have no flat list endpoint (syncResourcePath returns 'unknown sync resource'); they sync per-parent via syncDependentResources. A user may still name a dependent explicitly (e.g. `--resources clients,device,autoverify`, which older docs and other tooling may suggest), so without flatSyncResources a named dependent ran once correctly (dependent pass) and once failing (flat pass) - 'two resources, one fails' - and under --strict the spurious flat failure aborted the run. Systemic press behavior, not axcient-specific; a printing-press-retro tracks the upstream fix. (The canonical refresh command is now bare `axcient-cli sync`; see canonical-sync-refresh-hint.)",
-      "status": "active",
-      "spec_encode_followup": "Fix belongs in the press: the flat-sync enqueue should never include a name it also declares as a dependent/walker resource. Filed upstream as mvanhorn/cli-printing-press#2953; until a reprint absorbs it, flatSyncResources guards it here.",
-      "asserts": [
-        {"file": "cli/internal/cli/sync.go", "contains": "flatSyncResources", "min_count": 2}
-      ]
-    },
-    {
-      "id": "strict-error-names-resources",
-      "summary": "--strict / all-failed sync errors name the failing resource(s), not just a count",
-      "why": "The sync exit-policy errors emitted only 'N resource(s) failed to sync' with no resource name, so a --strict failure was undiagnosable (the retester could not tell which resource failed). describeFailedResources appends the captured names. Systemic press behavior; a printing-press-retro tracks the upstream fix.",
-      "status": "active",
-      "spec_encode_followup": "Fix belongs in the press sync template (name failed resources in the exit-policy errors). Filed upstream as mvanhorn/cli-printing-press#2953; until a reprint absorbs it, describeFailedResources guards it here.",
-      "asserts": [
-        {"file": "cli/internal/cli/sync.go", "contains": "describeFailedResources", "min_count": 2}
-      ]
-    },
-    {
-      "id": "canonical-sync-refresh-hint",
-      "summary": "One canonical local-store refresh command everywhere: bare `axcient-cli sync` (no divergent per-command --resources scopes)",
-      "why": "Issue #86 flagged that the 'refresh the local mirror' step was documented with five different --resources scopes across the quick-start, the morning-sweep recipe, and the per-command help text (clients,device / clients,device,autoverify / clients,device,appliance / clients,device,vault,appliance / bare), so 'refresh the mirror' was ambiguous depending on which surface the reader followed. Bare `axcient-cli sync` pulls every top-level resource plus all dependents (parentFilter empty => syncDependentResources runs them all), so it is the complete, canonical refresh. The press generic hint already used bare `axcient-cli sync`; only the hand-authored novel commands and docs diverged. A reprint regenerating the novels (or re-authoring the docs) must not reintroduce a scoped --resources hint.",
-      "status": "active",
-      "asserts": [
-        {"file": "cli/internal/cli/health.go", "contains": "Run 'axcient-cli sync' first.", "min_count": 1},
-        {"file": "cli/internal/cli/health.go", "not_contains": "sync --resources clients,device' first"},
-        {"file": "cli/internal/cli/billing.go", "not_contains": "sync --resources clients,device' first"},
-        {"file": "cli/internal/cli/rpo.go", "not_contains": "sync --resources clients,device' first"},
-        {"file": "cli/internal/cli/compliance.go", "not_contains": "sync --resources clients,device,autoverify' first"},
-        {"file": "cli/internal/cli/client_rollup.go", "not_contains": "sync --resources clients,device,autoverify' first"},
-        {"file": "cli/internal/cli/appliance_map.go", "not_contains": "sync --resources clients,device,appliance' first"},
-        {"file": "SKILL.md", "not_contains": "sync --resources clients,device &&"},
-        {"file": "guide.md", "not_contains": "sync --resources clients"}
-      ]
-    },
-    {
-      "id": "search-concise-projection",
-      "summary": "`search` defaults to a concise id/name/type/match projection (not whole raw records) on BOTH the CLI and MCP surfaces; --full (CLI) / full=true (MCP) restores raw. Logic lives in hand-authored files so a reprint can't clobber it.",
-      "why": "Issue #84/#101 residual item: `search` dumped entire raw JSON records, a token sink for agents. The fix adds store.SearchHits (returns resource_type alongside data) and a renderSearchResults projection, both in HAND-AUTHORED files (internal/store/search_hits.go, internal/cli/search_projection.go) that a cli-printing-press reprint of store.go/search.go won't touch. The generated search.go carries only a minimal hook (--full flag + SearchHits calls + renderSearchResults). A reprint must re-apply that hook; the asserts below fail CI if it regressed. Default-dumping-raw is systemic press behavior (a printing-press retro tracks the upstream fix). Issue #101 follow-up (v0.2.8): the v0.2.4 fix only covered the CLI; the MCP `search` tool (internal/mcp/tools.go handleSearch) is a SEPARATE hand-wired handler that kept dumping raw via db.Search+toolResultJSON, so MCP/agent users still saw whole records through v0.2.7. handleSearch now defaults to db.SearchHits+projectSearchHit (hand-authored internal/mcp/search_project.go) and only db.Search-dumps when the new full=true param is set. A reprint of tools.go must re-apply that hook.",
-      "status": "active",
-      "spec_encode_followup": "Belongs in the press: the generated search command AND the generated MCP search tool should both offer a concise projection by default with a --full / full opt-in. Until a reprint absorbs it, the hand-authored files + these hooks guard it.",
-      "asserts": [
-        {"file": "cli/internal/store/search_hits.go", "contains": "func (s *Store) SearchHits", "min_count": 1},
-        {"file": "cli/internal/cli/search_projection.go", "contains": "func renderSearchResults", "min_count": 1},
-        {"file": "cli/internal/cli/search.go", "contains": "renderSearchResults", "min_count": 1},
-        {"file": "cli/internal/cli/search.go", "contains": "db.SearchHits", "min_count": 2},
-        {"file": "cli/internal/mcp/search_project.go", "contains": "func projectSearchHit", "min_count": 1},
-        {"file": "cli/internal/mcp/tools.go", "contains": "projectSearchHit", "min_count": 1},
-        {"file": "cli/internal/mcp/tools.go", "contains": "db.SearchHits", "min_count": 1}
-      ]
-    },
-    {
-      "id": "mcp-auth-hint-not-cli-doctor",
-      "summary": "MCP tool auth-error hints point to the MCP server's env config, not 'Run axcient-cli doctor' (which an MCP-only user can't run)",
-      "why": "Issue #84/#101 residual item: the MCP tool error handlers (internal/mcp/tools.go) told MCP-only users to 'Run axcient-cli doctor' - a CLI command they have no shell access to. doctor stays CLI-only (intentionally excluded from the MCP surface via frameworkCommands); the MCP hints now tell the user to set AXCIENT_API_KEY in the MCP server's configuration. The CLI's own classifyAPIError (internal/cli/helpers.go) KEEPS the doctor hint - correct for CLI users - so this assertion is scoped to tools.go only.",
-      "status": "active",
-      "asserts": [
-        {"file": "cli/internal/mcp/tools.go", "not_contains": "Run 'axcient-cli doctor' to check auth status"},
-        {"file": "cli/internal/mcp/tools.go", "contains": "set AXCIENT_API_KEY in this server's configuration", "min_count": 1}
-      ]
-    },
-    {
-      "id": "restore-point-autoverify-storage-key-not-double-composited",
-      "summary": "resourceStorageID must NOT re-append the parent for the synthesized rp:/av: composite ids (would corrupt the key with a NUL byte); and the hand-authored regression tests guarding the restore_point/autoverify/sync fixes must exist.",
-      "why": "Press 4.24.0 (the #96 fleet re-vendor) added a generic resourceStorageID that appends `id\\x00<parent>` for any resource in resourceParentKeyColumns. restore_point and autoverify already synthesize parent-embedding ids (rp:<device_id>:..., av:<device_id>:...), so the generic append double-keyed them into e.g. `rp:dev:rpid\\x00dev` - a NUL-containing key that breaks clean-key offline lookups (regressing the #84 Error-1 fix). The fix skips the append ONLY when the id already carries the synthesized rp:/av: prefix; a bare native id still gets the parent composite (so same-id-different-parent rows don't collapse - see TestUpsertBatch_Keys*ByChildAndParent). SEPARATELY, the #96 re-vendor SILENTLY DROPPED the hand-authored regression tests (they are not generated, so the mint replaced the package without them); the fixes' strings survived (asserted elsewhere) but their behavioral guards vanished, which is how the \\x00 regression shipped unnoticed. These asserts fail CI if a future reprint re-introduces the double-composite OR drops the tests again. Systemic press behavior - printing-press retro filed (resourceStorageID should skip an already-parent-embedded id; the mint should preserve hand-authored *_test.go).",
-      "status": "active",
-      "spec_encode_followup": "Belongs in the press: resourceStorageID should not append the parent when the resolved id already embeds it, and the mint should not drop hand-authored test files on re-vendor. Until absorbed, this switch + these test-existence asserts guard it.",
-      "asserts": [
-        {"file": "cli/internal/store/store.go", "contains": "strings.HasPrefix(id, \"rp:\")", "min_count": 1},
-        {"file": "cli/internal/store/store.go", "contains": "strings.HasPrefix(id, \"av:\")", "min_count": 1},
-        {"file": "cli/internal/store/restore_point_id_test.go", "contains": "TestUpsertBatch_RestorePointRealShapePopulates", "min_count": 1},
-        {"file": "cli/internal/cli/restore_point_sync_wiring_test.go", "contains": "TestSyncDependentResource_RestorePointFlattensVaultGroupsAndPopulates", "min_count": 1},
-        {"file": "cli/internal/cli/sync_resource_scoping_test.go", "contains": "TestFlatSyncResources_DropsDependentNames", "min_count": 1}
-      ]
-    },
-    {
-      "id": "restore-point-nested-flatten",
-      "summary": "Live restore_point endpoint groups points by Cloud Vault; sync must descend into the nested restore_point[] array",
-      "why": "The per-device /device/{device_id}/restore_point endpoint returns a top-level array of {vault_id, restore_point:[...]} wrappers; the timestamp-string restore_point_id lives only on the inner elements. extractPageItems surfaces the OUTER wrappers (no restore_point_id), so every one fails id extraction (all_items_failed_id_extraction -> 0 rows) - the live #84 symptom that the earlier flat-array regression fixture (0.2.1/0.2.2) never reproduced because it fed the inner shape directly. syncDependentResource now flattens the nested array (flattenRestorePointGroups) before keying, carrying vault_id down onto each point. Live-discovered nested shape, absent from press templates.",
-      "status": "active",
-      "spec_encode_followup": "Belongs in the press: model a parent-grouped sub-collection so the generator descends one level into a named child array by construction. Printing-press retro filed alongside the #84 fix.",
-      "asserts": [
-        {"file": "cli/internal/cli/sync.go", "contains": "flattenRestorePointGroups", "min_count": 2},
-        {"file": "cli/internal/cli/restore_point_sync_wiring_test.go", "contains": "TestSyncDependentResource_RestorePointFlattensVaultGroupsAndPopulates", "min_count": 1}
-      ]
-    },
-    {
-      "id": "mcp-client-filter-forward",
-      "summary": "MCP shell-out must forward the per-command `client` fleet filter; the generic blockedRootFlags denylist wrongly dropped it",
-      "why": "health/compliance/rpo/appliance-map define `--client <id>` as a command-local Int64 fleet filter (0 = all clients). The cobratree MCP shell-out advertises it (toolOptionsForFlags walks NonInheritedFlags -> WithNumber) but cliArgsFromMCP discarded it because the press template hardcodes \"client\" in blockedRootFlags - a denylist meant for root credential/base-url/config/delivery flags. axcient has NO root/persistent --client flag, so the block protected nothing and silently unscoped every MCP fleet call to the whole fleet (issue #130, reported by @Xenith-B). Removed \"client\" from blockedRootFlags; base-url/token/config/deliver/profile/args stay blocked. Added TestCliArgsFromMCP_ForwardsClientFilter asserting {client:42} -> --client 42 while control-plane flags stay dropped.",
-      "status": "active",
-      "spec_encode_followup": "Belongs in the press: make blockedRootFlags context-aware - block a flag only when it is a genuine root/persistent (inherited) flag on the command, not a command-local flag of the same name. Printing-press retro filed alongside #130.",
-      "asserts": [
-        {"file": "cli/internal/mcp/cobratree/shellout.go", "contains": "Hand-fix (issue #130", "min_count": 1},
-        {"file": "cli/internal/mcp/cobratree/shellout.go", "not_contains": "\"client\":   true"},
-        {"file": "cli/internal/mcp/cobratree/shellout_test.go", "contains": "TestCliArgsFromMCP_ForwardsClientFilter", "min_count": 1}
-      ]
-    },
-    {
-      "id": "fts-display-name-three-letter-caps",
-      "summary": "FTS index filter must not drop a record's display NAME when it is a 3-letter all-caps host label (WEB/SQL/DNS); search-by-name missed those records",
-      "why": "shouldIndexSearchString (cli/internal/store/store.go) had a value-based, KEY-BLIND branch dropping any 3-letter all-caps string (intended for currency/country codes like USD/GBP). Being key-blind it also discarded a record's name/alias when the name was a 3-letter all-caps NetBIOS/host label (WEB/SQL/DNS/DMZ/APP/VPN/CRM/ERP - ubiquitous in MSP fleets), so the name never entered resources_fts and MCP search returned 0 rows for it while list/get (live API) still found it (issue #148, reported by Barret). Fix: gate the drop on !isDisplayNameKey(key) + added isDisplayNameKey helper; bumped StoreSchemaVersion AND resourcesFTSContentSchemaVersion 4->5 (kept equal) so existing synced DBs rebuild FTS through the fixed filter once on the next sync. TestSearchByThreeLetterUpperName_Issue148 fails without the guard.",
-      "status": "active",
-      "spec_encode_followup": "Belongs in the press content-extraction template: the 3-letter all-caps suppression must be key-aware (exempt display-name keys), and a content-filter change must bump the FTS-content schema version (kept <= StoreSchemaVersion) to re-index existing DBs. Printing-press retro filed alongside #148.",
-      "asserts": [
-        {"file": "cli/internal/store/store.go", "contains": "isDisplayNameKey", "min_count": 2},
-        {"file": "cli/internal/store/store.go", "contains": "!isDisplayNameKey(key)", "min_count": 1},
-        {"file": "cli/internal/store/store.go", "contains": "const resourcesFTSContentSchemaVersion = 5", "min_count": 1},
-        {"file": "cli/internal/store/display_name_index_test.go", "contains": "TestSearchByThreeLetterUpperName_Issue148", "min_count": 1}
-      ]
-    },
-    {
-      "id": "mcp-search-unsynced-guidance",
-      "summary": "MCP search must give actionable 'run sync first' guidance instead of a cryptic SQLite error / bare null on an unsynced or empty local DB",
-      "why": "handleSearch (cli/internal/mcp/tools.go) opens the local DB read-only and queried it directly: on a missing/never-synced DB OpenReadOnly (mode=ro) surfaced SQLite 'out of memory (14)', and a no-match returned a bare 'null' from toolResultJSON(nil) - both read as 'search is broken' to an MCP user, while the CLI search path emits sync hints (issue #148, reported by Barret). Fix: stat dbPath() and return 'run the sync tool first' when absent; return a 'No matches ... run sync' hint on empty results; keep JSON results unchanged on a real match.",
-      "status": "active",
-      "spec_encode_followup": "Belongs in the press MCP local-DB tool template: search/sql handlers should stat the DB and surface a sync hint instead of leaking the raw SQLite open error, and return a structured empty/hint result rather than a bare null. Printing-press retro filed alongside #148.",
-      "asserts": [
-        {"file": "cli/internal/mcp/tools.go", "contains": "run the 'sync' tool first", "min_count": 1},
-        {"file": "cli/internal/mcp/tools.go", "contains": "Hand-fix (issue #148", "min_count": 1},
-        {"file": "cli/internal/mcp/search_guidance_test.go", "contains": "TestHandleSearch_Issue148_Guidance", "min_count": 1}
-      ]
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"id_\"",
+     "min_count": 1
     }
-  ]
+   ]
+  },
+  {
+   "id": "hand-wired-sync-synthesis",
+   "summary": "autoverify items have no native id (synthesized); org-level device rows may omit client_id (injected)",
+   "why": "`/device/{device_id}/autoverify` items carry no native identifier, so sync synthesizes one; org-level device rows on the live API may omit client_id, so the typed client_device table injects it. Both are live-discovered quirks marked `Hand-wired:` and absent from press templates.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "Hand-wired:",
+     "min_count": 5
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "Hand-wired:",
+     "min_count": 2
+    }
+   ]
+  },
+  {
+   "id": "device-select-real-field-paths",
+   "summary": "device `--select` examples use the real serialized JSON field paths (id_, current_health_status.status)",
+   "why": "The press emits placeholder `--select id,name,status`; axcient's real serialized keys differ (`id_`, `current_health_status.status`). Corrected in the docs during onboarding (PR #70). A reprint reverts the examples to the placeholder fields.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "SKILL.md",
+     "contains": "id_,name,current_health_status.status",
+     "min_count": 1
+    },
+    {
+     "file": "guide.md",
+     "contains": "id_,name,current_health_status.status",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "mcp-numeric-id-format",
+   "summary": "D1: MCP path/query params render through formatMCPParamValue (no scientific-notation 404)",
+   "why": "JSON-number device_id/appliance_id decode to float64; fmt's %v renders 7-digit IDs as 1.234567e+06, so the URL 404s. Fixed upstream in press 4.24 (formatMCPParamValue); this is the surgical back-port until a reprint absorbs it.",
+   "status": "upstreamed",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "formatMCPParamValue",
+     "min_count": 4
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "strings.Replace(path, placeholder, fmt.Sprintf(\"%v\", v), 1)"
+    }
+   ]
+  },
+  {
+   "id": "sync-dryrun-no-mutation",
+   "summary": "D3: sync --dry-run does not mutate sync_state (dependent loop + cursor clears guarded)",
+   "why": "The dependent-resource sync loop wrote sync_state unconditionally and --full/--latest-only cleared cursors unconditionally, so a documented side-effect-free dry run corrupted the local bookkeeping. Fixed in the press via mvanhorn/cli-printing-press#2946; surgical back-port here.",
+   "status": "upstreamed",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "isDryRunResponse(data)",
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "if full && !c.DryRun {",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/restore_point_sync_wiring_test.go",
+     "contains": "TestSyncDependentResource_DryRunDoesNotMutateSyncState",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "restore-point-id-synthesis",
+   "summary": "restore_point items key on a per-device timestamp string (restore_point_id); synthesize a collision-safe composite id",
+   "why": "The live /device/{device_id}/restore_point endpoint returns items keyed by restore_point_id (a YYYY_MM_DD_HH_MM_SS timestamp string), not a numeric id. ExtractResourceID's override map and generic fallback list both miss it, so UpsertBatch skipped every item and the restore_point table stored zero rows (all_items_failed_id_extraction); the live `device restore-point` write-through warned 'not cached locally'. restore_point_id is unique within a device but not across the fleet, so the fix composes rp:<device_id>:<restore_point_id> (device_id/parent_id are injected by the sync loop) and falls back to the bare restore_point_id for the live single-device path. Verified live; press 4.24 templates emit neither.",
+   "status": "active",
+   "spec_encode_followup": "No single x-resource-id can express a composite (device_id + restore_point_id) key, so this stays a hand-fix; the closest spec hook would be a per-resource composite-key annotation the press does not yet support. Errors are tracked in the v0.2.1 GitHub issue.",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "restore_point_id",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\"rp:\"",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "sync-skip-dependent-flat-names",
+   "summary": "flat sync enqueue drops dependent-resource names (autoverify/restore_point/client_device) so `--resources ...,autoverify` does not fail as a flat resource",
+   "why": "Dependent resources have no flat list endpoint (syncResourcePath returns 'unknown sync resource'); they sync per-parent via syncDependentResources. A user may still name a dependent explicitly (e.g. `--resources clients,device,autoverify`, which older docs and other tooling may suggest), so without flatSyncResources a named dependent ran once correctly (dependent pass) and once failing (flat pass) - 'two resources, one fails' - and under --strict the spurious flat failure aborted the run. Systemic press behavior, not axcient-specific; a printing-press-retro tracks the upstream fix. (The canonical refresh command is now bare `axcient-cli sync`; see canonical-sync-refresh-hint.)",
+   "status": "active",
+   "spec_encode_followup": "Fix belongs in the press: the flat-sync enqueue should never include a name it also declares as a dependent/walker resource. Filed upstream as mvanhorn/cli-printing-press#2953; until a reprint absorbs it, flatSyncResources guards it here.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "flatSyncResources",
+     "min_count": 2
+    }
+   ]
+  },
+  {
+   "id": "strict-error-names-resources",
+   "summary": "--strict / all-failed sync errors name the failing resource(s), not just a count",
+   "why": "The sync exit-policy errors emitted only 'N resource(s) failed to sync' with no resource name, so a --strict failure was undiagnosable (the retester could not tell which resource failed). describeFailedResources appends the captured names. Systemic press behavior; a printing-press-retro tracks the upstream fix.",
+   "status": "active",
+   "spec_encode_followup": "Fix belongs in the press sync template (name failed resources in the exit-policy errors). Filed upstream as mvanhorn/cli-printing-press#2953; until a reprint absorbs it, describeFailedResources guards it here.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "describeFailedResources",
+     "min_count": 2
+    }
+   ]
+  },
+  {
+   "id": "canonical-sync-refresh-hint",
+   "summary": "One canonical local-store refresh command everywhere: bare `axcient-cli sync` (no divergent per-command --resources scopes)",
+   "why": "Issue #86 flagged that the 'refresh the local mirror' step was documented with five different --resources scopes across the quick-start, the morning-sweep recipe, and the per-command help text (clients,device / clients,device,autoverify / clients,device,appliance / clients,device,vault,appliance / bare), so 'refresh the mirror' was ambiguous depending on which surface the reader followed. Bare `axcient-cli sync` pulls every top-level resource plus all dependents (parentFilter empty => syncDependentResources runs them all), so it is the complete, canonical refresh. The press generic hint already used bare `axcient-cli sync`; only the hand-authored novel commands and docs diverged. A reprint regenerating the novels (or re-authoring the docs) must not reintroduce a scoped --resources hint.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/health.go",
+     "contains": "Run 'axcient-cli sync' first.",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/health.go",
+     "not_contains": "sync --resources clients,device' first"
+    },
+    {
+     "file": "cli/internal/cli/billing.go",
+     "not_contains": "sync --resources clients,device' first"
+    },
+    {
+     "file": "cli/internal/cli/rpo.go",
+     "not_contains": "sync --resources clients,device' first"
+    },
+    {
+     "file": "cli/internal/cli/compliance.go",
+     "not_contains": "sync --resources clients,device,autoverify' first"
+    },
+    {
+     "file": "cli/internal/cli/client_rollup.go",
+     "not_contains": "sync --resources clients,device,autoverify' first"
+    },
+    {
+     "file": "cli/internal/cli/appliance_map.go",
+     "not_contains": "sync --resources clients,device,appliance' first"
+    },
+    {
+     "file": "SKILL.md",
+     "not_contains": "sync --resources clients,device &&"
+    },
+    {
+     "file": "guide.md",
+     "not_contains": "sync --resources clients"
+    }
+   ]
+  },
+  {
+   "id": "search-concise-projection",
+   "summary": "`search` defaults to a concise id/name/type/match projection (not whole raw records) on BOTH the CLI and MCP surfaces; --full (CLI) / full=true (MCP) restores raw. Logic lives in hand-authored files so a reprint can't clobber it.",
+   "why": "Issue #84/#101 residual item: `search` dumped entire raw JSON records, a token sink for agents. The fix adds store.SearchHits (returns resource_type alongside data) and a renderSearchResults projection, both in HAND-AUTHORED files (internal/store/search_hits.go, internal/cli/search_projection.go) that a cli-printing-press reprint of store.go/search.go won't touch. The generated search.go carries only a minimal hook (--full flag + SearchHits calls + renderSearchResults). A reprint must re-apply that hook; the asserts below fail CI if it regressed. Default-dumping-raw is systemic press behavior (a printing-press retro tracks the upstream fix). Issue #101 follow-up (v0.2.8): the v0.2.4 fix only covered the CLI; the MCP `search` tool (internal/mcp/tools.go handleSearch) is a SEPARATE hand-wired handler that kept dumping raw via db.Search+toolResultJSON, so MCP/agent users still saw whole records through v0.2.7. handleSearch now defaults to db.SearchHits+projectSearchHit (hand-authored internal/mcp/search_project.go) and only db.Search-dumps when the new full=true param is set. A reprint of tools.go must re-apply that hook.",
+   "status": "active",
+   "spec_encode_followup": "Belongs in the press: the generated search command AND the generated MCP search tool should both offer a concise projection by default with a --full / full opt-in. Until a reprint absorbs it, the hand-authored files + these hooks guard it.",
+   "asserts": [
+    {
+     "file": "cli/internal/store/search_hits.go",
+     "contains": "func (s *Store) SearchHits",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/search_projection.go",
+     "contains": "func renderSearchResults",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/search.go",
+     "contains": "renderSearchResults",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/search.go",
+     "contains": "db.SearchHits",
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/mcp/search_project.go",
+     "contains": "func projectSearchHit",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "projectSearchHit",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "db.SearchHits",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "mcp-auth-hint-not-cli-doctor",
+   "summary": "MCP tool auth-error hints point to the MCP server's env config, not 'Run axcient-cli doctor' (which an MCP-only user can't run)",
+   "why": "Issue #84/#101 residual item: the MCP tool error handlers (internal/mcp/tools.go) told MCP-only users to 'Run axcient-cli doctor' - a CLI command they have no shell access to. doctor stays CLI-only (intentionally excluded from the MCP surface via frameworkCommands); the MCP hints now tell the user to set AXCIENT_API_KEY in the MCP server's configuration. The CLI's own classifyAPIError (internal/cli/helpers.go) KEEPS the doctor hint - correct for CLI users - so this assertion is scoped to tools.go only.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "Run 'axcient-cli doctor' to check auth status"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "set AXCIENT_API_KEY in this server's configuration",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "restore-point-autoverify-storage-key-not-double-composited",
+   "summary": "resourceStorageID must NOT re-append the parent for the synthesized rp:/av: composite ids (would corrupt the key with a NUL byte); and the hand-authored regression tests guarding the restore_point/autoverify/sync fixes must exist.",
+   "why": "Press 4.24.0 (the #96 fleet re-vendor) added a generic resourceStorageID that appends `id\\x00<parent>` for any resource in resourceParentKeyColumns. restore_point and autoverify already synthesize parent-embedding ids (rp:<device_id>:..., av:<device_id>:...), so the generic append double-keyed them into e.g. `rp:dev:rpid\\x00dev` - a NUL-containing key that breaks clean-key offline lookups (regressing the #84 Error-1 fix). The fix skips the append ONLY when the id already carries the synthesized rp:/av: prefix; a bare native id still gets the parent composite (so same-id-different-parent rows don't collapse - see TestUpsertBatch_Keys*ByChildAndParent). SEPARATELY, the #96 re-vendor SILENTLY DROPPED the hand-authored regression tests (they are not generated, so the mint replaced the package without them); the fixes' strings survived (asserted elsewhere) but their behavioral guards vanished, which is how the \\x00 regression shipped unnoticed. These asserts fail CI if a future reprint re-introduces the double-composite OR drops the tests again. Systemic press behavior - printing-press retro filed (resourceStorageID should skip an already-parent-embedded id; the mint should preserve hand-authored *_test.go).",
+   "status": "active",
+   "spec_encode_followup": "Belongs in the press: resourceStorageID should not append the parent when the resolved id already embeds it, and the mint should not drop hand-authored test files on re-vendor. Until absorbed, this switch + these test-existence asserts guard it.",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "strings.HasPrefix(id, \"rp:\")",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "strings.HasPrefix(id, \"av:\")",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/restore_point_id_test.go",
+     "contains": "TestUpsertBatch_RestorePointRealShapePopulates",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/restore_point_sync_wiring_test.go",
+     "contains": "TestSyncDependentResource_RestorePointFlattensVaultGroupsAndPopulates",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sync_resource_scoping_test.go",
+     "contains": "TestFlatSyncResources_DropsDependentNames",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "restore-point-nested-flatten",
+   "summary": "Live restore_point endpoint groups points by Cloud Vault; sync must descend into the nested restore_point[] array",
+   "why": "The per-device /device/{device_id}/restore_point endpoint returns a top-level array of {vault_id, restore_point:[...]} wrappers; the timestamp-string restore_point_id lives only on the inner elements. extractPageItems surfaces the OUTER wrappers (no restore_point_id), so every one fails id extraction (all_items_failed_id_extraction -> 0 rows) - the live #84 symptom that the earlier flat-array regression fixture (0.2.1/0.2.2) never reproduced because it fed the inner shape directly. syncDependentResource now flattens the nested array (flattenRestorePointGroups) before keying, carrying vault_id down onto each point. Live-discovered nested shape, absent from press templates.",
+   "status": "active",
+   "spec_encode_followup": "Belongs in the press: model a parent-grouped sub-collection so the generator descends one level into a named child array by construction. Printing-press retro filed alongside the #84 fix.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "flattenRestorePointGroups",
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/cli/restore_point_sync_wiring_test.go",
+     "contains": "TestSyncDependentResource_RestorePointFlattensVaultGroupsAndPopulates",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "mcp-client-filter-forward",
+   "summary": "MCP shell-out must forward the per-command `client` fleet filter; the generic blockedRootFlags denylist wrongly dropped it",
+   "why": "health/compliance/rpo/appliance-map define `--client <id>` as a command-local Int64 fleet filter (0 = all clients). The cobratree MCP shell-out advertises it (toolOptionsForFlags walks NonInheritedFlags -> WithNumber) but cliArgsFromMCP discarded it because the press template hardcodes \"client\" in blockedRootFlags - a denylist meant for root credential/base-url/config/delivery flags. axcient has NO root/persistent --client flag, so the block protected nothing and silently unscoped every MCP fleet call to the whole fleet (issue #130, reported by @Xenith-B). Removed \"client\" from blockedRootFlags; base-url/token/config/deliver/profile/args stay blocked. Added TestCliArgsFromMCP_ForwardsClientFilter asserting {client:42} -> --client 42 while control-plane flags stay dropped.",
+   "status": "active",
+   "spec_encode_followup": "Belongs in the press: make blockedRootFlags context-aware - block a flag only when it is a genuine root/persistent (inherited) flag on the command, not a command-local flag of the same name. Printing-press retro filed alongside #130.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "Hand-fix (issue #130",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "not_contains": "\"client\":   true"
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout_test.go",
+     "contains": "TestCliArgsFromMCP_ForwardsClientFilter",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "fts-display-name-three-letter-caps",
+   "summary": "FTS index filter must not drop a record's display NAME when it is a 3-letter all-caps host label (WEB/SQL/DNS); search-by-name missed those records",
+   "why": "shouldIndexSearchString (cli/internal/store/store.go) had a value-based, KEY-BLIND branch dropping any 3-letter all-caps string (intended for currency/country codes like USD/GBP). Being key-blind it also discarded a record's name/alias when the name was a 3-letter all-caps NetBIOS/host label (WEB/SQL/DNS/DMZ/APP/VPN/CRM/ERP - ubiquitous in MSP fleets), so the name never entered resources_fts and MCP search returned 0 rows for it while list/get (live API) still found it (issue #148, reported by Barret). Fix: gate the drop on !isDisplayNameKey(key) + added isDisplayNameKey helper; bumped StoreSchemaVersion AND resourcesFTSContentSchemaVersion 4->5 (kept equal) so existing synced DBs rebuild FTS through the fixed filter once on the next sync. TestSearchByThreeLetterUpperName_Issue148 fails without the guard.",
+   "status": "active",
+   "spec_encode_followup": "Belongs in the press content-extraction template: the 3-letter all-caps suppression must be key-aware (exempt display-name keys), and a content-filter change must bump the FTS-content schema version (kept <= StoreSchemaVersion) to re-index existing DBs. Printing-press retro filed alongside #148.",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "isDisplayNameKey",
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "!isDisplayNameKey(key)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "const resourcesFTSContentSchemaVersion = 5",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/display_name_index_test.go",
+     "contains": "TestSearchByThreeLetterUpperName_Issue148",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "mcp-search-unsynced-guidance",
+   "summary": "MCP search must give actionable 'run sync first' guidance instead of a cryptic SQLite error / bare null on an unsynced or empty local DB",
+   "why": "handleSearch (cli/internal/mcp/tools.go) opens the local DB read-only and queried it directly: on a missing/never-synced DB OpenReadOnly (mode=ro) surfaced SQLite 'out of memory (14)', and a no-match returned a bare 'null' from toolResultJSON(nil) - both read as 'search is broken' to an MCP user, while the CLI search path emits sync hints (issue #148, reported by Barret). Fix: stat dbPath() and return 'run the sync tool first' when absent; return a 'No matches ... run sync' hint on empty results; keep JSON results unchanged on a real match.",
+   "status": "active",
+   "spec_encode_followup": "Belongs in the press MCP local-DB tool template: search/sql handlers should stat the DB and surface a sync hint instead of leaking the raw SQLite open error, and return a structured empty/hint result rather than a bare null. Printing-press retro filed alongside #148.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "run the 'sync' tool first",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "Hand-fix (issue #148",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/mcp/search_guidance_test.go",
+     "contains": "TestHandleSearch_Issue148_Guidance",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "doctor-verdict-tracks-reality",
+   "summary": "doctor probes a real GET endpoint with the real credential and refuses to dial a placeholder base_url, instead of calling any HTTP response 'reachable' and never checking the credential",
+   "why": "`doctor` is the command every SKILL, guide and docs page tells an operator to run to confirm the connector works, and it could not tell a working install from a broken one. It called any HTTP response to `GET /` \"reachable\" and rendered it green, so a base_url aimed at the vendor's web UI (where every API path 404s) and a token rejected with 401 on every call both produced an all-green report. On this connector family it also never probed the credential at all: it printed \"present, not verified\" and left the operator to guess. The mirror defect: a connector whose shipped base_url default is a placeholder dialled the placeholder host, and the DNS failure rendered as \"FAIL API: unreachable\" - telling a correctly-credentialled operator they were broken without naming the one variable that would fix it. Several placeholder hosts resolve through live wildcard DNS and answer real HTTP, so dialling one produced a confident green verdict against a stranger's server. Measured and gated by tools/maintainer/check_doctor_truth.py. See issue #282.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorProbeCredentials("
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorBaseURLIsPlaceholder("
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorIsInfoKey(k)"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorBaseURLIsPlaceholder(cfg.BaseURL)"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorUnexpectedStatus(authAPIErr.StatusCode"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "but auth was accepted"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "for _, v := range report {"
+    }
+   ]
+  },
+  {
+   "id": "install-credentials-declared-on-every-channel",
+   "summary": "every operator credential this connector reads is declared on all three install channels: manifest.json (.mcpb), server.json (MCP Registry) and mcp-install.md (manual install)",
+   "why": "Issue #282 ('three live-verified connectors prompt for the wrong credentials'). A connector is installed through THREE independent channels that each carry their own copy of the credential list: manifest.json server.mcp_config.env (what the .mcpb bundle hands Claude Desktop, which has no shell profile, no config.toml and no export - so an undeclared variable is a variable nobody is ever asked for), server.json environmentVariables (the MCP Registry publish channel), and mcp-install.md's copy-paste JSON blocks plus its remote launch line (the manual path, which never touches the bundle at all). The fleet-wide audit found 60 of 65 connectors under-declaring 122 operator-facing variables in the manifest, 61 of 65 mcp-install.md pages omitting 125, and hudu's server.json missing the base URL its manifest marks required. For axcient the manifest gained: AXCIENT_BASE_URL. server.json gained: AXCIENT_BASE_URL. mcp-install.md's env blocks gained: AXCIENT_BASE_URL. manifest.json, server.json and mcp-install.md are ALL regenerated by /msp-skills-publish on an UPDATE or re-onboard, so without this ledger a regeneration silently drops every declaration and CI stays green (check_env_schema.py is wired --warn). The asserts below name the specific credentials, not a count, so dropping one and adding another cannot cancel out.",
+   "status": "active",
+   "spec_encode_followup": "cli-printing-press should emit server.mcp_config.env, the matching user_config prompts, server.json environmentVariables and mcp-install.md's env blocks from ONE declaration of the connector's operator-facing environment, so the three channels cannot be generated out of step. Until then check_env_schema.py compares all three and this ledger pins them.",
+   "asserts": [
+    {
+     "file": "manifest.json",
+     "contains": "\"AXCIENT_API_KEY\": \"${user_config.axcient_api_key}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"AXCIENT_BASE_URL\": \"${user_config.axcient_base_url}\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"AXCIENT_API_KEY\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"AXCIENT_BASE_URL\"",
+     "min_count": 1
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"AXCIENT_API_KEY\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"AXCIENT_BASE_URL\":",
+     "min_count": 3
+    }
+   ]
+  }
+ ]
 }

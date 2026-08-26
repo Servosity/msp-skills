@@ -15,7 +15,10 @@
       "command": "${__dirname}/bin/superops-mcp",
       "args": [],
       "env": {
-        "SUPEROPS_API_TOKEN": "${user_config.superops_api_token}"
+        "SUPEROPS_API_TOKEN": "${user_config.superops_api_token}",
+        "SUPEROPS_BASE_URL": "${user_config.superops_base_url}",
+        "SUPEROPS_REGION": "${user_config.superops_region}",
+        "SUPEROPS_SUBDOMAIN": "${user_config.superops_subdomain}"
       }
     }
   },
@@ -26,6 +29,26 @@
       "description": "Sets SUPEROPS_API_TOKEN for the SuperOps MCP server.",
       "sensitive": true,
       "required": true
+    },
+    "superops_subdomain": {
+      "type": "string",
+      "title": "SuperOps subdomain",
+      "description": "Your tenant subdomain (SuperOps: Settings > MSP Information). Sent as the CustomerSubdomain header on every call; requests without it are rejected.",
+      "required": true
+    },
+    "superops_base_url": {
+      "type": "string",
+      "title": "SuperOps API base URL",
+      "description": "Base URL for the SuperOps API. Leave the prefilled default unless your account uses a different regional or self-hosted host.",
+      "required": false,
+      "default": "https://api.superops.ai"
+    },
+    "superops_region": {
+      "type": "string",
+      "title": "SuperOps region",
+      "description": "Data-centre region your tenant lives in: us or eu. The wrong region answers with an authentication error.",
+      "required": false,
+      "default": "us"
     }
   },
   "compatibility": {
