@@ -441,9 +441,9 @@
     "released_hash": "sha256:f61bd977537537cf60a5f78faa908b25d7ec1d3f9f56cb0d4317895e0af79e9b"
   },
   "veeam": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.1",
-    "latest_tag": "veeam-v0.1.0",
+    "latest_tag": "veeam-v0.1.1",
     "current_hash": "sha256:de025e270f333f195e9cd7c26778e93101d8dd4c4bc6334d41119ceda5201556",
     "released_hash": "sha256:de025e270f333f195e9cd7c26778e93101d8dd4c4bc6334d41119ceda5201556"
   },
@@ -455,9 +455,9 @@
     "released_hash": "sha256:2699d9a7eb9c0ef1858ead2360e2ffe830db28ad83a29e98c483ced75be3a76e"
   },
   "xero": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.1",
-    "latest_tag": "xero-v0.1.0",
+    "latest_tag": "xero-v0.1.1",
     "current_hash": "sha256:3c655bf79c77dced489cdb09782388a4f504033fb2a18532943d882d2fa5b748",
     "released_hash": "sha256:3c655bf79c77dced489cdb09782388a4f504033fb2a18532943d882d2fa5b748"
   },
