@@ -56,9 +56,9 @@
     "released_hash": "sha256:9152dcc1b982b9afdde6550e89245e6ed6229f78212763ffaadad198c14b5748"
   },
   "avanan": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.2",
-    "latest_tag": "avanan-v0.1.1",
+    "latest_tag": "avanan-v0.1.2",
     "current_hash": "sha256:e50e49ee6f2e488b380bfbcee7d383ef4a31e4a7e262b76b0c7baab2f89bca9d",
     "released_hash": "sha256:e50e49ee6f2e488b380bfbcee7d383ef4a31e4a7e262b76b0c7baab2f89bca9d"
   },
@@ -70,9 +70,9 @@
     "released_hash": "sha256:68e5566d18fc8490eba6e569ecbd56b7d6e28a1c175abfdb1c290730755db094"
   },
   "axcient": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.2.11",
-    "latest_tag": "axcient-v0.2.10",
+    "latest_tag": "axcient-v0.2.11",
     "current_hash": "sha256:96e2c7288edd54ba44cf07d320e542946dfc75e7877d973a6dd51aab683331a6",
     "released_hash": "sha256:96e2c7288edd54ba44cf07d320e542946dfc75e7877d973a6dd51aab683331a6"
   },
@@ -91,9 +91,9 @@
     "released_hash": "sha256:4ef0dce4beb4562568d0d62daf0c78267eb4e94263b534673c31f991a39a6dde"
   },
   "cipp": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.4",
-    "latest_tag": "cipp-v0.1.3",
+    "latest_tag": "cipp-v0.1.4",
     "current_hash": "sha256:c5013925d425d484d98b3233d37e4733afd6e8aa181a895cc72b1e4aea741a50",
     "released_hash": "sha256:c5013925d425d484d98b3233d37e4733afd6e8aa181a895cc72b1e4aea741a50"
   },
