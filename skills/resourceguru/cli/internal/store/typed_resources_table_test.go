@@ -64,7 +64,12 @@
 //	    destroy data: a column holding a value is kept, per-column, even though
 //	    no released binary could have written one.
 //	10. TestSchemaVersion_MigratedStoreIsRefusedByAV4Binary - the bump is what
-//	    makes the repair durable, and the gate is really wired into Open.
+//	    makes the repair durable, and the gate is really wired into Open. Scope:
+//	    WRITE-CAPABLE opens, which is where backfillColumns lives.
+//	11. TestOpenReadOnly_RefusesAStoreNewerThanThisBinary - the read-only half of
+//	    that gate, which the released binaries do not have. Their read-only path
+//	    attaches to a v5 store unchecked; this build closes that going forward
+//	    without locking the reader out of its own or a pre-gate database.
 //
 // The reader-side receipts for `search --type resources` and for the
 // `resources_bookings` fan-out routing live in the sibling package, at
@@ -872,6 +877,15 @@ func TestMigrate_V4CatchAllProjectionKeepsPopulatedColumn(t *testing.T) {
 // gate is what prevents it: a v4 binary reads user_version 5, finds it newer
 // than the version it supports, and refuses.
 //
+// SCOPE. This receipt covers WRITE-CAPABLE opens, which is the scope that
+// matters for the repair: backfillColumns runs inside migrate(), and only
+// OpenWithContext calls it. In the released binaries the gate lives there too,
+// so their READ-ONLY opens attach to a v5 store unchecked - measured, not
+// assumed, with resourceguru-v0.1.1 built from its tag. That is bounded (mode=ro
+// runs no migration and no backfillColumns, so it cannot recreate the columns)
+// and it is stated on StoreSchemaVersion. The read-only half of the gate is
+// pinned by TestOpenReadOnly_RefusesAStoreNewerThanThisBinary below.
+//
 // Two halves, both needed. The first drives the gate with the older binary's
 // supported version against the version a store this binary creates actually
 // carries. The second proves the gate is really wired into Open, by presenting
@@ -938,4 +952,77 @@ func TestSchemaVersion_MigratedStoreIsRefusedByAV4Binary(t *testing.T) {
 	if !strings.Contains(err.Error(), "upgrade the CLI binary") {
 		t.Fatalf("Open error = %v, want the upgrade-the-binary message", err)
 	}
+}
+
+// TestOpenReadOnly_RefusesAStoreNewerThanThisBinary narrows and completes the
+// receipt above.
+//
+// The version gate the released binaries carry lives inside migrate(), and only
+// the write-capable OpenWithContext path calls it. Their read-only path attaches
+// without reading user_version at all, so "older binaries cannot open a migrated
+// store" was only ever true of write-capable opens - and READ is this
+// connector's dominant surface: every CLI read command goes through
+// openStoreForRead, and both MCP data tools (search, sql) go through
+// OpenReadOnly.
+//
+// Nothing can be done about the binaries already released; what they do to a v5
+// store is bounded and stated on StoreSchemaVersion (mode=ro runs no migration
+// and no backfillColumns, so they cannot recreate the dropped columns; they can
+// only read a schema they do not expect). This test pins the half that IS
+// fixable: from this build onwards a read-only open runs the same gate, so a
+// future client meeting a newer store fails clean.
+//
+// Three assertions, and each one is a way the fix could be wrong:
+//
+//   - A store one version newer is REFUSED, with the same upgrade-the-binary
+//     message the write path emits.
+//   - A store at this binary's own version still OPENS. A gate that locks the
+//     reader out of the databases its own writer creates is worse than no gate.
+//   - A pre-gate store at user_version 0 still OPENS. Read-only never stamps and
+//     never migrates, so an unstamped database has to remain readable.
+func TestOpenReadOnly_RefusesAStoreNewerThanThisBinary(t *testing.T) {
+	newStoreAt := func(t *testing.T, version int) string {
+		t.Helper()
+		path := filepath.Join(t.TempDir(), "data.db")
+		raw, err := sql.Open("sqlite", path)
+		if err != nil {
+			t.Fatalf("open raw: %v", err)
+		}
+		defer raw.Close()
+		if _, err := raw.Exec(`CREATE TABLE resources (
+			id TEXT NOT NULL,
+			resource_type TEXT NOT NULL,
+			data JSON NOT NULL,
+			synced_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY (resource_type, id)
+		)`); err != nil {
+			t.Fatalf("create catch-all: %v", err)
+		}
+		if _, err := raw.Exec(fmt.Sprintf(`PRAGMA user_version = %d`, version)); err != nil {
+			t.Fatalf("stamp user_version %d: %v", version, err)
+		}
+		return path
+	}
+
+	future, err := OpenReadOnly(newStoreAt(t, StoreSchemaVersion+1))
+	if err == nil {
+		future.Close()
+		t.Fatalf("OpenReadOnly accepted a store at user_version %d; the read-only path attaches to a future schema unchecked", StoreSchemaVersion+1)
+	}
+	if !strings.Contains(err.Error(), "upgrade the CLI binary") {
+		t.Fatalf("OpenReadOnly error = %v, want the upgrade-the-binary message", err)
+	}
+
+	current, err := OpenReadOnly(newStoreAt(t, StoreSchemaVersion))
+	if err != nil {
+		t.Fatalf("OpenReadOnly refused a store at its own version %d: %v", StoreSchemaVersion, err)
+	}
+	current.Close()
+
+	preGate, err := OpenReadOnly(newStoreAt(t, 0))
+	if err != nil {
+		t.Fatalf("OpenReadOnly refused a pre-gate store at user_version 0: %v", err)
+	}
+	preGate.Close()
 }

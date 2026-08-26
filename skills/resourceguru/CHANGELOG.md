@@ -26,16 +26,28 @@ All notable changes to this skill are documented here. Format follows
   Everything already synced is kept: the full record for every resource is stored as JSON in a
   column the repair never touches, and each column is checked to be empty before it is removed, so
   a column that somehow does hold a value is kept and reported rather than dropped. The repair also
-  raises the database format number, which means **version 0.1.1 and older can no longer open a
+  raises the database format number, which means **version 0.1.1 and older can no longer sync into a
   database this version has opened** - they would put the unused columns straight back. Older
   versions now say so and stop instead of doing that silently. Upgrade every machine that shares a
   database file.
+- **The version check now runs when the database is opened for reading, not only for writing.**
+  Version 0.1.1 and older check the database format number only on the read-write path, which is the
+  path that syncs. Their read-only path - every read command run with `--data-source local`, and the
+  MCP `search` and `sql` tools - attached to a newer database without checking and answered from it.
+  Nothing can change what an already-released version does, and what it does is limited: a read-only
+  connection runs no upgrade step, so it cannot put the removed columns back; the worst case is that
+  it reads a database shaped differently than it expects, where a query for one of the removed
+  columns now fails outright instead of returning empty values. From this version on, the read path
+  performs the same check and stops with the same upgrade message, so a future release cannot read a
+  database it does not understand. Databases created before the check existed still open normally.
 - **Local search for resources returned nothing from the resource-specific index.** With no detailed
   table there was no search index for resources at all, so the connector fell back to the
   general-purpose index. Resources have their own index again, and `search --type resources` now
   reads both it and the general one, so a database synced by an older version keeps answering
-  before its first re-sync. Results are matched up by resource id, so a resource whose two copies
-  have drifted apart is returned once, using the copy the rest of the connector reads.
+  before its first re-sync. Results are matched up by the identity the database actually stores for
+  each record - the resource id together with the account it belongs to - so a resource whose two
+  copies have drifted apart is returned once, using the copy the rest of the connector reads, while
+  two resources in different accounts that happen to share an id are both still returned.
 - The three lookup helpers that turn a resource type into a database table (used when syncing
   child records) now resolve `resources` to the detailed table rather than to the general one.
   This is hardening rather than a bug fix: nothing in this connector reaches those helpers with

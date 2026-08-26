@@ -48,8 +48,8 @@ func IsUUID(s string) bool {
 
 // StoreSchemaVersion is the on-disk schema version this binary understands.
 // It is stamped into SQLite's PRAGMA user_version on fresh databases and
-// checked on every open. Non-learn CLIs advance to v4 for the
-// resources_fts content extraction.
+// checked on every open, write-capable and read-only alike. Non-learn CLIs
+// advance to v4 for the resources_fts content extraction.
 //
 // v5 moves the typed `resources` projection off the generic catch-all table:
 // the typed table is now `accounts_resources`, and the 21 flattened columns
@@ -60,6 +60,26 @@ func IsUUID(s string) bool {
 // straight back onto the catch-all - damage a newer binary cannot detect,
 // because the columns look identical whether they were re-added yesterday or
 // never removed. The gate below turns that into a refusal to open.
+//
+// SCOPE OF THAT REFUSAL, stated precisely. In the released v0.1.0 / v0.1.1
+// binaries the gate runs only inside migrate(), which only the WRITE-CAPABLE
+// OpenWithContext path calls. Their read-only path (OpenReadOnlyContext, used
+// by every CLI read command via openStoreForRead and by the MCP search/sql
+// tools) attaches without reading user_version at all, so an already-released
+// binary still ATTACHES a v5 store read-only. The damage class is bounded and
+// worth naming exactly: a mode=ro handle runs no migration and no
+// backfillColumns, so it cannot recreate the dropped columns or re-pollute the
+// catch-all, which is the whole point of the bump. What it can do is read a
+// schema it does not expect - its `search --type resources` finds no
+// resources_fts rows for the typed shape it thinks exists, and any query it
+// aims at the old flattened columns on the catch-all now errors with
+// "no such column" instead of answering NULLs. Nothing silently regresses; an
+// old read-only client either answers from the catch-all JSON, which is
+// unchanged, or fails loudly.
+//
+// This binary closes that hole going FORWARD: OpenReadOnlyContext runs the same
+// schemaVersionUnsupported gate, so a client built from this code onwards meets
+// a newer store with a clean refusal rather than an unexpected schema.
 const StoreSchemaVersion = 5
 
 // resourcesFTSContentSchemaVersion pins the schema bump that rewrote
@@ -125,6 +145,19 @@ func OpenReadOnly(dbPath string) (*Store, error) {
 
 // OpenReadOnlyContext is OpenReadOnly with a caller-supplied context honored by
 // the driver-init SQLITE_BUSY retry.
+//
+// It runs the same schemaVersionUnsupported gate the write-capable path runs,
+// which the released v0.1.0 / v0.1.1 binaries do NOT: their gate lives inside
+// migrate(), and a read-only open never calls it. Hand-added; see
+// handfixes.json, record `typed-resources-table-parent-prefixed`. Without it
+// the "older binaries cannot open a migrated store" property held for
+// write-capable opens only, and every read path in this connector - the CLI
+// read commands through openStoreForRead, and the MCP search/sql tools -
+// attached to a future schema unchecked and answered from it.
+//
+// Read-only, so it never stamps and never migrates: a database that predates
+// the gate reports user_version 0, which is older-than-supported and passes.
+// Only a store NEWER than this binary understands is refused.
 func OpenReadOnlyContext(ctx context.Context, dbPath string) (*Store, error) {
 	dsn := "file:" + dbPath + "?mode=ro&_pragma=busy_timeout(5000)&_pragma=foreign_keys(ON)&_pragma=temp_store(MEMORY)&_pragma=mmap_size(268435456)"
 	if err := ensureSQLiteDriverInitialized(ctx, dsn); err != nil {
@@ -136,6 +169,22 @@ func OpenReadOnlyContext(ctx context.Context, dbPath string) (*Store, error) {
 		return nil, fmt.Errorf("opening database (read-only): %w", err)
 	}
 	db.SetMaxOpenConns(2)
+
+	// Share the migration budget's shape: a read concurrent with a writer's WAL
+	// checkpoint can BUSY even this PRAGMA, and failing the open on a transient
+	// lock would be worse than the gate it guards.
+	var current int
+	if err := retryOnBusy(ctx, time.Now().Add(migrationLockTimeout), "reading schema version (read-only)", func() error {
+		return db.QueryRowContext(ctx, `PRAGMA user_version`).Scan(&current)
+	}); err != nil {
+		db.Close()
+		return nil, err
+	}
+	if err := schemaVersionUnsupported(current, StoreSchemaVersion); err != nil {
+		db.Close()
+		return nil, err
+	}
+
 	return &Store{db: db, path: dbPath}, nil
 }
 
@@ -4804,6 +4853,95 @@ func (s *Store) SearchResources(query string, limit int) ([]json.RawMessage, err
 	return results, rows.Err()
 }
 
+// ResourceSearchHit pairs a search payload with the STORAGE IDENTITY of the row
+// it came from: the literal value in that row's `id` column.
+//
+// Hand-written; see handfixes.json, record
+// `typed-resources-table-parent-prefixed`.
+//
+// For `resources` the storage identity is deliberately composite.
+// resourceParentKeyColumns maps `resources` to `parent_id`, so resourceStorageID
+// builds the key as `<bare id>` + NUL + `<parent_id>` - Resource Guru scopes
+// resources to an account, and the same bare resource id can legitimately exist
+// under two of them. Both the catch-all row and the typed accounts_resources row
+// are keyed by that composite value, so it, and not the bare id, is what
+// identifies a record in this store. A union that dedups on the bare id
+// collapses two distinct account-scoped resources into one, and also collapses
+// two unrelated generic hits that merely happen to share a bare id.
+//
+// The identity is READ FROM THE ROW rather than re-derived from the payload.
+// Re-deriving would answer for this binary's derivation rules, not for the key
+// the row was actually written under, and a store synced by an older binary
+// carries whatever key that binary produced.
+type ResourceSearchHit struct {
+	StorageID string
+	Data      json.RawMessage
+}
+
+// SearchGenericResourceHits is Search(query, limit, resourceType) returning the
+// stored row identity alongside each payload. Hand-written; same ledger record
+// as ResourceSearchHit.
+func (s *Store) SearchGenericResourceHits(query string, limit int, resourceType string) ([]ResourceSearchHit, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	matchQuery := ftsMatchQuery(query)
+	if matchQuery == "" {
+		return nil, nil
+	}
+	rows, err := s.db.Query(
+		`SELECT r.id, r.data FROM resources r
+		 JOIN resources_fts f ON r.id = f.id AND r.resource_type = f.resource_type
+		 WHERE resources_fts MATCH ?
+		 AND r.resource_type = ?
+		 ORDER BY f.rank
+		 LIMIT ?`,
+		matchQuery, resourceType, limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanResourceSearchHits(rows)
+}
+
+// SearchTypedResourceHits is SearchResources returning the stored row identity
+// alongside each payload. Hand-written; same ledger record as
+// ResourceSearchHit.
+func (s *Store) SearchTypedResourceHits(query string, limit int) ([]ResourceSearchHit, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	matchQuery := ftsMatchQuery(query)
+	if matchQuery == "" {
+		return nil, nil
+	}
+	rows, err := s.db.Query(
+		`SELECT t.id, t.data FROM "accounts_resources" t
+		 JOIN "accounts_resources_fts" ON "accounts_resources_fts".rowid = t.rowid
+		 WHERE "accounts_resources_fts" MATCH ?
+		 ORDER BY "accounts_resources_fts".rank LIMIT ?`,
+		matchQuery, limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanResourceSearchHits(rows)
+}
+
+func scanResourceSearchHits(rows *sql.Rows) ([]ResourceSearchHit, error) {
+	var hits []ResourceSearchHit
+	for rows.Next() {
+		var id, data string
+		if err := rows.Scan(&id, &data); err != nil {
+			return nil, err
+		}
+		hits = append(hits, ResourceSearchHit{StorageID: id, Data: json.RawMessage(data)})
+	}
+	return hits, rows.Err()
+}
+
 func (s *Store) SaveSyncState(resourceType, cursor string, count int) error {
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -4857,13 +4995,27 @@ func (s *Store) GetSyncCursor(resourceType string) string {
 // whose typed table is parent-prefixed to `accounts_resources` because a bare
 // `resources` is the framework's own catch-all table.
 //
-// The sqlite_master lookups below resolve a resource type to a table by name.
-// Without this mapping `resources` resolves to the CATCH-ALL, so
-// `SELECT id FROM "resources"` hands the dependent fan-out every synced record
-// of every type as if it were a resource id - `resources_bookings` then fetches
-// /v1/{account}/resources/{id}/bookings for client, project and booking ids.
-// One line, applied at every resolve site, keeps the rename honest for the
-// readers as well as the writers.
+// typedTableName resolves a resource type to the name of its typed domain
+// table. Only `resources` differs from its own type name, because its typed
+// table is parent-prefixed (accounts_resources) to keep it off the framework's
+// generic catch-all.
+//
+// This is HARDENING, not a live-defect fix. The three sqlite_master resolve
+// sites it feeds (ListIDs, ListIDsScoped, ListField) are unreachable with
+// `resources` in this connector as it stands: their only caller is
+// dependentParentRows, and the one declaration whose parent table is
+// `resources` carries two path params, so it routes to ListFieldSets, which
+// reads the catch-all directly under `WHERE resource_type = ?` and performs no
+// type-to-table resolve at all. An earlier draft of this change claimed that
+// resolving `resources` to the catch-all handed the dependent fan-out every
+// synced record of every type; that was false, and
+// TestDependentParentRows_ResourcesFanOutIsTypeFiltered pins the real routing
+// so the correction cannot rot back into the claim.
+//
+// The mapping is kept so that a future dependent declaration, a reprint that
+// changes the fan-out shape, or any new caller that DOES reach those three
+// entry points with `resources` resolves to the typed table rather than to the
+// catch-all.
 func typedTableName(resourceType string) string {
 	if resourceType == "resources" {
 		return "accounts_resources"

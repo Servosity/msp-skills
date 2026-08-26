@@ -282,55 +282,69 @@ Run sync first to populate the local search index.`,
 // `db.SearchResources(query, limit)` call would silently drop every
 // pre-resync row from search, so the ledger asserts on this function by name.
 //
-// Dedup is by RESOURCE ID, not by raw JSON bytes. The two copies of one record
-// can legitimately differ: UpsertBatch writes the generic row unconditionally
-// and then attempts the typed projection inside a SAVEPOINT, so a typed-table
-// failure rolls the projection back to its previous value while the generic
-// row keeps the new one. Keying on bytes would return that record twice, with
-// the stale copy indistinguishable from a second resource.
+// Dedup is by the row's STORAGE IDENTITY, not by raw JSON bytes and not by the
+// bare resource id. Both wrong keys lose rows:
 //
-// Generic wins. The generic row is the store's durable copy: it is written
-// first, committed unconditionally, and is what `list`, `get` and `sql` read.
-// The typed projection is best-effort behind the savepoint, so whenever the
-// two disagree the typed one is the one that failed to keep up. Querying the
+//   - Raw bytes. The two copies of one record can legitimately differ.
+//     UpsertBatch writes the generic row unconditionally and then attempts the
+//     typed projection inside a SAVEPOINT, so a typed-table failure rolls the
+//     projection back to its previous value while the generic row keeps the new
+//     one. Keying on bytes returns that record twice, the stale copy
+//     indistinguishable from a second resource.
+//   - The bare resource id. The store keys `resources` on a COMPOSITE
+//     identity - resourceParentKeyColumns maps the type to `parent_id`, so
+//     resourceStorageID writes `<bare id>` + NUL + `<parent_id>` - because the
+//     same bare resource id can exist under two accounts. A bare-id key merges
+//     those two distinct resources into one, and merges any two generic hits
+//     that merely happen to share a bare id.
+//
+// So the store returns each hit's stored `id` column alongside its payload
+// (store.ResourceSearchHit) and this function keys on that. It is the row's own
+// primary key in both tables, which is what makes it authoritative: it is not
+// re-derived here, so it stays correct for rows written by an older binary.
+//
+// Generic wins for a true duplicate of the SAME composite identity. The generic
+// row is the store's durable copy: it is written first, committed
+// unconditionally, and is what `list`, `get` and the MCP `sql` tool read. The
+// typed projection is best-effort behind the savepoint, so whenever the two
+// disagree the typed one is the one that failed to keep up. Querying the
 // generic index first also preserves the row order shipped binaries already
 // produce, since v0.1.1's SearchResources delegated to the generic index.
 func searchResourcesUnion(db *store.Store, query string, limit int) ([]json.RawMessage, error) {
-	generic, err := db.Search(query, limit, "resources")
+	generic, err := db.SearchGenericResourceHits(query, limit, "resources")
 	if err != nil {
 		return nil, fmt.Errorf("search resources_fts failed: %w", err)
 	}
-	typed, err := db.SearchResources(query, limit)
+	typed, err := db.SearchTypedResourceHits(query, limit)
 	if err != nil {
 		return nil, fmt.Errorf("search resources failed: %w", err)
 	}
 
 	seen := make(map[string]bool, len(generic)+len(typed))
 	results := make([]json.RawMessage, 0, len(generic)+len(typed))
-	for _, batch := range [][]json.RawMessage{generic, typed} {
-		for _, r := range batch {
-			key := resourceSearchDedupKey(r)
+	for _, batch := range [][]store.ResourceSearchHit{generic, typed} {
+		for _, hit := range batch {
+			key := resourceSearchDedupKey(hit)
 			if seen[key] {
 				continue
 			}
 			seen[key] = true
-			results = append(results, r)
+			results = append(results, hit.Data)
 		}
 	}
 	return results, nil
 }
 
-// resourceSearchDedupKey identifies a `resources` search hit by its resource
-// id, falling back to the raw bytes when no id can be extracted - never
-// merging two records just because neither could be identified.
-func resourceSearchDedupKey(raw json.RawMessage) string {
-	obj, err := store.DecodeJSONObject(raw)
-	if err == nil {
-		if id := store.ExtractResourceID("resources", obj); id != "" {
-			return "id:" + id
-		}
+// resourceSearchDedupKey identifies a `resources` search hit by the storage
+// identity of the row it came from - the composite `<id>` + NUL + `<parent_id>`
+// key for an account-scoped resource, the bare id for one with no parent - and
+// falls back to the raw bytes when a row somehow carries no identity at all,
+// so two unidentifiable records are never merged into one.
+func resourceSearchDedupKey(hit store.ResourceSearchHit) string {
+	if hit.StorageID != "" {
+		return "key:" + hit.StorageID
 	}
-	return "raw:" + string(raw)
+	return "raw:" + string(hit.Data)
 }
 
 // outputSearchResults filters, counts, and outputs search results with provenance.
