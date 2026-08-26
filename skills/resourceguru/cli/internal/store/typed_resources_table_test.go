@@ -16,8 +16,10 @@
 // deleted the typed FTS triggers. That stopped the failing writes but left the
 // real defect: `backfillColumns` still added 21 flattened columns (name, email,
 // first_name, bookable, job_title, ...) plus five indexes to the CATCH-ALL, so
-// `resourceguru-cli sql "SELECT name, email FROM resources"` answered rows of
-// NULLs - a silent wrong answer - instead of erroring.
+// the MCP `sql` tool answered rows of NULLs for
+// `SELECT name, email FROM resources` - a silent wrong answer - instead of
+// erroring. (That tool is the connector's only arbitrary-SQL surface; the CLI
+// ships no `sql` command, and the MCP one opens the store read-only.)
 //
 // The fix parent-prefixes the typed table and its FTS shadow to
 // `accounts_resources` / `accounts_resources_fts` (the parent is the account
@@ -52,6 +54,21 @@
 //	    projection starts empty (it fills on the next resync).
 //	 6. TestOpen_BareTypedResourcesShapeIsRejected - the actual, unchanged
 //	    behaviour for the non-producible typed shape, pinned rather than hidden.
+//	 7. TestListIDs_ResourcesReadsTypedTableNotCatchAll - the three resolve sites
+//	    answer from the typed projection. Hardening, not a live-defect fix; see
+//	    the correction in that test's own comment.
+//	 8. TestMigrate_V4CatchAllProjectionIsDropped - the repair for stores v0.1.0
+//	    and v0.1.1 already polluted: the 20 added columns and the five projection
+//	    indexes come off the catch-all, its own two indexes and every row stay.
+//	 9. TestMigrate_V4CatchAllProjectionKeepsPopulatedColumn - the drop cannot
+//	    destroy data: a column holding a value is kept, per-column, even though
+//	    no released binary could have written one.
+//	10. TestSchemaVersion_MigratedStoreIsRefusedByAV4Binary - the bump is what
+//	    makes the repair durable, and the gate is really wired into Open.
+//
+// The reader-side receipts for `search --type resources` and for the
+// `resources_bookings` fan-out routing live in the sibling package, at
+// cli/internal/cli/typed_resources_reader_test.go.
 //
 // Evidence that a bare `resources` table carrying the TYPED shape is
 // unreachable from any released binary (verified 2026-08-26 against every state
@@ -188,8 +205,9 @@ func TestFreshDB_TypedResourcesProjectionIsSeparateFromCatchAll(t *testing.T) {
 
 // TestReopen_CatchAllResourcesKeepsGenericColumnsOnly pins the residual defect
 // this change removes. Before it, backfillColumns added all 21 flattened
-// columns to the catch-all, so `sql "SELECT name, email FROM resources"`
-// returned a row per synced record with every projected value NULL - a silent
+// columns to the catch-all, so the MCP `sql` tool answered
+// `SELECT name, email FROM resources` with a row per synced record and every
+// projected value NULL - a silent
 // wrong answer on the connector's headline resource. Selecting them now fails
 // loudly, which is the correct answer for a table that does not have them.
 //
@@ -537,15 +555,27 @@ func TestOpen_BareTypedResourcesShapeIsRejected(t *testing.T) {
 }
 
 // TestListIDs_ResourcesReadsTypedTableNotCatchAll is the reader-side receipt.
-// Renaming the typed table fixes the WRITE path, but every resource-type ->
-// table resolve site still had to learn the new name: ListIDs / ListIDsScoped /
-// ListField resolve a resource type to a table through sqlite_master, and a
-// bare `resources` resolves to the CATCH-ALL, which holds every synced record
-// of every type. The dependent fan-out for `resources_bookings` calls
-// ListIDs("resources"), so without typedTableName it fetches
-// /v1/{account}/resources/{id}/bookings once per client, project and booking id
-// in the store - wrong requests, and any id shared across types files another
-// resource's bookings under a resource.
+// Renaming the typed table fixes the WRITE path; every resource-type -> table
+// resolve site had to learn the new name too. ListIDs / ListIDsScoped /
+// ListField resolve a resource type to a table through sqlite_master, so a bare
+// `resources` resolved to the CATCH-ALL, which holds every synced record of
+// every type: `SELECT id FROM "resources"` answers client, project and booking
+// ids alongside resource ids. typedTableName makes all three resolve to the
+// typed projection instead.
+//
+// What this receipt does NOT claim, and an earlier draft of this comment
+// wrongly did: that this connector's `resources_bookings` fan-out was
+// contaminated. It was not, and it never could have been - see
+// TestDependentParentRows_ResourcesFanOutIsTypeFiltered in internal/cli, which
+// pins the actual routing. No caller in this connector reaches ListIDs,
+// ListIDsScoped or ListField with `resources` today. typedTableName is
+// hardening for those three entry points: it makes the resolve correct for any
+// caller that does reach them, so a later dependent declaration or a reprint
+// that changes the fan-out shape cannot silently inherit the catch-all.
+//
+// The assertions below are what the fix actually guarantees: each of the three
+// resolve sites, called with `resources`, answers from the typed projection and
+// not from the catch-all.
 func TestListIDs_ResourcesReadsTypedTableNotCatchAll(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "data.db")
 	s, err := Open(dbPath)
@@ -604,5 +634,308 @@ func TestListIDs_ResourcesReadsTypedTableNotCatchAll(t *testing.T) {
 	}
 	if len(scoped) != 1 {
 		t.Fatalf("ListIDsScoped(%q, \"\", \"\") returned %v, want 1 id", "resources", scoped)
+	}
+}
+
+// legacyV4CatchAllColumns is the on-disk shape a released resourceguru binary
+// (v0.1.0 / v0.1.1) leaves behind on its SECOND open: the generic catch-all's
+// own five columns plus every flattened column its backfillColumns ALTER-ed
+// onto that table. The fixture below is built from typedResourcesFlattenedColumns,
+// which is transcribed from the released backfill list, so it stays independent
+// of store.go's legacyCatchAllProjectionColumns - the list the migration drops.
+// If those two ever disagree, TestMigrate_V4CatchAllProjectionIsDropped fails.
+func legacyV4CatchAllColumns() []string {
+	cols := []string{"id", "resource_type", "data", "synced_at", "updated_at"}
+	for _, c := range typedResourcesFlattenedColumns {
+		if c == "updated_at" {
+			// Declared by the catch-all itself; not an added column.
+			continue
+		}
+		cols = append(cols, c)
+	}
+	return cols
+}
+
+// seedLegacyV4Store writes a database in exactly the state a released binary
+// leaves: the polluted catch-all, its two real indexes plus the five projection
+// indexes, one synced row per resource type, and user_version = 4.
+func seedLegacyV4Store(t *testing.T, dbPath string, extraRowSQL ...string) {
+	t.Helper()
+	raw, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("open raw: %v", err)
+	}
+	defer raw.Close()
+
+	create := `CREATE TABLE "resources" (
+		"id" TEXT NOT NULL,
+		"resource_type" TEXT NOT NULL,
+		"data" JSON NOT NULL,
+		"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+		"updated_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+		PRIMARY KEY ("resource_type", "id")
+	)`
+	if _, err := raw.Exec(create); err != nil {
+		t.Fatalf("create legacy catch-all: %v", err)
+	}
+	for _, col := range typedResourcesFlattenedColumns {
+		if col == "updated_at" {
+			continue
+		}
+		if _, err := raw.Exec(fmt.Sprintf(`ALTER TABLE "resources" ADD COLUMN %q TEXT`, col)); err != nil {
+			t.Fatalf("add legacy projection column %s: %v", col, err)
+		}
+	}
+	for _, stmt := range []string{
+		`CREATE INDEX idx_resources_type ON resources(resource_type)`,
+		`CREATE INDEX idx_resources_synced ON resources(synced_at)`,
+		`CREATE INDEX "idx_resources_creator_id" ON "resources"("creator_id")`,
+		`CREATE INDEX "idx_resources_user_id" ON "resources"("user_id")`,
+		`CREATE INDEX "idx_resources_created_at" ON "resources"("created_at")`,
+		`CREATE INDEX "idx_resources_updated_at" ON "resources"("updated_at")`,
+		`CREATE INDEX "idx_resources_parent_id" ON "resources"("parent_id")`,
+	} {
+		if _, err := raw.Exec(stmt); err != nil {
+			t.Fatalf("create legacy index (%s): %v", stmt, err)
+		}
+	}
+	for _, stmt := range append([]string{
+		`INSERT INTO "resources" (id, resource_type, data) VALUES ('res-1', 'resources', '{"id":"res-1","name":"Ada Lovelace","email":"ada@example.com"}')`,
+		`INSERT INTO "resources" (id, resource_type, data) VALUES ('client-1', 'clients', '{"id":"client-1","name":"Acme"}')`,
+	}, extraRowSQL...) {
+		if _, err := raw.Exec(stmt); err != nil {
+			t.Fatalf("seed legacy row (%s): %v", stmt, err)
+		}
+	}
+	if _, err := raw.Exec(fmt.Sprintf(`PRAGMA user_version = %d`, 4)); err != nil {
+		t.Fatalf("stamp user_version 4: %v", err)
+	}
+}
+
+func indexNamesOn(t *testing.T, db *sql.DB, table string) map[string]bool {
+	t.Helper()
+	rows, err := db.Query(`SELECT name FROM sqlite_master WHERE type='index' AND tbl_name=?`, table)
+	if err != nil {
+		t.Fatalf("list indexes on %s: %v", table, err)
+	}
+	defer rows.Close()
+	out := map[string]bool{}
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			t.Fatalf("scan index name: %v", err)
+		}
+		out[name] = true
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("list indexes on %s: %v", table, err)
+	}
+	return out
+}
+
+// TestMigrate_V4CatchAllProjectionIsDropped is the receipt for the residual
+// defect on ALREADY-RELEASED stores. Renaming the typed table stops NEW damage;
+// it does nothing for the databases v0.1.0 and v0.1.1 already polluted, where
+// `SELECT name FROM resources` keeps answering a row of NULLs per synced record
+// forever. The v4-to-v5 migration removes the 20 added columns and the five
+// projection indexes from the catch-all, so those stores answer the same way a
+// fresh install does.
+//
+// The fixture is the real legacy shape, not a stub: a two-row catch-all whose
+// rows must survive byte-identically, plus the catch-all's own idx_resources_type
+// and idx_resources_synced, which must NOT be dropped.
+func TestMigrate_V4CatchAllProjectionIsDropped(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	seedLegacyV4Store(t, dbPath)
+
+	s, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("open legacy v4 store: %v", err)
+	}
+	defer s.Close()
+
+	v, err := s.SchemaVersion()
+	if err != nil {
+		t.Fatalf("read schema version: %v", err)
+	}
+	if v != StoreSchemaVersion {
+		t.Fatalf("migrated version = %d, want %d", v, StoreSchemaVersion)
+	}
+
+	generic := tableColumnSet(t, s.DB(), "resources")
+	want := map[string]bool{"id": true, "resource_type": true, "data": true, "synced_at": true, "updated_at": true}
+	for col := range generic {
+		if !want[col] {
+			t.Fatalf("catch-all `resources` still carries %q after the v5 migration; SELECT %s FROM resources answers NULLs instead of erroring", col, col)
+		}
+	}
+	for col := range want {
+		if !generic[col] {
+			t.Fatalf("catch-all `resources` lost its own column %q", col)
+		}
+	}
+	if got, wantLen := len(generic), len(want); got != wantLen {
+		t.Fatalf("catch-all column count = %d, want %d: %v", got, wantLen, generic)
+	}
+	// Independence check: the fixture built 20 added columns from
+	// typedResourcesFlattenedColumns and all 20 are gone, so store.go's
+	// legacyCatchAllProjectionColumns covers the released backfill list exactly.
+	if got, wantLen := len(legacyV4CatchAllColumns()), len(want)+len(legacyCatchAllProjectionColumns); got != wantLen {
+		t.Fatalf("legacy fixture has %d columns but the migration drops %d + %d declared; the two lists disagree", got, len(legacyCatchAllProjectionColumns), len(want))
+	}
+
+	indexes := indexNamesOn(t, s.DB(), "resources")
+	for _, idx := range legacyCatchAllProjectionIndexes {
+		if indexes[idx] {
+			t.Fatalf("projection index %q still on the catch-all after the v5 migration", idx)
+		}
+	}
+	for _, idx := range []string{"idx_resources_type", "idx_resources_synced"} {
+		if !indexes[idx] {
+			t.Fatalf("the migration dropped the catch-all's own index %q", idx)
+		}
+	}
+
+	// Both rows survive byte-identically. The migration only ever touched the
+	// schema; the JSON payloads are the durable copy of every synced record.
+	for _, tc := range []struct{ resourceType, id, want string }{
+		{"resources", "res-1", `{"id":"res-1","name":"Ada Lovelace","email":"ada@example.com"}`},
+		{"clients", "client-1", `{"id":"client-1","name":"Acme"}`},
+	} {
+		data, err := s.Get(tc.resourceType, tc.id)
+		if err != nil {
+			t.Fatalf("get %s/%s after migration: %v", tc.resourceType, tc.id, err)
+		}
+		if string(data) != tc.want {
+			t.Fatalf("%s/%s payload = %s, want %s", tc.resourceType, tc.id, data, tc.want)
+		}
+	}
+
+	// The point of the whole exercise: the silent wrong answer is gone.
+	var name sql.NullString
+	if err := s.DB().QueryRow(`SELECT name FROM resources`).Scan(&name); err == nil {
+		t.Fatalf("SELECT name FROM resources still succeeds (name=%v) on a migrated legacy store", name)
+	} else if !strings.Contains(err.Error(), "no such column") {
+		t.Fatalf("SELECT name FROM resources error = %v, want a 'no such column' error", err)
+	}
+}
+
+// TestMigrate_V4CatchAllProjectionKeepsPopulatedColumn proves the drop cannot
+// destroy data, in the direction that matters.
+//
+// The claim justifying the DROP is that no released binary ever wrote one of
+// these columns: upsertResourcesTx is a no-op in both released tags, and the
+// only statement any released code ran against the catch-all is
+// upsertGenericResourceTx's INSERT over (id, resource_type, data, synced_at,
+// updated_at). Rather than trust that reasoning, the migration COUNTs each
+// column before dropping it. This test forces the branch the history says is
+// unreachable - a catch-all row with a non-NULL `name` - and requires the
+// column and its value to survive the upgrade.
+func TestMigrate_V4CatchAllProjectionKeepsPopulatedColumn(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	seedLegacyV4Store(t, dbPath,
+		`UPDATE "resources" SET "name" = 'hand written value' WHERE id = 'res-1'`)
+
+	s, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("open legacy v4 store with populated projection column: %v", err)
+	}
+	defer s.Close()
+
+	generic := tableColumnSet(t, s.DB(), "resources")
+	if !generic["name"] {
+		t.Fatalf("the migration dropped `name` from the catch-all even though it held data")
+	}
+	var got sql.NullString
+	if err := s.DB().QueryRow(`SELECT name FROM resources WHERE id = 'res-1'`).Scan(&got); err != nil {
+		t.Fatalf("select preserved value: %v", err)
+	}
+	if !got.Valid || got.String != "hand written value" {
+		t.Fatalf("preserved value = %v, want %q", got, "hand written value")
+	}
+	// Every column that really was empty still goes, so the guard is per-column
+	// rather than an all-or-nothing bail-out.
+	if generic["email"] {
+		t.Fatalf("the migration kept the empty column `email` because a DIFFERENT column held data")
+	}
+}
+
+// TestSchemaVersion_MigratedStoreIsRefusedByAV4Binary is the receipt for the
+// bump itself.
+//
+// Dropping the projection columns is only durable if the binaries that added
+// them can no longer open the store. resourceguru-v0.1.0 and v0.1.1 both carry
+// StoreSchemaVersion = 4 and both run backfillColumns unconditionally on every
+// open, so either of them opening a migrated store would ALTER all 21 columns
+// straight back onto the catch-all - damage this binary cannot detect, because
+// a re-added column and a never-dropped one are indistinguishable. The version
+// gate is what prevents it: a v4 binary reads user_version 5, finds it newer
+// than the version it supports, and refuses.
+//
+// Two halves, both needed. The first drives the gate with the older binary's
+// supported version against the version a store this binary creates actually
+// carries. The second proves the gate is really wired into Open, by presenting
+// THIS binary with a store one version newer than it understands.
+func TestSchemaVersion_MigratedStoreIsRefusedByAV4Binary(t *testing.T) {
+	const lastReleasedSupportedVersion = 4
+
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	s, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("open fresh db: %v", err)
+	}
+	stamped, err := s.SchemaVersion()
+	if err != nil {
+		s.Close()
+		t.Fatalf("read schema version: %v", err)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+	if stamped <= lastReleasedSupportedVersion {
+		t.Fatalf("a store created by this binary stamps user_version %d, which the released v%d binary accepts; the projection drop is not durable without a bump", stamped, lastReleasedSupportedVersion)
+	}
+
+	if err := schemaVersionUnsupported(stamped, lastReleasedSupportedVersion); err == nil {
+		t.Fatalf("the v%d version gate accepts a store at user_version %d", lastReleasedSupportedVersion, stamped)
+	} else if !strings.Contains(err.Error(), "upgrade the CLI binary") {
+		t.Fatalf("v%d gate error = %v, want the upgrade-the-binary message", lastReleasedSupportedVersion, err)
+	}
+	// The same gate must still admit a store at its own version, or the bump
+	// would lock this binary out of the databases it creates.
+	if err := schemaVersionUnsupported(stamped, StoreSchemaVersion); err != nil {
+		t.Fatalf("this binary's own gate rejects a store it stamped: %v", err)
+	}
+
+	// The gate is reachable through Open, not just callable in isolation.
+	futurePath := filepath.Join(t.TempDir(), "future.db")
+	raw, err := sql.Open("sqlite", futurePath)
+	if err != nil {
+		t.Fatalf("open raw: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE resources (
+		id TEXT NOT NULL,
+		resource_type TEXT NOT NULL,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		PRIMARY KEY (resource_type, id)
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create catch-all: %v", err)
+	}
+	if _, err := raw.Exec(fmt.Sprintf(`PRAGMA user_version = %d`, StoreSchemaVersion+1)); err != nil {
+		raw.Close()
+		t.Fatalf("stamp future version: %v", err)
+	}
+	raw.Close()
+
+	future, err := Open(futurePath)
+	if err == nil {
+		future.Close()
+		t.Fatalf("Open accepted a store at user_version %d; the version gate is not wired into Open", StoreSchemaVersion+1)
+	}
+	if !strings.Contains(err.Error(), "upgrade the CLI binary") {
+		t.Fatalf("Open error = %v, want the upgrade-the-binary message", err)
 	}
 }

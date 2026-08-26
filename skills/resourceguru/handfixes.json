@@ -144,10 +144,10 @@
   },
   {
    "id": "typed-resources-table-parent-prefixed",
-   "summary": "the typed domain table for the `resources` resource, and its FTS shadow, are named `accounts_resources` / `accounts_resources_fts` so they cannot collide with the framework's generic catch-all `resources` table; the full 21-column typed INSERT and the three FTS triggers are restored against those names, backfillColumns points at the typed table, and every resource-type-to-table resolve site goes through typedTableName",
-   "why": "Resource Guru exposes an API resource literally named `resources` - the connector's headline resource - and the press emitted its typed domain table under that exact bare name. The generic catch-all `CREATE TABLE IF NOT EXISTS resources (id, resource_type, data, ...)` is element [0] of the same migrations slice, so the typed `CREATE TABLE IF NOT EXISTS \"resources\"` silently no-opped and every typed write ran against the catch-all's column set. Same root cause as afi and rootly in PR #295, but a worse blast radius, because this connector's typed table carries 21 flattened columns rather than a lone parent key. The FIRST hand-fix only mitigated: it made upsertResourcesTx a no-op, deleted the typed FTS triggers, pointed SearchResources at the generic index and t.Skip-ed two generated tests. That stopped the failing writes but left the actual defect intact - backfillColumns still ALTER-ed name, email, first_name, bookable, color, job_title and 15 more onto the CATCH-ALL, so `resourceguru-cli sql \"SELECT name, email FROM resources\"` returned one row of NULLs per synced record instead of erroring: a silent wrong answer on the headline resource, measured at `err=<nil> name=NULL email=NULL`. The fix parent-prefixes both tables (the parent is `accounts`, matching this connector's own dependent declaration `{Name: \"resources\", ParentTable: \"accounts\", PathTemplate: \"/v1/{account}/resources\"}`, and matching the generator's existing disambiguation of `resources_bookings` / `clients_bookings`), restores the typed INSERT and the ai/ad/au triggers, and removes the mitigation. typedTableName is the reader-side half and is load bearing on its own: ListIDs, ListIDsScoped and ListField resolve a resource type to a table through sqlite_master, so a bare `resources` resolved to the CATCH-ALL, which holds every synced record of every type - the dependent fan-out for `resources_bookings` calls ListIDs(\"resources\") and would fetch /v1/{account}/resources/{id}/bookings once per client, project and booking id in the store. All five receipts in cli/internal/store/typed_resources_table_test.go were measured failing against the pre-fix store.go and passing after. Note that the reopen in TestReopen_CatchAllResourcesKeepsGenericColumnsOnly is load bearing: backfillColumns runs BEFORE the migrations slice and short-circuits on table-not-found, so a single-open version of that assertion passes while the defect is fully present - the same false-GREEN class PR #295 named when TestUpsertBatch_PopulatesResourcesTable counted the catch-all and called the empty typed projection healthy. Existing stores keep their stale catch-all columns (nullable and unread, no destructive migration warranted) and the typed projection fills on the next sync - the same posture PR #295 documented.",
+   "summary": "the typed domain table for the `resources` resource, and its FTS shadow, are named `accounts_resources` / `accounts_resources_fts` so they cannot collide with the framework's generic catch-all `resources` table; the full 21-column typed INSERT and the three FTS triggers are restored against those names, backfillColumns points at the typed table, StoreSchemaVersion is 5 and its v4-to-v5 migration drops the projection columns and indexes the old code left on the catch-all, every resource-type-to-table resolve site goes through typedTableName, and `search --type resources` goes through searchResourcesUnion, which unions the typed and generic indexes and dedups by resource id",
+   "why": "Resource Guru exposes an API resource literally named `resources` - the connector's headline resource - and the press emitted its typed domain table under that exact bare name. The generic catch-all `CREATE TABLE IF NOT EXISTS resources (id, resource_type, data, ...)` is element [0] of the same migrations slice, so the typed `CREATE TABLE IF NOT EXISTS \"resources\"` silently no-opped and every typed write ran against the catch-all's column set. Same root cause as afi and rootly in PR #295, but a worse blast radius, because this connector's typed table carries 21 flattened columns rather than a lone parent key. The FIRST hand-fix only mitigated: it made upsertResourcesTx a no-op, deleted the typed FTS triggers, pointed SearchResources at the generic index and t.Skip-ed two generated tests. That stopped the failing writes but left the actual defect intact - backfillColumns still ALTER-ed name, email, first_name, bookable, color, job_title and 15 more onto the CATCH-ALL, so the MCP `sql` tool answered `SELECT name, email FROM resources` with one row of NULLs per synced record instead of erroring (that tool is this connector's only arbitrary-SQL surface - the CLI ships no `sql` command, and the MCP tool opens the store read-only and allows SELECT / WITH only): a silent wrong answer on the headline resource, measured at `err=<nil> name=NULL email=NULL`. The fix parent-prefixes both tables (the parent is `accounts`, matching this connector's own dependent declaration `{Name: \"resources\", ParentTable: \"accounts\", PathTemplate: \"/v1/{account}/resources\"}`, and matching the generator's existing disambiguation of `resources_bookings` / `clients_bookings`), restores the typed INSERT and the ai/ad/au triggers, and removes the mitigation. SCHEMA BUMP AND REPAIR MIGRATION. Renaming the typed table only stops NEW pollution; the databases v0.1.0 and v0.1.1 already polluted would answer NULLs forever. StoreSchemaVersion moves 4 -> 5 and a `current < catchAllProjectionSchemaVersion` step drops the 20 added columns (all 21 except updated_at, which the catch-all declares itself) and the five projection indexes idx_resources_creator_id / _user_id / _created_at / _updated_at / _parent_id, leaving the catch-all's own idx_resources_type and idx_resources_synced alone. Dropping is safe because no released binary ever wrote one of those columns: upsertResourcesTx is a no-op in both released tags (git log returns exactly one content commit for store.go before this change, and the v0.1.0 / v0.1.1 blobs are byte-identical), and the only statement any released code ran against the catch-all is upsertGenericResourceTx's `INSERT INTO resources (id, resource_type, data, synced_at, updated_at)`; the columns were added by ALTER TABLE ADD COLUMN with no DEFAULT, so every row holds NULL. That analysis is not trusted - the migration COUNTs each column and keeps (with a stderr warning) any column that holds a value. The JSON catch-all rows are never touched. The BUMP is what makes the repair durable: a v4 binary runs backfillColumns unconditionally on every open and would ALTER all 21 columns straight back on, damage a newer binary cannot distinguish from never having repaired, so the version gate must refuse it. typedTableName is the reader-side half: ListIDs, ListIDsScoped and ListField resolve a resource type to a table through sqlite_master, so a bare `resources` resolved to the CATCH-ALL, which holds every synced record of every type. It is HARDENING, not a live-defect fix, and an earlier draft of this record claimed otherwise. CORRECTION: the `resources_bookings` fan-out does NOT call ListIDs(\"resources\") and never did. Its declaration carries two path params ({account, v1_id} and {id, id}), so dependentParentFields returns [\"id\", \"v1_id\"] and dependentParentRows routes to ListFieldSets, which reads the catch-all directly under `WHERE resource_type = ?` and performs no resource-type-to-table resolve at all. No caller in this connector reaches ListIDs / ListIDsScoped / ListField with `resources` today. The typedTableName mapping is kept because those three entry points must be correct for any future dependent declaration or reprint that does reach them, and TestDependentParentRows_ResourcesFanOutIsTypeFiltered pins the real routing so the correction cannot rot back into the false claim. SEARCH. searchResourcesUnion queries the generic index and the typed one and dedups by RESOURCE ID rather than by raw JSON bytes. Both halves are load bearing. The union: a store synced by an earlier binary has an empty typed table until its first resync, so a typed-only query answers zero rows for the headline resource. The id key: UpsertBatch commits the generic row unconditionally and then attempts the typed projection inside a SAVEPOINT, so a typed-table failure leaves a stale typed copy beside a fresh generic one and a byte-keyed dedup returns the same resource twice. Generic wins, because the generic row is the durable copy that list, get and sql read. RECEIPTS. Every receipt in cli/internal/store/typed_resources_table_test.go and cli/internal/cli/typed_resources_reader_test.go was measured failing against the code without its fix and passing with it. Note that the reopen in TestReopen_CatchAllResourcesKeepsGenericColumnsOnly is load bearing: backfillColumns runs BEFORE the migrations slice and short-circuits on table-not-found, so a single-open version of that assertion passes while the defect is fully present - the same false-GREEN class PR #295 named when TestUpsertBatch_PopulatesResourcesTable counted the catch-all and called the empty typed projection healthy. Existing stores keep every synced record (the full JSON lives in the catch-all's data column) and the typed projection fills on the next sync.",
    "status": "active",
-   "spec_encode_followup": "The generator already parent-prefixes a child whose bare name collides with a PARENT RESOURCE (`resources_bookings`, `clients_bookings`, `orgs_tenants`). The rule needs to cover the framework's own reserved table names too - `resources`, `resources_fts`, `sync_state` and any other table the store scaffold creates unconditionally - so a resource named after one of them is disambiguated at emit time instead of losing the CREATE-IF-NOT-EXISTS race. The reader side must move with it: whatever the press names the typed table, ListIDs / ListIDsScoped / ListField must resolve to that name rather than to the resource type, which is what typedTableName does by hand here. A generated populates-table test must also count the TYPED table, or it certifies the collision as healthy.",
+   "spec_encode_followup": "The generator already parent-prefixes a child whose bare name collides with a PARENT RESOURCE (`resources_bookings`, `clients_bookings`, `orgs_tenants`). The rule needs to cover the framework's own reserved table names too - `resources`, `resources_fts`, `sync_state` and any other table the store scaffold creates unconditionally - so a resource named after one of them is disambiguated at emit time instead of losing the CREATE-IF-NOT-EXISTS race. The reader side must move with it: whatever the press names the typed table, ListIDs / ListIDsScoped / ListField must resolve to that name rather than to the resource type, which is what typedTableName does by hand here. A generated populates-table test must also count the TYPED table, or it certifies the collision as healthy. Two further press-side items this connector had to solve by hand: a rename that changes the on-disk schema must come with a StoreSchemaVersion bump plus a migration that undoes what the old shape wrote, or older binaries silently re-apply the damage; and the generated `search --type X` union must dedup by resource id, not by raw JSON bytes, because UpsertBatch's savepoint lets the generic and typed copies of one record diverge.",
    "asserts": [
     {
      "file": "cli/internal/store/store.go",
@@ -238,6 +238,84 @@
     {
      "file": "cli/internal/store/schema_version_test.go",
      "not_contains": "t.Skip(\"resources/catch-all name collision makes the typed column-upgrade path void\")"
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "const StoreSchemaVersion = 5",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "func (s *Store) dropCatchAllResourcesProjection(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "if current < catchAllProjectionSchemaVersion {",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "const StoreSchemaVersion = 4"
+    },
+    {
+     "file": "cli/internal/cli/search.go",
+     "contains": "func searchResourcesUnion(db *store.Store, query string, limit int) ([]json.RawMessage, error) {",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/search.go",
+     "contains": "func resourceSearchDedupKey(raw json.RawMessage) string {",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/search.go",
+     "contains": "results, err = searchResourcesUnion(db, query, limit)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/search.go",
+     "contains": "generic, err := db.Search(query, limit, \"resources\")",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/search.go",
+     "contains": "if id := store.ExtractResourceID(\"resources\", obj); id != \"\" {",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/search.go",
+     "not_contains": "results, err = db.SearchResources(query, limit)"
+    },
+    {
+     "file": "cli/internal/cli/typed_resources_reader_test.go",
+     "contains": "func TestSearchResourcesUnion_DedupsDivergedCopiesByResourceID(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/typed_resources_reader_test.go",
+     "contains": "func TestSearchResourcesUnion_AnswersPreResyncStoresFromTheGenericIndex(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/typed_resources_reader_test.go",
+     "contains": "func TestDependentParentRows_ResourcesFanOutIsTypeFiltered(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/typed_resources_table_test.go",
+     "contains": "func TestMigrate_V4CatchAllProjectionIsDropped(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/typed_resources_table_test.go",
+     "contains": "func TestMigrate_V4CatchAllProjectionKeepsPopulatedColumn(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/typed_resources_table_test.go",
+     "contains": "func TestSchemaVersion_MigratedStoreIsRefusedByAV4Binary(",
+     "min_count": 1
     }
    ]
   },

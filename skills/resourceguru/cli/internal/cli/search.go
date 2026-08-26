@@ -138,38 +138,9 @@ Run sync first to populate the local search index.`,
 			case "reports":
 				results, err = db.SearchReports(query, limit)
 			case "resources":
-				// Union of the typed index and the generic one, deduped by
-				// raw JSON. Every other type here queries only its typed FTS
-				// because its typed table has always been populated. The
-				// typed table for `resources` is parent-prefixed
-				// (accounts_resources) because a bare `resources` is the
-				// framework's own catch-all, and on a store synced by an
-				// earlier binary it is created empty - a typed-only query
-				// would answer zero rows for the connector's headline
-				// resource until the operator re-syncs. Querying both keeps
-				// the answer right on either side of that resync.
-				seen := make(map[string]bool)
-				typed, searchErr := db.SearchResources(query, limit)
-				if searchErr != nil {
-					return fmt.Errorf("search resources failed: %w", searchErr)
-				}
-				for _, r := range typed {
-					key := string(r)
-					if !seen[key] {
-						seen[key] = true
-						results = append(results, r)
-					}
-				}
-				generic, searchErr := db.Search(query, limit, "resources")
-				if searchErr != nil {
-					return fmt.Errorf("search resources_fts failed: %w", searchErr)
-				}
-				for _, r := range generic {
-					key := string(r)
-					if !seen[key] {
-						seen[key] = true
-						results = append(results, r)
-					}
+				results, err = searchResourcesUnion(db, query, limit)
+				if err != nil {
+					return err
 				}
 			case "":
 				// Search every FTS-enabled source — typed per-resource tables
@@ -294,6 +265,72 @@ Run sync first to populate the local search index.`,
 	cmd.Flags().StringVar(&dbPath, "db", "", "SQLite database file path (default: resolved data directory data.db)")
 
 	return cmd
+}
+
+// searchResourcesUnion answers `search --type resources` from BOTH the typed
+// index and the generic one.
+//
+// Hand-written; see handfixes.json, record
+// `typed-resources-table-parent-prefixed`. Every other type in the switch above
+// queries only its typed FTS, because its typed table has always been
+// populated. The typed table for `resources` is parent-prefixed
+// (accounts_resources) because a bare `resources` is the framework's own
+// catch-all table, and on a store synced by an earlier binary it is created
+// EMPTY - a typed-only query would answer zero rows for this connector's
+// headline resource until the operator re-syncs. Querying both keeps the answer
+// right on either side of that resync. A reprint that restores the plain
+// `db.SearchResources(query, limit)` call would silently drop every
+// pre-resync row from search, so the ledger asserts on this function by name.
+//
+// Dedup is by RESOURCE ID, not by raw JSON bytes. The two copies of one record
+// can legitimately differ: UpsertBatch writes the generic row unconditionally
+// and then attempts the typed projection inside a SAVEPOINT, so a typed-table
+// failure rolls the projection back to its previous value while the generic
+// row keeps the new one. Keying on bytes would return that record twice, with
+// the stale copy indistinguishable from a second resource.
+//
+// Generic wins. The generic row is the store's durable copy: it is written
+// first, committed unconditionally, and is what `list`, `get` and `sql` read.
+// The typed projection is best-effort behind the savepoint, so whenever the
+// two disagree the typed one is the one that failed to keep up. Querying the
+// generic index first also preserves the row order shipped binaries already
+// produce, since v0.1.1's SearchResources delegated to the generic index.
+func searchResourcesUnion(db *store.Store, query string, limit int) ([]json.RawMessage, error) {
+	generic, err := db.Search(query, limit, "resources")
+	if err != nil {
+		return nil, fmt.Errorf("search resources_fts failed: %w", err)
+	}
+	typed, err := db.SearchResources(query, limit)
+	if err != nil {
+		return nil, fmt.Errorf("search resources failed: %w", err)
+	}
+
+	seen := make(map[string]bool, len(generic)+len(typed))
+	results := make([]json.RawMessage, 0, len(generic)+len(typed))
+	for _, batch := range [][]json.RawMessage{generic, typed} {
+		for _, r := range batch {
+			key := resourceSearchDedupKey(r)
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
+			results = append(results, r)
+		}
+	}
+	return results, nil
+}
+
+// resourceSearchDedupKey identifies a `resources` search hit by its resource
+// id, falling back to the raw bytes when no id can be extracted - never
+// merging two records just because neither could be identified.
+func resourceSearchDedupKey(raw json.RawMessage) string {
+	obj, err := store.DecodeJSONObject(raw)
+	if err == nil {
+		if id := store.ExtractResourceID("resources", obj); id != "" {
+			return "id:" + id
+		}
+	}
+	return "raw:" + string(raw)
 }
 
 // outputSearchResults filters, counts, and outputs search results with provenance.

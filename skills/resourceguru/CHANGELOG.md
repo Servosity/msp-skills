@@ -7,8 +7,9 @@ All notable changes to this skill are documented here. Format follows
 ## Unreleased
 
 ### Fixed
-- **`sql "SELECT name, email FROM resources"` answered a row of NULLs per synced resource instead
-  of the resource's name and email.** Resource Guru has an API resource literally named
+- **The `sql` tool answered a row of empty values per synced resource instead of the resource's
+  name and email.** Asking it for `SELECT name, email FROM resources` returned one row per record
+  with nothing in either column. Resource Guru has an API resource literally named
   `resources`, which is also the name of the local database's general-purpose table, so the
   detailed table the connector meant to build for resources was never created - the general one
   already had the name. The 21 detail columns (`name`, `email`, `first_name`, `bookable`,
@@ -18,14 +19,29 @@ All notable changes to this skill are documented here. Format follows
   collection belongs to, the same way `resources_bookings` and `clients_bookings` already are - and
   it is filled on every sync. Querying those columns on the general `resources` table now reports
   that they do not exist.
-- **Local search for resources, and offline lookups of a resource's bookings, returned the wrong
-  rows.** With no detailed table there was no search index for resources, and the code that finds a
-  resource's id was reading the general table, which holds every synced record of every kind - so
-  the bookings lookup was fed client and project ids as if they were resource ids. Resources have
-  their own search index again, and id lookups read the detailed table.
-- Existing databases keep working and keep everything already synced; the detailed table starts
-  empty and fills on the next `sync`. The unused columns on the general table are left in place -
-  they are empty and nothing reads them, so removing them would risk data for no gain.
+- **Databases created by 0.1.0 and 0.1.1 are repaired on the next open, not just going forward.**
+  The previous fix stopped new databases from being polluted but left every existing one answering
+  empty values forever. Opening an existing database now removes those 20 unused columns and their
+  five indexes from the general table, so it answers exactly the way a fresh install does.
+  Everything already synced is kept: the full record for every resource is stored as JSON in a
+  column the repair never touches, and each column is checked to be empty before it is removed, so
+  a column that somehow does hold a value is kept and reported rather than dropped. The repair also
+  raises the database format number, which means **version 0.1.1 and older can no longer open a
+  database this version has opened** - they would put the unused columns straight back. Older
+  versions now say so and stop instead of doing that silently. Upgrade every machine that shares a
+  database file.
+- **Local search for resources returned nothing from the resource-specific index.** With no detailed
+  table there was no search index for resources at all, so the connector fell back to the
+  general-purpose index. Resources have their own index again, and `search --type resources` now
+  reads both it and the general one, so a database synced by an older version keeps answering
+  before its first re-sync. Results are matched up by resource id, so a resource whose two copies
+  have drifted apart is returned once, using the copy the rest of the connector reads.
+- The three lookup helpers that turn a resource type into a database table (used when syncing
+  child records) now resolve `resources` to the detailed table rather than to the general one.
+  This is hardening rather than a bug fix: nothing in this connector reaches those helpers with
+  `resources` today, because the bookings-per-resource sync reads the general table directly and
+  filters by record type. An earlier draft of this entry said that sync was being handed client and
+  project ids; that was wrong, and a test now pins the real behaviour so the correction stays true.
 - **The credential-precedence tests were skipped, so nothing was watching which secret goes on the
   wire.** The four tests that pin the order - a saved credentials file beats an old secret left in
   `config.toml`, a corrupt credentials file falls back to that config and then to the environment,

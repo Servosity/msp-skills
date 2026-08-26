@@ -50,13 +50,29 @@ func IsUUID(s string) bool {
 // It is stamped into SQLite's PRAGMA user_version on fresh databases and
 // checked on every open. Non-learn CLIs advance to v4 for the
 // resources_fts content extraction.
-const StoreSchemaVersion = 4
+//
+// v5 moves the typed `resources` projection off the generic catch-all table:
+// the typed table is now `accounts_resources`, and the 21 flattened columns
+// plus five indexes the old code ALTER-ed onto the catch-all are dropped from
+// it by catchAllProjectionSchemaVersion's migration. The bump is load-bearing,
+// not cosmetic. Without it a v4 binary (resourceguru-v0.1.0 / v0.1.1) opening
+// a migrated store would run its own backfillColumns and ALTER all 21 columns
+// straight back onto the catch-all - damage a newer binary cannot detect,
+// because the columns look identical whether they were re-added yesterday or
+// never removed. The gate below turns that into a refusal to open.
+const StoreSchemaVersion = 5
 
 // resourcesFTSContentSchemaVersion pins the schema bump that rewrote
 // resources_fts content from raw JSON to searchable leaf values. Keep this
 // separate from StoreSchemaVersion so future unrelated migrations do not
 // trigger an expensive full FTS rebuild.
 const resourcesFTSContentSchemaVersion = 4
+
+// catchAllProjectionSchemaVersion pins the schema bump that removed the typed
+// `resources` projection columns and indexes from the generic catch-all table.
+// Separate from StoreSchemaVersion for the same reason as the FTS constant: a
+// later unrelated bump must not re-run this sweep.
+const catchAllProjectionSchemaVersion = 5
 
 const resourcesFTSCreateSQL = `CREATE VIRTUAL TABLE IF NOT EXISTS resources_fts USING fts5(
 	id, resource_type, content, tokenize='porter unicode61'
@@ -503,9 +519,9 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		// account the collection hangs off (/v1/{account}/resources).
 		// These backfills MUST name the typed table too. Pointed at the
 		// catch-all they add 21 columns nothing ever populates, so
-		// `sql "SELECT name, email FROM resources"` answers a row of NULLs
-		// per synced record instead of erroring - a silent wrong answer on
-		// the connector's headline resource.
+		// the MCP `sql` tool answers `SELECT name, email FROM resources`
+		// with a row of NULLs per synced record instead of erroring - a
+		// silent wrong answer on the connector's headline resource.
 		{table: "accounts_resources", column: "archived", decl: "INTEGER"},
 		{table: "accounts_resources", column: "bookable", decl: "INTEGER"},
 		{table: "accounts_resources", column: "color", decl: "TEXT"},
@@ -623,8 +639,8 @@ func (s *Store) migrate(ctx context.Context) error {
 	}); err != nil {
 		return err
 	}
-	if current > StoreSchemaVersion {
-		return fmt.Errorf("database schema version %d is newer than supported version %d; upgrade the CLI binary or open an older database", current, StoreSchemaVersion)
+	if err := schemaVersionUnsupported(current, StoreSchemaVersion); err != nil {
+		return err
 	}
 
 	migrations := []string{
@@ -1318,8 +1334,8 @@ func (s *Store) migrate(ctx context.Context) error {
 		if err := conn.QueryRowContext(ctx, `PRAGMA user_version`).Scan(&current); err != nil {
 			return fmt.Errorf("reading schema version: %w", err)
 		}
-		if current > StoreSchemaVersion {
-			return fmt.Errorf("database schema version %d is newer than supported version %d; upgrade the CLI binary or open an older database", current, StoreSchemaVersion)
+		if err := schemaVersionUnsupported(current, StoreSchemaVersion); err != nil {
+			return err
 		}
 
 		if current < 2 {
@@ -1330,6 +1346,14 @@ func (s *Store) migrate(ctx context.Context) error {
 		if current == 2 {
 			if err := s.migrateResourcesFTSRowIDs(ctx, conn); err != nil {
 				return fmt.Errorf("migrating resources FTS rowids: %w", err)
+			}
+		}
+		// Runs before backfillColumns so the catch-all is clean before the
+		// index statements later in the slice run against it. backfillColumns
+		// now names accounts_resources, so nothing puts these columns back.
+		if current < catchAllProjectionSchemaVersion {
+			if err := s.dropCatchAllResourcesProjection(ctx, conn); err != nil {
+				return fmt.Errorf("dropping catch-all resources projection: %w", err)
 			}
 		}
 
@@ -1360,6 +1384,149 @@ func (s *Store) migrate(ctx context.Context) error {
 		}
 		return nil
 	})
+}
+
+// schemaVersionUnsupported is the version gate every open runs, twice: once
+// before the migration lock and once inside it. It is a named function rather
+// than an inline comparison so a test can drive it with the version an OLDER
+// released binary supported and prove that binary refuses a store this one
+// has migrated. Callers pass StoreSchemaVersion as supported.
+func schemaVersionUnsupported(current, supported int) error {
+	if current <= supported {
+		return nil
+	}
+	return fmt.Errorf("database schema version %d is newer than supported version %d; upgrade the CLI binary or open an older database", current, supported)
+}
+
+// catchAllGenericColumns is the generic catch-all `resources` table's own
+// declared shape. Anything else on that table is projection debris from the
+// pre-v5 backfill, and only names outside this set are eligible to be dropped.
+var catchAllGenericColumns = map[string]bool{
+	"id":            true,
+	"resource_type": true,
+	"data":          true,
+	"synced_at":     true,
+	"updated_at":    true,
+}
+
+// legacyCatchAllProjectionColumns is the flattened `resources` projection the
+// pre-v5 backfillColumns ALTER-ed onto the generic catch-all table, minus
+// `updated_at`, which the catch-all declares itself and which must survive.
+var legacyCatchAllProjectionColumns = []string{
+	"archived",
+	"bookable",
+	"color",
+	"created_at",
+	"creator_id",
+	"email",
+	"first_name",
+	"human",
+	"image",
+	"job_title",
+	"last_name",
+	"last_updated_by",
+	"minutes_per_day",
+	"name",
+	"notes",
+	"phone",
+	"url",
+	"user_id",
+	"vacation_allowance",
+	"parent_id",
+}
+
+// legacyCatchAllProjectionIndexes is the five indexes the pre-v5 migrations
+// slice created over those columns on the catch-all. SQLite refuses DROP
+// COLUMN while an index covers the column, so these go first. All five are
+// projection debris: the catch-all's own indexes are idx_resources_type and
+// idx_resources_synced, which this list deliberately does not touch.
+var legacyCatchAllProjectionIndexes = []string{
+	"idx_resources_creator_id",
+	"idx_resources_user_id",
+	"idx_resources_created_at",
+	"idx_resources_updated_at",
+	"idx_resources_parent_id",
+}
+
+// dropCatchAllResourcesProjection removes the flattened `resources` projection
+// columns and their indexes from the GENERIC catch-all table. It runs once, on
+// the v4-to-v5 upgrade.
+//
+// Why it is safe to drop rather than merely stop adding: no released binary has
+// ever written a value into any of these columns. `upsertResourcesTx` is a
+// no-op in both resourceguru-v0.1.0 and resourceguru-v0.1.1 (the two blobs are
+// byte-identical, and git log returns exactly one content commit for store.go
+// before this change), and the only statement any released code ever ran
+// against the catch-all is upsertGenericResourceTx's
+// `INSERT INTO resources (id, resource_type, data, synced_at, updated_at)`.
+// The columns were created by ALTER TABLE ADD COLUMN with no DEFAULT, so every
+// row holds NULL in all of them.
+//
+// That analysis is asserted at runtime rather than trusted: each column is
+// dropped only after a COUNT proves it holds no non-NULL value. A column that
+// somehow does carry data is KEPT and named on stderr, so the migration cannot
+// destroy a value under any history this reasoning failed to anticipate. The
+// JSON catch-all rows themselves are never touched.
+func (s *Store) dropCatchAllResourcesProjection(ctx context.Context, conn *sql.Conn) error {
+	exists, err := tableExists(ctx, conn, "resources")
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return nil
+	}
+
+	// Only ever operate on the genuine catch-all. A `resources` table without
+	// resource_type is the typed shape, which no released binary can produce
+	// and which the migrations slice rejects loudly a few statements later.
+	present := map[string]bool{}
+	rows, err := conn.QueryContext(ctx, `SELECT name FROM pragma_table_info('resources')`)
+	if err != nil {
+		return fmt.Errorf("reading catch-all columns: %w", err)
+	}
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			rows.Close()
+			return fmt.Errorf("scanning catch-all columns: %w", err)
+		}
+		present[name] = true
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return fmt.Errorf("reading catch-all columns: %w", err)
+	}
+	rows.Close()
+	if !present["resource_type"] {
+		return nil
+	}
+
+	for _, idx := range legacyCatchAllProjectionIndexes {
+		if _, err := conn.ExecContext(ctx, fmt.Sprintf(`DROP INDEX IF EXISTS %q`, idx)); err != nil {
+			return fmt.Errorf("dropping catch-all projection index %s: %w", idx, err)
+		}
+	}
+
+	for _, col := range legacyCatchAllProjectionColumns {
+		if catchAllGenericColumns[col] || !present[col] {
+			continue
+		}
+		quoted := `"` + strings.ReplaceAll(col, `"`, `""`) + `"`
+		var populated int
+		if err := conn.QueryRowContext(ctx,
+			fmt.Sprintf(`SELECT COUNT(*) FROM "resources" WHERE %s IS NOT NULL`, quoted),
+		).Scan(&populated); err != nil {
+			return fmt.Errorf("checking catch-all column %s for data: %w", col, err)
+		}
+		if populated > 0 {
+			fmt.Fprintf(os.Stderr, "warning: leaving column %q on the generic resources table: it holds %d non-NULL values and no released binary should ever have written one; report this database\n", col, populated)
+			continue
+		}
+		if _, err := conn.ExecContext(ctx, fmt.Sprintf(`ALTER TABLE "resources" DROP COLUMN %s`, quoted)); err != nil {
+			return fmt.Errorf("dropping catch-all projection column %s: %w", col, err)
+		}
+	}
+	return nil
 }
 
 func (s *Store) migrateResourcesCompositeKey(ctx context.Context, conn *sql.Conn) error {
