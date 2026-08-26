@@ -241,7 +241,7 @@
     "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "liongard-v0.1.1",
-    "current_hash": "sha256:f19aefcb70e302db877411bda018044eb4e8423f56f3a1bf4ffb4ace1b76fc8a",
+    "current_hash": "sha256:fb17690201a34df5522a149b5af1008661ae72d38a8441b4c22e01dc787e834f",
     "released_hash": "sha256:ed0463dd9dcba473433d8b24fef40ee75c77535be811441f8d548d411dfe50b1"
   },
   "maxio": {
@@ -332,14 +332,14 @@
     "state": "binary-pending",
     "version": "0.1.6",
     "latest_tag": "quickbooks-v0.1.6",
-    "current_hash": "sha256:79022f8ce29dcffa7c5531bf15991b273b99c86294a630257a826cbbece9e0ed",
+    "current_hash": "sha256:034bdaa03a2aab7e1f2adeff95c3b80851651e567e37f3b26a5bccb4d9840ffc",
     "released_hash": "sha256:db39a5954993f9437f9d3b6bd668d12f3b33e88de006ec78bc5ba23280d8ba73"
   },
   "resourceguru": {
     "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "resourceguru-v0.1.1",
-    "current_hash": "sha256:65701f64288e776165f958fdfef4cc3fc7624f6b024fe9567f259004db281599",
+    "current_hash": "sha256:8eafd76753b0c9ce85e81d233e7a867f42018463505bac16c3c1f342c82533a1",
     "released_hash": "sha256:a18c5e6317cc3c621bba7cace80d4f7c5244cb9d7d77c39e352169188d7f498c"
   },
   "rewst": {
@@ -451,7 +451,7 @@
     "state": "binary-pending",
     "version": "0.1.2",
     "latest_tag": "wordpress-v0.1.2",
-    "current_hash": "sha256:f99924cfdf474ba531fdcc131028cfa1b0142274ded925b92a0358838ecb8759",
+    "current_hash": "sha256:f53014e5d2ad5f49ec229c3a0aebe9ee331b72db57082f2f4a384caff9edaf5d",
     "released_hash": "sha256:2699d9a7eb9c0ef1858ead2360e2ffe830db28ad83a29e98c483ced75be3a76e"
   },
   "xero": {
