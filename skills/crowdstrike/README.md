@@ -46,7 +46,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download CrowdStrike MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/crowdstrike-v0.1.1/crowdstrike-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every CrowdStrike release on the [releases page](https://github.com/servosity/msp-skills/releases?q=crowdstrike).)
+[**Download CrowdStrike MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/crowdstrike-v0.1.2/crowdstrike-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every CrowdStrike release on the [releases page](https://github.com/servosity/msp-skills/releases?q=crowdstrike).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
