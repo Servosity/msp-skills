@@ -4,6 +4,18 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## Unreleased
+
+### Fixed
+- **Two `who` tests depended on a hard-coded date still being in the future.** The command's
+  "last activity" and "next activity" are both measured against the current time. One test
+  seeded a completed activity dated `2099-01-01` to prove a future-dated one must not be
+  reported as the most recent; in 2099 that row becomes the newest *past* activity, wins, and
+  the test asserts the opposite of what it is named for. The other seeded an open follow-up
+  dated `2030-01-01` and expected it as "next activity"; in 2030 there is no next activity left.
+  Both dates are now computed from the clock, so the relationship each test is about holds on
+  any run date. No shipped behaviour changed - the command was correct throughout.
+
 ## [0.1.1] - 2026-08-26
 
 ### Fixed

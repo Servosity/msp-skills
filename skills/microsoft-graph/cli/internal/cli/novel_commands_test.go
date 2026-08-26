@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -65,13 +66,19 @@ func seedStore(t *testing.T) string {
 		t.Fatal(err)
 	}
 
-	// security alert (open, high)
-	if err := st.UpsertSecurity(mustJSON(map[string]any{"id": "a1", "title": "Suspicious sign-in", "severity": "high", "status": "new", "serviceSource": "microsoftDefenderForEndpoint", "createdDateTime": "2099-01-01T00:00:00Z"})); err != nil {
+	// Both time-sensitive fixtures below mean "an hour ago", and are derived
+	// from the clock so they keep meaning that on every run date. They used
+	// to be written as the literal 2099-01-01, which stands in for "recent"
+	// only while the calendar is short of it.
+	recent := time.Now().UTC().Add(-time.Hour).Format(time.RFC3339)
+
+	// security alert (open, high, raised inside any reasonable look-back)
+	if err := st.UpsertSecurity(mustJSON(map[string]any{"id": "a1", "title": "Suspicious sign-in", "severity": "high", "status": "new", "serviceSource": "microsoftDefenderForEndpoint", "createdDateTime": recent})); err != nil {
 		t.Fatal(err)
 	}
 
-	// managed device: noncompliant + unencrypted
-	if err := st.UpsertManagedDevices(mustJSON(map[string]any{"id": "d1", "deviceName": "LAPTOP-1", "userPrincipalName": "ex@contoso.com", "complianceState": "noncompliant", "isEncrypted": false, "lastSyncDateTime": "2099-01-01T00:00:00Z"})); err != nil {
+	// managed device: recently checked in, but noncompliant + unencrypted
+	if err := st.UpsertManagedDevices(mustJSON(map[string]any{"id": "d1", "deviceName": "LAPTOP-1", "userPrincipalName": "ex@contoso.com", "complianceState": "noncompliant", "isEncrypted": false, "lastSyncDateTime": recent})); err != nil {
 		t.Fatal(err)
 	}
 
@@ -138,8 +145,8 @@ func TestAdminsAuditCommand(t *testing.T) {
 }
 
 func TestSecurityTriageCommand(t *testing.T) {
-	// The fixture alert is dated in 2099, so it is "fresh" relative to any
-	// look-back window (since = now - window is always before it).
+	// The fixture alert is seeded an hour ago, so it sits inside the 24h
+	// look-back on any run date (since = now-24h is always before now-1h).
 	out := runNovel(t, seedStore(t), newNovelSecurityTriageCmd, "--since", "24h")
 	if !strings.Contains(out, "Suspicious sign-in") || !strings.Contains(out, "high") {
 		t.Errorf("expected open high-severity alert in triage, got: %s", out)
@@ -150,6 +157,12 @@ func TestManagedDevicesDriftCommand(t *testing.T) {
 	out := runNovel(t, seedStore(t), newNovelManagedDevicesDriftCmd, "--days", "1")
 	if !strings.Contains(out, "LAPTOP-1") || !strings.Contains(out, "noncompliant") || !strings.Contains(out, "unencrypted") {
 		t.Errorf("expected drifted device with noncompliant+unencrypted reasons, got: %s", out)
+	}
+	// The device checked in an hour ago, so it must NOT also be flagged
+	// stale against a 1-day window. Pinning the absence keeps the seeded
+	// sync time load-bearing rather than decorative.
+	if strings.Contains(out, `"stale"`) {
+		t.Errorf("device synced an hour ago must not be flagged stale, got: %s", out)
 	}
 }
 

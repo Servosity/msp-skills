@@ -126,6 +126,27 @@
      "min_count": 1
     }
    ]
+  },
+  {
+   "id": "changes-future-window-relative-to-today",
+   "summary": "TestNovelChangesCommand derives its empty-window --since from the clock (now + 1 year) instead of the literal 2030-01-01, so 'a window later than every fixture' stays true on any run date",
+   "why": "This is the same class of TEST defect that PR #300 fixed in quickbooks, found by that PR's fleet-wide sweep of every YYYY-MM-DD literal under skills/*/cli/internal/**/*_test.go and reported-but-not-fixed there. The command under test reads the wall clock; the fixture pinned an absolute date. That pairing is only true until the calendar reaches the literal, at which point the assertion inverts and the test fails on the date rather than on a code change. Concretely: `changes --since` is parsed against time.Now() and filters records whose updated-at is before the window, and seedITGStore seeds its timestamped records at now-24h (recentRFC3339). The test asserted that `--since 2030-01-01` matches nothing. On 2030-01-01 that literal stops being a future boundary; every seeded record then sits at or after it and the assertion `len(rows2) != 0` fires. The fix computes the boundary as time.Now().UTC().AddDate(1, 0, 0), which is later than the newest fixture (now-24h) by construction on every possible run date and in every time zone - the margin is a year against a maximum UTC-vs-local skew of 14 hours. Proven both directions through the real Cobra command, not by inspection: driving the same command with a boundary in the past (the post-2030 equivalent of the old literal) returns 8 rows, so the old assertion FAILS; driving it with the new clock-derived boundary returns 0 rows and PASSES. A date-independence check that cannot fail on the broken fixture proves nothing, so the failing direction was run first.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: the acceptance/novel test templates should never emit an absolute date literal whose truth depends on the calendar not having reached it. A fixture that means 'in the future' or 'recently' must be rendered as an offset from a single clock read, the way this fix does it. Same retro as the quickbooks novel-acceptance-fixtures-relative-to-today entry. File via /printing-press-retro.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/changes_test.go",
+     "contains": "future := time.Now().UTC().AddDate(1, 0, 0).Format(\"2006-01-02\")"
+    },
+    {
+     "file": "cli/internal/cli/changes_test.go",
+     "contains": "runITGCmd(t, \"changes\", \"--since\", future, \"--json\")"
+    },
+    {
+     "file": "cli/internal/cli/changes_test.go",
+     "not_contains": "\"--since\", \"2030-01-01\""
+    }
+   ]
   }
  ]
 }

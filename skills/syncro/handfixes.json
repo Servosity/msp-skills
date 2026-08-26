@@ -141,6 +141,28 @@
      "min_count": 1
     }
    ]
+  },
+  {
+   "id": "customers-profile-alert-fixture-relative-to-today",
+   "summary": "TestCustomersProfileCard seeds its RMM alert at now-1h inside a normal 7d window instead of the literal 2026-06-05 held in range by a ten-year --alert-window",
+   "why": "This is the same class of TEST defect that PR #300 fixed in quickbooks, found by that PR's fleet-wide sweep of every YYYY-MM-DD literal under skills/*/cli/internal/**/*_test.go and reported-but-not-fixed there. The command under test reads the wall clock; the fixture pinned an absolute date. That pairing is only true until the calendar reaches the literal, at which point the assertion inverts and the test fails on the date rather than on a code change. customers profile counts RMM alerts newer than cutoff = time.Now() - alert-window. The test seeded an alert at 2026-06-05 and stretched --alert-window to 3650d so it would stay in range - which buys ten years of runway and no more. Around 2036-06-05 the alert ages out, alert_count_window drops to 0, and the assertion fires. The ten-year window was also a tell that the literal, not the behaviour, was driving the flag value: nothing about the command needs a decade of look-back. The fix seeds the alert from the clock at now-1h and restores an ordinary 7d window, which exercises the cutoff filter on a realistic value and holds on any run date. This matches the sibling test in the same file, TestCustomersProfileSelectAndCaps, which already seeds its in-window alert relatively and keeps an absolute 2020 literal only for the out-of-window case (a past date that only gets more out-of-window as the calendar advances, so it never rots). The remaining absolute ticket created_at literals in this test are safe: they drive newest-first ordering among themselves and are never compared against now. Proven both directions through the real Cobra command: an alert aged past the 3650d window (the post-2036 equivalent) yields alert_count_window=0 and the assertion FAILS; the clock-derived alert yields 1 and PASSES.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: the acceptance/novel test templates should never emit an absolute date literal whose truth depends on the calendar not having reached it. A fixture that means 'in the future' or 'recently' must be rendered as an offset from a single clock read, the way this fix does it. Same retro as the quickbooks novel-acceptance-fixtures-relative-to-today entry. File via /printing-press-retro.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/customers_profile_test.go",
+     "contains": "// The alert is seeded relative to the clock so it stays inside the"
+    },
+    {
+     "file": "cli/internal/cli/customers_profile_test.go",
+     "contains": "\"created_at\": time.Now().UTC().Add(-time.Hour).Format(time.RFC3339)",
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/cli/customers_profile_test.go",
+     "not_contains": "2026-06-05T08:00:00Z"
+    }
+   ]
   }
  ]
 }

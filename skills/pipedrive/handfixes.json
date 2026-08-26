@@ -150,6 +150,35 @@
      "min_count": 1
     }
    ]
+  },
+  {
+   "id": "who-activity-fixtures-relative-to-today",
+   "summary": "Both who-command activity fixtures that must sit in the future (the open next-activity, and the future-dated done activity in the ORDER BY regression) are computed as now + 1 year rather than the literals 2030-01-01 and 2099-01-01",
+   "why": "This is the same class of TEST defect that PR #300 fixed in quickbooks, found by that PR's fleet-wide sweep of every YYYY-MM-DD literal under skills/*/cli/internal/**/*_test.go and reported-but-not-fixed there. The command under test reads the wall clock; the fixture pinned an absolute date. That pairing is only true until the calendar reaches the literal, at which point the assertion inverts and the test fails on the date rather than on a code change. queryWho formats time.Now().UTC() as '2006-01-02 15:04:05' and uses it twice: the last-activity query takes the newest done activity due at or before now (or any activity already past due), and the next-activity query takes the earliest not-done activity due now or later. Two fixtures depended on their literal still being in the future. (1) TestNovelWho_LastActivityIgnoresFutureDatedDone seeded a 'Future done' activity at 2099-01-01 to prove it must not outrank a recent past one; in 2099 that row becomes the NEWEST PAST done activity, wins the DESC ordering, and the regression test asserts the exact opposite of its own name. (2) TestNovelWho_QueryWho seeded its open follow-up at 2030-01-01 and asserts next_activity is that row; in 2030 the row stops satisfying due_date >= now, next_activity goes nil, and the assertion fires. Both are now derived from the clock - now-24h for the past done row, now+1y for the two future rows - so the relationship the tests are about is preserved by construction rather than by the calendar. The second site was not in PR #300's report; it was found while working the first and is the same defect in the same file, so it is fixed here rather than left to rot for four more years. String comparison equals chronological comparison because both sides are zero-padded and the date-only literal sorts correctly against the date-and-time now (a full year of margin dwarfs the shorter-string-is-lesser edge at same-day equality). Proven both directions against the real queryWho: seeding both done rows in the past (the post-2099 equivalent) returns last_activity=a2 and the assertion FAILS; the clock-derived seeding returns last_activity=a1 and PASSES.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: the acceptance/novel test templates should never emit an absolute date literal whose truth depends on the calendar not having reached it. A fixture that means 'in the future' or 'recently' must be rendered as an offset from a single clock read, the way this fix does it. Same retro as the quickbooks novel-acceptance-fixtures-relative-to-today entry. File via /printing-press-retro.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/who_test.go",
+     "contains": "openDue := time.Now().UTC().AddDate(1, 0, 0).Format(\"2006-01-02\")"
+    },
+    {
+     "file": "cli/internal/cli/who_test.go",
+     "contains": "future := now.AddDate(1, 0, 0).Format(\"2006-01-02 15:04:05\")"
+    },
+    {
+     "file": "cli/internal/cli/who_test.go",
+     "contains": "seedActivityForWho(t, db, \"a2\", 7, \"Future done\", future, 1)"
+    },
+    {
+     "file": "cli/internal/cli/who_test.go",
+     "not_contains": "2099-01-01 10:00:00"
+    },
+    {
+     "file": "cli/internal/cli/who_test.go",
+     "not_contains": "'2030-01-01', 0, 7"
+    }
+   ]
   }
  ]
 }

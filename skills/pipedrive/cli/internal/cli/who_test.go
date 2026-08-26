@@ -9,6 +9,7 @@ import (
 	"context"
 	"encoding/json"
 	"testing"
+	"time"
 
 	"pipedrive-pp-cli/internal/store"
 )
@@ -46,11 +47,15 @@ func TestNovelWho_QueryWho(t *testing.T) {
 		t.Fatalf("seed deals: %v", err)
 	}
 
-	// Activities: one done (past), one open (future).
+	// Activities: one done (past), one open (future). "Future" is derived
+	// from the clock for the same reason as the regression below - the old
+	// 2030-01-01 literal stops being a future due date in 2030, at which
+	// point next_activity goes nil and this assertion inverts.
+	openDue := time.Now().UTC().AddDate(1, 0, 0).Format("2006-01-02")
 	if _, err := db.DB().Exec(`
 		INSERT INTO activities (id, data, subject, type, due_date, done, person_id)
 		VALUES ('200', '{}', 'Kickoff call', 'call', '2026-04-01', 1, 7),
-		       ('201', '{}', 'Follow-up', 'task', '2030-01-01', 0, 7)`); err != nil {
+		       ('201', '{}', 'Follow-up', 'task', ?, 0, 7)`, openDue); err != nil {
 		t.Fatalf("seed activities: %v", err)
 	}
 
@@ -157,8 +162,16 @@ func seedActivityForWho(t *testing.T, db *store.Store, id string, person int, su
 func TestNovelWho_LastActivityIgnoresFutureDatedDone(t *testing.T) {
 	_, db := openTestStore(t)
 	seedPerson(t, db, "7", "Jane Doe", "", "{}")
-	seedActivityForWho(t, db, "a1", 7, "Recent call", "2026-05-01 10:00:00", 1)
-	seedActivityForWho(t, db, "a2", 7, "Future done", "2099-01-01 10:00:00", 1)
+	// Both due dates are computed from the clock in the format queryWho
+	// compares against ("2006-01-02 15:04:05" UTC). "Future" has to stay in
+	// the future for the regression to mean anything, and the literal
+	// 2099-01-01 stops being future in 2099 - at which point it becomes the
+	// newest PAST done activity and wins the ORDER BY, inverting the test.
+	now := time.Now().UTC()
+	past := now.Add(-24 * time.Hour).Format("2006-01-02 15:04:05")
+	future := now.AddDate(1, 0, 0).Format("2006-01-02 15:04:05")
+	seedActivityForWho(t, db, "a1", 7, "Recent call", past, 1)
+	seedActivityForWho(t, db, "a2", 7, "Future done", future, 1)
 
 	res, found, err := queryWho(context.Background(), db.DB(), "Jane Doe", 0)
 	if err != nil || !found {

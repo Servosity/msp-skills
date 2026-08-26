@@ -4,6 +4,17 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## Unreleased
+
+### Fixed
+- **A test asserted the calendar, not the code.** `changes --since` is measured against the
+  current time, but the test that checks "a window later than everything we have matches
+  nothing" hard-coded the boundary as `2030-01-01`. On 2030-01-01 that boundary stops being in
+  the future, every seeded record falls inside it, and the test fails on the date rather than on
+  a change to the connector. The boundary is now computed as one year ahead of the clock, so it
+  is later than the fixtures by construction on any run date. No shipped behaviour changed - the
+  command was correct throughout.
+
 ## [0.1.1] - 2026-08-26
 
 ### Fixed
