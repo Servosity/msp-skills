@@ -31,6 +31,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # Reads the repo to compute a matrix; never pushes. No git-usable
+          # credential is left in .git/config for anything this job runs.
+          persist-credentials: false
       - name: Compute build matrix
         id: gen
         env:
@@ -50,19 +54,40 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # This job downloads and executes third-party scanners. It never
+          # pushes, so it must not leave a git-usable repository credential in
+          # .git/config where a compromised scanner could read it.
+          persist-credentials: false
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
           go-version: "1.26"
       - name: Install scanners (best-effort install; the gate fails CLOSED if a required one is missing)
+        env:
+          # PINNED, not @latest. These four tools are fetched and then EXECUTED
+          # inside a job that carries contents:write, so a compromised (or merely
+          # re-cut) upstream release would run with this repository's release
+          # credential. @latest also makes the gate's verdict non-reproducible:
+          # the same tag re-run a week later scans with different rules.
+          # Each pin below is the version @latest resolved to on 2026-08-26, so
+          # this change pins current behavior rather than altering it.
+          # To bump: change the version here, re-run the gate, land as a reviewed PR.
+          GOSEC_VERSION: "v2.29.0"
+          GOVULNCHECK_VERSION: "v1.7.0"
+          # osv-scanner v2 lives at a different module path
+          # (github.com/google/osv-scanner/v2); v1.9.2 is the newest on this v1
+          # path and is what @latest resolved to here.
+          OSV_SCANNER_VERSION: "v1.9.2"
+          SEMGREP_VERSION: "1.174.0"
         run: |
           set -uo pipefail
-          go install github.com/securego/gosec/v2/cmd/gosec@latest || true
-          go install golang.org/x/vuln/cmd/govulncheck@latest || true
+          go install "github.com/securego/gosec/v2/cmd/gosec@${GOSEC_VERSION}" || true
+          go install "golang.org/x/vuln/cmd/govulncheck@${GOVULNCHECK_VERSION}" || true
           # osv-scanner is a REQUIRED scanner for the gate; it was previously absent at
           # release time, so the release never ran osv at all. Install it for parity.
-          go install github.com/google/osv-scanner/cmd/osv-scanner@latest || true
-          python3 -m pip install --quiet semgrep || true
+          go install "github.com/google/osv-scanner/cmd/osv-scanner@${OSV_SCANNER_VERSION}" || true
+          python3 -m pip install --quiet "semgrep==${SEMGREP_VERSION}" || true
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
       - name: Pre-warm scanner caches for the tagged connector
         env:
@@ -107,6 +132,9 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          # The release is created through `gh` with GH_TOKEN; git itself is
+          # only read from here.
+          persist-credentials: false
 
       - name: Ensure release exists
         env:
@@ -151,6 +179,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # Assets are uploaded through `gh` with GH_TOKEN; this job never
+          # pushes with git.
+          persist-credentials: false
 
       - name: Setup Go
         uses: actions/setup-go@v5
