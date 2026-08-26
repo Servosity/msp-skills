@@ -18,12 +18,13 @@ awaiting      -> terracotta-outline pill linking the 60-second receipt form.
 Attribution: .verified_by is the name when the registry recorded one. When it
 is null the fallback is derived from .source, never hardcoded to the
 maintainer - an external MSP receipt credited to Servosity would be a false
-claim on the receipts wall. Unknown/absent source is not assumed to be
-first-party either; it falls back to the same generic wording the per-skill
-page renderer uses.
+claim on the receipts wall. Only an explicit source of "self" credits the
+maintainer. An unknown or absent source gets the same generic wording the
+per-skill page renderer uses, so a record that reaches the wall without a
+source can never be misattributed to us.
 {%- endcomment -%}
 {%- assign conn = include.connector -%}
-{%- assign verif_source = conn.source | default: "self" -%}
+{%- assign verif_source = conn.source -%}
 {%- case verif_source -%}
   {%- when "self" -%}{%- assign verif_fallback = "Servosity (maintainer)" -%}
   {%- when "github" -%}{%- assign verif_fallback = "an MSP via GitHub report" -%}
