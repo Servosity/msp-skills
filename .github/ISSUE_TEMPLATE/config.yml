@@ -13,9 +13,9 @@ contact_links:
     about: Discussion and Build Session recordings.
 
   - name: Request a connector or send an it-works receipt without a GitHub account
-    url: mailto:hello@servosity.com
-    about: Email hello@servosity.com - plain text is fine. Tell us what to build, or tell us a Skill worked against your real tenant. A web form is coming.
+    url: https://msp-skills.compoundingteams.com/verified/
+    about: This page gives you a plain-email option - no account needed. Tell us what to build, or tell us a Skill worked against your real tenant. Plain text is fine.
 
   - name: Report a security issue privately
-    url: mailto:security@servosity.com
-    about: Email security@servosity.com instead of opening a public issue.
+    url: https://github.com/Servosity/msp-skills/blob/main/SECURITY.md
+    about: Email security@servosity.com instead of opening a public issue - this page has the details.
