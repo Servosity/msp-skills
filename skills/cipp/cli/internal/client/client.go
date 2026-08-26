@@ -740,6 +740,11 @@ func (c *Client) ensureClientCredentialsTokenLocked(ctx context.Context) error {
 	if !needsClientCredentialsMint(c.Config) {
 		return nil
 	}
+	// A sibling call in this process may already have minted a token that never
+	// reached disk. Adopt it before dialling the token endpoint again.
+	if adoptCachedMintLocked(c.Config) && !needsClientCredentialsMint(c.Config) {
+		return nil
+	}
 	if c.Config.TokenEndpoint() == "" {
 		return c.remintUnavailable()
 	}
@@ -1048,8 +1053,11 @@ func (c *Client) mintClientCredentials(ctx context.Context) error {
 	expiry := time.Time{}
 	lifetime := 0
 	if tokenResp.ExpiresIn > 0 {
-		expiry = time.Now().Add(time.Duration(tokenResp.ExpiresIn) * time.Second)
+		expiry = time.Now().Add(TokenLifetimeToDuration(tokenResp.ExpiresIn))
 		lifetime = tokenResp.ExpiresIn
+		if lifetime > MaxTokenLifetimeSeconds {
+			lifetime = MaxTokenLifetimeSeconds
+		}
 	}
 	// In memory FIRST, then persist best-effort. A read-only home directory
 	// (CI, a container with a mounted config, a hardened image) must degrade
@@ -1064,8 +1072,91 @@ func (c *Client) mintClientCredentials(ctx context.Context) error {
 	// margin. Without it a short-lived token is inside the 5-minute skew from
 	// the instant it is issued, and every subsequent request re-mints.
 	cfg.SetTokenLifetime(lifetime)
+	// Cache in-process BEFORE attempting the disk write, so a failed save still
+	// leaves the token reachable by the next tool call.
+	if key := mintCacheKey(cfg); key != "" {
+		mintCache[key] = mintedToken{accessToken: tokenResp.AccessToken, expiry: expiry, lifetime: lifetime}
+	}
 	_ = cfg.SaveTokens(clientID, clientSecret, tokenResp.AccessToken, "", expiry)
 	return nil
+}
+
+// mintedToken is a process-lifetime cache of the last successful mint, keyed by
+// the credential material it was minted for.
+//
+// Why a package-level cache is required, not an optimisation: persistence is
+// best-effort (a read-only config must degrade to "works for this process"
+// rather than throw away a valid token), and the MCP server builds a FRESH
+// *Client and re-reads config.toml on every tool call. So when the save fails -
+// read-only home, mounted config, hardened image - nothing carries the token
+// between calls, and every single tool call mints again. ccMu only serialises
+// that storm; it does not stop it. This cache is what stops it.
+type mintedToken struct {
+	accessToken string
+	expiry      time.Time
+	lifetime    int
+}
+
+// mintCache is guarded by ccMu, like every other piece of credential state here.
+var mintCache = map[string]mintedToken{}
+
+// ForgetMintedTokens drops the process-level mint cache. Exported for tests and
+// for any caller that needs a hard credential reset within one process.
+func ForgetMintedTokens() {
+	ccMu.Lock()
+	defer ccMu.Unlock()
+	mintCache = map[string]mintedToken{}
+}
+
+// mintCacheKey identifies the credential a cached token belongs to, so a
+// different tenant, client or scope never adopts another's token.
+func mintCacheKey(cfg *config.Config) string {
+	if cfg == nil {
+		return ""
+	}
+	return strings.Join([]string{cfg.TenantID, cfg.ClientID, cfg.OAuthScope(), cfg.TokenEndpoint()}, "\x00")
+}
+
+// adoptCachedMintLocked copies a still-valid process-cached token into cfg and
+// reports whether it did. The caller must hold ccMu.
+func adoptCachedMintLocked(cfg *config.Config) bool {
+	key := mintCacheKey(cfg)
+	if key == "" {
+		return false
+	}
+	tok, ok := mintCache[key]
+	if !ok || tok.accessToken == "" || tok.expiry.IsZero() {
+		return false
+	}
+	// Only adopt a token that is outside the refresh skew; one inside it is
+	// about to be re-minted anyway and adopting it would loop.
+	if time.Until(tok.expiry) < effectiveTokenSkew(cfg) {
+		delete(mintCache, key)
+		return false
+	}
+	cfg.AccessToken = tok.accessToken
+	cfg.TokenExpiry = tok.expiry
+	cfg.SetTokenLifetime(tok.lifetime)
+	return true
+}
+
+// MaxTokenLifetimeSeconds caps a vendor-supplied expires_in. time.Duration is
+// int64 nanoseconds, so anything past ~292 years overflows and wraps negative -
+// which stamps an expiry in the PAST and drives a re-mint on every single
+// request. Ten years is far beyond any real OAuth token and safely inside the
+// range.
+const MaxTokenLifetimeSeconds = 10 * 365 * 24 * 60 * 60
+
+// TokenLifetimeToDuration converts a vendor expires_in to a Duration without
+// overflowing.
+func TokenLifetimeToDuration(seconds int) time.Duration {
+	if seconds <= 0 {
+		return 0
+	}
+	if seconds > MaxTokenLifetimeSeconds {
+		seconds = MaxTokenLifetimeSeconds
+	}
+	return time.Duration(seconds) * time.Second
 }
 
 func authHeaderLooksLikePlaceholderCredential(header string) bool {

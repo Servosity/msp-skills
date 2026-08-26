@@ -14,6 +14,8 @@ import (
 	"cork-pp-cli/internal/mcp/bound"
 	mcplib "github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 func boundedToolResultError(message string) *mcplib.CallToolResult {
@@ -189,6 +191,130 @@ var reservedStructuredArgs = map[string]bool{
 	"args": true,
 }
 
+// MCP runs commands as the server account, so letting a tool caller choose a
+// filesystem location lets it choose where that account writes, truncates or
+// reads. The concrete case this closes: the local-store commands expose --db,
+// the MCP layer forwards command-local flags straight through as CLI arguments,
+// and the store's migration runs `DROP TABLE IF EXISTS resources_fts` plus a
+// resources rebuild against whatever file it is handed. One tool call carrying
+// {"db": "/path/to/someone-elses.sqlite"} therefore rewrote an unrelated
+// database owned by the account running the MCP server.
+//
+// This map is the runtime floor. isFilesystemPathFlag below is the general
+// rule, and UnblockedFilesystemPathFlags applies that rule to the live command
+// tree so the package test fails the build when a regenerated CLI grows a
+// local-path flag the floor does not already name.
+var blockedDestinationFlags = map[string]bool{
+	"audit-dir":           true,
+	"db":                  true,
+	"from-csv":            true,
+	"home":                true,
+	"input":               true,
+	"notes-file":          true,
+	"o":                   true,
+	"out":                 true,
+	"output":              true,
+	"playbook-file":       true,
+	"playbook-notes-file": true,
+	"receipt-file":        true,
+	"reconcile":           true,
+}
+
+// filesystemPathFlagPhrases are usage-string fragments that mark a flag as
+// naming a filesystem location the server account would read or write.
+//
+// Matching the usage TEXT rather than the flag NAME is deliberate. The
+// generated command surface carries API body fields called --path, --seed-path,
+// --source-paths, --exclude-paths, --filename and --working-dir whose values
+// are sent to the vendor API and never touch the server's own filesystem; a
+// name-based rule would block those real API surfaces while still missing the
+// next generated flag that does take a local path. The generated body fields
+// describe themselves with a bare Title-case noun ("Path", "Seed path"), while
+// a genuine local-filesystem flag spells out that it takes a file or directory
+// path.
+var filesystemPathFlagPhrases = []string{
+	"file path",
+	"path to ",
+	"database path",
+	"output directory",
+	"audit directory",
+	"directory path",
+	"store path",
+	"mirror path",
+	"receipt destination",
+	"root directory for",
+}
+
+// vendorAPIPathFlags are flags whose usage text trips isFilesystemPathFlag but
+// which name a location in the VENDOR's world rather than on this account's
+// disk, so forwarding them is correct. Keys use the same "<command path>
+// --<flag>" shape UnblockedFilesystemPathFlags reports, and the value states why
+// the flag is safe. Listing the exceptions here instead of loosening the phrase
+// list keeps a newly generated local-path flag failing the build.
+var vendorAPIPathFlags = map[string]string{}
+
+// isFilesystemPathFlag reports whether flag's own description says it names a
+// filesystem location.
+func isFilesystemPathFlag(flag *pflag.Flag) bool {
+	if flag == nil {
+		return false
+	}
+	usage := strings.ToLower(flag.Usage)
+	for _, phrase := range filesystemPathFlagPhrases {
+		if strings.Contains(usage, phrase) {
+			return true
+		}
+	}
+	return false
+}
+
+// UnblockedFilesystemPathFlags reports every flag reachable through a shell-out
+// MCP tool whose usage text names a filesystem location and which the denylists
+// above do not refuse. It walks exactly the command set RegisterAll registers,
+// so endpoint and framework commands, which never become shell-out tools, stay
+// out of scope: that is what keeps the usage-text rule from firing on generated
+// vendor API body fields. A non-empty result means a tool caller can still
+// direct a read or a write on the server account's filesystem.
+func UnblockedFilesystemPathFlags(root *cobra.Command) []string {
+	if root == nil {
+		return nil
+	}
+	found := map[string]bool{}
+	walk(root, nil, func(cmd *cobra.Command, path []string) {
+		switch classify(cmd) {
+		case commandHidden, commandEndpoint, commandFramework:
+			return
+		}
+		if !cmd.Runnable() {
+			return
+		}
+		blocked := blockedStructuredArgsForCommand(cmd)
+		check := func(flag *pflag.Flag) {
+			if flag == nil || flag.Hidden || flag.Deprecated != "" {
+				return
+			}
+			if blocked[flag.Name] || blockedDestinationFlags[flag.Name] {
+				return
+			}
+			if isFilesystemPathFlag(flag) {
+				key := cmd.CommandPath() + " --" + flag.Name
+				if _, ok := vendorAPIPathFlags[key]; ok {
+					return
+				}
+				found[key] = true
+			}
+		}
+		cmd.NonInheritedFlags().VisitAll(check)
+		cmd.InheritedFlags().VisitAll(check)
+	})
+	out := make([]string, 0, len(found))
+	for name := range found {
+		out = append(out, name)
+	}
+	sort.Strings(out)
+	return out
+}
+
 // blockedRootFlags are root-level CLI flags that an MCP client must not be
 // able to override via structured tool parameters. Allowing them lets a
 // caller swap auth credentials, redirect the API base URL, select a different
@@ -212,7 +338,7 @@ func cliArgsFromMCP(args map[string]any, blocked map[string]bool) []string {
 		if strings.Contains(k, "=") {
 			continue
 		}
-		if blocked[k] {
+		if blocked[k] || blockedDestinationFlags[k] {
 			continue
 		}
 		keys = append(keys, k)

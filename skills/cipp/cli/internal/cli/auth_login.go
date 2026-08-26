@@ -186,9 +186,12 @@ func cippClientCredentialsToken(ctx context.Context, authority, tenantID, client
 			if i := strings.IndexByte(desc, '\n'); i > 0 {
 				desc = desc[:i]
 			}
-			// error_description is vendor-controlled free text; a
-			// misconfigured endpoint can echo the submitted form into it.
-			return "", time.Time{}, 0, fmt.Errorf("token request failed (HTTP %d): %s: %s", resp.StatusCode, aadErr.Error, maskSecret(desc, clientSecret))
+			// BOTH fields are vendor-controlled free text. A custom or
+			// compromised authority can echo the submitted form into either,
+			// so mask the secret out of the code as well as the description -
+			// masking only one of two attacker-controlled strings is not a
+			// mask at all.
+			return "", time.Time{}, 0, fmt.Errorf("token request failed (HTTP %d): %s: %s", resp.StatusCode, maskSecret(aadErr.Error, clientSecret), maskSecret(desc, clientSecret))
 		}
 		return "", time.Time{}, 0, fmt.Errorf("token request failed (HTTP %d): %s", resp.StatusCode, cliutil.SanitizeErrorBody(maskSecret(strings.TrimSpace(string(body)), clientSecret)))
 	}
@@ -204,8 +207,14 @@ func cippClientCredentialsToken(ctx context.Context, authority, tenantID, client
 	if tok.AccessToken == "" {
 		return "", time.Time{}, 0, fmt.Errorf("token response contained no access_token")
 	}
-	expiry := time.Now().Add(time.Duration(tok.ExpiresIn) * time.Second)
+	// A huge expires_in overflows time.Duration (int64 nanoseconds, ~292 years)
+	// and wraps NEGATIVE, which would stamp an expiry in the past and re-mint on
+	// every request forever. Clamp instead of trusting the endpoint.
+	expiry := time.Now().Add(client.TokenLifetimeToDuration(tok.ExpiresIn))
 	lifetime := tok.ExpiresIn
+	if lifetime > client.MaxTokenLifetimeSeconds {
+		lifetime = client.MaxTokenLifetimeSeconds
+	}
 	if tok.ExpiresIn <= 0 {
 		expiry = time.Now().Add(time.Hour) // conservative default
 		lifetime = 0                       // unknown: the client keeps its default skew

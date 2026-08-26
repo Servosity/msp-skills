@@ -47,6 +47,20 @@ What it checks, per slug
    `internal/cliutil/testenv/` is skipped explicitly: it exists to set env vars
    for tests and is not a runtime read.
 
+   The reader spelling is taken from each FILE's import block, so `import env
+   "os"` + `env.Getenv(...)` and a dot-import are seen; a function LITERAL bound
+   to a name (`recordAdditionalAuthEnv := func(name, ...) { os.Getenv(name) }` in
+   autotask/sherweb doctor.go) is treated as the helper it is, so its call sites
+   are scanned; and a name carried in a struct field (`os.Getenv(policy.EnvOptOut)`)
+   is resolved through the composite literal that set the field.
+
+   A read whose name still cannot be resolved is REPORTED unless one of exactly
+   two explanations applies: it is a name-as-parameter helper's own definition
+   (its callers are scanned instead), or every value it can take begins with a
+   literal prefix the base-owned rules already classify internal (XDG_ ...). See
+   explain_unresolved(). Silently dropping these was a hole big enough to walk
+   `os.Getenv(strings.Join([]string{"COVE","PASSWORD"}, "_"))` through.
+
 2. Classify each name operator-facing vs internal from the BASE-OWNED deny-list
    in env_schema_internal.json, FAILING SAFE TO OPERATOR-FACING. An unrecognised
    new variable fails the gate until a human classifies it, because the failure
@@ -92,13 +106,23 @@ What it checks, per slug
    was split 9-to-7 on this before the rule existed, so the same credential pair
    was half-masked on one connector and fully masked on the next.
 
-Waivers
--------
-`env_schema_internal.json` carries per-slug waivers with a MANDATORY reason
-string, exempting one (slug, var) pair from BOTH directions. Same posture as
-security_suppressions.json: base-owned, not self-grantable from a connector diff,
-because a waiver is exactly how a credential prompt disappears. A waiver with an
-empty reason is itself a failure.
+Waivers and the rules file
+--------------------------
+`env_schema_internal.json` carries the internal/operator classification rules
+plus per-slug waivers with a MANDATORY reason string, exempting one (slug, var)
+pair from BOTH directions. A waiver with an empty reason is itself a failure.
+
+That file is BASE-OWNED, and the code enforces it rather than asserting it:
+`--base <sha>` makes the gate read the rules with `git show <base>:<path>`, so a
+change-set cannot widen its own rules. Without it the file was self-grantable -
+delete every COVE credential declaration, add "COVE_" to `internal_prefixes` in
+the same diff, and every COVE read classifies internal, both set differences come
+back empty and the gate prints PASS on a connector nobody will ever be prompted
+to authenticate. CI passes the PR base SHA. When BASE cannot be read (a shallow
+clone, no --base at all) the gate falls back to the working copy and says so
+LOUDLY on stdout rather than failing, because a gate that reds a healthy repo
+gets ignored; when BASE can be read and the working copy differs, the BASE copy
+is the one in force and the difference is printed.
 
 What it deliberately does NOT check
 -----------------------------------
@@ -117,6 +141,9 @@ Modes:
   --all           check every registered skill (the default)
   --warn          print findings as WARN: lines and exit 0 (calibration mode,
                   the same wiring precedent as check_cli_claims.py --warn)
+  --base <sha>    read env_schema_internal.json from this commit instead of the
+                  working copy, so a change-set cannot grant itself new internal
+                  classifications. CI passes the PR base SHA.
   --self-test     run the built-in both-directions proof and exit
   -v/--verbose    per-slug detail, including every resolved read and its site
 
@@ -133,6 +160,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -142,6 +170,7 @@ import registry  # noqa: E402  (local tools/ module)
 ROOT = registry.ROOT
 SKILLS_DIR = registry.SKILLS_DIR
 RULES_FILE = Path(__file__).resolve().parent / "env_schema_internal.json"
+RULES_REL = str(RULES_FILE.relative_to(ROOT))
 
 # Directories under cli/ that never contain a runtime env read.
 SKIP_DIRS = {"testdata", "vendor", "testenv"}
@@ -153,7 +182,44 @@ RE_ENV_NAME = re.compile(r"^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*$")
 
 # Reading builtins. os.Setenv is NOT here: writing a variable is not an operator
 # input (immybot derives IMMYBOT_OAUTH_SCOPE that way in init()).
-BUILTIN_READERS = {"os.Getenv": [0], "os.LookupEnv": [0]}
+#
+# The reader NAME is resolved per FILE from that file's import block rather than
+# hardcoded as the literal "os.Getenv". Go lets any file rename the package it
+# imports, so `import env "os"` + `env.Getenv("COVE_PASSWORD")` is an ordinary,
+# compiling, invisible-to-a-literal-scan credential read - and a dot-import
+# (`import . "os"`) drops the qualifier entirely. Neither was seen before.
+BUILTIN_READ_FUNCS = ("Getenv", "LookupEnv")
+
+RE_IMPORT_GROUP = re.compile(r"(?ms)^import\s*\((.*?)^\)")
+RE_IMPORT_SPEC = re.compile(r'(?m)^[\t ]*(?:([A-Za-z_]\w*|\.|_)[\t ]+)?"([^"]+)"')
+RE_IMPORT_ONE = re.compile(r'(?m)^import[\t ]+(?:([A-Za-z_]\w*|\.|_)[\t ]+)?"([^"]+)"')
+
+
+def os_reader_names(src: str) -> set[str]:
+    """Every spelling of os.Getenv / os.LookupEnv this FILE can use."""
+    quals: set[str] = set()
+    for m in RE_IMPORT_ONE.finditer(src):
+        if m.group(2) == "os":
+            quals.add(m.group(1) or "os")
+    for group in RE_IMPORT_GROUP.finditer(src):
+        for m in RE_IMPORT_SPEC.finditer(group.group(1)):
+            if m.group(2) == "os":
+                quals.add(m.group(1) or "os")
+    names: set[str] = set()
+    for qual in quals:
+        if qual == "_":
+            continue  # blank import: registered for side effects, never called
+        for fn in BUILTIN_READ_FUNCS:
+            names.add(fn if qual == "." else f"{qual}.{fn}")
+    return names
+
+
+def builtin_read_regex(names: set[str]) -> re.Pattern:
+    """`<reader>(ident)` for any of this file's reader spellings."""
+    if not names:
+        return re.compile(r"(?!x)x")  # matches nothing
+    alt = "|".join(re.escape(n) for n in sorted(names))
+    return re.compile(r"\b(?:" + alt + r")\s*\(\s*([A-Za-z_]\w*)\s*\)")
 
 UNRESOLVED = object()
 MAX_DEPTH = 4
@@ -289,6 +355,9 @@ RE_CALL = re.compile(r"^([A-Za-z_][\w.]*)\s*\(")
 # Package model
 # ---------------------------------------------------------------------------
 
+RE_RANGE_ALIAS = re.compile(r"for\s+[\w,\s_]*?([A-Za-z_]\w*)\s*:=\s*range\s+([A-Za-z_]\w*)")
+
+
 class Scope:
     """A name -> candidate-RHS-expression map (a package, or one function body)."""
 
@@ -313,6 +382,26 @@ class GoFunc(Scope):
         self.file = file
         self.env_param_idx: set[int] = set()
         self.variadic_env = False
+        # loop variable -> the parameter it ranges over, e.g. the `n` in
+        # `for _, n := range names` inside firstNonEmptyEnv(names ...string).
+        self.range_aliases: dict[str, str] = {}
+        for m in RE_RANGE_ALIAS.finditer(body):
+            self.range_aliases[m.group(1)] = m.group(2)
+
+    def param_names(self) -> list[str]:
+        return [p for p, _ in self.params]
+
+    def reads_own_param(self, ident: str) -> bool:
+        """Is `ident` this function's own parameter (directly or as a range alias)?
+
+        That is the shape of a name-as-parameter helper's DEFINITION - envDir(name),
+        journalEnvTruthy(name), firstNonEmptyEnv(names ...string). The read there
+        resolves to nothing because the name arrives from the caller, and the
+        callers ARE scanned separately (detect_env_param_helpers promotes the
+        helper to a reader). So this is an explained unresolved read, not a
+        hiding place.
+        """
+        return self.range_aliases.get(ident, ident) in self.param_names()
 
 
 class GoPackage(Scope):
@@ -332,6 +421,20 @@ class GoPackage(Scope):
         self.funcs: dict[str, GoFunc] = {}
         self.sources: list[tuple[Path, str]] = []
         self.spans: dict[Path, list[tuple[int, int, GoFunc]]] = {}
+        # file -> the reader spellings that file's import block permits.
+        self.file_readers: dict[Path, set[str]] = {}
+        # file -> offsets of function-NAME identifiers in declarations. A
+        # declaration is not a call: scanning `func envDir(name string)` as if it
+        # were `envDir(...)` manufactured an unresolved read at every helper's
+        # own signature, which is noise that a real unresolved read would hide in.
+        self.decl_sites: dict[Path, set[int]] = {}
+        # Struct-literal field -> [(value expression, its scope, its package)].
+        # `os.Getenv(policy.EnvOptOut)` is a real read whose name is carried in a
+        # struct field; without this it resolves to nothing.
+        self.fields: dict[str, list[tuple[str, Scope, "GoPackage"]]] = {}
+        # The same map merged across every package of the connector: the literal
+        # is built in internal/cli and read in internal/cliutil.
+        self.all_fields: dict[str, list[tuple[str, Scope, "GoPackage"]]] = {}
 
     def func_at(self, path: Path, offset: int) -> "GoFunc | None":
         """The innermost function whose body contains this source offset."""
@@ -345,38 +448,110 @@ class GoPackage(Scope):
 RE_ASSIGN = re.compile(r"(?m)^[\t ]*(?:const\s+|var\s+)?([A-Za-z_]\w*)\s*(?::?=)\s*(.+?)[\t ]*$")
 RE_RANGE_LIT = re.compile(r"for\s+[\w,\s_]*?([A-Za-z_]\w*)\s*:=\s*range\s+(\[\]string\{[^}]*\}|[A-Za-z_]\w*)")
 RE_FUNC = re.compile(r"(?m)^func\s+(?:\([^)]*\)\s*)?([A-Za-z_]\w*)\s*\(")
+# A function LITERAL. Go's `name := func(args) { ... }` is a callable helper with
+# a name, and autotask/sherweb's doctor.go hides two real credential reads behind
+# one: `recordAdditionalAuthEnv := func(name, configuredValue string) { os.Getenv(name) ... }`
+# called with "AUTOTASK_PSA_SECRET" and "SHERWEB_SUBSCRIPTION_KEY". A scan that
+# only knows about top-level declarations sees neither the helper nor its calls.
+RE_FUNC_LIT = re.compile(r"\bfunc\s*\(")
+RE_LIT_NAME = re.compile(r"([A-Za-z_]\w*)\s*:?=\s*$")
+# A field in a composite literal: `EnvOptOut: envOptOut,`. gofmt always leaves
+# the trailing comma on the multi-line form, and a quoted map key cannot match
+# the exported-identifier field name, so this does not collect map literals.
+RE_FIELD = re.compile(r"(?m)^[\t ]*([A-Z]\w*)[\t ]*:[\t ]*(.+?),[\t ]*$")
+
+
+def _body_span(src: str, open_paren: int) -> tuple[int, int, int] | None:
+    """(close-paren, body-open-brace, body-close-brace) for a function header."""
+    close_paren = match_close(src, open_paren, "(", ")")
+    if close_paren < 0:
+        return None
+    brace = src.find("{", close_paren)
+    if brace < 0:
+        return None
+    end = match_close(src, brace, "{", "}")
+    if end < 0:
+        return None
+    return close_paren, brace, end
 
 
 def parse_package(dirpath: Path, files: list[Path]) -> GoPackage:
+    return parse_sources(
+        dirpath,
+        [(path, strip_comments(path.read_text(encoding="utf-8", errors="replace")))
+         for path in files],
+    )
+
+
+def parse_sources(dirpath: Path, sources: list[tuple[Path, str]]) -> GoPackage:
+    """Build the package model from already-scrubbed sources (testable)."""
     pkg = GoPackage(dirpath)
-    for path in files:
-        src = strip_comments(path.read_text(encoding="utf-8", errors="replace"))
+    for path, src in sources:
         pkg.sources.append((path, src))
+        pkg.file_readers[path] = os_reader_names(src)
         spans: list[tuple[int, int, GoFunc]] = []
+        decls: set[int] = set()
+        headers: list[tuple[int, int]] = []
 
         for m in RE_FUNC.finditer(src):
             open_paren = src.index("(", m.end() - 1)
-            close_paren = match_close(src, open_paren, "(", ")")
-            if close_paren < 0:
+            span = _body_span(src, open_paren)
+            if span is None:
                 continue
-            brace = src.find("{", close_paren)
-            if brace < 0:
-                continue
-            end = match_close(src, brace, "{", "}")
-            if end < 0:
-                continue
+            close_paren, brace, end = span
+            decls.add(m.start(1))
+            headers.append((m.start(), brace))
             params = parse_params(src[open_paren + 1:close_paren])
             fn = GoFunc(m.group(1), params, src[brace + 1:end], path)
             pkg.funcs.setdefault(fn.name, fn)
             spans.append((brace + 1, end, pkg.funcs[fn.name]))
+
+        for m in RE_FUNC_LIT.finditer(src):
+            # The `func (` of a METHOD's receiver is inside a declaration header
+            # already handled above; everything else is a literal.
+            if any(a <= m.start() < b for a, b in headers):
+                continue
+            open_paren = src.index("(", m.end() - 1)
+            span = _body_span(src, open_paren)
+            if span is None:
+                continue
+            close_paren, brace, end = span
+            params = parse_params(src[open_paren + 1:close_paren])
+            named = RE_LIT_NAME.search(src[max(0, m.start() - 80):m.start()])
+            name = named.group(1) if named else ""
+            fn = GoFunc(name, params, src[brace + 1:end], path)
+            if name:
+                pkg.funcs.setdefault(name, fn)
+                fn = pkg.funcs[name]
+            spans.append((brace + 1, end, fn))
+
         pkg.spans[path] = spans
+        pkg.decl_sites[path] = decls
 
         for regex, group in ((RE_ASSIGN, 2), (RE_RANGE_LIT, 2)):
             for m in regex.finditer(src):
                 scope = pkg.func_at(path, m.start()) or pkg
                 scope.bind(m.group(1), m.group(group))
+
+        for m in RE_FIELD.finditer(src):
+            scope = pkg.func_at(path, m.start()) or pkg
+            pkg.fields.setdefault(m.group(1), []).append((m.group(2), scope, pkg))
     detect_env_param_helpers(pkg)
     return pkg
+
+
+def link_packages(packages: list[GoPackage]) -> None:
+    """Give every package the connector-wide struct-field map.
+
+    A Policy literal built in internal/cli is read in internal/cliutil, so a
+    package-local field map resolves the read at one site and not the other.
+    """
+    merged: dict[str, list[tuple[str, Scope, GoPackage]]] = {}
+    for pkg in packages:
+        for field, entries in pkg.fields.items():
+            merged.setdefault(field, []).extend(entries)
+    for pkg in packages:
+        pkg.all_fields = merged
 
 
 def parse_params(text: str) -> list[tuple[str, bool]]:
@@ -399,10 +574,6 @@ def parse_params(text: str) -> list[tuple[str, bool]]:
     return out
 
 
-RE_BUILTIN_READ = re.compile(r"\bos\.(?:Getenv|LookupEnv)\s*\(\s*([A-Za-z_]\w*)\s*\)")
-RE_RANGE_ALIAS = re.compile(r"for\s+[\w,\s_]*?([A-Za-z_]\w*)\s*:=\s*range\s+([A-Za-z_]\w*)")
-
-
 def detect_env_param_helpers(pkg: GoPackage) -> None:
     """Mark functions that read one of their own string params as an env name.
 
@@ -413,13 +584,12 @@ def detect_env_param_helpers(pkg: GoPackage) -> None:
     whose param reaches os.Getenv through `for _, n := range names`.
     """
     for fn in pkg.funcs.values():
-        names = [p for p, _ in fn.params]
-        aliases: dict[str, str] = {}
-        for m in RE_RANGE_ALIAS.finditer(fn.body):
-            if m.group(2) in names:
-                aliases[m.group(1)] = m.group(2)
-        for m in RE_BUILTIN_READ.finditer(fn.body):
-            target = aliases.get(m.group(1), m.group(1))
+        names = fn.param_names()
+        if not names:
+            continue
+        reader_re = builtin_read_regex(pkg.file_readers.get(fn.file, set()))
+        for m in reader_re.finditer(fn.body):
+            target = fn.range_aliases.get(m.group(1), m.group(1))
             if target in names:
                 idx = names.index(target)
                 fn.env_param_idx.add(idx)
@@ -487,7 +657,34 @@ def resolve(expr: str, pkg: GoPackage, env_prefix: str, scope: Scope | None = No
             out |= resolve(ret, pkg, env_prefix, fn, depth + 1, seen | {key})
         return out or {UNRESOLVED}
 
+    sel = RE_SELECTOR.match(expr)
+    if sel:
+        return resolve_field(sel.group(1), pkg, env_prefix, depth, seen)
+
     return {UNRESOLVED}
+
+
+RE_SELECTOR = re.compile(r"^[A-Za-z_]\w*\.([A-Za-z_]\w*)$")
+
+
+def resolve_field(field: str, pkg: GoPackage, env_prefix: str,
+                  depth: int, seen: frozenset) -> set:
+    """Resolve `something.Field` through the struct literals that set Field.
+
+    `os.Getenv(policy.EnvOptOut)` in internal/cliutil/freshness.go is a real read
+    whose name lives in a field set once, in internal/cli's cachePolicy():
+    `EnvOptOut: envOptOut` where `envOptOut := "<PREFIX>_NO_AUTO_REFRESH"`. The
+    connector-wide field map is what lets the cliutil-side read see the cli-side
+    literal; the field is resolved in the package and scope that BOUND it.
+    """
+    key = ("field", field)
+    if key in seen:
+        return {UNRESOLVED}
+    entries = pkg.fields.get(field) or pkg.all_fields.get(field) or []
+    out: set = set()
+    for expr, scope, owner in entries:
+        out |= resolve(expr, owner, env_prefix, scope, depth + 1, seen | {key})
+    return out or {UNRESOLVED}
 
 
 def resolve_concat(parts: list[str], pkg: GoPackage, env_prefix: str,
@@ -534,6 +731,62 @@ def return_exprs(body: str) -> list[str]:
     return out
 
 
+def resolve_prefixes(expr: str, pkg: GoPackage, env_prefix: str,
+                     scope: Scope | None = None, depth: int = 0,
+                     seen: frozenset = frozenset()) -> set:
+    """The literal string every value of `expr` must START with, where known.
+
+    A weaker question than resolve(), and it answers cases resolve() cannot:
+    `envDir(xdgEnvVar(kind))` builds "XDG_" + <runtime suffix> + "_HOME", so the
+    NAME is unknowable but the FAMILY is not - every name it can produce begins
+    "XDG_", which the base-owned rules classify internal outright. That is enough
+    to explain the read without weakening anything: an unknown tail cannot turn
+    an internal prefix into an operator-facing credential.
+
+    An empty string means "unknown", and a genuinely empty literal (`return ""`,
+    the early-out arm of xdgEnvVar) is indistinguishable from it - which is
+    harmless, because an empty variable name is never read: envDir() returns
+    early on it and RE_ENV_NAME rejects it.
+    """
+    expr = expr.strip()
+    if not expr or depth > MAX_DEPTH:
+        return {""}
+
+    lit = as_literal(expr)
+    if lit is not None:
+        return {lit}
+
+    parts = split_top(expr, "+")
+    if len(parts) > 1:
+        return resolve_prefixes(parts[0], pkg, env_prefix, scope, depth + 1, seen)
+
+    if RE_IDENT.match(expr):
+        key = (id(scope), expr)
+        if key in seen:
+            return {""}
+        rhs_list = scope.bindings.get(expr, []) if scope is not None else []
+        if not rhs_list:
+            rhs_list = pkg.bindings.get(expr, [])
+            scope = None
+        out: set = set()
+        for rhs in rhs_list:
+            out |= resolve_prefixes(rhs, pkg, env_prefix, scope, depth + 1, seen | {key})
+        return out or {""}
+
+    call = RE_CALL.match(expr)
+    if call:
+        fn = pkg.funcs.get(call.group(1))
+        key = (id(pkg), call.group(1))
+        if fn is None or key in seen:
+            return {""}
+        out = set()
+        for ret in return_exprs(fn.body):
+            out |= resolve_prefixes(ret, pkg, env_prefix, fn, depth + 1, seen | {key})
+        return out or {""}
+
+    return {""}
+
+
 # ---------------------------------------------------------------------------
 # Per-slug scan
 # ---------------------------------------------------------------------------
@@ -568,8 +821,58 @@ def env_prefix_for(slug: str, packages: list[GoPackage]) -> str:
     return slug.upper().replace("-", "_")
 
 
-def scan_slug(slug: str) -> tuple[dict[str, list[str]], list[str], str]:
-    """Return ({ENV_NAME: [read sites]}, [unresolved read sites], env prefix).
+class Unresolved:
+    """One environment read whose variable NAME the scan could not pin down."""
+
+    def __init__(self, site: str, reader: str, expr: str, why: str | None):
+        self.site = site
+        self.reader = reader
+        self.expr = expr
+        self.why = why          # None == unexplained == a finding
+
+    @property
+    def key(self) -> tuple:
+        return (self.site, self.reader, self.expr)
+
+    def __str__(self) -> str:
+        return f"{self.site} {self.reader}({self.expr})" + (f" [{self.why}]" if self.why else "")
+
+
+def explain_unresolved(expr: str, pkg: GoPackage, env_prefix: str,
+                       scope: Scope | None, rules: dict) -> str | None:
+    """Why this unresolvable read is nevertheless safe, or None if it is not.
+
+    Two explanations, and only two, because everything else is a place a
+    credential can hide:
+
+      helper-definition - the argument is the enclosing function's own parameter.
+          That is a name-as-parameter helper's own body (envDir(name),
+          firstNonEmptyEnv(names ...string)); the name arrives from callers, and
+          detect_env_param_helpers has already promoted the helper to a reader so
+          those callers ARE scanned. Nothing hides here.
+      internal-family - every value the expression can take begins with a literal
+          prefix the BASE-OWNED rules classify internal (XDG_, PP_, ...). An
+          unknown tail cannot turn XDG_<something> into a credential.
+
+    Anything else - a strings.Join, a map lookup, a value read off the wire - is
+    reported, because `os.Getenv(strings.Join([]string{"COVE","PASSWORD"}, "_"))`
+    is a perfectly ordinary Go expression that reads a credential and resolves to
+    nothing at all.
+    """
+    ident = expr.strip()
+    if RE_IDENT.match(ident) and isinstance(scope, GoFunc) and scope.reads_own_param(ident):
+        return "helper-definition"
+
+    prefixes = {p for p in resolve_prefixes(expr, pkg, env_prefix, scope) if p}
+    if prefixes and all(
+        any(p.startswith(rule) for rule in rules["internal_prefixes"]) for p in prefixes
+    ):
+        return "internal-family"
+    return None
+
+
+def scan_slug(slug: str, rules: dict) -> tuple[dict[str, list[str]], list[Unresolved], str]:
+    """Return ({ENV_NAME: [read sites]}, [unresolved reads], env prefix).
 
     The prefix is returned because classification needs it: the internal SUFFIX
     rules are anchored to it (see is_internal).
@@ -580,39 +883,62 @@ def scan_slug(slug: str) -> tuple[dict[str, list[str]], list[str], str]:
 
     groups = go_files(cli_dir)
     packages = [parse_package(d, files) for d, files in sorted(groups.items())]
+    link_packages(packages)
     prefix = env_prefix_for(slug, packages)
+    found, unresolved = scan_packages(packages, prefix, rules)
+    return found, unresolved, prefix
 
+
+def scan_packages(packages: list[GoPackage], prefix: str,
+                  rules: dict) -> tuple[dict[str, list[str]], list[Unresolved]]:
+    """The scan itself, over an already-parsed package list (filesystem-free)."""
     found: dict[str, list[str]] = {}
-    unresolved: list[str] = []
+    unresolved: dict[tuple, Unresolved] = {}
 
     for pkg in packages:
-        readers: dict[str, list[int]] = dict(BUILTIN_READERS)
+        helpers: dict[str, list[int]] = {}
         variadic: set[str] = set()
         for fn in pkg.funcs.values():
             if fn.env_param_idx:
-                readers[fn.name] = sorted(fn.env_param_idx)
+                helpers[fn.name] = sorted(fn.env_param_idx)
                 if fn.variadic_env:
                     variadic.add(fn.name)
 
         for path, src in pkg.sources:
-            rel = str(path.relative_to(ROOT))
-            for name, idxs in readers.items():
+            try:
+                rel = str(path.relative_to(ROOT))
+            except ValueError:
+                rel = str(path)   # self-test fixtures live outside the repo
+            # Reader NAMES are per-file: `import env "os"` renames the reader,
+            # and a file that does not import os has none.
+            readers: dict[str, list[int]] = {
+                name: [0] for name in pkg.file_readers.get(path, set())
+            }
+            readers.update(helpers)
+            decls = pkg.decl_sites.get(path, set())
+            for name, idxs in sorted(readers.items()):
                 for start, args in call_sites(src, name):
+                    if start in decls:
+                        continue  # a declaration is not a call
                     line = src.count("\n", 0, start) + 1
                     site = f"{rel}:{line}"
+                    scope = pkg.func_at(path, start)
                     wanted = list(range(len(args))) if name in variadic else idxs
                     for idx in wanted:
                         if idx >= len(args):
                             continue
-                        for value in resolve(args[idx], pkg, prefix,
-                                             pkg.func_at(path, start)):
+                        arg = args[idx].strip()
+                        for value in resolve(args[idx], pkg, prefix, scope):
                             if value is UNRESOLVED:
-                                unresolved.append(f"{site} {name}({args[idx].strip()[:60]})")
+                                rec = Unresolved(
+                                    site, name, arg[:80],
+                                    explain_unresolved(args[idx], pkg, prefix, scope, rules))
+                                unresolved.setdefault(rec.key, rec)
                             elif RE_ENV_NAME.match(value):
                                 found.setdefault(value, [])
                                 if site not in found[value]:
                                     found[value].append(site)
-    return found, unresolved, prefix
+    return found, sorted(unresolved.values(), key=lambda u: u.key)
 
 
 RE_WORD_BOUNDARY = re.compile(r"[\w.]")
@@ -648,12 +974,79 @@ def call_sites(src: str, name: str) -> list[tuple[int, list[str]]]:
 # Classification
 # ---------------------------------------------------------------------------
 
-def load_rules() -> dict:
-    rules = json.loads(RULES_FILE.read_text(encoding="utf-8"))
+def git(*args: str) -> subprocess.CompletedProcess:
+    return subprocess.run(["git", "-C", str(ROOT), *args],
+                          capture_output=True, text=True)
+
+
+def load_rules(base: str | None = None) -> tuple[dict, list[str]]:
+    """The classification rules, read from BASE when BASE can be reached.
+
+    This is the whole reason the rules live in their own file. Loading them from
+    the PR checkout makes them SELF-GRANTABLE: a change-set can delete every
+    COVE credential declaration from the manifests and, in the same diff, add
+    "COVE_" to `internal_prefixes`. Every COVE read then classifies internal,
+    both directions of the comparison come back empty, and the gate whose entire
+    job is "a credential nobody is prompted for must fail" prints PASS. Adding a
+    rule here is exactly how a credential prompt disappears, so the rules must
+    come from a tree the change-set does not control - the same posture
+    security_suppressions.json has always claimed.
+
+    Reading from BASE is therefore the DEFAULT, not an opt-in. Fallback to the
+    working copy is deliberate and LOUD (a NOTICE naming why), because a gate
+    that hard-fails whenever BASE is unfetchable - a shallow clone, a fresh
+    clone with no origin, the very first commit that introduces this file - is a
+    false-RED, and a false-RED teaches maintainers to ignore the gate.
+
+    Returns (rules, notices). A rules change that must take effect lands on the
+    base branch first; until it does, the gate prints the diff and keeps using
+    BASE's copy.
+    """
+    notices: list[str] = []
+    working = RULES_FILE.read_text(encoding="utf-8")
+    text = working
+    if base:
+        show = git("show", f"{base}:{RULES_REL}")
+        if show.returncode == 0:
+            text = show.stdout
+            if text != working:
+                notices.append(
+                    f"{RULES_REL} DIFFERS from {base}. The BASE copy is the one in "
+                    f"force: these rules classify a variable as internal, which is "
+                    f"how a credential prompt disappears, so a change-set may not "
+                    f"grant itself new ones. Land the rules change on the base "
+                    f"branch first."
+                )
+        else:
+            notices.append(
+                f"cannot read {RULES_REL} at BASE {base!r} "
+                f"({(show.stderr or '').strip().splitlines()[:1] or ['unreachable']}) "
+                f"- falling back to the WORKING COPY of the rules. In that mode the "
+                f"rules are self-grantable: a diff that adds an internal_prefixes "
+                f"entry silences its own findings. Pass --base <merge-base sha> on a "
+                f"checkout deep enough to contain it."
+            )
+    else:
+        notices.append(
+            f"no --base given - using the WORKING COPY of {RULES_REL}. The rules are "
+            f"self-grantable in that mode; CI passes the PR base SHA so a diff cannot "
+            f"widen its own internal-variable list."
+        )
+
+    try:
+        rules = json.loads(text)
+    except json.JSONDecodeError as exc:
+        if text is working:
+            raise
+        notices.append(
+            f"{RULES_REL} at BASE {base!r} is not valid JSON ({exc}) - falling back "
+            f"to the working copy."
+        )
+        rules = json.loads(working)
     for key in ("internal_exact", "internal_prefixes", "internal_suffixes", "operator_exact"):
         rules.setdefault(key, [])
     rules.setdefault("waivers", {})
-    return rules
+    return rules, notices
 
 
 def is_internal(name: str, rules: dict, env_prefix: str = "") -> bool:
@@ -862,11 +1255,28 @@ def evaluate_mcp_install(slug: str, manifest: dict, doc: str,
         if m and (user_config.get(m.group(1)) or {}).get("required"):
             required.add(var)
     binary = mcp_binary or f"{slug}-mcp"
-    for line in doc.split("\n"):
-        if binary not in line:
-            continue
-        if "--transport http" not in line and "supergateway" not in line:
-            continue
+    launch_lines = [
+        line for line in doc.split("\n")
+        if binary in line and ("--transport http" in line or "supergateway" in line)
+    ]
+    # EXISTENCE first. Asserting only "every required credential appears ON the
+    # launch line" is vacuous when there is no launch line: delete every
+    # `<slug>-mcp --transport http` line from the page and the loop iterates zero
+    # times, reports nothing missing, and the gate goes green on a page that no
+    # longer tells a remote/bridged operator how to start the server at all. A
+    # connector that declares credentials ships that line today - all 65 of them -
+    # so its absence is a regression, not a shape this fleet has.
+    if not launch_lines:
+        findings.append(
+            f"[{slug}] mcp-install.md has no remote launch line: no line runs "
+            f"{binary} with `--transport http` or through supergateway, yet "
+            f"manifest.json declares {len(declared)} credential(s). That line is the "
+            f"only place the page shows how to start the server outside Claude "
+            f"Desktop, and it is where the per-credential assertion below looks; "
+            f"with it gone the page documents no remote install and this gate has "
+            f"nothing to check."
+        )
+    for line in launch_lines:
         present = set(RE_SHELL_ASSIGN.findall(line))
         for var in sorted(required - present):
             findings.append(
@@ -984,6 +1394,99 @@ HEALTHY_SERVER = {
 }
 
 
+# Go fixtures for the scanner half of the self-test. Each is a whole package.
+SCAN_FIXTURES: dict[str, tuple[str, set[str], set[str]]] = {}
+
+
+def _fixture(label: str, src: str, expect_reads: set[str], expect_unexplained: set[str]):
+    SCAN_FIXTURES[label] = (src, expect_reads, expect_unexplained)
+
+
+_fixture(
+    "plain os.Getenv literal",
+    'package cli\nimport "os"\nfunc a() string { return os.Getenv("COVE_PASSWORD") }\n',
+    {"COVE_PASSWORD"}, set(),
+)
+_fixture(
+    "ALIASED os import (import env \"os\")",
+    'package cli\nimport env "os"\nfunc a() string { return env.Getenv("COVE_PASSWORD") }\n',
+    {"COVE_PASSWORD"}, set(),
+)
+_fixture(
+    "grouped aliased os import",
+    'package cli\nimport (\n\t"fmt"\n\tsysenv "os"\n)\nvar _ = fmt.Sprint\n'
+    'func a() string { return sysenv.LookupEnvX }\n'
+    'func b() string { v, _ := sysenv.LookupEnv("COVE_PASSWORD"); return v }\n',
+    {"COVE_PASSWORD"}, set(),
+)
+_fixture(
+    "name computed by strings.Join (the hidden-credential shape)",
+    'package cli\nimport (\n\t"os"\n\t"strings"\n)\n'
+    'func a() string { return os.Getenv(strings.Join([]string{"COVE", "PASSWORD"}, "_")) }\n',
+    set(), {"strings.Join([]string{\"COVE\", \"PASSWORD\"}, \"_\")"},
+)
+_fixture(
+    "name-as-parameter helper: definition explained, call sites resolved",
+    'package cli\nimport "os"\n'
+    'func envDir(name string) string { return os.Getenv(name) }\n'
+    'func a() string { return envDir("COVE_PASSWORD") }\n',
+    {"COVE_PASSWORD"}, set(),
+)
+_fixture(
+    "function LITERAL helper (the autotask/sherweb doctor.go shape)",
+    'package cli\nimport "os"\n'
+    'func a() string {\n'
+    '\trecord := func(name, other string) string {\n'
+    '\t\treturn os.Getenv(name)\n'
+    '\t}\n'
+    '\treturn record("COVE_PASSWORD", "")\n'
+    '}\n',
+    {"COVE_PASSWORD"}, set(),
+)
+_fixture(
+    "internal FAMILY: XDG_ + runtime tail",
+    'package cliutil\nimport (\n\t"os"\n\t"strings"\n)\n'
+    'func xdgEnvVar(kind int) string {\n'
+    '\tsuffix := strings.TrimSuffix(pathKindEnvSuffix(kind), "_DIR")\n'
+    '\tif suffix == "" {\n\t\treturn ""\n\t}\n'
+    '\treturn "XDG_" + suffix + "_HOME"\n}\n'
+    'func envDir(name string) string { return os.Getenv(name) }\n'
+    'func a(kind int) string { return envDir(xdgEnvVar(kind)) }\n',
+    set(), set(),
+)
+_fixture(
+    "name carried in a struct field",
+    'package cli\nimport "os"\n'
+    'type Policy struct {\n\tEnvOptOut string\n}\n'
+    'func policyFor() Policy {\n'
+    '\toptOut := "COVE_PASSWORD"\n'
+    '\treturn Policy{\n\t\tEnvOptOut: optOut,\n\t}\n}\n'
+    'func a() string {\n\tp := policyFor()\n\treturn os.Getenv(p.EnvOptOut)\n}\n',
+    {"COVE_PASSWORD"}, set(),
+)
+
+
+def scanner_self_test(rules: dict) -> int:
+    """Prove the SCANNER both directions: it sees the reads it must see, and it
+    REPORTS the ones it cannot resolve instead of dropping them on the floor."""
+    failed = 0
+    for label, (src, expect_reads, expect_unexplained) in SCAN_FIXTURES.items():
+        pkg = parse_sources(Path("/fixture"),
+                            [(Path("/fixture/x.go"), strip_comments(src))])
+        link_packages([pkg])
+        found, unresolved = scan_packages([pkg], "COVE", rules)
+        got_reads = set(found)
+        got_unexplained = {u.expr for u in unresolved if u.why is None}
+        ok = got_reads == expect_reads and got_unexplained == expect_unexplained
+        print(f"  {'ok  ' if ok else 'BAD '} scan {label}: reads={sorted(got_reads)} "
+              f"unexplained={sorted(got_unexplained)}")
+        if not ok:
+            print(f"        expected reads={sorted(expect_reads)} "
+                  f"unexplained={sorted(expect_unexplained)}")
+            failed += 1
+    return failed
+
+
 def self_test() -> int:
     cases: list[tuple[str, dict, set[str], set[str], bool]] = [
         ("healthy manifest", HEALTHY, {"COVE_USERNAME"}, set(), False),
@@ -1056,6 +1559,9 @@ def self_test() -> int:
                              '"COVE_USERNAME": "<your-cove_username>",\n        "COVE_GONE": "x"'), True),
         ("mcp-install.md remote launch line drops a required credential",
          HEALTHY_DOC.replace("COVE_USERNAME=<value> cove-mcp", "cove-mcp"), True),
+        ("mcp-install.md remote launch line DELETED entirely (the vacuous-loop case)",
+         HEALTHY_DOC.replace("COVE_USERNAME=<value> cove-mcp --transport http --addr :7777",
+                             "# (remote install section removed)"), True),
         ("mcp-install.md has no env block at all",
          "\n".join(l for l in HEALTHY_DOC.split("\n") if "env" not in l and "COVE_USERNAME" not in l), True),
     ]
@@ -1101,7 +1607,9 @@ def self_test() -> int:
         if not ok:
             failed += 1
 
-    rules = load_rules()
+    rules, _ = load_rules()
+    failed += scanner_self_test(rules)
+
     classify_cases = [
         ("COVE_PASSWORD", "COVE", False), ("AUVIK_TENANT", "AUVIK", False),
         ("PRINTING_PRESS_CLIENT_PROFILE", "AUVIK", False),
@@ -1154,17 +1662,36 @@ def check_slug(slug: str, rules: dict, verbose: bool) -> tuple[str, list[str]]:
         return "fail", [f"[{slug}] manifest.json is not valid JSON: {exc}"]
 
     waived, findings = waived_vars(slug, rules)
-    reads, unresolved, prefix = scan_slug(slug)
+    reads, unresolved, prefix = scan_slug(slug, rules)
     operator = {name for name in reads if not is_internal(name, rules, prefix)}
 
     if verbose:
-        print(f"    env prefix {prefix}: {len(reads)} resolved, {len(unresolved)} unresolved")
+        explained = [u for u in unresolved if u.why]
+        print(f"    env prefix {prefix}: {len(reads)} resolved, "
+              f"{len(unresolved)} unresolved ({len(explained)} explained)")
         for name in sorted(reads):
             tag = "internal " if is_internal(name, rules, prefix) else "OPERATOR "
             mark = " [waived]" if name in waived else ""
             print(f"      {tag}{name}{mark}  {reads[name][0]}")
-        for site in unresolved[:5]:
-            print(f"      unresolved {site}")
+        for rec in unresolved:
+            print(f"      unresolved {rec}")
+
+    # An unresolved read is a FINDING, not a silent list entry. It used to be
+    # collected and dropped: `os.Getenv(strings.Join([]string{"COVE","PASSWORD"},"_"))`
+    # reads a credential, resolves to nothing, and the gate printed PASS. Only
+    # the two explanations in explain_unresolved() are accepted, so the residue
+    # this reports is exactly the residue nothing can vouch for.
+    for rec in unresolved:
+        if rec.why:
+            continue
+        findings.append(
+            f"[{slug}] {rec.site} reads the environment through an expression this "
+            f"gate cannot resolve to a variable name: {rec.reader}({rec.expr}). An "
+            f"unresolvable read is indistinguishable from a hidden credential, so "
+            f"it cannot be compared against manifest.json at all. Bind the name to "
+            f"a string constant (or pass it as a literal) so both this gate and a "
+            f"human reading the source can see which variable is being read."
+        )
 
     findings += evaluate(slug, manifest, operator, waived, set(reads))
 
@@ -1193,6 +1720,11 @@ def main() -> int:
     parser.add_argument("--all", action="store_true", help="check every skill (default)")
     parser.add_argument("--warn", action="store_true",
                         help="print findings as WARN: lines and exit 0")
+    parser.add_argument("--base", default=None,
+                        help="commit to read env_schema_internal.json from, so a "
+                             "change-set cannot widen its own internal-variable "
+                             "rules. PRs: github.event.pull_request.base.sha. "
+                             "Pushes: github.event.before.")
     parser.add_argument("--self-test", action="store_true",
                         help="prove the gate fires on broken input and passes healthy input")
     parser.add_argument("-v", "--verbose", action="store_true")
@@ -1201,7 +1733,9 @@ def main() -> int:
     if args.self_test:
         return self_test()
 
-    rules = load_rules()
+    rules, rule_notices = load_rules(args.base)
+    for notice in rule_notices:
+        print(f"check_env_schema: NOTE {notice}")
     known = registry.skills()
     if args.slug is not None and args.slug not in known:
         # NOT a vacuous PASS. CI runs this per-skill from a build matrix, so a

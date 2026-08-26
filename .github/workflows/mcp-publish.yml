@@ -30,6 +30,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # This job only reads the repo to parse a tag. It never pushes, so it
+          # gets no git-usable credential left behind in .git/config.
+          persist-credentials: false
 
       - name: Parse triggering tag
         id: parse
@@ -80,6 +84,11 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ needs.detect.outputs.tag }}
+          # Nothing in this job uses git to write: the release upload goes
+          # through `gh` with GH_TOKEN, and the registry publish uses OIDC.
+          # Leaving a git-usable token in .git/config only gives the third-party
+          # publisher binary something worth stealing.
+          persist-credentials: false
 
       - name: Set up jq
         run: sudo apt-get update && sudo apt-get install -y jq
@@ -106,16 +115,33 @@ jobs:
         env:
           SKILL: ${{ needs.detect.outputs.skill }}
           VERSION: ${{ needs.detect.outputs.version }}
+          # release.yml publishes six targets; the download loop asks for five
+          # (windows/arm64 has no MCPB host). Keep these in step.
+          EXPECTED_BINARIES: "5"
         run: |
           set -euo pipefail
           cd mcpb-build
           # MCPB is a zip with manifest.json + a bin/ directory of the binaries.
           mkdir -p bundle/bin
-          cp ../skills/$SKILL/manifest.json bundle/manifest.json
-          for f in ${SKILL}-mcp-*; do
+          cp "../skills/$SKILL/manifest.json" bundle/manifest.json
+          copied=0
+          for f in "$SKILL"-mcp-*; do
             [ -f "$f" ] || continue
             cp "$f" "bundle/bin/$f"
+            copied=$((copied + 1))
           done
+          # The download step tolerates a per-asset failure with `|| true`, and the
+          # upload uses --clobber. Together those mean a transient GitHub outage
+          # could produce a manifest-only bundle and OVERWRITE a working released
+          # .mcpb with it. Refuse to build a bundle that is missing binaries: a
+          # failed run leaves the previous good asset in place, which is the safe
+          # direction.
+          echo "bundled $copied binary/binaries"
+          if [ "$copied" -lt "$EXPECTED_BINARIES" ]; then
+            echo "::error::only $copied of $EXPECTED_BINARIES platform binaries were downloaded for $SKILL;" \
+                 "refusing to build a partial bundle that --clobber would publish over the working asset"
+            exit 1
+          fi
           (cd bundle && zip -r "../${SKILL}-mcp.mcpb" .)
           ls -la "${SKILL}-mcp.mcpb"
 
@@ -163,13 +189,71 @@ jobs:
           echo "--- patched server.json ---"
           cat "$out"
 
-      - name: Install mcp-publisher
+      - name: Pre-flight - server.json satisfies the registry schema
+        env:
+          SKILL: ${{ needs.detect.outputs.skill }}
         run: |
           set -euo pipefail
-          # Upstream ships a tarball (mcp-publisher_<os>_<arch>.tar.gz), not a bare
-          # binary. The old mcp-publisher-linux-amd64 URL 404'd, failing every
-          # registry publish (the .mcpb build + GH release still succeeded).
-          curl -fsSL https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz -o mcp-publisher.tar.gz
+          # This job checks out the TAG being published, but workflow_run always
+          # runs the DEFAULT BRANCH's copy of this workflow file. So this step
+          # exists for every one of the pre-existing tags while the checker does
+          # not. Skip with a notice rather than hard-failing a re-publish of a
+          # tag cut before the gate landed; every new tag carries it, and ci.yml
+          # gates the same thing at PR time anyway.
+          if [ ! -f tools/maintainer/check_mcp_registry.py ]; then
+            echo "::notice::tools/maintainer/check_mcp_registry.py is not present at this tag;" \
+                 "skipping the registry pre-flight. Tags cut after it landed are checked."
+            exit 0
+          fi
+          python3 tools/maintainer/check_mcp_registry.py --slug "$SKILL"
+
+      - name: Install mcp-publisher (pinned version, digest verified before execution)
+        env:
+          PUBLISHER_VERSION: "v1.8.1"
+          PUBLISHER_ASSET: "mcp-publisher_linux_amd64.tar.gz"
+          PUBLISHER_SHA256: "a06c9096dcb9727c13555b6be26c7effa707b01f06a4c561ba7a3635443cf2cc"
+        run: |
+          set -euo pipefail
+          # This binary runs inside a job that holds contents:write and
+          # id-token:write. Downloading it from the MUTABLE releases/latest URL
+          # meant whatever upstream published most recently executed with this
+          # repository's credentials. Pin an exact release and verify a
+          # repo-committed SHA-256 BEFORE the binary is ever executed. The pin
+          # lives in tools/maintainer/mcp_publisher_pin.json so every bump is a
+          # reviewable diff.
+          #
+          # Upstream ships a tarball (mcp-publisher_<os>_<arch>.tar.gz), not a
+          # bare binary. The old mcp-publisher-linux-amd64 URL 404'd, failing
+          # every registry publish (the .mcpb build + GH release still succeeded).
+          # The pin lives in this workflow's env: block, NOT in a repo file. This
+          # job checks out the TAG, but workflow_run always runs the DEFAULT
+          # BRANCH's copy of this workflow - so a file-based pin is absent for
+          # every tag cut before it landed and would hard-fail every re-publish.
+          # env: keeps the reviewable-diff property with no tag-compat cost.
+          ver="$PUBLISHER_VERSION"
+          asset="$PUBLISHER_ASSET"
+          want="$PUBLISHER_SHA256"
+          if [ -z "$ver" ] || [ -z "$asset" ] || ! printf '%s' "$want" | grep -Eiq '^[0-9a-f]{64}$'; then
+            echo "::error::the publisher pin in this workflow's env: block is malformed;"
+            echo "::error::PUBLISHER_VERSION/ASSET must be set and SHA256 must be 64 hex chars."
+            echo "::error::Refusing to execute an unverifiable publisher."
+            exit 1
+          fi
+          want="$(printf '%s' "$want" | tr 'A-F' 'a-f')"
+          url="https://github.com/modelcontextprotocol/registry/releases/download/${ver}/${asset}"
+          echo "Pinned publisher: ${ver} ${asset}"
+          curl -fsSL "$url" -o mcp-publisher.tar.gz
+          got="$(sha256sum mcp-publisher.tar.gz | awk '{print $1}')"
+          if [ "$got" != "$want" ]; then
+            echo "::error::mcp-publisher digest MISMATCH for ${ver} ${asset}."
+            echo "::error::expected ${want}"
+            echo "::error::got      ${got}"
+            echo "::error::Refusing to execute it. If upstream legitimately re-cut the"
+            echo "::error::release, update the PUBLISHER_* env values in this workflow in a"
+            echo "::error::reviewed PR after checking upstream's signed checksums file."
+            exit 1
+          fi
+          echo "mcp-publisher digest verified: ${got}"
           tar -xzf mcp-publisher.tar.gz mcp-publisher
           chmod +x mcp-publisher
           ./mcp-publisher --version

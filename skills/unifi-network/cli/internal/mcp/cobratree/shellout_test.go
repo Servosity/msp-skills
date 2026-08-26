@@ -16,8 +16,8 @@ import (
 
 	mcplib "github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
-	"unifi-network-pp-cli/internal/mcp/bound"
 	"github.com/spf13/cobra"
+	"unifi-network-pp-cli/internal/mcp/bound"
 )
 
 // TestSplitShellArgs pins the whitespace + quote splitting used by
