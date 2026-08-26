@@ -46,7 +46,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download Amazon Web Services MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/aws-billing-v0.1.0/aws-billing-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Amazon Web Services release on the [releases page](https://github.com/servosity/msp-skills/releases?q=aws-billing).)
+[**Download Amazon Web Services MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/aws-billing-v0.1.1/aws-billing-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Amazon Web Services release on the [releases page](https://github.com/servosity/msp-skills/releases?q=aws-billing).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 

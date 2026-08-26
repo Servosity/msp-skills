@@ -28,30 +28,30 @@
     "released_hash": "sha256:71d19eb7aac68b0061e818fe78382c4d9333c78042fb826129b1c4c255e7d768"
   },
   "appdirect": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.2",
-    "latest_tag": "appdirect-v0.1.1",
+    "latest_tag": "appdirect-v0.1.2",
     "current_hash": "sha256:ddadb896fc5b0b78c357074181d88d2faae6243e8d35e464a9cd440dda2365fc",
     "released_hash": "sha256:ddadb896fc5b0b78c357074181d88d2faae6243e8d35e464a9cd440dda2365fc"
   },
   "atera": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.1",
-    "latest_tag": "atera-v0.1.0",
+    "latest_tag": "atera-v0.1.1",
     "current_hash": "sha256:02e56e4f3a77d0a9803042e94f216f21726c4877f1da267a2332a282e9468183",
     "released_hash": "sha256:02e56e4f3a77d0a9803042e94f216f21726c4877f1da267a2332a282e9468183"
   },
   "autotask": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.3",
-    "latest_tag": "autotask-v0.1.2",
+    "latest_tag": "autotask-v0.1.3",
     "current_hash": "sha256:e66dde89f09d7bb0b86bec04e8545c381cb19deecc8d8315d5552dfcacc84177",
     "released_hash": "sha256:e66dde89f09d7bb0b86bec04e8545c381cb19deecc8d8315d5552dfcacc84177"
   },
   "auvik": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.2.1",
-    "latest_tag": "auvik-v0.2.0",
+    "latest_tag": "auvik-v0.2.1",
     "current_hash": "sha256:d8eac2265dad76b4f4d90682c66123500fc4a869de932ad6ea66f855e8f2548d",
     "released_hash": "sha256:d8eac2265dad76b4f4d90682c66123500fc4a869de932ad6ea66f855e8f2548d"
   },
@@ -63,9 +63,9 @@
     "released_hash": "sha256:0ae0e3b50ec676b9d4d67741a239b0cdd1b0288ab9af9c153291bfbfe91dacdd"
   },
   "aws-billing": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.1",
-    "latest_tag": "aws-billing-v0.1.0",
+    "latest_tag": "aws-billing-v0.1.1",
     "current_hash": "sha256:846bbe411680cb2b26fe38f6a74fc4c400017b44c337f83b63ad101222a11b56",
     "released_hash": "sha256:846bbe411680cb2b26fe38f6a74fc4c400017b44c337f83b63ad101222a11b56"
   },
@@ -77,9 +77,9 @@
     "released_hash": "sha256:f5dc31bbb0c6f754371fa8a55045e6e62118dfc92c6950ced051cf5b15c1195a"
   },
   "betterstack": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.1",
-    "latest_tag": "betterstack-v0.1.0",
+    "latest_tag": "betterstack-v0.1.1",
     "current_hash": "sha256:3074c7ef39d01982b7ab20b15afc4a3439bbe1b5bc03d2135439a24b9177dd64",
     "released_hash": "sha256:3074c7ef39d01982b7ab20b15afc4a3439bbe1b5bc03d2135439a24b9177dd64"
   },

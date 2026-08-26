@@ -46,7 +46,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download Autotask MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/autotask-v0.1.2/autotask-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Autotask release on the [releases page](https://github.com/servosity/msp-skills/releases?q=autotask).)
+[**Download Autotask MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/autotask-v0.1.3/autotask-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Autotask release on the [releases page](https://github.com/servosity/msp-skills/releases?q=autotask).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
