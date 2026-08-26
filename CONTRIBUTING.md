@@ -3,10 +3,11 @@
 **The most valuable thing you can send us is not code. It is a receipt.**
 
 Most connectors here were built without access to the vendor's system. They pass
-every mechanical gate we can run - they build, their docs match their real
-commands, their installers resolve - but a gate cannot tell us what a live tenant
-does. Only you can. So the top rung of this ladder is one sentence from an MSP
-who ran a connector against their own tenant and watched it work.
+every mechanical gate we can run - they build, their installers resolve, and a
+check reads every documented command back against the binary's real command
+surface - but a gate cannot tell us what a live tenant does. Only you can. So the
+top rung of this ladder is one sentence from an MSP who ran a connector against
+their own tenant and watched it work.
 
 Everything below is ordered by how much it helps, not by how hard it is.
 
@@ -33,8 +34,13 @@ label and it is not a defect - it means the only thing still missing is an MSP.
 The connector is ready to run today; nobody has yet told us what happened when
 they ran it.
 
-Your report is what changes that, and it is the only thing that can. We do not
-badge our own work on our own say-so.
+Your report is what changes that. Every **Live-verified** badge records where its
+receipt came from. Some are first-party: Servosity ran that connector against our
+own production tenant and said so, and the badge carries that as its source. The
+rest came from MSPs outside this project. A first-party receipt is a real
+receipt, but it is the one kind we can always hand ourselves - which is exactly
+why an outside MSP's receipt is the most valuable thing anyone sends us. It is
+the one thing we cannot give ourselves.
 
 1. Run any connector against your real tenant. One read command is enough.
 2. [Fill in the "it works" form](https://github.com/servosity/msp-skills/issues/new?template=it-works.yml).
@@ -92,8 +98,10 @@ back over them:
 
 - **Social preview images and the demo video.** These are minted from an internal
   toolchain you do not have. Leave them out.
-- **The `live-verified` badge.** Only a real MSP's report flips it, never the
-  author's own say-so - including ours.
+- **The `live-verified` badge.** Do not set it on your own pull request. It is
+  flipped from a report of a real run against a real tenant, and it records who
+  reported that run and whether the receipt was first-party or came from an
+  outside MSP.
 - **Anything the automated checks generate**, like `catalog.json`. If you cannot
   regenerate it, say so in the pull request and we will.
 - **A perfect first commit.** We would rather see the working thing and iterate
@@ -129,7 +137,20 @@ Both installers detect OS and architecture, download the CLI and MCP binaries
 from the repo's Releases, write them to `~/.local/bin` (or
 `%LOCALAPPDATA%\Programs\msp-skills\` on Windows), clear macOS Gatekeeper
 quarantine, and honor `DRY_RUN=1`. Copy `skills/halopsa/install.sh` and
-`install.ps1` and swap the binary names.
+`skills/halopsa/install.ps1`, then replace every HaloPSA-specific string in them.
+There are more than the binary names:
+
+- **The skill slug.** `SKILL="halopsa"` in `install.sh`, `$Skill = "halopsa"` in
+  `install.ps1`. This is the one that bites: it is the release-tag prefix the
+  script searches for, so a copy that misses it resolves HaloPSA's release
+  instead of yours.
+- **The binary names.** `CLI_BIN` and `MCP_BIN` in `install.sh`; `$CliBin` and
+  `$McpBin` in `install.ps1`, both ending in `.exe`.
+- **The documentation URLs printed at the end.** Both scripts hard-code
+  `skills/halopsa#readme` and `skills/halopsa/mcp-install.md` in their closing
+  "Next:" block, and `install.ps1` also prints `halopsa-cli --version` as a
+  literal rather than through `$CliBin`.
+- **The header comments**, which name the skill and its `halopsa-v*` tag pattern.
 
 **2. A markdown-only skill** - instructions, and optionally some scripts. No Go,
 no compiled binary, no MCP server. `skills/connect-tool/` is the example:

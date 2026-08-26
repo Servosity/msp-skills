@@ -14,7 +14,7 @@ The single most valuable contribution is not code: it is one sentence from an MS
 ## The four rungs
 
 1. **Send an "it works" receipt.** You ran a connector against your tenant and it did the job. [Fill in the form](https://github.com/servosity/msp-skills/issues/new?template=it-works.yml), or email hello@servosity.com. Your name goes on [the receipts wall](/verified/).
-2. **Report a real-tenant bug.** Something misbehaved against a live tenant. [Fill in the bug-report form](https://github.com/servosity/msp-skills/issues/new?template=bug-report.yml) with the command you ran and the exact error.
+2. **Report a real-tenant bug.** Something misbehaved against a live tenant. [Fill in the bug-report form](https://github.com/servosity/msp-skills/issues/new?template=bug-report.yml) with the command you ran and what came back - error text if there was any, otherwise the wrong or empty result.
 3. **Open a small fix or docs pull request.** A corrected example, a clearer sentence, a live-API quirk. Hand-fixes to generated connector code get recorded in `handfixes.json` so a regeneration cannot silently drop them ([why](/reprint-survival/)).
 4. **Add a connector or a Skill.** Either shape is first-class: a Go CLI plus MCP server, or a markdown-only Skill with no binary at all.
 
