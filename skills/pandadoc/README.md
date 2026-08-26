@@ -46,7 +46,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download PandaDoc MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/pandadoc-v0.1.0/pandadoc-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every PandaDoc release on the [releases page](https://github.com/servosity/msp-skills/releases?q=pandadoc).)
+[**Download PandaDoc MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/pandadoc-v0.1.1/pandadoc-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every PandaDoc release on the [releases page](https://github.com/servosity/msp-skills/releases?q=pandadoc).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 

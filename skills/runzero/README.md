@@ -46,7 +46,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download runZero MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/runzero-v0.1.0/runzero-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every runZero release on the [releases page](https://github.com/servosity/msp-skills/releases?q=runzero).)
+[**Download runZero MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/runzero-v0.1.1/runzero-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every runZero release on the [releases page](https://github.com/servosity/msp-skills/releases?q=runzero).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
