@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "pagerduty-mcp",
   "display_name": "PagerDuty",
-  "version": "0.1.2",
+  "version": "0.1.1",
   "description": "Every PagerDuty incident, on-call and service operation from the terminal, plus a local SQLite mirror that answers cross-entity questions \u2014 MTTA/MTTR, on-call coverage gaps, responder load \u2014 that neither the API nor the web UI can.",
   "author": {
     "name": "Servosity Inc."

@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/gradient-mcp",
   "title": "Gradient MSP MCP",
   "description": "CLI and MCP server for Gradient MSP Synthesize: usage push, billing drift, alert tracing.",
-  "version": "0.1.2",
+  "version": "0.1.1",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/gradient/gradient-512x512.png",
@@ -21,8 +21,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/gradient-v0.1.2/gradient-mcp.mcpb",
-      "version": "0.1.2",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/gradient-v0.1.1/gradient-mcp.mcpb",
+      "version": "0.1.1",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"

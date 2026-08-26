@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/datto-rmm-mcp",
   "title": "Datto RMM MCP",
   "description": "Every Datto RMM API operation, plus a local SQLite fleet store and fleet-wide analytics no other",
-  "version": "0.1.4",
+  "version": "0.1.3",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/datto-rmm/datto-rmm-512x512.png",
@@ -21,8 +21,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/datto-rmm-v0.1.4/datto-rmm-mcp.mcpb",
-      "version": "0.1.4",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/datto-rmm-v0.1.3/datto-rmm-mcp.mcpb",
+      "version": "0.1.3",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"

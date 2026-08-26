@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "sherweb-mcp",
   "display_name": "Sherweb",
-  "version": "0.1.2",
+  "version": "0.1.1",
   "description": "Every Sherweb Partner API capability, plus a local SQLite store, offline analytics, and margin/drift/orphan joins no other Sherweb tool has.",
   "author": {
     "name": "Servosity Inc."

@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "aws-billing-pp-mcp",
   "display_name": "AWS Billing Intelligence",
-  "version": "0.1.2",
+  "version": "0.1.1",
   "description": "Get a non-expert from zero to a Slack-delivered, plain-English, waste-flagged AWS bill breakdown  -  and cache it so you don't pay per Cost Explorer call.",
   "author": {
     "name": "Servosity Inc."

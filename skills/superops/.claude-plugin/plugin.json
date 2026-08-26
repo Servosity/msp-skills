@@ -1,6 +1,6 @@
 {
   "name": "superops",
-  "version": "0.1.6",
+  "version": "0.1.5",
   "description": "Every SuperOps PSA+RMM entity in your terminal, plus a local SQLite mirror that answers cross-entity questions the web UI can't.",
   "author": {
     "name": "Servosity",

@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "wordpress-pp-mcp",
   "display_name": "Wordpress",
-  "version": "0.1.3",
+  "version": "0.1.2",
   "description": "Publish and manage WordPress pages, posts, media",
   "author": {
     "name": "Servosity Inc."

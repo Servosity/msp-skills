@@ -1,6 +1,6 @@
 {
   "name": "pipedrive",
-  "version": "0.1.2",
+  "version": "0.1.1",
   "description": "Full Pipedrive CRUD plus a local SQLite pipeline copy: stale deals, forecasts, aging, dupes, rep leaderboards.",
   "author": {
     "name": "Servosity",

@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "microsoft-graph-mcp",
   "display_name": "Microsoft Graph",
-  "version": "0.2.2",
+  "version": "0.2.1",
   "description": "The maintained single-binary successor to the retiring mgc \u2014 every MSP-relevant Microsoft Graph surface, plus an offline store that finds wasted licenses, privileged-access risks, and stale devices no single API call can.",
   "author": {
     "name": "Servosity Inc."

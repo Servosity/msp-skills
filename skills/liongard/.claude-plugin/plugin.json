@@ -1,6 +1,6 @@
 {
   "name": "liongard",
-  "version": "0.1.2",
+  "version": "0.1.1",
   "description": "Every Liongard endpoint, plus an offline copy of your whole MSP estate you can join, search, and drift-check from one command.",
   "author": {
     "name": "Servosity",

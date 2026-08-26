@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/aws-billing-mcp",
   "title": "Amazon Web Services MCP",
   "description": "Get a non-expert from zero to a Slack-delivered, plain-English, waste-flagged AWS bill breakdown",
-  "version": "0.1.2",
+  "version": "0.1.1",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/aws-billing/aws-billing-512x512.png",
@@ -21,8 +21,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/aws-billing-v0.1.2/aws-billing-mcp.mcpb",
-      "version": "0.1.2",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/aws-billing-v0.1.1/aws-billing-mcp.mcpb",
+      "version": "0.1.1",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"

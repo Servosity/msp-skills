@@ -1,6 +1,6 @@
 {
   "name": "xero",
-  "version": "0.1.2",
+  "version": "0.1.1",
   "description": "Every Xero Accounting read plus a local SQLite ledger \u2014 aging, reconciliation, and GL tie-out that no other Xero tool computes offline.",
   "author": {
     "name": "Servosity",
