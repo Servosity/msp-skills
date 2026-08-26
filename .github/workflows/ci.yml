@@ -32,6 +32,20 @@ jobs:
       - name: Skill contract (frontmatter + required files)
         run: python3 tools/maintainer/check_skill_contract.py
 
+      - name: One project copyright line (Go headers + connector NOTICE/LICENSE)
+        # cli-printing-press stamps the header from whoever ran the generator, so
+        # a reprint reintroduces an individual's name into files the project owns
+        # (cli-printing-press#4326). Before 2026-08-23 that had produced TEN
+        # different copyright strings across 19,307 files, nine connectors
+        # disagreeing with themselves.
+        #
+        # This runs HERE and not only in verify_all.sh because verify_all.sh is a
+        # local convenience, not a merge gate: a reprint PR that never runs it
+        # would land the personal headers with CI green. The scan is whole-fleet
+        # and takes about a second, so it is cheap enough to run on every PR
+        # rather than only on the connectors a PR touched.
+        run: python3 tools/maintainer/check_copyright.py
+
       - name: Markdown local links
         run: python3 tools/maintainer/check_md_links.py
 

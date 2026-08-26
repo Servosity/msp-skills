@@ -30,8 +30,9 @@ The single most valuable contribution is not code: it is one sentence from an MS
 
 These are two different things, and the project keeps them separate on purpose.
 
-**Copyright is uniform.** Every generated file, every `cli/NOTICE` and every
-`cli/LICENSE` attribution line carries the same line as the root `LICENSE`:
+**Copyright is uniform.** Wherever a copyright line appears in a connector - a
+`.go` file under `skills/*/cli/`, that connector's `cli/NOTICE`, its `cli/LICENSE`
+attribution line - it reads the same as the root `LICENSE`:
 
 ```
 Copyright 2026 Servosity Inc. and msp-skills contributors
@@ -40,11 +41,14 @@ Copyright 2026 Servosity Inc. and msp-skills contributors
 You are one of those contributors the moment your PR merges. Individual names do
 not go in per-file headers: a header naming one person is wrong the first time
 somebody else edits that file, and it tells anyone adopting the code the wrong
-thing about who owns that subtree. `tools/maintainer/check_copyright.py` enforces
-this, because the generator stamps whoever ran it and a regeneration would
-otherwise undo it.
+thing about who owns that subtree. `tools/maintainer/check_copyright.py` runs on
+every pull request and enforces this, because the generator stamps whoever ran it
+and a regeneration would otherwise undo it. Those three sets of files are its
+whole scope: its rule is that any copyright line present in them must be the
+canonical one, it does not require a file to carry one, and it does not scan
+Markdown, Python or shell.
 
-**Credit is personal**, and lives in three places that survive a regeneration:
+**Credit is personal**, and lives in three places:
 
 | Where | What it looks like |
 | --- | --- |
@@ -52,16 +56,28 @@ otherwise undo it.
 | `SKILL.md` frontmatter | `author: "Abhi Saini"` |
 | Git history + your DCO sign-off | the permanent, legal record |
 
-The `NOTICE` file is the Apache-2.0 attribution channel (§4(d)) and it ships
-inside every release artifact, so it reaches more people than a comment at the top
-of a source file.
+`NOTICE` is the Apache-2.0 attribution channel (section 4(d)). A reprint
+regenerates it from the press template, so every credited connector pins its
+"contributed by" sentence in `skills/<slug>/handfixes.json` and
+`check_handfixes.py` fails CI if a regeneration drops the line. That is what makes
+"survives a regeneration" a checked promise rather than an intention.
+
+Where that credit reaches today: `cli/NOTICE` is in the repository and in every
+source checkout. The release assets are the two binaries plus their `.sha256`
+files, and the `.mcpb` bundle is `manifest.json` plus those binaries, so no
+release asset ships `NOTICE` or `LICENSE` yet. Adding both alongside the binaries
+is a planned release-pipeline change, not a fact about today's downloads.
 
 Tell us in the PR how you want to be named - handle, real name, company, or not at
 all - and that is what we will use.
 
 ### If you are adopting a skill rather than contributing one
 
-Everything here is Apache-2.0. The single copyright line above is the whole
-ownership story: there is no per-file patchwork to audit, no CLA anyone signed,
-and no individual holding rights over one subdirectory. Contributors licensed
-their work under the DCO, which is recorded in the sign-off on every commit.
+Everything here is Apache-2.0, and that license is what governs your use. The
+uniform copyright line means there is no per-file patchwork to audit and no
+individual holding rights over one subdirectory, though it is a summary of
+ownership rather than a substitute for the license text and the git history. No
+contributor license agreement was signed. Contributors sign off each commit under
+the [Developer Certificate of Origin](https://developercertificate.org), which
+certifies they have the right to submit the work; Apache-2.0 is the license the
+work is submitted under.

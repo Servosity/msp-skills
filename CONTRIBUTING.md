@@ -227,7 +227,7 @@ You keep the credit; the copyright line stays uniform. Those are different thing
 and conflating them is what made 19,307 files disagree with each other before
 2026-08-23.
 
-**Every file carries one project copyright line**, matching the root LICENSE:
+**One project copyright line**, matching the root LICENSE:
 
 ```
 Copyright 2026 Servosity Inc. and msp-skills contributors
@@ -236,18 +236,33 @@ Copyright 2026 Servosity Inc. and msp-skills contributors
 You are one of those contributors the moment your PR merges - that phrase is not
 decoration. We do not put individual names in per-file headers: a header naming
 one person goes stale the first time someone else edits the file, and it tells an
-adopter the wrong thing about who owns that subtree. `check_copyright.py` enforces
-this, because the generator stamps whoever ran it and a reprint would otherwise
-undo it.
+adopter the wrong thing about who owns that subtree.
 
-**Your name goes in the three places built to hold it**, all of which outlive a
-regeneration:
+`tools/maintainer/check_copyright.py` enforces that line on every pull request,
+because the generator stamps whoever ran it and a reprint would otherwise undo it.
+What the gate actually covers, stated precisely so this page does not claim more
+than is checked: every `.go` file under `skills/*/cli/`, every
+`skills/<slug>/cli/NOTICE`, and every `skills/<slug>/cli/LICENSE`. Its rule is
+that any copyright line present in those files must be the canonical one. It does
+not require a file to carry a copyright line, and it does not scan Markdown,
+Python or shell.
+
+**Your name goes in the three places built to hold it:**
 
 - `skills/<slug>/cli/NOTICE` - "The <Vendor> connector was contributed by Your Name
-  (@yourhandle)." This is the Apache-2.0 attribution channel, and it ships inside
-  every release artifact.
+  (@yourhandle)." This is the Apache-2.0 attribution channel (section 4(d)). A
+  reprint regenerates `NOTICE` from the press template, so each credited connector
+  pins that exact sentence in `skills/<slug>/handfixes.json` and
+  `check_handfixes.py` fails CI if a regeneration drops it.
 - `SKILL.md` frontmatter `author` - your name, shown on the skill's page.
 - Git history and your DCO sign-off - permanent, and the actual legal record.
+
+Where that credit reaches today: `cli/NOTICE` lives in the repository and in every
+source checkout. The release assets are the two binaries plus their `.sha256`
+files, and the `.mcpb` bundle is `manifest.json` plus those binaries, so no
+release asset carries `NOTICE` or `LICENSE` yet. Shipping both alongside the
+binaries is a planned change to the release pipeline, not a description of what a
+download contains today.
 
 If you would rather be credited by handle, real name, or company, say so in the PR
 and we will use that. If you would rather not be named at all, say that too.

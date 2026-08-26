@@ -304,6 +304,20 @@
      "min_count": 1
     }
    ]
+  },
+  {
+   "id": "notice-carries-the-contributor-credit",
+   "summary": "cli/NOTICE names this connector's contributor, in the Apache-2.0 attribution channel",
+   "why": "CONTRIBUTING.md and the public contributing page promise that a contributor's credit survives a regeneration. Nothing enforced that. The press regenerates cli/NOTICE from its own template, which carries the CLI Printing Press attribution but not this repo's per-connector 'contributed by' sentence, so a reprint would silently delete the only place the credit lives. PR #283 moved contributor credit out of per-file copyright headers and into NOTICE, which makes this line the load-bearing copy rather than a duplicate. Pinning the exact sentence here is what turns the promise into a checked one.",
+   "status": "active",
+   "spec_encode_followup": "The press has no per-connector contributor field, so there is nothing to encode upstream today. If one is added, the NOTICE template should emit this sentence by construction. Related: the press stamps the copyright header from whoever ran the generator, tracked as cli-printing-press#4326.",
+   "asserts": [
+    {
+     "file": "cli/NOTICE",
+     "contains": "The UniFi Network connector was contributed by Ricardo Cabral (@phoenix-server).",
+     "min_count": 1
+    }
+   ]
   }
  ]
 }
