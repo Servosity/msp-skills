@@ -1,0 +1,154 @@
+# NOTE: the "Which skill" dropdown options are GENERATED from tools/skills.json
+# by tools/maintainer/build-catalog.py (every connector, slug-sorted, plus
+# "other / not listed") - the same generator that owns it-works.yml's dropdown.
+# Do NOT edit the options by hand - register the skill and run
+# `python3 tools/maintainer/build-catalog.py`. A hand-maintained slug list
+# drifts the moment a connector ships, and a reporter forced into "other" costs
+# a triage round-trip to find out which connector actually broke.
+name: "🐞 Report: something broke"
+description: A Skill or MCP server errored, hung, returned nothing, or gave a wrong answer. Tell us exactly what you ran and exactly what came back.
+title: "[Bug] "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Sorry it broke. The field that gets this fixed fastest is the exact command (or question) you ran - paste it verbatim, even if it looks obvious. If there was error text, paste that verbatim too. If there was not - it hung, returned nothing, or answered wrong - describe what came back instead. Redact tenant names, hostnames, keys, and tokens before you post.
+
+  - type: dropdown
+    id: skill
+    attributes:
+      label: Which skill
+      description: The Skill / MCP server that broke.
+      options:
+        - abnormal
+        - acronis
+        - action1
+        - afi
+        - appdirect
+        - atera
+        - autotask
+        - auvik
+        - avanan
+        - aws-billing
+        - axcient
+        - betterstack
+        - blumira
+        - cipp
+        - connectwise-automate
+        - connectwise-control
+        - connectwise-manage
+        - cork
+        - cove
+        - crowdstrike
+        - datto-bcdr
+        - datto-rmm
+        - domotz
+        - gradient
+        - halopsa
+        - hubspot
+        - hudu
+        - huntress
+        - immybot
+        - itglue
+        - kaseya-bms
+        - knowbe4
+        - levelio
+        - liongard
+        - maxio
+        - microsoft-graph
+        - mspbots
+        - n-central
+        - nerdio
+        - ninjaone
+        - pagerduty
+        - pandadoc
+        - pax8
+        - pipedrive
+        - proofpoint
+        - quickbooks
+        - resourceguru
+        - rewst
+        - rocketcyber
+        - rootly
+        - runzero
+        - salesbuildr
+        - sentinelone
+        - servosity
+        - sherweb
+        - skykick
+        - superops
+        - syncro
+        - tactical-rmm
+        - threatlocker
+        - unifi-network
+        - veeam
+        - wordpress
+        - xero
+        - zammad
+        - other / not listed
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      description: Where you ran it.
+      options:
+        - macOS
+        - Windows
+        - Linux
+    validations:
+      required: true
+
+  - type: dropdown
+    id: agent
+    attributes:
+      label: Which AI agent did you use?
+      description: The AI client you ran it from. Pick "other" if you ran the CLI directly in a terminal.
+      options:
+        - Claude Code
+        - Claude Desktop
+        - ChatGPT
+        - Codex CLI
+        - Copilot
+        - other
+    validations:
+      required: true
+
+  - type: textarea
+    id: command
+    attributes:
+      label: Exact command or question you ran
+      description: Paste it verbatim. If you asked your agent in plain English, paste the question exactly as you typed it.
+      placeholder: |
+        e.g. halopsa tickets list --status open --limit 50
+        or  "Which clients have HaloPSA tickets breaching SLA in the next 4 hours?"
+    validations:
+      required: true
+
+  - type: textarea
+    id: error
+    attributes:
+      label: What you saw (exact error output if any)
+      description: If there was error text, paste it verbatim - the full output, including any stack trace or HTTP status. If there was no error - it hung, returned nothing, or gave a wrong answer - describe what came back instead and what you expected. Redact tenant names, hostnames, keys, and tokens first. This box renders as code, so no backticks needed.
+      render: shell
+
+  - type: dropdown
+    id: ever_worked
+    attributes:
+      label: Did it ever work?
+      description: Tells us whether we are looking at a regression or a first-run setup problem.
+      options:
+        - "No - it has never worked for me"
+        - "Yes - it worked before and then broke"
+        - "Not sure / first time trying it"
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        **Want a hand live?** Bring it to a [Build Session](https://compoundingteams.com/build-sessions) - free, weekly, Thursdays. We debug real tenants on the call. Recordings and discussion live in the [community](https://ai-accelerator-233a51.circle.so/join).

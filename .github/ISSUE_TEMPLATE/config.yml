@@ -1,0 +1,21 @@
+# The issue chooser's contribution funnel. Blank issues stay ON so an MSP who
+# does not fit a form is never turned away; these links catch the cases where
+# GitHub is the wrong surface entirely (live help, community, no-account
+# requests, private security reports).
+blank_issues_enabled: true
+contact_links:
+  - name: Build Sessions
+    url: https://compoundingteams.com/build-sessions
+    about: Co-build a connector live and ask questions. Free, weekly, Thursdays.
+
+  - name: Community
+    url: https://ai-accelerator-233a51.circle.so/join
+    about: Discussion and Build Session recordings.
+
+  - name: Request a connector or send an it-works receipt without a GitHub account
+    url: https://msp-skills.compoundingteams.com/verified/
+    about: This page gives you a plain-email option - no account needed. Tell us what to build, or tell us a Skill worked against your real tenant. Plain text is fine.
+
+  - name: Report a security issue privately
+    url: https://github.com/Servosity/msp-skills/blob/main/SECURITY.md
+    about: Email security@servosity.com instead of opening a public issue - this page has the details.
