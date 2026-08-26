@@ -50,7 +50,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download Datto BCDR MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/datto-bcdr-v0.1.2/datto-bcdr-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Datto BCDR release on the [releases page](https://github.com/servosity/msp-skills/releases?q=datto-bcdr).)
+[**Download Datto BCDR MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/datto-bcdr-v0.1.3/datto-bcdr-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Datto BCDR release on the [releases page](https://github.com/servosity/msp-skills/releases?q=datto-bcdr).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
