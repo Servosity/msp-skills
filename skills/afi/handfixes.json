@@ -164,7 +164,7 @@
   {
    "id": "typed-resources-table-parent-prefixed",
    "summary": "the typed domain table for the `resources` resource is named `tenants_resources`, not the colliding bare `resources`",
-   "why": "afi exposes an API resource literally named `resources`. The press emitted its typed domain table as a bare `resources`, which is the same name as the framework's generic catch-all table. The catch-all CREATE runs first in the migrations slice, so the typed `CREATE TABLE IF NOT EXISTS \"resources\"` silently no-ops and every typed insert then runs against the catch-all's column set - failing its NOT NULL `resource_type` on every synced row (`warning: N/N resources items: typed-table upsert failed` on each sync), leaving the typed table permanently empty and polluting the catch-all with a `tenants_id` column it never populates. It also made `Open()` fail outright on a pre-existing store whose `resources` table carried the typed shape. Parent-prefixing to `tenants_resources` is the same disambiguation the generator already applies to `orgs_orgs` / `orgs_tenants`. A reprint re-emits the bare name. See project_afi_onboard_update_424_traps; the press's missing reserved-table-name guard is a printing-press retro candidate.",
+   "why": "afi exposes an API resource literally named `resources`. The press emitted its typed domain table as a bare `resources`, which is the same name as the framework's generic catch-all table. The catch-all CREATE runs first in the migrations slice, so the typed `CREATE TABLE IF NOT EXISTS \"resources\"` silently no-ops and every typed insert then runs against the catch-all's column set - failing its NOT NULL `resource_type` on every synced row (`warning: N/N resources items: typed-table upsert failed` on each sync), leaving the typed table permanently empty and polluting the catch-all with a `tenants_id` column it never populates. Scope note, verified against every released store.go (v0.1.0 / v0.1.1 / v0.1.2): the catch-all CREATE winning the race is exactly what makes a typed-shape `resources` table un-writable to disk, so no operator database can carry it and `Open()` was never at risk on a real store; the shape only failed in the generated test fixture, and that behaviour is now pinned by cli/internal/store/legacy_resources_shape_test.go instead of being hidden by the fixture rename. Parent-prefixing to `tenants_resources` is the same disambiguation the generator already applies to `orgs_orgs` / `orgs_tenants`. A reprint re-emits the bare name. See project_afi_onboard_update_424_traps; the press's missing reserved-table-name guard is a printing-press retro candidate.",
    "status": "active",
    "asserts": [
     {
@@ -185,6 +185,21 @@
     {
      "file": "cli/internal/store/store.go",
      "not_contains": "IF NOT EXISTS \"resources\""
+    },
+    {
+     "file": "cli/internal/store/legacy_resources_shape_test.go",
+     "contains": "func TestMigrate_FreshDBLeavesGenericResourcesShape(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/legacy_resources_shape_test.go",
+     "contains": "func TestMigrate_LegacyGenericResourcesTableUpgrades(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/legacy_resources_shape_test.go",
+     "contains": "func TestOpen_BareTypedResourcesShapeIsRejected(",
+     "min_count": 1
     }
    ]
   }
