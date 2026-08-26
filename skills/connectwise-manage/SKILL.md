@@ -646,10 +646,10 @@ Emits a validated conditions string (correct quoting, AND join) you can paste in
 
 On a tenant with years of history, a plain `sync` is expensive: ConnectWise list endpoints declare no "changed since" parameter, so every sync re-fetches each resource in full (you'll see `resource_not_incremental` warnings) and `--since` has **no effect on the sync itself**. Use these levers:
 
-- **Scope the sync with a conditions filter** so it fetches only a working window instead of the whole history. Build the expression with `condition build`, then pass it to `sync` via `--param` (repeat per high-volume resource):
+- **Scope the sync with a conditions filter** so it fetches only a working window instead of the whole history. `sync` takes no resource positional: name the resource with `--resources` and attach the condition with `--resource-param <resource>:<key>=<value>` (repeat the pair per high-volume resource). Build the expression with `condition build` first:
 
   ```bash
-  connectwise-manage-cli sync service-tickets --param "conditions=lastUpdated > [2025-01-01T00:00:00Z]"
+  connectwise-manage-cli sync --resources service-tickets --resource-param "service-tickets:conditions=lastUpdated > [2025-01-01T00:00:00Z]"
   ```
 
 - **Keep reads local.** The cross-entity views (`unbilled`, `account`, `agreement-burn`, `board`, `stale`, `workload`) read the local mirror. `search` defaults to auto mode (it tries the live API first); add `--data-source local` and/or `--type <resource>` to stay fully offline. If a command exceeds its default timeout on a big tenant, give it more room with `--timeout 2m`.

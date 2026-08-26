@@ -81,7 +81,7 @@
     },
     {
       "q": "I have years of history - how do I keep sync and reads fast?",
-      "a": "ConnectWise list endpoints declare no temporal-filter parameter, so a plain sync re-fetches every resource in full and --since has no effect on the sync itself. Scope the sync with a conditions filter: build one with 'condition build', then pass it via --param, e.g. connectwise-manage-cli sync service-tickets --param \"conditions=lastUpdated > [2025-01-01T00:00:00Z]\" (repeat per resource). For reads, stay local: the cross-entity views read the mirror, and search defaults to auto mode (live API first) so add --data-source local and/or --type <resource> to stay offline; give a slow command more room with --timeout 2m. The MCP search tool is already local-only."
+      "a": "ConnectWise list endpoints declare no temporal-filter parameter, so a plain sync re-fetches every resource in full and --since has no effect on the sync itself. Scope the sync with a conditions filter: build one with 'condition build', then name the resource with --resources and attach the condition with --resource-param, e.g. connectwise-manage-cli sync --resources service-tickets --resource-param \"service-tickets:conditions=lastUpdated > [2025-01-01T00:00:00Z]\" (sync takes no resource positional; repeat the pair per resource). For reads, stay local: the cross-entity views read the mirror, and search defaults to auto mode (live API first) so add --data-source local and/or --type <resource> to stay offline; give a slow command more room with --timeout 2m. The MCP search tool is already local-only."
     },
     {
       "q": "Is this for ConnectWise PSA or ConnectWise Manage?",

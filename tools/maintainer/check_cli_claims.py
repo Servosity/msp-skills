@@ -34,6 +34,15 @@ How it works, per slug in the registry:
      args, which are fine); `--flag` tokens are validated against that command's
      flags + the global flags.
 
+     Whether "the rest" really is a positional arg is decided by the command's
+     own declared usage, not by guesswork. Cobra's `Use` string is the contract:
+     `remediate <quarantine|restore>` and `timeline [id]` declare a positional,
+     so the next bare word is an argument value; `sync` declares none, so a bare
+     word after it is a claim about a subcommand that does not exist. The `Use`
+     string comes from agent-context; when it is absent we fall back to parsing
+     the command's own `Usage:` block (fetched lazily, only for the command we
+     are about to flag).
+
   4. Findings: an unknown command path, or an unknown flag for a known command.
      A difflib "did you mean" hint is added when a close match exists.
 
@@ -75,6 +84,11 @@ SKILLS_DIR = registry.SKILLS_DIR
 DOC_FILES = ["README.md", "SKILL.md", "guide.md", "page.json"]
 SHELL_FENCES = {"bash", "sh", "shell", "console", "powershell"}
 HELP_TIMEOUT = 10
+# The root --help is load-bearing: it is the ONLY source of the persistent /
+# global flag set, so losing it turns every `--json` / `--agent` / `--help`
+# claim in the docs into a false "unknown flag". Under a loaded CI runner a
+# 10s budget is not always enough, so the root read gets a second, longer try.
+ROOT_HELP_TIMEOUT = 60
 DEPTH_LIMIT = 3
 IGNORE_MARKER = "cli-claims:ignore"
 
@@ -88,6 +102,10 @@ RE_FLAG = re.compile(r"^\s+(?:-\w,\s+)?--([a-z0-9][a-z0-9-]*)")
 SEC_AVAILABLE = "Available Commands:"
 SEC_FLAGS = "Flags:"
 SEC_GLOBAL_FLAGS = "Global Flags:"
+SEC_USAGE = "Usage:"
+
+# Tokens Cobra itself appends to a usage line. They are not positional args.
+USAGE_NOISE = {"[flags]", "[command]"}
 
 
 # ---------------------------------------------------------------------------
@@ -97,11 +115,20 @@ SEC_GLOBAL_FLAGS = "Global Flags:"
 class Surface:
     """The real command + flag surface of one built binary."""
 
-    def __init__(self) -> None:
+    def __init__(self, binary: Path | None = None) -> None:
         # command-path tuple -> set of long-flag names valid at that command
         self.commands: dict[tuple[str, ...], set[str]] = {}
         self.global_flags: set[str] = set()
+        # command-path tuple -> the command's declared Cobra `Use` string, when
+        # the binary reported one. Absent for the synthetic root path.
+        self.use: dict[tuple[str, ...], str] = {}
+        self.binary = binary
+        # False when the root --help could not be read, so the persistent-flag
+        # set is unknown rather than empty. Flag validation is not meaningful
+        # in that state.
+        self.global_flags_read_ok = True
         self._help_cache: dict[tuple[str, ...], str] = {}
+        self._positional_cache: dict[tuple[str, ...], bool] = {}
 
     def has_command(self, path: tuple[str, ...]) -> bool:
         return path in self.commands
@@ -109,8 +136,72 @@ class Surface:
     def all_command_strings(self) -> list[str]:
         return [" ".join(p) for p in self.commands if p]
 
+    def takes_positional(self, path: tuple[str, ...]) -> bool:
+        """Does this command declare positional arguments?
 
-def _run_help(binary: Path, sub: tuple[str, ...], cache: dict) -> str:
+        The declared usage is the contract. `remediate <quarantine|restore>`
+        and `timeline [id]` take a positional, so a bare word after them is an
+        argument value; `sync` takes none, so a bare word after it is a claim
+        about a subcommand that does not exist. Prefer the `Use` string from
+        agent-context; fall back to the command's own `Usage:` block, fetched
+        lazily so we only pay for commands we are about to flag.
+        """
+        if path in self._positional_cache:
+            return self._positional_cache[path]
+        use = self.use.get(path)
+        if use:
+            result = _use_declares_positional(use)
+        elif self.binary is not None:
+            text = _run_help(self.binary, path, self._help_cache)
+            result = _usage_declares_positional(text, len(path))
+        else:
+            result = False
+        self._positional_cache[path] = result
+        return result
+
+
+def _use_declares_positional(use: str) -> bool:
+    """True when a Cobra `Use` string declares an argument after the name."""
+    toks = use.split()
+    for tok in toks[1:]:
+        if tok in USAGE_NOISE or tok.startswith("-"):
+            continue
+        return True
+    return False
+
+
+def _usage_declares_positional(text: str, path_len: int) -> bool:
+    """True when any line of a help text's `Usage:` block declares an argument.
+
+    A usage line is `<binary> <path...> [more]`; everything past the binary and
+    the command path is the declared argument shape.
+    """
+    section = None
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped == SEC_USAGE:
+            section = "usage"
+            continue
+        if section != "usage":
+            continue
+        if not stripped or stripped.endswith(":"):
+            break
+        toks = stripped.split()
+        for tok in toks[1 + path_len:]:
+            if tok in USAGE_NOISE or tok.startswith("-"):
+                continue
+            return True
+    return False
+
+
+def _run_help(binary: Path, sub: tuple[str, ...], cache: dict, timeout: float = HELP_TIMEOUT) -> str:
+    """Run `<binary> <sub> --help` and return its combined output.
+
+    A timeout or spawn error returns "" and is deliberately NOT cached: an
+    empty help text is indistinguishable from "this command has no flags", so
+    caching a transient failure would silently poison every later lookup. Not
+    caching it lets the caller retry with a longer budget.
+    """
     if sub in cache:
         return cache[sub]
     try:
@@ -118,11 +209,11 @@ def _run_help(binary: Path, sub: tuple[str, ...], cache: dict) -> str:
             [str(binary), *sub, "--help"],
             capture_output=True,
             text=True,
-            timeout=HELP_TIMEOUT,
+            timeout=timeout,
         )
         text = (out.stdout or "") + "\n" + (out.stderr or "")
     except (OSError, subprocess.SubprocessError):
-        text = ""
+        return ""
     cache[sub] = text
     return text
 
@@ -175,10 +266,20 @@ def _parse_help(text: str) -> tuple[list[str], set[str], set[str]]:
 
 
 def _global_flags_from_root(binary: Path, cache: dict) -> set[str]:
-    """Read the root --help and return its persistent (Global Flags + Flags) set."""
-    text = _run_help(binary, (), cache)
-    _children, local_flags, global_flags = _parse_help(text)
-    return local_flags | global_flags
+    """Read the root --help and return its persistent (Global Flags + Flags) set.
+
+    Retries once with a longer budget: every Cobra root carries at least
+    `--help`, so an empty result means the read failed, not that the binary has
+    no global flags. Returning the empty set silently would flag every global
+    flag in the docs as unknown.
+    """
+    for timeout in (HELP_TIMEOUT, ROOT_HELP_TIMEOUT):
+        text = _run_help(binary, (), cache, timeout=timeout)
+        _children, local_flags, global_flags = _parse_help(text)
+        flags = local_flags | global_flags
+        if flags:
+            return flags
+    return set()
 
 
 def _surface_from_agent_context(binary: Path, s: Surface) -> bool:
@@ -210,6 +311,9 @@ def _surface_from_agent_context(binary: Path, s: Surface) -> bool:
             path = prefix + (name,)
             flags = {f.get("name") for f in (node.get("flags") or []) if f.get("name")}
             s.commands[path] = flags
+            use = node.get("use")
+            if isinstance(use, str) and use.strip():
+                s.use[path] = use.strip()
             subs = node.get("subcommands")
             if isinstance(subs, list) and subs:
                 walk(subs, path)
@@ -220,10 +324,13 @@ def _surface_from_agent_context(binary: Path, s: Surface) -> bool:
 
 
 def enumerate_surface(binary: Path) -> Surface:
-    s = Surface()
+    s = Surface(binary)
     # Global/persistent flags always come from root --help (agent-context does
     # not list them separately).
     s.global_flags |= _global_flags_from_root(binary, s._help_cache)
+    # Every Cobra root has at least --help. An empty set here means the read
+    # failed (timeout / spawn error), not that the surface is flagless.
+    s.global_flags_read_ok = bool(s.global_flags)
 
     if _surface_from_agent_context(binary, s):
         return s
@@ -509,6 +616,16 @@ def check_slug(slug: str, entry: dict, surface: Surface, findings: list[str]) ->
     binaries = [cli_binary, mcp_binary]
     known_cmds = surface.all_command_strings()
 
+    # A lost root --help leaves the persistent-flag set unknown, which would
+    # turn every --json / --agent / --help claim in the docs into a bogus
+    # "unknown flag". Report the read failure once and skip flag validation
+    # instead of emitting dozens of false findings.
+    if not surface.global_flags_read_ok:
+        findings.append(
+            f"{slug}: could not read the root --help flag surface "
+            f"(cannot verify flags; command paths were still checked)"
+        )
+
     for fname in DOC_FILES:
         fpath = SKILLS_DIR / slug / fname
         if not fpath.exists():
@@ -539,15 +656,21 @@ def check_slug(slug: str, entry: dict, surface: Surface, findings: list[str]) ->
             # non-flag words that matches a real command (possibly the empty
             # root path). The next un-consumed word is an unknown command IFF it
             # is a bare word (not a flag, not a placeholder/value) that fails to
-            # extend the resolved path. Once consumed, any further bare word is a
-            # positional argument - so we only inspect the FIRST un-consumed
-            # word. A bare-binary reference (no following words) is always fine.
+            # extend the resolved path AND the resolved command declares no
+            # positional argument to absorb it. `remediate <quarantine|restore>`
+            # declares one, so `remediate quarantine` is an argument, not a
+            # subcommand claim; `sync` declares none, so `sync service-tickets`
+            # really does claim a subcommand that does not exist. Once consumed,
+            # any further bare word is a positional argument - so we only
+            # inspect the FIRST un-consumed word. A bare-binary reference (no
+            # following words) is always fine.
             nxt = rest[consumed] if consumed < len(rest) else None
             if (
                 nxt is not None
                 and not nxt.startswith("-")
                 and not _is_positional(nxt)
                 and not surface.has_command(path + (nxt,))
+                and not surface.takes_positional(path)
             ):
                 attempted = rest[: consumed + 1]
                 bad = " ".join([binary] + attempted)
@@ -556,6 +679,9 @@ def check_slug(slug: str, entry: dict, surface: Surface, findings: list[str]) ->
                 if hint:
                     msg += f" (did you mean '{binary} {hint}'?)"
                 findings.append(msg)
+                continue
+
+            if not surface.global_flags_read_ok:
                 continue
 
             # Validate flags against the resolved command + global flags.
