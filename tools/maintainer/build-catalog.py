@@ -12,6 +12,9 @@ This script is the single regenerator. One run refreshes:
     sync_skill_readme_mcpb for why the registry version is the wrong source)
   - docs/skills/<slug>.md via render_docs_page (so a live-verified flip or a
     page.json edit re-renders the site page in the same pass)
+  - the "Which skill" dropdown in every issue form that has one
+    (.github/ISSUE_TEMPLATE/it-works.yml, bug-report.yml), so a reporter can
+    always pick the exact connector instead of being forced into "other"
 
 CI runs it on every PR that touches `skills/` and fails if any committed
 derived file drifts from what this script would produce.
@@ -39,6 +42,11 @@ README = ROOT / "README.md"
 CATALOG = ROOT / "catalog.json"
 DOCS_CATALOG = ROOT / "docs" / "_data" / "catalog.json"
 IT_WORKS_FORM = ROOT / ".github" / "ISSUE_TEMPLATE" / "it-works.yml"
+BUG_REPORT_FORM = ROOT / ".github" / "ISSUE_TEMPLATE" / "bug-report.yml"
+# Every issue form carrying an `id: skill` connector picker. One generator owns
+# them all, so a newly registered connector can never be selectable in one form
+# and missing from another.
+CONNECTOR_FORMS = (IT_WORKS_FORM, BUG_REPORT_FORM)
 
 # Owner/repo and per-skill metadata are the single source of truth in
 # tools/skills.json (loaded via registry). Every install URL is built from
@@ -236,19 +244,24 @@ def replace_block(content: str, marker_start: str, marker_end: str, block: str) 
     return pattern.sub(rf"\1\n{block}\n\3", content)
 
 
-# The "Which skill" dropdown in the it-works issue form. Anchored on the FIRST
-# `options:` block (the `id: skill` dropdown precedes `id: agent` in the file)
-# up to its `validations:`. We rewrite the option LIST in place - same line
-# shape that already ships (`        - <slug>`) - rather than fencing with
-# YAML comments inside the sequence, which the GitHub form parser is fussier
-# about and which we cannot validate locally (no PyYAML in CI's catalog job).
+# The "Which skill" dropdown in an issue form. Anchored on `id: skill`
+# specifically, NOT on the first `options:` block in the file: with two forms
+# now sharing this generator, an anchor that just took the first options block
+# would silently overwrite the WRONG dropdown (e.g. bug-report's `os` list)
+# the moment someone reordered the fields, and would exit 0 while doing it.
+# Anchoring on the field id makes that case a loud failure instead. We rewrite
+# the option LIST in place - same line shape that already ships
+# (`        - <slug>`) - rather than fencing with YAML comments inside the
+# sequence, which the GitHub form parser is fussier about and which we cannot
+# validate locally (no PyYAML in CI's catalog job).
 _FORM_OPTIONS_RE = re.compile(
-    r"(      options:\n)(?:        - .*\n)+?(    validations:\n)"
+    r"(    id: skill\n    attributes:\n(?:      \S.*\n)*?      options:\n)"
+    r"(?:        - .*\n)+?(    validations:\n)"
 )
 
 
-def render_it_works_form(content: str, skills: list[dict]) -> str:
-    """Regenerate the it-works form's skill dropdown from the registry: every
+def render_connector_dropdown(content: str, skills: list[dict], form: Path) -> str:
+    """Regenerate an issue form's skill dropdown from the registry: every
     connector (markdown-only meta excluded), slug-sorted, plus the
     "other / not listed" escape hatch. Returns the new file content."""
     connectors = sorted(s["name"] for s in skills if not s.get("markdown_only"))
@@ -259,9 +272,10 @@ def render_it_works_form(content: str, skills: list[dict]) -> str:
     if n != 1:
         raise SystemExit(
             f"build-catalog: could not find the skill dropdown options block in "
-            f"{IT_WORKS_FORM.relative_to(ROOT)} (expected `      options:` followed "
-            f"by `        - ...` lines and `    validations:`). The form structure "
-            f"changed; update _FORM_OPTIONS_RE."
+            f"{form.relative_to(ROOT)} (expected an `    id: skill` dropdown whose "
+            f"`      options:` is followed by `        - ...` lines and "
+            f"`    validations:`). The form structure changed; update "
+            f"_FORM_OPTIONS_RE."
         )
     return new_content
 
@@ -614,13 +628,17 @@ def main() -> int:
     for w in mcpb_warnings:
         print(f"build-catalog: WARN {w}")
 
-    # Regenerate the it-works issue form's skill dropdown so a reporter can pick
-    # the exact connector (not be forced into "other"); the catalog.yml drift
-    # gate keeps it in lockstep with the registry. Skipped gracefully if the
-    # form is absent (e.g. a partial checkout).
-    if IT_WORKS_FORM.exists():
-        form = IT_WORKS_FORM.read_text(encoding="utf-8")
-        IT_WORKS_FORM.write_text(render_it_works_form(form, skills), encoding="utf-8")
+    # Regenerate each connector-picking issue form's skill dropdown (it-works,
+    # bug-report) so a reporter can pick the exact connector (not be forced into
+    # "other"); the catalog.yml drift gate keeps them in lockstep with the
+    # registry. Each is skipped gracefully if absent (e.g. a partial checkout).
+    for form_path in CONNECTOR_FORMS:
+        if not form_path.exists():
+            continue
+        form = form_path.read_text(encoding="utf-8")
+        form_path.write_text(
+            render_connector_dropdown(form, skills, form_path), encoding="utf-8"
+        )
 
     # Re-render every connector's docs page in the same pass, so a registry
     # change (live-verified flip, display rename) or a page.json edit shows up
