@@ -8,6 +8,7 @@
       "category": "Security",
       "verification": "awaiting",
       "verified_by": null,
+      "source": null,
       "issue_url": null,
       "url": "/skills/abnormal/"
     },
@@ -18,6 +19,7 @@
       "category": "Backup/DR",
       "verification": "awaiting",
       "verified_by": null,
+      "source": null,
       "issue_url": null,
       "url": "/skills/acronis/"
     },
@@ -28,6 +30,7 @@
       "category": "RMM",
       "verification": "awaiting",
       "verified_by": null,
+      "source": null,
       "issue_url": null,
       "url": "/skills/action1/"
     },
@@ -38,6 +41,7 @@
       "category": "Backup/DR",
       "verification": "awaiting",
       "verified_by": null,
+      "source": null,
       "issue_url": null,
       "url": "/skills/afi/"
     },
@@ -48,6 +52,7 @@
       "category": "Billing",
       "verification": "awaiting",
       "verified_by": null,
+      "source": null,
       "issue_url": null,
       "url": "/skills/appdirect/"
     },
@@ -58,6 +63,7 @@
       "category": "RMM",
       "verification": "awaiting",
       "verified_by": null,
+      "source": null,
       "issue_url": null,
       "url": "/skills/atera/"
     },
@@ -68,6 +74,7 @@
       "category": "PSA",
       "verification": "awaiting",
       "verified_by": null,
+      "source": null,
       "issue_url": null,
       "url": "/skills/autotask/"
     },
@@ -78,6 +85,7 @@
       "category": "RMM",
       "verification": "awaiting",
       "verified_by": null,
+      "source": null,
       "issue_url": null,
       "url": "/skills/auvik/"
     },
@@ -88,6 +96,7 @@
       "category": "Security",
       "verification": "live-verified",
       "verified_by": "@geekbrownbear (Bearium Networks, MSP)",
+      "source": "github",
       "issue_url": "https://github.com/Servosity/msp-skills/pull/271",
       "url": "/skills/avanan/"
     },
@@ -98,6 +107,7 @@
       "category": "Billing",
       "verification": "awaiting",
       "verified_by": null,
+      "source": null,
       "issue_url": null,
       "url": "/skills/aws-billing/"
     },
@@ -108,6 +118,7 @@
       "category": "Backup/DR",
       "verification": "live-verified",
       "verified_by": "@Xenith-B (MSP)",
+      "source": "github",
       "issue_url": "https://github.com/Servosity/msp-skills/issues/101#issuecomment-4781241575",
       "url": "/skills/axcient/"
     },
@@ -118,6 +129,7 @@
       "category": "Monitoring",
       "verification": "awaiting",
       "verified_by": null,
+      "source": null,
       "issue_url": null,
       "url": "/skills/betterstack/"
     },
@@ -128,6 +140,7 @@
       "category": "Security",
       "verification": "awaiting",
       "verified_by": null,
+      "source": null,
       "issue_url": null,
       "url": "/skills/blumira/"
     },
@@ -138,6 +151,7 @@
       "category": "Security",
       "verification": "live-verified",
       "verified_by": "Abhi Saini, Bearium Networks (MSP)",
+      "source": "circle",
       "issue_url": "https://compoundingteams.com/",
       "url": "/skills/cipp/"
     },
@@ -148,6 +162,7 @@
       "category": "RMM",
       "verification": "awaiting",
       "verified_by": null,
+      "source": null,
       "issue_url": null,
       "url": "/skills/connectwise-automate/"
     },
@@ -158,6 +173,7 @@
       "category": "Remote Access",
       "verification": "awaiting",
       "verified_by": null,
+      "source": null,
       "issue_url": null,
       "url": "/skills/connectwise-control/"
     },
@@ -168,6 +184,7 @@
       "category": "PSA",
       "verification": "awaiting",
       "verified_by": null,
+      "source": null,
       "issue_url": null,
       "url": "/skills/connectwise-manage/"
     },
@@ -178,6 +195,7 @@
       "category": "Security",
       "verification": "awaiting",
       "verified_by": null,
+      "source": null,
       "issue_url": null,
       "url": "/skills/cork/"
     },
@@ -188,6 +206,7 @@
       "category": "Backup/DR",
       "verification": "live-verified",
       "verified_by": "@AvlCompCo (MSP)",
+      "source": "github",
       "issue_url": "https://github.com/Servosity/msp-skills/issues/139",
       "url": "/skills/cove/"
     },
@@ -198,6 +217,7 @@
       "category": "Security",
       "verification": "awaiting",
       "verified_by": null,
+      "source": null,
       "issue_url": null,
       "url": "/skills/crowdstrike/"
     },
@@ -208,6 +228,7 @@
       "category": "Backup/DR",
       "verification": "live-verified",
       "verified_by": "Abhi Saini, Bearium Networks (MSP)",
+      "source": "circle",
       "issue_url": "https://compoundingteams.com/",
       "url": "/skills/datto-bcdr/"
     },
@@ -218,6 +239,7 @@
       "category": "RMM",
       "verification": "awaiting",
       "verified_by": null,
+      "source": null,
       "issue_url": null,
       "url": "/skills/datto-rmm/"
     },
@@ -228,6 +250,7 @@
       "category": "Network Monitoring",
       "verification": "awaiting",
       "verified_by": null,
+      "source": null,
       "issue_url": null,
       "url": "/skills/domotz/"
     },
@@ -238,6 +261,7 @@
       "category": "Billing",
       "verification": "awaiting",
       "verified_by": null,
+      "source": null,
       "issue_url": null,
       "url": "/skills/gradient/"
     },
@@ -248,6 +272,7 @@
       "category": "PSA",
       "verification": "live-verified",
       "verified_by": "Servosity (maintainer)",
+      "source": "self",
       "issue_url": null,
       "url": "/skills/halopsa/"
     },
@@ -258,6 +283,7 @@
       "category": "CRM",
       "verification": "live-verified",
       "verified_by": "Servosity (maintainer)",
+      "source": "self",
       "issue_url": null,
       "url": "/skills/hubspot/"
     },
@@ -268,6 +294,7 @@
       "category": "Documentation",
       "verification": "live-verified",
       "verified_by": "@Xenith-B (MSP)",
+      "source": "github",
       "issue_url": "https://github.com/Servosity/msp-skills/issues/183",
       "url": "/skills/hudu/"
     },
@@ -278,6 +305,7 @@
       "category": "Security",
       "verification": "live-verified",
       "verified_by": "@Xenith-B (MSP)",
+      "source": "github",
       "issue_url": "https://github.com/Servosity/msp-skills/issues/144",
       "url": "/skills/huntress/"
     },
@@ -288,6 +316,7 @@
       "category": "RMM",
       "verification": "live-verified",
       "verified_by": "@geekbrownbear (MSP)",
+      "source": "github",
       "issue_url": "https://github.com/Servosity/msp-skills/pull/276",
       "url": "/skills/immybot/"
     },
@@ -298,6 +327,7 @@
       "category": "Documentation",
       "verification": "awaiting",
       "verified_by": null,
+      "source": null,
       "issue_url": null,
       "url": "/skills/itglue/"
     },
@@ -308,6 +338,7 @@
       "category": "PSA",
       "verification": "awaiting",
       "verified_by": null,
+      "source": null,
       "issue_url": null,
       "url": "/skills/kaseya-bms/"
     },
@@ -318,6 +349,7 @@
       "category": "Security",
       "verification": "awaiting",
       "verified_by": null,
+      "source": null,
       "issue_url": null,
       "url": "/skills/knowbe4/"
     },
@@ -328,6 +360,7 @@
       "category": "RMM",
       "verification": "awaiting",
       "verified_by": null,
+      "source": null,
       "issue_url": null,
       "url": "/skills/levelio/"
     },
@@ -338,6 +371,7 @@
       "category": "Documentation",
       "verification": "awaiting",
       "verified_by": null,
+      "source": null,
       "issue_url": null,
       "url": "/skills/liongard/"
     },
@@ -348,6 +382,7 @@
       "category": "Billing",
       "verification": "awaiting",
       "verified_by": null,
+      "source": null,
       "issue_url": null,
       "url": "/skills/maxio/"
     },
@@ -358,6 +393,7 @@
       "category": "Security",
       "verification": "awaiting",
       "verified_by": null,
+      "source": null,
       "issue_url": null,
       "url": "/skills/microsoft-graph/"
     },
@@ -368,6 +404,7 @@
       "category": "Analytics",
       "verification": "awaiting",
       "verified_by": null,
+      "source": null,
       "issue_url": null,
       "url": "/skills/mspbots/"
     },
@@ -378,6 +415,7 @@
       "category": "RMM",
       "verification": "awaiting",
       "verified_by": null,
+      "source": null,
       "issue_url": null,
       "url": "/skills/n-central/"
     },
@@ -388,6 +426,7 @@
       "category": "RMM",
       "verification": "awaiting",
       "verified_by": null,
+      "source": null,
       "issue_url": null,
       "url": "/skills/nerdio/"
     },
@@ -398,6 +437,7 @@
       "category": "RMM",
       "verification": "live-verified",
       "verified_by": "@Xenith-B (MSP)",
+      "source": "github",
       "issue_url": "https://github.com/Servosity/msp-skills/issues/145",
       "url": "/skills/ninjaone/"
     },
@@ -408,6 +448,7 @@
       "category": "Incident Response",
       "verification": "awaiting",
       "verified_by": null,
+      "source": null,
       "issue_url": null,
       "url": "/skills/pagerduty/"
     },
@@ -418,6 +459,7 @@
       "category": "Documentation",
       "verification": "awaiting",
       "verified_by": null,
+      "source": null,
       "issue_url": null,
       "url": "/skills/pandadoc/"
     },
@@ -428,6 +470,7 @@
       "category": "Billing",
       "verification": "awaiting",
       "verified_by": null,
+      "source": null,
       "issue_url": null,
       "url": "/skills/pax8/"
     },
@@ -438,6 +481,7 @@
       "category": "CRM",
       "verification": "awaiting",
       "verified_by": null,
+      "source": null,
       "issue_url": null,
       "url": "/skills/pipedrive/"
     },
@@ -448,6 +492,7 @@
       "category": "Security",
       "verification": "awaiting",
       "verified_by": null,
+      "source": null,
       "issue_url": null,
       "url": "/skills/proofpoint/"
     },
@@ -458,6 +503,7 @@
       "category": "Billing",
       "verification": "live-verified",
       "verified_by": null,
+      "source": "self",
       "issue_url": null,
       "url": "/skills/quickbooks/"
     },
@@ -468,6 +514,7 @@
       "category": "Other",
       "verification": "awaiting",
       "verified_by": null,
+      "source": null,
       "issue_url": null,
       "url": "/skills/resourceguru/"
     },
@@ -478,6 +525,7 @@
       "category": "Automation",
       "verification": "awaiting",
       "verified_by": null,
+      "source": null,
       "issue_url": null,
       "url": "/skills/rewst/"
     },
@@ -488,6 +536,7 @@
       "category": "Security",
       "verification": "awaiting",
       "verified_by": null,
+      "source": null,
       "issue_url": null,
       "url": "/skills/rocketcyber/"
     },
@@ -498,6 +547,7 @@
       "category": "Incident Response",
       "verification": "awaiting",
       "verified_by": null,
+      "source": null,
       "issue_url": null,
       "url": "/skills/rootly/"
     },
@@ -508,6 +558,7 @@
       "category": "Security",
       "verification": "awaiting",
       "verified_by": null,
+      "source": null,
       "issue_url": null,
       "url": "/skills/runzero/"
     },
@@ -518,6 +569,7 @@
       "category": "CRM",
       "verification": "awaiting",
       "verified_by": null,
+      "source": null,
       "issue_url": null,
       "url": "/skills/salesbuildr/"
     },
@@ -528,6 +580,7 @@
       "category": "Security",
       "verification": "live-verified",
       "verified_by": null,
+      "source": "github",
       "issue_url": null,
       "url": "/skills/sentinelone/"
     },
@@ -538,6 +591,7 @@
       "category": "Backup/DR",
       "verification": "awaiting",
       "verified_by": null,
+      "source": null,
       "issue_url": null,
       "url": "/skills/servosity/"
     },
@@ -548,6 +602,7 @@
       "category": "Billing",
       "verification": "awaiting",
       "verified_by": null,
+      "source": null,
       "issue_url": null,
       "url": "/skills/sherweb/"
     },
@@ -558,6 +613,7 @@
       "category": "Backup/DR",
       "verification": "awaiting",
       "verified_by": null,
+      "source": null,
       "issue_url": null,
       "url": "/skills/skykick/"
     },
@@ -568,6 +624,7 @@
       "category": "PSA",
       "verification": "live-verified",
       "verified_by": "@AvlCompCo (MSP)",
+      "source": "github",
       "issue_url": "https://github.com/Servosity/msp-skills/issues/140",
       "url": "/skills/superops/"
     },
@@ -578,6 +635,7 @@
       "category": "PSA",
       "verification": "awaiting",
       "verified_by": null,
+      "source": null,
       "issue_url": null,
       "url": "/skills/syncro/"
     },
@@ -588,6 +646,7 @@
       "category": "RMM",
       "verification": "awaiting",
       "verified_by": null,
+      "source": null,
       "issue_url": null,
       "url": "/skills/tactical-rmm/"
     },
@@ -598,6 +657,7 @@
       "category": "Security",
       "verification": "live-verified",
       "verified_by": "@geekbrownbear (MSP)",
+      "source": "github",
       "issue_url": "https://github.com/Servosity/msp-skills/issues/208",
       "url": "/skills/threatlocker/"
     },
@@ -608,6 +668,7 @@
       "category": "Network Monitoring",
       "verification": "awaiting",
       "verified_by": null,
+      "source": null,
       "issue_url": null,
       "url": "/skills/unifi-network/"
     },
@@ -618,6 +679,7 @@
       "category": "Backup/DR",
       "verification": "awaiting",
       "verified_by": null,
+      "source": null,
       "issue_url": null,
       "url": "/skills/veeam/"
     },
@@ -628,6 +690,7 @@
       "category": "Marketing",
       "verification": "live-verified",
       "verified_by": "Servosity (maintainer)",
+      "source": "self",
       "issue_url": null,
       "url": "/skills/wordpress/"
     },
@@ -638,6 +701,7 @@
       "category": "Billing",
       "verification": "awaiting",
       "verified_by": null,
+      "source": null,
       "issue_url": null,
       "url": "/skills/xero/"
     },
@@ -648,6 +712,7 @@
       "category": "PSA",
       "verification": "live-verified",
       "verified_by": "Servosity (maintainer)",
+      "source": "self",
       "issue_url": null,
       "url": "/skills/zammad/"
     }

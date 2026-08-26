@@ -527,6 +527,13 @@ def build_docs_catalog(skills: list[dict]) -> dict:
             "verified_by": (
                 (SKILL_META[s["name"]].get("live_verified") or {}).get("verified_by")
             ),
+            # Where the receipt came from ("self" | "github" | "circle").
+            # docs/_includes/verification-badge.html derives honest attribution
+            # from this when verified_by is null, so an external MSP receipt is
+            # never credited to the maintainer on the receipts wall.
+            "source": (
+                (SKILL_META[s["name"]].get("live_verified") or {}).get("source")
+            ),
             "issue_url": (
                 (SKILL_META[s["name"]].get("live_verified") or {}).get("issue_url")
             ),

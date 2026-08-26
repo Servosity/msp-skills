@@ -8,15 +8,31 @@ Usage:
   include.connector  - a catalog.json connector object with:
       .verification   "live-verified" | "awaiting"
       .verified_by    who confirmed it against a production tenant (live only)
+      .source         where the receipt came from: "self" | "github" | "circle"
       .issue_url      optional receipt link (live only)
       .display_name   connector name
 
 live-verified -> terracotta-fill pill + optional receipt link.
 awaiting      -> terracotta-outline pill linking the 60-second receipt form.
+
+Attribution: .verified_by is the name when the registry recorded one. When it
+is null the fallback is derived from .source, never hardcoded to the
+maintainer - an external MSP receipt credited to Servosity would be a false
+claim on the receipts wall. Unknown/absent source is not assumed to be
+first-party either; it falls back to the same generic wording the per-skill
+page renderer uses.
 {%- endcomment -%}
 {%- assign conn = include.connector -%}
+{%- assign verif_source = conn.source | default: "self" -%}
+{%- case verif_source -%}
+  {%- when "self" -%}{%- assign verif_fallback = "Servosity (maintainer)" -%}
+  {%- when "github" -%}{%- assign verif_fallback = "an MSP via GitHub report" -%}
+  {%- when "circle" -%}{%- assign verif_fallback = "an MSP in the Compounding Teams community" -%}
+  {%- else -%}{%- assign verif_fallback = "a real MSP" -%}
+{%- endcase -%}
+{%- assign verif_by = conn.verified_by | default: verif_fallback -%}
 {%- if conn.verification == "live-verified" -%}
-<span class="verif-badge verified">&#10003; Live-verified by {{ conn.verified_by | default: "Servosity (maintainer)" }} against a production tenant{%- if conn.issue_url %} &middot; <a href="{{ conn.issue_url }}">receipt &rarr;</a>{%- endif -%}</span>
+<span class="verif-badge verified">&#10003; Live-verified by {{ verif_by }} against a production tenant{%- if conn.issue_url %} &middot; <a href="{{ conn.issue_url }}">receipt &rarr;</a>{%- endif -%}</span>
 {%- else -%}
 <span class="verif-badge awaiting">Passes all 4 mechanical gates - awaiting its first MSP receipt. <a href="{{ site.receipt_form_url | default: '/verified/#receipt' }}">Be the first, 60 seconds &rarr;</a></span>
 {%- endif -%}
