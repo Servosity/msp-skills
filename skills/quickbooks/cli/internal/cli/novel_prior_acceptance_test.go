@@ -58,8 +58,17 @@ func TestNovelInvoicesStaleAcceptance(t *testing.T) {
 	if err := json.Unmarshal([]byte(out), &rows); err != nil {
 		t.Fatalf("invalid JSON: %v\n%s", err, out)
 	}
+	// Only INV-1 is past due: INV-2 is not due for another 10 days and INV-3 is
+	// paid off. Both exclusions hold on any calendar date because the fixtures
+	// are seeded relative to the day the test runs.
 	if len(rows) != 1 || fmt.Sprint(rows[0]["doc_number"]) != "INV-1" {
 		t.Fatalf("stale list must contain only overdue INV-1: %+v", rows)
+	}
+	// Roughly 45 days past due, give or take a day of time-zone skew between
+	// the UTC-parsed due date and the local wall clock.
+	dpd, ok := rows[0]["days_past_due"].(float64)
+	if !ok || dpd < 44 || dpd > 46 {
+		t.Fatalf("days_past_due must track the seeded 45-day offset: %+v", rows[0])
 	}
 }
 

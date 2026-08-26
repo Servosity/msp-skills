@@ -10,14 +10,59 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"quickbooks-pp-cli/internal/store"
+)
+
+// novelSeedDay is the reference day every seeded fixture date hangs off.
+//
+// The novel commands read the wall clock (analytics.CashForecast, StaleInvoices,
+// Aging and friends all take a `now`, and the Cobra layer hands them
+// time.Now()), so absolute fixture dates rot: a due date authored as "future"
+// silently becomes overdue once the calendar passes it. Anchoring every fixture
+// to today keeps the seeded books in the same relative shape on every run, on
+// any date, forever.
+//
+// The calendar day is the local one (matching what the commands call "today"),
+// but it is anchored in UTC so day arithmetic never trips over a daylight-saving
+// transition: in zones that skip local midnight on a spring-forward day
+// (America/Santiago, Asia/Beirut), AddDate on a local midnight normalizes back
+// to 23:00 the previous day and every derived date string would slip by one.
+func novelSeedDay() time.Time {
+	y, m, d := time.Now().Date()
+	return time.Date(y, m, d, 0, 0, 0, 0, time.UTC)
+}
+
+// seedDate renders a whole-day offset from the reference day as a QBO date.
+// Negative is the past, positive the future.
+func seedDate(ref time.Time, offsetDays int) string {
+	return ref.AddDate(0, 0, offsetDays).Format("2006-01-02")
+}
+
+// Offsets, in days from the reference day. Chosen so every assertion below is
+// decided by a wide margin (no fixture sits on a bucket, window or overdue
+// boundary), which also keeps them stable across time zones - fixture dates
+// parse as UTC midnight while the command floors "today" in local time, a skew
+// of at most +/-14h.
+const (
+	inv1TxnOff  = -60 // INV-1: open, comfortably overdue
+	inv1DueOff  = -45
+	inv2TxnOff  = -30 // INV-2: open, due inside the 8-week forecast window
+	inv2DueOff  = +10
+	inv3TxnOff  = -40 // INV-3: fully paid by p1
+	inv3DueOff  = -10
+	pay1TxnOff  = -30 // p1 pays i3 => realized days-to-pay of exactly 10
+	bill1TxnOff = -20 // BILL-1: open, due inside the forecast window
+	bill1DueOff = +24
+	je1TxnOff   = -30
 )
 
 // seedNovelStore builds a temp store with a small, internally consistent set
 // of QBO objects so every novel command has data to chew on.
 func seedNovelStore(t *testing.T) string {
 	t.Helper()
+	ref := novelSeedDay()
 	dbPath := filepath.Join(t.TempDir(), "data.db")
 	db, err := store.OpenWithContext(context.Background(), dbPath)
 	if err != nil {
@@ -34,18 +79,18 @@ func seedNovelStore(t *testing.T) string {
 	seed("customers", "c2", map[string]any{"Id": "c2", "DisplayName": "Acme, Inc."})
 	seed("customers", "c3", map[string]any{"Id": "c3", "DisplayName": "Globex", "Active": false})
 	seed("vendors", "v1", map[string]any{"Id": "v1", "DisplayName": "Vendor One"})
-	seed("invoices", "i1", map[string]any{"Id": "i1", "DocNumber": "INV-1", "TxnDate": "2026-04-01", "DueDate": "2026-04-30", "TotalAmt": 500.0, "Balance": 500.0,
+	seed("invoices", "i1", map[string]any{"Id": "i1", "DocNumber": "INV-1", "TxnDate": seedDate(ref, inv1TxnOff), "DueDate": seedDate(ref, inv1DueOff), "TotalAmt": 500.0, "Balance": 500.0,
 		"CustomerRef": map[string]any{"value": "c1", "name": "Acme Inc"}})
-	seed("invoices", "i2", map[string]any{"Id": "i2", "DocNumber": "INV-2", "TxnDate": "2026-05-01", "DueDate": "2026-07-15", "TotalAmt": 300.0, "Balance": 300.0,
+	seed("invoices", "i2", map[string]any{"Id": "i2", "DocNumber": "INV-2", "TxnDate": seedDate(ref, inv2TxnOff), "DueDate": seedDate(ref, inv2DueOff), "TotalAmt": 300.0, "Balance": 300.0,
 		"CustomerRef": map[string]any{"value": "c3", "name": "Globex"}})
-	seed("invoices", "i3", map[string]any{"Id": "i3", "DocNumber": "INV-3", "TxnDate": "2026-05-01", "DueDate": "2026-05-31", "TotalAmt": 200.0, "Balance": 0.0,
+	seed("invoices", "i3", map[string]any{"Id": "i3", "DocNumber": "INV-3", "TxnDate": seedDate(ref, inv3TxnOff), "DueDate": seedDate(ref, inv3DueOff), "TotalAmt": 200.0, "Balance": 0.0,
 		"CustomerRef": map[string]any{"value": "c1", "name": "Acme Inc"}})
-	seed("payments", "p1", map[string]any{"Id": "p1", "TxnDate": "2026-05-11", "TotalAmt": 200.0, "UnappliedAmt": 50.0,
+	seed("payments", "p1", map[string]any{"Id": "p1", "TxnDate": seedDate(ref, pay1TxnOff), "TotalAmt": 200.0, "UnappliedAmt": 50.0,
 		"CustomerRef": map[string]any{"value": "c1", "name": "Acme Inc"},
 		"Line":        []any{map[string]any{"LinkedTxn": []any{map[string]any{"TxnId": "i3", "TxnType": "Invoice"}}}}})
-	seed("bills", "b1", map[string]any{"Id": "b1", "DocNumber": "BILL-1", "TxnDate": "2026-05-20", "DueDate": "2026-06-20", "TotalAmt": 120.0, "Balance": 120.0,
+	seed("bills", "b1", map[string]any{"Id": "b1", "DocNumber": "BILL-1", "TxnDate": seedDate(ref, bill1TxnOff), "DueDate": seedDate(ref, bill1DueOff), "TotalAmt": 120.0, "Balance": 120.0,
 		"VendorRef": map[string]any{"value": "v1", "name": "Vendor One"}})
-	seed("journal-entries", "j1", map[string]any{"Id": "j1", "DocNumber": "JE-1", "TxnDate": "2026-05-31",
+	seed("journal-entries", "j1", map[string]any{"Id": "j1", "DocNumber": "JE-1", "TxnDate": seedDate(ref, je1TxnOff),
 		"Line": []any{
 			map[string]any{"Amount": 100.0, "JournalEntryLineDetail": map[string]any{"PostingType": "Debit", "AccountRef": map[string]any{"value": "a1", "name": "Rent"}}},
 			map[string]any{"Amount": 90.0, "JournalEntryLineDetail": map[string]any{"PostingType": "Credit", "AccountRef": map[string]any{"value": "a2", "name": "Cash"}}},
@@ -119,8 +164,38 @@ func TestNovelCashForecastAcceptance(t *testing.T) {
 	if !ok || len(weeks) != 8 {
 		t.Fatalf("by_week must have exactly 8 rows: %+v", rep["by_week"])
 	}
-	if fmt.Sprint(rep["overdue_inflows"]) != "500" { // i1 overdue
+	// i1 (due 45 days back, still open) is the only overdue inflow; b1 is not
+	// yet due, so nothing is overdue on the outflow side.
+	if fmt.Sprint(rep["overdue_inflows"]) != "500" {
 		t.Fatalf("overdue_inflows wrong: %+v", rep)
+	}
+	if fmt.Sprint(rep["overdue_outflows"]) != "0" {
+		t.Fatalf("overdue_outflows wrong: %+v", rep)
+	}
+	// i2 (+10d, 300 in) and b1 (+24d, 120 out) both fall inside the 8-week
+	// window, so nothing spills past it and the net is 300 - 120.
+	if fmt.Sprint(rep["beyond_window_inflows"]) != "0" || fmt.Sprint(rep["beyond_window_outflows"]) != "0" {
+		t.Fatalf("nothing should land beyond the window: %+v", rep)
+	}
+	if fmt.Sprint(rep["net_in_window"]) != "180" {
+		t.Fatalf("net_in_window wrong: %+v", rep)
+	}
+	// Bucketing: i2 lands in forward week 1, b1 in forward week 3.
+	wk := func(i int) map[string]any { return weeks[i].(map[string]any) }
+	if fmt.Sprint(wk(1)["inflows"]) != "300" {
+		t.Fatalf("i2 must bucket into forward week 1: %+v", wk(1))
+	}
+	if fmt.Sprint(wk(3)["outflows"]) != "120" {
+		t.Fatalf("b1 must bucket into forward week 3: %+v", wk(3))
+	}
+	// as_of is the day the command ran, whenever that is. Seeding and running
+	// are two separate clock reads, so a run that straddles local midnight may
+	// report the following day; every amount above still holds because no
+	// fixture sits within a day of a boundary.
+	seedDay := novelSeedDay()
+	asOf := fmt.Sprint(rep["as_of"])
+	if asOf != seedDay.Format("2006-01-02") && asOf != seedDay.AddDate(0, 0, 1).Format("2006-01-02") {
+		t.Fatalf("as_of wrong: %+v", rep)
 	}
 }
 
