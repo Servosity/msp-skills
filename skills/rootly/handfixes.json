@@ -141,6 +141,33 @@
      "min_count": 1
     }
    ]
+  },
+  {
+   "id": "typed-resources-table-parent-prefixed",
+   "summary": "the typed domain table for the `resources` resource is named `incident_permission_sets_resources`, not the colliding bare `resources`",
+   "why": "rootly exposes a dependent resource literally named `resources` under `incident_permission_sets`. The press emitted its typed domain table as a bare `resources`, which is the same name as the framework's generic catch-all table. The catch-all CREATE runs first in the migrations slice, so the typed `CREATE TABLE IF NOT EXISTS \"resources\"` silently no-ops and every typed insert then runs against the catch-all's column set - failing its NOT NULL `resource_type` on every synced row (`warning: N/N resources items: typed-table upsert failed` on each sync), leaving the typed table permanently empty, breaking parent-keyed offline lookups, and polluting the catch-all with `incident_permission_sets_id` / `parent_id` columns it never populates. It also made `Open()` fail outright on a pre-existing store whose `resources` table carried the typed shape. Parent-prefixing is the same disambiguation the generator already applies to `escalation_paths_escalation_levels` and friends. A reprint re-emits the bare name. The press's missing reserved-table-name guard is a printing-press retro candidate.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "CREATE TABLE IF NOT EXISTS \"incident_permission_sets_resources\"",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "INSERT INTO \"incident_permission_sets_resources\"",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "{table: \"incident_permission_sets_resources\", column: \"parent_id\", decl: \"TEXT\"}",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "IF NOT EXISTS \"resources\""
+    }
+   ]
   }
  ]
 }

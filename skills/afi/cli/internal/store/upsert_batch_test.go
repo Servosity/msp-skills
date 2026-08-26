@@ -1769,7 +1769,7 @@ func TestUpsertBatch_PopulatesResourcesTable(t *testing.T) {
 	}
 
 	var typed int
-	typedQuery := fmt.Sprintf(`SELECT COUNT(*) FROM "%s"`, "resources")
+	typedQuery := fmt.Sprintf(`SELECT COUNT(*) FROM "%s"`, "tenants_resources")
 	if err := db.QueryRow(typedQuery).Scan(&typed); err != nil {
 		t.Fatalf("count resources: %v", err)
 	}
@@ -1822,7 +1822,7 @@ func TestUpsertBatch_TypedFailureDoesNotStrandResourcesGeneric(t *testing.T) {
 	}
 
 	var typed int
-	typedQuery := fmt.Sprintf(`SELECT COUNT(*) FROM "%s"`, "resources")
+	typedQuery := fmt.Sprintf(`SELECT COUNT(*) FROM "%s"`, "tenants_resources")
 	if err := db.QueryRow(typedQuery).Scan(&typed); err != nil {
 		t.Fatalf("count resources: %v", err)
 	}
@@ -1871,7 +1871,7 @@ func TestUpsertBatch_KeysResourcesByChildAndParent(t *testing.T) {
 	}
 
 	var typed int
-	typedQuery := fmt.Sprintf(`SELECT COUNT(*) FROM "%s"`, "resources")
+	typedQuery := fmt.Sprintf(`SELECT COUNT(*) FROM "%s"`, "tenants_resources")
 	if err := db.QueryRow(typedQuery).Scan(&typed); err != nil {
 		t.Fatalf("count resources: %v", err)
 	}
@@ -1880,7 +1880,7 @@ func TestUpsertBatch_KeysResourcesByChildAndParent(t *testing.T) {
 	}
 
 	var parentMatches int
-	parentQuery := fmt.Sprintf(`SELECT COUNT(*) FROM "%s" WHERE "tenants_id" = ?`, "resources")
+	parentQuery := fmt.Sprintf(`SELECT COUNT(*) FROM "%s" WHERE "tenants_id" = ?`, "tenants_resources")
 	if err := db.QueryRow(parentQuery, "parent_A").Scan(&parentMatches); err != nil {
 		t.Fatalf("count by tenants_id: %v", err)
 	}

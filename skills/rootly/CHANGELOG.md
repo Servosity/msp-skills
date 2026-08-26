@@ -4,6 +4,21 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## Unreleased
+
+### Fixed
+- **Every sync of the incident-permission-set `resources` collection warned and stored nothing
+  in its own table.** Rootly has a sub-collection literally named `resources`, and the generated
+  database gave its table that exact name - the same name the connector already uses for its
+  general-purpose mirror of every record. The general-purpose table won, so each sync printed
+  `warning: N/N resources items: typed-table upsert failed`, the per-collection table stayed
+  empty, and looking those rows up by their parent permission set returned nothing. Worse, an
+  operator whose database already had that table in the per-collection shape could not open it
+  at all: the upgrade aborted with `no such column: resource_type`. The per-collection table is
+  now named `incident_permission_sets_resources`, matching how the connector already names
+  `escalation_paths_escalation_levels`. Full record data was always safe in the general-purpose
+  table, so nothing was lost; the first sync after this update fills the new table in.
+
 ## [0.1.1] - 2026-08-26
 
 ### Fixed

@@ -160,6 +160,33 @@
      "min_count": 1
     }
    ]
+  },
+  {
+   "id": "typed-resources-table-parent-prefixed",
+   "summary": "the typed domain table for the `resources` resource is named `tenants_resources`, not the colliding bare `resources`",
+   "why": "afi exposes an API resource literally named `resources`. The press emitted its typed domain table as a bare `resources`, which is the same name as the framework's generic catch-all table. The catch-all CREATE runs first in the migrations slice, so the typed `CREATE TABLE IF NOT EXISTS \"resources\"` silently no-ops and every typed insert then runs against the catch-all's column set - failing its NOT NULL `resource_type` on every synced row (`warning: N/N resources items: typed-table upsert failed` on each sync), leaving the typed table permanently empty and polluting the catch-all with a `tenants_id` column it never populates. It also made `Open()` fail outright on a pre-existing store whose `resources` table carried the typed shape. Parent-prefixing to `tenants_resources` is the same disambiguation the generator already applies to `orgs_orgs` / `orgs_tenants`. A reprint re-emits the bare name. See project_afi_onboard_update_424_traps; the press's missing reserved-table-name guard is a printing-press retro candidate.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "CREATE TABLE IF NOT EXISTS \"tenants_resources\"",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "INSERT INTO \"tenants_resources\"",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "{table: \"tenants_resources\", column: \"tenants_id\", decl: \"TEXT\"}",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "IF NOT EXISTS \"resources\""
+    }
+   ]
   }
  ]
 }

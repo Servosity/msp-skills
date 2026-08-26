@@ -4,6 +4,21 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## Unreleased
+
+### Fixed
+- **Every sync of the `resources` collection warned and stored nothing in its own table.**
+  Afi has a collection literally named `resources`, and the generated database gave its
+  table that exact name - the same name the connector already uses for its general-purpose
+  mirror of every record. The general-purpose table won, so each sync printed
+  `warning: N/N resources items: typed-table upsert failed` and the per-collection table stayed
+  empty, which is what offline lookups by tenant read from. Worse, an operator whose database
+  already had that table in the per-collection shape could not open it at all: the upgrade
+  aborted with `no such column: resource_type`. The per-collection table is now named
+  `tenants_resources`, matching how the connector already names `orgs_tenants`. Full record
+  data was always safe in the general-purpose table, so nothing was lost; the first sync after
+  this update fills `tenants_resources` in.
+
 ## [0.1.1] - 2026-08-26
 
 ### Fixed

@@ -283,7 +283,14 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "policies", column: "tenants_id", decl: "TEXT"},
 		{table: "protections", column: "tenants_id", decl: "TEXT"},
 		{table: "quotas", column: "tenants_id", decl: "TEXT"},
-		{table: "resources", column: "tenants_id", decl: "TEXT"},
+		// The API resource named "resources" would collide with the
+		// framework's generic catch-all `resources` table, so its typed
+		// domain table is parent-prefixed to `tenants_resources` (the
+		// same disambiguation the generator already applies to
+		// `orgs_orgs` / `orgs_tenants`). Backfilling `tenants_id` onto
+		// the catch-all table instead would pollute it with a column it
+		// never populates.
+		{table: "tenants_resources", column: "tenants_id", decl: "TEXT"},
 		{table: "tasks", column: "tenants_id", decl: "TEXT"},
 		{table: "sync_state", column: "last_cursor", decl: "TEXT"},
 		{table: "sync_state", column: "last_synced_at", decl: "DATETIME"},
@@ -412,13 +419,17 @@ func (s *Store) migrate(ctx context.Context) error {
 			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP
 		)`,
 		`CREATE INDEX IF NOT EXISTS "idx_quotas_tenants_id" ON "quotas"("tenants_id")`,
-		`CREATE TABLE IF NOT EXISTS "resources" (
+		// Parent-prefixed to avoid colliding with the generic catch-all
+		// `resources` table created above. A bare "resources" typed table
+		// loses the CREATE TABLE IF NOT EXISTS race to the catch-all, and
+		// every typed insert then fails against the catch-all's column set.
+		`CREATE TABLE IF NOT EXISTS "tenants_resources" (
 			"id" TEXT PRIMARY KEY,
 			"tenants_id" TEXT NOT NULL,
 			"data" JSON NOT NULL,
 			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP
 		)`,
-		`CREATE INDEX IF NOT EXISTS "idx_resources_tenants_id" ON "resources"("tenants_id")`,
+		`CREATE INDEX IF NOT EXISTS "idx_tenants_resources_tenants_id" ON "tenants_resources"("tenants_id")`,
 		`CREATE TABLE IF NOT EXISTS "tasks" (
 			"id" TEXT PRIMARY KEY,
 			"tenants_id" TEXT NOT NULL,
@@ -1576,7 +1587,7 @@ func (s *Store) UpsertQuotas(data json.RawMessage) error {
 // domain inserts per item without opening a per-item transaction.
 func (s *Store) upsertResourcesTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
 	if _, err := tx.Exec(
-		`INSERT INTO "resources" ("id", "tenants_id", "data", "synced_at")
+		`INSERT INTO "tenants_resources" ("id", "tenants_id", "data", "synced_at")
 		 VALUES (?, ?, ?, ?)
 		 ON CONFLICT("id") DO UPDATE SET "tenants_id" = excluded."tenants_id", "data" = excluded."data", "synced_at" = excluded."synced_at"`,
 		id,
@@ -1584,7 +1595,7 @@ func (s *Store) upsertResourcesTx(tx *sql.Tx, id string, obj map[string]any, dat
 		string(data),
 		time.Now().UTC().Format(time.RFC3339),
 	); err != nil {
-		return fmt.Errorf("insert into resources: %w", err)
+		return fmt.Errorf("insert into tenants_resources: %w", err)
 	}
 
 	return nil
