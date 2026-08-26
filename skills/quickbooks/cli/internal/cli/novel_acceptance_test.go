@@ -155,7 +155,11 @@ func TestNovelDsoAcceptance(t *testing.T) {
 
 func TestNovelCashForecastAcceptance(t *testing.T) {
 	dbPath := seedNovelStore(t)
+	// Bracket the command with two clock reads so the as_of assertion below
+	// cannot race a midnight crossing in either direction.
+	dayBefore := novelSeedDay().Format("2006-01-02")
 	out := runNovel(t, dbPath, "cash-forecast", "--weeks", "8")
+	dayAfter := novelSeedDay().Format("2006-01-02")
 	var rep map[string]any
 	if err := json.Unmarshal([]byte(out), &rep); err != nil {
 		t.Fatalf("invalid JSON: %v\n%s", err, out)
@@ -188,14 +192,19 @@ func TestNovelCashForecastAcceptance(t *testing.T) {
 	if fmt.Sprint(wk(3)["outflows"]) != "120" {
 		t.Fatalf("b1 must bucket into forward week 3: %+v", wk(3))
 	}
-	// as_of is the day the command ran, whenever that is. Seeding and running
-	// are two separate clock reads, so a run that straddles local midnight may
-	// report the following day; every amount above still holds because no
-	// fixture sits within a day of a boundary.
-	seedDay := novelSeedDay()
+	// as_of is the local calendar day the command read off the wall clock, and
+	// that read happened strictly between dayBefore and dayAfter. Writing the
+	// three reads as t0 <= t1 <= t2 (dayBefore, the command's own time.Now(),
+	// dayAfter), flooring to whole days is monotonic, so
+	// dayBefore <= as_of <= dayAfter always holds - including when local
+	// midnight falls before the command runs (dayBefore == as_of - 1, upper
+	// bound satisfied) or after it returns (dayAfter == as_of + 1, lower bound
+	// satisfied). The window can only ever be one day wide, since the command
+	// takes far less than 24h. Comparing the ISO-8601 strings is the same as
+	// comparing the days: zero-padded YYYY-MM-DD sorts chronologically.
 	asOf := fmt.Sprint(rep["as_of"])
-	if asOf != seedDay.Format("2006-01-02") && asOf != seedDay.AddDate(0, 0, 1).Format("2006-01-02") {
-		t.Fatalf("as_of wrong: %+v", rep)
+	if asOf < dayBefore || asOf > dayAfter {
+		t.Fatalf("as_of %q outside [%s, %s]: %+v", asOf, dayBefore, dayAfter, rep)
 	}
 }
 
