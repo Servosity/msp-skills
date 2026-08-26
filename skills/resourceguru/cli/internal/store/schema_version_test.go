@@ -2366,13 +2366,6 @@ func TestMigrate_AddsColumnsOnUpgrade_ResourceTypes(t *testing.T) {
 // columns before CREATE INDEX runs against the pre-existing table. Regression
 // coverage for parent_id upgrades and indexed generated columns.
 func TestMigrate_AddsColumnsOnUpgrade_Resources(t *testing.T) {
-	// Void for this API: the resource named "resources" collides with the
-	// framework's generic catch-all `resources` table, so the typed-domain
-	// column-upgrade path this test exercises does not apply — the composite-key
-	// migration (which selects resource_type) and the typed column adds are
-	// mutually inconsistent for the colliding name. Fresh installs never hit
-	// this upgrade path. (Generator collision bug — filed for retro.)
-	t.Skip("resources/catch-all name collision makes the typed column-upgrade path void")
 	dbPath := filepath.Join(t.TempDir(), "data.db")
 
 	// Pre-create the DB with the older table shape: id, data, synced_at and
@@ -2381,7 +2374,7 @@ func TestMigrate_AddsColumnsOnUpgrade_Resources(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open raw: %v", err)
 	}
-	if _, err := raw.Exec(`CREATE TABLE "resources" (
+	if _, err := raw.Exec(`CREATE TABLE "accounts_resources" (
 		id TEXT PRIMARY KEY,
 		data JSON NOT NULL,
 		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -2400,7 +2393,7 @@ func TestMigrate_AddsColumnsOnUpgrade_Resources(t *testing.T) {
 	defer s.Close()
 
 	// The migration must have added every generated column.
-	rows, err := s.DB().Query(`PRAGMA table_info("resources")`)
+	rows, err := s.DB().Query(`PRAGMA table_info("accounts_resources")`)
 	if err != nil {
 		t.Fatalf("table_info: %v", err)
 	}
@@ -2445,7 +2438,7 @@ func TestMigrate_AddsColumnsOnUpgrade_Resources(t *testing.T) {
 		"parent_id",
 	} {
 		if !hasColumn[want] {
-			t.Fatalf("%s column missing from resources after migrate", want)
+			t.Fatalf("%s column missing from accounts_resources after migrate", want)
 		}
 	}
 }

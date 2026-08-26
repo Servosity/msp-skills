@@ -495,27 +495,38 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "resource_types", column: "human", decl: "INTEGER"},
 		{table: "resource_types", column: "name", decl: "TEXT"},
 		{table: "resource_types", column: "updated_at", decl: "TEXT"},
-		{table: "resources", column: "archived", decl: "INTEGER"},
-		{table: "resources", column: "bookable", decl: "INTEGER"},
-		{table: "resources", column: "color", decl: "TEXT"},
-		{table: "resources", column: "created_at", decl: "TEXT"},
-		{table: "resources", column: "creator_id", decl: "INTEGER"},
-		{table: "resources", column: "email", decl: "TEXT"},
-		{table: "resources", column: "first_name", decl: "TEXT"},
-		{table: "resources", column: "human", decl: "INTEGER"},
-		{table: "resources", column: "image", decl: "TEXT"},
-		{table: "resources", column: "job_title", decl: "TEXT"},
-		{table: "resources", column: "last_name", decl: "TEXT"},
-		{table: "resources", column: "last_updated_by", decl: "INTEGER"},
-		{table: "resources", column: "minutes_per_day", decl: "INTEGER"},
-		{table: "resources", column: "name", decl: "TEXT"},
-		{table: "resources", column: "notes", decl: "TEXT"},
-		{table: "resources", column: "phone", decl: "TEXT"},
-		{table: "resources", column: "updated_at", decl: "TEXT"},
-		{table: "resources", column: "url", decl: "TEXT"},
-		{table: "resources", column: "user_id", decl: "INTEGER"},
-		{table: "resources", column: "vacation_allowance", decl: "INTEGER"},
-		{table: "resources", column: "parent_id", decl: "TEXT"},
+		// The API resource named "resources" would collide with the
+		// framework's generic catch-all `resources` table, so its typed
+		// domain table is parent-prefixed to `accounts_resources` - the
+		// same disambiguation the generator already applies to
+		// `resources_bookings` / `clients_bookings`, and the parent is the
+		// account the collection hangs off (/v1/{account}/resources).
+		// These backfills MUST name the typed table too. Pointed at the
+		// catch-all they add 21 columns nothing ever populates, so
+		// `sql "SELECT name, email FROM resources"` answers a row of NULLs
+		// per synced record instead of erroring - a silent wrong answer on
+		// the connector's headline resource.
+		{table: "accounts_resources", column: "archived", decl: "INTEGER"},
+		{table: "accounts_resources", column: "bookable", decl: "INTEGER"},
+		{table: "accounts_resources", column: "color", decl: "TEXT"},
+		{table: "accounts_resources", column: "created_at", decl: "TEXT"},
+		{table: "accounts_resources", column: "creator_id", decl: "INTEGER"},
+		{table: "accounts_resources", column: "email", decl: "TEXT"},
+		{table: "accounts_resources", column: "first_name", decl: "TEXT"},
+		{table: "accounts_resources", column: "human", decl: "INTEGER"},
+		{table: "accounts_resources", column: "image", decl: "TEXT"},
+		{table: "accounts_resources", column: "job_title", decl: "TEXT"},
+		{table: "accounts_resources", column: "last_name", decl: "TEXT"},
+		{table: "accounts_resources", column: "last_updated_by", decl: "INTEGER"},
+		{table: "accounts_resources", column: "minutes_per_day", decl: "INTEGER"},
+		{table: "accounts_resources", column: "name", decl: "TEXT"},
+		{table: "accounts_resources", column: "notes", decl: "TEXT"},
+		{table: "accounts_resources", column: "phone", decl: "TEXT"},
+		{table: "accounts_resources", column: "updated_at", decl: "TEXT"},
+		{table: "accounts_resources", column: "url", decl: "TEXT"},
+		{table: "accounts_resources", column: "user_id", decl: "INTEGER"},
+		{table: "accounts_resources", column: "vacation_allowance", decl: "INTEGER"},
+		{table: "accounts_resources", column: "parent_id", decl: "TEXT"},
 		{table: "availability", column: "resources_id", decl: "TEXT"},
 		{table: "resources_bookings", column: "resources_id", decl: "TEXT"},
 		{table: "resources_bookings", column: "parent_id", decl: "TEXT"},
@@ -1096,7 +1107,13 @@ func (s *Store) migrate(ctx context.Context) error {
 		)`,
 		`CREATE INDEX IF NOT EXISTS "idx_resource_types_created_at" ON "resource_types"("created_at")`,
 		`CREATE INDEX IF NOT EXISTS "idx_resource_types_updated_at" ON "resource_types"("updated_at")`,
-		`CREATE TABLE IF NOT EXISTS "resources" (
+		// Parent-prefixed to avoid colliding with the generic catch-all
+		// `resources` table created at the top of this slice. A bare
+		// "resources" typed table loses the CREATE TABLE IF NOT EXISTS race
+		// to the catch-all, and every typed insert then runs against the
+		// catch-all's column set. The parent is the account the collection
+		// hangs off (/v1/{account}/resources).
+		`CREATE TABLE IF NOT EXISTS "accounts_resources" (
 			"id" TEXT PRIMARY KEY,
 			"data" JSON NOT NULL,
 			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -1122,25 +1139,35 @@ func (s *Store) migrate(ctx context.Context) error {
 			"vacation_allowance" INTEGER,
 			"parent_id" TEXT
 		)`,
-		`CREATE INDEX IF NOT EXISTS "idx_resources_creator_id" ON "resources"("creator_id")`,
-		`CREATE INDEX IF NOT EXISTS "idx_resources_user_id" ON "resources"("user_id")`,
-		`CREATE INDEX IF NOT EXISTS "idx_resources_created_at" ON "resources"("created_at")`,
-		`CREATE INDEX IF NOT EXISTS "idx_resources_updated_at" ON "resources"("updated_at")`,
-		`CREATE INDEX IF NOT EXISTS "idx_resources_parent_id" ON "resources"("parent_id")`,
-		`CREATE VIRTUAL TABLE IF NOT EXISTS "resources_fts" USING fts5(
+		`CREATE INDEX IF NOT EXISTS "idx_accounts_resources_creator_id" ON "accounts_resources"("creator_id")`,
+		`CREATE INDEX IF NOT EXISTS "idx_accounts_resources_user_id" ON "accounts_resources"("user_id")`,
+		`CREATE INDEX IF NOT EXISTS "idx_accounts_resources_created_at" ON "accounts_resources"("created_at")`,
+		`CREATE INDEX IF NOT EXISTS "idx_accounts_resources_updated_at" ON "accounts_resources"("updated_at")`,
+		`CREATE INDEX IF NOT EXISTS "idx_accounts_resources_parent_id" ON "accounts_resources"("parent_id")`,
+		// The typed FTS shadow is parent-prefixed for the same reason as its
+		// content table: a bare "resources_fts" collides with the generic
+		// catch-all FTS index (id, resource_type, content) that
+		// upsertGenericResourceTx maintains by hand.
+		`CREATE VIRTUAL TABLE IF NOT EXISTS "accounts_resources_fts" USING fts5(
 			"name",
 			"notes",
-			content='resources',
+			content='accounts_resources',
 			content_rowid='rowid'
 		)`,
-		// NOTE: the typed resources_ai/ad/au FTS triggers were removed. The API
-		// has a resource literally named "resources", which collides with the
-		// framework's generic catch-all `resources` table. The typed-domain
-		// triggers referenced name/notes columns that the catch-all table does
-		// not have, so they fired and failed on every insert (all sync writes).
-		// The catch-all maintains resources_fts (id, resource_type, content)
-		// manually in upsertGenericResourceTx, so the triggers were pure
-		// collision debris. (Generator bug — filed for retro.)
+		`CREATE TRIGGER IF NOT EXISTS "accounts_resources_ai" AFTER INSERT ON "accounts_resources" BEGIN
+			INSERT INTO "accounts_resources_fts"(rowid, "name", "notes")
+			VALUES (new.rowid,new."name", new."notes");
+		END`,
+		`CREATE TRIGGER IF NOT EXISTS "accounts_resources_ad" AFTER DELETE ON "accounts_resources" BEGIN
+			INSERT INTO "accounts_resources_fts"("accounts_resources_fts", rowid, "name", "notes")
+			VALUES ('delete', old.rowid,old."name", old."notes");
+		END`,
+		`CREATE TRIGGER IF NOT EXISTS "accounts_resources_au" AFTER UPDATE ON "accounts_resources" BEGIN
+			INSERT INTO "accounts_resources_fts"("accounts_resources_fts", rowid, "name", "notes")
+			VALUES ('delete', old.rowid,old."name", old."notes");
+			INSERT INTO "accounts_resources_fts"(rowid, "name", "notes")
+			VALUES (new.rowid,new."name", new."notes");
+		END`,
 		`CREATE TABLE IF NOT EXISTS "availability" (
 			"id" TEXT PRIMARY KEY,
 			"resources_id" TEXT NOT NULL,
@@ -3307,17 +3334,41 @@ func (s *Store) UpsertResourceTypes(data json.RawMessage) error {
 // and for committing the tx. Splitting this out lets UpsertBatch dispatch
 // domain inserts per item without opening a per-item transaction.
 func (s *Store) upsertResourcesTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
-	// NOTE: no-op. The API resource named "resources" collides with the
-	// framework's generic catch-all `resources` table, so the typed-domain
-	// `resources` table never gets created (the catch-all CREATE wins the
-	// IF NOT EXISTS race). The generic insert in upsertGenericResourceTx
-	// already persists the full resource JSON under resource_type='resources',
-	// which List/search/sql and the utilization engine read. A typed insert
-	// here would target the catch-all table's column set and fail.
-	// (Generator collision bug — filed for retro.)
-	_ = id
-	_ = obj
-	_ = data
+	// The typed table is `accounts_resources`, not a bare `resources`: that
+	// name belongs to the framework's generic catch-all table, and a typed
+	// insert against the catch-all's column set fails on every row.
+	if _, err := tx.Exec(
+		`INSERT INTO "accounts_resources" ("id", "data", "synced_at", "archived", "bookable", "color", "created_at", "creator_id", "email", "first_name", "human", "image", "job_title", "last_name", "last_updated_by", "minutes_per_day", "name", "notes", "phone", "updated_at", "url", "user_id", "vacation_allowance", "parent_id")
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "archived" = excluded."archived", "bookable" = excluded."bookable", "color" = excluded."color", "created_at" = excluded."created_at", "creator_id" = excluded."creator_id", "email" = excluded."email", "first_name" = excluded."first_name", "human" = excluded."human", "image" = excluded."image", "job_title" = excluded."job_title", "last_name" = excluded."last_name", "last_updated_by" = excluded."last_updated_by", "minutes_per_day" = excluded."minutes_per_day", "name" = excluded."name", "notes" = excluded."notes", "phone" = excluded."phone", "updated_at" = excluded."updated_at", "url" = excluded."url", "user_id" = excluded."user_id", "vacation_allowance" = excluded."vacation_allowance", "parent_id" = excluded."parent_id"`,
+		id,
+		string(data),
+		time.Now().UTC().Format(time.RFC3339),
+		lookupFieldValue(obj, "archived"),
+		lookupFieldValue(obj, "bookable"),
+		lookupFieldValue(obj, "color"),
+		lookupFieldValue(obj, "created_at"),
+		lookupFieldValue(obj, "creator_id"),
+		lookupFieldValue(obj, "email"),
+		lookupFieldValue(obj, "first_name"),
+		lookupFieldValue(obj, "human"),
+		lookupFieldValue(obj, "image"),
+		lookupFieldValue(obj, "job_title"),
+		lookupFieldValue(obj, "last_name"),
+		lookupFieldValue(obj, "last_updated_by"),
+		lookupFieldValue(obj, "minutes_per_day"),
+		lookupFieldValue(obj, "name"),
+		lookupFieldValue(obj, "notes"),
+		lookupFieldValue(obj, "phone"),
+		lookupFieldValue(obj, "updated_at"),
+		lookupFieldValue(obj, "url"),
+		lookupFieldValue(obj, "user_id"),
+		lookupFieldValue(obj, "vacation_allowance"),
+		lookupFieldValue(obj, "parent_id"),
+	); err != nil {
+		return fmt.Errorf("insert into accounts_resources: %w", err)
+	}
+
 	return nil
 }
 
@@ -4552,17 +4603,38 @@ func (s *Store) SearchReports(query string, limit int) ([]json.RawMessage, error
 	return results, rows.Err()
 }
 
-// SearchResources searches the resources_fts index with optional filters.
+// SearchResources searches the accounts_resources_fts index with optional
+// filters. The index is parent-prefixed for the same reason its content table
+// is: a bare `resources_fts` is the framework's generic catch-all index.
 func (s *Store) SearchResources(query string, limit int) ([]json.RawMessage, error) {
-	// Delegate to the generic FTS search scoped to resource_type='resources'.
-	// The typed resources table/FTS this method originally targeted never get
-	// created: the API resource named "resources" collides with the framework's
-	// catch-all `resources` table (the catch-all wins the IF NOT EXISTS race),
-	// and the typed FTS rowids would not align with the catch-all table's
-	// auto rowids anyway. The generic resources_fts (id, resource_type, content)
-	// is populated by upsertGenericResourceTx and joins on id+resource_type.
-	// (Generator collision bug — filed for retro.)
-	return s.Search(query, limit, "resources")
+	if limit <= 0 {
+		limit = 50
+	}
+	matchQuery := ftsMatchQuery(query)
+	if matchQuery == "" {
+		return nil, nil
+	}
+	rows, err := s.db.Query(
+		`SELECT t.data FROM "accounts_resources" t
+		 JOIN "accounts_resources_fts" ON "accounts_resources_fts".rowid = t.rowid
+		 WHERE "accounts_resources_fts" MATCH ?
+		 ORDER BY "accounts_resources_fts".rank LIMIT ?`,
+		matchQuery, limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []json.RawMessage
+	for rows.Next() {
+		var data string
+		if err := rows.Scan(&data); err != nil {
+			return nil, err
+		}
+		results = append(results, json.RawMessage(data))
+	}
+	return results, rows.Err()
 }
 
 func (s *Store) SaveSyncState(resourceType, cursor string, count int) error {
@@ -4613,6 +4685,25 @@ func (s *Store) GetSyncCursor(resourceType string) string {
 	return ""
 }
 
+// typedTableName maps a resource type to the SQL identifier of its typed
+// domain table. It is the identity for every resource type except `resources`,
+// whose typed table is parent-prefixed to `accounts_resources` because a bare
+// `resources` is the framework's own catch-all table.
+//
+// The sqlite_master lookups below resolve a resource type to a table by name.
+// Without this mapping `resources` resolves to the CATCH-ALL, so
+// `SELECT id FROM "resources"` hands the dependent fan-out every synced record
+// of every type as if it were a resource id - `resources_bookings` then fetches
+// /v1/{account}/resources/{id}/bookings for client, project and booking ids.
+// One line, applied at every resolve site, keeps the rename honest for the
+// readers as well as the writers.
+func typedTableName(resourceType string) string {
+	if resourceType == "resources" {
+		return "accounts_resources"
+	}
+	return resourceType
+}
+
 // ListIDs returns all IDs from a resource's domain table, or from the generic
 // resources table if no domain table exists. Used by dependent sync to iterate parents.
 // For parent-keyed resource types these are composite storage keys; run them
@@ -4625,7 +4716,7 @@ func (s *Store) ListIDs(resourceType string) ([]string, error) {
 	var table string
 	err := s.db.QueryRow(
 		`SELECT name FROM sqlite_master WHERE type='table' AND name=?`,
-		resourceType,
+		typedTableName(resourceType),
 	).Scan(&table)
 	var rows *sql.Rows
 	if err == nil && table != "" {
@@ -4668,7 +4759,7 @@ func (s *Store) ListIDsScoped(resourceType, scopeColumn, scopeValue string) ([]s
 	var table string
 	err := s.db.QueryRow(
 		`SELECT name FROM sqlite_master WHERE type='table' AND name=?`,
-		resourceType,
+		typedTableName(resourceType),
 	).Scan(&table)
 	if err == nil && table != "" {
 		var colName string
@@ -4741,7 +4832,7 @@ func (s *Store) ListField(resourceType, field string) ([]string, error) {
 	var table string
 	err := s.db.QueryRow(
 		`SELECT name FROM sqlite_master WHERE type='table' AND name=?`,
-		resourceType,
+		typedTableName(resourceType),
 	).Scan(&table)
 	var rows *sql.Rows
 	if err == nil && table != "" {

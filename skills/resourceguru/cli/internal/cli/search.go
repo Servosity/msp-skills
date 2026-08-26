@@ -138,7 +138,39 @@ Run sync first to populate the local search index.`,
 			case "reports":
 				results, err = db.SearchReports(query, limit)
 			case "resources":
-				results, err = db.SearchResources(query, limit)
+				// Union of the typed index and the generic one, deduped by
+				// raw JSON. Every other type here queries only its typed FTS
+				// because its typed table has always been populated. The
+				// typed table for `resources` is parent-prefixed
+				// (accounts_resources) because a bare `resources` is the
+				// framework's own catch-all, and on a store synced by an
+				// earlier binary it is created empty - a typed-only query
+				// would answer zero rows for the connector's headline
+				// resource until the operator re-syncs. Querying both keeps
+				// the answer right on either side of that resync.
+				seen := make(map[string]bool)
+				typed, searchErr := db.SearchResources(query, limit)
+				if searchErr != nil {
+					return fmt.Errorf("search resources failed: %w", searchErr)
+				}
+				for _, r := range typed {
+					key := string(r)
+					if !seen[key] {
+						seen[key] = true
+						results = append(results, r)
+					}
+				}
+				generic, searchErr := db.Search(query, limit, "resources")
+				if searchErr != nil {
+					return fmt.Errorf("search resources_fts failed: %w", searchErr)
+				}
+				for _, r := range generic {
+					key := string(r)
+					if !seen[key] {
+						seen[key] = true
+						results = append(results, r)
+					}
+				}
 			case "":
 				// Search every FTS-enabled source — typed per-resource tables
 				// AND the generic resources_fts — and dedup by raw JSON so a

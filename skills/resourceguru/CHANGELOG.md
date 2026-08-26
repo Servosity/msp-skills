@@ -7,6 +7,25 @@ All notable changes to this skill are documented here. Format follows
 ## Unreleased
 
 ### Fixed
+- **`sql "SELECT name, email FROM resources"` answered a row of NULLs per synced resource instead
+  of the resource's name and email.** Resource Guru has an API resource literally named
+  `resources`, which is also the name of the local database's general-purpose table, so the
+  detailed table the connector meant to build for resources was never created - the general one
+  already had the name. The 21 detail columns (`name`, `email`, `first_name`, `bookable`,
+  `job_title` and the rest) were then added to the general table, where nothing ever filled them,
+  so a query for them succeeded and returned empty values rather than saying the columns were not
+  there. The detailed table is now called `accounts_resources` - named after the account the
+  collection belongs to, the same way `resources_bookings` and `clients_bookings` already are - and
+  it is filled on every sync. Querying those columns on the general `resources` table now reports
+  that they do not exist.
+- **Local search for resources, and offline lookups of a resource's bookings, returned the wrong
+  rows.** With no detailed table there was no search index for resources, and the code that finds a
+  resource's id was reading the general table, which holds every synced record of every kind - so
+  the bookings lookup was fed client and project ids as if they were resource ids. Resources have
+  their own search index again, and id lookups read the detailed table.
+- Existing databases keep working and keep everything already synced; the detailed table starts
+  empty and fills on the next `sync`. The unused columns on the general table are left in place -
+  they are empty and nothing reads them, so removing them would risk data for no gain.
 - **The credential-precedence tests were skipped, so nothing was watching which secret goes on the
   wire.** The four tests that pin the order - a saved credentials file beats an old secret left in
   `config.toml`, a corrupt credentials file falls back to that config and then to the environment,
