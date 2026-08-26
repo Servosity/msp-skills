@@ -29,6 +29,18 @@
       },
       "environmentVariables": [
         {
+          "name": "LIONGARD_ACCESS_KEY_ID",
+          "description": "Liongard Access Key ID. Set it with LIONGARD_ACCESS_KEY_SECRET as an alternative to LIONGARD_API_KEY: the server composes the two into the base64 X-ROAR-API-KEY value. Leave blank if you already have the pre-encoded key.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "LIONGARD_ACCESS_KEY_SECRET",
+          "description": "Liongard Access Key Secret, the other half of LIONGARD_ACCESS_KEY_ID. Leave blank if you set the pre-encoded LIONGARD_API_KEY instead.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
           "name": "LIONGARD_API_KEY",
           "description": "Base64 X-ROAR-API-KEY for the Liongard API (or use LIONGARD_ACCESS_KEY_ID + LIONGARD_ACCESS_KEY_SECRET).",
           "isRequired": true,

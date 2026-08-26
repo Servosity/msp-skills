@@ -165,6 +165,61 @@
      "min_count": 1
     }
    ]
+  },
+  {
+   "id": "composed-roar-auth-from-id-and-secret",
+   "summary": "config.Load composes LIONGARD_ACCESS_KEY_ID + LIONGARD_ACCESS_KEY_SECRET into the base64 X-ROAR-API-KEY value when LIONGARD_API_KEY is unset",
+   "why": "Liongard hands an operator two separate strings - an Access Key ID and an Access Key Secret - and never shows the encoded form. The wire header X-ROAR-API-KEY is base64(\"accessKeyId:accessKeySecret\"), so the CLI has to compose it. README.md, SKILL.md, guide.md and server.json all instruct operators to export the two variables. The press template emits a single-env-var loader (one variable per config field) and has no notion of a composed credential, so a reprint or a fleet re-vendor regenerates config.go and drops the composed branch: the 4.24.0 fleet re-vendor (fc7720092) did exactly that, and from then on every operator who followed the shipped docs got an empty auth header and a 401 on every call while the connector's own hand-added test (config_liongard_auth_test.go) failed in CI. The branch is inline in a DO-NOT-EDIT generated file, so this ledger entry is the only thing that makes the next drop loud. Same class as the levelio x-auth-env-vars regression and gradient's composed GRADIENT-TOKEN pair (which survives reprints only because it lives in a novel file).",
+   "status": "active",
+   "spec_encode_followup": "Teach the press composed-credential auth (N env vars -> one derived header value) so the loader is generated, not hand-wired. Until then this recurs on every reprint.",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "LIONGARD_ACCESS_KEY_SECRET"
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "base64.StdEncoding.EncodeToString([]byte(id + \":\" + secret))"
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "env:LIONGARD_ACCESS_KEY_ID+SECRET"
+    },
+    {
+     "file": "cli/internal/config/config_liongard_auth_test.go",
+     "contains": "TestLoad_ComposedRoarAuth"
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"LIONGARD_ACCESS_KEY_ID\": \"${user_config.liongard_access_key_id}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"LIONGARD_ACCESS_KEY_SECRET\": \"${user_config.liongard_access_key_secret}\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"LIONGARD_ACCESS_KEY_ID\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"LIONGARD_ACCESS_KEY_SECRET\"",
+     "min_count": 1
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"LIONGARD_ACCESS_KEY_ID\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"LIONGARD_ACCESS_KEY_SECRET\":",
+     "min_count": 3
+    }
+   ]
   }
  ]
 }

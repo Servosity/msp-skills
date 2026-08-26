@@ -37,6 +37,8 @@ Add (or merge with your existing `mcpServers` block):
     "liongard": {
       "command": "liongard-mcp",
       "env": {
+        "LIONGARD_ACCESS_KEY_ID": "",
+        "LIONGARD_ACCESS_KEY_SECRET": "",
         "LIONGARD_API_KEY": "<your-liongard_api_key>",
         "LIONGARD_BASE_URL": "",
         "LIONGARD_INSTANCE": "<your-liongard_instance>"
@@ -64,6 +66,8 @@ Configuration**) and add:
       "type": "stdio",
       "command": "liongard-mcp",
       "env": {
+        "LIONGARD_ACCESS_KEY_ID": "",
+        "LIONGARD_ACCESS_KEY_SECRET": "",
         "LIONGARD_API_KEY": "<your-liongard_api_key>",
         "LIONGARD_BASE_URL": "",
         "LIONGARD_INSTANCE": "<your-liongard_instance>"
@@ -87,6 +91,8 @@ Claude Desktop:
     "liongard": {
       "command": "liongard-mcp",
       "env": {
+        "LIONGARD_ACCESS_KEY_ID": "",
+        "LIONGARD_ACCESS_KEY_SECRET": "",
         "LIONGARD_API_KEY": "<your-liongard_api_key>",
         "LIONGARD_BASE_URL": "",
         "LIONGARD_INSTANCE": "<your-liongard_instance>"
@@ -107,7 +113,7 @@ All remote agents need `liongard-mcp` reachable as a public **HTTPS** endpoint. 
 in HTTP mode with your credentials in the environment:
 
 ```bash
-LIONGARD_API_KEY=<value> LIONGARD_BASE_URL=<value> LIONGARD_INSTANCE=<value> liongard-mcp --transport http --addr :7777
+LIONGARD_ACCESS_KEY_ID=<value> LIONGARD_ACCESS_KEY_SECRET=<value> LIONGARD_API_KEY=<value> LIONGARD_BASE_URL=<value> LIONGARD_INSTANCE=<value> liongard-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

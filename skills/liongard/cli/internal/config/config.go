@@ -4,6 +4,7 @@
 package config
 
 import (
+	"encoding/base64"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -60,11 +61,24 @@ func Load(configPath string) (*Config, error) {
 
 	cfg.snapshotFileConfig()
 
-	// Env var overrides
+	// Env var overrides. Liongard's X-ROAR-API-KEY header is the base64 encoding
+	// of "accessKeyId:accessKeySecret". Accept either a pre-encoded value via
+	// LIONGARD_API_KEY (wins), or the two natural credential values via
+	// LIONGARD_ACCESS_KEY_ID + LIONGARD_ACCESS_KEY_SECRET (composed here).
+	// Liongard hands operators the ID and the secret as separate strings and
+	// never shows the encoded form, so the composed pair is the credential
+	// shape real users actually have; README, SKILL.md, guide.md and
+	// server.json all document it. Dropping this branch (a full reprint
+	// regenerates the single-env-var template) leaves every operator who
+	// followed those docs with an empty X-ROAR-API-KEY and a 401 on every call.
 	if v := os.Getenv("LIONGARD_API_KEY"); v != "" {
 		cfg.LiongardApiKey = v
 		cfg.markEnvOverride("LiongardApiKey")
 		cfg.AuthSource = "env:LIONGARD_API_KEY"
+	} else if id, secret := strings.TrimSpace(os.Getenv("LIONGARD_ACCESS_KEY_ID")), strings.TrimSpace(os.Getenv("LIONGARD_ACCESS_KEY_SECRET")); id != "" && secret != "" {
+		cfg.LiongardApiKey = base64.StdEncoding.EncodeToString([]byte(id + ":" + secret))
+		cfg.markEnvOverride("LiongardApiKey")
+		cfg.AuthSource = "env:LIONGARD_ACCESS_KEY_ID+SECRET"
 	}
 
 	// Label config-file-derived credentials so doctor can distinguish

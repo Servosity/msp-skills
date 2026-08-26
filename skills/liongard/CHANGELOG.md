@@ -4,6 +4,20 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## Unreleased
+
+### Fixed
+- **`LIONGARD_ACCESS_KEY_ID` and `LIONGARD_ACCESS_KEY_SECRET` were ignored, so every call went out
+  unauthenticated.** Liongard hands you an Access Key ID and an Access Key Secret and never shows
+  the encoded form the API actually wants, and the README, the SKILL and the guide all tell you to
+  export those two variables. The config loader read neither: it only ever looked for a
+  pre-encoded `LIONGARD_API_KEY`, so an operator who followed the shipped instructions got an empty
+  `X-ROAR-API-KEY` header and a 401 on every command, with nothing in `doctor` naming the cause.
+  The loader composes the pair into base64 of `accessKeyId:accessKeySecret` again, as it did when
+  the connector first shipped; a pre-encoded `LIONGARD_API_KEY` still wins when both are set.
+  Both variables are now declared on all three install channels, so Claude Desktop asks for them
+  and the copy-paste MCP config blocks carry them.
+
 ## [0.1.1] - 2026-08-26
 
 ### Fixed
