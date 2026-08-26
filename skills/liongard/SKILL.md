@@ -293,7 +293,7 @@ Every system whose patch age crosses the threshold, across all clients.
 
 ## Auth Setup
 
-Liongard issues an Access Key ID and an Access Key Secret per user. The CLI sends them as the X-ROAR-API-KEY header (base64 of `accessKeyId:accessKeySecret`). Set LIONGARD_INSTANCE (your subdomain, e.g. us1), LIONGARD_ACCESS_KEY_ID, and LIONGARD_ACCESS_KEY_SECRET; or set a pre-encoded LIONGARD_API_KEY directly. Run `doctor` to confirm the host and credentials resolve.
+Liongard issues an Access Key ID and an Access Key Secret per user. The CLI sends them as the X-ROAR-API-KEY header (base64 of `accessKeyId:accessKeySecret`). Set LIONGARD_INSTANCE (your subdomain, e.g. us1), LIONGARD_ACCESS_KEY_ID, and LIONGARD_ACCESS_KEY_SECRET; or set a pre-encoded LIONGARD_API_KEY directly. Set one shape or the other, never both: LIONGARD_API_KEY wins whenever it is non-empty and the ID/secret pair is ignored. Run `doctor` to confirm the host and credentials resolve.
 
 Run `liongard-cli doctor` to verify setup.
 

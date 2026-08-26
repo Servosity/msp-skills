@@ -16,7 +16,12 @@ All notable changes to this skill are documented here. Format follows
   The loader composes the pair into base64 of `accessKeyId:accessKeySecret` again, as it did when
   the connector first shipped; a pre-encoded `LIONGARD_API_KEY` still wins when both are set.
   Both variables are now declared on all three install channels, so Claude Desktop asks for them
-  and the copy-paste MCP config blocks carry them.
+  and the copy-paste MCP config blocks carry them. `LIONGARD_API_KEY` is no longer marked required
+  in `manifest.json` or `server.json` either: while it was, the MCPB bundle and the registry
+  install both forced a value into it, and because the pre-encoded key wins the ID/secret pair
+  stayed dead through every official install no matter what the docs said. All three fields now
+  state the one-of contract - set the key or set the pair, never both - and the install pages show
+  the two setups separately instead of one line that sets all three at once.
 
 ## [0.1.1] - 2026-08-26
 

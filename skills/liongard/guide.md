@@ -121,7 +121,7 @@ Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_
 
 ## Authentication
 
-Liongard issues an Access Key ID and an Access Key Secret per user. The CLI sends them as the X-ROAR-API-KEY header (base64 of `accessKeyId:accessKeySecret`). Set LIONGARD_INSTANCE (your subdomain, e.g. us1), LIONGARD_ACCESS_KEY_ID, and LIONGARD_ACCESS_KEY_SECRET; or set a pre-encoded LIONGARD_API_KEY directly. Run `doctor` to confirm the host and credentials resolve.
+Liongard issues an Access Key ID and an Access Key Secret per user. The CLI sends them as the X-ROAR-API-KEY header (base64 of `accessKeyId:accessKeySecret`). Set LIONGARD_INSTANCE (your subdomain, e.g. us1), LIONGARD_ACCESS_KEY_ID, and LIONGARD_ACCESS_KEY_SECRET; or set a pre-encoded LIONGARD_API_KEY directly. Set one shape or the other, never both: LIONGARD_API_KEY wins whenever it is non-empty and the ID/secret pair is ignored. Run `doctor` to confirm the host and credentials resolve.
 
 ## Quick Start
 
@@ -494,6 +494,6 @@ If you use agentcookie to sync secrets across machines, this CLI auto-adopts age
 
 ### API-specific
 - **doctor reports the host cannot be resolved**  -  Set LIONGARD_INSTANCE to your subdomain only (e.g. us1), not the full URL; the base becomes https://us1.app.liongard.com/api/v1.
-- **401 Unauthorized on every call**  -  The X-ROAR-API-KEY must be base64 of accessKeyId:accessKeySecret. Set LIONGARD_ACCESS_KEY_ID and LIONGARD_ACCESS_KEY_SECRET and let the CLI encode them, or set a correctly pre-encoded LIONGARD_API_KEY.
+- **401 Unauthorized on every call**  -  The X-ROAR-API-KEY must be base64 of accessKeyId:accessKeySecret. Set LIONGARD_ACCESS_KEY_ID and LIONGARD_ACCESS_KEY_SECRET and let the CLI encode them, or set a correctly pre-encoded LIONGARD_API_KEY - one or the other, never both. A leftover LIONGARD_API_KEY (even a placeholder) wins over the pair, which is the usual cause of a 401 when the ID and secret look right.
 - **drift or stale commands return nothing**  -  Run `sync --full` first; the cross-estate joins read the local store, not the live API.
 - **list commands return a Data wrapper you do not want**  -  The CLI already unwraps the {Data,Pagination,Success} envelope; use --select to project just the fields you need.

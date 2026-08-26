@@ -18,6 +18,24 @@ and `liongard-mcp` on your PATH. `liongard-mcp` is what the agents talk to.
 liongard-mcp --help
 ```
 
+## Two ways to authenticate
+
+Liongard's `X-ROAR-API-KEY` header is base64 of `accessKeyId:accessKeySecret`. Supply
+it **either** way, never both:
+
+- **A - pre-encoded key.** Set `LIONGARD_API_KEY` to the base64 value and leave
+  `LIONGARD_ACCESS_KEY_ID` / `LIONGARD_ACCESS_KEY_SECRET` empty.
+- **B - ID + secret.** Set `LIONGARD_ACCESS_KEY_ID` and `LIONGARD_ACCESS_KEY_SECRET`
+  to the two strings Liongard hands you and leave `LIONGARD_API_KEY` empty; the server
+  encodes them for you.
+
+`LIONGARD_API_KEY` **wins whenever it is non-empty** - including when it still holds a
+placeholder like `<your-liongard_api_key>`. If you are using shape B, clear that field
+in the config blocks below or the ID/secret pair is ignored and every call returns 401.
+
+Every config block below lists all five variables so you can see the full shape. Fill
+in the ones for your chosen shape and leave the others as empty strings.
+
 ---
 
 # Local agents (launch the binary directly)
@@ -112,8 +130,16 @@ web** is remote-only - see the remote section below.)
 All remote agents need `liongard-mcp` reachable as a public **HTTPS** endpoint. Run it
 in HTTP mode with your credentials in the environment:
 
+Pick **one** of the two credential shapes (see [Two ways to authenticate](#two-ways-to-authenticate)):
+
 ```bash
-LIONGARD_ACCESS_KEY_ID=<value> LIONGARD_ACCESS_KEY_SECRET=<value> LIONGARD_API_KEY=<value> LIONGARD_BASE_URL=<value> LIONGARD_INSTANCE=<value> liongard-mcp --transport http --addr :7777
+# A - pre-encoded key. Leave the ID/secret pair unset.
+LIONGARD_API_KEY=<value> LIONGARD_BASE_URL=<value> LIONGARD_INSTANCE=<value> liongard-mcp --transport http --addr :7777
+```
+
+```bash
+# B - ID + secret. Leave LIONGARD_API_KEY unset, or it wins and this pair is ignored.
+LIONGARD_ACCESS_KEY_ID=<value> LIONGARD_ACCESS_KEY_SECRET=<value> LIONGARD_BASE_URL=<value> LIONGARD_INSTANCE=<value> liongard-mcp --transport http --addr :7777
 ```
 
 Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel

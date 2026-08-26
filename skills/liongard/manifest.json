@@ -27,9 +27,9 @@
     "liongard_api_key": {
       "type": "string",
       "title": "LIONGARD_API_KEY",
-      "description": "Sets LIONGARD_API_KEY for the Liongard MCP server.",
+      "description": "Pre-encoded X-ROAR-API-KEY: base64 of 'accessKeyId:accessKeySecret'. One of two ways to authenticate - set EITHER this key OR the LIONGARD_ACCESS_KEY_ID + LIONGARD_ACCESS_KEY_SECRET pair, never both. This key wins when it is set, and the pair is ignored.",
       "sensitive": true,
-      "required": true
+      "required": false
     },
     "liongard_instance": {
       "type": "string",
@@ -47,14 +47,14 @@
     "liongard_access_key_id": {
       "type": "string",
       "title": "Liongard Access Key ID",
-      "description": "Liongard Access Key ID. Set it with LIONGARD_ACCESS_KEY_SECRET as an alternative to LIONGARD_API_KEY: the server composes the two into the base64 X-ROAR-API-KEY value. Leave blank if you already have the pre-encoded key.",
+      "description": "Liongard Access Key ID, the half that pairs with LIONGARD_ACCESS_KEY_SECRET; the server composes the two into the base64 X-ROAR-API-KEY. One of two ways to authenticate - set EITHER this pair OR the pre-encoded LIONGARD_API_KEY, never both. LIONGARD_API_KEY wins when it is set, so leave it blank to use this pair.",
       "sensitive": true,
       "required": false
     },
     "liongard_access_key_secret": {
       "type": "string",
       "title": "Liongard Access Key Secret",
-      "description": "Liongard Access Key Secret, the other half of LIONGARD_ACCESS_KEY_ID. Leave blank if you set the pre-encoded LIONGARD_API_KEY instead.",
+      "description": "Liongard Access Key Secret, the other half of LIONGARD_ACCESS_KEY_ID. One of two ways to authenticate - set EITHER this pair OR the pre-encoded LIONGARD_API_KEY, never both. LIONGARD_API_KEY wins when it is set, so leave it blank to use this pair.",
       "sensitive": true,
       "required": false
     }
