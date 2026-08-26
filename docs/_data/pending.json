@@ -133,9 +133,9 @@
     "released_hash": "sha256:1a07063ea149e106a370a589c0615dfa1cc737d2742b3bed898980342a694b68"
   },
   "cove": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.6",
-    "latest_tag": "cove-v0.1.5",
+    "latest_tag": "cove-v0.1.6",
     "current_hash": "sha256:d09de8586a3be8651ee50083a67b4f45ac9fa902286a3ee8cf62e5facb7d89d8",
     "released_hash": "sha256:d09de8586a3be8651ee50083a67b4f45ac9fa902286a3ee8cf62e5facb7d89d8"
   },
@@ -147,9 +147,9 @@
     "released_hash": "sha256:b5f53c7f5881758439ef4adad5a44a52fa8f171b96a537ec35801655d2cf0193"
   },
   "datto-bcdr": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.4",
-    "latest_tag": "datto-bcdr-v0.1.3",
+    "latest_tag": "datto-bcdr-v0.1.4",
     "current_hash": "sha256:cf3158d316b90c2d654d0e6e2967c212b64830db0e1c6a8ccfb5dd4c239aa8a9",
     "released_hash": "sha256:cf3158d316b90c2d654d0e6e2967c212b64830db0e1c6a8ccfb5dd4c239aa8a9"
   },
@@ -175,9 +175,9 @@
     "released_hash": "sha256:98aab50c7d10e266c15a2199cfdfb080ce6d93e1de7eb5104b7b7195fba425a4"
   },
   "halopsa": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.2.14",
-    "latest_tag": "halopsa-v0.2.13",
+    "latest_tag": "halopsa-v0.2.14",
     "current_hash": "sha256:84d7757ec3718c6daa7e88dbd62a3d5b4f93382796e892cfe76e978a96635260",
     "released_hash": "sha256:84d7757ec3718c6daa7e88dbd62a3d5b4f93382796e892cfe76e978a96635260"
   },
