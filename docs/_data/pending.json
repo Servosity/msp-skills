@@ -49,9 +49,9 @@
     "released_hash": "sha256:192f8f04052080cce77c317db209a29f18222b2ce13f687f142511a056e5bc08"
   },
   "auvik": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.2.2",
-    "latest_tag": "auvik-v0.2.1",
+    "latest_tag": "auvik-v0.2.2",
     "current_hash": "sha256:9152dcc1b982b9afdde6550e89245e6ed6229f78212763ffaadad198c14b5748",
     "released_hash": "sha256:9152dcc1b982b9afdde6550e89245e6ed6229f78212763ffaadad198c14b5748"
   },
@@ -63,9 +63,9 @@
     "released_hash": "sha256:e50e49ee6f2e488b380bfbcee7d383ef4a31e4a7e262b76b0c7baab2f89bca9d"
   },
   "aws-billing": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.2",
-    "latest_tag": "aws-billing-v0.1.1",
+    "latest_tag": "aws-billing-v0.1.2",
     "current_hash": "sha256:68e5566d18fc8490eba6e569ecbd56b7d6e28a1c175abfdb1c290730755db094",
     "released_hash": "sha256:68e5566d18fc8490eba6e569ecbd56b7d6e28a1c175abfdb1c290730755db094"
   },
@@ -77,9 +77,9 @@
     "released_hash": "sha256:96e2c7288edd54ba44cf07d320e542946dfc75e7877d973a6dd51aab683331a6"
   },
   "betterstack": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.2",
-    "latest_tag": "betterstack-v0.1.1",
+    "latest_tag": "betterstack-v0.1.2",
     "current_hash": "sha256:8b6c967e2629bb9434f2cdf97164c5a3a00c8cb628d14d6bac0439d7adc0cb05",
     "released_hash": "sha256:8b6c967e2629bb9434f2cdf97164c5a3a00c8cb628d14d6bac0439d7adc0cb05"
   },
