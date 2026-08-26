@@ -7,22 +7,31 @@
 // receipts live in cli/internal/store/typed_resources_table_test.go; these two
 // concerns can only be pinned from this package:
 //
-//  1. `search --type resources` unions the typed index with the generic one and
-//     dedups by the row's COMPOSITE STORAGE IDENTITY. The union is load-bearing
-//     (a store synced by an earlier binary has an empty typed table) and so is
-//     the key: the two copies of one record can legitimately diverge, so raw
-//     bytes double-count, and two accounts can hold the same bare resource id,
-//     so a bare-id key silently merges two distinct resources.
+//  1. CLI search reads `resources` from the GENERIC catch-all index only, on
+//     both the `--type resources` path and the no-`--type` path, even though
+//     the typed accounts_resources projection and its FTS shadow exist and are
+//     maintained. The generic index is the authoritative and complete one; a
+//     query-time union of the two is what produced stale answers and
+//     double-counted rows. The reasoning is on the block comment
+//     `WHY search --type resources READS THE GENERIC INDEX ONLY` in search.go.
 //  2. The `resources_bookings` fan-out reads the catch-all through a
 //     resource_type filter and has never been able to see another type's ids.
 //     This test exists to keep a correction honest: an earlier draft of this
 //     change claimed the fan-out called ListIDs("resources") and was being
 //     handed client and project ids. It never did and never was.
+//
+// Every search receipt below drives the real cobra command, not a store method.
+// That is deliberate: the defects these pin live in the WIRING - which index
+// the switch in search.go reaches for - so a test that called a store method
+// directly would pass against every implementation of that switch and prove
+// nothing.
 
 package cli
 
 import (
+	"bytes"
 	"encoding/json"
+	"io"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -40,6 +49,18 @@ func openTestStore(t *testing.T) *store.Store {
 	return s
 }
 
+// newSeededStore returns an open store plus the path it lives at, so a test can
+// seed it, close it, and then point the real `search` command at the same file.
+func newSeededStore(t *testing.T) (*store.Store, string) {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "data.db")
+	s, err := store.Open(path)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	return s, path
+}
+
 // compositeStorageKey mirrors store.resourceStorageID for the `resources` type:
 // resourceParentKeyColumns maps it to `parent_id`, so the stored row identity is
 // the bare id, a NUL, and the parent id. Tests that need to write the generic
@@ -49,134 +70,87 @@ func compositeStorageKey(id, parentID string) string {
 	return id + "\x00" + parentID
 }
 
-// TestSearchResourcesUnion_KeepsTwoAccountsSharingABareResourceID is the receipt
-// for the dedup key being the COMPOSITE storage identity rather than the bare
-// resource id.
-//
-// The store keys `resources` on `<id>` + NUL + `<parent_id>` on purpose: a
-// resource belongs to an account, and two accounts can hold resources carrying
-// the same bare id. Both rows exist, separately, in the catch-all AND in the
-// typed projection. A union keyed on store.ExtractResourceID collapses them:
-// both answer "res-1", so the second is dropped and the operator is told one
-// resource matched when two did - a silent loss on the connector's headline
-// resource, and the same class of wrong answer this whole PR exists to remove.
-func TestSearchResourcesUnion_KeepsTwoAccountsSharingABareResourceID(t *testing.T) {
-	db := openTestStore(t)
-	const probe = "zqxjppresourceprobe"
-
-	if _, _, err := db.UpsertBatch("resources", []json.RawMessage{
-		json.RawMessage(`{"id":"res-1","parent_id":"acct-A","name":"Ada Lovelace","notes":"` + probe + `"}`),
-		json.RawMessage(`{"id":"res-1","parent_id":"acct-B","name":"Grace Hopper","notes":"` + probe + `"}`),
-	}); err != nil {
-		t.Fatalf("UpsertBatch: %v", err)
+// runSearch executes the real `search` command against dbPath and returns the
+// rows it printed. Machine output is on, so the command emits the provenance
+// envelope and the results array can be read back exactly as an agent would.
+func runSearch(t *testing.T, dbPath string, args ...string) []json.RawMessage {
+	t.Helper()
+	flags := &rootFlags{asJSON: true, dataSource: "local"}
+	cmd := newSearchCmd(flags)
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs(append(args, "--db", dbPath))
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("search %v: %v", args, err)
 	}
-
-	// The two records really are two rows under two distinct composite keys, or
-	// this test proves nothing about the dedup.
-	for _, table := range []string{"resources", "accounts_resources"} {
-		var n int
-		q := `SELECT COUNT(*) FROM "` + table + `"`
-		if table == "resources" {
-			q += ` WHERE resource_type = 'resources'`
-		}
-		if err := db.DB().QueryRow(q).Scan(&n); err != nil {
-			t.Fatalf("count %s: %v", table, err)
-		}
-		if n != 2 {
-			t.Fatalf("%s holds %d rows, want 2; the composite key this test needs was not written", table, n)
-		}
+	var envelope struct {
+		Results []json.RawMessage `json:"results"`
 	}
-
-	results, err := searchResourcesUnion(db, probe, 10)
-	if err != nil {
-		t.Fatalf("searchResourcesUnion: %v", err)
+	if err := json.Unmarshal(out.Bytes(), &envelope); err != nil {
+		t.Fatalf("search %v printed unparseable output %q: %v", args, out.String(), err)
 	}
-	if len(results) != 2 {
-		t.Fatalf("searchResourcesUnion returned %d rows for two account-scoped resources sharing the bare id res-1: %s; the dedup keyed on the bare id instead of the composite storage identity", len(results), results)
-	}
-	joined := string(results[0]) + string(results[1])
-	for _, want := range []string{"Ada Lovelace", "Grace Hopper"} {
-		if !strings.Contains(joined, want) {
-			t.Fatalf("searchResourcesUnion returned %s, missing %q; one of the two account-scoped resources was dropped", results, want)
-		}
-	}
+	return envelope.Results
 }
 
-// TestSearchResourcesUnion_DedupsDivergedCopiesByStorageIdentity pins the other
-// direction of the same key: a TRUE duplicate, one composite identity present in
-// both indexes, must collapse to one row.
+// seedDivergedCopies writes ONE record under one composite storage identity and
+// then leaves the two indexes disagreeing about it, which is the state
+// UpsertBatch can genuinely produce.
 //
-// UpsertBatch writes the generic catch-all row first and unconditionally, then
-// attempts the typed projection inside a SAVEPOINT. A typed-table failure rolls
-// the projection back to whatever it held before while the generic row keeps the
-// new payload, so one storage identity can be represented by two different JSON
-// documents at once. A union deduped by raw JSON bytes returns BOTH - the same
-// resource twice, the stale copy indistinguishable from a second resource.
+// UpsertBatch commits the generic catch-all row inside the outer transaction,
+// unconditionally, and only then attempts the typed projection inside a per-item
+// SAVEPOINT. A typed-table failure rolls back that savepoint alone, so the
+// generic row carries the new payload while the typed projection still carries
+// whatever it held before. Upsert (which calls upsertGenericResourceTx and
+// nothing else) reproduces exactly that, and is handed the same composite key so
+// the identity under test really is one identity and not two.
 //
-// This test drives that divergence with the store's own API: UpsertBatch writes
-// both copies, then Upsert writes the generic copy only (it calls
-// upsertGenericResourceTx and nothing else), which is exactly the state a
-// rolled-back savepoint leaves. The record carries a parent_id, so the identity
-// under test is the composite one, and Upsert is handed that same composite key.
-// The union must answer once, with the generic payload, because the generic row
-// is the store's durable copy - it is what `list`, `get` and the MCP `sql` tool
-// read.
-func TestSearchResourcesUnion_DedupsDivergedCopiesByStorageIdentity(t *testing.T) {
-	db := openTestStore(t)
-	const probe = "zqxjppresourceprobe"
-
+// After this returns: typed index answers oldNotes, generic index answers
+// newNotes, for the same row.
+func seedDivergedCopies(t *testing.T, db *store.Store, oldNotes, newNotes string) {
+	t.Helper()
 	if _, _, err := db.UpsertBatch("resources", []json.RawMessage{
-		json.RawMessage(`{"id":"res-1","parent_id":"acct-A","name":"Ada Lovelace","notes":"` + probe + `"}`),
+		json.RawMessage(`{"id":"res-1","parent_id":"acct-A","name":"Ada Lovelace","notes":"` + oldNotes + `"}`),
 	}); err != nil {
 		t.Fatalf("UpsertBatch: %v", err)
 	}
 	if err := db.Upsert("resources", compositeStorageKey("res-1", "acct-A"),
-		json.RawMessage(`{"id":"res-1","parent_id":"acct-A","name":"Ada Byron","notes":"`+probe+`"}`)); err != nil {
+		json.RawMessage(`{"id":"res-1","parent_id":"acct-A","name":"Ada Byron","notes":"`+newNotes+`"}`)); err != nil {
 		t.Fatalf("Upsert (generic only): %v", err)
 	}
 
-	// The divergence is real, or this test proves nothing: the typed index must
-	// still be answering the OLD payload while the generic one answers the new.
-	typed, err := db.SearchResources(probe, 10)
+	// The divergence is real, or every assertion downstream is vacuous.
+	typed, err := db.SearchResources(oldNotes, 10)
 	if err != nil {
 		t.Fatalf("SearchResources: %v", err)
 	}
 	if len(typed) != 1 || !strings.Contains(string(typed[0]), "Ada Lovelace") {
 		t.Fatalf("typed index = %s, want the stale 'Ada Lovelace' copy; the divergence this test needs was not set up", typed)
 	}
-	generic, err := db.Search(probe, 10, "resources")
+	generic, err := db.Search(newNotes, 10, "resources")
 	if err != nil {
 		t.Fatalf("generic Search: %v", err)
 	}
 	if len(generic) != 1 || !strings.Contains(string(generic[0]), "Ada Byron") {
 		t.Fatalf("generic index = %s, want the fresh 'Ada Byron' copy", generic)
 	}
-
-	results, err := searchResourcesUnion(db, probe, 10)
-	if err != nil {
-		t.Fatalf("searchResourcesUnion: %v", err)
-	}
-	if len(results) != 1 {
-		t.Fatalf("searchResourcesUnion returned %d rows for one composite storage identity: %s; the union deduped on raw JSON bytes, not on the stored row identity", len(results), results)
-	}
-	if !strings.Contains(string(results[0]), "Ada Byron") {
-		t.Fatalf("searchResourcesUnion returned %s, want the generic copy 'Ada Byron' (the durable row wins over a stale typed projection)", results[0])
-	}
 }
 
-// TestSearchResourcesUnion_AnswersPreResyncStoresFromTheGenericIndex is why the
-// union exists at all, and why the ledger asserts on searchResourcesUnion by
-// name. A store synced by resourceguru-v0.1.0 or v0.1.1 has every resource in
-// the catch-all and an EMPTY typed table until the operator re-syncs. A reprint
-// that restored the plain `db.SearchResources(query, limit)` call would compile,
-// pass every generated test, and answer zero rows for the connector's headline
-// resource on every such store.
-func TestSearchResourcesUnion_AnswersPreResyncStoresFromTheGenericIndex(t *testing.T) {
-	db := openTestStore(t)
+// TestSearchResources_FindsALegacyRowOnlyTheCatchAllHolds is the receipt for
+// reading the generic index rather than the typed one.
+//
+// resourceguru-v0.1.0 and v0.1.1 shipped a no-op upsertResourcesTx, so on every
+// store synced by a released binary the typed accounts_resources table is EMPTY
+// and the catch-all holds every resource. A reprint that restored the generated
+// `db.SearchResources(query, limit)` call would compile, pass every generated
+// test, and answer zero rows for this connector's headline resource on all of
+// those stores until the operator re-syncs.
+func TestSearchResources_FindsALegacyRowOnlyTheCatchAllHolds(t *testing.T) {
+	db, path := newSeededStore(t)
 	const probe = "zqxjppresourceprobe"
 
-	// Upsert writes the generic row and the generic FTS entry only, which is the
-	// pre-resync state: catch-all populated, typed projection empty.
+	// Upsert writes the generic row and the generic FTS entry only, which is
+	// exactly the pre-resync state a released binary leaves behind.
 	if err := db.Upsert("resources", "res-1",
 		json.RawMessage(`{"id":"res-1","name":"Ada Lovelace","notes":"`+probe+`"}`)); err != nil {
 		t.Fatalf("Upsert: %v", err)
@@ -188,13 +162,130 @@ func TestSearchResourcesUnion_AnswersPreResyncStoresFromTheGenericIndex(t *testi
 	if typedRows != 0 {
 		t.Fatalf("typed projection holds %d rows; this test needs the pre-resync state", typedRows)
 	}
+	db.Close()
 
-	results, err := searchResourcesUnion(db, probe, 10)
-	if err != nil {
-		t.Fatalf("searchResourcesUnion: %v", err)
-	}
+	results := runSearch(t, path, probe, "--type", "resources")
 	if len(results) != 1 || !strings.Contains(string(results[0]), "Ada Lovelace") {
-		t.Fatalf("searchResourcesUnion on a pre-resync store returned %s, want the catch-all row; a typed-only query answers zero here", results)
+		t.Fatalf("search --type resources on a pre-resync store returned %s, want the catch-all row; a typed-index read answers zero here", results)
+	}
+}
+
+// TestSearchResources_DoesNotAnswerFromAStaleTypedCopy is the receipt that
+// killed the union.
+//
+// One record, one composite storage identity, two indexes that disagree: the
+// generic row (the durable one, committed unconditionally) says `notes` is
+// newprobeterm, the typed projection (rolled back inside its savepoint) still
+// says oldprobeterm. Search for the term that survives ONLY in the superseded
+// copy.
+//
+// The right answer is zero rows: no record in this store currently carries that
+// term. A union of the two indexes cannot produce that answer by any dedup key,
+// and this is the case that proves it - the generic index contributes nothing to
+// the union here, so there is no fresher row for a key to prefer and no
+// ordering that can demote the stale one. The union returned the superseded
+// document as though it were current.
+func TestSearchResources_DoesNotAnswerFromAStaleTypedCopy(t *testing.T) {
+	db, path := newSeededStore(t)
+	seedDivergedCopies(t, db, "oldprobeterm", "newprobeterm")
+	db.Close()
+
+	results := runSearch(t, path, "oldprobeterm", "--type", "resources")
+	if len(results) != 0 {
+		t.Fatalf("search --type resources returned %d rows for a term only the SUPERSEDED typed copy carries: %s; the search read the typed index, which answers for a row the rest of the connector no longer holds", len(results), results)
+	}
+}
+
+// TestSearchResources_DivergedCopiesReturnOneGenericRow is the other direction
+// of the same divergence: the term that survives in the CURRENT record must
+// return that record, exactly once, carrying the generic payload.
+//
+// The generic row wins because it is the store's durable copy - written first,
+// committed unconditionally, and what `list`, `get`, the dependent fan-out and
+// the MCP `sql` tool read. Answering search from anything else would hand the
+// operator a different row than every other surface of this connector.
+func TestSearchResources_DivergedCopiesReturnOneGenericRow(t *testing.T) {
+	db, path := newSeededStore(t)
+	seedDivergedCopies(t, db, "oldprobeterm", "newprobeterm")
+	db.Close()
+
+	results := runSearch(t, path, "newprobeterm", "--type", "resources")
+	if len(results) != 1 {
+		t.Fatalf("search --type resources returned %d rows for one composite storage identity: %s, want exactly 1", len(results), results)
+	}
+	if !strings.Contains(string(results[0]), "Ada Byron") {
+		t.Fatalf("search --type resources returned %s, want the generic copy 'Ada Byron' - the durable row the rest of the connector reads", results[0])
+	}
+}
+
+// TestSearchResources_KeepsTwoAccountsSharingABareResourceID pins that two
+// genuinely distinct records are never collapsed into one.
+//
+// The store keys `resources` on a COMPOSITE identity on purpose:
+// resourceParentKeyColumns maps the type to `parent_id`, so resourceStorageID
+// writes `<bare id>` + NUL + `<parent_id>`. A resource belongs to an account and
+// two accounts can hold resources carrying the same bare id, so both rows exist
+// separately in the catch-all. Reading one index needs no dedup at all and
+// therefore cannot merge them - which is the point: an earlier union deduped on
+// store.ExtractResourceID, both rows answered "res-1", and the second was
+// silently dropped.
+func TestSearchResources_KeepsTwoAccountsSharingABareResourceID(t *testing.T) {
+	db, path := newSeededStore(t)
+	const probe = "zqxjppresourceprobe"
+
+	if _, _, err := db.UpsertBatch("resources", []json.RawMessage{
+		json.RawMessage(`{"id":"res-1","parent_id":"acct-A","name":"Ada Lovelace","notes":"` + probe + `"}`),
+		json.RawMessage(`{"id":"res-1","parent_id":"acct-B","name":"Grace Hopper","notes":"` + probe + `"}`),
+	}); err != nil {
+		t.Fatalf("UpsertBatch: %v", err)
+	}
+	// The two records really are two rows under two distinct composite keys, or
+	// this test proves nothing about what search does with them.
+	var n int
+	if err := db.DB().QueryRow(`SELECT COUNT(*) FROM resources WHERE resource_type = 'resources'`).Scan(&n); err != nil {
+		t.Fatalf("count catch-all: %v", err)
+	}
+	if n != 2 {
+		t.Fatalf("catch-all holds %d resources rows, want 2; the composite key this test needs was not written", n)
+	}
+	db.Close()
+
+	results := runSearch(t, path, probe, "--type", "resources")
+	if len(results) != 2 {
+		t.Fatalf("search --type resources returned %d rows for two account-scoped resources sharing the bare id res-1: %s", len(results), results)
+	}
+	joined := string(results[0]) + string(results[1])
+	for _, want := range []string{"Ada Lovelace", "Grace Hopper"} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("search --type resources returned %s, missing %q; one of the two account-scoped resources was dropped", results, want)
+		}
+	}
+}
+
+// TestSearchNoType_ResourcesAreNotDoubleCounted covers the no-`--type` branch,
+// which the ledger's earlier assertions left unguarded.
+//
+// That branch unions every FTS-enabled source and dedups by RAW JSON BYTES.
+// Generated code reads `resources` there twice - once from the typed index and
+// once from the all-types generic index - and two diverged copies of one record
+// are two different byte strings, so the byte dedup cannot collapse them and one
+// resource is reported as two. The fix is the same one the `--type resources`
+// path takes: read the type from exactly one index. The generic call at the end
+// of that branch already covers every `resources` row, so the typed call is
+// removed rather than re-keyed, and the ledger bans it from this file.
+func TestSearchNoType_ResourcesAreNotDoubleCounted(t *testing.T) {
+	db, path := newSeededStore(t)
+	// Both copies carry the probe term, so both indexes offer a hit and the
+	// byte dedup is the only thing standing between them and a duplicate.
+	seedDivergedCopies(t, db, "zqxjppdupeprobe stale", "zqxjppdupeprobe fresh")
+	db.Close()
+
+	results := runSearch(t, path, "zqxjppdupeprobe")
+	if len(results) != 1 {
+		t.Fatalf("search with no --type returned %d rows for one composite storage identity: %s; the branch read `resources` from two indexes and the raw-JSON dedup could not collapse the diverged copies", len(results), results)
+	}
+	if !strings.Contains(string(results[0]), "Ada Byron") {
+		t.Fatalf("search with no --type returned %s, want the generic copy 'Ada Byron'", results[0])
 	}
 }
 

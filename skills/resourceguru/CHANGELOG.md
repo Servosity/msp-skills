@@ -32,22 +32,33 @@ All notable changes to this skill are documented here. Format follows
   database file.
 - **The version check now runs when the database is opened for reading, not only for writing.**
   Version 0.1.1 and older check the database format number only on the read-write path, which is the
-  path that syncs. Their read-only path - every read command run with `--data-source local`, and the
-  MCP `search` and `sql` tools - attached to a newer database without checking and answered from it.
+  path that syncs. Their read-only path - the per-record-type read commands run with
+  `--data-source local` or `auto`, and the MCP `search` and `sql` tools - attached to a newer
+  database without checking and answered from it. Not every read command took that path: the CLI's
+  own `search` command opens the database read-write, so the older check did fire there.
   Nothing can change what an already-released version does, and what it does is limited: a read-only
   connection runs no upgrade step, so it cannot put the removed columns back; the worst case is that
   it reads a database shaped differently than it expects, where a query for one of the removed
   columns now fails outright instead of returning empty values. From this version on, the read path
   performs the same check and stops with the same upgrade message, so a future release cannot read a
   database it does not understand. Databases created before the check existed still open normally.
-- **Local search for resources returned nothing from the resource-specific index.** With no detailed
-  table there was no search index for resources at all, so the connector fell back to the
-  general-purpose index. Resources have their own index again, and `search --type resources` now
-  reads both it and the general one, so a database synced by an older version keeps answering
-  before its first re-sync. Results are matched up by the identity the database actually stores for
-  each record - the resource id together with the account it belongs to - so a resource whose two
-  copies have drifted apart is returned once, using the copy the rest of the connector reads, while
-  two resources in different accounts that happen to share an id are both still returned.
+- **Searching resources could return an out-of-date copy of a record, or the same record twice.**
+  Resources now have their own search index again, alongside the general-purpose one the connector
+  had been falling back on. Searching read both and tried to reconcile them, and that could not be
+  made to work: the two indexes are updated separately, so when a sync only partly succeeds they
+  can hold different versions of the same record. A search for a word that only survived in the
+  out-of-date version returned that version as though it were current, and a search without
+  `--type` returned the record twice, once from each index. Searching now reads only the
+  general-purpose index for resources, which is the one every other part of the connector reads
+  and the one that always holds the result of the last successful sync - so a database synced by
+  an older version still answers before its first re-sync, a record whose two copies have drifted
+  apart is returned once using the current copy, and two resources in different accounts that
+  happen to share an id are both still returned. The resource-specific index is still built and
+  kept up to date for anyone querying the database directly with the `sql` tool. One deliberate
+  trade-off: the general-purpose index leaves out text it treats as non-searchable - bare
+  identifiers, timestamps, and notes fields that contain nothing but a web address - so a search
+  for a word inside one of those no longer matches. That is the same rule every other record type
+  in this connector already follows, and it is what version 0.1.1 did too.
 - The three lookup helpers that turn a resource type into a database table (used when syncing
   child records) now resolve `resources` to the detailed table rather than to the general one.
   This is hardening rather than a bug fix: nothing in this connector reaches those helpers with

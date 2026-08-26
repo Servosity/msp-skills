@@ -63,10 +63,14 @@ func IsUUID(s string) bool {
 //
 // SCOPE OF THAT REFUSAL, stated precisely. In the released v0.1.0 / v0.1.1
 // binaries the gate runs only inside migrate(), which only the WRITE-CAPABLE
-// OpenWithContext path calls. Their read-only path (OpenReadOnlyContext, used
-// by every CLI read command via openStoreForRead and by the MCP search/sql
-// tools) attaches without reading user_version at all, so an already-released
-// binary still ATTACHES a v5 store read-only. The damage class is bounded and
+// OpenWithContext path calls. Their read-only path (OpenReadOnlyContext, which
+// the generated endpoint read commands reach through resolveLocal ->
+// openStoreForRead when --data-source is local or auto, and which both MCP data
+// tools take through OpenReadOnly) attaches without reading user_version at
+// all, so an already-released binary still ATTACHES a v5 store read-only. NOT
+// every CLI read command takes that path: the CLI's own `search` command, the
+// analytics commands (openUtilStore) and `pm load` open WRITE-CAPABLE through
+// OpenWithContext, so on those the released gate did fire. The damage class is bounded and
 // worth naming exactly: a mode=ro handle runs no migration and no
 // backfillColumns, so it cannot recreate the dropped columns or re-pollute the
 // catch-all, which is the whole point of the bump. What it can do is read a
@@ -151,9 +155,12 @@ func OpenReadOnly(dbPath string) (*Store, error) {
 // migrate(), and a read-only open never calls it. Hand-added; see
 // handfixes.json, record `typed-resources-table-parent-prefixed`. Without it
 // the "older binaries cannot open a migrated store" property held for
-// write-capable opens only, and every read path in this connector - the CLI
-// read commands through openStoreForRead, and the MCP search/sql tools -
-// attached to a future schema unchecked and answered from it.
+// write-capable opens only, and the read-only paths of this connector - the
+// generated endpoint read commands reaching resolveLocal -> openStoreForRead
+// with --data-source local or auto, and both MCP data tools (search, sql) -
+// attached to a future schema unchecked and answered from it. The CLI's own
+// `search` command is NOT one of them: it opens write-capable through
+// OpenWithContext, as do the analytics commands and `pm load`.
 //
 // Read-only, so it never stamps and never migrates: a database that predates
 // the gate reports user_version 0, which is older-than-supported and passes.
@@ -4822,6 +4829,17 @@ func (s *Store) SearchReports(query string, limit int) ([]json.RawMessage, error
 // SearchResources searches the accounts_resources_fts index with optional
 // filters. The index is parent-prefixed for the same reason its content table
 // is: a bare `resources_fts` is the framework's generic catch-all index.
+//
+// NOTE, and see handfixes.json record `typed-resources-table-parent-prefixed`:
+// CLI search deliberately does NOT call this. `search --type resources` and the
+// no-`--type` branch both read the generic catch-all index instead, because it
+// is the authoritative and complete index for this type - see the block comment
+// `WHY search --type resources READS THE GENERIC INDEX ONLY` in
+// internal/cli/search.go for the measured reasons. This method is kept as part
+// of the generated store shape, and it is what the store-side receipts use to
+// prove the typed projection and its FTS shadow really are being maintained.
+// The ledger bans a `db.SearchResources(` call from internal/cli/search.go so a
+// reprint cannot quietly wire CLI search back onto it.
 func (s *Store) SearchResources(query string, limit int) ([]json.RawMessage, error) {
 	if limit <= 0 {
 		limit = 50
@@ -4851,95 +4869,6 @@ func (s *Store) SearchResources(query string, limit int) ([]json.RawMessage, err
 		results = append(results, json.RawMessage(data))
 	}
 	return results, rows.Err()
-}
-
-// ResourceSearchHit pairs a search payload with the STORAGE IDENTITY of the row
-// it came from: the literal value in that row's `id` column.
-//
-// Hand-written; see handfixes.json, record
-// `typed-resources-table-parent-prefixed`.
-//
-// For `resources` the storage identity is deliberately composite.
-// resourceParentKeyColumns maps `resources` to `parent_id`, so resourceStorageID
-// builds the key as `<bare id>` + NUL + `<parent_id>` - Resource Guru scopes
-// resources to an account, and the same bare resource id can legitimately exist
-// under two of them. Both the catch-all row and the typed accounts_resources row
-// are keyed by that composite value, so it, and not the bare id, is what
-// identifies a record in this store. A union that dedups on the bare id
-// collapses two distinct account-scoped resources into one, and also collapses
-// two unrelated generic hits that merely happen to share a bare id.
-//
-// The identity is READ FROM THE ROW rather than re-derived from the payload.
-// Re-deriving would answer for this binary's derivation rules, not for the key
-// the row was actually written under, and a store synced by an older binary
-// carries whatever key that binary produced.
-type ResourceSearchHit struct {
-	StorageID string
-	Data      json.RawMessage
-}
-
-// SearchGenericResourceHits is Search(query, limit, resourceType) returning the
-// stored row identity alongside each payload. Hand-written; same ledger record
-// as ResourceSearchHit.
-func (s *Store) SearchGenericResourceHits(query string, limit int, resourceType string) ([]ResourceSearchHit, error) {
-	if limit <= 0 {
-		limit = 50
-	}
-	matchQuery := ftsMatchQuery(query)
-	if matchQuery == "" {
-		return nil, nil
-	}
-	rows, err := s.db.Query(
-		`SELECT r.id, r.data FROM resources r
-		 JOIN resources_fts f ON r.id = f.id AND r.resource_type = f.resource_type
-		 WHERE resources_fts MATCH ?
-		 AND r.resource_type = ?
-		 ORDER BY f.rank
-		 LIMIT ?`,
-		matchQuery, resourceType, limit,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	return scanResourceSearchHits(rows)
-}
-
-// SearchTypedResourceHits is SearchResources returning the stored row identity
-// alongside each payload. Hand-written; same ledger record as
-// ResourceSearchHit.
-func (s *Store) SearchTypedResourceHits(query string, limit int) ([]ResourceSearchHit, error) {
-	if limit <= 0 {
-		limit = 50
-	}
-	matchQuery := ftsMatchQuery(query)
-	if matchQuery == "" {
-		return nil, nil
-	}
-	rows, err := s.db.Query(
-		`SELECT t.id, t.data FROM "accounts_resources" t
-		 JOIN "accounts_resources_fts" ON "accounts_resources_fts".rowid = t.rowid
-		 WHERE "accounts_resources_fts" MATCH ?
-		 ORDER BY "accounts_resources_fts".rank LIMIT ?`,
-		matchQuery, limit,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	return scanResourceSearchHits(rows)
-}
-
-func scanResourceSearchHits(rows *sql.Rows) ([]ResourceSearchHit, error) {
-	var hits []ResourceSearchHit
-	for rows.Next() {
-		var id, data string
-		if err := rows.Scan(&id, &data); err != nil {
-			return nil, err
-		}
-		hits = append(hits, ResourceSearchHit{StorageID: id, Data: json.RawMessage(data)})
-	}
-	return hits, rows.Err()
 }
 
 func (s *Store) SaveSyncState(resourceType, cursor string, count int) error {

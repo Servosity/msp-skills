@@ -1,392 +1,375 @@
 {
- "slug": "resourceguru",
- "doc": "docs/reprint-survival.md",
- "_comment": "Connector-specific edits to GENERATED/authored files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and banned anti-patterns absent) and fails CI if a reprint dropped one.",
- "handfixes": [
-  {
-   "id": "doctor-verdict-tracks-reality",
-   "summary": "doctor probes a real GET endpoint with the real credential and refuses to dial a placeholder base_url, instead of calling any HTTP response 'reachable' and never checking the credential",
-   "why": "`doctor` is the command every SKILL, guide and docs page tells an operator to run to confirm the connector works, and it could not tell a working install from a broken one. It called any HTTP response to `GET /` \"reachable\" and rendered it green, so a base_url aimed at the vendor's web UI (where every API path 404s) and a token rejected with 401 on every call both produced an all-green report. On this connector family it also never probed the credential at all: it printed \"present, not verified\" and left the operator to guess. The mirror defect: a connector whose shipped base_url default is a placeholder dialled the placeholder host, and the DNS failure rendered as \"FAIL API: unreachable\" - telling a correctly-credentialled operator they were broken without naming the one variable that would fix it. Several placeholder hosts resolve through live wildcard DNS and answer real HTTP, so dialling one produced a confident green verdict against a stranger's server. Measured and gated by tools/maintainer/check_doctor_truth.py. See issue #282.",
-   "status": "active",
-   "asserts": [
+  "slug": "resourceguru",
+  "doc": "docs/reprint-survival.md",
+  "_comment": "Connector-specific edits to GENERATED/authored files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and banned anti-patterns absent) and fails CI if a reprint dropped one.",
+  "handfixes": [
     {
-     "file": "cli/internal/cli/doctor_verdict.go",
-     "contains": "func doctorProbeCredentials("
+      "id": "doctor-verdict-tracks-reality",
+      "summary": "doctor probes a real GET endpoint with the real credential and refuses to dial a placeholder base_url, instead of calling any HTTP response 'reachable' and never checking the credential",
+      "why": "`doctor` is the command every SKILL, guide and docs page tells an operator to run to confirm the connector works, and it could not tell a working install from a broken one. It called any HTTP response to `GET /` \"reachable\" and rendered it green, so a base_url aimed at the vendor's web UI (where every API path 404s) and a token rejected with 401 on every call both produced an all-green report. On this connector family it also never probed the credential at all: it printed \"present, not verified\" and left the operator to guess. The mirror defect: a connector whose shipped base_url default is a placeholder dialled the placeholder host, and the DNS failure rendered as \"FAIL API: unreachable\" - telling a correctly-credentialled operator they were broken without naming the one variable that would fix it. Several placeholder hosts resolve through live wildcard DNS and answer real HTTP, so dialling one produced a confident green verdict against a stranger's server. Measured and gated by tools/maintainer/check_doctor_truth.py. See issue #282.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/doctor_verdict.go",
+          "contains": "func doctorProbeCredentials("
+        },
+        {
+          "file": "cli/internal/cli/doctor_verdict.go",
+          "contains": "func doctorBaseURLIsPlaceholder("
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "doctorIsInfoKey(k)"
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "doctorBaseURLIsPlaceholder(cfg.BaseURL)"
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "doctorUnexpectedStatus(authAPIErr.StatusCode"
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "not_contains": "but auth was accepted"
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "not_contains": "for _, v := range report {"
+        }
+      ]
     },
     {
-     "file": "cli/internal/cli/doctor_verdict.go",
-     "contains": "func doctorBaseURLIsPlaceholder("
+      "id": "install-credentials-declared-on-every-channel",
+      "summary": "every operator credential this connector reads is declared on all three install channels: manifest.json (.mcpb), server.json (MCP Registry) and mcp-install.md (manual install)",
+      "why": "Issue #282 ('three live-verified connectors prompt for the wrong credentials'). A connector is installed through THREE independent channels that each carry their own copy of the credential list: manifest.json server.mcp_config.env (what the .mcpb bundle hands Claude Desktop, which has no shell profile, no config.toml and no export - so an undeclared variable is a variable nobody is ever asked for), server.json environmentVariables (the MCP Registry publish channel), and mcp-install.md's copy-paste JSON blocks plus its remote launch line (the manual path, which never touches the bundle at all). The fleet-wide audit found 60 of 65 connectors under-declaring 122 operator-facing variables in the manifest, 61 of 65 mcp-install.md pages omitting 125, and hudu's server.json missing the base URL its manifest marks required. For resourceguru the manifest gained: RESOURCEGURU_BASE_URL. server.json gained: RESOURCEGURU_BASE_URL. mcp-install.md's env blocks gained: RESOURCEGURU_BASE_URL. manifest.json, server.json and mcp-install.md are ALL regenerated by /msp-skills-publish on an UPDATE or re-onboard, so without this ledger a regeneration silently drops every declaration and CI stays green (check_env_schema.py is wired --warn). The asserts below name the specific credentials, not a count, so dropping one and adding another cannot cancel out.",
+      "status": "active",
+      "spec_encode_followup": "cli-printing-press should emit server.mcp_config.env, the matching user_config prompts, server.json environmentVariables and mcp-install.md's env blocks from ONE declaration of the connector's operator-facing environment, so the three channels cannot be generated out of step. Until then check_env_schema.py compares all three and this ledger pins them.",
+      "asserts": [
+        {
+          "file": "manifest.json",
+          "contains": "\"RESOURCEGURU_BASE_URL\": \"${user_config.resourceguru_base_url}\"",
+          "min_count": 1
+        },
+        {
+          "file": "manifest.json",
+          "contains": "\"RESOURCEGURU_EMAIL\": \"${user_config.resourceguru_email}\"",
+          "min_count": 1
+        },
+        {
+          "file": "manifest.json",
+          "contains": "\"RESOURCEGURU_PASSWORD\": \"${user_config.resourceguru_password}\"",
+          "min_count": 1
+        },
+        {
+          "file": "server.json",
+          "contains": "\"name\": \"RESOURCEGURU_BASE_URL\"",
+          "min_count": 1
+        },
+        {
+          "file": "server.json",
+          "contains": "\"name\": \"RESOURCEGURU_EMAIL\"",
+          "min_count": 1
+        },
+        {
+          "file": "server.json",
+          "contains": "\"name\": \"RESOURCEGURU_PASSWORD\"",
+          "min_count": 1
+        },
+        {
+          "file": "mcp-install.md",
+          "contains": "\"RESOURCEGURU_BASE_URL\":",
+          "min_count": 3
+        },
+        {
+          "file": "mcp-install.md",
+          "contains": "\"RESOURCEGURU_EMAIL\":",
+          "min_count": 3
+        },
+        {
+          "file": "mcp-install.md",
+          "contains": "\"RESOURCEGURU_PASSWORD\":",
+          "min_count": 3
+        }
+      ]
     },
     {
-     "file": "cli/internal/cli/doctor.go",
-     "contains": "doctorIsInfoKey(k)"
+      "id": "mcp-filesystem-destination-gate",
+      "summary": "The MCP shell-out layer refuses filesystem-destination flags (--db, --input, --output, --out, --home, --audit-dir, --receipt-file and friends) and any argument name carrying '=', so a tool call cannot point the local SQLite store, or any other file this account can reach, at a path of its choosing",
+      "why": "The MCP server runs the companion CLI as the server account and forwarded every command-local flag straight through as a CLI argument. `sync` and the other local-store commands expose --db, and the store's migration runs `DROP TABLE IF EXISTS resources_fts` plus a resources-table rebuild against whatever file it is handed, so one tool call shaped {\"db\": \"/path/to/someone-elses.sqlite\"} rewrote an unrelated database - no credentials required, because sync opens the store before it ever reaches the API. Proven end to end: against the pre-fix binary a single MCP tools/call on `sync` changed the victim file's sha and left resources_fts with 0 rows; against the patched binary the same call returns the same sync summary and the victim file is byte-identical. The gate has three parts, all in cli/internal/mcp/cobratree/shellout.go: blockedDestinationFlags (the runtime name floor, unioned into cliArgsFromMCP alongside the pre-existing blockedRootFlags behaviour, which is unchanged); an argument-name '=' guard, because \"db=/tmp/evil\" was emitted as --db=/tmp/evil and a name-only denylist never saw it; and isFilesystemPathFlag, which classifies a flag by its USAGE TEXT rather than its NAME. The usage-text test is load bearing and must not be turned into a name rule: the generated command surface carries API body fields called --path, --seed-path, --source-paths, --exclude-paths, --filename and --working-dir whose values go to the vendor API and never touch this account's disk, so a name rule would break real API surfaces while still missing the next generated flag that does take a local path. UnblockedFilesystemPathFlags applies that rule to the live Cobra tree over exactly the command set RegisterAll turns into shell-out tools (endpoint and framework commands are out of scope, which is what keeps the rule off generated vendor body fields), and TestNoShellOutToolCanDirectAFilesystemPath fails the build when a regeneration grows a local-path flag the floor does not name. vendorAPIPathFlags is the documented exception list for flags whose usage trips the rule but which name a location in the vendor's world. Both directions are pinned by the tests: the --db argument must be dropped AND an ordinary flag must still be forwarded, because a gate that swallows the real MCP surface is as harmful as one that misses the defect.",
+      "status": "active",
+      "spec_encode_followup": "Press-side: the gate belongs in the generator. Two known residuals a reprint should close rather than re-inherit. (1) On the pre-4.30 cobratree the blocked flags are dropped at forward time but still appear in the tool's input schema, because toolOptionsForFlags in typemap.go advertises every flag; the caller gets silence instead of an error. The 4.30 shape (blockedStructuredArgsForCommand + allowedStructuredArgsForCommand) removes them from the schema and errors on them, which is the better behaviour. (2) isFilesystemPathFlag is only consulted by the package test here, not at request time, because the pre-4.30 shellOutToCLI receives no *cobra.Command; wiring it into the per-command blocked set (as skills/servosity does) makes a newly generated path flag refused at runtime rather than at CI time.",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/cobratree/shellout.go",
+          "contains": "var blockedDestinationFlags = map[string]bool{",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/shellout.go",
+          "contains": "blockedDestinationFlags[k]",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/shellout.go",
+          "contains": "strings.Contains(k, \"=\")",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/shellout.go",
+          "contains": "func isFilesystemPathFlag(flag *pflag.Flag) bool {",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/shellout.go",
+          "contains": "func UnblockedFilesystemPathFlags(root *cobra.Command) []string {",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/filesystem_gate_test.go",
+          "contains": "func TestMCPCannotDirectTheLocalStore(",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/filesystem_gate_test.go",
+          "contains": "func TestMCPCannotSmuggleAFlagThroughAnEqualsSign(",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/filesystem_tree_test.go",
+          "contains": "func TestNoShellOutToolCanDirectAFilesystemPath(",
+          "min_count": 1
+        }
+      ]
     },
     {
-     "file": "cli/internal/cli/doctor.go",
-     "contains": "doctorBaseURLIsPlaceholder(cfg.BaseURL)"
+      "id": "typed-resources-table-parent-prefixed",
+      "summary": "the typed domain table for the `resources` resource, and its FTS shadow, are named `accounts_resources` / `accounts_resources_fts` so they cannot collide with the framework's generic catch-all `resources` table; the full 21-column typed INSERT and the three FTS triggers are restored against those names, backfillColumns points at the typed table, StoreSchemaVersion is 5 and its v4-to-v5 migration drops the projection columns and indexes the old code left on the catch-all, the version gate runs on READ-ONLY opens as well as write-capable ones, every resource-type-to-table resolve site goes through typedTableName, and CLI search reads `resources` from the GENERIC catch-all index ONLY - on the `--type resources` path and on the no-`--type` path alike - so `db.SearchResources(` is banned from internal/cli/search.go outright",
+      "why": "Resource Guru exposes an API resource literally named `resources` - the connector's headline resource - and the press emitted its typed domain table under that exact bare name. The generic catch-all `CREATE TABLE IF NOT EXISTS resources (id, resource_type, data, ...)` is element [0] of the same migrations slice, so the typed `CREATE TABLE IF NOT EXISTS \"resources\"` silently no-opped and every typed write ran against the catch-all's column set. Same root cause as afi and rootly in PR #295, but a worse blast radius, because this connector's typed table carries 21 flattened columns rather than a lone parent key. The FIRST hand-fix only mitigated: it made upsertResourcesTx a no-op, deleted the typed FTS triggers, pointed SearchResources at the generic index and t.Skip-ed two generated tests. That stopped the failing writes but left the actual defect intact - backfillColumns still ALTER-ed name, email, first_name, bookable, color, job_title and 15 more onto the CATCH-ALL, so the MCP `sql` tool answered `SELECT name, email FROM resources` with one row of NULLs per synced record instead of erroring (that tool is this connector's only arbitrary-SQL surface - the CLI ships no `sql` command, and the MCP tool opens the store read-only and allows SELECT / WITH only): a silent wrong answer on the headline resource, measured at `err=<nil> name=NULL email=NULL`. The fix parent-prefixes both tables (the parent is `accounts`, matching this connector's own dependent declaration `{Name: \"resources\", ParentTable: \"accounts\", PathTemplate: \"/v1/{account}/resources\"}`, and matching the generator's existing disambiguation of `resources_bookings` / `clients_bookings`), restores the typed INSERT and the ai/ad/au triggers, and removes the mitigation. SCHEMA BUMP AND REPAIR MIGRATION. Renaming the typed table only stops NEW pollution; the databases v0.1.0 and v0.1.1 already polluted would answer NULLs forever. StoreSchemaVersion moves 4 -> 5 and a `current < catchAllProjectionSchemaVersion` step drops the 20 added columns (all 21 except updated_at, which the catch-all declares itself) and the five projection indexes idx_resources_creator_id / _user_id / _created_at / _updated_at / _parent_id, leaving the catch-all's own idx_resources_type and idx_resources_synced alone. Dropping is safe because no released binary ever wrote one of those columns: upsertResourcesTx is a no-op in both released tags (git log returns exactly one content commit for store.go before this change, and the v0.1.0 / v0.1.1 blobs are byte-identical), and the only statement any released code ran against the catch-all is upsertGenericResourceTx's `INSERT INTO resources (id, resource_type, data, synced_at, updated_at)`; the columns were added by ALTER TABLE ADD COLUMN with no DEFAULT, so every row holds NULL. That analysis is not trusted - the migration COUNTs each column and keeps (with a stderr warning) any column that holds a value. The JSON catch-all rows are never touched. The BUMP is what makes the repair durable: a v4 binary runs backfillColumns unconditionally on every WRITE-CAPABLE open and would ALTER all 21 columns straight back on, damage a newer binary cannot distinguish from never having repaired, so the version gate must refuse it. READ-ONLY OPENS, STATED PRECISELY. The gate the released binaries carry lives inside migrate(), which only OpenWithContext calls, so `older binaries cannot open a migrated store` held for write-capable opens ONLY. resourceguru-v0.1.1, built from its tag, still ATTACHES a v5 store read-only and answers from it - measured end to end through `resources get --data-source local`, which is the openStoreForRead path, and the same path the MCP search and sql tools take. Nothing can change what an already-released binary does; what it does is bounded and that bound is the point: a mode=ro handle runs no migration and no backfillColumns, so it CANNOT recreate the dropped columns or re-pollute the catch-all. The damage class is limited to reading a schema it does not expect - its typed-FTS query finds the shape it assumes absent, and a query aimed at the old flattened columns on the catch-all now errors with `no such column` rather than answering NULLs, so it fails loudly rather than silently. The fixable half is closed here: OpenReadOnlyContext now runs the same schemaVersionUnsupported gate, so a client built from this code onward meets a newer store with a clean refusal. It never stamps and never migrates, so a pre-gate store at user_version 0 and a store at this binary's own version both still open; only a NEWER store is refused. Measured both directions at the binary level (old v0.1.1 attaches to a v6 store read-only and answers; this build refuses it with the upgrade message) and pinned by TestOpenReadOnly_RefusesAStoreNewerThanThisBinary. typedTableName is the reader-side half: ListIDs, ListIDsScoped and ListField resolve a resource type to a table through sqlite_master, and the mapping keeps that resolve pointed at the renamed typed table. It is HARDENING against a FUTURE caller, not a live-defect fix, and an earlier draft of this record and of the function's own comment claimed otherwise. CORRECTION: the `resources_bookings` fan-out does NOT call ListIDs(\"resources\") and never did. Its declaration carries two path params ({account, v1_id} and {id, id}), so dependentParentFields returns [\"id\", \"v1_id\"] and dependentParentRows routes to ListFieldSets, which reads the catch-all directly under `WHERE resource_type = ?` and performs no resource-type-to-table resolve at all. No caller in this connector reaches ListIDs / ListIDsScoped / ListField with `resources` today. The typedTableName mapping is kept because those three entry points must be correct for any future dependent declaration or reprint that does reach them, TestDependentParentRows_ResourcesFanOutIsTypeFiltered pins the real routing so the correction cannot rot back into the false claim, and the function's own comment now states the hardening rationale rather than the disproven causal story. SEARCH READS ONE INDEX. CLI search reads `resources` from the GENERIC catch-all index only, under a resource_type filter, on the `--type resources` path and on the no-`--type` path alike. The typed accounts_resources table, its FTS shadow and the ai/ad/au triggers all REMAIN and are filled on every sync - structured SQL consumers and generated-shape fidelity depend on them - but no CLI search path reads them, so `db.SearchResources(` is banned from internal/cli/search.go outright. This SUPERSEDES the query-time union earlier rounds of this change built (searchResourcesUnion + store.ResourceSearchHit + SearchGenericResourceHits / SearchTypedResourceHits, all deleted). Why the union had to go rather than be re-keyed a third time: it read two indexes over one logical dataset that can disagree, and no dedup key can reconcile them at query time. THE GENERIC INDEX IS AUTHORITATIVE - UpsertBatch commits the generic row in the outer transaction unconditionally and only then attempts the typed projection inside a per-item SAVEPOINT, so the generic row is the copy that always reflects the last successful sync, and it is the copy list, get, the dependent fan-out and the MCP sql tool read. THE GENERIC INDEX IS COMPLETE - upsertResourcesTx was a no-op in both released tags, so on every store synced by a released binary the typed table is EMPTY and the catch-all holds everything; the generic FTS content is extracted from the full record JSON, a superset of the 21 flattened typed columns, and it is tokenized `porter unicode61` where the typed shadow uses the default tokenizer, so it also matches inflected forms the typed index misses. THE UNION WAS WRONG THREE WAYS, all measured: (1) it answered from a STALE row - when the query term survives only in the rolled-back typed copy the generic index contributes nothing, so no key and no ordering can help and the superseded document came back as though current (generic-only answers 0 rows, the union answered 1); (2) the no-`--type` branch DOUBLE-COUNTED, because it dedups by raw JSON bytes and two diverged copies of one record are two different byte strings, so one resource came back as two; (3) the key kept growing - byte-keyed dedup double-counted, bare-id dedup merged two accounts sharing a resource id (the store keys `resources` on `<bare id>` + NUL + `<parent_id>` because resourceParentKeyColumns maps the type to parent_id), and the composite storage key fixed both of those and still could not fix (1). Reading one index needs no dedup at all, so none of the three defects has anywhere to live. KNOWN COVERAGE DELTA, accepted and measured: searchableResourceContent deliberately drops values it classifies as non-searchable noise (identifier-keyed values, bare UUIDs, ISO timestamps, values that are entirely a URL) while the typed shadow indexes `name` and `notes` raw, so the typed index matches inside those three shapes where the generic one does not - measured: notes holding only `https://wiki.example.com/ada` matches `wiki` typed-side and returns 0 rows generic-side. That is NOT a regression (v0.1.1's SearchResources delegated to the generic index, so generic-only is the answer set operators have today) and NOT specific to this type (it is the press-wide noise filter every other type's catch-all rows get); it is recorded as press-side work below rather than paid for with a wrong answer, and the delta runs the other way too - porter stemming and the other 19 flattened fields are generic-only wins. RECEIPTS. Every receipt in cli/internal/store/typed_resources_table_test.go and cli/internal/cli/typed_resources_reader_test.go was measured failing against the code without its fix and passing with it. Note that the reopen in TestReopen_CatchAllResourcesKeepsGenericColumnsOnly is load bearing: backfillColumns runs BEFORE the migrations slice and short-circuits on table-not-found, so a single-open version of that assertion passes while the defect is fully present - the same false-GREEN class PR #295 named when TestUpsertBatch_PopulatesResourcesTable counted the catch-all and called the empty typed projection healthy. Existing stores keep every synced record (the full JSON lives in the catch-all's data column) and the typed projection fills on the next sync.",
+      "status": "active",
+      "spec_encode_followup": "The generator already parent-prefixes a child whose bare name collides with a PARENT RESOURCE (`resources_bookings`, `clients_bookings`, `orgs_tenants`). The rule needs to cover the framework's own reserved table names too - `resources`, `resources_fts`, `sync_state` and any other table the store scaffold creates unconditionally - so a resource named after one of them is disambiguated at emit time instead of losing the CREATE-IF-NOT-EXISTS race. The reader side must move with it: whatever the press names the typed table, ListIDs / ListIDsScoped / ListField must resolve to that name rather than to the resource type, which is what typedTableName does by hand here. A generated populates-table test must also count the TYPED table, or it certifies the collision as healthy. Two further press-side items this connector had to solve by hand: a rename that changes the on-disk schema must come with a StoreSchemaVersion bump plus a migration that undoes what the old shape wrote, or older binaries silently re-apply the damage; the generated `search --type X` switch must NOT union a typed FTS index with the generic catch-all index over the same logical dataset. Three key designs were tried here and all three failed: raw JSON bytes double-count, the bare resource id merges two parent-scoped records, and even the correct composite storage key cannot fix a hit whose only match lives in a stale typed copy, because the generic index contributes no competing row for the key to prefer. The generic row is the authoritative one by construction (UpsertBatch commits it unconditionally, the typed projection is best-effort inside a SAVEPOINT), so search should read the generic index under a resource_type filter and leave the typed projection to structured consumers. Two press-side items fall out of that. First, the no-`--type` branch dedups by raw JSON bytes across every typed FTS plus the generic one, so EVERY type in every connector - not just a collided one - can double-count a record whose typed projection rolled back; the branch needs the same one-index-per-type discipline. Second, the generic FTS content extractor (searchableResourceContent) drops identifier-keyed values, bare UUIDs, ISO timestamps and whole-URL values as noise, while typed FTS shadows index their columns raw, so moving a type onto the generic index loses matches inside those shapes; the extractor should keep an indexable form of them (or the press should declare the noise filter per field) so the two indexes agree on what is searchable. Finally, a version gate belongs on the READ-ONLY open as well as the write-capable one, or the generated store's compatibility guarantee covers only the path that syncs while the generated endpoint read commands running with --data-source local or auto, and both MCP data tools, attach to a future schema unchecked.",
+      "asserts": [
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "CREATE TABLE IF NOT EXISTS \"accounts_resources\" (",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "CREATE VIRTUAL TABLE IF NOT EXISTS \"accounts_resources_fts\" USING fts5(",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "CREATE TRIGGER IF NOT EXISTS \"accounts_resources_ai\"",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "CREATE TRIGGER IF NOT EXISTS \"accounts_resources_ad\"",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "CREATE TRIGGER IF NOT EXISTS \"accounts_resources_au\"",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "INSERT INTO \"accounts_resources\" (\"id\", \"data\", \"synced_at\"",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "{table: \"accounts_resources\", column: \"email\", decl: \"TEXT\"}",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "func typedTableName(resourceType string) string {",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "typedTableName(resourceType),",
+          "min_count": 3
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "not_contains": "CREATE TABLE IF NOT EXISTS \"resources\" ("
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "not_contains": "{table: \"resources\", column: \"email\", decl: \"TEXT\"}"
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "not_contains": "return s.Search(query, limit, \"resources\")"
+        },
+        {
+          "file": "cli/internal/store/typed_resources_table_test.go",
+          "contains": "func TestReopen_CatchAllResourcesKeepsGenericColumnsOnly(",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/store/typed_resources_table_test.go",
+          "contains": "func TestUpsertBatch_FillsTypedResourcesProjection(",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/store/typed_resources_table_test.go",
+          "contains": "func TestUpsertBatch_SeedsTypedResourcesFTS(",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/store/typed_resources_table_test.go",
+          "contains": "func TestListIDs_ResourcesReadsTypedTableNotCatchAll(",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/store/upsert_batch_test.go",
+          "contains": "typedQuery := fmt.Sprintf(`SELECT COUNT(*) FROM \"%s\"`, \"accounts_resources\")",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/store/upsert_batch_test.go",
+          "not_contains": "t.Skip(\"typed resources table absent due to resources/catch-all name collision\")"
+        },
+        {
+          "file": "cli/internal/store/schema_version_test.go",
+          "not_contains": "t.Skip(\"resources/catch-all name collision makes the typed column-upgrade path void\")"
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "const StoreSchemaVersion = 5",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "func (s *Store) dropCatchAllResourcesProjection(",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "if current < catchAllProjectionSchemaVersion {",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "not_contains": "const StoreSchemaVersion = 4"
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "if err := schemaVersionUnsupported(current, StoreSchemaVersion); err != nil {",
+          "min_count": 3
+        },
+        {
+          "file": "cli/internal/store/typed_resources_table_test.go",
+          "contains": "func TestMigrate_V4CatchAllProjectionIsDropped(",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/store/typed_resources_table_test.go",
+          "contains": "func TestMigrate_V4CatchAllProjectionKeepsPopulatedColumn(",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/store/typed_resources_table_test.go",
+          "contains": "func TestSchemaVersion_MigratedStoreIsRefusedByAV4Binary(",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/store/typed_resources_table_test.go",
+          "contains": "func TestOpenReadOnly_RefusesAStoreNewerThanThisBinary(",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "func (s *Store) SearchResources(query string, limit int) ([]json.RawMessage, error) {",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/search.go",
+          "contains": "results, err = db.Search(query, limit, \"resources\")",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/search.go",
+          "contains": "WHY `search --type resources` READS THE GENERIC INDEX ONLY",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/search.go",
+          "not_contains": "db.SearchResources("
+        },
+        {
+          "file": "cli/internal/cli/search.go",
+          "not_contains": "func searchResourcesUnion("
+        },
+        {
+          "file": "cli/internal/cli/search.go",
+          "not_contains": "store.ResourceSearchHit"
+        },
+        {
+          "file": "cli/internal/cli/search.go",
+          "not_contains": "store.ExtractResourceID(\"resources\", obj)"
+        },
+        {
+          "file": "cli/internal/cli/typed_resources_reader_test.go",
+          "contains": "func TestSearchResources_FindsALegacyRowOnlyTheCatchAllHolds(",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/typed_resources_reader_test.go",
+          "contains": "func TestSearchResources_DoesNotAnswerFromAStaleTypedCopy(",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/typed_resources_reader_test.go",
+          "contains": "func TestSearchResources_DivergedCopiesReturnOneGenericRow(",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/typed_resources_reader_test.go",
+          "contains": "func TestSearchResources_KeepsTwoAccountsSharingABareResourceID(",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/typed_resources_reader_test.go",
+          "contains": "func TestSearchNoType_ResourcesAreNotDoubleCounted(",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/typed_resources_reader_test.go",
+          "contains": "func TestDependentParentRows_ResourcesFanOutIsTypeFiltered(",
+          "min_count": 1
+        }
+      ]
     },
     {
-     "file": "cli/internal/cli/doctor.go",
-     "contains": "doctorUnexpectedStatus(authAPIErr.StatusCode"
-    },
-    {
-     "file": "cli/internal/cli/doctor.go",
-     "not_contains": "but auth was accepted"
-    },
-    {
-     "file": "cli/internal/cli/doctor.go",
-     "not_contains": "for _, v := range report {"
+      "id": "credential-precedence-tests-decode-basic-header",
+      "summary": "the four credentials-precedence tests run for real (fixtures populate both halves of the Basic pair, and the header is decoded before asserting) instead of being t.Skip-ed",
+      "why": "The generated credentials-precedence tests assert the RAW secret appears in cfg.AuthHeader(). This connector authenticates with HTTP Basic over an email + password pair, so AuthHeader() returns \"Basic \" + base64(\"<email>:<password>\") and short-circuits to \"\" when either half is empty - the bearer-shaped fixtures set only the email. The tests were previously t.Skip-ed with that diagnosis, which is correct about the cause but leaves the connector with ZERO coverage of the credential precedence chain (credentials file beats legacy config, corrupt credentials fall back to legacy then env, an empty credentials file does not clear legacy) - the exact chain that decides which secret goes on the wire. The fixtures now populate both halves and the assertion decodes the header, so the tests assert what they were written to assert. Verified to fail when precedence is broken, not merely to pass. Same defect class as wordpress.",
+      "status": "active",
+      "spec_encode_followup": "Make the press emit scheme-aware credential-precedence tests (two-var Basic fixtures, decode before asserting) so Basic-auth connectors are not born skipped or red.",
+      "asserts": [
+        {
+          "file": "cli/internal/cliutil/credentials_test.go",
+          "contains": "func authHeaderPayload("
+        },
+        {
+          "file": "cli/internal/cliutil/credentials_test.go",
+          "contains": "func assertAuthHeaderCarries("
+        },
+        {
+          "file": "cli/internal/cliutil/credentials_test.go",
+          "contains": "func testCredentialPair("
+        },
+        {
+          "file": "cli/internal/cliutil/credentials_test.go",
+          "not_contains": "t.Skip(\"bearer-style credential test incompatible"
+        }
+      ]
     }
-   ]
-  },
-  {
-   "id": "install-credentials-declared-on-every-channel",
-   "summary": "every operator credential this connector reads is declared on all three install channels: manifest.json (.mcpb), server.json (MCP Registry) and mcp-install.md (manual install)",
-   "why": "Issue #282 ('three live-verified connectors prompt for the wrong credentials'). A connector is installed through THREE independent channels that each carry their own copy of the credential list: manifest.json server.mcp_config.env (what the .mcpb bundle hands Claude Desktop, which has no shell profile, no config.toml and no export - so an undeclared variable is a variable nobody is ever asked for), server.json environmentVariables (the MCP Registry publish channel), and mcp-install.md's copy-paste JSON blocks plus its remote launch line (the manual path, which never touches the bundle at all). The fleet-wide audit found 60 of 65 connectors under-declaring 122 operator-facing variables in the manifest, 61 of 65 mcp-install.md pages omitting 125, and hudu's server.json missing the base URL its manifest marks required. For resourceguru the manifest gained: RESOURCEGURU_BASE_URL. server.json gained: RESOURCEGURU_BASE_URL. mcp-install.md's env blocks gained: RESOURCEGURU_BASE_URL. manifest.json, server.json and mcp-install.md are ALL regenerated by /msp-skills-publish on an UPDATE or re-onboard, so without this ledger a regeneration silently drops every declaration and CI stays green (check_env_schema.py is wired --warn). The asserts below name the specific credentials, not a count, so dropping one and adding another cannot cancel out.",
-   "status": "active",
-   "spec_encode_followup": "cli-printing-press should emit server.mcp_config.env, the matching user_config prompts, server.json environmentVariables and mcp-install.md's env blocks from ONE declaration of the connector's operator-facing environment, so the three channels cannot be generated out of step. Until then check_env_schema.py compares all three and this ledger pins them.",
-   "asserts": [
-    {
-     "file": "manifest.json",
-     "contains": "\"RESOURCEGURU_BASE_URL\": \"${user_config.resourceguru_base_url}\"",
-     "min_count": 1
-    },
-    {
-     "file": "manifest.json",
-     "contains": "\"RESOURCEGURU_EMAIL\": \"${user_config.resourceguru_email}\"",
-     "min_count": 1
-    },
-    {
-     "file": "manifest.json",
-     "contains": "\"RESOURCEGURU_PASSWORD\": \"${user_config.resourceguru_password}\"",
-     "min_count": 1
-    },
-    {
-     "file": "server.json",
-     "contains": "\"name\": \"RESOURCEGURU_BASE_URL\"",
-     "min_count": 1
-    },
-    {
-     "file": "server.json",
-     "contains": "\"name\": \"RESOURCEGURU_EMAIL\"",
-     "min_count": 1
-    },
-    {
-     "file": "server.json",
-     "contains": "\"name\": \"RESOURCEGURU_PASSWORD\"",
-     "min_count": 1
-    },
-    {
-     "file": "mcp-install.md",
-     "contains": "\"RESOURCEGURU_BASE_URL\":",
-     "min_count": 3
-    },
-    {
-     "file": "mcp-install.md",
-     "contains": "\"RESOURCEGURU_EMAIL\":",
-     "min_count": 3
-    },
-    {
-     "file": "mcp-install.md",
-     "contains": "\"RESOURCEGURU_PASSWORD\":",
-     "min_count": 3
-    }
-   ]
-  },
-  {
-   "id": "mcp-filesystem-destination-gate",
-   "summary": "The MCP shell-out layer refuses filesystem-destination flags (--db, --input, --output, --out, --home, --audit-dir, --receipt-file and friends) and any argument name carrying '=', so a tool call cannot point the local SQLite store, or any other file this account can reach, at a path of its choosing",
-   "why": "The MCP server runs the companion CLI as the server account and forwarded every command-local flag straight through as a CLI argument. `sync` and the other local-store commands expose --db, and the store's migration runs `DROP TABLE IF EXISTS resources_fts` plus a resources-table rebuild against whatever file it is handed, so one tool call shaped {\"db\": \"/path/to/someone-elses.sqlite\"} rewrote an unrelated database - no credentials required, because sync opens the store before it ever reaches the API. Proven end to end: against the pre-fix binary a single MCP tools/call on `sync` changed the victim file's sha and left resources_fts with 0 rows; against the patched binary the same call returns the same sync summary and the victim file is byte-identical. The gate has three parts, all in cli/internal/mcp/cobratree/shellout.go: blockedDestinationFlags (the runtime name floor, unioned into cliArgsFromMCP alongside the pre-existing blockedRootFlags behaviour, which is unchanged); an argument-name '=' guard, because \"db=/tmp/evil\" was emitted as --db=/tmp/evil and a name-only denylist never saw it; and isFilesystemPathFlag, which classifies a flag by its USAGE TEXT rather than its NAME. The usage-text test is load bearing and must not be turned into a name rule: the generated command surface carries API body fields called --path, --seed-path, --source-paths, --exclude-paths, --filename and --working-dir whose values go to the vendor API and never touch this account's disk, so a name rule would break real API surfaces while still missing the next generated flag that does take a local path. UnblockedFilesystemPathFlags applies that rule to the live Cobra tree over exactly the command set RegisterAll turns into shell-out tools (endpoint and framework commands are out of scope, which is what keeps the rule off generated vendor body fields), and TestNoShellOutToolCanDirectAFilesystemPath fails the build when a regeneration grows a local-path flag the floor does not name. vendorAPIPathFlags is the documented exception list for flags whose usage trips the rule but which name a location in the vendor's world. Both directions are pinned by the tests: the --db argument must be dropped AND an ordinary flag must still be forwarded, because a gate that swallows the real MCP surface is as harmful as one that misses the defect.",
-   "status": "active",
-   "spec_encode_followup": "Press-side: the gate belongs in the generator. Two known residuals a reprint should close rather than re-inherit. (1) On the pre-4.30 cobratree the blocked flags are dropped at forward time but still appear in the tool's input schema, because toolOptionsForFlags in typemap.go advertises every flag; the caller gets silence instead of an error. The 4.30 shape (blockedStructuredArgsForCommand + allowedStructuredArgsForCommand) removes them from the schema and errors on them, which is the better behaviour. (2) isFilesystemPathFlag is only consulted by the package test here, not at request time, because the pre-4.30 shellOutToCLI receives no *cobra.Command; wiring it into the per-command blocked set (as skills/servosity does) makes a newly generated path flag refused at runtime rather than at CI time.",
-   "asserts": [
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "var blockedDestinationFlags = map[string]bool{",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "blockedDestinationFlags[k]",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "strings.Contains(k, \"=\")",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "func isFilesystemPathFlag(flag *pflag.Flag) bool {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "func UnblockedFilesystemPathFlags(root *cobra.Command) []string {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_gate_test.go",
-     "contains": "func TestMCPCannotDirectTheLocalStore(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_gate_test.go",
-     "contains": "func TestMCPCannotSmuggleAFlagThroughAnEqualsSign(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/mcp/cobratree/filesystem_tree_test.go",
-     "contains": "func TestNoShellOutToolCanDirectAFilesystemPath(",
-     "min_count": 1
-    }
-   ]
-  },
-  {
-   "id": "typed-resources-table-parent-prefixed",
-   "summary": "the typed domain table for the `resources` resource, and its FTS shadow, are named `accounts_resources` / `accounts_resources_fts` so they cannot collide with the framework's generic catch-all `resources` table; the full 21-column typed INSERT and the three FTS triggers are restored against those names, backfillColumns points at the typed table, StoreSchemaVersion is 5 and its v4-to-v5 migration drops the projection columns and indexes the old code left on the catch-all, the version gate runs on READ-ONLY opens as well as write-capable ones, every resource-type-to-table resolve site goes through typedTableName, and `search --type resources` goes through searchResourcesUnion, which unions the typed and generic indexes and dedups on the row's COMPOSITE storage identity returned by the store",
-   "why": "Resource Guru exposes an API resource literally named `resources` - the connector's headline resource - and the press emitted its typed domain table under that exact bare name. The generic catch-all `CREATE TABLE IF NOT EXISTS resources (id, resource_type, data, ...)` is element [0] of the same migrations slice, so the typed `CREATE TABLE IF NOT EXISTS \"resources\"` silently no-opped and every typed write ran against the catch-all's column set. Same root cause as afi and rootly in PR #295, but a worse blast radius, because this connector's typed table carries 21 flattened columns rather than a lone parent key. The FIRST hand-fix only mitigated: it made upsertResourcesTx a no-op, deleted the typed FTS triggers, pointed SearchResources at the generic index and t.Skip-ed two generated tests. That stopped the failing writes but left the actual defect intact - backfillColumns still ALTER-ed name, email, first_name, bookable, color, job_title and 15 more onto the CATCH-ALL, so the MCP `sql` tool answered `SELECT name, email FROM resources` with one row of NULLs per synced record instead of erroring (that tool is this connector's only arbitrary-SQL surface - the CLI ships no `sql` command, and the MCP tool opens the store read-only and allows SELECT / WITH only): a silent wrong answer on the headline resource, measured at `err=<nil> name=NULL email=NULL`. The fix parent-prefixes both tables (the parent is `accounts`, matching this connector's own dependent declaration `{Name: \"resources\", ParentTable: \"accounts\", PathTemplate: \"/v1/{account}/resources\"}`, and matching the generator's existing disambiguation of `resources_bookings` / `clients_bookings`), restores the typed INSERT and the ai/ad/au triggers, and removes the mitigation. SCHEMA BUMP AND REPAIR MIGRATION. Renaming the typed table only stops NEW pollution; the databases v0.1.0 and v0.1.1 already polluted would answer NULLs forever. StoreSchemaVersion moves 4 -> 5 and a `current < catchAllProjectionSchemaVersion` step drops the 20 added columns (all 21 except updated_at, which the catch-all declares itself) and the five projection indexes idx_resources_creator_id / _user_id / _created_at / _updated_at / _parent_id, leaving the catch-all's own idx_resources_type and idx_resources_synced alone. Dropping is safe because no released binary ever wrote one of those columns: upsertResourcesTx is a no-op in both released tags (git log returns exactly one content commit for store.go before this change, and the v0.1.0 / v0.1.1 blobs are byte-identical), and the only statement any released code ran against the catch-all is upsertGenericResourceTx's `INSERT INTO resources (id, resource_type, data, synced_at, updated_at)`; the columns were added by ALTER TABLE ADD COLUMN with no DEFAULT, so every row holds NULL. That analysis is not trusted - the migration COUNTs each column and keeps (with a stderr warning) any column that holds a value. The JSON catch-all rows are never touched. The BUMP is what makes the repair durable: a v4 binary runs backfillColumns unconditionally on every WRITE-CAPABLE open and would ALTER all 21 columns straight back on, damage a newer binary cannot distinguish from never having repaired, so the version gate must refuse it. READ-ONLY OPENS, STATED PRECISELY. The gate the released binaries carry lives inside migrate(), which only OpenWithContext calls, so `older binaries cannot open a migrated store` held for write-capable opens ONLY. resourceguru-v0.1.1, built from its tag, still ATTACHES a v5 store read-only and answers from it - measured end to end through `resources get --data-source local`, which is the openStoreForRead path, and the same path the MCP search and sql tools take. Nothing can change what an already-released binary does; what it does is bounded and that bound is the point: a mode=ro handle runs no migration and no backfillColumns, so it CANNOT recreate the dropped columns or re-pollute the catch-all. The damage class is limited to reading a schema it does not expect - its typed-FTS query finds the shape it assumes absent, and a query aimed at the old flattened columns on the catch-all now errors with `no such column` rather than answering NULLs, so it fails loudly rather than silently. The fixable half is closed here: OpenReadOnlyContext now runs the same schemaVersionUnsupported gate, so a client built from this code onward meets a newer store with a clean refusal. It never stamps and never migrates, so a pre-gate store at user_version 0 and a store at this binary's own version both still open; only a NEWER store is refused. Measured both directions at the binary level (old v0.1.1 attaches to a v6 store read-only and answers; this build refuses it with the upgrade message) and pinned by TestOpenReadOnly_RefusesAStoreNewerThanThisBinary. typedTableName is the reader-side half: ListIDs, ListIDsScoped and ListField resolve a resource type to a table through sqlite_master, and the mapping keeps that resolve pointed at the renamed typed table. It is HARDENING against a FUTURE caller, not a live-defect fix, and an earlier draft of this record and of the function's own comment claimed otherwise. CORRECTION: the `resources_bookings` fan-out does NOT call ListIDs(\"resources\") and never did. Its declaration carries two path params ({account, v1_id} and {id, id}), so dependentParentFields returns [\"id\", \"v1_id\"] and dependentParentRows routes to ListFieldSets, which reads the catch-all directly under `WHERE resource_type = ?` and performs no resource-type-to-table resolve at all. No caller in this connector reaches ListIDs / ListIDsScoped / ListField with `resources` today. The typedTableName mapping is kept because those three entry points must be correct for any future dependent declaration or reprint that does reach them, TestDependentParentRows_ResourcesFanOutIsTypeFiltered pins the real routing so the correction cannot rot back into the false claim, and the function's own comment now states the hardening rationale rather than the disproven causal story. SEARCH. searchResourcesUnion queries the generic index and the typed one and dedups on the row's COMPOSITE STORAGE IDENTITY. Both halves are load bearing. The union: a store synced by an earlier binary has an empty typed table until its first resync, so a typed-only query answers zero rows for the headline resource. The key: two wrong keys each lose rows in a different direction. Raw JSON bytes double-count, because UpsertBatch commits the generic row unconditionally and then attempts the typed projection inside a SAVEPOINT, so a typed-table failure leaves a stale typed copy beside a fresh generic one. The BARE resource id under-counts, because this store keys `resources` on a composite identity on purpose - resourceParentKeyColumns maps the type to `parent_id`, so resourceStorageID writes `<bare id>` + NUL + `<parent_id>` - since a resource belongs to an account and two accounts can hold the same bare resource id. A bare-id key merges those two distinct resources into one row, and merges any two generic hits that merely happen to share a bare id. So the store returns the stored row identity alongside each payload (store.ResourceSearchHit, via SearchGenericResourceHits / SearchTypedResourceHits) and the union keys on that. It is the row's own primary key in BOTH tables, read from the row rather than re-derived from the payload, so it stays correct for rows an older binary wrote under whatever derivation that binary had. Generic wins for a true duplicate of the SAME composite identity, because the generic row is the durable copy that list, get and the MCP sql tool read. RECEIPTS. Every receipt in cli/internal/store/typed_resources_table_test.go and cli/internal/cli/typed_resources_reader_test.go was measured failing against the code without its fix and passing with it. Note that the reopen in TestReopen_CatchAllResourcesKeepsGenericColumnsOnly is load bearing: backfillColumns runs BEFORE the migrations slice and short-circuits on table-not-found, so a single-open version of that assertion passes while the defect is fully present - the same false-GREEN class PR #295 named when TestUpsertBatch_PopulatesResourcesTable counted the catch-all and called the empty typed projection healthy. Existing stores keep every synced record (the full JSON lives in the catch-all's data column) and the typed projection fills on the next sync.",
-   "status": "active",
-   "spec_encode_followup": "The generator already parent-prefixes a child whose bare name collides with a PARENT RESOURCE (`resources_bookings`, `clients_bookings`, `orgs_tenants`). The rule needs to cover the framework's own reserved table names too - `resources`, `resources_fts`, `sync_state` and any other table the store scaffold creates unconditionally - so a resource named after one of them is disambiguated at emit time instead of losing the CREATE-IF-NOT-EXISTS race. The reader side must move with it: whatever the press names the typed table, ListIDs / ListIDsScoped / ListField must resolve to that name rather than to the resource type, which is what typedTableName does by hand here. A generated populates-table test must also count the TYPED table, or it certifies the collision as healthy. Two further press-side items this connector had to solve by hand: a rename that changes the on-disk schema must come with a StoreSchemaVersion bump plus a migration that undoes what the old shape wrote, or older binaries silently re-apply the damage; the generated `search --type X` union must dedup on the row's STORAGE identity returned by the store, not on raw JSON bytes (UpsertBatch's savepoint lets the generic and typed copies of one record diverge) and not on the bare resource id (a parent-keyed type stores a composite key, so a bare-id dedup merges two distinct parent-scoped records); and a version gate belongs on the READ-ONLY open as well as the write-capable one, or the generated store's compatibility guarantee covers only the path that syncs while every read command and both MCP data tools attach to a future schema unchecked.",
-   "asserts": [
-    {
-     "file": "cli/internal/store/store.go",
-     "contains": "CREATE TABLE IF NOT EXISTS \"accounts_resources\" (",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/store/store.go",
-     "contains": "CREATE VIRTUAL TABLE IF NOT EXISTS \"accounts_resources_fts\" USING fts5(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/store/store.go",
-     "contains": "CREATE TRIGGER IF NOT EXISTS \"accounts_resources_ai\"",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/store/store.go",
-     "contains": "CREATE TRIGGER IF NOT EXISTS \"accounts_resources_ad\"",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/store/store.go",
-     "contains": "CREATE TRIGGER IF NOT EXISTS \"accounts_resources_au\"",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/store/store.go",
-     "contains": "INSERT INTO \"accounts_resources\" (\"id\", \"data\", \"synced_at\"",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/store/store.go",
-     "contains": "{table: \"accounts_resources\", column: \"email\", decl: \"TEXT\"}",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/store/store.go",
-     "contains": "func typedTableName(resourceType string) string {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/store/store.go",
-     "contains": "typedTableName(resourceType),",
-     "min_count": 3
-    },
-    {
-     "file": "cli/internal/store/store.go",
-     "not_contains": "CREATE TABLE IF NOT EXISTS \"resources\" ("
-    },
-    {
-     "file": "cli/internal/store/store.go",
-     "not_contains": "{table: \"resources\", column: \"email\", decl: \"TEXT\"}"
-    },
-    {
-     "file": "cli/internal/store/store.go",
-     "not_contains": "return s.Search(query, limit, \"resources\")"
-    },
-    {
-     "file": "cli/internal/store/typed_resources_table_test.go",
-     "contains": "func TestReopen_CatchAllResourcesKeepsGenericColumnsOnly(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/store/typed_resources_table_test.go",
-     "contains": "func TestUpsertBatch_FillsTypedResourcesProjection(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/store/typed_resources_table_test.go",
-     "contains": "func TestUpsertBatch_SeedsTypedResourcesFTS(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/store/typed_resources_table_test.go",
-     "contains": "func TestListIDs_ResourcesReadsTypedTableNotCatchAll(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/store/upsert_batch_test.go",
-     "contains": "typedQuery := fmt.Sprintf(`SELECT COUNT(*) FROM \"%s\"`, \"accounts_resources\")",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/store/upsert_batch_test.go",
-     "not_contains": "t.Skip(\"typed resources table absent due to resources/catch-all name collision\")"
-    },
-    {
-     "file": "cli/internal/store/schema_version_test.go",
-     "not_contains": "t.Skip(\"resources/catch-all name collision makes the typed column-upgrade path void\")"
-    },
-    {
-     "file": "cli/internal/store/store.go",
-     "contains": "const StoreSchemaVersion = 5",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/store/store.go",
-     "contains": "func (s *Store) dropCatchAllResourcesProjection(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/store/store.go",
-     "contains": "if current < catchAllProjectionSchemaVersion {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/store/store.go",
-     "not_contains": "const StoreSchemaVersion = 4"
-    },
-    {
-     "file": "cli/internal/store/store.go",
-     "contains": "type ResourceSearchHit struct {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/store/store.go",
-     "contains": "func (s *Store) SearchGenericResourceHits(query string, limit int, resourceType string) ([]ResourceSearchHit, error) {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/store/store.go",
-     "contains": "func (s *Store) SearchTypedResourceHits(query string, limit int) ([]ResourceSearchHit, error) {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/store/store.go",
-     "contains": "hits = append(hits, ResourceSearchHit{StorageID: id, Data: json.RawMessage(data)})",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/store/store.go",
-     "contains": "if err := schemaVersionUnsupported(current, StoreSchemaVersion); err != nil {",
-     "min_count": 3
-    },
-    {
-     "file": "cli/internal/cli/search.go",
-     "contains": "func searchResourcesUnion(db *store.Store, query string, limit int) ([]json.RawMessage, error) {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/cli/search.go",
-     "contains": "func resourceSearchDedupKey(hit store.ResourceSearchHit) string {",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/cli/search.go",
-     "contains": "results, err = searchResourcesUnion(db, query, limit)",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/cli/search.go",
-     "contains": "generic, err := db.SearchGenericResourceHits(query, limit, \"resources\")",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/cli/search.go",
-     "contains": "typed, err := db.SearchTypedResourceHits(query, limit)",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/cli/search.go",
-     "not_contains": "results, err = db.SearchResources(query, limit)"
-    },
-    {
-     "file": "cli/internal/cli/search.go",
-     "contains": "return \"key:\" + hit.StorageID",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/cli/search.go",
-     "not_contains": "store.ExtractResourceID(\"resources\", obj)"
-    },
-    {
-     "file": "cli/internal/cli/typed_resources_reader_test.go",
-     "contains": "func TestSearchResourcesUnion_DedupsDivergedCopiesByStorageIdentity(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/cli/typed_resources_reader_test.go",
-     "contains": "func TestSearchResourcesUnion_AnswersPreResyncStoresFromTheGenericIndex(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/cli/typed_resources_reader_test.go",
-     "contains": "func TestDependentParentRows_ResourcesFanOutIsTypeFiltered(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/store/typed_resources_table_test.go",
-     "contains": "func TestMigrate_V4CatchAllProjectionIsDropped(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/store/typed_resources_table_test.go",
-     "contains": "func TestMigrate_V4CatchAllProjectionKeepsPopulatedColumn(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/store/typed_resources_table_test.go",
-     "contains": "func TestSchemaVersion_MigratedStoreIsRefusedByAV4Binary(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/cli/typed_resources_reader_test.go",
-     "contains": "func TestSearchResourcesUnion_KeepsTwoAccountsSharingABareResourceID(",
-     "min_count": 1
-    },
-    {
-     "file": "cli/internal/store/typed_resources_table_test.go",
-     "contains": "func TestOpenReadOnly_RefusesAStoreNewerThanThisBinary(",
-     "min_count": 1
-    }
-   ]
-  },
-  {
-   "id": "credential-precedence-tests-decode-basic-header",
-   "summary": "the four credentials-precedence tests run for real (fixtures populate both halves of the Basic pair, and the header is decoded before asserting) instead of being t.Skip-ed",
-   "why": "The generated credentials-precedence tests assert the RAW secret appears in cfg.AuthHeader(). This connector authenticates with HTTP Basic over an email + password pair, so AuthHeader() returns \"Basic \" + base64(\"<email>:<password>\") and short-circuits to \"\" when either half is empty - the bearer-shaped fixtures set only the email. The tests were previously t.Skip-ed with that diagnosis, which is correct about the cause but leaves the connector with ZERO coverage of the credential precedence chain (credentials file beats legacy config, corrupt credentials fall back to legacy then env, an empty credentials file does not clear legacy) - the exact chain that decides which secret goes on the wire. The fixtures now populate both halves and the assertion decodes the header, so the tests assert what they were written to assert. Verified to fail when precedence is broken, not merely to pass. Same defect class as wordpress.",
-   "status": "active",
-   "spec_encode_followup": "Make the press emit scheme-aware credential-precedence tests (two-var Basic fixtures, decode before asserting) so Basic-auth connectors are not born skipped or red.",
-   "asserts": [
-    {
-     "file": "cli/internal/cliutil/credentials_test.go",
-     "contains": "func authHeaderPayload("
-    },
-    {
-     "file": "cli/internal/cliutil/credentials_test.go",
-     "contains": "func assertAuthHeaderCarries("
-    },
-    {
-     "file": "cli/internal/cliutil/credentials_test.go",
-     "contains": "func testCredentialPair("
-    },
-    {
-     "file": "cli/internal/cliutil/credentials_test.go",
-     "not_contains": "t.Skip(\"bearer-style credential test incompatible"
-    }
-   ]
-  }
- ]
+  ]
 }

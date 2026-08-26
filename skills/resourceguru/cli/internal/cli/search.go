@@ -138,10 +138,25 @@ Run sync first to populate the local search index.`,
 			case "reports":
 				results, err = db.SearchReports(query, limit)
 			case "resources":
-				results, err = searchResourcesUnion(db, query, limit)
-				if err != nil {
-					return err
-				}
+				// HAND-FIX. See handfixes.json, record
+				// `typed-resources-table-parent-prefixed`, and the block
+				// comment `WHY search --type resources READS THE GENERIC
+				// INDEX ONLY` at the bottom of this file.
+				//
+				// Every other case in this switch reads its own typed FTS
+				// index. `resources` deliberately does not: it reads the
+				// generic catch-all index under a resource_type filter,
+				// exactly like the default branch. The typed
+				// accounts_resources table and its FTS shadow are still
+				// built and maintained - structured SQL consumers and the
+				// generated shape depend on them - but CLI search does not
+				// read them. A reprint that restores the generated
+				// typed-FTS call here (the store method named
+				// SearchResources) reintroduces the defects that block
+				// comment names, so the ledger bans any `db.SearchResources`
+				// call in this file outright - which is why this comment
+				// spells the method name without its argument list.
+				results, err = db.Search(query, limit, "resources")
 			case "":
 				// Search every FTS-enabled source — typed per-resource tables
 				// AND the generic resources_fts — and dedup by raw JSON so a
@@ -149,6 +164,18 @@ Run sync first to populate the local search index.`,
 				// the generic-search call, rows that landed in resources_fts
 				// but not in any typed FTS table (e.g., a resource whose sync
 				// populated only the generic index) silently return zero.
+				//
+				// HAND-FIX: the `resources` block that generated code puts
+				// here - the one calling the store's SearchResources method -
+				// is deliberately absent. It made this branch read
+				// `resources` twice, once from the typed index and once from
+				// the generic db.Search below, and the byte dedup cannot
+				// collapse the two copies when they have diverged (see the
+				// block comment `WHY search --type resources READS THE
+				// GENERIC INDEX ONLY` at the bottom of this file). The
+				// generic db.Search call at the end of this branch already
+				// covers every `resources` row, so this branch reads that
+				// type from exactly one index and cannot double-count it.
 				seen := make(map[string]bool)
 				_ = seen // prevent unused error when no FTS tables exist
 				{
@@ -217,19 +244,6 @@ Run sync first to populate the local search index.`,
 					}
 				}
 				{
-					partial, searchErr := db.SearchResources(query, limit)
-					if searchErr != nil {
-						return fmt.Errorf("search resources failed: %w", searchErr)
-					}
-					for _, r := range partial {
-						key := string(r)
-						if !seen[key] {
-							seen[key] = true
-							results = append(results, r)
-						}
-					}
-				}
-				{
 					partial, searchErr := db.Search(query, limit)
 					if searchErr != nil {
 						return fmt.Errorf("search resources_fts failed: %w", searchErr)
@@ -267,86 +281,74 @@ Run sync first to populate the local search index.`,
 	return cmd
 }
 
-// searchResourcesUnion answers `search --type resources` from BOTH the typed
-// index and the generic one.
+// WHY `search --type resources` READS THE GENERIC INDEX ONLY
 //
-// Hand-written; see handfixes.json, record
-// `typed-resources-table-parent-prefixed`. Every other type in the switch above
-// queries only its typed FTS, because its typed table has always been
-// populated. The typed table for `resources` is parent-prefixed
-// (accounts_resources) because a bare `resources` is the framework's own
-// catch-all table, and on a store synced by an earlier binary it is created
-// EMPTY - a typed-only query would answer zero rows for this connector's
-// headline resource until the operator re-syncs. Querying both keeps the answer
-// right on either side of that resync. A reprint that restores the plain
-// `db.SearchResources(query, limit)` call would silently drop every
-// pre-resync row from search, so the ledger asserts on this function by name.
+// Hand-written rationale for the two hand-fixes in the switch above. See
+// handfixes.json, record `typed-resources-table-parent-prefixed`.
 //
-// Dedup is by the row's STORAGE IDENTITY, not by raw JSON bytes and not by the
-// bare resource id. Both wrong keys lose rows:
+// This connector has two FTS indexes over one logical dataset of `resources`:
 //
-//   - Raw bytes. The two copies of one record can legitimately differ.
-//     UpsertBatch writes the generic row unconditionally and then attempts the
-//     typed projection inside a SAVEPOINT, so a typed-table failure rolls the
-//     projection back to its previous value while the generic row keeps the new
-//     one. Keying on bytes returns that record twice, the stale copy
-//     indistinguishable from a second resource.
-//   - The bare resource id. The store keys `resources` on a COMPOSITE
-//     identity - resourceParentKeyColumns maps the type to `parent_id`, so
-//     resourceStorageID writes `<bare id>` + NUL + `<parent_id>` - because the
-//     same bare resource id can exist under two accounts. A bare-id key merges
-//     those two distinct resources into one, and merges any two generic hits
-//     that merely happen to share a bare id.
+//   - the generic catch-all index (`resources` + `resources_fts`), which
+//     upsertGenericResourceTx maintains by hand, and
+//   - the typed projection index (`accounts_resources` +
+//     `accounts_resources_fts`), which the ai/ad/au triggers maintain.
 //
-// So the store returns each hit's stored `id` column alongside its payload
-// (store.ResourceSearchHit) and this function keys on that. It is the row's own
-// primary key in both tables, which is what makes it authoritative: it is not
-// re-derived here, so it stays correct for rows written by an older binary.
+// The typed pair is still built, still filled on every sync, and still there
+// for structured SQL consumers and for generated-shape fidelity. CLI search
+// simply does not read it, because the GENERIC index is the authoritative and
+// complete one for this type, and querying both was the defect factory.
 //
-// Generic wins for a true duplicate of the SAME composite identity. The generic
-// row is the store's durable copy: it is written first, committed
-// unconditionally, and is what `list`, `get` and the MCP `sql` tool read. The
-// typed projection is best-effort behind the savepoint, so whenever the two
-// disagree the typed one is the one that failed to keep up. Querying the
-// generic index first also preserves the row order shipped binaries already
-// produce, since v0.1.1's SearchResources delegated to the generic index.
-func searchResourcesUnion(db *store.Store, query string, limit int) ([]json.RawMessage, error) {
-	generic, err := db.SearchGenericResourceHits(query, limit, "resources")
-	if err != nil {
-		return nil, fmt.Errorf("search resources_fts failed: %w", err)
-	}
-	typed, err := db.SearchTypedResourceHits(query, limit)
-	if err != nil {
-		return nil, fmt.Errorf("search resources failed: %w", err)
-	}
-
-	seen := make(map[string]bool, len(generic)+len(typed))
-	results := make([]json.RawMessage, 0, len(generic)+len(typed))
-	for _, batch := range [][]store.ResourceSearchHit{generic, typed} {
-		for _, hit := range batch {
-			key := resourceSearchDedupKey(hit)
-			if seen[key] {
-				continue
-			}
-			seen[key] = true
-			results = append(results, hit.Data)
-		}
-	}
-	return results, nil
-}
-
-// resourceSearchDedupKey identifies a `resources` search hit by the storage
-// identity of the row it came from - the composite `<id>` + NUL + `<parent_id>`
-// key for an account-scoped resource, the bare id for one with no parent - and
-// falls back to the raw bytes when a row somehow carries no identity at all,
-// so two unidentifiable records are never merged into one.
-func resourceSearchDedupKey(hit store.ResourceSearchHit) string {
-	if hit.StorageID != "" {
-		return "key:" + hit.StorageID
-	}
-	return "raw:" + string(hit.Data)
-}
-
+// THE GENERIC INDEX IS AUTHORITATIVE. UpsertBatch commits the generic row
+// inside the outer transaction, unconditionally, and only then attempts the
+// typed projection inside a per-item SAVEPOINT. A typed failure rolls back the
+// savepoint alone, so the generic row is the copy that always reflects the
+// last successful sync. It is also the copy `list`, `get`, the dependent
+// fan-out and the MCP `sql` tool read, so reading anything else from search
+// would answer for a different row than the rest of the connector.
+//
+// THE GENERIC INDEX IS COMPLETE. Every resource ever synced by any released
+// binary is in it: resourceguru-v0.1.0 and v0.1.1 had a no-op
+// upsertResourcesTx, so on any store synced before this change the typed table
+// is EMPTY and the catch-all holds everything. Its FTS content is extracted
+// from the full record JSON (searchableResourceContent), which is a superset of
+// the 21 flattened typed columns, and it is tokenized with `porter unicode61`
+// where the typed shadow uses the default tokenizer, so it also matches
+// inflected forms the typed index misses.
+//
+// WHAT UNIONING THE TWO DID, measured. Three defects, all of them the same
+// silent-wrong-answer class this whole change exists to remove:
+//
+//  1. It answered from a STALE row. Divergence is reachable exactly as
+//     described above, and when the query term survives only in the rolled-back
+//     typed copy the generic index contributes nothing, so no dedup and no
+//     result ordering can help: the union returned the stale payload as if it
+//     were current. Measured on one record whose notes changed from
+//     `oldprobeterm` to `newprobeterm`: generic-only answered 0 rows for
+//     `oldprobeterm`, the union answered 1, carrying the superseded document.
+//  2. It DOUBLE-COUNTED in the no-`--type` branch. That branch dedups by raw
+//     JSON bytes, and two diverged copies of one record are two different byte
+//     strings, so one resource came back as two.
+//  3. It kept needing a bigger key. Byte-keyed dedup double-counted; bare-id
+//     dedup merged two accounts that share a resource id; the composite storage
+//     key fixed both and still could not fix (1), because a stale-only match
+//     never reaches the dedup at all. Reconciling two indexes at query time
+//     cannot be done without re-reading the authoritative row - which is the
+//     same thing as reading only the authoritative index.
+//
+// KNOWN AND ACCEPTED COVERAGE DELTA, stated because it is real and measured.
+// searchableResourceContent deliberately drops values it classifies as
+// non-searchable noise: identifier-keyed values, bare UUIDs, ISO timestamps and
+// values that are entirely a URL. The typed shadow indexes the `name` and
+// `notes` columns raw, so it matches inside those three shapes where the
+// generic index does not (measured: notes holding only `https://wiki.example.com/ada`
+// matches `wiki` typed-side, 0 rows generic-side). This is not a regression -
+// v0.1.1's SearchResources delegated to the generic index, so generic-only is
+// the answer set operators have today - and it is not specific to `resources`:
+// it is the press-wide noise filter every other type's catch-all rows get. It
+// is recorded as press-side work in the ledger's spec_encode_followup rather
+// than paid for with a wrong answer, and the delta runs the other way too:
+// porter stemming and the other 19 flattened fields are generic-only wins.
+//
 // outputSearchResults filters, counts, and outputs search results with provenance.
 func outputSearchResults(cmd *cobra.Command, flags *rootFlags, results []json.RawMessage, limit int, prov DataProvenance) error {
 	// Filter out entries with nil or empty identifier fields.

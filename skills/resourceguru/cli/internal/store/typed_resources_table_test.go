@@ -960,10 +960,12 @@ func TestSchemaVersion_MigratedStoreIsRefusedByAV4Binary(t *testing.T) {
 // The version gate the released binaries carry lives inside migrate(), and only
 // the write-capable OpenWithContext path calls it. Their read-only path attaches
 // without reading user_version at all, so "older binaries cannot open a migrated
-// store" was only ever true of write-capable opens - and READ is this
-// connector's dominant surface: every CLI read command goes through
-// openStoreForRead, and both MCP data tools (search, sql) go through
-// OpenReadOnly.
+// store" was only ever true of write-capable opens - and the read-only surface
+// is broad: the generated endpoint read commands reach openStoreForRead through
+// resolveLocal whenever --data-source is local or auto, and both MCP data tools
+// (search, sql) go through OpenReadOnly. It is not EVERY CLI read command,
+// though: the CLI's own `search` command opens write-capable through
+// OpenWithContext, and so do the analytics commands and `pm load`.
 //
 // Nothing can be done about the binaries already released; what they do to a v5
 // store is bounded and stated on StoreSchemaVersion (mode=ro runs no migration
