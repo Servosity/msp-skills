@@ -24,7 +24,7 @@
     "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "afi-v0.1.2",
-    "current_hash": "sha256:956f5402d6fe8ece8e7e548e46178359e092c0cb0b672cd4de423d724e14f3f4",
+    "current_hash": "sha256:4d22bb5f957df70c2efbb515e607bd4a19c77b383714023c4b15a43d1293703b",
     "released_hash": "sha256:71d19eb7aac68b0061e818fe78382c4d9333c78042fb826129b1c4c255e7d768"
   },
   "appdirect": {
@@ -360,7 +360,7 @@
     "state": "binary-pending",
     "version": "0.1.1",
     "latest_tag": "rootly-v0.1.1",
-    "current_hash": "sha256:743f8e5b73bdc9aec193a834f0d844e14ef6c01f2c9af0a3817cf8218f504e87",
+    "current_hash": "sha256:9639201c3dbb1d3667e2fa6bf48423dcf7532a2e5f5b8920ef3c4566c2fe9169",
     "released_hash": "sha256:2fbe93426b6735b7ac9eadc04bda1379e32a6816a5ab0d9ce4c7a85d59e16965"
   },
   "runzero": {
