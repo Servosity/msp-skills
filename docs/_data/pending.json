@@ -21,44 +21,44 @@
     "released_hash": "sha256:a700a1fb6f6c0cfa1b2e6f1609863907f17509b8d3492de4f074c52006d14136"
   },
   "afi": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.3",
-    "latest_tag": "afi-v0.1.2",
+    "latest_tag": "afi-v0.1.3",
     "current_hash": "sha256:8669176f01aea2cbce0bb23ccf4b1ab1c2ae88ecc9226e77b452782dbd8b3d47",
     "released_hash": "sha256:8669176f01aea2cbce0bb23ccf4b1ab1c2ae88ecc9226e77b452782dbd8b3d47"
   },
   "appdirect": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.3",
-    "latest_tag": "appdirect-v0.1.2",
+    "latest_tag": "appdirect-v0.1.3",
     "current_hash": "sha256:399285114b9b6c91b5bb015c35f0a83586d005690dc1c44bce330f71e104f190",
     "released_hash": "sha256:399285114b9b6c91b5bb015c35f0a83586d005690dc1c44bce330f71e104f190"
   },
   "atera": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.3",
-    "latest_tag": "atera-v0.1.2",
+    "latest_tag": "atera-v0.1.3",
     "current_hash": "sha256:ed69537acb66bc47840db9c96bad486d58ea7631630a8f2029261454a175dca0",
     "released_hash": "sha256:ed69537acb66bc47840db9c96bad486d58ea7631630a8f2029261454a175dca0"
   },
   "autotask": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.4",
-    "latest_tag": "autotask-v0.1.3",
+    "latest_tag": "autotask-v0.1.4",
     "current_hash": "sha256:b4ead2962105ef1a279296c4c5cec51f09ed04778088090170f93cb13ebcfd55",
     "released_hash": "sha256:b4ead2962105ef1a279296c4c5cec51f09ed04778088090170f93cb13ebcfd55"
   },
   "auvik": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.2.2",
-    "latest_tag": "auvik-v0.2.1",
+    "latest_tag": "auvik-v0.2.2",
     "current_hash": "sha256:090dfc49afeea0241c550e4022f62267d69f0bf2c66e929ba884ba521bec6ce2",
     "released_hash": "sha256:090dfc49afeea0241c550e4022f62267d69f0bf2c66e929ba884ba521bec6ce2"
   },
   "avanan": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.2",
-    "latest_tag": "avanan-v0.1.1",
+    "latest_tag": "avanan-v0.1.2",
     "current_hash": "sha256:970b2aa4b16e22ed99c9f812e3385bd371030c88979bf9cd120da65dea5ccd03",
     "released_hash": "sha256:970b2aa4b16e22ed99c9f812e3385bd371030c88979bf9cd120da65dea5ccd03"
   },
