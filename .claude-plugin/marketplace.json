@@ -58,7 +58,7 @@
       "name": "afi",
       "source": "./skills/afi",
       "description": "The first CLI for Afi SaaS backup \u2014 full public-API coverage plus the fleet-wide coverage, staleness, and offboarding answers the rate-limited API can't serve live.",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "category": "backup-dr",
       "tags": [
         "afi",
@@ -88,7 +88,7 @@
       "name": "atera",
       "source": "./skills/atera",
       "description": "Every Atera RMM + PSA endpoint, plus a local SQLite mirror that answers fleet-health, SLA, and book-of-business questions no single API call can.",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "category": "rmm",
       "tags": [
         "atera",
@@ -526,7 +526,7 @@
       "name": "levelio",
       "source": "./skills/levelio",
       "description": "Every Level RMM endpoint, plus a local SQLite fleet store and offline cross-entity rollups no Level tool has: at-risk ranking, patch posture, alert triage, and stale-device detection in one command.",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "category": "rmm",
       "tags": [
         "levelio",
@@ -653,7 +653,7 @@
       "name": "ninjaone",
       "source": "./skills/ninjaone",
       "description": "Every NinjaOne report, plus a local store that answers fleet-wide questions no single API call can: patch compliance, backup gaps, AV blast-radius, health, drift.",
-      "version": "0.1.10",
+      "version": "0.1.11",
       "category": "rmm",
       "tags": [
         "ninjaone",

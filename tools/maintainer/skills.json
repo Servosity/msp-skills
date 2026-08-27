@@ -90,8 +90,8 @@
       "tagline": "Answer fleet-wide Afi backup coverage, staleness, and licensing questions from one local store.",
       "cli_hash": "sha256:03150a8b133891e79c555f8f134cc24992ccb10b1490dc6b34f0c0b2d614bc6e",
       "template_version": 3,
-      "version": "0.1.1",
-      "cli_hash_at_release": "sha256:71d19eb7aac68b0061e818fe78382c4d9333c78042fb826129b1c4c255e7d768",
+      "version": "0.1.2",
+      "cli_hash_at_release": "sha256:8669176f01aea2cbce0bb23ccf4b1ab1c2ae88ecc9226e77b452782dbd8b3d47",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -140,8 +140,8 @@
       "tagline": "Answer fleet-health, SLA, and book-of-business questions across your Atera estate from the terminal.",
       "cli_hash": "sha256:529eec12b989e5632777a6ac1ab1c140ab0b8b7fde060c3d49473aff8431f9be",
       "template_version": 3,
-      "version": "0.1.1",
-      "cli_hash_at_release": "sha256:02e56e4f3a77d0a9803042e94f216f21726c4877f1da267a2332a282e9468183",
+      "version": "0.1.2",
+      "cli_hash_at_release": "sha256:ed69537acb66bc47840db9c96bad486d58ea7631630a8f2029261454a175dca0",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -838,8 +838,8 @@
       "tagline": "Rank your riskiest endpoints, patch posture, and stale devices across your Level RMM fleet from one command.",
       "cli_hash": "sha256:42a4b6f70bf3253c7077f17a25f8a6e8deba0335cd990be6d8f6080ee0b70e43",
       "template_version": 3,
-      "version": "0.1.1",
-      "cli_hash_at_release": "sha256:5604cb96f4124655ffd3c9cbea7f8c3f32f8e123ec959083d58bb2db36c9fe72",
+      "version": "0.1.2",
+      "cli_hash_at_release": "sha256:4da50261a10b4f69d2f76f92c92d6664d0d49a005538b01b1a9ef966cb723073",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",
@@ -1032,8 +1032,8 @@
       "tagline": "Fleet-wide NinjaOne answers - patch compliance, backup gaps, AV blast-radius - from a local mirror in one query.",
       "cli_hash": "sha256:4e25b03a85fc5316977239d7d18fa1d34bdc79c7273897e0038dce3aad1da051",
       "template_version": 3,
-      "version": "0.1.10",
-      "cli_hash_at_release": "sha256:d55e3e61bc9e0152579b381658d53bcb476c6eead70c64c2d87885c9d2ef288f",
+      "version": "0.1.11",
+      "cli_hash_at_release": "sha256:73fb1771450978e5d5d566fb0f6eb86ef079ac21222403c4f5e6de77ecb21735",
       "has_video": true,
       "live_verified": {
         "status": "live-verified",
