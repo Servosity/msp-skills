@@ -35,7 +35,7 @@ For ChatGPT, the Servosity MCP server is stdio - to use it with ChatGPT you expo
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download Servosity MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/servosity-v0.6.1/servosity-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Servosity release on the [releases page](https://github.com/servosity/msp-skills/releases?q=servosity).)
+[**Download Servosity MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/servosity-v0.6.2/servosity-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Servosity release on the [releases page](https://github.com/servosity/msp-skills/releases?q=servosity).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
