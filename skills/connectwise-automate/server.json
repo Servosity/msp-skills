@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/connectwise-automate-mcp",
   "title": "ConnectWise Automate MCP",
   "description": "Sync your ConnectWise Automate fleet to local SQLite and answer cross-client RMM questions offline.",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/connectwise-automate/connectwise-automate-512x512.png",
@@ -21,8 +21,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/connectwise-automate-v0.1.1/connectwise-automate-mcp.mcpb",
-      "version": "0.1.1",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/connectwise-automate-v0.1.2/connectwise-automate-mcp.mcpb",
+      "version": "0.1.2",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"

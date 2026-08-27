@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/ninjaone-mcp",
   "title": "NinjaOne MCP",
   "description": "Every NinjaOne report, plus a local store that answers fleet-wide questions no single API call can",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/ninjaone/ninjaone-512x512.png",
@@ -21,8 +21,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/ninjaone-v0.1.11/ninjaone-mcp.mcpb",
-      "version": "0.1.11",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/ninjaone-v0.1.12/ninjaone-mcp.mcpb",
+      "version": "0.1.12",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"

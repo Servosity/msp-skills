@@ -1,6 +1,6 @@
 {
   "name": "immybot",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Every ImmyBot endpoint typed, plus a local SQLite mirror that answers the cross-tenant questions the web UI cannot.",
   "author": {
     "name": "Servosity",

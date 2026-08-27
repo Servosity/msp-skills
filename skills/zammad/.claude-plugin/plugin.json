@@ -1,6 +1,6 @@
 {
   "name": "zammad",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Every Zammad ticket, article, and Knowledge Base operation as one CLI and MCP server  -  plus a team-management layer (agent load, customer health, aging backlog, escalation triage, churn risk, feedback mining) the Zammad API can't answer in a single call.",
   "author": {
     "name": "Servosity",

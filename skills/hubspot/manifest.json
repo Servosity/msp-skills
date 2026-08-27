@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "hubspot-mcp",
   "display_name": "HubSpot",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Every HubSpot Sales Hub feature, plus offline cross-object queries, property-change-history reporting, and an agent-native data layer no other HubSpot tool has.",
   "author": {
     "name": "Servosity Inc."

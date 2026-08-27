@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/blumira-mcp",
   "title": "Blumira MCP",
   "description": "Cross-account Blumira findings, detections, and agents in one offline-searchable store.",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/blumira/blumira-512x512.png",
@@ -21,8 +21,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/blumira-v0.1.1/blumira-mcp.mcpb",
-      "version": "0.1.1",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/blumira-v0.1.2/blumira-mcp.mcpb",
+      "version": "0.1.2",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"

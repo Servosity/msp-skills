@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "levelio-mcp",
   "display_name": "Level",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Every Level RMM endpoint, plus a local SQLite fleet store and offline cross-entity rollups no Level tool has: at-risk ranking, patch posture, alert triage, and stale-device detection in one command.",
   "author": {
     "name": "Servosity Inc."

@@ -1,6 +1,6 @@
 {
   "name": "rewst",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Operate and monitor Rewst RPA across every client org from the terminal or your AI agent: workflow execution health, failure triage, automation ROI, dormant-workflow cleanup, cross-org config drift, and integration-pack coverage - the multi-tenant answers the web console makes you assemble one org at a time.",
   "author": {
     "name": "Servosity",

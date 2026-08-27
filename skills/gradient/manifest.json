@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "gradient-mcp",
   "display_name": "Gradient MSP",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "The Synthesize partner API from the terminal - every endpoint, plus a usage-push ledger, billing drift detection, and alert-to-ticket tracing no other Gradient tool has.",
   "author": {
     "name": "Servosity Inc."

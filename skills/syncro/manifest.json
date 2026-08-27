@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "syncro-mcp",
   "display_name": "Syncro",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Every Syncro PSA and RMM workflow in your terminal, plus a local database, offline search, and cross-entity reports no other Syncro tool has.",
   "author": {
     "name": "Servosity Inc."

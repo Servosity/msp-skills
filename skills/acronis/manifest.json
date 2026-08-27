@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "acronis-pp-mcp",
   "display_name": "Acronis Cyber Protect Cloud",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "The first real CLI for the Acronis Cyber Protect Cloud platform \u2014 every tenant, agent, and usage metric mirrored locally, with cross-tenant rollups no single API call returns.",
   "author": {
     "name": "Servosity Inc."

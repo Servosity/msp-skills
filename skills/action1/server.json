@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/action1-mcp",
   "title": "Action1 MCP",
   "description": "Every Action1 endpoint, plus fleet-wide patch and vulnerability views across all your organizations.",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/action1/action1-512x512.png",
@@ -21,8 +21,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/action1-v0.1.1/action1-mcp.mcpb",
-      "version": "0.1.1",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/action1-v0.1.2/action1-mcp.mcpb",
+      "version": "0.1.2",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"

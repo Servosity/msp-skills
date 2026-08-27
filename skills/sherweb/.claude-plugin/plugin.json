@@ -1,6 +1,6 @@
 {
   "name": "sherweb",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Every Sherweb Partner API capability, plus a local SQLite store, offline analytics, and margin/drift/orphan joins no other Sherweb tool has.",
   "author": {
     "name": "Servosity",
