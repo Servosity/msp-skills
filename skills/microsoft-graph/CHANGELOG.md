@@ -4,9 +4,17 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## Unreleased
+## [0.2.2] - 2026-08-26
 
 ### Fixed
+- **An agent could point this connector's local database at any file on the machine.**
+  The MCP server forwarded a `db` argument straight through to `sync`, and the store runs a
+  migration that drops and rebuilds its tables. A tool call naming another application's SQLite
+  file would therefore rewrite that file. The MCP surface now refuses arguments that name a
+  filesystem location - by name, and by what the flag's own help text says it does, so a newly
+  generated path flag is refused before anyone has to notice it. Nothing an agent could
+  legitimately call changed.
+
 - **Two test fixtures used the year 2099 to mean "just now".** `security triage` keeps alerts
   raised inside its look-back window and `managed-devices drift` flags devices that have not
   checked in recently, both measured against the current time. The fixtures they read were dated
@@ -15,6 +23,9 @@ All notable changes to this skill are documented here. Format follows
   meant to have. Both are now seeded an hour before the clock, and the drift test additionally
   pins that the device is *not* stale, so the seeded sync time is doing real work. No shipped
   behaviour changed - the commands were correct throughout.
+
+### Changed
+- Every source file now carries one project copyright line (`Copyright 2026 Servosity Inc. and msp-skills contributors`) instead of the ten different strings the fleet had accumulated; individual contributor credit moved to the repository `NOTICE`. Source headers only, no behaviour changed.
 
 ## [0.2.1] - 2026-08-26
 
