@@ -63,37 +63,37 @@
     "released_hash": "sha256:970b2aa4b16e22ed99c9f812e3385bd371030c88979bf9cd120da65dea5ccd03"
   },
   "aws-billing": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.2",
-    "latest_tag": "aws-billing-v0.1.1",
+    "latest_tag": "aws-billing-v0.1.2",
     "current_hash": "sha256:20a68fcfac5042d839a9160ffd3738e903193601b057b94d709bd6112e149de3",
     "released_hash": "sha256:20a68fcfac5042d839a9160ffd3738e903193601b057b94d709bd6112e149de3"
   },
   "axcient": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.2.11",
-    "latest_tag": "axcient-v0.2.10",
+    "latest_tag": "axcient-v0.2.11",
     "current_hash": "sha256:1dc9c7e8c037522859dc7cb221b4eb527acd5cbd2d9ece76d788ace613eec022",
     "released_hash": "sha256:1dc9c7e8c037522859dc7cb221b4eb527acd5cbd2d9ece76d788ace613eec022"
   },
   "betterstack": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.2",
-    "latest_tag": "betterstack-v0.1.1",
+    "latest_tag": "betterstack-v0.1.2",
     "current_hash": "sha256:d57343febd9e67c9e7eba72ae2fbe3eea6daa1686c358c680a48feab7e806b73",
     "released_hash": "sha256:d57343febd9e67c9e7eba72ae2fbe3eea6daa1686c358c680a48feab7e806b73"
   },
   "blumira": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.2",
-    "latest_tag": "blumira-v0.1.1",
+    "latest_tag": "blumira-v0.1.2",
     "current_hash": "sha256:593dd308ee3f8c0f26e687179decf5dc394b51227ad0a3a8c7f944dabc87c93a",
     "released_hash": "sha256:593dd308ee3f8c0f26e687179decf5dc394b51227ad0a3a8c7f944dabc87c93a"
   },
   "cipp": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.4",
-    "latest_tag": "cipp-v0.1.3",
+    "latest_tag": "cipp-v0.1.4",
     "current_hash": "sha256:e242a8e5e4332ae5b68f35d7072a19b2560b44523c01be83bb28f524fb53e2c6",
     "released_hash": "sha256:e242a8e5e4332ae5b68f35d7072a19b2560b44523c01be83bb28f524fb53e2c6"
   },
@@ -105,135 +105,135 @@
     "released_hash": null
   },
   "connectwise-automate": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.2",
-    "latest_tag": "connectwise-automate-v0.1.1",
+    "latest_tag": "connectwise-automate-v0.1.2",
     "current_hash": "sha256:7f6094666340a92eb60bb6468d496a8beaebb54d0d92b2887307d6ee6d45ff73",
     "released_hash": "sha256:7f6094666340a92eb60bb6468d496a8beaebb54d0d92b2887307d6ee6d45ff73"
   },
   "connectwise-control": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.3",
-    "latest_tag": "connectwise-control-v0.1.2",
+    "latest_tag": "connectwise-control-v0.1.3",
     "current_hash": "sha256:46acd5bdf795e4b35a5dd8ba8bf3f812d80f7921e887d0707f70c5a5ebcfd41a",
     "released_hash": "sha256:46acd5bdf795e4b35a5dd8ba8bf3f812d80f7921e887d0707f70c5a5ebcfd41a"
   },
   "connectwise-manage": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.6",
-    "latest_tag": "connectwise-manage-v0.1.5",
+    "latest_tag": "connectwise-manage-v0.1.6",
     "current_hash": "sha256:245ee49ec2123e7796f21fbdb16a20b138c2142e3c69e5b622348b2d3b864bf8",
     "released_hash": "sha256:245ee49ec2123e7796f21fbdb16a20b138c2142e3c69e5b622348b2d3b864bf8"
   },
   "cork": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.2",
-    "latest_tag": "cork-v0.1.1",
+    "latest_tag": "cork-v0.1.2",
     "current_hash": "sha256:f2e520758a85cf1a9a4ccd9468247bb256385e357c1a4f8d8210bb959e905d91",
     "released_hash": "sha256:f2e520758a85cf1a9a4ccd9468247bb256385e357c1a4f8d8210bb959e905d91"
   },
   "cove": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.6",
-    "latest_tag": "cove-v0.1.5",
+    "latest_tag": "cove-v0.1.6",
     "current_hash": "sha256:a6ec1bee04f9a83de5560b6af840c9c6e6c70d141023b7a17ba4cc3913b930dd",
     "released_hash": "sha256:a6ec1bee04f9a83de5560b6af840c9c6e6c70d141023b7a17ba4cc3913b930dd"
   },
   "crowdstrike": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.3",
-    "latest_tag": "crowdstrike-v0.1.2",
+    "latest_tag": "crowdstrike-v0.1.3",
     "current_hash": "sha256:c43426363ee0e3d0ec17c938006bd1da8b9979fe987a6eaf70b9258a6e11058b",
     "released_hash": "sha256:c43426363ee0e3d0ec17c938006bd1da8b9979fe987a6eaf70b9258a6e11058b"
   },
   "datto-bcdr": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.4",
-    "latest_tag": "datto-bcdr-v0.1.3",
+    "latest_tag": "datto-bcdr-v0.1.4",
     "current_hash": "sha256:2748c15d053724dcc0e007cc557b98d44e1e01db74dab5beb6437e963602aff0",
     "released_hash": "sha256:2748c15d053724dcc0e007cc557b98d44e1e01db74dab5beb6437e963602aff0"
   },
   "datto-rmm": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.4",
-    "latest_tag": "datto-rmm-v0.1.3",
+    "latest_tag": "datto-rmm-v0.1.4",
     "current_hash": "sha256:5adc29ae742381145088f06cf31ca9c72af95cd94f1f7d0363aabb6926d13390",
     "released_hash": "sha256:5adc29ae742381145088f06cf31ca9c72af95cd94f1f7d0363aabb6926d13390"
   },
   "domotz": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.2",
-    "latest_tag": "domotz-v0.1.1",
+    "latest_tag": "domotz-v0.1.2",
     "current_hash": "sha256:10c948fd664919eb8ae3000d03ab6efe1a74e480852fae14b9d774fa01cb7060",
     "released_hash": "sha256:10c948fd664919eb8ae3000d03ab6efe1a74e480852fae14b9d774fa01cb7060"
   },
   "gradient": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.2",
-    "latest_tag": "gradient-v0.1.1",
+    "latest_tag": "gradient-v0.1.2",
     "current_hash": "sha256:5afc508f23250d84e333e4f9d3d393630e510ffbc735ca5c40e8975b232be817",
     "released_hash": "sha256:5afc508f23250d84e333e4f9d3d393630e510ffbc735ca5c40e8975b232be817"
   },
   "halopsa": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.2.14",
-    "latest_tag": "halopsa-v0.2.13",
+    "latest_tag": "halopsa-v0.2.14",
     "current_hash": "sha256:8a8e2ad454eef13c294deb6c5406d6b1651f8caae0ef525b936a9941e582c0e9",
     "released_hash": "sha256:8a8e2ad454eef13c294deb6c5406d6b1651f8caae0ef525b936a9941e582c0e9"
   },
   "hubspot": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.5",
-    "latest_tag": "hubspot-v0.1.4",
+    "latest_tag": "hubspot-v0.1.5",
     "current_hash": "sha256:ee001f0ec43921c177fbec1fd41fa78bfebbece5c72546bc9172cecb1bdf213b",
     "released_hash": "sha256:ee001f0ec43921c177fbec1fd41fa78bfebbece5c72546bc9172cecb1bdf213b"
   },
   "hudu": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.8",
-    "latest_tag": "hudu-v0.1.7",
+    "latest_tag": "hudu-v0.1.8",
     "current_hash": "sha256:a24ad43433c8e668f1fda9861e849f68fea384b8d6275dec1318486159124629",
     "released_hash": "sha256:a24ad43433c8e668f1fda9861e849f68fea384b8d6275dec1318486159124629"
   },
   "huntress": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.4",
-    "latest_tag": "huntress-v0.1.3",
+    "latest_tag": "huntress-v0.1.4",
     "current_hash": "sha256:6129ef0e43744bc76c684512b687a40dff72656d5b5979d4604b11650008c8e0",
     "released_hash": "sha256:6129ef0e43744bc76c684512b687a40dff72656d5b5979d4604b11650008c8e0"
   },
   "immybot": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.2",
-    "latest_tag": "immybot-v0.1.1",
+    "latest_tag": "immybot-v0.1.2",
     "current_hash": "sha256:fb6ef76d6bf0d8e0d0edef098113dba8889e715295b6e7aff99be77d4d47b574",
     "released_hash": "sha256:fb6ef76d6bf0d8e0d0edef098113dba8889e715295b6e7aff99be77d4d47b574"
   },
   "itglue": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.2",
-    "latest_tag": "itglue-v0.1.1",
+    "latest_tag": "itglue-v0.1.2",
     "current_hash": "sha256:d6729f4e17b3d98285e4554a31d2f752f494cde350caf476d88de04d6e80292f",
     "released_hash": "sha256:d6729f4e17b3d98285e4554a31d2f752f494cde350caf476d88de04d6e80292f"
   },
   "kaseya-bms": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.2",
-    "latest_tag": "kaseya-bms-v0.1.1",
+    "latest_tag": "kaseya-bms-v0.1.2",
     "current_hash": "sha256:24d2b476ddd73fa307fd6f5e4467418c5e861aedec831fa0cf23bb2aee44425d",
     "released_hash": "sha256:24d2b476ddd73fa307fd6f5e4467418c5e861aedec831fa0cf23bb2aee44425d"
   },
   "knowbe4": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.2",
-    "latest_tag": "knowbe4-v0.1.1",
+    "latest_tag": "knowbe4-v0.1.2",
     "current_hash": "sha256:04cca930c657d5847eb21bf702e2555409fdcc82bfd7d5a3fda4ff0a3da227e9",
     "released_hash": "sha256:04cca930c657d5847eb21bf702e2555409fdcc82bfd7d5a3fda4ff0a3da227e9"
   },
   "levelio": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.3",
-    "latest_tag": "levelio-v0.1.2",
+    "latest_tag": "levelio-v0.1.3",
     "current_hash": "sha256:4da50261a10b4f69d2f76f92c92d6664d0d49a005538b01b1a9ef966cb723073",
     "released_hash": "sha256:4da50261a10b4f69d2f76f92c92d6664d0d49a005538b01b1a9ef966cb723073"
   },
