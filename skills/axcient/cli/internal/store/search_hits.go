@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 
 // Hand-authored (NOT generated). SearchHits returns each full-text match paired
 // with its source resource_type, so the CLI's `search` command can render a

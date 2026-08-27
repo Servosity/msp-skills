@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 //
 // Shared helpers for Liongard's store-backed transcendence commands (drift,
 // launchpoints stale / run-stale, environments overview, agents offline,

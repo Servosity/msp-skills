@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-built transcendence layer for betterstack-cli. Not generated.
 //
 // Better Stack Uptime is a JSON:API service: every synced resource is stored in

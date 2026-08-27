@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-authored novel feature. Monitoring-coverage audit: devices Domotz
 // cannot fully monitor — authentication required/wrong or SNMP not
 // authenticated — surfaced fleet-wide. The per-device fields exist in the

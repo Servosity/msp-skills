@@ -1,4 +1,4 @@
-// Copyright 2026 geekbrownbear and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-authored shared helpers for Cork novel (transcendence) commands.
 // Kept in its own file so `generate --force` preserves it.
 

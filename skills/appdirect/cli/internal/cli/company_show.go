@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-implemented novel feature: company 360 view joining the local
 // companies, users, subscriptions, invoices, and opportunities tables.
 // Originally scaffolded by the CLI Printing Press; body is hand-authored.

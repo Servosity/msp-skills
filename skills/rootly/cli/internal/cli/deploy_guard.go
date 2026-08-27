@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Transcendence feature (hand-authored, Phase 3): pre-deploy gate for a service.
 // Joins open + recent incidents to the service and current on-call from the local
 // mirror, returning a non-zero exit (8) when it is unsafe to ship — a gate the

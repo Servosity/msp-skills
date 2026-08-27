@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // `iam-setup` — the low-friction onboarding feature. Emits a tiered
 // least-privilege IAM policy, a one-click CloudFormation template, or an admin
 // bootstrap script granting exactly the read-only permissions this CLI uses.

@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-authored regression tests for the Hudu pagination defects:
 //   - #153: the IPAM-family list endpoints reject the `page_size` filter.
 //   - #158: those same endpoints are in fact NON-paginated — they reject

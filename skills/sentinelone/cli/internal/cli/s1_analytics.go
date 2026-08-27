@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 
 // Shared helpers for the SentinelOne transcendence (novel) commands. These
 // commands query the locally-synced `resources` table (agents, threats, sites,

@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-authored novel feature. Cross-site offline-device rollup: a single
 // prioritized list of every unreachable device across all sites, which the
 // agent-scoped Domotz API can only answer one agent at a time.

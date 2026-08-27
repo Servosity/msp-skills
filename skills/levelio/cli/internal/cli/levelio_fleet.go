@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-built transcendence support for levelio-cli: shared entity types,
 // store loaders, and pure-logic helpers used by the offline fleet-analytics
 // commands (at-risk, fleet, stale, patch-posture, alert-triage, security-posture,

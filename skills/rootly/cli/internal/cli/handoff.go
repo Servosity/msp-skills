@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Transcendence feature (hand-authored, Phase 3): end-of-shift handoff summary.
 // Windows incidents + action items to a time range from the local mirror.
 // Matches Rootly's remote get_oncall_handoff_summary, offline.

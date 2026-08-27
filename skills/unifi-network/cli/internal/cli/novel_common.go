@@ -1,4 +1,4 @@
-// Copyright 2026 Ricardo Cabral and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-authored support code for the novel (transcendence) commands: topology,
 // drift, newcomer, port-audit, guest report, rule-predict.
 // Not generator output.

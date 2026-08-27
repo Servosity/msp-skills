@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 
 // Hand-authored tests for the concise `search` projection (issue #101 / #84
 // residual item #2): the default view is id/name/type/match, and --full

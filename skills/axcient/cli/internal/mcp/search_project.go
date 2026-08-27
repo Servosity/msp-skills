@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 
 // Hand-authored (NOT generated). Concise-projection for the MCP `search` tool.
 // Issue #101 residual item #2: the v0.2.4 fix gave the CLI `search` command a

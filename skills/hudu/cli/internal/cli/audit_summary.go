@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-authored transcendence feature: multi-tenant hygiene rollup. Synthesizes
 // the four per-dimension audits (completeness, stale passwords, expirations due,
 // stale articles) into one worst-first scorecard per company from the local

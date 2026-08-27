@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-authored novel-feature command (Printing Press transcendence): the
 // tenant exposure trend. Diffs the current sync's per-tenant posture snapshot
 // against the prior one retained in the local store — degradation detection

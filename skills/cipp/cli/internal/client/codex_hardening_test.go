@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-authored novel feature (preserved across regen). Regression tests for the
 // findings an independent Codex review raised against the client-credentials
 // re-mint. Each test is written to FAIL against the code as it stood before the

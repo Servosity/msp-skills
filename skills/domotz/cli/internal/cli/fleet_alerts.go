@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-authored novel feature. Fleet alert-profile rollup: the alerting rules
 // configured across the fleet, aggregated from the local store. The API exposes
 // alert profiles and their bindings piecemeal.

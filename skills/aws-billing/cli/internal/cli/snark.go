@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Opt-in Corey-Quinn-flavored voice layer. Deterministic static phrase bank
 // keyed to billing signals — no LLM call, suppressed under --json, off by
 // default. Enable with --snark.

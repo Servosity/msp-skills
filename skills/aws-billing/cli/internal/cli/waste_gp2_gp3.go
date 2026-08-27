@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // `waste gp2-gp3` — gp2 EBS volumes with the exact monthly dollars saved by converting to gp3.
 //
 // pp:client-call

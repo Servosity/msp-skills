@@ -1,4 +1,4 @@
-// Copyright 2026 Abhi Saini and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 //
 // Hand-authored shared plumbing for the ImmyBot novel commands. Kept in its own
 // file so `generate --force` preserves it.

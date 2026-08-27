@@ -1,4 +1,4 @@
-// Copyright 2026 Abhi Saini and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 //
 // Behavioural acceptance for the ImmyBot novel commands. These seed a real
 // SQLite mirror and assert on output CONTENT, not just exit codes: a command

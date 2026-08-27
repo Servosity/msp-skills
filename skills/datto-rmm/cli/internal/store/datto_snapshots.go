@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 //
 // Hand-authored: fleet snapshot tables for the `fleet snapshot` / `fleet diff`
 // novel commands. Snapshots freeze the current `resources` rows under a label

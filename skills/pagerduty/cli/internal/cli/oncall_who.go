@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 //
 // oncall who: resolves who is on call right now (and who is on next, and the
 // handoff time) by reading the synced on-call entries — optionally scoped to a

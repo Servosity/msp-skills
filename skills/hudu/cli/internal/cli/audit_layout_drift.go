@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-authored transcendence feature: layout-drift detector. Surfaces
 // post-migration residue by joining each asset's custom_fields against its
 // layout's current schema in the local mirror — assets carrying fields the

@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // `waste` — read-only AWS waste hunters. Each subcommand surfaces candidates
 // with an estimated monthly dollar figure and the remediation step; it never
 // mutates AWS.

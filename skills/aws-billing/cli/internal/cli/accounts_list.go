@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // `accounts list` — list synced AWS Organizations accounts from the local
 // store. Empty-tolerant: returns [] (exit 0) with a hint when nothing is
 // synced, rather than erroring (the accounts table only fills from a

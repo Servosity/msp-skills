@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-authored transcendence support (Printing Press Phase 3). Shared by the
 // novel-feature commands (related, war-room, mttr, coverage-gaps, etc.). These
 // read ONLY the local SQLite mirror — no live API call, no credential needed to

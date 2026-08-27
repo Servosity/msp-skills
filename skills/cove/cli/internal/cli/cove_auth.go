@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-built auth lifecycle for Cove's Login→visa session model. The visa
 // lives inside the JSON-RPC body, so this command group — not the generated
 // header-based auth — owns credentials for every hand-built command.

@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Unit tests for the pure transcendence helpers: duration parsing, formatting,
 // tokenization, TF-IDF ranking, JSON:API name navigation, and open-state logic.
 

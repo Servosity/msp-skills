@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Transcendence feature (hand-authored, Phase 3): per-person on-call burden over
 // a window — hours on call, shift count, and pages received while on shift —
 // across ALL schedules. No Rootly screen or endpoint totals this per person.

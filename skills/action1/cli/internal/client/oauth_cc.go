@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-wired client-credentials token minting for the Action1 API.
 //
 // Action1's OAuth2 token endpoint is a quirk: the spec declares a "password"

@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Transcendence feature (hand-authored, Phase 3): the "what did I miss" view.
 // Windows incidents, timeline events, action items, and alerts to a --since
 // bound in one local query — a portfolio-wide rollup no single API call returns.

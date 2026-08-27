@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-authored novel command: auth login - exchanges BMS username/password/
 // tenant for a JWT via POST /v2/security/authenticate and stores it in the
 // config file, so every other command can send Authorization: Bearer <jwt>.

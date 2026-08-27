@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 //
 // Autotask zone helpers, hand-authored alongside the generated config.go.
 // Autotask's REST API lives on a tenant-specific numbered zone

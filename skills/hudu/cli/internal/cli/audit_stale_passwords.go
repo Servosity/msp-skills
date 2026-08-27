@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-authored transcendence feature: stale-password audit. Fills Hudu's #1
 // unmet feature request (native password expiration) by computing rotation age
 // from the local mirror. Never reads or stores the secret — name/username only.

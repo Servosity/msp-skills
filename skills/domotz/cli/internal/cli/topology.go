@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-authored novel feature. Network topology summary for a site: edge/node
 // counts and the highest-degree devices (the gateways/switches everything hangs
 // off). Fetches live and caches to the local store so it can be re-queried

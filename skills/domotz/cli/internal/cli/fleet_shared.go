@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-authored novel-feature support: shared helpers for the cross-fleet
 // (transcendence) commands. These commands answer questions the agent-scoped
 // Domotz Public API cannot answer in a single call by reading the local

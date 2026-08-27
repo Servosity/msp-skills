@@ -1,4 +1,4 @@
-// Copyright 2026 servosity. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 
 // Package qbrreport assembles and renders the Quarterly Business Review
 // backup report for a single client. The package owns the data shape, the

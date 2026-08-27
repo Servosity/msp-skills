@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 
 // Hand-authored (NOT generated). Concise-projection renderer for `search`.
 // By default `search` shows id/name/type/match rows instead of dumping whole

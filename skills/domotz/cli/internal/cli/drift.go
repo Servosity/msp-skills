@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-authored novel feature. Config/inventory drift for a site: diffs the
 // current synced device state against the previously-captured snapshot to
 // surface what changed (added/removed devices, status changes) over time — a

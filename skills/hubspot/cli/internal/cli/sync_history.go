@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-authored helpers behind `sync --with-history`: HubSpot propertiesWithHistory
 // capture into the hubspot_property_history table. Lives beside the generated
 // sync.go so regen-merge preserves it whole; sync.go carries only the small

@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-authored novel feature. WAN speed-test trends across the fleet: per-site
 // latest download/upload plus a fleet min/avg/max and worst-site ranking. The
 // API returns speed history one agent at a time. Live fan-out across agents.

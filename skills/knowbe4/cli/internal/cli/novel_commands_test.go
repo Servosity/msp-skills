@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Smoke tests for the hand-built transcendence + User Event commands. Behavioral
 // correctness of the analytics lives in internal/insights; these assert the
 // commands construct, expose their flags, and short-circuit cleanly under

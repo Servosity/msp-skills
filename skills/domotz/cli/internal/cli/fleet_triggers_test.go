@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Tests for the fleet triggers (down-sensor sweep) command: TCP eye decoding
 // across the API's id shapes (numbers and strings), DOWN filtering, and the
 // live-only data-source contract.
