@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-08-26",
+  "generated_at": "2026-08-27",
   "skills": [
     {
       "name": "msp-skills-concierge",
@@ -90,7 +90,7 @@
       "skill_path": "skills/afi",
       "cli_binary": "afi-cli",
       "mcp_binary": "afi-mcp",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "printing_press_version": "4.24.0",
       "license": "Apache-2.0",
       "vendor": "Afi",
@@ -130,7 +130,7 @@
       "skill_path": "skills/atera",
       "cli_binary": "atera-cli",
       "mcp_binary": "atera-mcp",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "printing_press_version": "4.24.0",
       "license": "Apache-2.0",
       "vendor": "Atera",
@@ -687,7 +687,7 @@
       "skill_path": "skills/levelio",
       "cli_binary": "levelio-cli",
       "mcp_binary": "levelio-mcp",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "printing_press_version": "4.24.0",
       "license": "Apache-2.0",
       "vendor": "Level",
@@ -826,7 +826,7 @@
       "skill_path": "skills/ninjaone",
       "cli_binary": "ninjaone-cli",
       "mcp_binary": "ninjaone-mcp",
-      "version": "0.1.10",
+      "version": "0.1.11",
       "printing_press_version": "4.24.0",
       "license": "Apache-2.0",
       "vendor": "NinjaOne",

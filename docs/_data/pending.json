@@ -21,11 +21,11 @@
     "released_hash": "sha256:86a501dc43ffec086e1516a1b070ae8a12b99fd5cb5bd47b6fe2c1ddb5272ca2"
   },
   "afi": {
-    "state": "binary-pending",
-    "version": "0.1.1",
+    "state": "up-to-date",
+    "version": "0.1.2",
     "latest_tag": "afi-v0.1.2",
     "current_hash": "sha256:8669176f01aea2cbce0bb23ccf4b1ab1c2ae88ecc9226e77b452782dbd8b3d47",
-    "released_hash": "sha256:71d19eb7aac68b0061e818fe78382c4d9333c78042fb826129b1c4c255e7d768"
+    "released_hash": "sha256:8669176f01aea2cbce0bb23ccf4b1ab1c2ae88ecc9226e77b452782dbd8b3d47"
   },
   "appdirect": {
     "state": "binary-pending",
@@ -35,11 +35,11 @@
     "released_hash": "sha256:ddadb896fc5b0b78c357074181d88d2faae6243e8d35e464a9cd440dda2365fc"
   },
   "atera": {
-    "state": "binary-pending",
-    "version": "0.1.1",
+    "state": "up-to-date",
+    "version": "0.1.2",
     "latest_tag": "atera-v0.1.2",
     "current_hash": "sha256:ed69537acb66bc47840db9c96bad486d58ea7631630a8f2029261454a175dca0",
-    "released_hash": "sha256:02e56e4f3a77d0a9803042e94f216f21726c4877f1da267a2332a282e9468183"
+    "released_hash": "sha256:ed69537acb66bc47840db9c96bad486d58ea7631630a8f2029261454a175dca0"
   },
   "autotask": {
     "state": "binary-pending",
@@ -231,11 +231,11 @@
     "released_hash": "sha256:ddf0b83cb221f3d14899a11201b9a369f0cfe66d3949b0ba473e58425ec81487"
   },
   "levelio": {
-    "state": "binary-pending",
-    "version": "0.1.1",
+    "state": "up-to-date",
+    "version": "0.1.2",
     "latest_tag": "levelio-v0.1.2",
     "current_hash": "sha256:4da50261a10b4f69d2f76f92c92d6664d0d49a005538b01b1a9ef966cb723073",
-    "released_hash": "sha256:5604cb96f4124655ffd3c9cbea7f8c3f32f8e123ec959083d58bb2db36c9fe72"
+    "released_hash": "sha256:4da50261a10b4f69d2f76f92c92d6664d0d49a005538b01b1a9ef966cb723073"
   },
   "liongard": {
     "state": "binary-pending",
@@ -287,11 +287,11 @@
     "released_hash": "sha256:cb26f1a738806b6c1cf990de1f15be8ce3df19a7dbc2e8d50caa1ba36e9ee007"
   },
   "ninjaone": {
-    "state": "binary-pending",
-    "version": "0.1.10",
+    "state": "up-to-date",
+    "version": "0.1.11",
     "latest_tag": "ninjaone-v0.1.11",
     "current_hash": "sha256:73fb1771450978e5d5d566fb0f6eb86ef079ac21222403c4f5e6de77ecb21735",
-    "released_hash": "sha256:d55e3e61bc9e0152579b381658d53bcb476c6eead70c64c2d87885c9d2ef288f"
+    "released_hash": "sha256:73fb1771450978e5d5d566fb0f6eb86ef079ac21222403c4f5e6de77ecb21735"
   },
   "pagerduty": {
     "state": "binary-pending",
