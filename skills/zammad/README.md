@@ -46,7 +46,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download Zammad MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/zammad-v0.1.2/zammad-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Zammad release on the [releases page](https://github.com/servosity/msp-skills/releases?q=zammad).)
+[**Download Zammad MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/zammad-v0.1.3/zammad-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Zammad release on the [releases page](https://github.com/servosity/msp-skills/releases?q=zammad).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 

@@ -46,7 +46,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download Tactical RMM MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/tactical-rmm-v0.1.1/tactical-rmm-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Tactical RMM release on the [releases page](https://github.com/servosity/msp-skills/releases?q=tactical-rmm).)
+[**Download Tactical RMM MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/tactical-rmm-v0.1.2/tactical-rmm-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Tactical RMM release on the [releases page](https://github.com/servosity/msp-skills/releases?q=tactical-rmm).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 

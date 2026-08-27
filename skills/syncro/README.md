@@ -46,7 +46,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download Syncro MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/syncro-v0.1.1/syncro-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Syncro release on the [releases page](https://github.com/servosity/msp-skills/releases?q=syncro).)
+[**Download Syncro MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/syncro-v0.1.2/syncro-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Syncro release on the [releases page](https://github.com/servosity/msp-skills/releases?q=syncro).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 

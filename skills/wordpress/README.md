@@ -46,7 +46,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download WordPress MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/wordpress-v0.1.2/wordpress-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every WordPress release on the [releases page](https://github.com/servosity/msp-skills/releases?q=wordpress).)
+[**Download WordPress MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/wordpress-v0.1.3/wordpress-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every WordPress release on the [releases page](https://github.com/servosity/msp-skills/releases?q=wordpress).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
