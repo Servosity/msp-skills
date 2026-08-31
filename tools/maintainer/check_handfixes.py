@@ -800,9 +800,17 @@ def _base_reader(base: str, slug: str):
     The ratchet has to know whether an assert was ALREADY weak before this
     change, and weakness is a property of (assert, target file). Reading the
     target from the working tree while linting the base ledger would compare
-    two different things and mislabel a pre-existing weakness as new."""
+    two different things and mislabel a pre-existing weakness as new.
+
+    Memoized per file: the largest ledger carries 115 asserts across 37 distinct
+    files, so without the cache one touched ledger spawns roughly one `git show`
+    process per assert to fetch the same three dozen blobs."""
+    cache: dict[str, str | None] = {}
+
     def read(rel: str) -> str | None:
-        return _show(base, f"skills/{slug}/{rel}")
+        if rel not in cache:
+            cache[rel] = _show(base, f"skills/{slug}/{rel}")
+        return cache[rel]
     return read
 
 
