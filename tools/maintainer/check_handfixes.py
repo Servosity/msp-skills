@@ -129,6 +129,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections import Counter
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
@@ -732,6 +733,11 @@ def changed(base: str, allow_missing_base: bool = False) -> int:
     #   * leaving an assert alone while editing the ledger and changing the
     #     guarded file so the needle survives only in comments -> also fires:
     #     same identity, not weak at base, weak now.
+    #   * a SECOND copy of an identity that was already weak once -> fires. The
+    #     tally is a multiset, not a set: N weak at base exempts exactly N weak
+    #     now, so duplicating a weak assert is still adding one. Duplicate
+    #     identities are a real shape here, not a hypothetical - axcient carries
+    #     two asserts with identical (file, needle, min_count) today.
     #
     # An entry-level comparison (the first cut of this ratchet) got the first
     # case wrong: any edit to an entry re-linted every assert inside it, so a
@@ -745,17 +751,18 @@ def changed(base: str, allow_missing_base: bool = False) -> int:
         if err or data is None:
             continue  # the ledger gate itself reports an unreadable ledger
         base_entries = _entries_at_base(base, rel)
-        if base_entries is None:
-            already_weak: set[str] = set()  # brand-new ledger: nothing pre-exists
-        else:
-            already_weak = {
+        already_weak: Counter[str] = Counter()
+        if base_entries is not None:  # None == brand-new ledger: nothing pre-exists
+            already_weak = Counter(
                 w.identity()
                 for w in lint_entries(slug, skill_dir, base_entries,
                                       read_file=_base_reader(base, slug))
-            }
+            )
         for w in lint_entries(slug, skill_dir, data["handfixes"]):
-            if w.identity() not in already_weak:
-                weak_new.append(w)
+            if already_weak[w.identity()] > 0:
+                already_weak[w.identity()] -= 1  # spend one pre-existing allowance
+                continue
+            weak_new.append(w)
 
     if failures or weak_new:
         if failures:
@@ -842,6 +849,8 @@ def _self_test_ratchet() -> list[str]:
         C  a new entry whose asserts are all strong                     -> PASS
         D  an untouched assert the change WEAKENS (the guarded code moves
            into a comment)                                              -> FAIL
+        E  a SECOND copy of an already-weak assert identity             -> FAIL
+           (the tally is a multiset: N weak at base exempts exactly N)
 
     Returns a list of failure strings (empty == proved).
     """
@@ -925,6 +934,15 @@ def _self_test_ratchet() -> list[str]:
             out.append("ratchet case B: the NEW weak assert must be the one reported")
         if "min_count" not in text_b and needle in text_b.replace("scheme prefix", ""):
             out.append("ratchet case B: the pre-existing weak assert must NOT be re-reported")
+
+        # E: duplicating an already-weak identity is still ADDING one. A
+        # set-based tally would exempt it because "that identity was weak at
+        # base"; the multiset spends one allowance per pre-existing copy.
+        def duplicate_weak():
+            e = json.loads(json.dumps(base_entries))
+            e[0]["asserts"].append(dict(weak_assert))
+            (skill / "handfixes.json").write_text(ledger(e), encoding="utf-8")
+        run_case("E-duplicate-weak-assert", duplicate_weak, 1)
 
         # C: a whole new entry whose asserts are strong.
         def add_strong_entry():
