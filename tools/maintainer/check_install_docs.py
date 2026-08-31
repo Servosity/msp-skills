@@ -70,8 +70,8 @@ Scope notes, so the docstring and the code agree:
 * R4 fires on the npm-scoped spelling `@mvanhorn/printing-press-library`
   anywhere, and on the bare repo path `mvanhorn/printing-press-library` when the
   line also carries an install verb (`npx`, `go install`, `curl ... | sh`, ...).
-  The bare path on its own is legitimate release-ledger prose - every
-  AGENTS.md carries it - so it is not banned outright.
+  The bare path on its own is legitimate release-ledger prose - 63 of the 65
+  AGENTS.md files carry it - so it is not banned outright.
 * AGENTS.md is scanned too, for that reason: it is the surface where the bare
   path lives, and the gate has to be able to see it to tell the two apart.
 
