@@ -10,9 +10,9 @@ faqs:
   - q: "Is there an MCP server for ImmyBot?"
     a: "Yes - this one. A free, open source MCP server and Claude Code Skill for ImmyBot, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds."
   - q: "Is the ImmyBot MCP server safe for client data?"
-    a: "Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
+    a: "Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Three paths can move data off the machine, all opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `IMMYBOT_FEEDBACK_AUTO_SEND=true` mails feedback you wrote to the maintainers; `--transport http` opens a local MCP listener you then choose whether to expose. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
-    a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local ImmyBot MCP server via a secure bridge. Step-by-step in the install guide."
+    a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, but immybot-mcp speaks HTTP natively: run `immybot-mcp --transport http --addr :7777` and put its /mcp endpoint behind an HTTPS tunnel or your own reverse proxy. Step-by-step in the install guide."
   - q: "Do I need to know how to code?"
     a: "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
   - q: "What does it cost?"
@@ -29,7 +29,7 @@ howto:
   - name: "Run the one-line installer"
     text: "macOS/Linux: bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/immybot/install.sh) - Windows PowerShell: iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/immybot/install.ps1 | iex"
   - name: "Authenticate"
-    text: "Enter your ImmyBot credentials once; immybot-cli doctor confirms they work."
+    text: "Enter your ImmyBot credentials once, then run immybot-cli doctor to check the install."
   - name: "Ask your first question"
     text: "Ask your AI agent a ImmyBot question in plain language; it runs immybot-cli for you."
 ---
@@ -42,7 +42,7 @@ howto:
 
 **✓ Live-verified by @geekbrownbear (MSP)** against a production tenant · 2026-08-22 · [receipt →](https://github.com/Servosity/msp-skills/pull/276).
 
-Yes - there is an MCP server for ImmyBot. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects ImmyBot to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
+Yes - there is an MCP server for ImmyBot. It's free, open source, and runs on your own machine, so your client data stays local unless you route it somewhere yourself. It connects ImmyBot to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
 Ask "what failed in last night's maintenance window?" and get back a handful of distinct root causes instead of the same error read off forty machines. ImmyBot's API is entirely per-tenant, so the questions that matter most span calls the web UI never joins. This skill types every endpoint, mirrors the fleet into local SQLite with full-text search, and adds the joins on top: which deployment rule actually won on a given machine, how one software title is spread across every tenant, what changed since last night, and which computers silently never finished onboarding.
 
@@ -144,11 +144,11 @@ Yes - this one. A free, open source MCP server and Claude Code Skill for ImmyBot
 
 ### Is the ImmyBot MCP server safe for client data?
 
-Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
+Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Three paths can move data off the machine, all opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `IMMYBOT_FEEDBACK_AUTO_SEND=true` mails feedback you wrote to the maintainers; `--transport http` opens a local MCP listener you then choose whether to expose. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
 
 ### Does this work with ChatGPT?
 
-Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local ImmyBot MCP server via a secure bridge. Step-by-step in the install guide.
+Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, but immybot-mcp speaks HTTP natively: run `immybot-mcp --transport http --addr :7777` and put its /mcp endpoint behind an HTTPS tunnel or your own reverse proxy. Step-by-step in the install guide.
 
 ### Do I need to know how to code?
 

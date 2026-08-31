@@ -27,7 +27,7 @@ The six agents MSP owners actually use (self-serve, works today):
 | **Claude Cowork** | Paste the install prompt below. |
 | **GitHub Copilot** (VS Code) | Run installer, add `superops-mcp` to `mcp.json` under the `servers` key, then pick **Agent** mode. |
 
-For ChatGPT, the SuperOps MCP server is stdio - to use it with ChatGPT you expose it over HTTPS via the `mcp-remote` bridge or your own endpoint. See [mcp-install.md](./mcp-install.md).
+For ChatGPT, run `superops-mcp --transport http` and expose that behind HTTPS - no bridge package is needed. See [mcp-install.md](./mcp-install.md).
 
 ### Also for the Microsoft and Google stacks
 
@@ -45,6 +45,8 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 ## Install in 60 seconds
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
+
+> **Interim note on `.mcpb`:** the bundles published so far cannot launch - the bundle manifest names a binary the archive does not contain ([#287](https://github.com/Servosity/msp-skills/issues/287)). The builder fix is in flight; until a rebuilt bundle ships, use Path A or Path B below and wire Claude Desktop up through [mcp-install.md](./mcp-install.md).
 
 [**Download SuperOps MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/superops-v0.1.6/superops-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every SuperOps release on the [releases page](https://github.com/servosity/msp-skills/releases?q=superops).)
 
@@ -144,7 +146,7 @@ export SUPEROPS_REGION=us                            # or eu for euapi.superops.
 superops-cli doctor
 ```
 
-`doctor` confirms the credentials work before you run anything that touches data. The
+`doctor` confirms the credentials work before you run anything that touches data. It exits 0 even when the credential is rejected, so scripts should add `--fail-on error`. The
 **scope of the token you mint** is the permission boundary - the CLI can only do what
 that token is allowed to do.
 
@@ -202,7 +204,7 @@ These views are computed from what the SuperOps list API actually exposes, and t
 
 ### Does this work with ChatGPT?
 
-Yes, on **Plus, Pro, Team, Business, Enterprise, and Education** plans (Free tier does not yet expose Developer Mode). ChatGPT connects to **remote** MCP servers over HTTPS, not local stdio binaries. The SuperOps MCP server is local, so for ChatGPT you expose it via the `mcp-remote` bridge or your own HTTPS endpoint. Step-by-step in [mcp-install.md](./mcp-install.md).
+Yes, on **Plus, Pro, Team, Business, Enterprise, and Education** plans (Free tier does not yet expose Developer Mode). ChatGPT connects to **remote** MCP servers over HTTPS, not local stdio binaries. The SuperOps MCP server runs locally, but it speaks HTTP natively: start it with `superops-mcp --transport http --addr :7777` and put it behind an HTTPS tunnel or your own reverse proxy. No bridge package is involved. Step-by-step in [mcp-install.md](./mcp-install.md).
 
 ### Does this work with Codex, Cursor, Windsurf, Cline, Copilot, or Gemini?
 

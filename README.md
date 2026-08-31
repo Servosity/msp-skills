@@ -284,7 +284,7 @@ These skills hold privileged, multi-tenant access to systems that run MSP busine
 
 ### Does this work with ChatGPT?
 
-Yes, on **Plus, Pro, Team, Business, Enterprise, and Education** plans (Free tier does not yet expose Developer Mode). ChatGPT connects to **remote** MCP servers over HTTPS, not to local binaries directly. MSP Skills ships local binaries, so to use them with ChatGPT you run them on your machine and expose them via the `mcp-remote` bridge or your own HTTPS endpoint. Step-by-step: each skill's `mcp-install.md`.
+Yes, on **Plus, Pro, Team, Business, Enterprise, and Education** plans (Free tier does not yet expose Developer Mode). ChatGPT connects to **remote** MCP servers over HTTPS, not to local binaries directly. MSP Skills ships local binaries. Most of them serve Streamable HTTP themselves - run one with `--transport http` and put its `/mcp` endpoint behind an HTTPS tunnel; the six stdio-only connectors go behind a `supergateway` bridge instead. Step-by-step, per connector: each skill's `mcp-install.md`.
 
 ### Does this work with Claude?
 

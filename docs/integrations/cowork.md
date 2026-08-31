@@ -32,7 +32,7 @@ Cowork detects your shell, runs the installer, walks authentication, and confirm
 
 ## Alternative: MCP Connector path
 
-Cowork also supports remote/HTTPS MCP servers via its Settings > Customize > Connectors UI - that's the Composio pattern documented for HubSpot and similar integrations. **For MSP Skills' local stdio binaries, the paste-prompt above is the simpler path.** If you want to expose the MCP server over HTTPS instead (e.g. for team-wide access from a shared host), use the `mcp-remote` bridge documented in each skill's `mcp-install.md`.
+Cowork also supports remote/HTTPS MCP servers via its Settings > Customize > Connectors UI - that's the Composio pattern documented for HubSpot and similar integrations. **For MSP Skills' local stdio binaries, the paste-prompt above is the simpler path.** If you want to expose the MCP server over HTTPS instead (e.g. for team-wide access from a shared host), follow the remote-agent section of the skill's `mcp-install.md`: most binaries serve Streamable HTTP themselves with `--transport http` at the `/mcp` path, and the stdio-only ones go behind a `supergateway` bridge.
 
 ## Use the skill
 

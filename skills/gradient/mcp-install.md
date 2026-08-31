@@ -113,10 +113,12 @@ in HTTP mode with your credentials in the environment:
 GRADIENT_BASE_URL=<value> GRADIENT_PARTNER_API_KEY=<value> GRADIENT_TOKEN=<value> GRADIENT_VENDOR_API_KEY=<value> gradient-mcp --transport http --addr :7777
 ```
 
-Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel
-(Cloudflare Tunnel, ngrok) or your own reverse proxy. **Treat that URL as
-sensitive** - it's a key to your MCP server. Never expose it bare on the internet;
-gate it behind SSO / Cloudflare Access for team use.
+Then expose `http://localhost:7777/mcp` as a public HTTPS URL via a secure tunnel
+(Cloudflare Tunnel, ngrok) or your own reverse proxy. The path is part of the
+endpoint: the server answers Streamable HTTP at `/mcp` and returns 404 at the
+bare root, so a connector pointed at the root URL never handshakes. **Treat that
+URL as sensitive** - it's a key to your MCP server. Never expose it bare on the
+internet; gate it behind SSO / Cloudflare Access for team use.
 
 ## ChatGPT (Developer Mode)
 

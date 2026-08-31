@@ -10,9 +10,9 @@ faqs:
   - q: "Is there an MCP server for HubSpot?"
     a: "Yes - this one. A free, open source MCP server and Claude Code Skill for HubSpot, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds."
   - q: "Is the HubSpot MCP server safe for client data?"
-    a: "Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
+    a: "Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Three paths can move data off the machine, all opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `HUBSPOT_FEEDBACK_AUTO_SEND=true` mails feedback you wrote to the maintainers; `--transport http` opens a local MCP listener you then choose whether to expose. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
-    a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local HubSpot MCP server via a secure bridge. Step-by-step in the install guide."
+    a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, but hubspot-mcp speaks HTTP natively: run `hubspot-mcp --transport http --addr :7777` and put its /mcp endpoint behind an HTTPS tunnel or your own reverse proxy. Step-by-step in the install guide."
   - q: "Do I need to know how to code?"
     a: "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
   - q: "Is my HubSpot data safe?"
@@ -29,7 +29,7 @@ howto:
   - name: "Run the one-line installer"
     text: "macOS/Linux: bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/hubspot/install.sh) - Windows PowerShell: iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/hubspot/install.ps1 | iex"
   - name: "Authenticate"
-    text: "Enter your HubSpot credentials once; hubspot-cli doctor confirms they work."
+    text: "Enter your HubSpot credentials once, then run hubspot-cli doctor to check the install."
   - name: "Ask your first question"
     text: "Ask your AI agent a HubSpot question in plain language; it runs hubspot-cli for you."
 ---
@@ -42,7 +42,7 @@ howto:
 
 **✓ Live-verified by Servosity (maintainer)** against a production tenant · 2026-06-05.
 
-Yes - there is an MCP server for HubSpot. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects HubSpot to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
+Yes - there is an MCP server for HubSpot. It's free, open source, and runs on your own machine, so your client data stays local unless you route it somewhere yourself. It connects HubSpot to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
 MSPs run HubSpot as the sales CRM - pipeline, deals, quote-chasing. Ask your AI "which deals went cold," "what's my pipeline health," or "who do I call today," and get an answer the portal can't compose: cross-object rollups across deals, contacts, owners, and engagements, computed offline in one query instead of a dozen exports and saved views.
 
@@ -144,11 +144,11 @@ Yes - this one. A free, open source MCP server and Claude Code Skill for HubSpot
 
 ### Is the HubSpot MCP server safe for client data?
 
-Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
+Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Three paths can move data off the machine, all opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `HUBSPOT_FEEDBACK_AUTO_SEND=true` mails feedback you wrote to the maintainers; `--transport http` opens a local MCP listener you then choose whether to expose. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
 
 ### Does this work with ChatGPT?
 
-Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local HubSpot MCP server via a secure bridge. Step-by-step in the install guide.
+Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, but hubspot-mcp speaks HTTP natively: run `hubspot-mcp --transport http --addr :7777` and put its /mcp endpoint behind an HTTPS tunnel or your own reverse proxy. Step-by-step in the install guide.
 
 ### Do I need to know how to code?
 

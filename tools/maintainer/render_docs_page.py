@@ -23,6 +23,7 @@ Pure stdlib. Invoked automatically by build-catalog.py.
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -52,6 +53,35 @@ def banner(vendor: str, owner: str, first_party: bool) -> str:
         "> under Apache-2.0 - built for the MSP community, vendor-neutral by design.\n"
         f"> Not affiliated with, endorsed by, or sponsored by {owner}."
     )
+
+
+def feedback_env_var(skill_dir: Path) -> str | None:
+    """The connector's own <PREFIX>_FEEDBACK_AUTO_SEND variable, read from source.
+
+    The prefix is NOT derivable from the slug (unifi-network reads UNIFI_*), so
+    the page quotes what internal/cli/feedback.go actually calls os.Getenv on.
+    """
+    src = skill_dir / "cli" / "internal" / "cli" / "feedback.go"
+    try:
+        m = re.search(r'os\.Getenv\("([A-Z0-9_]+_FEEDBACK_AUTO_SEND)"\)',
+                      src.read_text(encoding="utf-8"))
+    except OSError:
+        return None
+    return m.group(1) if m else None
+
+
+def serves_http(skill_dir: Path) -> bool:
+    """Does this connector's MCP binary parse --transport, and so open a listener?
+
+    6 of 65 do not: their main() calls server.ServeStdio directly, so the flag is
+    inert and no listener exists to describe. Read from cmd/<slug>-mcp/main.go
+    rather than assumed, because it is spec-driven and varies within one press
+    version. See issue #241.
+    """
+    mains = sorted((skill_dir / "cli" / "cmd").glob("*-mcp/main.go"))
+    if not mains:
+        return False
+    return 'flag.String("transport"' in mains[0].read_text(encoding="utf-8")
 
 
 def sibling_links_block(slug: str, entry: dict) -> str:
@@ -122,12 +152,36 @@ def render_page(slug: str) -> Path:
     # The literal direct answer AI search engines (and skimming MSP owners)
     # reward: the page answers its own title before anything else. Rendered as
     # the FIRST prose paragraph; check_aeo asserts it on every skill page.
+    #
+    # "never leaves your network" used to be stated here as an absolute. It is
+    # not one: every connector ships `--deliver webhook:<url>`, a
+    # <PREFIX>_FEEDBACK_AUTO_SEND path, and (on 59 of 65) a `--transport http`
+    # listener. All three are opt-in and operator-driven, which is what the
+    # wording now says - the claim is scoped, not dropped. See issue #240.
     direct_answer = (
         f"Yes - there is an MCP server for {display}. It's free, open source, "
-        "and runs on your own machine, so your client data never leaves your "
-        f"network. It connects {display} to Claude, ChatGPT, Copilot, or any "
-        "MCP-capable agent, and installs in about 60 seconds."
+        "and runs on your own machine, so your client data stays local unless "
+        f"you route it somewhere yourself. It connects {display} to Claude, "
+        "ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 "
+        "seconds."
     )
+
+    # The egress paths this connector actually ships, named so the safety FAQ
+    # scopes its promise instead of asserting an absolute the binary contradicts.
+    # Each is opt-in and operator-driven; none fires on its own.
+    egress = ["`--deliver webhook:<url>` posts a command's output to a URL you name"]
+    fb_var = feedback_env_var(skill_dir)
+    if fb_var:
+        egress.append(f"`{fb_var}=true` mails feedback you wrote to the maintainers")
+    if serves_http(skill_dir):
+        egress.append("`--transport http` opens a local MCP listener you then choose "
+                      "whether to expose")
+    egress_sentence = (
+        "Three paths can move data off the machine, all opt-in: "
+        if len(egress) == 3 else
+        f"{'Two paths' if len(egress) == 2 else 'One path'} can move data off the "
+        f"machine, {'both' if len(egress) == 2 else 'and it is'} opt-in: "
+    ) + "; ".join(egress) + "."
 
     # Two generator-level FAQs every skill page carries (AEO: the exact
     # questions MSPs type into AI search), ahead of the page.json FAQs.
@@ -144,12 +198,14 @@ def render_page(slug: str) -> Path:
         {
             "q": f"Is the {display} MCP server safe for client data?",
             "a": (
-                "Yes, by design. The CLI, the MCP server, and any local data "
-                "mirror run on your own machine - nothing is sent to MSP Skills "
-                "or any third party. Credentials stay in your environment, and "
-                "every command is safety-tiered (read, write, destructive) so "
-                "your agent only gets the permissions you grant. Full policy in "
-                "the safety model on this page."
+                "Yes, by design - and the exceptions are ones you switch on "
+                "yourself. The CLI, the MCP server, and any local data mirror run "
+                "on your own machine, and nothing is sent to MSP Skills or any "
+                f"third party unless you ask for it. {egress_sentence} "
+                "Credentials stay in your environment, and every command is "
+                "safety-tiered (read, write, destructive) so your agent only gets "
+                "the permissions you grant. Full policy in the safety model on "
+                "this page."
             ),
         },
     ]
@@ -163,7 +219,7 @@ def render_page(slug: str) -> Path:
         f'  - name: "Run the one-line installer"\n'
         f'    text: "macOS/Linux: bash <(curl -fsSL https://raw.githubusercontent.com/{OWNER_TITLE}/{REPO}/main/skills/{slug}/install.sh) - Windows PowerShell: iwr -useb https://raw.githubusercontent.com/{OWNER_TITLE}/{REPO}/main/skills/{slug}/install.ps1 | iex"\n'
         f'  - name: "Authenticate"\n'
-        f'    text: "Enter your {display} credentials once; {cli_bin} doctor confirms they work."\n'
+        f'    text: "Enter your {display} credentials once, then run {cli_bin} doctor to check the install."\n'
         f'  - name: "Ask your first question"\n'
         f'    text: "Ask your AI agent a {display} question in plain language; it runs {cli_bin} for you."\n'
     )

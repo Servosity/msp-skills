@@ -27,7 +27,7 @@ The six agents MSP owners actually use (self-serve, works today):
 | **Claude Cowork** | Paste the install prompt below. |
 | **GitHub Copilot** (VS Code) | Run installer, add `tactical-rmm-mcp` to `mcp.json` under the `servers` key, then pick **Agent** mode. |
 
-For ChatGPT, the Tactical RMM MCP server is stdio - to use it with ChatGPT you expose it over HTTPS via the `mcp-remote` bridge or your own endpoint. See [mcp-install.md](./mcp-install.md).
+For ChatGPT, run `tactical-rmm-mcp --transport http` and expose that behind HTTPS - no bridge package is needed. See [mcp-install.md](./mcp-install.md).
 
 ### Also for the Microsoft and Google stacks
 
@@ -45,6 +45,8 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 ## Install in 60 seconds
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
+
+> **Interim note on `.mcpb`:** the bundles published so far cannot launch - the bundle manifest names a binary the archive does not contain ([#287](https://github.com/Servosity/msp-skills/issues/287)). The builder fix is in flight; until a rebuilt bundle ships, use Path A or Path B below and wire Claude Desktop up through [mcp-install.md](./mcp-install.md).
 
 [**Download Tactical RMM MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/tactical-rmm-v0.1.2/tactical-rmm-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Tactical RMM release on the [releases page](https://github.com/servosity/msp-skills/releases?q=tactical-rmm).)
 
@@ -140,7 +142,7 @@ Tactical RMM is self-hosted, so point the CLI at **your** instance and give it a
 TACTICAL_RMM_BASE_URL=https://api.yourdomain.com TRMM_API_KEY=<value> tactical-rmm-cli doctor
 ```
 
-`doctor` confirms the base URL and credentials work before you run anything that touches data.
+`doctor` confirms the base URL and credentials work before you run anything that touches data. It exits 0 even when the credential is rejected, so scripts should add `--fail-on error`.
 
 
 ## What this skill does
@@ -183,7 +185,7 @@ See [pain-point.md](./pain-point.md) for the longer narrative.
 
 ### Does this work with ChatGPT?
 
-Yes, on **Plus, Pro, Team, Business, Enterprise, and Education** plans (Free tier does not yet expose Developer Mode). ChatGPT connects to **remote** MCP servers over HTTPS, not local stdio binaries. The Tactical RMM MCP server is local, so for ChatGPT you expose it via the `mcp-remote` bridge or your own HTTPS endpoint. Step-by-step in [mcp-install.md](./mcp-install.md).
+Yes, on **Plus, Pro, Team, Business, Enterprise, and Education** plans (Free tier does not yet expose Developer Mode). ChatGPT connects to **remote** MCP servers over HTTPS, not local stdio binaries. The Tactical RMM MCP server runs locally, but it speaks HTTP natively: start it with `tactical-rmm-mcp --transport http --addr :7777` and put it behind an HTTPS tunnel or your own reverse proxy. No bridge package is involved. Step-by-step in [mcp-install.md](./mcp-install.md).
 
 ### Does this work with Codex, Cursor, Windsurf, Cline, Copilot, or Gemini?
 

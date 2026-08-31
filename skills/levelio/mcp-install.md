@@ -100,14 +100,23 @@ web** is remote-only - see the remote section below.)
 
 # Remote agents (expose the binary over HTTPS first)
 
-All remote agents need `levelio-mcp` reachable as a public **HTTPS** endpoint. Run it
-in HTTP mode with your credentials in the environment:
+All remote agents need `levelio-mcp` reachable as a public **HTTPS** endpoint.
+`levelio-mcp` speaks **stdio only** - it has no HTTP mode and opens no listener of
+its own - so put a stdio-to-HTTP bridge in front of it:
 
 ```bash
-LEVELIO_BASE_URL=<value> LEVEL_API_TOKEN=<value> levelio-mcp --transport http --addr :7777
+# ChatGPT and anything else that accepts SSE:
+LEVELIO_BASE_URL=<value> LEVEL_API_TOKEN=<value> npx -y supergateway --stdio "levelio-mcp" --port 7777
+
+# Microsoft 365 Copilot / Copilot Studio, which take Streamable HTTP only:
+LEVELIO_BASE_URL=<value> LEVEL_API_TOKEN=<value> npx -y supergateway --stdio "levelio-mcp" --port 7777 \
+  --outputTransport streamableHttp --streamableHttpPath /mcp
 ```
 
-Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel
+**Pick the transport your consumer actually takes** - that is the whole reason
+there are two lines. The first serves the bridged server at
+`http://localhost:7777/sse`; the second at `http://localhost:7777/mcp`. Expose
+whichever one you started as a public HTTPS URL via a secure tunnel
 (Cloudflare Tunnel, ngrok) or your own reverse proxy. **Treat that URL as
 sensitive** - it's a key to your MCP server. Never expose it bare on the internet;
 gate it behind SSO / Cloudflare Access for team use.

@@ -46,6 +46,8 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
+> **Interim note on `.mcpb`:** the bundles published so far cannot launch - the bundle manifest names a binary the archive does not contain ([#287](https://github.com/Servosity/msp-skills/issues/287)). The builder fix is in flight; until a rebuilt bundle ships, use Path A or Path B below and wire Claude Desktop up through [mcp-install.md](./mcp-install.md).
+
 [**Download Auvik MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/auvik-v0.2.2/auvik-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Auvik release on the [releases page](https://github.com/servosity/msp-skills/releases?q=auvik).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
@@ -140,7 +142,7 @@ Set the credentials the CLI needs (from your Auvik portal):
 AUVIK_USERNAME=<value> AUVIK_API_KEY=<value> auvik-cli doctor
 ```
 
-`doctor` checks config, paths, and API reachability, and reports whether credentials are loaded - it does not validate them. Run a read command to confirm the credential actually works end-to-end.
+`doctor` checks config, paths, and API reachability, then verifies the credential itself with one authenticated read: it reports `valid`, `rejected (HTTP 401)`, `scope-limited (HTTP 403)`, or `not verified` when the probe never reached an endpoint that could check it. It exits 0 even when the credential is rejected, so scripts should add `--fail-on error`.
 
 
 ## What this skill does

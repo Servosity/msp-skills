@@ -65,7 +65,7 @@
   "faqs": [
     {
       "q": "Does this work with ChatGPT?",
-      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Microsoft Graph MCP server via a secure bridge. Step-by-step in the install guide."
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, but microsoft-graph-mcp speaks HTTP natively: run `microsoft-graph-mcp --transport http --addr :7777` and put its /mcp endpoint behind an HTTPS tunnel or your own reverse proxy. Step-by-step in the install guide."
     },
     {
       "q": "Do I need to know how to code?",

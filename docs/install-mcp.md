@@ -43,7 +43,7 @@ Open the per-skill `mcp-install.md` for the exact JSON snippet:
 The two desktop apps wire MCP differently:
 
 - **Claude Desktop:** edit `claude_desktop_config.json`, add a `mcpServers` block pointing at the local MCP binary, set the env vars for credentials, restart the app. This is the simple, supported local path.
-- **ChatGPT (Developer Mode, beta):** ChatGPT connects only to remote MCP servers over HTTPS - it does not launch a local binary. Run the MCP binary in HTTP mode (`--transport http`), expose it as a public HTTPS URL via a secure tunnel, and register that URL as a custom connector. Full steps are in each skill's `mcp-install.md`.
+- **ChatGPT (Developer Mode, beta):** ChatGPT connects only to remote MCP servers over HTTPS - it does not launch a local binary. Run the MCP binary in HTTP mode (`--transport http`) and expose its `/mcp` endpoint as a public HTTPS URL via a secure tunnel, then register that URL as a custom connector. Six connectors (avanan, blumira, connectwise-automate, cork, levelio, n-central) have no HTTP mode and are published with a `supergateway` bridge instead. Full steps, per connector, are in each skill's `mcp-install.md`.
 
 ## Restart is required
 

@@ -106,14 +106,23 @@ web** is remote-only - see the remote section below.)
 
 # Remote agents (expose the binary over HTTPS first)
 
-All remote agents need `connectwise-automate-mcp` reachable as a public **HTTPS** endpoint. Run it
-in HTTP mode with your credentials in the environment:
+All remote agents need `connectwise-automate-mcp` reachable as a public **HTTPS** endpoint.
+`connectwise-automate-mcp` speaks **stdio only** - it has no HTTP mode and opens no listener of
+its own - so put a stdio-to-HTTP bridge in front of it:
 
 ```bash
-CONNECTWISE_AUTOMATE_BASE_URL=<value> CONNECTWISE_AUTOMATE_CLIENT_ID=<value> CONNECTWISE_AUTOMATE_SERVER=<value> CONNECTWISE_AUTOMATE_TOKEN=<value> connectwise-automate-mcp --transport http --addr :7777
+# ChatGPT and anything else that accepts SSE:
+CONNECTWISE_AUTOMATE_BASE_URL=<value> CONNECTWISE_AUTOMATE_CLIENT_ID=<value> CONNECTWISE_AUTOMATE_SERVER=<value> CONNECTWISE_AUTOMATE_TOKEN=<value> npx -y supergateway --stdio "connectwise-automate-mcp" --port 7777
+
+# Microsoft 365 Copilot / Copilot Studio, which take Streamable HTTP only:
+CONNECTWISE_AUTOMATE_BASE_URL=<value> CONNECTWISE_AUTOMATE_CLIENT_ID=<value> CONNECTWISE_AUTOMATE_SERVER=<value> CONNECTWISE_AUTOMATE_TOKEN=<value> npx -y supergateway --stdio "connectwise-automate-mcp" --port 7777 \
+  --outputTransport streamableHttp --streamableHttpPath /mcp
 ```
 
-Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel
+**Pick the transport your consumer actually takes** - that is the whole reason
+there are two lines. The first serves the bridged server at
+`http://localhost:7777/sse`; the second at `http://localhost:7777/mcp`. Expose
+whichever one you started as a public HTTPS URL via a secure tunnel
 (Cloudflare Tunnel, ngrok) or your own reverse proxy. **Treat that URL as
 sensitive** - it's a key to your MCP server. Never expose it bare on the internet;
 gate it behind SSO / Cloudflare Access for team use.

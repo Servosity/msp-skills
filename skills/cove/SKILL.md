@@ -12,9 +12,10 @@ metadata:
       bins:
         - cove-cli
     install:
-      - kind: go
+      - kind: script
         bins: [cove-cli]
-        module: github.com/mvanhorn/printing-press-library/library/monitoring/cove/cmd/cove-cli
+        sh: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/cove/install.sh
+        ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/cove/install.ps1
 ---
 
 # Cove Data Protection  -  Printing Press CLI
@@ -23,18 +24,20 @@ metadata:
 
 This skill drives the `cove-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
+1. macOS / Linux:
    ```bash
-   npx -y @mvanhorn/printing-press-library install cove --cli-only
+   bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/cove/install.sh)
    ```
-2. Verify: `cove-cli --version`
-3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
+2. Windows (PowerShell):
+   ```powershell
+   iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/cove/install.ps1 | iex
+   ```
+3. Verify: `cove-cli --version`
+4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
 
-If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.4 or newer). This installs into `$GOPATH/bin` (default `$HOME/go/bin`), so add that directory to `$PATH` instead:
-
-```bash
-go install github.com/mvanhorn/printing-press-library/library/monitoring/cove/cmd/cove-cli@latest
-```
+The installer places the `cove-cli` and `cove-mcp` binaries on your PATH. It does not
+register anything with your agent - see [mcp-install.md](./mcp-install.md) for the
+MCP wire-up.
 
 If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
@@ -310,10 +313,7 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-1. Install the MCP server:
-   ```bash
-   go install github.com/mvanhorn/printing-press-library/library/monitoring/cove/cmd/cove-mcp@latest
-   ```
+1. Install the MCP binary (run the install script from the Prerequisites section, or see [mcp-install.md](./mcp-install.md) for per-agent wire-up).
 2. Register with Claude Code:
    ```bash
    claude mcp add cove-mcp -- cove-mcp

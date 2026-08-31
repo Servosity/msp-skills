@@ -129,7 +129,7 @@ You don't have to know JSON, regex, or what "stdio transport" means. Paste one s
 
 ### Does this work with ChatGPT?
 
-Yes, on **Plus, Pro, Team, Business, Enterprise, and Education** plans (Free tier does not yet expose Developer Mode). ChatGPT connects to **remote** MCP servers over HTTPS, not local binaries directly. These connectors ship local binaries, so to use them with ChatGPT you run them on your machine and expose them via the `mcp-remote` bridge or your own HTTPS endpoint. Step-by-step: [ChatGPT integration →](/integrations/chatgpt/).
+Yes, on **Plus, Pro, Team, Business, Enterprise, and Education** plans (Free tier does not yet expose Developer Mode). ChatGPT connects to **remote** MCP servers over HTTPS, not local binaries directly. These connectors ship local binaries. Most serve Streamable HTTP themselves (`--transport http`), so you run one on your machine and put its `/mcp` endpoint behind an HTTPS tunnel; the stdio-only ones take a `supergateway` bridge first. Step-by-step: [ChatGPT integration →](/integrations/chatgpt/).
 
 ### Does this work with Claude?
 

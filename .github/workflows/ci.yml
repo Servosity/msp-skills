@@ -102,6 +102,21 @@ jobs:
         # remote schema cannot turn main red without a commit.
         run: python3 tools/maintainer/check_mcp_registry.py
 
+      - name: Install and remote-MCP docs match the shipped artifacts
+        # Reads doc prose against main.go, install.ps1 and install.sh - never
+        # against another doc. Catches the four defects that rode the whole fleet
+        # because no gate compared an instruction to the artifact that has to
+        # satisfy it: `mcp-remote` named as a stdio publisher (it bridges the
+        # other direction and exits ERR_INVALID_URL), `--transport http` on the
+        # binaries that never parse it, bare `localhost:7777` when mcp-go serves
+        # at /mcp, and the printing-press-library installer + PrintingPress\bin
+        # destination this repo does not use. Runs in this single job, so it adds
+        # no build-matrix rows. See issues #237, #240, #241.
+        run: python3 tools/maintainer/check_install_docs.py
+
+      - name: Install-doc gate discriminates (fires on broken, silent on fixed)
+        run: python3 tools/maintainer/check_install_docs.py --selftest
+
       - name: No TODO / placeholder markers in skill prose
         run: python3 tools/maintainer/check_no_todos.py
 

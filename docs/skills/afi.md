@@ -10,9 +10,9 @@ faqs:
   - q: "Is there an MCP server for Afi?"
     a: "Yes - this one. A free, open source MCP server and Claude Code Skill for Afi, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds."
   - q: "Is the Afi MCP server safe for client data?"
-    a: "Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
+    a: "Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Three paths can move data off the machine, all opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `AFI_FEEDBACK_AUTO_SEND=true` mails feedback you wrote to the maintainers; `--transport http` opens a local MCP listener you then choose whether to expose. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
-    a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Afi MCP server via a secure bridge. Step-by-step in the install guide."
+    a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, but afi-mcp speaks HTTP natively: run `afi-mcp --transport http --addr :7777` and put its /mcp endpoint behind an HTTPS tunnel or your own reverse proxy. Step-by-step in the install guide."
   - q: "Do I need to know how to code?"
     a: "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
   - q: "Is my Afi data safe?"
@@ -29,7 +29,7 @@ howto:
   - name: "Run the one-line installer"
     text: "macOS/Linux: bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/afi/install.sh) - Windows PowerShell: iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/afi/install.ps1 | iex"
   - name: "Authenticate"
-    text: "Enter your Afi credentials once; afi-cli doctor confirms they work."
+    text: "Enter your Afi credentials once, then run afi-cli doctor to check the install."
   - name: "Ask your first question"
     text: "Ask your AI agent a Afi question in plain language; it runs afi-cli for you."
 ---
@@ -42,7 +42,7 @@ howto:
 
 **Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
 
-Yes - there is an MCP server for Afi. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects Afi to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
+Yes - there is an MCP server for Afi. It's free, open source, and runs on your own machine, so your client data stays local unless you route it somewhere yourself. It connects Afi to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
 Ask your AI 'which mailboxes aren't backed up in Afi?' and get the answer across every tenant at once. This skill walks your whole Afi fleet into a local store, then answers coverage gaps, stale backups, license drift, and per-tenant posture offline - no per-tenant portal clicking, no tripping Afi's rate limits - and runs a verified archive-then-release when someone leaves.
 
@@ -145,11 +145,11 @@ Yes - this one. A free, open source MCP server and Claude Code Skill for Afi, bu
 
 ### Is the Afi MCP server safe for client data?
 
-Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
+Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Three paths can move data off the machine, all opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `AFI_FEEDBACK_AUTO_SEND=true` mails feedback you wrote to the maintainers; `--transport http` opens a local MCP listener you then choose whether to expose. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
 
 ### Does this work with ChatGPT?
 
-Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Afi MCP server via a secure bridge. Step-by-step in the install guide.
+Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, but afi-mcp speaks HTTP natively: run `afi-mcp --transport http --addr :7777` and put its /mcp endpoint behind an HTTPS tunnel or your own reverse proxy. Step-by-step in the install guide.
 
 ### Do I need to know how to code?
 
