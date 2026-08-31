@@ -55,10 +55,38 @@ Three defects this deliberately does not reproduce
    names a member the archive actually contains. See the matching note in
    tools/maintainer/check_env_schema.py ("What it deliberately does NOT check").
 
+Reconciled against cli-printing-press 4.31.4 (main @ ba4e6914, 2026-08-31)
+-------------------------------------------------------------------------
+The press builds a bundle too (`internal/pipeline/mcpb_bundle.go`), and it is a
+DIFFERENT product: one operator-local archive holding the ONE binary the press
+just cross-compiled, launched by a single `command`. Re-read at 4.31.4:
+
+  * `platform_overrides` still appears nowhere in the press - not in the
+    manifest writer, not in a golden. `mcp_config` is `{args, command, env}`,
+    `command` is `${__dirname}/<entry_point>`. So the multi-binary shape this
+    file writes remains this repo's to own, and nothing upstream has started
+    competing for those keys.
+  * the press stamps the version into the bundled manifest too
+    (`rewriteMCPBManifestVersion`), so `--version` here matches upstream
+    behaviour rather than inventing one.
+  * 4.31.2-4.31.4 did change WHICH env vars a regenerated manifest declares
+    (#4377, #4431: derive `mcp_config.env` / `user_config` from the credentials
+    the binary actually reads, instead of PRINTING_PRESS_CLIENT_PROFILE). That
+    is inert here: this builder rewrites only `command`,
+    `platform_overrides[*].command`, `entry_point` and `version`, and carries
+    every other manifest key through byte-for-byte, so a reprinted manifest's
+    new env declaration reaches the bundle unaltered.
+  * the press preserves the source file's mode (`stat.Mode()&0o777`), which is
+    how a 0644 downloaded asset became a non-executable server. This builder
+    writes binaries 0755 unconditionally and `validate` asserts the bit.
+
 Scope: this repairs every FUTURE bundle. It does not repair the 65 already
 published - that needs a release wave, and re-uploading over an existing tag
 would silently invalidate the `packages[0].fileSha256` mcp-publish.yml already
-recorded in the MCP Registry for that version.
+recorded in the MCP Registry for that version. Until that wave lands, 62 skill
+READMEs still carry a "one-click `.mcpb`" download that cannot launch
+(`grep -rl 'one-click `.mcpb`' skills/*/README.md | wc -l` -> 62); that is
+user-facing debt this file does not fix and must not be left implied.
 
 Usage:
     mcpb_bundle.py build --manifest skills/hudu/manifest.json \\
@@ -654,7 +682,10 @@ def read_macho_arch_bytes(blob: bytes) -> int:
 
 
 def main(argv: list[str]) -> int:
-    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    # `__doc__` is None under `python -OO`; argparse would crash on the
+    # attribute access before it could parse a single argument.
+    summary = (__doc__ or "Build and validate .mcpb bundles.").splitlines()[0]
+    ap = argparse.ArgumentParser(description=summary)
     ap.add_argument("--self-test", action="store_true",
                     help="run the built-in both-directions proof and exit")
     sub = ap.add_subparsers(dest="cmd")
