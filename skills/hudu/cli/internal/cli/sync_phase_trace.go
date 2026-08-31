@@ -31,7 +31,7 @@ package cli
 
 import (
 	"context"
-	"fmt"
+	"encoding/json"
 	"io"
 	"sync/atomic"
 	"time"
@@ -162,9 +162,25 @@ func (t *syncPhaseTrace) totals() syncPhaseTotals {
 	}
 }
 
-// dominant names the largest phase, which is the question issue #195 asks.
+// dominant names the phase that is strictly larger than every other phase,
+// which is the question issue #195 asks. It returns "none" in the two cases
+// where there is no such phase:
+//
+//   - nothing was measured (every phase 0ms) - a resource that failed before it
+//     reached the API, or a trace that was never fed;
+//   - two or more phases tie for the largest.
+//
+// Both used to answer "queue_wait": the accumulator started at -1, so 0ms beat
+// it and the first entry in the list won, which made the "none" branch
+// unreachable and handed every tie to whichever phase happened to be listed
+// first. `dominant_phase` is the field the guide tells an operator to act on
+// (raise --concurrency on queue_wait, lower it on store_upsert), so a
+// list-order artifact reported as a measurement is a wrong instruction, not a
+// cosmetic bug.
 func (p syncPhaseTotals) dominant() string {
-	best, bestName := int64(-1), "none"
+	var best int64
+	bestName := "none"
+	tied := false
 	for _, c := range []struct {
 		name string
 		ms   int64
@@ -176,23 +192,64 @@ func (p syncPhaseTotals) dominant() string {
 		{"id_extract", p.IDExtractMS},
 		{"store_upsert", p.StoreUpsertMS},
 	} {
-		if c.ms > best {
-			best, bestName = c.ms, c.name
+		switch {
+		case c.ms > best:
+			best, bestName, tied = c.ms, c.name, false
+		case c.ms == best && best > 0:
+			tied = true
 		}
+	}
+	if tied {
+		return "none"
 	}
 	return bestName
 }
 
+// syncPhasesEvent is the wire shape of the sync_phases event. Field order here
+// is the emitted key order, so it must stay in step with the table in
+// skills/hudu/guide.md.
+type syncPhasesEvent struct {
+	Event           string `json:"event"`
+	Resource        string `json:"resource"`
+	QueueWaitMS     int64  `json:"queue_wait_ms"`
+	APIFetchMS      int64  `json:"api_fetch_ms"`
+	RateLimitWaitMS int64  `json:"rate_limit_wait_ms"`
+	RetryWaitMS     int64  `json:"retry_wait_ms"`
+	IDExtractMS     int64  `json:"id_extract_ms"`
+	StoreUpsertMS   int64  `json:"store_upsert_ms"`
+	Pages           int64  `json:"pages"`
+	Requests        int64  `json:"requests"`
+	Retries         int64  `json:"retries"`
+	DominantPhase   string `json:"dominant_phase"`
+}
+
 // emit writes the sync_phases event. Emitted only when tracing was requested,
 // so the default event stream is unchanged.
+//
+// Marshalled rather than hand-formatted: `--resources` takes the resource name
+// straight from the operator, and a name containing a quote or a backslash
+// interpolated with %s emits a line no JSON parser can read. SetEscapeHTML is
+// off so a name containing <, > or & stays readable instead of being escaped to
+// < and friends; this is a diagnostics stream, not HTML.
 func (t *syncPhaseTrace) emit(w io.Writer) {
 	if t == nil || w == nil {
 		return
 	}
 	p := t.totals()
-	fmt.Fprintf(w, `{"event":"sync_phases","resource":"%s","queue_wait_ms":%d,"api_fetch_ms":%d,`+
-		`"rate_limit_wait_ms":%d,"retry_wait_ms":%d,"id_extract_ms":%d,"store_upsert_ms":%d,`+
-		`"pages":%d,"requests":%d,"retries":%d,"dominant_phase":"%s"}`+"\n",
-		p.Resource, p.QueueWaitMS, p.APIFetchMS, p.RateLimitWaitMS, p.RetryWaitMS,
-		p.IDExtractMS, p.StoreUpsertMS, p.Pages, p.Requests, p.Retries, p.dominant())
+	enc := json.NewEncoder(w)
+	enc.SetEscapeHTML(false)
+	_ = enc.Encode(syncPhasesEvent{
+		Event:           "sync_phases",
+		Resource:        p.Resource,
+		QueueWaitMS:     p.QueueWaitMS,
+		APIFetchMS:      p.APIFetchMS,
+		RateLimitWaitMS: p.RateLimitWaitMS,
+		RetryWaitMS:     p.RetryWaitMS,
+		IDExtractMS:     p.IDExtractMS,
+		StoreUpsertMS:   p.StoreUpsertMS,
+		Pages:           p.Pages,
+		Requests:        p.Requests,
+		Retries:         p.Retries,
+		DominantPhase:   p.dominant(),
+	})
 }

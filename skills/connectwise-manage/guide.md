@@ -818,7 +818,7 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Config file: `~/.config/connectwise-manage-public-pp-cli/config.toml`
+Config file: `~/.config/connectwise-manage-cli/config.toml` (override with `CONNECTWISE_MANAGE_CONFIG` or `--config`). `connectwise-manage-cli doctor --json` prints the resolved path as `config_path`.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
 
@@ -827,6 +827,48 @@ Environment variables:
 | Name | Kind | Required | Description |
 | --- | --- | --- | --- |
 | `CW_CLIENT_ID` | per_call | Yes | Set to your API credential. |
+
+### Credentials from the environment are no longer written to disk (issue #266)
+
+This CLI authenticates with a composite HTTP Basic credential: `CW_COMPANY_ID`
+plus `CW_PUBLIC_KEY` as the username, `CW_PRIVATE_KEY` as the password, and
+`CW_CLIENT_ID` as a header. Every one of those is also a persisted config field,
+and the composed `Authorization: Basic ...` header is persisted too.
+
+Until this fix, any command that saved the config wrote whatever it had picked
+up from those four environment variables into the config file in cleartext, and
+wrote the private key a second time base64-encoded under `[headers]`
+`Authorization`. `auth logout` was the worst case: it saves unconditionally, so
+logging out could CREATE a plaintext credential file where none had existed.
+The fix restores the config file's own value for any credential that came from
+the environment, so an env-supplied secret is never written.
+
+**If you have ever run this CLI with those variables set, a cleartext copy may
+already be on your disk. Upgrading does not remove it, and neither does
+`auth logout`** - `auth logout` clears `client_id` and the token fields and
+reports `Config cleared.`, but it leaves `company_id`, `public_key`,
+`private_key` and the `[headers] Authorization` line exactly as they are.
+
+Check, then clean up:
+
+```bash
+connectwise-manage-cli doctor --json | grep config_path
+grep -nE "company_id|public_key|private_key|Authorization" \
+  ~/.config/connectwise-manage-cli/config.toml
+```
+
+A non-empty `private_key`, `public_key` or `company_id`, or an
+`Authorization = 'Basic ...'` line, is a readable copy of your API member's
+credential. Delete the file (the CLI recreates it on the next save) and rotate
+that API member's keys in ConnectWise Manage, because the secret has been
+sitting on disk:
+
+```bash
+rm ~/.config/connectwise-manage-cli/config.toml
+```
+
+If you keep credentials in the config file on purpose rather than in the
+environment, nothing changes for you and there is nothing to clean up.
 
 ### agentcookie (optional)
 

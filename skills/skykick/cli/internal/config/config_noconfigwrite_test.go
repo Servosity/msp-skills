@@ -21,10 +21,13 @@ import (
 // rather than at one known path, so they hold whatever the connector's config
 // format is and wherever it decides to keep credentials.
 
+// Deliberately low-entropy, obviously-fake literals. A fixture that LOOKS
+// like a credential trips the repository's secret scanner, and silencing
+// that with an allowlist would blind the scanner to a real leak later.
 const (
-	ncwToken   = "minted-token-SKYKICK"
-	ncwRefresh = "minted-refresh-SKYKICK"
-	ncwSecret  = "minted-secret-SKYKICK"
+	ncwToken   = "not-a-real-token"
+	ncwRefresh = "not-a-real-refresh"
+	ncwSecret  = "not-a-real-secret"
 )
 
 // ncwSnapshot returns relpath -> contents for every regular file under root.
@@ -66,7 +69,7 @@ func ncwMint(t *testing.T, value string, set bool) map[string]string {
 	t.Helper()
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	t.Setenv("SKYKICK_CONFIG", filepath.Join(home, "config.toml"))
+	t.Setenv("SKYKICK_CONFIG", filepath.Join(home, "config.json"))
 	if set {
 		t.Setenv(NoConfigWriteEnv, value)
 	} else {
@@ -126,7 +129,7 @@ func TestWithoutTheSwitchTheCacheIsByteIdentical(t *testing.T) {
 // unconditionally would make logout silently inert.
 func TestNoConfigWriteStillAllowsTheWipe(t *testing.T) {
 	home := t.TempDir()
-	cfgPath := filepath.Join(home, "config.toml")
+	cfgPath := filepath.Join(home, "config.json")
 	t.Setenv("HOME", home)
 	t.Setenv("SKYKICK_CONFIG", cfgPath)
 

@@ -388,7 +388,7 @@
   {
    "id": "sync-phase-trace",
    "summary": "`sync --phase-trace` emits a per-resource sync_phases event splitting wall time into queue wait, API fetch, rate-limit wait, retry wait, ID extraction and SQLite upsert (issue #195)",
-   "why": "issue #195: a production tenant reported lightweight Hudu resources taking disproportionately long in a multi-resource sync, and the only number the sync emitted was one per-resource duration_ms that folds six different things together. It also starts AFTER a worker dequeues the resource, so the interval the reporter's own hypothesis points at was not merely unattributed, it was outside the measurement entirely. queue_wait_ms is the fifth phase the issue's acceptance criteria omit and the reason the work channel now carries a syncWorkItem with an enqueue timestamp instead of a bare string. The client-side split (rate_limit_wait_ms and retry_wait_ms subtracted out of api_fetch_ms) needs a hook inside internal/client, which is why RequestTrace lives there and is plumbed through the context: without it a 429 storm reads as slow server time. Entirely opt-in - with the flag unset no trace is installed, every helper is a nil-receiver no-op, and the emitted event stream is byte-identical to before, verified by diffing two real CLI runs. The event carries durations and counts only: no credential, no URL, no response body. Offline fixtures (local HTTP plus real SQLite contention) show queue_wait dominant for 4 of 6 resources at concurrency 2, and store_upsert dominant for all 8 at concurrency 8 against an instant server, which proves the mechanism is REACHABLE - not that it is the dominant phase in the reporter's tenant, which needs their tenant to settle.",
+   "why": "issue #195: a production tenant reported lightweight Hudu resources taking disproportionately long in a multi-resource sync, and the only number the sync emitted was one per-resource duration_ms that folds six different things together. It also starts AFTER a worker dequeues the resource, so the interval the reporter's own hypothesis points at was not merely unattributed, it was outside the measurement entirely. queue_wait_ms is the fifth phase the issue's acceptance criteria omit and the reason the work channel now carries a syncWorkItem with an enqueue timestamp instead of a bare string. The client-side split (rate_limit_wait_ms and retry_wait_ms subtracted out of api_fetch_ms) needs a hook inside internal/client, which is why RequestTrace lives there and is plumbed through the context: without it a 429 storm reads as slow server time. Entirely opt-in - with the flag unset no trace is installed, every helper is a nil-receiver no-op, and the emitted event stream is byte-identical to before, verified by diffing two real CLI runs. The event carries durations and counts only: no credential, no URL, no response body. Offline fixtures (local HTTP plus real SQLite contention) show queue_wait dominant for 4 of 6 resources at concurrency 2, and store_upsert dominant for all 8 at concurrency 8 against an instant server, which proves the mechanism is REACHABLE - not that it is the dominant phase in the reporter's tenant, which needs their tenant to settle. Follow-up inside this same PR: dominant() seeded its accumulator at -1 and evaluated queue_wait first, so an all-zero trace (a resource that failed before it reached the API) reported dominant_phase=queue_wait and the \"none\" branch was unreachable; queue_wait also won every tie. It now requires strict dominance and returns \"none\" for an all-zero trace and for a tie, proven at the real binary: `sync --resources a --phase-trace` against an unreachable base URL emits dominant_phase=\"none\" where it emitted \"queue_wait\" before. The event is also marshalled instead of hand-formatted, because --resources takes the resource name from the operator and a name containing a quote emitted a line no JSON parser could read.",
    "status": "active",
    "spec_encode_followup": "cli-printing-press should emit phase-level sync diagnostics for every connector, because the shape is generic: the work channel, the fixed worker pool, the per-resource duration that starts at dequeue, and the store's single write mutex held through tx.Commit() are all template code. 61 of 65 connectors take writeMu directly in UpsertBatch and the remaining 4 take it through lockForWrite(), so every connector in the fleet serializes its workers on one lock with no way to see it. queue_wait_ms in particular cannot be back-derived by any consumer of today's events.",
    "asserts": [
@@ -399,7 +399,7 @@
     },
     {
      "file": "cli/internal/cli/sync_phase_trace.go",
-     "contains": "\"event\":\"sync_phases\"",
+     "contains": "\"sync_phases\"",
      "min_count": 1
     },
     {
@@ -445,6 +445,39 @@
     {
      "file": "cli/internal/cli/sync_phase_trace_test.go",
      "contains": "func TestPhaseTrace_OffByDefault(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sync_phase_trace.go",
+     "contains": "case c.ms == best && best > 0:",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sync_phase_trace.go",
+     "not_contains": "best, bestName := int64(-1), \"none\""
+    },
+    {
+     "file": "cli/internal/cli/sync_phase_trace.go",
+     "contains": "type syncPhasesEvent struct {",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sync_phase_trace.go",
+     "not_contains": "\"resource\":\"%s\""
+    },
+    {
+     "file": "cli/internal/cli/sync_phase_trace_test.go",
+     "contains": "func TestPhaseTrace_DominantPhase(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/sync_phase_trace_test.go",
+     "contains": "func TestPhaseTrace_EmitIsValidJSONForAwkwardResourceNames(",
+     "min_count": 1
+    },
+    {
+     "file": "guide.md",
+     "contains": "names the one phase that is strictly larger than all the",
      "min_count": 1
     }
    ]

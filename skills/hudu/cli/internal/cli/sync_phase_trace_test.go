@@ -274,3 +274,75 @@ func TestPhaseTrace_EventCarriesNoSecretsOrBodies(t *testing.T) {
 		t.Errorf("resource = %q, want companies", got)
 	}
 }
+
+// dominant_phase is the field skills/hudu/guide.md tells the operator to act on
+// ("raise --concurrency" vs "lower --concurrency"), so it must never name a
+// phase that was not the largest. Two shapes used to be reported as
+// queue_wait: a trace where nothing was measured at all, and any tie.
+func TestPhaseTrace_DominantPhase(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		totals syncPhaseTotals
+		want   string
+	}{
+		// Regression: `best` started at -1 and queue_wait was evaluated
+		// first, so 0ms "won" and the "none" branch was unreachable. A
+		// resource that errored before it reached the API reported
+		// dominant_phase=queue_wait on an all-zero trace.
+		{"nothing measured", syncPhaseTotals{}, "none"},
+		// Regression: the same list-order bias decided every tie.
+		{"tie between two phases",
+			syncPhaseTotals{APIFetchMS: 40, StoreUpsertMS: 40}, "none"},
+		{"tie including queue_wait",
+			syncPhaseTotals{QueueWaitMS: 40, StoreUpsertMS: 40}, "none"},
+		{"three-way tie",
+			syncPhaseTotals{QueueWaitMS: 7, APIFetchMS: 7, RetryWaitMS: 7}, "none"},
+		// A single strict winner is still named, wherever it sits in the list.
+		{"queue_wait dominant",
+			syncPhaseTotals{QueueWaitMS: 62, APIFetchMS: 49, StoreUpsertMS: 14}, "queue_wait"},
+		{"store_upsert dominant (last in the list)",
+			syncPhaseTotals{QueueWaitMS: 1, StoreUpsertMS: 900}, "store_upsert"},
+		{"retry_wait dominant",
+			syncPhaseTotals{APIFetchMS: 3, RetryWaitMS: 3001}, "retry_wait"},
+		{"one phase, one millisecond",
+			syncPhaseTotals{IDExtractMS: 1}, "id_extract"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := tc.totals.dominant(); got != tc.want {
+				t.Errorf("dominant() = %q, want %q (totals %+v)", got, tc.want, tc.totals)
+			}
+		})
+	}
+}
+
+// --resources takes the resource name straight from the operator. The event was
+// hand-formatted with %s, so a name carrying a quote or a backslash emitted a
+// line no JSON parser could read.
+func TestPhaseTrace_EmitIsValidJSONForAwkwardResourceNames(t *testing.T) {
+	for _, name := range []string{
+		`a"b`,
+		`a\b`,
+		"tab\there",
+		"new\nline",
+		"<script>&</script>",
+		"companies",
+	} {
+		t.Run(name, func(t *testing.T) {
+			tr := &syncPhaseTrace{resource: name, request: &client.RequestTrace{}}
+			var out strings.Builder
+			tr.emit(&out)
+			line := strings.TrimSpace(out.String())
+
+			var decoded map[string]any
+			if err := json.Unmarshal([]byte(line), &decoded); err != nil {
+				t.Fatalf("sync_phases is not valid JSON (%v): %s", err, line)
+			}
+			if got := fmt.Sprint(decoded["resource"]); got != name {
+				t.Errorf("resource round-tripped as %q, want %q", got, name)
+			}
+			if got := fmt.Sprint(decoded["event"]); got != "sync_phases" {
+				t.Errorf("event = %q, want sync_phases", got)
+			}
+		})
+	}
+}

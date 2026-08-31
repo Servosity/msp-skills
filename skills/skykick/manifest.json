@@ -63,7 +63,7 @@
     "skykick_no_config_write": {
       "type": "string",
       "title": "Keep credentials off disk",
-      "description": "Set to 1 to keep credentials off disk. The token cache becomes a no-op, so the connector mints a fresh token each run instead of writing one to config.toml. Leave blank for the default cached behaviour.",
+      "description": "Set to 1 to keep credentials off disk. The token cache becomes a no-op, so the connector mints a fresh token each run instead of writing one to config.json. Leave blank for the default cached behaviour.",
       "required": false,
       "default": ""
     }

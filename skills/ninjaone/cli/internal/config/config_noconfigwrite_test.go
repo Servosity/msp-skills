@@ -21,10 +21,13 @@ import (
 // rather than at one known path, so they hold whatever the connector's config
 // format is and wherever it decides to keep credentials.
 
+// Deliberately low-entropy, obviously-fake literals. A fixture that LOOKS
+// like a credential trips the repository's secret scanner, and silencing
+// that with an allowlist would blind the scanner to a real leak later.
 const (
-	ncwToken   = "minted-token-NINJAONE"
-	ncwRefresh = "minted-refresh-NINJAONE"
-	ncwSecret  = "minted-secret-NINJAONE"
+	ncwToken   = "not-a-real-token"
+	ncwRefresh = "not-a-real-refresh"
+	ncwSecret  = "not-a-real-secret"
 )
 
 // ncwSnapshot returns relpath -> contents for every regular file under root.

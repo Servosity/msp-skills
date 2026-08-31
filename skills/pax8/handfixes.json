@@ -280,6 +280,16 @@
      "file": "cli/internal/cli/auth.go",
      "contains": "if config.NoConfigWrite() {",
      "min_count": 2
+    },
+    {
+     "file": "guide.md",
+     "contains": "### Keeping credentials off disk (optional)",
+     "min_count": 1
+    },
+    {
+     "file": "guide.md",
+     "contains": "| `auth login` / `auth set-token` | Refuse, naming the variable, instead of reporting a save that did not happen. |",
+     "min_count": 1
     }
    ]
   }

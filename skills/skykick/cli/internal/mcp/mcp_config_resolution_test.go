@@ -18,7 +18,7 @@ import (
 
 func TestMCPClientHonoursTheConfigEnvVar(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "config.toml")
+	path := filepath.Join(dir, "config.json")
 	if err := os.WriteFile(path, []byte(`{"base_url":"https://mcp-config-probe.invalid"}`), 0o600); err != nil {
 		t.Fatalf("seeding config: %v", err)
 	}

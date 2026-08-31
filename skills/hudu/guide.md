@@ -291,7 +291,11 @@ hudu-cli sync --resources companies,articles,folders --concurrency 4 --phase-tra
 | `id_extract_ms` | Pulling items and primary keys out of each page. |
 | `store_upsert_ms` | The SQLite batch upsert, which serializes every worker on one write lock. |
 
-`dominant_phase` names the largest one. A lightweight resource whose
+`dominant_phase` names the one phase that is strictly larger than all the
+others, and `none` when there is no such phase - either nothing was measured
+(a resource that failed before it reached the API reports every phase as 0ms)
+or two phases tie. `none` means "read the numbers, there is no single lever
+here", never "the first phase in the list won". A lightweight resource whose
 `dominant_phase` is `queue_wait` is not slow at all - it was waiting behind
 heavier resources, and raising `--concurrency` is the lever. One whose
 `dominant_phase` is `store_upsert` is contending on the local database, where

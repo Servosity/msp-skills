@@ -145,9 +145,9 @@
   {
    "id": "teach-surface-annotations-tell-the-truth",
    "summary": "`recall` and `playbook list` are annotated mcp:local-write, not mcp:read-only, because both open the writable learn store and record a row (issue #275 finding 4)",
-   "why": "issue #275 finding 4. `recall` (teach.go) declared mcp:read-only=true, opened the WRITABLE store via store.OpenWithContext and inserted a learn event on every call; `playbook list` (teach_playbook.go) was marked read-only and appended an audit record. The annotation is what an MCP host reads to decide what to auto-approve, so a false one is the same defect class as a doctor command that reports credentials fine without ever checking them: the promise, not the write, is the harm. The replacement is mcp:local-write, a tier this same engine already defines and already uses for `teach` and `playbook amend`: writes land only in the CLI's own local store, never in external state and never in a user-visible file, so the walker registers destructiveHint=false and openWorldHint=false while leaving readOnlyHint unset. Measured at the live MCP server before and after: recall and playbook_list went from readOnlyHint=true, openWorldHint=true to readOnlyHint=false, destructiveHint=false, openWorldHint=false. This is a TRUTH fix, not a behaviour fix - the RunE bodies are untouched and both commands still write exactly what they wrote before. Upstream closed this wontfix (mvanhorn/cli-printing-press#3555), so a reprint reintroduces the false annotation and this ledger is the only thing that catches it.",
+   "why": "issue #275 finding 4. `recall` (teach.go) declared mcp:read-only=true, opened the WRITABLE store via store.OpenWithContext and inserted a learn event on every call; `playbook list` (teach_playbook.go) was marked read-only and appended an audit record. The annotation is what an MCP host reads to decide what to auto-approve, so a false one is the same defect class as a doctor command that reports credentials fine without ever checking them: the promise, not the write, is the harm. The replacement is mcp:local-write, a tier this same engine already defines and already uses for `teach` and `playbook amend`: writes land only in the CLI's own local store, never in external state and never in a user-visible file, so the walker registers destructiveHint=false and openWorldHint=false while leaving readOnlyHint unset. Measured at the live MCP server before and after: recall and playbook_list went from readOnlyHint=true, openWorldHint=true to readOnlyHint=false, destructiveHint=false, openWorldHint=false. AGENTS.md is press-generated and carried the same claim in prose, so the annotation sentence there was regenerated from the booted server's tools/list and is pinned by the AGENTS.md asserts below. This is a TRUTH fix, not a behaviour fix - the RunE bodies are untouched and both commands still write exactly what they wrote before. Upstream closed this wontfix (mvanhorn/cli-printing-press#3555), so a reprint reintroduces the false annotation and this ledger is the only thing that catches it.",
    "status": "active",
-   "spec_encode_followup": "Upstream declined (mvanhorn/cli-printing-press#3555), so there is nothing to encode in the press today. If that is ever revisited, the rule is mechanical rather than a judgement call: a command whose RunE reaches store.OpenWithContext, appendLearningsAudit or any Insert must not carry mcp:read-only. `learnings list` is the remaining sibling - it opens the writable store (running migrations and a chmod) but records no row, and was left alone deliberately because the ratified decision named only these two commands.",
+   "spec_encode_followup": "Upstream declined (mvanhorn/cli-printing-press#3555), so there is nothing to encode in the press today. If that is ever revisited, the rule is mechanical rather than a judgement call: a command whose RunE reaches store.OpenWithContext, appendLearningsAudit or any Insert must not carry mcp:read-only. `learnings list`, `learnings candidates` and `learnings stats` are the remaining teach-loop siblings: each still carries mcp:read-only and each still opens the writable store (creating the database file, running migrations and tightening file modes) though none records a row, and all three were left alone deliberately because the ratified decision named only `recall` and `playbook list`. The same shape is not confined to the teach loop: every command that reads this connector's local mirror opens it through the same read-write call, so what the press should encode is the mechanical rule above rather than a per-command list.",
    "asserts": [
     {
      "file": "cli/internal/cli/teach.go",
@@ -167,6 +167,20 @@
     {
      "file": "cli/internal/cli/teach_playbook.go",
      "contains": "// playbook list opens the WRITABLE learn store and appends an",
+     "min_count": 1
+    },
+    {
+     "file": "AGENTS.md",
+     "contains": "`playbook list`, `recall`,",
+     "min_count": 1
+    },
+    {
+     "file": "AGENTS.md",
+     "not_contains": "`recall`, `learnings list`, `learnings candidates`, and `learnings stats` carry `mcp:read-only=true`"
+    },
+    {
+     "file": "AGENTS.md",
+     "contains": "which is narrower than it sounds",
      "min_count": 1
     }
    ]

@@ -383,7 +383,7 @@ plaintext copy on disk.
 | What changes | With `XERO_NO_CONFIG_WRITE=1` |
 | --- | --- |
 | Token cache | Not written. A fresh token is minted per invocation. |
-| `auth login` / `auth set-token` | Refuse, naming the variable, instead of reporting a save that did not happen. |
+| `auth login` | Refuses, naming the variable, instead of reporting a save that did not happen. |
 | `auth logout` | Still clears an existing config file. The erase is not a credential write. |
 | MCP server | Honours the same variable, so a Claude Desktop install gets no plaintext token cache either. |
 
