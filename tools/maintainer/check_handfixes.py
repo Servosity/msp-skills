@@ -131,6 +131,7 @@ import json
 import sys
 from collections import Counter
 from pathlib import Path
+from typing import Callable
 
 REPO = Path(__file__).resolve().parents[2]
 SKILLS = REPO / "skills"
@@ -446,7 +447,7 @@ def lint_skill(slug: str) -> list[WeakAssert]:
 
 
 def lint_entries(slug: str, skill_dir: Path, entries: list,
-                 read_file=None) -> list[WeakAssert]:
+                 read_file: "Callable[[str], str | None] | None" = None) -> list[WeakAssert]:
     """Find every comment-satisfiable `contains` assert in `entries`.
 
     `read_file(rel)` returns the target file's text, or None when it does not
@@ -458,12 +459,13 @@ def lint_entries(slug: str, skill_dir: Path, entries: list,
     they are always evaluated whole-file, which is their strongest form, so
     there is no comment-weak shape for one to be in.
     """
-    if read_file is None:
-        def read_file(rel: str) -> str | None:
-            fpath = skill_dir / rel
-            if not fpath.exists():
-                return None
-            return fpath.read_text(encoding="utf-8", errors="replace")
+    def _from_worktree(rel: str) -> str | None:
+        fpath = skill_dir / rel
+        if not fpath.exists():
+            return None
+        return fpath.read_text(encoding="utf-8", errors="replace")
+
+    read = read_file or _from_worktree
 
     weak: list[WeakAssert] = []
     for hf in entries:
@@ -477,7 +479,7 @@ def lint_entries(slug: str, skill_dir: Path, entries: list,
             rel = a.get("file")
             if not rel:
                 continue
-            content = read_file(rel)
+            content = read(rel)
             if content is None:
                 continue
             stripped, _ = strip_comments(rel, content)
@@ -1061,7 +1063,9 @@ def self_test() -> int:
         def count(a_code_only, content):
             body = content
             if a_code_only:
-                body, _ = strip_comments(rel, content)
+                body, why = strip_comments(rel, content)
+                if body is None:
+                    raise AssertionError(f"fixture drift: no stripper for {rel} ({why})")
             return body.count(weak_needle)
 
         expect(count(False, cfg.read_text()) == 2, "fixture: expected 2 raw occurrences before")
