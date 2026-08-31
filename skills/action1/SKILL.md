@@ -35,9 +35,10 @@ This skill drives the `action1-cli` binary. **You must verify the CLI is install
 3. Verify: `action1-cli --version`
 4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
 
-The installer places the `action1-cli` and `action1-mcp` binaries on your PATH. It does not
-register anything with your agent - see [mcp-install.md](./mcp-install.md) for the
-MCP wire-up.
+The installer downloads the `action1-cli` and `action1-mcp` binaries into `~/.local/bin`
+(macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows). It does not
+register the skill with your agent and writes no MCP client config - see
+[mcp-install.md](./mcp-install.md) for that wire-up.
 
 If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 

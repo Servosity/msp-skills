@@ -35,9 +35,10 @@ This skill drives the `salesbuildr-cli` binary. **You must verify the CLI is ins
 3. Verify: `salesbuildr-cli --version`
 4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
 
-The installer places the `salesbuildr-cli` and `salesbuildr-mcp` binaries on your PATH. It does not
-register anything with your agent - see [mcp-install.md](./mcp-install.md) for the
-MCP wire-up.
+The installer downloads the `salesbuildr-cli` and `salesbuildr-mcp` binaries into `~/.local/bin`
+(macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows). It does not
+register the skill with your agent and writes no MCP client config - see
+[mcp-install.md](./mcp-install.md) for that wire-up.
 
 If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 

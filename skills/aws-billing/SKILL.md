@@ -35,9 +35,10 @@ This skill drives the `aws-billing-cli` binary. **You must verify the CLI is ins
 3. Verify: `aws-billing-cli --version`
 4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
 
-The installer places the `aws-billing-cli` and `aws-billing-mcp` binaries on your PATH. It does not
-register anything with your agent - see [mcp-install.md](./mcp-install.md) for the
-MCP wire-up.
+The installer downloads the `aws-billing-cli` and `aws-billing-mcp` binaries into `~/.local/bin`
+(macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows). It does not
+register the skill with your agent and writes no MCP client config - see
+[mcp-install.md](./mcp-install.md) for that wire-up.
 
 If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
 

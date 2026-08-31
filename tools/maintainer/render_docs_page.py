@@ -55,19 +55,31 @@ def banner(vendor: str, owner: str, first_party: bool) -> str:
     )
 
 
-def feedback_env_var(skill_dir: Path) -> str | None:
-    """The connector's own <PREFIX>_FEEDBACK_AUTO_SEND variable, read from source.
+def feedback_env_vars(skill_dir: Path) -> tuple[str, str] | None:
+    """This connector's (AUTO_SEND, ENDPOINT) feedback variables, read from source.
 
-    The prefix is NOT derivable from the slug (unifi-network reads UNIFI_*), so
-    the page quotes what internal/cli/feedback.go actually calls os.Getenv on.
+    Both are needed to describe the path honestly, because the POST in
+    feedback.go is gated on BOTH:
+
+        if endpoint := feedbackEndpoint(); endpoint != "" && (send || feedbackAutoSend())
+
+    AUTO_SEND on its own sends nothing, and the destination is whatever URL the
+    operator puts in ENDPOINT - there is no default and no maintainer endpoint
+    anywhere in the fleet (feedbackEndpoint() is a bare os.Getenv, and no
+    goreleaser ldflags or workflow bakes one in). The prefix is NOT derivable
+    from the slug (unifi-network reads UNIFI_*), so the page quotes what
+    internal/cli/feedback.go actually calls os.Getenv on.
     """
     src = skill_dir / "cli" / "internal" / "cli" / "feedback.go"
     try:
-        m = re.search(r'os\.Getenv\("([A-Z0-9_]+_FEEDBACK_AUTO_SEND)"\)',
-                      src.read_text(encoding="utf-8"))
+        text = src.read_text(encoding="utf-8")
     except OSError:
         return None
-    return m.group(1) if m else None
+    auto = re.search(r'os\.Getenv\("([A-Z0-9_]+_FEEDBACK_AUTO_SEND)"\)', text)
+    endpoint = re.search(r'os\.Getenv\("([A-Z0-9_]+_FEEDBACK_ENDPOINT)"\)', text)
+    if not auto or not endpoint:
+        return None
+    return auto.group(1), endpoint.group(1)
 
 
 def serves_http(skill_dir: Path) -> bool:
@@ -154,10 +166,18 @@ def render_page(slug: str) -> Path:
     # the FIRST prose paragraph; check_aeo asserts it on every skill page.
     #
     # "never leaves your network" used to be stated here as an absolute. It is
-    # not one: every connector ships `--deliver webhook:<url>`, a
-    # <PREFIX>_FEEDBACK_AUTO_SEND path, and (on 59 of 65) a `--transport http`
-    # listener. All three are opt-in and operator-driven, which is what the
-    # wording now says - the claim is scoped, not dropped. See issue #240.
+    # not one: every connector ships `--deliver webhook:<url>` (65/65), a
+    # <PREFIX>_FEEDBACK_ENDPOINT + <PREFIX>_FEEDBACK_AUTO_SEND pair (65/65), and
+    # a `--transport http` listener (59/65). All three are opt-in and
+    # operator-driven, which is what the wording now says - the claim is scoped,
+    # not dropped.
+    #
+    # Asked for in the COMMENT THREAD on issue #240, not in that issue's body:
+    # the body is three install-doc defects, and the maintainer comment adds a
+    # fourth ("your client data never leaves your network", 65 pages) whose
+    # suggested wording is "data stays local unless *you* route it somewhere".
+    # docs/index.md and docs/why-msp-skills.md carry the same claim in their
+    # comparison tables and are scoped to match, so the site states it once.
     direct_answer = (
         f"Yes - there is an MCP server for {display}. It's free, open source, "
         "and runs on your own machine, so your client data stays local unless "
@@ -170,18 +190,23 @@ def render_page(slug: str) -> Path:
     # scopes its promise instead of asserting an absolute the binary contradicts.
     # Each is opt-in and operator-driven; none fires on its own.
     egress = ["`--deliver webhook:<url>` posts a command's output to a URL you name"]
-    fb_var = feedback_env_var(skill_dir)
-    if fb_var:
-        egress.append(f"`{fb_var}=true` mails feedback you wrote to the maintainers")
+    fb_vars = feedback_env_vars(skill_dir)
+    if fb_vars:
+        auto, endpoint = fb_vars
+        egress.append(
+            f"`{auto}=true` posts feedback you typed to the URL in `{endpoint}` "
+            f"(with no endpoint set, `feedback` only writes a local file)"
+        )
     if serves_http(skill_dir):
         egress.append("`--transport http` opens a local MCP listener you then choose "
                       "whether to expose")
-    egress_sentence = (
-        "Three paths can move data off the machine, all opt-in: "
-        if len(egress) == 3 else
-        f"{'Two paths' if len(egress) == 2 else 'One path'} can move data off the "
-        f"machine, {'both' if len(egress) == 2 else 'and it is'} opt-in: "
-    ) + "; ".join(egress) + "."
+    noun, quantifier = {
+        1: ("One path", "and it is"),
+        2: ("Two paths", "both"),
+        3: ("Three paths", "all"),
+    }.get(len(egress), (f"{len(egress)} paths", "all"))
+    egress_sentence = (f"{noun} can move data off the machine, {quantifier} opt-in: "
+                       + "; ".join(egress) + ".")
 
     # Two generator-level FAQs every skill page carries (AEO: the exact
     # questions MSPs type into AI search), ahead of the page.json FAQs.

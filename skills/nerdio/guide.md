@@ -6,7 +6,7 @@ Manage Azure Virtual Desktop fleets across every customer account from one termi
 
 ## Install
 
-This CLI ships as a Claude Code Skill and MCP server in [Servosity/msp-skills](https://github.com/Servosity/msp-skills). The installer places the `nerdio-cli` and `nerdio-mcp` binaries and registers the skill with your agent:
+This CLI ships as a Claude Code Skill and MCP server in [Servosity/msp-skills](https://github.com/Servosity/msp-skills). The installer downloads the `nerdio-cli` and `nerdio-mcp` binaries into `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows). It does not register the skill with your agent and writes no MCP client config - see [mcp-install.md](./mcp-install.md) for that wire-up.
 
 1. macOS / Linux:
    ```bash
@@ -68,7 +68,7 @@ To install:
 
 Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
 
-> **Interim note:** the `.mcpb` bundles published so far cannot launch - the bundle manifest names a binary the archive does not contain ([#287](https://github.com/Servosity/msp-skills/issues/287)). The builder fix is in flight; until a rebuilt bundle ships, use the installer above and the manual JSON config below.
+> **Interim note:** a `.mcpb` bundle built before the [#287](https://github.com/Servosity/msp-skills/issues/287) fix does not launch. Its `manifest.json` runs `${__dirname}/bin/nerdio-mcp`, but the archive stores the binaries under platform-suffixed names (`bin/nerdio-mcp-darwin-arm64` and four siblings), so Claude Desktop finds nothing at that path. Check the bundle you downloaded with `unzip -l <file>.mcpb | grep bin/`: if `bin/nerdio-mcp` is not listed, use the installer above and the manual JSON config below.
 
 <details>
 <summary>Manual JSON config (advanced)</summary>

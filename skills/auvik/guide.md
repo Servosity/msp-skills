@@ -6,7 +6,7 @@ Auvik holds the richest network-truth dataset an MSP has, behind a read-only JSO
 
 ## Install
 
-This CLI ships as a Claude Code Skill and MCP server in [Servosity/msp-skills](https://github.com/Servosity/msp-skills). The installer places the `auvik-cli` and `auvik-mcp` binaries and registers the skill with your agent:
+This CLI ships as a Claude Code Skill and MCP server in [Servosity/msp-skills](https://github.com/Servosity/msp-skills). The installer downloads the `auvik-cli` and `auvik-mcp` binaries into `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows). It does not register the skill with your agent and writes no MCP client config - see [mcp-install.md](./mcp-install.md) for that wire-up.
 
 1. macOS / Linux:
    ```bash

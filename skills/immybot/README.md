@@ -46,7 +46,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-> **Interim note on `.mcpb`:** the bundles published so far cannot launch - the bundle manifest names a binary the archive does not contain ([#287](https://github.com/Servosity/msp-skills/issues/287)). The builder fix is in flight; until a rebuilt bundle ships, use Path A or Path B below and wire Claude Desktop up through [mcp-install.md](./mcp-install.md).
+> **Interim note on `.mcpb`:** a bundle built before the [#287](https://github.com/Servosity/msp-skills/issues/287) fix does not launch. Its `manifest.json` runs `${__dirname}/bin/immybot-mcp`, but the archive stores the binaries under platform-suffixed names (`bin/immybot-mcp-darwin-arm64` and four siblings), so Claude Desktop finds nothing at that path. Check the bundle you downloaded with `unzip -l <file>.mcpb | grep bin/`: if `bin/immybot-mcp` is not listed, use Path A or Path B below and wire Claude Desktop up through [mcp-install.md](./mcp-install.md).
 
 [**Download ImmyBot MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/immybot-v0.1.2/immybot-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every ImmyBot release on the [releases page](https://github.com/servosity/msp-skills/releases?q=immybot).)
 
