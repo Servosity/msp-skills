@@ -46,7 +46,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-> **Interim note on `.mcpb`:** a bundle built before the [#287](https://github.com/Servosity/msp-skills/issues/287) fix does not launch. Its `manifest.json` runs `${__dirname}/bin/rootly-mcp`, but the archive stores the binaries under platform-suffixed names (`bin/rootly-mcp-darwin-arm64` and four siblings), so Claude Desktop finds nothing at that path. Check the bundle you downloaded with `unzip -l <file>.mcpb | grep bin/`: if `bin/rootly-mcp` is not listed, use Path A or Path B below and wire Claude Desktop up through [mcp-install.md](./mcp-install.md).
+> **Interim note on `.mcpb`:** check the bundle before you trust it ([#287](https://github.com/Servosity/msp-skills/issues/287)). Its `manifest.json` launches `${__dirname}/bin/rootly-mcp`, while the builder stores the release binaries in `bin/` under their platform-suffixed names - `rootly-mcp-darwin-arm64`, `-darwin-amd64`, `-linux-arm64`, `-linux-amd64`, `-windows-amd64.exe`. Run `unzip -l <file>.mcpb | grep bin/`: if the name the manifest launches is not among them, Claude Desktop has nothing to run - use Path A or Path B below and wire Claude Desktop up through [mcp-install.md](./mcp-install.md).
 
 [**Download Rootly MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/rootly-v0.1.2/rootly-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Rootly release on the [releases page](https://github.com/servosity/msp-skills/releases?q=rootly).)
 
