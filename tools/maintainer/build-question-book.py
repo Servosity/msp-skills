@@ -93,8 +93,9 @@ def render(by_cat: dict[str, list[tuple[str, dict, list[str]]]]) -> str:
         f"aggregated from the {n_conn} free, open source connectors on this "
         "site and grouped by tool category. Every question maps to a real, "
         "gate-verified command your AI agent runs against your PSA, RMM, "
-        "backup, security, or billing stack - locally, without your data "
-        "leaving your network. Find your tools, steal the questions.",
+        "backup, security, or billing stack. It runs on your own machine, "
+        "and your data stays local unless you route it somewhere "
+        "yourself. Find your tools, steal the questions.",
         "",
         "Each connector installs in about 60 seconds and works with Claude, "
         "ChatGPT, Copilot, and any MCP-capable agent. New to the term? "
