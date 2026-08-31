@@ -83,6 +83,27 @@ and shell use `#`; Markdown uses `<!-- -->`; JSON has no comment syntax at all,
 so `code_only` on a .json target is a USAGE ERROR rather than a silent no-op -
 accepting it there would hand the author assurance the format cannot provide.
 
+How far each stripper is actually trusted, measured rather than assumed:
+
+  strip_c_like   agrees with Go's own `go/scanner` (ScanComments) on every
+                 comment position in all 19616 .go files under skills/ - 0 files
+                 where it blanked real code, 0 where it missed a real comment.
+                 The comparison is not vacuous: swapping in a naive
+                 blank-from-`//`-to-EOL stripper makes 825 files disagree.
+  strip_hash     is a lexer approximation, not a Python/shell parser. It treats
+                 shell parameter expansion as a comment (`v=${TAG##*-v}`) and
+                 can blank a `#` inside a triple-quoted string. Unreachable
+                 today: across 2579 asserts the target extensions are .go 1674,
+                 .json 559, .md 340, .mod 2, extension-less 4 - zero .py and
+                 zero .sh.
+  strip_html_comments blanks to end-of-file on an unterminated `<!--`. None of
+                 the 109 distinct .md files asserts target contains one.
+
+Those two limits are stated here rather than fixed because a stripper only ever
+runs under `code_only: true`, which no ledger uses yet; the moment a .py, .sh or
+malformed-.md target appears, the limit becomes reachable and the stripper needs
+a real parser.
+
 Usage:
     check_handfixes.py                 # every skill with a ledger
     check_handfixes.py --slug axcient  # one skill
@@ -383,9 +404,6 @@ class WeakAssert:
         self.slug, self.hid, self.rel = slug, hid, rel
         self.needle, self.min_count = needle, min_count
         self.raw, self.stripped = raw, stripped
-
-    def key(self) -> str:
-        return f"{self.slug}/{self.hid}/{self.rel}/{self.needle}"
 
     def identity(self) -> str:
         """What makes this the SAME assert across two revisions.
@@ -753,8 +771,9 @@ def changed(base: str, allow_missing_base: bool = False) -> int:
             print("Only asserts this change introduced or weakened are listed. Asserts that were "
                   "already comment-satisfiable before it are NOT your bill: `--lint-asserts` "
                   "reports those repo-wide, advisory.")
-            print("The `code_only` tri-state is documented in docs/reprint-survival.md "
-                  "(\"Ledger schema\") and in this file's module docstring. See issue #252.")
+            print("The `code_only` tri-state is documented under \"`code_only`: what the "
+                  "`contains` needle is counted in\" in docs/reprint-survival.md, and in this "
+                  "file's module docstring. See issue #252.")
         return 1
     print("PASS: every generated-file hand-edit in this change is recorded (or part of a reprint), "
           "and no assert this change added or weakened is comment-satisfiable.")

