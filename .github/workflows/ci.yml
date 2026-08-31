@@ -29,6 +29,29 @@ jobs:
         # per-skill ledger gate covers recorded fixes there. See docs/reprint-survival.md.
         run: python3 tools/maintainer/check_handfixes.py --changed --base "${{ github.event.pull_request.base.sha }}"
 
+      - name: Maintainer gate self-tests (each gate proved BOTH directions)
+        # One step, three proofs, about three seconds. A gate that cannot fail is
+        # worthless and a gate that always fires is worse, so each of these
+        # asserts its check is silent on the repo's real inputs AND fires on the
+        # defect it was written for:
+        #   registry.py       - every registered slug and source_dir loads clean
+        #                       (including skills/_meta, which the SLUG rule
+        #                       rejects on purpose), and nine malformed
+        #                       identifiers are refused before they reach the
+        #                       build matrix's unquoted shell interpolations.
+        #   check_handfixes.py- issue #252's reproduction: the same assert is
+        #                       silent while the guarded code is present and
+        #                       fires once only a comment carries the needle.
+        #   mcpb_bundle.py    - the published .mcpb defect (issue #287), a broken
+        #                       per-OS override, a 0644 binary and a ZIP_STORED
+        #                       member all fail; a built bundle and the
+        #                       connectwise-manage manifest shape both pass.
+        run: |
+          set -euo pipefail
+          python3 tools/maintainer/registry.py --self-test
+          python3 tools/maintainer/check_handfixes.py --self-test
+          python3 tools/maintainer/mcpb_bundle.py --self-test
+
       - name: Skill contract (frontmatter + required files)
         run: python3 tools/maintainer/check_skill_contract.py
 

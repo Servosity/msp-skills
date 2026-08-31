@@ -6,11 +6,25 @@ Per-skill metadata (system, status, vendor, binary names, first_party) is
 declared in skills.json. Build-time facts (Go module path, cmd/ directory
 names) are introspected from each skill's vendored cli/ tree so they stay
 correct whether or not the source has been stripped of the -pp- brand.
+
+This module also owns the GRAMMAR for the identifiers it hands out (see
+`validate_registry`). Every one of them reaches a shell: release_matrix.py
+emits them into the ci.yml and release.yml build matrices, where they land in
+unquoted `${{ matrix.skill.* }}` interpolations. CI triggers on
+`pull_request`, so on a fork PR the FORK's tools/maintainer/skills.json is the
+input. Checking the grammar at load - the one door every reader comes through -
+makes those interpolations safe by construction, instead of quoting four call
+sites today and missing the fifth one somebody adds next month. See issue #251.
+
+Run the both-directions proof:
+    python3 tools/maintainer/registry.py --self-test
 """
 
 from __future__ import annotations
 
 import json
+import re
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent.parent
@@ -66,8 +80,87 @@ def asset_map(cli_binary: str, mcp_binary: str) -> dict[str, dict[str, str]]:
     }
 
 
+# --------------------------------------------------------------------------
+# Identifier grammar
+#
+# Three patterns, not one, because the three identifier KINDS have genuinely
+# different legal alphabets. Applying the slug rule to all of them would
+# false-RED the repo on the very first entry it met - see SOURCE_DIR_RE.
+# --------------------------------------------------------------------------
+
+# A published skill slug. Lowercase alphanumerics and internal hyphens only.
+# All 67 registered slugs satisfy this today.
+SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
+
+# `source_dir` names a DIRECTORY under skills/, and it is deliberately looser
+# than SLUG_RE: msp-skills-concierge declares "_meta", whose leading underscore
+# SLUG_RE rejects. Validating a directory name with the slug rule would fail the
+# load for the whole repo - a gate that always fires teaches everyone to ignore
+# it. What this still forbids is what actually matters here: "/" and "\" (path
+# escape), a leading "." (so "." and ".." can never match), whitespace, and
+# every shell metacharacter.
+SOURCE_DIR_RE = re.compile(r"^[a-z0-9_][a-z0-9._-]*$")
+
+# `cli_binary` / `mcp_binary` reach release.yml's build+upload step from the
+# same matrix JSON, so they are the same class of value as a slug. They may
+# carry a dot (a ".exe" suffix is appended downstream, and nothing forbids a
+# dotted base name), which slugs may not.
+BINARY_RE = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
+
+_PATTERNS = {
+    "slug": SLUG_RE,
+    "source_dir": SOURCE_DIR_RE,
+    "cli_binary": BINARY_RE,
+    "mcp_binary": BINARY_RE,
+}
+
+
+def _grammar_error(kind: str, slug: str, value: object) -> str:
+    return (
+        f"tools/maintainer/skills.json: {kind} {value!r}"
+        + (f" (on skill '{slug}')" if kind != "slug" else "")
+        + f" does not match {_PATTERNS[kind].pattern}.\n"
+        "  These identifiers are emitted by tools/maintainer/release_matrix.py into the\n"
+        "  GitHub Actions build matrix, where the workflows interpolate them into shell\n"
+        "  (`cd ${{ matrix.skill.dir }}`, `--slug ${{ matrix.skill.name }}`). A value\n"
+        "  outside the grammar is refused HERE rather than reaching a command line.\n"
+        "  Fix the entry in tools/maintainer/skills.json. See issue #251."
+    )
+
+
+def validate_registry(reg: dict) -> list[str]:
+    """Return a list of grammar violations in a parsed registry (empty == clean).
+
+    Pure and side-effect free so the both-directions proof can call it with a
+    hand-built bad registry without writing to disk.
+    """
+    errors: list[str] = []
+    skills_map = reg.get("skills")
+    if not isinstance(skills_map, dict):
+        return ["tools/maintainer/skills.json: 'skills' must be an object"]
+    for slug in skills_map:
+        if not isinstance(slug, str) or not SLUG_RE.match(slug):
+            errors.append(_grammar_error("slug", slug, slug))
+    for slug, meta in skills_map.items():
+        if not isinstance(meta, dict):
+            errors.append(f"tools/maintainer/skills.json: skill '{slug}' must map to an object")
+            continue
+        for kind in ("source_dir", "cli_binary", "mcp_binary"):
+            value = meta.get(kind)
+            if value is None:
+                continue  # optional key; absence is not a grammar violation
+            if not isinstance(value, str) or not _PATTERNS[kind].match(value):
+                errors.append(_grammar_error(kind, slug, value))
+    return errors
+
+
 def load() -> dict:
-    return json.loads(REGISTRY.read_text(encoding="utf-8"))
+    reg = json.loads(REGISTRY.read_text(encoding="utf-8"))
+    errors = validate_registry(reg)
+    if errors:
+        raise SystemExit("registry: refusing to load a registry with malformed identifiers:\n\n"
+                         + "\n\n".join(errors))
+    return reg
 
 
 def owner_repo() -> tuple[str, str]:
@@ -138,3 +231,74 @@ def cmd_dirs(slug: str) -> tuple[str, str]:
     if not cli or not mcp:
         raise SystemExit(f"{slug}: expected one *-cli and one *-mcp dir under {cmd_root}, found {dirs}")
     return f"./cmd/{cli}", f"./cmd/{mcp}"
+
+
+def _self_test() -> int:
+    """Both-directions proof for the identifier grammar.
+
+    A check that only ever passes proves nothing, and a check that always fires
+    is worse than none - it gets ignored. So this asserts BOTH: the live
+    registry is clean, and each hand-built malformation is caught.
+    """
+    failures: list[str] = []
+
+    def expect_clean(label: str, reg: dict) -> None:
+        errs = validate_registry(reg)
+        if errs:
+            failures.append(f"FALSE POSITIVE: {label} should validate clean, got:\n    "
+                            + "\n    ".join(errs))
+
+    def expect_rejected(label: str, reg: dict, must_mention: str) -> None:
+        errs = validate_registry(reg)
+        if not errs:
+            failures.append(f"FALSE NEGATIVE: {label} must be rejected, but validated clean")
+        elif not any(must_mention in e for e in errs):
+            failures.append(f"{label}: rejected, but no message mentions {must_mention!r}")
+
+    # --- silent on good input -------------------------------------------
+    live = json.loads(REGISTRY.read_text(encoding="utf-8"))
+    expect_clean(f"the live registry ({len(live.get('skills', {}))} skills)", live)
+
+    # The trap this grammar exists to survive: source_dir "_meta" is LEGAL, and
+    # would be rejected by the slug rule. Assert both halves explicitly.
+    expect_clean("source_dir '_meta'",
+                 {"skills": {"msp-skills-concierge": {"source_dir": "_meta"}}})
+    if SLUG_RE.match("_meta"):
+        failures.append("SLUG_RE unexpectedly accepts '_meta'; the two patterns must stay distinct")
+    if not SOURCE_DIR_RE.match("_meta"):
+        failures.append("SOURCE_DIR_RE must accept '_meta' - it is the concierge's real directory")
+
+    # --- fires on broken input ------------------------------------------
+    expect_rejected("a slug carrying a shell command separator",
+                    {"skills": {"foo;rm -rf /": {}}}, "foo;rm -rf /")
+    expect_rejected("an uppercase slug", {"skills": {"Foo": {}}}, "Foo")
+    expect_rejected("a slug with command substitution",
+                    {"skills": {"a$(id)": {}}}, "a$(id)")
+    expect_rejected("a leading-hyphen slug (reads as a flag on a command line)",
+                    {"skills": {"-rf": {}}}, "-rf")
+    expect_rejected("a source_dir escaping skills/",
+                    {"skills": {"ok": {"source_dir": "../../etc"}}}, "../../etc")
+    expect_rejected("a source_dir with a path separator",
+                    {"skills": {"ok": {"source_dir": "a/b"}}}, "a/b")
+    expect_rejected("an mcp_binary carrying a pipe",
+                    {"skills": {"ok": {"mcp_binary": "x|y"}}}, "x|y")
+    expect_rejected("a cli_binary carrying a space",
+                    {"skills": {"ok": {"cli_binary": "a b"}}}, "a b")
+    expect_rejected("a non-string slug", {"skills": {"ok": {"source_dir": 7}}}, "7")
+
+    if failures:
+        print("FAIL: registry grammar self-test\n")
+        for f in failures:
+            print(f"  - {f}")
+        return 1
+    print(f"PASS: registry grammar self-test - the live registry "
+          f"({len(live['skills'])} skills) validates clean, '_meta' is accepted as a "
+          f"source_dir and rejected as a slug, and 9 malformed identifiers are refused.")
+    return 0
+
+
+if __name__ == "__main__":
+    if "--self-test" in sys.argv[1:]:
+        sys.exit(_self_test())
+    print(__doc__)
+    sys.exit(0)

@@ -133,6 +133,14 @@ connectwise-manage - the one manifest carrying `platform_overrides` - is the onl
 one whose entry_point is right. Enforcing the bare name would codify a fleet-wide
 break and false-RED the single correct manifest.
 
+The true version of that assertion lives in the sibling gate
+`tools/maintainer/mcpb_bundle.py validate`, which checks the built .mcpb rather
+than the on-disk manifest: every path the bundled manifest declares - the base
+command and each platform_overrides.<os>.command - must name a member the archive
+actually contains, and that member must be executable. That is checkable only
+against a bundle, which is why it runs in mcp-publish.yml and not here. See
+issue #287.
+
 Modes:
   --slug <slug>   check one skill. An UNRECOGNISED slug is a usage error, not a
                   vacuous pass: CI runs this per-skill from a matrix, so a drifted

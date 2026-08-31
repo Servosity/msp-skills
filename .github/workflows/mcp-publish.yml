@@ -90,6 +90,20 @@ jobs:
           # publisher binary something worth stealing.
           persist-credentials: false
 
+      # The checkout above is pinned to the TAG being published, so it carries
+      # whatever tools/maintainer/ looked like when that tag was cut. workflow_run
+      # always runs the DEFAULT BRANCH's copy of this workflow file, so the
+      # bundle builder it calls must come from the default branch too - otherwise
+      # every tag cut before mcpb_bundle.py landed would silently fall back to
+      # the hand-rolled zip that produced 64 unlaunchable bundles (issue #287).
+      # skills/<slug>/manifest.json still comes from the tag, which is correct:
+      # the manifest must match the released version.
+      - name: Checkout the default branch's maintainer tools
+        uses: actions/checkout@v4
+        with:
+          path: maintainer-tools
+          persist-credentials: false
+
       - name: Set up jq
         run: sudo apt-get update && sudo apt-get install -y jq
 
@@ -120,30 +134,55 @@ jobs:
           EXPECTED_BINARIES: "5"
         run: |
           set -euo pipefail
-          cd mcpb-build
-          # MCPB is a zip with manifest.json + a bin/ directory of the binaries.
-          mkdir -p bundle/bin
-          cp "../skills/$SKILL/manifest.json" bundle/manifest.json
-          copied=0
-          for f in "$SKILL"-mcp-*; do
-            [ -f "$f" ] || continue
-            cp "$f" "bundle/bin/$f"
-            copied=$((copied + 1))
-          done
+          copied=$(find mcpb-build -maxdepth 1 -type f -name "${SKILL}-mcp-*" | wc -l | tr -d ' ')
           # The download step tolerates a per-asset failure with `|| true`, and the
           # upload uses --clobber. Together those mean a transient GitHub outage
           # could produce a manifest-only bundle and OVERWRITE a working released
           # .mcpb with it. Refuse to build a bundle that is missing binaries: a
           # failed run leaves the previous good asset in place, which is the safe
           # direction.
-          echo "bundled $copied binary/binaries"
+          echo "downloaded $copied binary/binaries"
           if [ "$copied" -lt "$EXPECTED_BINARIES" ]; then
             echo "::error::only $copied of $EXPECTED_BINARIES platform binaries were downloaded for $SKILL;" \
                  "refusing to build a partial bundle that --clobber would publish over the working asset"
             exit 1
           fi
-          (cd bundle && zip -r "../${SKILL}-mcp.mcpb" .)
-          ls -la "${SKILL}-mcp.mcpb"
+          # MCPB is a zip with manifest.json + a bin/ directory of binaries. Hand
+          # rolling that with `zip -r` is what shipped 64 bundles the host cannot
+          # start: the manifest named bin/<slug>-mcp while the archive held only
+          # arch-suffixed binaries, and `gh release download` + `zip -r` left every
+          # one of them mode 0644. The builder merges the two darwin slices into a
+          # universal Mach-O, writes per-OS platform_overrides that resolve, sets
+          # the executable bit, and refuses to emit a bundle that does not validate.
+          # See issue #287 and tools/maintainer/mcpb_bundle.py.
+          #
+          # --binary-prefix is "$SKILL-mcp" - exactly the names the download loop
+          # asked for and release.yml uploaded. It is deliberately NOT derived from
+          # manifest.json's `name`, which still reads "<slug>-pp-mcp" on eight
+          # connectors and would name members that do not exist.
+          python3 maintainer-tools/tools/maintainer/mcpb_bundle.py build \
+            --manifest "skills/$SKILL/manifest.json" \
+            --bin-dir mcpb-build \
+            --binary-prefix "${SKILL}-mcp" \
+            --out "mcpb-build/${SKILL}-mcp.mcpb" \
+            --version "$VERSION"
+          ls -la "mcpb-build/${SKILL}-mcp.mcpb"
+
+      - name: Bundle can actually launch (every declared command resolves)
+        env:
+          SKILL: ${{ needs.detect.outputs.skill }}
+        # Separate from the build step on purpose: the builder validates its own
+        # output, and this re-asserts it against the file on disk, before the
+        # upload, so a bundle that cannot start never reaches a release or the
+        # registry. Asserts each of mcp_config.command and every
+        # platform_overrides.<os>.command names a member the archive contains and
+        # that the member is executable. It does NOT assert
+        # entry_point == "bin/<mcp binary>" - that would codify the broken bare
+        # name and false-RED connectwise-manage, the one manifest that can launch.
+        run: |
+          set -euo pipefail
+          python3 maintainer-tools/tools/maintainer/mcpb_bundle.py validate \
+            "mcpb-build/${SKILL}-mcp.mcpb"
 
       - name: Compute SHA-256
         id: sha
