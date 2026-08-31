@@ -27,7 +27,9 @@ Ledger schema (skills/<slug>/handfixes.json):
           "spec_encode_followup": "...",      // optional
           "asserts": [
             {"file": "cli/internal/store/store.go", "contains": "\"id_\"", "min_count": 2},
-            {"file": "cli/internal/mcp/tools.go",   "not_contains": "fmt.Sprintf(\"%v\", v), 1)"}
+            {"file": "cli/internal/mcp/tools.go",   "not_contains": "fmt.Sprintf(\"%v\", v), 1)"},
+            {"file": "cli/internal/config/config.go", "contains": "stripAuthScheme(",
+             "min_count": 1, "code_only": true}
           ]
         }
       ]
@@ -38,11 +40,77 @@ clobber; "upstreamed" = also fixed in the press (a reprint from a fixed press
 regenerates it) but the back-port must still be present today. Both are
 asserted present.
 
+Comment-satisfiable asserts (issue #252)
+----------------------------------------
+An assert counts a substring in the WHOLE file, comments included. So an assert
+whose needle a doc comment also contains stays green after the code it guards is
+deleted - the exact failure this gate exists to catch. Measured on this repo:
+2579 asserts across 409 entries in 65 ledgers, of which 26 are satisfiable by
+comments alone today.
+
+Those 26 are not all bugs. Some deliberately assert on a comment (`Hand-wired:`
+markers, an explanatory paragraph a reprint must not drop). So the fix is not to
+strip comments everywhere - that would false-RED every legitimate marker assert -
+but to make the author say which one they meant, with `code_only`:
+
+    absent (default)  count the whole file, as today. The `--lint-asserts` lint
+                      reports the assert when comments alone can satisfy it.
+    true              count comment-stripped source only. Strictly stronger; the
+                      needle must survive in code.
+    false             "this assert deliberately targets a comment." Whole-file
+                      count, and the lint stays quiet about it.
+
+`code_only` modifies a `contains` count and NOTHING else. It is REFUSED on an
+assert that carries no `contains` key, because on a `not_contains` assert the
+whole-file scan is already the strictest form available: the banned pattern must
+be absent from code AND from comments. Stripping comments there could only ever
+HIDE a reappearance - a banned line resurrected inside a comment would stop being
+reported. A flag that reads as "stronger" while making one assert kind weaker is
+the same fail-open shape this gate exists to prevent, so `not_contains` is always
+evaluated against the whole file and the flag is an error rather than a trap.
+(An assert may carry both keys; `code_only` then scopes only the `contains` half,
+which is why the refusal keys off the ABSENCE of `contains`, not the presence of
+`not_contains`.)
+
+`code_only` must be a JSON boolean. A string ("true") is a hard ledger error,
+not a shrug: it changes no counting at all while reading like a declared intent,
+which is a gate failing open in the quietest possible way.
+
+Comment syntax is per language and one stripper does NOT cover all of them:
+Go and go.mod use `//` and `/* */` (string, rune and raw-string literals are
+respected, so a `//` inside a URL literal is not mistaken for a comment); Python
+and shell use `#`; Markdown uses `<!-- -->`; JSON has no comment syntax at all,
+so `code_only` on a .json target is a USAGE ERROR rather than a silent no-op -
+accepting it there would hand the author assurance the format cannot provide.
+
+How far each stripper is actually trusted, measured rather than assumed:
+
+  strip_c_like   agrees with Go's own `go/scanner` (ScanComments) on every
+                 comment position in all 19616 .go files under skills/ - 0 files
+                 where it blanked real code, 0 where it missed a real comment.
+                 The comparison is not vacuous: swapping in a naive
+                 blank-from-`//`-to-EOL stripper makes 825 files disagree.
+  strip_hash     is a lexer approximation, not a Python/shell parser. It treats
+                 shell parameter expansion as a comment (`v=${TAG##*-v}`) and
+                 can blank a `#` inside a triple-quoted string. Unreachable
+                 today: across 2579 asserts the target extensions are .go 1674,
+                 .json 559, .md 340, .mod 2, extension-less 4 - zero .py and
+                 zero .sh.
+  strip_html_comments blanks to end-of-file on an unterminated `<!--`. None of
+                 the 109 distinct .md files asserts target contains one.
+
+Those two limits are stated here rather than fixed because a stripper only ever
+runs under `code_only: true`, which no ledger uses yet; the moment a .py, .sh or
+malformed-.md target appears, the limit becomes reachable and the stripper needs
+a real parser.
+
 Usage:
     check_handfixes.py                 # every skill with a ledger
     check_handfixes.py --slug axcient  # one skill
     check_handfixes.py --all           # explicit all (same as no args)
     check_handfixes.py --changed --base <sha>   # PR-diff mode (CI)
+    check_handfixes.py --lint-asserts  # report every comment-satisfiable assert
+    check_handfixes.py --self-test     # both-directions proof of the above
 
 Exit codes:
     0  every ledger passes (or none exist), or --changed found nothing unrecorded
@@ -61,10 +129,142 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections import Counter
 from pathlib import Path
+from typing import Callable
 
 REPO = Path(__file__).resolve().parents[2]
 SKILLS = REPO / "skills"
+
+
+# --------------------------------------------------------------------------
+# Comment strippers (issue #252)
+#
+# Each returns the source with comment bytes replaced by spaces - same length,
+# newlines preserved - so a stripped count is directly comparable to a raw one
+# and any reported offset still lines up with the original file.
+# --------------------------------------------------------------------------
+
+
+def strip_c_like(src: str) -> str:
+    """Go and go.mod: blank `//` line comments and `/* */` block comments.
+
+    Interpreted string, rune and raw-string literals are skipped, so the `//` in
+    a `"https://..."` literal is not mistaken for a comment - which matters here
+    because base-URL literals are exactly the kind of thing a ledger asserts on.
+    """
+    out = list(src)
+    i, n = 0, len(src)
+    while i < n:
+        c = src[i]
+        if c in ('"', "'"):
+            quote = c
+            i += 1
+            while i < n:
+                if src[i] == "\\":
+                    i += 2
+                    continue
+                if src[i] == quote or src[i] == "\n":
+                    i += 1
+                    break
+                i += 1
+            continue
+        if c == "`":  # Go raw string: no escapes, may span lines
+            i += 1
+            while i < n and src[i] != "`":
+                i += 1
+            i += 1
+            continue
+        if c == "/" and i + 1 < n and src[i + 1] == "/":
+            while i < n and src[i] != "\n":
+                out[i] = " "
+                i += 1
+            continue
+        if c == "/" and i + 1 < n and src[i + 1] == "*":
+            while i < n and not (src[i] == "*" and i + 1 < n and src[i + 1] == "/"):
+                if src[i] != "\n":
+                    out[i] = " "
+                i += 1
+            for _ in range(2):  # the closing */
+                if i < n:
+                    out[i] = " "
+                    i += 1
+            continue
+        i += 1
+    return "".join(out)
+
+
+def strip_hash(src: str) -> str:
+    """Python and shell: blank `#` comments that are not inside a quoted string."""
+    out = list(src)
+    i, n = 0, len(src)
+    while i < n:
+        c = src[i]
+        if c in ('"', "'"):
+            quote = c
+            i += 1
+            while i < n:
+                if src[i] == "\\":
+                    i += 2
+                    continue
+                if src[i] == quote or src[i] == "\n":
+                    i += 1
+                    break
+                i += 1
+            continue
+        if c == "#":
+            while i < n and src[i] != "\n":
+                out[i] = " "
+                i += 1
+            continue
+        i += 1
+    return "".join(out)
+
+
+def strip_html_comments(src: str) -> str:
+    """Markdown and HTML: blank `<!-- ... -->` comments."""
+    out = list(src)
+    i, n = 0, len(src)
+    while i < n:
+        if src.startswith("<!--", i):
+            end = src.find("-->", i + 4)
+            end = n if end < 0 else end + 3
+            while i < end:
+                if src[i] != "\n":
+                    out[i] = " "
+                i += 1
+            continue
+        i += 1
+    return "".join(out)
+
+
+# Extension -> (stripper, human name). A file type absent from this map has no
+# stripper: `code_only` on it is refused rather than silently treated as a
+# whole-file count, because a no-op that reports success is worse than an error.
+_STRIPPERS = {
+    ".go": (strip_c_like, "Go (// and /* */)"),
+    ".mod": (strip_c_like, "go.mod (//)"),
+    ".py": (strip_hash, "Python (#)"),
+    ".sh": (strip_hash, "shell (#)"),
+    ".bash": (strip_hash, "shell (#)"),
+    ".md": (strip_html_comments, "Markdown (<!-- -->)"),
+}
+
+# File types that genuinely have no comment syntax. Named explicitly so the
+# error message can say WHY instead of "unsupported".
+_NO_COMMENT_SYNTAX = {".json": "JSON has no comment syntax"}
+
+
+def strip_comments(rel: str, content: str) -> tuple[str | None, str]:
+    """Return (stripped content, description), or (None, reason) when the file
+    type has no stripper. Never guesses: an unknown type returns None."""
+    suffix = Path(rel).suffix.lower()
+    if suffix in _STRIPPERS:
+        fn, label = _STRIPPERS[suffix]
+        return fn(content), label
+    if suffix in _NO_COMMENT_SYNTAX:
+        return None, _NO_COMMENT_SYNTAX[suffix]
+    return None, f"no comment stripper is defined for '{suffix or Path(rel).name}'"
 
 
 def _load_ledger(path: Path):
@@ -110,26 +310,217 @@ def check_skill(slug: str) -> list[str]:
                 )
                 continue
             content = fpath.read_text(encoding="utf-8", errors="replace")
+
+            # `code_only: true` counts comment-stripped source instead of the
+            # whole file, so a doc comment can no longer stand in for the code
+            # the assert guards (issue #252).
+            #
+            # A non-boolean value is a hard error, not a shrug. `"code_only":
+            # "true"` is a one-character JSON typo that would otherwise do
+            # NOTHING to the count while still reading, to the author and to the
+            # lint, as a declared intent - a gate failing open in the quietest
+            # possible way.
+            if "code_only" in a and not isinstance(a["code_only"], bool):
+                failures.append(
+                    f"[{slug}] handfix '{hid}': assert on '{rel}' has \"code_only\": "
+                    f"{a['code_only']!r}, which is not a boolean. It must be true (count "
+                    f"comment-stripped source) or false (this assert deliberately targets a "
+                    f"comment). A non-boolean silently changes nothing while looking like it does."
+                )
+                continue
+
+            # `code_only` scopes a `contains` count and nothing else. On an
+            # assert with no `contains`, the flag has no count to strengthen -
+            # and applying it to the `not_contains` scan would WEAKEN that
+            # assert, because a banned pattern resurrected inside a comment
+            # would stop being reported. `not_contains` therefore always reads
+            # the whole file, and the flag is refused here rather than accepted
+            # as a silent downgrade dressed up as a hardening.
+            if "code_only" in a and "contains" not in a:
+                failures.append(
+                    f"[{slug}] handfix '{hid}': assert on '{rel}' sets \"code_only\": "
+                    f"{a['code_only']!r} but has no 'contains' needle for it to scope. "
+                    f"`code_only` narrows a `contains` count to comment-stripped source; a "
+                    f"`not_contains` assert is ALWAYS checked against the whole file, which is "
+                    f"already the strongest form - the banned pattern must be absent from code "
+                    f"and from comments. Stripping comments there could only hide a "
+                    f"reappearance, so the flag is refused instead of quietly weakening the "
+                    f"check. Drop it. See {doc}."
+                )
+                continue
+
+            code_content = content
+            scope = "the file"
+            if a.get("code_only") is True:
+                stripped, why = strip_comments(rel, content)
+                if stripped is None:
+                    failures.append(
+                        f"[{slug}] handfix '{hid}': assert on '{rel}' sets \"code_only\": true, but "
+                        f"{why}. Accepting it there would report a stronger check than was run. "
+                        f"Drop the flag (and narrow the needle instead), or point the assert at a "
+                        f"file whose language has comments."
+                    )
+                    continue
+                code_content = stripped
+                scope = "the comment-stripped source"
+
             if "contains" in a:
                 needle = a["contains"]
                 min_count = int(a.get("min_count", 1))
-                found = content.count(needle)
+                found = code_content.count(needle)
                 if found < min_count:
                     failures.append(
                         f"[{slug}] handfix '{hid}' REGRESSED in {rel}: expected {min_count}x "
-                        f"`{needle}`, found {found}. A reprint likely clobbered it. Restore the "
+                        f"`{needle}` in {scope}, found {found}. A reprint likely clobbered it. Restore the "
                         f"hand-fix (or, if intentionally changed, update skills/{slug}/handfixes.json). See {doc}."
                     )
             if "not_contains" in a:
+                # Deliberately `content`, never `code_content`: an absence check
+                # is strongest over the whole file.
                 banned = a["not_contains"]
                 if banned in content:
                     failures.append(
                         f"[{slug}] handfix '{hid}' REGRESSED in {rel}: banned anti-pattern "
-                        f"`{banned}` is present again. A reprint likely reintroduced it. See {doc}."
+                        f"`{banned}` is present again in the file (comments included - an absence "
+                        f"check is strongest whole-file). A reprint likely reintroduced it. See {doc}."
                     )
             if "contains" not in a and "not_contains" not in a:
                 failures.append(f"[{slug}] handfix '{hid}': assert for '{rel}' needs 'contains' or 'not_contains'")
     return failures
+
+
+class WeakAssert:
+    """One `contains` assert that comments alone can satisfy.
+
+    "Weak" has a precise, measurable definition here: with comments stripped
+    from the target file the needle no longer reaches `min_count`. That is
+    exactly the shape issue #252 describes - delete the guarded code, leave the
+    doc comment, and the gate still reports PASS. An assert whose needle also
+    appears in a comment but still clears `min_count` in code is NOT weak: the
+    code has to be there for it to pass.
+    """
+
+    __slots__ = ("slug", "hid", "rel", "needle", "min_count", "raw", "stripped")
+
+    def __init__(self, slug, hid, rel, needle, min_count, raw, stripped):
+        self.slug, self.hid, self.rel = slug, hid, rel
+        self.needle, self.min_count = needle, min_count
+        self.raw, self.stripped = raw, stripped
+
+    def identity(self) -> str:
+        """What makes this the SAME assert across two revisions.
+
+        Deliberately excludes the entry's prose (`summary`, `why`, `status`) and
+        its `id`: none of those change what is checked, so editing them must not
+        turn a pre-existing weak assert into "newly weakened by this change".
+        `min_count` IS included - changing the threshold changes the assert.
+        """
+        return "\0".join((self.slug, self.rel, self.needle, str(self.min_count)))
+
+    def describe(self) -> str:
+        return (
+            f"[{self.slug}] handfix '{self.hid}': assert on {self.rel} needs {self.min_count}x "
+            f"`{self.needle}` and finds {self.raw}, but only {self.stripped} of those are in CODE - "
+            f"the rest are in comments. Delete the guarded code, leave the comment, and this assert "
+            f"still passes.\n"
+            f"      Fix it one of three ways: narrow the needle to something only the code can "
+            f"contain (a full signature, an assignment, a call site); add \"code_only\": true to "
+            f"count comment-stripped source; or, if the comment IS the thing a reprint must not "
+            f"drop, add \"code_only\": false to say so on purpose."
+        )
+
+
+def lint_skill(slug: str) -> list[WeakAssert]:
+    """Find every comment-satisfiable `contains` assert in one skill's ledger.
+
+    Asserts that declare `code_only` either way are exempt: `true` already
+    counts code only, and `false` is the author saying the comment is the point.
+    """
+    skill_dir = SKILLS / slug
+    ledger_path = skill_dir / "handfixes.json"
+    if not ledger_path.exists():
+        return []
+    data, err = _load_ledger(ledger_path)
+    if err or data is None:
+        return []
+    return lint_entries(slug, skill_dir, data["handfixes"])
+
+
+def lint_entries(slug: str, skill_dir: Path, entries: list,
+                 read_file: "Callable[[str], str | None] | None" = None) -> list[WeakAssert]:
+    """Find every comment-satisfiable `contains` assert in `entries`.
+
+    `read_file(rel)` returns the target file's text, or None when it does not
+    exist at that revision. It defaults to reading the working tree; the
+    --changed ratchet passes a reader backed by `git show <base>:...` so the
+    same lint can be run against the base revision and the two results compared.
+
+    `not_contains` asserts are out of scope by construction, not by oversight:
+    they are always evaluated whole-file, which is their strongest form, so
+    there is no comment-weak shape for one to be in.
+    """
+    def _from_worktree(rel: str) -> str | None:
+        fpath = skill_dir / rel
+        if not fpath.exists():
+            return None
+        return fpath.read_text(encoding="utf-8", errors="replace")
+
+    read = read_file or _from_worktree
+
+    weak: list[WeakAssert] = []
+    for hf in entries:
+        hid = hf.get("id", "<unnamed>")
+        for a in hf.get("asserts", []):
+            # Only a genuine boolean exempts an assert. A typo'd `"code_only":
+            # "true"` must NOT buy silence here - the ledger gate reports it as
+            # an error, and until it is fixed the assert is still comment-weak.
+            if "contains" not in a or isinstance(a.get("code_only"), bool):
+                continue
+            rel = a.get("file")
+            if not rel:
+                continue
+            content = read(rel)
+            if content is None:
+                continue
+            stripped, _ = strip_comments(rel, content)
+            if stripped is None:
+                continue  # no comment syntax (JSON, NOTICE): nothing to be weak about
+            needle = a["contains"]
+            min_count = int(a.get("min_count", 1))
+            raw_n = content.count(needle)
+            code_n = stripped.count(needle)
+            if raw_n >= min_count and code_n < min_count:
+                weak.append(WeakAssert(slug, hid, rel, needle, min_count, raw_n, code_n))
+    return weak
+
+
+def lint_asserts(slug: str | None, strict: bool) -> int:
+    """Report every comment-satisfiable assert in the repo.
+
+    Advisory by default (exit 0) and hard under --strict. The reason it is not
+    hard by default is measured, not squeamish: 26 of the 2280 `contains`
+    asserts live in this shape today, several of them deliberately (a
+    `Hand-wired:` marker IS a comment). Turning a 26-finding lint into a merge
+    gate before those are annotated would red main for everyone and get the
+    lint ignored - the false-RED failure mode. The ratchet lives in --changed
+    instead, where an assert that this change-set ADDS or WEAKENS is linted
+    hard, so the number can only go down - and a contributor editing an entry's
+    prose is not billed for a weak assert that was already there.
+    """
+    slugs = [slug] if slug else sorted(p.parent.name for p in SKILLS.glob("*/handfixes.json"))
+    weak: list[WeakAssert] = []
+    for s in slugs:
+        weak.extend(lint_skill(s))
+    if not weak:
+        print("PASS: no comment-satisfiable asserts found.")
+        return 0
+    label = "FAIL" if strict else "REPORT"
+    print(f"{label}: {len(weak)} assert(s) can be satisfied by comments alone "
+          f"(the guarded code could be gone and the gate would still pass):\n")
+    for w in weak:
+        print(f"  - {w.describe()}\n")
+    print("See docs/reprint-survival.md and issue #252.")
+    return 1 if strict else 0
 
 
 def brief(slug: str | None) -> int:
@@ -263,6 +654,11 @@ def changed(base: str, allow_missing_base: bool = False) -> int:
     files at once) are exempted from the must-record requirement; the
     must-survive gate covers recorded fixes there.
 
+    Also runs the issue #252 ratchet over the ledgers this change touches: an
+    assert that is NEWLY ADDED or NEWLY WEAKENED here must not be one comments
+    alone can satisfy. Pre-existing weak asserts are the repo's backlog, not
+    this contributor's, so they are left to the advisory `--lint-asserts`.
+
     `allow_missing_base` is the deliberate opt-out for a local checkout with no
     base ref. It prints SKIP (never PASS) so no reader can mistake it for a
     verified change, and CI never passes it."""
@@ -322,12 +718,494 @@ def changed(base: str, allow_missing_base: bool = False) -> int:
             f"the spec). See docs/reprint-survival.md."
         )
 
+    # The issue #252 ratchet. An assert that is NEWLY ADDED or NEWLY WEAKENED by
+    # this change must not be one comments alone can satisfy.
+    #
+    # The comparison is per ASSERT, against the base revision, and it re-runs
+    # the lint over the BASE ledger reading the BASE files. That is what makes
+    # "newly weakened" mean what it says:
+    #
+    #   * editing only an entry's prose (`why`, `summary`, `status`) leaves
+    #     every assert's identity and weakness unchanged -> silent. A
+    #     contributor is never taxed for a pre-existing weak assert they did
+    #     not write and did not touch.
+    #   * adding a weak assert, or changing an existing one's file / needle /
+    #     min_count into a weak shape -> fires, because that identity was not
+    #     weak at base.
+    #   * leaving an assert alone while editing the ledger and changing the
+    #     guarded file so the needle survives only in comments -> also fires:
+    #     same identity, not weak at base, weak now.
+    #   * a SECOND copy of an identity that was already weak once -> fires. The
+    #     tally is a multiset, not a set: N weak at base exempts exactly N weak
+    #     now, so duplicating a weak assert is still adding one. Duplicate
+    #     identities are a real shape here, not a hypothetical - axcient carries
+    #     two asserts with identical (file, needle, min_count) today.
+    #
+    # An entry-level comparison (the first cut of this ratchet) got the first
+    # case wrong: any edit to an entry re-linted every assert inside it, so a
+    # one-word prose fix hard-failed CI on somebody else's backlog. The number
+    # can still only go down; nobody is billed for a debt they did not incur.
+    weak_new: list[WeakAssert] = []
+    for slug in sorted(ledger_touched):
+        skill_dir = SKILLS / slug
+        rel = f"skills/{slug}/handfixes.json"
+        data, err = _load_ledger(REPO / rel)
+        if err or data is None:
+            continue  # the ledger gate itself reports an unreadable ledger
+        base_entries = _entries_at_base(base, rel)
+        already_weak: Counter[str] = Counter()
+        if base_entries is not None:  # None == brand-new ledger: nothing pre-exists
+            already_weak = Counter(
+                w.identity()
+                for w in lint_entries(slug, skill_dir, base_entries,
+                                      read_file=_base_reader(base, slug))
+            )
+        for w in lint_entries(slug, skill_dir, data["handfixes"]):
+            if already_weak[w.identity()] > 0:
+                already_weak[w.identity()] -= 1  # spend one pre-existing allowance
+                continue
+            weak_new.append(w)
+
+    if failures or weak_new:
+        if failures:
+            print("FAIL: generated-file hand-edits not recorded in a hand-fix ledger:\n")
+            for f in failures:
+                print(f"  - {f}")
+            print()
+        if weak_new:
+            print("FAIL: this change ADDS or WEAKENS hand-fix asserts that comments alone can "
+                  "satisfy (issue #252). Each one below was not weak at the base revision:\n")
+            for w in weak_new:
+                print(f"  - {w.describe()}\n")
+            print("Only asserts this change introduced or weakened are listed. Asserts that were "
+                  "already comment-satisfiable before it are NOT your bill: `--lint-asserts` "
+                  "reports those repo-wide, advisory.")
+            print("The `code_only` tri-state is documented under \"`code_only`: what the "
+                  "`contains` needle is counted in\" in docs/reprint-survival.md, and in this "
+                  "file's module docstring. See issue #252.")
+        return 1
+    print("PASS: every generated-file hand-edit in this change is recorded (or part of a reprint), "
+          "and no assert this change added or weakened is comment-satisfiable.")
+    return 0
+
+
+def _show(base: str, rel: str) -> str | None:
+    """`git show <base>:<rel>`, or None when the path does not exist there."""
+    import subprocess
+
+    try:
+        out = subprocess.run(
+            ["git", "-C", str(REPO), "show", f"{base}:{rel}"],
+            capture_output=True, text=True,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return out.stdout if out.returncode == 0 else None
+
+
+def _base_reader(base: str, slug: str):
+    """A `lint_entries` file reader bound to the BASE revision.
+
+    The ratchet has to know whether an assert was ALREADY weak before this
+    change, and weakness is a property of (assert, target file). Reading the
+    target from the working tree while linting the base ledger would compare
+    two different things and mislabel a pre-existing weakness as new.
+
+    Memoized per file: the largest ledger carries 115 asserts across 37 distinct
+    files, so without the cache one touched ledger spawns roughly one `git show`
+    process per assert to fetch the same three dozen blobs."""
+    cache: dict[str, str | None] = {}
+
+    def read(rel: str) -> str | None:
+        if rel not in cache:
+            cache[rel] = _show(base, f"skills/{slug}/{rel}")
+        return cache[rel]
+    return read
+
+
+def _entries_at_base(base: str, rel: str) -> list | None:
+    """The base revision's handfix entries. None when the ledger does not exist
+    at base (a brand-new ledger: every assert in it is this change's) or cannot
+    be parsed."""
+    text = _show(base, rel)
+    if text is None:
+        return None
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        return None
+    entries = data.get("handfixes")
+    return entries if isinstance(entries, list) else None
+
+
+def _self_test_ratchet() -> list[str]:
+    """End-to-end both-directions proof of the --changed ratchet, in a real git repo.
+
+    The ratchet is hard-fail in CI, so its SCOPE has to be proved, not asserted.
+    A first cut of it compared whole ledger ENTRIES and so hard-failed a
+    contributor who edited one entry's `why` field, on a weak assert that was
+    already in the repo. Four cases, run against a throwaway repository:
+
+        A  prose-only edit to an entry with a pre-existing weak assert  -> PASS
+        B  a genuinely NEW weak assert                                  -> FAIL
+        C  a new entry whose asserts are all strong                     -> PASS
+        D  an untouched assert the change WEAKENS (the guarded code moves
+           into a comment)                                              -> FAIL
+        E  a SECOND copy of an already-weak assert identity             -> FAIL
+           (the tally is a multiset: N weak at base exempts exactly N)
+
+    Returns a list of failure strings (empty == proved).
+    """
+    import io
+    import contextlib
+    import subprocess
+    import tempfile
+
+    out: list[str] = []
+    needle = "stripAuthScheme"
+    rel_go = "cli/internal/config/config.go"
+    # raw 2 / code 1 -> min_count 1 is satisfied by CODE: not weak.
+    strong_src = (f"// {needle} removes a scheme prefix so the token is sent bare.\n"
+                  f"func {needle}(v string) string {{ return v }}\n")
+    # raw 1 / code 0 -> only the comment carries it: weak.
+    weak_src = (f"// {needle} removes a scheme prefix so the token is sent bare.\n"
+                f"func authHeader(v string) string {{ return v }}\n")
+
+    def ledger(entries):
+        return json.dumps({"slug": "fixture", "handfixes": entries}, indent=2) + "\n"
+
+    weak_assert = {"file": rel_go, "contains": needle, "min_count": 1}
+    base_entries = [{"id": "auth-scheme", "summary": "s", "why": "original prose",
+                     "asserts": [weak_assert]}]
+
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        skill = root / "skills" / "fixture"
+        (skill / "cli" / "internal" / "config").mkdir(parents=True)
+
+        def git(*args):
+            return subprocess.run(["git", "-C", str(root), *args],
+                                  capture_output=True, text=True)
+
+        git("init", "-q", "-b", "main")
+        git("config", "user.email", "gate@example.test")
+        git("config", "user.name", "gate")
+        (skill / rel_go).write_text(weak_src, encoding="utf-8")
+        (skill / "handfixes.json").write_text(ledger(base_entries), encoding="utf-8")
+        git("add", "-A")
+        git("commit", "-q", "-m", "base")
+        base = git("rev-parse", "HEAD").stdout.strip()
+        if not base:
+            return ["ratchet self-test could not create a git fixture (is git on PATH?)"]
+
+        def run_case(label, mutate, expected_rc):
+            git("checkout", "-q", base, "--", ".")
+            git("checkout", "-q", base)
+            (skill / rel_go).write_text(weak_src, encoding="utf-8")
+            (skill / "handfixes.json").write_text(ledger(base_entries), encoding="utf-8")
+            mutate()
+            git("add", "-A")
+            git("commit", "-q", "-m", label)
+            saved_repo, saved_skills = globals()["REPO"], globals()["SKILLS"]
+            buf = io.StringIO()
+            try:
+                globals()["REPO"], globals()["SKILLS"] = root, root / "skills"
+                with contextlib.redirect_stdout(buf):
+                    rc = changed(base)
+            finally:
+                globals()["REPO"], globals()["SKILLS"] = saved_repo, saved_skills
+            if rc != expected_rc:
+                out.append(f"ratchet case {label}: expected exit {expected_rc}, got {rc}. "
+                           f"Output: {buf.getvalue().strip()[:400]}")
+            return buf.getvalue()
+
+        # A: prose only. The weak assert is untouched and was weak at base.
+        def prose_only():
+            e = json.loads(json.dumps(base_entries))
+            e[0]["why"] = "clarified prose, no assert touched"
+            (skill / "handfixes.json").write_text(ledger(e), encoding="utf-8")
+        run_case("A-prose-only", prose_only, 0)
+
+        # B: a genuinely new weak assert added to the same entry.
+        def add_weak():
+            e = json.loads(json.dumps(base_entries))
+            e[0]["asserts"].append({"file": rel_go, "contains": "scheme prefix", "min_count": 1})
+            (skill / "handfixes.json").write_text(ledger(e), encoding="utf-8")
+        text_b = run_case("B-new-weak-assert", add_weak, 1)
+        if "scheme prefix" not in text_b:
+            out.append("ratchet case B: the NEW weak assert must be the one reported")
+        if "min_count" not in text_b and needle in text_b.replace("scheme prefix", ""):
+            out.append("ratchet case B: the pre-existing weak assert must NOT be re-reported")
+
+        # E: duplicating an already-weak identity is still ADDING one. A
+        # set-based tally would exempt it because "that identity was weak at
+        # base"; the multiset spends one allowance per pre-existing copy.
+        def duplicate_weak():
+            e = json.loads(json.dumps(base_entries))
+            e[0]["asserts"].append(dict(weak_assert))
+            (skill / "handfixes.json").write_text(ledger(e), encoding="utf-8")
+        run_case("E-duplicate-weak-assert", duplicate_weak, 1)
+
+        # C: a whole new entry whose asserts are strong.
+        def add_strong_entry():
+            e = json.loads(json.dumps(base_entries))
+            e.append({"id": "new-clean", "summary": "s", "why": "w",
+                      "asserts": [{"file": rel_go, "contains": "func authHeader", "min_count": 1}]})
+            (skill / "handfixes.json").write_text(ledger(e), encoding="utf-8")
+        run_case("C-new-strong-entry", add_strong_entry, 0)
+
+        # D: the assert text is untouched, but this change moves the guarded
+        # code into a comment. Same identity, not weak at base, weak now.
+        def weaken_the_file():
+            e = json.loads(json.dumps(base_entries))
+            e[0]["asserts"] = [{"file": rel_go, "contains": needle, "min_count": 2}]
+            (skill / "handfixes.json").write_text(ledger(e), encoding="utf-8")
+        # start D from a base where the assert is NOT weak
+        (skill / rel_go).write_text(strong_src, encoding="utf-8")
+        strong_base_entries = [{"id": "auth-scheme", "summary": "s", "why": "original prose",
+                                "asserts": [{"file": rel_go, "contains": needle, "min_count": 1}]}]
+        (skill / "handfixes.json").write_text(ledger(strong_base_entries), encoding="utf-8")
+        git("add", "-A")
+        git("commit", "-q", "-m", "strong-base")
+        strong_base = git("rev-parse", "HEAD").stdout.strip()
+
+        def run_from(base_sha, label, mutate, expected_rc):
+            mutate()
+            git("add", "-A")
+            git("commit", "-q", "-m", label)
+            saved_repo, saved_skills = globals()["REPO"], globals()["SKILLS"]
+            buf = io.StringIO()
+            try:
+                globals()["REPO"], globals()["SKILLS"] = root, root / "skills"
+                with contextlib.redirect_stdout(buf):
+                    rc = changed(base_sha)
+            finally:
+                globals()["REPO"], globals()["SKILLS"] = saved_repo, saved_skills
+            if rc != expected_rc:
+                out.append(f"ratchet case {label}: expected exit {expected_rc}, got {rc}. "
+                           f"Output: {buf.getvalue().strip()[:400]}")
+            return buf.getvalue()
+
+        def prose_and_weaken_code():
+            e = json.loads(json.dumps(strong_base_entries))
+            e[0]["why"] = "touched so the ledger is in the diff"
+            (skill / "handfixes.json").write_text(ledger(e), encoding="utf-8")
+            (skill / rel_go).write_text(weak_src, encoding="utf-8")
+        run_from(strong_base, "D-newly-weakened-by-code-change", prose_and_weaken_code, 1)
+
+    return out
+
+
+def self_test() -> int:
+    """Both-directions proof for the comment strippers, `code_only`, and the lint.
+
+    The centrepiece is issue #252's own reproduction, rebuilt as a fixture: a Go
+    file whose guarded symbol has been renamed while its doc comment still names
+    the old one. Today's whole-file count passes. `code_only: true` must fail,
+    and the lint must have flagged the assert BEFORE the code was deleted.
+    """
+    import tempfile
+
+    failures: list[str] = []
+
+    def expect(cond: bool, msg: str) -> None:
+        if not cond:
+            failures.append(msg)
+
+    # --- strippers: fire on comments, stay silent on code and on literals ----
+    go_src = (
+        '// stripAuthScheme trims a leading "Token " prefix.\n'
+        'func stripAuthScheme(v string) string { return v }\n'
+        '/* stripAuthScheme again, in a block comment */\n'
+        'const base = "https://example.test//not-a-comment"\n'
+        'const raw = `stripAuthScheme inside a raw string`\n'
+    )
+    go_stripped = strip_c_like(go_src)
+    expect(go_src.count("stripAuthScheme") == 4,
+           f"fixture drift: expected 4 raw occurrences, got {go_src.count('stripAuthScheme')}")
+    expect(go_stripped.count("stripAuthScheme") == 2,
+           f"strip_c_like must leave the 2 code occurrences (the func and the raw string), "
+           f"got {go_stripped.count('stripAuthScheme')}")
+    expect("https://example.test//not-a-comment" in go_stripped,
+           "strip_c_like treated the // inside a URL literal as a comment")
+    expect(len(go_stripped) == len(go_src),
+           "strippers must preserve length so raw and stripped counts stay comparable")
+
+    py_src = '# TOKEN in a comment\ntoken = "TOKEN in a string"\nTOKEN = 1\n'
+    py_stripped = strip_hash(py_src)
+    expect(py_stripped.count("TOKEN") == 2,
+           f"strip_hash must leave the 2 non-comment occurrences, got {py_stripped.count('TOKEN')}")
+
+    md_stripped = strip_html_comments("<!-- MARKER -->\nMARKER in prose\n")
+    expect(md_stripped.count("MARKER") == 1,
+           f"strip_html_comments must leave the 1 prose occurrence, got {md_stripped.count('MARKER')}")
+
+    expect(strip_comments("x.json", "{}")[0] is None,
+           "JSON must report NO stripper - it has no comment syntax to strip")
+    expect(strip_comments("NOTICE", "text")[0] is None,
+           "an extension-less file must report no stripper rather than guessing")
+
+    # --- the issue's reproduction, end to end -------------------------------
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        skill = root / "skills" / "fixture"
+        (skill / "cli" / "internal" / "config").mkdir(parents=True)
+        cfg = skill / "cli" / "internal" / "config" / "config.go"
+        # BEFORE: the guarded code exists, and so does its doc comment.
+        cfg.write_text(
+            "// stripAuthScheme removes a scheme prefix so the token is sent bare.\n"
+            "func stripAuthScheme(v string) string { return v }\n",
+            encoding="utf-8",
+        )
+        rel = "cli/internal/config/config.go"
+        weak_needle = "stripAuthScheme"
+
+        def count(a_code_only, content):
+            body = content
+            if a_code_only:
+                body, why = strip_comments(rel, content)
+                if body is None:
+                    raise AssertionError(f"fixture drift: no stripper for {rel} ({why})")
+            return body.count(weak_needle)
+
+        expect(count(False, cfg.read_text()) == 2, "fixture: expected 2 raw occurrences before")
+        expect(count(True, cfg.read_text()) == 1, "fixture: expected 1 code occurrence before")
+
+        entry = {"id": "msp-token-auth-scheme-prefix",
+                 "asserts": [{"file": rel, "contains": weak_needle, "min_count": 1}]}
+        weak = lint_entries("fixture", skill, [entry])
+        expect(len(weak) == 0,
+               "the lint must stay SILENT while the code is present and clears min_count")
+
+        # AFTER: a reprint clobbers the function; the doc comment survives.
+        cfg.write_text(
+            "// stripAuthScheme removes a scheme prefix so the token is sent bare.\n"
+            "func authHeader(v string) string { return v }\n",
+            encoding="utf-8",
+        )
+        expect(count(False, cfg.read_text()) == 1,
+               "fixture: the comment alone must still satisfy a whole-file count")
+        expect(count(True, cfg.read_text()) == 0,
+               "fixture: comment-stripped, the needle must be gone")
+
+        weak = lint_entries("fixture", skill, [entry])
+        expect(len(weak) == 1,
+               "the lint must FIRE once the needle survives only in a comment")
+        if weak:
+            expect("comment" in weak[0].describe(),
+                   "the lint message must say the occurrences are in comments")
+
+        # And the opt-in flag turns the same situation into a hard failure.
+        strict_entry = dict(entry)
+        strict_entry["asserts"] = [dict(entry["asserts"][0], code_only=True)]
+        expect(len(lint_entries("fixture", skill, [strict_entry])) == 0,
+               "an assert that already declares code_only must be exempt from the lint")
+
+        # `code_only: false` is the deliberate comment assert: also exempt.
+        ack_entry = dict(entry)
+        ack_entry["asserts"] = [dict(entry["asserts"][0], code_only=False)]
+        expect(len(lint_entries("fixture", skill, [ack_entry])) == 0,
+               "an assert that declares code_only: false is a deliberate comment assert")
+
+        # A NON-BOOLEAN code_only must not buy silence. `"code_only": "true"` is
+        # a one-character JSON typo that changes no counting at all; if it
+        # exempted the assert from the lint, the gate would fail open exactly
+        # where an author believed they had strengthened it.
+        typo_entry = dict(entry)
+        typo_entry["asserts"] = [dict(entry["asserts"][0], code_only="true")]
+        expect(len(lint_entries("fixture", skill, [typo_entry])) == 1,
+               "a non-boolean code_only must NOT exempt an assert from the lint")
+        ledger = skill / "handfixes.json"
+        ledger.write_text(json.dumps({"handfixes": [typo_entry]}), encoding="utf-8")
+        saved = globals()["SKILLS"]
+        try:
+            globals()["SKILLS"] = skill.parent
+            typo_failures = check_skill("fixture")
+        finally:
+            globals()["SKILLS"] = saved
+        expect(any("not a boolean" in f for f in typo_failures),
+               f"the ledger gate must reject a non-boolean code_only, got {typo_failures}")
+
+    # --- `code_only` may only ever make an assert STRONGER -------------------
+    # A `not_contains` assert is an ABSENCE check, and whole-file is its
+    # strongest form. Counting comment-stripped source there would HIDE a banned
+    # pattern resurrected inside a comment - the flag reading as a hardening
+    # while acting as a downgrade. So it is refused, and `not_contains` is
+    # always whole-file. Proved on the exact fixture: the banned needle survives
+    # ONLY in a comment.
+    with tempfile.TemporaryDirectory() as td:
+        skill = Path(td) / "skills" / "fixture"
+        (skill / "cli" / "internal" / "mcp").mkdir(parents=True)
+        tools_go = skill / "cli" / "internal" / "mcp" / "tools.go"
+        banned = 'fmt.Sprintf("%v", v), 1)'
+        ledger = skill / "handfixes.json"
+
+        def run_ledger(assert_obj, src):
+            tools_go.write_text(src, encoding="utf-8")
+            ledger.write_text(json.dumps({"handfixes": [{"id": "nc", "asserts": [assert_obj]}]}),
+                              encoding="utf-8")
+            saved = globals()["SKILLS"]
+            try:
+                globals()["SKILLS"] = skill.parent
+                return check_skill("fixture")
+            finally:
+                globals()["SKILLS"] = saved
+
+        rel_nc = "cli/internal/mcp/tools.go"
+        broken = "// was: " + banned + "\nfunc ok() {}\n"   # banned needle: comment only
+        good = "// was: nothing\nfunc ok() {}\n"            # banned needle: absent
+
+        plain = {"file": rel_nc, "not_contains": banned}
+        expect(any("REGRESSED" in f for f in run_ledger(plain, broken)),
+               "not_contains must FIRE when the banned needle reappears inside a comment")
+        expect(run_ledger(plain, good) == [],
+               "not_contains must stay SILENT when the banned needle is gone")
+
+        for flag in (True, False):
+            flagged = {"file": rel_nc, "not_contains": banned, "code_only": flag}
+            fails_broken = run_ledger(flagged, broken)
+            expect(any("no 'contains' needle" in f for f in fails_broken),
+                   f"code_only={flag} on a not_contains-only assert must be REFUSED as a usage "
+                   f"error, not applied; got {fails_broken}")
+            expect(all("REGRESSED" not in f for f in fails_broken),
+                   "the refusal replaces the check; it must not also claim a regression verdict")
+            fails_good = run_ledger(flagged, good)
+            expect(any("no 'contains' needle" in f for f in fails_good),
+                   f"code_only={flag} on a not_contains-only assert must be refused even when the "
+                   f"file is clean - it is a ledger error, not a file verdict; got {fails_good}")
+
+        # The regression this refusal exists to prevent: applying the strip to
+        # the absence check would have made the BROKEN fixture pass.
+        stripped_broken, _ = strip_comments(rel_nc, broken)
+        expect(banned in broken and stripped_broken is not None and banned not in stripped_broken,
+               "fixture drift: the banned needle must be present whole-file and absent once "
+               "comments are stripped - otherwise this case proves nothing")
+
+        # And the flag is still accepted, and still strengthening, where it
+        # belongs: on a `contains` assert (including one that carries both keys).
+        both = {"file": rel_nc, "contains": "func ok()", "not_contains": banned, "code_only": True}
+        expect(any("REGRESSED" in f and "present again" in f for f in run_ledger(both, broken)),
+               "on an assert carrying both keys, code_only scopes the contains half while "
+               "not_contains still reads the whole file")
+        expect(run_ledger(both, good) == [],
+               "the both-keys assert must be silent on good input")
+
+    # --- the --changed ratchet fires only on NEW or NEWLY WEAKENED asserts ---
+    failures.extend(_self_test_ratchet())
+
     if failures:
-        print("FAIL: generated-file hand-edits not recorded in a hand-fix ledger:\n")
+        print("FAIL: check_handfixes self-test\n")
         for f in failures:
             print(f"  - {f}")
         return 1
-    print("PASS: every generated-file hand-edit in this change is recorded (or part of a reprint).")
+    print("PASS: check_handfixes self-test - strippers keep code and literals and drop comments in "
+          "Go/Python/Markdown, JSON and extension-less files report no stripper, issue #252's "
+          "reproduction is silent before the code is deleted and fires after, a non-boolean "
+          "code_only is rejected rather than silently buying the assert an exemption, `code_only` "
+          "is refused on an assert with no `contains` so a not_contains check can never be "
+          "weakened by it (proved on a needle that survives only in a comment), and the --changed "
+          "ratchet passes a prose-only edit to a pre-existing weak assert while failing a newly "
+          "added or newly weakened one.")
     return 0
 
 
@@ -347,8 +1225,20 @@ def main() -> int:
                     help="--changed only: if the base ref cannot be resolved, print SKIP and "
                          "exit 0 instead of the INTERNAL ERROR exit 2. Verifies NOTHING. For "
                          "local checkouts without a base ref; CI must never pass this.")
+    ap.add_argument("--lint-asserts", action="store_true",
+                    help="report every assert that comments alone can satisfy (issue #252). "
+                         "Advisory; add --strict to make it fail.")
+    ap.add_argument("--strict", action="store_true",
+                    help="--lint-asserts only: exit 1 on findings instead of reporting them.")
+    ap.add_argument("--self-test", action="store_true",
+                    help="run the built-in both-directions proof of the comment strippers, "
+                         "code_only and the weak-assert lint, then exit")
     args = ap.parse_args()
 
+    if args.self_test:
+        return self_test()
+    if args.lint_asserts:
+        return lint_asserts(args.slug, strict=args.strict)
     if args.discover:
         return discover()
     if args.changed:

@@ -76,7 +76,9 @@ Add an entry whenever you hand-edit a generated file:
       "spec_encode_followup": "optional: the x-... annotation this should become",
       "asserts": [
         {"file": "cli/internal/store/store.go", "contains": "\"id_\"", "min_count": 2},
-        {"file": "cli/internal/mcp/tools.go", "not_contains": "fmt.Sprintf(\"%v\", v), 1)"}
+        {"file": "cli/internal/mcp/tools.go", "not_contains": "fmt.Sprintf(\"%v\", v), 1)"},
+        {"file": "cli/internal/config/config.go", "contains": "stripAuthScheme(",
+         "min_count": 1, "code_only": true}
       ]
     }
   ]
@@ -86,6 +88,8 @@ Add an entry whenever you hand-edit a generated file:
 - `file` is relative to `skills/<slug>/`.
 - `contains` + `min_count` (default 1): the marker that must be present.
 - `not_contains`: an anti-pattern that must stay gone (e.g. the buggy line a fix removed).
+- `code_only` (optional, JSON boolean, `contains` only): where the `contains`
+  needle is counted. See the next section.
 - `status`: `active` = connector-only, a reprint would clobber it; `upstreamed`
   = also fixed in the press, so a reprint from a fixed press regenerates it -
   but the back-port must still be present today. Both are asserted present.
@@ -93,6 +97,44 @@ Add an entry whenever you hand-edit a generated file:
 Pick markers that are **specific** (a distinctive substring of the fix), not
 generic. When you intentionally change a fix, update its ledger entry in the
 same PR.
+
+#### `code_only`: what the `contains` needle is counted in
+
+An assert counts its needle in the **whole file, comments included**. So an
+assert whose needle a doc comment also carries stays green after the code it
+guards is deleted - the exact failure the gate exists to catch (issue #252).
+`code_only` is how you say which one you meant:
+
+| value | what it does | when to use it |
+| --- | --- | --- |
+| absent (default) | whole-file count | fine when the needle cannot appear in prose |
+| `true` | count **comment-stripped source** only - strictly stronger, the needle must survive in code | the normal fix for a needle a comment also contains |
+| `false` | whole-file count, and the lint stays quiet | the comment **is** the thing a reprint must not drop (a `Hand-wired:` marker, an explanatory paragraph) |
+
+Three rules the gate enforces, each of them a hard ledger error rather than a
+silent no-op:
+
+- **It must be a JSON boolean.** `"code_only": "true"` (a string) changes no
+  counting at all while reading like a declared intent - a gate failing open in
+  the quietest possible way.
+- **It only ever makes an assert stronger.** `code_only` scopes a `contains`
+  count and nothing else, so setting it on an assert with no `contains` is
+  refused. A `not_contains` assert is *always* checked whole-file, which is
+  already its strongest form: the banned pattern must be absent from code AND
+  from comments. Stripping comments there could only hide a banned line
+  resurrected inside a comment.
+- **The target's language must have comments.** `code_only` on a `.json` file
+  is refused: JSON has no comment syntax, so accepting it would report a
+  stronger check than was run. Strippers exist for `.go`, `.mod`, `.py`, `.sh`,
+  `.bash` and `.md`.
+
+Two ways this is checked. `check_handfixes.py --lint-asserts` reports every
+comment-satisfiable `contains` assert repo-wide; it is **advisory** (exit 0) and
+runs on every CI run, because 26 asserts are in that shape today and some of
+them deliberately. The **hard** gate is `--changed`, which fires only on an
+assert a change *adds or weakens* - editing an entry's `why` never trips it.
+
+    python3 tools/maintainer/check_handfixes.py --lint-asserts   # advisory report
 
 ### 3. Capture the lesson (this doc + press retros)
 

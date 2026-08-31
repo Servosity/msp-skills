@@ -62,6 +62,16 @@ regenerates it from the press template, so every credited connector pins its
 `check_handfixes.py` fails CI if a regeneration drops the line. That is what makes
 "survives a regeneration" a checked promise rather than an intention.
 
+A ledger assert counts its marker in the whole file, comments included, so an
+assert on a code symbol that a doc comment also names can pass after the code is
+gone. Add `"code_only": true` to that assert to count comment-stripped source
+instead, or `"code_only": false` when the comment **is** what must survive. It
+must be a JSON boolean, and it belongs only on a `contains` assert - a
+`not_contains` is always checked whole-file, which is already its strongest
+form. The full schema, and the advisory
+`check_handfixes.py --lint-asserts` report, are in
+[reprint survival](/reprint-survival/).
+
 Where that credit reaches today: `cli/NOTICE` is in the repository and in every
 source checkout. The release assets are the two binaries plus their `.sha256`
 files, and the `.mcpb` bundle is `manifest.json` plus those binaries, so no

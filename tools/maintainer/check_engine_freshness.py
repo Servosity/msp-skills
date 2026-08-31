@@ -50,12 +50,12 @@ import argparse
 import glob
 import json
 import os
-import re
 import subprocess
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import registry  # noqa: E402  (local tools/ module)
 import release_state  # noqa: E402  (local tools/ module)
 
 REPO = str(Path(__file__).resolve().parent.parent.parent)
@@ -68,7 +68,11 @@ ERROR = 1
 # but this script is also run by hand and must not depend on its caller for
 # safety: a slug like "--format=%(refname)" would be read by `git tag --list` as
 # an option, and one containing "../" would escape the skills tree.
-SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
+#
+# One definition, from registry.py, so this cannot drift from the grammar the
+# build matrix is validated against - and so it carries the same `\Z` anchor
+# (Python's `$` also matches before a trailing newline).
+SLUG_RE = registry.SLUG_RE
 
 
 def _press_version(manifest: dict):

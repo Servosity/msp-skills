@@ -60,7 +60,10 @@ AWAITING = {"status": "awaiting", "date": None, "source": None, "evidence": None
 
 
 def _read_registry() -> dict:
-    return json.loads(REGISTRY.read_text(encoding="utf-8"))
+    """Read through registry.load(), so the identifier grammar is enforced on the
+    way in. This script WRITES skills.json back; validating first means it can
+    never round-trip a malformed identifier into the file the build matrix reads."""
+    return registry.load()
 
 
 def _write_registry(reg: dict) -> None:

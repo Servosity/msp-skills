@@ -41,6 +41,13 @@ REGISTRY_REF = "origin/main:tools/maintainer/skills.json"
 
 
 def load_current() -> dict:
+    """Read skills.json RAW, deliberately not through registry.load().
+
+    Every other reader goes through the loader so the identifier grammar is
+    enforced on the way in. This one must not: it exists to report on what the
+    working file says versus its origin/main baseline, and a file the loader
+    would refuse is precisely a state this comparison has to be able to see and
+    describe rather than die on."""
     try:
         return json.loads(REGISTRY.read_text(encoding="utf-8"))["skills"]
     except (OSError, json.JSONDecodeError, KeyError) as e:
