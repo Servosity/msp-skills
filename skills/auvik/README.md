@@ -221,7 +221,7 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 | Read | `eol`, `configuration audit`, `inventory diff`, `usage reconcile`, `device discovery-gaps`, `alert noise`, `asm shadow`, `changes`, `sync`, `search`, `export`, every `list` / `get`, and all of the `settings` and `stat` SNMP-poller commands (GET-only, despite reading like setters) | Allow |
 | Write (routine) | `alert dismiss-single` and its friendly twin `alert dismiss` - the only write the Auvik API supports; allowlist both names | Preview with `--dry-run`, then a reviewed write |
 | Credential / security | `auth set-credentials` (writes the credential to the CLI's credentials file), `auth logout` | Human-in-the-loop only |
-| Data egress | `--deliver webhook:<url>` on any command (POSTs that command's output to a URL you name), `feedback --send`, and **bare `feedback` when `AUVIK_FEEDBACK_AUTO_SEND=true`** - that one needs no flag at all, so allowlisting `feedback` as local-only is not safe once that env var is set | Human-in-the-loop - a webhook sink moves client data off-box |
+| Data egress | `--deliver webhook:<url>` on any command (POSTs that command's output to a URL you name), `feedback --send`, and **bare `feedback` when `AUVIK_FEEDBACK_ENDPOINT` is set and `AUVIK_FEEDBACK_AUTO_SEND=true`** - that pair needs no flag at all, so allowlisting `feedback` as local-only is not safe once both are set (with no endpoint set, `feedback` only writes a local file) | Human-in-the-loop - a webhook sink moves client data off-box |
 
 The Auvik API exposes no delete and no administrative write, so there is no Destructive or Admin tier to gate.
 
