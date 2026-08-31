@@ -83,6 +83,12 @@
           "description": "Token endpoint the client-credentials exchange posts to. Leave blank: the CLI derives it from the base URL.",
           "isRequired": false,
           "isSecret": false
+        },
+        {
+          "name": "HALOPSA_NO_CONFIG_WRITE",
+          "description": "Set to 1 to keep credentials off disk. The token cache becomes a no-op, so the connector mints a fresh token each run instead of writing one to config.toml. Leave blank for the default cached behaviour.",
+          "isRequired": false,
+          "isSecret": false
         }
       ]
     }

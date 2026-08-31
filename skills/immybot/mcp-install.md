@@ -44,7 +44,8 @@ Add (or merge with your existing `mcpServers` block):
         "IMMYBOT_TENANT_ID": "<your-entra-tenant-id>",
         "IMMYBOT_TOKEN_URL": "https://login.microsoftonline.com/common/oauth2/v2.0/token",
         "IMMYBOT_USER_AGENT": "",
-        "PRINTING_PRESS_CLIENT_PROFILE": ""
+        "PRINTING_PRESS_CLIENT_PROFILE": "",
+        "IMMYBOT_NO_CONFIG_WRITE": ""
       }
     }
   }
@@ -76,7 +77,8 @@ Configuration**) and add:
         "IMMYBOT_TENANT_ID": "<your-entra-tenant-id>",
         "IMMYBOT_TOKEN_URL": "https://login.microsoftonline.com/common/oauth2/v2.0/token",
         "IMMYBOT_USER_AGENT": "",
-        "PRINTING_PRESS_CLIENT_PROFILE": ""
+        "PRINTING_PRESS_CLIENT_PROFILE": "",
+        "IMMYBOT_NO_CONFIG_WRITE": ""
       }
     }
   }
@@ -104,7 +106,8 @@ Claude Desktop:
         "IMMYBOT_TENANT_ID": "<your-entra-tenant-id>",
         "IMMYBOT_TOKEN_URL": "https://login.microsoftonline.com/common/oauth2/v2.0/token",
         "IMMYBOT_USER_AGENT": "",
-        "PRINTING_PRESS_CLIENT_PROFILE": ""
+        "PRINTING_PRESS_CLIENT_PROFILE": "",
+        "IMMYBOT_NO_CONFIG_WRITE": ""
       }
     }
   }

@@ -50,6 +50,13 @@ static bearer token instead, set CIPP_API_KEY or run 'auth set-token'.`, "\n"),
     --tenant-id 11111111-1111-1111-1111-111111111111 \
     --base-url https://cipp.yourmsp.com/api`, "\n"),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// issue #270: CIPP_NO_CONFIG_WRITE makes the automatic token
+			// cache a no-op. A command whose whole purpose is to write a
+			// credential to disk must not silently do nothing and report
+			// success, so it refuses here and names the variable.
+			if config.NoConfigWrite() {
+				return configErr(fmt.Errorf("%s is set, so no credential may be written to disk; unset it and re-run to save one", config.NoConfigWriteEnv))
+			}
 			// Bare invocation prints help rather than a terse flag error.
 			if clientID == "" && clientSecret == "" && tenantID == "" && baseURL == "" {
 				return cmd.Help()

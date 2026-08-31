@@ -41,7 +41,8 @@ Add (or merge with your existing `mcpServers` block):
         "NINJAONE_CLIENT_ID": "<your-ninjaone_client_id>",
         "NINJAONE_CLIENT_SECRET": "<your-ninjaone_client_secret>",
         "NINJAONE_OAUTH_SCOPE": "<your-ninjaone_oauth_scope>",
-        "NINJAONE_TOKEN_URL": "https://app.ninjarmm.com/ws/oauth/token"
+        "NINJAONE_TOKEN_URL": "https://app.ninjarmm.com/ws/oauth/token",
+        "NINJAONE_NO_CONFIG_WRITE": ""
       }
     }
   }
@@ -70,7 +71,8 @@ Configuration**) and add:
         "NINJAONE_CLIENT_ID": "<your-ninjaone_client_id>",
         "NINJAONE_CLIENT_SECRET": "<your-ninjaone_client_secret>",
         "NINJAONE_OAUTH_SCOPE": "<your-ninjaone_oauth_scope>",
-        "NINJAONE_TOKEN_URL": "https://app.ninjarmm.com/ws/oauth/token"
+        "NINJAONE_TOKEN_URL": "https://app.ninjarmm.com/ws/oauth/token",
+        "NINJAONE_NO_CONFIG_WRITE": ""
       }
     }
   }
@@ -95,7 +97,8 @@ Claude Desktop:
         "NINJAONE_CLIENT_ID": "<your-ninjaone_client_id>",
         "NINJAONE_CLIENT_SECRET": "<your-ninjaone_client_secret>",
         "NINJAONE_OAUTH_SCOPE": "<your-ninjaone_oauth_scope>",
-        "NINJAONE_TOKEN_URL": "https://app.ninjarmm.com/ws/oauth/token"
+        "NINJAONE_TOKEN_URL": "https://app.ninjarmm.com/ws/oauth/token",
+        "NINJAONE_NO_CONFIG_WRITE": ""
       }
     }
   }

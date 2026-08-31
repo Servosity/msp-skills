@@ -67,14 +67,21 @@ func Load(configPath string) (*Config, error) {
 	// ACTION1_CLIENT_SECRET so generated commands mint + refresh a bearer
 	// headlessly (see internal/client/oauth_cc.go). Env wins over any
 	// client_id/secret persisted in the config file.
+	// issue #266/#270: mark both as env overrides so configForSave() restores
+	// the file's value instead of persisting the environment's. Without the
+	// marks, the automatic token mint below rewrote the live client_id and
+	// client_secret into config.toml in cleartext on every authenticated
+	// command.
 	if v := os.Getenv("ACTION1_CLIENT_ID"); v != "" {
 		cfg.ClientID = v
+		cfg.markEnvOverride("ClientID")
 		if cfg.AuthSource == "" {
 			cfg.AuthSource = "env:ACTION1_CLIENT_ID"
 		}
 	}
 	if v := os.Getenv("ACTION1_CLIENT_SECRET"); v != "" {
 		cfg.ClientSecret = v
+		cfg.markEnvOverride("ClientSecret")
 	}
 
 	// Label config-file-derived credentials so doctor can distinguish
@@ -162,8 +169,13 @@ func (c *Config) SaveTokens(clientID, clientSecret, accessToken, refreshToken st
 	c.AccessToken = accessToken
 	c.RefreshToken = refreshToken
 	c.TokenExpiry = expiry
-	delete(c.envOverrides, "ClientID")
-	delete(c.envOverrides, "ClientSecret")
+	// issue #266: ClientID/ClientSecret supplied through the environment must
+	// never be copied to the on-disk config. Load() marks them as env overrides
+	// and configForSave() restores the file value for any field still marked --
+	// clearing those two markers here defeated that, so every token mint,
+	// including the automatic one on an ordinary authenticated command, rewrote
+	// the live secret into ~/.config/<tool>-cli/config.toml in cleartext. The
+	// markers now survive a save; only MarkCredentialsExplicit clears them.
 	delete(c.envOverrides, "AccessToken")
 	delete(c.envOverrides, "RefreshToken")
 	delete(c.envOverrides, "TokenExpiry")
@@ -172,7 +184,30 @@ func (c *Config) SaveTokens(clientID, clientSecret, accessToken, refreshToken st
 	c.updateFileConfigField("AccessToken")
 	c.updateFileConfigField("RefreshToken")
 	c.updateFileConfigField("TokenExpiry")
-	return c.save()
+	return c.saveCredentialMaterial()
+}
+
+// MarkCredentialsExplicit records that the caller supplied these credentials
+// deliberately -- a flag typed on the command line -- rather than inheriting
+// them from the environment, which permits the next SaveTokens to write them
+// to disk. Provenance has to be declared by the caller: comparing the incoming
+// value against the loaded one cannot tell an explicit flag from the
+// environment value it happens to duplicate, and any normalisation on the way
+// in (a trimmed flag value against an untrimmed Load) makes such a comparison
+// wrong outright. See issue #266.
+//
+// This connector currently has no command that accepts client credentials as
+// flags -- `auth set-token` takes a bearer token and passes empty strings for
+// the pair -- so nothing calls this today. It is kept so the escape hatch is
+// present and identically named across the fleet the moment such a command
+// exists, and so a back-port cannot land the deny half without the allow half.
+func (c *Config) MarkCredentialsExplicit(clientID, clientSecret bool) {
+	if clientID {
+		delete(c.envOverrides, "ClientID")
+	}
+	if clientSecret {
+		delete(c.envOverrides, "ClientSecret")
+	}
 }
 
 func (c *Config) ClearTokens() error {
@@ -240,6 +275,15 @@ func (c *Config) snapshotFileConfig() {
 func (c *Config) configForSave() Config {
 	out := *c
 	if c.fileConfig != nil {
+		// `out := *c` copies the LIVE values, so every env-sourced credential
+		// needs its file value restored here or it lands in config.toml in
+		// cleartext. ClientID/ClientSecret were missing (issue #266).
+		if c.envOverrides["ClientID"] {
+			out.ClientID = c.fileConfig.ClientID
+		}
+		if c.envOverrides["ClientSecret"] {
+			out.ClientSecret = c.fileConfig.ClientSecret
+		}
 		if c.envOverrides["Action1Oauth2"] {
 			out.Action1Oauth2 = c.fileConfig.Action1Oauth2
 		}
@@ -269,6 +313,44 @@ func (c *Config) updateFileConfigField(field string) {
 	case "Action1Oauth2":
 		c.fileConfig.Action1Oauth2 = c.Action1Oauth2
 	}
+}
+
+// NoConfigWriteEnv is the environment switch (issue #270) that keeps every
+// credential this process handles off disk. Set it and the automatic token
+// cache becomes a no-op: the connector mints a fresh bearer per invocation,
+// which costs one token request and is exactly the trade an operator whose
+// secrets live in Keychain / Credential Manager already accepts.
+//
+// Three deliberate boundaries:
+//   - `auth logout` still writes. Clearing the file is the ERASE path, not a
+//     credential write; suppressing it would make logout silently inert.
+//   - `auth login` / `auth set-token` REFUSE rather than no-op. A command
+//     whose entire purpose is to write a credential must not report a save
+//     that did not happen.
+//   - The MCP server reads the same variable, because it runs this same
+//     config package. That is the half a `--config <null device>` workaround
+//     could never cover: internal/mcp resolves its own config path.
+const NoConfigWriteEnv = "ACTION1_NO_CONFIG_WRITE"
+
+// NoConfigWrite reports whether NoConfigWriteEnv asks this process to keep
+// credential material off disk. Unset, empty, "0", "false", "no" and "off"
+// (trimmed, case-insensitive) are off; any other value is on.
+func NoConfigWrite() bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv(NoConfigWriteEnv))) {
+	case "", "0", "false", "no", "off":
+		return false
+	}
+	return true
+}
+
+// saveCredentialMaterial is the single entry point for persisting credential
+// material. It is the ONLY save path ACTION1_NO_CONFIG_WRITE suppresses;
+// ClearTokens calls save() directly so the wipe always runs.
+func (c *Config) saveCredentialMaterial() error {
+	if NoConfigWrite() {
+		return nil
+	}
+	return c.save()
 }
 
 func (c *Config) save() error {

@@ -42,7 +42,8 @@ Add (or merge with your existing `mcpServers` block):
         "SHERWEB_CLIENT_SECRET": "<your-sherweb_client_secret>",
         "SHERWEB_OAUTH_SCOPE": "<your-sherweb_oauth_scope>",
         "SHERWEB_SUBSCRIPTION_KEY": "<your-sherweb_subscription_key>",
-        "SHERWEB_TOKEN_URL": "https://api.sherweb.com/auth/oidc/connect/token"
+        "SHERWEB_TOKEN_URL": "https://api.sherweb.com/auth/oidc/connect/token",
+        "SHERWEB_NO_CONFIG_WRITE": ""
       }
     }
   }
@@ -72,7 +73,8 @@ Configuration**) and add:
         "SHERWEB_CLIENT_SECRET": "<your-sherweb_client_secret>",
         "SHERWEB_OAUTH_SCOPE": "<your-sherweb_oauth_scope>",
         "SHERWEB_SUBSCRIPTION_KEY": "<your-sherweb_subscription_key>",
-        "SHERWEB_TOKEN_URL": "https://api.sherweb.com/auth/oidc/connect/token"
+        "SHERWEB_TOKEN_URL": "https://api.sherweb.com/auth/oidc/connect/token",
+        "SHERWEB_NO_CONFIG_WRITE": ""
       }
     }
   }
@@ -98,7 +100,8 @@ Claude Desktop:
         "SHERWEB_CLIENT_SECRET": "<your-sherweb_client_secret>",
         "SHERWEB_OAUTH_SCOPE": "<your-sherweb_oauth_scope>",
         "SHERWEB_SUBSCRIPTION_KEY": "<your-sherweb_subscription_key>",
-        "SHERWEB_TOKEN_URL": "https://api.sherweb.com/auth/oidc/connect/token"
+        "SHERWEB_TOKEN_URL": "https://api.sherweb.com/auth/oidc/connect/token",
+        "SHERWEB_NO_CONFIG_WRITE": ""
       }
     }
   }

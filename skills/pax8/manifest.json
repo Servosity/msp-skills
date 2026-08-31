@@ -20,7 +20,8 @@
         "PAX8_CLIENT_ID": "${user_config.pax8_client_id}",
         "PAX8_CLIENT_SECRET": "${user_config.pax8_client_secret}",
         "PAX8_OAUTH_SCOPE": "${user_config.pax8_oauth_scope}",
-        "PAX8_TOKEN_URL": "${user_config.pax8_token_url}"
+        "PAX8_TOKEN_URL": "${user_config.pax8_token_url}",
+        "PAX8_NO_CONFIG_WRITE": "${user_config.pax8_no_config_write}"
       }
     }
   },
@@ -66,6 +67,13 @@
       "description": "Token endpoint the client-credentials exchange posts to. Leave the prefilled default unless your tenant uses a different token endpoint.",
       "required": false,
       "default": "https://token-manager.pax8.com/oauth/token"
+    },
+    "pax8_no_config_write": {
+      "type": "string",
+      "title": "Keep credentials off disk",
+      "description": "Set to 1 to keep credentials off disk. The token cache becomes a no-op, so the connector mints a fresh token each run instead of writing one to config.toml. Leave blank for the default cached behaviour.",
+      "required": false,
+      "default": ""
     }
   },
   "compatibility": {

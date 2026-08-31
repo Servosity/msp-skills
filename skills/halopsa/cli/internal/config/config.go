@@ -244,7 +244,7 @@ func (c *Config) SaveTokens(clientID, clientSecret, accessToken, refreshToken st
 	c.updateFileConfigField("AccessToken")
 	c.updateFileConfigField("RefreshToken")
 	c.updateFileConfigField("TokenExpiry")
-	return c.save()
+	return c.saveCredentialMaterial()
 }
 
 // MarkCredentialsExplicit records that the caller supplied these credentials
@@ -386,6 +386,44 @@ func (c *Config) updateFileConfigField(field string) {
 	case "HalopsaToken":
 		c.fileConfig.HalopsaToken = c.HalopsaToken
 	}
+}
+
+// NoConfigWriteEnv is the environment switch (issue #270) that keeps every
+// credential this process handles off disk. Set it and the automatic token
+// cache becomes a no-op: the connector mints a fresh bearer per invocation,
+// which costs one token request and is exactly the trade an operator whose
+// secrets live in Keychain / Credential Manager already accepts.
+//
+// Three deliberate boundaries:
+//   - `auth logout` still writes. Clearing the file is the ERASE path, not a
+//     credential write; suppressing it would make logout silently inert.
+//   - `auth login` / `auth set-token` REFUSE rather than no-op. A command
+//     whose entire purpose is to write a credential must not report a save
+//     that did not happen.
+//   - The MCP server reads the same variable, because it runs this same
+//     config package. That is the half a `--config <null device>` workaround
+//     could never cover: internal/mcp resolves its own config path.
+const NoConfigWriteEnv = "HALOPSA_NO_CONFIG_WRITE"
+
+// NoConfigWrite reports whether NoConfigWriteEnv asks this process to keep
+// credential material off disk. Unset, empty, "0", "false", "no" and "off"
+// (trimmed, case-insensitive) are off; any other value is on.
+func NoConfigWrite() bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv(NoConfigWriteEnv))) {
+	case "", "0", "false", "no", "off":
+		return false
+	}
+	return true
+}
+
+// saveCredentialMaterial is the single entry point for persisting credential
+// material. It is the ONLY save path HALOPSA_NO_CONFIG_WRITE suppresses;
+// ClearTokens calls save() directly so the wipe always runs.
+func (c *Config) saveCredentialMaterial() error {
+	if NoConfigWrite() {
+		return nil
+	}
+	return c.save()
 }
 
 func (c *Config) save() error {

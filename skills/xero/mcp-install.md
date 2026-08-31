@@ -44,7 +44,8 @@ Add (or merge with your existing `mcpServers` block):
         "XERO_CLIENT_SECRET": "",
         "XERO_OAUTH2": "<your-xero_oauth2>",
         "XERO_TENANT_ID": "<your-xero_tenant_id>",
-        "XERO_TOKEN_URL": "https://identity.xero.com/connect/token"
+        "XERO_TOKEN_URL": "https://identity.xero.com/connect/token",
+        "XERO_NO_CONFIG_WRITE": ""
       }
     }
   }
@@ -76,7 +77,8 @@ Configuration**) and add:
         "XERO_CLIENT_SECRET": "",
         "XERO_OAUTH2": "<your-xero_oauth2>",
         "XERO_TENANT_ID": "<your-xero_tenant_id>",
-        "XERO_TOKEN_URL": "https://identity.xero.com/connect/token"
+        "XERO_TOKEN_URL": "https://identity.xero.com/connect/token",
+        "XERO_NO_CONFIG_WRITE": ""
       }
     }
   }
@@ -104,7 +106,8 @@ Claude Desktop:
         "XERO_CLIENT_SECRET": "",
         "XERO_OAUTH2": "<your-xero_oauth2>",
         "XERO_TENANT_ID": "<your-xero_tenant_id>",
-        "XERO_TOKEN_URL": "https://identity.xero.com/connect/token"
+        "XERO_TOKEN_URL": "https://identity.xero.com/connect/token",
+        "XERO_NO_CONFIG_WRITE": ""
       }
     }
   }

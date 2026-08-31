@@ -41,7 +41,8 @@ Add (or merge with your existing `mcpServers` block):
         "APPDIRECT_CLIENT_ID": "<your-appdirect_client_id>",
         "APPDIRECT_CLIENT_SECRET": "<your-appdirect_client_secret>",
         "APPDIRECT_OAUTH_SCOPE": "<your-appdirect_oauth_scope>",
-        "APPDIRECT_TOKEN_URL": "https://marketplace.appdirect.com/oauth2/token"
+        "APPDIRECT_TOKEN_URL": "https://marketplace.appdirect.com/oauth2/token",
+        "APPDIRECT_NO_CONFIG_WRITE": ""
       }
     }
   }
@@ -70,7 +71,8 @@ Configuration**) and add:
         "APPDIRECT_CLIENT_ID": "<your-appdirect_client_id>",
         "APPDIRECT_CLIENT_SECRET": "<your-appdirect_client_secret>",
         "APPDIRECT_OAUTH_SCOPE": "<your-appdirect_oauth_scope>",
-        "APPDIRECT_TOKEN_URL": "https://marketplace.appdirect.com/oauth2/token"
+        "APPDIRECT_TOKEN_URL": "https://marketplace.appdirect.com/oauth2/token",
+        "APPDIRECT_NO_CONFIG_WRITE": ""
       }
     }
   }
@@ -95,7 +97,8 @@ Claude Desktop:
         "APPDIRECT_CLIENT_ID": "<your-appdirect_client_id>",
         "APPDIRECT_CLIENT_SECRET": "<your-appdirect_client_secret>",
         "APPDIRECT_OAUTH_SCOPE": "<your-appdirect_oauth_scope>",
-        "APPDIRECT_TOKEN_URL": "https://marketplace.appdirect.com/oauth2/token"
+        "APPDIRECT_TOKEN_URL": "https://marketplace.appdirect.com/oauth2/token",
+        "APPDIRECT_NO_CONFIG_WRITE": ""
       }
     }
   }

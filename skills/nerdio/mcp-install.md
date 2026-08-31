@@ -41,7 +41,8 @@ Add (or merge with your existing `mcpServers` block):
         "NERDIO_TOKEN_URL": "<your-nerdio_token_url>",
         "NERDIO_CLIENT_ID": "<your-nerdio_client_id>",
         "NERDIO_CLIENT_SECRET": "<your-nerdio_client_secret>",
-        "NERDIO_OAUTH_SCOPE": "<your-nerdio_oauth_scope>"
+        "NERDIO_OAUTH_SCOPE": "<your-nerdio_oauth_scope>",
+        "NERDIO_NO_CONFIG_WRITE": ""
       }
     }
   }
@@ -70,7 +71,8 @@ Configuration**) and add:
         "NERDIO_TOKEN_URL": "<your-nerdio_token_url>",
         "NERDIO_CLIENT_ID": "<your-nerdio_client_id>",
         "NERDIO_CLIENT_SECRET": "<your-nerdio_client_secret>",
-        "NERDIO_OAUTH_SCOPE": "<your-nerdio_oauth_scope>"
+        "NERDIO_OAUTH_SCOPE": "<your-nerdio_oauth_scope>",
+        "NERDIO_NO_CONFIG_WRITE": ""
       }
     }
   }
@@ -95,7 +97,8 @@ Claude Desktop:
         "NERDIO_TOKEN_URL": "<your-nerdio_token_url>",
         "NERDIO_CLIENT_ID": "<your-nerdio_client_id>",
         "NERDIO_CLIENT_SECRET": "<your-nerdio_client_secret>",
-        "NERDIO_OAUTH_SCOPE": "<your-nerdio_oauth_scope>"
+        "NERDIO_OAUTH_SCOPE": "<your-nerdio_oauth_scope>",
+        "NERDIO_NO_CONFIG_WRITE": ""
       }
     }
   }

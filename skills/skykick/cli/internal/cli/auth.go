@@ -62,6 +62,13 @@ Credentials default to SKYKICK_CLIENT_ID (Client ID) and SKYKICK_CLIENT_SECRET (
 `, "\n"),
 		Annotations: map[string]string{"mcp:hidden": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// issue #270: SKYKICK_NO_CONFIG_WRITE makes the automatic token
+			// cache a no-op. A command whose whole purpose is to write a
+			// credential to disk must not silently do nothing and report
+			// success, so it refuses here and names the variable.
+			if config.NoConfigWrite() {
+				return configErr(fmt.Errorf("%s is set, so no credential may be written to disk; unset it and re-run to save one", config.NoConfigWriteEnv))
+			}
 			if cliutil.IsVerifyEnv() {
 				fmt.Fprintln(cmd.OutOrStdout(), "would mint token via OAuth2 client_credentials")
 				return nil
@@ -232,6 +239,13 @@ func newAuthSetTokenCmd(flags *rootFlags) *cobra.Command {
 		Example: "  skykick-cli auth set-token <bearer-jwt>",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// issue #270: SKYKICK_NO_CONFIG_WRITE makes the automatic token
+			// cache a no-op. A command whose whole purpose is to write a
+			// credential to disk must not silently do nothing and report
+			// success, so it refuses here and names the variable.
+			if config.NoConfigWrite() {
+				return configErr(fmt.Errorf("%s is set, so no credential may be written to disk; unset it and re-run to save one", config.NoConfigWriteEnv))
+			}
 			cfg, err := config.Load(flags.configPath)
 			if err != nil {
 				return configErr(err)

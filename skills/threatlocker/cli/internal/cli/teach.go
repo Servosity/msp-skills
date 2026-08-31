@@ -468,7 +468,14 @@ Disabling: ` + noLearnEnvVar + `=true returns the empty shape even
 when learnings exist.`,
 		Example: `  threatlocker-cli recall "<question>" --agent
   threatlocker-cli recall "<question>" --agent --min-confidence 2`,
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		// mcp:local-write, NOT mcp:read-only (issue #275 finding 4):
+		// recall opens the WRITABLE learn store and records a hit/miss
+		// event for every call. The annotation is what an MCP host reads
+		// to decide what to auto-approve, so claiming read-only here was
+		// false. Local-write is the honest tier: the write lands only in
+		// this CLI's own store, never in external state or a user-visible
+		// file, so the tool stays non-destructive and non-open-world.
+		Annotations: map[string]string{"mcp:local-write": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				return cmd.Help()

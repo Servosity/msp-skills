@@ -252,6 +252,75 @@
      "min_count": 1
     }
    ]
+  },
+  {
+   "id": "no-config-write-switch",
+   "summary": "SHERWEB_NO_CONFIG_WRITE makes every credential write a no-op (token cache included) while leaving the `auth logout` erase working, and the MCP server honours it too (issue #270)",
+   "why": "Issue #270, raised by @Xenith-B off the back of #266. #266 stopped env-supplied client credentials reaching disk; the MINTED access token still landed in ~/.config/<tool>-cli/config.toml in cleartext and there was no supported way to turn that off. Their workaround was `--config NUL`, which is OS-specific, undocumented, makes doctor report a false 'not configured', and - the part that matters most - does not cover the MCP servers at all, because internal/mcp resolved its own hardcoded config path and ignored --config. Three deliberate boundaries make this switch honest rather than merely quiet. (1) ClearTokens keeps calling save() directly: it is the ERASE path, and routing it through the guard would make `auth logout` silently inert, which is a worse defect than the one being fixed. (2) `auth login` and `auth set-token` REFUSE and name the variable rather than reporting a save that did not happen - a false success is the same defect class as a doctor that says credentials are fine without checking. (3) newMCPClient now resolves through config.Load(\"\"), the resolver the CLI uses, so the MCP server honours both SHERWEB_CONFIG and this switch; that is the half the issue says is uncovered today. The variable is declared on all three install channels because for a Claude Desktop install the manifest prompt is the ONLY channel that can set an environment variable. Class C, new documented surface. GENERATOR-class: a reprint drops the switch entirely and silently restores the plaintext token cache.",
+   "status": "active",
+   "spec_encode_followup": "cli-printing-press should emit <PREFIX>_NO_CONFIG_WRITE (or an equivalent) as part of the standard config surface, with the same three boundaries: the erase path exempt, explicit save commands failing loudly rather than no-oping, and the MCP server resolving its config through config.Load(\"\") instead of a hardcoded home-relative path. The hardcoded path in internal/mcp/tools.go is a generator defect in its own right - it makes --config and <PREFIX>_CONFIG inert for every MCP install on every connector.",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "const NoConfigWriteEnv = \"SHERWEB_NO_CONFIG_WRITE\"",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "func NoConfigWrite() bool {",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "func (c *Config) saveCredentialMaterial() error {",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "return c.saveCredentialMaterial()",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/config/config_noconfigwrite_test.go",
+     "contains": "func TestNoConfigWriteLeavesNothingOnDisk(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/config/config_noconfigwrite_test.go",
+     "contains": "func TestNoConfigWriteStillAllowsTheWipe(",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"SHERWEB_NO_CONFIG_WRITE\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"SHERWEB_NO_CONFIG_WRITE\"",
+     "min_count": 1
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"SHERWEB_NO_CONFIG_WRITE\":",
+     "min_count": 3
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "cfg, err := config.Load(\"\")",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/mcp/mcp_config_resolution_test.go",
+     "contains": "func TestMCPClientHonoursTheConfigEnvVar(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "if config.NoConfigWrite() {",
+     "min_count": 2
+    }
+   ]
   }
  ]
 }

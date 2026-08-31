@@ -41,7 +41,8 @@ Add (or merge with your existing `mcpServers` block):
         "CROWDSTRIKE_OAUTH_SCOPE": "<your-crowdstrike_oauth_scope>",
         "CROWDSTRIKE_TOKEN_URL": "https://api.crowdstrike.com/oauth2/token",
         "FALCON_CLIENT_ID": "<your-falcon_client_id>",
-        "FALCON_CLIENT_SECRET": "<your-falcon_client_secret>"
+        "FALCON_CLIENT_SECRET": "<your-falcon_client_secret>",
+        "CROWDSTRIKE_NO_CONFIG_WRITE": ""
       }
     }
   }
@@ -70,7 +71,8 @@ Configuration**) and add:
         "CROWDSTRIKE_OAUTH_SCOPE": "<your-crowdstrike_oauth_scope>",
         "CROWDSTRIKE_TOKEN_URL": "https://api.crowdstrike.com/oauth2/token",
         "FALCON_CLIENT_ID": "<your-falcon_client_id>",
-        "FALCON_CLIENT_SECRET": "<your-falcon_client_secret>"
+        "FALCON_CLIENT_SECRET": "<your-falcon_client_secret>",
+        "CROWDSTRIKE_NO_CONFIG_WRITE": ""
       }
     }
   }
@@ -95,7 +97,8 @@ Claude Desktop:
         "CROWDSTRIKE_OAUTH_SCOPE": "<your-crowdstrike_oauth_scope>",
         "CROWDSTRIKE_TOKEN_URL": "https://api.crowdstrike.com/oauth2/token",
         "FALCON_CLIENT_ID": "<your-falcon_client_id>",
-        "FALCON_CLIENT_SECRET": "<your-falcon_client_secret>"
+        "FALCON_CLIENT_SECRET": "<your-falcon_client_secret>",
+        "CROWDSTRIKE_NO_CONFIG_WRITE": ""
       }
     }
   }

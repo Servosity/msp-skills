@@ -135,6 +135,13 @@ func newAuthSetTokenCmd(flags *rootFlags) *cobra.Command {
 		Example: "  action1-cli auth set-token YOUR_TOKEN_HERE",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// issue #270: ACTION1_NO_CONFIG_WRITE makes the automatic token
+			// cache a no-op. A command whose whole purpose is to write a
+			// credential to disk must not silently do nothing and report
+			// success, so it refuses here and names the variable.
+			if config.NoConfigWrite() {
+				return configErr(fmt.Errorf("%s is set, so no credential may be written to disk; unset it and re-run to save one", config.NoConfigWriteEnv))
+			}
 			cfg, err := config.Load(flags.configPath)
 			if err != nil {
 				return configErr(err)

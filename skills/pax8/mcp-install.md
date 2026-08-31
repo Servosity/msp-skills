@@ -42,7 +42,8 @@ Add (or merge with your existing `mcpServers` block):
         "PAX8_CLIENT_ID": "<your-pax8_client_id>",
         "PAX8_CLIENT_SECRET": "<your-pax8_client_secret>",
         "PAX8_OAUTH_SCOPE": "<your-pax8_oauth_scope>",
-        "PAX8_TOKEN_URL": "https://token-manager.pax8.com/oauth/token"
+        "PAX8_TOKEN_URL": "https://token-manager.pax8.com/oauth/token",
+        "PAX8_NO_CONFIG_WRITE": ""
       }
     }
   }
@@ -72,7 +73,8 @@ Configuration**) and add:
         "PAX8_CLIENT_ID": "<your-pax8_client_id>",
         "PAX8_CLIENT_SECRET": "<your-pax8_client_secret>",
         "PAX8_OAUTH_SCOPE": "<your-pax8_oauth_scope>",
-        "PAX8_TOKEN_URL": "https://token-manager.pax8.com/oauth/token"
+        "PAX8_TOKEN_URL": "https://token-manager.pax8.com/oauth/token",
+        "PAX8_NO_CONFIG_WRITE": ""
       }
     }
   }
@@ -98,7 +100,8 @@ Claude Desktop:
         "PAX8_CLIENT_ID": "<your-pax8_client_id>",
         "PAX8_CLIENT_SECRET": "<your-pax8_client_secret>",
         "PAX8_OAUTH_SCOPE": "<your-pax8_oauth_scope>",
-        "PAX8_TOKEN_URL": "https://token-manager.pax8.com/oauth/token"
+        "PAX8_TOKEN_URL": "https://token-manager.pax8.com/oauth/token",
+        "PAX8_NO_CONFIG_WRITE": ""
       }
     }
   }

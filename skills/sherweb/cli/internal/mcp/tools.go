@@ -583,9 +583,12 @@ func mcpOversizedPreviewEnvelope(data json.RawMessage) []byte {
 }
 
 func newMCPClient() (*client.Client, error) {
-	home, _ := os.UserHomeDir()
-	cfgPath := filepath.Join(home, ".config", "sherweb-cli", "config.toml")
-	cfg, err := config.Load(cfgPath)
+	// issue #270: resolve the config exactly the way the CLI does. config.Load("")
+	// reads SHERWEB_CONFIG and falls back to this same default path, so the MCP
+	// server honours the operator's chosen config location and the
+	// SHERWEB_NO_CONFIG_WRITE switch instead of hardcoding a plaintext token
+	// cache under the home directory.
+	cfg, err := config.Load("")
 	if err != nil {
 		return nil, fmt.Errorf("loading config: %w", err)
 	}

@@ -38,7 +38,8 @@ Add (or merge with your existing `mcpServers` block):
       "command": "cipp-mcp",
       "env": {
         "CIPP_API_KEY": "<your-cipp_api_key>",
-        "CIPP_BASE_URL": "<your-cipp_base_url>"
+        "CIPP_BASE_URL": "<your-cipp_base_url>",
+        "CIPP_NO_CONFIG_WRITE": ""
       }
     }
   }
@@ -64,7 +65,8 @@ Configuration**) and add:
       "command": "cipp-mcp",
       "env": {
         "CIPP_API_KEY": "<your-cipp_api_key>",
-        "CIPP_BASE_URL": "<your-cipp_base_url>"
+        "CIPP_BASE_URL": "<your-cipp_base_url>",
+        "CIPP_NO_CONFIG_WRITE": ""
       }
     }
   }
@@ -86,7 +88,8 @@ Claude Desktop:
       "command": "cipp-mcp",
       "env": {
         "CIPP_API_KEY": "<your-cipp_api_key>",
-        "CIPP_BASE_URL": "<your-cipp_base_url>"
+        "CIPP_BASE_URL": "<your-cipp_base_url>",
+        "CIPP_NO_CONFIG_WRITE": ""
       }
     }
   }

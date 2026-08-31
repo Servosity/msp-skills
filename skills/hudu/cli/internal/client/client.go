@@ -468,9 +468,17 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 	const maxRetries = 3
 	var lastErr error
 
+	// issue #195: separate the time this request spends WAITING from the time
+	// it spends on the wire. Nil unless the caller opted in; every method on a
+	// nil trace is a no-op, so the untraced path is unchanged.
+	phaseTrace := RequestTraceFrom(ctx)
+
 	for attempt := 0; attempt <= maxRetries; attempt++ {
 		// Proactive rate limiting — wait before sending
+		rateLimitWaitStart := time.Now()
 		c.limiter.Wait()
+		phaseTrace.AddRateLimitWait(time.Since(rateLimitWaitStart))
+		phaseTrace.CountRequest()
 		var bodyReader io.Reader
 		if bodyBytes != nil {
 			bodyReader = strings.NewReader(string(bodyBytes))
@@ -583,9 +591,12 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 			c.limiter.OnRateLimit()
 			wait := cliutil.RetryAfter(resp)
 			fmt.Fprintf(os.Stderr, "rate limited, waiting %s (attempt %d/%d, rate adjusted to %.1f req/s)\n", wait, attempt+1, maxRetries, c.limiter.Rate())
+			retryWaitStart := time.Now()
 			if err := sleepContext(ctx, wait); err != nil {
 				return nil, 0, err
 			}
+			phaseTrace.AddRetryWait(time.Since(retryWaitStart))
+			phaseTrace.CountRetry()
 			lastErr = apiErr
 			continue
 		}
@@ -594,9 +605,12 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 		if resp.StatusCode >= 500 && attempt < maxRetries {
 			wait := time.Duration(math.Pow(2, float64(attempt))) * time.Second
 			fmt.Fprintf(os.Stderr, "server error %d, retrying in %s (attempt %d/%d)\n", resp.StatusCode, wait, attempt+1, maxRetries)
+			retryWaitStart := time.Now()
 			if err := sleepContext(ctx, wait); err != nil {
 				return nil, 0, err
 			}
+			phaseTrace.AddRetryWait(time.Since(retryWaitStart))
+			phaseTrace.CountRetry()
 			lastErr = apiErr
 			continue
 		}
