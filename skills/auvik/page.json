@@ -105,7 +105,7 @@
     },
     {
       "tier": "Data egress",
-      "examples": "--deliver webhook:<url> on any command (POSTs that command's output to a URL you name), feedback --send, and bare feedback when AUVIK_FEEDBACK_AUTO_SEND=true - that one needs no flag at all",
+      "examples": "--deliver webhook:<url> on any command (POSTs that command's output to a URL you name), and feedback --send or bare feedback with AUVIK_FEEDBACK_AUTO_SEND=true - both of which POST only when AUVIK_FEEDBACK_ENDPOINT names a URL you set, and write a local file otherwise",
       "policy": "Human-in-the-loop - a webhook sink moves client data off-box"
     }
   ]
