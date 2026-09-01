@@ -1,0 +1,93 @@
+{
+ "slug": "riverside-fm",
+ "doc": "docs/reprint-survival.md",
+ "_comment": "Edits to GENERATED (\"DO NOT EDIT\") files in this connector that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present and fails CI if a reprint dropped one. Provenance: issue #176 - riverside-fm was printed on press 4.4.0 and parked at 35 security-gate P1. Rather than take a full 4.31.4 reprint (which regenerates root.go and drops the registration of 11 shipped commands, and drops sync/export/import/analytics entirely - see the issue), the generated-file deltas the gate cared about were ported one at a time from a REAL 4.31.4 print of the same spec, kept at parity with what that press emits. Every entry below names the 4.31.4 behaviour it matches, so the eventual full reprint should make these no-ops rather than clobber them.",
+ "handfixes": [
+  {
+   "id": "generator-perms-0700-0600",
+   "summary": "Generated cache/client/store/deliver code created directories 0755 and files 0644. Press 4.31.4 emits 0700/0600 for the same call sites; this connector was printed on 4.4.0, before that hardening, so it shipped world-readable cache entries, HTTP response cache, and delivered payloads.",
+   "why": "gosec G301/G306. The paths involved hold API responses for the operator's own Riverside account - transcripts and recording metadata for their customers' sessions - under the user's home directory on a machine that may be shared. A freshly generated 4.31.4 CLI of this same spec writes 0700/0600 at every one of these sites (internal/cache/cache.go:47-48, internal/client/client.go, internal/store/store.go, internal/cli/deliver.go); the values here were matched against that fresh print rather than chosen.",
+   "status": "upstreamed",
+   "spec_encode_followup": "No spec change needed: press 4.31.4 already emits these values. A full reprint at 4.31.4 or later regenerates them correctly and this entry becomes a no-op.",
+   "asserts": [
+    {"file": "cli/internal/cache/cache.go", "contains": "os.MkdirAll(s.Dir, 0o700)", "min_count": 1, "code_only": true},
+    {"file": "cli/internal/cache/cache.go", "contains": "0o600)", "min_count": 1, "code_only": true},
+    {"file": "cli/internal/cache/cache.go", "not_contains": "0o755"},
+    {"file": "cli/internal/cache/cache.go", "not_contains": "0o644"},
+    {"file": "cli/internal/client/client.go", "not_contains": "0o755"},
+    {"file": "cli/internal/client/client.go", "not_contains": "0o644"},
+    {"file": "cli/internal/store/store.go", "not_contains": "0o755"},
+    {"file": "cli/internal/cli/deliver.go", "not_contains": "0o755"}
+   ]
+  },
+  {
+   "id": "novel-download-perms-0700-0600",
+   "summary": "The hand-authored download commands (bulk export, grab, clips harvest, media refresh, transcripts convert) wrote their output trees 0755/0644. They now write 0700/0600.",
+   "why": "gosec G301/G306. These are the commands that put a customer's recorded audio, video, and transcripts on disk - the most sensitive bytes this connector ever handles - so 0600 is the correct default and the operator can relax it themselves. These files are NOVEL (no DO NOT EDIT header) and are carried across a reprint by the press AST-merge, so the fix is also applied in the library source at riverside-fm-pp-cli; this ledger is the safety net if a future merge drops it.",
+   "status": "active",
+   "spec_encode_followup": "Nothing to encode: novel command bodies are hand-authored by definition. The durable half of this fix lives in the printing-press library copy of these files.",
+   "asserts": [
+    {"file": "cli/internal/cli/bulk.go", "not_contains": "0o755"},
+    {"file": "cli/internal/cli/bulk.go", "not_contains": "0o644"},
+    {"file": "cli/internal/cli/bulk.go", "contains": "0o700)", "min_count": 3, "code_only": true},
+    {"file": "cli/internal/cli/bulk.go", "contains": "0o600)", "min_count": 5, "code_only": true},
+    {"file": "cli/internal/cli/grab.go", "not_contains": "0o755"},
+    {"file": "cli/internal/cli/grab.go", "not_contains": "0o644"},
+    {"file": "cli/internal/cli/clips_harvest.go", "not_contains": "0o755"},
+    {"file": "cli/internal/cli/media_refresh.go", "not_contains": "0o755"},
+    {"file": "cli/internal/cli/transcripts.go", "not_contains": "0o644"}
+   ]
+  },
+  {
+   "id": "cookie-exec-literal-commands",
+   "summary": "Cookie extraction dispatched through a table of []string argv slices, so the executable name reached exec.Command as a variable (exec.Command(tool.check[0], tool.check[1:]...)) in both auth.go and doctor.go. Every call site now names its program as a compile-time literal.",
+   "why": "This is the FIRST cookie-auth connector in the fleet, so this shape had never been reviewed. The security gate's builtin exec-nonliteral-cmd rule and the matching semgrep rule both flag a variable command, and neither honours an inline // #nosec - the semgrep rule's own message asks for a literal command as the primary remedy. Making it literal is also the honest documentation: a reader (and governance.md's generated tool inventory) can now see the complete, closed set of programs this binary can launch without following a data structure. doctor.go now delegates to detectCookieTool() so its verdict cannot drift from what auth login actually does.",
+   "status": "active",
+   "spec_encode_followup": "DURABLE FIX belongs in cli-printing-press: the 4.31.4 cookie-auth template still emits exec.Command(check[0], check[1:]...) in doctor.go and several variable-command call sites in auth.go, so a reprint reintroduces this. File via printing-press-retro so the press emits literal dispatch for the cookie backends.",
+   "asserts": [
+    {"file": "cli/internal/cli/auth.go", "contains": "func detectCookieTool", "min_count": 1, "code_only": true},
+    {"file": "cli/internal/cli/auth.go", "contains": "exec.Command(\"cookies\", \"--help\")", "min_count": 1, "code_only": true},
+    {"file": "cli/internal/cli/auth.go", "contains": "exec.Command(\"cookie-scoop\", \"--help\")", "min_count": 1, "code_only": true},
+    {"file": "cli/internal/cli/auth.go", "not_contains": "tool.check[0]"},
+    {"file": "cli/internal/cli/doctor.go", "not_contains": "exec.Command(check[0]"},
+    {"file": "cli/internal/cli/doctor.go", "contains": "detectCookieTool()", "min_count": 1, "code_only": true}
+   ]
+  },
+  {
+   "id": "cookie-python-script-via-file",
+   "summary": "The pycookiecheat backend ran its extraction script through `python3 -c <script>`. It now writes the script to a 0600 file inside a 0700 temp dir and runs `python3 <path>`.",
+   "why": "Two reasons, and the security one is real rather than cosmetic. (1) A `-c` payload is visible in the process table to every other account on the machine, and this particular script embeds the absolute path of the operator's Chrome profile - so the previous shape leaked where the cookie database lives to any local user running ps. (2) An interpreter invoked with -c is exactly the shape the gate's shell-interpreter rule and semgrep's msp-shell-interpreter-exec rule exist to stop, and neither honours an inline // #nosec. The script content itself is built by this file and never contains caller input.",
+   "status": "active",
+   "spec_encode_followup": "DURABLE FIX belongs in cli-printing-press: the cookie-auth template should never emit `python3 -c`. File via printing-press-retro alongside the literal-dispatch finding.",
+   "asserts": [
+    {"file": "cli/internal/cli/auth.go", "contains": "func runPythonScript", "min_count": 1, "code_only": true},
+    {"file": "cli/internal/cli/auth.go", "contains": "exec.Command(\"python3\", scriptPath)", "min_count": 1, "code_only": true},
+    {"file": "cli/internal/cli/auth.go", "not_contains": "\"python3\", \"-c\""}
+   ]
+  },
+  {
+   "id": "fts-rowid-byte-hash",
+   "summary": "store.go's ftsRowID hashed over runes, converting a signed int32 to uint64 at each step. It now hashes over UTF-8 bytes.",
+   "why": "gosec G115 (integer overflow conversion rune -> uint64), twice. A byte is unsigned, so widening it is exact and the finding disappears structurally instead of being annotated away. Behaviour is otherwise identical: the function only needs a deterministic positive rowid, and it is never persisted anywhere a value change could matter across versions (it is recomputed on every FTS write, and this connector has never been released so no local database exists carrying old rowids). Press 4.31.4 does not emit ftsRowID at all for this spec, so there is no upstream version to match.",
+   "status": "active",
+   "spec_encode_followup": "None. If a future press reprint stops emitting ftsRowID (4.31.4 already does not), this assert fails loudly and a human confirms the FTS delete path still works - which is the designed behaviour of this gate, not a false alarm.",
+   "asserts": [
+    {"file": "cli/internal/store/store.go", "contains": "h = h*31 + uint64(scope[i])", "min_count": 1, "code_only": true},
+    {"file": "cli/internal/store/store.go", "contains": "h = h*31 + uint64(id[i])", "min_count": 1, "code_only": true},
+    {"file": "cli/internal/store/store.go", "not_contains": "h = h*31 + uint64(c)"}
+   ]
+  },
+  {
+   "id": "go-directive-and-http3-dep-floor",
+   "summary": "go.mod declared `go 1.26.3` and carried the HTTP/3 dependency set the 4.4.0 press pinned. The directive is now 1.26.6 and the surf-transitive deps are floored at the versions a real 4.31.4 print of this spec resolves.",
+   "why": "The patch-pinned 1.26.3 directive made osv-scanner report stdlib advisories that map to no go.mod module, which the security gate treats as an unsuppressible control-plane failure (13 P1), and it put the connector below the repo's own Go floor guard in ci_guards.sh. The old dependency set also carried 20 advisories against golang.org/x/crypto v0.51.0 alone. Press 4.31.4 emits `go 1.26.6` plus an explicit `require golang.org/x/crypto` floor block with a comment explaining that these deps arrive only via github.com/enetx/surf; that block is reproduced here verbatim, and the versions were then raised to the newest release that clears each advisory. govulncheck reports zero reachable vulnerabilities.",
+   "status": "upstreamed",
+   "spec_encode_followup": "No spec change needed. A full reprint at 4.31.4 or later re-emits the directive and the floor block; the individual version numbers will drift upward with the press's own resolution and that is expected.",
+   "asserts": [
+    {"file": "cli/go.mod", "contains": "go 1.26.6", "min_count": 1},
+    {"file": "cli/go.mod", "contains": "require golang.org/x/crypto v0.55.0", "min_count": 1},
+    {"file": "cli/go.mod", "not_contains": "go 1.26.3"}
+   ]
+  }
+ ]
+}

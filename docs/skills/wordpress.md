@@ -170,6 +170,10 @@ No. This drives the built-in WordPress REST API (the /wp-json/wp/v2 routes) that
 Yes. Point it at any site by setting that site's WORDPRESS_BASE_URL and its Application Password; named profiles and the per-site local mirror keep each site's state separate. Treat each site's Application Password as a scoped credential.
 
 
+## More Marketing connectors
+
+Run more than one Marketing tool, or comparing options? These connectors work the same way: [Riverside.fm](/skills/riverside-fm/)
+
 ## Status
 
 Beta. Validated against the WordPress API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.

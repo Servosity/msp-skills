@@ -13,6 +13,21 @@ Tiers are assigned by verb in the command path:
   write        -> create, update, patch, comment, ignore, archive, reactivate, triage, clear
   read         -> everything else (not listed individually)
 
+One tier is NOT verb-derived: **Local browser session**. A cookie-auth connector
+has no API key at all - it authenticates by reading the operator's own browser
+cookie store on the local machine, which means the binary reaches OUTSIDE the
+vendor's API into the operator's workstation (a local SQLite database under the
+Chrome profile, and optionally a browser that is already running). That is a
+different KIND of local-credential access from "an API key in an env var", so it
+gets a row of its own instead of being folded into Credential / security, where
+an MSP owner reading the table would mistake it for token handling.
+
+The row is DERIVED, never hand-written: browser_session() detects the pattern
+from markers the printing press emits into internal/cli/auth.go, and the list of
+external programs the connector can launch is extracted from the literal
+exec.Command call sites in internal/cli/. If a future press revision adds a
+backend, the table gains it on the next regeneration.
+
 Usage:
     python3 tools/gen_governance.py <slug> > skills/<slug>/governance.md
 
@@ -25,6 +40,7 @@ from __future__ import annotations
 import json
 import re
 import sys
+import textwrap
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -35,6 +51,42 @@ SKILLS_DIR = registry.SKILLS_DIR
 CREDENTIAL = ("token", "rotate", "mfa", "encryption-key", "password", "reissue", "credential", "secret")
 DESTRUCTIVE = ("delete", "prune", "purge", "unlock", "repair", "wipe", "destroy")
 WRITE = ("create", "update", "patch", "comment", "ignore", "archive", "reactivate", "triage", "clear", "set")
+
+
+# --- Local browser session (cookie auth) -------------------------------------
+# Markers the printing press emits into internal/cli/auth.go for a cookie-auth
+# connector. Matching on the FUNCTION DEFINITION (not a loose word like
+# "cookie") keeps a connector that merely mentions cookies in help text out of
+# the tier.
+COOKIE_DB_MARKERS = ("func detectCookieTool(", "func chromeDataDir(")
+LIVE_BROWSER_MARKERS = ("func extractLiveCookies(",)
+# First argument of an exec.Command / exec.CommandContext call when it is a
+# string literal. A non-literal command is a security-gate P1 in this repo, so
+# in practice every shipped call site is literal and this inventory is complete.
+EXEC_LITERAL_RE = re.compile(r'exec\.Command(?:Context)?\(\s*(?:[A-Za-z_]\w*\s*,\s*)?"([^"]+)"')
+
+
+def browser_session(slug: str) -> dict | None:
+    """Describe the local-browser capability of a cookie-auth connector.
+
+    Returns None for a normal env-var / API-key connector, so the tier and its
+    prose are absent from every governance.md that does not need them.
+    """
+    cli = SKILLS_DIR / slug / "cli" / "internal" / "cli"
+    if not cli.is_dir():
+        return None
+    sources = {f: f.read_text(encoding="utf-8", errors="replace")
+               for f in sorted(cli.glob("*.go")) if not f.name.endswith("_test.go")}
+    blob = "".join(sources.values())
+    if not any(m in blob for m in COOKIE_DB_MARKERS):
+        return None
+    execs = sorted({m for text in sources.values() for m in EXEC_LITERAL_RE.findall(text)})
+    return {
+        "live_browser": any(m in blob for m in LIVE_BROWSER_MARKERS),
+        "execs": execs,
+        "commands": sorted(n for n in ("auth login", "doctor")
+                           if any(f.stem == n.split()[0] for f in sources)),
+    }
 
 
 def command_paths(slug: str) -> list[str]:
@@ -84,6 +136,16 @@ def has_dry_run(slug: str) -> bool:
     return root.exists() and bool(re.search(r"dry-run", root.read_text(encoding="utf-8"), re.IGNORECASE))
 
 
+def wrap(text: str, width: int = 80) -> str:
+    """Fill a paragraph to the width the rest of these docs use.
+
+    The browser-session prose is composed from source-derived facts, so its
+    length varies per connector; without this the generated file would ship one
+    very long line where every neighbouring paragraph is wrapped."""
+    return textwrap.fill(text, width=width, break_long_words=False,
+                         break_on_hyphens=False)
+
+
 def sample(items: list[str], n: int = 8) -> str:
     if not items:
         return "(none detected)"
@@ -107,6 +169,86 @@ def main(argv: list[str]) -> int:
     envs = auth_env(slug)
     env_str = ", ".join(f"`{e}`" for e in envs) if envs else "the credentials documented in mcp-install.md"
     dry = has_dry_run(slug)
+    browser = browser_session(slug)
+
+    # A cookie-auth connector has no API key, so the stock "credentials are read
+    # from the environment only - never written to disk" sentence would be a lie:
+    # the session cookie IS written, to the operator's own 0600 config file.
+    if browser:
+        auth_para = wrap(
+            f"The skill drives the `{meta['cli_binary']}` binary (and "
+            f"`{meta['mcp_binary']}`). There is no API key to hand it: this connector "
+            f"authenticates as **you**, reusing the session your own browser already "
+            f"holds. `auth login` reads the matching cookies out of your local browser "
+            f"cookie store and writes them to your own config file (mode 0600, path "
+            f"shown by `doctor`). Those cookies are sent to the {vendor} API and nowhere "
+            f"else. They carry your full account access, so treat that config file "
+            f"exactly like a password."
+        )
+    else:
+        auth_para = (
+            f"The skill drives the `{meta['cli_binary']}` binary (and `{meta['mcp_binary']}`),\n"
+            f"authenticating with {env_str}. Credentials are read from the environment only -\n"
+            f"never written to disk, never logged, never sent anywhere except the {vendor} API."
+        )
+
+    if browser:
+        launch = ", ".join(f"`{e}`" for e in browser["execs"]) or "(none)"
+        live = (" It can also attach to a browser you already have running and read "
+                "`document.cookie` for the vendor domain."
+                if browser["live_browser"] else "")
+        launch_para = wrap(
+            "**What it can launch.** The complete set of external programs the binary "
+            "can ever run is fixed at build time, and this list is read straight out of "
+            f"the source: {launch}. Every one of those is a compile-time literal - no "
+            "command name is ever built from your input - and the connector never "
+            "invokes a shell."
+        )
+        reads_para = wrap(
+            "**What it reads.** `auth login --chrome` looks in the standard browser "
+            "profile location for your operating system, finds the profile that holds "
+            "cookies for the vendor domain, and copies out only the cookies for that "
+            "domain. It does this through a cookie-extraction helper you install "
+            "yourself; the connector never implements decryption of your cookie store "
+            "itself." + live
+        )
+        browser_row = (
+            "| **Local browser session** | Reads your own browser's cookie store on this "
+            "machine to obtain a session, and saves that session to your local config file. "
+            "Reaches outside the vendor API into your workstation." + live +
+            f" | `auth login`, `doctor` | Operator runs it, once, interactively. Never leave "
+            f"it to an unattended agent. |\n"
+        )
+        browser_section = f"""
+## Local browser session: what "cookie auth" actually means here
+
+{vendor} publishes no partner API key, so this connector authenticates as you by
+reusing your browser's own session. That is a different kind of access from an
+API key in an environment variable, and it deserves its own line in the table
+above rather than being filed under Credential / security.
+
+{reads_para}
+
+{launch_para}
+
+**What leaves the machine.** The extracted cookies are written to your own
+config file at mode 0600 and are sent as request headers to the vendor API.
+Nothing is sent anywhere else, and nothing is logged.
+
+**What an MSP owner should require.**
+
+- Run `auth login` yourself, interactively, on your own workstation. It is not
+  an agent operation.
+- Treat the config file as a password store: those cookies are full account
+  access until the vendor session expires.
+- Prefer a dedicated browser profile signed in to only this vendor if you share
+  the workstation.
+- If you ever ran it somewhere you should not have, sign out of the vendor in
+  that browser to invalidate the session, then delete the config file.
+"""
+    else:
+        browser_row = ""
+        browser_section = ""
 
     banner = (
         f"> Published by {vendor} Inc. for MSP partners."
@@ -137,9 +279,7 @@ def main(argv: list[str]) -> int:
 
 ## What it authenticates as
 
-The skill drives the `{meta['cli_binary']}` binary (and `{meta['mcp_binary']}`),
-authenticating with {env_str}. Credentials are read from the environment only -
-never written to disk, never logged, never sent anywhere except the {vendor} API.
+{auth_para}
 
 ## Default-safe behavior
 
@@ -162,7 +302,7 @@ require a human for anything below the line.
 | **Credential / security** | Touches tokens, keys, MFA. | {sample(tiers['credential'])} | Human-in-the-loop only |
 | **Destructive** | Irreversible data or config loss. | {sample(tiers['destructive'])} | Human-in-the-loop only, explicit confirmation |
 | **Admin** | Back-office administration. | {sample(tiers['admin'])} | Operator-only, not for agents |
-
+{browser_row}{browser_section}
 ## How to lock it down
 
 - **Scope the credential** to only what your workflow needs. A read/report workflow
