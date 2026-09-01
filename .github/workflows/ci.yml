@@ -48,7 +48,7 @@ jobs:
         run: python3 tools/maintainer/check_handfixes.py --lint-asserts
 
       - name: Maintainer gate self-tests (each gate proved BOTH directions)
-        # One step, three proofs. A gate that cannot fail is worthless and a gate
+        # One step, four proofs. A gate that cannot fail is worthless and a gate
         # that always fires is worse, so each of these asserts its check is
         # silent on the repo's real inputs AND fires on the defect it was
         # written for:
@@ -72,11 +72,22 @@ jobs:
         #                       per-OS override, a 0644 binary and a ZIP_STORED
         #                       member all fail; a built bundle and the
         #                       connectwise-manage manifest shape both pass.
+        #   check_release_assets.py
+        #                     - the gate that decides whether a draft release may
+        #                       be published. An empty release (the immutable-
+        #                       release failure: every asset upload 422s and the
+        #                       release goes public with nothing in it), a single
+        #                       failed build target, and a missing .mcpb each
+        #                       fire, naming exactly the absent files; a complete
+        #                       release and a re-run that left an extra asset
+        #                       behind both pass; and a tag naming no releasable
+        #                       skill expects nothing, so it can never false-RED.
         run: |
           set -euo pipefail
           python3 tools/maintainer/registry.py --self-test
           python3 tools/maintainer/check_handfixes.py --self-test
           python3 tools/maintainer/mcpb_bundle.py --self-test
+          python3 tools/maintainer/check_release_assets.py --self-test
 
       - name: Skill contract (frontmatter + required files)
         run: python3 tools/maintainer/check_skill_contract.py

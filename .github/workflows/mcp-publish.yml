@@ -1,11 +1,27 @@
 name: MCP Registry Publish
 
 # Triggers after the Release workflow completes successfully on a per-skill
-# tag. Bundles each skill's MCP binary into an .mcpb (zip), attaches it to the
-# release, computes its SHA-256, patches the corresponding server.json with the
-# hash + version + download URL, and publishes to the official MCP Registry
+# tag.
+#
+# The Release workflow owns the ENTIRE artifact set now: it assembles the 24
+# platform files AND the .mcpb bundle into a DRAFT release, and publishes that
+# draft only once the set is proven complete. The repository has immutable
+# releases enabled, so a published release can never receive another asset -
+# which is why this workflow no longer builds or uploads the bundle. It used to,
+# and after the immutability flip that upload would fail with
+#   HTTP 422: Cannot upload assets to an immutable release
+# exactly as the six build jobs did.
+#
+# By the time this runs, the release is already public, already sealed, and
+# already carries its .mcpb. What is left is the part only this workflow can do:
+# compute the bundle's SHA-256, patch the corresponding server.json with the
+# hash + version + download URL, and publish to the official MCP Registry
 # (registry.modelcontextprotocol.io). One publish fans out to PulseMCP, GitHub
 # MCP Registry, Glama, mcp.so, Smithery, and LobeHub within 1–7 days.
+#
+# Deliberately, this workflow neither uploads nor seals. Sealing must not depend
+# on the registry: when mcp-publisher fails, the release is still complete and
+# public, and only the registry publish needs retrying.
 #
 # Skipped automatically if the tag is not a per-skill release tag.
 
@@ -14,13 +30,17 @@ on:
     workflows: ["Release"]
     types: [completed]
 
+# Least privilege. This workflow stopped writing to the release when the bundle
+# build moved into release.yml, so `contents: write` came off with it; only the
+# publish job's OIDC token remains, and only on that job.
 permissions:
-  contents: write   # upload .mcpb to the release
-  id-token: write   # GitHub OIDC for mcp-publisher auth
+  contents: read
 
 jobs:
   detect:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     if: ${{ github.event.workflow_run.conclusion == 'success' && startsWith(github.event.workflow_run.head_branch, 'refs/tags/') == false }}
     outputs:
       skill: ${{ steps.parse.outputs.skill }}
@@ -56,7 +76,19 @@ jobs:
             # argv, never program text - see release.yml and
             # tools/maintainer/is_registered_slug.py.
             if python3 tools/maintainer/is_registered_slug.py --slug "$skill"; then
-              proceed=true
+              # Second condition mirrors release.yml's `any` guard exactly. A
+              # registered but markdown-only skill has no vendored cli/, so the
+              # Release workflow builds nothing and creates no release for its
+              # tag. Skipping on the same input keeps this workflow from hunting
+              # for a bundle on a release that was never created.
+              releasable=$(python3 tools/maintainer/release_matrix.py --tag "$tag" \
+                | python3 -c 'import json,sys; print(len(json.load(sys.stdin)["skill"]))') \
+                || releasable=0
+              if [ "$releasable" != "0" ]; then
+                proceed=true
+              else
+                echo "Slug '$skill' is registered but has no releasable CLI; skipping MCP publish."
+              fi
             fi
           fi
 
@@ -79,6 +111,9 @@ jobs:
     needs: detect
     if: needs.detect.outputs.proceed == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read   # read the release + download its .mcpb; never writes
+      id-token: write  # GitHub OIDC for mcp-publisher auth
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -93,11 +128,12 @@ jobs:
       # The checkout above is pinned to the TAG being published, so it carries
       # whatever tools/maintainer/ looked like when that tag was cut. workflow_run
       # always runs the DEFAULT BRANCH's copy of this workflow file, so the
-      # bundle builder it calls must come from the default branch too - otherwise
-      # every tag cut before mcpb_bundle.py landed would silently fall back to
-      # the hand-rolled zip that produced 64 unlaunchable bundles (issue #287).
-      # skills/<slug>/manifest.json still comes from the tag, which is correct:
-      # the manifest must match the released version.
+      # bundle VALIDATOR it calls must come from the default branch too -
+      # otherwise a tag cut before mcpb_bundle.py landed would carry no validator
+      # at all (the builder moved to release.yml; the validator stays here so the
+      # artifact handed to the registry is re-checked on this side too).
+      # skills/<slug>/server.json still comes from the tag, which is correct: the
+      # published metadata must match the released version.
       - name: Checkout the default branch's maintainer tools
         uses: actions/checkout@v4
         with:
@@ -107,76 +143,49 @@ jobs:
       - name: Set up jq
         run: sudo apt-get update && sudo apt-get install -y jq
 
-      - name: Download MCP binaries from release
+      - name: Download the released .mcpb bundle
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.detect.outputs.tag }}
           SKILL: ${{ needs.detect.outputs.skill }}
         run: |
           set -euo pipefail
-          mkdir -p mcpb-build
-          cd mcpb-build
-          # The release.yml workflow uploads platform-suffixed binaries like
-          # halopsa-mcp-darwin-arm64, halopsa-mcp-linux-amd64, etc. We bundle
-          # ALL platforms into one .mcpb so the registry-published artifact
-          # works on every platform Claude Desktop runs on.
-          for suffix in darwin-arm64 darwin-amd64 linux-arm64 linux-amd64 windows-amd64.exe; do
-            gh release download "$TAG" --pattern "${SKILL}-mcp-${suffix}" --dir . || true
-          done
-          ls -la
-
-      - name: Build MCPB bundle
-        env:
-          SKILL: ${{ needs.detect.outputs.skill }}
-          VERSION: ${{ needs.detect.outputs.version }}
-          # release.yml publishes six targets; the download loop asks for five
-          # (windows/arm64 has no MCPB host). Keep these in step.
-          EXPECTED_BINARIES: "5"
-        run: |
-          set -euo pipefail
-          copied=$(find mcpb-build -maxdepth 1 -type f -name "${SKILL}-mcp-*" | wc -l | tr -d ' ')
-          # The download step tolerates a per-asset failure with `|| true`, and the
-          # upload uses --clobber. Together those mean a transient GitHub outage
-          # could produce a manifest-only bundle and OVERWRITE a working released
-          # .mcpb with it. Refuse to build a bundle that is missing binaries: a
-          # failed run leaves the previous good asset in place, which is the safe
-          # direction.
-          echo "downloaded $copied binary/binaries"
-          if [ "$copied" -lt "$EXPECTED_BINARIES" ]; then
-            echo "::error::only $copied of $EXPECTED_BINARIES platform binaries were downloaded for $SKILL;" \
-                 "refusing to build a partial bundle that --clobber would publish over the working asset"
+          # The registry records the bundle's download URL and its fileSha256 and
+          # never re-checks either. A DRAFT release's asset URLs are not publicly
+          # reachable, so publishing from one would burn a permanent 404 into the
+          # registry. release.yml seals the release as its very last act, so by
+          # the time this runs the release must already be published. If it is
+          # not, something went wrong upstream and there is nothing safe to do.
+          if [ "$(gh release view "$TAG" --json isDraft -q .isDraft)" != "false" ]; then
+            echo "::error::release $TAG is still a DRAFT. Its asset URLs are not publicly"
+            echo "::error::reachable, so the registry would record a 404. Refusing to publish."
+            echo "::error::Re-run the Release workflow: its publish job seals the release"
+            echo "::error::once the full asset set is attached."
             exit 1
           fi
-          # MCPB is a zip with manifest.json + a bin/ directory of binaries. Hand
-          # rolling that with `zip -r` is what shipped 64 bundles the host cannot
-          # start: the manifest named bin/<slug>-mcp while the archive held only
-          # arch-suffixed binaries, and `gh release download` + `zip -r` left every
-          # one of them mode 0644. The builder merges the two darwin slices into a
-          # universal Mach-O, writes per-OS platform_overrides that resolve, sets
-          # the executable bit, and refuses to emit a bundle that does not validate.
-          # See issue #287 and tools/maintainer/mcpb_bundle.py.
-          #
-          # --binary-prefix is "$SKILL-mcp" - exactly the names the download loop
-          # asked for and release.yml uploaded. It is deliberately NOT derived from
-          # manifest.json's `name`, which still reads "<slug>-pp-mcp" on eight
-          # connectors and would name members that do not exist.
-          python3 maintainer-tools/tools/maintainer/mcpb_bundle.py build \
-            --manifest "skills/$SKILL/manifest.json" \
-            --bin-dir mcpb-build \
-            --binary-prefix "${SKILL}-mcp" \
-            --out "mcpb-build/${SKILL}-mcp.mcpb" \
-            --version "$VERSION"
+          mkdir -p mcpb-build
+          # Built and attached by release.yml's `mcpb` job, in the same workflow
+          # run that built the binaries inside it, and the release could not have
+          # been sealed without it. Nothing is uploaded from here: the release is
+          # immutable by now and would reject it with HTTP 422.
+          gh release download "$TAG" --pattern "${SKILL}-mcp.mcpb" --dir mcpb-build || true
+          if [ ! -f "mcpb-build/${SKILL}-mcp.mcpb" ]; then
+            echo "::error::release $TAG carries no ${SKILL}-mcp.mcpb. A sealed release cannot"
+            echo "::error::receive one, so this tag can never be published to the registry."
+            echo "::error::Cut the next patch version and let release.yml assemble it."
+            exit 1
+          fi
           ls -la "mcpb-build/${SKILL}-mcp.mcpb"
 
       - name: Bundle can actually launch (every declared command resolves)
         env:
           SKILL: ${{ needs.detect.outputs.skill }}
-        # Separate from the build step on purpose: the builder validates its own
-        # output, and this re-asserts it against the file on disk, before the
-        # upload, so a bundle that cannot start never reaches a release or the
-        # registry. Asserts each of mcp_config.command and every
-        # platform_overrides.<os>.command names a member the archive contains and
-        # that the member is executable. It does NOT assert
+        # release.yml validates the bundle before it attaches it. This re-asserts
+        # the same contract against the bytes actually downloaded from the
+        # release, on the side that hands them to the registry, so a bundle that
+        # cannot start never gets published. Asserts each of mcp_config.command
+        # and every platform_overrides.<os>.command names a member the archive
+        # contains and that the member is executable. It does NOT assert
         # entry_point == "bin/<mcp binary>" - that would codify the broken bare
         # name and false-RED connectwise-manage, the one manifest that can launch.
         run: |
@@ -190,20 +199,13 @@ jobs:
           SKILL: ${{ needs.detect.outputs.skill }}
         run: |
           set -euo pipefail
+          # Hashed from the bytes DOWNLOADED FROM THE RELEASE, not from a local
+          # rebuild. The registry's fileSha256 therefore describes the exact
+          # artifact its identifier URL serves.
           cd mcpb-build
           hash=$(openssl dgst -sha256 "${SKILL}-mcp.mcpb" | awk '{print $NF}')
           echo "sha=$hash" >> "$GITHUB_OUTPUT"
           echo "Computed SHA-256: $hash"
-
-      - name: Upload MCPB to release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ needs.detect.outputs.tag }}
-          SKILL: ${{ needs.detect.outputs.skill }}
-        run: |
-          set -euo pipefail
-          cd mcpb-build
-          gh release upload "$TAG" "${SKILL}-mcp.mcpb" --clobber
 
       - name: Patch server.json with SHA + version + identifier URL
         env:
@@ -227,6 +229,37 @@ jobs:
             "$src" > "$out"
           echo "--- patched server.json ---"
           cat "$out"
+
+      - name: The URL the registry will record actually resolves
+        env:
+          SKILL: ${{ needs.detect.outputs.skill }}
+          TAG: ${{ needs.detect.outputs.tag }}
+        run: |
+          set -euo pipefail
+          # The registry stores `identifier` verbatim and never re-checks it, so
+          # a wrong or unreachable URL is permanent for that version. Prove the
+          # exact URL resolves ANONYMOUSLY - no token on this curl - before
+          # handing it over. This is the check that would have caught a draft, a
+          # renamed asset, or a bundle that never attached.
+          url="https://github.com/${{ github.repository }}/releases/download/${TAG}/${SKILL}-mcp.mcpb"
+          # --range 0-0 asks for one byte, so this proves reachability without
+          # pulling the whole bundle. 206 is the range answer; 200 is a server
+          # that ignored the range and sent the file. Either proves the URL
+          # resolves. Retry a few times: an asset can take a moment to appear on
+          # the public CDN right after its release is published.
+          code="000"
+          for attempt in 1 2 3 4 5; do
+            code=$(curl -sSL --range 0-0 -o /dev/null -w '%{http_code}' "$url") || code="000"
+            if [ "$code" = "200" ] || [ "$code" = "206" ]; then
+              echo "$url resolves anonymously (HTTP $code)."
+              exit 0
+            fi
+            echo "attempt $attempt: $url -> HTTP $code"
+            sleep 5
+          done
+          echo "::error::$url is not publicly reachable (HTTP $code)."
+          echo "::error::Refusing to record a URL the registry would serve as a 404."
+          exit 1
 
       - name: Pre-flight - server.json satisfies the registry schema
         env:

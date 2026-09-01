@@ -144,5 +144,13 @@ for t in $TAGS; do
   echo "  git -C $REPO tag $t $RELSHA && git -C $REPO push origin $t"
 done
 echo
-echo "Each tag push fires release.yml (build) then mcp-publish.yml (registry)."
+echo "Each tag push fires release.yml, which assembles the release as a DRAFT"
+echo "(6 targets x 4 files, plus the .mcpb bundle), asserts the set is complete,"
+echo "and only then publishes it. Publishing is what makes a release immutable,"
+echo "so it is the last step: a failed target leaves a DRAFT you can re-run, never"
+echo "a public release with missing assets. mcp-publish.yml then records the"
+echo "published .mcpb in the MCP Registry."
+echo
+echo "WATCH FOR: a tag whose release never leaves draft state. That means a build"
+echo "target or the bundle failed - re-run the Release workflow for that tag."
 echo "N tags -> N independent builds; that parallelism is safe."
