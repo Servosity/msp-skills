@@ -310,15 +310,21 @@ func readProfileDisplayName(prefsPath string) string {
 // countCookiesForDomain copies the Cookies DB (plus WAL/SHM) to temp and counts matching rows.
 // Uses sqlite3 when available; host_key is plaintext so no decryption is needed.
 func countCookiesForDomain(cookiesDB, domainPattern string) int {
-	tmpFile, err := os.CreateTemp("", "cookies-probe-*.db")
+	// The copies below are a verbatim duplicate of Chrome's cookie database for
+	// EVERY site, not just this vendor's, and the -wal companion carries cookie
+	// writes Chrome has not checkpointed yet. They must never be readable by
+	// another account, even for the moment this function runs.
+	//
+	// os.CreateTemp gave the main file 0600 but the "-wal"/"-shm" siblings were
+	// created with os.Create, which is 0666 before umask - world-readable on a
+	// default umask. Putting the whole set inside a 0700 temp DIRECTORY closes
+	// that, and closes the directory-listing side too.
+	tmpDir, err := os.MkdirTemp("", "riverside-cookie-probe-")
 	if err != nil {
 		return 0
 	}
-	tmpPath := tmpFile.Name()
-	tmpFile.Close()
-	defer os.Remove(tmpPath)
-	defer os.Remove(tmpPath + "-wal")
-	defer os.Remove(tmpPath + "-shm")
+	defer os.RemoveAll(tmpDir)
+	tmpPath := filepath.Join(tmpDir, "cookies.db")
 
 	// Copy the database file plus WAL/SHM to avoid Chrome's WAL lock
 	// and to include uncommitted cookie writes that are still in the WAL.
@@ -350,8 +356,10 @@ func copyFileIfExists(src, dst string) error {
 		return err
 	}
 	defer in.Close()
+	// 0600, explicitly. os.Create would be 0666 before umask, and what lands at
+	// dst is a copy of the operator's whole cookie store.
 	// #nosec G304 -- dst is a private temp path this process just created.
-	out, err := os.Create(filepath.Clean(dst))
+	out, err := os.OpenFile(filepath.Clean(dst), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {
 		return err
 	}

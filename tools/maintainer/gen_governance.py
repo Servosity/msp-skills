@@ -83,6 +83,7 @@ def browser_session(slug: str) -> dict | None:
     execs = sorted({m for text in sources.values() for m in EXEC_LITERAL_RE.findall(text)})
     return {
         "live_browser": any(m in blob for m in LIVE_BROWSER_MARKERS),
+        "cookie_db_probe": "func countCookiesForDomain(" in blob,
         "execs": execs,
         "commands": sorted(n for n in ("auth login", "doctor")
                            if any(f.stem == n.split()[0] for f in sources)),
@@ -197,6 +198,17 @@ def main(argv: list[str]) -> int:
         live = (" It can also attach to a browser you already have running and read "
                 "`document.cookie` for the vendor domain."
                 if browser["live_browser"] else "")
+        probe_para = wrap(
+            "**One thing worth knowing about the profile probe.** To work out WHICH "
+            "of your browser profiles is signed in, the connector copies each "
+            "profile's cookie database to a temporary file and counts the rows "
+            "matching the vendor domain. That copy is the whole database - every "
+            "site's cookies, not just this vendor's - because SQLite has to open the "
+            "file as a unit, and Chrome holds a write lock on the original. The copy "
+            "is made inside a 0700 directory with the files at 0600, it is deleted as "
+            "soon as the count is taken, and nothing from it is read except the "
+            "row count. Nothing is transmitted."
+        ) if browser["cookie_db_probe"] else ""
         launch_para = wrap(
             "**What it can launch.** The complete set of external programs the binary "
             "can ever run is fixed at build time, and this list is read straight out of "
@@ -206,9 +218,9 @@ def main(argv: list[str]) -> int:
         )
         reads_para = wrap(
             "**What it reads.** `auth login --chrome` looks in the standard browser "
-            "profile location for your operating system, finds the profile that holds "
-            "cookies for the vendor domain, and copies out only the cookies for that "
-            "domain. It does this through a cookie-extraction helper you install "
+            "profile location for your operating system and finds the profile that "
+            "holds cookies for the vendor domain. Only that domain's cookies are "
+            "extracted and saved, through a cookie-extraction helper you install "
             "yourself; the connector never implements decryption of your cookie store "
             "itself." + live
         )
@@ -228,6 +240,8 @@ API key in an environment variable, and it deserves its own line in the table
 above rather than being filed under Credential / security.
 
 {reads_para}
+
+{probe_para}
 
 {launch_para}
 

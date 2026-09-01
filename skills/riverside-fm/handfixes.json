@@ -10,14 +10,42 @@
    "status": "upstreamed",
    "spec_encode_followup": "No spec change needed: press 4.31.4 already emits these values. A full reprint at 4.31.4 or later regenerates them correctly and this entry becomes a no-op.",
    "asserts": [
-    {"file": "cli/internal/cache/cache.go", "contains": "os.MkdirAll(s.Dir, 0o700)", "min_count": 1, "code_only": true},
-    {"file": "cli/internal/cache/cache.go", "contains": "0o600)", "min_count": 1, "code_only": true},
-    {"file": "cli/internal/cache/cache.go", "not_contains": "0o755"},
-    {"file": "cli/internal/cache/cache.go", "not_contains": "0o644"},
-    {"file": "cli/internal/client/client.go", "not_contains": "0o755"},
-    {"file": "cli/internal/client/client.go", "not_contains": "0o644"},
-    {"file": "cli/internal/store/store.go", "not_contains": "0o755"},
-    {"file": "cli/internal/cli/deliver.go", "not_contains": "0o755"}
+    {
+     "file": "cli/internal/cache/cache.go",
+     "contains": "os.MkdirAll(s.Dir, 0o700)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cache/cache.go",
+     "contains": "0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cache/cache.go",
+     "not_contains": "0o755"
+    },
+    {
+     "file": "cli/internal/cache/cache.go",
+     "not_contains": "0o644"
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "0o755"
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "0o644"
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "0o755"
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "not_contains": "0o755"
+    }
    ]
   },
   {
@@ -27,15 +55,46 @@
    "status": "active",
    "spec_encode_followup": "Nothing to encode: novel command bodies are hand-authored by definition. The durable half of this fix lives in the printing-press library copy of these files.",
    "asserts": [
-    {"file": "cli/internal/cli/bulk.go", "not_contains": "0o755"},
-    {"file": "cli/internal/cli/bulk.go", "not_contains": "0o644"},
-    {"file": "cli/internal/cli/bulk.go", "contains": "0o700)", "min_count": 3, "code_only": true},
-    {"file": "cli/internal/cli/bulk.go", "contains": "0o600)", "min_count": 5, "code_only": true},
-    {"file": "cli/internal/cli/grab.go", "not_contains": "0o755"},
-    {"file": "cli/internal/cli/grab.go", "not_contains": "0o644"},
-    {"file": "cli/internal/cli/clips_harvest.go", "not_contains": "0o755"},
-    {"file": "cli/internal/cli/media_refresh.go", "not_contains": "0o755"},
-    {"file": "cli/internal/cli/transcripts.go", "not_contains": "0o644"}
+    {
+     "file": "cli/internal/cli/bulk.go",
+     "not_contains": "0o755"
+    },
+    {
+     "file": "cli/internal/cli/bulk.go",
+     "not_contains": "0o644"
+    },
+    {
+     "file": "cli/internal/cli/bulk.go",
+     "contains": "0o700)",
+     "min_count": 3,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/bulk.go",
+     "contains": "0o600)",
+     "min_count": 5,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/grab.go",
+     "not_contains": "0o755"
+    },
+    {
+     "file": "cli/internal/cli/grab.go",
+     "not_contains": "0o644"
+    },
+    {
+     "file": "cli/internal/cli/clips_harvest.go",
+     "not_contains": "0o755"
+    },
+    {
+     "file": "cli/internal/cli/media_refresh.go",
+     "not_contains": "0o755"
+    },
+    {
+     "file": "cli/internal/cli/transcripts.go",
+     "not_contains": "0o644"
+    }
    ]
   },
   {
@@ -45,12 +104,38 @@
    "status": "active",
    "spec_encode_followup": "DURABLE FIX belongs in cli-printing-press: the 4.31.4 cookie-auth template still emits exec.Command(check[0], check[1:]...) in doctor.go and several variable-command call sites in auth.go, so a reprint reintroduces this. File via printing-press-retro so the press emits literal dispatch for the cookie backends.",
    "asserts": [
-    {"file": "cli/internal/cli/auth.go", "contains": "func detectCookieTool", "min_count": 1, "code_only": true},
-    {"file": "cli/internal/cli/auth.go", "contains": "exec.Command(\"cookies\", \"--help\")", "min_count": 1, "code_only": true},
-    {"file": "cli/internal/cli/auth.go", "contains": "exec.Command(\"cookie-scoop\", \"--help\")", "min_count": 1, "code_only": true},
-    {"file": "cli/internal/cli/auth.go", "not_contains": "tool.check[0]"},
-    {"file": "cli/internal/cli/doctor.go", "not_contains": "exec.Command(check[0]"},
-    {"file": "cli/internal/cli/doctor.go", "contains": "detectCookieTool()", "min_count": 1, "code_only": true}
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "func detectCookieTool",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "exec.Command(\"cookies\", \"--help\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "exec.Command(\"cookie-scoop\", \"--help\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "not_contains": "tool.check[0]"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "exec.Command(check[0]"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "detectCookieTool()",
+     "min_count": 1,
+     "code_only": true
+    }
    ]
   },
   {
@@ -60,9 +145,22 @@
    "status": "active",
    "spec_encode_followup": "DURABLE FIX belongs in cli-printing-press: the cookie-auth template should never emit `python3 -c`. File via printing-press-retro alongside the literal-dispatch finding.",
    "asserts": [
-    {"file": "cli/internal/cli/auth.go", "contains": "func runPythonScript", "min_count": 1, "code_only": true},
-    {"file": "cli/internal/cli/auth.go", "contains": "exec.Command(\"python3\", scriptPath)", "min_count": 1, "code_only": true},
-    {"file": "cli/internal/cli/auth.go", "not_contains": "\"python3\", \"-c\""}
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "func runPythonScript",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "exec.Command(\"python3\", scriptPath)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "not_contains": "\"python3\", \"-c\""
+    }
    ]
   },
   {
@@ -72,9 +170,22 @@
    "status": "active",
    "spec_encode_followup": "None. If a future press reprint stops emitting ftsRowID (4.31.4 already does not), this assert fails loudly and a human confirms the FTS delete path still works - which is the designed behaviour of this gate, not a false alarm.",
    "asserts": [
-    {"file": "cli/internal/store/store.go", "contains": "h = h*31 + uint64(scope[i])", "min_count": 1, "code_only": true},
-    {"file": "cli/internal/store/store.go", "contains": "h = h*31 + uint64(id[i])", "min_count": 1, "code_only": true},
-    {"file": "cli/internal/store/store.go", "not_contains": "h = h*31 + uint64(c)"}
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "h = h*31 + uint64(scope[i])",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "h = h*31 + uint64(id[i])",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "h = h*31 + uint64(c)"
+    }
    ]
   },
   {
@@ -84,9 +195,49 @@
    "status": "upstreamed",
    "spec_encode_followup": "No spec change needed. A full reprint at 4.31.4 or later re-emits the directive and the floor block; the individual version numbers will drift upward with the press's own resolution and that is expected.",
    "asserts": [
-    {"file": "cli/go.mod", "contains": "go 1.26.6", "min_count": 1},
-    {"file": "cli/go.mod", "contains": "require golang.org/x/crypto v0.55.0", "min_count": 1},
-    {"file": "cli/go.mod", "not_contains": "go 1.26.3"}
+    {
+     "file": "cli/go.mod",
+     "contains": "go 1.26.6",
+     "min_count": 1
+    },
+    {
+     "file": "cli/go.mod",
+     "contains": "require golang.org/x/crypto v0.55.0",
+     "min_count": 1
+    },
+    {
+     "file": "cli/go.mod",
+     "not_contains": "go 1.26.3"
+    }
+   ]
+  },
+  {
+   "id": "cookie-probe-temp-copy-0600",
+   "summary": "The Chrome-profile probe copied each profile's cookie database to /tmp to count rows. The main file got 0600 from os.CreateTemp, but the '-wal' and '-shm' siblings were created with os.Create (0666 before umask), so on a default umask they landed WORLD-READABLE. The whole set now goes inside a 0700 temp directory and copyFileIfExists writes 0600 explicitly.",
+   "why": "This is the highest-value fix in the connector and no scanner found it: gosec's G306 only looks at os.WriteFile, not os.Create, so the permission never appeared in any gate. What was exposed is not a niche artifact - a Chrome '-wal' holds cookie writes that have not been checkpointed yet, and the '.db' copy is a verbatim duplicate of the operator's cookie store for EVERY site they are signed in to, not just this vendor. Any other local account could read both for the lifetime of the probe, which runs on every `auth login --chrome` and every `doctor`. Fixed in the printing-press library source too, since these are novel files the AST-merge carries forward.",
+   "status": "active",
+   "spec_encode_followup": "DURABLE FIX belongs in cli-printing-press if the cookie-auth template grows this probe: temp copies of a credential store must be created 0600 inside a 0700 directory, never with os.Create. File via printing-press-retro alongside the literal-dispatch and python3-c findings.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "os.MkdirTemp(\"\", \"riverside-cookie-probe-\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "not_contains": "os.CreateTemp(\"\", \"cookies-probe-*.db\")"
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "not_contains": "out, err := os.Create("
+    }
    ]
   }
  ]

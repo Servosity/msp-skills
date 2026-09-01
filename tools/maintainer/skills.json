@@ -1248,7 +1248,7 @@
       "first_party": false,
       "category": "Marketing",
       "display_name": "Riverside.fm",
-      "cli_hash": "sha256:21cf6dda86f7efc4d53684b2296893f319e0dedf7b7e6c5061465636de2edb2d",
+      "cli_hash": "sha256:631df5027c48b231b9bb84c17fe39ad169c283f9a9a57c04e31b852e3258ebed",
       "template_version": 3,
       "version": "0.1.0",
       "cli_hash_at_release": null,
