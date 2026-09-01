@@ -370,6 +370,7 @@ def check_offline(pins, meta, tags, base, strict, owner, repo):
     # empty and withdrawn - so it must not consume the one push of grace below.
     # An unreadable ledger reads as EMPTY here, which withholds the exemption
     # rather than granting it: this file may only ever make the grace narrower.
+    burned_reported: set[str] = set()
     try:
         burned_tags = check_release_pipeline.load_burned()
     except check_release_pipeline.ProbeError as exc:
@@ -487,11 +488,13 @@ def check_offline(pins, meta, tags, base, strict, owner, repo):
                     f"tag cut. Cut {slug}-v{prior} first, or revert the bump."
                 )
                 continue
-            if prior_burned:
+            if prior_burned and slug not in burned_reported:
                 # The BASE version is not an uncut release, it is a RETIRED one:
                 # its tag was cut, its release sealed empty and both were deleted.
                 # Telling anyone to "cut it first" is the one instruction that
                 # must never be given, so say so rather than staying silent.
+                # Once per slug, not once per pin.
+                burned_reported.add(slug)
                 notices.append(
                     f"{slug} skipped {prior}: that number is retired in "
                     f"tools/maintainer/burned_versions.json and must never be cut "

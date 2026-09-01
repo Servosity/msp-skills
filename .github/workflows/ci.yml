@@ -230,10 +230,15 @@ jobs:
         run: bash tools/maintainer/check_dco.sh
 
       - name: ShellCheck
+        # tools/maintainer/hooks/* is listed explicitly: a git hook cannot carry
+        # a .sh extension (git runs the file by its hook NAME), so the '*.sh'
+        # glob would leave the one script whose failure mode is silent - an
+        # uninstallable or crashing pre-push hook that lets an unendorsed
+        # release tag through - as the only unlinted shell in the repo.
         run: |
           sudo apt-get update
           sudo apt-get install -y shellcheck
-          mapfile -t scripts < <(git ls-files '*.sh')
+          mapfile -t scripts < <(git ls-files '*.sh' 'tools/maintainer/hooks/*')
           if [ ${#scripts[@]} -gt 0 ]; then
             shellcheck "${scripts[@]}"
           fi
