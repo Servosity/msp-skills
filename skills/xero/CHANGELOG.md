@@ -4,7 +4,11 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.3] - 2026-09-01
+## [0.1.4] - 2026-09-01
+
+_Version 0.1.3 was never published. Its GitHub release was created empty by a release-pipeline
+defect, and because releases in this repository are immutable it could not be repaired; it was
+withdrawn and the number retired. Everything below was written for 0.1.3 and ships here._
 
 ### Added
 - **`XERO_NO_CONFIG_WRITE=1` keeps every credential off disk.** Set it and the CLI mints a token per
