@@ -103,6 +103,18 @@ SKILL_DOCS = ("README.md", "SKILL.md", "guide.md", "mcp-install.md", "AGENTS.md"
 # The stale Windows destination, built from fragments so this file can be
 # grepped for the literal without matching itself.
 BAD_WIN_DIR = "PrintingPress" + "\\bin"
+# Both the npm-scoped spelling and the bare repo path, with the "-library"
+# suffix OPTIONAL. Older prints emit "@mvanhorn/printing-press" without it -
+# riverside-fm shipped exactly that shape and slipped past a literal
+# "-library" match, which is the whole class this rule exists to catch.
+#
+# The negative lookbehind for "cli-" is load-bearing: "mvanhorn/cli-printing-press"
+# is the GENERATOR, referenced legitimately in provenance text across the fleet,
+# and must never be flagged as an install directive.
+BAD_INSTALLER_RE = re.compile(r"@mvanhorn/printing-press(?:-library)?\b")
+BAD_LIB_PATH_RE = re.compile(r"(?<!cli-)\bmvanhorn/printing-press(?:-library)?\b")
+
+# Kept for the message text and the self-test fixtures.
 BAD_INSTALLER = "@mvanhorn/printing-press-library"
 BAD_LIB_PATH = "mvanhorn/printing-press-library"
 
@@ -255,9 +267,10 @@ def scan(files: list[Path], transports: dict[str, bool | None],
                     f"{BAD_WIN_DIR}. install.ps1 writes "
                     f"%LOCALAPPDATA%\\Programs\\msp-skills and creates no bin child."
                 )
-            if BAD_INSTALLER in line or (BAD_LIB_PATH in line and INSTALL_VERB.search(line)):
+            if BAD_INSTALLER_RE.search(line) or (BAD_LIB_PATH_RE.search(line) and INSTALL_VERB.search(line)):
                 findings.append(
-                    f"R4 {rel}:{n}: routes the install through {BAD_LIB_PATH}, "
+                    f"R4 {rel}:{n}: routes the install through the printing-press "
+                    f"library, "
                     f"which does not ship this repo's binaries. Use "
                     f"skills/{slug or '<slug>'}/install.sh / install.ps1."
                 )
