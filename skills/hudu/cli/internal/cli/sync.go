@@ -35,6 +35,14 @@ import (
 var unresolvedPathKeyRE = regexp.MustCompile(`\{[a-zA-Z_][a-zA-Z0-9_]*\}`)
 
 // syncResult holds the outcome of syncing a single resource.
+// syncWorkItem carries the enqueue instant alongside the resource name so the
+// worker can close the queue_wait phase on dequeue (issue #195). Before this,
+// the channel carried a bare string and the interval was unmeasurable.
+type syncWorkItem struct {
+	resource string
+	queuedAt time.Time
+}
+
 type syncResult struct {
 	Resource string
 	Count    int
@@ -53,6 +61,9 @@ func newSyncCmd(flags *rootFlags) *cobra.Command {
 	var maxPages int
 	var latestOnly bool
 	var strict bool
+	// issue #195: opt-in per-resource phase breakdown. Off by default so the
+	// emitted event stream stays exactly what it was.
+	var phaseTrace bool
 	var paramFlags []string
 	var resourceParamFlags []string
 	var globalParamFlags []string
@@ -226,7 +237,15 @@ Resource scoping:
 			}
 
 			started := time.Now()
-			work := make(chan string, len(resources))
+			// issue #195: with --phase-trace on, each resource carries its own
+			// phase accumulator, and the work item carries the instant it was
+			// enqueued so queue_wait_ms is measurable. Off (the default), no
+			// trace is installed and the emitted stream is unchanged.
+			syncCtx := cmd.Context()
+			if phaseTrace {
+				syncCtx = withSyncPhaseTracing(syncCtx)
+			}
+			work := make(chan syncWorkItem, len(resources))
 			results := make(chan syncResult, len(resources))
 
 			var wg sync.WaitGroup
@@ -234,8 +253,14 @@ Resource scoping:
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
-					for resource := range work {
-						res := syncResource(cmd.Context(), c, db, resource, sinceTS, full, maxPages, effectiveLatestOnly, userParams, syncEventWriter)
+					for item := range work {
+						resourceCtx := syncCtx
+						var tr *syncPhaseTrace
+						if syncPhaseTracingEnabled(syncCtx) {
+							resourceCtx, tr = newSyncPhaseTrace(syncCtx, item.resource, item.queuedAt)
+						}
+						res := syncResource(resourceCtx, c, db, item.resource, sinceTS, full, maxPages, effectiveLatestOnly, userParams, syncEventWriter)
+						tr.emit(syncEventWriter)
 						results <- res
 					}
 				}()
@@ -243,7 +268,7 @@ Resource scoping:
 
 			// Enqueue all resources
 			for _, resource := range resources {
-				work <- resource
+				work <- syncWorkItem{resource: resource, queuedAt: time.Now()}
 			}
 			close(work)
 
@@ -352,6 +377,7 @@ Resource scoping:
 	cmd.Flags().IntVar(&maxPages, "max-pages", 0, "Maximum pages to fetch per resource (0 = unlimited; cap-hit emits a sync_warning event)")
 	cmd.Flags().BoolVar(&latestOnly, "latest-only", false, "Refresh head of each resource only; clears resume cursor and caps pages at 1. Mutually exclusive with --since (--since wins).")
 	cmd.Flags().BoolVar(&strict, "strict", false, "Exit non-zero on any per-resource failure (default: only critical failures or all-resource failure exit non-zero).")
+	cmd.Flags().BoolVar(&phaseTrace, "phase-trace", false, "Emit a sync_phases event per resource splitting its wall time into queue wait, API fetch, rate-limit wait, retry wait, ID extraction and SQLite upsert. Durations and counts only; no credentials or response bodies.")
 	cmd.Flags().StringArrayVar(&paramFlags, "param", nil, "Extra query param to inject into flat-list sync requests (repeatable, key=value). Skipped on path-scoped dependent requests so a top-level scope like workspace=<id> does not double up on /parents/<id>/children calls. Use --global-param to inject everywhere. Avoid pagination keys (limit/since/cursor) — overriding them corrupts resume state.")
 	cmd.Flags().StringArrayVar(&resourceParamFlags, "resource-param", nil, "Per-resource extra query param (repeatable, resource:key=value). Wins over --param and --global-param when keys conflict.")
 	cmd.Flags().StringArrayVar(&globalParamFlags, "global-param", nil, "Extra query param to inject into every sync request including dependent path-scoped calls (repeatable, key=value). Use when an API requires a scope on every call regardless of path nesting.")
@@ -368,6 +394,11 @@ func syncResource(ctx context.Context, c interface {
 	RateLimit() float64
 }, db *store.Store, resource, sinceTS string, full bool, maxPages int, latestOnly bool, userParams *syncUserParams, syncEvents io.Writer) syncResult {
 	started := time.Now()
+	// issue #195: `started` is read AFTER a worker dequeued this resource, so
+	// it cannot see the queue wait. phaseTrace closes that phase here, at the
+	// first instruction that runs post-dequeue. nil unless --phase-trace.
+	phaseTrace := syncPhaseTraceFrom(ctx)
+	phaseTrace.markDequeued(started)
 	if syncEvents == nil {
 		syncEvents = io.Discard
 	}
@@ -527,7 +558,9 @@ func syncResource(ctx context.Context, c interface {
 		// endpoint whose OpenAPI spec marks the filter optional).
 		userParams.applyTo(resource, params, false)
 
+		fetchStart := time.Now()
 		data, err := c.Get(ctx, path, params)
+		phaseTrace.addAPIFetch(time.Since(fetchStart))
 		if err != nil {
 			if w, ok := isSyncAccessWarning(err); ok {
 				if !humanFriendly {
@@ -556,7 +589,9 @@ func syncResource(ctx context.Context, c interface {
 
 		// Try to extract items from the response.
 		// Strategy: try array first, then common wrapper keys.
+		extractStart := time.Now()
 		items, nextCursor, hasMore := extractPageItems(data, pageSize.cursorParam)
+		phaseTrace.addIDExtract(time.Since(extractStart))
 
 		// Page-int paginator fallback: when the API paginates by integer
 		// ?page=N and emits no body cursor, treat a full page as a signal
@@ -613,7 +648,10 @@ func syncResource(ctx context.Context, c interface {
 				break
 			}
 			// Single object response - try to store as-is
-			if err := upsertSingleObject(db, resource, data); err != nil {
+			singleStart := time.Now()
+			err := upsertSingleObject(db, resource, data)
+			phaseTrace.addStoreUpsert(time.Since(singleStart))
+			if err != nil {
 				if !humanFriendly {
 					fmt.Fprintln(syncEvents, syncErrorJSON(resource, "", err))
 				}
@@ -634,7 +672,9 @@ func syncResource(ctx context.Context, c interface {
 		// "primary_key_unresolved" the first time any single item
 		// fails, and the F4b "stored_count_zero_after_extraction"
 		// probe when extraction succeeded but rows still didn't land.
+		upsertStart := time.Now()
 		stored, extractFailures, err := upsertResourceBatch(db, resource, items)
+		phaseTrace.addStoreUpsert(time.Since(upsertStart))
 		if err != nil {
 			if !humanFriendly {
 				fmt.Fprintln(syncEvents, syncErrorJSON(resource, "", err))

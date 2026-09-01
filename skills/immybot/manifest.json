@@ -22,7 +22,8 @@
         "IMMYBOT_TENANT_ID": "${user_config.immybot_tenant_id}",
         "IMMYBOT_TOKEN_URL": "${user_config.immybot_token_url}",
         "IMMYBOT_USER_AGENT": "${user_config.immybot_user_agent}",
-        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}",
+        "IMMYBOT_NO_CONFIG_WRITE": "${user_config.immybot_no_config_write}"
       }
     }
   },
@@ -77,6 +78,13 @@
       "title": "Client profile",
       "description": "Binds this MCP server to one tenant-gated client profile, so every call answers for that customer. Leave blank to use the profile configured as default_client_profile.",
       "required": false
+    },
+    "immybot_no_config_write": {
+      "type": "string",
+      "title": "Keep credentials off disk",
+      "description": "Set to 1 to keep credentials off disk. The token cache becomes a no-op, so the connector mints a fresh token each run instead of writing one to config.toml. Leave blank for the default cached behaviour.",
+      "required": false,
+      "default": ""
     }
   },
   "compatibility": {

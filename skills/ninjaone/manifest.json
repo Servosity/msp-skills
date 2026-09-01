@@ -19,7 +19,8 @@
         "NINJAONE_CLIENT_ID": "${user_config.ninjaone_client_id}",
         "NINJAONE_CLIENT_SECRET": "${user_config.ninjaone_client_secret}",
         "NINJAONE_OAUTH_SCOPE": "${user_config.ninjaone_oauth_scope}",
-        "NINJAONE_TOKEN_URL": "${user_config.ninjaone_token_url}"
+        "NINJAONE_TOKEN_URL": "${user_config.ninjaone_token_url}",
+        "NINJAONE_NO_CONFIG_WRITE": "${user_config.ninjaone_no_config_write}"
       }
     }
   },
@@ -58,6 +59,13 @@
       "description": "Token endpoint the client-credentials exchange posts to. Leave the prefilled default unless your tenant uses a different token endpoint.",
       "required": false,
       "default": "https://app.ninjarmm.com/ws/oauth/token"
+    },
+    "ninjaone_no_config_write": {
+      "type": "string",
+      "title": "Keep credentials off disk",
+      "description": "Set to 1 to keep credentials off disk. The token cache becomes a no-op, so the connector mints a fresh token each run instead of writing one to config.toml. Leave blank for the default cached behaviour.",
+      "required": false,
+      "default": ""
     }
   },
   "compatibility": {

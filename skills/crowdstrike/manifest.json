@@ -19,7 +19,8 @@
         "CROWDSTRIKE_OAUTH_SCOPE": "${user_config.crowdstrike_oauth_scope}",
         "CROWDSTRIKE_TOKEN_URL": "${user_config.crowdstrike_token_url}",
         "FALCON_CLIENT_ID": "${user_config.falcon_client_id}",
-        "FALCON_CLIENT_SECRET": "${user_config.falcon_client_secret}"
+        "FALCON_CLIENT_SECRET": "${user_config.falcon_client_secret}",
+        "CROWDSTRIKE_NO_CONFIG_WRITE": "${user_config.crowdstrike_no_config_write}"
       }
     }
   },
@@ -58,6 +59,13 @@
       "description": "Token endpoint the client-credentials exchange posts to. Leave the prefilled default unless your tenant uses a different token endpoint.",
       "required": false,
       "default": "https://api.crowdstrike.com/oauth2/token"
+    },
+    "crowdstrike_no_config_write": {
+      "type": "string",
+      "title": "Keep credentials off disk",
+      "description": "Set to 1 to keep credentials off disk. The token cache becomes a no-op, so the connector mints a fresh token each run instead of writing one to config.toml. Leave blank for the default cached behaviour.",
+      "required": false,
+      "default": ""
     }
   },
   "compatibility": {

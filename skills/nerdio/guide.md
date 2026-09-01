@@ -563,6 +563,26 @@ Environment variables:
 
 If you use agentcookie to sync secrets across machines, this CLI auto-adopts agentcookie-managed credentials with no extra setup. When the daemon writes to this CLI's config, `nerdio-cli doctor` reports `agentcookie: detected` and `auth-status` labels the source as `agentcookie`. Skip this section if you don't use agentcookie - the CLI works the same as any other.
 
+### Keeping credentials off disk (optional)
+
+By default the connector caches the token it mints in the config file so the next
+command does not have to mint another one. Set `NERDIO_NO_CONFIG_WRITE=1` to turn that
+off: nothing is written, and each run mints a fresh token instead. Use it when
+your secrets live in Keychain, Windows Credential Manager, or any launcher that
+injects them as environment variables at process start, and you do not want a
+plaintext copy on disk.
+
+| What changes | With `NERDIO_NO_CONFIG_WRITE=1` |
+| --- | --- |
+| Token cache | Not written. A fresh token is minted per invocation. |
+| `auth login` / `auth set-token` | Refuse, naming the variable, instead of reporting a save that did not happen. |
+| `auth logout` | Still clears an existing config file. The erase is not a credential write. |
+| MCP server | Honours the same variable, so a Claude Desktop install gets no plaintext token cache either. |
+
+Set it in the shell for CLI use, or through the install prompt of the same name
+for the MCP server. Any value other than blank, `0`, `false`, `no` or `off`
+turns it on. See issue #270.
+
 ## Troubleshooting
 **Authentication errors (exit code 4)**
 - Run `nerdio-cli doctor` to check credentials

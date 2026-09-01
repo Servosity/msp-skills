@@ -19,7 +19,8 @@
         "ACTION1_CLIENT_ID": "${user_config.action1_client_id}",
         "ACTION1_CLIENT_SECRET": "${user_config.action1_client_secret}",
         "ACTION1_OAUTH2": "${user_config.action1_oauth2}",
-        "ACTION1_ORG_ID": "${user_config.action1_org_id}"
+        "ACTION1_ORG_ID": "${user_config.action1_org_id}",
+        "ACTION1_NO_CONFIG_WRITE": "${user_config.action1_no_config_write}"
       }
     }
   },
@@ -57,6 +58,13 @@
       "title": "Default organization ID",
       "description": "Organization ID the fleet commands scope to by default (the --org flag overrides it). Leave blank to span every organization your credentials can see.",
       "required": false
+    },
+    "action1_no_config_write": {
+      "type": "string",
+      "title": "Keep credentials off disk",
+      "description": "Set to 1 to keep credentials off disk. The token cache becomes a no-op, so the connector mints a fresh token each run instead of writing one to config.toml. Leave blank for the default cached behaviour.",
+      "required": false,
+      "default": ""
     }
   },
   "compatibility": {

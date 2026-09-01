@@ -76,6 +76,12 @@
           "description": "Binds this MCP server to one tenant-gated client profile, so every call answers for that customer. Leave blank to use the profile configured as default_client_profile.",
           "isRequired": false,
           "isSecret": false
+        },
+        {
+          "name": "IMMYBOT_NO_CONFIG_WRITE",
+          "description": "Set to 1 to keep credentials off disk. The token cache becomes a no-op, so the connector mints a fresh token each run instead of writing one to config.toml. Leave blank for the default cached behaviour.",
+          "isRequired": false,
+          "isSecret": false
         }
       ]
     }

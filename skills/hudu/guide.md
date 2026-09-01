@@ -267,6 +267,43 @@ hudu-cli sync --latest-only
 
 Run a full `hudu-cli sync` on a slower cadence (e.g. weekly) to backfill the excluded resources. Some Hudu deployments return the complete `procedure-tasks` collection while ignoring pagination parameters. Sync detects a repeated primary-key set before upsert and reconciles `sync_complete.total` to the local cache row count without truncating deployments that honor pagination.
 
+### Find out where a slow sync is actually spending its time
+
+`sync` reports one `duration_ms` per resource, and that clock starts only after a
+worker picks the resource up, so it cannot tell a slow API from a slow local
+write - or from a resource that simply sat in the queue. `--phase-trace` adds a
+`sync_phases` event per resource that splits the wall time six ways:
+
+```bash
+hudu-cli sync --resources companies,articles,folders --concurrency 4 --phase-trace
+```
+
+```json
+{"event":"sync_phases","resource":"folders","queue_wait_ms":62,"api_fetch_ms":49,"rate_limit_wait_ms":0,"retry_wait_ms":0,"id_extract_ms":0,"store_upsert_ms":14,"pages":2,"requests":2,"retries":0,"dominant_phase":"queue_wait"}
+```
+
+| Phase | What it measures |
+| --- | --- |
+| `queue_wait_ms` | Enqueue until a worker picked the resource up. Not covered by `duration_ms` at all. |
+| `api_fetch_ms` | Time on the wire, with the two waits below already subtracted out. |
+| `rate_limit_wait_ms` | The proactive client-side rate limiter, before each request. |
+| `retry_wait_ms` | 429 `Retry-After` and 5xx backoff sleeps. |
+| `id_extract_ms` | Pulling items and primary keys out of each page. |
+| `store_upsert_ms` | The SQLite batch upsert, which serializes every worker on one write lock. |
+
+`dominant_phase` names the one phase that is strictly larger than all the
+others, and `none` when there is no such phase - either nothing was measured
+(a resource that failed before it reached the API reports every phase as 0ms)
+or two phases tie. `none` means "read the numbers, there is no single lever
+here", never "the first phase in the list won". A lightweight resource whose
+`dominant_phase` is `queue_wait` is not slow at all - it was waiting behind
+heavier resources, and raising `--concurrency` is the lever. One whose
+`dominant_phase` is `store_upsert` is contending on the local database, where
+lowering `--concurrency` helps more than raising it.
+
+The flag is off by default and adds no output when unset. The event carries
+durations and counts only - never a credential, a URL, or a response body.
+
 ### Sync matchers for an integration
 
 Hudu's `/matchers` endpoint requires an `integration_id` and returns HTTP 500 without one, so a flat `sync` skips it. There is no integrations-list endpoint; integration IDs live in synced asset `cards` data. After a full sync, list the IDs from the local cache:

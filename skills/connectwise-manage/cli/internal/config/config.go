@@ -25,6 +25,13 @@ type Config struct {
 	ClientID      string            `toml:"client_id"`
 	ClientSecret  string            `toml:"client_secret"`
 	Path          string            `toml:"-"`
+	// envOverrides / fileConfig are the newer press's provenance machinery,
+	// back-ported here for issue #266: a field whose live value came from the
+	// environment is restored to the config FILE's value before a save, so an
+	// operator who injects credentials at process launch never finds them
+	// written to disk. See configForSave().
+	envOverrides map[string]bool `toml:"-"`
+	fileConfig   *Config         `toml:"-"`
 
 	// ConnectWise Manage composite credentials (hand-wired). The REST API
 	// authenticates with HTTP Basic where the username is companyId+publicKey
@@ -63,21 +70,33 @@ func Load(configPath string) (*Config, error) {
 		}
 	}
 
+	// Snapshot what the FILE said, before any env var wins over it. Taken
+	// here, ahead of applyConnectwiseHeaders(), so the derived Basic header is
+	// never part of the snapshot either (issue #266).
+	cfg.snapshotFileConfig()
+
 	// Env var overrides
 	if v := os.Getenv("CW_CLIENT_ID"); v != "" {
 		cfg.ClientID = v
+		cfg.markEnvOverride("ClientID")
 		cfg.AuthSource = "env:CW_CLIENT_ID"
 	}
 
-	// ConnectWise composite Basic credentials + region host + version.
+	// ConnectWise composite Basic credentials + region host + version. All
+	// four are credential material -- CompanyID and PublicKey are the two
+	// halves of the Basic username and PrivateKey is the password -- so each
+	// is marked, and configForSave() keeps the environment's copy off disk.
 	if v := os.Getenv("CW_COMPANY_ID"); v != "" {
 		cfg.CompanyID = v
+		cfg.markEnvOverride("CompanyID")
 	}
 	if v := os.Getenv("CW_PUBLIC_KEY"); v != "" {
 		cfg.PublicKey = v
+		cfg.markEnvOverride("PublicKey")
 	}
 	if v := os.Getenv("CW_PRIVATE_KEY"); v != "" {
 		cfg.PrivateKey = v
+		cfg.markEnvOverride("PrivateKey")
 	}
 	if v := os.Getenv("CW_API_VERSION"); v != "" {
 		cfg.APIVersion = v
@@ -223,6 +242,11 @@ func (c *Config) SaveCredential(token string) error {
 	c.AuthHeaderVal = ""
 	c.AccessToken = ""
 	c.ClientID = token
+	// Declared provenance: the operator typed this token, so it outranks any
+	// CW_CLIENT_ID in the environment and must reach disk. Only ClientID is
+	// declared explicit here -- the composite Basic credential is untouched by
+	// set-token and stays governed by its env-override markers.
+	delete(c.envOverrides, "ClientID")
 	return c.save()
 }
 
@@ -239,7 +263,73 @@ func (c *Config) ClearTokens() error {
 	c.TokenExpiry = time.Time{}
 	c.ClientID = ""
 	c.ClientSecret = ""
+	// The erase is deliberate, so it outranks the env-override marker: without
+	// this, `auth logout` would leave a client_id already on disk in place.
+	delete(c.envOverrides, "ClientID")
 	return c.save()
+}
+
+func (c *Config) markEnvOverride(field string) {
+	if c.envOverrides == nil {
+		c.envOverrides = map[string]bool{}
+	}
+	c.envOverrides[field] = true
+}
+
+// cloneStringMap returns an independent copy of m (nil stays nil). The
+// fileConfig snapshot must not share reference-type map fields (Headers) with
+// the live config, or applyConnectwiseHeaders() would write the composed Basic
+// credential straight into the snapshot it exists to protect.
+func cloneStringMap(m map[string]string) map[string]string {
+	if m == nil {
+		return nil
+	}
+	out := make(map[string]string, len(m))
+	for k, v := range m {
+		out[k] = v
+	}
+	return out
+}
+
+func (c *Config) snapshotFileConfig() {
+	snapshot := *c
+	snapshot.envOverrides = nil
+	snapshot.fileConfig = nil
+	snapshot.Headers = cloneStringMap(c.Headers)
+	c.fileConfig = &snapshot
+}
+
+// configForSave returns the Config that should be WRITTEN, which is not the
+// one in memory: `out := *c` copies the live values, so every credential that
+// arrived through the environment has to be restored to the file's value here
+// or it lands in config.toml in cleartext (issue #266).
+//
+// Headers is restored wholesale rather than field by field because nothing
+// else in this connector mutates it: applyConnectwiseHeaders() derives the
+// Accept/clientId/Authorization entries from the credential fields on every
+// Load, and the Authorization entry is the base64 of the private key. Writing
+// the derived map would re-leak the same secret through a different key, past
+// a scan that only looked at private_key.
+func (c *Config) configForSave() Config {
+	out := *c
+	if c.fileConfig != nil {
+		if c.envOverrides["ClientID"] {
+			out.ClientID = c.fileConfig.ClientID
+		}
+		if c.envOverrides["CompanyID"] {
+			out.CompanyID = c.fileConfig.CompanyID
+		}
+		if c.envOverrides["PublicKey"] {
+			out.PublicKey = c.fileConfig.PublicKey
+		}
+		if c.envOverrides["PrivateKey"] {
+			out.PrivateKey = c.fileConfig.PrivateKey
+		}
+		out.Headers = cloneStringMap(c.fileConfig.Headers)
+	}
+	out.envOverrides = nil
+	out.fileConfig = nil
+	return out
 }
 
 func (c *Config) save() error {
@@ -247,11 +337,19 @@ func (c *Config) save() error {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return fmt.Errorf("creating config dir: %w", err)
 	}
-	data, err := toml.Marshal(c)
+	persisted := c.configForSave()
+	data, err := toml.Marshal(persisted)
 	if err != nil {
 		return fmt.Errorf("marshaling config: %w", err)
 	}
-	return os.WriteFile(c.Path, data, 0o600)
+	if err := os.WriteFile(c.Path, data, 0o600); err != nil {
+		return err
+	}
+	c.fileConfig = &persisted
+	c.fileConfig.envOverrides = nil
+	c.fileConfig.fileConfig = nil
+	c.fileConfig.Headers = cloneStringMap(c.fileConfig.Headers)
+	return nil
 }
 
 // Ensure strings import is used

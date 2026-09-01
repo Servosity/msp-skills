@@ -41,7 +41,8 @@ Add (or merge with your existing `mcpServers` block):
         "ACTION1_CLIENT_ID": "<your-action1_client_id>",
         "ACTION1_CLIENT_SECRET": "<your-action1_client_secret>",
         "ACTION1_OAUTH2": "",
-        "ACTION1_ORG_ID": ""
+        "ACTION1_ORG_ID": "",
+        "ACTION1_NO_CONFIG_WRITE": ""
       }
     }
   }
@@ -70,7 +71,8 @@ Configuration**) and add:
         "ACTION1_CLIENT_ID": "<your-action1_client_id>",
         "ACTION1_CLIENT_SECRET": "<your-action1_client_secret>",
         "ACTION1_OAUTH2": "",
-        "ACTION1_ORG_ID": ""
+        "ACTION1_ORG_ID": "",
+        "ACTION1_NO_CONFIG_WRITE": ""
       }
     }
   }
@@ -95,7 +97,8 @@ Claude Desktop:
         "ACTION1_CLIENT_ID": "<your-action1_client_id>",
         "ACTION1_CLIENT_SECRET": "<your-action1_client_secret>",
         "ACTION1_OAUTH2": "",
-        "ACTION1_ORG_ID": ""
+        "ACTION1_ORG_ID": "",
+        "ACTION1_NO_CONFIG_WRITE": ""
       }
     }
   }

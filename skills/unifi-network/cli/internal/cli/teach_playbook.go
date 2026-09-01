@@ -283,7 +283,10 @@ func newPlaybookListCmd(flags *rootFlags) *cobra.Command {
 		Use:         "list",
 		Short:       "List stored playbooks (query_family, content presence, last observed)",
 		Example:     `  unifi-network-cli playbook list --agent`,
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		// mcp:local-write, NOT mcp:read-only (issue #275 finding 4):
+		// playbook list opens the WRITABLE learn store and appends an
+		// audit record on every call. See the note on `recall`.
+		Annotations: map[string]string{"mcp:local-write": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dryRunOK(flags) {
 				return writeDryRun(cmd.OutOrStdout(), flags, "playbook list")

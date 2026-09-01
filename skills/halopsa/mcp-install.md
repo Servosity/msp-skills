@@ -45,7 +45,8 @@ Add (or merge with your existing `mcpServers` block):
         "HALOPSA_SCOPE": "<your-halopsa_scope>",
         "HALOPSA_TENANT": "<your-halopsa_tenant>",
         "HALOPSA_TOKEN": "<your-halopsa_token>",
-        "HALOPSA_TOKEN_URL": ""
+        "HALOPSA_TOKEN_URL": "",
+        "HALOPSA_NO_CONFIG_WRITE": ""
       }
     }
   }
@@ -78,7 +79,8 @@ Configuration**) and add:
         "HALOPSA_SCOPE": "<your-halopsa_scope>",
         "HALOPSA_TENANT": "<your-halopsa_tenant>",
         "HALOPSA_TOKEN": "<your-halopsa_token>",
-        "HALOPSA_TOKEN_URL": ""
+        "HALOPSA_TOKEN_URL": "",
+        "HALOPSA_NO_CONFIG_WRITE": ""
       }
     }
   }
@@ -107,7 +109,8 @@ Claude Desktop:
         "HALOPSA_SCOPE": "<your-halopsa_scope>",
         "HALOPSA_TENANT": "<your-halopsa_tenant>",
         "HALOPSA_TOKEN": "<your-halopsa_token>",
-        "HALOPSA_TOKEN_URL": ""
+        "HALOPSA_TOKEN_URL": "",
+        "HALOPSA_NO_CONFIG_WRITE": ""
       }
     }
   }

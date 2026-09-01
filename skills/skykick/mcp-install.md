@@ -41,7 +41,8 @@ Add (or merge with your existing `mcpServers` block):
         "SKYKICK_CLIENT_ID": "<your-skykick_client_id>",
         "SKYKICK_CLIENT_SECRET": "<your-skykick_client_secret>",
         "SKYKICK_OAUTH_SCOPE": "<your-skykick_oauth_scope>",
-        "SKYKICK_TOKEN_URL": "https://apis.cloudservices.connectwise.com/auth/token"
+        "SKYKICK_TOKEN_URL": "https://apis.cloudservices.connectwise.com/auth/token",
+        "SKYKICK_NO_CONFIG_WRITE": ""
       }
     }
   }
@@ -70,7 +71,8 @@ Configuration**) and add:
         "SKYKICK_CLIENT_ID": "<your-skykick_client_id>",
         "SKYKICK_CLIENT_SECRET": "<your-skykick_client_secret>",
         "SKYKICK_OAUTH_SCOPE": "<your-skykick_oauth_scope>",
-        "SKYKICK_TOKEN_URL": "https://apis.cloudservices.connectwise.com/auth/token"
+        "SKYKICK_TOKEN_URL": "https://apis.cloudservices.connectwise.com/auth/token",
+        "SKYKICK_NO_CONFIG_WRITE": ""
       }
     }
   }
@@ -95,7 +97,8 @@ Claude Desktop:
         "SKYKICK_CLIENT_ID": "<your-skykick_client_id>",
         "SKYKICK_CLIENT_SECRET": "<your-skykick_client_secret>",
         "SKYKICK_OAUTH_SCOPE": "<your-skykick_oauth_scope>",
-        "SKYKICK_TOKEN_URL": "https://apis.cloudservices.connectwise.com/auth/token"
+        "SKYKICK_TOKEN_URL": "https://apis.cloudservices.connectwise.com/auth/token",
+        "SKYKICK_NO_CONFIG_WRITE": ""
       }
     }
   }

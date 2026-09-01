@@ -19,7 +19,8 @@
         "SKYKICK_CLIENT_ID": "${user_config.skykick_client_id}",
         "SKYKICK_CLIENT_SECRET": "${user_config.skykick_client_secret}",
         "SKYKICK_OAUTH_SCOPE": "${user_config.skykick_oauth_scope}",
-        "SKYKICK_TOKEN_URL": "${user_config.skykick_token_url}"
+        "SKYKICK_TOKEN_URL": "${user_config.skykick_token_url}",
+        "SKYKICK_NO_CONFIG_WRITE": "${user_config.skykick_no_config_write}"
       }
     }
   },
@@ -58,6 +59,13 @@
       "description": "Token endpoint the client-credentials exchange posts to. Leave the prefilled default unless your tenant uses a different token endpoint.",
       "required": false,
       "default": "https://apis.cloudservices.connectwise.com/auth/token"
+    },
+    "skykick_no_config_write": {
+      "type": "string",
+      "title": "Keep credentials off disk",
+      "description": "Set to 1 to keep credentials off disk. The token cache becomes a no-op, so the connector mints a fresh token each run instead of writing one to config.json. Leave blank for the default cached behaviour.",
+      "required": false,
+      "default": ""
     }
   },
   "compatibility": {

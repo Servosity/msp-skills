@@ -117,6 +117,12 @@ func newAuthLoginCmd(flags *rootFlags) *cobra.Command {
 }
 
 func runOAuthLogin(cmd *cobra.Command, flags *rootFlags, clientID, clientSecret string, port int) error {
+	// issue #270: XERO_NO_CONFIG_WRITE makes the automatic token cache a
+	// no-op. `auth login` exists to write a credential to disk, so it refuses
+	// rather than completing a browser flow whose result is then discarded.
+	if config.NoConfigWrite() {
+		return configErr(fmt.Errorf("%s is set, so no credential may be written to disk; unset it and re-run to save one", config.NoConfigWriteEnv))
+	}
 	w := cmd.OutOrStdout()
 	cfg, err := config.Load(flags.configPath)
 	if err != nil {

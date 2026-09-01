@@ -58,6 +58,12 @@
           "description": "Organization ID the fleet commands scope to by default (the --org flag overrides it). Leave blank to span every organization your credentials can see.",
           "isRequired": false,
           "isSecret": false
+        },
+        {
+          "name": "ACTION1_NO_CONFIG_WRITE",
+          "description": "Set to 1 to keep credentials off disk. The token cache becomes a no-op, so the connector mints a fresh token each run instead of writing one to config.toml. Leave blank for the default cached behaviour.",
+          "isRequired": false,
+          "isSecret": false
         }
       ]
     }

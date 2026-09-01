@@ -20,7 +20,8 @@
         "SHERWEB_CLIENT_SECRET": "${user_config.sherweb_client_secret}",
         "SHERWEB_OAUTH_SCOPE": "${user_config.sherweb_oauth_scope}",
         "SHERWEB_SUBSCRIPTION_KEY": "${user_config.sherweb_subscription_key}",
-        "SHERWEB_TOKEN_URL": "${user_config.sherweb_token_url}"
+        "SHERWEB_TOKEN_URL": "${user_config.sherweb_token_url}",
+        "SHERWEB_NO_CONFIG_WRITE": "${user_config.sherweb_no_config_write}"
       }
     }
   },
@@ -66,6 +67,13 @@
       "description": "Token endpoint the client-credentials exchange posts to. Leave the prefilled default unless your tenant uses a different token endpoint.",
       "required": false,
       "default": "https://api.sherweb.com/auth/oidc/connect/token"
+    },
+    "sherweb_no_config_write": {
+      "type": "string",
+      "title": "Keep credentials off disk",
+      "description": "Set to 1 to keep credentials off disk. The token cache becomes a no-op, so the connector mints a fresh token each run instead of writing one to config.toml. Leave blank for the default cached behaviour.",
+      "required": false,
+      "default": ""
     }
   },
   "compatibility": {

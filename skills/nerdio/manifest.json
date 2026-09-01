@@ -19,7 +19,8 @@
         "NERDIO_TOKEN_URL": "${user_config.nerdio_token_url}",
         "NERDIO_CLIENT_ID": "${user_config.nerdio_client_id}",
         "NERDIO_CLIENT_SECRET": "${user_config.nerdio_client_secret}",
-        "NERDIO_OAUTH_SCOPE": "${user_config.nerdio_oauth_scope}"
+        "NERDIO_OAUTH_SCOPE": "${user_config.nerdio_oauth_scope}",
+        "NERDIO_NO_CONFIG_WRITE": "${user_config.nerdio_no_config_write}"
       }
     }
   },
@@ -58,6 +59,13 @@
       "description": "Sets NERDIO_OAUTH_SCOPE for the Nerdio Manager MCP server. Required by the generated client for credential refresh or hand-written auth flow.",
       "sensitive": true,
       "required": true
+    },
+    "nerdio_no_config_write": {
+      "type": "string",
+      "title": "Keep credentials off disk",
+      "description": "Set to 1 to keep credentials off disk. The token cache becomes a no-op, so the connector mints a fresh token each run instead of writing one to config.toml. Leave blank for the default cached behaviour.",
+      "required": false,
+      "default": ""
     }
   },
   "compatibility": {

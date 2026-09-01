@@ -334,6 +334,78 @@
      "min_count": 1
     }
    ]
+  },
+  {
+   "id": "env-composite-basic-credentials-not-persisted",
+   "summary": "Back-ports the env-override machinery (snapshotFileConfig / markEnvOverride / configForSave) so CW_CLIENT_ID, CW_COMPANY_ID, CW_PUBLIC_KEY and CW_PRIVATE_KEY - and the Basic header derived from them - are never written to config.toml (issue #266 shape)",
+   "why": "Found by sweeping the fleet for the issue #266 shape rather than by a report. connectwise-manage predates the env-override machinery entirely: it had no envOverrides map, no fileConfig snapshot and no configForSave, and save() marshalled the live *Config. Every one of its credential fields is a persisted toml key, so both save() callers wrote the environment's secrets to disk in cleartext - and the worse of the two is `auth logout`, which writes the file even when none existed, so LOGGING OUT CREATED a plaintext credential file. The private key landed twice: once as private_key and once base64-encoded inside the [headers] Authorization value that applyConnectwiseHeaders() derives, which a scan looking only at private_key would miss. The fix snapshots the file's values before any env var wins (and before applyConnectwiseHeaders mutates Headers), marks the four credential fields, and restores them in configForSave, plus restores Headers wholesale because nothing but applyConnectwiseHeaders mutates it. SaveCredential and ClearTokens declare ClientID explicit so `auth set-token` and `auth logout` still reach disk. Non-credential fields (Site, APIVersion) are deliberately NOT marked, so their behaviour is byte-identical. GENERATOR-class defect: a reprint at a press old enough to emit this connector's shape drops the whole mechanism. Operator-facing follow-up: the fix stops NEW leaks but cannot remove a copy already on disk, and `auth logout` does not either - measured at the built binary, logout prints `Config cleared.` while leaving company_id, public_key, private_key and the base64 `[headers] Authorization` line untouched. guide.md now carries a Configuration subsection telling an affected operator to inspect the file, delete it and rotate the API member's keys, and the same guide's config-file path was corrected from the stale ~/.config/connectwise-manage-public-pp-cli/config.toml to the path `doctor --json` actually reports.",
+   "status": "active",
+   "spec_encode_followup": "cli-printing-press should emit the envOverrides / fileConfig / configForSave machinery for EVERY connector, not only those whose auth scheme the generator recognises as OAuth2, and must route a hand-wired composite credential (ConnectWise's companyId+publicKey:privateKey Basic header) through it. It must also never persist a DERIVED header: Headers is recomputed from the credential fields on every Load, so writing it stores the same secret a second time under a different key.",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "func (c *Config) snapshotFileConfig() {",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "func (c *Config) configForSave() Config {",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cfg.markEnvOverride(\"PrivateKey\")",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cfg.markEnvOverride(\"PublicKey\")",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cfg.markEnvOverride(\"CompanyID\")",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "out.Headers = cloneStringMap(c.fileConfig.Headers)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "persisted := c.configForSave()",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "not_contains": "\tdata, err := toml.Marshal(c)"
+    },
+    {
+     "file": "cli/internal/config/config_envsecret_test.go",
+     "contains": "func TestLogoutDoesNotPersistEnvCredentials(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/config/config_envsecret_test.go",
+     "contains": "func TestFileCredentialsSurviveASave(",
+     "min_count": 1
+    },
+    {
+     "file": "guide.md",
+     "contains": "### Credentials from the environment are no longer written to disk (issue #266)",
+     "min_count": 1
+    },
+    {
+     "file": "guide.md",
+     "contains": "rm ~/.config/connectwise-manage-cli/config.toml",
+     "min_count": 1
+    },
+    {
+     "file": "guide.md",
+     "not_contains": "connectwise-manage-public-pp-cli"
+    }
+   ]
   }
  ]
 }
