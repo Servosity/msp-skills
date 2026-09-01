@@ -213,8 +213,17 @@ jobs:
             echo "::error::$TAG is already PUBLISHED and therefore immutable, but its"
             echo "::error::asset set is incomplete (the missing or half-uploaded names are"
             echo "::error::listed above). Assets can never be added to or replaced in a"
-            echo "::error::sealed release, so re-running this workflow cannot fix it. Delete"
-            echo "::error::the release and the tag and re-tag, or cut the next patch version."
+            echo "::error::sealed release, so re-running this workflow cannot fix it."
+            echo "::error::"
+            echo "::error::THE REMEDY IS TO CUT THE NEXT PATCH VERSION. Deleting the release"
+            echo "::error::and re-tagging $TAG is not a recovery path: GitHub documents that"
+            echo "::error::deleting an immutable release lets you delete the TAG but does not"
+            echo "::error::let you reuse the release NAME. Probed on 2026-09-01, creating a"
+            echo "::error::DRAFT at a deleted immutable release's tag name did succeed, so the"
+            echo "::error::name is not provably burned - but whether PUBLISHING at that name"
+            echo "::error::succeeds is untested, and finding out costs a real release. Bump"
+            echo "::error::the version (tools/maintainer/release_batch.sh) rather than betting"
+            echo "::error::a connector's next release on it."
             exit 1
           fi
           # Release notes come from the SKILL'S OWN CHANGELOG, never

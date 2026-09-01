@@ -82,12 +82,32 @@ jobs:
         #                       release and a re-run that left an extra asset
         #                       behind both pass; and a tag naming no releasable
         #                       skill expects nothing, so it can never false-RED.
+        #                       The size field is checked as a TYPE, so a listing
+        #                       carrying "0", "1024", true or NaN fires instead of
+        #                       sailing through a truthiness test.
+        #   check_release_pipeline.py
+        #                     - the gate that decides whether a SHA may be tagged
+        #                       at all. A tag push runs release.yml FROM THE
+        #                       TAGGED COMMIT, so tagging a pre-draft-pipeline
+        #                       commit publishes an empty immutable release and
+        #                       spends that version number. Nine broken pipeline
+        #                       shapes are refused (publish-first, never sealed,
+        #                       two sealers, an uploader outside the seal's needs
+        #                       closure, no completeness gate, the gate after the
+        #                       seal, no bundle in the contract, comments that
+        #                       only QUOTE the commands, and a file that is not a
+        #                       workflow). Critically it also asserts THIS repo's
+        #                       own release.yml passes: that is what pins the
+        #                       probe to the pipeline, so a pipeline change that
+        #                       outgrows the probe goes red in the PR that made
+        #                       it rather than at release time.
         run: |
           set -euo pipefail
           python3 tools/maintainer/registry.py --self-test
           python3 tools/maintainer/check_handfixes.py --self-test
           python3 tools/maintainer/mcpb_bundle.py --self-test
           python3 tools/maintainer/check_release_assets.py --self-test
+          python3 tools/maintainer/check_release_pipeline.py --self-test
 
       - name: Skill contract (frontmatter + required files)
         run: python3 tools/maintainer/check_skill_contract.py

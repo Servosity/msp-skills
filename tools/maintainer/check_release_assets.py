@@ -17,7 +17,10 @@ Three things, because a name alone does not mean a usable file:
      record BEFORE the bytes finish transferring; an upload that dies partway
      leaves it in `starter` state. Sealing over one of those would publish a
      permanently broken download that a name-only check waves through.
-  3. Every one of them has a non-zero `size`.
+  3. Every one of them has a `size` that is a real byte count: an int (never a
+     bool - `isinstance(True, int)` is True in Python), strictly greater than
+     zero. Truthiness is not the question. `"0"`, `"1024"`, `true` and `NaN` are
+     all truthy and none of them is a size, so each is refused by TYPE.
 
 Where the expected names come from
 ----------------------------------
@@ -67,6 +70,28 @@ import release_matrix  # noqa: E402  (local tools/maintainer module)
 # GitHub's asset lifecycle: the record exists from the moment an upload starts.
 # Only this state means the bytes are all there.
 UPLOADED = "uploaded"
+
+
+def real_size(value: object) -> bool:
+    """True only for a genuine byte count: an int, not a bool, strictly > 0.
+
+    `if not size` was the whole check here once, and truthiness is the wrong
+    question to ask of a field that arrives from JSON. Every one of these is
+    truthy and none of them describes a usable asset:
+
+        "0"      a string, so truthy no matter what it says
+        "1024"   ditto: a size-shaped string is not a size
+        -1       negative
+        True     `isinstance(True, int)` is True in Python, so a bool sails
+                 straight through an int check unless it is excluded FIRST
+        NaN      a float, and `not float("nan")` is False
+
+    A half-uploaded asset is exactly what this field was added to catch, so it
+    is checked as a TYPE and a value, not as a truth value. A float is refused
+    even when it is positive: GitHub sends an integer, and anything else means
+    the listing is not the one this gate was told to read.
+    """
+    return isinstance(value, int) and not isinstance(value, bool) and value > 0
 
 
 def expected_assets(tag: str, with_mcpb: bool) -> tuple[str, list[str]]:
@@ -128,8 +153,9 @@ def compare(expected: list[str], actual: dict[str, dict]) -> tuple[list[str], li
         state, size = row["state"], row["size"]
         if state != UPLOADED:
             incomplete.append(f"{name} (state={state!r}, not {UPLOADED!r})")
-        elif not size:
-            incomplete.append(f"{name} (size=0)")
+        elif not real_size(size):
+            incomplete.append(
+                f"{name} (size={size!r} is not a positive integer byte count)")
     return missing, incomplete, sorted(set(actual) - set(expected))
 
 
@@ -201,6 +227,39 @@ def _self_test() -> int:
     empty = healthy(full)
     empty[bundle] = {"name": bundle, "state": UPLOADED, "size": 0}
     case("a zero-byte asset fires", empty, want_incomplete=["size=0"])
+
+    # FIRES on every shape a truthiness check waved through. "0" and "1024" are
+    # strings, so truthy whatever they say; True is an int subclass; NaN is a
+    # float that is not falsy; a float is not a byte count; null is not a size.
+    # Each of these PASSED while `if not size` was the check.
+    def sized(value) -> dict[str, dict]:
+        row = healthy(full)
+        row[bundle] = {"name": bundle, "state": UPLOADED, "size": value}
+        return row
+
+    for label, bad in [('a string "0"', "0"),
+                       ('a size-shaped string "1024"', "1024"),
+                       ("a negative -1", -1),
+                       ("a boolean true", True),
+                       ("a NaN", float("nan")),
+                       ("a float 1024.0", 1024.0),
+                       ("a null", None),
+                       ("a list", [1024])]:
+        case(f"{label} fires as not a byte count", sized(bad),
+             want_incomplete=["is not a positive integer"])
+    # SILENT on the smallest legitimate size, so the type check discriminates
+    # rather than simply rejecting everything unusual.
+    case("a one-byte asset still passes", sized(1))
+
+    # The bad shapes above are REACHABLE from real input: `gh` emits JSON, and
+    # json.loads turns `true` into a bool and `NaN` into a float by default. Walk
+    # them through parse_assets so the proof covers the actual entry point.
+    bad_json = json.dumps({"assets": [
+        {"name": n, "state": UPLOADED, "size": (True if n == bundle else 1024)}
+        for n in full]})
+    assert '"size": true' in bad_json, bad_json[:120]
+    case("a boolean size survives JSON parsing and still fires",
+         parse_assets(bad_json), want_incomplete=["is not a positive integer"])
     # FIRES rather than silently degrading to a name-only check when the input
     # is a bare name listing with no state/size to inspect.
     bare = {n: {"name": n} for n in full}
