@@ -19,6 +19,19 @@ permissions:
 env:
   GH_REPO: ${{ github.repository }}
 
+# One assembler per tag. The draft is shared mutable state: two runs for the
+# same tag (a re-pushed tag, or a manual re-run started while the first is still
+# going) would interleave their --clobber uploads into it, and whichever reached
+# `publish` first could seal a name-complete set assembled from two different
+# commits while the other run's uploads began returning 422. The group is keyed
+# by TAG, so the 20 tags of a release wave still build fully in parallel.
+#
+# cancel-in-progress is FALSE on purpose: cancelling a half-finished assembler
+# is exactly how a draft gets stranded. Queueing converges; cancelling does not.
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
 jobs:
   # The build matrix is COMPUTED from the repo (tools/maintainer/skills.json + introspection
   # of each skills/<slug>/cli/). Adding a skill needs no edit here. The matrix
@@ -34,6 +47,13 @@ jobs:
     outputs:
       matrix: ${{ steps.gen.outputs.matrix }}
       any: ${{ steps.gen.outputs.any }}
+      # The MCP binary base name and the literal MCPB bundle filename for the
+      # skill this tag names, straight out of the same matrix the build jobs are
+      # driven from. The `mcpb` job reads these instead of rebuilding
+      # "<slug>-mcp" and "<slug>-mcp.mcpb" in shell, so the workflow, the
+      # completeness gate and mcp-publish.yml cannot disagree about the name.
+      mcp_bin: ${{ steps.gen.outputs.mcp_bin }}
+      mcpb_asset: ${{ steps.gen.outputs.mcpb_asset }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -48,8 +68,12 @@ jobs:
         run: |
           set -euo pipefail
           matrix="$(python3 tools/maintainer/release_matrix.py --tag "$TAG")"
-          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
-          echo "any=$(printf '%s' "$matrix" | python3 -c 'import json,sys; print(str(len(json.load(sys.stdin)["skill"])>0).lower())')" >> "$GITHUB_OUTPUT"
+          # One reader, one redirect, four outputs: the matrix itself, whether
+          # it has any rows at all, and the registry-owned MCP binary and MCPB
+          # bundle names for the skill this tag releases. The last two are empty
+          # when the tag names no releasable skill, which the `any` guard has
+          # already turned into "no downstream jobs at all".
+          printf '%s' "$matrix" | python3 -c 'import json,sys; m=sys.stdin.read(); s=json.loads(m)["skill"]; print("matrix=" + m); print("any=" + str(bool(s)).lower()); print("mcp_bin=" + (s[0]["mcp_bin"] if s else "")); print("mcpb_asset=" + (s[0]["mcpb_asset"] if s else ""))' >> "$GITHUB_OUTPUT"
 
   # Release-time security gate (Layer 3): re-verify the tagged connector before any
   # build/publish. Belt-and-suspenders with the PR `security-gate` check - a tag could
@@ -181,16 +205,16 @@ jobs:
             # the release is unrepairable by definition and the operator needs
             # to know that rather than watch jobs fail one at a time.
             echo "sealed=true" >> "$GITHUB_OUTPUT"
-            if gh release view "$TAG" --json assets -q '.assets[].name' \
+            if gh release view "$TAG" --json assets \
               | python3 tools/maintainer/check_release_assets.py --tag "$TAG" --with-mcpb; then
               echo "::notice::$TAG is already published and complete; nothing to do."
               exit 0
             fi
             echo "::error::$TAG is already PUBLISHED and therefore immutable, but its"
-            echo "::error::asset set is incomplete (missing names listed above). Assets can"
-            echo "::error::never be added to a sealed release, so re-running this workflow"
-            echo "::error::cannot fix it. Delete the release and the tag and re-tag, or cut"
-            echo "::error::the next patch version."
+            echo "::error::asset set is incomplete (the missing or half-uploaded names are"
+            echo "::error::listed above). Assets can never be added to or replaced in a"
+            echo "::error::sealed release, so re-running this workflow cannot fix it. Delete"
+            echo "::error::the release and the tag and re-tag, or cut the next patch version."
             exit 1
           fi
           # Release notes come from the SKILL'S OWN CHANGELOG, never
@@ -347,6 +371,9 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       TAG: ${{ github.ref_name }}
+      # Registry-derived, via the build matrix. Never rebuilt in shell.
+      MCP_BIN: ${{ needs.prepare.outputs.mcp_bin }}
+      MCPB_ASSET: ${{ needs.prepare.outputs.mcpb_asset }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -364,15 +391,20 @@ jobs:
             echo "::error::derived slug '$slug' is not in skills.json"
             exit 1
           fi
+          if [ -z "$MCP_BIN" ] || [ -z "$MCPB_ASSET" ]; then
+            echo "::error::the build matrix carried no MCP binary name for $TAG;"
+            echo "::error::regenerate with tools/maintainer/release_matrix.py"
+            exit 1
+          fi
           mkdir -p mcpb-build
           # The build job above uploaded platform-suffixed binaries
-          # (<slug>-mcp-darwin-arm64 and friends). Bundle ALL platforms into one
+          # ($MCP_BIN-darwin-arm64 and friends). Bundle ALL platforms into one
           # .mcpb so the registry-published artifact works everywhere Claude
           # Desktop runs. windows/arm64 is deliberately absent from this loop:
           # MCPB has no host for it, which is why the expected count below is 5
           # and not 6.
           for suffix in darwin-arm64 darwin-amd64 linux-arm64 linux-amd64 windows-amd64.exe; do
-            gh release download "$TAG" --pattern "${slug}-mcp-${suffix}" --dir mcpb-build || true
+            gh release download "$TAG" --pattern "${MCP_BIN}-${suffix}" --dir mcpb-build || true
           done
           ls -la mcpb-build
 
@@ -385,7 +417,7 @@ jobs:
           set -euo pipefail
           slug="${TAG%-v*}"
           version="${TAG##*-v}"
-          copied=$(find mcpb-build -maxdepth 1 -type f -name "${slug}-mcp-*" | wc -l | tr -d ' ')
+          copied=$(find mcpb-build -maxdepth 1 -type f -name "${MCP_BIN}-*" | wc -l | tr -d ' ')
           # The download step tolerates a per-asset failure with `|| true`, and the
           # upload uses --clobber. Together those mean a transient GitHub outage
           # could produce a manifest-only bundle and OVERWRITE a working released
@@ -412,17 +444,18 @@ jobs:
           # mcp-publish.yml: a tag push runs the workflow file AND the tools from
           # the same commit, so the two cannot disagree about the bundle format.
           #
-          # --binary-prefix is "<slug>-mcp" - exactly the names the download loop
-          # asked for and the build job uploaded. It is deliberately NOT derived
-          # from manifest.json's `name`, which still reads "<slug>-pp-mcp" on
-          # eight connectors and would name members that do not exist.
+          # --binary-prefix is the registry's mcp_binary - exactly the names the
+          # download loop asked for and the build job uploaded. It is
+          # deliberately NOT derived from manifest.json's `name`, which still
+          # reads "<slug>-pp-mcp" on eight connectors and would name members that
+          # do not exist.
           python3 tools/maintainer/mcpb_bundle.py build \
             --manifest "skills/$slug/manifest.json" \
             --bin-dir mcpb-build \
-            --binary-prefix "${slug}-mcp" \
-            --out "mcpb-build/${slug}-mcp.mcpb" \
+            --binary-prefix "$MCP_BIN" \
+            --out "mcpb-build/${MCPB_ASSET}" \
             --version "$version"
-          ls -la "mcpb-build/${slug}-mcp.mcpb"
+          ls -la "mcpb-build/${MCPB_ASSET}"
 
       - name: Bundle can actually launch (every declared command resolves)
         # Separate from the build step on purpose: the builder validates its own
@@ -439,16 +472,14 @@ jobs:
         # publish.
         run: |
           set -euo pipefail
-          slug="${TAG%-v*}"
-          python3 tools/maintainer/mcpb_bundle.py validate "mcpb-build/${slug}-mcp.mcpb"
+          python3 tools/maintainer/mcpb_bundle.py validate "mcpb-build/${MCPB_ASSET}"
 
       - name: Attach the bundle to the draft
         run: |
           set -euo pipefail
-          slug="${TAG%-v*}"
           # Still a draft, so this upload is legal; --clobber keeps a re-run of a
           # partially-failed release idempotent.
-          gh release upload "$TAG" "mcpb-build/${slug}-mcp.mcpb" --clobber
+          gh release upload "$TAG" "mcpb-build/${MCPB_ASSET}" --clobber
 
   # THE SEAL. Publishing is what makes a release immutable, so it is the last
   # thing this workflow does and it happens only after the asset set is proven
@@ -479,11 +510,17 @@ jobs:
           set -euo pipefail
           state=$(gh release view "$TAG" --json isDraft -q .isDraft)
           # The expected names come from the SAME shared source the build matrix
-          # was driven from (release_matrix.skill_entries -> registry.asset_map),
-          # so this check cannot drift from what was actually uploaded. Nothing
-          # here re-derives the "-<goos>-<goarch>" suffix or the windows ".exe"
-          # rule in shell.
-          gh release view "$TAG" --json assets -q '.assets[].name' \
+          # was driven from (release_matrix.skill_entries -> registry.asset_map
+          # plus its mcpb_asset), so this check cannot drift from what was
+          # actually uploaded. Nothing here re-derives the "-<goos>-<goarch>"
+          # suffix, the windows ".exe" rule, or the bundle name in shell.
+          #
+          # The full `--json assets` object is piped, not just the names: the
+          # gate also asserts every asset reached state "uploaded" with a
+          # non-zero size. GitHub creates the asset record before the bytes
+          # finish transferring, so a name-only check would happily seal a
+          # half-uploaded file into a permanently broken download.
+          gh release view "$TAG" --json assets \
             | python3 tools/maintainer/check_release_assets.py --tag "$TAG" --with-mcpb
           if [ "$state" != "true" ]; then
             # Already published - a concurrent or repeated run got here first.

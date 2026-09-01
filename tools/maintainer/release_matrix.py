@@ -32,6 +32,13 @@ names instead of re-deriving the "-<goos>-<goarch>" suffix and the windows
 ".exe" rule in shell, so the workflow and tools/maintainer/check_release_contract.py
 can no longer disagree about what a release asset is called. --skills-only omits
 `assets` - that shape (ci.yml build+vet) has no target axis to key them by.
+
+The FULL matrix also carries `mcpb_asset`: the one literal filename of the
+cross-platform MCPB bundle release.yml attaches and mcp-publish.yml hands to the
+MCP Registry. It lives here for the same reason `assets` does - the bundle name
+was previously rebuilt as "<slug>-mcp.mcpb" in two workflows and a gate, three
+copies that agree only because every skill happens to name its MCP binary
+"<slug>-mcp" today. One definition, read by everyone.
 """
 
 from __future__ import annotations
@@ -66,6 +73,10 @@ def skill_entries(with_assets: bool = True) -> list[dict]:
             # release workflow uploads exactly these; nothing downstream rebuilds
             # the suffix or the .exe rule by hand.
             entry["assets"] = registry.asset_map(meta["cli_binary"], meta["mcp_binary"])
+            # The single cross-platform MCPB bundle. Not per-target: one bundle
+            # carries every platform. Derived from the registry's mcp_binary so
+            # a workflow can never disagree with the gate about its name.
+            entry["mcpb_asset"] = f"{meta['mcp_binary']}.mcpb"
         entries.append(entry)
     return entries
 

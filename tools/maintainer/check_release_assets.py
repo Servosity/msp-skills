@@ -1,38 +1,51 @@
 #!/usr/bin/env python3
-"""Assert a release carries the COMPLETE asset set its tag promises.
+"""Assert a release carries the COMPLETE, fully-uploaded asset set its tag promises.
 
 This is the gate that stands between a draft release and the irreversible act
 of publishing it. The repository has immutable releases enabled: a PUBLISHED
-release is sealed the instant it exists, and no asset can ever be added to it.
-So the release pipeline assembles into a DRAFT, proves the set is complete
-here, and only then flips the draft to published. Nothing unverified becomes
-public, and nothing public is ever incomplete.
+release is sealed the instant it exists, and no asset can ever be added to or
+replaced in it. So the release pipeline assembles into a DRAFT, proves the set
+is complete here, and only then flips the draft to published. Nothing unverified
+becomes public, and nothing public is ever incomplete.
+
+What "complete" means
+---------------------
+Three things, because a name alone does not mean a usable file:
+
+  1. Every expected name is attached.
+  2. Every one of them has `state == "uploaded"`. GitHub creates the asset
+     record BEFORE the bytes finish transferring; an upload that dies partway
+     leaves it in `starter` state. Sealing over one of those would publish a
+     permanently broken download that a name-only check waves through.
+  3. Every one of them has a non-zero `size`.
 
 Where the expected names come from
 ----------------------------------
 The SAME shared source the build matrix is driven from:
-release_matrix.skill_entries() -> registry.asset_map(). Every literal filename
-below is read out of that structure. This script does NOT rebuild the
-"-<goos>-<goarch>" suffix or the windows ".exe" rule - re-deriving those in a
-second place is exactly how a workflow and its gate drift apart while both stay
-green (tools/maintainer/check_release_contract.py applies the same rule to the
-install scripts).
+release_matrix.skill_entries() -> registry.asset_map() for the per-target
+binaries, and release_matrix's `mcpb_asset` for the bundle. Every literal
+filename below is read out of that structure. This script does NOT rebuild the
+"-<goos>-<goarch>" suffix, the windows ".exe" rule, or the "<mcp-binary>.mcpb"
+bundle name - re-deriving those in a second place is exactly how a workflow and
+its gate drift apart while both stay green (tools/maintainer/check_release_contract.py
+applies the same rule to the install scripts).
 
 Per skill, per target, release.yml uploads four files:
     <cli-asset>  <mcp-asset>  <cli-asset>.sha256  <mcp-asset>.sha256
 Across the six targets in registry.TARGETS that is 24 files. With --with-mcpb
-the single cross-platform bundle "<mcp-binary>.mcpb" is required too, for 25.
+the single cross-platform bundle is required too, for 25.
 
 Usage
 -----
-    gh release view "$TAG" --json assets -q '.assets[].name' \\
+    gh release view "$TAG" --json assets \\
       | python3 tools/maintainer/check_release_assets.py --tag "$TAG" --with-mcpb
 
-Actual asset names arrive on stdin, one per line, so this script needs no
-network and no `gh`: it is a pure set comparison you can run locally against a
-saved listing. Exit 0 when every expected name is present, 1 otherwise (with
-the missing names printed). Extra assets are reported but never fatal - a
-re-run that uploads the same files again must converge, not fail.
+The release's own asset list arrives on stdin as the JSON `gh release view
+--json assets` prints, so this script needs no network and no `gh` of its own:
+it is a pure comparison you can run locally against a saved listing. Exit 0 when
+every expected asset is present and fully uploaded, 1 otherwise (with the
+offending names printed). Extra assets are reported but never fatal - a re-run
+that uploads the same files again must converge, not fail.
 
     python3 tools/maintainer/check_release_assets.py --self-test
 
@@ -43,12 +56,17 @@ maintainer gate self-tests.
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import registry  # noqa: E402  (local tools/maintainer module)
 import release_matrix  # noqa: E402  (local tools/maintainer module)
+
+# GitHub's asset lifecycle: the record exists from the moment an upload starts.
+# Only this state means the bytes are all there.
+UPLOADED = "uploaded"
 
 
 def expected_assets(tag: str, with_mcpb: bool) -> tuple[str, list[str]]:
@@ -68,19 +86,47 @@ def expected_assets(tag: str, with_mcpb: bool) -> tuple[str, list[str]]:
                 # release.yml writes a sidecar next to every binary it uploads.
                 names.add(f"{asset}.sha256")
         if with_mcpb:
-            # Named from the mcp binary registry.py already holds, so this
-            # cannot drift from what tools/maintainer/mcpb_bundle.py writes.
-            names.add(f"{entry['mcp_bin']}.mcpb")
+            # release_matrix owns this name, so the workflow that attaches the
+            # bundle and the gate that requires it read one definition.
+            names.add(entry["mcpb_asset"])
     return slug, sorted(names)
 
 
-def compare(expected: list[str], actual: set[str]) -> tuple[list[str], list[str]]:
-    """(missing, extra). Missing is fatal; extra is informational."""
-    return [n for n in expected if n not in actual], sorted(actual - set(expected))
+def parse_assets(payload: str) -> dict[str, dict]:
+    """{name: asset} from `gh release view --json assets` output.
+
+    Accepts either the object gh prints ({"assets": [...]}) or a bare list, so
+    a saved `-q .assets` listing works too.
+    """
+    data = json.loads(payload) if payload.strip() else {"assets": []}
+    rows = data.get("assets", []) if isinstance(data, dict) else data
+    return {row["name"]: row for row in rows if isinstance(row, dict) and row.get("name")}
+
+
+def compare(expected: list[str], actual: dict[str, dict]) -> tuple[list[str], list[str], list[str]]:
+    """(missing, incomplete, extra).
+
+    `missing` and `incomplete` are both fatal - an asset whose bytes never
+    finished transferring is a broken download, not a present one. `extra` is
+    informational so a re-run that leaves something behind still converges.
+    """
+    missing, incomplete = [], []
+    for name in expected:
+        row = actual.get(name)
+        if row is None:
+            missing.append(name)
+            continue
+        state = row.get("state", UPLOADED)
+        size = row.get("size", 1)
+        if state != UPLOADED:
+            incomplete.append(f"{name} (state={state!r}, not {UPLOADED!r})")
+        elif not size:
+            incomplete.append(f"{name} (size=0)")
+    return missing, incomplete, sorted(set(actual) - set(expected))
 
 
 # --------------------------------------------------------------------------
-# Self-test: prove the gate fires on the defect it was written for AND stays
+# Self-test: prove the gate fires on the defects it was written for AND stays
 # silent on a healthy release. A gate that cannot fail is worthless; a gate
 # that always fires is worse, because it teaches people to ignore it.
 #
@@ -99,25 +145,30 @@ def _self_test() -> int:
     _, no_bundle = expected_assets(tag, with_mcpb=False)
     failures: list[str] = []
 
-    def case(label: str, actual: set[str], expect_missing, with_mcpb: bool = True) -> None:
-        missing, _extra = compare(full if with_mcpb else no_bundle, actual)
-        got, want = sorted(missing), sorted(expect_missing)
-        ok = got == want
+    def healthy(names) -> dict[str, dict]:
+        """The gh shape for a set of fully-uploaded assets."""
+        return {n: {"name": n, "state": UPLOADED, "size": 1024} for n in names}
+
+    def case(label, actual, want_missing=(), want_incomplete=(), with_mcpb=True):
+        missing, incomplete, _extra = compare(full if with_mcpb else no_bundle, actual)
+        ok = (sorted(missing) == sorted(want_missing)
+              and len(incomplete) == len(want_incomplete)
+              and all(any(w in got for got in incomplete) for w in want_incomplete))
         print(f"  [{'ok' if ok else 'FAIL'}] {label}")
         if not ok:
-            failures.append(f"{label}: expected missing {want}, got {got}")
+            failures.append(f"{label}: missing={sorted(missing)} incomplete={incomplete}")
 
     want_count = len(registry.TARGETS) * 4 + 1
     if len(full) != want_count:
         failures.append(f"expected {want_count} names for {tag}, got {len(full)}")
 
     # SILENT on a healthy release.
-    case("a complete release passes", set(full), [])
+    case("a complete release passes", healthy(full))
     # SILENT when a re-run leaves an extra asset behind: re-runs must converge.
-    case("an extra asset is tolerated", set(full) | {"SBOM.spdx.json"}, [])
+    case("an extra asset is tolerated", healthy(list(full) + ["SBOM.spdx.json"]))
     # FIRES on the observed production failure: immutable releases rejected
     # every upload and the release published with zero assets.
-    case("an empty release fires on every expected name", set(), full)
+    case("an empty release fires on every expected name", {}, want_missing=full)
     # FIRES when one of the six build targets failed, naming exactly its four
     # files and nothing else.
     first = entry["assets"][registry.target_key(registry.TARGETS[0]["goos"],
@@ -125,13 +176,23 @@ def _self_test() -> int:
     dropped = {first["cli"], first["mcp"],
                first["cli"] + ".sha256", first["mcp"] + ".sha256"}
     case("one failed build target fires on its four files",
-         set(full) - dropped, dropped)
+         healthy(set(full) - dropped), want_missing=dropped)
     # FIRES when the bundle never attached - and the SAME input passes without
     # --with-mcpb, which proves the flag discriminates rather than adds noise.
-    bundle = f"{entry['mcp_bin']}.mcpb"
-    case("a missing .mcpb fires under --with-mcpb", set(full) - {bundle}, [bundle])
-    case("the same input passes without --with-mcpb", set(full) - {bundle}, [],
-         with_mcpb=False)
+    bundle = entry["mcpb_asset"]
+    case("a missing .mcpb fires under --with-mcpb",
+         healthy(set(full) - {bundle}), want_missing=[bundle])
+    case("the same input passes without --with-mcpb",
+         healthy(set(full) - {bundle}), with_mcpb=False)
+    # FIRES when an upload died partway and left the record behind. A name-only
+    # check would seal this and publish a permanently broken download.
+    half = healthy(full)
+    half[bundle] = {"name": bundle, "state": "starter", "size": 0}
+    case("an asset stuck in 'starter' state fires", half, want_incomplete=["starter"])
+    # FIRES on a zero-byte asset that GitHub nonetheless calls uploaded.
+    empty = healthy(full)
+    empty[bundle] = {"name": bundle, "state": UPLOADED, "size": 0}
+    case("a zero-byte asset fires", empty, want_incomplete=["size=0"])
     # SILENT for a tag that names no releasable skill: release.yml creates no
     # release for one, so this must never false-RED it.
     _, none = expected_assets("not-a-real-skill-v1.2.3", with_mcpb=True)
@@ -157,7 +218,7 @@ def main() -> int:
     )
     ap.add_argument("--tag", help="the release tag, e.g. hudu-v0.1.8")
     ap.add_argument("--with-mcpb", action="store_true",
-                    help="also require the <mcp-binary>.mcpb bundle "
+                    help="also require the MCPB bundle "
                          "(required before a release may be published)")
     ap.add_argument("--print-expected", action="store_true",
                     help="print the expected names and exit, reading no stdin")
@@ -183,18 +244,31 @@ def main() -> int:
         print("\n".join(expected))
         return 0
 
-    missing, extra = compare(expected, {ln.strip() for ln in sys.stdin if ln.strip()})
-
-    if missing:
-        print(f"::error::release {args.tag} is missing "
-              f"{len(missing)} of {len(expected)} expected assets:",
+    try:
+        actual = parse_assets(sys.stdin.read())
+    except (ValueError, TypeError, KeyError) as exc:
+        # Fail CLOSED and say why. An unreadable listing must never be mistaken
+        # for a complete one - that is the whole point of this gate.
+        print(f"::error::could not read the asset listing for {args.tag} ({exc}).",
               file=sys.stderr)
-        for name in missing:
-            print(f"::error::  missing: {name}", file=sys.stderr)
+        print("::error::Expected the JSON from `gh release view <tag> --json assets`.",
+              file=sys.stderr)
         return 1
 
-    print(f"{args.tag}: all {len(expected)} expected assets are attached "
-          f"({len(registry.TARGETS)} targets x 4 files"
+    missing, incomplete, extra = compare(expected, actual)
+
+    if missing or incomplete:
+        print(f"::error::release {args.tag} is not publishable: "
+              f"{len(missing)} missing and {len(incomplete)} incomplete "
+              f"of {len(expected)} expected assets:", file=sys.stderr)
+        for name in missing:
+            print(f"::error::  missing: {name}", file=sys.stderr)
+        for name in incomplete:
+            print(f"::error::  incomplete: {name}", file=sys.stderr)
+        return 1
+
+    print(f"{args.tag}: all {len(expected)} expected assets are attached and "
+          f"fully uploaded ({len(registry.TARGETS)} targets x 4 files"
           f"{' + the .mcpb bundle' if args.with_mcpb else ''}).")
     if extra:
         print(f"note: {len(extra)} additional asset(s) attached: {', '.join(extra)}")

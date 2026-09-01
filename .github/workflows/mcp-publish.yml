@@ -81,13 +81,23 @@ jobs:
               # Release workflow builds nothing and creates no release for its
               # tag. Skipping on the same input keeps this workflow from hunting
               # for a bundle on a release that was never created.
-              releasable=$(python3 tools/maintainer/release_matrix.py --tag "$tag" \
-                | python3 -c 'import json,sys; print(len(json.load(sys.stdin)["skill"]))') \
-                || releasable=0
-              if [ "$releasable" != "0" ]; then
-                proceed=true
+              if releasable=$(python3 tools/maintainer/release_matrix.py --tag "$tag" \
+                | python3 -c 'import json,sys; print(len(json.load(sys.stdin)["skill"]))'); then
+                if [ "$releasable" != "0" ]; then
+                  proceed=true
+                else
+                  echo "Slug '$skill' is registered but has no releasable CLI; skipping MCP publish."
+                fi
               else
-                echo "Slug '$skill' is registered but has no releasable CLI; skipping MCP publish."
+                # Could not COMPUTE the answer, which is not the same as "no".
+                # Swallowing a tool error into a silent skip would leave no
+                # failed job to retry and no registry entry - a broken loop.
+                # is_registered_slug already passed, so fall through to the hard
+                # gates below (the release must exist, be published, and carry
+                # the bundle); those fail loudly and are retryable.
+                echo "::warning::could not compute the releasable-skill matrix for '$tag';" \
+                     "proceeding on is_registered_slug alone."
+                proceed=true
               fi
             fi
           fi
@@ -143,11 +153,37 @@ jobs:
       - name: Set up jq
         run: sudo apt-get update && sudo apt-get install -y jq
 
+      - name: Resolve the canonical bundle filename
+        id: names
+        env:
+          TAG: ${{ needs.detect.outputs.tag }}
+        run: |
+          set -euo pipefail
+          # The bundle's name is registry-owned (release_matrix's `mcpb_asset`,
+          # from registry.py's mcp_binary). It is deliberately NOT rebuilt as
+          # "<slug>-mcp.mcpb" here: release.yml attaches the bundle under the
+          # registry's name and check_release_assets.py requires it under the
+          # registry's name, so a third hand-rolled copy in this workflow is
+          # exactly the drift that makes a release unpublishable.
+          #
+          # Read from maintainer-tools/ (the DEFAULT BRANCH), which is the same
+          # copy that supplies this workflow file and the bundle validator -
+          # workflow_run always runs the default branch's version of both.
+          asset=$(python3 maintainer-tools/tools/maintainer/release_matrix.py --tag "$TAG" \
+            | python3 -c 'import json,sys; s=json.load(sys.stdin)["skill"]; print(s[0]["mcpb_asset"] if s else "")')
+          if [ -z "$asset" ]; then
+            echo "::error::no releasable skill for tag $TAG, so its MCPB bundle has no name."
+            echo "::error::Refusing to guess one."
+            exit 1
+          fi
+          echo "mcpb_asset=$asset" >> "$GITHUB_OUTPUT"
+          echo "bundle asset for $TAG: $asset"
+
       - name: Download the released .mcpb bundle
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.detect.outputs.tag }}
-          SKILL: ${{ needs.detect.outputs.skill }}
+          MCPB_ASSET: ${{ steps.names.outputs.mcpb_asset }}
         run: |
           set -euo pipefail
           # The registry records the bundle's download URL and its fileSha256 and
@@ -168,18 +204,18 @@ jobs:
           # run that built the binaries inside it, and the release could not have
           # been sealed without it. Nothing is uploaded from here: the release is
           # immutable by now and would reject it with HTTP 422.
-          gh release download "$TAG" --pattern "${SKILL}-mcp.mcpb" --dir mcpb-build || true
-          if [ ! -f "mcpb-build/${SKILL}-mcp.mcpb" ]; then
-            echo "::error::release $TAG carries no ${SKILL}-mcp.mcpb. A sealed release cannot"
+          gh release download "$TAG" --pattern "$MCPB_ASSET" --dir mcpb-build || true
+          if [ ! -f "mcpb-build/${MCPB_ASSET}" ]; then
+            echo "::error::release $TAG carries no ${MCPB_ASSET}. A sealed release cannot"
             echo "::error::receive one, so this tag can never be published to the registry."
             echo "::error::Cut the next patch version and let release.yml assemble it."
             exit 1
           fi
-          ls -la "mcpb-build/${SKILL}-mcp.mcpb"
+          ls -la "mcpb-build/${MCPB_ASSET}"
 
       - name: Bundle can actually launch (every declared command resolves)
         env:
-          SKILL: ${{ needs.detect.outputs.skill }}
+          MCPB_ASSET: ${{ steps.names.outputs.mcpb_asset }}
         # release.yml validates the bundle before it attaches it. This re-asserts
         # the same contract against the bytes actually downloaded from the
         # release, on the side that hands them to the registry, so a bundle that
@@ -191,19 +227,19 @@ jobs:
         run: |
           set -euo pipefail
           python3 maintainer-tools/tools/maintainer/mcpb_bundle.py validate \
-            "mcpb-build/${SKILL}-mcp.mcpb"
+            "mcpb-build/${MCPB_ASSET}"
 
       - name: Compute SHA-256
         id: sha
         env:
-          SKILL: ${{ needs.detect.outputs.skill }}
+          MCPB_ASSET: ${{ steps.names.outputs.mcpb_asset }}
         run: |
           set -euo pipefail
           # Hashed from the bytes DOWNLOADED FROM THE RELEASE, not from a local
           # rebuild. The registry's fileSha256 therefore describes the exact
           # artifact its identifier URL serves.
           cd mcpb-build
-          hash=$(openssl dgst -sha256 "${SKILL}-mcp.mcpb" | awk '{print $NF}')
+          hash=$(openssl dgst -sha256 "$MCPB_ASSET" | awk '{print $NF}')
           echo "sha=$hash" >> "$GITHUB_OUTPUT"
           echo "Computed SHA-256: $hash"
 
@@ -213,6 +249,7 @@ jobs:
           VERSION: ${{ needs.detect.outputs.version }}
           TAG: ${{ needs.detect.outputs.tag }}
           SHA: ${{ steps.sha.outputs.sha }}
+          MCPB_ASSET: ${{ steps.names.outputs.mcpb_asset }}
         run: |
           set -euo pipefail
           src=skills/$SKILL/server.json
@@ -220,7 +257,7 @@ jobs:
           # For registryType "mcpb" the registry reads the host from `identifier`,
           # which MUST be the full .mcpb download URL (a bare name -> 400 "Host ''").
           # There is no separate `download` field in the mcpb package schema.
-          identifier="https://github.com/${{ github.repository }}/releases/download/${TAG}/${SKILL}-mcp.mcpb"
+          identifier="https://github.com/${{ github.repository }}/releases/download/${TAG}/${MCPB_ASSET}"
           jq \
             --arg version "$VERSION" \
             --arg sha "$SHA" \
@@ -232,8 +269,8 @@ jobs:
 
       - name: The URL the registry will record actually resolves
         env:
-          SKILL: ${{ needs.detect.outputs.skill }}
           TAG: ${{ needs.detect.outputs.tag }}
+          MCPB_ASSET: ${{ steps.names.outputs.mcpb_asset }}
         run: |
           set -euo pipefail
           # The registry stores `identifier` verbatim and never re-checks it, so
@@ -241,7 +278,7 @@ jobs:
           # exact URL resolves ANONYMOUSLY - no token on this curl - before
           # handing it over. This is the check that would have caught a draft, a
           # renamed asset, or a bundle that never attached.
-          url="https://github.com/${{ github.repository }}/releases/download/${TAG}/${SKILL}-mcp.mcpb"
+          url="https://github.com/${{ github.repository }}/releases/download/${TAG}/${MCPB_ASSET}"
           # --range 0-0 asks for one byte, so this proves reachability without
           # pulling the whole bundle. 206 is the range answer; 200 is a server
           # that ignored the range and sent the file. Either proves the URL
