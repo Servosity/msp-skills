@@ -12,9 +12,10 @@ metadata:
       bins:
         - aws-billing-cli
     install:
-      - kind: go
+      - kind: script
         bins: [aws-billing-cli]
-        module: github.com/mvanhorn/printing-press-library/library/cloud/aws-billing/cmd/aws-billing-cli
+        sh: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/aws-billing/install.sh
+        ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/aws-billing/install.ps1
 ---
 
 # AWS Billing Intelligence  -  Printing Press CLI
@@ -23,18 +24,21 @@ metadata:
 
 This skill drives the `aws-billing-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. Install via the Printing Press installer:
+1. macOS / Linux:
    ```bash
-   npx -y @mvanhorn/printing-press-library install aws-billing --cli-only
+   bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/aws-billing/install.sh)
    ```
-2. Verify: `aws-billing-cli --version`
-3. Ensure `$GOPATH/bin` (or `$HOME/go/bin`) is on `$PATH`.
+2. Windows (PowerShell):
+   ```powershell
+   iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/aws-billing/install.ps1 | iex
+   ```
+3. Verify: `aws-billing-cli --version`
+4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
 
-If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.3 or newer):
-
-```bash
-go install github.com/mvanhorn/printing-press-library/library/cloud/aws-billing/cmd/aws-billing-cli@latest
-```
+The installer downloads the `aws-billing-cli` and `aws-billing-mcp` binaries into `~/.local/bin`
+(macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows). It does not
+register the skill with your agent and writes no MCP client config - see
+[mcp-install.md](./mcp-install.md) for that wire-up.
 
 If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
@@ -266,10 +270,7 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-1. Install the MCP server:
-   ```bash
-   go install github.com/mvanhorn/printing-press-library/library/cloud/aws-billing/cmd/aws-billing-mcp@latest
-   ```
+1. Install the MCP binary (run the install script from the Prerequisites section, or see [mcp-install.md](./mcp-install.md) for per-agent wire-up).
 2. Register with Claude Code:
    ```bash
    claude mcp add aws-billing-mcp -- aws-billing-mcp

@@ -62,7 +62,7 @@
   "faqs": [
     {
       "q": "Does this work with ChatGPT?",
-      "a": "Yes, on Plus, Pro, Team, Business, Enterprise, and Education plans (the Free tier does not yet expose Developer Mode). ChatGPT connects to remote MCP servers over HTTPS, not local stdio binaries, so you expose the local HaloPSA MCP server via the mcp-remote bridge or your own HTTPS endpoint. Step-by-step in mcp-install.md."
+      "a": "Yes, on Plus, Pro, Team, Business, Enterprise, and Education plans (the Free tier does not yet expose Developer Mode). ChatGPT connects to remote MCP servers over HTTPS, not local stdio binaries, but halopsa-mcp speaks HTTP natively: start it with `halopsa-mcp --transport http --addr :7777` and put the /mcp endpoint behind an HTTPS tunnel or your own reverse proxy. No bridge package is involved. Step-by-step in mcp-install.md."
     },
     {
       "q": "Do I need to know how to code?",

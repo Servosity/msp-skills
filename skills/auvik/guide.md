@@ -6,7 +6,7 @@ Auvik holds the richest network-truth dataset an MSP has, behind a read-only JSO
 
 ## Install
 
-This CLI ships as a Claude Code Skill and MCP server in [Servosity/msp-skills](https://github.com/Servosity/msp-skills). The installer places the `auvik-cli` and `auvik-mcp` binaries and registers the skill with your agent:
+This CLI ships as a Claude Code Skill and MCP server in [Servosity/msp-skills](https://github.com/Servosity/msp-skills). The installer downloads the `auvik-cli` and `auvik-mcp` binaries into `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows). It does not register the skill with your agent and writes no MCP client config - see [mcp-install.md](./mcp-install.md) for that wire-up.
 
 1. macOS / Linux:
    ```bash
@@ -36,7 +36,7 @@ To install:
 2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
 3. Fill in `AUVIK_USERNAME` (your Auvik user email) and `AUVIK_API_KEY` when Claude Desktop prompts you. Set `AUVIK_BASE_URL` to your region's host (`us1`, `us2`, `eu1`, ...) if you are not on `us1`.
 
-Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
+Requires Claude Desktop 1.0.0 or later. A bundle carries the five platform binaries the builder downloads - macOS (`darwin-arm64`, `darwin-amd64`), Linux (`linux-arm64`, `linux-amd64`) and Windows (`windows-amd64`). Windows on ARM is released as a standalone binary but is not bundled, so use the manual config below there.
 
 <details>
 <summary>Manual JSON config (advanced)</summary>

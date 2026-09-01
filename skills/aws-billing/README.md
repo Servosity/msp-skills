@@ -27,7 +27,7 @@ The six agents MSP owners actually use (self-serve, works today):
 | **Claude Cowork** | Paste the install prompt below. |
 | **GitHub Copilot** (VS Code) | Run installer, add `aws-billing-mcp` to `mcp.json` under the `servers` key, then pick **Agent** mode. |
 
-For ChatGPT, the Amazon Web Services MCP server is stdio - to use it with ChatGPT you expose it over HTTPS via the `mcp-remote` bridge or your own endpoint. See [mcp-install.md](./mcp-install.md).
+For ChatGPT, run `aws-billing-mcp --transport http` and expose that behind HTTPS - no bridge package is needed. See [mcp-install.md](./mcp-install.md).
 
 ### Also for the Microsoft and Google stacks
 
@@ -45,6 +45,8 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 ## Install in 60 seconds
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
+
+> **Interim note on `.mcpb`:** check the bundle before you trust it ([#287](https://github.com/Servosity/msp-skills/issues/287)). Its `manifest.json` launches `${__dirname}/bin/aws-billing-pp-mcp`, while the builder stores the release binaries in `bin/` under their platform-suffixed names - `aws-billing-mcp-darwin-arm64`, `-darwin-amd64`, `-linux-arm64`, `-linux-amd64`, `-windows-amd64.exe`. Run `unzip -l <file>.mcpb | grep bin/`: if the name the manifest launches is not among them, Claude Desktop has nothing to run - use Path A or Path B below and wire Claude Desktop up through [mcp-install.md](./mcp-install.md).
 
 [**Download Amazon Web Services MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/aws-billing-v0.1.2/aws-billing-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Amazon Web Services release on the [releases page](https://github.com/servosity/msp-skills/releases?q=aws-billing).)
 
@@ -176,7 +178,7 @@ See [pain-point.md](./pain-point.md) for the longer narrative.
 
 ### Does this work with ChatGPT?
 
-Yes, on **Plus, Pro, Team, Business, Enterprise, and Education** plans (Free tier does not yet expose Developer Mode). ChatGPT connects to **remote** MCP servers over HTTPS, not local stdio binaries. The Amazon Web Services MCP server is local, so for ChatGPT you expose it via the `mcp-remote` bridge or your own HTTPS endpoint. Step-by-step in [mcp-install.md](./mcp-install.md).
+Yes, on **Plus, Pro, Team, Business, Enterprise, and Education** plans (Free tier does not yet expose Developer Mode). ChatGPT connects to **remote** MCP servers over HTTPS, not local stdio binaries. The Amazon Web Services MCP server runs locally, but it speaks HTTP natively: start it with `aws-billing-mcp --transport http --addr :7777` and put it behind an HTTPS tunnel or your own reverse proxy. No bridge package is involved. Step-by-step in [mcp-install.md](./mcp-install.md).
 
 ### Does this work with Codex, Cursor, Windsurf, Cline, Copilot, or Gemini?
 
@@ -200,7 +202,7 @@ No. The binary signs its own AWS requests (SigV4) using the native credential ch
 
 ### Does it work from a member account, or only the payer?
 
-Org-wide cost data (the `consolidated` rollup) needs a management/payer-account profile; from a member account you see only that account's own costs. Resource-level waste scans work in any account. Run `aws-billing-cli doctor` to see exactly what your credentials can reach.
+Org-wide cost data (the `consolidated` rollup) needs a management/payer-account profile; from a member account you see only that account's own costs. Resource-level waste scans work in any account. Run `aws-billing-cli doctor` to see which profile, region, and credential source resolved. Credentials here come from the AWS SDK chain rather than a base URL, so `doctor` reports `not verified` instead of claiming the credential works; run `aws sts get-caller-identity`, or any read command below, to prove it end-to-end.
 
 ### Can it change anything in my AWS account?
 

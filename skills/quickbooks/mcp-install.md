@@ -125,10 +125,12 @@ in HTTP mode with your credentials in the environment:
 QUICKBOOKS_ACCESS_TOKEN=<value> QUICKBOOKS_BASE_URL=<value> QUICKBOOKS_CLIENT_ID=<value> QUICKBOOKS_CLIENT_SECRET=<value> QUICKBOOKS_ENVIRONMENT=<value> QUICKBOOKS_REALM_ID=<value> QUICKBOOKS_REFRESH_TOKEN=<value> QUICKBOOKS_TOKEN_URL=<value> quickbooks-mcp --transport http --addr :7777
 ```
 
-Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel
-(Cloudflare Tunnel, ngrok) or your own reverse proxy. **Treat that URL as
-sensitive** - it's a key to your MCP server. Never expose it bare on the internet;
-gate it behind SSO / Cloudflare Access for team use.
+Then expose `http://localhost:7777/mcp` as a public HTTPS URL via a secure tunnel
+(Cloudflare Tunnel, ngrok) or your own reverse proxy. The path is part of the
+endpoint: the server answers Streamable HTTP at `/mcp` and returns 404 at the
+bare root, so a connector pointed at the root URL never handshakes. **Treat that
+URL as sensitive** - it's a key to your MCP server. Never expose it bare on the
+internet; gate it behind SSO / Cloudflare Access for team use.
 
 ## ChatGPT (Developer Mode)
 

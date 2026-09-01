@@ -1,14 +1,14 @@
 ---
 layout: default
 title: "MCP Servers for MSPs - Connect ConnectWise, HaloPSA, HubSpot, Backup to Claude, ChatGPT, Copilot"
-description: "Free MCP servers and Skills that connect ConnectWise PSA, HaloPSA, HubSpot, and Servosity backup to the AI you already use - Claude, ChatGPT, Copilot, Codex. Local SQLite mirror, no data leaves your network. Built for MSP owners. No code required."
+description: "Free MCP servers and Skills that connect ConnectWise PSA, HaloPSA, HubSpot, and Servosity backup to the AI you already use - Claude, ChatGPT, Copilot, Codex. Local SQLite mirror, and your data stays local unless you route it somewhere yourself. Built for MSP owners. No code required."
 permalink: /
 body_class: wide
 ---
 
 <span class="eyebrow">{{ site.data.catalog.count }} FREE CONNECTORS · OPEN SOURCE · RUNS ON YOUR MACHINE</span>
 
-# Your MSP tools, answerable by AI - without your data leaving your network.
+# Your MSP tools, answerable by AI - without handing your data to a cloud middleman.
 
 Ask one plain-English question across every client - "which clients had backup failures last quarter?" - and get the answer back in seconds, not an afternoon of exports and pivot tables. Every connector is free, open source, and runs on your own machine: your tools stay where they are, and the answers come to you.
 
@@ -43,7 +43,7 @@ An MSP Skills connector is the layer your vendors structurally can't ship: the *
 | Cross-client questions | One client at a time, paginated and rate-limited | The whole book of business in one ask |
 | What the AI reads | Raw records streamed into the chat | Query results - the answer, not the bulk data |
 | Systems per question | One (the vendor's own product) | Many - join your PSA, backup, RMM, and M365 |
-| Where it runs | Often a hosted cloud service | Your own machine - nothing leaves your network |
+| Where it runs | Often a hosted cloud service | Your own machine - your data stays local unless you route it somewhere yourself |
 
 It is **complementary, not a replacement**: keep your vendor's MCP server for in-product work, add an MSP Skills connector for everything that has to span your whole MSP.
 
@@ -129,7 +129,7 @@ You don't have to know JSON, regex, or what "stdio transport" means. Paste one s
 
 ### Does this work with ChatGPT?
 
-Yes, on **Plus, Pro, Team, Business, Enterprise, and Education** plans (Free tier does not yet expose Developer Mode). ChatGPT connects to **remote** MCP servers over HTTPS, not local binaries directly. These connectors ship local binaries, so to use them with ChatGPT you run them on your machine and expose them via the `mcp-remote` bridge or your own HTTPS endpoint. Step-by-step: [ChatGPT integration →](/integrations/chatgpt/).
+Yes, on **Plus, Pro, Team, Business, Enterprise, and Education** plans (Free tier does not yet expose Developer Mode). ChatGPT connects to **remote** MCP servers over HTTPS, not local binaries directly. These connectors ship local binaries. Most serve Streamable HTTP themselves (`--transport http`), so you run one on your machine and put its `/mcp` endpoint behind an HTTPS tunnel; the stdio-only ones take a `supergateway` bridge first. Step-by-step: [ChatGPT integration →](/integrations/chatgpt/).
 
 ### Does this work with Claude?
 
@@ -141,7 +141,7 @@ No. The recommended install path is to paste one sentence into Claude Code or Co
 
 ### Is my PSA, CRM, or backup data safe? Does it leave my network?
 
-Your data stays on **your machine**. Each connector runs locally: the CLI and the MCP server are binaries on your laptop. The SQLite mirror sits in a local directory under your user account. The AI agent (Claude, ChatGPT, Codex) only sees what the CLI or MCP server returns - typically the result of a query, not raw bulk data. Credentials are read from your environment or your agent's config; they're never bundled into the repo or transmitted to our servers (there are none).
+Your data stays on **your machine**. Each connector runs locally: the CLI and the MCP server are binaries on your laptop. The SQLite mirror sits in a local directory under your user account. The AI agent (Claude, ChatGPT, Codex) only sees what the CLI or MCP server returns - typically the result of a query, not raw bulk data. Credentials are read from your environment or your agent's config; they're never bundled into the repo or transmitted to our servers (there are none). The only paths that move data anywhere else are ones you switch on and point at a URL of your own: `--deliver webhook:<url>`, a feedback endpoint you set, and the `--transport http` MCP listener on the connectors that have it.
 
 ### Will this hit my vendor's API rate limits?
 

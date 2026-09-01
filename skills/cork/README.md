@@ -137,7 +137,7 @@ export CORK_API_KEY=<your key>
 cork-cli doctor
 ```
 
-`doctor` confirms the credentials work before you run anything that touches data.
+`doctor` confirms the credentials work before you run anything that touches data. It exits 0 even when the credential is rejected, so scripts should add `--fail-on error`.
 
 One property of Cork keys is worth knowing up front: **an API key inherits the permissions of the user who created it.** A 403 on the distributor or integration endpoints usually means the key was minted by an operator without that scope, not that the key is wrong. That property is also your best control - mint a read-only key for read-only work. See [governance.md](./governance.md).
 

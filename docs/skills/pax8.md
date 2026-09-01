@@ -10,9 +10,9 @@ faqs:
   - q: "Is there an MCP server for Pax8?"
     a: "Yes - this one. A free, open source MCP server and Claude Code Skill for Pax8, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds."
   - q: "Is the Pax8 MCP server safe for client data?"
-    a: "Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
+    a: "Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Three paths can move data off the machine, all opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `PAX8_FEEDBACK_AUTO_SEND=true` posts feedback you typed to the URL in `PAX8_FEEDBACK_ENDPOINT` (with no endpoint set, `feedback` only writes a local file); `--transport http` opens a local MCP listener you then choose whether to expose. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
-    a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Pax8 MCP server via a secure bridge. Step-by-step in the install guide."
+    a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, but pax8-mcp speaks HTTP natively: run `pax8-mcp --transport http --addr :7777` and put its /mcp endpoint behind an HTTPS tunnel or your own reverse proxy. Step-by-step in the install guide."
   - q: "Do I need to know how to code?"
     a: "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
   - q: "Is my Pax8 data safe?"
@@ -29,7 +29,7 @@ howto:
   - name: "Run the one-line installer"
     text: "macOS/Linux: bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/pax8/install.sh) - Windows PowerShell: iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/pax8/install.ps1 | iex"
   - name: "Authenticate"
-    text: "Enter your Pax8 credentials once; pax8-cli doctor confirms they work."
+    text: "Enter your Pax8 credentials once, then run pax8-cli doctor to check the install."
   - name: "Ask your first question"
     text: "Ask your AI agent a Pax8 question in plain language; it runs pax8-cli for you."
 ---
@@ -42,7 +42,7 @@ howto:
 
 **Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
 
-Yes - there is an MCP server for Pax8. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects Pax8 to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
+Yes - there is an MCP server for Pax8. It's free, open source, and runs on your own machine, so your client data stays local unless you route it somewhere yourself. It connects Pax8 to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
 MSPs resell Microsoft, security, and backup through Pax8, then lose days each month reconciling its invoices against subscriptions and their PSA. Ask your AI "where is billing leaking this month," "what's my MRR and margin," or "which usage is about to overage," and get answers the Pax8 portal can't compose: invoices joined to subscriptions joined to usage, computed offline from a local mirror in one query instead of a CSV export and a spreadsheet.
 
@@ -144,11 +144,11 @@ Yes - this one. A free, open source MCP server and Claude Code Skill for Pax8, b
 
 ### Is the Pax8 MCP server safe for client data?
 
-Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
+Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Three paths can move data off the machine, all opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `PAX8_FEEDBACK_AUTO_SEND=true` posts feedback you typed to the URL in `PAX8_FEEDBACK_ENDPOINT` (with no endpoint set, `feedback` only writes a local file); `--transport http` opens a local MCP listener you then choose whether to expose. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
 
 ### Does this work with ChatGPT?
 
-Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Pax8 MCP server via a secure bridge. Step-by-step in the install guide.
+Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, but pax8-mcp speaks HTTP natively: run `pax8-mcp --transport http --addr :7777` and put its /mcp endpoint behind an HTTPS tunnel or your own reverse proxy. Step-by-step in the install guide.
 
 ### Do I need to know how to code?
 

@@ -60,12 +60,12 @@ Keep it - it's good at in-product work. An MSP Skills connector is complementary
 | Cross-client questions | One client at a time, paginated | The whole book of business in one ask |
 | What the AI reads | Raw records streamed into the chat | Query results - the answer, not the bulk data |
 | Systems per question | One (the vendor's own product) | Many - join your PSA, backup, RMM, and M365 |
-| Where it runs | Often a hosted cloud service | Your own machine - nothing leaves your network |
+| Where it runs | Often a hosted cloud service | Your own machine - your data stays local unless you route it somewhere yourself |
 
 ## Free, local, yours
 
 - **Free.** Apache-2.0 licensed. Free to use commercially, free to fork. No per-tech fee.
-- **Local.** The CLI and MCP server are binaries on your machine; the data copy sits under your user account. Your AI sees query results, not raw bulk data, and no data leaves your network.
+- **Local.** The CLI and MCP server are binaries on your machine; the data copy sits under your user account. Your AI sees query results, not raw bulk data, and your data stays local unless you route it somewhere yourself - the paths that can move it are `--deliver webhook:<url>`, a feedback endpoint you set, and - on the connectors whose MCP server has it - the `--transport http` listener you choose to expose. Each is off until you switch it on.
 - **Yours.** Open source, no proprietary plugin format, no SaaS subscription that ties you to one AI. Use one connector or all of them, with one agent or several.
 
 ## The place to get MSP connectors

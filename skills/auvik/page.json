@@ -63,7 +63,7 @@
   "faqs": [
     {
       "q": "Does this work with ChatGPT?",
-      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Auvik MCP server through a secure bridge. Step-by-step in the install guide."
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, but auvik-mcp speaks HTTP natively: run `auvik-mcp --transport http --addr :7777` and put its /mcp endpoint behind an HTTPS tunnel or your own reverse proxy. Step-by-step in the install guide."
     },
     {
       "q": "Do I need to know how to code?",
@@ -105,7 +105,7 @@
     },
     {
       "tier": "Data egress",
-      "examples": "--deliver webhook:<url> on any command (POSTs that command's output to a URL you name), feedback --send, and bare feedback when AUVIK_FEEDBACK_AUTO_SEND=true - that one needs no flag at all",
+      "examples": "--deliver webhook:<url> on any command (POSTs that command's output to a URL you name), and feedback --send or bare feedback with AUVIK_FEEDBACK_AUTO_SEND=true - both of which POST only when AUVIK_FEEDBACK_ENDPOINT names a URL you set, and write a local file otherwise",
       "policy": "Human-in-the-loop - a webhook sink moves client data off-box"
     }
   ]

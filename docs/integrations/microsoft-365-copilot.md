@@ -56,7 +56,7 @@ HALOPSA_CLIENT_SECRET=<secret> \
 halopsa-mcp --transport http --addr :7777
 ```
 
-Then expose `http://localhost:7777` as a public **HTTPS** URL via Cloudflare Tunnel, ngrok (HTTPS), or your own reverse proxy. (Repeat for `servosity-mcp` on another port.) **Treat the URL as a credential** - gate it behind SSO / Cloudflare Access; never expose it bare on the internet.
+Then expose `http://localhost:7777/mcp` as a public **HTTPS** URL via Cloudflare Tunnel, ngrok (HTTPS), or your own reverse proxy. The path matters: the server answers Streamable HTTP at `/mcp` and returns 404 at the bare root. (Repeat for `servosity-mcp` on another port.) **Treat the URL as a credential** - gate it behind SSO / Cloudflare Access; never expose it bare on the internet.
 
 For team / production use, host MSP Skills on a server inside your network and front it with an SSO-gated tunnel so only authenticated users reach it.
 

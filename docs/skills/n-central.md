@@ -10,9 +10,9 @@ faqs:
   - q: "Is there an MCP server for N-able N-central?"
     a: "Yes - this one. A free, open source MCP server and Claude Code Skill for N-able N-central, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds."
   - q: "Is the N-able N-central MCP server safe for client data?"
-    a: "Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
+    a: "Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Two paths can move data off the machine, both opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `N_CENTRAL_FEEDBACK_AUTO_SEND=true` posts feedback you typed to the URL in `N_CENTRAL_FEEDBACK_ENDPOINT` (with no endpoint set, `feedback` only writes a local file). Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
-    a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local N-central MCP server via a secure bridge. Step-by-step in the install guide."
+    a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, and n-central-mcp speaks stdio only, so you publish it over HTTPS with the supergateway bridge (`npx -y supergateway --stdio n-central-mcp --port 7777`) behind a tunnel or reverse proxy. Step-by-step in the install guide."
   - q: "Do I need to know how to code?"
     a: "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
   - q: "Is my N-central data safe?"
@@ -33,7 +33,7 @@ howto:
   - name: "Run the one-line installer"
     text: "macOS/Linux: bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/n-central/install.sh) - Windows PowerShell: iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/n-central/install.ps1 | iex"
   - name: "Authenticate"
-    text: "Enter your N-able N-central credentials once; n-central-cli doctor confirms they work."
+    text: "Enter your N-able N-central credentials once, then run n-central-cli doctor to check the install."
   - name: "Ask your first question"
     text: "Ask your AI agent a N-able N-central question in plain language; it runs n-central-cli for you."
 ---
@@ -46,7 +46,7 @@ howto:
 
 **Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
 
-Yes - there is an MCP server for N-able N-central. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects N-able N-central to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
+Yes - there is an MCP server for N-able N-central. It's free, open source, and runs on your own machine, so your client data stays local unless you route it somewhere yourself. It connects N-able N-central to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
 N-central knows every device you manage - and answering "where is that machine" still means walking the console's org tree. Ask your AI "what's red right now", "where is EXCHANGE01", or "which devices have no maintenance window before Saturday's patch wave" and get rollups the console can't compose: cross-tenant search from an offline mirror, severity-ranked triage, coverage audits, and a guardian that catches the JWT before it silently dies.
 
@@ -148,11 +148,11 @@ Yes - this one. A free, open source MCP server and Claude Code Skill for N-able 
 
 ### Is the N-able N-central MCP server safe for client data?
 
-Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
+Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Two paths can move data off the machine, both opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `N_CENTRAL_FEEDBACK_AUTO_SEND=true` posts feedback you typed to the URL in `N_CENTRAL_FEEDBACK_ENDPOINT` (with no endpoint set, `feedback` only writes a local file). Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
 
 ### Does this work with ChatGPT?
 
-Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local N-central MCP server via a secure bridge. Step-by-step in the install guide.
+Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, and n-central-mcp speaks stdio only, so you publish it over HTTPS with the supergateway bridge (`npx -y supergateway --stdio n-central-mcp --port 7777`) behind a tunnel or reverse proxy. Step-by-step in the install guide.
 
 ### Do I need to know how to code?
 

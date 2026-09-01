@@ -12,9 +12,10 @@ metadata:
       bins:
         - halopsa-cli
     install:
-      - kind: go
+      - kind: script
         bins: [halopsa-cli]
-        module: github.com/mvanhorn/printing-press-library/library/project-management/halopsa/cmd/halopsa-cli
+        sh: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/halopsa/install.sh
+        ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/halopsa/install.ps1
 ---
 
 # HaloPSA  -  Printing Press CLI
@@ -23,18 +24,21 @@ metadata:
 
 This skill drives the `halopsa-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
+1. macOS / Linux:
    ```bash
-   npx -y @mvanhorn/printing-press-library install halopsa --cli-only
+   bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/halopsa/install.sh)
    ```
-2. Verify: `halopsa-cli --version`
-3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
+2. Windows (PowerShell):
+   ```powershell
+   iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/halopsa/install.ps1 | iex
+   ```
+3. Verify: `halopsa-cli --version`
+4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
 
-If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.4 or newer). This installs into `$GOPATH/bin` (default `$HOME/go/bin`), so add that directory to `$PATH` instead:
-
-```bash
-go install github.com/mvanhorn/printing-press-library/library/project-management/halopsa/cmd/halopsa-cli@latest
-```
+The installer downloads the `halopsa-cli` and `halopsa-mcp` binaries into `~/.local/bin`
+(macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows). It does not
+register the skill with your agent and writes no MCP client config - see
+[mcp-install.md](./mcp-install.md) for that wire-up.
 
 If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
@@ -2966,10 +2970,7 @@ Parse `$ARGUMENTS`:
 
 ## MCP Server Installation
 
-1. Install the MCP server:
-   ```bash
-   go install github.com/mvanhorn/printing-press-library/library/project-management/halopsa/cmd/halopsa-mcp@latest
-   ```
+1. Install the MCP binary (run the install script from the Prerequisites section, or see [mcp-install.md](./mcp-install.md) for per-agent wire-up).
 2. Register with Claude Code:
    ```bash
    claude mcp add halopsa-mcp -- halopsa-mcp

@@ -46,6 +46,8 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
+> **Interim note on `.mcpb`:** check the bundle before you trust it ([#287](https://github.com/Servosity/msp-skills/issues/287)). Its `manifest.json` launches `${__dirname}/bin/auvik-pp-mcp`, while the builder stores the release binaries in `bin/` under their platform-suffixed names - `auvik-mcp-darwin-arm64`, `-darwin-amd64`, `-linux-arm64`, `-linux-amd64`, `-windows-amd64.exe`. Run `unzip -l <file>.mcpb | grep bin/`: if the name the manifest launches is not among them, Claude Desktop has nothing to run - use Path A or Path B below and wire Claude Desktop up through [mcp-install.md](./mcp-install.md).
+
 [**Download Auvik MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/auvik-v0.2.2/auvik-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Auvik release on the [releases page](https://github.com/servosity/msp-skills/releases?q=auvik).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
@@ -140,7 +142,7 @@ Set the credentials the CLI needs (from your Auvik portal):
 AUVIK_USERNAME=<value> AUVIK_API_KEY=<value> auvik-cli doctor
 ```
 
-`doctor` checks config, paths, and API reachability, and reports whether credentials are loaded - it does not validate them. Run a read command to confirm the credential actually works end-to-end.
+`doctor` checks config, paths, and API reachability, then verifies the credential itself with one authenticated read: it reports `valid`, `rejected (HTTP 401)`, `scope-limited (HTTP 403)`, or `not verified` when the probe never reached an endpoint that could check it. It exits 0 even when the credential is rejected, so scripts should add `--fail-on error`.
 
 
 ## What this skill does
@@ -219,7 +221,7 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 | Read | `eol`, `configuration audit`, `inventory diff`, `usage reconcile`, `device discovery-gaps`, `alert noise`, `asm shadow`, `changes`, `sync`, `search`, `export`, every `list` / `get`, and all of the `settings` and `stat` SNMP-poller commands (GET-only, despite reading like setters) | Allow |
 | Write (routine) | `alert dismiss-single` and its friendly twin `alert dismiss` - the only write the Auvik API supports; allowlist both names | Preview with `--dry-run`, then a reviewed write |
 | Credential / security | `auth set-credentials` (writes the credential to the CLI's credentials file), `auth logout` | Human-in-the-loop only |
-| Data egress | `--deliver webhook:<url>` on any command (POSTs that command's output to a URL you name), `feedback --send`, and **bare `feedback` when `AUVIK_FEEDBACK_AUTO_SEND=true`** - that one needs no flag at all, so allowlisting `feedback` as local-only is not safe once that env var is set | Human-in-the-loop - a webhook sink moves client data off-box |
+| Data egress | `--deliver webhook:<url>` on any command (POSTs that command's output to a URL you name), `feedback --send`, and **bare `feedback` when `AUVIK_FEEDBACK_ENDPOINT` is set and `AUVIK_FEEDBACK_AUTO_SEND=true`** - that pair needs no flag at all, so allowlisting `feedback` as local-only is not safe once both are set (with no endpoint set, `feedback` only writes a local file) | Human-in-the-loop - a webhook sink moves client data off-box |
 
 The Auvik API exposes no delete and no administrative write, so there is no Destructive or Admin tier to gate.
 

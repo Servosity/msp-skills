@@ -12,9 +12,10 @@ metadata:
       bins:
         - immybot-cli
     install:
-      - kind: go
+      - kind: script
         bins: [immybot-cli]
-        module: github.com/mvanhorn/printing-press-library/library/monitoring/immybot/cmd/immybot-cli
+        sh: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/immybot/install.sh
+        ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/immybot/install.ps1
 ---
 
 # ImmyBot - Printing Press CLI
@@ -23,14 +24,21 @@ metadata:
 
 This skill drives the `immybot-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
+1. macOS / Linux:
    ```bash
-   npx -y @mvanhorn/printing-press-library install immybot --cli-only
+   bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/immybot/install.sh)
    ```
-2. Verify: `immybot-cli --version`
-3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
+2. Windows (PowerShell):
+   ```powershell
+   iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/immybot/install.ps1 | iex
+   ```
+3. Verify: `immybot-cli --version`
+4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
 
-If the `npx` install fails before this CLI has a public-library category, install Node or use the category-specific Go fallback after publish.
+The installer downloads the `immybot-cli` and `immybot-mcp` binaries into `~/.local/bin`
+(macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows). It does not
+register the skill with your agent and writes no MCP client config - see
+[mcp-install.md](./mcp-install.md) for that wire-up.
 
 If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 

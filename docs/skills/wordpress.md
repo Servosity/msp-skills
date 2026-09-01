@@ -10,9 +10,9 @@ faqs:
   - q: "Is there an MCP server for WordPress?"
     a: "Yes - this one. A free, open source MCP server and Claude Code Skill for WordPress, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds."
   - q: "Is the WordPress MCP server safe for client data?"
-    a: "Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
+    a: "Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Three paths can move data off the machine, all opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `WORDPRESS_FEEDBACK_AUTO_SEND=true` posts feedback you typed to the URL in `WORDPRESS_FEEDBACK_ENDPOINT` (with no endpoint set, `feedback` only writes a local file); `--transport http` opens a local MCP listener you then choose whether to expose. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
-    a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local WordPress MCP server via a secure bridge. Step-by-step in the install guide."
+    a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, but wordpress-mcp speaks HTTP natively: run `wordpress-mcp --transport http --addr :7777` and put its /mcp endpoint behind an HTTPS tunnel or your own reverse proxy. Step-by-step in the install guide."
   - q: "Do I need to know how to code?"
     a: "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
   - q: "Is my WordPress data safe?"
@@ -27,7 +27,7 @@ howto:
   - name: "Run the one-line installer"
     text: "macOS/Linux: bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/wordpress/install.sh) - Windows PowerShell: iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/wordpress/install.ps1 | iex"
   - name: "Authenticate"
-    text: "Enter your WordPress credentials once; wordpress-cli doctor confirms they work."
+    text: "Enter your WordPress credentials once, then run wordpress-cli doctor to check the install."
   - name: "Ask your first question"
     text: "Ask your AI agent a WordPress question in plain language; it runs wordpress-cli for you."
 ---
@@ -40,7 +40,7 @@ howto:
 
 **✓ Live-verified by Servosity (maintainer)** against a production tenant · 2026-08-16.
 
-Yes - there is an MCP server for WordPress. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects WordPress to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
+Yes - there is an MCP server for WordPress. It's free, open source, and runs on your own machine, so your client data stays local unless you route it somewhere yourself. It connects WordPress to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
 Ask your AI to "publish this landing page as a draft" or "find every page still mentioning the old pricing" and it happens from the terminal - no wp-admin clicking, no SSH for WP-CLI. This skill drives the WordPress REST API to create, update, search, and delete pages, posts, and media, and syncs the whole site into a local mirror so cross-content questions become one instant offline query.
 
@@ -143,11 +143,11 @@ Yes - this one. A free, open source MCP server and Claude Code Skill for WordPre
 
 ### Is the WordPress MCP server safe for client data?
 
-Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
+Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Three paths can move data off the machine, all opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `WORDPRESS_FEEDBACK_AUTO_SEND=true` posts feedback you typed to the URL in `WORDPRESS_FEEDBACK_ENDPOINT` (with no endpoint set, `feedback` only writes a local file); `--transport http` opens a local MCP listener you then choose whether to expose. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
 
 ### Does this work with ChatGPT?
 
-Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local WordPress MCP server via a secure bridge. Step-by-step in the install guide.
+Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, but wordpress-mcp speaks HTTP natively: run `wordpress-mcp --transport http --addr :7777` and put its /mcp endpoint behind an HTTPS tunnel or your own reverse proxy. Step-by-step in the install guide.
 
 ### Do I need to know how to code?
 

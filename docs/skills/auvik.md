@@ -10,9 +10,9 @@ faqs:
   - q: "Is there an MCP server for Auvik?"
     a: "Yes - this one. A free, open source MCP server and Claude Code Skill for Auvik, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds."
   - q: "Is the Auvik MCP server safe for client data?"
-    a: "Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
+    a: "Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Three paths can move data off the machine, all opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `AUVIK_FEEDBACK_AUTO_SEND=true` posts feedback you typed to the URL in `AUVIK_FEEDBACK_ENDPOINT` (with no endpoint set, `feedback` only writes a local file); `--transport http` opens a local MCP listener you then choose whether to expose. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
-    a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Auvik MCP server through a secure bridge. Step-by-step in the install guide."
+    a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, but auvik-mcp speaks HTTP natively: run `auvik-mcp --transport http --addr :7777` and put its /mcp endpoint behind an HTTPS tunnel or your own reverse proxy. Step-by-step in the install guide."
   - q: "Do I need to know how to code?"
     a: "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your Auvik user email and API key once."
   - q: "Why does it need both a username and an API key?"
@@ -27,7 +27,7 @@ howto:
   - name: "Run the one-line installer"
     text: "macOS/Linux: bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/auvik/install.sh) - Windows PowerShell: iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/auvik/install.ps1 | iex"
   - name: "Authenticate"
-    text: "Enter your Auvik credentials once; auvik-cli doctor confirms they work."
+    text: "Enter your Auvik credentials once, then run auvik-cli doctor to check the install."
   - name: "Ask your first question"
     text: "Ask your AI agent a Auvik question in plain language; it runs auvik-cli for you."
 ---
@@ -40,7 +40,7 @@ howto:
 
 **Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
 
-Yes - there is an MCP server for Auvik. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects Auvik to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
+Yes - there is an MCP server for Auvik. It's free, open source, and runs on your own machine, so your client data stays local unless you route it somewhere yourself. It connects Auvik to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
 Ask your AI what is going end-of-life, what is unbacked-up, or why a client's billable device count moved, and get the device rows behind the answer across every client at once. Auvik holds the richest network truth an MSP has, but its API answers one client, right now, and reports no deletions at all. This mirrors Auvik into local SQLite so the cross-client and change-over-time questions become one query.
 
@@ -127,7 +127,7 @@ After install, authenticate once with your Auvik credentials, then verify with `
 | Read | eol, configuration audit, inventory diff, usage reconcile, device discovery-gaps, alert noise, asm shadow, changes, sync, search, export, every list/get command, and all of the settings and stat SNMP-poller commands (they are GET-only despite the name) | Allow |
 | Write (routine) | alert dismiss-single and its friendly twin alert dismiss - both call POST /v1/alert/dismiss/{id}, the only write the Auvik API supports; allowlist both names | Preview with --dry-run, then a reviewed write |
 | Credential / security | auth set-credentials (writes the credential to the CLI's credentials file), auth logout | Human-in-the-loop only |
-| Data egress | --deliver webhook:<url> on any command (POSTs that command's output to a URL you name), feedback --send, and bare feedback when AUVIK_FEEDBACK_AUTO_SEND=true - that one needs no flag at all | Human-in-the-loop - a webhook sink moves client data off-box |
+| Data egress | --deliver webhook:<url> on any command (POSTs that command's output to a URL you name), and feedback --send or bare feedback with AUVIK_FEEDBACK_AUTO_SEND=true - both of which POST only when AUVIK_FEEDBACK_ENDPOINT names a URL you set, and write a local file otherwise | Human-in-the-loop - a webhook sink moves client data off-box |
 
 Auvik's API is read-only in practice and this CLI reflects that: the eight cross-client analysis commands read the local mirror and cannot change anything upstream, and dismissing an alert is the only write the API supports at all. The strongest control is the scope of the API key, which inherits the permissions of the user who created it - mint it as a read-only user for a reporting workflow. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/auvik/governance.md).
 
@@ -139,11 +139,11 @@ Yes - this one. A free, open source MCP server and Claude Code Skill for Auvik, 
 
 ### Is the Auvik MCP server safe for client data?
 
-Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
+Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Three paths can move data off the machine, all opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `AUVIK_FEEDBACK_AUTO_SEND=true` posts feedback you typed to the URL in `AUVIK_FEEDBACK_ENDPOINT` (with no endpoint set, `feedback` only writes a local file); `--transport http` opens a local MCP listener you then choose whether to expose. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
 
 ### Does this work with ChatGPT?
 
-Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Auvik MCP server through a secure bridge. Step-by-step in the install guide.
+Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, but auvik-mcp speaks HTTP natively: run `auvik-mcp --transport http --addr :7777` and put its /mcp endpoint behind an HTTPS tunnel or your own reverse proxy. Step-by-step in the install guide.
 
 ### Do I need to know how to code?
 

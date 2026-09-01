@@ -23,6 +23,7 @@ Pure stdlib. Invoked automatically by build-catalog.py.
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -52,6 +53,47 @@ def banner(vendor: str, owner: str, first_party: bool) -> str:
         "> under Apache-2.0 - built for the MSP community, vendor-neutral by design.\n"
         f"> Not affiliated with, endorsed by, or sponsored by {owner}."
     )
+
+
+def feedback_env_vars(skill_dir: Path) -> tuple[str, str] | None:
+    """This connector's (AUTO_SEND, ENDPOINT) feedback variables, read from source.
+
+    Both are needed to describe the path honestly, because the POST in
+    feedback.go is gated on BOTH:
+
+        if endpoint := feedbackEndpoint(); endpoint != "" && (send || feedbackAutoSend())
+
+    AUTO_SEND on its own sends nothing, and the destination is whatever URL the
+    operator puts in ENDPOINT - there is no default and no maintainer endpoint
+    anywhere in the fleet (feedbackEndpoint() is a bare os.Getenv, and no
+    goreleaser ldflags or workflow bakes one in). The prefix is NOT derivable
+    from the slug (unifi-network reads UNIFI_*), so the page quotes what
+    internal/cli/feedback.go actually calls os.Getenv on.
+    """
+    src = skill_dir / "cli" / "internal" / "cli" / "feedback.go"
+    try:
+        text = src.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    auto = re.search(r'os\.Getenv\("([A-Z0-9_]+_FEEDBACK_AUTO_SEND)"\)', text)
+    endpoint = re.search(r'os\.Getenv\("([A-Z0-9_]+_FEEDBACK_ENDPOINT)"\)', text)
+    if not auto or not endpoint:
+        return None
+    return auto.group(1), endpoint.group(1)
+
+
+def serves_http(skill_dir: Path) -> bool:
+    """Does this connector's MCP binary parse --transport, and so open a listener?
+
+    6 of 65 do not: their main() calls server.ServeStdio directly, so the flag is
+    inert and no listener exists to describe. Read from cmd/<slug>-mcp/main.go
+    rather than assumed, because it is spec-driven and varies within one press
+    version. See issue #241.
+    """
+    mains = sorted((skill_dir / "cli" / "cmd").glob("*-mcp/main.go"))
+    if not mains:
+        return False
+    return 'flag.String("transport"' in mains[0].read_text(encoding="utf-8")
 
 
 def sibling_links_block(slug: str, entry: dict) -> str:
@@ -122,12 +164,49 @@ def render_page(slug: str) -> Path:
     # The literal direct answer AI search engines (and skimming MSP owners)
     # reward: the page answers its own title before anything else. Rendered as
     # the FIRST prose paragraph; check_aeo asserts it on every skill page.
+    #
+    # "never leaves your network" used to be stated here as an absolute. It is
+    # not one: every connector ships `--deliver webhook:<url>` (65/65), a
+    # <PREFIX>_FEEDBACK_ENDPOINT + <PREFIX>_FEEDBACK_AUTO_SEND pair (65/65), and
+    # a `--transport http` listener (59/65). All three are opt-in and
+    # operator-driven, which is what the wording now says - the claim is scoped,
+    # not dropped.
+    #
+    # Asked for in the COMMENT THREAD on issue #240, not in that issue's body:
+    # the body is three install-doc defects, and the maintainer comment adds a
+    # fourth ("your client data never leaves your network", 65 pages) whose
+    # suggested wording is "data stays local unless *you* route it somewhere".
+    # docs/index.md and docs/why-msp-skills.md carry the same claim in their
+    # comparison tables and are scoped to match, so the site states it once.
     direct_answer = (
         f"Yes - there is an MCP server for {display}. It's free, open source, "
-        "and runs on your own machine, so your client data never leaves your "
-        f"network. It connects {display} to Claude, ChatGPT, Copilot, or any "
-        "MCP-capable agent, and installs in about 60 seconds."
+        "and runs on your own machine, so your client data stays local unless "
+        f"you route it somewhere yourself. It connects {display} to Claude, "
+        "ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 "
+        "seconds."
     )
+
+    # The egress paths this connector actually ships, named so the safety FAQ
+    # scopes its promise instead of asserting an absolute the binary contradicts.
+    # Each is opt-in and operator-driven; none fires on its own.
+    egress = ["`--deliver webhook:<url>` posts a command's output to a URL you name"]
+    fb_vars = feedback_env_vars(skill_dir)
+    if fb_vars:
+        auto, endpoint = fb_vars
+        egress.append(
+            f"`{auto}=true` posts feedback you typed to the URL in `{endpoint}` "
+            f"(with no endpoint set, `feedback` only writes a local file)"
+        )
+    if serves_http(skill_dir):
+        egress.append("`--transport http` opens a local MCP listener you then choose "
+                      "whether to expose")
+    noun, quantifier = {
+        1: ("One path", "and it is"),
+        2: ("Two paths", "both"),
+        3: ("Three paths", "all"),
+    }.get(len(egress), (f"{len(egress)} paths", "all"))
+    egress_sentence = (f"{noun} can move data off the machine, {quantifier} opt-in: "
+                       + "; ".join(egress) + ".")
 
     # Two generator-level FAQs every skill page carries (AEO: the exact
     # questions MSPs type into AI search), ahead of the page.json FAQs.
@@ -144,12 +223,14 @@ def render_page(slug: str) -> Path:
         {
             "q": f"Is the {display} MCP server safe for client data?",
             "a": (
-                "Yes, by design. The CLI, the MCP server, and any local data "
-                "mirror run on your own machine - nothing is sent to MSP Skills "
-                "or any third party. Credentials stay in your environment, and "
-                "every command is safety-tiered (read, write, destructive) so "
-                "your agent only gets the permissions you grant. Full policy in "
-                "the safety model on this page."
+                "Yes, by design - and the exceptions are ones you switch on "
+                "yourself. The CLI, the MCP server, and any local data mirror run "
+                "on your own machine, and nothing is sent to MSP Skills or any "
+                f"third party unless you ask for it. {egress_sentence} "
+                "Credentials stay in your environment, and every command is "
+                "safety-tiered (read, write, destructive) so your agent only gets "
+                "the permissions you grant. Full policy in the safety model on "
+                "this page."
             ),
         },
     ]
@@ -163,7 +244,7 @@ def render_page(slug: str) -> Path:
         f'  - name: "Run the one-line installer"\n'
         f'    text: "macOS/Linux: bash <(curl -fsSL https://raw.githubusercontent.com/{OWNER_TITLE}/{REPO}/main/skills/{slug}/install.sh) - Windows PowerShell: iwr -useb https://raw.githubusercontent.com/{OWNER_TITLE}/{REPO}/main/skills/{slug}/install.ps1 | iex"\n'
         f'  - name: "Authenticate"\n'
-        f'    text: "Enter your {display} credentials once; {cli_bin} doctor confirms they work."\n'
+        f'    text: "Enter your {display} credentials once, then run {cli_bin} doctor to check the install."\n'
         f'  - name: "Ask your first question"\n'
         f'    text: "Ask your AI agent a {display} question in plain language; it runs {cli_bin} for you."\n'
     )

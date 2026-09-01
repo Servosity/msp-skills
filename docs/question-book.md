@@ -1,13 +1,13 @@
 ---
 layout: default
 title: "The MSP AI Question Book - 200+ plain-English questions your AI can answer"
-description: "642 plain-English questions your AI can answer from the PSA, RMM, backup, security, and billing tools you already run - aggregated from all 55 free MSP Skills connectors. No code required, runs locally."
+description: "761 plain-English questions your AI can answer from the PSA, RMM, backup, security, and billing tools you already run - aggregated from all 65 free MSP Skills connectors. No code required, runs locally."
 permalink: /question-book/
 ---
 
 # The MSP AI Question Book
 
-642 plain-English questions MSP owners ask their AI every day - aggregated from the 55 free, open source connectors on this site and grouped by tool category. Every question maps to a real, gate-verified command your AI agent runs against your PSA, RMM, backup, security, or billing stack - locally, without your data leaving your network. Find your tools, steal the questions.
+761 plain-English questions MSP owners ask their AI every day - aggregated from the 65 free, open source connectors on this site and grouped by tool category. Every question maps to a real, gate-verified command your AI agent runs against your PSA, RMM, backup, security, or billing stack. It runs on your own machine, and your data stays local unless you route it somewhere yourself. Find your tools, steal the questions.
 
 Each connector installs in about 60 seconds and works with Claude, ChatGPT, Copilot, and any MCP-capable agent. New to the term? [What an MCP server is →](/what-is-an-mcp-server/)
 
@@ -191,6 +191,22 @@ Free AppDirect MCP server: [install and ask →](/skills/appdirect/)
 - Find any company, subscription, invoice, or opportunity by keyword.
 - Pull the whole marketplace into a local mirror for offline analysis.
 
+### AWS
+
+Free AWS MCP server: [install and ask →](/skills/aws-billing/)
+
+- Why did my AWS bill go up since last month?
+- Which account is driving my AWS spend?
+- Where am I wasting money on AWS?
+- Why did my bill change month-over-month?
+- Which linked account is driving org spend?
+- Where am I wasting money right now?
+- What does this cryptic usage-type line mean?
+- Where is my data-transfer cost leaking?
+- What will I spend next month?
+- How do I give a colleague read-only billing access?
+- What's a plain answer about my bill?
+
 ### Gradient MSP
 
 Free Gradient MSP MCP server: [install and ask →](/skills/gradient/)
@@ -206,6 +222,23 @@ Free Gradient MSP MCP server: [install and ask →](/skills/gradient/)
 - Is my integration ready to flip to active?
 - Add a single ad-hoc unit count for one account and service?
 - Are my credentials valid and what's my integration status?
+
+### Maxio
+
+Free Maxio MCP server: [install and ask →](/skills/maxio/)
+
+- Show me the MRR waterfall by month since January
+- Which accounts need my attention this week?
+- What's our net and gross revenue retention this year?
+- What's our current MRR and ARR right now?
+- How did MRR move month over month (new, expansion, contraction, churn, reactivation)?
+- What's our net and gross revenue retention, and quick ratio?
+- What's recurring revenue for this customer, and how has it trended?
+- Which accounts need attention this week?
+- How much MRR is up for renewal in the next 30 days?
+- Which usage components drove expansion versus contraction?
+- Where does normalized MRR diverge from what we actually invoiced?
+- How many new logos did we land this quarter, and how much MRR?
 
 ### Pax8
 
@@ -239,6 +272,8 @@ Free QuickBooks Online MCP server: [install and ask →](/skills/quickbooks/)
 - Which payments came in but were never applied to an invoice?
 - Which customers are duplicated in our list?
 - Who slipped an aging bucket since our last check?
+- What were our recognized revenue, gross margin, and net income last month?
+- What is our deferred revenue balance right now?
 
 ### Sherweb
 
@@ -438,6 +473,25 @@ Free Rootly MCP server: [install and ask →](/skills/rootly/)
 - Which open action items are overdue, grouped by owner?
 - Draft a paste-ready post-mortem skeleton for this incident.
 
+## Marketing
+
+### WordPress
+
+Free WordPress MCP server: [install and ask →](/skills/wordpress/)
+
+- Publish this landing page as a draft and give me its id
+- Upload this hero image and tell me its media id
+- Which pages are still drafts?
+- Publish a landing page from HTML without opening wp-admin?
+- Which pages are still sitting in draft?
+- Update a live page's content in place?
+- Upload a hero image and get its media id for a featured image?
+- Find every page or post that mentions an outdated phrase (after a `workflow archive`)?
+- Mirror the whole site locally for offline search and backup?
+- What's mirrored locally and how fresh is it?
+- Publish a blog post with categories and tags?
+- Which authors can I assign content to?
+
 ## Monitoring
 
 ### Better Stack
@@ -475,6 +529,39 @@ Free Domotz MCP server: [install and ask →](/skills/domotz/)
 - How many devices of each vendor do we manage?
 - Which Collectors have gone quiet (stale sync)?
 - Find a hostname or IP anywhere in the synced fleet
+
+### UniFi Network
+
+Free UniFi Network MCP server: [install and ask →](/skills/unifi-network/)
+
+- What changed on this UniFi site since my last check?
+- What devices and clients joined this network in the last week?
+- Do I have port and PoE headroom on this site?
+- What changed in this site's config since my last check?
+- What devices and clients joined the network this week?
+- Do I have switch port and PoE headroom before adding hardware?
+- Which firewall policy would match traffic from this host?
+- Which clients are sitting behind which device?
+- What firewall policies are configured on this site?
+- Who is on the guest network, and which vouchers are live?
+- List every adopted device on the site
+
+## Other
+
+### Resource Guru
+
+Free Resource Guru MCP server: [install and ask →](/skills/resourceguru/)
+
+- Who is overbooked between June 1 and June 30?
+- Who has slack next week to take on a new project?
+- How much bookable capacity is left in July?
+- Who is overbooked across the whole fleet this month?
+- What is each person's utilization, day by day?
+- Who has slack to take on new work next week?
+- How much bookable capacity is left next month?
+- What changed on the schedule in the last week?
+- How is workload distributed across the team?
+- Find a booking, client, or project anywhere in the synced schedule
 
 ## PSA
 
@@ -574,6 +661,26 @@ Free Syncro MCP server: [install and ask →](/skills/syncro/)
 - Which RMM alerts never became a ticket?
 - Give me one cross-entity card for a single customer.
 
+### Zammad
+
+Free Zammad MCP server: [install and ask →](/skills/zammad/)
+
+- Who on support is overloaded right now?
+- Which tickets are open too long, and which customers sound ready to escalate?
+- Which customers are trending toward churn?
+- Who on the team is overloaded, and who is idle?
+- Is each agent's queue growing or shrinking week over week?
+- Which customers are struggling and should get attention first?
+- What tickets have been open too long, worst first?
+- Which customers sound upset and should be escalated?
+- Which accounts are trending toward churn, and why?
+- What are customers asking for around features, pricing, and compliance?
+- Find open tickets (scope to a customer with organization_id:N)
+- Read a ticket's full conversation
+- Log an internal note on a ticket without opening the browser
+- Search the Knowledge Base before answering a customer
+- See the whole Knowledge Base as a tree
+
 ## RMM
 
 ### Action1
@@ -611,6 +718,22 @@ Free Atera MCP server: [install and ask →](/skills/atera/)
 - Which machines are running an end-of-life OS?
 - What changed across agents, tickets, and alerts in the last 24 hours?
 
+### Auvik
+
+Free Auvik MCP server: [install and ask →](/skills/auvik/)
+
+- What is past end-of-support across all my clients?
+- Which devices have no configuration backup?
+- Which clients' billed device counts do not match their inventory?
+- What hardware is past or approaching end-of-support across every client?
+- What ages out in the next 90 days, so I can put it in a QBR?
+- Which devices have no configuration backup, or only a stale one?
+- What was added, changed, or removed across the fleet since the last sync?
+- Which clients' billed device counts disagree with their actual inventory?
+- Which devices can Auvik not fully poll, and what credential is failing?
+- Which devices and clients generate the most alert noise?
+- Which SaaS apps have users but no licence, and which licences is nobody using?
+
 ### ConnectWise Automate
 
 Free ConnectWise Automate MCP server: [install and ask →](/skills/connectwise-automate/)
@@ -640,6 +763,24 @@ Free Datto RMM MCP server: [install and ask →](/skills/datto-rmm/)
 - Give me a one-page health scorecard for a client before the QBR.
 - How many copies of an app are installed fleet-wide, and which versions?
 - Which devices are running an out-of-date RMM agent?
+
+### ImmyBot
+
+Free ImmyBot MCP server: [install and ask →](/skills/immybot/)
+
+- What failed in last night's maintenance window, grouped by root cause?
+- Which tenants are still running Chrome below 140?
+- Why didn't this computer get the deployment?
+- What failed in last night's maintenance window, by root cause?
+- Which tenants are still below a patched version of a title?
+- Why did this computer not get the deployment?
+- What changed across the fleet since yesterday?
+- Which computers are stuck part way through onboarding?
+- Which deployments have never actually worked?
+- What does this script reach before I edit it?
+- Where does ImmyBot disagree with my linked PSA or RMM roster?
+- Everything known about one computer, in one view?
+- Which tenants are drifting on software compliance?
 
 ### Level
 
@@ -765,6 +906,21 @@ Free Abnormal Security MCP server: [install and ask →](/skills/abnormal/)
 - How many attacks did we stop this week?
 - Find threats from a spoofed sender
 
+### Avanan
+
+Free Avanan MCP server: [install and ask →](/skills/avanan/)
+
+- What did Avanan catch on my tenants in the last 24 hours?
+- Is this one phishing campaign or forty separate problems?
+- Is this domain excepted anywhere in Avanan?
+- What did Avanan catch across my tenants since the start of my shift?
+- Are these forty detections one phishing campaign or forty problems?
+- A user says we quarantined a legitimate email. What actually happened to it?
+- Is this domain, sender, URL, or hash already excepted anywhere?
+- Which of our exceptions contradict each other or have not matched any traffic in the mirrored window?
+- Which tenant is over its seat count or having an unusual detection week?
+- Quarantine this batch and tell me the real per-message outcome, not just that a task started.
+
 ### Blumira
 
 Free Blumira MCP server: [install and ask →](/skills/blumira/)
@@ -801,6 +957,22 @@ Free CIPP MCP server: [install and ask →](/skills/cipp/)
 - Pull one read across every client tenant at once and keep it locally
 - Offboard a batch of departures from a CSV with 429 backoff and resume
 - Are my CIPP credentials and connectivity healthy?
+
+### Cork
+
+Free Cork MCP server: [install and ask →](/skills/cork/)
+
+- Why did this client's Cork score drop this month?
+- What should we patch first across all our clients?
+- Which of our Cork connectors have quietly stopped syncing?
+- Why did this client's risk score move, and which component drove it?
+- Which clients across the whole book slipped the most this week?
+- What should we patch first, ranked by what is actually being exploited?
+- An advisory just named a CVE. Are we exposed, and where?
+- Which compliance events have blown their remediation window?
+- Which connectors report healthy but stopped syncing?
+- Did this client get fully monitored after onboarding, or did an endpoint fall through?
+- Which unwarranted clients are carrying the most risk right now?
 
 ### CrowdStrike Falcon
 
@@ -868,6 +1040,7 @@ Free Microsoft Graph MCP server: [install and ask →](/skills/microsoft-graph/)
 - What open security alerts are new since yesterday, by severity and source?
 - Which Intune devices are non-compliant, unencrypted, or stale this month?
 - Which groups are ownerless, empty, or guest-heavy across the tenant?
+- Which third-party apps have been consented into the tenant, and which are over-privileged, admin-consented, or user-consented shadow IT?
 - Where does this tenant stand overall - users, license waste, admins, alerts, device drift?
 
 ### Proofpoint TAP

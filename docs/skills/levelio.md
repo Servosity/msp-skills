@@ -10,9 +10,9 @@ faqs:
   - q: "Is there an MCP server for Level?"
     a: "Yes - this one. A free, open source MCP server and Claude Code Skill for Level, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds."
   - q: "Is the Level MCP server safe for client data?"
-    a: "Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
+    a: "Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Two paths can move data off the machine, both opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `LEVELIO_FEEDBACK_AUTO_SEND=true` posts feedback you typed to the URL in `LEVELIO_FEEDBACK_ENDPOINT` (with no endpoint set, `feedback` only writes a local file). Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
-    a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Level MCP server via a secure bridge. Step-by-step in the install guide."
+    a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, and levelio-mcp speaks stdio only, so you publish it over HTTPS with the supergateway bridge (`npx -y supergateway --stdio levelio-mcp --port 7777`) behind a tunnel or reverse proxy. Step-by-step in the install guide."
   - q: "Do I need to know how to code?"
     a: "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
   - q: "Is my Level data safe?"
@@ -27,7 +27,7 @@ howto:
   - name: "Run the one-line installer"
     text: "macOS/Linux: bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/levelio/install.sh) - Windows PowerShell: iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/levelio/install.ps1 | iex"
   - name: "Authenticate"
-    text: "Enter your Level credentials once; levelio-cli doctor confirms they work."
+    text: "Enter your Level credentials once, then run levelio-cli doctor to check the install."
   - name: "Ask your first question"
     text: "Ask your AI agent a Level question in plain language; it runs levelio-cli for you."
 ---
@@ -40,7 +40,7 @@ howto:
 
 **Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
 
-Yes - there is an MCP server for Level. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects Level to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
+Yes - there is an MCP server for Level. It's free, open source, and runs on your own machine, so your client data stays local unless you route it somewhere yourself. It connects Level to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
 Ask "which Level endpoints are most at risk right now?" and get one ranked list across active alerts, missing patches, low security scores, and dark devices - not four portal tabs. levelio-cli syncs your whole Level fleet into a local mirror, then answers portfolio-wide questions the portal shows one device at a time: patch exposure, stale agents, alert clusters, and per-client QBR scorecards. Offline, instant, and read-only-safe.
 
@@ -144,11 +144,11 @@ Yes - this one. A free, open source MCP server and Claude Code Skill for Level, 
 
 ### Is the Level MCP server safe for client data?
 
-Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
+Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Two paths can move data off the machine, both opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `LEVELIO_FEEDBACK_AUTO_SEND=true` posts feedback you typed to the URL in `LEVELIO_FEEDBACK_ENDPOINT` (with no endpoint set, `feedback` only writes a local file). Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
 
 ### Does this work with ChatGPT?
 
-Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Level MCP server via a secure bridge. Step-by-step in the install guide.
+Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, and levelio-mcp speaks stdio only, so you publish it over HTTPS with the supergateway bridge (`npx -y supergateway --stdio levelio-mcp --port 7777`) behind a tunnel or reverse proxy. Step-by-step in the install guide.
 
 ### Do I need to know how to code?
 

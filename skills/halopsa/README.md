@@ -25,7 +25,7 @@ The five agents MSP owners actually use:
 | **Codex CLI** | Paste the install prompt below. |
 | **Claude Cowork** | Paste the install prompt below. |
 
-For ChatGPT, the HaloPSA MCP server is stdio - to use it with ChatGPT you expose it over HTTPS via the `mcp-remote` bridge or your own endpoint. See [mcp-install.md](./mcp-install.md).
+For ChatGPT, run `halopsa-mcp --transport http` and expose that behind HTTPS - no bridge package is needed. See [mcp-install.md](./mcp-install.md).
 
 > **Also works with** Cursor, Windsurf, Cline, Continue.dev, Zed, GitHub Copilot, and Gemini CLI - plus [Hermes](https://hermes-agent.nousresearch.com) and [OpenClaw](#install-for-openclaw), both via MCP and the pre-wired skill frontmatter. Full per-tool wire-up: **[docs/which-agent.md](../../docs/which-agent.md)**.
 
@@ -34,6 +34,8 @@ For ChatGPT, the HaloPSA MCP server is stdio - to use it with ChatGPT you expose
 ## Install in 60 seconds
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
+
+> **Interim note on `.mcpb`:** check the bundle before you trust it ([#287](https://github.com/Servosity/msp-skills/issues/287)). Its `manifest.json` launches `${__dirname}/bin/halopsa-mcp`, while the builder stores the release binaries in `bin/` under their platform-suffixed names - `halopsa-mcp-darwin-arm64`, `-darwin-amd64`, `-linux-arm64`, `-linux-amd64`, `-windows-amd64.exe`. Run `unzip -l <file>.mcpb | grep bin/`: if the name the manifest launches is not among them, Claude Desktop has nothing to run - use Path A or Path B below and wire Claude Desktop up through [mcp-install.md](./mcp-install.md).
 
 [**Download HaloPSA MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/halopsa-v0.2.14/halopsa-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every HaloPSA release on the [releases page](https://github.com/servosity/msp-skills/releases?q=halopsa).)
 
@@ -178,7 +180,7 @@ This skill puts the PSA's cross-entity truth one sentence away from any team mem
 
 ### Does this work with ChatGPT?
 
-Yes, on **Plus, Pro, Team, Business, Enterprise, and Education** plans (Free tier does not yet expose Developer Mode). ChatGPT connects to **remote** MCP servers over HTTPS, not local stdio binaries. The HaloPSA MCP server is local, so for ChatGPT you expose it via the `mcp-remote` bridge or your own HTTPS endpoint. Step-by-step in [mcp-install.md](./mcp-install.md).
+Yes, on **Plus, Pro, Team, Business, Enterprise, and Education** plans (Free tier does not yet expose Developer Mode). ChatGPT connects to **remote** MCP servers over HTTPS, not local stdio binaries. The HaloPSA MCP server runs locally, but it speaks HTTP natively: start it with `halopsa-mcp --transport http --addr :7777` and put it behind an HTTPS tunnel or your own reverse proxy. No bridge package is involved. Step-by-step in [mcp-install.md](./mcp-install.md).
 
 ### Does this work with Codex, Cursor, Windsurf, Cline, Copilot, or Gemini?
 

@@ -80,7 +80,7 @@ HALOPSA_TENANT=<tenant> HALOPSA_CLIENT_ID=<id> HALOPSA_CLIENT_SECRET=<secret> \
   halopsa-mcp --transport http --addr :7777
 ```
 
-Expose `http://localhost:7777` as a public **HTTPS** URL via a secure tunnel (Cloudflare Tunnel, ngrok), then connect that endpoint in the Gemini app. Treat the URL as a credential. This is the same pattern as the [ChatGPT integration](/integrations/chatgpt/) - if you want a no-hosting path on Google, use Gemini CLI above instead.
+Expose `http://localhost:7777/mcp` as a public **HTTPS** URL via a secure tunnel (Cloudflare Tunnel, ngrok), then connect that endpoint in the Gemini app. The path is part of the endpoint: the server answers Streamable HTTP at `/mcp` and returns 404 at the bare root. Treat the URL as a credential. This is the same pattern as the [ChatGPT integration](/integrations/chatgpt/) - if you want a no-hosting path on Google, use Gemini CLI above instead.
 
 ## Troubleshooting
 

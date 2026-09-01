@@ -10,9 +10,9 @@ faqs:
   - q: "Is there an MCP server for Avanan?"
     a: "Yes - this one. A free, open source MCP server and Claude Code Skill for Avanan, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds."
   - q: "Is the Avanan MCP server safe for client data?"
-    a: "Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
+    a: "Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Two paths can move data off the machine, both opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `AVANAN_FEEDBACK_AUTO_SEND=true` posts feedback you typed to the URL in `AVANAN_FEEDBACK_ENDPOINT` (with no endpoint set, `feedback` only writes a local file). Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
-    a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Avanan MCP server via a secure bridge. Step-by-step in the install guide."
+    a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, and avanan-mcp speaks stdio only, so you publish it over HTTPS with the supergateway bridge (`npx -y supergateway --stdio avanan-mcp --port 7777`) behind a tunnel or reverse proxy. Step-by-step in the install guide."
   - q: "Do I need to know how to code?"
     a: "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your Avanan application ID and client secret once."
   - q: "Is my Avanan data safe?"
@@ -35,7 +35,7 @@ howto:
   - name: "Run the one-line installer"
     text: "macOS/Linux: bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/avanan/install.sh) - Windows PowerShell: iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/avanan/install.ps1 | iex"
   - name: "Authenticate"
-    text: "Enter your Avanan credentials once; avanan-cli doctor confirms they work."
+    text: "Enter your Avanan credentials once, then run avanan-cli doctor to check the install."
   - name: "Ask your first question"
     text: "Ask your AI agent a Avanan question in plain language; it runs avanan-cli for you."
 ---
@@ -48,7 +48,7 @@ howto:
 
 **✓ Live-verified by @geekbrownbear (Bearium Networks, MSP)** against a production tenant · 2026-08-23 · [receipt →](https://github.com/Servosity/msp-skills/pull/271).
 
-Yes - there is an MCP server for Avanan. It's free, open source, and runs on your own machine, so your client data never leaves your network. It connects Avanan to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
+Yes - there is an MCP server for Avanan. It's free, open source, and runs on your own machine, so your client data stays local unless you route it somewhere yourself. It connects Avanan to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
 Ask your AI what Avanan caught this morning and get a bucketed digest across every tenant you manage, not a page of raw detections you have to re-query. It reads the whole book of business at once: which sender domains are driving the volume, whether forty detections are one phishing campaign or forty separate problems, what the local mirror recorded happening to the message a user is disputing, and whether the domain somebody wants allowlisted is already excepted in one of the seven engines nobody remembers to check.
 
@@ -149,11 +149,11 @@ Yes - this one. A free, open source MCP server and Claude Code Skill for Avanan,
 
 ### Is the Avanan MCP server safe for client data?
 
-Yes, by design. The CLI, the MCP server, and any local data mirror run on your own machine - nothing is sent to MSP Skills or any third party. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
+Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Two paths can move data off the machine, both opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `AVANAN_FEEDBACK_AUTO_SEND=true` posts feedback you typed to the URL in `AVANAN_FEEDBACK_ENDPOINT` (with no endpoint set, `feedback` only writes a local file). Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
 
 ### Does this work with ChatGPT?
 
-Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Avanan MCP server via a secure bridge. Step-by-step in the install guide.
+Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, and avanan-mcp speaks stdio only, so you publish it over HTTPS with the supergateway bridge (`npx -y supergateway --stdio avanan-mcp --port 7777`) behind a tunnel or reverse proxy. Step-by-step in the install guide.
 
 ### Do I need to know how to code?
 
