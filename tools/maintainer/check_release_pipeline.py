@@ -76,25 +76,86 @@ Five requirements, all read from the workflow at the target commit:
                        extension, so the bundle is inside the sealing contract
                        rather than chasing a release that is already immutable.
 
+Reaching the HAND-TAGGING path, which is where the damage happens
+----------------------------------------------------------------
+Wiring this into `release_batch.sh` is not enough, and the reason is concrete.
+`release_batch.sh` runs `release.py`, which BUMPS. Once a wave's version stamps
+are already on main - as the staged 20-connector wave's are - that script will
+never run for them again, so its endorsement never reaches the operator who is
+about to type `git tag`. That is not hypothetical: `xero-v0.1.3` was hand-tagged
+twice in one day at two commits this probe refuses.
+
+So the probe is also callable AT the tagging moment, and the tagging moment is
+the only place it can help:
+
+    python3 tools/maintainer/check_release_pipeline.py --tag <tag> --sha <sha>
+
+Three surfaces carry that form, deliberately layered rather than relying on any
+one of them:
+
+  1. It is COMPOSABLE, so every printed tag command is self-gating. Everything
+     that hands an operator something to paste - `release_batch.sh`'s epilogue,
+     `check_pinned_artifacts.py`'s reminders - now prints
+
+         python3 .../check_release_pipeline.py --tag T --sha S && git tag T S && git push origin T
+
+     The `&&` is the point: the probe runs at PASTE time, not at print time, so
+     a command pulled out of a week-old scrollback still refuses a bad SHA.
+     `release.py`, which cannot know a SHA because nothing is pushed when it
+     runs, no longer prints a runnable tag command at all.
+  2. A `pre-push` hook sample (`tools/maintainer/hooks/pre-push`) refuses any
+     `refs/tags/<slug>-v<x.y.z>` push whose target commit this probe refuses.
+     Belt, not braces: an uninstalled hook protects nobody, which is exactly why
+     it is the second layer and not the first.
+  3. It is documented where someone about to tag is already reading
+     (`tools/maintainer/README.md`, "Cutting a release tag").
+
+What `--tag` adds on top of the workflow probe
+----------------------------------------------
+  TAG-SHAPE      the tag parses as `<slug>-v<major>.<minor>.<patch>`.
+  TAG-BURNED     the version number is not RETIRED in
+                 `tools/maintainer/burned_versions.json`. A destroyed release
+                 frees its git tag but not its release NAME, so re-cutting a
+                 burned number is untested at best (this is why xero shipped as
+                 0.1.4, not a second 0.1.3).
+  TAG-EXISTS     the tag is not already cut, locally or on origin.
+  VERSION-AT-SHA `skills/<slug>/manifest.json` AT THAT COMMIT carries exactly
+                 the version the tag names. This is what catches tagging a
+                 staged wave at a commit that predates - or postdates - its own
+                 version stamp, where the release's binaries, manifest and tag
+                 would disagree.
+
 Usage
 -----
     python3 tools/maintainer/check_release_pipeline.py --sha <rev> [--repo <path>]
+    python3 tools/maintainer/check_release_pipeline.py --tag <tag> --sha <rev>
     python3 tools/maintainer/check_release_pipeline.py --file <path>
     python3 tools/maintainer/check_release_pipeline.py --self-test
 
 Exit 0 when the commit is safe to tag, 1 when it is not (with the failing
-requirement named and the consequence spelled out). Reads no network.
+requirement named and the consequence spelled out). `--sha` reads no network;
+`--tag` consults `git ls-remote` for tag existence and degrades to a NOTE when
+the network is unavailable, never to a refusal.
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import subprocess
 import sys
 from pathlib import Path
 
 WORKFLOW = ".github/workflows/release.yml"
+REGISTRY = "tools/maintainer/skills.json"
+BURNED_LEDGER = Path(__file__).resolve().parent / "burned_versions.json"
+
+# A release tag: "<slug>-v<major>.<minor>.<patch>". The slug alphabet matches
+# registry.py's SLUG_RE and check_pinned_artifacts.py's TAG_RE, and it is
+# anchored with \Z rather than $ so a trailing newline cannot smuggle a second
+# line past it (the anchor lesson registry.py's self-test records).
+TAG_RE = re.compile(r"\A(?P<slug>[a-z0-9][a-z0-9.-]*)-v(?P<version>\d+\.\d+\.\d+)\Z")
 
 # The literal command fragments the requirements are expressed in. Each is text
 # GitHub itself will run, so there is no second definition to drift from.
@@ -309,6 +370,183 @@ def workflow_at(rev: str, repo: Path) -> str:
     return proc.stdout
 
 
+def _git(args: list[str], repo: Path) -> tuple[int, str]:
+    """(returncode, stdout) for a git command; a missing git is a non-zero rc."""
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(repo), *args],
+            capture_output=True, text=True, check=False, timeout=20,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:  # pragma: no cover
+        return 1, str(exc)
+    return proc.returncode, proc.stdout
+
+
+def blob_at(rev: str, path: str, repo: Path) -> str | None:
+    """One tracked file's contents at `rev`, or None if it is not there."""
+    rc, out = _git(["show", f"{rev}:{path}"], repo)
+    return out if rc == 0 else None
+
+
+def manifest_version_at(rev: str, slug: str, repo: Path) -> str | None:
+    """The version `skills/<slug>/manifest.json` carries AT `rev`, or None.
+
+    The slug-to-directory mapping is read from the registry AT THE SAME COMMIT,
+    not from the working tree: the question being answered is "what does the
+    commit a tag would name actually stamp", so every input has to come from
+    that commit or the answer is about some other tree.
+    """
+    directory = slug
+    registry_text = blob_at(rev, REGISTRY, repo)
+    if registry_text:
+        try:
+            entry = json.loads(registry_text).get("skills", {}).get(slug, {})
+        except (json.JSONDecodeError, AttributeError):
+            entry = {}
+        if isinstance(entry, dict) and isinstance(entry.get("source_dir"), str):
+            directory = entry["source_dir"]
+    manifest = blob_at(rev, f"skills/{directory}/manifest.json", repo)
+    if manifest is None:
+        return None
+    try:
+        version = json.loads(manifest).get("version")
+    except (json.JSONDecodeError, AttributeError):
+        return None
+    return version if isinstance(version, str) else None
+
+
+def local_tag_exists(tag: str, repo: Path) -> bool:
+    rc, _ = _git(["rev-parse", "-q", "--verify", f"refs/tags/{tag}"], repo)
+    return rc == 0
+
+
+def remote_tag_exists(tag: str, repo: Path) -> bool | None:
+    """True/False if origin could be asked, None if it could not.
+
+    None means "not consulted" and is never treated as a refusal: a DNS blip
+    must not stop a release, and a duplicate tag is independently rejected by
+    the push itself. The LOCAL check is the one that always runs.
+    """
+    rc, out = _git(["ls-remote", "--tags", "origin", f"refs/tags/{tag}"], repo)
+    if rc != 0:
+        return None
+    return bool(out.strip())
+
+
+# --------------------------------------------------------------------------
+# Burned version numbers - see tools/maintainer/burned_versions.json.
+# --------------------------------------------------------------------------
+def load_burned(path: Path = BURNED_LEDGER) -> dict[str, str]:
+    """{tag: why} for every version number a destroyed release already spent.
+
+    A missing ledger is an empty ledger (nothing has been burned yet). A
+    MALFORMED ledger raises: at tag time the question is "prove this number is
+    free", and a file that cannot be parsed proves nothing, so callers fail
+    closed rather than reading an unparseable file as "no burns recorded".
+    """
+    if not path.is_file():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ProbeError(f"{path} could not be read: {exc}") from exc
+    entries = data.get("burned") if isinstance(data, dict) else None
+    if not isinstance(entries, list):
+        raise ProbeError(f"{path}: expected a top-level 'burned' list")
+    out: dict[str, str] = {}
+    for i, entry in enumerate(entries):
+        if not isinstance(entry, dict):
+            raise ProbeError(f"{path}: burned[{i}] is not an object")
+        tag, why = entry.get("tag"), entry.get("why")
+        if not isinstance(tag, str) or not TAG_RE.match(tag):
+            raise ProbeError(f"{path}: burned[{i}] tag {tag!r} is not a <slug>-v<x.y.z> tag")
+        if not isinstance(why, str) or not why.strip():
+            raise ProbeError(f"{path}: burned[{i}] ({tag}) has no 'why'; a retired "
+                             "version number must record what destroyed it")
+        if tag in out:
+            raise ProbeError(f"{path}: {tag} is listed twice")
+        out[tag] = why.strip()
+    return out
+
+
+def burned_versions_for(slug: str, burned: dict[str, str]) -> set[str]:
+    """The retired version numbers of one slug, e.g. {'0.1.3'}."""
+    out = set()
+    for tag in burned:
+        m = TAG_RE.match(tag)
+        if m and m.group("slug") == slug:
+            out.add(m.group("version"))
+    return out
+
+
+# --------------------------------------------------------------------------
+# The tag-time requirements. Pure: it takes facts and returns findings, so the
+# self-test can drive every branch without a git repository to arrange.
+# --------------------------------------------------------------------------
+def evaluate_tag(
+    tag: str,
+    *,
+    burned: dict[str, str],
+    tag_local: bool,
+    tag_remote: bool | None,
+    manifest_version: str | None,
+    pre_push: bool = False,
+) -> list[tuple[str, str]]:
+    """[(requirement id, why it failed)] - empty means this tag is safe to cut."""
+    m = TAG_RE.match(tag)
+    if not m:
+        return [(
+            "TAG-SHAPE",
+            f"{tag!r} is not a release tag. Release tags are "
+            "'<slug>-v<major>.<minor>.<patch>', which is the shape release.yml, "
+            "mcp-publish.yml and every pinned download URL parse",
+        )]
+    slug, version = m.group("slug"), m.group("version")
+    failures: list[tuple[str, str]] = []
+
+    why = burned.get(tag)
+    if why:
+        failures.append((
+            "TAG-BURNED",
+            f"{tag} is a RETIRED version number, recorded in "
+            f"{BURNED_LEDGER.name}: {why} Cutting it again reuses a release name "
+            "GitHub does not reliably free. Bump to the next version instead",
+        ))
+
+    if tag_local and not pre_push:
+        failures.append((
+            "TAG-EXISTS",
+            f"{tag} already exists in this checkout. Re-pointing a cut tag does "
+            "not re-open its release: under immutable releases the published "
+            "object is frozen, so the new commit would never be released",
+        ))
+    if tag_remote:
+        failures.append((
+            "TAG-EXISTS",
+            f"{tag} is already on origin. That release exists (or existed); "
+            "publishing a second one at this name is not something this "
+            "repository has ever done successfully",
+        ))
+
+    if manifest_version is None:
+        failures.append((
+            "VERSION-AT-SHA",
+            f"skills/{slug}/manifest.json cannot be read at that commit, so the "
+            f"version {tag} claims cannot be confirmed. A tag naming a skill the "
+            "commit does not carry has nothing to build",
+        ))
+    elif manifest_version != version:
+        failures.append((
+            "VERSION-AT-SHA",
+            f"that commit stamps {slug} at {manifest_version}, but the tag names "
+            f"{version}. release.yml reads the version from the tagged tree, so "
+            f"the release would be built, named and pinned inconsistently. Tag "
+            f"the commit that carries the {version} stamp",
+        ))
+
+    return failures
+
+
 # --------------------------------------------------------------------------
 # Self-test: prove the probe fires on each broken shape AND stays silent on the
 # repository's own release.yml. The silent direction is what pins the probe to
@@ -450,13 +688,120 @@ jobs:
     case("a file with no jobs mapping is refused",
          "name: Release\non: push\n", {"PARSE"})
 
+    # ----------------------------------------------------------------------
+    # The TAG-time requirements, same discipline: silent on a clean tag, firing
+    # on each way a tag goes wrong. `evaluate_tag` is pure, so every branch is
+    # driven from hand-built facts with no repository to arrange.
+    # ----------------------------------------------------------------------
+    LEDGER = {"xero-v0.1.3": "sealed empty by the publish-first pipeline."}
+    CLEAN = dict(burned=LEDGER, tag_local=False, tag_remote=False,
+                 manifest_version="0.1.4")
+
+    def tag_case(label: str, tag: str, want: set[str], **over) -> None:
+        facts = dict(CLEAN)
+        facts.update(over)
+        got = {rid for rid, _why in evaluate_tag(tag, **facts)}
+        ok = got == want
+        print(f"  [{'ok' if ok else 'FAIL'}] {label}")
+        if not ok:
+            failures.append(f"{label}: wanted {sorted(want)}, got {sorted(got)}")
+
+    # SILENT on the tag this very change set exists to make cuttable.
+    tag_case("an uncut, unburned tag whose SHA carries its stamp is endorsed",
+             "xero-v0.1.4", set())
+
+    # FIRES on the burned number, and ONLY on that. This is the xero-v0.1.3
+    # case: its git tag is free (the tag was deleted), the commit really does
+    # stamp 0.1.3, so every other requirement is satisfied and the ledger is the
+    # single thing standing between an operator and a second burn.
+    tag_case("a retired version number is refused even though everything else is fine",
+             "xero-v0.1.3", {"TAG-BURNED"}, manifest_version="0.1.3")
+    # ...and the ledger must actually be discriminating: an unrelated slug at
+    # the same version is untouched by xero's burn.
+    tag_case("another skill's 0.1.3 is not burned by xero's",
+             "hudu-v0.1.3", set(), manifest_version="0.1.3")
+
+    # FIRES on a tag that already exists, from either side.
+    tag_case("a tag that already exists locally is refused",
+             "xero-v0.1.4", {"TAG-EXISTS"}, tag_local=True)
+    tag_case("a tag that is already on origin is refused",
+             "xero-v0.1.4", {"TAG-EXISTS"}, tag_remote=True)
+    # An unreachable origin must NOT refuse - a DNS blip is not a bad tag.
+    tag_case("an unreachable origin does not refuse the tag",
+             "xero-v0.1.4", set(), tag_remote=None)
+    # Under --pre-push the tag necessarily exists locally (git created it before
+    # the hook ran), so local existence there is not a finding; remote still is.
+    tag_case("--pre-push does not object to the tag it is pushing",
+             "xero-v0.1.4", set(), tag_local=True, pre_push=True)
+    tag_case("--pre-push still refuses a tag origin already has",
+             "xero-v0.1.4", {"TAG-EXISTS"}, tag_local=True, tag_remote=True,
+             pre_push=True)
+
+    # FIRES when the SHA does not carry the version the tag names - the staged
+    # wave's exact hazard, tagging the wrong commit for a real version stamp.
+    tag_case("a SHA stamped at another version is refused",
+             "xero-v0.1.4", {"VERSION-AT-SHA"}, manifest_version="0.1.3")
+    tag_case("a SHA with no manifest for that slug is refused",
+             "xero-v0.1.4", {"VERSION-AT-SHA"}, manifest_version=None)
+
+    # FIRES on anything that is not a release tag, including the trailing
+    # newline the \Z anchor exists for.
+    for bad in ("xero-0.1.4", "xero-v0.1", "XERO-v0.1.4", "v0.1.4",
+                "xero-v0.1.4\nrm -rf /"):
+        tag_case(f"{bad!r} is not a release tag", bad, {"TAG-SHAPE"})
+
+    # The LEDGER itself, both directions: the shipped file parses, records the
+    # burn this branch is about, and a malformed ledger raises rather than
+    # reading as "nothing is burned".
+    try:
+        shipped = load_burned()
+    except ProbeError as exc:
+        shipped = {}
+        failures.append(f"the shipped burned_versions.json does not load: {exc}")
+    print(f"  [{'ok' if 'xero-v0.1.3' in shipped else 'FAIL'}] "
+          "the shipped ledger records xero-v0.1.3 as burned")
+    if "xero-v0.1.3" not in shipped:
+        failures.append("burned_versions.json must record xero-v0.1.3; it was cut, "
+                        "sealed empty and deleted on 2026-09-01")
+    if burned_versions_for("xero", shipped) != {"0.1.3"}:
+        failures.append("burned_versions_for('xero') must be {'0.1.3'}, got "
+                        f"{burned_versions_for('xero', shipped)}")
+
+    import tempfile
+    for label, body in (
+        ("malformed JSON", "{not json"),
+        ("no 'burned' list", '{"burned": {}}'),
+        ("an entry with no reason", '{"burned": [{"tag": "xero-v0.1.3"}]}'),
+        ("an entry whose tag is not a tag", '{"burned": [{"tag": "xero", "why": "x"}]}'),
+        ("the same tag twice",
+         '{"burned": [{"tag": "a-v1.0.0", "why": "x"}, {"tag": "a-v1.0.0", "why": "y"}]}'),
+    ):
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as fh:
+            fh.write(body)
+            tmp = Path(fh.name)
+        try:
+            load_burned(tmp)
+        except ProbeError:
+            print(f"  [ok] a ledger with {label} is refused, not read as empty")
+        else:
+            print(f"  [FAIL] a ledger with {label} is refused, not read as empty")
+            failures.append(f"load_burned accepted a ledger with {label}")
+        finally:
+            tmp.unlink(missing_ok=True)
+    missing = Path(tempfile.gettempdir()) / "check_release_pipeline_no_such_ledger.json"
+    if load_burned(missing) != {}:
+        failures.append("a MISSING ledger must read as empty (nothing burned yet)")
+    else:
+        print("  [ok] a missing ledger reads as empty, not as an error")
+
     if failures:
         print("check_release_pipeline self-test FAILED:", file=sys.stderr)
         for f in failures:
             print(f"  - {f}", file=sys.stderr)
         return 1
     print("check_release_pipeline self-test passed (the repo's own release.yml is "
-          "endorsable; nine broken shapes are refused).")
+          "endorsable and a clean tag is endorsable; nine broken pipeline shapes, "
+          "eleven bad tags and five malformed ledgers are refused).")
     return 0
 
 
@@ -468,13 +813,33 @@ def main() -> int:
     src = ap.add_mutually_exclusive_group()
     src.add_argument("--sha", help="commit-ish to probe, e.g. the SHA a tag would name")
     src.add_argument("--file", help="probe a workflow file on disk instead of a commit")
+    ap.add_argument("--tag", help="the release tag about to be cut at --sha; adds the "
+                                  "tag-time requirements (shape, burned, already cut, "
+                                  "version stamped at that commit)")
     ap.add_argument("--repo", default=".", help="repository to read --sha from")
+    ap.add_argument("--pre-push", action="store_true",
+                    help="the tag has already been created locally (git pre-push hook), "
+                         "so local existence is not a conflict")
+    ap.add_argument("--no-network", action="store_true",
+                    help="skip the `git ls-remote` tag-existence lookup")
     ap.add_argument("--self-test", action="store_true",
                     help="prove this gate fires and stays silent; reads no git history")
     args = ap.parse_args()
 
     if args.self_test:
         return _self_test()
+    if args.tag and not args.sha:
+        # The whole defect, refused rather than explained. `git tag <tag>` with
+        # no SHA tags the operator's CURRENT HEAD, and a tag push runs
+        # release.yml from whatever that happens to be.
+        print("check_release_pipeline: REFUSE - --tag needs --sha.", file=sys.stderr)
+        print("  A tag with no commit named tags whatever HEAD happens to be, and a "
+              "tag push", file=sys.stderr)
+        print("  runs .github/workflows/release.yml FROM THE TAGGED COMMIT. Name the "
+              "commit:", file=sys.stderr)
+        print(f"    python3 {Path(__file__).name} --tag {args.tag} --sha <sha>",
+              file=sys.stderr)
+        return 1
     if not args.sha and not args.file:
         ap.error("one of --sha, --file or --self-test is required")
 
@@ -490,12 +855,54 @@ def main() -> int:
         return 1
 
     failures = evaluate(text)
+    notes: list[str] = []
+
+    if args.tag:
+        repo = Path(args.repo)
+        try:
+            burned = load_burned()
+        except ProbeError as exc:
+            print(f"check_release_pipeline: REFUSE - {exc}", file=sys.stderr)
+            print("  The retired-version ledger has to be readable before a tag can be "
+                  "endorsed;", file=sys.stderr)
+            print("  an unparseable ledger cannot prove this version number is free.",
+                  file=sys.stderr)
+            return 1
+        if args.no_network:
+            tag_remote: bool | None = None
+            notes.append("--no-network: origin was not asked whether this tag already "
+                         "exists (the local check still ran)")
+        else:
+            tag_remote = remote_tag_exists(args.tag, repo)
+            if tag_remote is None:
+                notes.append("origin could not be reached, so remote tag existence is "
+                             "unknown; the push itself still refuses a duplicate tag")
+        slug_match = TAG_RE.match(args.tag)
+        manifest_version = (
+            manifest_version_at(args.sha, slug_match.group("slug"), repo)
+            if slug_match else None
+        )
+        failures = failures + evaluate_tag(
+            args.tag,
+            burned=burned,
+            tag_local=local_tag_exists(args.tag, repo),
+            tag_remote=tag_remote,
+            manifest_version=manifest_version,
+            pre_push=args.pre_push,
+        )
+
+    for note in notes:
+        print(f"check_release_pipeline: NOTE {note}")
+    sys.stdout.flush()  # keep NOTEs above the refusal block, not interleaved
+
     if failures:
-        print(f"check_release_pipeline: REFUSE {where}", file=sys.stderr)
+        subject = f"{args.tag} at {args.sha}" if args.tag else where
+        print(f"check_release_pipeline: REFUSE {subject}", file=sys.stderr)
         print("  This commit's release workflow does NOT assemble into a draft and",
               file=sys.stderr)
-        print("  seal last. A tag push runs THAT workflow, not the one on main:",
+        print("  seal last, or this tag must not be cut here. A tag push runs THAT",
               file=sys.stderr)
+        print("  workflow, at THAT commit, not the one on main:", file=sys.stderr)
         for rid, why in failures:
             print(f"  - [{rid}] {why}", file=sys.stderr)
         print("  Under immutable releases the result is a permanently sealed, "
@@ -505,6 +912,16 @@ def main() -> int:
         print("  pipeline instead (re-run tools/maintainer/release_batch.sh against "
               "a main that has it).", file=sys.stderr)
         return 1
+
+    if args.tag:
+        # The ONLY endorsed source of a tag command is a passing probe, and the
+        # command it prints is pinned to the SHA that was just checked.
+        print(f"check_release_pipeline: OK {args.tag} may be cut at {args.sha} - that "
+              "commit assembles into a draft, gates the asset set and seals last; the "
+              "tag is uncut, its number is not retired, and the commit stamps that "
+              "exact version.")
+        print(f"  git tag {args.tag} {args.sha} && git push origin {args.tag}")
+        return 0
 
     print(f"check_release_pipeline: OK {where} assembles into a draft, gates the "
           "asset set, and seals last; safe to tag.")

@@ -26,8 +26,12 @@ The discriminator is therefore DIFF-scoped, not consistency-scoped:
     appears in NO tracked file at BASE) -> allowed as an in-flight release,
     provided ALL of: the tag is "{slug}-v{manifest.version}"; it sorts strictly
     above the highest tag that already exists for that slug; AND the version
-    this slug carried at BASE was itself tagged. Prints the exact
-    `git tag ... && git push origin ...` command as a reminder.
+    this slug carried at BASE was itself tagged, OR is recorded as RETIRED in
+    tools/maintainer/burned_versions.json (a number whose release was cut,
+    sealed empty by the old publish-first pipeline and withdrawn - the opposite
+    of the negligence this clause is aimed at, and a number nobody may ever cut
+    again). Prints the probe-gated `check_release_pipeline.py --tag ... && git
+    tag ...` command as a reminder.
   * tag missing, and the pin already existed ANYWHERE at BASE -> FAIL. The
     release was never cut; main is publishing a 404.
 
@@ -118,8 +122,21 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import registry  # noqa: E402  (local tools/ module)
+import check_release_pipeline  # noqa: E402  (local tools/ module)
 
 ROOT = registry.ROOT
+
+# The tag-time probe. Every `git tag` this script hands an operator is printed
+# behind it, so the command is checked when it is PASTED rather than when it was
+# printed: a reminder read out of a week-old scrollback still refuses a commit
+# that would seal an empty immutable release.
+PROBE_REL = "tools/maintainer/check_release_pipeline.py"
+
+
+def tag_command(tag: str, sha: str) -> str:
+    """The only shape of tag command this script prints: probe first, `&&` tag."""
+    return (f"python3 {PROBE_REL} --tag {tag} --sha {sha} "
+            f"&& git tag {tag} {sha} && git push origin {tag}")
 
 # A literal pinned release URL. Templated ones (install.sh / verify_all.sh build
 # theirs from shell variables) carry a $ or a { and are skipped: there is no pin
@@ -348,6 +365,21 @@ def check_offline(pins, meta, tags, base, strict, owner, repo):
     renames = rename_map(base) if base_ok else {}
     base_version_cache: dict[str, str | None] = {}
 
+    # Version numbers a destroyed release already spent. A BASE version that is
+    # BURNED was not "a release nobody bothered to cut" - it was cut, sealed
+    # empty and withdrawn - so it must not consume the one push of grace below.
+    # An unreadable ledger reads as EMPTY here, which withholds the exemption
+    # rather than granting it: this file may only ever make the grace narrower.
+    try:
+        burned_tags = check_release_pipeline.load_burned()
+    except check_release_pipeline.ProbeError as exc:
+        burned_tags = {}
+        notices.append(
+            f"the retired-version ledger could not be read ({exc}); a burned "
+            "version will be treated as an uncut one, which can only make the "
+            "in-flight grace stricter"
+        )
+
     if not tags:
         notices.append(
             "no local tags in this checkout (shallow clone?) - tag-existence check "
@@ -413,7 +445,7 @@ def check_offline(pins, meta, tags, base, strict, owner, repo):
                     f"{pin.where} - tag does not exist and this URL was already in the "
                     f"tree at BASE (in this file or another one): the {slug} release was "
                     f"never cut, so this URL 404s. Cut it "
-                    f"(`git tag {pin.tag} <sha> && git push origin {pin.tag}`) or repoint "
+                    f"(`{tag_command(pin.tag, '<sha>')}`) or repoint "
                     "the pin at a released version."
                 )
                 continue
@@ -446,7 +478,8 @@ def check_offline(pins, meta, tags, base, strict, owner, repo):
                     base, slug, renames
                 )
             prior = base_version_cache[slug]
-            if prior is not None and f"{slug}-v{prior}" not in tags:
+            prior_burned = prior is not None and f"{slug}-v{prior}" in burned_tags
+            if prior is not None and f"{slug}-v{prior}" not in tags and not prior_burned:
                 errors.append(
                     f"{pin.where} - new pin for an uncut tag, but the version {slug} "
                     f"carried at BASE ({prior}) was never tagged either. An in-flight "
@@ -454,9 +487,19 @@ def check_offline(pins, meta, tags, base, strict, owner, repo):
                     f"tag cut. Cut {slug}-v{prior} first, or revert the bump."
                 )
                 continue
+            if prior_burned:
+                # The BASE version is not an uncut release, it is a RETIRED one:
+                # its tag was cut, its release sealed empty and both were deleted.
+                # Telling anyone to "cut it first" is the one instruction that
+                # must never be given, so say so rather than staying silent.
+                notices.append(
+                    f"{slug} skipped {prior}: that number is retired in "
+                    f"tools/maintainer/burned_versions.json and must never be cut "
+                    f"again. It does not consume this release's grace."
+                )
             reminders.append(
                 f"{pin.where} - in-flight release, tag not cut yet. After this lands: "
-                f"git tag {pin.tag} {head} && git push origin {pin.tag}"
+                f"{tag_command(pin.tag, head)}"
             )
 
         # 4. Freshness: the registry has moved on and the newer tag already exists.
@@ -700,11 +743,15 @@ def main() -> int:
     def tag_safety_note() -> None:
         print("check_pinned_artifacts: REMINDER a tag push runs release.yml FROM "
               "THE TAGGED COMMIT.")
-        print("  Before cutting any tag named above, prove that SHA carries the "
-              "draft-then-seal")
-        print("  pipeline; a commit that predates it seals an empty, unrepairable "
-              "release:")
-        print("    python3 tools/maintainer/check_release_pipeline.py --sha <sha>")
+        print("  Every tag command above leads with the probe for that reason: it runs "
+              "when you")
+        print("  PASTE, not when this printed, and it refuses a commit that predates "
+              "the")
+        print("  draft-then-seal pipeline, a retired version number, or a SHA that does "
+              "not")
+        print("  carry the version the tag names. Do not strip it. To check any other "
+              "tag:")
+        print(f"    python3 {PROBE_REL} --tag <tag> --sha <sha>")
 
     names_a_tag = bool(reminders) or any("git tag " in e for e in errors)
 

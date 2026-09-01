@@ -101,6 +101,19 @@ jobs:
         #                       probe to the pipeline, so a pipeline change that
         #                       outgrows the probe goes red in the PR that made
         #                       it rather than at release time.
+        #                       The --tag mode, which is what the hand-tagging
+        #                       path actually calls, is proved the same way: a
+        #                       clean tag is endorsed, while a RETIRED version
+        #                       number (xero-v0.1.3, whose git tag is free
+        #                       because the empty release was deleted), an
+        #                       already-cut tag, a SHA stamped at a different
+        #                       version, and five shapes that are not release
+        #                       tags are each refused - and an unreachable origin
+        #                       is NOT, because a DNS blip is not a bad tag. The
+        #                       burned-version ledger is proved to fail CLOSED:
+        #                       five malformed ledgers raise rather than reading
+        #                       as "nothing is burned", while a missing one
+        #                       correctly reads as empty.
         run: |
           set -euo pipefail
           python3 tools/maintainer/registry.py --self-test

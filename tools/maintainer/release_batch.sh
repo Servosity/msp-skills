@@ -38,6 +38,16 @@
 # origin/main before it stamps anything, and once against the pushed SHA before
 # it prints a single tag line - and prints NO tag commands for a SHA it refuses.
 #
+# That is still not enough on its own, and the gap is the reason the tag lines
+# printed below lead with the probe. This script only runs when release.py
+# BUMPS. A wave whose version stamps are already on main will never come back
+# through here - the operator hand-tags - so an endorsement made at PRINT time
+# reaches nobody. Every tag command printed below therefore re-runs the probe at
+# PASTE time (`probe && git tag && git push`), which is the only moment that
+# matters. `git push` itself can be gated too:
+#   git config core.hooksPath tools/maintainer/hooks
+# See tools/maintainer/README.md, "Cutting a release tag".
+#
 # bash 3.2 compatible (macOS default shell) - no mapfile, no brace ranges.
 
 set -euo pipefail
@@ -113,10 +123,17 @@ if ! python3 "$WT/tools/maintainer/release.py" "$@" | tee "$RELOUT"; then
   exit 1
 fi
 
-# Tags release.py planned, e.g. "  TAG: git tag halopsa-v0.1.2 && git push ..."
+# Tags release.py planned. Two accepted shapes, because release.py is run from
+# the WORKTREE (origin/main) while this script is read from the operator's
+# checkout, so the two can be a commit apart:
+#   current: "  TAG: halopsa-v0.1.2 (not cuttable yet - no commit is pushed)"
+#   legacy:  "  TAG: git tag halopsa-v0.1.2 && git push ..."
 TAGS=""
 while IFS= read -r line; do
   tag="$(printf '%s\n' "$line" | sed -n 's/^  TAG: git tag \([^ ]*\) .*/\1/p')"
+  if [ -z "$tag" ]; then
+    tag="$(printf '%s\n' "$line" | sed -n 's/^  TAG: \([A-Za-z0-9._-]*-v[0-9][0-9A-Za-z.+-]*\).*/\1/p')"
+  fi
   [ -n "$tag" ] && TAGS="$TAGS $tag"
 done < "$RELOUT"
 rm -f "$RELOUT"
@@ -208,9 +225,12 @@ echo "============================================================"
 echo "Release commit pushed to main: $RELSHA"
 echo "This SHA was checked: its release.yml assembles into a draft, gates the"
 echo "asset set, and seals last, so these tags are safe to cut."
-echo "Copy-paste to tag + push (this script never runs these):"
+echo
+echo "Copy-paste to tag + push (this script never runs these). Each line re-runs"
+echo "the probe FIRST, so it is still safe if you paste it tomorrow instead of now:"
 for t in $TAGS; do
-  echo "  git -C $REPO tag $t $RELSHA && git -C $REPO push origin $t"
+  echo "  python3 $PIPELINE_CHECK --tag $t --sha $RELSHA --repo $REPO \\"
+  echo "    && git -C $REPO tag $t $RELSHA && git -C $REPO push origin $t"
 done
 echo
 echo "Each tag push fires release.yml AS IT EXISTS AT THE TAGGED COMMIT, which"
@@ -224,8 +244,14 @@ echo
 echo "STALE PRINTOUT? Tag commands from an EARLIER batch name an EARLIER SHA, and"
 echo "a SHA from before the draft-then-seal pipeline landed would run the old"
 echo "publish-first workflow and seal one empty, unrepairable release per tag."
-echo "Before pasting any tag command you did not just generate, run:"
-echo "  python3 $PIPELINE_CHECK --sha <the sha in that command> --repo $REPO"
+echo "That is why the lines above lead with the probe rather than with git tag:"
+echo "the check runs when you PASTE, not when this script printed. A bare"
+echo "\`git tag <tag> <sha>\` from any other source is unendorsed - run this first:"
+echo "  python3 $PIPELINE_CHECK --tag <tag> --sha <sha> --repo $REPO"
+echo
+echo "BELT AND BRACES. Install the hook once and a release tag cannot leave this"
+echo "machine at an unendorsed commit, however the tag was typed:"
+echo "  git -C $REPO config core.hooksPath tools/maintainer/hooks"
 echo
 echo "WATCH FOR: a tag whose release never leaves draft state. That means a build"
 echo "target or the bundle failed - re-run the Release workflow for that tag."

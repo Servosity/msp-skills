@@ -18,7 +18,21 @@ For each target slug this script:
                                                       the heading already exists)
        - tools/maintainer/skills.json                "version" and
                                                       "cli_hash_at_release" = current hash
-  4. Prints the exact tag+push command. It NEVER runs git tag or git push.
+  4. Prints the tag NAMES, and the probe-gated command to cut each one. It never
+     runs git tag or git push, and it never prints a runnable tag command that
+     is not pinned to a SHA the probe has endorsed.
+
+Why step 4 is worded that way. This script used to print
+`git tag <tag> && git push origin <tag>`. With no commit named, `git tag` tags
+whatever HEAD happens to be, and a tag push runs
+.github/workflows/release.yml FROM THE TAGGED COMMIT - so under this
+repository's immutable releases that command can seal an empty release and
+spend the version number permanently. It burned xero-v0.1.3 twice in one day.
+release_batch.sh tees this script's stdout, so that unpinned block also landed
+in the same scrollback as release_batch's own pinned one, printed FIRST.
+Nothing here knows a release SHA (the commit is not pushed yet), so the honest
+output is the tag name plus the probe invocation that will endorse a SHA later:
+`check_release_pipeline.py --tag T --sha S && git tag T S && git push origin T`.
 
 JSON is rewritten with 2-space indent + a trailing newline to match the
 repo's formatting convention. --dry-run changes nothing and prints the diff.
@@ -47,6 +61,10 @@ ROOT = registry.ROOT
 SKILLS_DIR = registry.SKILLS_DIR
 REGISTRY = registry.REGISTRY
 MARKETPLACE = ROOT / ".claude-plugin" / "marketplace.json"
+
+# The tag-time probe. This script cannot endorse a SHA - nothing is pushed when
+# it runs - so it prints the probe's invocation rather than a bare `git tag`.
+PROBE_REL = "tools/maintainer/check_release_pipeline.py"
 
 
 def _read_json(path: Path) -> dict:
@@ -326,7 +344,7 @@ def main(argv: list[str]) -> int:
 
 def _run_batch(slugs: list[str], bump: str, dry_run: bool) -> int:
     known = set(registry.skills())
-    tag_commands: list[str] = []
+    tags: list[str] = []
 
     for slug in slugs:
         if slug not in known:
@@ -365,15 +383,34 @@ def _run_batch(slugs: list[str], bump: str, dry_run: bool) -> int:
             print("  (no file changes needed)")
 
         tag = f"{slug}-v{new_version}"
-        cmd = f"git tag {tag} && git push origin {tag}"
-        tag_commands.append(cmd)
-        print(f"  TAG: {cmd}")
+        tags.append(tag)
+        print(f"  TAG: {tag} (not cuttable yet - no commit is pushed)")
         print()
 
     print("=" * 60)
-    print("Copy-paste to tag + push (this script never runs these):")
-    for cmd in tag_commands:
-        print(f"  {cmd}")
+    print("Tags to cut once the release commit is PUSHED:")
+    for tag in tags:
+        print(f"  {tag}")
+    print()
+    print("This script deliberately prints no runnable `git tag` command. It used to")
+    print("print `git tag <tag> && git push origin <tag>`, and that command is unsafe")
+    print("for a reason that is not visible in it: `git tag` with no commit named tags")
+    print("whatever HEAD happens to be, and a tag push runs")
+    print(".github/workflows/release.yml FROM THE TAGGED COMMIT. Under this")
+    print("repository's immutable releases, tagging a commit whose workflow publishes")
+    print("before it uploads seals an EMPTY release and spends that version number")
+    print("permanently. xero-v0.1.3 was burned that way twice in one day.")
+    print()
+    print("Nothing here knows a SHA yet - the release commit is not pushed when this")
+    print("runs - so cut each tag through the probe, which refuses a commit that would")
+    print("burn the version and prints nothing runnable when it refuses:")
+    for tag in tags:
+        print(f"  python3 {PROBE_REL} --tag {tag} --sha <sha> \\")
+        print(f"    && git tag {tag} <sha> && git push origin {tag}")
+    print()
+    print("tools/maintainer/release_batch.sh runs this script, pushes the release")
+    print("commit and then prints these same lines with <sha> filled in and already")
+    print("endorsed. Prefer it; see tools/maintainer/README.md, 'Cutting a release tag'.")
     return 0
 
 
