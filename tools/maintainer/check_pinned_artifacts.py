@@ -690,14 +690,37 @@ def main() -> int:
     for r in reminders:
         print(f"check_pinned_artifacts: REMINDER {r}")
 
+    # This is the other surface that hands an operator a `git tag <tag> <sha>` to
+    # paste. A tag push runs .github/workflows/release.yml FROM THE TAGGED COMMIT,
+    # so a SHA from before the draft-then-seal pipeline publishes an EMPTY
+    # immutable release and spends that version number permanently. Point at the
+    # mechanical check rather than trusting the reader to remember which commits
+    # are safe. Printed whenever this run told anyone to cut a tag, whether that
+    # came out as a reminder or as a finding.
+    def tag_safety_note() -> None:
+        print("check_pinned_artifacts: REMINDER a tag push runs release.yml FROM "
+              "THE TAGGED COMMIT.")
+        print("  Before cutting any tag named above, prove that SHA carries the "
+              "draft-then-seal")
+        print("  pipeline; a commit that predates it seals an empty, unrepairable "
+              "release:")
+        print("    python3 tools/maintainer/check_release_pipeline.py --sha <sha>")
+
+    names_a_tag = bool(reminders) or any("git tag " in e for e in errors)
+
     if errors:
         print("check_pinned_artifacts: FAIL")
         for e in errors:
             print(f"  - {e}")
+        if names_a_tag:
+            tag_safety_note()
         if args.warn:
             print(f"\n  (warn mode: {len(errors)} finding(s), exit 0)")
             return 0
         return 1
+
+    if names_a_tag:
+        tag_safety_note()
 
     files = len({p.path for p in pins})
     print(

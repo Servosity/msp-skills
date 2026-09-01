@@ -26,6 +26,18 @@
 # CI job regenerates and auto-commits them on both the main push and the tag
 # push. Committing them locally is redundant at best and stale at worst.
 #
+# TAG-TIME SAFETY. A tag push runs .github/workflows/release.yml AS IT EXISTS AT
+# THE TAGGED COMMIT, not as it exists on main. Under the repository's immutable
+# releases, tagging a commit whose workflow still publishes before it uploads
+# seals an EMPTY release and spends that version number permanently - twenty
+# staged tags at such a commit is twenty burned versions. Prose in this epilogue
+# cannot stop a paste, so the endorsement is mechanical:
+# tools/maintainer/check_release_pipeline.py reads release.yml at the SHA in
+# question and refuses it unless that commit assembles into a draft, gates the
+# asset set, and seals last. This script runs it twice - once against
+# origin/main before it stamps anything, and once against the pushed SHA before
+# it prints a single tag line - and prints NO tag commands for a SHA it refuses.
+#
 # bash 3.2 compatible (macOS default shell) - no mapfile, no brace ranges.
 
 set -euo pipefail
@@ -44,6 +56,30 @@ for a in "$@"; do
   [ "$a" = "--dry-run" ] && DRY_RUN=1
 done
 
+PIPELINE_CHECK="$SCRIPT_DIR/check_release_pipeline.py"
+
+# Refuse a SHA whose release.yml would run the old publish-first pipeline.
+# $1 = commit-ish, $2 = what it is, for the message.
+assert_taggable() {
+  if [ ! -f "$PIPELINE_CHECK" ]; then
+    echo "release_batch: $PIPELINE_CHECK is missing - cannot prove that tagging" >&2
+    echo "  this commit runs the draft-then-seal release pipeline. Refusing." >&2
+    exit 1
+  fi
+  if python3 "$PIPELINE_CHECK" --sha "$1" --repo "$REPO"; then
+    return 0
+  fi
+  echo >&2
+  echo "release_batch: REFUSING to release from $2 ($1)." >&2
+  echo "  A tag push runs release.yml FROM THE TAGGED COMMIT. This one still" >&2
+  echo "  publishes the release before its assets are uploaded, and the repository" >&2
+  echo "  has immutable releases enabled: every tag cut here becomes a permanently" >&2
+  echo "  sealed, empty release and a spent version number." >&2
+  echo "  Land the draft-then-seal release pipeline on main first, then re-run this" >&2
+  echo "  script so the release commit sits on top of it." >&2
+  exit 1
+}
+
 if [ -e "$WT" ]; then
   echo "release_batch: worktree already exists: $WT" >&2
   echo "release_batch: one release batch at a time. If a prior batch crashed:" >&2
@@ -53,6 +89,14 @@ fi
 
 echo "== release_batch: fresh worktree off origin/main =="
 git -C "$REPO" fetch origin main
+
+# BEFORE anything is stamped. The release commit will land on top of
+# origin/main, so if origin/main cannot be tagged safely, neither can the commit
+# this script is about to build. Failing here costs nothing; failing after the
+# stamp lands means a version bump on main with no releasable tag.
+echo "== release_batch: origin/main must carry the draft-then-seal pipeline =="
+assert_taggable "origin/main" "origin/main"
+
 git -C "$REPO" worktree add -b "$BRANCH" "$WT" origin/main
 
 cleanup_worktree() {
@@ -133,23 +177,55 @@ fi
 # peer commit (e.g. the catalog bot) landing a second later.
 RELSHA="$(git -C "$WT" rev-parse HEAD)"
 
+# The SHA the printed commands will name is the one that must be endorsed.
+# origin/main passed above, but this commit is what a tag will actually run:
+# a rebase in the retry loop could have landed it on a different main, and it
+# is the SHA an operator will paste - possibly days later, out of a scrollback.
+# Endorse THAT, or print no tag commands at all.
+echo "== release_batch: the pushed SHA must carry the draft-then-seal pipeline =="
+if ! python3 "$PIPELINE_CHECK" --sha "$RELSHA" --repo "$WT"; then
+  echo >&2
+  echo "release_batch: the release commit $RELSHA is PUSHED, but its release.yml" >&2
+  echo "  does not assemble into a draft and seal last (see above). Tagging it would" >&2
+  echo "  seal $(echo "$TAGS" | wc -w | tr -d ' ') empty, immutable releases and spend those version numbers" >&2
+  echo "  permanently, so NO tag commands are printed." >&2
+  echo >&2
+  echo "  The tags that are staged but NOT endorsed:" >&2
+  for t in $TAGS; do echo "    $t" >&2; done
+  echo >&2
+  echo "  Land the draft-then-seal release pipeline on main, then tag a commit" >&2
+  echo "  that contains it. Verify any SHA before tagging it:" >&2
+  echo "    python3 $PIPELINE_CHECK --sha <sha> --repo $REPO" >&2
+  cleanup_worktree
+  exit 1
+fi
+
 echo "== release_batch: tearing down worktree =="
 cleanup_worktree
 
 echo
 echo "============================================================"
 echo "Release commit pushed to main: $RELSHA"
+echo "This SHA was checked: its release.yml assembles into a draft, gates the"
+echo "asset set, and seals last, so these tags are safe to cut."
 echo "Copy-paste to tag + push (this script never runs these):"
 for t in $TAGS; do
   echo "  git -C $REPO tag $t $RELSHA && git -C $REPO push origin $t"
 done
 echo
-echo "Each tag push fires release.yml, which assembles the release as a DRAFT"
-echo "(6 targets x 4 files, plus the .mcpb bundle), asserts the set is complete,"
-echo "and only then publishes it. Publishing is what makes a release immutable,"
-echo "so it is the last step: a failed target leaves a DRAFT you can re-run, never"
-echo "a public release with missing assets. mcp-publish.yml then records the"
-echo "published .mcpb in the MCP Registry."
+echo "Each tag push fires release.yml AS IT EXISTS AT THE TAGGED COMMIT, which"
+echo "assembles the release as a DRAFT (6 targets x 4 files, plus the .mcpb"
+echo "bundle), asserts the set is complete, and only then publishes it."
+echo "Publishing is what makes a release immutable, so it is the last step: a"
+echo "failed target leaves a DRAFT you can re-run, never a public release with"
+echo "missing assets. mcp-publish.yml then records the published .mcpb in the"
+echo "MCP Registry."
+echo
+echo "STALE PRINTOUT? Tag commands from an EARLIER batch name an EARLIER SHA, and"
+echo "a SHA from before the draft-then-seal pipeline landed would run the old"
+echo "publish-first workflow and seal one empty, unrepairable release per tag."
+echo "Before pasting any tag command you did not just generate, run:"
+echo "  python3 $PIPELINE_CHECK --sha <the sha in that command> --repo $REPO"
 echo
 echo "WATCH FOR: a tag whose release never leaves draft state. That means a build"
 echo "target or the bundle failed - re-run the Release workflow for that tag."
