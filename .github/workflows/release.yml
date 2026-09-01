@@ -167,7 +167,16 @@ jobs:
             exit 1
           }
           printf '%s\n' "$notes" > /tmp/release-notes.md
-          gh release create "$TAG" --title "$TAG" --notes-file /tmp/release-notes.md
+          # --draft is load-bearing now that the repository has immutable
+          # releases enabled. A PUBLISHED release is sealed the moment it is
+          # created, so the build job's asset upload comes back
+          #   HTTP 422: Cannot upload assets to an immutable release
+          # and the release stays permanently empty - unfixable by definition.
+          # A draft is not immutable, so assets land normally; the publish job
+          # below flips it to published only after every target succeeded, and
+          # THAT is the moment it becomes immutable, with its assets already in
+          # place. This is the draft-assemble -> verify -> publish ordering.
+          gh release create "$TAG" --draft --title "$TAG" --notes-file /tmp/release-notes.md
 
   build:
     needs: [prepare, create-release, security_gate]
@@ -260,3 +269,40 @@ jobs:
           # --clobber makes re-runs idempotent. Each matrix job uploads only its
           # own four files, so concurrent jobs never collide on the same asset.
           gh release upload "$TAG" "$cli" "$mcp" "${cli}.sha256" "${mcp}.sha256" --clobber
+
+  publish:
+    # Flip the draft to published ONLY after every build target uploaded its
+    # assets. Publishing is what makes the release immutable, so nothing may be
+    # sealed until the asset set is complete. If any build target failed, this
+    # job does not run and the release stays a draft - visible to maintainers,
+    # invisible to installers, and still fixable by re-running the workflow.
+    needs: [prepare, create-release, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TAG: ${{ github.ref_name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Assert the asset set is complete, then publish
+        run: |
+          set -euo pipefail
+          # The expected names come from the same shared source the build job
+          # uploads from, so this cannot drift from what was actually built.
+          expected=$(python3 tools/maintainer/release_matrix.py --tag "$TAG" \
+            | python3 -c 'import json,sys; m=json.load(sys.stdin); print("\n".join(sorted(n for s in m["skill"] for a in s["assets"].values() for n in (a if isinstance(a,list) else [a]))))')
+          # Each binary also ships a .sha256 sidecar.
+          expected=$(printf '%s\n' "$expected" | while read -r n; do [ -n "$n" ] && printf '%s\n%s.sha256\n' "$n" "$n"; done | sort -u)
+          actual=$(gh release view "$TAG" --json assets -q '.assets[].name' | sort -u)
+          missing=$(comm -23 <(printf '%s\n' "$expected") <(printf '%s\n' "$actual") || true)
+          if [ -n "$missing" ]; then
+            echo "::error::draft $TAG is missing assets; refusing to publish:"
+            printf '  %s\n' $missing
+            exit 1
+          fi
+          echo "asset set complete ($(printf '%s\n' "$actual" | wc -l) assets); publishing"
+          gh release edit "$TAG" --draft=false
