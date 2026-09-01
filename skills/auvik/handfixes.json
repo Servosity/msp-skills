@@ -230,7 +230,8 @@
     {
      "file": "cli/internal/cli/teach.go",
      "contains": "// mcp:local-write, NOT mcp:read-only (issue #275 finding 4):",
-     "min_count": 1
+     "min_count": 1,
+     "code_only": false
     },
     {
      "file": "cli/internal/cli/teach_playbook.go",
@@ -240,7 +241,8 @@
     {
      "file": "cli/internal/cli/teach_playbook.go",
      "contains": "// playbook list opens the WRITABLE learn store and appends an",
-     "min_count": 1
+     "min_count": 1,
+     "code_only": false
     },
     {
      "file": "AGENTS.md",

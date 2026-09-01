@@ -238,7 +238,8 @@
     {
      "file": "cli/internal/config/config.go",
      "contains": "markers now survive a save; only MarkCredentialsExplicit clears them.",
-     "min_count": 1
+     "min_count": 1,
+     "code_only": false
     },
     {
      "file": "cli/internal/config/config.go",
