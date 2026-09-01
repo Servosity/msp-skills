@@ -17,9 +17,19 @@
 // parent reference (ApplicationFile.applicationId, MaintenanceEntry.computerId),
 // so store.resourceStorageID composes the key without any injection here.
 //
-// Filed upstream as item 8 of mvanhorn/cli-printing-press#4165. When the
-// generator learns to treat a required query param naming a parent's key as a
-// dependent relationship, this file and its dispatch hook go away.
+// Upstream tracker: finding 4 of mvanhorn/cli-printing-press#4482. It was
+// originally item 8 of #4165, but that issue was closed as completed with this
+// finding explicitly out of scope, so #4165 is NOT live - do not cite it.
+// Re-verified against press v4.31.4: auto-detection still bails whenever the
+// path carries no {placeholder}, so a query-param-keyed child is still
+// registered flat.
+//
+// Worth checking before the next reprint: x-pp-sync-walker with an explicit
+// key_param now handles the query-param case, and upstream #3816 fixed actually
+// sending that key. Declaring the walker in the spec may retire this file
+// without waiting on auto-detection. When the generator learns to treat a
+// required query param naming a parent's key as a dependent relationship, this
+// file and its dispatch hook go away either way.
 
 package cli
 
