@@ -1302,7 +1302,7 @@
       "skill_path": "skills/xero",
       "cli_binary": "xero-cli",
       "mcp_binary": "xero-mcp",
-      "version": "0.1.3",
+      "version": "0.1.4",
       "printing_press_version": "4.24.0",
       "license": "Apache-2.0",
       "vendor": "Xero",

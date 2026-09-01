@@ -48,7 +48,7 @@ jobs:
         run: python3 tools/maintainer/check_handfixes.py --lint-asserts
 
       - name: Maintainer gate self-tests (each gate proved BOTH directions)
-        # One step, three proofs. A gate that cannot fail is worthless and a gate
+        # One step, four proofs. A gate that cannot fail is worthless and a gate
         # that always fires is worse, so each of these asserts its check is
         # silent on the repo's real inputs AND fires on the defect it was
         # written for:
@@ -72,11 +72,55 @@ jobs:
         #                       per-OS override, a 0644 binary and a ZIP_STORED
         #                       member all fail; a built bundle and the
         #                       connectwise-manage manifest shape both pass.
+        #   check_release_assets.py
+        #                     - the gate that decides whether a draft release may
+        #                       be published. An empty release (the immutable-
+        #                       release failure: every asset upload 422s and the
+        #                       release goes public with nothing in it), a single
+        #                       failed build target, and a missing .mcpb each
+        #                       fire, naming exactly the absent files; a complete
+        #                       release and a re-run that left an extra asset
+        #                       behind both pass; and a tag naming no releasable
+        #                       skill expects nothing, so it can never false-RED.
+        #                       The size field is checked as a TYPE, so a listing
+        #                       carrying "0", "1024", true or NaN fires instead of
+        #                       sailing through a truthiness test.
+        #   check_release_pipeline.py
+        #                     - the gate that decides whether a SHA may be tagged
+        #                       at all. A tag push runs release.yml FROM THE
+        #                       TAGGED COMMIT, so tagging a pre-draft-pipeline
+        #                       commit publishes an empty immutable release and
+        #                       spends that version number. Nine broken pipeline
+        #                       shapes are refused (publish-first, never sealed,
+        #                       two sealers, an uploader outside the seal's needs
+        #                       closure, no completeness gate, the gate after the
+        #                       seal, no bundle in the contract, comments that
+        #                       only QUOTE the commands, and a file that is not a
+        #                       workflow). Critically it also asserts THIS repo's
+        #                       own release.yml passes: that is what pins the
+        #                       probe to the pipeline, so a pipeline change that
+        #                       outgrows the probe goes red in the PR that made
+        #                       it rather than at release time.
+        #                       The --tag mode, which is what the hand-tagging
+        #                       path actually calls, is proved the same way: a
+        #                       clean tag is endorsed, while a RETIRED version
+        #                       number (xero-v0.1.3, whose git tag is free
+        #                       because the empty release was deleted), an
+        #                       already-cut tag, a SHA stamped at a different
+        #                       version, and five shapes that are not release
+        #                       tags are each refused - and an unreachable origin
+        #                       is NOT, because a DNS blip is not a bad tag. The
+        #                       burned-version ledger is proved to fail CLOSED:
+        #                       five malformed ledgers raise rather than reading
+        #                       as "nothing is burned", while a missing one
+        #                       correctly reads as empty.
         run: |
           set -euo pipefail
           python3 tools/maintainer/registry.py --self-test
           python3 tools/maintainer/check_handfixes.py --self-test
           python3 tools/maintainer/mcpb_bundle.py --self-test
+          python3 tools/maintainer/check_release_assets.py --self-test
+          python3 tools/maintainer/check_release_pipeline.py --self-test
 
       - name: Skill contract (frontmatter + required files)
         run: python3 tools/maintainer/check_skill_contract.py
@@ -186,10 +230,15 @@ jobs:
         run: bash tools/maintainer/check_dco.sh
 
       - name: ShellCheck
+        # tools/maintainer/hooks/* is listed explicitly: a git hook cannot carry
+        # a .sh extension (git runs the file by its hook NAME), so the '*.sh'
+        # glob would leave the one script whose failure mode is silent - an
+        # uninstallable or crashing pre-push hook that lets an unendorsed
+        # release tag through - as the only unlinted shell in the repo.
         run: |
           sudo apt-get update
           sudo apt-get install -y shellcheck
-          mapfile -t scripts < <(git ls-files '*.sh')
+          mapfile -t scripts < <(git ls-files '*.sh' 'tools/maintainer/hooks/*')
           if [ ${#scripts[@]} -gt 0 ]; then
             shellcheck "${scripts[@]}"
           fi

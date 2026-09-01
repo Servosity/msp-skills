@@ -1,26 +1,68 @@
 name: MCP Registry Publish
 
 # Triggers after the Release workflow completes successfully on a per-skill
-# tag. Bundles each skill's MCP binary into an .mcpb (zip), attaches it to the
-# release, computes its SHA-256, patches the corresponding server.json with the
-# hash + version + download URL, and publishes to the official MCP Registry
+# tag.
+#
+# The Release workflow owns the ENTIRE artifact set now: it assembles the 24
+# platform files AND the .mcpb bundle into a DRAFT release, and publishes that
+# draft only once the set is proven complete. The repository has immutable
+# releases enabled, so a published release can never receive another asset -
+# which is why this workflow no longer builds or uploads the bundle. It used to,
+# and after the immutability flip that upload would fail with
+#   HTTP 422: Cannot upload assets to an immutable release
+# exactly as the six build jobs did.
+#
+# By the time this runs, the release is already public, already sealed, and
+# already carries its .mcpb. What is left is the part only this workflow can do:
+# compute the bundle's SHA-256, patch the corresponding server.json with the
+# hash + version + download URL, and publish to the official MCP Registry
 # (registry.modelcontextprotocol.io). One publish fans out to PulseMCP, GitHub
 # MCP Registry, Glama, mcp.so, Smithery, and LobeHub within 1–7 days.
 #
-# Skipped automatically if the tag is not a per-skill release tag.
+# Deliberately, this workflow neither uploads nor seals. Sealing must not depend
+# on the registry: when mcp-publisher fails, the release is still complete and
+# public, and only the registry publish needs retrying.
+#
+# Skipped automatically if the tag is not a per-skill release tag - and that
+# decision, like the bundle's filename, is read from THE TAG'S OWN TREE. A
+# `workflow_run` job always executes the default branch's copy of this file, but
+# the data it reasons over must describe the release that actually exists;
+# reading it from the default branch let a connector removed, flipped to
+# markdown-only, or renamed AFTER the release turn into a silent skip (or a hunt
+# for the wrong filename) over a perfectly valid sealed release.
+#
+# The workflow also holds a per-tag concurrency group and asks the registry
+# whether this version is already recorded, so a recovery re-run converges
+# instead of racing itself at a permanent registry version.
 
 on:
   workflow_run:
     workflows: ["Release"]
     types: [completed]
 
+# Least privilege. This workflow stopped writing to the release when the bundle
+# build moved into release.yml, so `contents: write` came off with it; only the
+# publish job's OIDC token remains, and only on that job.
 permissions:
-  contents: write   # upload .mcpb to the release
-  id-token: write   # GitHub OIDC for mcp-publisher auth
+  contents: read
+
+# One registry publisher per tag. A registry version is PERMANENT: publishing the
+# same (server name, version) twice is not an overwrite, it is a rejected second
+# attempt at an immutable record. Re-running an already-sealed Release workflow
+# succeeds as a no-op and emits ANOTHER `workflow_run`, so without this group a
+# recovery re-run could overlap the original registry job and both would race the
+# same permanent version. Keyed by TAG, so a 20-tag wave still publishes fully in
+# parallel; `cancel-in-progress: false` because cancelling a publisher mid-flight
+# tells you nothing about whether the registry recorded the version.
+concurrency:
+  group: mcp-publish-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
 
 jobs:
   detect:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     if: ${{ github.event.workflow_run.conclusion == 'success' && startsWith(github.event.workflow_run.head_branch, 'refs/tags/') == false }}
     outputs:
       skill: ${{ steps.parse.outputs.skill }}
@@ -28,11 +70,34 @@ jobs:
       tag: ${{ steps.parse.outputs.tag }}
       proceed: ${{ steps.parse.outputs.proceed }}
     steps:
-      - name: Checkout
+      # THE TAG'S OWN TREE decides whether this tag gets published. A
+      # `workflow_run` job always executes the DEFAULT BRANCH's copy of this
+      # workflow file - that part is unavoidable - but the DATA it reasons over
+      # does not have to come from there, and reading it from the default branch
+      # is a real defect: between the release and a (possibly delayed) retry, a
+      # connector can be removed from skills.json, flipped to markdown-only, or
+      # have its MCP binary renamed. Any of those makes the default branch answer
+      # "skip" or "look for a different bundle name" for a tag whose sealed
+      # release is perfectly valid, and a skipped `publish` over a successful
+      # `detect` looks GREEN while the registry version is simply missing.
+      # head_sha is the exact commit the Release workflow ran from, so it is
+      # right even if the tag was later moved or deleted.
+      - name: Checkout the tag's own commit
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          path: tagged
           # This job only reads the repo to parse a tag. It never pushes, so it
           # gets no git-usable credential left behind in .git/config.
+          persist-credentials: false
+
+      # Fallback ONLY. A tag cut before is_registered_slug.py / release_matrix.py
+      # existed carries neither, and hard-failing every such re-publish would be
+      # a false-RED. When this copy is used it is announced, never silent.
+      - name: Checkout the default branch (fallback tools only)
+        uses: actions/checkout@v4
+        with:
+          path: default-branch
           persist-credentials: false
 
       - name: Parse triggering tag
@@ -42,6 +107,29 @@ jobs:
         run: |
           set -euo pipefail
           tag="$HEAD_BRANCH"
+
+          # Prefer the tag's copy of each maintainer tool; fall back to the
+          # default branch's, loudly, only when the tag predates it.
+          slug_tool=""
+          matrix_tool=""
+          for base in tagged default-branch; do
+            if [ -z "$slug_tool" ] && [ -f "$base/tools/maintainer/is_registered_slug.py" ]; then
+              slug_tool="$base/tools/maintainer/is_registered_slug.py"
+            fi
+            if [ -z "$matrix_tool" ] && [ -f "$base/tools/maintainer/release_matrix.py" ]; then
+              matrix_tool="$base/tools/maintainer/release_matrix.py"
+            fi
+          done
+          case "$slug_tool" in
+            default-branch/*)
+              echo "::warning::is_registered_slug.py is absent at this tag; falling back to the default branch's copy." ;;
+          esac
+          case "$matrix_tool" in
+            default-branch/*)
+              echo "::warning::release_matrix.py is absent at this tag; falling back to the default branch's copy." ;;
+          esac
+          echo "registration source: ${slug_tool:-<none>}"
+          echo "releasable-matrix source: ${matrix_tool:-<none>}"
           # Generic per-skill derivation: a new skill needs no edit here. The
           # slug is everything before "-v"; the version is everything after it.
           # We only proceed when the tag parses as "<slug>-v<semver>" AND the
@@ -52,11 +140,38 @@ jobs:
           proceed=false
           # The tag must actually contain "-v" (so slug/version both parsed) and
           # the semver portion must look like N.N.N.
+          if [ -z "$slug_tool" ] || [ -z "$matrix_tool" ]; then
+            echo "::error::neither the tag nor the default branch carries the maintainer"
+            echo "::error::tools this decision needs. Refusing to guess whether $tag publishes."
+            exit 1
+          fi
           if [ "$tag" != "$skill" ] && printf '%s' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
             # argv, never program text - see release.yml and
             # tools/maintainer/is_registered_slug.py.
-            if python3 tools/maintainer/is_registered_slug.py --slug "$skill"; then
-              proceed=true
+            if python3 "$slug_tool" --slug "$skill"; then
+              # Second condition mirrors release.yml's `any` guard exactly. A
+              # registered but markdown-only skill has no vendored cli/, so the
+              # Release workflow builds nothing and creates no release for its
+              # tag. Skipping on the same input keeps this workflow from hunting
+              # for a bundle on a release that was never created.
+              if releasable=$(python3 "$matrix_tool" --tag "$tag" \
+                | python3 -c 'import json,sys; print(len(json.load(sys.stdin)["skill"]))'); then
+                if [ "$releasable" != "0" ]; then
+                  proceed=true
+                else
+                  echo "Slug '$skill' is registered but has no releasable CLI; skipping MCP publish."
+                fi
+              else
+                # Could not COMPUTE the answer, which is not the same as "no".
+                # Swallowing a tool error into a silent skip would leave no
+                # failed job to retry and no registry entry - a broken loop.
+                # is_registered_slug already passed, so fall through to the hard
+                # gates below (the release must exist, be published, and carry
+                # the bundle); those fail loudly and are retryable.
+                echo "::warning::could not compute the releasable-skill matrix for '$tag';" \
+                     "proceeding on is_registered_slug alone."
+                proceed=true
+              fi
             fi
           fi
 
@@ -79,25 +194,38 @@ jobs:
     needs: detect
     if: needs.detect.outputs.proceed == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read   # read the release + download its .mcpb; never writes
+      id-token: write  # GitHub OIDC for mcp-publisher auth
     steps:
-      - name: Checkout
+      - name: Checkout the tag's own commit
         uses: actions/checkout@v4
         with:
-          ref: ${{ needs.detect.outputs.tag }}
-          # Nothing in this job uses git to write: the release upload goes
+          # head_sha, not the tag name: it is the exact commit the Release
+          # workflow ran from, so it resolves even if the tag was later moved,
+          # and it cannot silently pick up a different tree than `detect` read.
+          ref: ${{ github.event.workflow_run.head_sha }}
+          # Nothing in this job uses git to write: the release read goes
           # through `gh` with GH_TOKEN, and the registry publish uses OIDC.
           # Leaving a git-usable token in .git/config only gives the third-party
           # publisher binary something worth stealing.
           persist-credentials: false
 
       # The checkout above is pinned to the TAG being published, so it carries
-      # whatever tools/maintainer/ looked like when that tag was cut. workflow_run
-      # always runs the DEFAULT BRANCH's copy of this workflow file, so the
-      # bundle builder it calls must come from the default branch too - otherwise
-      # every tag cut before mcpb_bundle.py landed would silently fall back to
-      # the hand-rolled zip that produced 64 unlaunchable bundles (issue #287).
-      # skills/<slug>/manifest.json still comes from the tag, which is correct:
-      # the manifest must match the released version.
+      # whatever tools/maintainer/ looked like when that tag was cut. Two
+      # different questions get two different answers here, on purpose:
+      #
+      #   * What did THIS RELEASE do?  Read from the tag. The bundle filename and
+      #     the publish-or-skip decision describe a release that already exists,
+      #     so the tree that produced it is the only correct source.
+      #   * How do we CHECK the artifact today?  The bundle VALIDATOR comes from
+      #     the default branch, because a tag cut before mcpb_bundle.py landed
+      #     carries no validator at all and would otherwise go unchecked. The
+      #     builder moved to release.yml; the validator stays here so the artifact
+      #     handed to the registry is re-checked on this side too.
+      #
+      # skills/<slug>/server.json comes from the tag, which is correct: the
+      # published metadata must match the released version.
       - name: Checkout the default branch's maintainer tools
         uses: actions/checkout@v4
         with:
@@ -107,103 +235,118 @@ jobs:
       - name: Set up jq
         run: sudo apt-get update && sudo apt-get install -y jq
 
-      - name: Download MCP binaries from release
+      - name: Resolve the canonical bundle filename
+        id: names
+        env:
+          TAG: ${{ needs.detect.outputs.tag }}
+        run: |
+          set -euo pipefail
+          # The bundle's name is registry-owned (release_matrix's `mcpb_asset`,
+          # from registry.py's mcp_binary). It is deliberately NOT rebuilt as
+          # "<slug>-mcp.mcpb" here: release.yml attaches the bundle under the
+          # registry's name and check_release_assets.py requires it under the
+          # registry's name, so a third hand-rolled copy in this workflow is
+          # exactly the drift that makes a release unpublishable.
+          #
+          # Read from THE TAG'S OWN TREE, because that is the tree whose
+          # release.yml chose the name the bundle is actually attached under.
+          # Reading it from the default branch (as this step used to) means a
+          # connector renamed after the release sends this workflow hunting for
+          # a filename that release never contained, over a release that is
+          # complete and correct. maintainer-tools/ is the fallback for tags cut
+          # before release_matrix.py existed, and using it is announced.
+          matrix_tool=""
+          for base in . maintainer-tools; do
+            if [ -f "$base/tools/maintainer/release_matrix.py" ]; then
+              matrix_tool="$base/tools/maintainer/release_matrix.py"
+              break
+            fi
+          done
+          if [ -z "$matrix_tool" ]; then
+            echo "::error::release_matrix.py is present at neither the tag nor the default"
+            echo "::error::branch, so the bundle filename cannot be resolved. Refusing to guess."
+            exit 1
+          fi
+          case "$matrix_tool" in
+            maintainer-tools/*)
+              echo "::warning::release_matrix.py is absent at $TAG; resolving the bundle name"
+              echo "::warning::from the default branch instead. If the MCP binary was renamed"
+              echo "::warning::since this tag, that name is wrong and the download below fails." ;;
+          esac
+          echo "bundle-name source: $matrix_tool"
+          asset=$(python3 "$matrix_tool" --tag "$TAG" \
+            | python3 -c 'import json,sys; s=json.load(sys.stdin)["skill"]; print(s[0]["mcpb_asset"] if s else "")')
+          if [ -z "$asset" ]; then
+            echo "::error::no releasable skill for tag $TAG, so its MCPB bundle has no name."
+            echo "::error::Refusing to guess one."
+            exit 1
+          fi
+          echo "mcpb_asset=$asset" >> "$GITHUB_OUTPUT"
+          echo "bundle asset for $TAG: $asset"
+
+      - name: Download the released .mcpb bundle
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.detect.outputs.tag }}
-          SKILL: ${{ needs.detect.outputs.skill }}
+          MCPB_ASSET: ${{ steps.names.outputs.mcpb_asset }}
         run: |
           set -euo pipefail
-          mkdir -p mcpb-build
-          cd mcpb-build
-          # The release.yml workflow uploads platform-suffixed binaries like
-          # halopsa-mcp-darwin-arm64, halopsa-mcp-linux-amd64, etc. We bundle
-          # ALL platforms into one .mcpb so the registry-published artifact
-          # works on every platform Claude Desktop runs on.
-          for suffix in darwin-arm64 darwin-amd64 linux-arm64 linux-amd64 windows-amd64.exe; do
-            gh release download "$TAG" --pattern "${SKILL}-mcp-${suffix}" --dir . || true
-          done
-          ls -la
-
-      - name: Build MCPB bundle
-        env:
-          SKILL: ${{ needs.detect.outputs.skill }}
-          VERSION: ${{ needs.detect.outputs.version }}
-          # release.yml publishes six targets; the download loop asks for five
-          # (windows/arm64 has no MCPB host). Keep these in step.
-          EXPECTED_BINARIES: "5"
-        run: |
-          set -euo pipefail
-          copied=$(find mcpb-build -maxdepth 1 -type f -name "${SKILL}-mcp-*" | wc -l | tr -d ' ')
-          # The download step tolerates a per-asset failure with `|| true`, and the
-          # upload uses --clobber. Together those mean a transient GitHub outage
-          # could produce a manifest-only bundle and OVERWRITE a working released
-          # .mcpb with it. Refuse to build a bundle that is missing binaries: a
-          # failed run leaves the previous good asset in place, which is the safe
-          # direction.
-          echo "downloaded $copied binary/binaries"
-          if [ "$copied" -lt "$EXPECTED_BINARIES" ]; then
-            echo "::error::only $copied of $EXPECTED_BINARIES platform binaries were downloaded for $SKILL;" \
-                 "refusing to build a partial bundle that --clobber would publish over the working asset"
+          # The registry records the bundle's download URL and its fileSha256 and
+          # never re-checks either. A DRAFT release's asset URLs are not publicly
+          # reachable, so publishing from one would burn a permanent 404 into the
+          # registry. release.yml seals the release as its very last act, so by
+          # the time this runs the release must already be published. If it is
+          # not, something went wrong upstream and there is nothing safe to do.
+          if [ "$(gh release view "$TAG" --json isDraft -q .isDraft)" != "false" ]; then
+            echo "::error::release $TAG is still a DRAFT. Its asset URLs are not publicly"
+            echo "::error::reachable, so the registry would record a 404. Refusing to publish."
+            echo "::error::Re-run the Release workflow: its publish job seals the release"
+            echo "::error::once the full asset set is attached."
             exit 1
           fi
-          # MCPB is a zip with manifest.json + a bin/ directory of binaries. Hand
-          # rolling that with `zip -r` is what shipped 64 bundles the host cannot
-          # start: the manifest named bin/<slug>-mcp while the archive held only
-          # arch-suffixed binaries, and `gh release download` + `zip -r` left every
-          # one of them mode 0644. The builder merges the two darwin slices into a
-          # universal Mach-O, writes per-OS platform_overrides that resolve, sets
-          # the executable bit, and refuses to emit a bundle that does not validate.
-          # See issue #287 and tools/maintainer/mcpb_bundle.py.
-          #
-          # --binary-prefix is "$SKILL-mcp" - exactly the names the download loop
-          # asked for and release.yml uploaded. It is deliberately NOT derived from
-          # manifest.json's `name`, which still reads "<slug>-pp-mcp" on eight
-          # connectors and would name members that do not exist.
-          python3 maintainer-tools/tools/maintainer/mcpb_bundle.py build \
-            --manifest "skills/$SKILL/manifest.json" \
-            --bin-dir mcpb-build \
-            --binary-prefix "${SKILL}-mcp" \
-            --out "mcpb-build/${SKILL}-mcp.mcpb" \
-            --version "$VERSION"
-          ls -la "mcpb-build/${SKILL}-mcp.mcpb"
+          mkdir -p mcpb-build
+          # Built and attached by release.yml's `mcpb` job, in the same workflow
+          # run that built the binaries inside it, and the release could not have
+          # been sealed without it. Nothing is uploaded from here: the release is
+          # immutable by now and would reject it with HTTP 422.
+          gh release download "$TAG" --pattern "$MCPB_ASSET" --dir mcpb-build || true
+          if [ ! -f "mcpb-build/${MCPB_ASSET}" ]; then
+            echo "::error::release $TAG carries no ${MCPB_ASSET}. A sealed release cannot"
+            echo "::error::receive one, so this tag can never be published to the registry."
+            echo "::error::Cut the next patch version and let release.yml assemble it."
+            exit 1
+          fi
+          ls -la "mcpb-build/${MCPB_ASSET}"
 
       - name: Bundle can actually launch (every declared command resolves)
         env:
-          SKILL: ${{ needs.detect.outputs.skill }}
-        # Separate from the build step on purpose: the builder validates its own
-        # output, and this re-asserts it against the file on disk, before the
-        # upload, so a bundle that cannot start never reaches a release or the
-        # registry. Asserts each of mcp_config.command and every
-        # platform_overrides.<os>.command names a member the archive contains and
-        # that the member is executable. It does NOT assert
+          MCPB_ASSET: ${{ steps.names.outputs.mcpb_asset }}
+        # release.yml validates the bundle before it attaches it. This re-asserts
+        # the same contract against the bytes actually downloaded from the
+        # release, on the side that hands them to the registry, so a bundle that
+        # cannot start never gets published. Asserts each of mcp_config.command
+        # and every platform_overrides.<os>.command names a member the archive
+        # contains and that the member is executable. It does NOT assert
         # entry_point == "bin/<mcp binary>" - that would codify the broken bare
         # name and false-RED connectwise-manage, the one manifest that can launch.
         run: |
           set -euo pipefail
           python3 maintainer-tools/tools/maintainer/mcpb_bundle.py validate \
-            "mcpb-build/${SKILL}-mcp.mcpb"
+            "mcpb-build/${MCPB_ASSET}"
 
       - name: Compute SHA-256
         id: sha
         env:
-          SKILL: ${{ needs.detect.outputs.skill }}
+          MCPB_ASSET: ${{ steps.names.outputs.mcpb_asset }}
         run: |
           set -euo pipefail
+          # Hashed from the bytes DOWNLOADED FROM THE RELEASE, not from a local
+          # rebuild. The registry's fileSha256 therefore describes the exact
+          # artifact its identifier URL serves.
           cd mcpb-build
-          hash=$(openssl dgst -sha256 "${SKILL}-mcp.mcpb" | awk '{print $NF}')
+          hash=$(openssl dgst -sha256 "$MCPB_ASSET" | awk '{print $NF}')
           echo "sha=$hash" >> "$GITHUB_OUTPUT"
           echo "Computed SHA-256: $hash"
-
-      - name: Upload MCPB to release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ needs.detect.outputs.tag }}
-          SKILL: ${{ needs.detect.outputs.skill }}
-        run: |
-          set -euo pipefail
-          cd mcpb-build
-          gh release upload "$TAG" "${SKILL}-mcp.mcpb" --clobber
 
       - name: Patch server.json with SHA + version + identifier URL
         env:
@@ -211,6 +354,7 @@ jobs:
           VERSION: ${{ needs.detect.outputs.version }}
           TAG: ${{ needs.detect.outputs.tag }}
           SHA: ${{ steps.sha.outputs.sha }}
+          MCPB_ASSET: ${{ steps.names.outputs.mcpb_asset }}
         run: |
           set -euo pipefail
           src=skills/$SKILL/server.json
@@ -218,7 +362,7 @@ jobs:
           # For registryType "mcpb" the registry reads the host from `identifier`,
           # which MUST be the full .mcpb download URL (a bare name -> 400 "Host ''").
           # There is no separate `download` field in the mcpb package schema.
-          identifier="https://github.com/${{ github.repository }}/releases/download/${TAG}/${SKILL}-mcp.mcpb"
+          identifier="https://github.com/${{ github.repository }}/releases/download/${TAG}/${MCPB_ASSET}"
           jq \
             --arg version "$VERSION" \
             --arg sha "$SHA" \
@@ -227,6 +371,37 @@ jobs:
             "$src" > "$out"
           echo "--- patched server.json ---"
           cat "$out"
+
+      - name: The URL the registry will record actually resolves
+        env:
+          TAG: ${{ needs.detect.outputs.tag }}
+          MCPB_ASSET: ${{ steps.names.outputs.mcpb_asset }}
+        run: |
+          set -euo pipefail
+          # The registry stores `identifier` verbatim and never re-checks it, so
+          # a wrong or unreachable URL is permanent for that version. Prove the
+          # exact URL resolves ANONYMOUSLY - no token on this curl - before
+          # handing it over. This is the check that would have caught a draft, a
+          # renamed asset, or a bundle that never attached.
+          url="https://github.com/${{ github.repository }}/releases/download/${TAG}/${MCPB_ASSET}"
+          # --range 0-0 asks for one byte, so this proves reachability without
+          # pulling the whole bundle. 206 is the range answer; 200 is a server
+          # that ignored the range and sent the file. Either proves the URL
+          # resolves. Retry a few times: an asset can take a moment to appear on
+          # the public CDN right after its release is published.
+          code="000"
+          for attempt in 1 2 3 4 5; do
+            code=$(curl -sSL --range 0-0 -o /dev/null -w '%{http_code}' "$url") || code="000"
+            if [ "$code" = "200" ] || [ "$code" = "206" ]; then
+              echo "$url resolves anonymously (HTTP $code)."
+              exit 0
+            fi
+            echo "attempt $attempt: $url -> HTTP $code"
+            sleep 5
+          done
+          echo "::error::$url is not publicly reachable (HTTP $code)."
+          echo "::error::Refusing to record a URL the registry would serve as a 404."
+          exit 1
 
       - name: Pre-flight - server.json satisfies the registry schema
         env:
@@ -246,7 +421,56 @@ jobs:
           fi
           python3 tools/maintainer/check_mcp_registry.py --slug "$SKILL"
 
+      - name: Is this version already in the registry?
+        id: recorded
+        env:
+          VERSION: ${{ needs.detect.outputs.version }}
+        run: |
+          set -euo pipefail
+          # A registry version is PERMANENT. Publishing the same (name, version)
+          # twice is not an overwrite: the registry rejects it, and the job goes
+          # red over a release that is complete, public and correct. That turns
+          # every recovery re-run - of which there are now more, because a sealed
+          # Release workflow re-run succeeds as a no-op and emits another
+          # workflow_run - into a false alarm. Query first so a re-run converges.
+          #
+          # The name is read from the PATCHED server.json, so this asks about the
+          # exact identity mcp-publisher is about to send, not a reconstruction.
+          name=$(jq -r '.name' mcpb-build/server.json)
+          if [ -z "$name" ] || [ "$name" = "null" ]; then
+            echo "::error::the patched server.json carries no .name; refusing to publish."
+            exit 1
+          fi
+          code=$(curl -sS -G \
+            --data-urlencode "search=$name" \
+            --data-urlencode "version=$VERSION" \
+            -o registry-check.json -w '%{http_code}' \
+            "https://registry.modelcontextprotocol.io/v0/servers") || code="000"
+          if [ "$code" != "200" ]; then
+            # Could not COMPUTE the answer, which is not the same as "no". Fall
+            # through and let mcp-publisher be the authority: a duplicate then
+            # fails loudly and retryably, which is the honest direction for a
+            # convergence helper that could not reach its source.
+            echo "::warning::could not query the MCP Registry (HTTP $code); proceeding to publish."
+            echo "already=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # `search` is a fuzzy match, so an exact (name, version) pair is
+          # required rather than a non-empty result.
+          hits=$(jq --arg n "$name" --arg v "$VERSION" \
+            '[.servers[]? | select(.server.name == $n and .server.version == $v)] | length' \
+            registry-check.json)
+          if [ "$hits" != "0" ]; then
+            echo "::notice::$name $VERSION is already recorded in the MCP Registry;"
+            echo "::notice::nothing to publish. The release itself is unaffected."
+            echo "already=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "$name $VERSION is not in the registry yet; publishing."
+            echo "already=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Install mcp-publisher (pinned version, digest verified before execution)
+        if: steps.recorded.outputs.already != 'true'
         env:
           PUBLISHER_VERSION: "v1.8.1"
           PUBLISHER_ASSET: "mcp-publisher_linux_amd64.tar.gz"
@@ -298,9 +522,11 @@ jobs:
           ./mcp-publisher --version
 
       - name: Authenticate with GitHub OIDC
+        if: steps.recorded.outputs.already != 'true'
         run: ./mcp-publisher login github-oidc
 
       - name: Publish to official MCP Registry
+        if: steps.recorded.outputs.already != 'true'
         run: |
           set -euo pipefail
           cd mcpb-build

@@ -1,0 +1,91 @@
+#!/usr/bin/env bash
+# pre-push - refuse to push a release tag whose commit would burn the version.
+#
+# Install (repo-local, one command):
+#   git config core.hooksPath tools/maintainer/hooks
+# Uninstall:
+#   git config --unset core.hooksPath
+# If you already keep hooks in .git/hooks, copy this one instead:
+#   cp tools/maintainer/hooks/pre-push .git/hooks/pre-push && chmod +x .git/hooks/pre-push
+#
+# WHY. A tag push runs .github/workflows/release.yml AS IT EXISTS AT THE TAGGED
+# COMMIT. This repository has immutable releases enabled, so a commit whose
+# workflow publishes before it uploads produces a permanently sealed, EMPTY
+# release and spends that version number for good. That happened twice in one
+# day on xero-v0.1.3.
+#
+# This hook is the LAST line of defence, deliberately not the only one: a hook
+# nobody installed protects nobody. The primary mechanism is that every printed
+# tag command is self-gating -
+#   python3 tools/maintainer/check_release_pipeline.py --tag T --sha S && git tag T S && ...
+# - so the probe runs at paste time. See tools/maintainer/README.md,
+# "Cutting a release tag".
+#
+# Non-tag pushes are untouched. Tag DELETIONS are untouched. Only a push that
+# creates refs/tags/<slug>-v<x.y.z> is checked, and it is checked with
+# --pre-push, which knows the tag necessarily exists locally by now.
+#
+# bash 3.2 compatible (macOS default shell).
+
+set -u
+
+ZERO="0000000000000000000000000000000000000000"
+REPO="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+PROBE="$REPO/tools/maintainer/check_release_pipeline.py"
+status=0
+checked=0
+
+# git feeds "<local ref> <local sha> <remote ref> <remote sha>" per ref; only the
+# middle two are used, but all four must be read to keep the fields aligned.
+# shellcheck disable=SC2034
+while read -r local_ref local_sha remote_ref remote_sha; do
+  # Only release tags. Branches, notes and non-versioned tags pass through.
+  case "$remote_ref" in
+    refs/tags/*-v[0-9]*) ;;
+    *) continue ;;
+  esac
+  # A deletion (git push --delete) has a zero local sha and nothing to check.
+  [ "$local_sha" = "$ZERO" ] && continue
+
+  tag="${remote_ref#refs/tags/}"
+  # An annotated tag's local_sha is the TAG object; release.yml runs at the
+  # commit it points to, so that is what has to be probed.
+  commit="$(git rev-parse -q --verify "${local_sha}^{commit}" 2>/dev/null || true)"
+  if [ -z "$commit" ]; then
+    echo "pre-push: REFUSING $tag - cannot resolve $local_sha to a commit." >&2
+    status=1
+    continue
+  fi
+
+  if [ ! -f "$PROBE" ]; then
+    echo "pre-push: REFUSING $tag - $PROBE is missing, so it cannot be proved that" >&2
+    echo "  this commit runs the draft-then-seal release pipeline. Under immutable" >&2
+    echo "  releases an unproved tag can seal an empty release and spend the version." >&2
+    status=1
+    continue
+  fi
+  if ! command -v python3 >/dev/null 2>&1; then
+    echo "pre-push: REFUSING $tag - python3 is not on PATH, so the release-pipeline" >&2
+    echo "  probe cannot run. Fail closed: an unchecked release tag is the expensive" >&2
+    echo "  failure, a blocked push is the cheap one." >&2
+    status=1
+    continue
+  fi
+
+  checked=$((checked + 1))
+  if ! python3 "$PROBE" --tag "$tag" --sha "$commit" --repo "$REPO" --pre-push; then
+    echo >&2
+    echo "pre-push: REFUSING to push $tag (see above)." >&2
+    echo "  Delete the local tag and cut it at a commit the probe endorses:" >&2
+    echo "    git tag -d $tag" >&2
+    status=1
+  fi
+done
+
+if [ "$status" != "0" ]; then
+  echo >&2
+  echo "pre-push: no tags were pushed. If you are certain this is wrong, the" >&2
+  echo "  escape hatch is git push --no-verify - but every time it has been" >&2
+  echo "  needed so far, the probe was right." >&2
+fi
+exit "$status"

@@ -9,11 +9,28 @@ on:
       # not in tools/maintainer/skills.json.
       - "*-v*.*.*"
 
+# Least privilege at the top: read is the floor, and only the three jobs that
+# actually mutate the GitHub Release ask for `contents: write` in their own
+# `permissions:` block. Before this every job held a release-write credential,
+# including the one that downloads and executes four third-party scanners.
 permissions:
-  contents: write
+  contents: read
 
 env:
   GH_REPO: ${{ github.repository }}
+
+# One assembler per tag. The draft is shared mutable state: two runs for the
+# same tag (a re-pushed tag, or a manual re-run started while the first is still
+# going) would interleave their --clobber uploads into it, and whichever reached
+# `publish` first could seal a name-complete set assembled from two different
+# commits while the other run's uploads began returning 422. The group is keyed
+# by TAG, so the 20 tags of a release wave still build fully in parallel.
+#
+# cancel-in-progress is FALSE on purpose: cancelling a half-finished assembler
+# is exactly how a draft gets stranded. Queueing converges; cancelling does not.
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
 
 jobs:
   # The build matrix is COMPUTED from the repo (tools/maintainer/skills.json + introspection
@@ -25,9 +42,18 @@ jobs:
   # per-row tag_skill guard below stays as second-layer defense.
   prepare:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       matrix: ${{ steps.gen.outputs.matrix }}
       any: ${{ steps.gen.outputs.any }}
+      # The MCP binary base name and the literal MCPB bundle filename for the
+      # skill this tag names, straight out of the same matrix the build jobs are
+      # driven from. The `mcpb` job reads these instead of rebuilding
+      # "<slug>-mcp" and "<slug>-mcp.mcpb" in shell, so the workflow, the
+      # completeness gate and mcp-publish.yml cannot disagree about the name.
+      mcp_bin: ${{ steps.gen.outputs.mcp_bin }}
+      mcpb_asset: ${{ steps.gen.outputs.mcpb_asset }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -42,8 +68,12 @@ jobs:
         run: |
           set -euo pipefail
           matrix="$(python3 tools/maintainer/release_matrix.py --tag "$TAG")"
-          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
-          echo "any=$(printf '%s' "$matrix" | python3 -c 'import json,sys; print(str(len(json.load(sys.stdin)["skill"])>0).lower())')" >> "$GITHUB_OUTPUT"
+          # One reader, one redirect, four outputs: the matrix itself, whether
+          # it has any rows at all, and the registry-owned MCP binary and MCPB
+          # bundle names for the skill this tag releases. The last two are empty
+          # when the tag names no releasable skill, which the `any` guard has
+          # already turned into "no downstream jobs at all".
+          printf '%s' "$matrix" | python3 -c 'import json,sys; m=sys.stdin.read(); s=json.loads(m)["skill"]; print("matrix=" + m); print("any=" + str(bool(s)).lower()); print("mcp_bin=" + (s[0]["mcp_bin"] if s else "")); print("mcpb_asset=" + (s[0]["mcpb_asset"] if s else ""))' >> "$GITHUB_OUTPUT"
 
   # Release-time security gate (Layer 3): re-verify the tagged connector before any
   # build/publish. Belt-and-suspenders with the PR `security-gate` check - a tag could
@@ -51,6 +81,8 @@ jobs:
   # for `*-v*` so a release can't bypass this.
   security_gate:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -123,10 +155,24 @@ jobs:
           # broken install cannot let a release bypass the supply-chain gate.
           python3 tools/maintainer/check_security_gate.py --slug "$slug" --require-scanners
 
-  # Create the GitHub Release once, before the matrix build jobs upload to it.
+  # Create the GitHub Release as a DRAFT, once, before the matrix build jobs
+  # upload to it. The `publish` job at the bottom is what seals it, and only
+  # after the artifact set is proven complete.
   create-release:
-    needs: [security_gate]
+    needs: [prepare, security_gate]
+    # A tag whose slug is not a releasable skill yields an empty build matrix.
+    # Creating a release for it would leave litter that nothing can finish: a
+    # permanently empty PUBLISHED release under immutable releases, or a
+    # permanent draft. So create nothing at all; every job below skips with it.
+    if: needs.prepare.outputs.any == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      # 'true' when a release for this tag already exists AND is already
+      # published, i.e. already immutable. Nothing can be uploaded to it and
+      # nothing is left to seal, so build/mcpb/publish all skip.
+      sealed: ${{ steps.ensure.outputs.sealed }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -136,15 +182,49 @@ jobs:
           # only read from here.
           persist-credentials: false
 
-      - name: Ensure release exists
+      - name: Ensure a draft release exists
+        id: ensure
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
           if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "Release $TAG already exists; reusing it."
-            exit 0
+            # `gh release view` resolves draft releases by tag name too, so this
+            # finds a half-assembled draft from an earlier run as well as a
+            # finished published release.
+            if [ "$(gh release view "$TAG" --json isDraft -q .isDraft)" = "true" ]; then
+              echo "Draft release $TAG already exists; reusing it."
+              echo "sealed=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            # Already published, therefore already immutable. Re-running the
+            # matrix against it can only produce six identical 422s, so stop
+            # here and say something useful instead. If the asset set is
+            # complete this is a harmless no-op re-run; if it is NOT complete,
+            # the release is unrepairable by definition and the operator needs
+            # to know that rather than watch jobs fail one at a time.
+            echo "sealed=true" >> "$GITHUB_OUTPUT"
+            if gh release view "$TAG" --json assets \
+              | python3 tools/maintainer/check_release_assets.py --tag "$TAG" --with-mcpb; then
+              echo "::notice::$TAG is already published and complete; nothing to do."
+              exit 0
+            fi
+            echo "::error::$TAG is already PUBLISHED and therefore immutable, but its"
+            echo "::error::asset set is incomplete (the missing or half-uploaded names are"
+            echo "::error::listed above). Assets can never be added to or replaced in a"
+            echo "::error::sealed release, so re-running this workflow cannot fix it."
+            echo "::error::"
+            echo "::error::THE REMEDY IS TO CUT THE NEXT PATCH VERSION. Deleting the release"
+            echo "::error::and re-tagging $TAG is not a recovery path: GitHub documents that"
+            echo "::error::deleting an immutable release lets you delete the TAG but does not"
+            echo "::error::let you reuse the release NAME. Probed on 2026-09-01, creating a"
+            echo "::error::DRAFT at a deleted immutable release's tag name did succeed, so the"
+            echo "::error::name is not provably burned - but whether PUBLISHING at that name"
+            echo "::error::succeeds is untested, and finding out costs a real release. Bump"
+            echo "::error::the version (tools/maintainer/release_batch.sh) rather than betting"
+            echo "::error::a connector's next release on it."
+            exit 1
           fi
           # Release notes come from the SKILL'S OWN CHANGELOG, never
           # --generate-notes.
@@ -167,12 +247,24 @@ jobs:
             exit 1
           }
           printf '%s\n' "$notes" > /tmp/release-notes.md
-          gh release create "$TAG" --title "$TAG" --notes-file /tmp/release-notes.md
+          # --draft is load-bearing now that the repository has immutable
+          # releases enabled. A PUBLISHED release is sealed the moment it is
+          # created, so the build job's asset upload comes back
+          #   HTTP 422: Cannot upload assets to an immutable release
+          # and the release stays permanently empty - unfixable by definition.
+          # A draft is not immutable, so assets land normally; the publish job
+          # below flips it to published only after every target succeeded, and
+          # THAT is the moment it becomes immutable, with its assets already in
+          # place. This is the draft-assemble -> verify -> publish ordering.
+          gh release create "$TAG" --draft --title "$TAG" --notes-file /tmp/release-notes.md
+          echo "sealed=false" >> "$GITHUB_OUTPUT"
 
   build:
     needs: [prepare, create-release, security_gate]
-    if: needs.prepare.outputs.any == 'true'
+    if: needs.prepare.outputs.any == 'true' && needs.create-release.outputs.sealed == 'false'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
@@ -257,6 +349,203 @@ jobs:
             shasum -a 256 "$f" > "${f}.sha256"
           done
 
+          # The release is still a DRAFT here, which is the only reason this
+          # upload can succeed at all: the repository has immutable releases
+          # enabled, and a PUBLISHED release rejects every asset upload with
+          # "HTTP 422: Cannot upload assets to an immutable release".
           # --clobber makes re-runs idempotent. Each matrix job uploads only its
           # own four files, so concurrent jobs never collide on the same asset.
           gh release upload "$TAG" "$cli" "$mcp" "${cli}.sha256" "${mcp}.sha256" --clobber
+
+  # Build the cross-platform MCPB bundle and attach it to the DRAFT.
+  #
+  # This used to live in mcp-publish.yml, which runs on `workflow_run` AFTER
+  # this workflow finishes. That ordering cannot survive immutable releases: by
+  # the time mcp-publish ran the release would already be sealed, and its
+  # `gh release upload --clobber` would fail with the same 422 the six build
+  # jobs hit on the first immutable release. Moving the bundle here puts the
+  # WHOLE artifact set - 24 platform files plus the bundle - inside the one
+  # workflow that assembles the draft and seals it once, at the end.
+  # mcp-publish.yml keeps the part only it can do: patch server.json with the
+  # bundle hash and publish to the MCP Registry, pointing at a release that is
+  # public by then.
+  mcpb:
+    needs: [prepare, create-release, build]
+    if: needs.prepare.outputs.any == 'true' && needs.create-release.outputs.sealed == 'false'
+    runs-on: ubuntu-latest
+    permissions:
+      # Draft releases are visible only to accounts with push access, so this
+      # job needs write to READ from the draft as well as to upload to it.
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ github.ref_name }}
+      # Registry-derived, via the build matrix. Never rebuilt in shell.
+      MCP_BIN: ${{ needs.prepare.outputs.mcp_bin }}
+      MCPB_ASSET: ${{ needs.prepare.outputs.mcpb_asset }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # The bundle is attached through `gh` with GH_TOKEN; git never pushes.
+          persist-credentials: false
+
+      - name: Download this tag's MCP binaries from the draft
+        run: |
+          set -euo pipefail
+          slug="${TAG%-v*}"
+          # argv, never program text - same rule as the build job, see
+          # tools/maintainer/is_registered_slug.py.
+          if ! python3 tools/maintainer/is_registered_slug.py --slug "$slug"; then
+            echo "::error::derived slug '$slug' is not in skills.json"
+            exit 1
+          fi
+          if [ -z "$MCP_BIN" ] || [ -z "$MCPB_ASSET" ]; then
+            echo "::error::the build matrix carried no MCP binary name for $TAG;"
+            echo "::error::regenerate with tools/maintainer/release_matrix.py"
+            exit 1
+          fi
+          mkdir -p mcpb-build
+          # The build job above uploaded platform-suffixed binaries
+          # ($MCP_BIN-darwin-arm64 and friends). Bundle ALL platforms into one
+          # .mcpb so the registry-published artifact works everywhere Claude
+          # Desktop runs. windows/arm64 is deliberately absent from this loop:
+          # MCPB has no host for it, which is why the expected count below is 5
+          # and not 6.
+          for suffix in darwin-arm64 darwin-amd64 linux-arm64 linux-amd64 windows-amd64.exe; do
+            gh release download "$TAG" --pattern "${MCP_BIN}-${suffix}" --dir mcpb-build || true
+          done
+          ls -la mcpb-build
+
+      - name: Build MCPB bundle
+        env:
+          # The build job publishes six targets; the download loop asks for five
+          # (windows/arm64 has no MCPB host). Keep these in step.
+          EXPECTED_BINARIES: "5"
+        run: |
+          set -euo pipefail
+          slug="${TAG%-v*}"
+          version="${TAG##*-v}"
+          copied=$(find mcpb-build -maxdepth 1 -type f -name "${MCP_BIN}-*" | wc -l | tr -d ' ')
+          # The download step tolerates a per-asset failure with `|| true`, and the
+          # upload uses --clobber. Together those mean a transient GitHub outage
+          # could produce a manifest-only bundle and OVERWRITE a working released
+          # .mcpb with it. Refuse to build a bundle that is missing binaries: a
+          # failed run leaves the draft unsealed and the previous release's asset
+          # untouched, which is the safe direction.
+          echo "downloaded $copied binary/binaries"
+          if [ "$copied" -lt "$EXPECTED_BINARIES" ]; then
+            echo "::error::only $copied of $EXPECTED_BINARIES platform binaries were downloaded for $slug;" \
+                 "refusing to build a partial bundle that --clobber would publish over the working asset"
+            exit 1
+          fi
+          # MCPB is a zip with manifest.json + a bin/ directory of binaries. Hand
+          # rolling that with `zip -r` is what shipped 64 bundles the host cannot
+          # start: the manifest named bin/<slug>-mcp while the archive held only
+          # arch-suffixed binaries, and `gh release download` + `zip -r` left every
+          # one of them mode 0644. The builder merges the two darwin slices into a
+          # universal Mach-O, writes per-OS platform_overrides that resolve, sets
+          # the executable bit, and refuses to emit a bundle that does not validate.
+          # See issue #287 and tools/maintainer/mcpb_bundle.py.
+          #
+          # Running inside release.yml, the builder comes from the TAG's checkout
+          # rather than the default branch. That is correct here and was not in
+          # mcp-publish.yml: a tag push runs the workflow file AND the tools from
+          # the same commit, so the two cannot disagree about the bundle format.
+          #
+          # --binary-prefix is the registry's mcp_binary - exactly the names the
+          # download loop asked for and the build job uploaded. It is
+          # deliberately NOT derived from manifest.json's `name`, which still
+          # reads "<slug>-pp-mcp" on eight connectors and would name members that
+          # do not exist.
+          python3 tools/maintainer/mcpb_bundle.py build \
+            --manifest "skills/$slug/manifest.json" \
+            --bin-dir mcpb-build \
+            --binary-prefix "$MCP_BIN" \
+            --out "mcpb-build/${MCPB_ASSET}" \
+            --version "$version"
+          ls -la "mcpb-build/${MCPB_ASSET}"
+
+      - name: Bundle can actually launch (every declared command resolves)
+        # Separate from the build step on purpose: the builder validates its own
+        # output, and this re-asserts it against the file on disk, before the
+        # upload, so a bundle that cannot start never reaches a release or the
+        # registry. Asserts each of mcp_config.command and every
+        # platform_overrides.<os>.command names a member the archive contains and
+        # that the member is executable. It does NOT assert
+        # entry_point == "bin/<mcp binary>" - that would codify the broken bare
+        # name and false-RED connectwise-manage, the one manifest that can launch.
+        #
+        # Now that the bundle is part of the sealing contract, a bundle that
+        # cannot launch blocks the whole release rather than only the registry
+        # publish.
+        run: |
+          set -euo pipefail
+          python3 tools/maintainer/mcpb_bundle.py validate "mcpb-build/${MCPB_ASSET}"
+
+      - name: Attach the bundle to the draft
+        run: |
+          set -euo pipefail
+          # Still a draft, so this upload is legal; --clobber keeps a re-run of a
+          # partially-failed release idempotent.
+          gh release upload "$TAG" "mcpb-build/${MCPB_ASSET}" --clobber
+
+  # THE SEAL. Publishing is what makes a release immutable, so it is the last
+  # thing this workflow does and it happens only after the asset set is proven
+  # complete against the shared source of truth.
+  #
+  # `needs` is the safety property: if ANY of the six build targets failed, or
+  # the bundle failed to build or validate, this job never runs and the release
+  # stays a DRAFT - invisible to installers, invisible to the install one-liners,
+  # and still fixable by re-running the workflow. The failure mode this replaces
+  # was a published, permanently empty release.
+  publish:
+    needs: [prepare, create-release, build, mcpb]
+    if: needs.prepare.outputs.any == 'true' && needs.create-release.outputs.sealed == 'false'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ github.ref_name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Assert the asset set is complete, then seal the release
+        run: |
+          set -euo pipefail
+          state=$(gh release view "$TAG" --json isDraft -q .isDraft)
+          # The expected names come from the SAME shared source the build matrix
+          # was driven from (release_matrix.skill_entries -> registry.asset_map
+          # plus its mcpb_asset), so this check cannot drift from what was
+          # actually uploaded. Nothing here re-derives the "-<goos>-<goarch>"
+          # suffix, the windows ".exe" rule, or the bundle name in shell.
+          #
+          # The full `--json assets` object is piped, not just the names: the
+          # gate also asserts every asset reached state "uploaded" with a
+          # non-zero size. GitHub creates the asset record before the bytes
+          # finish transferring, so a name-only check would happily seal a
+          # half-uploaded file into a permanently broken download.
+          gh release view "$TAG" --json assets \
+            | python3 tools/maintainer/check_release_assets.py --tag "$TAG" --with-mcpb
+          if [ "$state" != "true" ]; then
+            # Already published - a concurrent or repeated run got here first.
+            # It is complete (checked above), so converge instead of editing an
+            # immutable release, which would 422.
+            echo "::notice::$TAG is already published and complete; nothing to seal."
+            exit 0
+          fi
+          gh release edit "$TAG" --draft=false
+
+      - name: Confirm the release is public
+        run: |
+          set -euo pipefail
+          state=$(gh release view "$TAG" --json isDraft -q .isDraft)
+          if [ "$state" != "false" ]; then
+            echo "::error::$TAG is still a draft after the publish step; the seal did not take."
+            exit 1
+          fi
+          echo "$TAG is published and immutable with its complete asset set."

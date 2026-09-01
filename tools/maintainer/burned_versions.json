@@ -1,0 +1,28 @@
+{
+  "_comment": [
+    "Version numbers that are SPENT: a release was created at this tag and then",
+    "destroyed, so the number must never be cut again. Deleting a GitHub release",
+    "frees the git tag, but the release NAME is not reliably reusable, and even",
+    "where it is, re-cutting a number that a published artifact may already have",
+    "pointed at is indistinguishable, to a downstream user, from a silent rewrite.",
+    "",
+    "Read by tools/maintainer/check_release_pipeline.py --tag (which refuses the",
+    "tag) and by tools/maintainer/check_pinned_artifacts.py (a burned version does",
+    "not consume the one-push-of-grace a genuinely uncut release would).",
+    "",
+    "Adding an entry is a deliberate, reviewed act: it retires a number forever.",
+    "Every entry states what destroyed the release and links the evidence."
+  ],
+  "burned": [
+    {
+      "tag": "xero-v0.1.3",
+      "date": "2026-09-01",
+      "why": "Cut twice under the publish-first pipeline. Immutable releases seal on creation, so all six build targets failed with 'HTTP 422: Cannot upload assets to an immutable release' and the release published with zero assets. The empty release and its tag were deleted; the number is retired because a deleted release name is not reliably reusable.",
+      "evidence": [
+        "https://github.com/Servosity/msp-skills/actions/runs/33460541054",
+        "https://github.com/Servosity/msp-skills/actions/runs/33463027952"
+      ],
+      "shipped_as": "xero-v0.1.4"
+    }
+  ]
+}
