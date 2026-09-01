@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/sherweb-mcp",
   "title": "Sherweb MCP",
   "description": "Every Sherweb Partner API capability, plus a local SQLite store, offline analytics, and",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/sherweb/sherweb-512x512.png",
@@ -21,8 +21,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/sherweb-v0.1.2/sherweb-mcp.mcpb",
-      "version": "0.1.2",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/sherweb-v0.1.3/sherweb-mcp.mcpb",
+      "version": "0.1.3",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"

@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "xero-mcp",
   "display_name": "Xero",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Every Xero Accounting read plus a local SQLite ledger \u2014 aging, reconciliation, and GL tie-out that no other Xero tool computes offline.",
   "author": {
     "name": "Servosity Inc."

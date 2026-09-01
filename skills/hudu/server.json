@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/hudu-mcp",
   "title": "Hudu MCP",
   "description": "Every Hudu cmdlet, plus an offline SQLite mirror, cross-entity audits, and agent-native output no",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/hudu/hudu-512x512.png",
@@ -21,8 +21,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/hudu-v0.1.8/hudu-mcp.mcpb",
-      "version": "0.1.8",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/hudu-v0.1.9/hudu-mcp.mcpb",
+      "version": "0.1.9",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"

@@ -1,6 +1,6 @@
 {
   "name": "ninjaone",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "description": "Every NinjaOne report, plus a local store that answers fleet-wide questions no single API call can: patch compliance, backup gaps, AV blast-radius, health, drift.",
   "author": {
     "name": "Servosity",

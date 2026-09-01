@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "pax8-mcp",
   "display_name": "Pax8",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Every Pax8 Partner API endpoint, plus an offline store that reconciles billing, tracks MRR, and catches usage overages no Pax8 tool surfaces.",
   "author": {
     "name": "Servosity Inc."

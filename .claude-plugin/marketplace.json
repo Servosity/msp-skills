@@ -43,7 +43,7 @@
       "name": "action1",
       "source": "./skills/action1",
       "description": "Every Action1 endpoint, plus fleet-wide patch and vulnerability views across all your organizations.",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "category": "rmm",
       "tags": [
         "action1",
@@ -73,7 +73,7 @@
       "name": "appdirect",
       "source": "./skills/appdirect",
       "description": "Every documented AppDirect marketplace operation in one binary, plus offline sync and billing-reconciliation joins.",
-      "version": "0.1.3",
+      "version": "0.1.4",
       "category": "billing",
       "tags": [
         "appdirect",
@@ -118,7 +118,7 @@
       "name": "auvik",
       "source": "./skills/auvik",
       "description": "Every Auvik endpoint as a command, plus the cross-client answers the Auvik UI and API cannot give you.",
-      "version": "0.2.2",
+      "version": "0.2.3",
       "category": "rmm",
       "tags": [
         "auvik",
@@ -133,7 +133,7 @@
       "name": "avanan",
       "source": "./skills/avanan",
       "description": "Every Avanan (Check Point Harmony Email and Collaboration) API operation, plus shift-start triage, phishing campaign clustering, single-message lifecycle timelines, one exception lookup across all seven security engines, and cross-tenant MSP fleet rollups that a stateless API mirror cannot answer in a single call.",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "category": "security",
       "tags": [
         "avanan",
@@ -212,7 +212,7 @@
       "name": "cipp",
       "source": "./skills/cipp",
       "description": "First single-binary CLI for CIPP \u2014 offline SQLite store, fleet posture analytics, and cross-tenant fan-out no other CIPP tool has.",
-      "version": "0.1.4",
+      "version": "0.1.5",
       "category": "security",
       "tags": [
         "cipp",
@@ -279,7 +279,7 @@
       "name": "connectwise-manage",
       "source": "./skills/connectwise-manage",
       "description": "Every ConnectWise PSA workflow from the terminal \u2014 with a typed conditions query builder, offline SQLite sync, and cross-entity views (unbilled work, account 360, board triage) the PSA web UI can't give you.",
-      "version": "0.1.6",
+      "version": "0.1.7",
       "category": "psa",
       "tags": [
         "connectwise-manage",
@@ -295,7 +295,7 @@
       "name": "cork",
       "source": "./skills/cork",
       "description": "Every Cork API operation, plus cross-client risk attribution, exploitability-first vulnerability triage, overdue-compliance detection, and stale-connector health checks that a stateless API mirror cannot answer in a single call.",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "category": "security",
       "tags": [
         "cork",
@@ -326,7 +326,7 @@
       "name": "crowdstrike",
       "source": "./skills/crowdstrike",
       "description": "Every CrowdStrike Falcon MSP operation, plus a Flight-Control-aware local store that answers fleet-wide questions across all your tenants at once \u2014 something no other Falcon tool (including the official MCP server) does.",
-      "version": "0.1.3",
+      "version": "0.1.4",
       "category": "security",
       "tags": [
         "crowdstrike",
@@ -404,7 +404,7 @@
       "name": "halopsa",
       "source": "./skills/halopsa",
       "description": "Every HaloPSA, HaloITSM and HaloCRM feature, plus a local SQLite store and cross-entity views the API can't return.",
-      "version": "0.2.14",
+      "version": "0.2.15",
       "category": "psa",
       "tags": [
         "halopsa",
@@ -434,7 +434,7 @@
       "name": "hudu",
       "source": "./skills/hudu",
       "description": "Every Hudu cmdlet, plus an offline SQLite mirror, cross-entity audits, and agent-native output no PowerShell module or read-only MCP ships.",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "category": "documentation",
       "tags": [
         "hudu",
@@ -464,7 +464,7 @@
       "name": "immybot",
       "source": "./skills/immybot",
       "description": "Every ImmyBot endpoint typed, plus a local SQLite mirror that answers the cross-tenant questions the web UI cannot.",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "category": "rmm",
       "tags": [
         "immybot",
@@ -637,7 +637,7 @@
       "name": "nerdio",
       "source": "./skills/nerdio",
       "description": "The first non-PowerShell client for the Nerdio Manager for MSP API - cross-account AVD fleet audits, async-job plumbing, and offline search no other Nerdio tool has.",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "category": "rmm",
       "tags": [
         "nerdio",
@@ -653,7 +653,7 @@
       "name": "ninjaone",
       "source": "./skills/ninjaone",
       "description": "Every NinjaOne report, plus a local store that answers fleet-wide questions no single API call can: patch compliance, backup gaps, AV blast-radius, health, drift.",
-      "version": "0.1.12",
+      "version": "0.1.13",
       "category": "rmm",
       "tags": [
         "ninjaone",
@@ -698,7 +698,7 @@
       "name": "pax8",
       "source": "./skills/pax8",
       "description": "Every Pax8 Partner API endpoint, plus an offline store that reconciles billing, tracks MRR, and catches usage overages no Pax8 tool surfaces.",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "category": "billing",
       "tags": [
         "pax8",
@@ -864,7 +864,7 @@
       "name": "servosity",
       "source": "./skills/servosity",
       "description": "The first MSP-fleet CLI for backup. Every Servosity API endpoint as a typed command, plus a local mirror that lets you ask questions the dashboard can't \u2014 across your whole book of clients.",
-      "version": "0.6.2",
+      "version": "0.6.3",
       "category": "backup-dr",
       "tags": [
         "servosity",
@@ -879,7 +879,7 @@
       "name": "sherweb",
       "source": "./skills/sherweb",
       "description": "Every Sherweb Partner API capability, plus a local SQLite store, offline analytics, and margin/drift/orphan joins no other Sherweb tool has.",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "category": "billing",
       "tags": [
         "sherweb",
@@ -894,7 +894,7 @@
       "name": "skykick",
       "source": "./skills/skykick",
       "description": "Fleet-wide M365 backup assurance for SkyKick Cloud Backup - posture, stale snapshots, and coverage gaps no portal or wrapper can show.",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "category": "backup-dr",
       "tags": [
         "skykick",
@@ -970,7 +970,7 @@
       "name": "unifi-network",
       "source": "./skills/unifi-network",
       "description": "Every UniFi Network API operation, plus drift detection, topology, and rule prediction no other UniFi tool has.",
-      "version": "0.1.3",
+      "version": "0.1.4",
       "category": "network-monitoring",
       "tags": [
         "unifi-network",
@@ -1015,7 +1015,7 @@
       "name": "xero",
       "source": "./skills/xero",
       "description": "Every Xero Accounting read plus a local SQLite ledger \u2014 aging, reconciliation, and GL tie-out that no other Xero tool computes offline.",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "category": "billing",
       "tags": [
         "xero",
@@ -1030,7 +1030,7 @@
       "name": "zammad",
       "source": "./skills/zammad",
       "description": "Every Zammad ticket, article, and Knowledge Base operation as one agent-native CLI  -  plus a team-management layer (agent load, customer health, aging backlog, escalation triage, churn risk, feedback mining) the Zammad API can't answer in a single call.",
-      "version": "0.1.3",
+      "version": "0.1.4",
       "category": "psa",
       "tags": [
         "zammad",

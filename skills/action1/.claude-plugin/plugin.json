@@ -1,6 +1,6 @@
 {
   "name": "action1",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Every Action1 endpoint, plus fleet-wide patch and vulnerability views across all your organizations.",
   "author": {
     "name": "Servosity",

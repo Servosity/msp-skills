@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/nerdio-mcp",
   "title": "Nerdio Manager MCP",
   "description": "The first non-PowerShell client for the Nerdio Manager for MSP API - cross-account AVD fleet",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/nerdio/nerdio-512x512.png",
@@ -21,8 +21,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/nerdio-v0.1.2/nerdio-mcp.mcpb",
-      "version": "0.1.2",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/nerdio-v0.1.3/nerdio-mcp.mcpb",
+      "version": "0.1.3",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"
