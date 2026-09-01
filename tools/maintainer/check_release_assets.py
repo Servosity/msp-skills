@@ -116,8 +116,16 @@ def compare(expected: list[str], actual: dict[str, dict]) -> tuple[list[str], li
         if row is None:
             missing.append(name)
             continue
-        state = row.get("state", UPLOADED)
-        size = row.get("size", 1)
+        # Absent fields are NOT treated as healthy. Defaulting them to
+        # "uploaded"/non-zero would silently degrade this back to a name-only
+        # check the moment the input is not what we asked for, which is the
+        # exact false-GREEN this function exists to remove.
+        if "state" not in row or "size" not in row:
+            incomplete.append(
+                f"{name} (listing carries no state/size; expected the JSON from "
+                f"`gh release view <tag> --json assets`)")
+            continue
+        state, size = row["state"], row["size"]
         if state != UPLOADED:
             incomplete.append(f"{name} (state={state!r}, not {UPLOADED!r})")
         elif not size:
@@ -193,6 +201,11 @@ def _self_test() -> int:
     empty = healthy(full)
     empty[bundle] = {"name": bundle, "state": UPLOADED, "size": 0}
     case("a zero-byte asset fires", empty, want_incomplete=["size=0"])
+    # FIRES rather than silently degrading to a name-only check when the input
+    # is a bare name listing with no state/size to inspect.
+    bare = {n: {"name": n} for n in full}
+    case("a listing with no state/size fires on every asset", bare,
+         want_incomplete=["carries no state/size"] * len(full))
     # SILENT for a tag that names no releasable skill: release.yml creates no
     # release for one, so this must never false-RED it.
     _, none = expected_assets("not-a-real-skill-v1.2.3", with_mcpb=True)
