@@ -4,10 +4,24 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.3] - 2026-08-31
+## [0.1.3] - 2026-09-01
+
+### Added
+- **`SHERWEB_NO_CONFIG_WRITE=1` keeps every credential off disk.** Set it and the CLI mints a token per
+  invocation instead of caching one in `config.toml`. The MCP server honours the same switch,
+  which it previously could not: it resolved its own config path and ignored `--config`
+  entirely, so a Claude Desktop setup kept a plaintext token cache even when the CLI had been
+  told not to write one. `auth logout` still clears a config that already exists - the switch
+  suppresses credential writes, not the erase.
 
 ### Changed
-- Describe the changes in this release.
+- Install and remote-agent documentation corrected against the shipped binaries. The remote
+  section named `mcp-remote`, which bridges the opposite direction and cannot publish a local
+  stdio server at all; connectors that parse `--transport http` now point at the native flag
+  and the rest at `supergateway`. The HTTP endpoint is `/mcp`, not the bare root the docs gave.
+  The Windows install path and a fallback paragraph describing an `npx` install that is not
+  offered were both wrong and are gone. A new `check_install_docs` gate holds these claims
+  against the binaries and installers so they cannot drift again.
 
 ## [0.1.2] - 2026-08-26
 

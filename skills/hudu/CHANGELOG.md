@@ -4,10 +4,24 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.9] - 2026-08-31
+## [0.1.9] - 2026-09-01
+
+### Added
+- **`sync --phase-trace` breaks each resource's wall time into phases.** Emits a `sync_phases`
+  event per resource splitting the time into queue wait, API fetch, rate-limit wait, retry
+  wait, ID extraction and SQLite upsert, so a slow lightweight resource can be attributed
+  rather than guessed at. Durations and counts only - no credentials, no response bodies.
+  `queue_wait_ms` covers enqueue until a worker picks the resource up, which the previous
+  per-resource duration started after and therefore could never measure.
 
 ### Changed
-- Describe the changes in this release.
+- Install and remote-agent documentation corrected against the shipped binaries. The remote
+  section named `mcp-remote`, which bridges the opposite direction and cannot publish a local
+  stdio server at all; connectors that parse `--transport http` now point at the native flag
+  and the rest at `supergateway`. The HTTP endpoint is `/mcp`, not the bare root the docs gave.
+  The Windows install path and a fallback paragraph describing an `npx` install that is not
+  offered were both wrong and are gone. A new `check_install_docs` gate holds these claims
+  against the binaries and installers so they cannot drift again.
 
 ## [0.1.8] - 2026-08-26
 

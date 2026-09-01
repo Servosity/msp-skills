@@ -4,10 +4,27 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.4] - 2026-08-31
+## [0.1.4] - 2026-09-01
+
+### Fixed
+- **`recall` and `playbook list` no longer claim to be read-only.** Both open the writable
+  learn store and record a row, but were annotated `mcp:read-only=true` - and that annotation
+  is what an MCP host reads to decide what to auto-approve without asking you. They are now
+  `mcp:local-write`, a tier this engine already defines and already uses for `teach`: writes
+  land only in the CLI's own local store, never in external state and never in a user-visible
+  file. Measured at the live MCP server, both tools moved from `readOnlyHint=true,
+  openWorldHint=true` to `readOnlyHint=false, destructiveHint=false, openWorldHint=false`.
+  No behaviour changed - both commands write exactly what they wrote before. The promise was
+  the defect, not the write.
 
 ### Changed
-- Describe the changes in this release.
+- Install and remote-agent documentation corrected against the shipped binaries. The remote
+  section named `mcp-remote`, which bridges the opposite direction and cannot publish a local
+  stdio server at all; connectors that parse `--transport http` now point at the native flag
+  and the rest at `supergateway`. The HTTP endpoint is `/mcp`, not the bare root the docs gave.
+  The Windows install path and a fallback paragraph describing an `npx` install that is not
+  offered were both wrong and are gone. A new `check_install_docs` gate holds these claims
+  against the binaries and installers so they cannot drift again.
 
 ## [0.1.3] - 2026-08-26
 

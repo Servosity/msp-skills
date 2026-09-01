@@ -4,10 +4,32 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.7] - 2026-08-31
+## [0.1.7] - 2026-09-01
+
+### Fixed
+- **Credentials supplied through the environment were written to disk in cleartext.** This CLI
+  authenticates with a composite HTTP Basic credential - `CW_COMPANY_ID` plus `CW_PUBLIC_KEY`
+  as the username, `CW_PRIVATE_KEY` as the password, `CW_CLIENT_ID` as a header - and every one
+  of those is also a persisted config field, with the composed `Authorization: Basic ...`
+  header persisted too. Any command that saved the config wrote whatever it had picked up from
+  those variables into the config file in cleartext, and wrote the private key a second time
+  base64-encoded under `[headers] Authorization`. `auth logout` was the worst case: it saves
+  unconditionally, so logging out could CREATE a plaintext credential file where none had
+  existed. The save path now restores the config file's own value for any credential that came
+  from the environment. **If you have ever run this CLI with those variables set, a cleartext
+  copy may already be on disk. Upgrading does not remove it, and neither does `auth logout`** -
+  it clears `client_id` and the token fields and reports `Config cleared.`, but leaves
+  `company_id`, `public_key`, `private_key` and the `[headers] Authorization` line untouched.
+  Delete the file and rotate the API member's keys.
 
 ### Changed
-- Describe the changes in this release.
+- Install and remote-agent documentation corrected against the shipped binaries. The remote
+  section named `mcp-remote`, which bridges the opposite direction and cannot publish a local
+  stdio server at all; connectors that parse `--transport http` now point at the native flag
+  and the rest at `supergateway`. The HTTP endpoint is `/mcp`, not the bare root the docs gave.
+  The Windows install path and a fallback paragraph describing an `npx` install that is not
+  offered were both wrong and are gone. A new `check_install_docs` gate holds these claims
+  against the binaries and installers so they cannot drift again.
 
 ## [0.1.6] - 2026-08-26
 
