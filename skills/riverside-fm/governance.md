@@ -61,11 +61,17 @@ the original. The copy is made inside a 0700 directory with the files at 0600,
 it is deleted as soon as the count is taken, and nothing from it is read except
 the row count. Nothing is transmitted.
 
-**What it can launch.** The complete set of external programs the binary can
-ever run is fixed at build time, and this list is read straight out of the
-source: `agent-browser`, `browser-use`, `cookie-scoop`, `cookies`, `python3`,
-`sqlite3`. Every one of those is a compile-time literal - no command name is
-ever built from your input - and the connector never invokes a shell.
+**What it can launch.** The external programs the CLI itself can run are fixed
+at build time, and this list is read straight out of the source:
+`agent-browser`, `browser-use`, `cookie-scoop`, `cookies`, `python3`, `sqlite3`.
+Every one is a compile-time literal - no command name is ever built from your
+input - and the connector never invokes a shell. One exception, and it is worth
+knowing about: the MCP server does not call the vendor API itself, it re-invokes
+the companion CLI, and it finds that binary next to itself, then at
+`RIVERSIDE_FM_CLI_PATH`, then on PATH. Anyone who can set that variable in the
+MCP server's environment chooses which binary runs. Treat it like any other
+entry in that environment: if an attacker can already set it, they can already
+run code as you, but do not let an untrusted process supply it.
 
 **What leaves the machine.** The extracted cookies are written to your own
 config file at mode 0600 and are sent as request headers to the vendor API.

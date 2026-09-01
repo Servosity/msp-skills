@@ -526,6 +526,29 @@ func extractCookies(tool, domain, profileDir string) (string, error) {
 	}
 }
 
+// pyString renders s as a Python string literal.
+//
+// These values used to be interpolated into the helper source between bare
+// double quotes. cookiePath is built from a Chrome profile DIRECTORY NAME read
+// off the filesystem, and the only filter applied to it is a `Profile ` prefix
+// check - so a directory called `Profile "); __import__("os").system("...")  #`
+// would have closed the string and appended executable Python. That needs a
+// local write into the browser data directory to reach, which is a narrow
+// precondition, but "narrow" is not "absent" and interpolating an unescaped
+// value into source is never the right shape.
+//
+// JSON string syntax is a subset of Python's, so encoding/json produces a valid
+// and correctly escaped Python literal, quotes included.
+func pyString(s string) string {
+	b, err := json.Marshal(s)
+	if err != nil {
+		// json.Marshal only fails here on invalid UTF-8; an empty literal makes
+		// the helper fail cleanly rather than run with an unescaped value.
+		return `""`
+	}
+	return string(b)
+}
+
 func extractViaPycookiecheat(domain, profileDir string) (string, error) {
 	cleanDomain := strings.TrimPrefix(domain, ".")
 	cookiePath := ""
@@ -541,13 +564,13 @@ func extractViaPycookiecheat(domain, profileDir string) (string, error) {
 		// Use forward slashes so Python doesn't interpret backslashes as escapes on Windows
 		safePath := filepath.ToSlash(cookiePath)
 		script = fmt.Sprintf(
-			`import json; from pycookiecheat import chrome_cookies; print(json.dumps(chrome_cookies("https://%s", cookie_file="%s")))`,
-			cleanDomain, safePath,
+			`import json; from pycookiecheat import chrome_cookies; print(json.dumps(chrome_cookies(%s, cookie_file=%s)))`,
+			pyString("https://"+cleanDomain), pyString(safePath),
 		)
 	} else {
 		script = fmt.Sprintf(
-			`import json; from pycookiecheat import chrome_cookies; print(json.dumps(chrome_cookies("https://%s")))`,
-			cleanDomain,
+			`import json; from pycookiecheat import chrome_cookies; print(json.dumps(chrome_cookies(%s)))`,
+			pyString("https://"+cleanDomain),
 		)
 	}
 

@@ -88,7 +88,10 @@ func newBulkExportCmd(flags *rootFlags) *cobra.Command {
 					summary.SkippedOlderThanSince++
 					continue
 				}
-				projDir := filepath.Join(outDir, sanitize(studio), sanitize(proj.Title)+"-"+proj.ID)
+				projDir := safeJoin(outDir, studio, proj.Title+"-"+proj.ID)
+				if projDir == "" {
+					continue // API-supplied name/id would have escaped --out
+				}
 				if err := os.MkdirAll(projDir, 0o700); err != nil {
 					return err
 				}
@@ -108,7 +111,10 @@ func newBulkExportCmd(flags *rootFlags) *cobra.Command {
 						summary.AlreadyDone++
 						continue
 					}
-					takeDir := filepath.Join(projDir, sanitize(take.Title)+"-"+take.SessionID)
+					takeDir := safeJoin(projDir, take.Title+"-"+take.SessionID)
+					if takeDir == "" {
+						continue // API-supplied name/id would have escaped --out
+					}
 					if err := os.MkdirAll(takeDir, 0o700); err != nil {
 						return err
 					}
@@ -135,7 +141,7 @@ func newBulkExportCmd(flags *rootFlags) *cobra.Command {
 							vp := "/api/v4/vod/" + url.PathEscape(take.SessionID) + "/" + url.PathEscape(h)
 							vdata, verr := c.Get(vp, nil)
 							if verr == nil && len(vdata) > 0 {
-								_ = os.WriteFile(filepath.Join(takeDir, h+".m3u8"), vdata, 0o600)
+								_ = writeUnderDir(takeDir, h+".m3u8", vdata)
 								summary.HlsManifestsWritten++
 							}
 						}
@@ -260,10 +266,55 @@ func sanitize(s string) string {
 	for _, b := range bad {
 		s = strings.ReplaceAll(s, b, "-")
 	}
+	// Control bytes (NUL especially) have no business in a filename and can
+	// truncate a path at the syscall boundary on some platforms.
+	s = strings.Map(func(r rune) rune {
+		if r < 0x20 || r == 0x7f {
+			return '-'
+		}
+		return r
+	}, s)
 	if len(s) > 80 {
 		s = s[:80]
 	}
-	return strings.TrimSpace(s)
+	s = strings.TrimSpace(s)
+	// A component that is entirely dots is a traversal primitive even with the
+	// separators stripped: filepath.Join(out, "..") leaves out.
+	if strings.Trim(s, ".") == "" {
+		return "untitled"
+	}
+	return s
+}
+
+// safeJoin builds a path under root from untrusted components.
+//
+// Every part is run through sanitize (which strips both separators, so no part
+// can introduce a new path segment) and the result is then checked to still be
+// inside root. The check is the load-bearing half: this connector names its
+// downloads after IDs that come straight out of API responses, and an id of
+// "x/../../../../tmp/pwn" turns filepath.Join(outDir, title+"-"+id+ext) into
+// /tmp/pwn.mp4 - outside the directory the operator chose, with attacker-chosen
+// content. Returns "" when the result would escape, and every caller treats ""
+// as "skip this file" rather than writing somewhere else.
+func safeJoin(root string, parts ...string) string {
+	clean := make([]string, 0, len(parts))
+	for _, p := range parts {
+		clean = append(clean, sanitize(p))
+	}
+	joined := filepath.Join(append([]string{root}, clean...)...)
+	absRoot, err := filepath.Abs(root)
+	if err != nil {
+		return ""
+	}
+	absJoined, err := filepath.Abs(joined)
+	if err != nil {
+		return ""
+	}
+	rel, err := filepath.Rel(absRoot, absJoined)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return ""
+	}
+	return joined
 }
 
 func parseSince(s string) (time.Time, error) {
@@ -283,4 +334,14 @@ func parseSince(s string) (time.Time, error) {
 		return time.Now().Add(-d), nil
 	}
 	return time.Time{}, fmt.Errorf("invalid date or duration")
+}
+
+// writeUnderDir writes body to name inside dir, refusing to escape dir and
+// using 0600 because every payload this connector writes is customer content.
+func writeUnderDir(dir, name string, body []byte) error {
+	p := safeJoin(dir, name)
+	if p == "" {
+		return fmt.Errorf("refusing to write %q: it would escape %s", name, dir)
+	}
+	return os.WriteFile(p, body, 0o600)
 }

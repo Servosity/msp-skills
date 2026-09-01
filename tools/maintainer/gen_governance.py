@@ -81,7 +81,20 @@ def browser_session(slug: str) -> dict | None:
     if not any(m in blob for m in COOKIE_DB_MARKERS):
         return None
     execs = sorted({m for text in sources.values() for m in EXEC_LITERAL_RE.findall(text)})
+    # The MCP server does not run the vendor API directly: it re-invokes the
+    # companion CLI. That path is resolved sibling-of-executable, then from an
+    # env var, then from PATH - so the env var is an operator-controlled
+    # override of WHICH binary gets executed, and any claim that the launchable
+    # set is fixed at build time would be false without saying so.
+    bridge = SKILLS_DIR / slug / "cli" / "internal" / "mcp" / "cobratree" / "cli_path.go"
+    cli_path_env = ""
+    if bridge.is_file():
+        m = re.search(r'os\.Getenv\("([A-Z0-9_]+_CLI_PATH)"\)',
+                      bridge.read_text(encoding="utf-8", errors="replace"))
+        if m:
+            cli_path_env = m.group(1)
     return {
+        "cli_path_env": cli_path_env,
         "live_browser": any(m in blob for m in LIVE_BROWSER_MARKERS),
         "cookie_db_probe": "func countCookiesForDomain(" in blob,
         "execs": execs,
@@ -209,12 +222,22 @@ def main(argv: list[str]) -> int:
             "soon as the count is taken, and nothing from it is read except the "
             "row count. Nothing is transmitted."
         ) if browser["cookie_db_probe"] else ""
+        bridge_note = (
+            " One exception, and it is worth knowing about: the MCP server does not "
+            "call the vendor API itself, it re-invokes the companion CLI, and it finds "
+            f"that binary next to itself, then at `{browser['cli_path_env']}`, then on "
+            "PATH. Anyone who can set that variable in the MCP server's environment "
+            "chooses which binary runs. Treat it like any other entry in that "
+            "environment: if an attacker can already set it, they can already run code "
+            "as you, but do not let an untrusted process supply it."
+            if browser["cli_path_env"] else ""
+        )
         launch_para = wrap(
-            "**What it can launch.** The complete set of external programs the binary "
-            "can ever run is fixed at build time, and this list is read straight out of "
-            f"the source: {launch}. Every one of those is a compile-time literal - no "
-            "command name is ever built from your input - and the connector never "
-            "invokes a shell."
+            "**What it can launch.** The external programs the CLI itself can run are "
+            "fixed at build time, and this list is read straight out of the source: "
+            f"{launch}. Every one is a compile-time literal - no command name is ever "
+            "built from your input - and the connector never invokes a shell."
+            + bridge_note
         )
         reads_para = wrap(
             "**What it reads.** `auth login --chrome` looks in the standard browser "

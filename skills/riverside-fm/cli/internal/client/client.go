@@ -105,6 +105,19 @@ func (c *Client) ProbeGet(path string) (int, error) {
 	return status, err
 }
 
+// ProbeGetBody is ProbeGet plus the response body.
+//
+// Hand-added for the doctor credential probe. Status alone cannot tell an
+// authenticated 200 from a 302-to-sign-in that ended at a 200 HTML page: this
+// client follows redirects, so an EXPIRED cookie session produces exit-status
+// success. The caller needs the body to see that what came back is a login page
+// rather than the API. Like ProbeGet it goes through c.do, so it neither reads
+// nor writes the response cache and a server-side revocation cannot be masked
+// by a cached 200.
+func (c *Client) ProbeGetBody(path string) (json.RawMessage, int, error) {
+	return c.do("GET", path, nil, nil, nil)
+}
+
 func (c *Client) cacheKey(path string, params map[string]string) string {
 	key := path
 	key += "|base_url=" + c.BaseURL

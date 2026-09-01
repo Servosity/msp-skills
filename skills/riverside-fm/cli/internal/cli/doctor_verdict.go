@@ -81,6 +81,30 @@ func doctorBaseURLIsPlaceholder(base string) bool {
 	return false
 }
 
+// doctorInfoKeys are report entries rendered as information, not as health
+// checks: paths, versions, and the free-text hints that tell an operator how to
+// get signed in.
+//
+// doctorExitForFailOn scans report values for "error"/"missing"/"invalid".
+// Without this exclusion it trips on a perfectly healthy connector whose auth
+// hint happens to contain one of those words - the mirror of the case-
+// sensitivity bug it sits next to, pointed the other way.
+var doctorInfoKeys = map[string]bool{
+	"config_path":       true,
+	"base_url":          true,
+	"auth_source":       true,
+	"auth_domain":       true,
+	"version":           true,
+	"auth_hint":         true,
+	"auth_key_url":      true,
+	"auth_instructions": true,
+	"agentcookie":       true,
+	"db_path":           true,
+	"cookie_tool":       true,
+}
+
+func doctorIsInfoKey(key string) bool { return doctorInfoKeys[key] }
+
 // doctorReadProbe walks the Cobra tree for an endpoint-mirror command that is
 // safe and complete to call with no arguments, and returns the API path to
 // probe plus the dotted command path to name in a remedy.
@@ -192,10 +216,27 @@ func doctorProbeCredentials(c *client.Client, root *cobra.Command, bin string, r
 		report["api"] = "WARN reachable at the transport level only - no argument-free GET endpoint exists to confirm this is the vendor's API or that the session works."
 		return
 	}
-	status, err := c.ProbeGet(apiPath)
+	body, status, err := c.ProbeGetBody(apiPath)
 	switch {
 	case err == nil:
-		report["credentials"] = fmt.Sprintf("valid (verified with GET %s)", apiPath)
+		// A 2xx is necessary but NOT sufficient. This client follows redirects,
+		// so an expired cookie session that gets bounced to a sign-in page ends
+		// at a perfectly good 200 - and calling that "valid" is the precise
+		// false-GREEN this file exists to remove. Require the body to actually
+		// look like the API before saying the session works.
+		if vendor := looksLikeDoctorInterstitial(body); vendor != "" {
+			report["credentials"] = fmt.Sprintf(
+				"ERROR not verified: GET %s returned a %s interstitial rather than API data. "+
+					"The session is most likely expired; sign in to Riverside again, then re-run `%s auth login --chrome`.",
+				apiPath, vendor, bin)
+		} else if !looksLikeJSONDocument(body) {
+			report["credentials"] = fmt.Sprintf(
+				"ERROR not verified: GET %s answered 200 but returned a non-JSON document, which is what a "+
+					"redirect to a sign-in page looks like. Sign in to Riverside again, then re-run `%s auth login --chrome`.",
+				apiPath, bin)
+		} else {
+			report["credentials"] = fmt.Sprintf("valid (verified with GET %s)", apiPath)
+		}
 	case status == 401:
 		report["credentials"] = fmt.Sprintf("ERROR rejected (HTTP 401 from %s) - the browser session is expired or belongs to a different account. Sign in to Riverside again, then re-run `%s auth login --chrome`.", apiPath, bin)
 	case status == 403:
@@ -209,6 +250,20 @@ func doctorProbeCredentials(c *client.Client, root *cobra.Command, bin string, r
 	default:
 		report["credentials"] = fmt.Sprintf("ERROR not verified: %s", err)
 	}
+}
+
+// looksLikeJSONDocument reports whether body is a JSON object or array.
+//
+// Deliberately shape-only, not a full parse: the point is to separate "the API
+// answered" from "an HTML sign-in page answered", and every endpoint this
+// connector probes returns a JSON document. An empty body counts as NOT a JSON
+// document - a 200 with nothing in it proves nothing about the session.
+func looksLikeJSONDocument(body []byte) bool {
+	trimmed := strings.TrimSpace(string(body))
+	if trimmed == "" {
+		return false
+	}
+	return trimmed[0] == '{' || trimmed[0] == '['
 }
 
 // doctorWrongBaseURL records the verdict for a probe that reached a server which

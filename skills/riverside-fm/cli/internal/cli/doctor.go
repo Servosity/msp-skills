@@ -272,10 +272,23 @@ func doctorExitForFailOn(failOn string, report map[string]any) error {
 	}
 	worstError := false
 	worstStale := false
-	for _, v := range report {
+	for k, v := range report {
 		s, ok := v.(string)
 		if ok {
-			if strings.Contains(s, "error") || strings.Contains(s, "unreachable") || strings.Contains(s, "invalid") || strings.Contains(s, "missing") {
+			// Case-INSENSITIVE. The credential and base-URL verdicts open with
+			// an upper-case "ERROR ...", so a lower-case-only match returned
+			// exit 0 for an expired session - the single state automation most
+			// needs --fail-on=error to catch.
+			//
+			// Informational rows are skipped: they carry free text (auth hints,
+			// suggested commands, file paths) that legitimately contains words
+			// like "missing", and matching those made --fail-on trip on a
+			// healthy connector.
+			low := strings.ToLower(s)
+			if !doctorIsInfoKey(k) &&
+				(strings.Contains(low, "error") || strings.Contains(low, "unreachable") ||
+					strings.Contains(low, "invalid") || strings.Contains(low, "missing") ||
+					strings.Contains(low, "rejected") || strings.Contains(low, "not verified")) {
 				worstError = true
 			}
 		}

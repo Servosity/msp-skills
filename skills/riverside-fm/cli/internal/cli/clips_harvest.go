@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/url"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -120,7 +119,10 @@ func newClipsHarvestCmd(flags *rootFlags) *cobra.Command {
 				// Pick the first concrete download URL
 				row := harvestRow{ClipID: cid, Title: title, URL: urls[0].URL, Status: "ready"}
 				if download {
-					fp := filepath.Join(outDir, sanitize(title)+"-"+cid+guessExt(row.URL))
+					fp := safeJoin(outDir, title+"-"+cid+guessExt(row.URL))
+					if fp == "" {
+						continue // API-supplied name/id would have escaped --out
+					}
 					n, derr := streamDownload(row.URL, fp)
 					if derr != nil {
 						row.Status = "download-failed: " + derr.Error()

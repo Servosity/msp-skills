@@ -79,7 +79,12 @@ func newMediaRefreshCmd(flags *rootFlags) *cobra.Command {
 				for _, it := range items {
 					row := mediaURL{Kind: "production-media", Name: it.Name, ID: it.ID, URL: it.URL, DurationSec: it.Duration}
 					if prefetch && row.URL != "" {
-						fp := filepath.Join(outDir, sanitize(it.Name)+"-"+it.ID+guessExt(it.URL))
+						fp := safeJoin(outDir, it.Name+"-"+it.ID+guessExt(it.URL))
+						if fp == "" {
+							row.Status = "skipped: name/id would escape --out"
+							out = append(out, row)
+							continue
+						}
 						n, derr := streamDownload(row.URL, fp)
 						if derr == nil {
 							row.LocalPath = fp
@@ -110,7 +115,12 @@ func newMediaRefreshCmd(flags *rootFlags) *cobra.Command {
 					for _, u := range urls {
 						row := mediaURL{Kind: "clip-export", Name: u.Name, ID: cid, URL: u.URL}
 						if prefetch && row.URL != "" {
-							fp := filepath.Join(outDir, sanitize(u.Name)+"-"+cid+guessExt(u.URL))
+							fp := safeJoin(outDir, u.Name+"-"+cid+guessExt(u.URL))
+							if fp == "" {
+								row.Status = "skipped: name/id would escape --out"
+								out = append(out, row)
+								continue
+							}
 							n, derr := streamDownload(row.URL, fp)
 							if derr == nil {
 								row.LocalPath = fp
@@ -240,8 +250,11 @@ func streamDownload(srcURL, destPath string) (int64, error) {
 	if resp.StatusCode != 200 {
 		return 0, fmt.Errorf("HTTP %d", resp.StatusCode)
 	}
-	// #nosec G304 -- destPath is under the operator-chosen --out directory.
-	f, err := os.Create(filepath.Clean(destPath))
+	// 0600, not os.Create's 0666-before-umask: what lands here is a customer's
+	// recorded audio or video. destPath is built by safeJoin, which proved it
+	// stays under the operator-chosen --out directory.
+	// #nosec G304 -- safeJoin-validated path under --out.
+	f, err := os.OpenFile(filepath.Clean(destPath), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {
 		return 0, err
 	}

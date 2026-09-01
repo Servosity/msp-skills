@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -179,7 +178,10 @@ func extractParticipantHandles(data json.RawMessage) []string {
 }
 
 func writeGrabResult(cmd *cobra.Command, flags *rootFlags, outDir, sessionID, filename string, body []byte, result map[string]any) error {
-	path := filepath.Join(outDir, sessionID+"-"+filename)
+	path := safeJoin(outDir, sessionID+"-"+filename)
+	if path == "" {
+		return fmt.Errorf("refusing to write %q: the session id or filename would escape --out", sessionID+"-"+filename)
+	}
 	if err := os.WriteFile(path, body, 0o600); err != nil {
 		return fmt.Errorf("writing %s: %w", path, err)
 	}
