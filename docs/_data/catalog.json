@@ -1,5 +1,5 @@
 {
-  "count": 65,
+  "count": 66,
   "connectors": [
     {
       "slug": "abnormal",
@@ -220,6 +220,17 @@
       "source": null,
       "issue_url": null,
       "url": "/skills/crowdstrike/"
+    },
+    {
+      "slug": "datagate",
+      "display_name": "DataGate",
+      "tagline": "Pull DataGate customer, agreement, and invoice data by asking, instead of clicking through the portal.",
+      "category": "Billing",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "url": "/skills/datagate/"
     },
     {
       "slug": "datto-bcdr",

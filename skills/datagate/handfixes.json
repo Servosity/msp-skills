@@ -1,0 +1,25 @@
+{
+  "slug": "datagate",
+  "doc": "CHANGELOG.md",
+  "_comment": "Connector-specific edits a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present and fails CI if a reprint dropped one.",
+  "handfixes": [
+    {
+      "id": "clientid-header-env-var",
+      "summary": "DATAGATE_CLIENT_ID is read into the generic Headers map so every request carries the required ClientId header alongside the Bearer token",
+      "why": "DataGate's auth needs a Bearer token AND a separate required ClientId header (a GUID) on every request. The spec format has no first-class slot for a second required secret header, so this rides in on the generic per-request Headers map instead. This is a GENERATOR-class gap (no first-class multi-credential-header auth mode) rather than a DataGate-specific bug; until the press supports it natively, a reprint regenerates config.go without this block and these markers guard the connector.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "os.Getenv(\"DATAGATE_CLIENT_ID\")",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "cfg.Headers[\"ClientId\"] = v",
+          "min_count": 1
+        }
+      ]
+    }
+  ]
+}

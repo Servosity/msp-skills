@@ -1,0 +1,61 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Servosity/datagate-mcp",
+  "title": "DataGate MCP",
+  "description": "DataGate telecom billing lookups - customers, agreements, invoices, and more - for any MCP agent.",
+  "version": "0.1.0",
+  "repository": {
+    "url": "https://github.com/servosity/msp-skills",
+    "source": "github",
+    "subfolder": "skills/datagate"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/datagate-v0.1.0/datagate-mcp.mcpb",
+      "version": "0.1.0",
+      "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "DATAGATE_API_KEY",
+          "description": "Bearer token from your DataGate account.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "DATAGATE_CLIENT_ID",
+          "description": "ClientId GUID from your DataGate account. Required in addition to the Bearer token on every request.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "DATAGATE_BASE_URL",
+          "description": "Full API base URL. Leave blank to use DataGate's production endpoint (api.dgportal.net).",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "DATAGATE_USER_AGENT",
+          "description": "Overrides the User-Agent the CLI sends on DataGate requests.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "DATAGATE_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http. Not needed for the default local stdio transport.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Binds this MCP server to one tenant-gated client profile. Leave blank to use the default client profile.",
+          "isRequired": false,
+          "isSecret": false
+        }
+      ]
+    }
+  ]
+}
