@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"datagate-cli/internal/cli"
 	mcptools "datagate-cli/internal/mcp"
@@ -83,6 +84,10 @@ func main() {
 		httpSrv := &http.Server{
 			Addr:    bindAddr,
 			Handler: requireBearerAuth(token, inner),
+			// Without a header deadline a single client can hold the
+			// listener open indefinitely by dribbling request headers
+			// (Slowloris). gosec G112.
+			ReadHeaderTimeout: 10 * time.Second,
 		}
 		fmt.Fprintf(os.Stderr, "datagate-mcp serving MCP over streamable HTTP at %s (Authorization: Bearer $%s)\n", bindAddr, httpTokenEnvVar)
 		if *tlsCert != "" {
