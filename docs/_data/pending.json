@@ -392,16 +392,16 @@
     "released_hash": "sha256:3e3931ff518ac490fe0a100c985cfa814ca40ed80d3cddcfa4d56b6655f44d73"
   },
   "sherweb": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.3",
-    "latest_tag": "sherweb-v0.1.2",
+    "latest_tag": "sherweb-v0.1.3",
     "current_hash": "sha256:d056abafcd1180e742d4664ce3b7aadbe687eea2247676f3e7b3010f13720b61",
     "released_hash": "sha256:d056abafcd1180e742d4664ce3b7aadbe687eea2247676f3e7b3010f13720b61"
   },
   "skykick": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.3",
-    "latest_tag": "skykick-v0.1.2",
+    "latest_tag": "skykick-v0.1.3",
     "current_hash": "sha256:b4f058da5390cbf5d14198f4efc40ccd31af824d44809c54e3c232ee8e5ed799",
     "released_hash": "sha256:b4f058da5390cbf5d14198f4efc40ccd31af824d44809c54e3c232ee8e5ed799"
   },
@@ -427,9 +427,9 @@
     "released_hash": "sha256:c5c11253c0cc63f0ae3aa89a20e00178388ddf9317700880c2fb2ed1ee309a67"
   },
   "threatlocker": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.3.4",
-    "latest_tag": "threatlocker-v0.3.3",
+    "latest_tag": "threatlocker-v0.3.4",
     "current_hash": "sha256:08216ca6bbf89076f4a662735bafb65f459859c30c964dd2b80c179842648032",
     "released_hash": "sha256:08216ca6bbf89076f4a662735bafb65f459859c30c964dd2b80c179842648032"
   },
