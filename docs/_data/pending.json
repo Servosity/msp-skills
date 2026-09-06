@@ -14,9 +14,9 @@
     "released_hash": "sha256:e5b132bc1d8d0eed0adbf549453309df1e759751eb63eb2dd90b3163e71aafa2"
   },
   "action1": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.3",
-    "latest_tag": "action1-v0.1.2",
+    "latest_tag": "action1-v0.1.3",
     "current_hash": "sha256:807870bc72c449b135571abd1c1a01bf867a33b5c6b6d8b13f8540118bb94385",
     "released_hash": "sha256:807870bc72c449b135571abd1c1a01bf867a33b5c6b6d8b13f8540118bb94385"
   },
@@ -28,9 +28,9 @@
     "released_hash": "sha256:8669176f01aea2cbce0bb23ccf4b1ab1c2ae88ecc9226e77b452782dbd8b3d47"
   },
   "appdirect": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.4",
-    "latest_tag": "appdirect-v0.1.3",
+    "latest_tag": "appdirect-v0.1.4",
     "current_hash": "sha256:b12254a224804e49e3dbc7ccfe6e2090efae11050bc6623729dbd9297d289c83",
     "released_hash": "sha256:b12254a224804e49e3dbc7ccfe6e2090efae11050bc6623729dbd9297d289c83"
   },
@@ -49,9 +49,9 @@
     "released_hash": "sha256:b4ead2962105ef1a279296c4c5cec51f09ed04778088090170f93cb13ebcfd55"
   },
   "auvik": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.2.3",
-    "latest_tag": "auvik-v0.2.2",
+    "latest_tag": "auvik-v0.2.3",
     "current_hash": "sha256:83747aa402a3551ca680438ee6789aef2515c2d22205d698397f6fbed1eee784",
     "released_hash": "sha256:83747aa402a3551ca680438ee6789aef2515c2d22205d698397f6fbed1eee784"
   },
