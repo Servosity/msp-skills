@@ -188,6 +188,37 @@ func positionalArgsForCommand(cmd *cobra.Command, blocked map[string]bool) []pos
 	return out
 }
 
+// filesystemPathFlagPhrases are usage-string fragments that mark a flag as
+// naming a filesystem location the server account would read or write.
+//
+// Matching the usage text rather than the flag NAME is deliberate: generated
+// API body fields describe themselves with a bare Title-case noun ("Path"),
+// while a genuine local-filesystem flag spells out that it takes a file or
+// directory path.
+var filesystemPathFlagPhrases = []string{
+	"file path",
+	"path to ",
+	"database path",
+	"output directory",
+	"audit directory",
+	"directory path",
+}
+
+// isFilesystemPathFlag reports whether flag's own description says it names a
+// filesystem location.
+func isFilesystemPathFlag(flag *pflag.Flag) bool {
+	if flag == nil {
+		return false
+	}
+	usage := strings.ToLower(flag.Usage)
+	for _, phrase := range filesystemPathFlagPhrases {
+		if strings.Contains(usage, phrase) {
+			return true
+		}
+	}
+	return false
+}
+
 func blockedStructuredArgsForCommand(cmd *cobra.Command) map[string]bool {
 	blocked := map[string]bool{}
 	for name := range reservedStructuredArgs {
@@ -205,6 +236,12 @@ func blockedStructuredArgsForCommand(cmd *cobra.Command) map[string]bool {
 			return
 		}
 		localFlags[flag.Name] = true
+		// A command-local flag normally overrides the root denylist, but a
+		// local flag that names a filesystem location is exactly the thing
+		// blockedDestinationFlags exists to refuse, so the rule wins here.
+		if isFilesystemPathFlag(flag) {
+			blocked[flag.Name] = true
+		}
 	})
 	cmd.InheritedFlags().VisitAll(func(flag *pflag.Flag) {
 		if flag == nil || flag.Hidden || flag.Deprecated != "" {

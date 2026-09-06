@@ -337,6 +337,17 @@ func New(cfg *config.Config, timeout time.Duration, rateLimit float64) *Client {
 		// Block protocol downgrade.
 		if redirectLeavesOrigin(req.URL, via) {
 			req.Header.Del("Authorization")
+			// Everything this client stamped on from config.Headers is
+			// credential material by construction - DataGate's ClientId GUID
+			// rides in there - and Go replays custom headers verbatim to the
+			// redirect target. Strip exactly the set we injected rather than
+			// guessing from header names: a name-keyword rule does not match
+			// "ClientId" and would leave the secret in place.
+			if c.Config != nil {
+				for k := range c.Config.Headers {
+					req.Header.Del(k)
+				}
+			}
 		}
 		// Re-stamp only when the hop stays on the origin. Custom headers
 		// are never in the set Go removes automatically, so this gate
@@ -1628,6 +1639,11 @@ func (c *Client) maskCredentialText(text string, extraCredentials ...string) str
 		addCredential(c.Config.RefreshToken)
 		addCredential(c.Config.ClientSecret)
 		addCredential(c.Config.DatagateApiKey)
+		// config.Headers carries operator/env-supplied secrets (ClientId),
+		// which would otherwise echo unmasked in an error body.
+		for _, v := range c.Config.Headers {
+			addCredential(v)
+		}
 	}
 	sort.SliceStable(masks, func(i, j int) bool {
 		return len(masks[i].needle) > len(masks[j].needle)

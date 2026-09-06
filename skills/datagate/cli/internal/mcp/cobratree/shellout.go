@@ -192,9 +192,16 @@ var reservedStructuredArgs = map[string]bool{
 // MCP runs commands as the server account. Letting clients choose filesystem
 // destinations would let a tool write or truncate anything that account can
 // reach.
+//
+// This list is the floor, not the whole gate: isFilesystemPathFlag also blocks
+// any command-local flag whose usage text names a filesystem location, so a
+// newly generated path flag is refused before anyone has to notice it.
 var blockedDestinationFlags = map[string]bool{
 	"audit-dir":    true,
+	"db":           true,
+	"input":        true,
 	"o":            true,
+	"out":          true,
 	"output":       true,
 	"receipt-file": true,
 }

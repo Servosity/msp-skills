@@ -21,6 +21,7 @@ type Config struct {
 	CredentialSource   string                      `json:"-"`
 	AgentcookieManaged bool                        `json:"-"`
 	CredentialRefusals []cliutil.CredentialRefusal `json:"-"`
+	clientIDFromEnv    bool                        `json:"-"`
 	// configOwner records which on-disk file parseConfigData populated this
 	// config from ("config-kind path" or "legacy config path") so the
 	// credential-source fallback below reports where config-stored
@@ -176,7 +177,11 @@ func Load(configPath string) (*Config, error) {
 		if cfg.Headers == nil {
 			cfg.Headers = map[string]string{}
 		}
-		cfg.Headers["ClientId"] = v
+		cfg.Headers[clientIDHeader] = v
+		// Injected per-process from the environment. Flagged so the save
+		// paths below drop it again: writing it to config.json would put a
+		// vendor-designated secret on disk that `auth logout` never clears.
+		cfg.clientIDFromEnv = true
 	}
 	// Label config-file-derived credentials so doctor can distinguish
 	// "credentials persisted on disk" from "no credentials at all" — without
@@ -552,6 +557,10 @@ func (c *Config) ClearTokens() error {
 	c.DatagateApiKey = ""
 	delete(c.envOverrides, "DatagateApiKey")
 	c.updateFileConfigField("DatagateApiKey")
+	// The ClientId header is a credential too; logout must not leave it live
+	// or on disk.
+	delete(c.Headers, clientIDHeader)
+	c.clientIDFromEnv = false
 	if c.AgentcookieManagedByExternalStore() {
 		c.markAgentcookieManaged()
 		// save() persists the full config (credential fields included) for
@@ -597,8 +606,32 @@ func (c *Config) snapshotFileConfig() {
 	c.fileConfig = &snapshot
 }
 
+// clientIDHeader is the second required DataGate credential header. When it
+// arrives from the environment it is process-scoped and must never reach disk.
+const clientIDHeader = "ClientId"
+
+// headersForPersist copies Headers minus any env-injected ClientId. Headers is
+// a reference type, so this copies rather than deleting from the live map.
+func (c *Config) headersForPersist() map[string]string {
+	if !c.clientIDFromEnv || c.Headers == nil {
+		return c.Headers
+	}
+	out := make(map[string]string, len(c.Headers))
+	for k, v := range c.Headers {
+		if k == clientIDHeader {
+			continue
+		}
+		out[k] = v
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
 func (c *Config) configForSave() Config {
 	out := *c
+	out.Headers = c.headersForPersist()
 	if c.fileConfig != nil {
 		if c.envOverrides["DatagateApiKey"] {
 			out.DatagateApiKey = c.fileConfig.DatagateApiKey
@@ -696,7 +729,7 @@ type persistedConfig struct {
 func (c *Config) persisted() persistedConfig {
 	return persistedConfig{
 		BaseURL: c.BaseURL,
-		Headers: c.Headers,
+		Headers: c.headersForPersist(),
 	}
 }
 
