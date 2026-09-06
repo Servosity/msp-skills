@@ -11,9 +11,10 @@ The 4.30.2 generator already produces, straight from the enriched spec, the POST
 sync path, the paged request bodies and the per-entity id fields. Everything
 below is what it still got wrong for this connector as of 4.30.2.
 
-UPSTREAM STATUS (checked against press v4.31.4, 2026-08-31). Most of these were
-filed as mvanhorn/cli-printing-press#4165, which is now CLOSED as completed - do
-NOT cite it as the live tracker.
+UPSTREAM STATUS (generated output checked against press v4.31.4 on 2026-08-31;
+tracker state re-checked 2026-09-06). Most of these were filed as
+mvanhorn/cli-printing-press#4165, which is now CLOSED as completed - do NOT cite
+it as the live tracker.
 
   - Upstream PR #4185 (merged, shipped from v4.30.3) took #4165's items 1, 2 and
     4: canonical-resource selection by shortest path, substring list-detection,
@@ -21,10 +22,16 @@ NOT cite it as the live tracker.
     items 1, 3 and 4 below, and part of item 2.
   - Upstream PR #4410 (via #4314) fixed `workflow archive` returning success
     when every resource failed - item 6 below.
-  - #4165's remaining findings were explicitly scoped out and are re-filed,
-    re-verified against v4.31.4, as mvanhorn/cli-printing-press#4482. That is
-    the live tracker. Its finding 4 is the query-param-keyed children part of
-    item 2 below.
+  - #4165's remaining findings were explicitly scoped out and were re-filed,
+    re-verified against v4.31.4, as mvanhorn/cli-printing-press#4482. Its
+    finding 4 is the query-param-keyed children part of item 2 below. #4482 is
+    now CLOSED as well: upstream PR #4489 merged 2026-09-01 and first shipped in
+    press v4.31.5, teaching detectDependentResources to bind a child collection
+    keyed by a required query param instead of requiring a {placeholder} in the
+    path. It binds only when there is EXACTLY ONE such parent key and no
+    leftover required scope, so read the generated profile rather than assuming
+    this connector's two parent-keyed children are covered. There is no live
+    upstream tracker for any item below.
   - Item 5 below (body fields with a spec default only sent when the user typed
     the flag) has no upstream tracker I could find (searched 2026-08-31, and it
     is in neither #4165 nor #4314). Treat it as untracked, and file it if a
