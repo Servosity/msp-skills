@@ -189,9 +189,9 @@
     "released_hash": "sha256:ee001f0ec43921c177fbec1fd41fa78bfebbece5c72546bc9172cecb1bdf213b"
   },
   "hudu": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.9",
-    "latest_tag": "hudu-v0.1.8",
+    "latest_tag": "hudu-v0.1.9",
     "current_hash": "sha256:2c4a80d18870f86251de10d5a42cb70c47b99d2ab5cc3bd4799da2b41f39d1aa",
     "released_hash": "sha256:2c4a80d18870f86251de10d5a42cb70c47b99d2ab5cc3bd4799da2b41f39d1aa"
   },
@@ -203,9 +203,9 @@
     "released_hash": "sha256:6129ef0e43744bc76c684512b687a40dff72656d5b5979d4604b11650008c8e0"
   },
   "immybot": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.3",
-    "latest_tag": "immybot-v0.1.2",
+    "latest_tag": "immybot-v0.1.3",
     "current_hash": "sha256:ba95f97f9124c8d9a44e0c956142c541ff99327001704dd020ad61afbb4fcdef",
     "released_hash": "sha256:ba95f97f9124c8d9a44e0c956142c541ff99327001704dd020ad61afbb4fcdef"
   },
@@ -280,9 +280,9 @@
     "released_hash": "sha256:487b8f57629bc35509ea5c27018270252efa9f3cb355fb07ac2b6839cc703aa4"
   },
   "nerdio": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.3",
-    "latest_tag": "nerdio-v0.1.2",
+    "latest_tag": "nerdio-v0.1.3",
     "current_hash": "sha256:bbe71d3287f5a628fb5b93414bcded895c47da05c58d5cc03802bedc1a24ea66",
     "released_hash": "sha256:bbe71d3287f5a628fb5b93414bcded895c47da05c58d5cc03802bedc1a24ea66"
   },
