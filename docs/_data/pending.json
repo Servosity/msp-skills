@@ -430,7 +430,7 @@
     "state": "binary-pending",
     "version": "0.3.3",
     "latest_tag": "threatlocker-v0.3.3",
-    "current_hash": "sha256:4df798b519caf3347791e9969fa905c02f541d538ebe240a98ab9cdeea951b6f",
+    "current_hash": "sha256:fb7084761ca511a5f8bdd5c13a5313d95044768ed51fa3f28d24b59005d88aef",
     "released_hash": "sha256:e9735559e58f37c910ca78464b02ddf90caef9fee3c58217a9cd1b2c1def62ed"
   },
   "unifi-network": {
