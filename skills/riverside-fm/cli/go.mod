@@ -19,7 +19,7 @@ require (
 // above their vulnerable versions (osv flags module presence; govulncheck
 // reachability = 0 for these REST CLIs). Emitted only when the surf transport
 // is present, so MVS keeps the floor; tidy drops it for CLIs without surf.
-require golang.org/x/crypto v0.55.0 // indirect
+require golang.org/x/crypto v0.56.0 // indirect
 
 require (
 	github.com/andybalholm/brotli v1.2.1 // indirect
