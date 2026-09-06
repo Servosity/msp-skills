@@ -48,7 +48,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 > **Interim note on `.mcpb`:** check the bundle before you trust it ([#287](https://github.com/Servosity/msp-skills/issues/287)). Its `manifest.json` launches `${__dirname}/bin/zammad-pp-mcp`, while the builder stores the release binaries in `bin/` under their platform-suffixed names - `zammad-mcp-darwin-arm64`, `-darwin-amd64`, `-linux-arm64`, `-linux-amd64`, `-windows-amd64.exe`. Run `unzip -l <file>.mcpb | grep bin/`: if the name the manifest launches is not among them, Claude Desktop has nothing to run - use Path A or Path B below and wire Claude Desktop up through [mcp-install.md](./mcp-install.md).
 
-[**Download Zammad MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/zammad-v0.1.3/zammad-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Zammad release on the [releases page](https://github.com/servosity/msp-skills/releases?q=zammad).)
+[**Download Zammad MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/zammad-v0.1.4/zammad-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Zammad release on the [releases page](https://github.com/servosity/msp-skills/releases?q=zammad).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
