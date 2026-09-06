@@ -75,7 +75,10 @@ python3 tools/maintainer/check_engine_freshness.py --slug <slug>
    A tree-only fix reaches nobody: on 2026-08-16, 41 of 61 connectors were
    shipping binaries built before the 4.24 engine upgrade that had been sitting
    in `main` since June. `main` being current is not evidence that any user is
-   running current code - only a tag is.
+   running current code. Neither is a tag, since immutable releases landed: a tag
+   can sit in front of a stranded draft or a permanently sealed, incomplete
+   release. The evidence is a PUBLISHED release carrying its complete asset set -
+   see "What counts as released" below.
 
    This question is answered by `release_state.classify()`, which compares a
    freshly computed CLI hash against `cli_hash_at_release`. Do **not** answer it
@@ -89,6 +92,63 @@ python3 tools/maintainer/check_engine_freshness.py --slug <slug>
 and posts the result as an issue comment. It is **advisory** - nothing gates on
 it. Whoever decides should record the decision in a reply on that issue so the
 next agent does not re-litigate it.
+
+## What counts as released (READ THIS BEFORE YOU CUT OR TRUST A TAG)
+
+A tag is necessary and no longer sufficient. This repository has GitHub
+**immutable releases** enabled: a published release is sealed the instant it
+exists and can never take another asset (`gh release upload` answers
+`HTTP 422: Cannot upload assets to an immutable release`). So `release.yml`
+assembles the entire artifact set into a **DRAFT**, asserts it is complete, and
+publishes last. Three consequences an agent has to hold:
+
+1. **A pushed tag STARTS a release; only the seal finishes one.** A failed build
+   target leaves a stranded DRAFT - invisible to installers, invisible to
+   `release_state.py`, and easily mistaken for either success or "no release
+   happened". The completion criterion is: published (not draft), asset set
+   complete.
+
+2. **A tag push runs `release.yml` from the TAGGED commit.** Tagging a commit
+   that predates the draft-then-seal ordering runs that commit's publish-first
+   workflow, which seals an empty release and burns the version number
+   permanently. "A SHA on current `main`" is NOT the precondition and never was -
+   `main` carried the publish-first workflow for as long as it took this fix to
+   land, and it is the SHA's own `release.yml` that decides. Ask the probe, which
+   reads the workflow at that commit and names the requirement it fails:
+
+   ```bash
+   python3 tools/maintainer/check_release_pipeline.py --sha <SHA>   # exit 0 = safe to tag
+   ```
+
+   Do not substitute `git show <SHA>:.github/workflows/release.yml | grep
+   -- '--draft'` for it. That grep is satisfied by any commit that merely
+   mentions the flag, and it cannot see the other four requirements (one sealing
+   job, every uploader inside its `needs:` closure, the completeness gate running
+   before the seal, the `.mcpb` inside the sealing contract). Then: one tag per
+   push, and never `git push --tags` (it pushes stale local tags, and more than
+   three tags in a single push fires no workflow run at all). Never delete a
+   release and re-cut the same version - bump instead.
+
+3. **Only a network check is a release receipt.** `check_pinned_artifacts.py
+   --no-network` proves the TAG exists and nothing more, so it stays green over a
+   stranded draft and over a published-but-incomplete release (it was green over
+   `auvik-v0.1.1`, which carries 16 of its 25 assets). Use:
+
+   ```bash
+   # per tag - the two facts that matter, then the derived asset-set check
+   gh release view <tag> --json isDraft,assets -q '"draft=\(.isDraft) assets=\(.assets|length)"'
+   gh release view <tag> --json assets \
+     | python3 tools/maintainer/check_release_assets.py --tag <tag> --with-mcpb
+
+   # fleet - every pinned download URL resolves to a published asset
+   python3 tools/maintainer/check_pinned_artifacts.py --network
+
+   # sweep for releases that never finished (expect no output)
+   gh api repos/Servosity/msp-skills/releases --paginate -q '.[] | select(.draft) | .tag_name'
+   ```
+
+   A tag listed by that last sweep is a release that never finished: re-run the
+   Release workflow for it while its draft is still mutable.
 
 ## General
 
