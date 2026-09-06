@@ -427,11 +427,11 @@
     "released_hash": "sha256:c5c11253c0cc63f0ae3aa89a20e00178388ddf9317700880c2fb2ed1ee309a67"
   },
   "threatlocker": {
-    "state": "binary-pending",
-    "version": "0.3.3",
+    "state": "version-pending",
+    "version": "0.3.4",
     "latest_tag": "threatlocker-v0.3.3",
-    "current_hash": "sha256:fb7084761ca511a5f8bdd5c13a5313d95044768ed51fa3f28d24b59005d88aef",
-    "released_hash": "sha256:e9735559e58f37c910ca78464b02ddf90caef9fee3c58217a9cd1b2c1def62ed"
+    "current_hash": "sha256:08216ca6bbf89076f4a662735bafb65f459859c30c964dd2b80c179842648032",
+    "released_hash": "sha256:08216ca6bbf89076f4a662735bafb65f459859c30c964dd2b80c179842648032"
   },
   "unifi-network": {
     "state": "version-pending",
