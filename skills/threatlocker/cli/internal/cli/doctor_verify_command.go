@@ -21,13 +21,21 @@
 // belongs in the generator, which would let every connector's doctor rank
 // candidates instead of taking the first.
 //
-// Upstream tracker: finding 3 of mvanhorn/cli-printing-press#4482. It was
-// originally item 7 of #4165, but that issue was closed as completed with this
-// finding explicitly out of scope, so #4165 is NOT live - do not cite it.
-// Re-verified against press v4.31.4: still reproduces (the guard now rejects
-// required positionals and framework commands, but a required non-positional
-// flag is still invisible to it). Until it lands, this connector names a
-// command that actually runs.
+// Upstream: finding 3 of mvanhorn/cli-printing-press#4482, originally item 7 of
+// #4165. Do NOT cite #4165 - it was closed as completed with this finding
+// explicitly out of scope, which is how the finding lost its tracker.
+//
+// FIXED UPSTREAM, and #4482 is closed too: cli-printing-press#4489 merged
+// 2026-09-01 and first shipped in press v4.31.5. Endpoint and promoted commands
+// now emit `pp:requires-input` when the endpoint takes required input, and
+// doctor skips those leaves rather than naming one.
+//
+// This connector was generated on 4.30.2, so the defect is still in the code
+// below this comment and the hand-fix stays. RE-CHECK at the next reprint on
+// v4.31.5 or later: the upstream fix makes the SUGGESTION runnable, which is
+// weaker than what this connector now does (doctorProbeCredentials issues the
+// GET itself and reports what came back), so retiring this file is a decision
+// to make deliberately, not a foregone conclusion.
 //
 // The candidates below take NO required input, so a bare call reaches the API.
 // TestDoctorVerifyCandidatesAreRunnable proves that against a fixture rather

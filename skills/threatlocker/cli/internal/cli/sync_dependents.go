@@ -17,19 +17,22 @@
 // parent reference (ApplicationFile.applicationId, MaintenanceEntry.computerId),
 // so store.resourceStorageID composes the key without any injection here.
 //
-// Upstream tracker: finding 4 of mvanhorn/cli-printing-press#4482. It was
-// originally item 8 of #4165, but that issue was closed as completed with this
-// finding explicitly out of scope, so #4165 is NOT live - do not cite it.
-// Re-verified against press v4.31.4: auto-detection still bails whenever the
-// path carries no {placeholder}, so a query-param-keyed child is still
-// registered flat.
+// Upstream: finding 4 of mvanhorn/cli-printing-press#4482, originally item 8 of
+// #4165. Do NOT cite #4165 - it was closed as completed with this finding
+// explicitly out of scope, which is how the finding lost its tracker.
 //
-// Worth checking before the next reprint: x-pp-sync-walker with an explicit
-// key_param now handles the query-param case, and upstream #3816 fixed actually
-// sending that key. Declaring the walker in the spec may retire this file
-// without waiting on auto-detection. When the generator learns to treat a
-// required query param naming a parent's key as a dependent relationship, this
-// file and its dispatch hook go away either way.
+// FIXED UPSTREAM, and #4482 is closed too: cli-printing-press#4489 merged
+// 2026-09-01 and first shipped in press v4.31.5. detectDependentResources no
+// longer requires a {placeholder} in the path - a child collection keyed by a
+// required query param whose name matches a parent key is tracked the same way.
+//
+// This connector was generated on 4.30.2, so the fan-out below is still doing
+// the work. RE-CHECK at the next reprint on v4.31.5 or later, and check rather
+// than assume: upstream binds only when there is EXACTLY ONE such parent key
+// and no leftover required scope, so whether ApplicationFileGetByApplicationId
+// and MaintenanceModeGetByComputerIdV2 are picked up has to be read off the
+// generated profile. Declaring x-pp-sync-walker with an explicit key_param
+// remains the other route (upstream #3816 fixed sending the query key).
 
 package cli
 
