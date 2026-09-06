@@ -191,7 +191,7 @@
   {
    "id": "go-directive-and-http3-dep-floor",
    "summary": "go.mod declared `go 1.26.3` and carried the HTTP/3 dependency set the 4.4.0 press pinned. The directive is now 1.26.6 and the surf-transitive deps are floored at the versions a real 4.31.4 print of this spec resolves.",
-   "why": "The patch-pinned 1.26.3 directive made osv-scanner report stdlib advisories that map to no go.mod module, which the security gate treats as an unsuppressible control-plane failure (13 P1), and it put the connector below the repo's own Go floor guard in ci_guards.sh. The old dependency set also carried 20 advisories against golang.org/x/crypto v0.51.0 alone. Press 4.31.4 emits `go 1.26.6` plus an explicit `require golang.org/x/crypto` floor block with a comment explaining that these deps arrive only via github.com/enetx/surf; that block is reproduced here verbatim, and the versions were then raised to the newest release that clears each advisory. govulncheck reports zero reachable vulnerabilities.",
+   "why": "The patch-pinned 1.26.3 directive made osv-scanner report stdlib advisories that map to no go.mod module, which the security gate treats as an unsuppressible control-plane failure (13 P1), and it put the connector below the repo's own Go floor guard in ci_guards.sh. The old dependency set also carried 20 advisories against golang.org/x/crypto v0.51.0 alone. Press 4.31.4 emits `go 1.26.6` plus an explicit `require golang.org/x/crypto` floor block with a comment explaining that these deps arrive only via github.com/enetx/surf; that block is reproduced here verbatim, and the versions were then raised to the newest release that clears each advisory. Raised again on 2026-09-06: x/crypto v0.55.0 -> v0.56.0, which clears GO-2026-6354 and GO-2026-6355 (two x/crypto/ssh DoS advisories published after the first print, both fixed in v0.56.0). The one advisory that survives the bump is GO-2026-5932, which carries no fixed version at all, is scoped to the openpgp subpackages this connector never builds, and is handled by a base-policy suppression rather than a version change. govulncheck reports zero reachable vulnerabilities.",
    "status": "upstreamed",
    "spec_encode_followup": "No spec change needed. A full reprint at 4.31.4 or later re-emits the directive and the floor block; the individual version numbers will drift upward with the press's own resolution and that is expected.",
    "asserts": [
@@ -202,7 +202,7 @@
     },
     {
      "file": "cli/go.mod",
-     "contains": "require golang.org/x/crypto v0.55.0",
+     "contains": "require golang.org/x/crypto v0.56.0",
      "min_count": 1
     },
     {
