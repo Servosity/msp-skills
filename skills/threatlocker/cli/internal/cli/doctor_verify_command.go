@@ -18,9 +18,24 @@
 // isSuggestableReadLeaf cannot tell the difference, because the requirement is
 // enforced inside RunE rather than through cobra: there is no annotation, no
 // MarkFlagRequired, and no positional in Use for it to see. Fixing that properly
-// belongs in the generator (filed as item 7 of mvanhorn/cli-printing-press#4165,
-// which would let every connector's doctor rank candidates instead of taking the
-// first). Until then this connector names a command that actually runs.
+// belongs in the generator, which would let every connector's doctor rank
+// candidates instead of taking the first.
+//
+// Upstream: finding 3 of mvanhorn/cli-printing-press#4482, originally item 7 of
+// #4165. Do NOT cite #4165 - it was closed as completed with this finding
+// explicitly out of scope, which is how the finding lost its tracker.
+//
+// FIXED UPSTREAM, and #4482 is closed too: cli-printing-press#4489 merged
+// 2026-09-01 and first shipped in press v4.31.5. Endpoint and promoted commands
+// now emit `pp:requires-input` when the endpoint takes required input, and
+// doctor skips those leaves rather than naming one.
+//
+// This connector was generated on 4.30.2, so the defect is still in the code
+// below this comment and the hand-fix stays. RE-CHECK at the next reprint on
+// v4.31.5 or later: the upstream fix makes the SUGGESTION runnable, which is
+// weaker than what this connector now does (doctorProbeCredentials issues the
+// GET itself and reports what came back), so retiring this file is a decision
+// to make deliberately, not a foregone conclusion.
 //
 // The candidates below take NO required input, so a bare call reaches the API.
 // TestDoctorVerifyCandidatesAreRunnable proves that against a fixture rather

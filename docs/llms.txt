@@ -68,6 +68,9 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
 - CrowdStrike Falcon (Security) - ask "What should I triage first across all my client tenants right now?" - Triage Falcon alerts, find stale sensors, and rank critical vulnerabilities across every tenant by asking.
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/crowdstrike/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/crowdstrike/install.sh)
+- DataGate (Billing) - ask "Pull this month's invoices" - Pull DataGate customer, agreement, and invoice data by asking, instead of clicking through the portal.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/datagate/
+  Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/datagate/install.sh)
 - Datto BCDR (Backup/DR) - ask "Which protected machines failed their last backup screenshot verification?" - Fleet-wide Datto BCDR answers - failed screenshots, stale backups, at-risk clients - from a local mirror in one ask.
   Verification: Live-verified by Abhi Saini, Bearium Networks (MSP) (2026-08-13). Page: https://msp-skills.compoundingteams.com/skills/datto-bcdr/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/datto-bcdr/install.sh)
