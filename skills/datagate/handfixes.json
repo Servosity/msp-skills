@@ -71,6 +71,29 @@
           "min_count": 1
         }
       ]
+    },
+    {
+      "id": "doctor-probes-the-credential",
+      "summary": "doctor runs an authenticated probe against a real endpoint (doctor_verdict.go) instead of printing 'present, not verified' in every state",
+      "why": "Minted from a press build predating doctor_verdict.go, which all 65 other connectors carry. Without it doctor returned an identical all-green report for a working install, an expired token, and a base_url the API does not live at - the exact defect check_doctor_truth gates (issue #282). doctorShippedBaseURL is deliberately \"\" because datagate's shipped default (https://api.dgportal.net) is the real API root, not a stand-in an operator must replace; setting it would flag every correct install as a placeholder.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/doctor_verdict.go",
+          "contains": "func doctorProbeCredentials(",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "doctorProbeCredentials(cmd.Context(), c, cmd.Root()",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/doctor_verdict.go",
+          "contains": "const doctorBaseURLEnv = \"DATAGATE_BASE_URL\"",
+          "min_count": 1
+        }
+      ]
     }
   ]
 }

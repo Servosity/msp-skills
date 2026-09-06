@@ -302,7 +302,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 						if vendor := looksLikeDoctorInterstitial([]byte(reachAPIErr.Body)); vendor != "" {
 							report["api"] = fmt.Sprintf("blocked by %s interstitial (HTTP %d) — the configured transport reached the wall.", vendor, status)
 						} else {
-							report["api"] = fmt.Sprintf("reachable (HTTP %d at /)", status)
+							report["api"] = fmt.Sprintf("reachable (HTTP %d at %s)", status, healthPath)
 						}
 					default:
 						// Network-level failure: DNS, connection refused, TLS,
@@ -312,18 +312,20 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 					}
 
 					// Step 2: Validate credentials with an authenticated probe.
+					// This used to print "present, not verified" in every
+					// state, so doctor gave an identical all-green report for
+					// a working install, an expired token, and a base_url the
+					// API does not live at. Probe a real endpoint instead and
+					// let the status code decide. See issue #282.
 					authHeader := cfg.AuthHeader()
 					if authHeader == "" {
-						// No auth configured — skip credential validation
+						// Never leave the row absent: silence is what let a
+						// connector imply auth was not required at all.
+						report["credentials"] = "ERROR not verified: no credential is configured, so nothing was probed."
 					} else if reachErr != nil && !errors.As(reachErr, &reachAPIErr) {
 						report["credentials"] = "skipped (API unreachable)"
 					} else {
-						suggestion := suggestReadCommand(cmd.Root())
-						if suggestion != "" {
-							report["credentials"] = fmt.Sprintf("present, not verified. Run `%s %s` to confirm the token works end-to-end.", "datagate-cli", suggestion)
-						} else {
-							report["credentials"] = "present, not verified. Run any read command to confirm the token works end-to-end."
-						}
+						doctorProbeCredentials(cmd.Context(), c, cmd.Root(), "datagate-cli", report)
 					}
 				}
 			} else if cfg != nil && cfg.BaseURL == "" {
