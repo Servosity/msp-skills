@@ -126,9 +126,9 @@
     "released_hash": "sha256:2b9001a66aaf7f0ee2512c1997ccfaf609f699d0a7219fa5fa6b0dcf6b491afe"
   },
   "cork": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.3",
-    "latest_tag": "cork-v0.1.2",
+    "latest_tag": "cork-v0.1.3",
     "current_hash": "sha256:91ee9947f2f668aa7f98598902b2e01595d202027760dfbe468ea56fc0fdbe13",
     "released_hash": "sha256:91ee9947f2f668aa7f98598902b2e01595d202027760dfbe468ea56fc0fdbe13"
   },
@@ -140,9 +140,9 @@
     "released_hash": "sha256:a6ec1bee04f9a83de5560b6af840c9c6e6c70d141023b7a17ba4cc3913b930dd"
   },
   "crowdstrike": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.4",
-    "latest_tag": "crowdstrike-v0.1.3",
+    "latest_tag": "crowdstrike-v0.1.4",
     "current_hash": "sha256:e431bcc075b7e79171dec9fed174da5b77d1ac4296681b8b9e68c320dc6ea9a5",
     "released_hash": "sha256:e431bcc075b7e79171dec9fed174da5b77d1ac4296681b8b9e68c320dc6ea9a5"
   },
