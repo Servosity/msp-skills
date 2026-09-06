@@ -18,9 +18,16 @@
 // isSuggestableReadLeaf cannot tell the difference, because the requirement is
 // enforced inside RunE rather than through cobra: there is no annotation, no
 // MarkFlagRequired, and no positional in Use for it to see. Fixing that properly
-// belongs in the generator (filed as item 7 of mvanhorn/cli-printing-press#4165,
-// which would let every connector's doctor rank candidates instead of taking the
-// first). Until then this connector names a command that actually runs.
+// belongs in the generator, which would let every connector's doctor rank
+// candidates instead of taking the first.
+//
+// Upstream tracker: finding 3 of mvanhorn/cli-printing-press#4482. It was
+// originally item 7 of #4165, but that issue was closed as completed with this
+// finding explicitly out of scope, so #4165 is NOT live - do not cite it.
+// Re-verified against press v4.31.4: still reproduces (the guard now rejects
+// required positionals and framework commands, but a required non-positional
+// flag is still invisible to it). Until it lands, this connector names a
+// command that actually runs.
 //
 // The candidates below take NO required input, so a bare call reaches the API.
 // TestDoctorVerifyCandidatesAreRunnable proves that against a fixture rather
