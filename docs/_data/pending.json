@@ -287,9 +287,9 @@
     "released_hash": "sha256:bbe71d3287f5a628fb5b93414bcded895c47da05c58d5cc03802bedc1a24ea66"
   },
   "ninjaone": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.13",
-    "latest_tag": "ninjaone-v0.1.12",
+    "latest_tag": "ninjaone-v0.1.13",
     "current_hash": "sha256:4a68f35d11097457c9651d1f012c40111f22f4e2255765fb1714944d36c826b8",
     "released_hash": "sha256:4a68f35d11097457c9651d1f012c40111f22f4e2255765fb1714944d36c826b8"
   },
@@ -308,9 +308,9 @@
     "released_hash": "sha256:b6024d8d1fa74d267265e650442f96d3c1b8d0bd80afb9f493056b0cdde1e15a"
   },
   "pax8": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.3",
-    "latest_tag": "pax8-v0.1.2",
+    "latest_tag": "pax8-v0.1.3",
     "current_hash": "sha256:96d15c6918503346fefd9ba1af41c33d434cc70469fc980db508a571aa9c8367",
     "released_hash": "sha256:96d15c6918503346fefd9ba1af41c33d434cc70469fc980db508a571aa9c8367"
   },
@@ -385,9 +385,9 @@
     "released_hash": "sha256:7fd0e2a30b5bec2738273ad8a2d14e4bcc5393b3aac429c7c70c290725978616"
   },
   "servosity": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.6.3",
-    "latest_tag": "servosity-v0.6.2",
+    "latest_tag": "servosity-v0.6.3",
     "current_hash": "sha256:3e3931ff518ac490fe0a100c985cfa814ca40ed80d3cddcfa4d56b6655f44d73",
     "released_hash": "sha256:3e3931ff518ac490fe0a100c985cfa814ca40ed80d3cddcfa4d56b6655f44d73"
   },
