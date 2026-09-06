@@ -1651,6 +1651,21 @@
         "verified_by": "Servosity (maintainer)",
         "issue_url": null
       }
+    },
+    "datagate": {
+      "system": "telecom billing platform: customers, agreements, invoices, and other resource lookups from a local mirror",
+      "status": "beta",
+      "cli_binary": "datagate-cli",
+      "mcp_binary": "datagate-mcp",
+      "vendor": "DataGate",
+      "vendor_trademark_owner": "DataGate",
+      "first_party": false,
+      "category": "Billing",
+      "display_name": "DataGate",
+      "tagline": "Pull DataGate customer, agreement, and invoice data by asking, instead of clicking through the portal.",
+      "template_version": 3,
+      "version": "0.1.0",
+      "has_video": false
     }
   }
 }

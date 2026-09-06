@@ -41,6 +41,7 @@ body:
         - cork
         - cove
         - crowdstrike
+        - datagate
         - datto-bcdr
         - datto-rmm
         - domotz

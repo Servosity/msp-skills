@@ -1,0 +1,99 @@
+{
+  "slug": "datagate",
+  "doc": "CHANGELOG.md",
+  "_comment": "Connector-specific edits a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present and fails CI if a reprint dropped one.",
+  "handfixes": [
+    {
+      "id": "clientid-header-env-var",
+      "summary": "DATAGATE_CLIENT_ID is read into the generic Headers map so every request carries the required ClientId header alongside the Bearer token",
+      "why": "DataGate's auth needs a Bearer token AND a separate required ClientId header (a GUID) on every request. The spec format has no first-class slot for a second required secret header, so this rides in on the generic per-request Headers map instead. This is a GENERATOR-class gap (no first-class multi-credential-header auth mode) rather than a DataGate-specific bug; until the press supports it natively, a reprint regenerates config.go without this block and these markers guard the connector. (The header name is the clientIDHeader constant so the containment fix in clientid-secret-containment can reference the same value.)",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "os.Getenv(\"DATAGATE_CLIENT_ID\")",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "cfg.Headers[clientIDHeader] = v",
+          "min_count": 1
+        }
+      ]
+    },
+    {
+      "id": "clientid-secret-containment",
+      "summary": "The env-injected ClientId header is stripped on cross-origin redirects, masked in output, and never persisted to config.json",
+      "why": "The clientid-header-env-var hand-fix routes a vendor-designated secret (DataGate docs: 'You should never share your clientId') through the generic Headers map, which the generated client stamps on every request. Generated code only protects Authorization: the redirect guard deletes Authorization alone, the output masker enumerates named credential fields, and the save path persists Headers verbatim. Each of those must be taught about the second secret or the hand-fix leaks it. Header-NAME keyword matching does not work here - 'ClientId' contains no credential token - so the redirect guard strips the whole injected set instead.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "for k := range c.Config.Headers {",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "for _, v := range c.Config.Headers {",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "func (c *Config) headersForPersist()",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "delete(c.Headers, clientIDHeader)",
+          "min_count": 1
+        }
+      ]
+    },
+    {
+      "id": "mcp-filesystem-flag-floor",
+      "summary": "MCP blocks db/input/out destination flags and any command-local flag whose usage text names a filesystem path",
+      "why": "This connector was minted from a press build predating the fleet-wide MCP filesystem hardening: all 65 other connectors block db/input/out and carry isFilesystemPathFlag, datagate did not. Without it an MCP caller can point --db at another database or feed --input a local file whose records are sent to the vendor API, as the MCP server account.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/cobratree/shellout.go",
+          "contains": "\"db\":           true,",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/shellout.go",
+          "contains": "\"input\":        true,",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/typemap.go",
+          "contains": "func isFilesystemPathFlag(",
+          "min_count": 1
+        }
+      ]
+    },
+    {
+      "id": "doctor-probes-the-credential",
+      "summary": "doctor runs an authenticated probe against a real endpoint (doctor_verdict.go) instead of printing 'present, not verified' in every state",
+      "why": "Minted from a press build predating doctor_verdict.go, which all 65 other connectors carry. Without it doctor returned an identical all-green report for a working install, an expired token, and a base_url the API does not live at - the exact defect check_doctor_truth gates (issue #282). doctorShippedBaseURL is deliberately \"\" because datagate's shipped default (https://api.dgportal.net) is the real API root, not a stand-in an operator must replace; setting it would flag every correct install as a placeholder.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/doctor_verdict.go",
+          "contains": "func doctorProbeCredentials(",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "doctorProbeCredentials(cmd.Context(), c, cmd.Root()",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/cli/doctor_verdict.go",
+          "contains": "const doctorBaseURLEnv = \"DATAGATE_BASE_URL\"",
+          "min_count": 1
+        }
+      ]
+    }
+  ]
+}
