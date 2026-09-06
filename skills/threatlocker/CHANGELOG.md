@@ -4,6 +4,64 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.3.4] - 2026-09-06
+
+### Fixed
+- **`recall` and `playbook list` told your MCP host they were read-only tools. They were not.**
+  Both were annotated `mcp:read-only=true` while both open the *writable* learn store on every
+  call: `recall` inserts a learn event, `playbook list` appends an audit record. The annotation
+  is what an MCP host reads to decide what it may auto-approve without asking you, so the false
+  claim was the defect - a host was waving through a write it had been told could not happen.
+  Both now carry `mcp:local-write=true`, the tier this connector already used for `teach` and
+  `playbook amend`: the write lands only in this CLI's own local store, never in external state
+  and never in a file you would go looking at. Measured at the running MCP server, before and
+  after: `recall` and `playbook_list` went from `readOnlyHint=true, openWorldHint=true` to
+  `readOnlyHint=false, destructiveHint=false, openWorldHint=false`.
+
+  **The writes themselves are unchanged.** This is a truth fix, not a behaviour fix - both
+  commands still write exactly what they wrote before, and nothing you can call does anything
+  new. If you had approved these tools on the strength of the read-only annotation, that is the
+  decision worth revisiting. See issue #275 finding 4.
+
+- **`learnings list`, `learnings candidates` and `learnings stats` keep `mcp:read-only`, and
+  `AGENTS.md` now says what that does and does not promise.** Each still opens the learn store
+  read-write and creates the database file when it is absent, but none of them records a
+  learning row, so the annotation stands. It is narrower than it sounds, and the prose no longer
+  implies otherwise.
+
+### Changed
+- **Install and remote-MCP instructions now describe the artifacts this repository actually
+  ships.** The guide routed installs through the printing-press library (`npx -y
+  @mvanhorn/printing-press-library install threatlocker`, and a `go install` from that repo's
+  module path) - neither publishes these binaries. It now points at `skills/threatlocker/
+  install.sh` / `install.ps1`, and says plainly that the installer downloads binaries and does
+  *not* register the skill with your agent or write any MCP client config; `mcp-install.md`
+  covers that separately.
+- **The ChatGPT answer no longer sends you to a bridge package.** `threatlocker-mcp` speaks HTTP
+  natively: `threatlocker-mcp --transport http --addr :7777` behind an HTTPS tunnel or your own
+  reverse proxy. The old text named `mcp-remote`, which bridges the other direction.
+- **`doctor` exits 0 even when the credential is rejected**, so the guide now tells scripts to
+  add `--fail-on error` instead of testing the exit code alone.
+- **Interim `.mcpb` note.** The Claude Desktop bundle's `manifest.json` launches a binary name
+  the archive may not contain (issue #287). The download section now tells you to check with
+  `unzip -l <file>.mcpb | grep bin/` and to fall back to the shell installer if it does not
+  match.
+
+### Documentation
+- **The upstream citations on this connector's two hand-fixes now record what upstream actually
+  did, instead of pointing at a dead issue.** They cited `mvanhorn/cli-printing-press#4165`,
+  which had been closed as completed with both of these findings explicitly out of scope - so
+  the code sent readers to an issue that would never move. They were re-pointed at `#4482`,
+  which upstream then closed on 2026-09-01 by merging `#4489` (first shipped in press v4.31.5),
+  fixing both: `doctor` now skips read commands that need input, and the sync profiler binds a
+  child collection keyed by a required query parameter. Both citations say so, and neither
+  claims a tracker is still open.
+
+  Nothing in the shipped binary changes. This connector is still generated on press 4.30.2, so
+  both hand-fixes are still doing their work; what changed is the instruction left for the next
+  reprint, which now says *check* rather than *assume* - and says what to check. Comments,
+  `handfixes.json` follow-ups and `reprint-patches.py` only.
+
 ## [0.3.3] - 2026-08-26
 
 ### Fixed

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-01",
+  "generated_at": "2026-09-06",
   "skills": [
     {
       "name": "msp-skills-concierge",
@@ -1224,7 +1224,7 @@
       "skill_path": "skills/threatlocker",
       "cli_binary": "threatlocker-cli",
       "mcp_binary": "threatlocker-mcp",
-      "version": "0.3.3",
+      "version": "0.3.4",
       "printing_press_version": "4.30.2",
       "license": "Apache-2.0",
       "vendor": "ThreatLocker",
