@@ -1,0 +1,388 @@
+{
+ "slug": "riverside-fm",
+ "doc": "docs/reprint-survival.md",
+ "_comment": "Edits to GENERATED (\"DO NOT EDIT\") files in this connector that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present and fails CI if a reprint dropped one. Provenance: issue #176 - riverside-fm was printed on press 4.4.0 and parked at 35 security-gate P1. Rather than take a full 4.31.4 reprint (which regenerates root.go and drops the registration of 11 shipped commands, and drops sync/export/import/analytics entirely - see the issue), the generated-file deltas the gate cared about were ported one at a time from a REAL 4.31.4 print of the same spec, kept at parity with what that press emits. Every entry below names the 4.31.4 behaviour it matches, so the eventual full reprint should make these no-ops rather than clobber them.",
+ "handfixes": [
+  {
+   "id": "generator-perms-0700-0600",
+   "summary": "Generated cache/client/store/deliver code created directories 0755 and files 0644. Press 4.31.4 emits 0700/0600 for the same call sites; this connector was printed on 4.4.0, before that hardening, so it shipped world-readable cache entries, HTTP response cache, and delivered payloads.",
+   "why": "gosec G301/G306. The paths involved hold API responses for the operator's own Riverside account - transcripts and recording metadata for their customers' sessions - under the user's home directory on a machine that may be shared. A freshly generated 4.31.4 CLI of this same spec writes 0700/0600 at every one of these sites (internal/cache/cache.go:47-48, internal/client/client.go, internal/store/store.go, internal/cli/deliver.go); the values here were matched against that fresh print rather than chosen.",
+   "status": "upstreamed",
+   "spec_encode_followup": "No spec change needed: press 4.31.4 already emits these values. A full reprint at 4.31.4 or later regenerates them correctly and this entry becomes a no-op.",
+   "asserts": [
+    {
+     "file": "cli/internal/cache/cache.go",
+     "contains": "os.MkdirAll(s.Dir, 0o700)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cache/cache.go",
+     "contains": "0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cache/cache.go",
+     "not_contains": "0o755"
+    },
+    {
+     "file": "cli/internal/cache/cache.go",
+     "not_contains": "0o644"
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "0o755"
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "0o644"
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "0o755"
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "not_contains": "0o755"
+    }
+   ]
+  },
+  {
+   "id": "novel-download-perms-0700-0600",
+   "summary": "The hand-authored download commands (bulk export, grab, clips harvest, media refresh, transcripts convert) wrote their output trees 0755/0644. They now write 0700/0600.",
+   "why": "gosec G301/G306. These are the commands that put a customer's recorded audio, video, and transcripts on disk - the most sensitive bytes this connector ever handles - so 0600 is the correct default and the operator can relax it themselves. These files are NOVEL (no DO NOT EDIT header) and are carried across a reprint by the press AST-merge, so the fix is also applied in the library source at riverside-fm-pp-cli; this ledger is the safety net if a future merge drops it.",
+   "status": "active",
+   "spec_encode_followup": "Nothing to encode: novel command bodies are hand-authored by definition. The durable half of this fix lives in the printing-press library copy of these files.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/bulk.go",
+     "not_contains": "0o755"
+    },
+    {
+     "file": "cli/internal/cli/bulk.go",
+     "not_contains": "0o644"
+    },
+    {
+     "file": "cli/internal/cli/bulk.go",
+     "contains": "0o700)",
+     "min_count": 3,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/bulk.go",
+     "contains": "0o600)",
+     "min_count": 5,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/grab.go",
+     "not_contains": "0o755"
+    },
+    {
+     "file": "cli/internal/cli/grab.go",
+     "not_contains": "0o644"
+    },
+    {
+     "file": "cli/internal/cli/clips_harvest.go",
+     "not_contains": "0o755"
+    },
+    {
+     "file": "cli/internal/cli/media_refresh.go",
+     "not_contains": "0o755"
+    },
+    {
+     "file": "cli/internal/cli/transcripts.go",
+     "not_contains": "0o644"
+    }
+   ]
+  },
+  {
+   "id": "cookie-exec-literal-commands",
+   "summary": "Cookie extraction dispatched through a table of []string argv slices, so the executable name reached exec.Command as a variable (exec.Command(tool.check[0], tool.check[1:]...)) in both auth.go and doctor.go. Every call site now names its program as a compile-time literal.",
+   "why": "This is the FIRST cookie-auth connector in the fleet, so this shape had never been reviewed. The security gate's builtin exec-nonliteral-cmd rule and the matching semgrep rule both flag a variable command, and neither honours an inline // #nosec - the semgrep rule's own message asks for a literal command as the primary remedy. Making it literal is also the honest documentation: a reader (and governance.md's generated tool inventory) can now see the complete, closed set of programs this binary can launch without following a data structure. doctor.go now delegates to detectCookieTool() so its verdict cannot drift from what auth login actually does.",
+   "status": "active",
+   "spec_encode_followup": "DURABLE FIX belongs in cli-printing-press: the 4.31.4 cookie-auth template still emits exec.Command(check[0], check[1:]...) in doctor.go and several variable-command call sites in auth.go, so a reprint reintroduces this. File via printing-press-retro so the press emits literal dispatch for the cookie backends.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "func detectCookieTool",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "exec.Command(\"cookies\", \"--help\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "exec.Command(\"cookie-scoop\", \"--help\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "not_contains": "tool.check[0]"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "exec.Command(check[0]"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "detectCookieTool()",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "cookie-python-script-via-file",
+   "summary": "The pycookiecheat backend ran its extraction script through `python3 -c <script>`. It now writes the script to a 0600 file inside a 0700 temp dir and runs `python3 <path>`.",
+   "why": "Two reasons, and the security one is real rather than cosmetic. (1) A `-c` payload is visible in the process table to every other account on the machine, and this particular script embeds the absolute path of the operator's Chrome profile - so the previous shape leaked where the cookie database lives to any local user running ps. (2) An interpreter invoked with -c is exactly the shape the gate's shell-interpreter rule and semgrep's msp-shell-interpreter-exec rule exist to stop, and neither honours an inline // #nosec. The script content itself is built by this file and never contains caller input.",
+   "status": "active",
+   "spec_encode_followup": "DURABLE FIX belongs in cli-printing-press: the cookie-auth template should never emit `python3 -c`. File via printing-press-retro alongside the literal-dispatch finding.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "func runPythonScript",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "exec.Command(\"python3\", scriptPath)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "not_contains": "\"python3\", \"-c\""
+    }
+   ]
+  },
+  {
+   "id": "fts-rowid-byte-hash",
+   "summary": "store.go's ftsRowID hashed over runes, converting a signed int32 to uint64 at each step. It now hashes over UTF-8 bytes.",
+   "why": "gosec G115 (integer overflow conversion rune -> uint64), twice. A byte is unsigned, so widening it is exact and the finding disappears structurally instead of being annotated away. Behaviour is otherwise identical: the function only needs a deterministic positive rowid, and it is never persisted anywhere a value change could matter across versions (it is recomputed on every FTS write, and this connector has never been released so no local database exists carrying old rowids). Press 4.31.4 does not emit ftsRowID at all for this spec, so there is no upstream version to match.",
+   "status": "active",
+   "spec_encode_followup": "None. If a future press reprint stops emitting ftsRowID (4.31.4 already does not), this assert fails loudly and a human confirms the FTS delete path still works - which is the designed behaviour of this gate, not a false alarm.",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "h = h*31 + uint64(scope[i])",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "h = h*31 + uint64(id[i])",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "h = h*31 + uint64(c)"
+    }
+   ]
+  },
+  {
+   "id": "go-directive-and-http3-dep-floor",
+   "summary": "go.mod declared `go 1.26.3` and carried the HTTP/3 dependency set the 4.4.0 press pinned. The directive is now 1.26.6 and the surf-transitive deps are floored at the versions a real 4.31.4 print of this spec resolves.",
+   "why": "The patch-pinned 1.26.3 directive made osv-scanner report stdlib advisories that map to no go.mod module, which the security gate treats as an unsuppressible control-plane failure (13 P1), and it put the connector below the repo's own Go floor guard in ci_guards.sh. The old dependency set also carried 20 advisories against golang.org/x/crypto v0.51.0 alone. Press 4.31.4 emits `go 1.26.6` plus an explicit `require golang.org/x/crypto` floor block with a comment explaining that these deps arrive only via github.com/enetx/surf; that block is reproduced here verbatim, and the versions were then raised to the newest release that clears each advisory. Raised again on 2026-09-06: x/crypto v0.55.0 -> v0.56.0, which clears GO-2026-6354 and GO-2026-6355 (two x/crypto/ssh DoS advisories published after the first print, both fixed in v0.56.0). The one advisory that survives the bump is GO-2026-5932, which carries no fixed version at all, is scoped to the openpgp subpackages this connector never builds, and is handled by a base-policy suppression rather than a version change. govulncheck reports zero reachable vulnerabilities.",
+   "status": "upstreamed",
+   "spec_encode_followup": "No spec change needed. A full reprint at 4.31.4 or later re-emits the directive and the floor block; the individual version numbers will drift upward with the press's own resolution and that is expected.",
+   "asserts": [
+    {
+     "file": "cli/go.mod",
+     "contains": "go 1.26.6",
+     "min_count": 1
+    },
+    {
+     "file": "cli/go.mod",
+     "contains": "require golang.org/x/crypto v0.56.0",
+     "min_count": 1
+    },
+    {
+     "file": "cli/go.mod",
+     "not_contains": "go 1.26.3"
+    }
+   ]
+  },
+  {
+   "id": "cookie-probe-temp-copy-0600",
+   "summary": "The Chrome-profile probe copied each profile's cookie database to /tmp to count rows. The main file got 0600 from os.CreateTemp, but the '-wal' and '-shm' siblings were created with os.Create (0666 before umask), so on a default umask they landed WORLD-READABLE. The whole set now goes inside a 0700 temp directory and copyFileIfExists writes 0600 explicitly.",
+   "why": "This is the highest-value fix in the connector and no scanner found it: gosec's G306 only looks at os.WriteFile, not os.Create, so the permission never appeared in any gate. What was exposed is not a niche artifact - a Chrome '-wal' holds cookie writes that have not been checkpointed yet, and the '.db' copy is a verbatim duplicate of the operator's cookie store for EVERY site they are signed in to, not just this vendor. Any other local account could read both for the lifetime of the probe, which runs on every `auth login --chrome` and every `doctor`. Fixed in the printing-press library source too, since these are novel files the AST-merge carries forward.",
+   "status": "active",
+   "spec_encode_followup": "DURABLE FIX belongs in cli-printing-press if the cookie-auth template grows this probe: temp copies of a credential store must be created 0600 inside a 0700 directory, never with os.Create. File via printing-press-retro alongside the literal-dispatch and python3-c findings.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "os.MkdirTemp(\"\", \"riverside-cookie-probe-\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "not_contains": "os.CreateTemp(\"\", \"cookies-probe-*.db\")"
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "not_contains": "out, err := os.Create("
+    }
+   ]
+  },
+  {
+   "id": "download-path-traversal-safejoin",
+   "summary": "The download commands named files after ids taken straight from API responses and passed them to filepath.Join without sanitising. An id of 'x/../../../../tmp/pwn' escaped the operator's --out directory entirely. Every such site now goes through safeJoin, which sanitises each component and then proves the result is still under the root, returning \"\" if not.",
+   "why": "sanitize() was applied to the human-readable TITLE but never to the id concatenated after it, at six sites across bulk.go, grab.go, clips_harvest.go and media_refresh.go. filepath.Join then resolved the '..' segments and wrote the downloaded body wherever the id pointed - with content the HTTP response controls. The `#nosec G304` comment on streamDownload asserted the opposite ('destPath is under the operator-chosen --out directory'), so the annotation was actively misleading a reader. Found by an adversarial Codex review after CodeRabbit skipped the PR for being over its file limit; no scanner in the repo models taint from an API response into a path. sanitize() was hardened at the same time: it now neutralises control bytes and dots-only components, which filepath.Join treats as traversal even with the separators stripped. safejoin_test.go proves both directions - refuses eight hostile shapes, accepts ordinary titles including unicode and parentheses - because a guard that also rejected real filenames would silently stop downloading and the callers skip rather than error.",
+   "status": "active",
+   "spec_encode_followup": "Nothing to encode: these are hand-authored novel command bodies. The durable half lives in the printing-press library copy, which carries the identical files.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/bulk.go",
+     "contains": "func safeJoin(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/bulk.go",
+     "contains": "filepath.Rel(absRoot, absJoined)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/bulk.go",
+     "contains": "func writeUnderDir(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/bulk.go",
+     "not_contains": "filepath.Join(outDir, sanitize(studio)"
+    },
+    {
+     "file": "cli/internal/cli/grab.go",
+     "contains": "safeJoin(outDir,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/clips_harvest.go",
+     "contains": "safeJoin(outDir,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/media_refresh.go",
+     "contains": "safeJoin(outDir,",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/media_refresh.go",
+     "not_contains": "os.Create(filepath.Clean(destPath))"
+    },
+    {
+     "file": "cli/internal/cli/safejoin_test.go",
+     "contains": "func TestSafeJoinRefusesEscapes",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/safejoin_test.go",
+     "contains": "func TestSafeJoinAllowsOrdinaryNames",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "doctor-probe-rejects-login-redirect",
+   "summary": "The credential probe called any 2xx 'valid'. This client follows redirects, so an expired cookie session bounced to a sign-in page ended at a 200 and was reported as a working session. The probe now reads the body and refuses to say 'valid' unless it is a JSON document and not a known interstitial.",
+   "why": "This is the exact false-GREEN doctor_verdict.go was added to remove, reintroduced one layer down - and it bites harder on a cookie connector than an API-key one, because a browser session expires on the vendor's schedule with no warning and a redirect to the sign-in page is the NORMAL way that shows up. client.go gained ProbeGetBody (a cache-free GET that also returns the body) because status alone cannot distinguish the two; going through c.do keeps the existing guarantee that a server-side revocation cannot be masked by a cached 200.",
+   "status": "active",
+   "spec_encode_followup": "DURABLE FIX belongs in cli-printing-press: any generated credential probe that runs behind a redirect-following client must validate the response shape, not just the status. File via printing-press-retro.",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "func (c *Client) ProbeGetBody(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "looksLikeJSONDocument(body)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "looksLikeDoctorInterstitial(body)",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "fail-on-error-case-insensitive",
+   "summary": "`doctor --fail-on=error` matched the lower-case word 'error' only, while every credential and base-URL verdict opens with an upper-case 'ERROR'. Automation got exit 0 for an expired session. The scan is now case-insensitive, covers 'rejected' and 'not verified', and skips informational rows.",
+   "why": "The single state --fail-on=error exists to catch is the one it could not see. The info-key exclusion is the paired half: without it the scan trips on a healthy connector whose auth hint contains the word 'missing', which is the same defect pointed the other way and is why the fleet's other connectors carry doctorInfoKeys.",
+   "status": "active",
+   "spec_encode_followup": "DURABLE FIX belongs in cli-printing-press: the generated doctorExitForFailOn should fold case and consult doctorInfoKeys. File via printing-press-retro.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "strings.ToLower(s)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorIsInfoKey(k)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorIsInfoKey(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "python-literals-encoded",
+   "summary": "The pycookiecheat helper source interpolated the domain and the Chrome profile path between bare double quotes. Both are now rendered through encoding/json, which emits a correctly escaped literal that is valid Python.",
+   "why": "cookiePath is built from a Chrome profile DIRECTORY NAME read off the filesystem, and the only filter is a `Profile ` prefix check - so a directory named `Profile \"); __import__(\"os\").system(...)  #` would have closed the string and appended executable Python to the helper. Reaching it needs a local write into the browser data directory, which is a narrow precondition, but interpolating an unescaped value into source is never the right shape and the fix costs nothing. JSON string syntax is a subset of Python's, so the encoder is a correct quoter here.",
+   "status": "active",
+   "spec_encode_followup": "DURABLE FIX belongs in cli-printing-press alongside the other cookie-template findings: values interpolated into a generated helper script must be encoded, not concatenated.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "func pyString(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "pyString(safePath)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "not_contains": "chrome_cookies(\"https://%s\", cookie_file=\"%s\")"
+    }
+   ]
+  }
+ ]
+}

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-01",
+  "generated_at": "2026-09-06",
   "skills": [
     {
       "name": "msp-skills-concierge",
@@ -996,6 +996,25 @@
       "description": "Operate and monitor Rewst RPA across every client org from the terminal or your AI agent: workflow execution health, failure triage, automation ROI, dormant-workflow cleanup, cross-org config drift, and integration-pack coverage - the multi-tenant answers the web console makes you assemble one org at a time.",
       "verification": "awaiting",
       "category": "Automation"
+    },
+    {
+      "name": "riverside-fm",
+      "system": "Riverside.fm - export transcripts, audio, and video from your recording studio",
+      "status": "beta",
+      "skill_path": "skills/riverside-fm",
+      "cli_binary": "riverside-fm-cli",
+      "mcp_binary": "riverside-fm-mcp",
+      "version": "0.1.0",
+      "printing_press_version": "4.4.0",
+      "license": "Apache-2.0",
+      "vendor": "Riverside",
+      "vendor_trademark_owner": "RiversideFM, Inc.",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/riverside-fm/install.sh)",
+      "install_mcp_doc": "skills/riverside-fm/mcp-install.md",
+      "description": "Riverside API surface as MCP tools.",
+      "verification": "awaiting",
+      "category": "Marketing"
     },
     {
       "name": "rocketcyber",
