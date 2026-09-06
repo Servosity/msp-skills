@@ -56,9 +56,9 @@
     "released_hash": "sha256:83747aa402a3551ca680438ee6789aef2515c2d22205d698397f6fbed1eee784"
   },
   "avanan": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.3",
-    "latest_tag": "avanan-v0.1.2",
+    "latest_tag": "avanan-v0.1.3",
     "current_hash": "sha256:38a3b948e7dbb0cf3aac1fcea8ffb190b7bb9405a5b69bdc604b5b1958fb1c94",
     "released_hash": "sha256:38a3b948e7dbb0cf3aac1fcea8ffb190b7bb9405a5b69bdc604b5b1958fb1c94"
   },
@@ -91,9 +91,9 @@
     "released_hash": "sha256:593dd308ee3f8c0f26e687179decf5dc394b51227ad0a3a8c7f944dabc87c93a"
   },
   "cipp": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.5",
-    "latest_tag": "cipp-v0.1.4",
+    "latest_tag": "cipp-v0.1.5",
     "current_hash": "sha256:32843f6483f8d2fceceb1fc61c9bebe785d62da94d89f9f2ac06b3d6de57aedd",
     "released_hash": "sha256:32843f6483f8d2fceceb1fc61c9bebe785d62da94d89f9f2ac06b3d6de57aedd"
   },
@@ -119,9 +119,9 @@
     "released_hash": "sha256:46acd5bdf795e4b35a5dd8ba8bf3f812d80f7921e887d0707f70c5a5ebcfd41a"
   },
   "connectwise-manage": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.7",
-    "latest_tag": "connectwise-manage-v0.1.6",
+    "latest_tag": "connectwise-manage-v0.1.7",
     "current_hash": "sha256:2b9001a66aaf7f0ee2512c1997ccfaf609f699d0a7219fa5fa6b0dcf6b491afe",
     "released_hash": "sha256:2b9001a66aaf7f0ee2512c1997ccfaf609f699d0a7219fa5fa6b0dcf6b491afe"
   },
