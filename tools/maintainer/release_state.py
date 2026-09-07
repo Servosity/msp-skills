@@ -15,6 +15,15 @@ Classification:
                    (locally; with --remote also consults `git ls-remote`)
   up-to-date       hashes match and the manifest-version tag exists
 
+A tag is necessary and not sufficient (AGENTS.md, "What counts as released"):
+with immutable releases a tag can front a stranded DRAFT that no installer can
+see. `--released-tags FILE` replaces "the tag exists" with "the tag names a
+PUBLISHED release": FILE lists one tag per line, as catalog.yml fetches it from
+`gh api repos/<owner>/<repo>/releases` (drafts excluded). With it, a tag whose
+release never sealed reads as version-pending, which is the truth an operator
+needs. The file is authoritative when given: `git tag` and --remote are not
+consulted, and a missing or empty file is an error, never "nothing released".
+
 This is a reporter, not a gate: it always exits 0. Feed --pending to a release
 loop, or --json to another tool.
 
@@ -23,6 +32,7 @@ Pure stdlib. Run locally:
     python3 tools/maintainer/release_state.py --json
     python3 tools/maintainer/release_state.py --pending
     python3 tools/maintainer/release_state.py --remote
+    python3 tools/maintainer/release_state.py --json --released-tags /tmp/released.txt
 """
 
 from __future__ import annotations
@@ -40,6 +50,26 @@ ROOT = registry.ROOT
 SKILLS_DIR = registry.SKILLS_DIR
 
 PENDING_STATES = ("never-released", "binary-pending", "version-pending")
+
+
+def load_released_tags(path: str | Path) -> set[str]:
+    """The published-release tag list, one tag per line (blank lines ignored).
+
+    Fails loudly on a missing or EMPTY file: this repository has hundreds of
+    published releases, so an empty list is a fetch that went wrong, and
+    reading it as "nothing is released" would flip every connector to pending
+    in the same derived commit that was meant to make pending.json truthful."""
+    p = Path(path)
+    try:
+        tags = {ln.strip() for ln in p.read_text(encoding="utf-8").splitlines() if ln.strip()}
+    except OSError as exc:
+        raise SystemExit(f"release_state: cannot read --released-tags {p}: {exc}")
+    if not tags:
+        raise SystemExit(
+            f"release_state: --released-tags {p} is empty; refusing to report every "
+            f"connector as pending. Omit the flag to fall back to local git tags."
+        )
+    return tags
 
 
 def manifest_version(slug: str) -> str:
@@ -87,13 +117,17 @@ def _git(args: list[str]) -> str:
     return out.stdout if out.returncode == 0 else ""
 
 
-def latest_tag(slug: str) -> tuple[str | None, str | None]:
-    """Return (tag, version) for the highest-semver local tag '<slug>-v*'.
+def latest_tag(slug: str, released: set[str] | None = None) -> tuple[str | None, str | None]:
+    """Return (tag, version) for the highest-semver tag '<slug>-v*' - among the
+    PUBLISHED releases when `released` is given, else among local git tags.
 
     Sorts by parsed version tuple in pure Python (not `sort -V`)."""
     prefix = f"{slug}-v"
-    raw = _git(["tag", "--list", f"{prefix}*"])
-    tags = [t.strip() for t in raw.splitlines() if t.strip().startswith(prefix)]
+    if released is not None:
+        tags = [t for t in released if t.startswith(prefix)]
+    else:
+        raw = _git(["tag", "--list", f"{prefix}*"])
+        tags = [t.strip() for t in raw.splitlines() if t.strip().startswith(prefix)]
     if not tags:
         return None, None
     best = max(tags, key=lambda t: _version_tuple(t[len(prefix):]))
@@ -110,7 +144,10 @@ def tag_exists_remote(tag: str) -> bool:
     return bool(raw.strip())
 
 
-def classify(slug: str, remote: bool) -> dict:
+def classify(slug: str, remote: bool, released: set[str] | None = None) -> dict:
+    """`released`, when given, is the published-release tag set (see
+    load_released_tags) and is authoritative: it replaces both the local tag
+    lookup and the --remote fallback."""
     # markdown-only skills have no cli/ to hash and never cut a binary release;
     # report a terminal "markdown-only" state (never pending).
     if registry.is_markdown_only(slug):
@@ -125,19 +162,22 @@ def classify(slug: str, remote: bool) -> dict:
     cli_dir = registry.skill_path(slug) / "cli"
     current = cli_hash.compute_cli_hash(cli_dir) if cli_dir.is_dir() else None
     entry = registry.skills().get(slug, {})
-    released = entry.get("cli_hash_at_release")
+    released_hash = entry.get("cli_hash_at_release")
     version = manifest_version(slug)
-    lt, _lt_ver = latest_tag(slug)
+    lt, _lt_ver = latest_tag(slug, released)
 
     version_tag = f"{slug}-v{version}"
-    if released is None:
+    if released_hash is None:
         state = "never-released"
-    elif current != released:
+    elif current != released_hash:
         state = "binary-pending"
     else:
-        have_tag = tag_exists_local(version_tag)
-        if not have_tag and remote:
-            have_tag = tag_exists_remote(version_tag)
+        if released is not None:
+            have_tag = version_tag in released
+        else:
+            have_tag = tag_exists_local(version_tag)
+            if not have_tag and remote:
+                have_tag = tag_exists_remote(version_tag)
         state = "up-to-date" if have_tag else "version-pending"
 
     return {
@@ -145,7 +185,7 @@ def classify(slug: str, remote: bool) -> dict:
         "version": version,
         "latest_tag": lt,
         "current_hash": current,
-        "released_hash": released,
+        "released_hash": released_hash,
     }
 
 
@@ -153,9 +193,15 @@ def main(argv: list[str]) -> int:
     as_json = "--json" in argv
     pending_only = "--pending" in argv
     remote = "--remote" in argv
+    released: set[str] | None = None
+    if "--released-tags" in argv:
+        i = argv.index("--released-tags")
+        if i + 1 >= len(argv):
+            raise SystemExit("release_state: --released-tags needs a FILE")
+        released = load_released_tags(argv[i + 1])
 
     slugs = sorted(registry.skills())
-    results = {slug: classify(slug, remote) for slug in slugs}
+    results = {slug: classify(slug, remote, released) for slug in slugs}
 
     if pending_only:
         for slug in slugs:

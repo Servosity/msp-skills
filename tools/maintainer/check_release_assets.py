@@ -94,6 +94,21 @@ def real_size(value: object) -> bool:
     return isinstance(value, int) and not isinstance(value, bool) and value > 0
 
 
+def _expected_for_entry(entry: dict, with_mcpb: bool) -> set[str]:
+    """The asset names one release_matrix skill entry must publish."""
+    names: set[str] = set()
+    for per_target in entry["assets"].values():
+        for asset in (per_target["cli"], per_target["mcp"]):
+            names.add(asset)
+            # release.yml writes a sidecar next to every binary it uploads.
+            names.add(f"{asset}.sha256")
+    if with_mcpb:
+        # release_matrix owns this name, so the workflow that attaches the
+        # bundle and the gate that requires it read one definition.
+        names.add(entry["mcpb_asset"])
+    return names
+
+
 def expected_assets(tag: str, with_mcpb: bool) -> tuple[str, list[str]]:
     """(slug, sorted expected asset names) for a per-skill release tag.
 
@@ -105,16 +120,63 @@ def expected_assets(tag: str, with_mcpb: bool) -> tuple[str, list[str]]:
     entries = [e for e in release_matrix.skill_entries() if e["name"] == slug]
     names: set[str] = set()
     for entry in entries:
-        for per_target in entry["assets"].values():
-            for asset in (per_target["cli"], per_target["mcp"]):
-                names.add(asset)
-                # release.yml writes a sidecar next to every binary it uploads.
-                names.add(f"{asset}.sha256")
-        if with_mcpb:
-            # release_matrix owns this name, so the workflow that attaches the
-            # bundle and the gate that requires it read one definition.
-            names.add(entry["mcpb_asset"])
+        names |= _expected_for_entry(entry, with_mcpb)
     return slug, sorted(names)
+
+
+def admit_published(stream) -> int:
+    """catalog.yml's admission filter for release-derived files.
+
+    Reads the PUBLISHED release listing, one JSON object per line
+    ({"tag_name": ..., "assets": [{"name", "size", "state"}, ...]}, exactly
+    what `gh api repos/<o>/<r>/releases --paginate -q '.[] | select(.draft|not)
+    | {tag_name, assets: [.assets[] | {name, size, state}]}'` prints) and
+    writes, one per line, the tags whose asset set is COMPLETE under the same
+    contract release.yml seals with (.mcpb included). Those tags - and only
+    those - may advance docs/_data/pending.json or a skill README's `.mcpb`
+    download link.
+
+    Published is necessary and not sufficient (AGENTS.md, "What counts as
+    released"): auvik-v0.1.1 is sealed, public, and carries 16 of its 25
+    assets, so a listing filtered on `draft` alone would still hand the README
+    a download that 404s. A tag naming no releasable skill expects nothing and
+    is passed through (release_state.py and build-catalog.py never consult it).
+
+    Fails CLOSED on an unreadable line: the caller must treat a non-zero exit
+    as "do not regenerate", never as "nothing is released".
+    """
+    by_slug = {e["name"]: e for e in release_matrix.skill_entries()}
+    admitted = rejected = 0
+    for n, line in enumerate(stream, 1):
+        if not line.strip():
+            continue
+        try:
+            rec = json.loads(line)
+            tag = rec["tag_name"]
+            actual = parse_assets(json.dumps(rec.get("assets", [])))
+        except (ValueError, TypeError, KeyError) as exc:
+            print(f"::error::line {n} of the release listing is unreadable ({exc}); "
+                  f"expected one {{tag_name, assets:[{{name,size,state}}]}} object per line.",
+                  file=sys.stderr)
+            return 1
+        if not isinstance(tag, str) or rec.get("draft"):
+            print(f"::error::line {n} of the release listing is a draft or has no tag_name.",
+                  file=sys.stderr)
+            return 1
+        entry = by_slug.get(tag.rsplit("-v", 1)[0])
+        expected = sorted(_expected_for_entry(entry, with_mcpb=True)) if entry else []
+        missing, incomplete, _extra = compare(expected, actual)
+        if missing or incomplete:
+            rejected += 1
+            print(f"check_release_assets: {tag} is published but INCOMPLETE "
+                  f"({len(missing)} missing, {len(incomplete)} not fully uploaded, "
+                  f"of {len(expected)} required); not admitted", file=sys.stderr)
+            continue
+        print(tag)
+        admitted += 1
+    print(f"check_release_assets: admitted {admitted} complete published release(s), "
+          f"rejected {rejected}", file=sys.stderr)
+    return 0
 
 
 def parse_assets(payload: str) -> dict[str, dict]:
@@ -296,10 +358,17 @@ def main() -> int:
                     help="print the expected names and exit, reading no stdin")
     ap.add_argument("--self-test", action="store_true",
                     help="prove this gate fires and stays silent; reads no stdin")
+    ap.add_argument("--admit-published", action="store_true",
+                    help="read a published-release listing (one JSON object per "
+                         "line: {tag_name, assets:[{name,size,state}]}) on stdin "
+                         "and print the tags whose asset set is complete, .mcpb "
+                         "included - catalog.yml's admission filter")
     args = ap.parse_args()
 
     if args.self_test:
         return _self_test()
+    if args.admit_published:
+        return admit_published(sys.stdin)
     if not args.tag:
         ap.error("--tag is required (or use --self-test)")
 
