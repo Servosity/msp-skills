@@ -336,12 +336,14 @@ jobs:
           fi
 
           # $version (derived above as ${TAG##*-v}) is stamped into the CLI,
-          # matching the prior goreleaser config.
+          # matching the prior goreleaser config, and into the MCP server's
+          # `var version` (package main) so serverInfo.version stops reporting
+          # 0.0.0-dev on every release (#322).
           mkdir -p "$GITHUB_WORKSPACE/dist"
           (
             cd "${{ matrix.skill.dir }}"
             go build -trimpath -ldflags "-s -w -X ${{ matrix.skill.module }}/internal/cli.version=${version}" -o "$GITHUB_WORKSPACE/dist/${cli}" "${{ matrix.skill.cli_cmd }}"
-            go build -trimpath -ldflags "-s -w" -o "$GITHUB_WORKSPACE/dist/${mcp}" "${{ matrix.skill.mcp_cmd }}"
+            go build -trimpath -ldflags "-s -w -X main.version=${version}" -o "$GITHUB_WORKSPACE/dist/${mcp}" "${{ matrix.skill.mcp_cmd }}"
           )
 
           cd "$GITHUB_WORKSPACE/dist"
