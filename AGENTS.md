@@ -150,7 +150,26 @@ publishes last. Three consequences an agent has to hold:
    A tag listed by that last sweep is a release that never finished: re-run the
    Release workflow for it while its draft is still mutable.
 
+4. **`docs/_data/pending.json` and the README `.mcpb` pins follow COMPLETE
+   PUBLISHED releases, not tags.** `catalog.yml` regenerates them after the
+   Release workflow SUCCEEDS (`workflow_run`), when a release is deleted or
+   unpublished, and weekly, from the API's non-draft
+   release list filtered by `check_release_assets.py --admit-published` (the
+   same asset-set contract the seal uses, `.mcpb` included), and hands that
+   list to `release_state.py --released-tags` and `build-catalog.py
+   --released-tags`. A tag whose release is a stranded draft, or sealed with a
+   build target missing, therefore reads as `version-pending` there, and the
+   README keeps its last complete published link, until a complete release
+   for that version exists.
+
 ## General
 
 - Sign commits (`git commit -s`); no em-dashes in committed files; run
   `tools/maintainer/verify_all.sh <slug>` before pushing. See `CONTRIBUTING.md`.
+- CI builds only what a change-set touched, on PRs AND on pushes to `main`
+  (`release_matrix.py --changed-only`; see `tools/maintainer/README.md`). A
+  docs-only or catalog-bot commit builds nothing; a change to a matrix-row
+  checker, `registry.py`, or a build-feeding workflow builds all 65; a weekly
+  sweep builds everything regardless. `check_cli_claims.py` is a hard gate in
+  the matrix (no `--warn`): a README that names a command or flag the built
+  binary does not have fails that skill's row.

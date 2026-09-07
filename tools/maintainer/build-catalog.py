@@ -21,6 +21,14 @@ derived file drifts from what this script would produce.
 
 Run locally:
     python3 tools/maintainer/build-catalog.py
+    python3 tools/maintainer/build-catalog.py --released-tags /tmp/released.txt
+
+`--released-tags FILE` (one tag per line, the PUBLISHED release list as
+catalog.yml fetches it from the releases API with drafts excluded) replaces
+`git tag` as the source the skill-README `.mcpb` pins are repointed from. A tag
+can front a stranded draft that no installer can download; with the file given,
+such a tag is never emitted and the README keeps its last PUBLISHED link. The
+file is authoritative when present; a missing or empty file is an error.
 """
 
 from __future__ import annotations
@@ -413,20 +421,46 @@ def render_agent_can_do() -> str:
     return "\n".join(rows)
 
 
-def _released_tags() -> dict[str, str] | None:
-    """slug -> the highest `<slug>-v<x.y.z>` tag that EXISTS in this checkout.
+def load_released_tags(released_file: Path) -> list[str]:
+    """The published-release tag list, one tag per line (blank lines ignored).
 
-    Returns None when the checkout carries no tags at all (a shallow clone or a
-    source tarball). That is not the same as "nothing is released", so callers
-    must skip rather than treat every slug as unreleased.
+    A missing or EMPTY file raises, before anything is written: this repository
+    has hundreds of published releases, so an empty list is a fetch that
+    failed, and treating it as "nothing released" would silently freeze every
+    pin (or worse, be read as truth by a future caller)."""
+    try:
+        tags = [t.strip() for t in released_file.read_text(encoding="utf-8").splitlines() if t.strip()]
+    except OSError as exc:
+        raise SystemExit(f"build-catalog: cannot read --released-tags {released_file}: {exc}")
+    if not tags:
+        raise SystemExit(
+            f"build-catalog: --released-tags {released_file} is empty; refusing to "
+            f"treat that as 'nothing released'. Omit the flag to use local git tags."
+        )
+    return tags
+
+
+def _released_tags(released: list[str] | None = None) -> dict[str, str] | None:
+    """slug -> the highest `<slug>-v<x.y.z>` tag that is RELEASED.
+
+    With `released` (the published-release list from load_released_tags): the
+    highest tag per slug among those. Without it: the highest tag per slug
+    among the checkout's `git tag`. Returns None when the checkout carries no
+    tags at all (a shallow clone or a source tarball). That is not the same as
+    "nothing is released", so callers must skip rather than treat every slug
+    as unreleased.
     """
-    p = subprocess.run(
-        ["git", "-C", str(ROOT), "tag"], capture_output=True, text=True
-    )
-    if p.returncode != 0 or not p.stdout.split():
-        return None
+    if released is not None:
+        tags = released
+    else:
+        p = subprocess.run(
+            ["git", "-C", str(ROOT), "tag"], capture_output=True, text=True
+        )
+        if p.returncode != 0 or not p.stdout.split():
+            return None
+        tags = p.stdout.split()
     best: dict[str, tuple[tuple[int, ...], str]] = {}
-    for tag in p.stdout.split():
+    for tag in tags:
         m = _TAG_RE.match(tag)
         if not m:
             continue
@@ -437,7 +471,7 @@ def _released_tags() -> dict[str, str] | None:
     return {slug: tag for slug, (_v, tag) in best.items()}
 
 
-def sync_skill_readme_mcpb() -> tuple[int, list[str]]:
+def sync_skill_readme_mcpb(released_list: list[str] | None = None) -> tuple[int, list[str]]:
     """Repoint every skills/<slug>/README.md `.mcpb` download URL at the NEWEST
     TAG THAT EXISTS for that slug - never at the registry version.
 
@@ -449,7 +483,9 @@ def sync_skill_readme_mcpb() -> tuple[int, list[str]]:
     v0.0.0). Only the tag segment of the URL is rewritten; the surrounding prose
     and the asset name are left exactly as authored.
 
-    The source of the tag is `git tag`, NOT skills.json's version, and that
+    The source of the tag is `git tag` (or, in catalog.yml, the PUBLISHED
+    release list passed as --released-tags, which additionally excludes a tag
+    whose release is a stranded draft), NOT skills.json's version, and that
     choice is the whole point. In this repo the version bump lands in the commit
     and the tag is pushed by hand AFTERWARDS, so pinning the registry version is
     precisely how you point at a tag that does not exist: doing that here turned
@@ -475,7 +511,7 @@ def sync_skill_readme_mcpb() -> tuple[int, list[str]]:
     Returns (READMEs changed, warnings).
     """
     warnings: list[str] = []
-    released = _released_tags()
+    released = _released_tags(released_list)
     if released is None:
         return 0, [
             "no local git tags in this checkout - skill-README .mcpb links left "
@@ -572,7 +608,20 @@ def build_docs_catalog(skills: list[dict]) -> dict:
     return {"count": len(connectors), "connectors": connectors, "featured": featured}
 
 
-def main() -> int:
+def _released_tags_arg(argv: list[str]) -> Path | None:
+    if "--released-tags" not in argv:
+        return None
+    i = argv.index("--released-tags")
+    if i + 1 >= len(argv):
+        raise SystemExit("build-catalog: --released-tags needs a FILE")
+    return Path(argv[i + 1])
+
+
+def main(argv: list[str] | None = None) -> int:
+    released_file = _released_tags_arg(sys.argv[1:] if argv is None else argv)
+    # Read (and refuse a bad) release list BEFORE the first write, so a failed
+    # fetch leaves the tree exactly as it was.
+    released_list = load_released_tags(released_file) if released_file else None
     skill_dirs = sorted(p for p in SKILLS_DIR.iterdir() if p.is_dir())
     skills = [build_entry(d) for d in skill_dirs]
 
@@ -631,7 +680,7 @@ def main() -> int:
     # here so it can only ever name a tag that `git tag` already lists. The
     # registry version is deliberately NOT the source: the tag is cut by hand
     # after the bump, so pinning it is how you point at a dead tag.
-    mcpb_synced, mcpb_warnings = sync_skill_readme_mcpb()
+    mcpb_synced, mcpb_warnings = sync_skill_readme_mcpb(released_list)
     for w in mcpb_warnings:
         print(f"build-catalog: WARN {w}")
 
