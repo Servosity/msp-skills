@@ -4,7 +4,7 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.1.0] - 2026-09-07
 
 ### Added
 - Initial DataGate connector: read-only (list/get/search) coverage of customers,
