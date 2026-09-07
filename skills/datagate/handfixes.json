@@ -94,6 +94,20 @@
           "min_count": 1
         }
       ]
+    },
+    {
+      "id": "mcp-http-read-header-timeout",
+      "summary": "The MCP server's --transport http listener sets ReadHeaderTimeout so one client cannot hold it open by dribbling request headers",
+      "why": "datagate is the only connector in the fleet whose MCP server ships a --transport http mode (streamable HTTP behind bearer auth, TLS required off-loopback, resolved-IP pinning), so the generated cmd/datagate-mcp/main.go is the only place this listener exists and no press template carries the fix. The generated http.Server literal set no header-read deadline, so a single client could hold the listener open indefinitely by sending request headers one byte at a time (Slowloris). gosec G112 flags exactly this shape and the security gate raised it as P1 on PR #317; the fix adds ReadHeaderTimeout: 10 * time.Second (and the time import) to the http.Server literal. A reprint regenerates main.go without the field and go build stays green, so this marker is the only thing that notices. code_only because the explanatory comment above the field also names G112 and Slowloris - the assert must be satisfied by the field itself, never by the prose.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/cmd/datagate-mcp/main.go",
+          "contains": "ReadHeaderTimeout: 10 * time.Second,",
+          "min_count": 1,
+          "code_only": true
+        }
+      ]
     }
   ]
 }
