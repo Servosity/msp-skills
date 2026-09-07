@@ -1,6 +1,6 @@
 {
   "name": "threatlocker",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "Every ThreatLocker Portal API feature, plus the write operations the read-only tools lack and a cross-tenant offline store no other ThreatLocker tool has.",
   "author": {
     "name": "Servosity",

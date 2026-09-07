@@ -70,6 +70,11 @@ Scope notes, so the docstring and the code agree:
 * R4 fires on the npm-scoped spelling `@mvanhorn/printing-press-library`
   anywhere, and on the bare repo path `mvanhorn/printing-press-library` when the
   line also carries an install verb (`npx`, `go install`, `curl ... | sh`, ...).
+  The `-library` suffix is OPTIONAL in both: older prints emit
+  `@mvanhorn/printing-press`, and matching only the suffixed spelling let that
+  shape through the one rule written to stop it. `mvanhorn/cli-printing-press`
+  is the GENERATOR, not the library - it is cited in provenance prose across
+  the fleet and is exempt even on a line that carries an install verb.
   The bare path on its own is legitimate release-ledger prose - 63 of the 65
   AGENTS.md files carry it - so it is not banned outright.
 * AGENTS.md is scanned too, for that reason: it is the surface where the bare
@@ -103,8 +108,40 @@ SKILL_DOCS = ("README.md", "SKILL.md", "guide.md", "mcp-install.md", "AGENTS.md"
 # The stale Windows destination, built from fragments so this file can be
 # grepped for the literal without matching itself.
 BAD_WIN_DIR = "PrintingPress" + "\\bin"
+# Both the npm-scoped spelling and the bare repo path, with the "-library"
+# suffix OPTIONAL. Older prints emit "@mvanhorn/printing-press" without it -
+# riverside-fm shipped exactly that shape and slipped past a literal
+# "-library" match, which is the whole class this rule exists to catch.
+#
+# The negative lookbehind for "cli-" is load-bearing: "mvanhorn/cli-printing-press"
+# is the GENERATOR, referenced legitimately in provenance text across the fleet,
+# and must never be flagged as an install directive.
+#
+# The trailing (?![\w-]) is the other half of that, and it is why this is not a
+# \b: a word boundary EXISTS before a hyphen, so `\b` would let
+# "mvanhorn/printing-press-cli" - a different repository this rule knows nothing
+# about - match as "mvanhorn/printing-press" and be rejected as an install
+# directive. Refusing an unrelated package's documentation is a false-RED, which
+# is the failure mode this repo treats as no better than a missed defect. The
+# lookahead still admits every real spelling: the suffixed name, and a Go subpath
+# where the next character is "/".
+BAD_INSTALLER_RE = re.compile(r"@mvanhorn/printing-press(?:-library)?(?![\w-])")
+BAD_LIB_PATH_RE = re.compile(r"(?<!cli-)\bmvanhorn/printing-press(?:-library)?(?![\w-])")
+
+# Kept for the message text and the self-test fixtures.
 BAD_INSTALLER = "@mvanhorn/printing-press-library"
 BAD_LIB_PATH = "mvanhorn/printing-press-library"
+# The suffix-less spellings the literal match was blind to, and the GENERATOR
+# path that must stay exempt. Derived from the constants above so the two can
+# never drift apart.
+BARE_INSTALLER = BAD_INSTALLER.replace("-library", "")
+BARE_LIB_PATH = BAD_LIB_PATH.replace("-library", "")
+GENERATOR_PATH = "mvanhorn/cli-" + "printing-press"
+# A hypothetical sibling repository under the same owner whose name merely BEGINS
+# with the library's. Nothing in the fleet cites one today; the self-test carries
+# it so the day something does, the gate is already known not to eat it.
+SIBLING_INSTALLER = BAD_INSTALLER.replace("-library", "-cli")
+SIBLING_LIB_PATH = BAD_LIB_PATH.replace("-library", "-cli")
 
 # An install verb. Only with one of these does the bare library path become an
 # instruction rather than a reference to where the release ledger lives.
@@ -255,9 +292,10 @@ def scan(files: list[Path], transports: dict[str, bool | None],
                     f"{BAD_WIN_DIR}. install.ps1 writes "
                     f"%LOCALAPPDATA%\\Programs\\msp-skills and creates no bin child."
                 )
-            if BAD_INSTALLER in line or (BAD_LIB_PATH in line and INSTALL_VERB.search(line)):
+            if BAD_INSTALLER_RE.search(line) or (BAD_LIB_PATH_RE.search(line) and INSTALL_VERB.search(line)):
                 findings.append(
-                    f"R4 {rel}:{n}: routes the install through {BAD_LIB_PATH}, "
+                    f"R4 {rel}:{n}: routes the install through the printing-press "
+                    f"library, "
                     f"which does not ship this repo's binaries. Use "
                     f"skills/{slug or '<slug>'}/install.sh / install.ps1."
                 )
@@ -327,6 +365,36 @@ def selftest() -> int:
         # repo path rather than the npm scope.
         ("R4", "   go install github.com/" + BAD_LIB_PATH + "/auvik/cmd/auvik-cli@latest",
          "   bash <(curl -fsSL https://example.invalid/skills/auvik/install.sh)"),
+        # The same two instructions written WITHOUT the "-library" suffix, which
+        # is the shape a literal match was blind to. riverside-fm shipped
+        # exactly this and sailed through the rule written to stop it.
+        ("R4", "   " + "npx -y " + BARE_INSTALLER + " install auvik --cli-only",
+         "   bash <(curl -fsSL https://example.invalid/skills/auvik/install.sh)"),
+        ("R4", "   go install github.com/" + BARE_LIB_PATH + "/auvik/cmd/auvik-cli@latest",
+         "   bash <(curl -fsSL https://example.invalid/skills/auvik/install.sh)"),
+        # The GENERATOR path, on a line that DOES carry an install verb. It is
+        # cited in provenance prose across the fleet, so a rule that flagged it
+        # would fire on almost every connector. The generator citation is the
+        # constant background in both halves: the broken one carries a real
+        # library directive beside it (so the exemption cannot swallow a live
+        # finding), the fixed one carries a legitimate installer (so naming the
+        # generator next to an install verb stays silent).
+        ("R4", "Generated by " + GENERATOR_PATH + " v4.31.4; install with "
+                "`npx -y " + BARE_INSTALLER + " install auvik`.",
+         "Generated by " + GENERATOR_PATH + " v4.31.4; install with "
+         "`bash <(curl -fsSL https://example.invalid/skills/auvik/install.sh)`."),
+        # A DIFFERENT repository that merely starts with the same name. `\b`
+        # matches before a hyphen, so the suffix-widening above would have
+        # rejected this unrelated package's install line; the trailing
+        # (?![\w-]) is what keeps R4 off it. Both halves are legitimate, so the
+        # pair asserts the exemption: the "broken" half carries a real library
+        # directive beside the sibling name so the harness still sees a finding.
+        ("R4", "   npx -y " + SIBLING_INSTALLER + " install auvik   # plus a real one: "
+                "npx -y " + BAD_INSTALLER,
+         "   npx -y " + SIBLING_INSTALLER + " install auvik"),
+        ("R4", "   go install github.com/" + SIBLING_LIB_PATH + "/auvik/cmd/auvik-cli@latest"
+                " # plus a real one: npx -y " + BAD_INSTALLER,
+         "   go install github.com/" + SIBLING_LIB_PATH + "/auvik/cmd/auvik-cli@latest"),
         # The bare path with no install verb is release-ledger prose, not an
         # instruction: R4 must stay silent on it. Both halves are "fixed" here,
         # so the pair asserts the exemption rather than a fix.
