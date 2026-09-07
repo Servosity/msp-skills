@@ -11,6 +11,11 @@ metadata:
     requires:
       bins:
         - riverside-fm-cli
+    install:
+      - kind: script
+        bins: [riverside-fm-cli]
+        sh: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/riverside-fm/install.sh
+        ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/riverside-fm/install.ps1
 ---
 
 # Riverside  -  Printing Press CLI
@@ -19,18 +24,25 @@ metadata:
 
 This skill drives the `riverside-fm-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. Install via the Printing Press installer:
+1. macOS / Linux:
    ```bash
-   npx -y @mvanhorn/printing-press install riverside-fm --cli-only
+   bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/riverside-fm/install.sh)
    ```
-2. Verify: `riverside-fm-cli --version`
-3. Ensure `$GOPATH/bin` (or `$HOME/go/bin`) is on `$PATH`.
+2. Windows (PowerShell):
+   ```powershell
+   iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/riverside-fm/install.ps1 | iex
+   ```
+3. Verify: `riverside-fm-cli --version`
+4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
 
-If the `npx` install fails before this CLI has a public-library category, install Node or use the category-specific Go fallback after publish.
+The installer downloads the `riverside-fm-cli` and `riverside-fm-mcp` binaries into `~/.local/bin`
+(macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows). It does not
+register the skill with your agent and writes no MCP client config - see
+[mcp-install.md](./mcp-install.md) for that wire-up.
 
-If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
+If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
-Riverside.com makes you click through Studio → Project → Take → Transcript for every download, and locks the official API behind a custom-priced Business plan. This CLI imports your logged-in browser cookies and reaches the same internal API the web app uses, giving you priority-fallback grab, bulk studio export with resume, transcript search over your whole archive, and Magic Clips harvest with CloudFront URL refresh  -  features Riverside has never shipped to Pro users.
+A single CLI for MSPs running ThreatLocker across many customer tenants. It matches the full read surface of the incumbent MCP server, adds the writes nobody shipped (approve requests, toggle maintenance, push policy), and mirrors every entity into a local SQLite database so you can triage approvals, audit drift, and device health across ALL tenants at once  -  something the per-tenant API forces you to do one header-swap at a time.
 
 ## When to Use This CLI
 

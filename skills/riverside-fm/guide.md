@@ -10,26 +10,24 @@ Printed by [@dstevens](https://github.com/dstevens) (Damien Stevens).
 
 ## Install
 
-The recommended path installs both the `riverside-fm-cli` binary and the `pp-riverside-fm` agent skill in one shot:
+This CLI ships as a Claude Code Skill and MCP server in [Servosity/msp-skills](https://github.com/Servosity/msp-skills). The installer downloads the `riverside-fm-cli` and `riverside-fm-mcp` binaries into `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows). It does not register the skill with your agent and writes no MCP client config - see [mcp-install.md](./mcp-install.md) for that wire-up.
 
-```bash
-npx -y @mvanhorn/printing-press install riverside-fm
-```
+1. macOS / Linux:
+   ```bash
+   bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/riverside-fm/install.sh)
+   ```
+2. Windows (PowerShell):
+   ```powershell
+   iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/riverside-fm/install.ps1 | iex
+   ```
+3. Verify: `riverside-fm-cli --version`
+4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
 
-For CLI only (no skill):
-
-```bash
-npx -y @mvanhorn/printing-press install riverside-fm --cli-only
-```
-
-
-### Without Node
-
-The generated install path is category-agnostic until this CLI is published. If `npx` is not available before publish, install Node or use the category-specific Go fallback from the public-library entry after publish.
+If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed until verification succeeds.
 
 ### Pre-built binary
 
-Download a pre-built binary for your platform from the [latest release](https://github.com/mvanhorn/printing-press-library/releases/tag/riverside-fm-current). On macOS, clear the Gatekeeper quarantine: `xattr -d com.apple.quarantine <binary>`. On Unix, mark it executable: `chmod +x <binary>`.
+Download a pre-built binary for your platform from the [latest release](https://github.com/Servosity/msp-skills/releases?q=riverside-fm). On macOS, clear the Gatekeeper quarantine: `xattr -d com.apple.quarantine <binary>`. On Unix, mark it executable: `chmod +x <binary>`.
 
 <!-- pp-hermes-install-anchor -->
 ## Install for Hermes
@@ -37,22 +35,24 @@ Download a pre-built binary for your platform from the [latest release](https://
 From the Hermes CLI:
 
 ```bash
-hermes skills install mvanhorn/printing-press-library/cli-skills/pp-riverside-fm --force
+hermes skills install Servosity/msp-skills/skills/riverside-fm --force
 ```
 
 Inside a Hermes chat session:
 
 ```bash
-/skills install mvanhorn/printing-press-library/cli-skills/pp-riverside-fm --force
+/skills install Servosity/msp-skills/skills/riverside-fm --force
 ```
+
+Hermes [speaks MCP natively](https://hermes-agent.nousresearch.com), so it can also use the `riverside-fm-mcp` server directly - same install path, same environment variables. Restart the Hermes session or gateway if the newly installed skill is not visible immediately.
 
 ## Install for OpenClaw
 
 Tell your OpenClaw agent (copy this):
 
-```
-Install the pp-riverside-fm skill from https://github.com/mvanhorn/printing-press-library/tree/main/cli-skills/pp-riverside-fm. The skill defines how its required CLI can be installed.
-```
+> Install the riverside-fm skill from https://github.com/Servosity/msp-skills/tree/main/skills/riverside-fm. The skill defines how its required CLI (`riverside-fm-cli`) can be installed via the `openclaw:` frontmatter block.
+
+OpenClaw isn't generally available yet; the frontmatter wiring is pre-shipped and will activate the moment OpenClaw launches.
 
 ## Authentication
 
@@ -314,7 +314,7 @@ riverside-fm-cli auth login --chrome
 
 To install:
 
-1. Download the `.mcpb` for your platform from the [latest release](https://github.com/mvanhorn/printing-press-library/releases/tag/riverside-fm-current).
+1. Download the `.mcpb` for your platform from the [latest release](https://github.com/Servosity/msp-skills/releases?q=riverside-fm).
 2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
 
 Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
