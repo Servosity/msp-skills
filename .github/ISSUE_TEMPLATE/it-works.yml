@@ -136,3 +136,9 @@ body:
       options:
         - label: I ran this against a real tenant (not a demo / sandbox).
           required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        **Want a hand live?** Bring it to a [Build Session](https://compoundingteams.com/build-sessions) - free, weekly, Thursdays. We debug real tenants on the call. Recordings and discussion live in the [community](https://ai-accelerator-233a51.circle.so/join).

@@ -48,7 +48,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 > **Interim note on `.mcpb`:** check the bundle before you trust it ([#287](https://github.com/Servosity/msp-skills/issues/287)). Its `manifest.json` launches `${__dirname}/bin/nerdio-mcp`, while the builder stores the release binaries in `bin/` under their platform-suffixed names - `nerdio-mcp-darwin-arm64`, `-darwin-amd64`, `-linux-arm64`, `-linux-amd64`, `-windows-amd64.exe`. Run `unzip -l <file>.mcpb | grep bin/`: if the name the manifest launches is not among them, Claude Desktop has nothing to run - use Path A or Path B below and wire Claude Desktop up through [mcp-install.md](./mcp-install.md).
 
-[**Download Nerdio Manager MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/nerdio-v0.1.2/nerdio-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Nerdio Manager release on the [releases page](https://github.com/servosity/msp-skills/releases?q=nerdio).)
+[**Download Nerdio Manager MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/nerdio-v0.1.3/nerdio-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Nerdio Manager release on the [releases page](https://github.com/servosity/msp-skills/releases?q=nerdio).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
