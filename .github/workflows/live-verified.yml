@@ -239,7 +239,7 @@ jobs:
           ISSUE: ${{ github.event.issue.number }}
         run: |
           set -euo pipefail
-          gh issue comment "$ISSUE" --body "Thank you for closing the loop. **$SLUG** is now badged **live-verified**. See the updated skill page: https://msp-skills.compoundingteams.com/skills/$SLUG/"
+          gh issue comment "$ISSUE" --body "Thank you for closing the loop. **$SLUG** is now badged **live-verified**. See the updated skill page: https://msp-skills.compoundingteams.com/skills/$SLUG/"$'\n\n'"Want a hand live? Bring it to a Build Session - free, weekly, Thursdays: https://compoundingteams.com/build-sessions"
 
   # A live-verified badge is the moment this connector becomes worth keeping
   # current: a real tenant exists, and someone is finally positioned to notice a
