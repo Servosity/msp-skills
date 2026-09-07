@@ -1238,6 +1238,28 @@
         "issue_url": null
       }
     },
+    "riverside-fm": {
+      "system": "Riverside.fm - export transcripts, audio, and video from your recording studio",
+      "status": "beta",
+      "cli_binary": "riverside-fm-cli",
+      "mcp_binary": "riverside-fm-mcp",
+      "vendor": "Riverside",
+      "vendor_trademark_owner": "RiversideFM, Inc.",
+      "first_party": false,
+      "category": "Marketing",
+      "display_name": "Riverside.fm",
+      "cli_hash": "sha256:3fb642086dc73c28336dacee975b86fcf6f3f0592fb6137988c9881f6cf71764",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "rocketcyber": {
       "system": "RocketCyber managed SOC: incidents, agents, detection events, Defender and Microsoft 365 posture, and suppression rules",
       "status": "beta",

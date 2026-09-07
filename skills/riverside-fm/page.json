@@ -1,0 +1,108 @@
+{
+  "outcome_intro": "Pull every transcript, audio track, and video out of your own Riverside.com account in one command - no Business plan, no API key, no clicking Studio then Project then Take for each file. Ask your agent to archive a whole studio, find a quote across every episode, or convert a transcript to WebVTT, and it runs the real command against the same internal API the web app already uses.",
+  "instead_of_say": [
+    {
+      "instead": "Open each episode in Riverside, click into every take, and download the transcript plus each participant's audio one file at a time.",
+      "say": "Archive my whole studio since April 1st to a folder.",
+      "cli": "riverside-fm-cli bulk export --studio my-studio --since 2026-04-01 --out ./archive"
+    },
+    {
+      "instead": "Scrub through hours of old recordings trying to remember which episode you said something in.",
+      "say": "Find every episode where we talked about compounding loops.",
+      "cli": "riverside-fm-cli search \"compounding loops\" --json"
+    },
+    {
+      "instead": "Re-type or screen-cap a transcript because Riverside only shows it inside the editor, never as a caption file.",
+      "say": "Give me a WebVTT caption file for this session.",
+      "cli": "riverside-fm-cli transcripts convert bf487406-af40-4bb4-b7f9-a6b49047b55d --format vtt --out ep.vtt"
+    }
+  ],
+  "pain_points": [
+    "Riverside has no bulk export: every transcript, audio track, and video comes out one click at a time, per take, down the Studio then Project then Take path. Podcasters in community groups openly ask how to batch-download Riverside recordings just to archive a show.",
+    "The official Riverside API is gated behind a custom-priced Business plan, so Pro, Live, and Webinar accounts have no supported programmatic way to back up or search their own content."
+  ],
+  "outcomes": [
+    {
+      "question": "Back up everything in a studio to disk?",
+      "command": "riverside-fm-cli bulk export --studio my-studio --out ./archive"
+    },
+    {
+      "question": "Get the most useful asset for one recording in a single shot?",
+      "command": "riverside-fm-cli grab bf487406-af40-4bb4-b7f9-a6b49047b55d --out ./dl"
+    },
+    {
+      "question": "Find a quote across my whole transcript archive?",
+      "command": "riverside-fm-cli search \"network effects\" --json"
+    },
+    {
+      "question": "Turn a transcript into captions for a web player?",
+      "command": "riverside-fm-cli transcripts convert bf487406-af40-4bb4-b7f9-a6b49047b55d --format srt --out ep.srt"
+    },
+    {
+      "question": "Who talked the most in this episode?",
+      "command": "riverside-fm-cli transcripts talktime bf487406-af40-4bb4-b7f9-a6b49047b55d --json"
+    },
+    {
+      "question": "Which takes in a studio are fully ready to edit?",
+      "command": "riverside-fm-cli ready --studio my-studio"
+    },
+    {
+      "question": "Pull every Magic Clip for a project with fresh download URLs?",
+      "command": "riverside-fm-cli clips harvest --project 69fcda9fba030a19ae93a526 --download --out ./clips"
+    },
+    {
+      "question": "Refresh expiring CloudFront media links before they die?",
+      "command": "riverside-fm-cli media refresh --project 69fcda9fba030a19ae93a526 --prefetch --out ./media"
+    }
+  ],
+  "different_vs_wrappers": "Most Riverside integrations proxy one question into one live API call - fine for a single record, useless when you want to archive years of episodes or search across them. This skill syncs your account into a local SQLite mirror with full-text search and walks projects then takes then assets with a resume cursor, so a single command exports a whole studio and an aggregate query runs offline and instantly.",
+  "different_vs_vendor": "Riverside's own UI exports one take at a time and shows transcripts only inside its editor. This adds what the portal never has: one-command bulk studio export with resume, full-text search across every cached transcript, and conversion to WebVTT, SRT, plain text, JSON, or speaker-grouped Markdown - without re-hitting the API.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Riverside MCP server via a secure bridge. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
+    },
+    {
+      "q": "Is my Riverside data safe?",
+      "a": "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    },
+    {
+      "q": "Do I need a Riverside Business plan or an API key?",
+      "a": "No. The official Riverside API requires a custom-priced Business plan. This CLI reuses the session cookies from your already-logged-in browser to reach the same internal API the Riverside web app uses, so it works on Pro, Live, and Webinar accounts that can't issue an API key."
+    },
+    {
+      "q": "Can this download other people's recordings?",
+      "a": "No. It authenticates as you, with your own browser session, and only reaches the studios and takes your account already has access to. It is scoped to exporting your own content, not scraping anyone else's."
+    },
+    {
+      "q": "Will this change anything in my Riverside account?",
+      "a": "The commands you use to export, search, and convert all read - they only download and transform your data. The CLI does include the generic import command, which can POST records from a local file via the API's create/upsert path; it is not part of any workflow in this skill, and an agent should treat it as a reviewed write. Nothing in this CLI deletes or publishes."
+    }
+  ],
+  "governance_summary": "The Riverside data commands in this skill read: they download, search, and convert data from your own account. The one mutating command is the generic import, which POSTs records from a local JSONL file via the API's create/upsert path and is not part of any export workflow here. The CLI authenticates with your own browser session cookies, read from your environment only, and can do only what your Riverside account already permits. The safe agent policy is to allow reads freely and keep a human on import and anything else the safety scanner flags as a write.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "bulk export, grab, search, transcripts convert, transcripts talktime, clips harvest, media refresh, ready, wait, sync - every download, search, and conversion command",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Write (routine)",
+      "examples": "import (POSTs records from a local JSONL via the API's create/upsert path); the endpoint-mirror capability checks the safety scanner flagged by verb name (ai can-create-event, takes get-assets, clips get-patches) are themselves read-only GETs",
+      "policy": "Preview with --dry-run, then a reviewed write"
+    },
+    {
+      "tier": "Destructive / config",
+      "examples": "none - this CLI exposes no delete, publish, or account-config command",
+      "policy": "Human-in-the-loop only"
+    }
+  ]
+}

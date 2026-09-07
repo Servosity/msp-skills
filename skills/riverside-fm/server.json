@@ -1,0 +1,41 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Servosity/riverside-fm-mcp",
+  "title": "Riverside MCP",
+  "description": "Riverside API surface as MCP tools.",
+  "version": "0.1.0",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/riverside-fm/riverside-fm-512x512.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/servosity/msp-skills",
+    "source": "github",
+    "subfolder": "skills/riverside-fm"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/riverside-fm-v0.1.0/riverside-fm-mcp.mcpb",
+      "version": "0.1.0",
+      "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "RIVERSIDE_FM_BASE_URL",
+          "description": "Base URL for the Riverside API. Optional; defaults to https://riverside.com.",
+          "isRequired": false,
+          "isSecret": false,
+          "default": "https://riverside.com"
+        }
+      ]
+    }
+  ]
+}
