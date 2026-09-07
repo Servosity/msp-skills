@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/spf13/cobra"
 )
 
 // TestSplitShellArgs pins the whitespace + double-quote splitting used by
@@ -55,7 +57,7 @@ func TestCliArgsFromMCP_BlocksRootFlags(t *testing.T) {
 		"limit": float64(10),
 	}
 	got := cliArgsFromMCP(in)
-	want := []string{"--limit", "10"}
+	want := []string{"--limit=10"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("cliArgsFromMCP dropped/kept wrong keys: got %v, want %v", got, want)
 	}
@@ -84,9 +86,69 @@ func TestCliArgsFromMCP_AllowsPerCommandFlags(t *testing.T) {
 		"tags":    []any{"a", "b"},
 	}
 	got := cliArgsFromMCP(in)
-	want := []string{"--limit", "25", "--query", "alpha", "--tags", "a,b", "--verbose"}
+	want := []string{"--limit=25", "--query=alpha", "--tags=a,b", "--verbose"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("cliArgsFromMCP per-command passthrough: got %v, want %v", got, want)
+	}
+}
+
+// TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag pins the hand-fix
+// recorded in handfixes.json as mcp-argv-value-joined. blockedRootFlags
+// filters KEYS; a VALUE that begins with "--" used to be emitted as its own
+// argv element, and because a Cobra bool flag does not consume the token
+// after it, pflag parsed that value as a second flag - so
+// {"json": "--deliver=webhook:..."} became `--json --deliver=webhook:...`
+// and the denylisted --deliver took effect. Every value must now be joined
+// to its flag as ONE element, and that element must be inert when the real
+// flag set parses it: refused on a bool flag, contained on a string flag.
+func TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag(t *testing.T) {
+	const smuggled = "--deliver=webhook:https://x/"
+	got := cliArgsFromMCP(map[string]any{"json": smuggled})
+	want := []string{"--json=" + smuggled}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("cliArgsFromMCP emitted the value as its own argv element: got %#v, want %#v", got, want)
+	}
+
+	newRoot := func(jsonIsBool bool) *cobra.Command {
+		root := &cobra.Command{Use: "root"}
+		if jsonIsBool {
+			root.Flags().Bool("json", false, "json output")
+		} else {
+			root.Flags().String("json", "", "json output")
+		}
+		root.Flags().String("deliver", "", "delivery target")
+		return root
+	}
+
+	// The defect shape, so the guard is proven in both directions: the split
+	// emission really does let --deliver through a bool --json.
+	split := newRoot(true)
+	if err := split.ParseFlags([]string{"--json", smuggled}); err != nil {
+		t.Fatalf("defect-shape probe: split argv did not parse: %v", err)
+	}
+	if deliver, _ := split.Flags().GetString("deliver"); deliver != "webhook:https://x/" {
+		t.Fatalf("defect-shape probe: split argv should have set --deliver, got %q", deliver)
+	}
+
+	// Joined onto a bool flag, pflag refuses the value outright ...
+	boolRoot := newRoot(true)
+	if err := boolRoot.ParseFlags(got); err == nil {
+		t.Fatalf("pflag accepted %q as a bool --json value", got[0])
+	}
+	if deliver, _ := boolRoot.Flags().GetString("deliver"); deliver != "" {
+		t.Fatalf("smuggled --deliver took effect through a bool flag: %q", deliver)
+	}
+
+	// ... and joined onto a string flag it is contained as the literal value.
+	strRoot := newRoot(false)
+	if err := strRoot.ParseFlags(got); err != nil {
+		t.Fatalf("joined argv did not parse on a string flag: %v", err)
+	}
+	if v, _ := strRoot.Flags().GetString("json"); v != smuggled {
+		t.Fatalf("string --json = %q, want the literal value %q", v, smuggled)
+	}
+	if deliver, _ := strRoot.Flags().GetString("deliver"); deliver != "" {
+		t.Fatalf("smuggled --deliver took effect through a string flag: %q", deliver)
 	}
 }
 
