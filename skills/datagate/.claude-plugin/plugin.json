@@ -1,0 +1,20 @@
+{
+  "name": "datagate",
+  "version": "0.1.0",
+  "description": "Every DataGate telecom billing API resource, plus a local SQLite store and offline search the API can't return in one call.",
+  "author": {
+    "name": "msp-skills contributors"
+  },
+  "homepage": "https://github.com/servosity/msp-skills/tree/main/skills/datagate",
+  "repository": "https://github.com/servosity/msp-skills",
+  "license": "Apache-2.0",
+  "keywords": [
+    "datagate",
+    "telecom",
+    "billing",
+    "msp",
+    "mcp",
+    "claude-code",
+    "claude-mcp"
+  ]
+}

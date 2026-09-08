@@ -441,6 +441,26 @@
       "tagline": "Triage Falcon alerts, find stale sensors, and rank critical vulnerabilities across every tenant by asking."
     },
     {
+      "name": "datagate",
+      "system": "telecom billing platform: customers, agreements, invoices, and other resource lookups from a local mirror",
+      "status": "beta",
+      "skill_path": "skills/datagate",
+      "cli_binary": "datagate-cli",
+      "mcp_binary": "datagate-mcp",
+      "version": "0.1.0",
+      "printing_press_version": null,
+      "license": "Apache-2.0",
+      "vendor": "DataGate",
+      "vendor_trademark_owner": "DataGate",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/datagate/install.sh)",
+      "install_mcp_doc": "skills/datagate/mcp-install.md",
+      "description": "Every DataGate telecom billing API resource, plus a local SQLite store and offline search the API can't return in one call.",
+      "verification": "awaiting",
+      "category": "Billing",
+      "tagline": "Pull DataGate customer, agreement, and invoice data by asking, instead of clicking through the portal."
+    },
+    {
       "name": "datto-bcdr",
       "system": "Datto BCDR: appliances, agents, screenshot-verification audits, stale-backup roll-ups, recoverability KPI, and cross-client alert triage from a local mirror",
       "status": "beta",

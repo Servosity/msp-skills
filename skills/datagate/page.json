@@ -1,0 +1,44 @@
+{
+  "outcome_intro": "MSPs and telecom resellers who bill through DataGate normally work through its web portal one customer at a time. Ask your AI \"pull this month's invoices\" or \"look up this customer's agreement,\" and get an answer without clicking through the portal - a local SQLite mirror means repeated lookups don't re-spend DataGate's per-account rate limit either.",
+  "instead_of_say": [
+    {
+      "instead": "Opening the DataGate portal, filtering to a billing period, and exporting or eyeballing each invoice",
+      "say": "Pull this month's DataGate invoices as JSON.",
+      "cli": "datagate-cli invoices --period-start 2026-08-01T00:00:00Z --period-end 2026-08-31T23:59:59Z --json"
+    },
+    {
+      "instead": "Clicking into a customer's record in the portal to check their agreement",
+      "say": "What's this customer's agreement in DataGate?",
+      "cli": "datagate-cli agreements list --customer-id <customer-id> --json"
+    },
+    {
+      "instead": "Re-fetching the same customer list from the live API every time you need to look something up",
+      "say": "Search DataGate for this customer by name.",
+      "cli": "datagate-cli search \"<customer name>\" --data-source local"
+    }
+  ],
+  "pain_points": [
+    "DataGate's own web portal has no cross-customer view - answering \"which invoices are unpaid this month across every customer\" means clicking into each one by hand (skills/datagate/pain-point.md).",
+    "DataGate's API enforces a real rate limit (60 requests/minute, 5,000/day, per account) that a naive script or wrapper burns through fast if it re-fetches everything on every question.",
+    "Monthly billing reconciliation tends to be a recurring manual chore: open the portal, filter to the period, export or eyeball each invoice, repeat next month."
+  ],
+  "outcomes": [
+    {
+      "question": "Pull this month's invoices",
+      "command": "datagate-cli invoices --period-start 2026-08-01T00:00:00Z --period-end 2026-08-31T23:59:59Z --json"
+    },
+    {
+      "question": "Look up a customer",
+      "command": "datagate-cli customers get <customer-id> --json"
+    },
+    {
+      "question": "What's this customer's agreement?",
+      "command": "datagate-cli agreements list --customer-id <customer-id> --json"
+    },
+    {
+      "question": "Search for a customer or invoice by name/number",
+      "command": "datagate-cli search \"<term>\" --json"
+    }
+  ],
+  "different_vs_wrappers": "A thin DataGate wrapper proxies every question into a live API call, which works for one lookup but adds up fast against DataGate's per-account rate limit once you're checking a large customer list or pulling invoices repeatedly. This skill syncs customers, agreements, and invoices into a local SQLite mirror with full-text search, so repeated lookups become one local query: instant, offline, and no extra API calls spent."
+}

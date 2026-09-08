@@ -338,6 +338,21 @@
       ]
     },
     {
+      "name": "datagate",
+      "source": "./skills/datagate",
+      "description": "Every DataGate telecom billing API resource, plus a local SQLite store and offline search the API can't return in one call.",
+      "version": "0.1.0",
+      "category": "billing",
+      "tags": [
+        "datagate",
+        "billing",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
       "name": "datto-bcdr",
       "source": "./skills/datto-bcdr",
       "description": "Sync your whole Datto BCDR fleet into local SQLite and answer the questions the per-appliance Partner Portal can't: which backups failed screenshot verification, which are stale, and which clients are at risk.",
