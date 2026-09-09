@@ -287,15 +287,20 @@ func TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag(t *testing.T) {
 		t.Fatalf("smuggled --deliver took effect through a string flag: %q", deliver)
 	}
 
-	// Every value-carrying type is joined, never split.
-	for name, args := range map[string]map[string]any{
-		"float": {"limit": 5.0},
-		"list":  {"ids": []any{"a", "b"}},
+	// Every value-carrying branch emits exactly ONE element - including the
+	// default branch (a nested object) - so no branch can split at runtime.
+	for _, tc := range []struct {
+		name string
+		args map[string]any
+		want string
+	}{
+		{"float", map[string]any{"limit": 5.0}, "--limit=5"},
+		{"list", map[string]any{"ids": []any{"a", "b"}}, "--ids=a,b"},
+		{"object", map[string]any{"filter": map[string]any{"a": "1"}}, "--filter=map[a:1]"},
 	} {
-		for _, tok := range cliArgsFromMCP(args) {
-			if !strings.Contains(tok, "=") {
-				t.Fatalf("%s: value emitted as its own argv element: %q", name, tok)
-			}
+		got := cliArgsFromMCP(tc.args)
+		if len(got) != 1 || got[0] != tc.want {
+			t.Fatalf("%s: got %#v, want exactly [%q]", tc.name, got, tc.want)
 		}
 	}
 }

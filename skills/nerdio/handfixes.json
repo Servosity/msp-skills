@@ -358,8 +358,20 @@
     },
     {
      "file": "cli/internal/mcp/cobratree/shellout.go",
-     "contains": "\"--\"+k+\"=\"+",
-     "min_count": 4,
+     "contains": "out = append(out, \"--\"+k+\"=\"+strconv.FormatFloat(tv, 'f', -1, 64))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "out = append(out, \"--\"+k+\"=\"+strings.Join(parts, \",\"))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "out = append(out, \"--\"+k+\"=\"+fmt.Sprintf(\"%v\", v))",
+     "min_count": 1,
      "code_only": true
     },
     {
@@ -369,7 +381,14 @@
     {
      "file": "cli/internal/mcp/cobratree/shellout_test.go",
      "contains": "func TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag(",
-     "min_count": 1
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout_test.go",
+     "contains": "\"--filter=map[a:1]\"",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   }

@@ -34,7 +34,7 @@ func TestRecipeIntentHandlerBuildsRecipeArgs(t *testing.T) {
 		"reconcile",
 		"usages",
 		"--agent",
-		"--tenant", "required-value",
+		"--tenant=required-value",
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("handler output %q missing %q", got, want)
@@ -101,4 +101,15 @@ func recipeToolText(t *testing.T, result *mcplib.CallToolResult) string {
 		t.Fatalf("result content = %T, want TextContent", result.Content[0])
 	}
 	return text.Text
+}
+
+// TestRecipeIntentStringFlagIsJoined guards the hand-fix
+// mcp-recipe-argv-not-flag-like: a recipe flag value is always emitted as
+// one --name=value element, so a value beginning with "--" is contained as
+// the literal value and can never be parsed as a second flag.
+func TestRecipeIntentStringFlagIsJoined(t *testing.T) {
+	got, missing := appendRecipeStringFlag(nil, "tenant", "--deliver=webhook:https://x/", "", true, false)
+	if missing || len(got) != 1 || got[0] != "--tenant=--deliver=webhook:https://x/" {
+		t.Fatalf("appendRecipeStringFlag = %#v (missing=%v), want exactly one joined element", got, missing)
+	}
 }

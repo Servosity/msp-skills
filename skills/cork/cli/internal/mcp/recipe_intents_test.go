@@ -101,3 +101,32 @@ func recipeToolText(t *testing.T, result *mcplib.CallToolResult) string {
 	}
 	return text.Text
 }
+
+// TestRecipeIntentAnswerAnAdvisoryTheMomentACveIsNamedRejectsFlagLikePositional guards the hand-fix
+// mcp-recipe-argv-not-flag-like: a positional value that begins with "-"
+// would land in argv ahead of the recipe's own flags and be parsed by pflag
+// as a flag, so it must be refused before the CLI runs.
+func TestRecipeIntentAnswerAnAdvisoryTheMomentACveIsNamedRejectsFlagLikePositional(t *testing.T) {
+	oldPath, oldErr := recipeCLIPath, recipeCLIPathErr
+	t.Cleanup(func() {
+		recipeCLIPath, recipeCLIPathErr = oldPath, oldErr
+	})
+	recipeCLIPath = writeRecipeIntentRecorder(t)
+	recipeCLIPathErr = nil
+
+	for _, bad := range []string{"--deliver=webhook:https://x/", "--dry-run", "-x"} {
+		req := mcplib.CallToolRequest{Params: mcplib.CallToolParams{Arguments: map[string]any{
+			"slug": bad,
+		}}}
+		result, err := handleAnswerAnAdvisoryTheMomentACveIsNamed(context.Background(), req)
+		if err != nil {
+			t.Fatalf("handler returned transport error: %v", err)
+		}
+		if !result.IsError {
+			t.Fatalf("flag-like slug %q reached the CLI: %s", bad, recipeToolText(t, result))
+		}
+		if got := recipeToolText(t, result); !strings.Contains(got, "flag-like") {
+			t.Fatalf("unexpected error for flag-like slug %q: %s", bad, got)
+		}
+	}
+}

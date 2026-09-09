@@ -12,9 +12,11 @@ All notable changes to this skill are documented here. Format follows
   On a yes/no flag the CLI does not read the next word as a value, so a value that itself
   began with `--` was read as a brand-new flag, including flags the server deliberately
   refuses such as `--deliver`, which can send command output to a URL. Each value now
-  travels glued to its flag as one word (`--flag=value`), so it is either rejected outright
-  or kept as literal text and can never become a second flag. Reported privately through
-  SECURITY.md; the same fix already ships in the DataGate connector.
+  travels glued to its flag as one word (`--flag=value`), so the CLI only ever reads it as
+  the value of that one named flag, or rejects it, and it can never become a second flag.
+  The recipe shortcut tools, which build their own command line, now also refuse a value
+  that begins with `-` where a plain value is expected.
+  Reported privately through SECURITY.md; the same fix is in the pending DataGate connector.
 
 ## [0.1.3] - 2026-08-26
 
