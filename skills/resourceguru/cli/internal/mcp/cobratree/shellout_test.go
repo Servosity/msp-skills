@@ -86,7 +86,7 @@ func TestCliArgsFromMCP_BlocksRootFlags(t *testing.T) {
 		"profile":  true,
 		"token":    true,
 	})
-	want := []string{"--limit", "10"}
+	want := []string{"--limit=10"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("cliArgsFromMCP dropped/kept wrong keys: got %v, want %v", got, want)
 	}
@@ -115,7 +115,7 @@ func TestCliArgsFromMCP_AllowsPerCommandFlags(t *testing.T) {
 		"tags":    []any{"a", "b"},
 	}
 	got := cliArgsFromMCP(in, map[string]bool{"args": true})
-	want := []string{"--limit", "25", "--query", "alpha", "--tags", "a,b", "--verbose"}
+	want := []string{"--limit=25", "--query=alpha", "--tags=a,b", "--verbose"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("cliArgsFromMCP per-command passthrough: got %v, want %v", got, want)
 	}
@@ -171,7 +171,7 @@ func TestBlockedStructuredArgsOnlyDropsInheritedRootFlags(t *testing.T) {
 		"config":  "/tmp/evil.yaml",
 		"json":    "true",
 	}, blocked)
-	want := []string{"--json", "true", "--profile", "local-profile"}
+	want := []string{"--json=true", "--profile=local-profile"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("cliArgsFromMCP command-aware blocklist: got %v, want %v", got, want)
 	}
@@ -389,7 +389,7 @@ func TestCLIArgsFromMCPSkipsStructuredPositionals(t *testing.T) {
 		"id":       "123",
 		"format":   "json",
 	}, blocked)
-	want := []string{"--format", "json"}
+	want := []string{"--format=json"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("cliArgsFromMCP forwarded positionals as flags: got %v, want %v", got, want)
 	}
@@ -699,4 +699,113 @@ func toolResultText(result *mcplib.CallToolResult) string {
 		return ""
 	}
 	return text.Text
+}
+
+// TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag guards the hand-fix
+// mcp-argv-value-joined (handfixes.json). blockedRootFlags filters KEYS; the
+// converter used to emit each value as its own argv element, and because a
+// Cobra bool flag has NoOptDefVal and does not consume the token after it,
+// pflag parsed that value as a second flag - so {"json": "--deliver=..."}
+// became `--json --deliver=...` and the denylisted --deliver took effect.
+// Every value must now be joined to its flag as ONE element, and that element
+// must be inert when the real flag set parses it: refused on a bool flag,
+// contained on a string flag.
+func TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag(t *testing.T) {
+	const smuggled = "--deliver=webhook:https://x/"
+	got := cliArgsFromMCP(map[string]any{"json": smuggled}, blockedRootFlags)
+	want := []string{"--json=" + smuggled}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("cliArgsFromMCP emitted the value as its own argv element: got %#v, want %#v", got, want)
+	}
+
+	newRoot := func(jsonIsBool bool) *cobra.Command {
+		root := &cobra.Command{Use: "root"}
+		if jsonIsBool {
+			root.Flags().Bool("json", false, "json output")
+		} else {
+			root.Flags().String("json", "", "json output")
+		}
+		root.Flags().String("deliver", "", "delivery target")
+		return root
+	}
+
+	// The defect shape, so the guard is proven in both directions: the split
+	// emission really does let --deliver through a bool --json.
+	split := newRoot(true)
+	if err := split.ParseFlags([]string{"--json", smuggled}); err != nil {
+		t.Fatalf("defect-shape probe: split argv did not parse: %v", err)
+	}
+	if deliver, _ := split.Flags().GetString("deliver"); deliver != "webhook:https://x/" {
+		t.Fatalf("defect-shape probe: split argv should have set --deliver, got %q", deliver)
+	}
+
+	// Joined onto a bool flag, pflag refuses the value outright ...
+	boolRoot := newRoot(true)
+	if err := boolRoot.ParseFlags(got); err == nil {
+		t.Fatalf("pflag accepted %q as a bool --json value", got[0])
+	}
+	if deliver, _ := boolRoot.Flags().GetString("deliver"); deliver != "" {
+		t.Fatalf("smuggled --deliver took effect through a bool flag: %q", deliver)
+	}
+
+	// ... and joined onto a string flag it is contained as the literal value.
+	strRoot := newRoot(false)
+	if err := strRoot.ParseFlags(got); err != nil {
+		t.Fatalf("joined argv did not parse on a string flag: %v", err)
+	}
+	if v, _ := strRoot.Flags().GetString("json"); v != smuggled {
+		t.Fatalf("string --json = %q, want the literal value %q", v, smuggled)
+	}
+	if deliver, _ := strRoot.Flags().GetString("deliver"); deliver != "" {
+		t.Fatalf("smuggled --deliver took effect through a string flag: %q", deliver)
+	}
+
+	// Every value-carrying type is joined, never split.
+	for name, args := range map[string]map[string]any{
+		"float": {"limit": 5.0},
+		"list":  {"ids": []any{"a", "b"}},
+	} {
+		for _, tok := range cliArgsFromMCP(args, blockedRootFlags) {
+			if !strings.Contains(tok, "=") {
+				t.Fatalf("%s: value emitted as its own argv element: %q", name, tok)
+			}
+		}
+	}
+}
+
+// TestShellOutJoinsValuesSoTheyCannotSmuggleRootFlags is the end-to-end
+// half of mcp-argv-value-joined: the argv the child process actually
+// receives. The exploited shape was a doctor tool call whose json value
+// carried a denylisted --deliver.
+func TestShellOutJoinsValuesSoTheyCannotSmuggleRootFlags(t *testing.T) {
+	bin := writeArgvHelper(t)
+	handler := shellOutToCLI(
+		func() (string, error) { return bin, nil },
+		[]string{"doctor"},
+		map[string]bool{"args": true, "deliver": true},
+		map[string]bool{"json": true},
+		nil,
+		true,
+		nil,
+	)
+
+	result, err := handler(context.Background(), mcplib.CallToolRequest{Params: mcplib.CallToolParams{
+		Arguments: map[string]any{"json": "--deliver=webhook:https://x/"},
+	}})
+	if err != nil {
+		t.Fatalf("handler returned transport error: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("handler returned tool error: %s", toolResultText(result))
+	}
+	got := decodeArgvResult(t, result)
+	want := []string{"doctor", "--json=--deliver=webhook:https://x/"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("shellout argv = %#v, want %#v", got, want)
+	}
+	for _, tok := range got {
+		if strings.HasPrefix(tok, "--deliver") {
+			t.Fatalf("a tool-call value reached the child as its own --deliver argv element: %#v", got)
+		}
+	}
 }

@@ -4,6 +4,18 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.3.5]
+
+### Fixed
+- **A tool-call value could smuggle a refused flag past the MCP server.** The MCP server
+  handed each tool argument to the CLI as two separate words, the flag and then its value.
+  On a yes/no flag the CLI does not read the next word as a value, so a value that itself
+  began with `--` was read as a brand-new flag, including flags the server deliberately
+  refuses such as `--deliver`, which can send command output to a URL. Each value now
+  travels glued to its flag as one word (`--flag=value`), so it is either rejected outright
+  or kept as literal text and can never become a second flag. Reported privately through
+  SECURITY.md; the same fix already ships in the DataGate connector.
+
 ## [0.3.4] - 2026-09-06
 
 ### Fixed
