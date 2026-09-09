@@ -11,9 +11,10 @@ All notable changes to this skill are documented here. Format follows
   handed each tool argument to the CLI as two separate words, the flag and then its value.
   On a yes/no flag the CLI does not read the next word as a value, so a value that itself
   began with `--` was read as a brand-new flag, including flags the server deliberately
-  refuses such as `--deliver`, which can send command output to a URL. Each value now
-  travels glued to its flag as one word (`--flag=value`), so the CLI only ever reads it as
-  the value of that one named flag, or rejects it, and it can never become a second flag.
+  refuses such as `--deliver`, which can send command output to a URL. Every argument that
+  carries a value now travels glued to its flag as one word (`--flag=value`), so the CLI only
+  ever reads it as the value of that one named flag, or rejects it, and it can never become a
+  second flag. A plain yes/no flag is still a bare `--flag`, and an empty value is still left out.
   Reported privately through SECURITY.md; the same fix is in the pending DataGate connector.
 
 ## [0.2.2] - 2026-08-26

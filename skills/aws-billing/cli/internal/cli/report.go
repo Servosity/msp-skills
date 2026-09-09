@@ -329,7 +329,7 @@ func postReportToSlack(ctx context.Context, channel, summary, htmlDoc, stamp str
 		return fmt.Errorf("slack-pp-cli not found on PATH or in ~/.local/bin (install it to post to Slack)")
 	}
 	// 1. Summary message.
-	msg := exec.CommandContext(ctx, slack, "messages", "post_message", "--channel", channel, "--text", summary)
+	msg := exec.CommandContext(ctx, slack, slackMessageArgs(channel, summary)...)
 	if out, err := msg.CombinedOutput(); err != nil {
 		return fmt.Errorf("post_message: %v: %s", err, strings.TrimSpace(string(out)))
 	}
@@ -360,4 +360,12 @@ func findSlackCLI() string {
 		return cand
 	}
 	return ""
+}
+
+// slackMessageArgs is hand-wired (handfixes.json: slack-delegation-argv-joined):
+// channel is MCP-settable via --slack-channel, and slack-pp-cli's flag
+// parser is outside this repository, so each value is joined to its flag as
+// ONE argv element and can never be read as a second flag.
+func slackMessageArgs(channel, summary string) []string {
+	return []string{"messages", "post_message", "--channel=" + channel, "--text=" + summary}
 }

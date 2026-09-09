@@ -222,6 +222,30 @@
      "code_only": true
     }
    ]
+  },
+  {
+   "id": "slack-delegation-argv-joined",
+   "summary": "report --post-slack delegates to slack-pp-cli; the channel (MCP-settable via --slack-channel) and summary are joined to their flags as one argv element each (--channel=<v>, --text=<v>) via slackMessageArgs.",
+   "why": "Codex round-two review of the fleet mcp-argv-value-joined backport (2026-09-09): this is the only downstream argv reconstruction in the fleet that re-emits an MCP-settable value as a separate element (--channel <v>). It is safe only while slack-pp-cli keeps --channel a value-consuming string flag - a parser outside this repository. Joined, a value beginning with '--' stays contained inside its own element regardless of the child's flag types. report.go is novel code, so a reprint does not touch it, but the ledger keeps the intent visible and the assert keeps the split form from returning.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/report.go",
+     "contains": "\"--channel=\" + channel",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/report.go",
+     "not_contains": "\"--channel\", channel"
+    },
+    {
+     "file": "cli/internal/cli/report_slack_args_test.go",
+     "contains": "func TestSlackMessageArgsJoinValues(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
   }
  ]
 }
