@@ -359,28 +359,28 @@
   "rootly": {
     "state": "binary-pending",
     "version": "0.1.2",
-    "latest_tag": "rootly-v0.1.2",
+    "latest_tag": "rootly-v0.1.3",
     "current_hash": "sha256:043fe6b79c288c1f6728a25b6c2e8e27535cb27b12e8153d797b2876e1983ba4",
     "released_hash": "sha256:a6fe196348a09da9b129b60cceca90295278072861cb9e38bd68ce554bb1d4d5"
   },
   "runzero": {
     "state": "binary-pending",
     "version": "0.1.2",
-    "latest_tag": "runzero-v0.1.2",
+    "latest_tag": "runzero-v0.1.3",
     "current_hash": "sha256:f9dc86fa9b0c5dd1038a4ea033e2c446f544910ab3e5268a3d7a1a7484eddd45",
     "released_hash": "sha256:75845a5a7b9da0916d648f6666e6e3b34e4552c41087e02403775063d658be83"
   },
   "salesbuildr": {
     "state": "binary-pending",
     "version": "0.1.2",
-    "latest_tag": "salesbuildr-v0.1.2",
+    "latest_tag": "salesbuildr-v0.1.3",
     "current_hash": "sha256:c74b9f70dfa00153c3082b954f8ff1439cf732a4019f6f2bd27419a4f4a99e90",
     "released_hash": "sha256:e659178a36476d9ac6080cfe8d2f3a54803dcea1a7bb63441a4fd57b2ac81ccb"
   },
   "sentinelone": {
     "state": "binary-pending",
     "version": "0.1.4",
-    "latest_tag": "sentinelone-v0.1.4",
+    "latest_tag": "sentinelone-v0.1.5",
     "current_hash": "sha256:eafa613b1f738f42bb1f3e09fc2d57057638cf52af043f05415c9def2d296748",
     "released_hash": "sha256:7fd0e2a30b5bec2738273ad8a2d14e4bcc5393b3aac429c7c70c290725978616"
   },
