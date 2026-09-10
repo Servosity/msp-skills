@@ -9,7 +9,7 @@
   "acronis": {
     "state": "binary-pending",
     "version": "0.1.2",
-    "latest_tag": "acronis-v0.1.2",
+    "latest_tag": "acronis-v0.1.3",
     "current_hash": "sha256:61ee90f1fb6210b170ad7e2b10c2dfba13be884478acaa90e4d5fcb6a2bab97e",
     "released_hash": "sha256:e5b132bc1d8d0eed0adbf549453309df1e759751eb63eb2dd90b3163e71aafa2"
   },
