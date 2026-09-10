@@ -51,14 +51,14 @@
   "auvik": {
     "state": "binary-pending",
     "version": "0.2.3",
-    "latest_tag": "auvik-v0.2.3",
+    "latest_tag": "auvik-v0.2.4",
     "current_hash": "sha256:233ec9bbf66d797ffc5f3885695e3d2cdf8a807509b3a309d01d79f7b32fc274",
     "released_hash": "sha256:83747aa402a3551ca680438ee6789aef2515c2d22205d698397f6fbed1eee784"
   },
   "avanan": {
     "state": "binary-pending",
     "version": "0.1.3",
-    "latest_tag": "avanan-v0.1.3",
+    "latest_tag": "avanan-v0.1.4",
     "current_hash": "sha256:615e3f0907cccadbab49c4a10e980776b754101619dde48e1b484f0a3523e022",
     "released_hash": "sha256:38a3b948e7dbb0cf3aac1fcea8ffb190b7bb9405a5b69bdc604b5b1958fb1c94"
   },
