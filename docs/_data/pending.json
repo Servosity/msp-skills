@@ -156,7 +156,7 @@
   "datto-rmm": {
     "state": "binary-pending",
     "version": "0.1.4",
-    "latest_tag": "datto-rmm-v0.1.4",
+    "latest_tag": "datto-rmm-v0.1.5",
     "current_hash": "sha256:d1b241c2dfa6bd7a066ffc94616a840cb485a95638060cd2a7237280d9ba8bab",
     "released_hash": "sha256:5adc29ae742381145088f06cf31ca9c72af95cd94f1f7d0363aabb6926d13390"
   },
