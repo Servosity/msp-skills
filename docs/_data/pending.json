@@ -436,7 +436,7 @@
   "unifi-network": {
     "state": "binary-pending",
     "version": "0.1.4",
-    "latest_tag": "unifi-network-v0.1.4",
+    "latest_tag": "unifi-network-v0.1.5",
     "current_hash": "sha256:7e59ca566a1e4d896789bfe3f4d28a2f6af9199a40011a8ba4f530cc90f47e21",
     "released_hash": "sha256:1a802197240acb6d82e333214ee99e76b500aa00778bc09f6bdb1c309b718a31"
   },
@@ -450,7 +450,7 @@
   "wordpress": {
     "state": "binary-pending",
     "version": "0.1.3",
-    "latest_tag": "wordpress-v0.1.3",
+    "latest_tag": "wordpress-v0.1.4",
     "current_hash": "sha256:2a65663dc14cb16ea6f3e08b3b32891ce0bde941cf8f60e3a4bfeeb6bf228f84",
     "released_hash": "sha256:cdc381de21c5c5d669020d6b57f8c97b5c158aca965c26fdbcb51f3dc7bd7b16"
   },
