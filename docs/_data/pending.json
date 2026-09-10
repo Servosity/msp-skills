@@ -296,28 +296,28 @@
   "pagerduty": {
     "state": "binary-pending",
     "version": "0.1.2",
-    "latest_tag": "pagerduty-v0.1.2",
+    "latest_tag": "pagerduty-v0.1.3",
     "current_hash": "sha256:77f63c97d8238f3c929aa113a03dfa9bce62981d96189ba882ad6ed457feb429",
     "released_hash": "sha256:913f92e543f932b9d0faccac2778d515e8238fc247f5942c15684b6f9ad5accb"
   },
   "pandadoc": {
     "state": "binary-pending",
     "version": "0.1.2",
-    "latest_tag": "pandadoc-v0.1.2",
+    "latest_tag": "pandadoc-v0.1.3",
     "current_hash": "sha256:0913c4acd982fdbd307661a3d4b8e563bcb2cfa06f93bba51b1b3c5d91ca57da",
     "released_hash": "sha256:b6024d8d1fa74d267265e650442f96d3c1b8d0bd80afb9f493056b0cdde1e15a"
   },
   "pax8": {
     "state": "binary-pending",
     "version": "0.1.3",
-    "latest_tag": "pax8-v0.1.3",
+    "latest_tag": "pax8-v0.1.4",
     "current_hash": "sha256:6d64e196db392ed74d872119411435a997ba98f39de88f304cab1f80ed632f0c",
     "released_hash": "sha256:96d15c6918503346fefd9ba1af41c33d434cc70469fc980db508a571aa9c8367"
   },
   "pipedrive": {
     "state": "binary-pending",
     "version": "0.1.2",
-    "latest_tag": "pipedrive-v0.1.2",
+    "latest_tag": "pipedrive-v0.1.3",
     "current_hash": "sha256:c78f4fbe649190e1756c1307b863bd9baff1ffcbddbb903742f04fa982d8e060",
     "released_hash": "sha256:83cdff9b37087cb14cea56067cce49fdb0ee99bfbf241cc3a9dbf362f782bb98"
   },
