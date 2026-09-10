@@ -415,7 +415,7 @@
   "syncro": {
     "state": "binary-pending",
     "version": "0.1.2",
-    "latest_tag": "syncro-v0.1.2",
+    "latest_tag": "syncro-v0.1.3",
     "current_hash": "sha256:cb18de48e243404c07c10fc8628986fb0fa48d6f4eccb61054c015fe9a405991",
     "released_hash": "sha256:52c2f8b8ee48f66c987381e51de47700240e9d52db1f722ef1040b825442ba2a"
   },
