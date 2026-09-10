@@ -282,14 +282,14 @@
   "nerdio": {
     "state": "binary-pending",
     "version": "0.1.3",
-    "latest_tag": "nerdio-v0.1.3",
+    "latest_tag": "nerdio-v0.1.4",
     "current_hash": "sha256:babbdfb76a319602cb7ca5924173029c40edb209e647da83f9be85be397e2998",
     "released_hash": "sha256:bbe71d3287f5a628fb5b93414bcded895c47da05c58d5cc03802bedc1a24ea66"
   },
   "ninjaone": {
     "state": "binary-pending",
     "version": "0.1.13",
-    "latest_tag": "ninjaone-v0.1.13",
+    "latest_tag": "ninjaone-v0.1.14",
     "current_hash": "sha256:3c98f36d935348f52e07a429044a8b53a308c27ff7dbf97d3c7982e21d0c513c",
     "released_hash": "sha256:4a68f35d11097457c9651d1f012c40111f22f4e2255765fb1714944d36c826b8"
   },
