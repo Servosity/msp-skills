@@ -212,7 +212,7 @@
   "itglue": {
     "state": "binary-pending",
     "version": "0.1.2",
-    "latest_tag": "itglue-v0.1.2",
+    "latest_tag": "itglue-v0.1.3",
     "current_hash": "sha256:b1eaaf7ee31b95aff58f7887e106132e56f0e129547719ef174248ac53ec783b",
     "released_hash": "sha256:d6729f4e17b3d98285e4554a31d2f752f494cde350caf476d88de04d6e80292f"
   },
@@ -226,7 +226,7 @@
   "knowbe4": {
     "state": "binary-pending",
     "version": "0.1.2",
-    "latest_tag": "knowbe4-v0.1.2",
+    "latest_tag": "knowbe4-v0.1.3",
     "current_hash": "sha256:05f616bcfed71471b35f391be5a8319e21bf64b8be4c090658accf8a013299bc",
     "released_hash": "sha256:04cca930c657d5847eb21bf702e2555409fdcc82bfd7d5a3fda4ff0a3da227e9"
   },
