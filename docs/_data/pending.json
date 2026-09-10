@@ -79,7 +79,7 @@
   "betterstack": {
     "state": "binary-pending",
     "version": "0.1.2",
-    "latest_tag": "betterstack-v0.1.2",
+    "latest_tag": "betterstack-v0.1.3",
     "current_hash": "sha256:b0278fef78dcbcb77d33e877722488d209e3346c7c0d5afef4c15b192ba5e8f5",
     "released_hash": "sha256:d57343febd9e67c9e7eba72ae2fbe3eea6daa1686c358c680a48feab7e806b73"
   },
