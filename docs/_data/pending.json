@@ -65,7 +65,7 @@
   "aws-billing": {
     "state": "binary-pending",
     "version": "0.1.2",
-    "latest_tag": "aws-billing-v0.1.2",
+    "latest_tag": "aws-billing-v0.1.3",
     "current_hash": "sha256:924f3c61effa1b226f74f2669990ab285706cfadb78397e1069e148ebdf0b044",
     "released_hash": "sha256:20a68fcfac5042d839a9160ffd3738e903193601b057b94d709bd6112e149de3"
   },
@@ -107,7 +107,7 @@
   "connectwise-automate": {
     "state": "binary-pending",
     "version": "0.1.2",
-    "latest_tag": "connectwise-automate-v0.1.2",
+    "latest_tag": "connectwise-automate-v0.1.3",
     "current_hash": "sha256:7ea97893591fe8cb8496a0c67450acc6e6db6e84e8c9f40bc3a7e02d1cd600c3",
     "released_hash": "sha256:7f6094666340a92eb60bb6468d496a8beaebb54d0d92b2887307d6ee6d45ff73"
   },
