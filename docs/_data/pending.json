@@ -422,7 +422,7 @@
   "tactical-rmm": {
     "state": "binary-pending",
     "version": "0.1.2",
-    "latest_tag": "tactical-rmm-v0.1.2",
+    "latest_tag": "tactical-rmm-v0.1.3",
     "current_hash": "sha256:c2ec39e79968c572bbfc500bf309458387b0e4815227950718bf561ab6670be6",
     "released_hash": "sha256:c5c11253c0cc63f0ae3aa89a20e00178388ddf9317700880c2fb2ed1ee309a67"
   },
