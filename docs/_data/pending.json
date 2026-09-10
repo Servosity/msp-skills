@@ -86,14 +86,14 @@
   "blumira": {
     "state": "binary-pending",
     "version": "0.1.2",
-    "latest_tag": "blumira-v0.1.2",
+    "latest_tag": "blumira-v0.1.3",
     "current_hash": "sha256:0f03b0c3ae0aac62ca22581e62793e53a71565a036b6d532586a8dbfc6ea013d",
     "released_hash": "sha256:593dd308ee3f8c0f26e687179decf5dc394b51227ad0a3a8c7f944dabc87c93a"
   },
   "cipp": {
     "state": "binary-pending",
     "version": "0.1.5",
-    "latest_tag": "cipp-v0.1.5",
+    "latest_tag": "cipp-v0.1.6",
     "current_hash": "sha256:d12c14f79f65b58a7d5102230e03e9042232302d1ca1c69719bac2cc0734a81a",
     "released_hash": "sha256:32843f6483f8d2fceceb1fc61c9bebe785d62da94d89f9f2ac06b3d6de57aedd"
   },
