@@ -338,21 +338,21 @@
   "resourceguru": {
     "state": "binary-pending",
     "version": "0.1.2",
-    "latest_tag": "resourceguru-v0.1.2",
+    "latest_tag": "resourceguru-v0.1.3",
     "current_hash": "sha256:9ce609ada21b3b501b1bb345bc5240060e5adce1a9b66f2ef6a3d4bbccb67ef3",
     "released_hash": "sha256:397b5154f7b5d09ac29638357ce0d4c125cb302f367d84bd5e0caef29cbfd111"
   },
   "rewst": {
     "state": "binary-pending",
     "version": "0.1.2",
-    "latest_tag": "rewst-v0.1.2",
+    "latest_tag": "rewst-v0.1.3",
     "current_hash": "sha256:a7262c747d1303917bda79bbbc2a05068c7fe81f758781e3ad1fe971c6cb5d75",
     "released_hash": "sha256:fa567f2eb74cb11c1ab37ac4827e3604eecdb28f60dbf17b59addf0b8d375e2f"
   },
   "rocketcyber": {
     "state": "binary-pending",
     "version": "0.1.2",
-    "latest_tag": "rocketcyber-v0.1.2",
+    "latest_tag": "rocketcyber-v0.1.3",
     "current_hash": "sha256:00608f1082a385b7c476961b7059dcc076394ebb42c7c92d5055134196c2a547",
     "released_hash": "sha256:41ed2f13b022afd4f269f0098c4f00675852fc36a41ee2ba5ee7764d853f6307"
   },
