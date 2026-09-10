@@ -4,7 +4,7 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.10]
+## [0.1.10] - 2026-09-10
 
 ### Fixed
 - **A tool-call value could smuggle a refused flag past the MCP server.** The MCP server
