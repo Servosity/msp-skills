@@ -219,7 +219,7 @@
   "kaseya-bms": {
     "state": "binary-pending",
     "version": "0.1.2",
-    "latest_tag": "kaseya-bms-v0.1.2",
+    "latest_tag": "kaseya-bms-v0.1.3",
     "current_hash": "sha256:574649798eaf328c6af1b8420ab1d7869aefd65c24b1b67a8b663e009c5dc324",
     "released_hash": "sha256:24d2b476ddd73fa307fd6f5e4467418c5e861aedec831fa0cf23bb2aee44425d"
   },
@@ -233,7 +233,7 @@
   "levelio": {
     "state": "binary-pending",
     "version": "0.1.3",
-    "latest_tag": "levelio-v0.1.3",
+    "latest_tag": "levelio-v0.1.4",
     "current_hash": "sha256:e89deb3813badb127c1863bfdb447a6b4254c7752d4929b6c63c869b1375ddf3",
     "released_hash": "sha256:4da50261a10b4f69d2f76f92c92d6664d0d49a005538b01b1a9ef966cb723073"
   },
