@@ -331,7 +331,7 @@
   "quickbooks": {
     "state": "binary-pending",
     "version": "0.1.7",
-    "latest_tag": "quickbooks-v0.1.7",
+    "latest_tag": "quickbooks-v0.1.8",
     "current_hash": "sha256:dd1e017a8f613725ff831ad12bd99d8640cd68f0eae912efc63eec3608dbbf2c",
     "released_hash": "sha256:5924fbded8642ec9b173e7767efafd8f1a00adb4a82ff45552a6959efe4233f5"
   },
