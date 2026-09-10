@@ -73,10 +73,10 @@ func appendRecipeStringFlag(args []string, name string, value any, defaultValue 
 	if selected == "" {
 		return args, required
 	}
-	if useEquals {
-		return append(args, "--"+name+"="+selected), false
-	}
-	return append(args, "--"+name, selected), false
+	// Hand-wired (handfixes.json: mcp-recipe-argv-not-flag-like): always
+	// joined, so a value can never be parsed as a second flag; useEquals is
+	// kept only for the generated call sites.
+	return append(args, "--"+name+"="+selected), false
 }
 
 func appendRecipeBoolFlag(args []string, name string, value any, defaultValue bool) []string {
