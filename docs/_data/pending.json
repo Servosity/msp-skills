@@ -177,7 +177,7 @@
   "halopsa": {
     "state": "binary-pending",
     "version": "0.2.15",
-    "latest_tag": "halopsa-v0.2.15",
+    "latest_tag": "halopsa-v0.2.16",
     "current_hash": "sha256:1a1739a59a3780d135ab536d288e6f7cb78d9e933f97f8a5f5af30a03a929b7c",
     "released_hash": "sha256:3caa46073ac4b9a1ca8f5eabb7bb34bf2f28166dfff6258739a4906059b38849"
   },
@@ -191,7 +191,7 @@
   "hudu": {
     "state": "binary-pending",
     "version": "0.1.9",
-    "latest_tag": "hudu-v0.1.9",
+    "latest_tag": "hudu-v0.1.10",
     "current_hash": "sha256:0b0679ec6aa291ca880a69f26cb9df2ea5bd9382796eadea5a8b177a4b2ae55e",
     "released_hash": "sha256:2c4a80d18870f86251de10d5a42cb70c47b99d2ab5cc3bd4799da2b41f39d1aa"
   },
