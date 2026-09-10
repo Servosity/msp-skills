@@ -198,14 +198,14 @@
   "huntress": {
     "state": "binary-pending",
     "version": "0.1.4",
-    "latest_tag": "huntress-v0.1.4",
+    "latest_tag": "huntress-v0.1.5",
     "current_hash": "sha256:e99e0197119b3d680835f1851183baacf102334df778d9734fcbf861444196a3",
     "released_hash": "sha256:6129ef0e43744bc76c684512b687a40dff72656d5b5979d4604b11650008c8e0"
   },
   "immybot": {
     "state": "binary-pending",
     "version": "0.1.3",
-    "latest_tag": "immybot-v0.1.3",
+    "latest_tag": "immybot-v0.1.4",
     "current_hash": "sha256:71672cdcad88c5a0433648b58fe63d21ca4012d521405f3ba2d6571f71a407af",
     "released_hash": "sha256:ba95f97f9124c8d9a44e0c956142c541ff99327001704dd020ad61afbb4fcdef"
   },
