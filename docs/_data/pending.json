@@ -121,14 +121,14 @@
   "connectwise-manage": {
     "state": "binary-pending",
     "version": "0.1.7",
-    "latest_tag": "connectwise-manage-v0.1.7",
+    "latest_tag": "connectwise-manage-v0.1.8",
     "current_hash": "sha256:83301ff834426790f29961ea101406a9834f34864e970ca00075828d44a65db9",
     "released_hash": "sha256:2b9001a66aaf7f0ee2512c1997ccfaf609f699d0a7219fa5fa6b0dcf6b491afe"
   },
   "cork": {
     "state": "binary-pending",
     "version": "0.1.3",
-    "latest_tag": "cork-v0.1.3",
+    "latest_tag": "cork-v0.1.4",
     "current_hash": "sha256:1a9c5ab63587493b838a9d412ba66739f0f4547b0f9e6a137fd6d517f8f59d9a",
     "released_hash": "sha256:91ee9947f2f668aa7f98598902b2e01595d202027760dfbe468ea56fc0fdbe13"
   },
