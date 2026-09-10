@@ -324,7 +324,7 @@
   "proofpoint": {
     "state": "binary-pending",
     "version": "0.1.2",
-    "latest_tag": "proofpoint-v0.1.2",
+    "latest_tag": "proofpoint-v0.1.3",
     "current_hash": "sha256:7506533e36e7cd4d0d1fa6faa8bf59b62317b3271d741c7afae1383d9fa5eadb",
     "released_hash": "sha256:b6e34ca0a4dcec6dfeaac58c70072587eb6a54a33b6c0c21f9184324a4287878"
   },
