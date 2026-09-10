@@ -135,7 +135,7 @@
   "cove": {
     "state": "binary-pending",
     "version": "0.1.6",
-    "latest_tag": "cove-v0.1.6",
+    "latest_tag": "cove-v0.1.7",
     "current_hash": "sha256:4e03d39ec90ef858f92538ec0cf842570fe6c8a6b59388f1871f87d2a913aa9e",
     "released_hash": "sha256:a6ec1bee04f9a83de5560b6af840c9c6e6c70d141023b7a17ba4cc3913b930dd"
   },
