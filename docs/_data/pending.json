@@ -142,14 +142,14 @@
   "crowdstrike": {
     "state": "binary-pending",
     "version": "0.1.4",
-    "latest_tag": "crowdstrike-v0.1.4",
+    "latest_tag": "crowdstrike-v0.1.5",
     "current_hash": "sha256:a2eaa2eaae3df72b5142a85110d4dae89065964fd388af7d720b157909588d9e",
     "released_hash": "sha256:e431bcc075b7e79171dec9fed174da5b77d1ac4296681b8b9e68c320dc6ea9a5"
   },
   "datto-bcdr": {
     "state": "binary-pending",
     "version": "0.1.4",
-    "latest_tag": "datto-bcdr-v0.1.4",
+    "latest_tag": "datto-bcdr-v0.1.5",
     "current_hash": "sha256:9bd602d7dc770cb1b81e26c25b7afd97226a880f8db353ad17080b2d8cc1d630",
     "released_hash": "sha256:2748c15d053724dcc0e007cc557b98d44e1e01db74dab5beb6437e963602aff0"
   },
