@@ -72,7 +72,7 @@
   "axcient": {
     "state": "binary-pending",
     "version": "0.2.11",
-    "latest_tag": "axcient-v0.2.11",
+    "latest_tag": "axcient-v0.2.12",
     "current_hash": "sha256:4ea4b14d2f63f7602456b2de086107e07d7a872f18000ec08355a79f76e4bcf7",
     "released_hash": "sha256:1dc9c7e8c037522859dc7cb221b4eb527acd5cbd2d9ece76d788ace613eec022"
   },
