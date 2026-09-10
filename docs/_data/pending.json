@@ -457,7 +457,7 @@
   "xero": {
     "state": "binary-pending",
     "version": "0.1.4",
-    "latest_tag": "xero-v0.1.4",
+    "latest_tag": "xero-v0.1.5",
     "current_hash": "sha256:cd84e45b2a94ba54d4a6912735eef58ef8903c0fa6de50a143f385df699fa04a",
     "released_hash": "sha256:d3e3b391d0872244a08f1a8312a9a23c0e85b185aea35102f37df25e02c7aa56"
   },
