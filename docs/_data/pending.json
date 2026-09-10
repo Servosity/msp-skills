@@ -240,14 +240,14 @@
   "liongard": {
     "state": "binary-pending",
     "version": "0.1.2",
-    "latest_tag": "liongard-v0.1.2",
+    "latest_tag": "liongard-v0.1.3",
     "current_hash": "sha256:d6c164127d0f3c1069f1647f766f79c9d9ce731bdb19301c2f3294be269cd0a0",
     "released_hash": "sha256:9283cbf3e30da86d84a0cddec3f2ced9975efef3be7b01dbc941f851e64f824f"
   },
   "maxio": {
     "state": "binary-pending",
     "version": "0.1.2",
-    "latest_tag": "maxio-v0.1.2",
+    "latest_tag": "maxio-v0.1.3",
     "current_hash": "sha256:defb344890754a0489842ef8c8f2c2d185a167be9a334fa81539cfb879e6f23b",
     "released_hash": "sha256:58d8c2056e51cae2e6ea65288b87760722f4ba9838fd2e8f8aaa6b9cdaede553"
   },
