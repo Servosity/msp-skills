@@ -4,7 +4,7 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.4] - unreleased
+## [0.1.4] - 2026-09-11
 
 ### Fixed
 - Resolve the API client's tenant subtree for default sync and search; sync agents,
