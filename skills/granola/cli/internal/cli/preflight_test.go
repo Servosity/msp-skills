@@ -154,18 +154,72 @@ func TestTranscriptUsable(t *testing.T) {
 	}
 }
 
-func TestFindDuplicateFile(t *testing.T) {
+func TestFindDuplicates_IDInFilename(t *testing.T) {
 	tmp := t.TempDir()
-	os.WriteFile(filepath.Join(tmp, "full_abc.md"), []byte("x"), 0o644)
-	got := findDuplicateFile(tmp, "abc", "Anything")
-	if got == "" {
-		t.Errorf("expected hit on abc, got empty")
+	write(t, tmp, "full_abc.md", "x")
+	dup, _ := findDuplicates(tmp, "abc", "Anything", "2026-09-10")
+	if dup == "" {
+		t.Errorf("expected hit on id in filename, got empty")
 	}
-	// Title-fuzzy match
-	os.WriteFile(filepath.Join(tmp, "the_big_meeting.md"), []byte("x"), 0o644)
-	got = findDuplicateFile(tmp, "zzz", "the big meeting")
-	if got == "" {
-		t.Errorf("expected fuzzy hit, got empty")
+}
+
+// The transcripts convention puts the DATE in the filename and the id only in
+// the body, so identity has to be readable from the content.
+func TestFindDuplicates_IDInBody(t *testing.T) {
+	tmp := t.TempDir()
+	write(t, tmp, "2026-09-10 Build Session Debrief - Servosity - Full.md",
+		"# Build Session Debrief\n\n**Meeting ID:** not_rdIIQj7ElaTrFA\n")
+	dup, collisions := findDuplicates(tmp, "not_rdIIQj7ElaTrFA", "Build Session Debrief", "2026-09-10")
+	if dup == "" {
+		t.Errorf("expected hit on id in file body, got empty")
+	}
+	if len(collisions) != 0 {
+		t.Errorf("an exact id match must not also report a collision, got %v", collisions)
+	}
+}
+
+// The regression this whole split exists for. A recurring meeting shares its
+// title with every prior occurrence; the old fuzzy match called that a
+// duplicate, callers read exit 3 as "skip", and real meetings were dropped.
+func TestFindDuplicates_RecurringTitleIsNotADuplicate(t *testing.T) {
+	tmp := t.TempDir()
+	write(t, tmp, "2026-08-27 Build Session Debrief - Servosity - Full.md",
+		"**Meeting ID:** not_sRcBo99fqYPlB6\n")
+	dup, collisions := findDuplicates(tmp, "not_rdIIQj7ElaTrFA", "Build Session Debrief", "2026-09-10")
+	if dup != "" {
+		t.Errorf("a prior occurrence of a recurring meeting is not a duplicate, got %q", dup)
+	}
+	if len(collisions) != 1 {
+		t.Fatalf("expected the near-miss reported as a collision, got %v", collisions)
+	}
+}
+
+// Same title AND same day is the same occurrence -- the rung that still
+// catches a re-run of a legacy file carrying no id at all.
+func TestFindDuplicates_SameTitleSameDayGates(t *testing.T) {
+	tmp := t.TempDir()
+	write(t, tmp, "2026-09-10 Weekly Feedback Loop - Servosity - Full.md", "no id recorded here")
+	dup, _ := findDuplicates(tmp, "not_UspMwauTUdIQCa", "Weekly Feedback Loop", "2026-09-10")
+	if dup == "" {
+		t.Errorf("same title on the same day must still gate, got empty")
+	}
+}
+
+// An unparseable timestamp must not synthesize a day that matches nothing --
+// or, worse, one that matches everything.
+func TestMeetingDay(t *testing.T) {
+	if got := meetingDay("2026-09-10T18:04:57.947Z"); got != "2026-09-10" {
+		t.Errorf("meetingDay = %q, want 2026-09-10", got)
+	}
+	if got := meetingDay("not a timestamp"); got != "" {
+		t.Errorf("meetingDay on garbage = %q, want empty", got)
+	}
+}
+
+func write(t *testing.T, dir, name, body string) {
+	t.Helper()
+	if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o644); err != nil {
+		t.Fatal(err)
 	}
 }
 

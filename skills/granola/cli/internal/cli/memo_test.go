@@ -42,7 +42,7 @@ func TestMemoQueue_FilterByDuplicate(t *testing.T) {
 			continue
 		}
 		d := c.DocumentByID(id)
-		if dup := findDuplicateFile(root, id, d.Title); dup != "" {
+		if dup, _ := findDuplicates(root, id, d.Title, meetingDay(d.CreatedAt)); dup != "" {
 			continue
 		}
 		emitted = append(emitted, id)

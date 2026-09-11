@@ -110,6 +110,10 @@ type memoRecord struct {
 	// consuming this JSON.
 	UnknownSources []string `json:"unknown_sources,omitempty"`
 	DuplicateOf    string   `json:"duplicate_of,omitempty"`
+	// TitleCollision lists same-title files from a DIFFERENT day. Advisory
+	// only: a recurring meeting shares its title with every prior occurrence,
+	// and gating on that silently dropped real meetings.
+	TitleCollision []string `json:"title_collision,omitempty"`
 	Error          string   `json:"error,omitempty"`
 }
 
@@ -144,11 +148,15 @@ func runOneMemo(id, outDir, root string, allowLive bool) memoRecord {
 		}
 		return rec
 	}
-	if dup := findDuplicateFile(root, id, d.Title); dup != "" {
+	dup, collisions := findDuplicates(root, id, d.Title, meetingDay(d.CreatedAt))
+	if dup != "" {
 		rec.Status = "duplicate"
 		rec.DuplicateOf = dup
 		return rec
 	}
+	// Same title, different day -- a recurring meeting, not a re-run. Carried
+	// on the record so the near-miss stays visible, but it never skips.
+	rec.TitleCollision = collisions
 	res, err := runExtract(id, outDir, "", allowLive)
 	if err != nil {
 		var ce *cliError
@@ -249,7 +257,7 @@ a partial-drift run should still hand back the meetings that ARE ready.`,
 				if d == nil {
 					continue
 				}
-				if dup := findDuplicateFile(root, id, d.Title); dup != "" {
+				if dup, _ := findDuplicates(root, id, d.Title, meetingDay(d.CreatedAt)); dup != "" {
 					continue
 				}
 				row := map[string]any{
