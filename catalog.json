@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-10",
+  "generated_at": "2026-09-11",
   "skills": [
     {
       "name": "msp-skills-concierge",
@@ -59,7 +59,7 @@
       "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/acronis/install.sh)",
       "install_mcp_doc": "skills/acronis/mcp-install.md",
       "description": "The first real CLI for the Acronis Cyber Protect Cloud platform \u2014 every tenant, agent, and usage metric mirrored locally, with cross-tenant rollups no single API call returns.",
-      "verification": "awaiting",
+      "verification": "live-verified",
       "category": "Backup/DR",
       "tagline": "Spot failed backups, offline agents, and unbilled usage across every Acronis tenant by asking."
     },

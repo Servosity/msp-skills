@@ -237,6 +237,50 @@
      "not_contains": "\"--\"+name, selected"
     }
    ]
+  },
+  {
+   "id": "partner-sync-contract-325",
+   "status": "active",
+   "summary": "Acronis partner sync and CLI/MCP reads honor vendor scoping, cursor, search and data-shape contracts; incomplete mirrors cannot drive rollups.",
+   "why": "Issue #325 exposed missing sync resources and unsupported parameters. Preserve the official API mappings and fixture-tested completeness gate when regenerating.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/acronis_contract.go",
+     "contains": "func AcronisTaskRead("
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "acronisValidatePage(data)"
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "Name: \"usages\""
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "Name: \"offering_items\""
+    },
+    {
+     "file": "cli/internal/cli/novel_helpers.go",
+     "contains": "acronisRequireCompleteMirror(db)"
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\"result_code\": {\"result\", \"code\"}"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "cli.AcronisTaskRead(ctx, c, path, params)"
+    },
+    {
+     "file": "cli/internal/cli/acronis_auth_login.go",
+     "contains": "cfg.BaseURL = \"https://\" + dc + \".acronis.com\""
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "not_contains": "this usually means auth is missing or invalid"
+    }
+   ]
   }
  ]
 }

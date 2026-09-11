@@ -235,7 +235,7 @@ func RegisterTools(s *server.MCPServer) {
 	s.AddTool(
 		mcplib.NewTool("task-manager_list-activities",
 			mcplib.WithDescription("Fetch a list of task activities with filtering and pagination. Optional: tenant_id, task_id, state (plus 2 more). Returns array of TaskActivity."),
-			mcplib.WithString("tenant_id", mcplib.Description("Filter activities by tenant UUID")),
+			mcplib.WithString("tenant_id", mcplib.Description("Filter all fetched activities locally by exact tenant UUID")),
 			mcplib.WithString("task_id", mcplib.Description("Filter activities by parent task ID")),
 			mcplib.WithString("state", mcplib.Description("Filter by activity state")),
 			mcplib.WithNumber("limit", mcplib.Description("Maximum activities to return")),
@@ -249,12 +249,12 @@ func RegisterTools(s *server.MCPServer) {
 	s.AddTool(
 		mcplib.NewTool("task-manager_list-tasks",
 			mcplib.WithDescription("Fetch a list of backup and protection tasks with filtering, ordering, and pagination support. Optional: tenant_id, state, result_code (plus 5 more). Returns array of TaskTask."),
-			mcplib.WithString("tenant_id", mcplib.Description("Filter tasks by tenant UUID")),
+			mcplib.WithString("tenant_id", mcplib.Description("Filter all fetched tasks locally by exact tenant UUID")),
 			mcplib.WithString("state", mcplib.Description("Filter by task state")),
 			mcplib.WithString("result_code", mcplib.Description("Filter by task result")),
 			mcplib.WithString("policy_id", mcplib.Description("Filter by protection policy ID")),
 			mcplib.WithString("resource_id", mcplib.Description("Filter by protected resource ID")),
-			mcplib.WithString("order", mcplib.Description("Sort order (e.g., startedAt desc)")),
+			mcplib.WithString("order", mcplib.Description("Sort order: desc(startedAt) or asc(startedAt)")),
 			mcplib.WithNumber("limit", mcplib.Description("Maximum tasks to return")),
 			mcplib.WithString("after", mcplib.Description("Pagination cursor")),
 			mcplib.WithReadOnlyHintAnnotation(true),
@@ -578,6 +578,14 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 		var data json.RawMessage
 		switch method {
 		case "GET":
+			if path == "/api/task_manager/v2/tasks" || path == "/api/task_manager/v2/activities" {
+				data, err = cli.AcronisTaskRead(ctx, c, path, params)
+				break
+			}
+			if path == "/api/2/search" {
+				data, err = cli.AcronisSearchRead(ctx, c, params)
+				break
+			}
 			if len(headers) > 0 {
 				data, err = c.GetWithHeaders(ctx, path, params, headers)
 				break
@@ -648,12 +656,6 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			switch {
 			case strings.Contains(msg, "HTTP 409"):
 				return mcplib.NewToolResultText("already exists (no-op)"), nil
-			case strings.Contains(msg, "HTTP 400") && cliutil.LooksLikeAuthError(msg):
-				return mcplib.NewToolResultError("authentication error: " + cliutil.SanitizeErrorBody(msg) +
-					"\nhint: the API rejected the request — this usually means auth is missing or invalid." +
-					"\n      Set it with: acronis-cli auth set-token <token> or export ACRONIS_BEARER_AUTH=\"your-token-here\"" +
-					"\n      See API docs: https://developer.acronis.com" +
-					"\n      Run 'acronis-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 401"):
 				return mcplib.NewToolResultError("authentication failed: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: check your token." +

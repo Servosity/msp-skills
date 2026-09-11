@@ -23,6 +23,9 @@ func newNovelTestStore(t *testing.T) *store.Store {
 	if err != nil {
 		t.Fatalf("open store: %v", err)
 	}
+	if err := acronisSetMirrorState(db, true); err != nil {
+		t.Fatal(err)
+	}
 	testStorePaths[db] = path
 	t.Cleanup(func() { _ = db.Close(); delete(testStorePaths, db) })
 	return db
