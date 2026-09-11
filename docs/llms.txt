@@ -10,7 +10,7 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/abnormal/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/abnormal/install.sh)
 - Acronis Cyber Protect Cloud (Backup/DR) - ask "Whose backups succeeded, failed, or went stale across every customer last night?" - Spot failed backups, offline agents, and unbilled usage across every Acronis tenant by asking.
-  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/acronis/
+  Verification: Live-verified by @asterisk79 (MSP) (2026-09-11). Page: https://msp-skills.compoundingteams.com/skills/acronis/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/acronis/install.sh)
 - Action1 (RMM) - ask "Which endpoints across all clients are missing the most patches?" - Patch every client's endpoints and triage CVEs fleet-wide from your terminal.
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/action1/

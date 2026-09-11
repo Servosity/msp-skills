@@ -87,6 +87,16 @@ func openNovelDB(cmd *cobra.Command, dbPath string) (*store.Store, error) {
 	if err != nil {
 		return nil, fmt.Errorf("opening local database: %w\nRun 'acronis-cli sync' first.", err)
 	}
+	unlock, err := acronisLockMirror(db.Path())
+	if err != nil {
+		_ = db.Close()
+		return nil, err
+	}
+	db.ReleaseOnClose(unlock)
+	if err := acronisRequireCompleteMirror(db); err != nil {
+		_ = db.Close()
+		return nil, err
+	}
 	return db, nil
 }
 

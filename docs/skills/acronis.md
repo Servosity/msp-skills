@@ -5,7 +5,7 @@ description: "The first real CLI for the Acronis Cyber Protect Cloud platform \u
 permalink: /skills/acronis/
 skill_name: "Acronis Cyber Protect Cloud MCP"
 image: /assets/social/acronis/wide-1200x630.png
-verification: awaiting
+verification: live-verified
 faqs:
   - q: "Is there an MCP server for Acronis Cyber Protect Cloud?"
     a: "Yes - this one. A free, open source MCP server and Claude Code Skill for Acronis Cyber Protect Cloud, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds."
@@ -27,6 +27,8 @@ faqs:
     a: "Whichever hosts your Acronis account. Set ACRONIS_DATACENTER (for example us-cloud or eu2-cloud), or pass --datacenter on auth login. The CLI builds the correct regional API host from it, so you don't hand-assemble the datacenter URL in every call."
   - q: "Will this replace the Acronis console?"
     a: "No. The console stays best for configuring protection plans and running restores. This skill adds the cross-tenant reporting layer the partner dashboards don't - one place to ask whose backups failed, which agents are offline, and where billing and protection diverge."
+  - q: "When can I trust partner-wide backup rollups?"
+    a: "After an unfiltered acronis-cli sync --full succeeds. Failed, denied, malformed, or truncated resources cause a nonzero exit, and rollups refuse incomplete mirrors. Task tenant filters scan all pages and match exact UUIDs locally. Unmatched legacy agent tenant IDs are reported as a gap, not zero agents; the partner's live re-test remains necessary."
 howto:
   - name: "Run the one-line installer"
     text: "macOS/Linux: bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/acronis/install.sh) - Windows PowerShell: iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/acronis/install.ps1 | iex"
@@ -42,7 +44,7 @@ howto:
 > under Apache-2.0 - built for the MSP community, vendor-neutral by design.
 > Not affiliated with, endorsed by, or sponsored by Acronis International GmbH.
 
-**Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
+**✓ Live-verified by @asterisk79 (MSP)** against a production tenant · 2026-09-11 · [receipt →](https://github.com/Servosity/msp-skills/issues/325).
 
 Yes - there is an MCP server for Acronis Cyber Protect Cloud. It's free, open source, and runs on your own machine, so your client data stays local unless you route it somewhere yourself. It connects Acronis Cyber Protect Cloud to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
@@ -183,6 +185,10 @@ Whichever hosts your Acronis account. Set ACRONIS_DATACENTER (for example us-clo
 ### Will this replace the Acronis console?
 
 No. The console stays best for configuring protection plans and running restores. This skill adds the cross-tenant reporting layer the partner dashboards don't - one place to ask whose backups failed, which agents are offline, and where billing and protection diverge.
+
+### When can I trust partner-wide backup rollups?
+
+After an unfiltered acronis-cli sync --full succeeds. Failed, denied, malformed, or truncated resources cause a nonzero exit, and rollups refuse incomplete mirrors. Task tenant filters scan all pages and match exact UUIDs locally. Unmatched legacy agent tenant IDs are reported as a gap, not zero agents; the partner's live re-test remains necessary.
 
 
 ## More Backup/DR connectors

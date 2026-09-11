@@ -5,7 +5,6 @@ package cli
 
 import (
 	"acronis-pp-cli/internal/client"
-	"acronis-pp-cli/internal/cliutil"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -566,12 +565,6 @@ func classifyAPIError(err error, flags *rootFlags) error {
 		return classified
 	case errors.Is(err, client.ErrPlaceholderCredential):
 		return authErr(err)
-	case strings.Contains(msg, "HTTP 400") && cliutil.LooksLikeAuthError(msg):
-		return authErr(fmt.Errorf("%w\nhint: the API rejected the request — this usually means auth is missing or invalid."+
-			"\n      Set it with: acronis-cli auth set-token <token> or export ACRONIS_BEARER_AUTH=\"your-token-here\""+
-			"\n      See API docs: https://developer.acronis.com"+
-			"\n      Run 'acronis-cli doctor' to check auth status."+
-			"\n      Response: "+cliutil.SanitizeErrorBody(msg), err))
 	case strings.Contains(msg, "HTTP 401"):
 		return authErr(fmt.Errorf("%w\nhint: check your token."+
 			"\n      Set it with: acronis-cli auth set-token <token> or export ACRONIS_BEARER_AUTH=\"your-token-here\""+
