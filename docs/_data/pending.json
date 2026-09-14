@@ -146,6 +146,13 @@
     "current_hash": "sha256:a2eaa2eaae3df72b5142a85110d4dae89065964fd388af7d720b157909588d9e",
     "released_hash": "sha256:a2eaa2eaae3df72b5142a85110d4dae89065964fd388af7d720b157909588d9e"
   },
+  "datagate": {
+    "state": "never-released",
+    "version": "0.1.0",
+    "latest_tag": null,
+    "current_hash": "sha256:3928df5a1b0313c810502c52ddde4e17a64ee6666f0b2f75a1d2bb97d1b573db",
+    "released_hash": null
+  },
   "datto-bcdr": {
     "state": "up-to-date",
     "version": "0.1.5",
