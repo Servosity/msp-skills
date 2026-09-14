@@ -5,6 +5,7 @@ package cobratree
 
 import (
 	"regexp"
+	"sort"
 	"strings"
 
 	mcplib "github.com/mark3labs/mcp-go/mcp"
@@ -202,6 +203,10 @@ var filesystemPathFlagPhrases = []string{
 	"output directory",
 	"audit directory",
 	"directory path",
+	"store path",
+	"mirror path",
+	"receipt destination",
+	"root directory for",
 }
 
 // isFilesystemPathFlag reports whether flag's own description says it names a
@@ -217,6 +222,46 @@ func isFilesystemPathFlag(flag *pflag.Flag) bool {
 		}
 	}
 	return false
+}
+
+// UnblockedFilesystemPathFlags reports every flag a shell-out MCP tool would
+// still forward whose usage text names a filesystem location. It walks exactly
+// the command set RegisterAll registers and asks blockedStructuredArgsForCommand
+// - the runtime rule itself - so a regeneration that grows a local-path flag the
+// gate does not refuse fails the build (filesystem_tree_test.go) instead of
+// quietly becoming a write primitive. Hand-written: handfixes.json
+// mcp-filesystem-flag-floor.
+func UnblockedFilesystemPathFlags(root *cobra.Command) []string {
+	if root == nil {
+		return nil
+	}
+	found := map[string]bool{}
+	walk(root, nil, func(cmd *cobra.Command, path []string) {
+		switch classify(cmd) {
+		case commandHidden, commandEndpoint, commandGroup, commandFramework:
+			return
+		}
+		if !cmd.Runnable() {
+			return
+		}
+		blocked := blockedStructuredArgsForCommand(cmd)
+		check := func(flag *pflag.Flag) {
+			if flag == nil || flag.Hidden || flag.Deprecated != "" || blocked[flag.Name] {
+				return
+			}
+			if isFilesystemPathFlag(flag) {
+				found[cmd.CommandPath()+" --"+flag.Name] = true
+			}
+		}
+		cmd.NonInheritedFlags().VisitAll(check)
+		cmd.InheritedFlags().VisitAll(check)
+	})
+	out := make([]string, 0, len(found))
+	for name := range found {
+		out = append(out, name)
+	}
+	sort.Strings(out)
+	return out
 }
 
 func blockedStructuredArgsForCommand(cmd *cobra.Command) map[string]bool {

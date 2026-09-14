@@ -52,9 +52,24 @@
     {
       "id": "mcp-filesystem-flag-floor",
       "summary": "MCP blocks db/input/out destination flags and any command-local flag whose usage text names a filesystem path",
-      "why": "This connector was minted from a press build predating the fleet-wide MCP filesystem hardening: all 65 other connectors block db/input/out and carry isFilesystemPathFlag, datagate did not. Without it an MCP caller can point --db at another database or feed --input a local file whose records are sent to the vendor API, as the MCP server account.",
+      "why": "This connector was minted from a press build predating the fleet-wide MCP filesystem hardening: all 65 other connectors block db/input/out and carry isFilesystemPathFlag, datagate did not. Without it an MCP caller can point --db at another database or feed --input a local file whose records are sent to the vendor API, as the MCP server account. The phrase list matches the fleet's (store path, mirror path, receipt destination, root directory for), and UnblockedFilesystemPathFlags walks the command set RegisterAll registers through blockedStructuredArgsForCommand itself, so TestNoShellOutToolCanDirectAFilesystemPath fails the build when a regeneration grows a local-path flag the runtime gate would still forward. Proven both directions on 2026-09-14: green on the shipped tree; red naming `--home` when 'home' is dropped from blockedRootFlags.",
       "status": "active",
       "asserts": [
+        {
+          "file": "cli/internal/mcp/cobratree/typemap.go",
+          "contains": "func UnblockedFilesystemPathFlags(root *cobra.Command) []string {",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/typemap.go",
+          "contains": "\"root directory for\",",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/filesystem_tree_test.go",
+          "contains": "func TestNoShellOutToolCanDirectAFilesystemPath(",
+          "min_count": 1
+        },
         {
           "file": "cli/internal/mcp/cobratree/shellout.go",
           "contains": "\"db\":           true,",
