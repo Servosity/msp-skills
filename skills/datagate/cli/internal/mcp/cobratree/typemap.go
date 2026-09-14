@@ -225,9 +225,11 @@ func isFilesystemPathFlag(flag *pflag.Flag) bool {
 }
 
 // UnblockedFilesystemPathFlags reports every flag a shell-out MCP tool would
-// still forward whose usage text names a filesystem location. It walks exactly
-// the command set RegisterAll registers and asks blockedStructuredArgsForCommand
-// - the runtime rule itself - so a regeneration that grows a local-path flag the
+// still forward whose usage text names a filesystem location. It walks a
+// superset of the command set RegisterAll registers (it skips RegisterAll's
+// tool-name and typed-tool dedupe, which can only add false failures, never
+// hide a registered tool) and asks blockedStructuredArgsForCommand - the
+// runtime rule itself - so a regeneration that grows a local-path flag the
 // gate does not refuse fails the build (filesystem_tree_test.go) instead of
 // quietly becoming a write primitive. Hand-written: handfixes.json
 // mcp-filesystem-flag-floor.

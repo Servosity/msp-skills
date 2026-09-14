@@ -52,7 +52,7 @@
     {
       "id": "mcp-filesystem-flag-floor",
       "summary": "MCP blocks db/input/out destination flags and any command-local flag whose usage text names a filesystem path",
-      "why": "This connector was minted from a press build predating the fleet-wide MCP filesystem hardening: all 65 other connectors block db/input/out and carry isFilesystemPathFlag, datagate did not. Without it an MCP caller can point --db at another database or feed --input a local file whose records are sent to the vendor API, as the MCP server account. The phrase list matches the fleet's (store path, mirror path, receipt destination, root directory for), and UnblockedFilesystemPathFlags walks the command set RegisterAll registers through blockedStructuredArgsForCommand itself, so TestNoShellOutToolCanDirectAFilesystemPath fails the build when a regeneration grows a local-path flag the runtime gate would still forward. Proven both directions on 2026-09-14: green on the shipped tree; red naming `--home` when 'home' is dropped from blockedRootFlags.",
+      "why": "This connector was minted from a press build predating the fleet-wide MCP filesystem hardening: all 65 other connectors block db/input/out and carry isFilesystemPathFlag, datagate did not. Without it an MCP caller can point --db at another database or feed --input a local file whose records are sent to the vendor API, as the MCP server account. The phrase list matches the fleet's (store path, mirror path, receipt destination, root directory for), and UnblockedFilesystemPathFlags walks the command set RegisterAll registers through blockedStructuredArgsForCommand itself, so TestNoShellOutToolCanDirectAFilesystemPath fails the build when a regeneration grows a local-path flag the runtime gate would still forward. Every flag datagate ships today that names a path is ALSO refused by name, so the tree test alone would stay green if a reprint dropped a phrase or unhooked the rule; TestEveryPathPhraseRefusesALocalFlagAtRuntime closes that with flag names no denylist carries, and the asserts pin all four added phrases plus both `if isFilesystemPathFlag(flag) {` call sites. Proven both directions on 2026-09-14: green on the shipped tree; the tree test goes red naming `--home` on 5 commands when 'home' is dropped from blockedRootFlags; the phrase test goes red on all 10 phrases when the rule is unhooked from blockedStructuredArgsForCommand, and on 'mirror path' alone when that phrase is removed.",
       "status": "active",
       "asserts": [
         {
@@ -63,6 +63,32 @@
         {
           "file": "cli/internal/mcp/cobratree/typemap.go",
           "contains": "\"root directory for\",",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/typemap.go",
+          "contains": "\"store path\",",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/typemap.go",
+          "contains": "\"mirror path\",",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/typemap.go",
+          "contains": "\"receipt destination\",",
+          "min_count": 1
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/typemap.go",
+          "contains": "if isFilesystemPathFlag(flag) {",
+          "min_count": 2,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/filesystem_phrase_test.go",
+          "contains": "func TestEveryPathPhraseRefusesALocalFlagAtRuntime(",
           "min_count": 1
         },
         {
