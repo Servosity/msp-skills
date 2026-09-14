@@ -76,7 +76,7 @@ account).
 datagate-cli doctor                                          # verify auth + connectivity
 datagate-cli customers list --json
 datagate-cli customers get <customer-id>
-datagate-cli agreements list --customer-id <customer-id>
+datagate-cli agreements list --select id,customerId,name,status --json
 datagate-cli invoices --period-start 2026-08-01T00:00:00Z --period-end 2026-08-31T23:59:59Z --json
 datagate-cli sync
 datagate-cli search "<customer name or invoice number>"

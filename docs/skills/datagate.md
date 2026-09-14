@@ -30,7 +30,7 @@ howto:
 
 Yes - there is an MCP server for DataGate. It's free, open source, and runs on your own machine, so your client data stays local unless you route it somewhere yourself. It connects DataGate to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
-MSPs and telecom resellers who bill through DataGate normally work through its web portal one customer at a time. Ask your AI "pull this month's invoices" or "look up this customer's agreement," and get an answer without clicking through the portal - a local SQLite mirror means repeated lookups don't re-spend DataGate's per-account rate limit either.
+MSPs and telecom resellers who bill through DataGate normally work through its web portal one customer at a time. Ask your AI "pull this month's invoices" or "which agreements belong to which customer," and get an answer without clicking through the portal - a local SQLite mirror means repeated lookups don't re-spend DataGate's per-account rate limit either.
 
 <sub>New to the term? An **MCP server** is the same thing ChatGPT calls an app or connector, Claude on the web calls a connector, and Claude Code calls a Skill. [One thing, many names →](/what-is-an-mcp-server/)</sub>
 
@@ -43,8 +43,8 @@ MSPs and telecom resellers who bill through DataGate normally work through its w
 <sub>Your agent runs: <code>datagate-cli invoices --period-start 2026-08-01T00:00:00Z --period-end 2026-08-31T23:59:59Z --json</code></sub>
 
 **Instead of** Clicking into a customer's record in the portal to check their agreement
-**just ask:** *"What's this customer's agreement in DataGate?"*
-<sub>Your agent runs: <code>datagate-cli agreements list --customer-id <customer-id> --json</code></sub>
+**just ask:** *"List DataGate agreements with the customer each one belongs to."*
+<sub>Your agent runs: <code>datagate-cli agreements list --select id,customerId,name,status --json</code></sub>
 
 **Instead of** Re-fetching the same customer list from the live API every time you need to look something up
 **just ask:** *"Search DataGate for this customer by name."*
@@ -57,7 +57,7 @@ MSPs and telecom resellers who bill through DataGate normally work through its w
 | --- | --- |
 | Pull this month's invoices | `datagate-cli invoices --period-start 2026-08-01T00:00:00Z --period-end 2026-08-31T23:59:59Z --json` |
 | Look up a customer | `datagate-cli customers get <customer-id> --json` |
-| What's this customer's agreement? | `datagate-cli agreements list --customer-id <customer-id> --json` |
+| Which agreements belong to which customer? | `datagate-cli agreements list --select id,customerId,name,status --json` |
 | Search for a customer or invoice by name/number | `datagate-cli search "<term>" --json` |
 
 Full command reference at [github.com/servosity/msp-skills/blob/main/skills/datagate/guide.md](https://github.com/servosity/msp-skills/blob/main/skills/datagate/guide.md).

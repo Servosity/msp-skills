@@ -37,13 +37,14 @@ datagate-cli sites list
 datagate-cli product-templates list
 datagate-cli kit-templates list
 datagate-cli products list
-datagate-cli delivery-methods list
+datagate-cli delivery-methods
 datagate-cli product-transactions list
-datagate-cli account-managers list
+datagate-cli account-managers
 ```
 
-Run `datagate-cli <resource> --help` or `datagate-cli <resource> get --help` for
-the exact filters each one accepts.
+`delivery-methods` and `account-managers` are single list commands with no
+`list` / `get` pair. Run `datagate-cli <resource> --help` or
+`datagate-cli <resource> get --help` for the exact filters each one accepts.
 
 ## `invoices` (special - not a plain list/get)
 
