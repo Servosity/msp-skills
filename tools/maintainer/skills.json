@@ -1665,7 +1665,8 @@
       "tagline": "Pull DataGate customer, agreement, and invoice data by asking, instead of clicking through the portal.",
       "template_version": 3,
       "version": "0.1.0",
-      "has_video": false
+      "has_video": false,
+      "cli_hash_at_release": "sha256:e514d47e0987ad022c3eded8f7b8d418f871057619c50b7d0f93c7be55ace44a"
     }
   }
 }
