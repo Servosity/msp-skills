@@ -54,6 +54,9 @@ func handleExplainAMissedDeployment(ctx context.Context, req mcplib.CallToolRequ
 	args := []string{}
 	args = append(args, "assignment-explain")
 	var missingId bool
+	if err := rejectFlagLikeRecipeValue("id", input["id"]); err != nil {
+		return mcplib.NewToolResultError(err.Error()), nil
+	}
 	args, missingId = appendRecipePositional(args, input["id"], true)
 	if missingId {
 		return mcplib.NewToolResultError("id is required"), nil
@@ -77,6 +80,9 @@ func handleCheckReachBeforeEditingASharedScript(ctx context.Context, req mcplib.
 	args := []string{}
 	args = append(args, "script-blast-radius")
 	var missingId bool
+	if err := rejectFlagLikeRecipeValue("id", input["id"]); err != nil {
+		return mcplib.NewToolResultError(err.Error()), nil
+	}
 	args, missingId = appendRecipePositional(args, input["id"], true)
 	if missingId {
 		return mcplib.NewToolResultError("id is required"), nil
@@ -115,10 +121,10 @@ func appendRecipeStringFlag(args []string, name string, value any, defaultValue 
 	if selected == "" {
 		return args, required
 	}
-	if useEquals {
-		return append(args, "--"+name+"="+selected), false
-	}
-	return append(args, "--"+name, selected), false
+	// Hand-wired (handfixes.json: mcp-recipe-argv-not-flag-like): always
+	// joined, so a value can never be parsed as a second flag; useEquals is
+	// kept only for the generated call sites.
+	return append(args, "--"+name+"="+selected), false
 }
 
 func appendRecipeBoolFlag(args []string, name string, value any, defaultValue bool) []string {
@@ -149,4 +155,17 @@ func recipeValueString(value any) string {
 		}
 		return fmt.Sprintf("%v", value)
 	}
+}
+
+// rejectFlagLikeRecipeValue is hand-wired (handfixes.json:
+// mcp-recipe-argv-not-flag-like). A recipe positional comes straight from the
+// tool call and lands in argv ahead of the recipe's own flags, so a value
+// beginning with "-" would be parsed by pflag as a flag - the same key-only
+// gap mcp-argv-value-joined closes for cliArgsFromMCP. Mirrors the rule in
+// cobratree.validatePositionalArgsForMCP.
+func rejectFlagLikeRecipeValue(name string, value any) error {
+	if s := recipeValueString(value); s != "-" && strings.HasPrefix(s, "-") {
+		return fmt.Errorf("flag-like value %q not allowed for %s; pass a plain value", s, name)
+	}
+	return nil
 }

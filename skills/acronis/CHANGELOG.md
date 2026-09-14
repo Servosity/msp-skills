@@ -4,6 +4,38 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.4] - 2026-09-11
+
+### Fixed
+- Resolve the API client's tenant subtree for default sync and search; sync agents,
+  per-tenant usages, and offering items as well as the existing resources.
+- Follow Acronis nested cursors, including short pages with a next cursor. Reject
+  partial pages, failed child requests, and dropped rows; incomplete mirrors cannot
+  drive fleet rollups. Existing mirrors require a successful unfiltered full sync.
+- Translate task filter and sort syntax in CLI and MCP, applying exact tenant
+  filtering locally across all pages. Translate remote search parameters.
+- Map nested task tenant/result fields and preserve distinct billing editions and
+  infrastructure rows. Report unmatched legacy agent tenant identities explicitly.
+- Persist the datacenter API URL during login and stop mislabeling parameter
+  validation errors as credential failures.
+- Thanks @asterisk79 for the multi-tenant runtime report in #325. Offline fixtures
+  cover these contracts; confirmation against the partner's tenant remains pending.
+
+## [0.1.3] - 2026-09-10
+
+### Fixed
+- **A tool-call value could smuggle a refused flag past the MCP server.** The MCP server
+  handed each tool argument to the CLI as two separate words, the flag and then its value.
+  On a yes/no flag the CLI does not read the next word as a value, so a value that itself
+  began with `--` was read as a brand-new flag, including flags the server deliberately
+  refuses such as `--deliver`, which can send command output to a URL. Every argument that
+  carries a value now travels glued to its flag as one word (`--flag=value`), so the CLI only
+  ever reads it as the value of that one named flag, or rejects it, and it can never become a
+  second flag. A plain yes/no flag is still a bare `--flag`, and an empty value is still left out.
+  The recipe shortcut tools, which build their own command line, now also refuse a value
+  that begins with `-` where a plain value is expected.
+  Reported privately through SECURITY.md; the same fix is in the pending DataGate connector.
+
 ## [0.1.2] - 2026-08-26
 
 ### Fixed

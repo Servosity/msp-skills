@@ -48,9 +48,11 @@ done
 
 echo "== CLI claims vs built binary =="
 # Builds each CLI and checks that every command/flag the docs claim exists in the
-# real binary surface. WARN mode for now: it prints findings but does not gate,
-# while the fleet calibrates. NOTE(calibration): drop --warn after fleet calibration.
-if run_show python3 tools/maintainer/check_cli_claims.py --warn; then pass "CLI claims (warn)"; else warn "CLI claims reported findings"; fi
+# real binary surface. HARD gate: it shipped behind --warn while the fleet
+# calibrated, and --warn exits 0 on real findings. A hard-mode run over all 65
+# connectors on 2026-09-07 returned 0 findings, so a finding here is a new
+# defect. The flag still exists for a local calibration run.
+if run_show python3 tools/maintainer/check_cli_claims.py; then pass "CLI claims"; else fail "CLI claims"; fi
 
 echo "== Manifest env schema vs the binaries' env reads =="
 # Asserts every operator-facing env var a connector READS is declared in its
@@ -125,6 +127,10 @@ if python3 tools/maintainer/release_matrix.py | python3 -c 'import json,sys; m=j
 else
   cat /tmp/va.out; fail "release matrix"
 fi
+# The change-set classifier behind --changed-only (what a PR or a push to main
+# actually builds), proved both directions offline: a bot regen commit yields
+# no rows, a human README edit yields its row, a checker edit yields the fleet.
+if run python3 tools/maintainer/release_matrix.py --self-test; then pass "release matrix change-set classifier"; else fail "release matrix change-set classifier"; fi
 
 echo "== Catalog idempotency =="
 # build-catalog.py regenerates ALL of these from skills.json: the machine

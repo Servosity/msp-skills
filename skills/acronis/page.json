@@ -98,6 +98,10 @@
     {
       "q": "Will this replace the Acronis console?",
       "a": "No. The console stays best for configuring protection plans and running restores. This skill adds the cross-tenant reporting layer the partner dashboards don't - one place to ask whose backups failed, which agents are offline, and where billing and protection diverge."
+    },
+    {
+      "q": "When can I trust partner-wide backup rollups?",
+      "a": "After an unfiltered acronis-cli sync --full succeeds. Failed, denied, malformed, or truncated resources cause a nonzero exit, and rollups refuse incomplete mirrors. Task tenant filters scan all pages and match exact UUIDs locally. Unmatched legacy agent tenant IDs are reported as a gap, not zero agents; the partner's live re-test remains necessary."
     }
   ],
   "governance_summary": "The skill drives the acronis-cli and acronis-mcp binaries, authenticating with an Acronis API credential read from the environment (ACRONIS_CYBER_PROTECT_BEARER_AUTH, or an OAuth2 client via auth login) and scoped to your datacenter (ACRONIS_DATACENTER) - never logged, never sent anywhere except the Acronis API. Read commands (the cross-tenant rollups, search, reports) cannot change anything. Writes are not gated by default: --dry-run is an opt-in preview flag, so the recommended policy is an agent-level rule - preview with --dry-run, show the exact command, get approval, then run the write. Keep tenant, agent, and OAuth-client deletion plus the token (idp) commands human-only. The strongest control is the scope of the API client you create in the Acronis Management Portal.",

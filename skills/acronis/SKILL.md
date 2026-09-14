@@ -372,3 +372,48 @@ Verify: `claude mcp list`
    acronis-cli <command> [subcommand] [args] --agent
    ```
 4. If ambiguous, drill into subcommand help: `acronis-cli <command> --help`.
+
+## Partner sync and completeness
+
+Run `acronis-cli sync --full` before relying on fleet rollups. Sync resolves the API
+client's root tenant and fetches its tenant hierarchy, agents, tasks, activities,
+and each tenant's users, usages, and offering items across all editions.
+
+Any failed, denied, malformed, or truncated resource makes sync exit non-zero.
+`health`, `freshness`, `coverage`, `tree`, and other local rollups refuse an
+incomplete mirror. Old databases require a successful full sync with this version.
+Scoped syncs, `--since`, and `--latest-only` leave the mirror marked partial; use
+raw `search` or `sql` to inspect those records. Runs enumerate from the first page;
+an old checkpoint cannot certify a complete mirror. An unfiltered sync replaces the prior mirror, removing records deleted at the vendor.
+If the refresh fails, the mirror stays incomplete until a successful retry.
+
+The existing `--tenant-id` flag on task lists filters an exact tenant UUID locally
+after all pages have been fetched. It does not filter by a tenant subtree and
+cannot be combined with `--after` or `--data-source local`; use live enumeration
+for an exact tenant filter. Task filters use the vendor's camelCase wire
+names. Use `--order 'desc(startedAt)'`; the older `startedAt desc` spelling is
+translated too. Direct MCP task tools use the same handling and paginate before
+applying the tenant filter.
+
+`remote-search --query Customer` uses the authenticated root tenant by default;
+`--tenant-id` supplies another accessible subtree. Search needs at least three
+characters and a limit of 1 to 300. This API has no pagination: `--all` does not
+extend the search beyond that limit.
+
+`auth login --datacenter eu8-cloud` now saves the selected API URL when the config
+contains the shipped placeholder or a standard Acronis regional host. An explicit
+custom base URL or ACRONIS_BASE_URL override is preserved.
+HTTP 400 validation errors no longer suggest replacing working credentials.
+
+Some Agent API versions return numeric tenant IDs while Account Management uses
+UUIDs. If those identities cannot be joined, rollups report the unmatched agents
+instead of claiming zero agents. The partner's live re-test remains necessary.
+
+API contracts: [task pagination](https://developer.acronis.com/doc/tasks/v2/guide/overview/pagination.html),
+[task filters](https://developer.acronis.com/doc/tasks/v2/reference/openapi.json),
+[account API](https://developer.acronis.com/doc/account-management/v2/reference/openapi.json),
+[agent API](https://developer.acronis.com/doc/agents/v2/reference/openapi.json).
+
+Syncs sharing a database run one at a time. After a process crash, a stale
+`<database>.sync.lock` may remain. Verify that no sync is running before removing
+that lock and retrying the full sync.

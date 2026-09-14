@@ -17,10 +17,10 @@
       "display_name": "Acronis Cyber Protect Cloud",
       "tagline": "Spot failed backups, offline agents, and unbilled usage across every Acronis tenant by asking.",
       "category": "Backup/DR",
-      "verification": "awaiting",
-      "verified_by": null,
-      "source": null,
-      "issue_url": null,
+      "verification": "live-verified",
+      "verified_by": "@asterisk79 (MSP)",
+      "source": "github",
+      "issue_url": "https://github.com/Servosity/msp-skills/issues/325",
       "url": "/skills/acronis/"
     },
     {

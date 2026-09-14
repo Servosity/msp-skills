@@ -40,12 +40,21 @@ func newRemoteSearchPromotedCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 
+			if len([]rune(flagQuery)) < 3 || flagLimit < 1 || flagLimit > 300 {
+				return usageErr(fmt.Errorf("search requires at least 3 characters and --limit between 1 and 300"))
+			}
+			if flagTenantId == "" && !c.DryRun {
+				flagTenantId, err = acronisRootTenant(cmd.Context(), c)
+				if err != nil {
+					return err
+				}
+			}
 			path := "/api/2/search"
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "remote_search", path, map[string]string{
-				"query":     formatCLIParamValue(flagQuery),
-				"tenant_id": formatCLIParamValue(flagTenantId),
-				"limit":     formatCLIParamValue(flagLimit),
-			}, nil, flagAll, "", "offset", "limit", "", "", cmd.ErrOrStderr())
+				"text":   formatCLIParamValue(flagQuery),
+				"tenant": formatCLIParamValue(flagTenantId),
+				"limit":  formatCLIParamValue(flagLimit),
+			}, nil, false, "", "", "limit", "", "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
@@ -98,7 +107,7 @@ func newRemoteSearchPromotedCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().StringVar(&flagQuery, "query", "", "Search query string")
 	cmd.Flags().StringVar(&flagTenantId, "tenant-id", "", "Scope search to a specific tenant subtree")
 	cmd.Flags().IntVar(&flagLimit, "limit", 10, "Maximum results to return")
-	cmd.Flags().BoolVar(&flagAll, "all", false, "Fetch all pages")
+	cmd.Flags().BoolVar(&flagAll, "all", false, "Search returns at most --limit results (API has no pagination)")
 
 	// Wire sibling endpoints and sub-resources as subcommands
 

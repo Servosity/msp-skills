@@ -9,8 +9,9 @@ the statusline, you do not need anything in this folder - see the root
 | Script | What it does |
 | --- | --- |
 | `verify_all.sh` | One command, one verdict: runs every gate below. `bash tools/maintainer/verify_all.sh` |
-| `build-catalog.py` | Regenerates `catalog.json` and the README catalog table from each skill's `manifest.json`. |
-| `release_matrix.py` | Prints the GitHub Actions build matrix (skills x os/arch). |
+| `build-catalog.py` | Regenerates `catalog.json`, the README catalog table and generated blocks, the docs site pages, the issue-form connector dropdowns, and each skill README's `.mcpb` pin. `--released-tags FILE` (catalog.yml passes the complete-published release list) keeps a pin from ever naming a tag whose release is a stranded draft or is missing an asset. |
+| `release_matrix.py` | Prints the GitHub Actions build matrix (skills x os/arch). `--changed-only <base>` (merge-base; ci.yml PRs) and `--changed-since <sha>` (two-point diff; ci.yml pushes, from `github.event.before`) scope it to the skills a change-set touched, so a docs-only or catalog-bot commit builds nothing and a build-machinery edit builds the fleet. `--self-test` proves the classifier both ways. |
+| `release_state.py` | Reports each skill's release state (up-to-date, version-pending, binary-pending, never-released) and writes `docs/_data/pending.json`. `--released-tags FILE` replaces "the tag exists" with "the tag names a published release". |
 | `check_skill_contract.py` | Asserts every skill has the required frontmatter and files. |
 | `check_release_contract.py` | Asserts install scripts and release assets agree on names. |
 | `check_md_links.py` | Verifies relative Markdown links resolve. |
@@ -24,6 +25,27 @@ the statusline, you do not need anything in this folder - see the root
 | `check_release_pipeline.py` | Refuses a SHA (`--sha`) or a whole tag (`--tag T --sha S`) that must not be released. Run it before every `git tag`. |
 | `burned_versions.json` | Version numbers a destroyed release already spent. Retired forever; never cut again. |
 | `hooks/pre-push` | Optional hook: refuses a release-tag push the probe refuses. Install with `git config core.hooksPath tools/maintainer/hooks`. |
+
+## What CI builds, and when
+
+`ci.yml` computes its build matrix with `release_matrix.py --changed-only`: a PR builds the
+skills changed since its merge-base, and a push to `main` builds the skills changed since
+`github.event.before` (the tip `main` had before that push). The catalog bot's
+`chore: regenerate derived files [bot]` commits touch only derived files (`pending.json`,
+`docs/skills/`, the `.mcpb` pin in a skill README, ...) and build nothing; a hand edit to the
+same README builds that skill; a change to a matrix-row checker or a build-feeding workflow
+builds all 65. A weekly full-matrix sweep (Sunday 06:00 UTC, also `workflow_dispatch`) bounds
+anything scoping could miss. Before 2026-09-07 every push to `main` built the whole fleet,
+which is ~210-240 runner-minutes per docs-only bot commit and, during a 21-tag release wave,
+enough to starve the release builds themselves.
+
+`catalog.yml` regenerates the release-derived files (`docs/_data/pending.json`, README
+`.mcpb` pins) when the **Release** workflow completes successfully (`workflow_run`), when a
+release is deleted or unpublished, and weekly - not when a tag is pushed - and it reads the
+PUBLISHED release list from the API rather than `git tag`,
+admitting only releases whose asset set is complete (`check_release_assets.py
+--admit-published`, `.mcpb` included) - so a tag in front of a stranded draft or a partial
+release reads as pending and the README keeps its last complete published download link.
 
 ## Cutting a release tag
 
