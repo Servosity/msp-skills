@@ -20,8 +20,10 @@ func forwardedCLIArgs(args map[string]any) []string {
 }
 
 func hasFlagPair(argv []string, flag, value string) bool {
-	for i := 0; i+1 < len(argv); i++ {
-		if argv[i] == flag && argv[i+1] == value {
+	// Values are joined to their flag (handfixes.json: mcp-argv-value-joined),
+	// so the pair is one argv element.
+	for _, a := range argv {
+		if a == flag+"="+value {
 			return true
 		}
 	}

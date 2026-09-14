@@ -45,13 +45,13 @@ func newTaskManagerListActivitiesCmd(flags *rootFlags) *cobra.Command {
 			}
 
 			path := "/api/task_manager/v2/activities"
-			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "task-manager", path, map[string]string{
+			data, prov, err := resolveAcronisTaskRead(cmd.Context(), c, flags, "task-manager", path, map[string]string{
 				"tenant_id": formatCLIParamValue(flagTenantId),
 				"task_id":   formatCLIParamValue(flagTaskId),
 				"state":     formatCLIParamValue(flagState),
 				"limit":     formatCLIParamValue(flagLimit),
 				"after":     formatCLIParamValue(flagAfter),
-			}, nil, flagAll, "after", "cursor", "limit", "", "", cmd.ErrOrStderr())
+			}, flagAll, cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
@@ -99,7 +99,7 @@ func newTaskManagerListActivitiesCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
-	cmd.Flags().StringVar(&flagTenantId, "tenant-id", "", "Filter activities by tenant UUID")
+	cmd.Flags().StringVar(&flagTenantId, "tenant-id", "", "Filter all fetched activities locally by exact tenant UUID")
 	cmd.Flags().StringVar(&flagTaskId, "task-id", "", "Filter activities by parent task ID")
 	cmd.Flags().StringVar(&flagState, "state", "", "Filter by activity state (one of: enqueued, assigned, started, paused, completed)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 100, "Maximum activities to return")

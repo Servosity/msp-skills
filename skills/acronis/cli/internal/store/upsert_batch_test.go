@@ -709,8 +709,8 @@ func TestUpsertBatch_TypedFailureDoesNotStrandOfferingItemsGeneric(t *testing.T)
 		json.RawMessage(`{"id": "orphan-003"}`),
 	}
 	stored, extractFailures, err := s.UpsertBatch("offering_items", items)
-	if err != nil {
-		t.Fatalf("UpsertBatch: %v (typed-table failure must not propagate)", err)
+	if err == nil {
+		t.Fatal("typed-table failure must propagate so sync cannot certify completeness")
 	}
 	if stored != len(items) {
 		t.Fatalf("stored = %d, want %d (generic resources rows must land even when typed table fails)", stored, len(items))
@@ -862,8 +862,8 @@ func TestUpsertBatch_TypedFailureDoesNotStrandUsagesGeneric(t *testing.T) {
 		json.RawMessage(`{"id": "orphan-003"}`),
 	}
 	stored, extractFailures, err := s.UpsertBatch("usages", items)
-	if err != nil {
-		t.Fatalf("UpsertBatch: %v (typed-table failure must not propagate)", err)
+	if err == nil {
+		t.Fatal("typed-table failure must propagate so sync cannot certify completeness")
 	}
 	if stored != len(items) {
 		t.Fatalf("stored = %d, want %d (generic resources rows must land even when typed table fails)", stored, len(items))
@@ -1015,8 +1015,8 @@ func TestUpsertBatch_TypedFailureDoesNotStrandUsersGeneric(t *testing.T) {
 		json.RawMessage(`{"id": "orphan-003"}`),
 	}
 	stored, extractFailures, err := s.UpsertBatch("users", items)
-	if err != nil {
-		t.Fatalf("UpsertBatch: %v (typed-table failure must not propagate)", err)
+	if err == nil {
+		t.Fatal("typed-table failure must propagate so sync cannot certify completeness")
 	}
 	if stored != len(items) {
 		t.Fatalf("stored = %d, want %d (generic resources rows must land even when typed table fails)", stored, len(items))

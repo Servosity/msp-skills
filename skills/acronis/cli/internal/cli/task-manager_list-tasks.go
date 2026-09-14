@@ -60,7 +60,7 @@ func newTaskManagerListTasksCmd(flags *rootFlags) *cobra.Command {
 			}
 
 			path := "/api/task_manager/v2/tasks"
-			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "task-manager", path, map[string]string{
+			data, prov, err := resolveAcronisTaskRead(cmd.Context(), c, flags, "task-manager", path, map[string]string{
 				"tenant_id":   formatCLIParamValue(flagTenantId),
 				"state":       formatCLIParamValue(flagState),
 				"result_code": formatCLIParamValue(flagResultCode),
@@ -69,7 +69,7 @@ func newTaskManagerListTasksCmd(flags *rootFlags) *cobra.Command {
 				"order":       formatCLIParamValue(flagOrder),
 				"limit":       formatCLIParamValue(flagLimit),
 				"after":       formatCLIParamValue(flagAfter),
-			}, nil, flagAll, "after", "cursor", "limit", "", "", cmd.ErrOrStderr())
+			}, flagAll, cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
@@ -117,12 +117,12 @@ func newTaskManagerListTasksCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
-	cmd.Flags().StringVar(&flagTenantId, "tenant-id", "", "Filter tasks by tenant UUID")
+	cmd.Flags().StringVar(&flagTenantId, "tenant-id", "", "Filter all fetched tasks locally by exact tenant UUID")
 	cmd.Flags().StringVar(&flagState, "state", "", "Filter by task state (one of: enqueued, assigned, started, paused, completed)")
 	cmd.Flags().StringVar(&flagResultCode, "result-code", "", "Filter by task result (one of: ok, error, warning, cancelled, abandoned, timedout)")
 	cmd.Flags().StringVar(&flagPolicyId, "policy-id", "", "Filter by protection policy ID")
 	cmd.Flags().StringVar(&flagResourceId, "resource-id", "", "Filter by protected resource ID")
-	cmd.Flags().StringVar(&flagOrder, "order", "", "Sort order (e.g., startedAt desc)")
+	cmd.Flags().StringVar(&flagOrder, "order", "", "Sort order: desc(startedAt) or asc(startedAt); startedAt desc is also accepted")
 	cmd.Flags().IntVar(&flagLimit, "limit", 100, "Maximum tasks to return")
 	cmd.Flags().StringVar(&flagAfter, "after", "", "Pagination cursor")
 	cmd.Flags().BoolVar(&flagAll, "all", false, "Fetch all pages")

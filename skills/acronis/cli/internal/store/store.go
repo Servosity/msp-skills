@@ -63,7 +63,9 @@ const resourcesFTSCreateSQL = `CREATE VIRTUAL TABLE IF NOT EXISTS resources_fts 
 )`
 
 type Store struct {
-	db *sql.DB
+	db           *sql.DB
+	closeOnce    sync.Once
+	closeCleanup func()
 	// writeMu serializes all DB writes. Read paths bypass the lock and run
 	// concurrently against WAL. Resource-level concurrency in sync.go.tmpl
 	// is 1 (one goroutine per resource via len(resources)-sized work channel)
@@ -173,8 +175,18 @@ func ensureSQLiteDriverInitialized(ctx context.Context, dsn string) error {
 }
 
 func (s *Store) Close() error {
-	return s.db.Close()
+	err := s.db.Close()
+	s.closeOnce.Do(func() {
+		if s.closeCleanup != nil {
+			s.closeCleanup()
+		}
+	})
+	return err
 }
+
+// ReleaseOnClose transfers a caller-owned mirror lock to this store's lifetime.
+// Set once immediately after opening, before sharing the Store.
+func (s *Store) ReleaseOnClose(release func()) { s.closeCleanup = release }
 
 // Path returns the on-disk path of the backing SQLite file.
 func (s *Store) Path() string {
@@ -1084,6 +1096,29 @@ func ftsRowID(scope, id string) int64 {
 // heterogeneous payloads. The PascalCase pass handles .NET-shaped responses
 // (`Id`, `Name`, `OrderId`) without forcing each spec to declare casing.
 func LookupFieldValue(obj map[string]any, snakeKey string) any {
+	paths := map[string][]string{
+		"tenant_id": {"tenant", "uuid"}, "result_code": {"result", "code"},
+		"policy_id": {"policy", "id"}, "resource_id": {"resource", "id"},
+	}
+	if path, ok := paths[snakeKey]; ok {
+		if nested, ok := obj[path[0]].(map[string]any); ok {
+			if v := nested[path[1]]; v != nil {
+				return sqliteFieldValue(v)
+			}
+			if snakeKey == "tenant_id" && nested["id"] != nil {
+				return sqliteFieldValue(nested["id"])
+			}
+		}
+	}
+	if snakeKey == "status" && obj["online"] != nil {
+		if online, ok := obj["online"].(bool); ok {
+			if online {
+				return "online"
+			}
+			return "offline"
+		}
+	}
+
 	if v, ok := obj[snakeKey]; ok {
 		return sqliteFieldValue(v)
 	}
@@ -1665,6 +1700,13 @@ var resourceParentKeyColumns = map[string]string{
 // Callers that need to gate best-effort writes can use this to avoid passing
 // non-entity envelopes into the batch path.
 func ExtractResourceID(resourceType string, obj map[string]any) string {
+	if resourceType == "usages" || resourceType == "offering_items" {
+		if obj["name"] != nil && obj["application_id"] != nil {
+			key, _ := json.Marshal([]any{obj["application_id"], obj["name"], obj["edition"], obj["infra_id"]})
+			return string(key)
+		}
+	}
+
 	if override, ok := resourceIDFieldOverrides[resourceType]; ok && override != "" {
 		if v := lookupFieldValue(obj, override); v != nil {
 			s := ResourceIDString(v)
@@ -1902,6 +1944,9 @@ func (s *Store) UpsertBatch(resourceType string, items []json.RawMessage) (int, 
 
 	if err := tx.Commit(); err != nil {
 		return 0, extractFailures, err
+	}
+	if typedFailures > 0 {
+		return stored, extractFailures, fmt.Errorf("%d %s records could not populate rollup tables", typedFailures, resourceType)
 	}
 	return stored, extractFailures, nil
 }

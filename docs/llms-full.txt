@@ -75,7 +75,7 @@ Governance: The skill authenticates with a single ABNORMAL_API_TOKEN scoped to y
 ### Acronis Cyber Protect Cloud (Backup/DR)
 
 Page: https://msp-skills.compoundingteams.com/skills/acronis/
-Verification: Awaiting live verification
+Verification: Live-verified by @asterisk79 (MSP) (2026-09-11)
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/acronis/install.sh)
 
 MSPs run Acronis Cyber Protect Cloud across dozens of customer tenants, but its partner dashboards report one tenant at a time. Ask your AI "whose backups failed last night," "which agents went offline," or "where am I billing for protection that isn't running," and get the cross-tenant answer in one table - computed offline from a local mirror, not six console drill-downs or a month-end CSV export.
@@ -109,6 +109,8 @@ Q: Which datacenter does it point at?
 A: Whichever hosts your Acronis account. Set ACRONIS_DATACENTER (for example us-cloud or eu2-cloud), or pass --datacenter on auth login. The CLI builds the correct regional API host from it, so you don't hand-assemble the datacenter URL in every call.
 Q: Will this replace the Acronis console?
 A: No. The console stays best for configuring protection plans and running restores. This skill adds the cross-tenant reporting layer the partner dashboards don't - one place to ask whose backups failed, which agents are offline, and where billing and protection diverge.
+Q: When can I trust partner-wide backup rollups?
+A: After an unfiltered acronis-cli sync --full succeeds. Failed, denied, malformed, or truncated resources cause a nonzero exit, and rollups refuse incomplete mirrors. Task tenant filters scan all pages and match exact UUIDs locally. Unmatched legacy agent tenant IDs are reported as a gap, not zero agents; the partner's live re-test remains necessary.
 
 Governance: The skill drives the acronis-cli and acronis-mcp binaries, authenticating with an Acronis API credential read from the environment (ACRONIS_CYBER_PROTECT_BEARER_AUTH, or an OAuth2 client via auth login) and scoped to your datacenter (ACRONIS_DATACENTER) - never logged, never sent anywhere except the Acronis API. Read commands (the cross-tenant rollups, search, reports) cannot change anything. Writes are not gated by default: --dry-run is an opt-in preview flag, so the recommended policy is an agent-level rule - preview with --dry-run, show the exact command, get approval, then run the write. Keep tenant, agent, and OAuth-client deletion plus the token (idp) commands human-only. The strongest control is the scope of the API client you create in the Acronis Management Portal.
 

@@ -4,9 +4,32 @@ on:
   pull_request:
   push:
     branches: [main]
+  # Weekly FULL-matrix sweep. Pushes to main build only the skills the push
+  # changed (see `prepare`), so this is the bound on anything scoping could
+  # miss: a toolchain or module-cache drift, a base SHA the runner could not
+  # resolve, a registry edit that touched nothing under skills/. Sunday 06:00
+  # UTC is the quietest hour for the org's runner pool.
+  schedule:
+    - cron: "0 6 * * 0"
+  # The same sweep on demand (after a mis-scoped push, or to re-prove the fleet
+  # before a release wave). No inputs: dispatch = full matrix.
+  workflow_dispatch:
 
 permissions:
   contents: read
+
+# PR runs supersede each other: a new push to the same PR cancels the run for
+# the commit it just replaced (nobody is waiting on that verdict). Every other
+# run is keyed by its own run id, so main pushes are NEVER cancelled or
+# coalesced: `prepare` diffs each push against its own github.event.before, so
+# a run dropped in favour of a newer one would leave its change-set built by
+# nobody - the newer run's `before` starts where the dropped push ended. Not
+# keyed by SHA either: two force-pushes landing on the same commit have
+# different `before`s and different matrices, and GitHub replaces a PENDING
+# run in a group even with cancel-in-progress off.
+concurrency:
+  group: ${{ github.event_name == 'pull_request' && format('ci-pr-{0}', github.event.pull_request.number) || format('ci-{0}-{1}', github.event_name, github.run_id) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   guards:
@@ -114,6 +137,16 @@ jobs:
         #                       five malformed ledgers raise rather than reading
         #                       as "nothing is burned", while a missing one
         #                       correctly reads as empty.
+        #   release_matrix.py - the change-set classifier that decides which
+        #                       skills a push or PR builds. A bot regen commit
+        #                       (pending.json + .mcpb pin re-mints in skill
+        #                       READMEs) yields an EMPTY matrix; a human edit
+        #                       to the same README, a Go change, or a per-slug
+        #                       skills.json edit yields that skill's row; a
+        #                       matrix-row checker or a build-feeding workflow
+        #                       yields the FULL matrix; catalog.yml and the
+        #                       docs site yield nothing. Every case is asserted
+        #                       in both directions, offline.
         run: |
           set -euo pipefail
           python3 tools/maintainer/registry.py --self-test
@@ -121,6 +154,7 @@ jobs:
           python3 tools/maintainer/mcpb_bundle.py --self-test
           python3 tools/maintainer/check_release_assets.py --self-test
           python3 tools/maintainer/check_release_pipeline.py --self-test
+          python3 tools/maintainer/release_matrix.py --self-test
 
       - name: Skill contract (frontmatter + required files)
         run: python3 tools/maintainer/check_skill_contract.py
@@ -141,29 +175,6 @@ jobs:
 
       - name: Markdown local links
         run: python3 tools/maintainer/check_md_links.py
-
-      - name: Pinned release URLs resolve (tag cut, or an in-flight release)
-        # check_md_links.py skips http(s) entirely, so nothing verified that the
-        # version-pinned .mcpb identifiers and release links this repo publishes
-        # point at a tag that exists. On 2026-08-25 seventy of them did not: a
-        # version bump rewrites the pin, the tag is cut by hand afterwards, and
-        # skipping that step leaves main serving a 404 forever.
-        #
-        # BASE is what makes this checkable without failing every release
-        # commit: a pin that is NEW or MOVED in this change-set is an in-flight
-        # release (allowed, with a reminder), a pin byte-identical to BASE whose
-        # tag still does not exist is a release that was never cut (failure).
-        # On a push BASE must be github.event.before, NOT origin/main: the
-        # runner's origin/main already contains the push. The checkout above is
-        # fetch-depth: 0, so every tag is local and no network call is made.
-        env:
-          BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
-        # Hard gate. The backlog this shipped in warn mode for - 62 pins across
-        # 31 connectors whose releases were never cut - was cleared by the
-        # 65-tag push on 2026-08-26. All 192 pinned release URLs across 128
-        # files now resolve, verified by HTTP HEAD against every one of them, so
-        # any new finding here is a new defect and should block.
-        run: python3 tools/maintainer/check_pinned_artifacts.py --base "$BASE" --no-network
 
       - name: Manifest env schema matches the binaries' reads
         # Asserts every operator-facing env var a connector READS is declared in
@@ -267,13 +278,66 @@ jobs:
             claude plugin validate "skills/$(basename "$d")" --strict
           done
 
+  # Its own job, deliberately. This check is RED BY DESIGN for the window
+  # between a version-bump merge and the hand-cut tag that makes its pins real
+  # (and for the whole life of a release that was never cut). While it was a
+  # step inside `guards`, that red skipped every step after it - env schema,
+  # MCP registry, install docs, DCO, ShellCheck, gitleaks, plugin validate: a
+  # dozen unrelated gates silently not run on exactly the commits that most
+  # need them. Here it can only ever fail itself.
+  pins:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # every tag local, BASE resolvable, no network call
+
+      - name: Pinned release URLs resolve (tag cut, or an in-flight release)
+        # check_md_links.py skips http(s) entirely, so nothing verified that the
+        # version-pinned .mcpb identifiers and release links this repo publishes
+        # point at a tag that exists. On 2026-08-25 seventy of them did not: a
+        # version bump rewrites the pin, the tag is cut by hand afterwards, and
+        # skipping that step leaves main serving a 404 forever.
+        #
+        # BASE is what makes this checkable without failing every release
+        # commit: a pin that is NEW or MOVED in this change-set is an in-flight
+        # release (allowed, with a reminder), a pin byte-identical to BASE whose
+        # tag still does not exist is a release that was never cut (failure).
+        # On a push BASE must be github.event.before, NOT origin/main: the
+        # runner's origin/main already contains the push. The checkout above is
+        # fetch-depth: 0, so every tag is local and no network call is made.
+        # On the weekly sweep and on workflow_dispatch there is no base; the
+        # script says so and skips the tag-existence check rather than
+        # inventing one.
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        # Hard gate. The backlog this shipped in warn mode for - 62 pins across
+        # 31 connectors whose releases were never cut - was cleared by the
+        # 65-tag push on 2026-08-26. All 192 pinned release URLs across 128
+        # files now resolve, verified by HTTP HEAD against every one of them, so
+        # any new finding here is a new defect and should block.
+        run: python3 tools/maintainer/check_pinned_artifacts.py --base "$BASE" --no-network
+
   # Skill build matrix is computed from the repo, so a new skill is built+vetted
-  # with no edit here (mirrors the release workflow). On PRs the matrix is
-  # SCOPED to skills changed since the merge-base (a docs/tools PR builds zero
-  # skills; a one-skill PR builds one) - at fleet scale (50+ skills) an
-  # unscoped matrix would spawn 50+ build jobs on every PR. Pushes to main
-  # keep the FULL matrix as the post-merge safety net, and release_matrix.py
-  # fails open to the full matrix when build machinery itself changed.
+  # with no edit here (mirrors the release workflow). The matrix is SCOPED to
+  # the skills the change-set touched: on a PR that is the diff against the
+  # merge-base; on a push to main it is the two-point diff from
+  # github.event.before, the tip main had before the push, to HEAD - exactly
+  # what the push changed, including what a force-push took away. At fleet
+  # scale (65 skills) an unscoped matrix is 65 jobs and ~210-240 runner-minutes
+  # per run, and before 2026-09-07 every push to main paid it: the catalog
+  # bot's "regenerate derived files" commits (11 in one day, docs only) each
+  # burned a full matrix, and during a 21-tag release wave those runs pinned
+  # the org's runner pool (59 of 60 busy, 232 queued) so the RELEASE builds
+  # starved.
+  #
+  # release_matrix.py classifies the change-set (see its MACHINERY / DERIVED
+  # lists and --self-test): derived files the bot commits yield NO row, a
+  # human edit to a skill yields that skill's row, and a change to build
+  # machinery yields the FULL matrix. It fails open (full matrix) whenever the
+  # diff cannot be computed. The full matrix also runs on the weekly schedule
+  # and on workflow_dispatch, which is what bounds the scoping.
   prepare:
     runs-on: ubuntu-latest
     outputs:
@@ -283,16 +347,45 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # need history for merge-base on PRs
+          fetch-depth: 0 # need history for the merge-base (PRs) and `before` (pushes)
       - name: Compute skill matrix
         id: gen
         env:
-          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || '' }}
+          EVENT_NAME: ${{ github.event_name }}
+          # PRs: the merge base. Pushes: github.event.before. Anything else
+          # (schedule, workflow_dispatch) has no base and builds everything.
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || (github.event_name == 'push' && github.event.before) || '' }}
         run: |
           set -euo pipefail
-          if [ -n "$BASE_SHA" ]; then
-            git fetch -q origin "$BASE_SHA"
-            matrix="$(python3 tools/maintainer/release_matrix.py --skills-only --changed-only "$BASE_SHA")"
+          zeros='0000000000000000000000000000000000000000'
+          base=""
+          if [ -z "$BASE_SHA" ]; then
+            echo "no diff base for a '$EVENT_NAME' event - building the FULL matrix"
+          elif [ "$BASE_SHA" = "$zeros" ]; then
+            # Branch creation (or a push whose `before` GitHub could not name).
+            echo "::warning::base is the all-zeros SHA - building the FULL matrix"
+          else
+            # A force-push or a rewritten history can name a `before` this
+            # clone never received; fetching it is best-effort, and a base the
+            # checkout cannot resolve means the FULL matrix (fail open), never
+            # an empty one. release_matrix.py fails open the same way if the
+            # merge-base or diff below errors.
+            git fetch -q origin "$BASE_SHA" 2>/dev/null || true
+            if git rev-parse --verify --quiet "${BASE_SHA}^{commit}" >/dev/null; then
+              base="$BASE_SHA"
+            else
+              echo "::warning::base $BASE_SHA is not reachable from this checkout - building the FULL matrix"
+            fi
+          fi
+          if [ -n "$base" ] && [ "$EVENT_NAME" = "pull_request" ]; then
+            echo "diff base (merge-base): $base"
+            matrix="$(python3 tools/maintainer/release_matrix.py --skills-only --changed-only "$base")"
+          elif [ -n "$base" ]; then
+            # Two-point diff, deliberately not a merge-base: a force-push that
+            # rewinds main to an ancestor has merge-base == HEAD and would
+            # diff nothing; the files it removed still need their rows built.
+            echo "diff base (two-point, github.event.before): $base"
+            matrix="$(python3 tools/maintainer/release_matrix.py --skills-only --changed-since "$base")"
           else
             matrix="$(python3 tools/maintainer/release_matrix.py --skills-only)"
           fi
@@ -354,10 +447,15 @@ jobs:
       - name: CLI claims vs built binary (this skill)
         # Runs here, in the per-skill matrix job, because verifying doc claims
         # builds the real CLI and needs Go on PATH (already set up above). The
-        # --slug filter checks only this matrix row's skill. WARN mode for now
-        # while the fleet calibrates.
-        # NOTE(calibration): drop --warn after fleet calibration to make this gate.
-        run: python3 tools/maintainer/check_cli_claims.py --warn --slug ${{ matrix.skill.name }}
+        # --slug filter checks only this matrix row's skill.
+        #
+        # Hard gate. It shipped behind --warn "while the fleet calibrates", and
+        # --warn exits 0 on real findings, so a README telling an MSP to run a
+        # flag the binary rejects printed the defect and left the verdict
+        # green. The fleet has been clean since: a hard-mode run over all 65
+        # connectors on 2026-09-07 returned 0 findings, so a finding here is a
+        # new defect and blocks.
+        run: python3 tools/maintainer/check_cli_claims.py --slug ${{ matrix.skill.name }}
 
       - name: Hand-fix ledger intact (this skill)
         # Hard gate: if this skill carries a skills/<slug>/handfixes.json ledger,

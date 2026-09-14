@@ -72,6 +72,9 @@ ACRONIS_CLIENT_ID, ACRONIS_CLIENT_SECRET, and ACRONIS_DATACENTER env vars.`,
 				secret = os.Getenv("ACRONIS_CLIENT_SECRET")
 			}
 			dc := resolveDatacenter(datacenter)
+			if !acronisValidDatacenter(dc) {
+				return usageErr(fmt.Errorf("datacenter must be a DNS host prefix such as eu8-cloud"))
+			}
 			tokenURL := fmt.Sprintf("https://%s.acronis.com/api/2/idp/token", dc)
 
 			// No credentials and a help-like invocation: print help, exit 0,
@@ -143,6 +146,9 @@ ACRONIS_CLIENT_ID, ACRONIS_CLIENT_SECRET, and ACRONIS_DATACENTER env vars.`,
 			if err != nil {
 				return configErr(err)
 			}
+			if acronisStandardBaseURL(cfg.BaseURL) && os.Getenv("ACRONIS_BASE_URL") == "" {
+				cfg.BaseURL = "https://" + dc + ".acronis.com"
+			}
 			// Clear any legacy auth_header so AuthHeader() uses the new token.
 			cfg.AuthHeaderVal = ""
 			if err := cfg.SaveTokens(id, secret, tok.AccessToken, "", expiry); err != nil {
@@ -189,4 +195,30 @@ func tokenExpiry(expiresOn, expiresIn json.Number) time.Time {
 		}
 	}
 	return time.Time{}
+}
+
+// Only standard Acronis regional destinations follow login's datacenter flag.
+// Explicit custom hosts, ports and base paths keep their configured routing.
+func acronisStandardBaseURL(base string) bool {
+	if base == "https://{datacenter}.acronis.com" {
+		return true
+	}
+	u, err := url.Parse(base)
+	if err != nil || u.Scheme != "https" || u.User != nil || u.Port() != "" || u.RawQuery != "" || u.Fragment != "" || (u.Path != "" && u.Path != "/") {
+		return false
+	}
+	host := strings.TrimSuffix(u.Hostname(), ".acronis.com")
+	return host != u.Hostname() && strings.HasSuffix(host, "-cloud") && !strings.Contains(host, ".")
+}
+
+func acronisValidDatacenter(dc string) bool {
+	if len(dc) == 0 || len(dc) > 63 || dc[0] == '-' || dc[len(dc)-1] == '-' {
+		return false
+	}
+	for _, c := range dc {
+		if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '-') {
+			return false
+		}
+	}
+	return true
 }

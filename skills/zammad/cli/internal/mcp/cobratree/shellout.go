@@ -314,6 +314,13 @@ func cliArgsFromMCP(args map[string]any, blocked map[string]bool) []string {
 	}
 	sort.Strings(keys)
 
+	// Hand-wired (handfixes.json: mcp-argv-value-joined): every value is
+	// joined to its flag as ONE argv element. Emitted as a separate element,
+	// a value beginning with "--" is parsed by pflag as its own flag whenever
+	// the preceding flag is a bool (NoOptDefVal does not consume the next
+	// token), which let a tool-call VALUE smuggle a denylisted root flag past
+	// the key-only filter above. Joined, pflag rejects it on a bool flag and
+	// contains it as the literal value on a string flag.
 	var out []string
 	for _, k := range keys {
 		v := args[k]
@@ -323,10 +330,10 @@ func cliArgsFromMCP(args map[string]any, blocked map[string]bool) []string {
 				out = append(out, "--"+k)
 			}
 		case float64:
-			out = append(out, "--"+k, strconv.FormatFloat(tv, 'f', -1, 64))
+			out = append(out, "--"+k+"="+strconv.FormatFloat(tv, 'f', -1, 64))
 		case string:
 			if tv != "" {
-				out = append(out, "--"+k, tv)
+				out = append(out, "--"+k+"="+tv)
 			}
 		case []any:
 			if len(tv) > 0 {
@@ -334,11 +341,11 @@ func cliArgsFromMCP(args map[string]any, blocked map[string]bool) []string {
 				for _, item := range tv {
 					parts = append(parts, fmt.Sprintf("%v", item))
 				}
-				out = append(out, "--"+k, strings.Join(parts, ","))
+				out = append(out, "--"+k+"="+strings.Join(parts, ","))
 			}
 		default:
 			if v != nil {
-				out = append(out, "--"+k, fmt.Sprintf("%v", v))
+				out = append(out, "--"+k+"="+fmt.Sprintf("%v", v))
 			}
 		}
 	}

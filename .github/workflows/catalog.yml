@@ -11,44 +11,83 @@ on:
       - "tools/maintainer/check_marketplace_sync.py"
       - ".claude-plugin/marketplace.json"
       - ".github/workflows/catalog.yml"
+      - ".github/ISSUE_TEMPLATE/it-works.yml"
+      - ".github/ISSUE_TEMPLATE/bug-report.yml"
   push:
     branches: [main]
-    # Tag pushes too: docs/_data/pending.json is DERIVED FROM TAGS (release
-    # state), so it goes stale the moment a release tag lands even though no
-    # commit touched the tree. On main/tag events this workflow regenerates
-    # and auto-commits; only PRs get a hard drift gate (and only for the
-    # tree-derived files).
-    tags: ["*-v*.*.*"]
+  # A release, once it has actually FINISHED. docs/_data/pending.json and the
+  # per-skill README .mcpb pins are derived from release state, so they go
+  # stale the moment a release seals even though no commit touched the tree.
+  # This used to be `push: tags:`, which fires the instant a tag lands -
+  # BEFORE release.yml has built a single asset - so for the minutes a release
+  # took, and forever over a stranded draft, pending.json read "up-to-date"
+  # and the README linked a download that 404s. workflow_run fires when
+  # release.yml completes; the job gate below runs only when it SUCCEEDED, so
+  # a failed release regenerates nothing and main keeps the last true state.
+  # The regenerate step then reads the PUBLISHED release list from the API,
+  # not `git tag`, and admits only releases whose asset set is COMPLETE, so a
+  # tag that fronts a draft or a sealed-but-partial release reads as pending.
+  workflow_run:
+    workflows: ["Release"]
+    types: [completed]
+  # A release taken AWAY. Deleting a published release (the tag stays) or
+  # unpublishing it back to a draft changes neither main nor a Release run,
+  # so nothing above would ever notice; pending.json would say up-to-date
+  # and the README would link a download that is gone. AGENTS.md forbids
+  # deleting a release (bump instead), which is exactly why the one time it
+  # happens must not go unreconciled.
+  release:
+    types: [deleted, unpublished]
+  # Weekly reconciliation for any event the above missed (a workflow_run
+  # that never fired, an API hiccup that failed a run). Idempotent: with
+  # nothing changed it commits nothing. Offset from ci.yml's Sunday 06:00
+  # sweep so the two do not queue on the same runners.
+  schedule:
+    - cron: "30 6 * * 0"
 
 permissions:
   contents: write
 
-# Serialize this workflow's push/tag runs (the derived-file auto-committers)
-# under one group so two release tags landing seconds apart queue instead of
-# racing non-fast-forward. live-verified.yml deliberately does NOT share this
-# group: its runs are per-issue and NOT interchangeable (GitHub keeps only one
-# pending run per group and replaces older queued runs - fine for idempotent
-# full-regenerations like these, lossy for badge flips). Cross-workflow races
-# are handled by both sides' regenerate-on-top push-retry loops instead. PR runs get a per-PR group instead: they only
-# read (drift gate), and a global group would wrongly serialize unrelated PR
-# checks (GitHub keeps at most ONE pending run per group, replacing older queued
-# runs). cancel-in-progress stays false: each writer run regenerates from the
-# LATEST tree+tags (idempotent, not delta-based), so a queued run is still
-# useful, and the one-pending-run replacement is harmless for the same reason -
-# whichever queued run survives produces the correct end state.
+# Serialize this workflow's main/workflow_run runs (the derived-file
+# auto-committers) under one group so two releases sealing seconds apart queue
+# instead of racing non-fast-forward. live-verified.yml deliberately does NOT
+# share this group: its runs are per-issue and NOT interchangeable (GitHub keeps
+# only one pending run per group and replaces older queued runs - fine for
+# idempotent full-regenerations like these, lossy for badge flips). Cross-workflow
+# races are handled by both sides' regenerate-on-top push-retry loops instead.
+# PR runs get a per-PR group instead: they only read (drift gate), and a global
+# group would wrongly serialize unrelated PR checks (GitHub keeps at most ONE
+# pending run per group, replacing older queued runs). cancel-in-progress stays
+# false: each writer run regenerates from the LATEST tree + published releases
+# (idempotent, not delta-based), so a queued run is still useful, and the
+# one-pending-run replacement is harmless for the same reason - whichever queued
+# run survives produces the correct end state.
+#
+# ...which holds only for runs that WRITE. A workflow_run event from a FAILED
+# Release is skipped by the job gate below, so it must not enter the writer
+# group: GitHub replaces the older pending run with the newer one, and a
+# skipped run replacing a queued writer (say, the run for release B, queued
+# behind an active run that listed releases before B sealed) would leave B
+# absent from the derived files until the next unrelated push. Each such
+# event gets a group of its own instead and displaces nothing.
 concurrency:
-  group: ${{ github.event_name == 'pull_request' && format('catalog-pr-{0}', github.event.pull_request.number) || 'main-autocommit' }}
+  group: ${{ github.event_name == 'pull_request' && format('catalog-pr-{0}', github.event.pull_request.number) || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion != 'success' && format('catalog-skipped-{0}', github.run_id)) || 'main-autocommit' }}
   cancel-in-progress: false
 
 jobs:
   catalog:
     runs-on: ubuntu-latest
+    # A Release that failed (a stranded draft, a missing build target) must not
+    # regenerate: the derived files on main already say "pending" for it, and
+    # that is the truth until the release is re-run and seals.
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          # release_state.py derives per-skill release state from git tags;
-          # a shallow tagless checkout would misreport version-pending.
+          # build-catalog.py falls back to git tags when no published-release
+          # list is given (the PR drift gate); a shallow tagless checkout would
+          # leave every .mcpb pin untouched and the drift gate blind to it.
           fetch-depth: 0
           fetch-tags: true
           # Push derived-file commits as the repo admin (fine-grained PAT) so they
@@ -68,36 +107,94 @@ jobs:
 
       - name: Drift gate (pull requests - tree-derived files only)
         if: github.event_name == 'pull_request'
+        # NOT gated here: skills/*/README.md. Its .mcpb pin is derived from
+        # RELEASE state (the newest published tag), not from the tree, and a PR
+        # checkout's tag set is whatever this runner fetched - so a contributor
+        # with a stale fork, or a PR racing a release, would fail on a file
+        # they never touched. The main writer path below owns those pins.
+        # pending.json is release-derived too and is likewise not gated.
         run: |
           python3 tools/maintainer/build-catalog.py
+          gated=(catalog.json README.md docs/_data/catalog.json docs/skills/
+                 .github/ISSUE_TEMPLATE/it-works.yml .github/ISSUE_TEMPLATE/bug-report.yml)
           # status --porcelain (not diff) so newly GENERATED files (e.g. a new
           # skill's docs page) count as drift too - git diff ignores untracked.
-          if [ -n "$(git status --porcelain -- catalog.json README.md docs/_data/catalog.json docs/skills/ ':(glob)skills/*/README.md')" ]; then
-            git status --porcelain -- catalog.json README.md docs/_data/catalog.json docs/skills/ ':(glob)skills/*/README.md'
+          if [ -n "$(git status --porcelain -- "${gated[@]}")" ]; then
+            git status --porcelain -- "${gated[@]}"
             echo ""
-            echo "::error::catalog.json, the README, docs/_data/catalog.json, or a docs/skills page is stale."
+            echo "::error::catalog.json, the README, docs/_data/catalog.json, a docs/skills page, or an issue-form connector dropdown is stale."
             echo "::error::Run 'python3 tools/maintainer/build-catalog.py' locally and commit."
             exit 1
           fi
-          # pending.json is tag-derived and auto-committed on main; not gated here.
 
-      - name: Regenerate + auto-commit derived files (main + tags)
-        if: github.event_name == 'push'
+      - name: Regenerate + auto-commit derived files (main + published releases)
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          # Tag pushes check out a detached tag ref; derived files live on main.
+          set -euo pipefail
+          # workflow_run and schedule check out the default branch and a
+          # `release` event checks out the tagged commit; say it explicitly
+          # either way: derived files live on main and only main.
           git checkout -B main origin/main
-          python3 tools/maintainer/build-catalog.py
-          python3 tools/maintainer/build-llms.py
-          mkdir -p docs/_data
-          python3 tools/maintainer/release_state.py --json > docs/_data/pending.json
-          if [ -z "$(git status --porcelain -- catalog.json README.md docs/_data/catalog.json docs/skills/ ':(glob)skills/*/README.md' docs/llms.txt docs/llms-full.txt docs/_data/pending.json)" ]; then
+
+          # The set of files this job owns. One list, used by the sync check,
+          # the add, and the retry loop, so the three can never disagree.
+          derived=(catalog.json README.md docs/_data/catalog.json docs/skills/
+                   ':(glob)skills/*/README.md' docs/llms.txt docs/llms-full.txt
+                   docs/_data/pending.json
+                   .github/ISSUE_TEMPLATE/it-works.yml .github/ISSUE_TEMPLATE/bug-report.yml)
+          listing="$RUNNER_TEMP/releases.ndjson"
+          released="$RUNNER_TEMP/released-tags.txt"
+
+          # The PUBLISHED release list, from the API - never `git tag` - and
+          # then only the releases whose asset set is COMPLETE under the same
+          # contract release.yml seals with (check_release_assets.py, .mcpb
+          # included). With immutable releases a tag can front a stranded
+          # draft, an empty sealed release, or a sealed release missing a
+          # build target (auvik-v0.1.1 is public with 16 of 25 assets); an
+          # admitted tag becomes a README download link, so "published" alone
+          # is not the bar. FATAL on any failure or an empty answer:
+          # regenerating from git tags would write the exact false-green
+          # state this trigger exists to prevent, while leaving main's
+          # last-good derived files in place costs nothing (the next run
+          # regenerates from scratch).
+          fetch_released() {
+            if ! gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" --paginate \
+                 -q '.[] | select(.draft|not) | {tag_name, assets: [.assets[] | {name, size, state}]}' > "$listing"; then
+              echo "::error::could not list published releases; not regenerating release-derived files"
+              exit 1
+            fi
+            if ! python3 tools/maintainer/check_release_assets.py --admit-published < "$listing" > "$released"; then
+              echo "::error::the release listing could not be read; not regenerating release-derived files"
+              exit 1
+            fi
+            if [ ! -s "$released" ]; then
+              echo "::error::no complete published release was admitted; refusing to regenerate from an empty list"
+              exit 1
+            fi
+            echo "complete published releases admitted: $(wc -l < "$released")"
+          }
+          regenerate() {
+            python3 tools/maintainer/build-catalog.py --released-tags "$released"
+            python3 tools/maintainer/build-llms.py
+            mkdir -p docs/_data
+            python3 tools/maintainer/release_state.py --json --released-tags "$released" > docs/_data/pending.json
+          }
+          commit_derived() {
+            git add "${derived[@]}"
+            git commit -s -m "chore: regenerate derived files (catalog/llms/pending) [bot]"
+          }
+
+          fetch_released
+          regenerate
+          if [ -z "$(git status --porcelain -- "${derived[@]}")" ]; then
             echo "derived files already in sync - nothing to commit"
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add catalog.json README.md docs/_data/catalog.json docs/skills/ ':(glob)skills/*/README.md' docs/llms.txt docs/llms-full.txt docs/_data/pending.json
-          git commit -s -m "chore: regenerate derived files (catalog/llms/pending) [bot]"
+          commit_derived
           # Push with a self-heal loop: the concurrency group serializes the
           # common case, but a peer commit can still land between our checkout
           # and our push (e.g. a release_batch push). Derived files are
@@ -109,21 +206,19 @@ jobs:
               exit 0
             fi
             echo "push rejected (attempt $attempt) - refetch and regenerate on top"
-            # --tags matters: pending.json is DERIVED FROM TAGS, and the peer
-            # commit that beat us may have been a release whose tag we have not
-            # fetched yet - regenerating from stale tags would overwrite the
-            # newer state that just landed.
+            # Refetch tags AND re-list published releases: the peer that beat
+            # us may have been a release that sealed since we last asked, and
+            # regenerating from a stale list would overwrite the newer state
+            # that just landed.
             git fetch --force --tags origin main
             git reset --hard origin/main
-            python3 tools/maintainer/build-catalog.py
-            python3 tools/maintainer/build-llms.py
-            python3 tools/maintainer/release_state.py --json > docs/_data/pending.json
-            if [ -z "$(git status --porcelain -- catalog.json README.md docs/_data/catalog.json docs/skills/ ':(glob)skills/*/README.md' docs/llms.txt docs/llms-full.txt docs/_data/pending.json)" ]; then
+            fetch_released
+            regenerate
+            if [ -z "$(git status --porcelain -- "${derived[@]}")" ]; then
               echo "now in sync after peer commit - nothing left to push"
               exit 0
             fi
-            git add catalog.json README.md docs/_data/catalog.json docs/skills/ ':(glob)skills/*/README.md' docs/llms.txt docs/llms-full.txt docs/_data/pending.json
-            git commit -s -m "chore: regenerate derived files (catalog/llms/pending) [bot]"
+            commit_derived
           done
           echo "::error::could not push derived files after 5 attempts"
           exit 1

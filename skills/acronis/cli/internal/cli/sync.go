@@ -67,23 +67,21 @@ func newSyncCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "sync",
 		Short: "Sync API data to local SQLite for offline search and analysis",
-		Long: `Sync data from the API into a local SQLite database. Supports resumable
-incremental sync (only fetches new data since last sync) and full resync.
+		Long: `Sync data from the API into a local SQLite database. Unfiltered runs
+replace the previous snapshot and enumerate every page before marking it complete.
 Once synced, use the 'search' command for instant full-text search.
 
-Exit codes & warnings:
-  Resources the API denies access to (HTTP 403, or HTTP 400 with an
-  access-policy body) are reported as warnings rather than failing the
-  run. In --json mode each is emitted as a {"event":"sync_warning",...}
-  line carrying status, reason, and message fields, and a final
-  {"event":"sync_summary",...} aggregates the run.
+Exit codes & completeness:
+  Any failed, denied, malformed, or truncated resource makes sync exit non-zero.
+  Rollups refuse an incomplete mirror. Run an unfiltered 'sync --full' to
+  establish completeness. Scoped, --since, and --latest-only runs leave the
+  mirror marked partial; raw search and SQL remain available for inspection.
+  Each run enumerates from the first page, so an old partial checkpoint cannot
+  make an incomplete mirror look complete.
 
-  Exit 0 when at least one resource synced and no resource flagged in
-  the spec as critical (x-critical: true) failed; non-critical failures
-  emit {"event":"sync_warning","reason":"exit_policy_default_changed",
-  ...} so callers can detect that a partial failure was tolerated. Pass
-  --strict to exit non-zero on any per-resource failure. Exit is always
-  non-zero when every selected resource failed, regardless of --strict.
+  Default sync includes tenants, clients, agent-manager, task-manager,
+  task-manager-v2-activities, and per-tenant users, usages, and offering_items.
+  Tenant scope defaults to the authenticated API client's tenant subtree.
 
 Resource scoping:
   --resources runs the named top-level resources, plus any parent-keyed
@@ -98,7 +96,7 @@ Resource scoping:
   acronis-cli sync
 
   # Sync specific resources only
-  acronis-cli sync --resources channels,messages
+  acronis-cli sync --resources task-manager
 
   # Full resync (ignore previous checkpoint)
   acronis-cli sync --full
@@ -162,8 +160,20 @@ Resource scoping:
 				return fmt.Errorf("opening local database: %w", err)
 			}
 			defer db.Close()
+			if !c.DryRun {
+				unlock, err := acronisLockMirror(dbPath)
+				if err != nil {
+					return err
+				}
+				defer unlock()
+			}
 
 			syncEventWriter := cmd.OutOrStdout()
+			if !c.DryRun {
+				if err := acronisSetMirrorState(db, false); err != nil {
+					return err
+				}
+			}
 			// Snapshot before defaults expand, so an empty user filter stays empty
 			// and dependents inherit "sync everything" instead of the default list.
 			parentFilter := append([]string(nil), resources...)
@@ -182,6 +192,29 @@ Resource scoping:
 				return usageErr(err)
 			}
 
+			if slices.Contains(resources, "tenants") && !c.DryRun {
+				scope := map[string]string{}
+				userParams.applyTo("tenants", scope, false)
+				if scope["uuids"] == "" && scope["parent_id"] == "" && scope["subtree_root_id"] == "" && scope["after"] == "" {
+					tenant, err := acronisRootTenant(cmd.Context(), c)
+					if err != nil {
+						return err
+					}
+					if userParams.perResource == nil {
+						userParams.perResource = map[string]map[string]string{}
+					}
+					if userParams.perResource["tenants"] == nil {
+						userParams.perResource["tenants"] = map[string]string{}
+					}
+					userParams.perResource["tenants"]["subtree_root_id"] = tenant
+				}
+			}
+			completeScope := len(parentFilter) == 0 && since == "" && !latestOnly && len(paramFlags) == 0 && len(resourceParamFlags) == 0 && len(globalParamFlags) == 0
+			if completeScope && !c.DryRun {
+				if err := db.ResetAcronisMirror(); err != nil {
+					return err
+				}
+			}
 			// --full: clear all sync cursors before starting.
 			// Skip under --dry-run: a preview must not mutate sync-state (issue #2935).
 			if full && !c.DryRun {
@@ -279,7 +312,6 @@ Resource scoping:
 
 			var totalSynced int
 			var errCount int
-			var criticalErrCount int
 			var warnCount int
 			var successCount int
 			var firstErr error
@@ -295,9 +327,6 @@ Resource scoping:
 					}
 					if firstPlaceholderErr == nil && errors.Is(res.Err, client.ErrPlaceholderCredential) {
 						firstPlaceholderErr = res.Err
-					}
-					if criticalResources[res.Resource] {
-						criticalErrCount++
 					}
 				} else if res.Warn != nil {
 					if humanFriendly {
@@ -325,9 +354,6 @@ Resource scoping:
 					}
 					if firstPlaceholderErr == nil && errors.Is(res.Err, client.ErrPlaceholderCredential) {
 						firstPlaceholderErr = res.Err
-					}
-					if criticalResources[res.Resource] {
-						criticalErrCount++
 					}
 				} else if res.Warn != nil {
 					if humanFriendly {
@@ -358,39 +384,16 @@ Resource scoping:
 					totalSynced, totalResources, successCount, warnCount, errCount, elapsed.Milliseconds())
 			}
 
-			// Exit-code policy:
-			//   1. --strict + any error  -> non-zero (legacy contract)
-			//   2. any critical failure  -> non-zero regardless of --strict
-			//   3. nothing synced        -> non-zero (preserves "all-warned" / "all-errored" exit)
-			//   4. otherwise             -> exit 0 (any data synced + no critical failed)
-			// When branch 4 suppresses what branch 1 would have rejected, emit a
-			// one-shot sync_warning with reason "exit_policy_default_changed" so
-			// CI scripts that depend on $? != 0 can discover the contract change
-			// without reading the CHANGELOG.
 			if firstPlaceholderErr != nil {
 				return classifyAPIError(firstPlaceholderErr, flags)
 			}
-			if strict && errCount > 0 {
-				return fmt.Errorf("%d resource(s) failed to sync", errCount)
+			if errCount > 0 || warnCount > 0 {
+				return fmt.Errorf("sync incomplete: %d resource(s) failed and %d warned", errCount, warnCount)
 			}
-			if criticalErrCount > 0 {
-				return fmt.Errorf("%d critical resource(s) failed to sync", criticalErrCount)
-			}
-			if successCount == 0 {
-				if warnCount > 0 && errCount == 0 {
-					return fmt.Errorf("%d resource(s) skipped due to insufficient access", warnCount)
-				}
-				if errCount > 0 {
-					return fmt.Errorf("%d resource(s) failed to sync", errCount)
-				}
-			}
-			if errCount > 0 && !strict && criticalErrCount == 0 && successCount > 0 {
-				if !humanFriendly {
-					msg := fmt.Sprintf("%d resource(s) failed but exit code is 0 because the new default treats non-critical failures as warnings. Pass --strict to restore the old behavior, or annotate critical resources with x-critical: true. See CHANGELOG.", errCount)
-					fmt.Fprintf(syncEventWriter, `{"event":"sync_warning","reason":"exit_policy_default_changed","errored":%d,"message":"%s"}`+"\n",
-						errCount, strings.ReplaceAll(msg, `"`, `\"`))
-				} else {
-					fmt.Fprintf(os.Stderr, "warning: %d resource(s) failed but exit code is 0 because the new default treats non-critical failures as warnings. Pass --strict to restore the old behavior, or annotate critical resources with x-critical: true.\n", errCount)
+
+			if !c.DryRun {
+				if err := acronisSetMirrorState(db, completeScope); err != nil {
+					return err
 				}
 			}
 			return nil
@@ -402,9 +405,9 @@ Resource scoping:
 	cmd.Flags().StringVar(&since, "since", "", "Incremental sync duration (e.g. 7d, 24h, 1w, 30m)")
 	cmd.Flags().IntVar(&concurrency, "concurrency", 4, "Number of parallel sync workers")
 	cmd.Flags().StringVar(&dbPath, "db", "", "Database path (default: ~/.local/share/acronis-cli/data.db)")
-	cmd.Flags().IntVar(&maxPages, "max-pages", 0, "Maximum pages to fetch per resource (0 = unlimited; cap-hit emits a sync_warning event)")
+	cmd.Flags().IntVar(&maxPages, "max-pages", 0, "Maximum pages per resource (0 = unlimited; reaching a cap with more data exits non-zero)")
 	cmd.Flags().BoolVar(&latestOnly, "latest-only", false, "Refresh head of each resource only; clears resume cursor and caps pages at 1. Mutually exclusive with --since (--since wins).")
-	cmd.Flags().BoolVar(&strict, "strict", false, "Exit non-zero on any per-resource failure (default: only critical failures or all-resource failure exit non-zero).")
+	cmd.Flags().BoolVar(&strict, "strict", false, "Retained for compatibility; every resource failure now exits non-zero.")
 	cmd.Flags().StringArrayVar(&paramFlags, "param", nil, "Extra query param to inject into flat-list sync requests (repeatable, key=value). Skipped on path-scoped dependent requests so a top-level scope like workspace=<id> does not double up on /parents/<id>/children calls. Use --global-param to inject everywhere. Avoid pagination keys (limit/since/cursor) — overriding them corrupts resume state.")
 	cmd.Flags().StringArrayVar(&resourceParamFlags, "resource-param", nil, "Per-resource extra query param (repeatable, resource:key=value). Wins over --param and --global-param when keys conflict.")
 	cmd.Flags().StringArrayVar(&globalParamFlags, "global-param", nil, "Extra query param to inject into every sync request including dependent path-scoped calls (repeatable, key=value). Use when an API requires a scope on every call regardless of path nesting.")
@@ -482,11 +485,10 @@ func syncResource(ctx context.Context, c interface {
 
 	var totalCount int
 
-	// Resume cursor from sync_state (unless --full cleared it)
-	existingCursor, lastSynced, _, _ := db.GetSyncState(resource)
+	// Enumerate from the head: a prior partial checkpoint cannot certify a full mirror.
+	_, lastSynced, _, _ := db.GetSyncState(resource)
 	if !full {
 		if storedCount, err := db.Count(resource); err == nil && storedCount == 0 {
-			existingCursor = ""
 			lastSynced = time.Time{}
 		}
 	}
@@ -516,13 +518,11 @@ func syncResource(ctx context.Context, c interface {
 		effectiveSince = formatSyncSinceValue(effectiveSince, syncResourceSinceParamFormat(resource))
 	}
 
-	cursor := existingCursor
+	cursor := ""
 	pageSize := determinePaginationDefaults()
 	var progressCount int64
 	pagesFetched := 0
 	lastNextCursor := ""
-	capExitHit := false
-	capExitCursor := ""
 	// extractFailureTotal accumulates per-item primary-key extraction
 	// misses across pages within this resource sync. Resource-level
 	// concurrency is 1 (one goroutine per resource via the work channel)
@@ -553,6 +553,12 @@ func syncResource(ctx context.Context, c interface {
 		// win over spec-derived defaults (e.g. forcing mine=true on a list
 		// endpoint whose OpenAPI spec marks the filter optional).
 		userParams.applyTo(resource, params, false)
+		if n, err := strconv.Atoi(params["limit"]); err == nil && n > 0 {
+			pageSize.limit = n
+		}
+		if cursor != "" && (resource == "tenants" || resource == "task-manager" || resource == "task-manager-v2-activities") {
+			params = map[string]string{"limit": strconv.Itoa(pageSize.limit), "after": cursor}
+		}
 
 		data, err := c.Get(ctx, path, params)
 		if err != nil {
@@ -581,9 +587,18 @@ func syncResource(ctx context.Context, c interface {
 			return syncResult{Resource: resource, Count: 0, Duration: time.Since(started)}
 		}
 
+		if err := acronisValidatePage(data); err != nil {
+			return syncResult{Resource: resource, Count: totalCount, Err: err}
+		}
 		// Try to extract items from the response.
 		// Strategy: try array first, then common wrapper keys.
 		items, nextCursor, hasMore := extractPageItems(data, pageSize.cursorParam)
+		if hasMore && nextCursor == "" {
+			return syncResult{Resource: resource, Count: totalCount, Err: fmt.Errorf("incomplete pagination: more data without cursor")}
+		}
+		if len(items) == 0 && hasMore {
+			return syncResult{Resource: resource, Count: totalCount, Err: fmt.Errorf("incomplete response: empty page has a next cursor")}
+		}
 
 		// Page-int paginator fallback: when the API paginates by integer
 		// ?page=N and emits no body cursor, treat a full page as a signal
@@ -648,6 +663,9 @@ func syncResource(ctx context.Context, c interface {
 			return syncResult{Resource: resource, Count: totalCount, Err: fmt.Errorf("upserting batch for %s: %w", resource, err), Duration: time.Since(started)}
 		}
 
+		if extractFailures > 0 || stored != len(items) {
+			return syncResult{Resource: resource, Count: totalCount, Err: fmt.Errorf("incomplete %s: some records could not be stored", resource)}
+		}
 		consumedTotal += len(items)
 		extractFailureTotal += extractFailures
 
@@ -680,6 +698,7 @@ func syncResource(ctx context.Context, c interface {
 		atomic.AddInt64(&progressCount, int64(stored))
 		if resourceSupportsPagination(resource) && nextCursor == "" && pageSize.cursorParam != "offset" && len(items) >= pageSize.limit && pageMayHaveMore(data) {
 			emitSyncMissingPaginationCursorWarning(syncEvents, humanFriendly, resource, "")
+			return syncResult{Resource: resource, Count: totalCount, Err: fmt.Errorf("incomplete %s: pagination cursor missing", resource)}
 		}
 
 		// Progress reporting (include rate limit info when active)
@@ -706,28 +725,8 @@ func syncResource(ctx context.Context, c interface {
 		// warning per paginated resource would mask real sync_anomaly /
 		// sync_error output in the same stream.
 		if maxPages > 0 && pagesFetched >= maxPages {
-			truncatedByCap := resourceSupportsPagination(resource) && hasMore
-			truncatedByCap = truncatedByCap && len(items) >= pageSize.limit
-			if truncatedByCap {
-				capExitCursor = nextCursor
-			}
-			if truncatedByCap && capExitCursor == "" {
-				if pageSize.cursorType == "offset" {
-					currentOffset, _ := strconv.Atoi(cursor)
-					capExitCursor = strconv.Itoa(currentOffset + pageSize.limit)
-				} else {
-					truncatedByCap = false
-				}
-			}
-			if truncatedByCap && capExitCursor != cursor {
-				if !latestOnly {
-					capExitHit = true
-					if humanFriendly {
-						fmt.Fprintf(os.Stderr, "\n  %s: reached --max-pages limit (%d pages, %d items)\n", resource, maxPages, totalCount)
-					} else {
-						fmt.Fprintf(syncEvents, `{"event":"sync_warning","resource":"%s","reason":"max_pages_cap_hit","message":"reached --max-pages cap of %d; data may be truncated. Re-run with --max-pages 0 (unlimited) or higher to verify."}`+"\n", resource, maxPages)
-					}
-				}
+			if hasMore {
+				return syncResult{Resource: resource, Count: totalCount, Err: fmt.Errorf("incomplete pagination: page limit reached")}
 			}
 			break
 		}
@@ -739,12 +738,7 @@ func syncResource(ctx context.Context, c interface {
 		// check below because the natural-end check would not catch a sticky
 		// non-empty cursor on its own.
 		if nextCursor != "" && nextCursor == lastNextCursor {
-			if humanFriendly {
-				fmt.Fprintf(os.Stderr, "\n  %s: API returned the same next cursor across two pages; aborting to prevent budget waste.\n", resource)
-			} else {
-				fmt.Fprintf(syncEvents, `{"event":"sync_warning","resource":"%s","reason":"stuck_pagination","message":"API returned the same next cursor across two pages for resource %s; aborting to prevent budget waste."}`+"\n", resource, resource)
-			}
-			break
+			return syncResult{Resource: resource, Count: totalCount, Err: fmt.Errorf("incomplete pagination: repeated cursor")}
 		}
 		lastNextCursor = nextCursor
 
@@ -752,7 +746,7 @@ func syncResource(ctx context.Context, c interface {
 		if !resourceSupportsPagination(resource) {
 			break
 		}
-		if !hasMore || len(items) < pageSize.limit {
+		if !hasMore {
 			break
 		}
 		if nextCursor == "" {
@@ -777,13 +771,11 @@ func syncResource(ctx context.Context, c interface {
 		cursor = nextCursor
 	}
 
-	// Final sync state: clear cursor on natural completion, but preserve the
-	// resume cursor when an operator intentionally capped the page budget.
+	// Only natural completion records a successful checkpoint.
 	finalCursor := ""
-	if capExitHit {
-		finalCursor = capExitCursor
+	if err := db.SaveSyncState(resource, finalCursor, totalCount); err != nil {
+		return syncResult{Resource: resource, Count: totalCount, Err: err}
 	}
-	_ = db.SaveSyncState(resource, finalCursor, totalCount)
 
 	// F4b symptom probe: if items were consumed and successfully
 	// extracted (extractFailures < consumed) but nothing landed in
@@ -828,6 +820,8 @@ func determinePaginationDefaults() paginationDefaults {
 
 func resourceSupportsPagination(resource string) bool {
 	switch resource {
+	case "tenants", "agent-manager", "offering_items":
+		return true
 	case "task-manager":
 		return true
 	case "task-manager-v2-activities":
@@ -1160,6 +1154,9 @@ func isJSONResponse(data json.RawMessage) bool {
 // extractPaginationFromEnvelope extracts cursor and has_more from a response envelope.
 func extractPaginationFromEnvelope(envelope map[string]json.RawMessage, cursorParam string) (string, bool) {
 	var hasMore bool
+	if cursor, present := acronisPageCursor(envelope); present {
+		return cursor, cursor != ""
+	}
 
 	nextCursor := nextCursorFromLinks(envelope, cursorParam)
 
@@ -1224,6 +1221,12 @@ func pageAllowsPageIntFallback(data json.RawMessage) bool {
 }
 
 func pageMayHaveMore(data json.RawMessage) bool {
+	var envelope map[string]json.RawMessage
+	if json.Unmarshal(data, &envelope) == nil {
+		if cursor, present := acronisPageCursor(envelope); present {
+			return cursor != ""
+		}
+	}
 	hasMore, parsed := pageExplicitHasMore(data)
 	return !parsed || hasMore
 }
@@ -1500,6 +1503,7 @@ func parseSinceDuration(s string) (time.Time, error) {
 func defaultSyncResources() []string {
 	return []string{
 		"clients",
+		"agent-manager",
 		"task-manager",
 		"task-manager-v2-activities",
 		"tenants",
@@ -1512,6 +1516,7 @@ func defaultSyncResources() []string {
 func knownSyncResourceNames() []string {
 	names := []string{
 		"clients",
+		"agent-manager",
 		"task-manager",
 		"task-manager-v2-activities",
 		"tenants",
@@ -1528,6 +1533,7 @@ func knownSyncResourceNames() []string {
 func syncResourcePath(resource string) (string, error) {
 	paths := map[string]string{
 		"clients":                    "/api/2/clients",
+		"agent-manager":              "/api/agent_manager/v2/agents",
 		"task-manager":               "/api/task_manager/v2/tasks",
 		"task-manager-v2-activities": "/api/task_manager/v2/activities",
 		"tenants":                    "/api/2/tenants",
@@ -1560,6 +1566,8 @@ type dependentPathParamDef struct {
 
 func dependentResourceDefs() []dependentResourceDef {
 	return []dependentResourceDef{
+		{Name: "usages", ParentTable: "tenants", ParentIDParam: "tenant_id", PathTemplate: "/api/2/tenants/{tenant_id}/usages"},
+		{Name: "offering_items", ParentTable: "tenants", ParentIDParam: "tenant_id", PathTemplate: "/api/2/tenants/{tenant_id}/offering_items"},
 		{Name: "users", ParentTable: "tenants", ParentIDParam: "tenant_id", PathTemplate: "/api/2/tenants/{tenant_id}/users", KeyField: "", PathParams: []dependentPathParamDef{
 			{Param: "tenant_id", Field: "id"},
 		}},
@@ -1622,8 +1630,6 @@ func syncDependentResource(ctx context.Context, c interface {
 	}
 
 	var totalCount int
-	var deniedParents int
-	var firstDenial *accessWarning
 	pageSize := determinePaginationDefaults()
 	depSinceParam := syncResourceSinceParam(dep.Name)
 	depSinceTS := sinceTS
@@ -1680,31 +1686,17 @@ func syncDependentResource(ctx context.Context, c interface {
 			// Dependent path: --param is skipped (already scoped by the parent path
 			// segment); --global-param and --resource-param still apply.
 			userParams.applyTo(dep.Name, params, true)
+			if dep.Name == "offering_items" && params["edition"] == "" {
+				params["edition"] = "*"
+			}
+			if n, err := strconv.Atoi(params["limit"]); err == nil && n > 0 {
+				pageSize.limit = n
+			}
 
 			data, err := c.Get(ctx, path, params)
 			if err != nil {
-				// Non-fatal per parent: log and continue to next parent.
-				// Track access-denial separately so an all-denied dependent
-				// resource can surface as a Warn rather than silent success.
-				if w, ok := isSyncAccessWarning(err); ok {
-					deniedParents++
-					if firstDenial == nil {
-						firstDenial = w
-					}
-					if humanFriendly {
-						fmt.Fprintf(os.Stderr, "\n  %s: access denied for parent %s: %s\n", dep.Name, parentID, w.Reason)
-					} else {
-						fmt.Fprintln(syncEvents, syncWarningJSON(dep.Name, parentID, w.Status, w.Reason, w.Message))
-					}
-				} else if humanFriendly {
-					fmt.Fprintf(os.Stderr, "\n  %s: error for parent %s: %v\n", dep.Name, parentID, err)
-				} else {
-					// Non-warning failures were previously silent in JSON mode —
-					// operators only saw the missing rows. Emit a structured
-					// sync_error so the API body and status are inspectable.
-					fmt.Fprintln(syncEvents, syncErrorJSON(dep.Name, parentID, err))
-				}
-				break
+				return syncResult{Resource: dep.Name, Count: totalCount, Err: fmt.Errorf("fetching %s for tenant %s: %w", dep.Name, parentID, err)}
+
 			}
 
 			// Dry-run sentinel: client.dryRun returns `{"dry_run": true}` instead
@@ -1718,7 +1710,16 @@ func syncDependentResource(ctx context.Context, c interface {
 				return syncResult{Resource: dep.Name, Count: 0, Duration: time.Since(started)}
 			}
 
+			if err := acronisValidatePage(data); err != nil {
+				return syncResult{Resource: dep.Name, Count: totalCount, Err: err}
+			}
 			items, nextCursor, hasMore := extractPageItems(data, pageSize.cursorParam)
+			if hasMore && nextCursor == "" {
+				return syncResult{Resource: dep.Name, Count: totalCount, Err: fmt.Errorf("incomplete pagination: more data without cursor")}
+			}
+			if len(items) == 0 && hasMore {
+				return syncResult{Resource: dep.Name, Count: totalCount, Err: fmt.Errorf("incomplete response: empty page has a next cursor")}
+			}
 
 			// Page-int paginator fallback: mirrors syncResource so dependent
 			// resources on integer ?page=N APIs also advance past page 1.
@@ -1775,12 +1776,12 @@ func syncDependentResource(ctx context.Context, c interface {
 
 			stored, extractFailures, err := upsertResourceBatch(db, dep.Name, items)
 			if err != nil {
-				if humanFriendly {
-					fmt.Fprintf(os.Stderr, "\n  %s: upsert error for parent %s: %v\n", dep.Name, parentID, err)
-				}
-				break
+				return syncResult{Resource: dep.Name, Count: totalCount, Err: err}
 			}
 
+			if extractFailures > 0 || stored != len(items) {
+				return syncResult{Resource: dep.Name, Count: totalCount, Err: fmt.Errorf("incomplete %s: some records could not be stored", dep.Name)}
+			}
 			depConsumedTotal += len(items)
 			depExtractFailureTotal += extractFailures
 			// Order matches the flat path (syncResource): all-fail first,
@@ -1806,35 +1807,24 @@ func syncDependentResource(ctx context.Context, c interface {
 			totalCount += stored
 			if resourceSupportsPagination(dep.Name) && nextCursor == "" && pageSize.cursorParam != "offset" && len(items) >= pageSize.limit && pageMayHaveMore(data) {
 				emitSyncMissingPaginationCursorWarning(syncEvents, humanFriendly, dep.Name, parentID)
+				return syncResult{Resource: dep.Name, Count: totalCount, Err: fmt.Errorf("incomplete %s: pagination cursor missing", dep.Name)}
 			}
 			pagesFetched++
 
-			if maxPages > 0 && pagesFetched >= maxPages {
-				if !latestOnly {
-					if humanFriendly {
-						fmt.Fprintf(os.Stderr, "\n  %s: reached --max-pages limit (%d pages, %d items) for parent %s\n", dep.Name, maxPages, totalCount, parentID)
-					} else {
-						fmt.Fprintf(syncEvents, `{"event":"sync_warning","resource":"%s","parent":"%s","reason":"max_pages_cap_hit","message":"reached --max-pages cap of %d; data may be truncated. Re-run with --max-pages 0 (unlimited) or higher to verify."}`+"\n", dep.Name, parentID, maxPages)
-					}
-				}
-				break
+			if maxPages > 0 && pagesFetched >= maxPages && hasMore {
+				return syncResult{Resource: dep.Name, Count: totalCount, Err: fmt.Errorf("incomplete pagination: page limit reached")}
 			}
 			// Sticky-cursor detector: see syncResource for rationale. Same shape
 			// here so dependent-resource page loops cannot burn the budget on a
 			// non-advancing next cursor.
 			if nextCursor != "" && nextCursor == lastNextCursor {
-				if humanFriendly {
-					fmt.Fprintf(os.Stderr, "\n  %s: API returned the same next cursor across two pages for parent %s; aborting to prevent budget waste.\n", dep.Name, parentID)
-				} else {
-					fmt.Fprintf(syncEvents, `{"event":"sync_warning","resource":"%s","parent":"%s","reason":"stuck_pagination","message":"API returned the same next cursor across two pages for resource %s; aborting to prevent budget waste."}`+"\n", dep.Name, parentID, dep.Name)
-				}
-				break
+				return syncResult{Resource: dep.Name, Count: totalCount, Err: fmt.Errorf("incomplete pagination: repeated cursor")}
 			}
 			lastNextCursor = nextCursor
 			if !resourceSupportsPagination(dep.Name) {
 				break
 			}
-			if !hasMore || len(items) < pageSize.limit {
+			if !hasMore {
 				break
 			}
 			if nextCursor == "" {
@@ -1860,7 +1850,9 @@ func syncDependentResource(ctx context.Context, c interface {
 		fmt.Fprintf(os.Stderr, "\n")
 	}
 
-	_ = db.SaveSyncState(dep.Name, "", totalCount)
+	if err := db.SaveSyncState(dep.Name, "", totalCount); err != nil {
+		return syncResult{Resource: dep.Name, Count: totalCount, Err: err}
+	}
 
 	// F4b symptom probe: items consumed and extracted but nothing landed.
 	// See syncResource for rationale.
@@ -1872,16 +1864,6 @@ func syncDependentResource(ctx context.Context, c interface {
 		}
 	}
 
-	// If every parent was access-denied and nothing was synced, surface as a
-	// warning so the run-level summary and exit code reflect insufficient access.
-	if deniedParents == len(parentRows) && totalCount == 0 && firstDenial != nil {
-		return syncResult{
-			Resource: dep.Name,
-			Count:    0,
-			Warn:     fmt.Errorf("skipped %s: %s on all %d parents", dep.Name, firstDenial.Reason, len(parentRows)),
-			Duration: time.Since(started),
-		}
-	}
 	return syncResult{Resource: dep.Name, Count: totalCount, Duration: time.Since(started)}
 }
 
