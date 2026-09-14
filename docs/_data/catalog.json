@@ -1,5 +1,5 @@
 {
-  "count": 65,
+  "count": 66,
   "connectors": [
     {
       "slug": "abnormal",
@@ -528,6 +528,17 @@
       "source": null,
       "issue_url": null,
       "url": "/skills/rewst/"
+    },
+    {
+      "slug": "riverside-fm",
+      "display_name": "Riverside.fm",
+      "tagline": "Riverside API surface as MCP tools.",
+      "category": "Marketing",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "url": "/skills/riverside-fm/"
     },
     {
       "slug": "rocketcyber",

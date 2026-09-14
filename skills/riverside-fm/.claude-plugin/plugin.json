@@ -1,0 +1,20 @@
+{
+  "name": "riverside-fm",
+  "version": "0.1.0",
+  "description": "Riverside API surface as MCP tools.",
+  "author": {
+    "name": "Servosity",
+    "url": "https://www.servosity.com"
+  },
+  "homepage": "https://github.com/servosity/msp-skills/tree/main/skills/riverside-fm",
+  "repository": "https://github.com/servosity/msp-skills",
+  "license": "Apache-2.0",
+  "keywords": [
+    "riverside-fm",
+    "riverside",
+    "msp",
+    "mcp",
+    "claude-code",
+    "claude-mcp"
+  ]
+}

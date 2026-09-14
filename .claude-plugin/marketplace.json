@@ -786,6 +786,21 @@
       ]
     },
     {
+      "name": "riverside-fm",
+      "source": "./skills/riverside-fm",
+      "description": "Every Riverside.fm studio, take, transcript, and asset as one agent-native CLI plus a local SQLite mirror - bulk studio export with resume, priority-fallback download, transcript search and talktime, and signed-URL refresh the web app never exposes.",
+      "version": "0.1.0",
+      "category": "msp",
+      "tags": [
+        "riverside-fm",
+        "marketing",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
       "name": "rocketcyber",
       "source": "./skills/rocketcyber",
       "description": "The first CLI and MCP server for RocketCyber Managed SOC, with triage and posture analytics no console page or API call computes.",

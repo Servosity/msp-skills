@@ -154,6 +154,9 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
 - Rewst (Automation) - ask "Is automation healthy for this client right now?" - 
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/rewst/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/rewst/install.sh)
+- Riverside.fm (Marketing) - ask "Back up everything in a studio to disk?" - 
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/riverside-fm/
+  Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/riverside-fm/install.sh)
 - RocketCyber (Security) - ask "What broke across all my clients overnight?" - Triage your managed SOC, rank devices at risk, and audit suppression rules from the terminal - no console logins.
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/rocketcyber/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/rocketcyber/install.sh)
