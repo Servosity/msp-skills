@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-11",
+  "generated_at": "2026-09-16",
   "skills": [
     {
       "name": "msp-skills-concierge",
@@ -456,7 +456,7 @@
       "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/datagate/install.sh)",
       "install_mcp_doc": "skills/datagate/mcp-install.md",
       "description": "Every DataGate telecom billing API resource, plus a local SQLite store and offline search the API can't return in one call.",
-      "verification": "awaiting",
+      "verification": "live-verified",
       "category": "Billing",
       "tagline": "Pull DataGate customer, agreement, and invoice data by asking, instead of clicking through the portal."
     },
