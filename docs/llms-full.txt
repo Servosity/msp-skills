@@ -805,7 +805,7 @@ Governance: The skill drives the crowdstrike-cli and crowdstrike-mcp binaries, a
 ### DataGate (Billing)
 
 Page: https://msp-skills.compoundingteams.com/skills/datagate/
-Verification: Awaiting live verification
+Verification: Live-verified by a real MSP (2026-09-16)
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/datagate/install.sh)
 
 MSPs and telecom resellers who bill through DataGate normally work through its web portal one customer at a time. Ask your AI "pull this month's invoices" or "which agreements belong to which customer," and get an answer without clicking through the portal - a local SQLite mirror means repeated lookups don't re-spend DataGate's per-account rate limit either.
