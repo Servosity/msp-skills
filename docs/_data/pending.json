@@ -65,7 +65,7 @@
   "aws-billing": {
     "state": "up-to-date",
     "version": "0.1.3",
-    "latest_tag": "aws-billing-v0.1.3",
+    "latest_tag": "aws-billing-v0.1.4",
     "current_hash": "sha256:924f3c61effa1b226f74f2669990ab285706cfadb78397e1069e148ebdf0b044",
     "released_hash": "sha256:924f3c61effa1b226f74f2669990ab285706cfadb78397e1069e148ebdf0b044"
   },
