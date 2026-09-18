@@ -4,6 +4,30 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.4] - 2026-09-18
+
+### Changed
+### Fixed
+- **Windows bundle could not find its companion CLI.** The sibling lookup checked only the
+  bare `aws-billing-cli` name; on Windows it now tries `aws-billing-cli.exe` first, then
+  the bare name, then `AWS_BILLING_CLI_PATH`, then `PATH`.
+
+### Changed
+- **The Claude Desktop bundle now carries the companion CLI.** Every MCP tool runs the
+  CLI under the hood, but the `.mcpb` used to contain only the MCP server, so a one-click
+  install on a machine without the CLI failed at the first tool call. The bundle now ships
+  both binaries side by side for macOS (universal), Windows x64 and Linux x64. Older
+  bundles are unchanged; this release's bundle is the first to include it.
+- **The MCP server reports its real version.** `serverInfo.version` used to read
+  `0.0.0-dev` (or a hard-coded literal) in every released MCP binary because the release
+  build stamped the version into the CLI only. The release now stamps both and checks the
+  built server's `initialize` reply against the tag before publishing.
+- **Installers verify what they download.** `install.sh` and `install.ps1` now require a
+  sealed (immutable) release, verify both binaries against the release's SHA-256 sidecars
+  before touching anything, and replace the old binaries in a single transaction that is
+  undone if any step fails. (Served from the repository, so this applies to every install
+  from now on, not only this version.)
+
 ## [0.1.3] - 2026-09-10
 
 ### Fixed
