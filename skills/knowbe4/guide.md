@@ -62,7 +62,7 @@ To install:
 
 Requires Claude Desktop 1.0.0 or later. A bundle carries the five platform binaries the builder downloads - macOS (`darwin-arm64`, `darwin-amd64`), Linux (`linux-arm64`, `linux-amd64`) and Windows (`windows-amd64`). Windows on ARM is released as a standalone binary but is not bundled, so use the manual config below there.
 
-> **Claude Desktop bundle:** the `.mcpb` launches on macOS (Intel and Apple Silicon), Windows x64 and Linux x64. It contains only the MCP server; every tool shells out to the companion `knowbe4-cli`, so run the installer above first (or set `KNOWBE4_CLI_PATH` to an existing binary). Bundling the CLI is tracked in [#ISSUE_COMPANION_CLI](https://github.com/Servosity/msp-skills/issues/ISSUE_COMPANION_CLI).
+> **Claude Desktop bundle:** the `.mcpb` launches on macOS (Intel and Apple Silicon), Windows x64 and Linux x64. It contains only the MCP server; every tool shells out to the companion `knowbe4-cli`, so run the installer above first (or set `KNOWBE4_CLI_PATH` to an existing binary). Bundling the CLI is tracked in [#331](https://github.com/Servosity/msp-skills/issues/331).
 
 <details>
 <summary>Manual JSON config (advanced)</summary>

@@ -46,7 +46,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-> **Claude Desktop bundle:** the `.mcpb` launches on macOS (Intel and Apple Silicon), Windows x64 and Linux x64. It contains only the MCP server; every tool shells out to the companion `connectwise-control-cli`, so run the Path A or Path B installer below first (or set `CONNECTWISE_CONTROL_CLI_PATH` to an existing binary). Bundling the CLI is tracked in [#ISSUE_COMPANION_CLI](https://github.com/Servosity/msp-skills/issues/ISSUE_COMPANION_CLI).
+> **Claude Desktop bundle:** the `.mcpb` launches on macOS (Intel and Apple Silicon), Windows x64 and Linux x64. It contains only the MCP server; every tool shells out to the companion `connectwise-control-cli`, so run the Path A or Path B installer below first (or set `CONNECTWISE_CONTROL_CLI_PATH` to an existing binary). Bundling the CLI is tracked in [#331](https://github.com/Servosity/msp-skills/issues/331).
 
 [**Download ConnectWise MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/connectwise-control-v0.1.4/connectwise-control-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every ConnectWise release on the [releases page](https://github.com/servosity/msp-skills/releases?q=connectwise-control).)
 
