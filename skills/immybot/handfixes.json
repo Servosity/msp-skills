@@ -436,7 +436,7 @@
    "summary": "cli/NOTICE names this connector's contributor, in the Apache-2.0 attribution channel",
    "why": "CONTRIBUTING.md and the public contributing page promise that a contributor's credit survives a regeneration. Nothing enforced that. The press regenerates cli/NOTICE from its own template, which carries the CLI Printing Press attribution but not this repo's per-connector 'contributed by' sentence, so a reprint would silently delete the only place the credit lives. PR #283 moved contributor credit out of per-file copyright headers and into NOTICE, which makes this line the load-bearing copy rather than a duplicate. Pinning the exact sentence here is what turns the promise into a checked one.",
    "status": "active",
-   "spec_encode_followup": "The press has no per-connector contributor field, so there is nothing to encode upstream today. If one is added, the NOTICE template should emit this sentence by construction. Related: the press stamps the copyright header from whoever ran the generator, tracked as cli-printing-press#4326.",
+   "spec_encode_followup": "The press has no per-connector contributor field, so there is nothing to encode upstream today. If one is added, the NOTICE template should emit this sentence by construction. Related: the press stamps the copyright header from whoever ran the generator, filed as mvanhorn/cli-printing-press#4326 closed 2026-08-25 as not planned (wontfix: operator-stamped attribution is product/config work), no fix landed; this hand-fix is permanent unless re-filed; do NOT cite #4326 as open.",
    "asserts": [
     {
      "file": "cli/NOTICE",
@@ -657,6 +657,103 @@
      "contains": "func TestRejectFlagLikeRecipeValueEdges(",
      "min_count": 1,
      "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-server-version-from-ldflags",
+   "summary": "cmd/immybot-mcp/main.go declares `var version = \"0.0.0-dev\"` and passes it to server.NewMCPServer, so release.yml's `-X main.version=<tag>` stamps the real release into serverInfo.version (issue #322, PR #323)",
+   "why": "Issue #322: the MCP binary reported a hard-coded literal (\"0.0.0-dev\") in serverInfo.version instead of the release tag. release.yml builds every MCP with `-ldflags \"-X main.version=${version}\"` (PR #323) and the press template emits `var version = \"0.0.0-dev\"` for 63 of 67 connectors; this connector's main.go had drifted to a literal in the NewMCPServer call, and the Go linker silently ignores a -X for a symbol that does not exist (build exit 0, no warning), so the stamp could never land. Proven both ways with a real initialize JSON-RPC over stdio: before the fix `go build -ldflags '-X main.version=9.9.9'` still answered the literal; after it answers 9.9.9. A wrong-looking real version (1.0.0 on a v0.1.x release) is worse than 0.0.0-dev because it reads as intentional. code_only because the explanatory comment above the var names the ldflags mechanism; the assert must be satisfied by the declaration itself.",
+   "status": "active",
+   "spec_encode_followup": "None needed at the press: current cli-printing-press already emits the var and passes it (see any of the 63 standard mains). A reprint from any current press regenerates this correctly; retire the entry after the next reprint confirms the var is present.",
+   "asserts": [
+    {
+     "file": "cli/cmd/immybot-mcp/main.go",
+     "contains": "var version = \"0.0.0-dev\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/immybot-mcp/main.go",
+     "contains": "\t\tversion,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/immybot-mcp/main.go",
+     "not_contains": "\"0.0.0-dev\","
+    }
+   ]
+  },
+  {
+   "id": "mcp-config-resolves-like-the-cli",
+   "summary": "The MCP server resolves its config through config.Load(\"\") - honouring IMMYBOT_CONFIG and IMMYBOT_NO_CONFIG_WRITE exactly like the CLI - instead of a hardcoded ~/.config/immybot-cli/config.toml (issue #270)",
+   "why": "Issue #270 companion to the fleet's mcp-config-resolves-like-the-cli entries. immybot's MCP server already resolves its config through config.Load(\"\") (newMCPConfig in internal/mcp/tools.go, honouring IMMYBOT_CONFIG and IMMYBOT_NO_CONFIG_WRITE), but it was the one honourer of the switch with no test pinning that resolution, so a reprint from a press whose template hardcodes ~/.config/<tool>-cli/config.toml would silently restore the defect the other 11 honourers are guarded against. The test seeds a config at a non-default path, points IMMYBOT_CONFIG at it, and asserts newMCPConfig returns that file's Path and base_url. The assert on tools.go pins the resolver call itself.",
+   "status": "active",
+   "spec_encode_followup": "cli-printing-press should generate newMCPClient (and the platform-bound newMCPConfig variant) with config.Load(\"\") rather than a hand-built home-relative path; the hardcoded path is a generator defect that makes <PREFIX>_CONFIG inert for every MCP install on every connector.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "cfg, err := config.Load(\"\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "filepath.Join(home, \".config\", \"immybot-cli\", \"config.toml\")"
+    },
+    {
+     "file": "cli/internal/mcp/mcp_config_resolution_test.go",
+     "contains": "func TestMCPClientHonoursTheConfigEnvVar(",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "workflow-archive-reports-success-count",
+   "summary": "`workflow archive` reports the number of resources that actually succeeded and exits non-zero when 0 of N did; partial success stays exit 0 (issue #275 finding 3, upstream #4410)",
+   "why": "DONE UPSTREAM: mvanhorn/cli-printing-press#4410 merged 2026-08-28 (28c43fa9), first shipped press v4.31.3 (2026-08-30). Issue #275 finding 3 (@Xenith-B): `workflow archive` reported `\"resources_synced\": len(resources)` and returned nil even when every resource errored or warned, so the JSON summary and the human line (`Archived 0 items across N resources`) were success-shaped for a tenant whose every request 401ed, and an agent reading them believed the archive was complete. immybot's 4.3x-era print already counted resourcesSynced and reported it, but never errored on zero, so an all-failed archive still exited 0 with a success-shaped human line; only the zero-guard and the summary suppression from the upstream template diff were added. The three outcomes are pinned by workflow_archive_outcome_test.go, which drives the real root command against a local HTTP double with dummy credentials: every resource 401 -> non-zero exit naming `0 of N resource(s) archived`, resources_synced 0, and no success-shaped summary; one resource serving rows and the rest 401 -> exit 0 with resources_synced 1 (the TRUE count) and the per-resource errors on stderr; every resource serving an empty page -> exit 0 with every attempted resource counted. Partial success stays exit 0, matching sync's default non-strict policy. This connector is on press an unstamped 4.3x-era print, below the first fixed release, so a reprint from the vendored engine REINTRODUCES the false success while go build and go test stay green; this entry is what notices. Retire it after a reprint from press >= 4.31.3.",
+   "status": "upstreamed",
+   "spec_encode_followup": "None: the fix is in the press template since 4.31.3. A reprint from >= 4.31.3 regenerates it; keep the behavioural test, which is a hand-authored (NOVEL) file regen-merge preserves.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/channel_workflow.go",
+     "contains": "if resourcesSynced == 0 && len(resources) > 0 {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/channel_workflow.go",
+     "contains": "return fmt.Errorf(\"workflow archive failed: 0 of %d resource(s) archived\", len(resources))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/channel_workflow.go",
+     "contains": "\"resources_synced\": resourcesSynced,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/channel_workflow.go",
+     "contains": "} else if resourcesSynced > 0 || len(resources) == 0 {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/workflow_archive_outcome_test.go",
+     "contains": "func TestWorkflowArchiveFailsWhenEveryResourceErrors(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/workflow_archive_outcome_test.go",
+     "contains": "func TestWorkflowArchivePartialSuccessExitsZero(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/workflow_archive_outcome_test.go",
+     "contains": "func TestWorkflowArchiveSuccessfulEmptyExitsZero(",
+     "min_count": 1
     }
    ]
   }

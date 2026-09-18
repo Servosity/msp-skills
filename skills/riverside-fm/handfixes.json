@@ -408,6 +408,196 @@
      "not_contains": "\"--\"+k, "
     }
    ]
+  },
+  {
+   "id": "mcp-server-version-from-ldflags",
+   "summary": "cmd/riverside-fm-mcp/main.go declares `var version = \"0.0.0-dev\"` and passes it to server.NewMCPServer, so release.yml's `-X main.version=<tag>` stamps the real release into serverInfo.version (issue #322, PR #323)",
+   "why": "Issue #322: the MCP binary reported a hard-coded literal (\"1.0.0\") in serverInfo.version instead of the release tag. release.yml builds every MCP with `-ldflags \"-X main.version=${version}\"` (PR #323) and the press template emits `var version = \"0.0.0-dev\"` for 63 of 67 connectors; this connector's main.go had drifted to a literal in the NewMCPServer call, and the Go linker silently ignores a -X for a symbol that does not exist (build exit 0, no warning), so the stamp could never land. Proven both ways with a real initialize JSON-RPC over stdio: before the fix `go build -ldflags '-X main.version=9.9.9'` still answered the literal; after it answers 9.9.9. A wrong-looking real version (1.0.0 on a v0.1.x release) is worse than 0.0.0-dev because it reads as intentional. code_only because the explanatory comment above the var names the ldflags mechanism; the assert must be satisfied by the declaration itself.",
+   "status": "active",
+   "spec_encode_followup": "None needed at the press: current cli-printing-press already emits the var and passes it (see any of the 63 standard mains). A reprint from any current press regenerates this correctly; retire the entry after the next reprint confirms the var is present.",
+   "asserts": [
+    {
+     "file": "cli/cmd/riverside-fm-mcp/main.go",
+     "contains": "var version = \"0.0.0-dev\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/riverside-fm-mcp/main.go",
+     "contains": "\t\tversion,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/riverside-fm-mcp/main.go",
+     "not_contains": "\"1.0.0\","
+    }
+   ]
+  },
+  {
+   "id": "no-config-write-switch",
+   "summary": "RIVERSIDE_FM_NO_CONFIG_WRITE makes every credential write a no-op (the automatic token cache included) while leaving the `auth logout` erase working, and the MCP server honours it too (issue #270)",
+   "why": "Issue #270, raised by @Xenith-B off the back of #266. #266 stopped env-supplied client credentials reaching disk; the MINTED access token still landed in ~/.config/<tool>-cli/config.toml in cleartext and there was no supported way to turn that off. Their workaround was `--config NUL`, which is OS-specific, undocumented, makes doctor report a false 'not configured', and - the part that matters most - does not cover the MCP servers at all, because internal/mcp resolved its own hardcoded config path and ignored --config. PR #309 covered 12 connectors; this connector was one of the three auto-persisters it missed (client.do's sliding-session cookie rotation, which calls SaveAccessToken on every response, internal/client/client.go). Three deliberate boundaries make this switch honest rather than merely quiet. (1) ClearTokens keeps calling save() directly: it is the ERASE path, and routing it through the guard would make `auth logout` silently inert, which is a worse defect than the one being fixed. (2) `auth login --chrome`, the only command on this connector that writes a credential on purpose, must REFUSE and name the variable rather than reporting a save that did not happen - a false success is the same defect class as a doctor that says credentials are fine without checking. (3) The MCP server runs this same config package, so it honours the switch (its config-path resolution is a separate ledger entry, mcp-config-resolves-like-the-cli). The variable is declared on all three install channels because for a Claude Desktop install the manifest prompt is the ONLY channel that can set an environment variable. The tests prove both directions: under the switch the real persistence route (client.Get against a local double that rotates riverside_auth_access; the rotated cookie must stay in memory because the 401/403 retry and every later request in the process depend on it) updates the in-memory value and leaves the file absent (or byte-identical when one already exists); with the switch unset or any falsey spelling the bytes written are identical to before. Class C, new documented surface. GENERATOR-class: a reprint drops the switch entirely and silently restores the plaintext token cache.",
+   "status": "active",
+   "spec_encode_followup": "cli-printing-press should emit <PREFIX>_NO_CONFIG_WRITE (or an equivalent) as part of the standard config surface, with the same three boundaries: the erase path exempt, explicit save commands failing loudly rather than no-oping, and every best-effort auto-persist route (OAuth mint, JWT exchange, cookie rotation) routed through the single gated writer.",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "const NoConfigWriteEnv = \"RIVERSIDE_FM_NO_CONFIG_WRITE\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "func NoConfigWrite() bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "func (c *Config) saveCredentialMaterial() error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "return c.saveCredentialMaterial()",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config_noconfigwrite_test.go",
+     "contains": "func TestNoConfigWriteLeavesNothingOnDisk(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/config/config_noconfigwrite_test.go",
+     "contains": "func TestNoConfigWriteLeavesAnExistingFileByteIdentical(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/config/config_noconfigwrite_test.go",
+     "contains": "func TestNoConfigWriteStillAllowsTheWipe(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/client_noconfigwrite_test.go",
+     "contains": "func TestNoConfigWriteKeepsTheRotatedCookieInMemoryOnly(",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"RIVERSIDE_FM_NO_CONFIG_WRITE\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"RIVERSIDE_FM_NO_CONFIG_WRITE\"",
+     "min_count": 1
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"RIVERSIDE_FM_NO_CONFIG_WRITE\":",
+     "min_count": 3
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "if config.NoConfigWrite() {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "guide.md",
+     "contains": "### Keeping credentials off disk (optional)",
+     "min_count": 1
+    },
+    {
+     "file": "guide.md",
+     "contains": "| `auth login --chrome` | Refuses, naming the variable, instead of reporting a save that did not happen. |",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "mcp-config-resolves-like-the-cli",
+   "summary": "The MCP server resolves its config through config.Load(\"\") - honouring RIVERSIDE_FM_CONFIG and RIVERSIDE_FM_NO_CONFIG_WRITE exactly like the CLI - instead of a hardcoded ~/.config/riverside-fm-cli/config.toml (issue #270)",
+   "why": "Issue #270 (@Xenith-B): internal/mcp/tools.go built the config path by hand - filepath.Join(home, \".config\", \"riverside-fm-cli\", \"config.toml\") - and passed it to config.Load, so the MCP server ignored RIVERSIDE_FM_CONFIG entirely. That made --config / RIVERSIDE_FM_CONFIG inert for every MCP install: a Claude Desktop operator had no way to point the server at a different config file, and no way to keep it away from a plaintext token cache under the home directory. newMCPClient now calls config.Load(\"\"), the same resolver the CLI uses (root.go newClient), which reads RIVERSIDE_FM_CONFIG, falls back to the identical default path, and applies RIVERSIDE_FM_NO_CONFIG_WRITE (ledger entry no-config-write-switch). The test seeds a config at a non-default path, points RIVERSIDE_FM_CONFIG at it, and asserts the MCP client's Config.Path and base_url come from that file - the exact scenario the hardcoded path broke. GENERATOR-class: the press template still hardcodes the path, so a reprint restores the defect while go build and go test stay green; this entry is what notices.",
+   "status": "active",
+   "spec_encode_followup": "cli-printing-press should generate newMCPClient (and the platform-bound newMCPConfig variant) with config.Load(\"\") rather than a hand-built home-relative path; the hardcoded path is a generator defect that makes <PREFIX>_CONFIG inert for every MCP install on every connector.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "cfg, err := config.Load(\"\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "filepath.Join(home, \".config\", \"riverside-fm-cli\", \"config.toml\")"
+    },
+    {
+     "file": "cli/internal/mcp/mcp_config_resolution_test.go",
+     "contains": "func TestMCPClientHonoursTheConfigEnvVar(",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "workflow-archive-reports-success-count",
+   "summary": "NOT APPLIED - deferred to the reprint #312 tracks (issue #275 finding 3): the 4.4.0 print's archive has an empty resource list, makes no requests, and an unconditional zero-guard would fail every run",
+   "why": "Issue #275 finding 3 was fixed on the standard-template connectors in the 2026-09-18 wave (upstream #4410 shape). riverside-fm was deliberately excluded: its 4.4.0 print declares `resources := []string{}` in channel_workflow.go and an empty endpoint map in sync.go, so `workflow archive` performs zero requests and reports `Archived 0 items across 0 resources`. The upstream guard is `resourcesSynced == 0 && len(resources) > 0`, which is a no-op on an empty list, so applying it would change nothing observable while a test for it could never reach the aggregation (there is nothing to 401). F3 for this connector arrives with the reprint that populates the resource list (issue #312). This entry is a TRIPWIRE: it pins the empty list so that the reprint, which will replace it, fails this gate and the maintainer applies the #4410 shape plus the behavioural test in the same change instead of inheriting a false-success archive.",
+   "status": "active",
+   "spec_encode_followup": "Reprint from press >= 4.31.3 (issue #312) regenerates channel_workflow.go with the zero-guard; add workflow_archive_outcome_test.go then.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/channel_workflow.go",
+     "contains": "resources := []string{}",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "companion-cli-windows-exe-sibling",
+   "summary": "SiblingCLIPath tries the sibling `riverside-fm-cli.exe` before the bare name on Windows and looks up `riverside-fm-cli.exe` on PATH there, matching the hudu-era press shape (siblingCLICandidates / cliExecutableName)",
+   "why": "Found by Codex reviewing the companion-CLI bundle (2026-09-18): the 4.4.0 print's cli_path.go stat'ed only the extensionless sibling `riverside-fm-cli` and had no Windows handling at all, so a Windows .mcpb bundle that ships riverside-fm-cli.exe next to riverside-fm-mcp.exe never resolved its own CLI, silently fell through to RIVERSIDE_FM_CLI_PATH and then a PATH lookup for the extensionless name, and every Cobra-mirror MCP tool failed on Windows unless the operator had separately installed the CLI. Ported hudu's shape verbatim with the slug swapped: sibling .exe first on windows, then bare; then RIVERSIDE_FM_CLI_PATH; then exec.LookPath of the per-OS executable name. cli_path_test.go pins the candidate order per GOOS without needing a Windows runner. GENERATOR-class for this connector: a reprint from a press older than the one that introduced siblingCLICandidates restores the defect; retire after the #312 reprint confirms the shape is regenerated.",
+   "status": "upstreamed",
+   "spec_encode_followup": "None: the press already emits this shape (hudu and the other 4.24+ prints carry it). Regenerated by the #312 reprint.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/cobratree/cli_path.go",
+     "contains": "func siblingCLICandidates(goos, exePath string) []string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/cli_path.go",
+     "contains": "return []string{filepath.Join(dir, name+\".exe\"), filepath.Join(dir, name)}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/cli_path.go",
+     "contains": "return exec.LookPath(cliExecutableName(runtime.GOOS))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/cli_path.go",
+     "contains": "if v := os.Getenv(\"RIVERSIDE_FM_CLI_PATH\"); v != \"\" {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/cli_path.go",
+     "not_contains": "candidate := filepath.Join(filepath.Dir(exe), cliName)"
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/cli_path_test.go",
+     "contains": "func TestSiblingCLICandidatesPerOS(",
+     "min_count": 1
+    }
+   ]
   }
  ]
 }

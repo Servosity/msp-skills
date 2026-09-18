@@ -46,7 +46,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-> **Interim note on `.mcpb`:** check the bundle before you trust it ([#287](https://github.com/Servosity/msp-skills/issues/287)). Its `manifest.json` launches `${__dirname}/bin/datto-rmm-mcp`, while the builder stores the release binaries in `bin/` under their platform-suffixed names - `datto-rmm-mcp-darwin-arm64`, `-darwin-amd64`, `-linux-arm64`, `-linux-amd64`, `-windows-amd64.exe`. Run `unzip -l <file>.mcpb | grep bin/`: if the name the manifest launches is not among them, Claude Desktop has nothing to run - use Path A or Path B below and wire Claude Desktop up through [mcp-install.md](./mcp-install.md).
+> **Claude Desktop bundle:** the `.mcpb` launches on macOS (Intel and Apple Silicon), Windows x64 and Linux x64. Every tool shells out to the companion `datto-rmm-cli`. Releases cut from 2026-09-18 on ship that CLI inside the bundle; older bundles contain only the MCP server, so if yours lacks the companion, run the Path A or Path B installer below first (or set `DATTO_RMM_CLI_PATH` to an existing binary). Details: [#331](https://github.com/Servosity/msp-skills/issues/331).
 
 [**Download Datto RMM MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/datto-rmm-v0.1.6/datto-rmm-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Datto RMM release on the [releases page](https://github.com/servosity/msp-skills/releases?q=datto-rmm).)
 

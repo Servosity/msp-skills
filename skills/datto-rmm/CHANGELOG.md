@@ -4,6 +4,39 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.6] - 2026-09-18
+
+### Changed
+### Added
+- **`DATTO_RMM_NO_CONFIG_WRITE=1` keeps credential material off disk.** The minted OAuth
+  access token stays in memory for the running command and is never written to
+  `config.toml`; `auth login` and `auth set-token` refuse to persist under the switch;
+  wipes still run. Declared in the bundle prompt, the MCP Registry entry and the
+  manual-install JSON.
+
+### Fixed
+- **The MCP server resolves its config the way the CLI does.** It used a hard-coded
+  `~/.config/datto-rmm-cli/config.toml` and ignored `--config` and the switch above.
+- **`workflow archive` no longer reports success when nothing was archived.** It reported
+  the number of resources requested, not succeeded, and exited 0 even when every request
+  failed. Zero of N now exits non-zero with the true count; partial success still exits 0.
+
+### Changed
+- **The Claude Desktop bundle now carries the companion CLI.** Every MCP tool runs the
+  CLI under the hood, but the `.mcpb` used to contain only the MCP server, so a one-click
+  install on a machine without the CLI failed at the first tool call. The bundle now ships
+  both binaries side by side for macOS (universal), Windows x64 and Linux x64. Older
+  bundles are unchanged; this release's bundle is the first to include it.
+- **The MCP server reports its real version.** `serverInfo.version` used to read
+  `0.0.0-dev` (or a hard-coded literal) in every released MCP binary because the release
+  build stamped the version into the CLI only. The release now stamps both and checks the
+  built server's `initialize` reply against the tag before publishing.
+- **Installers verify what they download.** `install.sh` and `install.ps1` now require a
+  sealed (immutable) release, verify both binaries against the release's SHA-256 sidecars
+  before touching anything, and replace the old binaries in a single transaction that is
+  undone if any step fails. (Served from the repository, so this applies to every install
+  from now on, not only this version.)
+
 ## [0.1.5] - 2026-09-10
 
 ### Fixed

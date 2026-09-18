@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "riverside-fm-pp-mcp",
   "display_name": "Riverside",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Riverside API surface as MCP tools.",
   "author": {
     "name": "Servosity Inc."
@@ -15,7 +15,8 @@
       "command": "${__dirname}/bin/riverside-fm-pp-mcp",
       "args": [],
       "env": {
-        "RIVERSIDE_FM_BASE_URL": "${user_config.riverside_fm_base_url}"
+        "RIVERSIDE_FM_BASE_URL": "${user_config.riverside_fm_base_url}",
+        "RIVERSIDE_FM_NO_CONFIG_WRITE": "${user_config.riverside_fm_no_config_write}"
       }
     }
   },
@@ -26,6 +27,13 @@
       "description": "Base URL for the Riverside API. Leave the prefilled default unless your account uses a different host. There is no API key: run `riverside-fm-cli auth login --chrome` on this machine first, and the MCP server reuses the browser session it saves.",
       "required": false,
       "default": "https://riverside.com"
+    },
+    "riverside_fm_no_config_write": {
+      "type": "string",
+      "title": "Keep credentials off disk",
+      "description": "Set to 1 to keep credentials off disk. The rotated session cookie is kept in memory for the run and never written back to config.toml; an existing config file is read but not updated. Leave blank for the default cached behaviour.",
+      "required": false,
+      "default": ""
     }
   },
   "compatibility": {
