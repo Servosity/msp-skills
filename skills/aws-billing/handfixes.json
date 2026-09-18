@@ -246,6 +246,94 @@
      "code_only": true
     }
    ]
+  },
+  {
+   "id": "mcp-server-version-from-ldflags",
+   "summary": "cmd/aws-billing-mcp/main.go declares `var version = \"0.0.0-dev\"` and passes it to server.NewMCPServer, so release.yml's `-X main.version=<tag>` stamps the real release into serverInfo.version (issue #322, PR #323)",
+   "why": "Issue #322: the MCP binary reported a hard-coded literal (\"1.0.0\") in serverInfo.version instead of the release tag. release.yml builds every MCP with `-ldflags \"-X main.version=${version}\"` (PR #323) and the press template emits `var version = \"0.0.0-dev\"` for 63 of 67 connectors; this connector's main.go had drifted to a literal in the NewMCPServer call, and the Go linker silently ignores a -X for a symbol that does not exist (build exit 0, no warning), so the stamp could never land. Proven both ways with a real initialize JSON-RPC over stdio: before the fix `go build -ldflags '-X main.version=9.9.9'` still answered the literal; after it answers 9.9.9. A wrong-looking real version (1.0.0 on a v0.1.x release) is worse than 0.0.0-dev because it reads as intentional. code_only because the explanatory comment above the var names the ldflags mechanism; the assert must be satisfied by the declaration itself.",
+   "status": "active",
+   "spec_encode_followup": "None needed at the press: current cli-printing-press already emits the var and passes it (see any of the 63 standard mains). A reprint from any current press regenerates this correctly; retire the entry after the next reprint confirms the var is present.",
+   "asserts": [
+    {
+     "file": "cli/cmd/aws-billing-mcp/main.go",
+     "contains": "var version = \"0.0.0-dev\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/aws-billing-mcp/main.go",
+     "contains": "\t\tversion,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/aws-billing-mcp/main.go",
+     "not_contains": "\"1.0.0\","
+    }
+   ]
+  },
+  {
+   "id": "workflow-archive-reports-success-count",
+   "summary": "NOT APPLIED - known gap (issue #275 finding 3): aws-billing's bespoke archive hard-codes `\"resources_synced\": 4` and runAWSSync turns API failures into warnings, so an all-failed archive still exits 0; the fix needs an operation-outcome model for the four sync layers, which is its own change",
+   "why": "Issue #275 finding 3 was fixed on the standard-template connectors in the 2026-09-18 wave (upstream #4410 shape: count successes, fail closed on 0 of N). aws-billing was deliberately excluded: its channel_workflow.go does not iterate resources through syncResource at all - it calls runAWSSync once (sync.go), which folds Cost Explorer / Organizations / Forecast / Inventory failures into sum.Warnings and returns a summary, so there is no per-resource success count to report and a naive zero-guard on total_items would fail every legitimately empty account. A faithful fix must make runAWSSync return an outcome per layer (accounts, cost_lines, forecasts, inventory: attempted / succeeded / failed) so the archive can report the real count and fail closed only when every attempted layer failed. This entry is a TRIPWIRE, not a protection: the asserts pin today's bespoke shape so the moment someone touches the archive summary the gate fails and this note is read. When the outcome model lands, replace this entry with the real fix's markers.",
+   "status": "active",
+   "spec_encode_followup": "Model the four AWS sync layers as operations with outcomes in sync.go; then port the #4410 zero-guard over that count.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/channel_workflow.go",
+     "contains": "\"resources_synced\": 4,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "Warnings",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "companion-cli-windows-exe-sibling",
+   "summary": "SiblingCLIPath tries the sibling `aws-billing-cli.exe` then the bare `aws-billing-cli` on Windows and looks up `aws-billing-cli.exe` on PATH there, matching the hudu-era press shape (siblingCLICandidates / cliExecutableName)",
+   "why": "Found by Codex reviewing the companion-CLI bundle (2026-09-18, census with riverside-fm and rewst): the 4.19.0 print's cli_path.go stat'ed exactly one sibling name - cliExecutableName(runtime.GOOS), i.e. only `aws-billing-cli.exe` on Windows and only the bare name elsewhere - with no fallback to the other spelling, and no ordered candidate list. A Windows bundle or install that carries the CLI under either spelling must resolve it before falling through to AWS_BILLING_CLI_PATH and PATH, or every Cobra-mirror MCP tool fails with a missing companion. Ported hudu's shape verbatim with the slug swapped: sibling .exe first on windows, then bare; then AWS_BILLING_CLI_PATH; then exec.LookPath of the per-OS executable name. cli_path_test.go pins the candidate order per GOOS without needing a Windows runner. GENERATOR-class: a reprint from a press older than the one that introduced siblingCLICandidates restores the single-candidate lookup; retire after a reprint from a current press confirms the shape is regenerated.",
+   "status": "upstreamed",
+   "spec_encode_followup": "None: the press already emits this shape (hudu and the other 4.24+ prints carry it). Regenerated by the next reprint.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/cobratree/cli_path.go",
+     "contains": "func siblingCLICandidates(goos, exePath string) []string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/cli_path.go",
+     "contains": "return []string{filepath.Join(dir, name+\".exe\"), filepath.Join(dir, name)}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/cli_path.go",
+     "contains": "return exec.LookPath(cliExecutableName(runtime.GOOS))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/cli_path.go",
+     "contains": "if v := os.Getenv(\"AWS_BILLING_CLI_PATH\"); v != \"\" {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/cli_path.go",
+     "not_contains": "candidate := filepath.Join(filepath.Dir(exe), cliName)"
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/cli_path_test.go",
+     "contains": "func TestSiblingCLICandidatesPerOS(",
+     "min_count": 1
+    }
+   ]
   }
  ]
 }

@@ -258,6 +258,172 @@
      "code_only": true
     }
    ]
+  },
+  {
+   "id": "no-config-write-switch",
+   "summary": "DATTO_RMM_NO_CONFIG_WRITE makes every credential write a no-op (the automatic token cache included) while leaving the `auth logout` erase working, and the MCP server honours it too (issue #270)",
+   "why": "Issue #270, raised by @Xenith-B off the back of #266. #266 stopped env-supplied client credentials reaching disk; the MINTED access token still landed in ~/.config/<tool>-cli/config.toml in cleartext and there was no supported way to turn that off. Their workaround was `--config NUL`, which is OS-specific, undocumented, makes doctor report a false 'not configured', and - the part that matters most - does not cover the MCP servers at all, because internal/mcp resolved its own hardcoded config path and ignored --config. PR #309 covered 12 connectors; this connector was one of the three auto-persisters it missed (EnsureDattoToken's best-effort SaveTokens on every OAuth mint, internal/config/datto_oauth.go). Three deliberate boundaries make this switch honest rather than merely quiet. (1) ClearTokens keeps calling save() directly: it is the ERASE path, and routing it through the guard would make `auth logout` silently inert, which is a worse defect than the one being fixed. (2) `auth login` and `auth set-token`, the two commands on this connector that write a credential on purpose, REFUSE and name the variable rather than reporting a save that did not happen - a false success is the same defect class as a doctor that says credentials are fine without checking. (3) The MCP server runs this same config package, so it honours the switch (its config-path resolution is a separate ledger entry, mcp-config-resolves-like-the-cli). The variable is declared on all three install channels because for a Claude Desktop install the manifest prompt is the ONLY channel that can set an environment variable. The tests prove both directions: under the switch the real persistence route (EnsureDattoToken against a local OAuth token double) updates the in-memory value and leaves the file absent (or byte-identical when one already exists); with the switch unset or any falsey spelling the bytes written are identical to before. Class C, new documented surface. GENERATOR-class: a reprint drops the switch entirely and silently restores the plaintext token cache.",
+   "status": "active",
+   "spec_encode_followup": "cli-printing-press should emit <PREFIX>_NO_CONFIG_WRITE (or an equivalent) as part of the standard config surface, with the same three boundaries: the erase path exempt, explicit save commands failing loudly rather than no-oping, and every best-effort auto-persist route (OAuth mint, JWT exchange, cookie rotation) routed through the single gated writer.",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "const NoConfigWriteEnv = \"DATTO_RMM_NO_CONFIG_WRITE\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "func NoConfigWrite() bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "func (c *Config) saveCredentialMaterial() error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "return c.saveCredentialMaterial()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config_noconfigwrite_test.go",
+     "contains": "func TestNoConfigWriteLeavesNothingOnDisk(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/config/config_noconfigwrite_test.go",
+     "contains": "func TestNoConfigWriteLeavesAnExistingFileByteIdentical(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/config/config_noconfigwrite_test.go",
+     "contains": "func TestNoConfigWriteStillAllowsTheWipe(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/config/config_noconfigwrite_test.go",
+     "contains": "func TestNoConfigWriteGatesTheOAuthMint(",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"DATTO_RMM_NO_CONFIG_WRITE\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"DATTO_RMM_NO_CONFIG_WRITE\"",
+     "min_count": 1
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"DATTO_RMM_NO_CONFIG_WRITE\":",
+     "min_count": 3
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "if config.NoConfigWrite() {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth_login.go",
+     "contains": "if config.NoConfigWrite() {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "guide.md",
+     "contains": "### Keeping credentials off disk (optional)",
+     "min_count": 1
+    },
+    {
+     "file": "guide.md",
+     "contains": "| `auth set-token` | Refuses, naming the variable, instead of reporting a save that did not happen. |",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "mcp-config-resolves-like-the-cli",
+   "summary": "The MCP server resolves its config through config.Load(\"\") - honouring DATTO_RMM_CONFIG and DATTO_RMM_NO_CONFIG_WRITE exactly like the CLI - instead of a hardcoded ~/.config/datto-rmm-cli/config.toml (issue #270)",
+   "why": "Issue #270 (@Xenith-B): internal/mcp/tools.go built the config path by hand - filepath.Join(home, \".config\", \"datto-rmm-cli\", \"config.toml\") - and passed it to config.Load, so the MCP server ignored DATTO_RMM_CONFIG entirely. That made --config / DATTO_RMM_CONFIG inert for every MCP install: a Claude Desktop operator had no way to point the server at a different config file, and no way to keep it away from a plaintext token cache under the home directory. newMCPClient now calls config.Load(\"\"), the same resolver the CLI uses (root.go newClient), which reads DATTO_RMM_CONFIG, falls back to the identical default path, and applies DATTO_RMM_NO_CONFIG_WRITE (ledger entry no-config-write-switch). The test seeds a config at a non-default path, points DATTO_RMM_CONFIG at it, and asserts the MCP client's Config.Path and base_url come from that file - the exact scenario the hardcoded path broke. GENERATOR-class: the press template still hardcodes the path, so a reprint restores the defect while go build and go test stay green; this entry is what notices.",
+   "status": "active",
+   "spec_encode_followup": "cli-printing-press should generate newMCPClient (and the platform-bound newMCPConfig variant) with config.Load(\"\") rather than a hand-built home-relative path; the hardcoded path is a generator defect that makes <PREFIX>_CONFIG inert for every MCP install on every connector.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "cfg, err := config.Load(\"\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "filepath.Join(home, \".config\", \"datto-rmm-cli\", \"config.toml\")"
+    },
+    {
+     "file": "cli/internal/mcp/mcp_config_resolution_test.go",
+     "contains": "func TestMCPClientHonoursTheConfigEnvVar(",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "workflow-archive-reports-success-count",
+   "summary": "`workflow archive` reports the number of resources that actually succeeded and exits non-zero when 0 of N did; partial success stays exit 0 (issue #275 finding 3, upstream #4410)",
+   "why": "DONE UPSTREAM: mvanhorn/cli-printing-press#4410 merged 2026-08-28 (28c43fa9), first shipped press v4.31.3 (2026-08-30). Issue #275 finding 3 (@Xenith-B): `workflow archive` reported `\"resources_synced\": len(resources)` and returned nil even when every resource errored or warned, so the JSON summary and the human line (`Archived 0 items across N resources`) were success-shaped for a tenant whose every request 401ed, and an agent reading them believed the archive was complete. This is the fleet backport of the upstream template diff (channel_workflow.go.tmpl): count resourcesSynced, report it in both surfaces, print the human summary only when something succeeded or nothing was attempted, and fail closed with `workflow archive failed: 0 of %d resource(s) archived` when 0 of N succeeded. The three outcomes are pinned by workflow_archive_outcome_test.go, which drives the real root command against a local HTTP double with dummy credentials: every resource 401 -> non-zero exit naming `0 of N resource(s) archived`, resources_synced 0, and no success-shaped summary; one resource serving rows and the rest 401 -> exit 0 with resources_synced 1 (the TRUE count) and the per-resource errors on stderr; every resource serving an empty page -> exit 0 with every attempted resource counted. Partial success stays exit 0, matching sync's default non-strict policy. This connector is on press 4.24.0, below the first fixed release, so a reprint from the vendored engine REINTRODUCES the false success while go build and go test stay green; this entry is what notices. Retire it after a reprint from press >= 4.31.3.",
+   "status": "upstreamed",
+   "spec_encode_followup": "None: the fix is in the press template since 4.31.3. A reprint from >= 4.31.3 regenerates it; keep the behavioural test, which is a hand-authored (NOVEL) file regen-merge preserves.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/channel_workflow.go",
+     "contains": "if resourcesSynced == 0 && len(resources) > 0 {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/channel_workflow.go",
+     "contains": "return fmt.Errorf(\"workflow archive failed: 0 of %d resource(s) archived\", len(resources))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/channel_workflow.go",
+     "contains": "\"resources_synced\": resourcesSynced,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/channel_workflow.go",
+     "contains": "} else if resourcesSynced > 0 || len(resources) == 0 {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/channel_workflow.go",
+     "not_contains": "\"resources_synced\": len(resources),"
+    },
+    {
+     "file": "cli/internal/cli/workflow_archive_outcome_test.go",
+     "contains": "func TestWorkflowArchiveFailsWhenEveryResourceErrors(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/workflow_archive_outcome_test.go",
+     "contains": "func TestWorkflowArchivePartialSuccessExitsZero(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/workflow_archive_outcome_test.go",
+     "contains": "func TestWorkflowArchiveSuccessfulEmptyExitsZero(",
+     "min_count": 1
+    }
+   ]
   }
  ]
 }

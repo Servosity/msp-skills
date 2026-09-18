@@ -71,6 +71,7 @@ and full resync. After archiving, use 'search' for instant full-text search.`,
 				}
 			}
 
+			resourcesSynced := 0
 			for _, resource := range resources {
 				res := syncResource(cmd.Context(), c, s, resource, "", full, 100, false, nil, syncEventWriter)
 				if res.Err != nil {
@@ -82,21 +83,29 @@ and full resync. After archiving, use 'search' for instant full-text search.`,
 					continue
 				}
 				totalSynced += res.Count
+				resourcesSynced++
 				fmt.Fprintf(cmd.ErrOrStderr(), "  %s: %d synced\n", resource, res.Count)
 			}
 
 			if flags.asJSON {
 				enc := json.NewEncoder(cmd.OutOrStdout())
 				enc.SetIndent("", "  ")
-				return enc.Encode(map[string]any{
-					"resources_synced": len(resources),
+				if err := enc.Encode(map[string]any{
+					"resources_synced": resourcesSynced,
 					"total_items":      totalSynced,
 					"store_path":       dbPath,
 					"timestamp":        time.Now().UTC().Format(time.RFC3339),
-				})
+				}); err != nil {
+					return err
+				}
+			} else if resourcesSynced > 0 || len(resources) == 0 {
+				fmt.Fprintf(cmd.OutOrStdout(), "Archived %d items across %d resources to %s\n", totalSynced, resourcesSynced, dbPath)
 			}
-
-			fmt.Fprintf(cmd.OutOrStdout(), "Archived %d items across %d resources to %s\n", totalSynced, len(resources), dbPath)
+			// Fail closed when every attempted resource errored or warned.
+			// Partial success stays exit 0, matching sync's default (non-strict) policy.
+			if resourcesSynced == 0 && len(resources) > 0 {
+				return fmt.Errorf("workflow archive failed: 0 of %d resource(s) archived", len(resources))
+			}
 			return nil
 		},
 	}

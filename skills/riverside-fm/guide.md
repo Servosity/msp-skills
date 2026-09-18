@@ -355,6 +355,35 @@ Config file: `~/.config/riverside-fm-cli/config.toml`
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
 
+### Keeping credentials off disk (optional)
+
+By default the connector writes the browser session cookie back to the config
+file after every response, because Riverside rotates `riverside_auth_access` on
+each reply (a sliding session) and the next run needs the freshest value. Set
+`RIVERSIDE_FM_NO_CONFIG_WRITE=1` to turn that off: the rotated cookie is kept in
+memory for the rest of the run and nothing is written. Use it when the config
+file is managed by something else (agentcookie, a secrets launcher that
+materialises it at process start) and you do not want the CLI rewriting a
+plaintext copy on disk. There is no environment variable that carries the
+cookie, so the switch does not remove the need for a config file; it only stops
+the CLI updating it.
+
+It gates only credential writes. It does not change any other write the CLI makes
+(the local SQLite store, the response cache, receipts), and it does not erase a
+config file that already exists: an existing file is still read, just never
+updated. Remove the file yourself, or run `auth logout`, if you want it gone.
+
+| What changes | With `RIVERSIDE_FM_NO_CONFIG_WRITE=1` |
+| --- | --- |
+| Session cookie cache | Not written. The cookie Riverside rotates on every response is kept in memory for the rest of the run only; the next run starts again from the cookies in the config file. |
+| `auth login --chrome` | Refuses, naming the variable, instead of reporting a save that did not happen. |
+| `auth logout` | Still clears an existing config file. The erase is not a credential write. |
+| MCP server | Honours the same variable, so a Claude Desktop install gets no plaintext token cache either. |
+
+Set it in the shell for CLI use, or through the install prompt of the same name
+for the MCP server. Any value other than blank, `0`, `false`, `no` or `off`
+turns it on. See issue #270.
+
 ## Troubleshooting
 **Authentication errors (exit code 4)**
 - Run `riverside-fm-cli doctor` to check credentials

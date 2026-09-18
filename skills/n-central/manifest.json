@@ -16,7 +16,8 @@
       "args": [],
       "env": {
         "NCENTRAL_JWT": "${user_config.ncentral_jwt}",
-        "N_CENTRAL_BASE_URL": "${user_config.n_central_base_url}"
+        "N_CENTRAL_BASE_URL": "${user_config.n_central_base_url}",
+        "N_CENTRAL_NO_CONFIG_WRITE": "${user_config.n_central_no_config_write}"
       }
     }
   },
@@ -34,6 +35,13 @@
       "description": "Base URL for the N-central API. Leave the prefilled default unless your account uses a different regional or self-hosted host.",
       "required": false,
       "default": "https://ncod.n-able.com/api"
+    },
+    "n_central_no_config_write": {
+      "type": "string",
+      "title": "Keep credentials off disk",
+      "description": "Set to 1 to keep credentials off disk. The token cache becomes a no-op, so the connector mints a fresh token each run instead of writing one to config.toml. Leave blank for the default cached behaviour.",
+      "required": false,
+      "default": ""
     }
   },
   "compatibility": {

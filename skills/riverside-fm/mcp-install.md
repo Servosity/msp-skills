@@ -37,7 +37,8 @@ Add (or merge with your existing `mcpServers` block):
     "riverside-fm": {
       "command": "riverside-fm-mcp",
       "env": {
-        "RIVERSIDE_FM_BASE_URL": "https://riverside.com"
+        "RIVERSIDE_FM_BASE_URL": "https://riverside.com",
+        "RIVERSIDE_FM_NO_CONFIG_WRITE": ""
       }
     }
   }
@@ -62,7 +63,8 @@ Configuration**) and add:
       "type": "stdio",
       "command": "riverside-fm-mcp",
       "env": {
-        "RIVERSIDE_FM_BASE_URL": "https://riverside.com"
+        "RIVERSIDE_FM_BASE_URL": "https://riverside.com",
+        "RIVERSIDE_FM_NO_CONFIG_WRITE": ""
       }
     }
   }
@@ -83,7 +85,8 @@ Claude Desktop:
     "riverside-fm": {
       "command": "riverside-fm-mcp",
       "env": {
-        "RIVERSIDE_FM_BASE_URL": "https://riverside.com"
+        "RIVERSIDE_FM_BASE_URL": "https://riverside.com",
+        "RIVERSIDE_FM_NO_CONFIG_WRITE": ""
       }
     }
   }
