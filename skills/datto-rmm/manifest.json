@@ -19,7 +19,8 @@
         "DATTO_RMM_API_SECRET_KEY": "${user_config.datto_rmm_api_secret_key}",
         "DATTO_RMM_BASE_URL": "${user_config.datto_rmm_base_url}",
         "DATTO_RMM_PLATFORM": "${user_config.datto_rmm_platform}",
-        "DATTO_RMM_TOKEN": "${user_config.datto_rmm_token}"
+        "DATTO_RMM_TOKEN": "${user_config.datto_rmm_token}",
+        "DATTO_RMM_NO_CONFIG_WRITE": "${user_config.datto_rmm_no_config_write}"
       }
     }
   },
@@ -56,6 +57,13 @@
       "title": "Datto RMM platform",
       "description": "Regional platform shortcut that selects the API host: pinotage, merlot, concord, vidal, zinfandel, or syrah. It is the 'merlot' in merlot.centrastage.net. Leave blank if you set the base URL directly.",
       "required": false
+    },
+    "datto_rmm_no_config_write": {
+      "type": "string",
+      "title": "Keep credentials off disk",
+      "description": "Set to 1 to keep credentials off disk. The token cache becomes a no-op, so the connector mints a fresh token each run instead of writing one to config.toml. Leave blank for the default cached behaviour.",
+      "required": false,
+      "default": ""
     }
   },
   "compatibility": {

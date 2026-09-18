@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"n-central-pp-cli/internal/config"
 	"n-central-pp-cli/internal/ncauth"
 )
 
@@ -23,6 +24,13 @@ func newAuthLoginCmd(flags *rootFlags) *cobra.Command {
 			"mcp:hidden": "true", // auth setup is a human action, not an agent tool
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// issue #270: N_CENTRAL_NO_CONFIG_WRITE makes the automatic token
+			// cache a no-op. A command whose whole purpose is to write a
+			// credential to disk must not silently do nothing and report
+			// success, so it refuses here and names the variable.
+			if config.NoConfigWrite() {
+				return configErr(fmt.Errorf("%s is set, so no credential may be written to disk; unset it and re-run to save one", config.NoConfigWriteEnv))
+			}
 			c, err := flags.newClient()
 			if err != nil {
 				return err

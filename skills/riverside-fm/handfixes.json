@@ -433,6 +433,90 @@
      "not_contains": "\"1.0.0\","
     }
    ]
+  },
+  {
+   "id": "no-config-write-switch",
+   "summary": "RIVERSIDE_FM_NO_CONFIG_WRITE makes every credential write a no-op (the automatic token cache included) while leaving the `auth logout` erase working, and the MCP server honours it too (issue #270)",
+   "why": "Issue #270, raised by @Xenith-B off the back of #266. #266 stopped env-supplied client credentials reaching disk; the MINTED access token still landed in ~/.config/<tool>-cli/config.toml in cleartext and there was no supported way to turn that off. Their workaround was `--config NUL`, which is OS-specific, undocumented, makes doctor report a false 'not configured', and - the part that matters most - does not cover the MCP servers at all, because internal/mcp resolved its own hardcoded config path and ignored --config. PR #309 covered 12 connectors; this connector was one of the three auto-persisters it missed (client.do's sliding-session cookie rotation, which calls SaveAccessToken on every response, internal/client/client.go). Three deliberate boundaries make this switch honest rather than merely quiet. (1) ClearTokens keeps calling save() directly: it is the ERASE path, and routing it through the guard would make `auth logout` silently inert, which is a worse defect than the one being fixed. (2) `auth login --chrome`, the only command on this connector that writes a credential on purpose, must REFUSE and name the variable rather than reporting a save that did not happen - a false success is the same defect class as a doctor that says credentials are fine without checking. (3) The MCP server runs this same config package, so it honours the switch (its config-path resolution is a separate ledger entry, mcp-config-resolves-like-the-cli). The variable is declared on all three install channels because for a Claude Desktop install the manifest prompt is the ONLY channel that can set an environment variable. The tests prove both directions: under the switch the real persistence route (client.Get against a local double that rotates riverside_auth_access; the rotated cookie must stay in memory because the 401/403 retry and every later request in the process depend on it) updates the in-memory value and leaves the file absent (or byte-identical when one already exists); with the switch unset or any falsey spelling the bytes written are identical to before. Class C, new documented surface. GENERATOR-class: a reprint drops the switch entirely and silently restores the plaintext token cache.",
+   "status": "active",
+   "spec_encode_followup": "cli-printing-press should emit <PREFIX>_NO_CONFIG_WRITE (or an equivalent) as part of the standard config surface, with the same three boundaries: the erase path exempt, explicit save commands failing loudly rather than no-oping, and every best-effort auto-persist route (OAuth mint, JWT exchange, cookie rotation) routed through the single gated writer.",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "const NoConfigWriteEnv = \"RIVERSIDE_FM_NO_CONFIG_WRITE\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "func NoConfigWrite() bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "func (c *Config) saveCredentialMaterial() error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "return c.saveCredentialMaterial()",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config_noconfigwrite_test.go",
+     "contains": "func TestNoConfigWriteLeavesNothingOnDisk(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/config/config_noconfigwrite_test.go",
+     "contains": "func TestNoConfigWriteLeavesAnExistingFileByteIdentical(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/config/config_noconfigwrite_test.go",
+     "contains": "func TestNoConfigWriteStillAllowsTheWipe(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/client_noconfigwrite_test.go",
+     "contains": "func TestNoConfigWriteKeepsTheRotatedCookieInMemoryOnly(",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"RIVERSIDE_FM_NO_CONFIG_WRITE\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"RIVERSIDE_FM_NO_CONFIG_WRITE\"",
+     "min_count": 1
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"RIVERSIDE_FM_NO_CONFIG_WRITE\":",
+     "min_count": 3
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "if config.NoConfigWrite() {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "guide.md",
+     "contains": "### Keeping credentials off disk (optional)",
+     "min_count": 1
+    },
+    {
+     "file": "guide.md",
+     "contains": "| `auth login --chrome` | Refuses, naming the variable, instead of reporting a save that did not happen. |",
+     "min_count": 1
+    }
+   ]
   }
  ]
 }

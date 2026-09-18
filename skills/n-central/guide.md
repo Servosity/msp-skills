@@ -277,6 +277,32 @@ Environment variables:
 
 If you use agentcookie to sync secrets across machines, this CLI auto-adopts agentcookie-managed credentials with no extra setup. When the daemon writes to this CLI's config, `n-central-cli doctor` reports `agentcookie: detected` and `auth-status` labels the source as `agentcookie`. Skip this section if you don't use agentcookie - the CLI works the same as any other.
 
+### Keeping credentials off disk (optional)
+
+By default the connector caches the token it mints in the config file so the next
+command does not have to mint another one. Set `N_CENTRAL_NO_CONFIG_WRITE=1` to turn that
+off: nothing is written, and each run mints a fresh token instead. Use it when
+your secrets live in Keychain, Windows Credential Manager, or any launcher that
+injects them as environment variables at process start, and you do not want a
+plaintext copy on disk.
+
+It gates only credential writes. It does not change any other write the CLI makes
+(the local SQLite store, the response cache, receipts), and it does not erase a
+config file that already exists: an existing file is still read, just never
+updated. Remove the file yourself, or run `auth logout`, if you want it gone.
+
+| What changes | With `N_CENTRAL_NO_CONFIG_WRITE=1` |
+| --- | --- |
+| Token cache | Not written. A fresh token is minted per invocation. |
+| `auth login` | Refuses, naming the variable, instead of reporting a save that did not happen. |
+| `auth set-token` | Refuses, naming the variable, instead of reporting a save that did not happen. |
+| `auth logout` | Still clears an existing config file. The erase is not a credential write. |
+| MCP server | Honours the same variable, so a Claude Desktop install gets no plaintext token cache either. |
+
+Set it in the shell for CLI use, or through the install prompt of the same name
+for the MCP server. Any value other than blank, `0`, `false`, `no` or `off`
+turns it on. See issue #270.
+
 ## Troubleshooting
 **Authentication errors (exit code 4)**
 - Run `n-central-cli doctor` to check credentials

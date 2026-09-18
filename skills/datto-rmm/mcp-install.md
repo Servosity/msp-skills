@@ -41,7 +41,8 @@ Add (or merge with your existing `mcpServers` block):
         "DATTO_RMM_API_SECRET_KEY": "<your-datto_rmm_api_secret_key>",
         "DATTO_RMM_BASE_URL": "",
         "DATTO_RMM_PLATFORM": "",
-        "DATTO_RMM_TOKEN": "<your-datto_rmm_token>"
+        "DATTO_RMM_TOKEN": "<your-datto_rmm_token>",
+        "DATTO_RMM_NO_CONFIG_WRITE": ""
       }
     }
   }
@@ -70,7 +71,8 @@ Configuration**) and add:
         "DATTO_RMM_API_SECRET_KEY": "<your-datto_rmm_api_secret_key>",
         "DATTO_RMM_BASE_URL": "",
         "DATTO_RMM_PLATFORM": "",
-        "DATTO_RMM_TOKEN": "<your-datto_rmm_token>"
+        "DATTO_RMM_TOKEN": "<your-datto_rmm_token>",
+        "DATTO_RMM_NO_CONFIG_WRITE": ""
       }
     }
   }
@@ -95,7 +97,8 @@ Claude Desktop:
         "DATTO_RMM_API_SECRET_KEY": "<your-datto_rmm_api_secret_key>",
         "DATTO_RMM_BASE_URL": "",
         "DATTO_RMM_PLATFORM": "",
-        "DATTO_RMM_TOKEN": "<your-datto_rmm_token>"
+        "DATTO_RMM_TOKEN": "<your-datto_rmm_token>",
+        "DATTO_RMM_NO_CONFIG_WRITE": ""
       }
     }
   }

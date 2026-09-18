@@ -38,7 +38,8 @@ Add (or merge with your existing `mcpServers` block):
       "command": "n-central-mcp",
       "env": {
         "NCENTRAL_JWT": "<your-ncentral_jwt>",
-        "N_CENTRAL_BASE_URL": "https://ncod.n-able.com/api"
+        "N_CENTRAL_BASE_URL": "https://ncod.n-able.com/api",
+        "N_CENTRAL_NO_CONFIG_WRITE": ""
       }
     }
   }
@@ -64,7 +65,8 @@ Configuration**) and add:
       "command": "n-central-mcp",
       "env": {
         "NCENTRAL_JWT": "<your-ncentral_jwt>",
-        "N_CENTRAL_BASE_URL": "https://ncod.n-able.com/api"
+        "N_CENTRAL_BASE_URL": "https://ncod.n-able.com/api",
+        "N_CENTRAL_NO_CONFIG_WRITE": ""
       }
     }
   }
@@ -86,7 +88,8 @@ Claude Desktop:
       "command": "n-central-mcp",
       "env": {
         "NCENTRAL_JWT": "<your-ncentral_jwt>",
-        "N_CENTRAL_BASE_URL": "https://ncod.n-able.com/api"
+        "N_CENTRAL_BASE_URL": "https://ncod.n-able.com/api",
+        "N_CENTRAL_NO_CONFIG_WRITE": ""
       }
     }
   }
