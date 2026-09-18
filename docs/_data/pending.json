@@ -163,7 +163,7 @@
   "datto-rmm": {
     "state": "up-to-date",
     "version": "0.1.5",
-    "latest_tag": "datto-rmm-v0.1.5",
+    "latest_tag": "datto-rmm-v0.1.6",
     "current_hash": "sha256:d1b241c2dfa6bd7a066ffc94616a840cb485a95638060cd2a7237280d9ba8bab",
     "released_hash": "sha256:d1b241c2dfa6bd7a066ffc94616a840cb485a95638060cd2a7237280d9ba8bab"
   },
