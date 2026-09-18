@@ -197,7 +197,7 @@ fresh_dir "${NAME}"; run_installer MSP_SKILLS_API_BASE="${API_BASE}"
 check "exit 0" rc_is 0; check "sealed reported" out_has "(sealed)"; check "installed" installed; check "clean" clean
 end
 
-for mode in missing string null nested-only broken; do
+for mode in missing string null nested-only broken nul; do
   NAME="immutable_${mode}"; begin "immutable field ${mode} is refused as ambiguous"
   ASSETS="${WORK}/assets.${NAME}"; make_assets "${ASSETS}"; start_server "${ASSETS}" --immutable "${mode}"
   fresh_dir "${NAME}"; run_installer MSP_SKILLS_API_BASE="${API_BASE}"

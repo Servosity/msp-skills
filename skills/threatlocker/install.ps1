@@ -88,6 +88,9 @@ function Get-GitHubJson {
   if ([string]::IsNullOrWhiteSpace($resp.Content)) {
     throw "GitHub API request failed (empty reply): $Url"
   }
+  if ($resp.Content.IndexOf([char]0) -ge 0) {
+    throw "GitHub API request failed (malformed JSON: control byte): $Url"
+  }
   try {
     return ($resp.Content | ConvertFrom-Json)
   } catch {

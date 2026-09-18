@@ -65,7 +65,8 @@ else
   DOWNLOAD_ORIGIN="https://github.com"
 fi
 
-fetch_stdout() {
+# fetch_to <url> <dest>: GET <url> into the file <dest> ("-" = stdout).
+fetch_to() {
   # GITHUB_TOKEN/GH_TOKEN (optional) authenticates GitHub API calls - lifts the
   # 60/hr unauthenticated rate limit that bites shared/corporate IPs and CI.
   # The token is attached ONLY to the real API origin, never to an override.
@@ -79,21 +80,22 @@ fetch_stdout() {
   # being read as an empty listing. The API endpoints used here answer directly.
   if command -v curl >/dev/null 2>&1; then
     if [ -n "${_tok}" ]; then
-      curl -fsSL --max-redirs 0 -H "Authorization: Bearer ${_tok}" "$1"
+      curl -fsSL --max-redirs 0 -H "Authorization: Bearer ${_tok}" -o "$2" "$1"
     else
-      curl -fsSL "$1"
+      curl -fsSL -o "$2" "$1"
     fi
   elif command -v wget >/dev/null 2>&1; then
     if [ -n "${_tok}" ]; then
-      wget -qO- --max-redirect=0 --header="Authorization: Bearer ${_tok}" "$1"
+      wget -q --max-redirect=0 --header="Authorization: Bearer ${_tok}" -O "$2" "$1"
     else
-      wget -qO- "$1"
+      wget -q -O "$2" "$1"
     fi
   else
     echo "Neither curl nor wget available; install one and retry." >&2
     exit 1
   fi
 }
+fetch_stdout() { fetch_to "$1" -; }
 
 # top_level_immutable: validate the JSON document on stdin (a full
 # recursive-descent parse in POSIX awk: object/array/string/number/literal
@@ -278,8 +280,11 @@ elif [ -n "${MSP_SKILLS_RELEASE_BASE:-}" ]; then
   exit 1
 else
   tag_url="${API_BASE}/repos/${OWNER}/${REPO}/releases/tags/${tag}"
-  release_json="$(fetch_stdout "${tag_url}")" || api_failed "${tag_url}"
-  [ -n "${release_json}" ] || api_failed "${tag_url}"
+  # The reply goes to a FILE, never through a shell variable: a variable would
+  # silently drop NUL bytes before the validator could refuse them.
+  release_file="$(mktemp)" || { echo "Cannot create a temp file." >&2; exit 1; }
+  fetch_to "${tag_url}" "${release_file}" || { rm -f -- "${release_file}"; api_failed "${tag_url}"; }
+  [ -s "${release_file}" ] || { rm -f -- "${release_file}"; api_failed "${tag_url}"; }
   # The response is ONE release object; only its TOP-LEVEL "immutable" field
   # counts. top_level_immutable (a full JSON validator in awk, stock on macOS
   # and Linux - no python3 or jq dependency) rejects any document that is not
@@ -288,7 +293,8 @@ else
   # (assets, author, ...) can be mistaken for it. Anything but the bare token
   # true / false - missing, quoted, null, malformed, repeated - is ambiguous
   # and refused.
-  sealed="$(printf '%s' "${release_json}" | top_level_immutable)"
+  sealed="$(top_level_immutable < "${release_file}")"
+  rm -f -- "${release_file}"
   case "${sealed}" in
     true) echo "Release:      ${tag} (sealed)" ;;
     false)

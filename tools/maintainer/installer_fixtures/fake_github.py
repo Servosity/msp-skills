@@ -13,7 +13,8 @@ origins). Routes served:
         true | false | missing | string | null | nested (true at top level AND
         a nested object carrying false) | nested-only (NO top-level field, a
         nested object carrying true) | broken (top-level value is the malformed
-        token trueBROKEN, i.e. invalid JSON). --tag-status N replies N instead.
+        token trueBROKEN, i.e. invalid JSON) | nul (a valid object followed by
+        one NUL byte). --tag-status N replies N instead.
   GET /<owner>/<repo>/releases/download/<tag>/<asset>
         the file <assets>/<asset>, 404 when absent. --truncate ASSET announces
         the real Content-Length but sends only a proper prefix of the bytes.
@@ -61,8 +62,8 @@ def release_object() -> dict:
         obj["source"] = {"immutable": False}
     elif A.immutable == "nested-only":
         obj["source"] = {"immutable": True}
-    elif A.immutable == "broken":
-        obj["immutable"] = True  # rewritten to trueBROKEN in the serializer
+    elif A.immutable in ("broken", "nul"):
+        obj["immutable"] = True  # rewritten / suffixed in the serializer
     # "missing": no field at all
     return obj
 
@@ -71,6 +72,8 @@ def release_bytes() -> bytes:
     text = json.dumps(release_object(), indent=2)
     if A.immutable == "broken":
         text = text.replace('"immutable": true', '"immutable": trueBROKEN', 1)
+    if A.immutable == "nul":
+        return text.encode() + b"\x00"
     return text.encode()
 
 
@@ -149,7 +152,7 @@ def main() -> int:
     ap.add_argument("--owner", default="servosity")
     ap.add_argument("--repo", default="msp-skills")
     ap.add_argument("--immutable", default="true",
-                    choices=["true", "false", "missing", "string", "null", "nested", "nested-only", "broken"])
+                    choices=["true", "false", "missing", "string", "null", "nested", "nested-only", "broken", "nul"])
     ap.add_argument("--list-status", type=int, default=0)
     ap.add_argument("--tag-status", type=int, default=0)
     ap.add_argument("--truncate", default="")

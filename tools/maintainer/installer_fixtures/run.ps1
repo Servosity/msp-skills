@@ -208,12 +208,12 @@ New-InstallDir "imm-nested"; Invoke-Installer @{ MSP_SKILLS_API_BASE = $script:A
 Check "exit 0" ($script:Rc -eq 0); Check "sealed reported" (OutHas "(sealed)"); Check "installed" (Installed); Check "clean" (Clean)
 End-Case
 
-foreach ($mode in @("missing", "string", "null", "nested-only", "broken")) {
+foreach ($mode in @("missing", "string", "null", "nested-only", "broken", "nul")) {
   Begin-Case "immutable field $mode is refused"
   $script:Assets = Join-Path $Work "assets.imm-$mode"; New-Assets $script:Assets; Start-Server $script:Assets @("--immutable", $mode)
   New-InstallDir "imm-$mode"; Invoke-Installer @{ MSP_SKILLS_API_BASE = $script:ApiBase }
   Check "non-zero" ($script:Rc -ne 0)
-  if ($mode -eq "broken") { Check "malformed JSON named" (OutHas "malformed JSON") } else { Check "ambiguous named" (OutHas "refusing as ambiguous") }
+  if ($mode -eq "broken" -or $mode -eq "nul") { Check "malformed JSON named" (OutHas "malformed JSON") } else { Check "ambiguous named" (OutHas "refusing as ambiguous") }
   Check "unchanged" (Unchanged); Check "clean" (Clean); Check "nothing downloaded" (LogLacks "/releases/download/")
   End-Case
 }
