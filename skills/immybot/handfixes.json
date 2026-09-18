@@ -659,6 +659,31 @@
      "code_only": true
     }
    ]
+  },
+  {
+   "id": "mcp-server-version-from-ldflags",
+   "summary": "cmd/immybot-mcp/main.go declares `var version = \"0.0.0-dev\"` and passes it to server.NewMCPServer, so release.yml's `-X main.version=<tag>` stamps the real release into serverInfo.version (issue #322, PR #323)",
+   "why": "Issue #322: the MCP binary reported a hard-coded literal (\"0.0.0-dev\") in serverInfo.version instead of the release tag. release.yml builds every MCP with `-ldflags \"-X main.version=${version}\"` (PR #323) and the press template emits `var version = \"0.0.0-dev\"` for 63 of 67 connectors; this connector's main.go had drifted to a literal in the NewMCPServer call, and the Go linker silently ignores a -X for a symbol that does not exist (build exit 0, no warning), so the stamp could never land. Proven both ways with a real initialize JSON-RPC over stdio: before the fix `go build -ldflags '-X main.version=9.9.9'` still answered the literal; after it answers 9.9.9. A wrong-looking real version (1.0.0 on a v0.1.x release) is worse than 0.0.0-dev because it reads as intentional. code_only because the explanatory comment above the var names the ldflags mechanism; the assert must be satisfied by the declaration itself.",
+   "status": "active",
+   "spec_encode_followup": "None needed at the press: current cli-printing-press already emits the var and passes it (see any of the 63 standard mains). A reprint from any current press regenerates this correctly; retire the entry after the next reprint confirms the var is present.",
+   "asserts": [
+    {
+     "file": "cli/cmd/immybot-mcp/main.go",
+     "contains": "var version = \"0.0.0-dev\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/immybot-mcp/main.go",
+     "contains": "\t\tversion,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/immybot-mcp/main.go",
+     "not_contains": "\"0.0.0-dev\","
+    }
+   ]
   }
  ]
 }
