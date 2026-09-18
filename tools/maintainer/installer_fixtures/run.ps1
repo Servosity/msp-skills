@@ -24,11 +24,22 @@ if (-not (Test-Path -LiteralPath $Installer)) { throw "no installer at $Installe
 $Harness = Join-Path $Here "harness.ps1"
 $Fake = Join-Path $Here "fake_github.py"
 $PS = (Get-Process -Id $PID).Path
-$Py = (Get-Command python -ErrorAction SilentlyContinue)
-if (-not $Py) { $Py = Get-Command python3 -ErrorAction SilentlyContinue }
-if (-not $Py) { throw "python is required for fake_github.py" }
-$Py = $Py.Source
 $IsWin = ($env:OS -eq "Windows_NT")
+# Resolve a REAL Python: on Windows prefer the py launcher, then python /
+# python3, and reject the Microsoft Store app-execution-alias stub under
+# \WindowsApps\ (it exits silently with no stderr).
+$Py = $null; $PyArgs = @()
+if ($IsWin) {
+  $launcher = Get-Command py -ErrorAction SilentlyContinue
+  if ($launcher -and ($launcher.Source -notlike "*\WindowsApps\*")) { $Py = $launcher.Source; $PyArgs = @("-3") }
+}
+if (-not $Py) {
+  foreach ($name in @("python", "python3")) {
+    $c = Get-Command $name -ErrorAction SilentlyContinue
+    if ($c -and ($c.Source -notlike "*\WindowsApps\*")) { $Py = $c.Source; break }
+  }
+}
+if (-not $Py) { throw "a real python is required for fake_github.py (the Microsoft Store stub does not count)" }
 
 $arch = "amd64"
 if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") { $arch = "arm64" }
@@ -68,10 +79,18 @@ function Start-Server([string]$Assets, [string[]]$Extra = @()) {
   $portFile = Join-Path $Work ("port." + (Get-Random))
   $script:Log = Join-Path $Work ("requests." + (Get-Random) + ".log")
   Write-Text $script:Log ""
-  $argList = @($Fake, "--port-file", $portFile, "--assets", $Assets, "--slug", $Slug, "--tag", $Tag, "--log", $script:Log) + $Extra
-  $script:Server = Start-Process -FilePath $Py -ArgumentList $argList -PassThru -NoNewWindow -RedirectStandardError (Join-Path $Work "server.err")
-  for ($i = 0; $i -lt 100 -and -not (Test-Path -LiteralPath $portFile); $i++) { Start-Sleep -Milliseconds 50 }
-  if (-not (Test-Path -LiteralPath $portFile)) { throw "fake_github.py did not start: $(Get-Content (Join-Path $Work 'server.err') -Raw)" }
+  $argList = $PyArgs + @($Fake, "--port-file", $portFile, "--assets", $Assets, "--slug", $Slug, "--tag", $Tag, "--log", $script:Log) + $Extra
+  $errPath = Join-Path $Work "server.err"
+  $script:Server = Start-Process -FilePath $Py -ArgumentList $argList -PassThru -NoNewWindow -RedirectStandardError $errPath
+  # Up to 30 s for a cold Windows python start; fail fast if the process dies.
+  for ($i = 0; $i -lt 600 -and -not (Test-Path -LiteralPath $portFile); $i++) {
+    if ($script:Server.HasExited) { break }
+    Start-Sleep -Milliseconds 50
+  }
+  if (-not (Test-Path -LiteralPath $portFile)) {
+    $why = if ($script:Server.HasExited) { "exited with code $($script:Server.ExitCode)" } else { "still running after 30 s" }
+    throw "fake_github.py did not start ($Py $($PyArgs -join ' '); $why): $(Get-Content -LiteralPath $errPath -Raw -ErrorAction SilentlyContinue)"
+  }
   $script:ApiBase = "http://127.0.0.1:" + (Get-Content -LiteralPath $portFile -Raw).Trim()
 }
 

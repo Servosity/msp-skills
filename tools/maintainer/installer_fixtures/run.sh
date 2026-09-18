@@ -295,7 +295,7 @@ NAME=undo_fails; begin "failed undo keeps and names the backup, exits non-zero"
 ASSETS="${WORK}/assets.${NAME}"; make_assets "${ASSETS}"; start_server "${ASSETS}"
 fresh_dir "${NAME}"; run_installer MSP_SKILLS_API_BASE="${API_BASE}" FIXTURE_FAIL_MV_AT="4,5"
 check "non-zero" rc_nonzero; check "restore incomplete reported" out_has "Restore incomplete. Backups kept"
-backup_named() { b="$(ls "${DIR}"/*.prev.* 2>/dev/null | head -1)"; [ -n "${b}" ] && grep -qF -- "${b}" "${OUT}"; }
+backup_named() { b="$(find "${DIR}" -maxdepth 1 -name '*.prev.*' 2>/dev/null | head -1)"; [ -n "${b}" ] && grep -qF -- "${b}" "${OUT}"; }
 check "backup named" backup_named
 check "lock released" test ! -e "${DIR}/.msp-install.lock"
 end
@@ -358,11 +358,13 @@ end
 # Unit probes of top_level_immutable, extracted from the shipped installer.
 begin "top_level_immutable reads only a well-formed top-level boolean"
 sed -n '/^top_level_immutable() {/,/^}/p' "${INSTALLER}" > "${WORK}/tli.sh"
+# shellcheck disable=SC1091  # generated at run time from the installer under test; nothing static to follow
 . "${WORK}/tli.sh"
 tli() { printf '%s' "$1" | top_level_immutable; }
 tli_is() { [ "$(tli "$1")" = "$2" ]; }
 tli_not_true() { [ "$(tli "$1")" != "true" ]; }
-tli_raw_not_true() { [ "$(printf "$1" | top_level_immutable)" != "true" ]; }  # $1 is a printf FORMAT (raw bytes)
+# shellcheck disable=SC2059  # $1 is deliberately a printf FORMAT so probes can carry raw bytes (\000, \001)
+tli_raw_not_true() { [ "$(printf "$1" | top_level_immutable)" != "true" ]; }
 check "plain true" tli_is '{"immutable": true}' true
 check "plain false" tli_is '{"immutable":false}' false
 check "true with escaped opposite in a string and nested false" tli_is '{"immutable": true, "body": "see \"immutable\": false", "assets":[{"immutable":false}]}' true
