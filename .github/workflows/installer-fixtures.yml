@@ -1,0 +1,59 @@
+# installer-fixtures.yml - behavioural proof for the shipped installers.
+#
+# Every skills/<slug>/install.sh and install.ps1 is one script rendered per
+# slug. This workflow (a) proves that uniformity and (b) drives the reference
+# installer through tools/maintainer/installer_fixtures/ against a local fake
+# of api.github.com + github.com: sealed-release refusal, sha256 sidecar
+# verification, tracked rename transaction with injected failures, the
+# per-directory lock, DRY_RUN placement. Both directions: the happy path
+# installs, every rejection leaves the pre-existing binaries byte-identical.
+#
+# The Windows job runs under Windows PowerShell 5.1 (shell: powershell), the
+# interpreter the Windows one-liner in every README actually uses, and
+# asserts that version before running anything.
+#
+# This is a verification workflow, not release machinery: it does not build,
+# tag, publish or touch the security gate.
+name: installer-fixtures
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "skills/*/install.sh"
+      - "skills/*/install.ps1"
+      - "tools/maintainer/installer_fixtures/**"
+      - ".github/workflows/installer-fixtures.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  bash:
+    name: install.sh (ubuntu, bash)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fleet uniformity (every installer == reference modulo slug)
+        run: python3 tools/maintainer/installer_fixtures/render_fleet.py --check
+      - name: Release contract (installer URL lines vs release asset names)
+        run: python3 tools/maintainer/check_release_contract.py
+      - name: Fixture suite
+        run: bash tools/maintainer/installer_fixtures/run.sh
+
+  powershell:
+    name: install.ps1 (windows, PowerShell 5.1)
+    runs-on: windows-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assert Windows PowerShell 5.1
+        run: |
+          Write-Host "PowerShell $($PSVersionTable.PSVersion)"
+          if ($PSVersionTable.PSVersion.Major -ne 5) { throw "expected Windows PowerShell 5.x, got $($PSVersionTable.PSVersion)" }
+      - name: Fixture suite
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File tools/maintainer/installer_fixtures/run.ps1
