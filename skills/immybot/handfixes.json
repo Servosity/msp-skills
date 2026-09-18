@@ -684,6 +684,30 @@
      "not_contains": "\"0.0.0-dev\","
     }
    ]
+  },
+  {
+   "id": "mcp-config-resolves-like-the-cli",
+   "summary": "The MCP server resolves its config through config.Load(\"\") - honouring IMMYBOT_CONFIG and IMMYBOT_NO_CONFIG_WRITE exactly like the CLI - instead of a hardcoded ~/.config/immybot-cli/config.toml (issue #270)",
+   "why": "Issue #270 companion to the fleet's mcp-config-resolves-like-the-cli entries. immybot's MCP server already resolves its config through config.Load(\"\") (newMCPConfig in internal/mcp/tools.go, honouring IMMYBOT_CONFIG and IMMYBOT_NO_CONFIG_WRITE), but it was the one honourer of the switch with no test pinning that resolution, so a reprint from a press whose template hardcodes ~/.config/<tool>-cli/config.toml would silently restore the defect the other 11 honourers are guarded against. The test seeds a config at a non-default path, points IMMYBOT_CONFIG at it, and asserts newMCPConfig returns that file's Path and base_url. The assert on tools.go pins the resolver call itself.",
+   "status": "active",
+   "spec_encode_followup": "cli-printing-press should generate newMCPClient (and the platform-bound newMCPConfig variant) with config.Load(\"\") rather than a hand-built home-relative path; the hardcoded path is a generator defect that makes <PREFIX>_CONFIG inert for every MCP install on every connector.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "cfg, err := config.Load(\"\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "filepath.Join(home, \".config\", \"immybot-cli\", \"config.toml\")"
+    },
+    {
+     "file": "cli/internal/mcp/mcp_config_resolution_test.go",
+     "contains": "func TestMCPClientHonoursTheConfigEnvVar(",
+     "min_count": 1
+    }
+   ]
   }
  ]
 }

@@ -348,6 +348,30 @@
      "min_count": 1
     }
    ]
+  },
+  {
+   "id": "mcp-config-resolves-like-the-cli",
+   "summary": "The MCP server resolves its config through config.Load(\"\") - honouring DATTO_RMM_CONFIG and DATTO_RMM_NO_CONFIG_WRITE exactly like the CLI - instead of a hardcoded ~/.config/datto-rmm-cli/config.toml (issue #270)",
+   "why": "Issue #270 (@Xenith-B): internal/mcp/tools.go built the config path by hand - filepath.Join(home, \".config\", \"datto-rmm-cli\", \"config.toml\") - and passed it to config.Load, so the MCP server ignored DATTO_RMM_CONFIG entirely. That made --config / DATTO_RMM_CONFIG inert for every MCP install: a Claude Desktop operator had no way to point the server at a different config file, and no way to keep it away from a plaintext token cache under the home directory. newMCPClient now calls config.Load(\"\"), the same resolver the CLI uses (root.go newClient), which reads DATTO_RMM_CONFIG, falls back to the identical default path, and applies DATTO_RMM_NO_CONFIG_WRITE (ledger entry no-config-write-switch). The test seeds a config at a non-default path, points DATTO_RMM_CONFIG at it, and asserts the MCP client's Config.Path and base_url come from that file - the exact scenario the hardcoded path broke. GENERATOR-class: the press template still hardcodes the path, so a reprint restores the defect while go build and go test stay green; this entry is what notices.",
+   "status": "active",
+   "spec_encode_followup": "cli-printing-press should generate newMCPClient (and the platform-bound newMCPConfig variant) with config.Load(\"\") rather than a hand-built home-relative path; the hardcoded path is a generator defect that makes <PREFIX>_CONFIG inert for every MCP install on every connector.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "cfg, err := config.Load(\"\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "filepath.Join(home, \".config\", \"datto-rmm-cli\", \"config.toml\")"
+    },
+    {
+     "file": "cli/internal/mcp/mcp_config_resolution_test.go",
+     "contains": "func TestMCPClientHonoursTheConfigEnvVar(",
+     "min_count": 1
+    }
+   ]
   }
  ]
 }
