@@ -441,6 +441,10 @@ jobs:
       # Registry-derived, via the build matrix. Never rebuilt in shell.
       MCP_BIN: ${{ needs.prepare.outputs.mcp_bin }}
       MCPB_ASSET: ${{ needs.prepare.outputs.mcpb_asset }}
+      # The companion CLI's base name, from the same matrix row the two above
+      # come from (release_matrix.skill_entries -> registry cli_binary). Every
+      # tool the server exposes shells out to it, so it ships inside the bundle.
+      CLI_BIN: ${{ fromJSON(needs.prepare.outputs.matrix).skill[0].cli_bin }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -458,68 +462,84 @@ jobs:
             echo "::error::derived slug '$slug' is not in skills.json"
             exit 1
           fi
-          if [ -z "$MCP_BIN" ] || [ -z "$MCPB_ASSET" ]; then
-            echo "::error::the build matrix carried no MCP binary name for $TAG;"
+          if [ -z "$MCP_BIN" ] || [ -z "$CLI_BIN" ] || [ -z "$MCPB_ASSET" ]; then
+            echo "::error::the build matrix carried no MCP/CLI binary name for $TAG;"
             echo "::error::regenerate with tools/maintainer/release_matrix.py"
             exit 1
           fi
           mkdir -p mcpb-build
           # The build job above uploaded platform-suffixed binaries
-          # ($MCP_BIN-darwin-arm64 and friends). Bundle ALL platforms into one
-          # .mcpb so the registry-published artifact works everywhere Claude
-          # Desktop runs. windows/arm64 is deliberately absent from this loop:
-          # MCPB has no host for it, which is why the expected count below is 5
-          # and not 6.
-          for suffix in darwin-arm64 darwin-amd64 linux-arm64 linux-amd64 windows-amd64.exe; do
-            gh release download "$TAG" --pattern "${MCP_BIN}-${suffix}" --dir mcpb-build || true
+          # ($MCP_BIN-darwin-arm64 and friends, and the same set for $CLI_BIN).
+          # Bundle every platform the manifest can address into one .mcpb so
+          # the registry-published artifact works everywhere Claude Desktop
+          # runs, and bundle the companion CLI beside the server: every tool the
+          # server exposes shells out to it, and it resolves the CLI as a
+          # sibling of its own executable, so a bundle without it installs and
+          # fails at the first tool call. linux/arm64 and windows/arm64 are
+          # deliberately absent from this loop: MCPB's platform_overrides has
+          # no architecture axis, so nothing in the manifest could launch
+          # them and they would only make the bundle heavier. That is why the
+          # expected count below is 4 per binary, not 6.
+          for bin in "$MCP_BIN" "$CLI_BIN"; do
+            for suffix in darwin-arm64 darwin-amd64 linux-amd64 windows-amd64.exe; do
+              gh release download "$TAG" --pattern "${bin}-${suffix}" --dir mcpb-build || true
+            done
           done
           ls -la mcpb-build
 
       - name: Build MCPB bundle
         env:
-          # The build job publishes six targets; the download loop asks for five
-          # (windows/arm64 has no MCPB host). Keep these in step.
-          EXPECTED_BINARIES: "5"
+          # The build job publishes six targets per binary; the download loop
+          # asks for the four the manifest can address (no linux/arm64, no
+          # windows/arm64), for each of the server and the companion CLI. Keep
+          # these in step.
+          EXPECTED_BINARIES: "4"
         run: |
           set -euo pipefail
           slug="${TAG%-v*}"
           version="${TAG##*-v}"
-          copied=$(find mcpb-build -maxdepth 1 -type f -name "${MCP_BIN}-*" | wc -l | tr -d ' ')
           # The download step tolerates a per-asset failure with `|| true`, and the
           # upload uses --clobber. Together those mean a transient GitHub outage
           # could produce a manifest-only bundle and OVERWRITE a working released
           # .mcpb with it. Refuse to build a bundle that is missing binaries: a
           # failed run leaves the draft unsealed and the previous release's asset
-          # untouched, which is the safe direction.
-          echo "downloaded $copied binary/binaries"
-          if [ "$copied" -lt "$EXPECTED_BINARIES" ]; then
-            echo "::error::only $copied of $EXPECTED_BINARIES platform binaries were downloaded for $slug;" \
-                 "refusing to build a partial bundle that --clobber would publish over the working asset"
-            exit 1
-          fi
+          # untouched, which is the safe direction. Counted per binary, because a
+          # server without its CLI is exactly the shape the builder must refuse.
+          for bin in "$MCP_BIN" "$CLI_BIN"; do
+            copied=$(find mcpb-build -maxdepth 1 -type f -name "${bin}-*" | wc -l | tr -d ' ')
+            echo "downloaded $copied ${bin} binary/binaries"
+            if [ "$copied" -lt "$EXPECTED_BINARIES" ]; then
+              echo "::error::only $copied of $EXPECTED_BINARIES platform binaries were downloaded for ${bin} ($slug);" \
+                   "refusing to build a partial bundle that --clobber would publish over the working asset"
+              exit 1
+            fi
+          done
           # MCPB is a zip with manifest.json + a bin/ directory of binaries. Hand
           # rolling that with `zip -r` is what shipped 64 bundles the host cannot
           # start: the manifest named bin/<slug>-mcp while the archive held only
           # arch-suffixed binaries, and `gh release download` + `zip -r` left every
           # one of them mode 0644. The builder merges the two darwin slices into a
           # universal Mach-O, writes per-OS platform_overrides that resolve, sets
-          # the executable bit, and refuses to emit a bundle that does not validate.
-          # See issue #287 and tools/maintainer/mcpb_bundle.py.
+          # the executable bit, lays the companion CLI beside the server in a
+          # per-OS directory (bin/<os>/<slug>-cli[.exe]), and refuses to emit a
+          # bundle that does not validate. See issue #287 and
+          # tools/maintainer/mcpb_bundle.py.
           #
           # Running inside release.yml, the builder comes from the TAG's checkout
           # rather than the default branch. That is correct here and was not in
           # mcp-publish.yml: a tag push runs the workflow file AND the tools from
           # the same commit, so the two cannot disagree about the bundle format.
           #
-          # --binary-prefix is the registry's mcp_binary - exactly the names the
-          # download loop asked for and the build job uploaded. It is
-          # deliberately NOT derived from manifest.json's `name`, which still
-          # reads "<slug>-pp-mcp" on eight connectors and would name members that
-          # do not exist.
+          # --binary-prefix / --cli-prefix are the registry's mcp_binary and
+          # cli_binary - exactly the names the download loop asked for and the
+          # build job uploaded. They are deliberately NOT derived from
+          # manifest.json's `name`, which still reads "<slug>-pp-mcp" on eight
+          # connectors and would name members that do not exist.
           python3 tools/maintainer/mcpb_bundle.py build \
             --manifest "skills/$slug/manifest.json" \
             --bin-dir mcpb-build \
             --binary-prefix "$MCP_BIN" \
+            --cli-prefix "$CLI_BIN" \
             --out "mcpb-build/${MCPB_ASSET}" \
             --version "$version"
           ls -la "mcpb-build/${MCPB_ASSET}"
@@ -529,10 +549,12 @@ jobs:
         # output, and this re-asserts it against the file on disk, before the
         # upload, so a bundle that cannot start never reaches a release or the
         # registry. Asserts each of mcp_config.command and every
-        # platform_overrides.<os>.command names a member the archive contains and
-        # that the member is executable. It does NOT assert
-        # entry_point == "bin/<mcp binary>" - that would codify the broken bare
-        # name and false-RED connectwise-manage, the one manifest that can launch.
+        # platform_overrides.<os>.command names a member the archive contains,
+        # that the member is executable, that its companion CLI sits beside it,
+        # and that no member lies outside the per-OS directories the commands
+        # name. It does NOT assert entry_point == "bin/<mcp binary>" - that
+        # would codify the broken bare name and false-RED connectwise-manage,
+        # the one manifest that can launch.
         #
         # Now that the bundle is part of the sealing contract, a bundle that
         # cannot launch blocks the whole release rather than only the registry
