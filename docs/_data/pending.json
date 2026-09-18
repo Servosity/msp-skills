@@ -359,7 +359,7 @@
   "riverside-fm": {
     "state": "up-to-date",
     "version": "0.1.0",
-    "latest_tag": "riverside-fm-v0.1.0",
+    "latest_tag": "riverside-fm-v0.1.1",
     "current_hash": "sha256:6298a0b73334fe6a5f217ba90a93cd3e13d9d98c2bf672f588b78f8bffceaa5f",
     "released_hash": "sha256:6298a0b73334fe6a5f217ba90a93cd3e13d9d98c2bf672f588b78f8bffceaa5f"
   },
