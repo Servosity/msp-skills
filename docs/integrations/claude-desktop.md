@@ -44,6 +44,8 @@ iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/ser
 
 Install only the ones you'll use. Each installer drops the CLI and the MCP server on your PATH.
 
+> **Claude Desktop bundle:** each connector also ships a one-click `.mcpb` (Claude Desktop > Settings > Extensions) that launches on macOS (Intel and Apple Silicon), Windows x64 and Linux x64. It contains only the MCP server; every tool shells out to the companion `halopsa-cli` / `servosity-cli`, so run the installer above first (or set `HALOPSA_CLI_PATH` / `SERVOSITY_CLI_PATH` to an existing binary). Bundling the CLI is tracked in [#ISSUE_COMPANION_CLI](https://github.com/Servosity/msp-skills/issues/ISSUE_COMPANION_CLI).
+
 ## Step 2 - Edit Claude Desktop's config
 
 Open Claude Desktop → **Settings → Developer → Edit Config**. (This opens the JSON in your default editor.) Add the `mcpServers` block:
