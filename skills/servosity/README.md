@@ -35,7 +35,7 @@ For ChatGPT, run `servosity-mcp --transport http` and expose that behind HTTPS -
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-> **Claude Desktop bundle:** the `.mcpb` launches on macOS (Intel and Apple Silicon), Windows x64 and Linux x64. It contains only the MCP server; every tool shells out to the companion `servosity-cli`, so run the Path A or Path B installer below first (or set `SERVOSITY_MSP_CLI_PATH` to an existing binary). Bundling the CLI is tracked in [#331](https://github.com/Servosity/msp-skills/issues/331).
+> **Claude Desktop bundle:** the `.mcpb` launches on macOS (Intel and Apple Silicon), Windows x64 and Linux x64. Every tool shells out to the companion `servosity-cli`. Releases cut from 2026-09-18 on ship that CLI inside the bundle; older bundles contain only the MCP server, so if yours lacks the companion, run the Path A or Path B installer below first (or set `SERVOSITY_MSP_CLI_PATH` to an existing binary). Details: [#331](https://github.com/Servosity/msp-skills/issues/331).
 
 [**Download Servosity MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/servosity-v0.6.4/servosity-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Servosity release on the [releases page](https://github.com/servosity/msp-skills/releases?q=servosity).)
 

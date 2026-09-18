@@ -46,7 +46,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-> **Claude Desktop bundle:** the `.mcpb` launches on macOS (Intel and Apple Silicon), Windows x64 and Linux x64. It contains only the MCP server; every tool shells out to the companion `auvik-cli`, so run the Path A or Path B installer below first (or set `AUVIK_CLI_PATH` to an existing binary). Bundling the CLI is tracked in [#331](https://github.com/Servosity/msp-skills/issues/331).
+> **Claude Desktop bundle:** the `.mcpb` launches on macOS (Intel and Apple Silicon), Windows x64 and Linux x64. Every tool shells out to the companion `auvik-cli`. Releases cut from 2026-09-18 on ship that CLI inside the bundle; older bundles contain only the MCP server, so if yours lacks the companion, run the Path A or Path B installer below first (or set `AUVIK_CLI_PATH` to an existing binary). Details: [#331](https://github.com/Servosity/msp-skills/issues/331).
 
 [**Download Auvik MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/auvik-v0.2.4/auvik-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Auvik release on the [releases page](https://github.com/servosity/msp-skills/releases?q=auvik).)
 
