@@ -145,7 +145,7 @@
    "summary": "procedure-tasks sync detects a repeated primary-key set before upsert and reconciles sync_complete.total to distinct stored rows",
    "why": "Issue #183 confirmed on a live Hudu tenant that /procedure_tasks ignores page and page_size. The generated page-int walk fetched the complete collection, requested page 2, received the collection again, and upserted every row before the duplicate fingerprint stopped the loop. sync_complete.total therefore counted successful conflict updates while the unique-ID cache correctly contained one set of rows. The duplicate guard now compares the complete sorted primary-key set before upsert, preserving the validation request for deployments that honor pagination and handling response reordering or field updates. The completion metric is reconciled to SQLite so overlapping pages and pre-existing rows cannot inflate or understate the stored-row count. A reprint restores the duplicate upsert and misleading metric.",
    "status": "active",
-   "spec_encode_followup": "Press gap: the profiler must support per-endpoint pagination shape, including endpoints that accept but ignore pagination parameters and return the complete collection. Track with upstream issue #3481.",
+   "spec_encode_followup": "Press gap: the profiler must support per-endpoint pagination shape, including endpoints that accept but ignore pagination parameters and return the complete collection. Filed as mvanhorn/cli-printing-press#3481 closed 2026-08-15 as not planned (one-vendor retro grab-bag; upstream said reopen if still biting on current main), no fix landed; this hand-fix is permanent unless re-filed; do NOT cite #3481 as open.",
    "asserts": [
     {
      "file": "cli/internal/cli/sync.go",
