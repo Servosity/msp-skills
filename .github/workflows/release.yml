@@ -346,6 +346,62 @@ jobs:
             go build -trimpath -ldflags "-s -w -X main.version=${version}" -o "$GITHUB_WORKSPACE/dist/${mcp}" "${{ matrix.skill.mcp_cmd }}"
           )
 
+          # Run-the-binary receipt (#322). A green `go build` proves nothing
+          # about the version: the linker silently ignores -X for a symbol
+          # that does not exist, so a main that hard-codes its version builds
+          # clean and ships the wrong one (a green release put serverInfo
+          # 1.0.0 on an aws-billing v0.1.3 tag). Only the host-native row can
+          # execute what it built; every other row is cross-compiled.
+          if [ "$GOOS" = linux ] && [ "$GOARCH" = amd64 ]; then
+            # Scoped HOME: the binaries see an empty home, never the runner's
+            # real config or credential store. Removed on every exit path.
+            probe_home="$(mktemp -d)"
+            trap 'rm -rf -- "$probe_home"' EXIT
+            # The CLI prints "<slug>-cli <version>"; the last word must EQUAL
+            # the tag version (a substring match would accept 0.1.30 or
+            # 0.1.3-dev for 0.1.3).
+            cli_out="$(HOME="$probe_home" timeout -k 2 10 "$GITHUB_WORKSPACE/dist/${cli}" --version </dev/null)" \
+              || { echo "::error::${cli} --version exited $? (124 = timed out)"; exit 1; }
+            if [ "${cli_out##* }" = "$version" ]; then
+              echo "release probe: ${cli} --version -> ${cli_out}"
+            else
+              echo "::error::${cli} --version printed '${cli_out}', expected version '${version}'"; exit 1
+            fi
+            # One initialize request, then EOF; the server answers on stdout
+            # and exits. timeout bounds a server that never answers. Its exit
+            # status is deliberately not the verdict - the reply is.
+            probe_rc=0
+            printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"release-probe","version":"0"}}}' \
+              | HOME="$probe_home" timeout -k 2 10 "$GITHUB_WORKSPACE/dist/${mcp}" >"$probe_home/reply.jsonl" 2>"$probe_home/stderr.txt" || probe_rc=$?
+            [ "$probe_rc" -eq 0 ] || { echo "release probe: ${mcp} exited ${probe_rc} after the request; its stderr:"; cat "$probe_home/stderr.txt"; }
+            # argv, never program text: $version and the reply path are data.
+            python3 - "$probe_home/reply.jsonl" "$version" "$mcp" <<'PY'
+          import json, sys
+          reply_path, expected, name = sys.argv[1:4]
+          got = "<no reply with id 1 on stdout>"
+          with open(reply_path, encoding="utf-8", errors="replace") as fh:
+              for line in fh:
+                  line = line.strip()
+                  if not line.startswith("{"):
+                      continue
+                  try:
+                      msg = json.loads(line)
+                  except ValueError:
+                      continue
+                  if isinstance(msg, dict) and msg.get("id") == 1:
+                      result = msg.get("result")
+                      info = result.get("serverInfo") if isinstance(result, dict) else None
+                      got = info.get("version") if isinstance(info, dict) else repr(msg)
+                      break
+          if got != expected:
+              print(f"::error::{name} initialize reported serverInfo.version={got!r}, expected {expected!r}")
+              sys.exit(1)
+          print(f"release probe: {name} serverInfo.version -> {got}")
+          PY
+            rm -rf -- "$probe_home"
+            trap - EXIT
+          fi
+
           cd "$GITHUB_WORKSPACE/dist"
           for f in "$cli" "$mcp"; do
             shasum -a 256 "$f" > "${f}.sha256"
