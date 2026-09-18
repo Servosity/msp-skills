@@ -541,6 +541,21 @@
      "min_count": 1
     }
    ]
+  },
+  {
+   "id": "workflow-archive-reports-success-count",
+   "summary": "NOT APPLIED - deferred to the reprint #312 tracks (issue #275 finding 3): the 4.4.0 print's archive has an empty resource list, makes no requests, and an unconditional zero-guard would fail every run",
+   "why": "Issue #275 finding 3 was fixed on the standard-template connectors in the 2026-09-18 wave (upstream #4410 shape). riverside-fm was deliberately excluded: its 4.4.0 print declares `resources := []string{}` in channel_workflow.go and an empty endpoint map in sync.go, so `workflow archive` performs zero requests and reports `Archived 0 items across 0 resources`. The upstream guard is `resourcesSynced == 0 && len(resources) > 0`, which is a no-op on an empty list, so applying it would change nothing observable while a test for it could never reach the aggregation (there is nothing to 401). F3 for this connector arrives with the reprint that populates the resource list (issue #312). This entry is a TRIPWIRE: it pins the empty list so that the reprint, which will replace it, fails this gate and the maintainer applies the #4410 shape plus the behavioural test in the same change instead of inheriting a false-success archive.",
+   "status": "active",
+   "spec_encode_followup": "Reprint from press >= 4.31.3 (issue #312) regenerates channel_workflow.go with the zero-guard; add workflow_archive_outcome_test.go then.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/channel_workflow.go",
+     "contains": "resources := []string{}",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
   }
  ]
 }

@@ -708,6 +708,54 @@
      "min_count": 1
     }
    ]
+  },
+  {
+   "id": "workflow-archive-reports-success-count",
+   "summary": "`workflow archive` reports the number of resources that actually succeeded and exits non-zero when 0 of N did; partial success stays exit 0 (issue #275 finding 3, upstream #4410)",
+   "why": "DONE UPSTREAM: mvanhorn/cli-printing-press#4410 merged 2026-08-28 (28c43fa9), first shipped press v4.31.3 (2026-08-30). Issue #275 finding 3 (@Xenith-B): `workflow archive` reported `\"resources_synced\": len(resources)` and returned nil even when every resource errored or warned, so the JSON summary and the human line (`Archived 0 items across N resources`) were success-shaped for a tenant whose every request 401ed, and an agent reading them believed the archive was complete. immybot's 4.3x-era print already counted resourcesSynced and reported it, but never errored on zero, so an all-failed archive still exited 0 with a success-shaped human line; only the zero-guard and the summary suppression from the upstream template diff were added. The three outcomes are pinned by workflow_archive_outcome_test.go, which drives the real root command against a local HTTP double with dummy credentials: every resource 401 -> non-zero exit naming `0 of N resource(s) archived`, resources_synced 0, and no success-shaped summary; one resource serving rows and the rest 401 -> exit 0 with resources_synced 1 (the TRUE count) and the per-resource errors on stderr; every resource serving an empty page -> exit 0 with every attempted resource counted. Partial success stays exit 0, matching sync's default non-strict policy. This connector is on press an unstamped 4.3x-era print, below the first fixed release, so a reprint from the vendored engine REINTRODUCES the false success while go build and go test stay green; this entry is what notices. Retire it after a reprint from press >= 4.31.3.",
+   "status": "upstreamed",
+   "spec_encode_followup": "None: the fix is in the press template since 4.31.3. A reprint from >= 4.31.3 regenerates it; keep the behavioural test, which is a hand-authored (NOVEL) file regen-merge preserves.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/channel_workflow.go",
+     "contains": "if resourcesSynced == 0 && len(resources) > 0 {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/channel_workflow.go",
+     "contains": "return fmt.Errorf(\"workflow archive failed: 0 of %d resource(s) archived\", len(resources))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/channel_workflow.go",
+     "contains": "\"resources_synced\": resourcesSynced,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/channel_workflow.go",
+     "contains": "} else if resourcesSynced > 0 || len(resources) == 0 {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/workflow_archive_outcome_test.go",
+     "contains": "func TestWorkflowArchiveFailsWhenEveryResourceErrors(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/workflow_archive_outcome_test.go",
+     "contains": "func TestWorkflowArchivePartialSuccessExitsZero(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/workflow_archive_outcome_test.go",
+     "contains": "func TestWorkflowArchiveSuccessfulEmptyExitsZero(",
+     "min_count": 1
+    }
+   ]
   }
  ]
 }
