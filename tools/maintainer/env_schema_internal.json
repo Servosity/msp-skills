@@ -13,7 +13,11 @@
     "USERPROFILE"
   ],
 
+  "_internal_prefixes_comment": "Harness session identifiers (CLAUDE_SESSION_ID, CLAUDE_CODE_SESSION, CODEX_THREAD_ID, CODEX_SESSION_ID, CURSOR_SESSION_ID, CURSOR_TRACE_ID): cli-printing-press >= 4.32 ships a self-learning journal (internal/learn/journal.go, JournalHarnessSessionEnvVars) that reads whichever of these the calling agent harness exported and persists only a bounded hash of it as the session key, so sibling tool calls from one agent session share a journal key. They are set by Claude Code / Codex / Cursor, never typed by an operator, never sent to the vendor, and never prompted for by Claude Desktop; declaring them in a manifest would be a phantom prompt. First hit by the 2026-09-28 hubspot reprint on press 4.32.5; every 4.32.x reprint reads the same list.",
   "internal_prefixes": [
+    "CLAUDE_",
+    "CODEX_",
+    "CURSOR_",
     "PP_",
     "PRESEED_",
     "PRINTING_PRESS_",

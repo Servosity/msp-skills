@@ -455,6 +455,12 @@ class GoPackage(Scope):
 
 RE_ASSIGN = re.compile(r"(?m)^[\t ]*(?:const\s+|var\s+)?([A-Za-z_]\w*)\s*(?::?=)\s*(.+?)[\t ]*$")
 RE_RANGE_LIT = re.compile(r"for\s+[\w,\s_]*?([A-Za-z_]\w*)\s*:=\s*range\s+(\[\]string\{[^}]*\}|[A-Za-z_]\w*)")
+# A package-level (or local) name bound to a MULTI-LINE []string literal. RE_ASSIGN is
+# line-anchored, so `var JournalHarnessSessionEnvVars = []string{` bound the name to
+# the bare "[]string{" and every `for _, name := range JournalHarnessSessionEnvVars`
+# read (cli-printing-press >= 4.32, internal/learn/journal.go) resolved to nothing.
+# The literal is bound whole so RE_SLICE_LIT can enumerate its elements.
+RE_ASSIGN_SLICE = re.compile(r"(?m)^[\t ]*(?:var\s+)?([A-Za-z_]\w*)\s*:?=\s*(\[\]string\s*\{[^}]*\})")
 RE_FUNC = re.compile(r"(?m)^func\s+(?:\([^)]*\)\s*)?([A-Za-z_]\w*)\s*\(")
 # A function LITERAL. Go's `name := func(args) { ... }` is a callable helper with
 # a name, and autotask/sherweb's doctor.go hides two real credential reads behind
@@ -536,8 +542,13 @@ def parse_sources(dirpath: Path, sources: list[tuple[Path, str]]) -> GoPackage:
         pkg.spans[path] = spans
         pkg.decl_sites[path] = decls
 
-        for regex, group in ((RE_ASSIGN, 2), (RE_RANGE_LIT, 2)):
+        for regex, group in ((RE_ASSIGN, 2), (RE_ASSIGN_SLICE, 2), (RE_RANGE_LIT, 2)):
             for m in regex.finditer(src):
+                if regex is RE_ASSIGN and m.group(group).rstrip().endswith("{"):
+                    # The first line of a multi-line composite literal. RE_ASSIGN_SLICE
+                    # binds the whole literal; binding the bare "[]string{" as well would
+                    # put UNRESOLVED into the union and hide the resolvable elements.
+                    continue
                 scope = pkg.func_at(path, m.start()) or pkg
                 scope.bind(m.group(1), m.group(group))
 
