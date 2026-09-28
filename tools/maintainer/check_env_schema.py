@@ -903,6 +903,20 @@ def scan_packages(packages: list[GoPackage], prefix: str,
     found: dict[str, list[str]] = {}
     unresolved: dict[tuple, Unresolved] = {}
 
+    # An EXPORTED name-as-parameter helper is called from other packages as
+    # `<pkg>.<Helper>(...)`: press 4.32 routes config.go's credential and
+    # base-URL reads through `cliutil.EnvOverride("<PREFIX>_BASE_URL")`, so a
+    # package-local helper map saw neither the read (a false "declared but NO
+    # source file reads it") nor, in the #282 direction, a credential read only
+    # there. Qualified by the defining package's directory name, which is the
+    # package name in every generated tree.
+    exported: dict[str, tuple[list[int], bool]] = {}
+    for pkg in packages:
+        for fn in pkg.funcs.values():
+            if fn.env_param_idx and fn.name[:1].isupper():
+                exported[f"{pkg.path.name}.{fn.name}"] = (
+                    sorted(fn.env_param_idx), fn.variadic_env)
+
     for pkg in packages:
         helpers: dict[str, list[int]] = {}
         variadic: set[str] = set()
@@ -911,6 +925,12 @@ def scan_packages(packages: list[GoPackage], prefix: str,
                 helpers[fn.name] = sorted(fn.env_param_idx)
                 if fn.variadic_env:
                     variadic.add(fn.name)
+        for qualified, (idxs, is_variadic) in exported.items():
+            if qualified.split(".", 1)[0] == pkg.path.name:
+                continue  # its own package calls it unqualified
+            helpers[qualified] = idxs
+            if is_variadic:
+                variadic.add(qualified)
 
         for path, src in pkg.sources:
             try:
@@ -1478,6 +1498,36 @@ def scanner_self_test(rules: dict) -> int:
     """Prove the SCANNER both directions: it sees the reads it must see, and it
     REPORTS the ones it cannot resolve instead of dropping them on the floor."""
     failed = 0
+    # Cross-package: an exported helper in cliutil read through a qualified call
+    # from config. Both directions: the literal is seen, and an unresolvable
+    # argument at the qualified call site is reported, not dropped.
+    helper_pkg = parse_sources(Path("/fixture/cliutil"), [(
+        Path("/fixture/cliutil/env.go"), strip_comments(
+            'package cliutil\nimport "os"\n'
+            'func EnvOverride(name string) string { return EffectiveEnv(os.Getenv(name)) }\n'
+            'func EffectiveEnv(v string) string { return v }\n'))])
+    for label, call, expect_reads, expect_unexplained in (
+        ("qualified exported helper (cliutil.EnvOverride literal)",
+         'cliutil.EnvOverride("COVE_BASE_URL")', {"COVE_BASE_URL"}, set()),
+        ("qualified exported helper, unresolvable argument",
+         "cliutil.EnvOverride(pickName())", set(), {"pickName()"}),
+    ):
+        caller = parse_sources(Path("/fixture/config"), [(
+            Path("/fixture/config/config.go"), strip_comments(
+                'package config\nimport "x/internal/cliutil"\n'
+                f"func Load() string {{ return {call} }}\n"))])
+        link_packages([helper_pkg, caller])
+        found, unresolved = scan_packages([helper_pkg, caller], "COVE", rules)
+        got_reads = set(found)
+        got_unexplained = {u.expr for u in unresolved if u.why is None}
+        ok = got_reads == expect_reads and got_unexplained == expect_unexplained
+        print(f"  {'ok  ' if ok else 'BAD '} scan {label}: reads={sorted(got_reads)} "
+              f"unexplained={sorted(got_unexplained)}")
+        if not ok:
+            print(f"        expected reads={sorted(expect_reads)} "
+                  f"unexplained={sorted(expect_unexplained)}")
+            failed += 1
+
     for label, (src, expect_reads, expect_unexplained) in SCAN_FIXTURES.items():
         pkg = parse_sources(Path("/fixture"),
                             [(Path("/fixture/x.go"), strip_comments(src))])
