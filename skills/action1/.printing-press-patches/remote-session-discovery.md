@@ -15,3 +15,9 @@ scope. Script execution permission does not include it. Preserve the 403 and
 its permission explanation; do not substitute another access path or grant
 privileges automatically. The README recipe and handfixes.json entry pin this
 Action1-specific behavior from the vendor's API reference.
+
+Build the search keywords from the same updated summaries. Searching for
+assistance must find the session POST, and connected or browser must find the
+POST and status GET. Preserve the search regression test alongside the metadata.
+Keep the command constructor documented and the lint schema set to version 2;
+the generated formatters configuration already uses that schema.

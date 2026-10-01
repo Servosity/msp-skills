@@ -541,7 +541,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"orgId", "endpointId"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
-		keywords:       codeOrchKeywords("endpoints", "managed-id-remote-sessions-post", "**Requires permission: `remote_connect`** Sends a request to the endpoint to start a new remote session.", "/endpoints/managed/{orgId}/{endpointId}/remote-sessions"),
+		keywords:       codeOrchKeywords("endpoints", "managed-id-remote-sessions-post", "**Requires permission: `remote_connect` in the endpoint's scope** Starts a remote assistance session. Params must include orgId, endpointId, and connection_type: assistance; current_ip is optional. Poll the remote-session GET with the returned id until connected is yes, then open remote_session in a browser. HTTP 403 requires an authorized administrator to grant Remote Connect to the API credential's role.", "/endpoints/managed/{orgId}/{endpointId}/remote-sessions"),
 	},
 	{
 		ID:             "endpoints.managed-id-remote-sessions-session-id-get",
@@ -551,7 +551,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Positional:     []string{"orgId", "endpointId", "sessionId"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
-		keywords:       codeOrchKeywords("endpoints", "managed-id-remote-sessions-session-id-get", "**Requires permission: `remote_connect`** Gets details for an existing remote session specified by ID.", "/endpoints/managed/{orgId}/{endpointId}/remote-sessions/{sessionId}"),
+		keywords:       codeOrchKeywords("endpoints", "managed-id-remote-sessions-session-id-get", "**Requires permission: `remote_connect`** Gets a remote session using orgId, endpointId, and sessionId. Poll with a bounded wait until connected is yes; remote_session is the browser connection URL. A session request alone does not prove the desktop is connected.", "/endpoints/managed/{orgId}/{endpointId}/remote-sessions/{sessionId}"),
 	},
 	{
 		ID:             "endpoints.managed-id-remote-sessions-session-id-patch",

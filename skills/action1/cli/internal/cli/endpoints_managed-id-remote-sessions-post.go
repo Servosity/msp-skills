@@ -12,6 +12,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// newEndpointsManagedIdRemoteSessionsPostCmd builds the command that requests
+// an Action1 remote assistance session for an endpoint.
 func newEndpointsManagedIdRemoteSessionsPostCmd(flags *rootFlags) *cobra.Command {
 	var bodyConnectionType string
 	var bodyCurrentIp string
