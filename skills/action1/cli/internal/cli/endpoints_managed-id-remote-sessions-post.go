@@ -18,10 +18,9 @@ func newEndpointsManagedIdRemoteSessionsPostCmd(flags *rootFlags) *cobra.Command
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:   "managed-id-remote-sessions-post <orgId> <endpointId>",
-		Short: "**Requires permission: `remote_connect`** Sends a request to the endpoint to start a new remote session.",
-		// TODO: replace placeholder example values before relying on this for live dogfood.
-		Example:     "  action1-cli endpoints managed-id-remote-sessions-post 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000 --connection-type example-value",
+		Use:         "managed-id-remote-sessions-post <orgId> <endpointId>",
+		Short:       "**Requires permission: `remote_connect`** Sends a request to the endpoint to start a new remote session.",
+		Example:     "  action1-cli endpoints managed-id-remote-sessions-post 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000 --connection-type assistance",
 		Annotations: map[string]string{"pp:endpoint": "endpoints.managed-id-remote-sessions-post", "pp:method": "POST", "pp:path": "/endpoints/managed/{orgId}/{endpointId}/remote-sessions"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help
@@ -206,7 +205,7 @@ func newEndpointsManagedIdRemoteSessionsPostCmd(flags *rootFlags) *cobra.Command
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&bodyConnectionType, "connection-type", "", "Connection type")
+	cmd.Flags().StringVar(&bodyConnectionType, "connection-type", "", "Connection type (Action1 supports assistance)")
 	cmd.Flags().StringVar(&bodyCurrentIp, "current-ip", "", "Current ip")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")
 

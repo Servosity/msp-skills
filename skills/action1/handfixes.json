@@ -4,6 +4,30 @@
  "_comment": "Connector-specific edits a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present and fails CI if a reprint dropped one. governance.md is preserved by onboard.py --resume but a FULL reprint re-runs gen_governance.py and would re-introduce the mis-tiering.",
  "handfixes": [
   {
+   "id": "remote-session-assistance-discovery",
+   "summary": "Expose required assistance request params and connection readiness in MCP search; use the supported CLI example",
+   "why": "Live Action1 requests without connection_type failed with 400, and the API rejects connection types other than assistance. Existing generated MCP search summaries omitted the required body value and the CLI example used example-value. The vendor reference requires Remote Connect in the endpoint scope and returning connected=yes before opening remote_session. Preserve the narrow discovery repair and README recipe rather than adding a duplicate remote-control implementation.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "connection_type: assistance; current_ip is optional."
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "A session request alone does not prove the desktop is connected."
+    },
+    {
+     "file": "cli/internal/cli/endpoints_managed-id-remote-sessions-post.go",
+     "contains": "--connection-type assistance"
+    },
+    {
+     "file": "README.md",
+     "contains": "A 403 is an access denial, not a missing MCP tool."
+    }
+   ]
+  },
+  {
    "id": "governance-endpoint-patch-execution-tier",
    "summary": "Hand-added an 'Endpoint / patch execution' tier; gen_governance is method-blind and missed all 31 POSTs (run-automation, approve-updates, remote-sessions, scripts)",
    "why": "Action1 is a patch/RMM connector whose members RUN CODE/PATCHES on live managed endpoints. gen_governance.py keyword-matches and ignores pp:method, so it caught only -patch/-delete suffixes and missed every POST: `automations policies-instances-org-id-post` (run an automation), the stop-automation, `updates approvals updates-org-id` (approve updates for deployment), `endpoints ...-remote-sessions-post/-patch`, `installed-software requery ...post`, `scripts org-id-post`/`org-id-id-patch`. governance.md was rewritten method-aware from the authoritative agent-context pp:method. A full reprint re-runs the keyword classifier and drops these execution writes to Read. See project_action1_onboard_traps.",
