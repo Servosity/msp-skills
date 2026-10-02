@@ -91,9 +91,9 @@
     "released_hash": "sha256:0f03b0c3ae0aac62ca22581e62793e53a71565a036b6d532586a8dbfc6ea013d"
   },
   "cipp": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.8",
-    "latest_tag": "cipp-v0.1.7",
+    "latest_tag": "cipp-v0.1.8",
     "current_hash": "sha256:bf74691d60eac97c66f73f625f82512430c6256cf516a47f8190cea35e5d5958",
     "released_hash": "sha256:bf74691d60eac97c66f73f625f82512430c6256cf516a47f8190cea35e5d5958"
   },
@@ -301,9 +301,9 @@
     "released_hash": "sha256:babbdfb76a319602cb7ca5924173029c40edb209e647da83f9be85be397e2998"
   },
   "ninjaone": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.16",
-    "latest_tag": "ninjaone-v0.1.15",
+    "latest_tag": "ninjaone-v0.1.16",
     "current_hash": "sha256:3122ce8f90c17e70c94be44000db12ea6e48795e74160b81f88d8abd56df2f41",
     "released_hash": "sha256:3122ce8f90c17e70c94be44000db12ea6e48795e74160b81f88d8abd56df2f41"
   },
