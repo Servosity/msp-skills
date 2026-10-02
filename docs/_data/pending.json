@@ -14,9 +14,9 @@
     "released_hash": "sha256:fff2a332bd9678068e8f72bd517af96bcd834338200c2fa3549f873ba80a5b09"
   },
   "action1": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.5",
-    "latest_tag": "action1-v0.1.4",
+    "latest_tag": "action1-v0.1.5",
     "current_hash": "sha256:541f4e1d1d57be7fd94f2d0ff7e53a71e7fdf018f9d2428625bc46f689ed47c8",
     "released_hash": "sha256:541f4e1d1d57be7fd94f2d0ff7e53a71e7fdf018f9d2428625bc46f689ed47c8"
   },
