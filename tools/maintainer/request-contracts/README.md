@@ -18,7 +18,7 @@ list values, positional substitutions, and header bindings. It resolves catalog
 identifiers against exact HTTP method and path when generated CLI identifiers
 differ. A function containing multiple annotated commands is rejected. Repeated
 annotation IDs on distinct paths remain resolvable by method and path; duplicate
-ID/method/path identities across files are rejected. Catalog contracts receive
+ID/method/path identities within or across files are rejected. Catalog contracts receive
 independent copies, so one endpoint's metadata cannot mutate another's.
 Missing catalog coverage or ambiguous matches fail instead of silently
 emitting an empty contract.
@@ -32,7 +32,8 @@ legacy wire alias are supplied, the public name takes precedence. A
 transport/body name collision uses `path_<name>`, `query_<name>`, or
 `header_<name>` for the transport parameter and leaves the body's wire key
 intact. Assignment order does not change these aliases or their requiredness. `x-location` records each top-level parameter's
-transport location. Catalog array bodies use `body` with `x-raw-body: true` for methods that send
+transport location. Path and template bindings for the same placeholder share
+one required input. Catalog array bodies use `body` with `x-raw-body: true` for methods that send
 bodies. GET and HEAD catalog array hints do not invent request bodies.
 Object schemas allow additional properties because CLI stdin JSON also accepts
 vendor fields beyond the generated flags. Arbitrary parsed JSON is unconstrained
@@ -40,7 +41,8 @@ unless a source assertion or recorded native schema proves a narrower type.
 Array assertions use the declared element type; `[]any` and `[]interface{}`
 remain unconstrained instead of being mislabeled as string arrays. Typed slice
 flags retain their scalar element type. Source and supplemental required lists
-are combined as sets, including lists loaded from JSON.
+are combined as sets, including lists loaded from JSON. Required-only supplement
+aliases resolve to the source public property; unknown required names fail.
 
 `supplements.json` records additional evidence from the pre-existing native
 Printing Press specifications. Each supplemented endpoint carries a source label,

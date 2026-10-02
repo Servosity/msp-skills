@@ -123,6 +123,25 @@ func indexRequestContracts() map[string]map[string]bool {
 	return result
 }
 
+// Match ordinary plural inflections without matching arbitrary surrounding text.
+func codeOrchPluralMatch(a, b string) bool {
+	for _, pair := range [][2]string{{a, b}, {b, a}} {
+		singular, plural := pair[0], pair[1]
+		if plural == singular+"s" {
+			return true
+		}
+		if strings.HasSuffix(singular, "y") && plural == strings.TrimSuffix(singular, "y")+"ies" {
+			return true
+		}
+		for _, ending := range []string{"s", "x", "z", "ch", "sh"} {
+			if strings.HasSuffix(singular, ending) && plural == singular+"es" {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func codeOrchRequestScore(ep *codeOrchEndpoint, query string) int {
 	score := 0
 	seen := map[string]bool{}
@@ -140,7 +159,7 @@ func codeOrchRequestScore(ep *codeOrchEndpoint, query string) int {
 		for _, word := range ep.keywords {
 			if word == term {
 				score += 2
-			} else if len(word) >= 3 && (strings.Contains(word, term) || term == word+"s" || word == term+"s") {
+			} else if len(word) >= 3 && (strings.Contains(word, term) || codeOrchPluralMatch(term, word)) {
 				score++
 			}
 		}
@@ -236,7 +255,7 @@ func codeOrchValidatePathInputs(ep *codeOrchEndpoint, params map[string]any) err
 	for _, field := range required {
 		name, _ := field.(string)
 		property, _ := properties[name].(map[string]any)
-		if property["x-location"] != "path" {
+		if property["x-location"] != "path" && property["x-location"] != "template" {
 			continue
 		}
 		if value, present := params[name]; present && value != nil && formatMCPParamValue(value) != "" {

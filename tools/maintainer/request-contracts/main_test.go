@@ -36,7 +36,7 @@ func TestExtractWireContract(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	c := got["items.create"]
+	c := got["items.create\nPOST /items/{id}"]
 	p := c["properties"].(map[string]any)
 	if p["DisplayName"].(map[string]any)["type"] != "string" {
 		t.Fatal(p)
@@ -91,7 +91,7 @@ func TestNestedRequiredParsedTypesHeadersAndCollision(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := cs["items.create"]
+	s := cs["items.create\nPOST /items/{id}"]
 	p := s["properties"].(schema)
 	nested := p["requestData"].(schema)
 	if nested["properties"].(schema)["ids"].(schema)["type"] != "array" {
@@ -123,7 +123,7 @@ func TestArrayAssertionsPreserveElementTypes(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			items := cs["items.create"]["properties"].(schema)["ids"].(schema)["items"].(schema)
+			items := cs["items.create\nPOST /items"]["properties"].(schema)["ids"].(schema)["items"].(schema)
 			if tc.want == "" {
 				if len(items) != 0 {
 					t.Fatalf("arbitrary JSON elements advertised as %#v", items)
@@ -160,7 +160,7 @@ func TestBodyTransportCollisionsInEitherOrder(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				s := cs["items.create"]
+				s := cs["items.create\nPOST /items/{value}"]
 				p := s["properties"].(schema)
 				alias, ok := p[loc+"_value"].(schema)
 				if !ok {
@@ -207,7 +207,7 @@ func TestTypedSliceFlags(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			got := cs["items.create"]["properties"].(schema)["values"].(schema)
+			got := cs["items.create\nPOST /items"]["properties"].(schema)["values"].(schema)
 			items, _ := got["items"].(schema)
 			if got["type"] != "array" || items["type"] != tc.want {
 				t.Fatal(got)
@@ -348,5 +348,47 @@ func TestCatalogWireAliasDoesNotCreateSecondInput(t *testing.T) {
 	}
 	if props["tenant-filter"].(map[string]any)["enum"] == nil {
 		t.Fatal(props)
+	}
+}
+
+func TestRequiredOnlySupplementAliasResolvesOrFails(t *testing.T) {
+	dst := object()
+	dst["properties"].(schema)["tenant-filter"] = schema{"type": "string", "x-location": "query", "x-wire-name": "tenantFilter"}
+	mergeContractSupplement(dst, schema{"required": []any{"tenantFilter"}})
+	if got := fmt.Sprint(dst["required"]); got != "[tenant-filter]" {
+		t.Fatalf("required-only alias not remapped: %s", got)
+	}
+	defer func() {
+		if recover() == nil {
+			t.Error("unknown required property must fail closed")
+		}
+	}()
+	mergeContractSupplement(dst, schema{"required": []any{"missing"}})
+}
+
+func TestSameFileAnnotationIDWithDifferentPathsResolves(t *testing.T) {
+	source := `package cli;func f(){_=map[string]string{"pp:endpoint":"logs.get","pp:method":"GET","pp:path":"/one"}};func g(){_=map[string]string{"pp:endpoint":"logs.get","pp:method":"GET","pp:path":"/two"}}`
+	catalog := `package mcp;var endpoints=[]endpoint{{ID:"first.logs.get",Method:"GET",Path:"/one"},{ID:"second.logs.get",Method:"GET",Path:"/two"}}`
+	got, err := runExtractorFixture(t, map[string]string{"logs.go": source}, catalog, `{}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 {
+		t.Fatal(got)
+	}
+}
+
+func TestTemplateBindingsAreRequiredAndDeduplicatePaths(t *testing.T) {
+	source := `package cli;func f(){_=map[string]string{"pp:endpoint":"items.get","pp:method":"GET","pp:path":"/items/{id}"};path=replacePathParam(path,"id",args[0])};func g(){_=map[string]string{"pp:endpoint":"tenants.get","pp:method":"GET","pp:path":"/tenants/{tenant}"}}`
+	catalog := `package mcp;var endpoints=[]endpoint{{ID:"items.get",Method:"GET",Path:"/items/{id}",TemplateParams:[]binding{{PublicName:"item-id",WireName:"id"}}},{ID:"tenants.get",Method:"GET",Path:"/tenants/{tenant}",TemplateParams:[]binding{{PublicName:"tenant-scope",WireName:"tenant"}}}}`
+	got, err := runExtractorFixture(t, map[string]string{"items.go": source}, catalog, `{}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p := got["items.get"]["properties"].(schema); len(p) != 1 || p["id"] == nil {
+		t.Fatalf("duplicate template/path inputs: %#v", p)
+	}
+	if r := fmt.Sprint(got["tenants.get"]["required"]); r != "[tenant-scope]" {
+		t.Fatalf("template input is not required: %s", r)
 	}
 }

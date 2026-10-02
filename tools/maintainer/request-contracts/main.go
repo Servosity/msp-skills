@@ -322,10 +322,11 @@ func extractFile(file *ast.File) (map[string]schema, error) {
 			sort.Strings(r)
 			out["required"] = r
 		}
-		if _, exists := result[id]; exists {
-			return nil, fmt.Errorf("duplicate endpoint %s", id)
+		identity := id + "\n" + meta["pp:method"] + " " + meta["pp:path"]
+		if _, exists := result[identity]; exists {
+			return nil, fmt.Errorf("duplicate endpoint identity %s", identity)
 		}
-		result[id] = out
+		result[identity] = out
 	}
 	return result, nil
 }
@@ -357,9 +358,8 @@ func main() {
 		if err != nil {
 			panic(fmt.Errorf("%s: %w", path, err))
 		}
-		for id, c := range contracts {
+		for identity, c := range contracts {
 			key := fmt.Sprint(c["x-source-method"]) + " " + fmt.Sprint(c["x-source-path"])
-			identity := id + "\n" + key
 			if _, exists := all[identity]; exists {
 				panic("duplicate CLI endpoint identity: " + identity)
 			}
@@ -464,7 +464,7 @@ func main() {
 							existing := false
 							for name, value := range props {
 								p, ok := value.(schema)
-								if !ok || p["x-location"] != pair.loc {
+								if !ok || !sameBindingLocation(p["x-location"], pair.loc) {
 									continue
 								}
 								bound, _ := p["x-wire-name"].(string)
@@ -472,13 +472,16 @@ func main() {
 									bound = name
 								}
 								if bound == wire {
+									if pair.loc == "template" {
+										catalogRequired[name] = true
+									}
 									existing = true
 									break
 								}
 							}
 							if !existing {
 								if _, present := props[public]; !present {
-									putBinding(props, catalogRequired, public, wire, pair.loc, schema{"type": "string", "x-wire-name": wire}, false)
+									putBinding(props, catalogRequired, public, wire, pair.loc, schema{"type": "string", "x-wire-name": wire}, pair.loc == "template")
 								}
 							}
 						}
@@ -721,12 +724,43 @@ func mergeContractSupplement(dst, src schema) {
 	}
 	if value, present := patch["required"]; present {
 		names := requiredNames(value)
+		target := dst["properties"].(schema)
+		properties, _ := patch["properties"].(schema)
 		for i, name := range names {
 			if canonical, ok := renamed[name]; ok {
 				names[i] = canonical
+				continue
 			}
+			if _, ok := target[name]; ok {
+				continue
+			}
+			if _, ok := properties[name]; ok {
+				continue
+			}
+			canonical := ""
+			for key, entry := range target {
+				p, ok := entry.(schema)
+				if !ok || p["x-wire-name"] != name {
+					continue
+				}
+				if canonical != "" {
+					panic("ambiguous required property alias: " + name)
+				}
+				canonical = key
+			}
+			if canonical == "" {
+				panic("required property has no schema: " + name)
+			}
+			names[i] = canonical
 		}
 		patch["required"] = requiredNames(names)
 	}
 	mergeSchema(dst, patch)
+}
+
+func sameBindingLocation(existing any, incoming string) bool {
+	if existing == incoming {
+		return true
+	}
+	return (existing == "path" || existing == "template") && (incoming == "path" || incoming == "template")
 }

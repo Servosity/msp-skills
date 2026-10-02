@@ -11587,7 +11587,7 @@
         }
       },
       "x-evidence": {
-        "locator": "POST /Users/prefs",
+        "locator": "#/paths/~1Users~1prefs/post",
         "sha256": "370351194ebedc0319937b2956930c3c3254bc436648b8b6bead4903aa75b7df",
         "source": "Printing Press library halopsa/spec.json"
       }
