@@ -5,6 +5,7 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 
 	mcplib "github.com/mark3labs/mcp-go/mcp"
@@ -63,12 +64,18 @@ func TestCodeOrchSearchFindsRemoteAssistance(t *testing.T) {
 // path for reading and updating an existing software installer.
 func TestCodeOrchSearchFindsInstallerConfiguration(t *testing.T) {
 	for _, tc := range []struct {
-		query string
-		want  []string
+		query    string
+		want     []string
+		guidance map[string][]string
 	}{
 		{query: "installer", want: []string{
 			"software-repository.packages-all-package-id-get",
 			"software-repository.versions.packages-all-package-id-id-patch",
+		}, guidance: map[string][]string{
+			"software-repository.packages-all-package-id-get": {"fields: versions"},
+			"software-repository.versions.packages-all-package-id-id-patch": {
+				"params", "approval_status", "approve_updates", "EULA_accepted", "accept_eula",
+			},
 		}},
 		{query: "displayed version", want: []string{
 			"software-repository.versions.packages-all-package-id-id-get",
@@ -93,18 +100,26 @@ func TestCodeOrchSearchFindsInstallerConfiguration(t *testing.T) {
 			var response struct {
 				Results []struct {
 					EndpointID string `json:"endpoint_id"`
+					Summary    string `json:"summary"`
 				} `json:"results"`
 			}
 			if err := json.Unmarshal([]byte(content.Text), &response); err != nil {
 				t.Fatalf("decode search response: %v", err)
 			}
-			found := make(map[string]bool)
+			found := make(map[string]string)
 			for _, endpoint := range response.Results {
-				found[endpoint.EndpointID] = true
+				found[endpoint.EndpointID] = endpoint.Summary
 			}
 			for _, id := range tc.want {
-				if !found[id] {
+				if _, ok := found[id]; !ok {
 					t.Errorf("search %q did not return %s: %s", tc.query, id, content.Text)
+				}
+			}
+			for id, terms := range tc.guidance {
+				for _, term := range terms {
+					if !strings.Contains(found[id], term) {
+						t.Errorf("search summary for %s omits required guidance %q: %s", id, term, found[id])
+					}
 				}
 			}
 		})

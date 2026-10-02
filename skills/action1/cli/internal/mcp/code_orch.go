@@ -1237,11 +1237,11 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		ID:             "software-repository.versions.packages-all-package-id-id-patch",
 		Method:         "PATCH",
 		Path:           "/software-repository/{orgId}/{packageId}/versions/{versionId}",
-		Summary:        "Requires manage_software_repository in the package scope. Updates installer version deployment configuration using orgId, packageId, and versionId. versionId is the returned id, not the displayed version; discover it with package GET fields: versions. Use orgId: all for an Enterprise-shared package. Script actions also require Use Scripts. Read back changes to verify.",
+		Summary:        "Updates custom installer version configuration using orgId, packageId, and versionId. versionId is the returned id, not the displayed version; discover it with package GET fields: versions. Use orgId: all for an Enterprise-shared package. Put edited version properties directly in params, e.g. silent_install_switches. Requires manage_software_repository for configuration, approve_updates for approval_status, and accept_eula for EULA_accepted; script actions also require Use Scripts. Built-in versions cannot be modified. Read back changes to verify.",
 		Positional:     []string{"packageId", "versionId", "orgId"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
-		keywords:       codeOrchKeywords("software-repository", "packages-all-package-id-id-patch", "Requires manage_software_repository in the package scope. Updates installer version deployment configuration using orgId, packageId, and versionId. versionId is the returned id, not the displayed version; discover it with package GET fields: versions. Use orgId: all for an Enterprise-shared package. Script actions also require Use Scripts. Read back changes to verify.", "/software-repository/{orgId}/{packageId}/versions/{versionId}"),
+		keywords:       codeOrchKeywords("software-repository", "packages-all-package-id-id-patch", "Updates custom installer version configuration using orgId, packageId, and versionId. versionId is the returned id, not the displayed version; discover it with package GET fields: versions. Use orgId: all for an Enterprise-shared package. Put edited version properties directly in params, e.g. silent_install_switches. Requires manage_software_repository for configuration, approve_updates for approval_status, and accept_eula for EULA_accepted; script actions also require Use Scripts. Built-in versions cannot be modified. Read back changes to verify.", "/software-repository/{orgId}/{packageId}/versions/{versionId}"),
 	},
 	{
 		ID:             "software-repository.versions.packages-all-package-id-id-upload-post",

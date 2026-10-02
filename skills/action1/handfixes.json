@@ -85,7 +85,7 @@
   },
   {
    "id": "software-repository-installer-discovery",
-   "summary": "Document installer package scope, version object IDs, and read/update discovery in MCP search and the agent recipe",
+   "summary": "Document installer package scope, version object IDs, writable params, and permissions in MCP search and the agent recipe",
    "why": "Live requests showed Enterprise scope can be denied while an organization view succeeds, and a displayed version number is not the API versionId. Truncated generated summaries hide the existing package update tools. Preserve the narrow guidance without changing transport or automatically escalating scope.",
    "status": "active",
    "asserts": [
@@ -110,6 +110,15 @@
     {
      "file": "SKILL.md",
      "contains": "### Read or update a shared software installer"
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "approve_updates for approval_status",
+     "min_count": 2
+    },
+    {
+     "file": ".printing-press-patches/software-repository-discovery.md",
+     "contains": "Put edited version properties directly in MCP params."
     }
    ]
   },

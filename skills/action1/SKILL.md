@@ -368,9 +368,11 @@ Use `action1_search` with `installer`, then package GET with `fields: versions`
 to discover `versions[].id`. Pass that ID as `versionId`, not the displayed
 `version` number. `orgId: all` requests Enterprise scope and needs repository
 permissions there; an organization-scoped read does not prove Enterprise write
-access. Manage Software Repository includes View in the same scope. API-key
-access is separate from browser/Entra SSO. Preserve existing configuration and
-read it back after an authorized update. See the
+access. Manage Software Repository includes View in the same scope. Version
+PATCH takes edited properties directly in MCP `params`; approval and EULA
+acceptance fields require separate permissions. Built-in versions cannot be
+modified. API-key access is separate from browser/Entra SSO. Preserve existing
+configuration and read it back after an authorized update. See the
 [Software installer MCP recipe](./README.md#software-installer-packages-through-the-mcp-server)
 for endpoint IDs, params, and permission requirements.
 
