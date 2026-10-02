@@ -56,9 +56,9 @@
     "released_hash": "sha256:233ec9bbf66d797ffc5f3885695e3d2cdf8a807509b3a309d01d79f7b32fc274"
   },
   "avanan": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.6",
-    "latest_tag": "avanan-v0.1.5",
+    "latest_tag": "avanan-v0.1.6",
     "current_hash": "sha256:8639fcd0817ebc973e6c421ba66bc265a66af224e87eb5ef8c5389e44bf28041",
     "released_hash": "sha256:8639fcd0817ebc973e6c421ba66bc265a66af224e87eb5ef8c5389e44bf28041"
   },
@@ -189,9 +189,9 @@
     "released_hash": "sha256:ecb9243e53302e8ddf5bb9bee871e92b527888ee35c6ab90c1465ba7f7b21ebd"
   },
   "halopsa": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.2.18",
-    "latest_tag": "halopsa-v0.2.17",
+    "latest_tag": "halopsa-v0.2.18",
     "current_hash": "sha256:c8562630f4b7e414774ce0039655fecec8ec45ebc41ce56f69555e10e0db9787",
     "released_hash": "sha256:c8562630f4b7e414774ce0039655fecec8ec45ebc41ce56f69555e10e0db9787"
   },
@@ -203,9 +203,9 @@
     "released_hash": "sha256:383130d0a2d711776761091ea0520c6edbbc923ae82cca349df4835de3114065"
   },
   "hudu": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.12",
-    "latest_tag": "hudu-v0.1.11",
+    "latest_tag": "hudu-v0.1.12",
     "current_hash": "sha256:688fbf5cff81fb0bef840b2b267e612aebb888832f26de727d03593a7dc31c14",
     "released_hash": "sha256:688fbf5cff81fb0bef840b2b267e612aebb888832f26de727d03593a7dc31c14"
   },
