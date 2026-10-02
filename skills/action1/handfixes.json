@@ -35,6 +35,51 @@
     {
      "file": "README.md",
      "contains": "A 403 is an access denial, not a missing MCP tool."
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "Keep the connection URL private.",
+     "min_count": 4
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "five seconds for up to one minute, stopping on API errors.",
+     "min_count": 4
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "A timeout is unverified; do not automatically create another session.",
+     "min_count": 4
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "do not grant privileges automatically.",
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "verify the intended desktop before interacting.",
+     "min_count": 4
+    },
+    {
+     "file": "guide.md",
+     "contains": "every five seconds for up to one minute, stopping on API errors.",
+     "code_only": false
+    },
+    {
+     "file": "guide.md",
+     "contains": "Keep the connection URL private.",
+     "code_only": false
+    },
+    {
+     "file": "guide.md",
+     "contains": "is unverified; do not automatically create another session.",
+     "code_only": false
+    },
+    {
+     "file": "guide.md",
+     "contains": "do not grant privileges automatically.",
+     "code_only": false
     }
    ]
   },

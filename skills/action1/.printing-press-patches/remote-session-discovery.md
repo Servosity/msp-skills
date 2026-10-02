@@ -21,3 +21,7 @@ assistance must find the session POST, and connected or browser must find the
 POST and status GET. Preserve the search regression test alongside the metadata.
 Keep the command constructor documented and the lint schema set to version 2;
 the generated formatters configuration already uses that schema.
+
+Both session search summaries must state the one-minute polling limit, stop on
+API errors, keep the connection URL private, and avoid creating another session
+automatically after a timeout. Verify the intended desktop before interaction.
