@@ -4,7 +4,7 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.5] - unreleased
+## [0.1.5] - 2026-10-02
 
 ### Fixed
 - Remote-assistance discovery now names the required `connection_type: assistance` input, uses a valid CLI example, and explains scoped Remote Connect permission, bounded polling, desktop verification, and connection URL privacy. Thanks @jomplox for the fix and pilot verification in #348.
