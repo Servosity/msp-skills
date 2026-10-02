@@ -3,6 +3,11 @@
 > Unofficial. Community-built Claude Code Skill and MCP server for the DataGate telecom billing API. Not affiliated with, endorsed by, or sponsored by DataGate. DataGate is a trademark of its respective owner.
 
 <!-- media:start -->
+<p align="center">
+  <a href="https://msp-skills.compoundingteams.com/skills/datagate/">
+    <img src="../../docs/assets/social/datagate/wide-1200x630.png" alt="DataGate MCP server for Claude, ChatGPT and Copilot" width="600">
+  </a>
+</p>
 <!-- media:end -->
 
 Add **DataGate customer, agreement, and invoice lookups** to the AI you already use -
