@@ -415,12 +415,21 @@ Moves the endpoint to another organization.
 Changes the user-defined 'comment', 'name' and custom attributes for the specified endpoint.
 - **`action1-cli endpoints managed-id-remote-sessions-post`** - **Requires permission: `remote_connect`**
 
-Sends a request to the endpoint to start a new remote session.
+Starts a remote assistance session. Supply `orgId`, `endpointId`, and
+`--connection-type assistance`; `current_ip` is optional. The credential needs
+Remote Connect in the endpoint's scope. On HTTP 403, stop and ask an authorized
+administrator to check that scope; do not grant privileges automatically.
 
-After requesting to open a remote session, use 'GET /endpoints/managed/{orgId}/{endpointId}/remote_sessions/{sessionId}' again until 'connected' = 'yes'.
+Use the returned `id` to poll the remote-session GET with `orgId`, `endpointId`,
+and `sessionId` every five seconds for up to one minute, stopping on API errors.
+Once `connected` is `yes`, open `remote_session` in a browser and verify the
+intended desktop before interacting. Keep the connection URL private. A timeout
+is unverified; do not automatically create another session.
 - **`action1-cli endpoints managed-id-remote-sessions-session-id-get`** - **Requires permission: `remote_connect`**
 
-Gets details for an existing remote session specified by ID.
+Gets details for an existing remote session using `orgId`, `endpointId`, and
+`sessionId`. Follow the bounded polling and private connection URL handling above.
+A session request alone does not prove the desktop is connected.
 - **`action1-cli endpoints managed-id-remote-sessions-session-id-patch`** - **Requires permission: `remote_connect`**
 
 Changes the 'current_monitor' parameter for a specific remote session.

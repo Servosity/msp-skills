@@ -180,6 +180,46 @@ This skill closes that gap:
 
 See [pain-point.md](./pain-point.md) for the longer narrative.
 
+## Remote desktop through the MCP server
+
+The MCP already exposes Action1's remote-session API. The API credential needs
+**Remote Connect** on the target endpoint's organization or endpoint group;
+permission to run scripts does not imply permission to connect to a desktop.
+An authorized administrator can add Remote Connect to the credential's existing
+role with the intended scope. A 403 is an access denial, not a missing MCP tool.
+
+For code-orchestration clients:
+
+1. Call `action1_search` with `start remote session`.
+2. Call `action1_execute` with endpoint ID
+   `endpoints.managed-id-remote-sessions-post` and these params:
+
+   ```json
+   {"orgId":"<organization-id>","endpointId":"<endpoint-id>","connection_type":"assistance"}
+   ```
+
+3. Take the returned `id` and call
+   `endpoints.managed-id-remote-sessions-session-id-get` with
+   `orgId`, `endpointId`, and `sessionId`. Poll with a bounded wait, for example
+   every five seconds for up to one minute, stopping on an API error. A timeout
+   means the connection was not verified; do not automatically create another
+   session.
+4. Once `connected` is `yes`, open the returned `remote_session` URL in a browser.
+   Verify that the intended endpoint's desktop is visible before interacting.
+   Keep this connection URL private.
+
+The equivalent start command is:
+
+```bash
+action1-cli endpoints managed-id-remote-sessions-post <orgId> <endpointId> --connection-type assistance --json
+```
+
+The API currently supports `assistance` as the connection type. Starting the
+session does not itself automate desktop input; use the browser or your agent's
+authorized computer-use tools for the interactive part. See the
+[Action1 remote-session API](https://app.action1.com/apidocs/#/Endpoints.%20Remote%20Sessions./endpoints_managed_endpointId_remote_sessions_post)
+and [API credential roles](https://www.action1.com/api-documentation/api-credentials/).
+
 ## Frequently asked questions
 
 ### Does this work with ChatGPT?
