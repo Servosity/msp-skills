@@ -58,3 +58,55 @@ func TestCodeOrchSearchFindsRemoteAssistance(t *testing.T) {
 		})
 	}
 }
+
+// TestCodeOrchSearchFindsInstallerConfiguration guards the agent-facing discovery
+// path for reading and updating an existing software installer.
+func TestCodeOrchSearchFindsInstallerConfiguration(t *testing.T) {
+	for _, tc := range []struct {
+		query string
+		want  []string
+	}{
+		{query: "installer", want: []string{
+			"software-repository.packages-all-package-id-get",
+			"software-repository.versions.packages-all-package-id-id-patch",
+		}},
+		{query: "displayed version", want: []string{
+			"software-repository.versions.packages-all-package-id-id-get",
+			"software-repository.versions.packages-all-package-id-id-patch",
+		}},
+	} {
+		t.Run(tc.query, func(t *testing.T) {
+			req := mcplib.CallToolRequest{Params: mcplib.CallToolParams{Arguments: map[string]any{
+				"query": tc.query,
+			}}}
+			result, err := handleCodeOrchSearch(context.Background(), req)
+			if err != nil {
+				t.Fatalf("search: %v", err)
+			}
+			if result == nil || result.IsError || len(result.Content) != 1 {
+				t.Fatalf("expected a successful search response, got %#v", result)
+			}
+			content, ok := result.Content[0].(mcplib.TextContent)
+			if !ok {
+				t.Fatalf("expected text content, got %T", result.Content[0])
+			}
+			var response struct {
+				Results []struct {
+					EndpointID string `json:"endpoint_id"`
+				} `json:"results"`
+			}
+			if err := json.Unmarshal([]byte(content.Text), &response); err != nil {
+				t.Fatalf("decode search response: %v", err)
+			}
+			found := make(map[string]bool)
+			for _, endpoint := range response.Results {
+				found[endpoint.EndpointID] = true
+			}
+			for _, id := range tc.want {
+				if !found[id] {
+					t.Errorf("search %q did not return %s: %s", tc.query, id, content.Text)
+				}
+			}
+		})
+	}
+}
