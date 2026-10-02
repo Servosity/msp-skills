@@ -10664,20 +10664,6 @@
         "source": "Printing Press library halopsa/spec.json"
       }
     },
-    "take-control.list": {
-      "properties": {
-        "body": {
-          "items": {
-            "type": "object"
-          }
-        }
-      },
-      "x-evidence": {
-        "locator": "GET /TakeControl/GetUrl",
-        "sha256": "370351194ebedc0319937b2956930c3c3254bc436648b8b6bead4903aa75b7df",
-        "source": "Printing Press library halopsa/spec.json"
-      }
-    },
     "tanium-details.create": {
       "properties": {
         "body": {

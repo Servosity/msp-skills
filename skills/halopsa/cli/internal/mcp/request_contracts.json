@@ -82509,19 +82509,7 @@
   },
   "take-control.list": {
     "additionalProperties": true,
-    "properties": {
-      "body": {
-        "items": {
-          "type": "object"
-        },
-        "type": "array",
-        "x-location": "body",
-        "x-raw-body": true
-      }
-    },
-    "required": [
-      "body"
-    ],
+    "properties": {},
     "type": "object"
   },
   "tanium-details.create": {

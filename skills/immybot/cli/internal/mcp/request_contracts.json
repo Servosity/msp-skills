@@ -416,9 +416,7 @@
     "additionalProperties": true,
     "properties": {
       "addons": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       },
@@ -952,16 +950,12 @@
     "additionalProperties": true,
     "properties": {
       "entityIds": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       },
       "tagIds": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       }
@@ -977,9 +971,7 @@
         "x-location": "body"
       },
       "ids": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       },
@@ -1000,9 +992,7 @@
     "additionalProperties": true,
     "properties": {
       "computersToMove": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       },
@@ -1018,16 +1008,12 @@
     "additionalProperties": true,
     "properties": {
       "entityIds": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       },
       "tagIds": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       }
@@ -1053,9 +1039,7 @@
     "additionalProperties": true,
     "properties": {
       "computerIds": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       },
@@ -1735,9 +1719,7 @@
     "additionalProperties": true,
     "properties": {
       "additionalPersonIds": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       },
@@ -1755,9 +1737,7 @@
     "additionalProperties": true,
     "properties": {
       "additionalPersonIds": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       },
@@ -1776,9 +1756,7 @@
         "x-location": "body"
       },
       "providerLinkUpdates": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       },
@@ -2434,9 +2412,7 @@
         "x-location": "path"
       },
       "userIds": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       }
@@ -3022,9 +2998,7 @@
     "additionalProperties": true,
     "properties": {
       "computerIds": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       },
@@ -3068,9 +3042,7 @@
         "x-location": "body"
       },
       "tenantIds": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       }
@@ -3374,9 +3346,7 @@
     "additionalProperties": true,
     "properties": {
       "sessionIds": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       }
@@ -3392,9 +3362,7 @@
     "additionalProperties": true,
     "properties": {
       "sessionIds": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       }
@@ -3641,16 +3609,12 @@
     "additionalProperties": true,
     "properties": {
       "authorizedViewerTenantsToAdd": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       },
       "authorizedViewerTenantsToRemove": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       },
@@ -3775,9 +3739,7 @@
         "x-location": "body"
       },
       "parameters": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       },
@@ -3921,9 +3883,7 @@
         "x-location": "body"
       },
       "parameters": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       },
@@ -4016,9 +3976,7 @@
     "additionalProperties": true,
     "properties": {
       "authorizedViewerTenantIds": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       },
@@ -4088,9 +4046,7 @@
         "x-location": "body"
       },
       "parameters": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       },
@@ -4244,9 +4200,7 @@
         "x-location": "body"
       },
       "parameters": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       },
@@ -4702,16 +4656,12 @@
     "additionalProperties": true,
     "properties": {
       "authorizedViewerTenantsToAdd": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       },
       "authorizedViewerTenantsToRemove": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       },
@@ -5266,16 +5216,12 @@
     "additionalProperties": true,
     "properties": {
       "entityIds": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       },
       "tagIds": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       }
@@ -5286,16 +5232,12 @@
     "additionalProperties": true,
     "properties": {
       "entityIds": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       },
       "tagIds": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       }
@@ -5647,9 +5589,7 @@
         "x-location": "body"
       },
       "ids": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       },
@@ -5670,9 +5610,7 @@
     "additionalProperties": true,
     "properties": {
       "agentIds": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       },
@@ -5712,9 +5650,7 @@
     "additionalProperties": true,
     "properties": {
       "agentIds": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       },
@@ -5851,9 +5787,7 @@
         "additionalProperties": true,
         "properties": {
           "additionalPersonIds": {
-            "items": {
-              "type": "string"
-            },
+            "items": {},
             "type": "array"
           },
           "automaticallyOnboard": {
@@ -5893,9 +5827,7 @@
             "type": "integer"
           },
           "tags": {
-            "items": {
-              "type": "string"
-            },
+            "items": {},
             "type": "array"
           }
         },
@@ -6003,9 +5935,7 @@
         "additionalProperties": true,
         "properties": {
           "additionalPersonIds": {
-            "items": {
-              "type": "string"
-            },
+            "items": {},
             "type": "array"
           },
           "automaticallyOnboard": {
@@ -6045,9 +5975,7 @@
             "type": "integer"
           },
           "tags": {
-            "items": {
-              "type": "string"
-            },
+            "items": {},
             "type": "array"
           }
         },
@@ -6119,9 +6047,7 @@
         "additionalProperties": true,
         "properties": {
           "additionalPersonIds": {
-            "items": {
-              "type": "string"
-            },
+            "items": {},
             "type": "array"
           },
           "automaticallyOnboard": {
@@ -6161,9 +6087,7 @@
             "type": "integer"
           },
           "tags": {
-            "items": {
-              "type": "string"
-            },
+            "items": {},
             "type": "array"
           }
         },
@@ -6280,9 +6204,7 @@
         "additionalProperties": true,
         "properties": {
           "additionalPersonIds": {
-            "items": {
-              "type": "string"
-            },
+            "items": {},
             "type": "array"
           },
           "automaticallyOnboard": {
@@ -6322,9 +6244,7 @@
             "type": "integer"
           },
           "tags": {
-            "items": {
-              "type": "string"
-            },
+            "items": {},
             "type": "array"
           }
         },
@@ -7990,9 +7910,7 @@
         "x-location": "body"
       },
       "computers": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       },
@@ -8120,9 +8038,7 @@
         "x-location": "body"
       },
       "persons": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       },
@@ -8217,9 +8133,7 @@
         "x-location": "body"
       },
       "tenants": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       },
@@ -8265,9 +8179,7 @@
         "x-location": "body"
       },
       "computers": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       },
@@ -8395,9 +8307,7 @@
         "x-location": "body"
       },
       "persons": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       },
@@ -8492,9 +8402,7 @@
         "x-location": "body"
       },
       "tenants": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       },
@@ -8724,9 +8632,7 @@
     "additionalProperties": true,
     "properties": {
       "scheduleIds": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       }
@@ -8737,9 +8643,7 @@
     "additionalProperties": true,
     "properties": {
       "scheduleIds": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       }
@@ -8750,9 +8654,7 @@
     "additionalProperties": true,
     "properties": {
       "scheduleIds": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       }
@@ -8842,9 +8744,7 @@
         "x-location": "body"
       },
       "scheduleIds": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       }
@@ -9323,9 +9223,7 @@
         "x-location": "body"
       },
       "authorizedViewerTenants": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       },
@@ -9477,16 +9375,12 @@
     "additionalProperties": true,
     "properties": {
       "authorizedViewerTenantsToAdd": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       },
       "authorizedViewerTenantsToRemove": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       },
@@ -10489,9 +10383,7 @@
         "x-location": "body"
       },
       "softwarePrerequisites": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       },
@@ -10884,9 +10776,7 @@
             "type": "integer"
           },
           "softwarePrerequisites": {
-            "items": {
-              "type": "string"
-            },
+            "items": {},
             "type": "array"
           },
           "softwareTableName": {
@@ -11138,9 +11028,7 @@
         "x-location": "body"
       },
       "authorizedViewerTenants": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       },
@@ -11300,9 +11188,7 @@
         "x-location": "body"
       },
       "softwarePrerequisites": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       },
@@ -11404,16 +11290,12 @@
     "additionalProperties": true,
     "properties": {
       "authorizedViewerTenantsToAdd": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       },
       "authorizedViewerTenantsToRemove": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       },
@@ -11710,9 +11592,7 @@
             "type": "string"
           },
           "authorizedViewerTenants": {
-            "items": {
-              "type": "string"
-            },
+            "items": {},
             "type": "array"
           },
           "chocoProviderSoftwareId": {
@@ -11840,9 +11720,7 @@
             "type": "integer"
           },
           "softwarePrerequisites": {
-            "items": {
-              "type": "string"
-            },
+            "items": {},
             "type": "array"
           },
           "softwareTableName": {
@@ -12523,9 +12401,7 @@
         "x-location": "path"
       },
       "softwarePrerequisites": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       },
@@ -13016,9 +12892,7 @@
         "x-location": "path"
       },
       "softwarePrerequisites": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       },
@@ -13520,16 +13394,12 @@
     "additionalProperties": true,
     "properties": {
       "authorizedViewerTenantsToAdd": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       },
       "authorizedViewerTenantsToRemove": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       },
@@ -13573,9 +13443,7 @@
     "additionalProperties": true,
     "properties": {
       "authorizedViewerTenants": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       },
@@ -15059,9 +14927,7 @@
     "additionalProperties": true,
     "properties": {
       "approvals": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       }
@@ -15452,16 +15318,12 @@
     "additionalProperties": true,
     "properties": {
       "targetAssignmentIds": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       },
       "updateArray": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       }
@@ -15878,16 +15740,12 @@
     "additionalProperties": true,
     "properties": {
       "entityIds": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       },
       "tagIds": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       }
@@ -15903,9 +15761,7 @@
         "x-location": "body"
       },
       "tenants": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       }
@@ -15921,9 +15777,7 @@
         "x-location": "body"
       },
       "ids": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       },
@@ -15949,9 +15803,7 @@
         "x-location": "body"
       },
       "tenantsToMerge": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       }
@@ -15967,9 +15819,7 @@
         "x-location": "body"
       },
       "tenantIds": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       }
@@ -15980,16 +15830,12 @@
     "additionalProperties": true,
     "properties": {
       "entityIds": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       },
       "tagIds": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       }
@@ -16026,9 +15872,7 @@
         "x-location": "body"
       },
       "tenantIds": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       }
@@ -16264,9 +16108,7 @@
     "additionalProperties": true,
     "properties": {
       "dtos": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       }
@@ -16280,9 +16122,7 @@
     "additionalProperties": true,
     "properties": {
       "dtos": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       }
@@ -16296,9 +16136,7 @@
     "additionalProperties": true,
     "properties": {
       "dtos": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       }
@@ -16312,9 +16150,7 @@
     "additionalProperties": true,
     "properties": {
       "dtos": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       }
@@ -16328,9 +16164,7 @@
     "additionalProperties": true,
     "properties": {
       "dtos": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       }
@@ -16344,9 +16178,7 @@
     "additionalProperties": true,
     "properties": {
       "dtos": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       }
@@ -16360,9 +16192,7 @@
     "additionalProperties": true,
     "properties": {
       "dtos": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       }
@@ -16376,9 +16206,7 @@
     "additionalProperties": true,
     "properties": {
       "dtos": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       }
@@ -16687,9 +16515,7 @@
         "x-location": "body"
       },
       "personIds": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       }
@@ -16776,9 +16602,7 @@
         "x-location": "body"
       },
       "personIds": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       }

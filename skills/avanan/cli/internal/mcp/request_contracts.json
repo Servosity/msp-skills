@@ -130,9 +130,7 @@
         "additionalProperties": true,
         "properties": {
           "entityExtendedFilter": {
-            "items": {
-              "type": "string"
-            },
+            "items": {},
             "type": "array"
           },
           "entityFilter": {
@@ -1492,9 +1490,7 @@
         "additionalProperties": true,
         "properties": {
           "addonIdList": {
-            "items": {
-              "type": "string"
-            },
+            "items": {},
             "type": "array"
           },
           "licenseCodeName": {

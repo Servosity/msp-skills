@@ -6225,6 +6225,12 @@
         "type": "string",
         "x-location": "body"
       },
+      "query_name": {
+        "description": "Name",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "name"
+      },
       "state": {
         "description": "State",
         "type": "string",
@@ -6321,6 +6327,18 @@
         "description": "Guid",
         "type": "string",
         "x-location": "body"
+      },
+      "query_guid": {
+        "description": "Guid",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "guid"
+      },
+      "query_state": {
+        "description": "State",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "state"
       },
       "state": {
         "description": "State",
@@ -7611,6 +7629,12 @@
         "type": "string",
         "x-location": "body"
       },
+      "query_limit": {
+        "description": "Limit",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "limit"
+      },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
         "type": "string",
@@ -8601,6 +8625,12 @@
         "type": "string",
         "x-location": "body"
       },
+      "query_id": {
+        "description": "Id",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "id"
+      },
       "schemaExtension": {
         "description": "Schema extension",
         "type": "string",
@@ -8870,6 +8900,12 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "ID"
+      },
+      "query_action": {
+        "description": "Action",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "action"
       },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
@@ -9213,6 +9249,12 @@
         "x-location": "query",
         "x-wire-name": "Permissions"
       },
+      "query_userid": {
+        "description": "Userid",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "userid"
+      },
       "remove-access": {
         "description": "Remove access",
         "type": "string",
@@ -9395,6 +9437,18 @@
         "description": "Id",
         "type": "string",
         "x-location": "body"
+      },
+      "query_id": {
+        "description": "Id",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "id"
+      },
+      "query_username": {
+        "description": "Username",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "username"
       },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
@@ -10182,6 +10236,12 @@
         "description": "Id",
         "type": "string",
         "x-location": "body"
+      },
+      "query_id": {
+        "description": "Id",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "id"
       },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
@@ -11123,6 +11183,18 @@
         "description": "Named location id",
         "type": "string",
         "x-location": "body"
+      },
+      "query_change": {
+        "description": "Change",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "change"
+      },
+      "query_input": {
+        "description": "Input",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "input"
       },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
@@ -12351,6 +12423,12 @@
         "description": "Id",
         "type": "string",
         "x-location": "body"
+      },
+      "query_id": {
+        "description": "Id",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "id"
       },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
@@ -13584,6 +13662,12 @@
         "description": "Photo data",
         "type": "string",
         "x-location": "body"
+      },
+      "query_action": {
+        "description": "Action",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "action"
       },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
@@ -20110,6 +20194,12 @@
         "description": "Id",
         "type": "string",
         "x-location": "body"
+      },
+      "query_id": {
+        "description": "Id",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "id"
       }
     },
     "type": "object"
@@ -20132,6 +20222,12 @@
         "description": "Name",
         "type": "string",
         "x-location": "body"
+      },
+      "query_name": {
+        "description": "Name",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "name"
       },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
@@ -20249,6 +20345,12 @@
         "description": "Guid",
         "type": "string",
         "x-location": "body"
+      },
+      "query_guid": {
+        "description": "Guid",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "guid"
       },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",

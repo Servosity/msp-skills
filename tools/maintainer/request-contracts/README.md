@@ -21,12 +21,16 @@ emitting an empty contract.
 
 Body properties keep their exact wire spelling and nesting. Query and header
 properties keep CLI public flag names with `x-wire-name` when different. A
-path/body name collision uses `path_<name>` for the path parameter and leaves
-the body's wire key intact. `x-location` records each top-level parameter's
-transport location. Catalog array bodies use `body` with `x-raw-body: true`.
+transport/body name collision uses `path_<name>`, `query_<name>`, or
+`header_<name>` for the transport parameter and leaves the body's wire key
+intact. Assignment order does not change these aliases or their requiredness. `x-location` records each top-level parameter's
+transport location. Catalog array bodies use `body` with `x-raw-body: true` for methods that send
+bodies. GET and HEAD catalog array hints do not invent request bodies.
 Object schemas allow additional properties because CLI stdin JSON also accepts
 vendor fields beyond the generated flags. Arbitrary parsed JSON is unconstrained
 unless a source assertion or recorded native schema proves a narrower type.
+Array assertions use the declared element type; `[]any` and `[]interface{}`
+remain unconstrained instead of being mislabeled as string arrays.
 
 `supplements.json` records additional evidence from the pre-existing native
 Printing Press specifications. Each supplemented endpoint carries a source label,

@@ -458,9 +458,7 @@
         "additionalProperties": true,
         "properties": {
           "BandwidthControlList": {
-            "items": {
-              "type": "string"
-            },
+            "items": {},
             "type": "array"
           },
           "Enabled": {
@@ -622,9 +620,7 @@
             "type": "boolean"
           },
           "FilterList": {
-            "items": {
-              "type": "string"
-            },
+            "items": {},
             "type": "array"
           },
           "ReadOnly": {
@@ -838,9 +834,7 @@
         "additionalProperties": true,
         "properties": {
           "AdvancedRetentionPolicyList": {
-            "items": {
-              "type": "string"
-            },
+            "items": {},
             "type": "array"
           },
           "OverlapSensitive": {
@@ -889,33 +883,25 @@
             "type": "string"
           },
           "CustomScheduleList": {
-            "items": {
-              "type": "string"
-            },
+            "items": {},
             "type": "array"
           },
           "DailyScheduleList": {
-            "items": {
-              "type": "string"
-            },
+            "items": {},
             "type": "array"
           },
           "Enable": {
             "type": "boolean"
           },
           "MonthlyScheduleList": {
-            "items": {
-              "type": "string"
-            },
+            "items": {},
             "type": "array"
           },
           "ReadOnly": {
             "type": "boolean"
           },
           "WeeklyScheduleList": {
-            "items": {
-              "type": "string"
-            },
+            "items": {},
             "type": "array"
           }
         },
@@ -1183,9 +1169,7 @@
         "additionalProperties": true,
         "properties": {
           "BandwidthControlList": {
-            "items": {
-              "type": "string"
-            },
+            "items": {},
             "type": "array"
           },
           "Enabled": {
@@ -1347,9 +1331,7 @@
             "type": "boolean"
           },
           "FilterList": {
-            "items": {
-              "type": "string"
-            },
+            "items": {},
             "type": "array"
           },
           "ReadOnly": {
@@ -1563,9 +1545,7 @@
         "additionalProperties": true,
         "properties": {
           "AdvancedRetentionPolicyList": {
-            "items": {
-              "type": "string"
-            },
+            "items": {},
             "type": "array"
           },
           "OverlapSensitive": {
@@ -1614,33 +1594,25 @@
             "type": "string"
           },
           "CustomScheduleList": {
-            "items": {
-              "type": "string"
-            },
+            "items": {},
             "type": "array"
           },
           "DailyScheduleList": {
-            "items": {
-              "type": "string"
-            },
+            "items": {},
             "type": "array"
           },
           "Enable": {
             "type": "boolean"
           },
           "MonthlyScheduleList": {
-            "items": {
-              "type": "string"
-            },
+            "items": {},
             "type": "array"
           },
           "ReadOnly": {
             "type": "boolean"
           },
           "WeeklyScheduleList": {
-            "items": {
-              "type": "string"
-            },
+            "items": {},
             "type": "array"
           }
         },
@@ -5852,9 +5824,7 @@
             "type": "string"
           },
           "company": {
-            "items": {
-              "type": "string"
-            },
+            "items": {},
             "type": "array"
           },
           "disk_info": {
@@ -5862,9 +5832,7 @@
             "type": "string"
           },
           "drbackup": {
-            "items": {
-              "type": "string"
-            },
+            "items": {},
             "type": "array"
           },
           "is_online": {
@@ -5880,9 +5848,7 @@
             "type": "string"
           },
           "resticbackup": {
-            "items": {
-              "type": "string"
-            },
+            "items": {},
             "type": "array"
           },
           "settings": {
@@ -6022,9 +5988,7 @@
         "x-location": "body"
       },
       "shadowprotect_keys": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       },
@@ -6103,9 +6067,7 @@
             "type": "string"
           },
           "company": {
-            "items": {
-              "type": "string"
-            },
+            "items": {},
             "type": "array"
           },
           "disk_info": {
@@ -6113,9 +6075,7 @@
             "type": "string"
           },
           "drbackup": {
-            "items": {
-              "type": "string"
-            },
+            "items": {},
             "type": "array"
           },
           "is_online": {
@@ -6131,9 +6091,7 @@
             "type": "string"
           },
           "resticbackup": {
-            "items": {
-              "type": "string"
-            },
+            "items": {},
             "type": "array"
           },
           "settings": {
@@ -6273,9 +6231,7 @@
         "x-location": "body"
       },
       "shadowprotect_keys": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       },
@@ -6354,9 +6310,7 @@
             "type": "string"
           },
           "company": {
-            "items": {
-              "type": "string"
-            },
+            "items": {},
             "type": "array"
           },
           "disk_info": {
@@ -6364,9 +6318,7 @@
             "type": "string"
           },
           "drbackup": {
-            "items": {
-              "type": "string"
-            },
+            "items": {},
             "type": "array"
           },
           "is_online": {
@@ -6382,9 +6334,7 @@
             "type": "string"
           },
           "resticbackup": {
-            "items": {
-              "type": "string"
-            },
+            "items": {},
             "type": "array"
           },
           "settings": {
@@ -6524,9 +6474,7 @@
         "x-location": "body"
       },
       "shadowprotect_keys": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       },
@@ -7651,9 +7599,7 @@
     "additionalProperties": true,
     "properties": {
       "exclude_paths": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       },
@@ -7711,9 +7657,7 @@
         "x-location": "body"
       },
       "source_paths": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       },
@@ -7879,9 +7823,7 @@
     "additionalProperties": true,
     "properties": {
       "exclude_paths": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       },
@@ -7944,9 +7886,7 @@
         "x-location": "body"
       },
       "source_paths": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       },
@@ -8049,9 +7989,7 @@
     "additionalProperties": true,
     "properties": {
       "exclude_paths": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       },
@@ -8114,9 +8052,7 @@
         "x-location": "body"
       },
       "source_paths": {
-        "items": {
-          "type": "string"
-        },
+        "items": {},
         "type": "array",
         "x-location": "body"
       },

@@ -865,6 +865,11 @@
      "code_only": true
     },
     {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "codeOrchHasBody(ep)",
+     "code_only": true
+    },
+    {
      "file": "cli/internal/mcp/request_contract.go",
      "contains": "func loadRequestContracts()",
      "code_only": true

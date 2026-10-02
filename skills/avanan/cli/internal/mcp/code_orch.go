@@ -995,11 +995,10 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 		}
 	}
 
-	// Route params to their runtime slots. GET/DELETE params are query
-	// strings; write methods split spec-declared query params from the
-	// remaining params used as the request body below.
+	// Route read inputs to query strings. Methods with request bodies split
+	// declared query inputs from the remaining JSON body fields.
 	query := map[string]string{}
-	if ep.Method == "GET" || ep.Method == "DELETE" {
+	if ep.Method == "GET" || (ep.Method == "DELETE" && !codeOrchHasBody(ep)) {
 		path = codeOrchSplitQuery(path, ep.QueryParams, params)
 		for k, v := range params {
 			query[codeOrchWireQueryName(ep.QueryParams, k)] = formatMCPParamValue(v)
@@ -1031,7 +1030,9 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 			}
 		}
 	case "DELETE":
-		if len(hdrs) > 0 {
+		if codeOrchHasBody(ep) {
+			data, _, err = c.DeleteWithParamsAndBodyAndHeaders(ctx, path, query, writeBody(), hdrs)
+		} else if len(hdrs) > 0 {
 			data, _, err = c.DeleteWithParamsAndHeaders(ctx, path, query, hdrs)
 		} else {
 			data, _, err = c.DeleteWithParams(ctx, path, query)
@@ -1077,8 +1078,8 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 // client.do() marshals the body value exactly once. Handing it []byte makes
 // json.Marshal([]byte) emit a base64-encoded JSON *string*, so the API
 // receives "eyJ...==" where it expects the request object. Strict JSON APIs
-// reject that as the wrong type at the body root. GET/DELETE carry no body,
-// so this defect stays latent until the first write attempt.
+// reject that as the wrong type at the body root. Bodyless reads leave this
+// defect latent until the first write attempt.
 func codeOrchWriteBody(params map[string]any) any {
 	return params
 }

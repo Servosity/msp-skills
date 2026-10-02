@@ -182,23 +182,10 @@ func extractFile(file *ast.File) (map[string]schema, error) {
 					return s
 				}
 				if _, ok := x.Type.(*ast.ArrayType); ok {
-					s := schema{"type": "array", "items": schema{}}
-					if len(x.Elts) > 0 {
-						s["items"] = exprSchema(x.Elts[0])
-					}
-					return s
+					return declaredTypeSchema(x.Type)
 				}
 			case *ast.TypeAssertExpr:
-				if _, ok := x.Type.(*ast.MapType); ok {
-					return object()
-				}
-				if a, ok := x.Type.(*ast.ArrayType); ok {
-					t := "string"
-					if ident(a.Elt) == "int" {
-						t = "integer"
-					}
-					return schema{"type": "array", "items": schema{"type": t}}
-				}
+				return declaredTypeSchema(x.Type)
 			case *ast.CallExpr:
 				switch callName(x.Fun) {
 				case "ParseBool":
@@ -240,26 +227,11 @@ func extractFile(file *ast.File) (map[string]schema, error) {
 			if len(s) == 0 && f == nil {
 				problems = append(problems, loc+":"+wire)
 			}
-			s["x-location"] = loc
-			if name != wire {
-				s["x-wire-name"] = wire
-			}
-			if previous, ok := props[name].(schema); ok && previous["x-location"] == "path" && loc == "body" {
-				alias := "path_" + name
-				previous["x-wire-name"] = name
-				props[alias] = previous
-				if required[name] {
-					required[alias] = true
-					delete(required, name)
-				}
-			}
-			props[name] = s
+			needed := (f != nil && f.required) || s["required"] != nil
 			if idx, ok := e.(*ast.IndexExpr); ok && ident(idx.X) == "args" {
-				required[name] = true
+				needed = true
 			}
-			if (f != nil && f.required) || s["required"] != nil {
-				required[name] = true
-			}
+			putBinding(props, required, name, wire, loc, s, needed)
 		}
 		inspect(fn.Body, func(n ast.Node) {
 			if c, ok := n.(*ast.CallExpr); ok && callName(c.Fun) == "Unmarshal" && len(c.Args) == 2 {
@@ -323,8 +295,7 @@ func extractFile(file *ast.File) (map[string]schema, error) {
 			if c, ok := n.(*ast.CallExpr); ok && callName(c.Fun) == "replacePathParam" && len(c.Args) >= 3 {
 				wire := lit(c.Args[1])
 				if wire != "" {
-					props[wire] = schema{"type": "string", "x-location": "path"}
-					required[wire] = true
+					putBinding(props, required, wire, wire, "path", schema{"type": "string"}, true)
 				}
 			}
 		})
@@ -454,20 +425,12 @@ func main() {
 		contracts[id] = s
 		seen[id] = true
 		props := s["properties"].(schema)
-		if ident(kvmap["BodyIsArray"]) == "true" {
-			props["body"] = schema{"type": "array", "items": schema{}, "x-location": "body", "x-raw-body": true}
-			r, _ := s["required"].([]string)
-			present := false
-			for _, name := range r {
-				if name == "body" {
-					present = true
-				}
+		applyArrayBody(s, lit(kvmap["Method"]), ident(kvmap["BodyIsArray"]) == "true")
+		catalogRequired := map[string]bool{}
+		if names, ok := s["required"].([]string); ok {
+			for _, name := range names {
+				catalogRequired[name] = true
 			}
-			if !present {
-				r = append(r, "body")
-			}
-			sort.Strings(r)
-			s["required"] = r
 		}
 		for _, pair := range []struct{ field, loc string }{{"TemplateParams", "template"}, {"QueryParams", "query"}} {
 			if bindings, ok := kvmap[pair.field].(*ast.CompositeLit); ok {
@@ -485,13 +448,23 @@ func main() {
 							}
 						}
 						if public != "" {
+							// Preserve catalog public aliases; source bindings have precedence,
+							// including the explicit transport alias for a body-name collision.
 							if _, exists := props[public]; !exists {
-								props[public] = schema{"type": "string", "x-location": pair.loc, "x-wire-name": wire}
+								putBinding(props, catalogRequired, public, wire, pair.loc, schema{"type": "string", "x-wire-name": wire}, false)
 							}
 						}
 					}
 				}
 			}
+		}
+		if len(catalogRequired) > 0 {
+			names := []string{}
+			for name := range catalogRequired {
+				names = append(names, name)
+			}
+			sort.Strings(names)
+			s["required"] = names
 		}
 	})
 	for id, s := range contracts {
@@ -544,5 +517,99 @@ func cleanDescriptions(s schema) {
 		if child, ok := v.(map[string]any); ok {
 			cleanDescriptions(child)
 		}
+	}
+}
+
+func applyArrayBody(s schema, method string, array bool) {
+	if !array || method == "GET" || method == "HEAD" {
+		return
+	}
+	props := s["properties"].(schema)
+	props["body"] = schema{"type": "array", "items": schema{}, "x-location": "body", "x-raw-body": true}
+	r, _ := s["required"].([]string)
+	present := false
+	for _, name := range r {
+		if name == "body" {
+			present = true
+		}
+	}
+	if !present {
+		r = append(r, "body")
+	}
+	sort.Strings(r)
+	s["required"] = r
+}
+
+// declaredTypeSchema never guesses an element type for []any or []interface{}.
+func declaredTypeSchema(e ast.Expr) schema {
+	switch x := e.(type) {
+	case *ast.Ident:
+		switch x.Name {
+		case "string":
+			return schema{"type": "string"}
+		case "bool":
+			return schema{"type": "boolean"}
+		case "int", "int8", "int16", "int32", "int64", "uint", "uint8", "uint16", "uint32", "uint64", "uintptr", "byte", "rune":
+			return schema{"type": "integer"}
+		case "float32", "float64":
+			return schema{"type": "number"}
+		}
+	case *ast.ArrayType:
+		return schema{"type": "array", "items": declaredTypeSchema(x.Elt)}
+	case *ast.MapType:
+		s := object()
+		if item := declaredTypeSchema(x.Value); len(item) > 0 {
+			s["additionalProperties"] = item
+		}
+		return s
+	case *ast.StarExpr:
+		return declaredTypeSchema(x.X)
+	}
+	return schema{}
+}
+
+// Body names are exact wire keys. Other locations get explicit aliases when
+// they collide, independent of the source assignment order.
+func putBinding(props schema, required map[string]bool, name, wire, loc string, input schema, needed bool) {
+	s := schema{}
+	for k, v := range input {
+		s[k] = v
+	}
+	s["x-location"] = loc
+	if name != wire {
+		s["x-wire-name"] = wire
+	}
+	if previous, ok := props[name].(schema); ok && previous["x-location"] != loc {
+		oldLoc, _ := previous["x-location"].(string)
+		if oldLoc != "body" {
+			alias := oldLoc + "_" + name
+			if _, exists := props[alias]; exists {
+				panic("request parameter alias collision: " + alias)
+			}
+			copy := schema{}
+			for k, v := range previous {
+				copy[k] = v
+			}
+			if _, ok := copy["x-wire-name"]; !ok {
+				copy["x-wire-name"] = name
+			}
+			props[alias] = copy
+			if required[name] {
+				required[alias] = true
+				delete(required, name)
+			}
+			delete(props, name)
+		}
+		if loc != "body" {
+			name = loc + "_" + name
+			s["x-wire-name"] = wire
+			if _, exists := props[name]; exists {
+				panic("request parameter alias collision: " + name)
+			}
+		}
+	}
+	props[name] = s
+	if needed {
+		required[name] = true
 	}
 }

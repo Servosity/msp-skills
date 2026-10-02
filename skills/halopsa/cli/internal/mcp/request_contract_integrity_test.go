@@ -37,6 +37,18 @@ func TestRequestContractCatalogCoverage(t *testing.T) {
 					t.Errorf("undiscoverable path input %s", placeholder[1])
 				}
 			}
+			if ep.Method == "GET" {
+				for name, value := range properties {
+					if property := value.(map[string]any); property["x-location"] == "body" {
+						t.Errorf("GET advertises an unsent body input %s", name)
+					}
+				}
+			} else if ep.BodyIsArray && (ep.Method == "POST" || ep.Method == "PUT" || ep.Method == "PATCH" || ep.Method == "DELETE") {
+				body, _ := properties["body"].(map[string]any)
+				if body["type"] != "array" || body["x-location"] != "body" {
+					t.Error("array-body endpoint must describe its executable body input")
+				}
+			}
 			validateContractNode(t, schema, ep.ID, true)
 		})
 	}

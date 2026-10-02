@@ -197,6 +197,17 @@ func codeOrchResolveContract(ep *codeOrchEndpoint, path string, params map[strin
 	return path, headers
 }
 
+func codeOrchHasBody(ep *codeOrchEndpoint) bool {
+	properties, _ := requestContracts[ep.ID]["properties"].(map[string]any)
+	for _, value := range properties {
+		property, _ := value.(map[string]any)
+		if property["x-location"] == "body" {
+			return true
+		}
+	}
+	return false
+}
+
 func codeOrchContractBody(ep *codeOrchEndpoint, params map[string]any) any {
 	properties, _ := requestContracts[ep.ID]["properties"].(map[string]any)
 	body, _ := properties["body"].(map[string]any)
