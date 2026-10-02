@@ -1,0 +1,2914 @@
+{
+  "activity-logs.list": {
+    "additionalProperties": true,
+    "properties": {
+      "action": {
+        "description": "Filter by action message",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "action_message"
+      },
+      "page": {
+        "description": "1-based page number",
+        "type": "string",
+        "x-location": "query"
+      },
+      "page-size": {
+        "description": "Results per page",
+        "type": "integer",
+        "x-location": "query",
+        "x-wire-name": "page_size"
+      },
+      "resource-id": {
+        "description": "Resource id; pair with resource_type",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "resource_id"
+      },
+      "resource-type": {
+        "description": "Resource type; pair with resource_id",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "resource_type"
+      },
+      "start-date": {
+        "description": "ISO8601 lower bound",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "start_date"
+      },
+      "user-email": {
+        "description": "Filter by acting user email",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "user_email"
+      },
+      "user-id": {
+        "description": "Filter by acting user id",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "user_id"
+      }
+    },
+    "type": "object"
+  },
+  "api-info.get": {
+    "additionalProperties": true,
+    "properties": {},
+    "type": "object"
+  },
+  "articles.archive": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "articles.create": {
+    "additionalProperties": true,
+    "properties": {
+      "company_id": {
+        "description": "Owning company id (omit for a global KB article)",
+        "type": "string",
+        "x-location": "body"
+      },
+      "content": {
+        "description": "HTML body content",
+        "type": "string",
+        "x-location": "body"
+      },
+      "enable_sharing": {
+        "description": "Enable public share link",
+        "type": "boolean",
+        "x-location": "body"
+      },
+      "folder_id": {
+        "description": "Folder id",
+        "type": "string",
+        "x-location": "body"
+      },
+      "name": {
+        "description": "Article title",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "name"
+    ],
+    "type": "object"
+  },
+  "articles.delete": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "articles.get": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "articles.list": {
+    "additionalProperties": true,
+    "properties": {
+      "company-id": {
+        "description": "Filter by company id (omit for global/KB articles)",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "company_id"
+      },
+      "draft": {
+        "description": "Filter by draft state",
+        "type": "boolean",
+        "x-location": "query"
+      },
+      "name": {
+        "description": "Filter by title",
+        "type": "string",
+        "x-location": "query"
+      },
+      "page": {
+        "description": "1-based page number",
+        "type": "string",
+        "x-location": "query"
+      },
+      "page-size": {
+        "description": "Results per page",
+        "type": "integer",
+        "x-location": "query",
+        "x-wire-name": "page_size"
+      },
+      "slug": {
+        "description": "Filter by slug",
+        "type": "string",
+        "x-location": "query"
+      },
+      "updated-at": {
+        "description": "ISO8601 range 'start,end' on updated_at",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "updated_at"
+      }
+    },
+    "type": "object"
+  },
+  "articles.unarchive": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "articles.update": {
+    "additionalProperties": true,
+    "properties": {
+      "content": {
+        "description": "HTML body content",
+        "type": "string",
+        "x-location": "body"
+      },
+      "folder_id": {
+        "description": "Folder id",
+        "type": "string",
+        "x-location": "body"
+      },
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "name": {
+        "description": "Article title",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "asset-layouts.create": {
+    "additionalProperties": true,
+    "properties": {
+      "color": {
+        "description": "Hex header color",
+        "type": "string",
+        "x-location": "body"
+      },
+      "fields": {
+        "description": "JSON array of field definitions {label, field_type, position, ...}",
+        "type": "string",
+        "x-location": "body"
+      },
+      "icon": {
+        "description": "FontAwesome icon (e.g. fas fa-laptop)",
+        "type": "string",
+        "x-location": "body"
+      },
+      "icon_color": {
+        "description": "Hex icon color",
+        "type": "string",
+        "x-location": "body"
+      },
+      "include_comments": {
+        "description": "Show comments section",
+        "type": "boolean",
+        "x-location": "body"
+      },
+      "include_passwords": {
+        "description": "Show passwords section",
+        "type": "boolean",
+        "x-location": "body"
+      },
+      "name": {
+        "description": "Layout name",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "name"
+    ],
+    "type": "object"
+  },
+  "asset-layouts.get": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "asset-layouts.list": {
+    "additionalProperties": true,
+    "properties": {
+      "name": {
+        "description": "Filter by name",
+        "type": "string",
+        "x-location": "query"
+      },
+      "page": {
+        "description": "1-based page number",
+        "type": "string",
+        "x-location": "query"
+      },
+      "page-size": {
+        "description": "Results per page",
+        "type": "integer",
+        "x-location": "query",
+        "x-wire-name": "page_size"
+      },
+      "slug": {
+        "description": "Filter by slug",
+        "type": "string",
+        "x-location": "query"
+      }
+    },
+    "type": "object"
+  },
+  "asset-layouts.update": {
+    "additionalProperties": true,
+    "properties": {
+      "color": {
+        "description": "Hex header color",
+        "type": "string",
+        "x-location": "body"
+      },
+      "fields": {
+        "description": "JSON array of field definitions",
+        "type": "string",
+        "x-location": "body"
+      },
+      "icon": {
+        "description": "FontAwesome icon",
+        "type": "string",
+        "x-location": "body"
+      },
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "name": {
+        "description": "Layout name",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "asset-passwords.archive": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "asset-passwords.create": {
+    "additionalProperties": true,
+    "properties": {
+      "company_id": {
+        "description": "Owning company id",
+        "type": "string",
+        "x-location": "body"
+      },
+      "description": {
+        "description": "Description",
+        "type": "string",
+        "x-location": "body"
+      },
+      "name": {
+        "description": "Entry name",
+        "type": "string",
+        "x-location": "body"
+      },
+      "otp_secret": {
+        "description": "TOTP secret",
+        "type": "string",
+        "x-location": "body"
+      },
+      "password": {
+        "description": "Secret value",
+        "type": "string",
+        "x-location": "body"
+      },
+      "passwordable_id": {
+        "description": "Parent id to link the password",
+        "type": "string",
+        "x-location": "body"
+      },
+      "passwordable_type": {
+        "description": "Parent type (e.g. Asset) to link the password",
+        "type": "string",
+        "x-location": "body"
+      },
+      "url": {
+        "description": "Related URL",
+        "type": "string",
+        "x-location": "body"
+      },
+      "username": {
+        "description": "Username",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "company_id",
+      "name"
+    ],
+    "type": "object"
+  },
+  "asset-passwords.delete": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "asset-passwords.get": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "asset-passwords.list": {
+    "additionalProperties": true,
+    "properties": {
+      "company-id": {
+        "description": "Filter by company id",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "company_id"
+      },
+      "name": {
+        "description": "Filter by name",
+        "type": "string",
+        "x-location": "query"
+      },
+      "page": {
+        "description": "1-based page number",
+        "type": "string",
+        "x-location": "query"
+      },
+      "page-size": {
+        "description": "Results per page",
+        "type": "integer",
+        "x-location": "query",
+        "x-wire-name": "page_size"
+      },
+      "search": {
+        "description": "Free-text search",
+        "type": "string",
+        "x-location": "query"
+      },
+      "slug": {
+        "description": "Filter by slug",
+        "type": "string",
+        "x-location": "query"
+      },
+      "updated-at": {
+        "description": "ISO8601 range 'start,end' on updated_at",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "updated_at"
+      }
+    },
+    "type": "object"
+  },
+  "asset-passwords.unarchive": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "asset-passwords.update": {
+    "additionalProperties": true,
+    "properties": {
+      "description": {
+        "description": "Description",
+        "type": "string",
+        "x-location": "body"
+      },
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "name": {
+        "description": "Entry name",
+        "type": "string",
+        "x-location": "body"
+      },
+      "password": {
+        "description": "Secret value",
+        "type": "string",
+        "x-location": "body"
+      },
+      "url": {
+        "description": "Related URL",
+        "type": "string",
+        "x-location": "body"
+      },
+      "username": {
+        "description": "Username",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "assets.archive": {
+    "additionalProperties": true,
+    "properties": {
+      "company_id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "company_id",
+      "id"
+    ],
+    "type": "object"
+  },
+  "assets.create": {
+    "additionalProperties": true,
+    "properties": {
+      "asset_layout_id": {
+        "description": "Asset layout id (the field schema)",
+        "type": "string",
+        "x-location": "body"
+      },
+      "company_id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "custom_fields": {
+        "description": "JSON array of {label: value} objects matching the layout fields",
+        "type": "string",
+        "x-location": "body"
+      },
+      "name": {
+        "description": "Asset name",
+        "type": "string",
+        "x-location": "body"
+      },
+      "primary_manufacturer": {
+        "description": "Primary manufacturer",
+        "type": "string",
+        "x-location": "body"
+      },
+      "primary_model": {
+        "description": "Primary model",
+        "type": "string",
+        "x-location": "body"
+      },
+      "primary_serial": {
+        "description": "Primary serial number",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "asset_layout_id",
+      "company_id",
+      "name"
+    ],
+    "type": "object"
+  },
+  "assets.delete": {
+    "additionalProperties": true,
+    "properties": {
+      "company_id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "company_id",
+      "id"
+    ],
+    "type": "object"
+  },
+  "assets.get": {
+    "additionalProperties": true,
+    "properties": {
+      "company_id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "company_id",
+      "id"
+    ],
+    "type": "object"
+  },
+  "assets.list": {
+    "additionalProperties": true,
+    "properties": {
+      "archived": {
+        "description": "Include archived assets",
+        "type": "boolean",
+        "x-location": "query"
+      },
+      "company-id": {
+        "description": "Filter by company id",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "company_id"
+      },
+      "layout-id": {
+        "description": "Filter by asset layout id",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "asset_layout_id"
+      },
+      "name": {
+        "description": "Filter by asset name",
+        "type": "string",
+        "x-location": "query"
+      },
+      "page": {
+        "description": "1-based page number",
+        "type": "string",
+        "x-location": "query"
+      },
+      "page-size": {
+        "description": "Results per page",
+        "type": "integer",
+        "x-location": "query",
+        "x-wire-name": "page_size"
+      },
+      "search": {
+        "description": "Free-text search",
+        "type": "string",
+        "x-location": "query"
+      },
+      "serial": {
+        "description": "Filter by primary serial",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "primary_serial"
+      },
+      "slug": {
+        "description": "Filter by slug",
+        "type": "string",
+        "x-location": "query"
+      },
+      "updated-at": {
+        "description": "ISO8601 range 'start,end' on updated_at",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "updated_at"
+      }
+    },
+    "type": "object"
+  },
+  "assets.list-by-company": {
+    "additionalProperties": true,
+    "properties": {
+      "archived": {
+        "description": "Include archived assets",
+        "type": "boolean",
+        "x-location": "query"
+      },
+      "company_id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "layout-id": {
+        "description": "Filter by asset layout id",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "asset_layout_id"
+      },
+      "name": {
+        "description": "Filter by asset name",
+        "type": "string",
+        "x-location": "query"
+      },
+      "page": {
+        "description": "1-based page number",
+        "type": "string",
+        "x-location": "query"
+      },
+      "page-size": {
+        "description": "Results per page",
+        "type": "integer",
+        "x-location": "query",
+        "x-wire-name": "page_size"
+      }
+    },
+    "required": [
+      "company_id"
+    ],
+    "type": "object"
+  },
+  "assets.move-layout": {
+    "additionalProperties": true,
+    "properties": {
+      "asset_layout_id": {
+        "description": "Destination asset layout id",
+        "type": "string",
+        "x-location": "body"
+      },
+      "company_id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "asset_layout_id",
+      "company_id",
+      "id"
+    ],
+    "type": "object"
+  },
+  "assets.unarchive": {
+    "additionalProperties": true,
+    "properties": {
+      "company_id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "company_id",
+      "id"
+    ],
+    "type": "object"
+  },
+  "assets.update": {
+    "additionalProperties": true,
+    "properties": {
+      "company_id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "custom_fields": {
+        "description": "JSON array of {label: value} objects matching the layout fields",
+        "type": "string",
+        "x-location": "body"
+      },
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "name": {
+        "description": "Asset name",
+        "type": "string",
+        "x-location": "body"
+      },
+      "primary_manufacturer": {
+        "description": "Primary manufacturer",
+        "type": "string",
+        "x-location": "body"
+      },
+      "primary_model": {
+        "description": "Primary model",
+        "type": "string",
+        "x-location": "body"
+      },
+      "primary_serial": {
+        "description": "Primary serial number",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "company_id",
+      "id"
+    ],
+    "type": "object"
+  },
+  "cards.lookup": {
+    "additionalProperties": true,
+    "properties": {
+      "integration-id": {
+        "description": "External record id (one of integration-id / integration-identifier required)",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "integration_id"
+      },
+      "integration-identifier": {
+        "description": "External record identifier (alternative to integration-id)",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "integration_identifier"
+      },
+      "integration-slug": {
+        "description": "Integration slug (e.g. cw_manage, autotask)",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "integration_slug"
+      }
+    },
+    "required": [
+      "integration-slug"
+    ],
+    "type": "object"
+  },
+  "companies.archive": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "companies.create": {
+    "additionalProperties": true,
+    "properties": {
+      "address_line_1": {
+        "description": "Address line 1",
+        "type": "string",
+        "x-location": "body"
+      },
+      "city": {
+        "description": "City",
+        "type": "string",
+        "x-location": "body"
+      },
+      "company_type": {
+        "description": "Company type label",
+        "type": "string",
+        "x-location": "body"
+      },
+      "id_number": {
+        "description": "External id number",
+        "type": "string",
+        "x-location": "body"
+      },
+      "name": {
+        "description": "Company name (must be unique)",
+        "type": "string",
+        "x-location": "body"
+      },
+      "nickname": {
+        "description": "Short nickname",
+        "type": "string",
+        "x-location": "body"
+      },
+      "notes": {
+        "description": "Notes",
+        "type": "string",
+        "x-location": "body"
+      },
+      "phone_number": {
+        "description": "Phone number",
+        "type": "string",
+        "x-location": "body"
+      },
+      "state": {
+        "description": "State/region",
+        "type": "string",
+        "x-location": "body"
+      },
+      "website": {
+        "description": "Website URL",
+        "type": "string",
+        "x-location": "body"
+      },
+      "zip": {
+        "description": "Postal code",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "name"
+    ],
+    "type": "object"
+  },
+  "companies.delete": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "companies.get": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "companies.list": {
+    "additionalProperties": true,
+    "properties": {
+      "city": {
+        "description": "Filter by city",
+        "type": "string",
+        "x-location": "query"
+      },
+      "integration-id": {
+        "description": "Filter by external integration id",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "id_in_integration"
+      },
+      "name": {
+        "description": "Filter by company name",
+        "type": "string",
+        "x-location": "query"
+      },
+      "page": {
+        "description": "1-based page number",
+        "type": "string",
+        "x-location": "query"
+      },
+      "page-size": {
+        "description": "Results per page",
+        "type": "integer",
+        "x-location": "query",
+        "x-wire-name": "page_size"
+      },
+      "phone": {
+        "description": "Filter by phone number",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "phone_number"
+      },
+      "search": {
+        "description": "Free-text search",
+        "type": "string",
+        "x-location": "query"
+      },
+      "slug": {
+        "description": "Filter by slug",
+        "type": "string",
+        "x-location": "query"
+      },
+      "state": {
+        "description": "Filter by state",
+        "type": "string",
+        "x-location": "query"
+      },
+      "updated-at": {
+        "description": "ISO8601 range 'start,end' on updated_at",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "updated_at"
+      },
+      "website": {
+        "description": "Filter by website",
+        "type": "string",
+        "x-location": "query"
+      }
+    },
+    "type": "object"
+  },
+  "companies.unarchive": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "companies.update": {
+    "additionalProperties": true,
+    "properties": {
+      "address_line_1": {
+        "description": "Address line 1",
+        "type": "string",
+        "x-location": "body"
+      },
+      "city": {
+        "description": "City",
+        "type": "string",
+        "x-location": "body"
+      },
+      "company_type": {
+        "description": "Company type label",
+        "type": "string",
+        "x-location": "body"
+      },
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "name": {
+        "description": "Company name",
+        "type": "string",
+        "x-location": "body"
+      },
+      "nickname": {
+        "description": "Short nickname",
+        "type": "string",
+        "x-location": "body"
+      },
+      "notes": {
+        "description": "Notes",
+        "type": "string",
+        "x-location": "body"
+      },
+      "phone_number": {
+        "description": "Phone number",
+        "type": "string",
+        "x-location": "body"
+      },
+      "state": {
+        "description": "State/region",
+        "type": "string",
+        "x-location": "body"
+      },
+      "website": {
+        "description": "Website URL",
+        "type": "string",
+        "x-location": "body"
+      },
+      "zip": {
+        "description": "Postal code",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "expirations.list": {
+    "additionalProperties": true,
+    "properties": {
+      "company-id": {
+        "description": "Filter by company id",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "company_id"
+      },
+      "page": {
+        "description": "1-based page number",
+        "type": "string",
+        "x-location": "query"
+      },
+      "page-size": {
+        "description": "Results per page",
+        "type": "integer",
+        "x-location": "query",
+        "x-wire-name": "page_size"
+      },
+      "resource-id": {
+        "description": "Resource id; pair with resource_type",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "resource_id"
+      },
+      "resource-type": {
+        "description": "Resource type (Asset/AssetPassword/Company/Article); pair with resource_id",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "resource_type"
+      },
+      "type": {
+        "description": "Expiration type filter (e.g. ssl, domain, warranty, asset_password)",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "expiration_type"
+      }
+    },
+    "type": "object"
+  },
+  "exports.create": {
+    "additionalProperties": true,
+    "properties": {
+      "company_id": {
+        "description": "Scope to a company id",
+        "type": "string",
+        "x-location": "body"
+      },
+      "format": {
+        "description": "Export format (e.g. csv, json)",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "type": "object"
+  },
+  "exports.create-s3": {
+    "additionalProperties": true,
+    "properties": {
+      "company_id": {
+        "description": "Scope to a company id",
+        "type": "string",
+        "x-location": "body"
+      },
+      "format": {
+        "description": "Export format",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "type": "object"
+  },
+  "exports.get": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "exports.list": {
+    "additionalProperties": true,
+    "properties": {
+      "page": {
+        "description": "1-based page number",
+        "type": "string",
+        "x-location": "query"
+      },
+      "page-size": {
+        "description": "Results per page",
+        "type": "integer",
+        "x-location": "query",
+        "x-wire-name": "page_size"
+      }
+    },
+    "type": "object"
+  },
+  "flag-types.create": {
+    "additionalProperties": true,
+    "properties": {
+      "color": {
+        "description": "Hex color",
+        "type": "string",
+        "x-location": "body"
+      },
+      "icon": {
+        "description": "FontAwesome icon",
+        "type": "string",
+        "x-location": "body"
+      },
+      "name": {
+        "description": "Flag type name",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "name"
+    ],
+    "type": "object"
+  },
+  "flag-types.delete": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "flag-types.list": {
+    "additionalProperties": true,
+    "properties": {
+      "page": {
+        "description": "1-based page number",
+        "type": "string",
+        "x-location": "query"
+      },
+      "page-size": {
+        "description": "Results per page",
+        "type": "integer",
+        "x-location": "query",
+        "x-wire-name": "page_size"
+      }
+    },
+    "type": "object"
+  },
+  "flag-types.update": {
+    "additionalProperties": true,
+    "properties": {
+      "color": {
+        "description": "Hex color",
+        "type": "string",
+        "x-location": "body"
+      },
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "name": {
+        "description": "Flag type name",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "flags.create": {
+    "additionalProperties": true,
+    "properties": {
+      "flag_type_id": {
+        "description": "Flag type id",
+        "type": "string",
+        "x-location": "body"
+      },
+      "flaggable_id": {
+        "description": "Flagged entity id",
+        "type": "string",
+        "x-location": "body"
+      },
+      "flaggable_type": {
+        "description": "Flagged entity type",
+        "type": "string",
+        "x-location": "body"
+      },
+      "note": {
+        "description": "Flag note",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "flag_type_id",
+      "flaggable_id",
+      "flaggable_type"
+    ],
+    "type": "object"
+  },
+  "flags.delete": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "flags.list": {
+    "additionalProperties": true,
+    "properties": {
+      "page": {
+        "description": "1-based page number",
+        "type": "string",
+        "x-location": "query"
+      },
+      "page-size": {
+        "description": "Results per page",
+        "type": "integer",
+        "x-location": "query",
+        "x-wire-name": "page_size"
+      }
+    },
+    "type": "object"
+  },
+  "flags.update": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "note": {
+        "description": "Flag note",
+        "type": "string",
+        "x-location": "body"
+      },
+      "resolved": {
+        "description": "Mark resolved",
+        "type": "boolean",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "folders.create": {
+    "additionalProperties": true,
+    "properties": {
+      "company_id": {
+        "description": "Owning company id (omit for global)",
+        "type": "string",
+        "x-location": "body"
+      },
+      "description": {
+        "description": "Description",
+        "type": "string",
+        "x-location": "body"
+      },
+      "icon": {
+        "description": "FontAwesome icon",
+        "type": "string",
+        "x-location": "body"
+      },
+      "name": {
+        "description": "Folder name",
+        "type": "string",
+        "x-location": "body"
+      },
+      "parent_folder_id": {
+        "description": "Parent folder id",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "name"
+    ],
+    "type": "object"
+  },
+  "folders.get": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "folders.list": {
+    "additionalProperties": true,
+    "properties": {
+      "company-id": {
+        "description": "Filter by company id",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "company_id"
+      },
+      "page": {
+        "description": "1-based page number",
+        "type": "string",
+        "x-location": "query"
+      },
+      "page-size": {
+        "description": "Results per page",
+        "type": "integer",
+        "x-location": "query",
+        "x-wire-name": "page_size"
+      }
+    },
+    "type": "object"
+  },
+  "folders.update": {
+    "additionalProperties": true,
+    "properties": {
+      "description": {
+        "description": "Description",
+        "type": "string",
+        "x-location": "body"
+      },
+      "icon": {
+        "description": "FontAwesome icon",
+        "type": "string",
+        "x-location": "body"
+      },
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "name": {
+        "description": "Folder name",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "groups.get": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "groups.list": {
+    "additionalProperties": true,
+    "properties": {
+      "page": {
+        "description": "1-based page number",
+        "type": "string",
+        "x-location": "query"
+      },
+      "page-size": {
+        "description": "Results per page",
+        "type": "integer",
+        "x-location": "query",
+        "x-wire-name": "page_size"
+      }
+    },
+    "type": "object"
+  },
+  "ip-addresses.create": {
+    "additionalProperties": true,
+    "properties": {
+      "address": {
+        "description": "IP address",
+        "type": "string",
+        "x-location": "body"
+      },
+      "company_id": {
+        "description": "Owning company id",
+        "type": "string",
+        "x-location": "body"
+      },
+      "description": {
+        "description": "Description",
+        "type": "string",
+        "x-location": "body"
+      },
+      "fqdn": {
+        "description": "FQDN",
+        "type": "string",
+        "x-location": "body"
+      },
+      "network_id": {
+        "description": "Parent network id",
+        "type": "string",
+        "x-location": "body"
+      },
+      "status": {
+        "description": "Status (e.g. assigned, available)",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "address",
+      "company_id"
+    ],
+    "type": "object"
+  },
+  "ip-addresses.delete": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "ip-addresses.get": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "ip-addresses.list": {
+    "additionalProperties": true,
+    "properties": {
+      "company-id": {
+        "description": "Filter by company id",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "company_id"
+      }
+    },
+    "type": "object"
+  },
+  "ip-addresses.update": {
+    "additionalProperties": true,
+    "properties": {
+      "description": {
+        "description": "Description",
+        "type": "string",
+        "x-location": "body"
+      },
+      "fqdn": {
+        "description": "FQDN",
+        "type": "string",
+        "x-location": "body"
+      },
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "status": {
+        "description": "Status",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "lists.create": {
+    "additionalProperties": true,
+    "properties": {
+      "list_items": {
+        "description": "JSON array of list option objects",
+        "type": "string",
+        "x-location": "body"
+      },
+      "name": {
+        "description": "List name",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "name"
+    ],
+    "type": "object"
+  },
+  "lists.delete": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "lists.get": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "lists.list": {
+    "additionalProperties": true,
+    "properties": {
+      "page": {
+        "description": "1-based page number",
+        "type": "string",
+        "x-location": "query"
+      },
+      "page-size": {
+        "description": "Results per page",
+        "type": "integer",
+        "x-location": "query",
+        "x-wire-name": "page_size"
+      }
+    },
+    "type": "object"
+  },
+  "lists.update": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "list_items": {
+        "description": "JSON array of list option objects",
+        "type": "string",
+        "x-location": "body"
+      },
+      "name": {
+        "description": "List name",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "magic-dash.delete": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "magic-dash.list": {
+    "additionalProperties": true,
+    "properties": {
+      "company-id": {
+        "description": "Filter by company id",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "company_id"
+      },
+      "page": {
+        "description": "1-based page number",
+        "type": "string",
+        "x-location": "query"
+      },
+      "page-size": {
+        "description": "Results per page",
+        "type": "integer",
+        "x-location": "query",
+        "x-wire-name": "page_size"
+      },
+      "title": {
+        "description": "Filter by title",
+        "type": "string",
+        "x-location": "query"
+      }
+    },
+    "type": "object"
+  },
+  "magic-dash.set": {
+    "additionalProperties": true,
+    "properties": {
+      "company_name": {
+        "description": "Target company name",
+        "type": "string",
+        "x-location": "body"
+      },
+      "content": {
+        "description": "HTML body content",
+        "type": "string",
+        "x-location": "body"
+      },
+      "content_link": {
+        "description": "Click-through URL",
+        "type": "string",
+        "x-location": "body"
+      },
+      "icon": {
+        "description": "FontAwesome icon",
+        "type": "string",
+        "x-location": "body"
+      },
+      "message": {
+        "description": "Headline message/value",
+        "type": "string",
+        "x-location": "body"
+      },
+      "shade": {
+        "description": "Tile color shade",
+        "type": "string",
+        "x-location": "body"
+      },
+      "title": {
+        "description": "Tile title",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "company_name",
+      "title"
+    ],
+    "type": "object"
+  },
+  "matchers.list": {
+    "additionalProperties": true,
+    "properties": {
+      "integration-id": {
+        "description": "Filter by integration id",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "integration_id"
+      },
+      "page": {
+        "description": "1-based page number",
+        "type": "string",
+        "x-location": "query"
+      },
+      "page-size": {
+        "description": "Results per page",
+        "type": "integer",
+        "x-location": "query",
+        "x-wire-name": "page_size"
+      }
+    },
+    "type": "object"
+  },
+  "matchers.update": {
+    "additionalProperties": true,
+    "properties": {
+      "company_id": {
+        "description": "Hudu company id to link",
+        "type": "string",
+        "x-location": "body"
+      },
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "potential_company_id": {
+        "description": "Potential company id to link",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "networks.create": {
+    "additionalProperties": true,
+    "properties": {
+      "address": {
+        "description": "Network address/CIDR",
+        "type": "string",
+        "x-location": "body"
+      },
+      "company_id": {
+        "description": "Owning company id",
+        "type": "string",
+        "x-location": "body"
+      },
+      "description": {
+        "description": "Description",
+        "type": "string",
+        "x-location": "body"
+      },
+      "name": {
+        "description": "Network name",
+        "type": "string",
+        "x-location": "body"
+      },
+      "network_type": {
+        "description": "Network type id",
+        "type": "integer",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "address",
+      "company_id",
+      "name"
+    ],
+    "type": "object"
+  },
+  "networks.delete": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "networks.get": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "networks.list": {
+    "additionalProperties": true,
+    "properties": {
+      "company-id": {
+        "description": "Filter by company id",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "company_id"
+      }
+    },
+    "type": "object"
+  },
+  "networks.update": {
+    "additionalProperties": true,
+    "properties": {
+      "address": {
+        "description": "Network address/CIDR",
+        "type": "string",
+        "x-location": "body"
+      },
+      "description": {
+        "description": "Description",
+        "type": "string",
+        "x-location": "body"
+      },
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "name": {
+        "description": "Network name",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "procedure-tasks.create": {
+    "additionalProperties": true,
+    "properties": {
+      "assigned_users": {
+        "description": "JSON array of user ids",
+        "type": "string",
+        "x-location": "body"
+      },
+      "description": {
+        "description": "Task description",
+        "type": "string",
+        "x-location": "body"
+      },
+      "name": {
+        "description": "Task name",
+        "type": "string",
+        "x-location": "body"
+      },
+      "position": {
+        "description": "Order position",
+        "type": "integer",
+        "x-location": "body"
+      },
+      "procedure_id": {
+        "description": "Parent procedure id",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "name",
+      "procedure_id"
+    ],
+    "type": "object"
+  },
+  "procedure-tasks.delete": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "procedure-tasks.get": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "procedure-tasks.list": {
+    "additionalProperties": true,
+    "properties": {
+      "page": {
+        "description": "1-based page number",
+        "type": "string",
+        "x-location": "query"
+      },
+      "page-size": {
+        "description": "Results per page",
+        "type": "integer",
+        "x-location": "query",
+        "x-wire-name": "page_size"
+      },
+      "procedure-id": {
+        "description": "Filter by procedure id",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "procedure_id"
+      }
+    },
+    "type": "object"
+  },
+  "procedure-tasks.update": {
+    "additionalProperties": true,
+    "properties": {
+      "completed": {
+        "description": "Mark task completed",
+        "type": "boolean",
+        "x-location": "body"
+      },
+      "description": {
+        "description": "Task description",
+        "type": "string",
+        "x-location": "body"
+      },
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "name": {
+        "description": "Task name",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "procedures.create": {
+    "additionalProperties": true,
+    "properties": {
+      "company_id": {
+        "description": "Owning company id (omit for a global template)",
+        "type": "string",
+        "x-location": "body"
+      },
+      "description": {
+        "description": "Description",
+        "type": "string",
+        "x-location": "body"
+      },
+      "name": {
+        "description": "Procedure name",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "name"
+    ],
+    "type": "object"
+  },
+  "procedures.create-from-template": {
+    "additionalProperties": true,
+    "properties": {
+      "company_id": {
+        "description": "Target company id",
+        "type": "string",
+        "x-location": "body"
+      },
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "name": {
+        "description": "Name for the new procedure",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "company_id",
+      "id"
+    ],
+    "type": "object"
+  },
+  "procedures.delete": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "procedures.duplicate": {
+    "additionalProperties": true,
+    "properties": {
+      "company_id": {
+        "description": "Target company id for the copy",
+        "type": "string",
+        "x-location": "body"
+      },
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "procedures.get": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "procedures.kickoff": {
+    "additionalProperties": true,
+    "properties": {
+      "company_id": {
+        "description": "Target company id",
+        "type": "string",
+        "x-location": "body"
+      },
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "procedures.list": {
+    "additionalProperties": true,
+    "properties": {
+      "company-id": {
+        "description": "Filter by company id",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "company_id"
+      },
+      "name": {
+        "description": "Filter by name",
+        "type": "string",
+        "x-location": "query"
+      },
+      "page": {
+        "description": "1-based page number",
+        "type": "string",
+        "x-location": "query"
+      },
+      "page-size": {
+        "description": "Results per page",
+        "type": "integer",
+        "x-location": "query",
+        "x-wire-name": "page_size"
+      },
+      "slug": {
+        "description": "Filter by slug",
+        "type": "string",
+        "x-location": "query"
+      }
+    },
+    "type": "object"
+  },
+  "procedures.update": {
+    "additionalProperties": true,
+    "properties": {
+      "description": {
+        "description": "Description",
+        "type": "string",
+        "x-location": "body"
+      },
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "name": {
+        "description": "Procedure name",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "public-photos.list": {
+    "additionalProperties": true,
+    "properties": {
+      "page": {
+        "description": "1-based page number",
+        "type": "string",
+        "x-location": "query"
+      },
+      "page-size": {
+        "description": "Results per page",
+        "type": "integer",
+        "x-location": "query",
+        "x-wire-name": "page_size"
+      }
+    },
+    "type": "object"
+  },
+  "rack-storage-items.create": {
+    "additionalProperties": true,
+    "properties": {
+      "asset_id": {
+        "description": "Linked asset id",
+        "type": "string",
+        "x-location": "body"
+      },
+      "end_unit": {
+        "description": "Ending U position",
+        "type": "integer",
+        "x-location": "body"
+      },
+      "name": {
+        "description": "Item name",
+        "type": "string",
+        "x-location": "body"
+      },
+      "rack_storage_id": {
+        "description": "Parent rack storage id",
+        "type": "string",
+        "x-location": "body"
+      },
+      "start_unit": {
+        "description": "Starting U position",
+        "type": "integer",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "name",
+      "rack_storage_id"
+    ],
+    "type": "object"
+  },
+  "rack-storage-items.delete": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "rack-storage-items.get": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "rack-storage-items.list": {
+    "additionalProperties": true,
+    "properties": {
+      "rack-id": {
+        "description": "Filter by rack storage id",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "rack_storage_id"
+      }
+    },
+    "type": "object"
+  },
+  "rack-storage-items.update": {
+    "additionalProperties": true,
+    "properties": {
+      "end_unit": {
+        "description": "Ending U position",
+        "type": "integer",
+        "x-location": "body"
+      },
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "name": {
+        "description": "Item name",
+        "type": "string",
+        "x-location": "body"
+      },
+      "start_unit": {
+        "description": "Starting U position",
+        "type": "integer",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "rack-storages.create": {
+    "additionalProperties": true,
+    "properties": {
+      "company_id": {
+        "description": "Owning company id",
+        "type": "string",
+        "x-location": "body"
+      },
+      "description": {
+        "description": "Description",
+        "type": "string",
+        "x-location": "body"
+      },
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "max_units": {
+        "description": "Rack height in U",
+        "type": "integer",
+        "x-location": "body"
+      },
+      "name": {
+        "description": "Rack name",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "company_id",
+      "id",
+      "name"
+    ],
+    "type": "object"
+  },
+  "rack-storages.delete": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "rack-storages.get": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "rack-storages.list": {
+    "additionalProperties": true,
+    "properties": {
+      "company-id": {
+        "description": "Filter by company id",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "company_id"
+      },
+      "page": {
+        "description": "1-based page number",
+        "type": "string",
+        "x-location": "query"
+      },
+      "page-size": {
+        "description": "Results per page",
+        "type": "integer",
+        "x-location": "query",
+        "x-wire-name": "page_size"
+      }
+    },
+    "type": "object"
+  },
+  "rack-storages.update": {
+    "additionalProperties": true,
+    "properties": {
+      "description": {
+        "description": "Description",
+        "type": "string",
+        "x-location": "body"
+      },
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "max_units": {
+        "description": "Rack height in U",
+        "type": "integer",
+        "x-location": "body"
+      },
+      "name": {
+        "description": "Rack name",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "relations.create": {
+    "additionalProperties": true,
+    "properties": {
+      "description": {
+        "description": "Relation description",
+        "type": "string",
+        "x-location": "body"
+      },
+      "fromable_id": {
+        "description": "Source entity id",
+        "type": "string",
+        "x-location": "body"
+      },
+      "fromable_type": {
+        "description": "Source type (Asset/Company/Article/AssetPassword/Website)",
+        "type": "string",
+        "x-location": "body"
+      },
+      "is_inverse": {
+        "description": "Create the inverse direction too",
+        "type": "boolean",
+        "x-location": "body"
+      },
+      "toable_id": {
+        "description": "Target entity id",
+        "type": "string",
+        "x-location": "body"
+      },
+      "toable_type": {
+        "description": "Target type",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "fromable_id",
+      "fromable_type",
+      "toable_id",
+      "toable_type"
+    ],
+    "type": "object"
+  },
+  "relations.delete": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "relations.list": {
+    "additionalProperties": true,
+    "properties": {
+      "page": {
+        "description": "1-based page number",
+        "type": "string",
+        "x-location": "query"
+      },
+      "page-size": {
+        "description": "Results per page",
+        "type": "integer",
+        "x-location": "query",
+        "x-wire-name": "page_size"
+      }
+    },
+    "type": "object"
+  },
+  "uploads.delete": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "uploads.get": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "uploads.list": {
+    "additionalProperties": true,
+    "properties": {
+      "page": {
+        "description": "1-based page number",
+        "type": "string",
+        "x-location": "query"
+      },
+      "page-size": {
+        "description": "Results per page",
+        "type": "integer",
+        "x-location": "query",
+        "x-wire-name": "page_size"
+      }
+    },
+    "type": "object"
+  },
+  "users.get": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "users.list": {
+    "additionalProperties": true,
+    "properties": {
+      "archived": {
+        "description": "Include archived users",
+        "type": "boolean",
+        "x-location": "query"
+      },
+      "email": {
+        "description": "Filter by email",
+        "type": "string",
+        "x-location": "query"
+      },
+      "first-name": {
+        "description": "Filter by first name",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "first_name"
+      },
+      "last-name": {
+        "description": "Filter by last name",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "last_name"
+      },
+      "page": {
+        "description": "1-based page number",
+        "type": "string",
+        "x-location": "query"
+      },
+      "page-size": {
+        "description": "Results per page",
+        "type": "integer",
+        "x-location": "query",
+        "x-wire-name": "page_size"
+      },
+      "portal-company-id": {
+        "description": "Filter by portal member company id",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "portal_member_company_id"
+      },
+      "slug": {
+        "description": "Filter by slug",
+        "type": "string",
+        "x-location": "query"
+      }
+    },
+    "type": "object"
+  },
+  "vlan-zones.create": {
+    "additionalProperties": true,
+    "properties": {
+      "company_id": {
+        "description": "Owning company id",
+        "type": "string",
+        "x-location": "body"
+      },
+      "description": {
+        "description": "Description",
+        "type": "string",
+        "x-location": "body"
+      },
+      "name": {
+        "description": "Zone name",
+        "type": "string",
+        "x-location": "body"
+      },
+      "vlan_id_ranges": {
+        "description": "VLAN id ranges (e.g. 1-100)",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "company_id",
+      "name"
+    ],
+    "type": "object"
+  },
+  "vlan-zones.delete": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "vlan-zones.get": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "vlan-zones.list": {
+    "additionalProperties": true,
+    "properties": {
+      "company-id": {
+        "description": "Filter by company id",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "company_id"
+      }
+    },
+    "type": "object"
+  },
+  "vlan-zones.update": {
+    "additionalProperties": true,
+    "properties": {
+      "description": {
+        "description": "Description",
+        "type": "string",
+        "x-location": "body"
+      },
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "name": {
+        "description": "Zone name",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "vlans.create": {
+    "additionalProperties": true,
+    "properties": {
+      "company_id": {
+        "description": "Owning company id",
+        "type": "string",
+        "x-location": "body"
+      },
+      "description": {
+        "description": "Description",
+        "type": "string",
+        "x-location": "body"
+      },
+      "name": {
+        "description": "VLAN name",
+        "type": "string",
+        "x-location": "body"
+      },
+      "status": {
+        "description": "Status",
+        "type": "string",
+        "x-location": "body"
+      },
+      "vlan_id": {
+        "description": "VLAN tag number",
+        "type": "string",
+        "x-location": "body"
+      },
+      "vlan_zone_id": {
+        "description": "VLAN zone id",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "company_id",
+      "name",
+      "vlan_id"
+    ],
+    "type": "object"
+  },
+  "vlans.delete": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "vlans.get": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "vlans.list": {
+    "additionalProperties": true,
+    "properties": {
+      "company-id": {
+        "description": "Filter by company id",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "company_id"
+      },
+      "zone-id": {
+        "description": "Filter by VLAN zone id",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "vlan_zone_id"
+      }
+    },
+    "type": "object"
+  },
+  "vlans.update": {
+    "additionalProperties": true,
+    "properties": {
+      "description": {
+        "description": "Description",
+        "type": "string",
+        "x-location": "body"
+      },
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "name": {
+        "description": "VLAN name",
+        "type": "string",
+        "x-location": "body"
+      },
+      "status": {
+        "description": "Status",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "websites.create": {
+    "additionalProperties": true,
+    "properties": {
+      "company_id": {
+        "description": "Owning company id",
+        "type": "string",
+        "x-location": "body"
+      },
+      "disable_dns": {
+        "description": "Disable DNS monitoring",
+        "type": "boolean",
+        "x-location": "body"
+      },
+      "disable_ssl": {
+        "description": "Disable SSL monitoring",
+        "type": "boolean",
+        "x-location": "body"
+      },
+      "disable_whois": {
+        "description": "Disable WHOIS monitoring",
+        "type": "boolean",
+        "x-location": "body"
+      },
+      "name": {
+        "description": "Website URL to monitor",
+        "type": "string",
+        "x-location": "body"
+      },
+      "notes": {
+        "description": "Notes",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "company_id",
+      "name"
+    ],
+    "type": "object"
+  },
+  "websites.delete": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "websites.get": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "websites.list": {
+    "additionalProperties": true,
+    "properties": {
+      "name": {
+        "description": "Filter by name",
+        "type": "string",
+        "x-location": "query"
+      },
+      "page": {
+        "description": "1-based page number",
+        "type": "string",
+        "x-location": "query"
+      },
+      "page-size": {
+        "description": "Results per page",
+        "type": "integer",
+        "x-location": "query",
+        "x-wire-name": "page_size"
+      },
+      "search": {
+        "description": "Free-text search",
+        "type": "string",
+        "x-location": "query"
+      },
+      "slug": {
+        "description": "Filter by slug",
+        "type": "string",
+        "x-location": "query"
+      },
+      "updated-at": {
+        "description": "ISO8601 range 'start,end' on updated_at",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "updated_at"
+      }
+    },
+    "type": "object"
+  },
+  "websites.update": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "name": {
+        "description": "Website URL",
+        "type": "string",
+        "x-location": "body"
+      },
+      "notes": {
+        "description": "Notes",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  }
+}

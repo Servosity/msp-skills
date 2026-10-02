@@ -1,0 +1,1089 @@
+{
+  "accounts.create": {
+    "additionalProperties": true,
+    "properties": {
+      "AccountSubType": {
+        "description": "Account subtype, e.g. CashOnHand, Checking",
+        "type": "string",
+        "x-location": "body"
+      },
+      "AccountType": {
+        "description": "Account type, e.g. Bank, Accounts Receivable, Expense",
+        "type": "string",
+        "x-location": "body"
+      },
+      "AcctNum": {
+        "description": "Account number",
+        "type": "string",
+        "x-location": "body"
+      },
+      "Active": {
+        "description": "Active flag",
+        "type": "boolean",
+        "x-location": "body"
+      },
+      "Description": {
+        "description": "Account description",
+        "type": "string",
+        "x-location": "body"
+      },
+      "Name": {
+        "description": "Unique account name",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "Name"
+    ],
+    "type": "object"
+  },
+  "accounts.get": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "minorversion": {
+        "description": "QBO API minor version",
+        "type": "integer",
+        "x-location": "query"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "accounts.list": {
+    "additionalProperties": true,
+    "properties": {
+      "minorversion": {
+        "description": "QBO API minor version",
+        "type": "integer",
+        "x-location": "query"
+      },
+      "query": {
+        "description": "QBO query string",
+        "type": "string",
+        "x-location": "query"
+      }
+    },
+    "type": "object"
+  },
+  "accounts.update": {
+    "additionalProperties": true,
+    "properties": {
+      "AcctNum": {
+        "description": "Account number",
+        "type": "string",
+        "x-location": "body"
+      },
+      "Active": {
+        "description": "Active flag (set false to deactivate)",
+        "type": "boolean",
+        "x-location": "body"
+      },
+      "Description": {
+        "description": "Account description",
+        "type": "string",
+        "x-location": "body"
+      },
+      "Id": {
+        "description": "Account Id to update",
+        "type": "string",
+        "x-location": "body"
+      },
+      "Name": {
+        "description": "Unique account name",
+        "type": "string",
+        "x-location": "body"
+      },
+      "SyncToken": {
+        "description": "Current SyncToken",
+        "type": "string",
+        "x-location": "body"
+      },
+      "sparse": {
+        "description": "Sparse update",
+        "type": "boolean",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "Id",
+      "SyncToken"
+    ],
+    "type": "object"
+  },
+  "bills.create": {
+    "additionalProperties": true,
+    "properties": {
+      "DocNumber": {
+        "description": "Bill/document number",
+        "type": "string",
+        "x-location": "body"
+      },
+      "DueDate": {
+        "description": "Due date (YYYY-MM-DD)",
+        "type": "string",
+        "x-location": "body"
+      },
+      "PrivateNote": {
+        "description": "Internal memo",
+        "type": "string",
+        "x-location": "body"
+      },
+      "TxnDate": {
+        "description": "Transaction date (YYYY-MM-DD)",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "type": "object"
+  },
+  "bills.delete": {
+    "additionalProperties": true,
+    "properties": {
+      "Id": {
+        "description": "Bill Id to delete",
+        "type": "string",
+        "x-location": "body"
+      },
+      "SyncToken": {
+        "description": "Current SyncToken",
+        "type": "string",
+        "x-location": "body"
+      },
+      "operation": {
+        "description": "QBO operation selector",
+        "type": "string",
+        "x-location": "query"
+      }
+    },
+    "required": [
+      "Id",
+      "SyncToken"
+    ],
+    "type": "object"
+  },
+  "bills.get": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "minorversion": {
+        "description": "QBO API minor version",
+        "type": "integer",
+        "x-location": "query"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "bills.list": {
+    "additionalProperties": true,
+    "properties": {
+      "minorversion": {
+        "description": "QBO API minor version",
+        "type": "integer",
+        "x-location": "query"
+      },
+      "query": {
+        "description": "QBO query string",
+        "type": "string",
+        "x-location": "query"
+      }
+    },
+    "type": "object"
+  },
+  "bills.update": {
+    "additionalProperties": true,
+    "properties": {
+      "DocNumber": {
+        "description": "Bill/document number",
+        "type": "string",
+        "x-location": "body"
+      },
+      "DueDate": {
+        "description": "Due date (YYYY-MM-DD)",
+        "type": "string",
+        "x-location": "body"
+      },
+      "Id": {
+        "description": "Bill Id to update",
+        "type": "string",
+        "x-location": "body"
+      },
+      "PrivateNote": {
+        "description": "Internal memo",
+        "type": "string",
+        "x-location": "body"
+      },
+      "SyncToken": {
+        "description": "Current SyncToken",
+        "type": "string",
+        "x-location": "body"
+      },
+      "TxnDate": {
+        "description": "Transaction date (YYYY-MM-DD)",
+        "type": "string",
+        "x-location": "body"
+      },
+      "sparse": {
+        "description": "Sparse update",
+        "type": "boolean",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "Id",
+      "SyncToken"
+    ],
+    "type": "object"
+  },
+  "changes.cdc": {
+    "additionalProperties": true,
+    "properties": {
+      "changed-since": {
+        "description": "RFC3339 timestamp; returns objects changed at/after this time",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "changedSince"
+      },
+      "entities": {
+        "description": "Comma-separated entity names to track",
+        "type": "string",
+        "x-location": "query"
+      },
+      "minorversion": {
+        "description": "QBO API minor version",
+        "type": "integer",
+        "x-location": "query"
+      }
+    },
+    "required": [
+      "changed-since"
+    ],
+    "type": "object"
+  },
+  "customers.create": {
+    "additionalProperties": true,
+    "properties": {
+      "Active": {
+        "description": "Active flag",
+        "type": "boolean",
+        "x-location": "body"
+      },
+      "CompanyName": {
+        "description": "Company name",
+        "type": "string",
+        "x-location": "body"
+      },
+      "DisplayName": {
+        "description": "Unique display name",
+        "type": "string",
+        "x-location": "body"
+      },
+      "FamilyName": {
+        "description": "Last name",
+        "type": "string",
+        "x-location": "body"
+      },
+      "GivenName": {
+        "description": "First name",
+        "type": "string",
+        "x-location": "body"
+      },
+      "Notes": {
+        "description": "Free-form notes",
+        "type": "string",
+        "x-location": "body"
+      },
+      "Taxable": {
+        "description": "Whether the customer is taxable",
+        "type": "boolean",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "DisplayName"
+    ],
+    "type": "object"
+  },
+  "customers.get": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "minorversion": {
+        "description": "QBO API minor version",
+        "type": "integer",
+        "x-location": "query"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "customers.list": {
+    "additionalProperties": true,
+    "properties": {
+      "minorversion": {
+        "description": "QBO API minor version",
+        "type": "integer",
+        "x-location": "query"
+      },
+      "query": {
+        "description": "QBO query string. Add WHERE/ORDERBY/STARTPOSITION/MAXRESULTS clauses inline.",
+        "type": "string",
+        "x-location": "query"
+      }
+    },
+    "type": "object"
+  },
+  "customers.update": {
+    "additionalProperties": true,
+    "properties": {
+      "Active": {
+        "description": "Active flag (set false to deactivate)",
+        "type": "boolean",
+        "x-location": "body"
+      },
+      "CompanyName": {
+        "description": "Company name",
+        "type": "string",
+        "x-location": "body"
+      },
+      "DisplayName": {
+        "description": "Unique display name",
+        "type": "string",
+        "x-location": "body"
+      },
+      "FamilyName": {
+        "description": "Last name",
+        "type": "string",
+        "x-location": "body"
+      },
+      "GivenName": {
+        "description": "First name",
+        "type": "string",
+        "x-location": "body"
+      },
+      "Id": {
+        "description": "Customer Id to update",
+        "type": "string",
+        "x-location": "body"
+      },
+      "Notes": {
+        "description": "Free-form notes",
+        "type": "string",
+        "x-location": "body"
+      },
+      "SyncToken": {
+        "description": "Current SyncToken (optimistic-lock version)",
+        "type": "string",
+        "x-location": "body"
+      },
+      "Taxable": {
+        "description": "Whether the customer is taxable",
+        "type": "boolean",
+        "x-location": "body"
+      },
+      "sparse": {
+        "description": "Sparse update  -  merge only supplied fields",
+        "type": "boolean",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "Id",
+      "SyncToken"
+    ],
+    "type": "object"
+  },
+  "invoices.create": {
+    "additionalProperties": true,
+    "properties": {
+      "DocNumber": {
+        "description": "Invoice/document number",
+        "type": "string",
+        "x-location": "body"
+      },
+      "DueDate": {
+        "description": "Due date (YYYY-MM-DD)",
+        "type": "string",
+        "x-location": "body"
+      },
+      "PrivateNote": {
+        "description": "Internal memo",
+        "type": "string",
+        "x-location": "body"
+      },
+      "TxnDate": {
+        "description": "Transaction date (YYYY-MM-DD)",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "type": "object"
+  },
+  "invoices.delete": {
+    "additionalProperties": true,
+    "properties": {
+      "Id": {
+        "description": "Invoice Id to delete",
+        "type": "string",
+        "x-location": "body"
+      },
+      "SyncToken": {
+        "description": "Current SyncToken",
+        "type": "string",
+        "x-location": "body"
+      },
+      "operation": {
+        "description": "QBO operation selector",
+        "type": "string",
+        "x-location": "query"
+      }
+    },
+    "required": [
+      "Id",
+      "SyncToken"
+    ],
+    "type": "object"
+  },
+  "invoices.get": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "minorversion": {
+        "description": "QBO API minor version",
+        "type": "integer",
+        "x-location": "query"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "invoices.list": {
+    "additionalProperties": true,
+    "properties": {
+      "minorversion": {
+        "description": "QBO API minor version",
+        "type": "integer",
+        "x-location": "query"
+      },
+      "query": {
+        "description": "QBO query string",
+        "type": "string",
+        "x-location": "query"
+      }
+    },
+    "type": "object"
+  },
+  "invoices.update": {
+    "additionalProperties": true,
+    "properties": {
+      "DocNumber": {
+        "description": "Invoice/document number",
+        "type": "string",
+        "x-location": "body"
+      },
+      "DueDate": {
+        "description": "Due date (YYYY-MM-DD)",
+        "type": "string",
+        "x-location": "body"
+      },
+      "Id": {
+        "description": "Invoice Id to update",
+        "type": "string",
+        "x-location": "body"
+      },
+      "PrivateNote": {
+        "description": "Internal memo",
+        "type": "string",
+        "x-location": "body"
+      },
+      "SyncToken": {
+        "description": "Current SyncToken",
+        "type": "string",
+        "x-location": "body"
+      },
+      "TxnDate": {
+        "description": "Transaction date (YYYY-MM-DD)",
+        "type": "string",
+        "x-location": "body"
+      },
+      "sparse": {
+        "description": "Sparse update",
+        "type": "boolean",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "Id",
+      "SyncToken"
+    ],
+    "type": "object"
+  },
+  "items.create": {
+    "additionalProperties": true,
+    "properties": {
+      "Active": {
+        "description": "Active flag",
+        "type": "boolean",
+        "x-location": "body"
+      },
+      "Description": {
+        "description": "Item description",
+        "type": "string",
+        "x-location": "body"
+      },
+      "Name": {
+        "description": "Unique item name",
+        "type": "string",
+        "x-location": "body"
+      },
+      "PurchaseCost": {
+        "description": "Purchase cost",
+        "type": "number",
+        "x-location": "body"
+      },
+      "Sku": {
+        "description": "Stock-keeping unit",
+        "type": "string",
+        "x-location": "body"
+      },
+      "Taxable": {
+        "description": "Whether the item is taxable",
+        "type": "boolean",
+        "x-location": "body"
+      },
+      "Type": {
+        "description": "Item type: Service | Inventory | NonInventory",
+        "enum": [
+          "Service",
+          "Inventory",
+          "NonInventory"
+        ],
+        "type": "string",
+        "x-location": "body"
+      },
+      "UnitPrice": {
+        "description": "Sales unit price",
+        "type": "number",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "Name",
+      "Type"
+    ],
+    "type": "object"
+  },
+  "items.get": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "minorversion": {
+        "description": "QBO API minor version",
+        "type": "integer",
+        "x-location": "query"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "items.list": {
+    "additionalProperties": true,
+    "properties": {
+      "minorversion": {
+        "description": "QBO API minor version",
+        "type": "integer",
+        "x-location": "query"
+      },
+      "query": {
+        "description": "QBO query string",
+        "type": "string",
+        "x-location": "query"
+      }
+    },
+    "type": "object"
+  },
+  "items.update": {
+    "additionalProperties": true,
+    "properties": {
+      "Active": {
+        "description": "Active flag (set false to deactivate)",
+        "type": "boolean",
+        "x-location": "body"
+      },
+      "Description": {
+        "description": "Item description",
+        "type": "string",
+        "x-location": "body"
+      },
+      "Id": {
+        "description": "Item Id to update",
+        "type": "string",
+        "x-location": "body"
+      },
+      "Name": {
+        "description": "Unique item name",
+        "type": "string",
+        "x-location": "body"
+      },
+      "PurchaseCost": {
+        "description": "Purchase cost",
+        "type": "number",
+        "x-location": "body"
+      },
+      "Sku": {
+        "description": "Stock-keeping unit",
+        "type": "string",
+        "x-location": "body"
+      },
+      "SyncToken": {
+        "description": "Current SyncToken",
+        "type": "string",
+        "x-location": "body"
+      },
+      "UnitPrice": {
+        "description": "Sales unit price",
+        "type": "number",
+        "x-location": "body"
+      },
+      "sparse": {
+        "description": "Sparse update",
+        "type": "boolean",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "Id",
+      "SyncToken"
+    ],
+    "type": "object"
+  },
+  "journal-entries.create": {
+    "additionalProperties": true,
+    "properties": {
+      "Adjustment": {
+        "description": "Whether this is an adjusting entry",
+        "type": "boolean",
+        "x-location": "body"
+      },
+      "DocNumber": {
+        "description": "Document number",
+        "type": "string",
+        "x-location": "body"
+      },
+      "PrivateNote": {
+        "description": "Internal memo",
+        "type": "string",
+        "x-location": "body"
+      },
+      "TxnDate": {
+        "description": "Transaction date (YYYY-MM-DD)",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "type": "object"
+  },
+  "journal-entries.delete": {
+    "additionalProperties": true,
+    "properties": {
+      "Id": {
+        "description": "JournalEntry Id to delete",
+        "type": "string",
+        "x-location": "body"
+      },
+      "SyncToken": {
+        "description": "Current SyncToken",
+        "type": "string",
+        "x-location": "body"
+      },
+      "operation": {
+        "description": "QBO operation selector",
+        "type": "string",
+        "x-location": "query"
+      }
+    },
+    "required": [
+      "Id",
+      "SyncToken"
+    ],
+    "type": "object"
+  },
+  "journal-entries.get": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "minorversion": {
+        "description": "QBO API minor version",
+        "type": "integer",
+        "x-location": "query"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "journal-entries.list": {
+    "additionalProperties": true,
+    "properties": {
+      "minorversion": {
+        "description": "QBO API minor version",
+        "type": "integer",
+        "x-location": "query"
+      },
+      "query": {
+        "description": "QBO query string",
+        "type": "string",
+        "x-location": "query"
+      }
+    },
+    "type": "object"
+  },
+  "journal-entries.update": {
+    "additionalProperties": true,
+    "properties": {
+      "DocNumber": {
+        "description": "Document number",
+        "type": "string",
+        "x-location": "body"
+      },
+      "Id": {
+        "description": "JournalEntry Id to update",
+        "type": "string",
+        "x-location": "body"
+      },
+      "PrivateNote": {
+        "description": "Internal memo",
+        "type": "string",
+        "x-location": "body"
+      },
+      "SyncToken": {
+        "description": "Current SyncToken",
+        "type": "string",
+        "x-location": "body"
+      },
+      "TxnDate": {
+        "description": "Transaction date (YYYY-MM-DD)",
+        "type": "string",
+        "x-location": "body"
+      },
+      "sparse": {
+        "description": "Sparse update",
+        "type": "boolean",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "Id",
+      "SyncToken"
+    ],
+    "type": "object"
+  },
+  "payments.create": {
+    "additionalProperties": true,
+    "properties": {
+      "PaymentRefNum": {
+        "description": "Payment reference number (check #, etc.)",
+        "type": "string",
+        "x-location": "body"
+      },
+      "PrivateNote": {
+        "description": "Internal memo",
+        "type": "string",
+        "x-location": "body"
+      },
+      "TotalAmt": {
+        "description": "Total payment amount",
+        "type": "number",
+        "x-location": "body"
+      },
+      "TxnDate": {
+        "description": "Transaction date (YYYY-MM-DD)",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "type": "object"
+  },
+  "payments.delete": {
+    "additionalProperties": true,
+    "properties": {
+      "Id": {
+        "description": "Payment Id to delete",
+        "type": "string",
+        "x-location": "body"
+      },
+      "SyncToken": {
+        "description": "Current SyncToken",
+        "type": "string",
+        "x-location": "body"
+      },
+      "operation": {
+        "description": "QBO operation selector",
+        "type": "string",
+        "x-location": "query"
+      }
+    },
+    "required": [
+      "Id",
+      "SyncToken"
+    ],
+    "type": "object"
+  },
+  "payments.get": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "minorversion": {
+        "description": "QBO API minor version",
+        "type": "integer",
+        "x-location": "query"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "payments.list": {
+    "additionalProperties": true,
+    "properties": {
+      "minorversion": {
+        "description": "QBO API minor version",
+        "type": "integer",
+        "x-location": "query"
+      },
+      "query": {
+        "description": "QBO query string",
+        "type": "string",
+        "x-location": "query"
+      }
+    },
+    "type": "object"
+  },
+  "payments.update": {
+    "additionalProperties": true,
+    "properties": {
+      "Id": {
+        "description": "Payment Id to update",
+        "type": "string",
+        "x-location": "body"
+      },
+      "PaymentRefNum": {
+        "description": "Payment reference number",
+        "type": "string",
+        "x-location": "body"
+      },
+      "PrivateNote": {
+        "description": "Internal memo",
+        "type": "string",
+        "x-location": "body"
+      },
+      "SyncToken": {
+        "description": "Current SyncToken",
+        "type": "string",
+        "x-location": "body"
+      },
+      "TotalAmt": {
+        "description": "Total payment amount",
+        "type": "number",
+        "x-location": "body"
+      },
+      "TxnDate": {
+        "description": "Transaction date (YYYY-MM-DD)",
+        "type": "string",
+        "x-location": "body"
+      },
+      "sparse": {
+        "description": "Sparse update",
+        "type": "boolean",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "Id",
+      "SyncToken"
+    ],
+    "type": "object"
+  },
+  "query.run": {
+    "additionalProperties": true,
+    "properties": {
+      "minorversion": {
+        "description": "QBO API minor version",
+        "type": "integer",
+        "x-location": "query"
+      },
+      "query": {
+        "description": "QBO SELECT statement",
+        "type": "string",
+        "x-location": "query"
+      }
+    },
+    "required": [
+      "query"
+    ],
+    "type": "object"
+  },
+  "vendors.create": {
+    "additionalProperties": true,
+    "properties": {
+      "AcctNum": {
+        "description": "Your account number with this vendor",
+        "type": "string",
+        "x-location": "body"
+      },
+      "Active": {
+        "description": "Active flag",
+        "type": "boolean",
+        "x-location": "body"
+      },
+      "CompanyName": {
+        "description": "Company name",
+        "type": "string",
+        "x-location": "body"
+      },
+      "DisplayName": {
+        "description": "Unique display name",
+        "type": "string",
+        "x-location": "body"
+      },
+      "FamilyName": {
+        "description": "Last name",
+        "type": "string",
+        "x-location": "body"
+      },
+      "GivenName": {
+        "description": "First name",
+        "type": "string",
+        "x-location": "body"
+      },
+      "Vendor1099": {
+        "description": "Whether the vendor is a 1099 contractor",
+        "type": "boolean",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "DisplayName"
+    ],
+    "type": "object"
+  },
+  "vendors.get": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "minorversion": {
+        "description": "QBO API minor version",
+        "type": "integer",
+        "x-location": "query"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "vendors.list": {
+    "additionalProperties": true,
+    "properties": {
+      "minorversion": {
+        "description": "QBO API minor version",
+        "type": "integer",
+        "x-location": "query"
+      },
+      "query": {
+        "description": "QBO query string",
+        "type": "string",
+        "x-location": "query"
+      }
+    },
+    "type": "object"
+  },
+  "vendors.update": {
+    "additionalProperties": true,
+    "properties": {
+      "AcctNum": {
+        "description": "Your account number with this vendor",
+        "type": "string",
+        "x-location": "body"
+      },
+      "Active": {
+        "description": "Active flag (set false to deactivate)",
+        "type": "boolean",
+        "x-location": "body"
+      },
+      "CompanyName": {
+        "description": "Company name",
+        "type": "string",
+        "x-location": "body"
+      },
+      "DisplayName": {
+        "description": "Unique display name",
+        "type": "string",
+        "x-location": "body"
+      },
+      "Id": {
+        "description": "Vendor Id to update",
+        "type": "string",
+        "x-location": "body"
+      },
+      "SyncToken": {
+        "description": "Current SyncToken",
+        "type": "string",
+        "x-location": "body"
+      },
+      "Vendor1099": {
+        "description": "1099 contractor flag",
+        "type": "boolean",
+        "x-location": "body"
+      },
+      "sparse": {
+        "description": "Sparse update",
+        "type": "boolean",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "Id",
+      "SyncToken"
+    ],
+    "type": "object"
+  }
+}

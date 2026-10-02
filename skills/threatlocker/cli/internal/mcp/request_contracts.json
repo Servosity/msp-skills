@@ -1,0 +1,1224 @@
+{
+  "application-files.list": {
+    "additionalProperties": true,
+    "properties": {
+      "application-id": {
+        "description": "Application GUID",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "applicationId"
+      },
+      "page-number": {
+        "description": "1-based page number",
+        "type": "integer",
+        "x-location": "query",
+        "x-wire-name": "pageNumber"
+      },
+      "page-size": {
+        "description": "Results per page",
+        "type": "integer",
+        "x-location": "query",
+        "x-wire-name": "pageSize"
+      },
+      "search-text": {
+        "description": "Filter file rules",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "searchText"
+      }
+    },
+    "required": [
+      "application-id"
+    ],
+    "type": "object"
+  },
+  "applications.create": {
+    "additionalProperties": true,
+    "properties": {
+      "description": {
+        "description": "Description",
+        "type": "string",
+        "x-location": "body"
+      },
+      "name": {
+        "description": "Application name",
+        "type": "string",
+        "x-location": "body"
+      },
+      "osType": {
+        "description": "OS type",
+        "type": "integer",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "name"
+    ],
+    "type": "object"
+  },
+  "applications.get": {
+    "additionalProperties": true,
+    "properties": {
+      "application-id": {
+        "description": "Application GUID",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "applicationId"
+      }
+    },
+    "required": [
+      "application-id"
+    ],
+    "type": "object"
+  },
+  "applications.match": {
+    "additionalProperties": true,
+    "properties": {
+      "hash": {
+        "description": "File hash",
+        "type": "string",
+        "x-location": "body"
+      },
+      "osType": {
+        "description": "OS type",
+        "type": "integer",
+        "x-location": "body"
+      },
+      "path": {
+        "description": "Full file path",
+        "type": "string",
+        "x-location": "body"
+      },
+      "processPath": {
+        "description": "Parent process path",
+        "type": "string",
+        "x-location": "body"
+      },
+      "sha256": {
+        "description": "SHA256 (64 hex)",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "type": "object"
+  },
+  "applications.research": {
+    "additionalProperties": true,
+    "properties": {
+      "application-id": {
+        "description": "Application GUID",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "applicationId"
+      }
+    },
+    "required": [
+      "application-id"
+    ],
+    "type": "object"
+  },
+  "applications.search": {
+    "additionalProperties": true,
+    "properties": {
+      "category": {
+        "description": "Category: 0=all,1=custom,2=built-in",
+        "type": "integer",
+        "x-location": "body"
+      },
+      "includeChildOrganizations": {
+        "description": "Include managed orgs",
+        "type": "boolean",
+        "x-location": "body"
+      },
+      "isAscending": {
+        "description": "Sort ascending",
+        "type": "boolean",
+        "x-location": "body"
+      },
+      "isHidden": {
+        "description": "Include hidden applications",
+        "type": "boolean",
+        "x-location": "body"
+      },
+      "orderBy": {
+        "description": "Sort field",
+        "type": "string",
+        "x-location": "body"
+      },
+      "osType": {
+        "description": "OS type filter",
+        "type": "integer",
+        "x-location": "body"
+      },
+      "pageNumber": {
+        "description": "1-based page number",
+        "type": "integer",
+        "x-location": "body"
+      },
+      "pageSize": {
+        "description": "Results per page",
+        "type": "integer",
+        "x-location": "body"
+      },
+      "permittedApplications": {
+        "description": "Only permitted applications",
+        "type": "boolean",
+        "x-location": "body"
+      },
+      "searchBy": {
+        "description": "Search field",
+        "type": "string",
+        "x-location": "body"
+      },
+      "searchText": {
+        "description": "Free-text search",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "type": "object"
+  },
+  "applications.update": {
+    "additionalProperties": true,
+    "properties": {
+      "applicationId": {
+        "description": "Application GUID",
+        "type": "string",
+        "x-location": "body"
+      },
+      "description": {
+        "description": "Description",
+        "type": "string",
+        "x-location": "body"
+      },
+      "name": {
+        "description": "Application name",
+        "type": "string",
+        "x-location": "body"
+      },
+      "osType": {
+        "description": "OS type",
+        "type": "integer",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "applicationId",
+      "name"
+    ],
+    "type": "object"
+  },
+  "approvals.approve": {
+    "additionalProperties": true,
+    "properties": {
+      "computerId": {
+        "description": "Computer GUID the request came from",
+        "type": "string",
+        "x-location": "body"
+      },
+      "organizationId": {
+        "description": "Organization GUID",
+        "type": "string",
+        "x-location": "body"
+      },
+      "policyLevel": {
+        "description": "Permit policy scope level",
+        "type": "integer",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "organizationId"
+    ],
+    "type": "object"
+  },
+  "approvals.count": {
+    "additionalProperties": true,
+    "properties": {},
+    "type": "object"
+  },
+  "approvals.get": {
+    "additionalProperties": true,
+    "properties": {
+      "approval-id": {
+        "description": "Approval request GUID",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "approvalRequestId"
+      }
+    },
+    "required": [
+      "approval-id"
+    ],
+    "type": "object"
+  },
+  "approvals.list": {
+    "additionalProperties": true,
+    "properties": {
+      "isAscending": {
+        "description": "Sort ascending",
+        "type": "boolean",
+        "x-location": "body"
+      },
+      "orderBy": {
+        "description": "Sort field",
+        "type": "string",
+        "x-location": "body"
+      },
+      "pageNumber": {
+        "description": "1-based page number",
+        "type": "integer",
+        "x-location": "body"
+      },
+      "pageSize": {
+        "description": "Results per page",
+        "type": "integer",
+        "x-location": "body"
+      },
+      "searchText": {
+        "description": "Free-text search",
+        "type": "string",
+        "x-location": "body"
+      },
+      "showChildOrganizations": {
+        "description": "Span all managed organizations",
+        "type": "boolean",
+        "x-location": "body"
+      },
+      "statusId": {
+        "description": "Status filter (1=Pending)",
+        "type": "integer",
+        "x-location": "body"
+      }
+    },
+    "type": "object"
+  },
+  "approvals.permit-options": {
+    "additionalProperties": true,
+    "properties": {
+      "approval-id": {
+        "description": "Approval request GUID",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "approvalRequestId"
+      }
+    },
+    "required": [
+      "approval-id"
+    ],
+    "type": "object"
+  },
+  "approvals.storage": {
+    "additionalProperties": true,
+    "properties": {
+      "approval-id": {
+        "description": "Approval request GUID",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "approvalRequestId"
+      }
+    },
+    "required": [
+      "approval-id"
+    ],
+    "type": "object"
+  },
+  "audit.file-history": {
+    "additionalProperties": true,
+    "properties": {
+      "computer-id": {
+        "description": "Optional computer GUID filter",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "computerId"
+      },
+      "full-path": {
+        "description": "Full file path",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "fullPath"
+      }
+    },
+    "required": [
+      "full-path"
+    ],
+    "type": "object"
+  },
+  "audit.get": {
+    "additionalProperties": true,
+    "properties": {
+      "log-id": {
+        "description": "Action log GUID",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "eActionLogId"
+      },
+      "source-table": {
+        "description": "1=ActionLog,2=DenyActionLog,3=Baseline,4=EventLog",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "sourceTableId"
+      }
+    },
+    "required": [
+      "log-id"
+    ],
+    "type": "object"
+  },
+  "audit.search": {
+    "additionalProperties": true,
+    "properties": {
+      "actionId": {
+        "description": "1=Permit,2=Deny,99=AnyDeny",
+        "type": "integer",
+        "x-location": "body"
+      },
+      "actionType": {
+        "description": "Action type filter",
+        "type": "string",
+        "x-location": "body"
+      },
+      "endDate": {
+        "description": "End datetime (ISO 8601)",
+        "type": "string",
+        "x-location": "body"
+      },
+      "fullPath": {
+        "description": "Filter by file path",
+        "type": "string",
+        "x-location": "body"
+      },
+      "hostname": {
+        "description": "Filter by hostname",
+        "type": "string",
+        "x-location": "body"
+      },
+      "onlyTrueDenies": {
+        "description": "Only true denies",
+        "type": "boolean",
+        "x-location": "body"
+      },
+      "pageNumber": {
+        "description": "1-based page number",
+        "type": "integer",
+        "x-location": "body"
+      },
+      "pageSize": {
+        "description": "Results per page",
+        "type": "integer",
+        "x-location": "body"
+      },
+      "showChildOrganizations": {
+        "description": "Span all managed orgs",
+        "type": "boolean",
+        "x-location": "body"
+      },
+      "startDate": {
+        "description": "Start datetime (ISO 8601)",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "endDate",
+      "startDate"
+    ],
+    "type": "object"
+  },
+  "computer-groups.dropdown": {
+    "additionalProperties": true,
+    "properties": {
+      "hide-globals": {
+        "description": "Hide global groups",
+        "type": "boolean",
+        "x-location": "query",
+        "x-wire-name": "hideGlobals"
+      },
+      "os-type": {
+        "description": "OS type filter",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "computerGroupOSTypeId"
+      }
+    },
+    "type": "object"
+  },
+  "computer-groups.list": {
+    "additionalProperties": true,
+    "properties": {
+      "include-computers": {
+        "description": "Include computers in each group",
+        "type": "boolean",
+        "x-location": "query",
+        "x-wire-name": "includeAllComputers"
+      },
+      "include-global": {
+        "description": "Include global groups",
+        "type": "boolean",
+        "x-location": "query",
+        "x-wire-name": "includeGlobal"
+      },
+      "include-orgs": {
+        "description": "Include organizations",
+        "type": "boolean",
+        "x-location": "query",
+        "x-wire-name": "includeOrganizations"
+      },
+      "os-type": {
+        "description": "OS filter: 0=All,1=Win,2=macOS,3=Linux,5=WinXP",
+        "type": "integer",
+        "x-location": "query",
+        "x-wire-name": "osType"
+      }
+    },
+    "type": "object"
+  },
+  "computers.baseline-rescan": {
+    "additionalProperties": true,
+    "properties": {
+      "computerIds": {
+        "description": "Comma-separated computer GUIDs",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "computerIds"
+    ],
+    "type": "object"
+  },
+  "computers.checkins": {
+    "additionalProperties": true,
+    "properties": {
+      "computerId": {
+        "description": "Computer GUID",
+        "type": "string",
+        "x-location": "body"
+      },
+      "hideHeartbeat": {
+        "description": "Hide heartbeat entries",
+        "type": "boolean",
+        "x-location": "body"
+      },
+      "pageNumber": {
+        "description": "1-based page number",
+        "type": "integer",
+        "x-location": "body"
+      },
+      "pageSize": {
+        "description": "Results per page",
+        "type": "integer",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "computerId"
+    ],
+    "type": "object"
+  },
+  "computers.delete": {
+    "additionalProperties": true,
+    "properties": {
+      "computerIds": {
+        "description": "Comma-separated computer GUIDs",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "computerIds"
+    ],
+    "type": "object"
+  },
+  "computers.enable-protection": {
+    "additionalProperties": true,
+    "properties": {
+      "computerIds": {
+        "description": "Comma-separated computer GUIDs",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "computerIds"
+    ],
+    "type": "object"
+  },
+  "computers.get": {
+    "additionalProperties": true,
+    "properties": {
+      "computer-id": {
+        "description": "Computer GUID",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "computerId"
+      }
+    },
+    "required": [
+      "computer-id"
+    ],
+    "type": "object"
+  },
+  "computers.install-info": {
+    "additionalProperties": true,
+    "properties": {},
+    "type": "object"
+  },
+  "computers.list": {
+    "additionalProperties": true,
+    "properties": {
+      "action": {
+        "description": "Filter by last action",
+        "type": "string",
+        "x-location": "body"
+      },
+      "childOrganizations": {
+        "description": "Include child (managed) organizations",
+        "type": "boolean",
+        "x-location": "body"
+      },
+      "computerGroup": {
+        "description": "Computer group GUID filter",
+        "type": "string",
+        "x-location": "body"
+      },
+      "isAscending": {
+        "description": "Sort ascending",
+        "type": "boolean",
+        "x-location": "body"
+      },
+      "kindOfAction": {
+        "description": "Filter by action kind",
+        "type": "string",
+        "x-location": "body"
+      },
+      "orderBy": {
+        "description": "Sort field",
+        "type": "string",
+        "x-location": "body"
+      },
+      "pageNumber": {
+        "description": "1-based page number",
+        "type": "integer",
+        "x-location": "body"
+      },
+      "pageSize": {
+        "description": "Results per page (1-1000)",
+        "type": "integer",
+        "x-location": "body"
+      },
+      "searchBy": {
+        "description": "Search field index (1-5)",
+        "type": "integer",
+        "x-location": "body"
+      },
+      "searchText": {
+        "description": "Free-text search",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "type": "object"
+  },
+  "computers.maintenance": {
+    "additionalProperties": true,
+    "properties": {
+      "computerIds": {
+        "description": "Comma-separated computer GUIDs",
+        "type": "string",
+        "x-location": "body"
+      },
+      "maintenanceEndDate": {
+        "description": "Maintenance window end (ISO 8601)",
+        "type": "string",
+        "x-location": "body"
+      },
+      "startDateTime": {
+        "description": "Maintenance window start (ISO 8601)",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "computerIds"
+    ],
+    "type": "object"
+  },
+  "computers.maintenance-update": {
+    "additionalProperties": true,
+    "properties": {
+      "computerId": {
+        "description": "Computer GUID",
+        "type": "string",
+        "x-location": "body"
+      },
+      "maintenanceEndDate": {
+        "description": "Window end (ISO 8601)",
+        "type": "string",
+        "x-location": "body"
+      },
+      "maintenanceTypeId": {
+        "description": "Maintenance type id",
+        "type": "integer",
+        "x-location": "body"
+      },
+      "startDateTime": {
+        "description": "Window start (ISO 8601)",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "computerId"
+    ],
+    "type": "object"
+  },
+  "computers.move-org": {
+    "additionalProperties": true,
+    "properties": {
+      "computerIds": {
+        "description": "Comma-separated computer GUIDs",
+        "type": "string",
+        "x-location": "body"
+      },
+      "targetOrganizationId": {
+        "description": "Destination organization GUID",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "computerIds",
+      "targetOrganizationId"
+    ],
+    "type": "object"
+  },
+  "computers.restart-service": {
+    "additionalProperties": true,
+    "properties": {
+      "computerIds": {
+        "description": "Comma-separated computer GUIDs",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "computerIds"
+    ],
+    "type": "object"
+  },
+  "maintenance.history": {
+    "additionalProperties": true,
+    "properties": {
+      "computer-id": {
+        "description": "Computer GUID",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "computerId"
+      },
+      "page-number": {
+        "description": "1-based page number",
+        "type": "integer",
+        "x-location": "query",
+        "x-wire-name": "pageNumber"
+      },
+      "page-size": {
+        "description": "Results per page",
+        "type": "integer",
+        "x-location": "query",
+        "x-wire-name": "pageSize"
+      }
+    },
+    "required": [
+      "computer-id"
+    ],
+    "type": "object"
+  },
+  "network-policies.get": {
+    "additionalProperties": true,
+    "properties": {
+      "network-policy-id": {
+        "description": "Network access policy GUID",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "networkAccessPolicyId"
+      }
+    },
+    "required": [
+      "network-policy-id"
+    ],
+    "type": "object"
+  },
+  "network-policies.list": {
+    "additionalProperties": true,
+    "properties": {
+      "pageNumber": {
+        "description": "1-based page number",
+        "type": "integer",
+        "x-location": "body"
+      },
+      "pageSize": {
+        "description": "Results per page",
+        "type": "integer",
+        "x-location": "body"
+      },
+      "searchText": {
+        "description": "Free-text search",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "type": "object"
+  },
+  "online-devices.list": {
+    "additionalProperties": true,
+    "properties": {
+      "page-number": {
+        "description": "1-based page number",
+        "type": "integer",
+        "x-location": "query",
+        "x-wire-name": "pageNumber"
+      },
+      "page-size": {
+        "description": "Results per page",
+        "type": "integer",
+        "x-location": "query",
+        "x-wire-name": "pageSize"
+      }
+    },
+    "type": "object"
+  },
+  "organizations.auth-key": {
+    "additionalProperties": true,
+    "properties": {},
+    "type": "object"
+  },
+  "organizations.for-move": {
+    "additionalProperties": true,
+    "properties": {},
+    "type": "object"
+  },
+  "organizations.list": {
+    "additionalProperties": true,
+    "properties": {
+      "includeAllChildren": {
+        "description": "Recurse all descendants",
+        "type": "boolean",
+        "x-location": "body"
+      },
+      "isAscending": {
+        "description": "Sort ascending",
+        "type": "boolean",
+        "x-location": "body"
+      },
+      "orderBy": {
+        "description": "Sort field",
+        "type": "string",
+        "x-location": "body"
+      },
+      "pageNumber": {
+        "description": "1-based page number",
+        "type": "integer",
+        "x-location": "body"
+      },
+      "pageSize": {
+        "description": "Results per page",
+        "type": "integer",
+        "x-location": "body"
+      },
+      "searchText": {
+        "description": "Free-text search",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "type": "object"
+  },
+  "policies.copy": {
+    "additionalProperties": true,
+    "properties": {
+      "osType": {
+        "description": "OS type",
+        "type": "integer",
+        "x-location": "body"
+      },
+      "sourceAppliesToId": {
+        "description": "Source applies-to GUID",
+        "type": "string",
+        "x-location": "body"
+      },
+      "sourceOrganizationId": {
+        "description": "Source organization GUID",
+        "type": "string",
+        "x-location": "body"
+      },
+      "targetAppliesToIds": {
+        "description": "Comma-separated target applies-to GUIDs",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "sourceAppliesToId",
+      "sourceOrganizationId",
+      "targetAppliesToIds"
+    ],
+    "type": "object"
+  },
+  "policies.create": {
+    "additionalProperties": true,
+    "properties": {
+      "computerGroupId": {
+        "description": "Target computer group GUID",
+        "type": "string",
+        "x-location": "body"
+      },
+      "isEnabled": {
+        "description": "Enable the policy",
+        "type": "boolean",
+        "x-location": "body"
+      },
+      "logAction": {
+        "description": "Log policy hits",
+        "type": "boolean",
+        "x-location": "body"
+      },
+      "name": {
+        "description": "Policy name",
+        "type": "string",
+        "x-location": "body"
+      },
+      "osType": {
+        "description": "OS type",
+        "type": "integer",
+        "x-location": "body"
+      },
+      "policyActionId": {
+        "description": "1=Permit,2=Deny,6=Permit+Ringfence",
+        "type": "integer",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "computerGroupId",
+      "name"
+    ],
+    "type": "object"
+  },
+  "policies.delete": {
+    "additionalProperties": true,
+    "properties": {
+      "policyIds": {
+        "description": "Comma-separated policy GUIDs",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "policyIds"
+    ],
+    "type": "object"
+  },
+  "policies.deploy": {
+    "additionalProperties": true,
+    "properties": {
+      "organizationId": {
+        "description": "Organization GUID",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "organizationId"
+    ],
+    "type": "object"
+  },
+  "policies.get": {
+    "additionalProperties": true,
+    "properties": {
+      "policy-id": {
+        "description": "Policy GUID",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "policyId"
+      }
+    },
+    "required": [
+      "policy-id"
+    ],
+    "type": "object"
+  },
+  "policies.list-by-app": {
+    "additionalProperties": true,
+    "properties": {
+      "applicationId": {
+        "description": "Application GUID",
+        "type": "string",
+        "x-location": "body"
+      },
+      "includeDenies": {
+        "description": "Include deny policies",
+        "type": "boolean",
+        "x-location": "body"
+      },
+      "organizationId": {
+        "description": "Organization GUID",
+        "type": "string",
+        "x-location": "body"
+      },
+      "pageNumber": {
+        "description": "1-based page number",
+        "type": "integer",
+        "x-location": "body"
+      },
+      "pageSize": {
+        "description": "Results per page",
+        "type": "integer",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "applicationId",
+      "organizationId"
+    ],
+    "type": "object"
+  },
+  "reports.data": {
+    "additionalProperties": true,
+    "properties": {
+      "reportId": {
+        "description": "Report GUID",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "reportId"
+    ],
+    "type": "object"
+  },
+  "reports.list": {
+    "additionalProperties": true,
+    "properties": {},
+    "type": "object"
+  },
+  "scheduled-actions.get": {
+    "additionalProperties": true,
+    "properties": {
+      "scheduled-action-id": {
+        "description": "Scheduled action GUID",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "scheduledActionId"
+      }
+    },
+    "required": [
+      "scheduled-action-id"
+    ],
+    "type": "object"
+  },
+  "scheduled-actions.list": {
+    "additionalProperties": true,
+    "properties": {
+      "include-children": {
+        "description": "Include child orgs",
+        "type": "boolean",
+        "x-location": "query",
+        "x-wire-name": "includeChildren"
+      },
+      "scheduled-type": {
+        "description": "Scheduled type id",
+        "type": "integer",
+        "x-location": "query",
+        "x-wire-name": "scheduledType"
+      }
+    },
+    "type": "object"
+  },
+  "scheduled-actions.search": {
+    "additionalProperties": true,
+    "properties": {
+      "isAscending": {
+        "description": "Sort ascending",
+        "type": "boolean",
+        "x-location": "body"
+      },
+      "orderBy": {
+        "description": "Sort field",
+        "type": "string",
+        "x-location": "body"
+      },
+      "pageNumber": {
+        "description": "1-based page number",
+        "type": "integer",
+        "x-location": "body"
+      },
+      "pageSize": {
+        "description": "Results per page",
+        "type": "integer",
+        "x-location": "body"
+      }
+    },
+    "type": "object"
+  },
+  "storage-policies.get": {
+    "additionalProperties": true,
+    "properties": {
+      "storage-policy-id": {
+        "description": "Storage policy GUID",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "storagePolicyId"
+      }
+    },
+    "required": [
+      "storage-policy-id"
+    ],
+    "type": "object"
+  },
+  "storage-policies.list": {
+    "additionalProperties": true,
+    "properties": {
+      "pageNumber": {
+        "description": "1-based page number",
+        "type": "integer",
+        "x-location": "body"
+      },
+      "pageSize": {
+        "description": "Results per page",
+        "type": "integer",
+        "x-location": "body"
+      },
+      "searchText": {
+        "description": "Free-text search",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "type": "object"
+  },
+  "system-audit.health-center": {
+    "additionalProperties": true,
+    "properties": {
+      "days": {
+        "description": "Lookback window in days (1-365)",
+        "type": "integer",
+        "x-location": "body"
+      },
+      "isLoggedIn": {
+        "description": "Logged-in context",
+        "type": "boolean",
+        "x-location": "body"
+      },
+      "pageNumber": {
+        "description": "1-based page number",
+        "type": "integer",
+        "x-location": "body"
+      },
+      "pageSize": {
+        "description": "Results per page",
+        "type": "integer",
+        "x-location": "body"
+      },
+      "searchText": {
+        "description": "Free-text search",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "type": "object"
+  },
+  "system-audit.search": {
+    "additionalProperties": true,
+    "properties": {
+      "action": {
+        "description": "Create/Delete/Logon/Modify/Read",
+        "type": "string",
+        "x-location": "body"
+      },
+      "effectiveAction": {
+        "description": "Denied/Permitted",
+        "type": "string",
+        "x-location": "body"
+      },
+      "endDate": {
+        "description": "End datetime (ISO 8601)",
+        "type": "string",
+        "x-location": "body"
+      },
+      "ipAddress": {
+        "description": "Filter by IP",
+        "type": "string",
+        "x-location": "body"
+      },
+      "pageNumber": {
+        "description": "1-based page number",
+        "type": "integer",
+        "x-location": "body"
+      },
+      "pageSize": {
+        "description": "Results per page",
+        "type": "integer",
+        "x-location": "body"
+      },
+      "startDate": {
+        "description": "Start datetime (ISO 8601)",
+        "type": "string",
+        "x-location": "body"
+      },
+      "username": {
+        "description": "Filter by username",
+        "type": "string",
+        "x-location": "body"
+      },
+      "viewChildOrganizations": {
+        "description": "Span managed orgs",
+        "type": "boolean",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "endDate",
+      "startDate"
+    ],
+    "type": "object"
+  },
+  "tags.dropdown": {
+    "additionalProperties": true,
+    "properties": {
+      "include-built-ins": {
+        "description": "Include built-in tags",
+        "type": "boolean",
+        "x-location": "query",
+        "x-wire-name": "includeBuiltIns"
+      },
+      "tag-type": {
+        "description": "Tag type id",
+        "type": "integer",
+        "x-location": "query",
+        "x-wire-name": "tagType"
+      }
+    },
+    "type": "object"
+  },
+  "tags.get": {
+    "additionalProperties": true,
+    "properties": {
+      "tag-id": {
+        "description": "Tag GUID",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "tagId"
+      }
+    },
+    "required": [
+      "tag-id"
+    ],
+    "type": "object"
+  },
+  "versions.list": {
+    "additionalProperties": true,
+    "properties": {},
+    "type": "object"
+  }
+}
