@@ -196,3 +196,11 @@ For the simplest path overall, use Claude Desktop or the Claude Code / Codex Ski
   error. Validate it, fix, restart.
 
 For the full CLI command reference, see [guide.md](./guide.md).
+
+## Request discovery
+
+The endpoint search tool returns `params_schema` alongside each result. Read its
+`properties` and `required` fields before calling the executor. `x-location` identifies
+where an input is sent; `x-wire-name`, when present, names its API parameter.
+Keep JSON body key capitalization and nested objects exactly as shown. Known enum
+values are included in the schema and can be used as search terms.

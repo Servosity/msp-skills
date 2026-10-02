@@ -35,7 +35,7 @@ import (
 func RegisterCodeOrchestrationTools(s *server.MCPServer) {
 	s.AddTool(
 		mcplib.NewTool("immybot_search",
-			mcplib.WithDescription("Search the immybot API for endpoints matching a natural-language query. Returns a ranked list of {endpoint_id, method, path, summary} entries. Call this first to find the endpoint to execute."),
+			mcplib.WithDescription("Search the immybot API for endpoints matching a natural-language query. Returns ranked endpoints with params_schema describing executor input names, locations, types, required fields, and known enum values. Call this first to find the endpoint to execute."),
 			mcplib.WithString("query", mcplib.Required(), mcplib.Description("Natural-language description of what you want to do.")),
 			mcplib.WithNumber("limit", mcplib.Description("Max endpoints to return (default 10, max 100).")),
 			mcplib.WithReadOnlyHintAnnotation(true),
@@ -60,7 +60,7 @@ func RegisterCodeOrchestrationTools(s *server.MCPServer) {
 		mcplib.NewTool("immybot_execute",
 			mcplib.WithDescription("Execute one immybot API endpoint by its endpoint_id (from immybot_search). Params are passed as a JSON object; path placeholders and query strings are resolved automatically."),
 			mcplib.WithString("endpoint_id", mcplib.Required(), mcplib.Description("Endpoint identifier returned by immybot_search (e.g., \"users.list\").")),
-			mcplib.WithObject("params", mcplib.Description("Parameters for the endpoint. Path placeholders match by name; remaining entries become query string on GET/DELETE or JSON body on POST/PUT/PATCH.")),
+			mcplib.WithObject("params", mcplib.Description("Use the endpoint params_schema returned by search. Preserve JSON body key case and nesting; x-location identifies path, query, header, or body inputs.")),
 		),
 		handleCodeOrchExecute,
 	)
@@ -105,6 +105,7 @@ type codeOrchEndpoint struct {
 }
 
 type codeOrchParamBinding struct {
+	PublicOnly   bool
 	PublicName   string
 	WireName     string
 	Default      string
@@ -6764,10 +6765,11 @@ func codeOrchKeywords(resource, endpoint, summary, path string) []string {
 
 func codeOrchEndpointMetadata(ep *codeOrchEndpoint) map[string]any {
 	out := map[string]any{
-		"endpoint_id": ep.ID,
-		"method":      ep.Method,
-		"path":        ep.Path,
-		"summary":     ep.Summary,
+		"endpoint_id":   ep.ID,
+		"method":        ep.Method,
+		"path":          ep.Path,
+		"summary":       ep.Summary,
+		"params_schema": requestContracts[ep.ID],
 	}
 	return out
 }
@@ -6804,7 +6806,6 @@ func handleCodeOrchSearch(ctx context.Context, req mcplib.CallToolRequest) (*mcp
 	}
 	limit := codeOrchSearchLimit(args)
 
-	terms := codeOrchKeywords("", "", query, "")
 	type scored struct {
 		ep    *codeOrchEndpoint
 		score int
@@ -6812,16 +6813,7 @@ func handleCodeOrchSearch(ctx context.Context, req mcplib.CallToolRequest) (*mcp
 	results := make([]scored, 0, len(codeOrchEndpoints))
 	for i := range codeOrchEndpoints {
 		ep := &codeOrchEndpoints[i]
-		score := 0
-		for _, t := range terms {
-			for _, kw := range ep.keywords {
-				if kw == t {
-					score += 2
-				} else if strings.Contains(kw, t) || strings.Contains(t, kw) {
-					score++
-				}
-			}
-		}
+		score := codeOrchRequestScore(ep, query)
 		if score > 0 {
 			results = append(results, scored{ep: ep, score: score})
 		}
@@ -6876,9 +6868,14 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 		return mcplib.NewToolResultError(fmt.Sprintf("unknown endpoint_id %q — call immybot_search to discover valid ids", id)), nil
 	}
 
-	params, _ := args["params"].(map[string]any)
-	if params == nil {
-		params = map[string]any{}
+	inputs, _ := args["params"].(map[string]any)
+	params := make(map[string]any, len(inputs))
+	for key, value := range inputs {
+		params[key] = value
+	}
+
+	if err := codeOrchValidatePathInputs(ep, params); err != nil {
+		return mcplib.NewToolResultError(err.Error()), nil
 	}
 
 	c, platformSession, err := newMCPClient(ctx)
@@ -6893,7 +6890,7 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 		return mcplib.NewToolResultError(err.Error()), nil
 	}
 
-	path := ep.Path
+	path, contractHeaders := codeOrchResolveContract(ep, ep.Path, params)
 	for _, p := range ep.Positional {
 		if v, ok := params[p]; ok && strings.Contains(path, "{"+p+"}") {
 			path = strings.ReplaceAll(path, "{"+p+"}", mcpPathValue(v))
@@ -6921,11 +6918,19 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 		hdrs = nil
 	}
 
-	// Route params to their runtime slots. GET/DELETE params are query
-	// strings; write methods split spec-declared query params from the
-	// remaining params used as the request body below.
+	if len(contractHeaders) > 0 {
+		if hdrs == nil {
+			hdrs = map[string]string{}
+		}
+		for key, value := range contractHeaders {
+			hdrs[key] = value
+		}
+	}
+
+	// Route read inputs to query strings. Methods with request bodies split
+	// declared query inputs from the remaining JSON body fields.
 	query := map[string]string{}
-	if ep.Method == "GET" || ep.Method == "DELETE" {
+	if ep.Method == "GET" || (ep.Method == "DELETE" && !codeOrchHasBody(ep)) {
 		path = codeOrchSplitQuery(path, ep.QueryParams, params)
 		for k, v := range params {
 			query[codeOrchWireQueryName(ep.QueryParams, k)] = formatMCPParamValue(v)
@@ -6939,12 +6944,7 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 		path = codeOrchSplitQuery(path, ep.QueryParams, params)
 	}
 
-	writeBody := func() any {
-		if ep.BodyIsArray {
-			return codeOrchArrayBody(params)
-		}
-		return codeOrchWriteBody(params)
-	}
+	writeBody := func() any { return codeOrchContractBody(ep, params) }
 	var data json.RawMessage
 	switch ep.Method {
 	case "GET":
@@ -6962,7 +6962,9 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 			}
 		}
 	case "DELETE":
-		if len(hdrs) > 0 {
+		if codeOrchHasBody(ep) {
+			data, _, err = c.DeleteWithParamsAndBodyAndHeaders(ctx, path, query, writeBody(), hdrs)
+		} else if len(hdrs) > 0 {
 			data, _, err = c.DeleteWithParamsAndHeaders(ctx, path, query, hdrs)
 		} else {
 			data, _, err = c.DeleteWithParams(ctx, path, query)
@@ -7008,8 +7010,8 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 // client.do() marshals the body value exactly once. Handing it []byte makes
 // json.Marshal([]byte) emit a base64-encoded JSON *string*, so the API
 // receives "eyJ...==" where it expects the request object. Strict JSON APIs
-// reject that as the wrong type at the body root. GET/DELETE carry no body,
-// so this defect stays latent until the first write attempt.
+// reject that as the wrong type at the body root. Bodyless reads leave this
+// defect latent until the first write attempt.
 func codeOrchWriteBody(params map[string]any) any {
 	return params
 }
@@ -7040,7 +7042,7 @@ func codeOrchArrayBody(params map[string]any) any {
 func codeOrchSplitQuery(path string, queryParams []codeOrchParamBinding, params map[string]any) string {
 	uv := neturl.Values{}
 	for _, q := range queryParams {
-		for _, key := range []string{q.PublicName, q.WireName} {
+		for _, key := range codeOrchQueryKeys(q) {
 			if key == "" {
 				continue
 			}

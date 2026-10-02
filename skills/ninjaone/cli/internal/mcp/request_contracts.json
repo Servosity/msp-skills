@@ -1,0 +1,5910 @@
+{
+  "activities.get": {
+    "additionalProperties": true,
+    "properties": {
+      "after": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "after"
+      },
+      "before": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "before"
+      },
+      "class": {
+        "enum": [
+          "SYSTEM",
+          "DEVICE",
+          "USER",
+          "ALL"
+        ],
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "class"
+      },
+      "df": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "df"
+      },
+      "lang": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "lang"
+      },
+      "newerThan": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "newerThan"
+      },
+      "olderThan": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "olderThan"
+      },
+      "pageSize": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "pageSize"
+      },
+      "seriesUid": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "seriesUid"
+      },
+      "sourceConfigUid": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "sourceConfigUid"
+      },
+      "status": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "status"
+      },
+      "type": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "type"
+      },
+      "tz": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "tz"
+      },
+      "user": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "user"
+      }
+    },
+    "type": "object"
+  },
+  "alert.reset": {
+    "additionalProperties": true,
+    "properties": {
+      "uid": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "uid"
+    ],
+    "type": "object"
+  },
+  "alert.reset.alert-set-activity-data": {
+    "additionalProperties": true,
+    "properties": {
+      "uid": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "uid"
+    ],
+    "type": "object"
+  },
+  "alerts.get": {
+    "additionalProperties": true,
+    "properties": {
+      "df": {
+        "description": "Device filter",
+        "type": "string",
+        "x-location": "query"
+      },
+      "lang": {
+        "description": "Language tag",
+        "type": "string",
+        "x-location": "query"
+      },
+      "source-type": {
+        "description": "Source type",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "sourceType"
+      },
+      "tz": {
+        "description": "Time Zone",
+        "type": "string",
+        "x-location": "query"
+      }
+    },
+    "type": "object"
+  },
+  "attachments.upload-temp": {
+    "additionalProperties": true,
+    "properties": {
+      "entity-type": {
+        "description": "Entity type (one of: TICKET, NODE, DOCUMENT, RELATED_ITEM, CHECKLIST, AUTOMATION, LOCATION, ORGANIZATION, TRIGGER, TECHNICIAN, FILE_TRANSFER_AUTOMATION, END_USER, EMAIL_TEMPLATE)",
+        "enum": [
+          "TICKET",
+          "NODE",
+          "DOCUMENT",
+          "RELATED_ITEM",
+          "CHECKLIST",
+          "AUTOMATION",
+          "LOCATION",
+          "ORGANIZATION",
+          "TRIGGER",
+          "TECHNICIAN",
+          "FILE_TRANSFER_AUTOMATION",
+          "END_USER",
+          "EMAIL_TEMPLATE"
+        ],
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "entityType"
+      }
+    },
+    "type": "object"
+  },
+  "automation.get-scripts": {
+    "additionalProperties": true,
+    "properties": {
+      "lang": {
+        "description": "Language",
+        "type": "string",
+        "x-location": "query"
+      }
+    },
+    "type": "object"
+  },
+  "backup.get-integrity-check-jobs": {
+    "additionalProperties": true,
+    "properties": {
+      "cursor": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "cursor"
+      },
+      "ddf": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "ddf"
+      },
+      "df": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "df"
+      },
+      "include": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "include"
+      },
+      "pageSize": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "pageSize"
+      },
+      "ptf": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "ptf"
+      },
+      "sf": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "sf"
+      },
+      "stf": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "stf"
+      }
+    },
+    "type": "object"
+  },
+  "backup.get-jobs": {
+    "additionalProperties": true,
+    "properties": {
+      "cursor": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "cursor"
+      },
+      "ddf": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "ddf"
+      },
+      "df": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "df"
+      },
+      "include": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "include"
+      },
+      "pageSize": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "pageSize"
+      },
+      "ptf": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "ptf"
+      },
+      "sf": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "sf"
+      },
+      "stf": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "stf"
+      }
+    },
+    "type": "object"
+  },
+  "backup.submit-integrity-check-job": {
+    "additionalProperties": true,
+    "properties": {
+      "deviceId": {
+        "description": "Device id",
+        "type": "string",
+        "x-location": "body"
+      },
+      "planUid": {
+        "description": "Plan uid",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "type": "object"
+  },
+  "checklist.archive-template": {
+    "additionalProperties": true,
+    "properties": {
+      "checklistTemplateIds": {
+        "description": "JSON value",
+        "items": {
+          "type": "integer"
+        },
+        "type": "array",
+        "x-location": "body"
+      }
+    },
+    "type": "object"
+  },
+  "checklist.create-templates": {
+    "additionalProperties": true,
+    "properties": {
+      "body": {
+        "items": {
+          "type": "object"
+        },
+        "type": "array",
+        "x-location": "body",
+        "x-raw-body": true
+      }
+    },
+    "required": [
+      "body"
+    ],
+    "type": "object"
+  },
+  "checklist.delete-template": {
+    "additionalProperties": true,
+    "properties": {
+      "checklistTemplateId": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "checklistTemplateId"
+    ],
+    "type": "object"
+  },
+  "checklist.delete-templates": {
+    "additionalProperties": true,
+    "properties": {
+      "body": {
+        "items": {
+          "type": "integer"
+        },
+        "type": "array",
+        "x-location": "body",
+        "x-raw-body": true
+      }
+    },
+    "required": [
+      "body"
+    ],
+    "type": "object"
+  },
+  "checklist.get-templates": {
+    "additionalProperties": true,
+    "properties": {
+      "checklist-template-ids": {
+        "description": "Checklist template ids",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "checklistTemplateIds"
+      },
+      "checklist-template-name": {
+        "description": "Checklist template name",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "checklistTemplateName"
+      },
+      "include-archived": {
+        "description": "Include archived",
+        "type": "boolean",
+        "x-location": "query",
+        "x-wire-name": "includeArchived"
+      },
+      "required": {
+        "description": "Required",
+        "type": "boolean",
+        "x-location": "query"
+      }
+    },
+    "type": "object"
+  },
+  "checklist.restore-template": {
+    "additionalProperties": true,
+    "properties": {
+      "checklistTemplateIds": {
+        "description": "JSON value",
+        "items": {
+          "type": "integer"
+        },
+        "type": "array",
+        "x-location": "body"
+      }
+    },
+    "type": "object"
+  },
+  "checklist.update-templates": {
+    "additionalProperties": true,
+    "properties": {
+      "body": {
+        "items": {
+          "type": "object"
+        },
+        "type": "array",
+        "x-location": "body",
+        "x-raw-body": true
+      }
+    },
+    "required": [
+      "body"
+    ],
+    "type": "object"
+  },
+  "contact.delete": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "contact.get-by-id": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "contact.update": {
+    "additionalProperties": true,
+    "properties": {
+      "email": {
+        "description": "Email address",
+        "type": "string",
+        "x-location": "body"
+      },
+      "firstName": {
+        "description": "First name should be between 0 and 150 characters",
+        "type": "string",
+        "x-location": "body"
+      },
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "jobTitle": {
+        "description": "Job title should be between 0 and 150 characters",
+        "type": "string",
+        "x-location": "body"
+      },
+      "lastName": {
+        "description": "Last name should be between 0 and 150 characters",
+        "type": "string",
+        "x-location": "body"
+      },
+      "organizationId": {
+        "description": "Organization identifier",
+        "type": "string",
+        "x-location": "body"
+      },
+      "phone": {
+        "description": "Phone number",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "contacts.create": {
+    "additionalProperties": true,
+    "properties": {
+      "email": {
+        "description": "Email address",
+        "type": "string",
+        "x-location": "body"
+      },
+      "firstName": {
+        "description": "First name should be between 1 and 150 characters",
+        "type": "string",
+        "x-location": "body"
+      },
+      "jobTitle": {
+        "description": "Job title should be between 0 and 150 characters",
+        "type": "string",
+        "x-location": "body"
+      },
+      "lastName": {
+        "description": "First name should be between 1 and 150 characters",
+        "type": "string",
+        "x-location": "body"
+      },
+      "organizationId": {
+        "description": "Organization identifier",
+        "type": "string",
+        "x-location": "body"
+      },
+      "phone": {
+        "description": "Contact Phone number",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "type": "object"
+  },
+  "contacts.get": {
+    "additionalProperties": true,
+    "properties": {},
+    "type": "object"
+  },
+  "custom-fields.get-node-attribute-signed-urls": {
+    "additionalProperties": true,
+    "properties": {
+      "entityId": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "entityType": {
+        "enum": [
+          "NODE",
+          "END_USER",
+          "LOCATION",
+          "ORGANIZATION"
+        ],
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "entityId",
+      "entityType"
+    ],
+    "type": "object"
+  },
+  "device-custom-fields.get-device-global-custom-fields": {
+    "additionalProperties": true,
+    "properties": {
+      "scopes": {
+        "description": "Comma-separated list of scopes (one of: all,node,location,organization)",
+        "enum": [
+          "all,node,location,organization"
+        ],
+        "type": "string",
+        "x-location": "query"
+      }
+    },
+    "type": "object"
+  },
+  "device.activities.get-device": {
+    "additionalProperties": true,
+    "properties": {
+      "activityType": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "activityType"
+      },
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "lang": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "lang"
+      },
+      "newerThan": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "newerThan"
+      },
+      "olderThan": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "olderThan"
+      },
+      "pageSize": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "pageSize"
+      },
+      "seriesUid": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "seriesUid"
+      },
+      "status": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "status"
+      },
+      "tz": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "tz"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "device.alerts.get-device": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "lang": {
+        "description": "Lang",
+        "type": "string",
+        "x-location": "query"
+      },
+      "tz": {
+        "description": "Time Zone",
+        "type": "string",
+        "x-location": "query"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "device.custom-fields.get-node": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "with-inheritance": {
+        "description": "Retrieve values using definition scope hierarchy",
+        "type": "boolean",
+        "x-location": "query",
+        "x-wire-name": "withInheritance"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "device.custom-fields.update-node-attribute-values": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "device.dashboard-url.get-device-link": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "redirect": {
+        "description": "Return redirect response",
+        "type": "boolean",
+        "x-location": "query"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "device.disks.get-device-drives": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "device.get": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "device.jobs.get-device-active": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "lang": {
+        "description": "Lang",
+        "type": "string",
+        "x-location": "query"
+      },
+      "tz": {
+        "description": "Time Zone",
+        "type": "string",
+        "x-location": "query"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "device.last-logged-on-user.get-device": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "device.maintenance.cancel-device": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "device.maintenance.update-device": {
+    "additionalProperties": true,
+    "properties": {
+      "disabledFeatures": {
+        "description": "List of features that will be disabled during maintenance",
+        "type": "string",
+        "x-location": "body"
+      },
+      "end": {
+        "description": "Maintenance window end",
+        "type": "number",
+        "x-location": "body"
+      },
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "start": {
+        "description": "Maintenance window start (optional, defaults to now)",
+        "type": "number",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "device.network-interfaces.get-device": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "device.os-patch-installs.get-device-installed-ospatches": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "installed-after": {
+        "description": "Include patches installed after specified date",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "installedAfter"
+      },
+      "installed-before": {
+        "description": "Include patches installed before specified date",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "installedBefore"
+      },
+      "status": {
+        "description": "Patch Status filter (FAILED, INSTALLED)",
+        "type": "string",
+        "x-location": "query"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "device.os-patches.get-device-pending-failed-rejected": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "severity": {
+        "description": "Patch Severity filter",
+        "type": "string",
+        "x-location": "query"
+      },
+      "status": {
+        "description": "Patch Status filter",
+        "type": "string",
+        "x-location": "query"
+      },
+      "type": {
+        "description": "Patch Type filter",
+        "type": "string",
+        "x-location": "query"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "device.owner.remove-device": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "device.owner.set-device": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "ownerUid": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id",
+      "ownerUid"
+    ],
+    "type": "object"
+  },
+  "device.patch.submit-ospatch-apply": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "device.patch.submit-ospatch-scan": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "device.patch.submit-software-apply": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "device.patch.submit-software-scan": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "device.policy.get-overrides": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "device.policy.reset-overrides": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "device.processors.get-device": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "device.reboot.devices": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "mode": {
+        "enum": [
+          "NORMAL",
+          "FORCED"
+        ],
+        "type": "string",
+        "x-location": "path"
+      },
+      "reason": {
+        "description": "Stated reboot reason",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "id",
+      "mode"
+    ],
+    "type": "object"
+  },
+  "device.script.run-on-device": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "description": "Script identifier",
+        "type": "string",
+        "x-location": "body"
+      },
+      "parameters": {
+        "description": "Action/Script parameters",
+        "type": "string",
+        "x-location": "body"
+      },
+      "path_id": {
+        "type": "string",
+        "x-location": "path",
+        "x-wire-name": "id"
+      },
+      "runAs": {
+        "description": "Credential role/identifier",
+        "type": "string",
+        "x-location": "body"
+      },
+      "type": {
+        "description": "Type",
+        "enum": [
+          "ACTION",
+          "SCRIPT"
+        ],
+        "type": "string",
+        "x-location": "body"
+      },
+      "uid": {
+        "description": "Built-in action identifier",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "path_id"
+    ],
+    "type": "object"
+  },
+  "device.scripting.request-options": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "lang": {
+        "description": "Language",
+        "type": "string",
+        "x-location": "query"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "device.software-patch-installs.get-device-installed-software-patches": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "impact": {
+        "description": "Patch Impact filter",
+        "type": "string",
+        "x-location": "query"
+      },
+      "installed-after": {
+        "description": "Include patches installed after specified date",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "installedAfter"
+      },
+      "installed-before": {
+        "description": "Include patches installed before specified date",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "installedBefore"
+      },
+      "product-identifier": {
+        "description": "Product Identifier",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "productIdentifier"
+      },
+      "status": {
+        "description": "Patch Status filter",
+        "type": "string",
+        "x-location": "query"
+      },
+      "type": {
+        "description": "Patch Type filter",
+        "type": "string",
+        "x-location": "query"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "device.software-patches.get-device-pending-failed-rejected": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "impact": {
+        "description": "Patch Impact filter",
+        "type": "string",
+        "x-location": "query"
+      },
+      "product-identifier": {
+        "description": "Product Identifier",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "productIdentifier"
+      },
+      "status": {
+        "description": "Patch Status filter",
+        "type": "string",
+        "x-location": "query"
+      },
+      "type": {
+        "description": "Patch Type filter",
+        "type": "string",
+        "x-location": "query"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "device.software.get-device": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "device.update": {
+    "additionalProperties": true,
+    "properties": {
+      "displayName": {
+        "description": "Display name (User assigned)",
+        "type": "string",
+        "x-location": "body"
+      },
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "locationId": {
+        "description": "Location identifier",
+        "type": "string",
+        "x-location": "body"
+      },
+      "nodeRoleId": {
+        "description": "Node Role identifier",
+        "type": "string",
+        "x-location": "body"
+      },
+      "organizationId": {
+        "description": "Organization identifier",
+        "type": "string",
+        "x-location": "body"
+      },
+      "policyId": {
+        "description": "Assigned policy ID (overrides organization policy mapping, or reverts to organization policy if Null)",
+        "type": "string",
+        "x-location": "body"
+      },
+      "userData": {
+        "description": "JSON value",
+        "type": "object",
+        "x-location": "body"
+      },
+      "warranty": {
+        "additionalProperties": true,
+        "properties": {
+          "endDate": {
+            "description": "Warranty End Date (Seconds)",
+            "type": "number"
+          },
+          "manufacturerFulfillmentDate": {
+            "description": "Manufacturer Fulfillment Date",
+            "type": "number"
+          },
+          "startDate": {
+            "description": "Warranty Start Date (Seconds)",
+            "type": "number"
+          }
+        },
+        "type": "object",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "device.volumes.get-device": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "include": {
+        "description": "Additional information to include (bl - BitLocker status)",
+        "type": "string",
+        "x-location": "query"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "device.windows-service.control": {
+    "additionalProperties": true,
+    "properties": {
+      "action": {
+        "description": "Action",
+        "enum": [
+          "START",
+          "PAUSE",
+          "STOP",
+          "RESTART"
+        ],
+        "type": "string",
+        "x-location": "body"
+      },
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "serviceId": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id",
+      "serviceId"
+    ],
+    "type": "object"
+  },
+  "device.windows-service.set-configuration": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "serviceId": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "startType": {
+        "description": "Start Type",
+        "enum": [
+          "AUTO_START",
+          "AUTO_START_DELAYED",
+          "BOOT_START",
+          "DEMAND_START",
+          "DISABLED",
+          "SYSTEM_START"
+        ],
+        "type": "string",
+        "x-location": "body"
+      },
+      "userName": {
+        "description": "Username",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "id",
+      "serviceId"
+    ],
+    "type": "object"
+  },
+  "device.windows-services.get-device-services": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "name": {
+        "description": "Service name",
+        "type": "string",
+        "x-location": "query"
+      },
+      "state": {
+        "description": "Service state (one of: UNKNOWN, STOPPED, START_PENDING, RUNNING, STOP_PENDING, PAUSE_PENDING, PAUSED, CONTINUE_PENDING)",
+        "enum": [
+          "UNKNOWN",
+          "STOPPED",
+          "START_PENDING",
+          "RUNNING",
+          "STOP_PENDING",
+          "PAUSE_PENDING",
+          "PAUSED",
+          "CONTINUE_PENDING"
+        ],
+        "type": "string",
+        "x-location": "query"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "devices-detailed.get": {
+    "additionalProperties": true,
+    "properties": {
+      "after": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "after"
+      },
+      "df": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "df"
+      },
+      "pageSize": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "pageSize"
+      }
+    },
+    "type": "object"
+  },
+  "devices.get": {
+    "additionalProperties": true,
+    "properties": {
+      "after": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "after"
+      },
+      "df": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "df"
+      },
+      "pageSize": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "pageSize"
+      }
+    },
+    "type": "object"
+  },
+  "devices.node-approval-operation": {
+    "additionalProperties": true,
+    "properties": {
+      "devices": {
+        "description": "JSON value",
+        "items": {
+          "type": "integer"
+        },
+        "type": "array",
+        "x-location": "body"
+      },
+      "mode": {
+        "enum": [
+          "APPROVE",
+          "REJECT"
+        ],
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "mode"
+    ],
+    "type": "object"
+  },
+  "devices.search": {
+    "additionalProperties": true,
+    "properties": {
+      "limit": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "limit"
+      },
+      "q": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "q"
+      }
+    },
+    "type": "object"
+  },
+  "document-templates.archive": {
+    "additionalProperties": true,
+    "properties": {
+      "body": {
+        "items": {
+          "type": "integer"
+        },
+        "type": "array",
+        "uniqueItems": true,
+        "x-location": "body",
+        "x-raw-body": true
+      }
+    },
+    "required": [
+      "body"
+    ],
+    "type": "object"
+  },
+  "document-templates.archive.document-template": {
+    "additionalProperties": true,
+    "properties": {
+      "documentTemplateId": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "documentTemplateId"
+    ],
+    "type": "object"
+  },
+  "document-templates.create": {
+    "additionalProperties": true,
+    "properties": {
+      "allowMultiple": {
+        "description": "States if multiple instances of the document template is allowed",
+        "type": "boolean",
+        "x-location": "body"
+      },
+      "allowedTechnicianRoles": {
+        "description": "JSON value",
+        "items": {
+          "type": "integer"
+        },
+        "type": "array",
+        "x-location": "body"
+      },
+      "availableToAllTechnicians": {
+        "description": "States if the document template is available to all technicians",
+        "type": "boolean",
+        "x-location": "body"
+      },
+      "description": {
+        "description": "Description of the template",
+        "type": "string",
+        "x-location": "body"
+      },
+      "fields": {
+        "description": "JSON value",
+        "items": {
+          "type": "object"
+        },
+        "type": "array",
+        "x-location": "body"
+      },
+      "mandatory": {
+        "description": "Indicates if the document template is mandatory",
+        "type": "boolean",
+        "x-location": "body"
+      },
+      "name": {
+        "description": "Name of the template (must be unique)",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "name"
+    ],
+    "type": "object"
+  },
+  "document-templates.delete": {
+    "additionalProperties": true,
+    "properties": {
+      "documentTemplateId": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "documentTemplateId"
+    ],
+    "type": "object"
+  },
+  "document-templates.get": {
+    "additionalProperties": true,
+    "properties": {
+      "documentTemplateId": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "include-technician-roles": {
+        "description": "Includes allowed technician roles.",
+        "type": "boolean",
+        "x-location": "query",
+        "x-wire-name": "includeTechnicianRoles"
+      }
+    },
+    "required": [
+      "documentTemplateId"
+    ],
+    "type": "object"
+  },
+  "document-templates.get-with-attributes": {
+    "additionalProperties": true,
+    "properties": {
+      "include-technician-roles": {
+        "description": "Includes allowed technician roles.",
+        "type": "boolean",
+        "x-location": "query",
+        "x-wire-name": "includeTechnicianRoles"
+      },
+      "template-name": {
+        "description": "Template name",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "templateName"
+      }
+    },
+    "type": "object"
+  },
+  "document-templates.restore": {
+    "additionalProperties": true,
+    "properties": {
+      "body": {
+        "items": {
+          "type": "integer"
+        },
+        "type": "array",
+        "uniqueItems": true,
+        "x-location": "body",
+        "x-raw-body": true
+      }
+    },
+    "required": [
+      "body"
+    ],
+    "type": "object"
+  },
+  "document-templates.restore.document-template": {
+    "additionalProperties": true,
+    "properties": {
+      "documentTemplateId": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "documentTemplateId"
+    ],
+    "type": "object"
+  },
+  "document-templates.update": {
+    "additionalProperties": true,
+    "properties": {
+      "allowedTechnicianRoles": {
+        "description": "JSON value",
+        "items": {
+          "type": "integer"
+        },
+        "type": "array",
+        "x-location": "body"
+      },
+      "availableToAllTechnicians": {
+        "description": "States if the document template is available to all technicians",
+        "type": "boolean",
+        "x-location": "body"
+      },
+      "description": {
+        "description": "Description of the template",
+        "type": "string",
+        "x-location": "body"
+      },
+      "documentTemplateId": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "fields": {
+        "description": "JSON value",
+        "items": {
+          "type": "object"
+        },
+        "type": "array",
+        "x-location": "body"
+      },
+      "mandatory": {
+        "description": "Indicates if the document template is mandatory",
+        "type": "boolean",
+        "x-location": "body"
+      },
+      "name": {
+        "description": "Name of the template (must be unique)",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "documentTemplateId"
+    ],
+    "type": "object"
+  },
+  "group.device-ids.get-group": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "groups.get": {
+    "additionalProperties": true,
+    "properties": {},
+    "type": "object"
+  },
+  "itam.create-unmanaged-device-public-api": {
+    "additionalProperties": true,
+    "properties": {
+      "assignedUserUid": {
+        "description": "The UUID of the user this device is assigned to",
+        "type": "string",
+        "x-location": "body"
+      },
+      "locationId": {
+        "description": "The id of the location the device belongs to",
+        "type": "string",
+        "x-location": "body"
+      },
+      "name": {
+        "description": "The display name of the device to be created",
+        "type": "string",
+        "x-location": "body"
+      },
+      "orgId": {
+        "description": "The id of the organization the device belongs to",
+        "type": "string",
+        "x-location": "body"
+      },
+      "roleId": {
+        "description": "The id of the role to use for this device. Must be a sub-role of Unmanaged Device",
+        "type": "string",
+        "x-location": "body"
+      },
+      "serialNumber": {
+        "description": "The serial number of the device",
+        "type": "string",
+        "x-location": "body"
+      },
+      "warrantyEndDate": {
+        "description": "The warranty end date for the device, in unix epoch seconds",
+        "type": "number",
+        "x-location": "body"
+      },
+      "warrantyStartDate": {
+        "description": "The warranty start date for the device, in unix epoch seconds",
+        "type": "number",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "locationId",
+      "name",
+      "orgId",
+      "roleId",
+      "serialNumber"
+    ],
+    "type": "object"
+  },
+  "itam.delete-unmanaged-device-public-api": {
+    "additionalProperties": true,
+    "properties": {
+      "nodeId": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "nodeId"
+    ],
+    "type": "object"
+  },
+  "itam.update-unmanaged-device-public-api": {
+    "additionalProperties": true,
+    "properties": {
+      "assignedUserUid": {
+        "description": "The UUID of the user this device is assigned to",
+        "type": "string",
+        "x-location": "body"
+      },
+      "locationId": {
+        "description": "The id of the location the device belongs to",
+        "type": "string",
+        "x-location": "body"
+      },
+      "name": {
+        "description": "The display name of the device to be updated",
+        "type": "string",
+        "x-location": "body"
+      },
+      "nodeId": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "orgId": {
+        "description": "The id of the organization the device belongs to",
+        "type": "string",
+        "x-location": "body"
+      },
+      "serialNumber": {
+        "description": "The serial number of the device",
+        "type": "string",
+        "x-location": "body"
+      },
+      "warrantyEndDate": {
+        "description": "The warranty end date for the device, in unix epoch seconds",
+        "type": "number",
+        "x-location": "body"
+      },
+      "warrantyStartDate": {
+        "description": "The warranty start date for the device, in unix epoch seconds",
+        "type": "number",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "locationId",
+      "name",
+      "nodeId",
+      "orgId",
+      "serialNumber"
+    ],
+    "type": "object"
+  },
+  "knowledgebase.archive-knowledge-base-articles": {
+    "additionalProperties": true,
+    "properties": {
+      "body": {
+        "items": {
+          "type": "integer"
+        },
+        "type": "array",
+        "x-location": "body",
+        "x-raw-body": true
+      }
+    },
+    "required": [
+      "body"
+    ],
+    "type": "object"
+  },
+  "knowledgebase.archive-knowledge-base-folders": {
+    "additionalProperties": true,
+    "properties": {
+      "body": {
+        "items": {
+          "type": "integer"
+        },
+        "type": "array",
+        "x-location": "body",
+        "x-raw-body": true
+      }
+    },
+    "required": [
+      "body"
+    ],
+    "type": "object"
+  },
+  "knowledgebase.create-knowledge-base-articles": {
+    "additionalProperties": true,
+    "properties": {
+      "body": {
+        "items": {
+          "type": "object"
+        },
+        "type": "array",
+        "x-location": "body",
+        "x-raw-body": true
+      }
+    },
+    "required": [
+      "body"
+    ],
+    "type": "object"
+  },
+  "knowledgebase.delete-knowledge-base-articles": {
+    "additionalProperties": true,
+    "properties": {
+      "body": {
+        "items": {
+          "type": "integer"
+        },
+        "type": "array",
+        "x-location": "body",
+        "x-raw-body": true
+      }
+    },
+    "required": [
+      "body"
+    ],
+    "type": "object"
+  },
+  "knowledgebase.delete-knowledge-base-folders": {
+    "additionalProperties": true,
+    "properties": {
+      "body": {
+        "items": {
+          "type": "integer"
+        },
+        "type": "array",
+        "x-location": "body",
+        "x-raw-body": true
+      }
+    },
+    "required": [
+      "body"
+    ],
+    "type": "object"
+  },
+  "knowledgebase.download-knowledge-base-article": {
+    "additionalProperties": true,
+    "properties": {
+      "articleId": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "articleId"
+    ],
+    "type": "object"
+  },
+  "knowledgebase.get-client-knowledge-base-articles": {
+    "additionalProperties": true,
+    "properties": {
+      "article-name": {
+        "description": "Article name",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "articleName"
+      },
+      "include-archived": {
+        "description": "Include archived",
+        "type": "boolean",
+        "x-location": "query",
+        "x-wire-name": "includeArchived"
+      },
+      "organization-ids": {
+        "description": "Organization ids",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "organizationIds"
+      }
+    },
+    "type": "object"
+  },
+  "knowledgebase.get-global-knowledge-base-articles": {
+    "additionalProperties": true,
+    "properties": {
+      "article-name": {
+        "description": "Article name",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "articleName"
+      },
+      "include-archived": {
+        "description": "Include archived",
+        "type": "boolean",
+        "x-location": "query",
+        "x-wire-name": "includeArchived"
+      }
+    },
+    "type": "object"
+  },
+  "knowledgebase.get-knowledge-base-article-signed-urls": {
+    "additionalProperties": true,
+    "properties": {
+      "articleId": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "articleId"
+    ],
+    "type": "object"
+  },
+  "knowledgebase.get-knowledge-base-folder-content": {
+    "additionalProperties": true,
+    "properties": {
+      "folderId": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "include-archived": {
+        "description": "Include archived",
+        "type": "boolean",
+        "x-location": "query",
+        "x-wire-name": "includeArchived"
+      }
+    },
+    "required": [
+      "folderId"
+    ],
+    "type": "object"
+  },
+  "knowledgebase.get-knowledge-base-folder-path-content": {
+    "additionalProperties": true,
+    "properties": {
+      "folder-id": {
+        "description": "Folder id",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "folderId"
+      },
+      "folder-path": {
+        "description": "Folder path",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "folderPath"
+      },
+      "organization-id": {
+        "description": "Organization id",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "organizationId"
+      }
+    },
+    "type": "object"
+  },
+  "knowledgebase.move": {
+    "additionalProperties": true,
+    "properties": {
+      "destinationFolderId": {
+        "description": "Destination folder",
+        "type": "string",
+        "x-location": "body"
+      },
+      "destinationOrganizationId": {
+        "description": "Destination client. Use when the root folder of the client does not exist.",
+        "type": "string",
+        "x-location": "body"
+      },
+      "documentIds": {
+        "description": "JSON value",
+        "items": {
+          "type": "integer"
+        },
+        "type": "array",
+        "x-location": "body"
+      },
+      "folderIds": {
+        "description": "JSON value",
+        "items": {
+          "type": "integer"
+        },
+        "type": "array",
+        "x-location": "body"
+      }
+    },
+    "type": "object"
+  },
+  "knowledgebase.restore-knowledge-base-articles": {
+    "additionalProperties": true,
+    "properties": {
+      "body": {
+        "items": {
+          "type": "integer"
+        },
+        "type": "array",
+        "x-location": "body",
+        "x-raw-body": true
+      }
+    },
+    "required": [
+      "body"
+    ],
+    "type": "object"
+  },
+  "knowledgebase.restore-knowledge-base-folders": {
+    "additionalProperties": true,
+    "properties": {
+      "body": {
+        "items": {
+          "type": "integer"
+        },
+        "type": "array",
+        "x-location": "body",
+        "x-raw-body": true
+      }
+    },
+    "required": [
+      "body"
+    ],
+    "type": "object"
+  },
+  "knowledgebase.update-knowledge-base-articles": {
+    "additionalProperties": true,
+    "properties": {
+      "body": {
+        "items": {
+          "type": "object"
+        },
+        "type": "array",
+        "x-location": "body",
+        "x-raw-body": true
+      }
+    },
+    "required": [
+      "body"
+    ],
+    "type": "object"
+  },
+  "knowledgebase.upload-knowledge-base-articles": {
+    "additionalProperties": true,
+    "properties": {},
+    "type": "object"
+  },
+  "locations.get": {
+    "additionalProperties": true,
+    "properties": {
+      "after": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "after"
+      },
+      "pageSize": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "pageSize"
+      }
+    },
+    "type": "object"
+  },
+  "ninjaone-public-jobs.get-active": {
+    "additionalProperties": true,
+    "properties": {
+      "df": {
+        "description": "Device filter",
+        "type": "string",
+        "x-location": "query"
+      },
+      "job-type": {
+        "description": "Job Type filter",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "jobType"
+      },
+      "lang": {
+        "description": "Language tag",
+        "type": "string",
+        "x-location": "query"
+      },
+      "tz": {
+        "description": "Time Zone",
+        "type": "string",
+        "x-location": "query"
+      }
+    },
+    "type": "object"
+  },
+  "notification-channels.get": {
+    "additionalProperties": true,
+    "properties": {},
+    "type": "object"
+  },
+  "notification-channels.get-enabled": {
+    "additionalProperties": true,
+    "properties": {},
+    "type": "object"
+  },
+  "organization.archive-checklists": {
+    "additionalProperties": true,
+    "properties": {
+      "clientChecklistIds": {
+        "description": "JSON value",
+        "items": {
+          "type": "integer"
+        },
+        "type": "array",
+        "x-location": "body"
+      }
+    },
+    "type": "object"
+  },
+  "organization.archive-client-document": {
+    "additionalProperties": true,
+    "properties": {
+      "clientDocumentId": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "clientDocumentId"
+    ],
+    "type": "object"
+  },
+  "organization.archive-multi-page-client-documents": {
+    "additionalProperties": true,
+    "properties": {
+      "body": {
+        "items": {
+          "type": "integer"
+        },
+        "type": "array",
+        "x-location": "body",
+        "x-raw-body": true
+      }
+    },
+    "required": [
+      "body"
+    ],
+    "type": "object"
+  },
+  "organization.checklists-from-templates.create-organization": {
+    "additionalProperties": true,
+    "properties": {
+      "body": {
+        "items": {
+          "type": "integer"
+        },
+        "type": "array",
+        "x-location": "body",
+        "x-raw-body": true
+      },
+      "organizationId": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "body",
+      "organizationId"
+    ],
+    "type": "object"
+  },
+  "organization.create-checklists": {
+    "additionalProperties": true,
+    "properties": {
+      "body": {
+        "items": {
+          "type": "object"
+        },
+        "type": "array",
+        "x-location": "body",
+        "x-raw-body": true
+      }
+    },
+    "required": [
+      "body"
+    ],
+    "type": "object"
+  },
+  "organization.create-documents": {
+    "additionalProperties": true,
+    "properties": {
+      "body": {
+        "items": {
+          "type": "object"
+        },
+        "type": "array",
+        "x-location": "body",
+        "x-raw-body": true
+      }
+    },
+    "required": [
+      "body"
+    ],
+    "type": "object"
+  },
+  "organization.custom-fields.get-node-1": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "organization.custom-fields.update-node-attribute-values-1": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "organization.delete-client-checklist": {
+    "additionalProperties": true,
+    "properties": {
+      "checklistId": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "checklistId"
+    ],
+    "type": "object"
+  },
+  "organization.delete-client-checklists": {
+    "additionalProperties": true,
+    "properties": {
+      "body": {
+        "items": {
+          "type": "integer"
+        },
+        "type": "array",
+        "x-location": "body",
+        "x-raw-body": true
+      }
+    },
+    "required": [
+      "body"
+    ],
+    "type": "object"
+  },
+  "organization.delete-client-document": {
+    "additionalProperties": true,
+    "properties": {
+      "clientDocumentId": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "clientDocumentId"
+    ],
+    "type": "object"
+  },
+  "organization.devices.get-organization": {
+    "additionalProperties": true,
+    "properties": {
+      "after": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "after"
+      },
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "pageSize": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "pageSize"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "organization.document.update-organization": {
+    "additionalProperties": true,
+    "properties": {
+      "clientDocumentId": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "documentDescription": {
+        "description": "Document Description",
+        "type": "string",
+        "x-location": "body"
+      },
+      "documentName": {
+        "description": "Document Name",
+        "type": "string",
+        "x-location": "body"
+      },
+      "fields": {
+        "description": "JSON value",
+        "type": "object",
+        "x-location": "body"
+      },
+      "organizationId": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "clientDocumentId",
+      "organizationId"
+    ],
+    "type": "object"
+  },
+  "organization.documents.get-organization": {
+    "additionalProperties": true,
+    "properties": {
+      "organizationId": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "organizationId"
+    ],
+    "type": "object"
+  },
+  "organization.end-users.get": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "include-roles": {
+        "description": "Includes user role information",
+        "type": "boolean",
+        "x-location": "query",
+        "x-wire-name": "includeRoles"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "organization.get": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "organization.get-client-checklist": {
+    "additionalProperties": true,
+    "properties": {
+      "checklistId": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "checklistId"
+    ],
+    "type": "object"
+  },
+  "organization.get-client-checklist-signed-urls": {
+    "additionalProperties": true,
+    "properties": {
+      "checklistId": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "checklistId"
+    ],
+    "type": "object"
+  },
+  "organization.get-client-checklists": {
+    "additionalProperties": true,
+    "properties": {
+      "assigned-to-user-id": {
+        "description": "Assigned to user id",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "assignedToUserId"
+      },
+      "checklist-ids": {
+        "description": "Checklist ids",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "checklistIds"
+      },
+      "checklist-name": {
+        "description": "Checklist name",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "checklistName"
+      },
+      "completed": {
+        "description": "Completed",
+        "type": "boolean",
+        "x-location": "query"
+      },
+      "include-archived": {
+        "description": "Include archived",
+        "type": "boolean",
+        "x-location": "query",
+        "x-wire-name": "includeArchived"
+      },
+      "organization-ids": {
+        "description": "Organization ids",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "organizationIds"
+      },
+      "required": {
+        "description": "Required",
+        "type": "boolean",
+        "x-location": "query"
+      }
+    },
+    "type": "object"
+  },
+  "organization.get-client-document-signed-urls": {
+    "additionalProperties": true,
+    "properties": {
+      "clientDocumentId": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "clientDocumentId"
+    ],
+    "type": "object"
+  },
+  "organization.get-client-documents-with-attribute-values": {
+    "additionalProperties": true,
+    "properties": {
+      "document-name": {
+        "description": "Document name",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "documentName"
+      },
+      "group-by": {
+        "description": "Group by (one of: TEMPLATE, ORGANIZATION)",
+        "enum": [
+          "TEMPLATE",
+          "ORGANIZATION"
+        ],
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "groupBy"
+      },
+      "organization-ids": {
+        "description": "Organization ids",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "organizationIds"
+      },
+      "template-ids": {
+        "description": "Template ids",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "templateIds"
+      },
+      "template-name": {
+        "description": "Template name",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "templateName"
+      }
+    },
+    "type": "object"
+  },
+  "organization.get-installer": {
+    "additionalProperties": true,
+    "properties": {
+      "content": {
+        "additionalProperties": true,
+        "properties": {
+          "nodeRoleId": {
+            "description": "Identifier for the nodeRole target of this installer. Acceptable values include integers, 'auto', or an empty string.",
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-location": "body"
+      },
+      "installerType": {
+        "description": "Agent installer type",
+        "enum": [
+          "WINDOWS_MSI",
+          "MAC_DMG",
+          "MAC_PKG",
+          "LINUX_DEB",
+          "LINUX_RPM",
+          "LINUX_ARM64_DEB",
+          "LINUX_ARMV7A_DEB",
+          "LINUX_ARM64_RPM",
+          "LINUX_ARMV7A_RPM"
+        ],
+        "type": "string",
+        "x-location": "body"
+      },
+      "locationId": {
+        "description": "Location identifier",
+        "type": "string",
+        "x-location": "body"
+      },
+      "organizationId": {
+        "description": "Organization identifier",
+        "type": "string",
+        "x-location": "body"
+      },
+      "usageLimit": {
+        "description": "Usage limit",
+        "type": "integer",
+        "x-location": "body"
+      }
+    },
+    "type": "object"
+  },
+  "organization.location.get-installer-for": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "installer_type": {
+        "enum": [
+          "WINDOWS_MSI",
+          "MAC_DMG",
+          "MAC_PKG",
+          "LINUX_DEB",
+          "LINUX_RPM",
+          "LINUX_ARM64_DEB",
+          "LINUX_ARMV7A_DEB",
+          "LINUX_ARM64_RPM",
+          "LINUX_ARMV7A_RPM"
+        ],
+        "type": "string",
+        "x-location": "path"
+      },
+      "location_id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id",
+      "installer_type",
+      "location_id"
+    ],
+    "type": "object"
+  },
+  "organization.location.get-node-custom-fields-2": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "locationId": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "with-inheritance": {
+        "description": "Retrieve values using definition scope hierarchy",
+        "type": "boolean",
+        "x-location": "query",
+        "x-wire-name": "withInheritance"
+      }
+    },
+    "required": [
+      "id",
+      "locationId"
+    ],
+    "type": "object"
+  },
+  "organization.location.update-node-attribute-values-2": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "locationId": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id",
+      "locationId"
+    ],
+    "type": "object"
+  },
+  "organization.locations.create-for-organization": {
+    "additionalProperties": true,
+    "properties": {
+      "address": {
+        "description": "Address",
+        "type": "string",
+        "x-location": "body"
+      },
+      "description": {
+        "description": "Description",
+        "type": "string",
+        "x-location": "body"
+      },
+      "fields": {
+        "description": "JSON value",
+        "type": "object",
+        "x-location": "body"
+      },
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "name": {
+        "description": "Location name",
+        "type": "string",
+        "x-location": "body"
+      },
+      "tags": {
+        "description": "Tags",
+        "type": "string",
+        "x-location": "body"
+      },
+      "userData": {
+        "description": "JSON value",
+        "type": "object",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "organization.locations.get-organization": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "organization.locations.get-organization-usage": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "organization.locations.get-usage": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "locationId": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id",
+      "locationId"
+    ],
+    "type": "object"
+  },
+  "organization.locations.update": {
+    "additionalProperties": true,
+    "properties": {
+      "address": {
+        "description": "Address",
+        "type": "string",
+        "x-location": "body"
+      },
+      "description": {
+        "description": "Description",
+        "type": "string",
+        "x-location": "body"
+      },
+      "fields": {
+        "description": "JSON value",
+        "type": "object",
+        "x-location": "body"
+      },
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "locationId": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "name": {
+        "description": "Location name",
+        "type": "string",
+        "x-location": "body"
+      },
+      "tags": {
+        "description": "Tags",
+        "type": "string",
+        "x-location": "body"
+      },
+      "userData": {
+        "description": "JSON value",
+        "type": "object",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "id",
+      "locationId"
+    ],
+    "type": "object"
+  },
+  "organization.policies.update-node-role-policy-assignment-for-organization": {
+    "additionalProperties": true,
+    "properties": {
+      "body": {
+        "items": {
+          "type": "object"
+        },
+        "type": "array",
+        "x-location": "body",
+        "x-raw-body": true
+      },
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "body",
+      "id"
+    ],
+    "type": "object"
+  },
+  "organization.promote-client-checklists": {
+    "additionalProperties": true,
+    "properties": {
+      "body": {
+        "items": {
+          "type": "object"
+        },
+        "type": "array",
+        "x-location": "body",
+        "x-raw-body": true
+      }
+    },
+    "required": [
+      "body"
+    ],
+    "type": "object"
+  },
+  "organization.promote-client-checklists-1": {
+    "additionalProperties": true,
+    "properties": {
+      "body": {
+        "items": {
+          "type": "integer"
+        },
+        "type": "array",
+        "x-location": "body",
+        "x-raw-body": true
+      }
+    },
+    "required": [
+      "body"
+    ],
+    "type": "object"
+  },
+  "organization.restore-checklists": {
+    "additionalProperties": true,
+    "properties": {
+      "clientChecklistIds": {
+        "description": "JSON value",
+        "items": {
+          "type": "integer"
+        },
+        "type": "array",
+        "x-location": "body"
+      }
+    },
+    "type": "object"
+  },
+  "organization.restore-client-document": {
+    "additionalProperties": true,
+    "properties": {
+      "clientDocumentId": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "clientDocumentId"
+    ],
+    "type": "object"
+  },
+  "organization.restore-multi-page-client-documents": {
+    "additionalProperties": true,
+    "properties": {
+      "body": {
+        "items": {
+          "type": "integer"
+        },
+        "type": "array",
+        "x-location": "body",
+        "x-raw-body": true
+      }
+    },
+    "required": [
+      "body"
+    ],
+    "type": "object"
+  },
+  "organization.template.create-organization-document": {
+    "additionalProperties": true,
+    "properties": {
+      "documentDescription": {
+        "description": "Document Description",
+        "type": "string",
+        "x-location": "body"
+      },
+      "documentName": {
+        "description": "Document Name",
+        "type": "string",
+        "x-location": "body"
+      },
+      "documentTemplateId": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "fields": {
+        "description": "JSON value",
+        "type": "object",
+        "x-location": "body"
+      },
+      "organizationId": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "documentTemplateId",
+      "organizationId"
+    ],
+    "type": "object"
+  },
+  "organization.update": {
+    "additionalProperties": true,
+    "properties": {
+      "description": {
+        "description": "Organization Description",
+        "type": "string",
+        "x-location": "body"
+      },
+      "fields": {
+        "description": "JSON value",
+        "type": "object",
+        "x-location": "body"
+      },
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "name": {
+        "description": "Organization full name",
+        "type": "string",
+        "x-location": "body"
+      },
+      "nodeApprovalMode": {
+        "description": "Device Approval Mode",
+        "enum": [
+          "AUTOMATIC",
+          "MANUAL",
+          "REJECT"
+        ],
+        "type": "string",
+        "x-location": "body"
+      },
+      "tags": {
+        "description": "Tags",
+        "type": "string",
+        "x-location": "body"
+      },
+      "userData": {
+        "description": "JSON value",
+        "type": "object",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "organization.update-checklists": {
+    "additionalProperties": true,
+    "properties": {
+      "body": {
+        "items": {
+          "type": "object"
+        },
+        "type": "array",
+        "x-location": "body",
+        "x-raw-body": true
+      }
+    },
+    "required": [
+      "body"
+    ],
+    "type": "object"
+  },
+  "organization.update-documents": {
+    "additionalProperties": true,
+    "properties": {
+      "body": {
+        "items": {
+          "type": "object"
+        },
+        "type": "array",
+        "x-location": "body",
+        "x-raw-body": true
+      }
+    },
+    "required": [
+      "body"
+    ],
+    "type": "object"
+  },
+  "organizations-detailed.get": {
+    "additionalProperties": true,
+    "properties": {
+      "after": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "after"
+      },
+      "of": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "of"
+      },
+      "pageSize": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "pageSize"
+      }
+    },
+    "type": "object"
+  },
+  "organizations.create": {
+    "additionalProperties": true,
+    "properties": {
+      "description": {
+        "description": "Organization Description",
+        "type": "string",
+        "x-location": "body"
+      },
+      "fields": {
+        "description": "JSON value",
+        "type": "object",
+        "x-location": "body"
+      },
+      "locations": {
+        "description": "JSON value",
+        "items": {
+          "type": "object"
+        },
+        "type": "array",
+        "x-location": "body"
+      },
+      "name": {
+        "description": "Organization full name",
+        "type": "string",
+        "x-location": "body"
+      },
+      "nodeApprovalMode": {
+        "description": "Device Approval Mode",
+        "enum": [
+          "AUTOMATIC",
+          "MANUAL",
+          "REJECT"
+        ],
+        "type": "string",
+        "x-location": "body"
+      },
+      "policies": {
+        "description": "JSON value",
+        "items": {
+          "type": "object"
+        },
+        "type": "array",
+        "x-location": "body"
+      },
+      "tags": {
+        "description": "Tags",
+        "type": "string",
+        "x-location": "body"
+      },
+      "template-organization-id": {
+        "description": "Template organization id",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "templateOrganizationId"
+      },
+      "userData": {
+        "description": "JSON value",
+        "type": "object",
+        "x-location": "body"
+      }
+    },
+    "type": "object"
+  },
+  "organizations.get": {
+    "additionalProperties": true,
+    "properties": {
+      "after": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "after"
+      },
+      "of": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "of"
+      },
+      "pageSize": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "pageSize"
+      }
+    },
+    "type": "object"
+  },
+  "policies.condition.create-custom-fields-policy": {
+    "additionalProperties": true,
+    "properties": {
+      "channels": {
+        "description": "JSON value",
+        "items": {
+          "type": "integer"
+        },
+        "type": "array",
+        "x-location": "body"
+      },
+      "displayName": {
+        "description": "Policy condition display name",
+        "type": "string",
+        "x-location": "body"
+      },
+      "enabled": {
+        "description": "Policy condition enabled",
+        "type": "boolean",
+        "x-location": "body"
+      },
+      "matchAll": {
+        "description": "JSON value",
+        "items": {
+          "type": "object"
+        },
+        "type": "array",
+        "x-location": "body"
+      },
+      "matchAny": {
+        "description": "JSON value",
+        "items": {
+          "type": "object"
+        },
+        "type": "array",
+        "x-location": "body"
+      },
+      "notificationAction": {
+        "description": "Policy condition notification action",
+        "enum": [
+          "NONE",
+          "SEND"
+        ],
+        "type": "string",
+        "x-location": "body"
+      },
+      "notifyOnReset": {
+        "description": "Policy condition notify on reset",
+        "type": "boolean",
+        "x-location": "body"
+      },
+      "policy_id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "priority": {
+        "description": "Policy condition priority",
+        "enum": [
+          "NONE",
+          "LOW",
+          "MEDIUM",
+          "HIGH"
+        ],
+        "type": "string",
+        "x-location": "body"
+      },
+      "resetThreshold": {
+        "description": "Policy condition reset threshold (seconds)",
+        "type": "integer",
+        "x-location": "body"
+      },
+      "scripts": {
+        "description": "JSON value",
+        "items": {
+          "type": "object"
+        },
+        "type": "array",
+        "x-location": "body"
+      },
+      "severity": {
+        "description": "Policy condition severity",
+        "enum": [
+          "NONE",
+          "MINOR",
+          "MODERATE",
+          "MAJOR",
+          "CRITICAL"
+        ],
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "policy_id"
+    ],
+    "type": "object"
+  },
+  "policies.condition.create-windows-event-policy": {
+    "additionalProperties": true,
+    "properties": {
+      "channels": {
+        "description": "JSON value",
+        "items": {
+          "type": "integer"
+        },
+        "type": "array",
+        "x-location": "body"
+      },
+      "displayName": {
+        "description": "Policy condition display name",
+        "type": "string",
+        "x-location": "body"
+      },
+      "enabled": {
+        "description": "Policy condition enabled",
+        "type": "boolean",
+        "x-location": "body"
+      },
+      "eventIds": {
+        "description": "JSON value",
+        "items": {
+          "type": "integer"
+        },
+        "type": "array",
+        "x-location": "body"
+      },
+      "notificationAction": {
+        "description": "Policy condition notification action",
+        "enum": [
+          "NONE",
+          "SEND"
+        ],
+        "type": "string",
+        "x-location": "body"
+      },
+      "notifyOnReset": {
+        "description": "Policy condition notify on reset",
+        "type": "boolean",
+        "x-location": "body"
+      },
+      "occurrence": {
+        "additionalProperties": true,
+        "properties": {
+          "duration": {
+            "description": "Occurrence duration",
+            "type": "integer"
+          },
+          "enabled": {
+            "description": "Occurrence enabled",
+            "type": "boolean"
+          },
+          "threshold": {
+            "description": "Occurrence threshold",
+            "type": "integer"
+          }
+        },
+        "type": "object",
+        "x-location": "body"
+      },
+      "policy_id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "priority": {
+        "description": "Policy condition priority",
+        "enum": [
+          "NONE",
+          "LOW",
+          "MEDIUM",
+          "HIGH"
+        ],
+        "type": "string",
+        "x-location": "body"
+      },
+      "resetThreshold": {
+        "description": "Policy condition reset threshold (seconds)",
+        "type": "integer",
+        "x-location": "body"
+      },
+      "scripts": {
+        "description": "JSON value",
+        "items": {
+          "type": "object"
+        },
+        "type": "array",
+        "x-location": "body"
+      },
+      "severity": {
+        "description": "Policy condition severity",
+        "enum": [
+          "NONE",
+          "MINOR",
+          "MODERATE",
+          "MAJOR",
+          "CRITICAL"
+        ],
+        "type": "string",
+        "x-location": "body"
+      },
+      "source": {
+        "description": "Event Source",
+        "type": "string",
+        "x-location": "body"
+      },
+      "text": {
+        "additionalProperties": true,
+        "properties": {
+          "condition": {
+            "description": "Text condition",
+            "enum": [
+              "CONTAINS",
+              "NOT_CONTAINS"
+            ],
+            "type": "string"
+          },
+          "include": {
+            "description": "Text include",
+            "enum": [
+              "ALL",
+              "ANY"
+            ],
+            "type": "string"
+          },
+          "values": {
+            "description": "Text values",
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "eventIds",
+      "policy_id",
+      "source"
+    ],
+    "type": "object"
+  },
+  "policies.condition.delete-policy": {
+    "additionalProperties": true,
+    "properties": {
+      "condition_id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "policy_id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "condition_id",
+      "policy_id"
+    ],
+    "type": "object"
+  },
+  "policies.condition.get-custom-fields-policy": {
+    "additionalProperties": true,
+    "properties": {
+      "policy_id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "policy_id"
+    ],
+    "type": "object"
+  },
+  "policies.condition.get-custom-fields-policy-policies": {
+    "additionalProperties": true,
+    "properties": {
+      "condition_id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "policy_id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "condition_id",
+      "policy_id"
+    ],
+    "type": "object"
+  },
+  "policies.condition.get-windows-event-policy": {
+    "additionalProperties": true,
+    "properties": {
+      "policy_id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "policy_id"
+    ],
+    "type": "object"
+  },
+  "policies.condition.get-windows-event-policy-policies": {
+    "additionalProperties": true,
+    "properties": {
+      "condition_id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "policy_id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "condition_id",
+      "policy_id"
+    ],
+    "type": "object"
+  },
+  "policies.create-policy": {
+    "additionalProperties": true,
+    "properties": {
+      "description": {
+        "description": "Description",
+        "type": "string",
+        "x-location": "body"
+      },
+      "enabled": {
+        "description": "Policy Enabled Flag",
+        "type": "boolean",
+        "x-location": "body"
+      },
+      "mode": {
+        "description": "Policy creation mode (one of: NEW, CHILD, COPY)",
+        "enum": [
+          "NEW",
+          "CHILD",
+          "COPY"
+        ],
+        "type": "string",
+        "x-location": "query"
+      },
+      "name": {
+        "description": "Name",
+        "type": "string",
+        "x-location": "body"
+      },
+      "nodeClass": {
+        "description": "Node Class",
+        "enum": [
+          "WINDOWS_SERVER",
+          "WINDOWS_WORKSTATION",
+          "LINUX_WORKSTATION",
+          "MAC",
+          "ANDROID",
+          "APPLE_IOS",
+          "APPLE_IPADOS",
+          "VMWARE_VM_HOST",
+          "VMWARE_VM_GUEST",
+          "HYPERV_VMM_HOST",
+          "HYPERV_VMM_GUEST",
+          "LINUX_SERVER",
+          "MAC_SERVER",
+          "CLOUD_MONITOR_TARGET",
+          "NMS_SWITCH",
+          "NMS_ROUTER",
+          "NMS_FIREWALL",
+          "NMS_PRIVATE_NETWORK_GATEWAY",
+          "NMS_PRINTER",
+          "NMS_SCANNER",
+          "NMS_DIAL_MANAGER",
+          "NMS_WAP",
+          "NMS_IPSLA",
+          "NMS_COMPUTER",
+          "NMS_VM_HOST",
+          "NMS_APPLIANCE",
+          "NMS_OTHER",
+          "NMS_SERVER",
+          "NMS_PHONE",
+          "NMS_VIRTUAL_MACHINE",
+          "NMS_NETWORK_MANAGEMENT_AGENT",
+          "UNMANAGED_DEVICE",
+          "MANAGED_DEVICE"
+        ],
+        "type": "string",
+        "x-location": "body"
+      },
+      "parentPolicyId": {
+        "description": "Parent Policy identifier",
+        "type": "string",
+        "x-location": "body"
+      },
+      "template-policy-id": {
+        "description": "Template Policy identifier",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "templatePolicyId"
+      }
+    },
+    "type": "object"
+  },
+  "policies.get": {
+    "additionalProperties": true,
+    "properties": {},
+    "type": "object"
+  },
+  "queries.get-antivirus-status-report": {
+    "additionalProperties": true,
+    "properties": {
+      "cursor": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "cursor"
+      },
+      "df": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "df"
+      },
+      "pageSize": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "pageSize"
+      },
+      "productName": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "productName"
+      },
+      "productState": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "productState"
+      },
+      "ts": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "ts"
+      }
+    },
+    "type": "object"
+  },
+  "queries.get-antivirus-threats": {
+    "additionalProperties": true,
+    "properties": {
+      "cursor": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "cursor"
+      },
+      "df": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "df"
+      },
+      "pageSize": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "pageSize"
+      },
+      "ts": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "ts"
+      }
+    },
+    "type": "object"
+  },
+  "queries.get-computer-systems": {
+    "additionalProperties": true,
+    "properties": {
+      "cursor": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "cursor"
+      },
+      "df": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "df"
+      },
+      "pageSize": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "pageSize"
+      },
+      "ts": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "ts"
+      }
+    },
+    "type": "object"
+  },
+  "queries.get-custom-fields-detailed-report": {
+    "additionalProperties": true,
+    "properties": {
+      "cursor": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "cursor"
+      },
+      "df": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "df"
+      },
+      "fields": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "fields"
+      },
+      "pageSize": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "pageSize"
+      },
+      "showSecureValues": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "showSecureValues"
+      },
+      "updatedAfter": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "updatedAfter"
+      }
+    },
+    "type": "object"
+  },
+  "queries.get-custom-fields-report": {
+    "additionalProperties": true,
+    "properties": {
+      "cursor": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "cursor"
+      },
+      "df": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "df"
+      },
+      "fields": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "fields"
+      },
+      "pageSize": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "pageSize"
+      },
+      "showSecureValues": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "showSecureValues"
+      },
+      "updatedAfter": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "updatedAfter"
+      }
+    },
+    "type": "object"
+  },
+  "queries.get-device-health-report": {
+    "additionalProperties": true,
+    "properties": {
+      "cursor": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "cursor"
+      },
+      "df": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "df"
+      },
+      "health": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "health"
+      },
+      "pageSize": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "pageSize"
+      }
+    },
+    "type": "object"
+  },
+  "queries.get-device-usage": {
+    "additionalProperties": true,
+    "properties": {
+      "cursor": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "cursor"
+      },
+      "includeDeletedDevices": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "includeDeletedDevices"
+      },
+      "pageSize": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "pageSize"
+      }
+    },
+    "type": "object"
+  },
+  "queries.get-disk-drives": {
+    "additionalProperties": true,
+    "properties": {
+      "cursor": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "cursor"
+      },
+      "df": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "df"
+      },
+      "pageSize": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "pageSize"
+      },
+      "ts": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "ts"
+      }
+    },
+    "type": "object"
+  },
+  "queries.get-installed-ospatches": {
+    "additionalProperties": true,
+    "properties": {
+      "cursor": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "cursor"
+      },
+      "df": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "df"
+      },
+      "installedAfter": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "installedAfter"
+      },
+      "installedBefore": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "installedBefore"
+      },
+      "pageSize": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "pageSize"
+      },
+      "status": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "status"
+      }
+    },
+    "type": "object"
+  },
+  "queries.get-installed-software-patches": {
+    "additionalProperties": true,
+    "properties": {
+      "cursor": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "cursor"
+      },
+      "df": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "df"
+      },
+      "impact": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "impact"
+      },
+      "installedAfter": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "installedAfter"
+      },
+      "installedBefore": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "installedBefore"
+      },
+      "pageSize": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "pageSize"
+      },
+      "productIdentifier": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "productIdentifier"
+      },
+      "status": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "status"
+      },
+      "type": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "type"
+      }
+    },
+    "type": "object"
+  },
+  "queries.get-last-logged-on-users-report": {
+    "additionalProperties": true,
+    "properties": {
+      "cursor": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "cursor"
+      },
+      "df": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "df"
+      },
+      "pageSize": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "pageSize"
+      }
+    },
+    "type": "object"
+  },
+  "queries.get-network-interfaces": {
+    "additionalProperties": true,
+    "properties": {
+      "cursor": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "cursor"
+      },
+      "df": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "df"
+      },
+      "pageSize": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "pageSize"
+      }
+    },
+    "type": "object"
+  },
+  "queries.get-operating-systems": {
+    "additionalProperties": true,
+    "properties": {
+      "cursor": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "cursor"
+      },
+      "df": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "df"
+      },
+      "pageSize": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "pageSize"
+      },
+      "ts": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "ts"
+      }
+    },
+    "type": "object"
+  },
+  "queries.get-pending-failed-rejected-ospatches": {
+    "additionalProperties": true,
+    "properties": {
+      "cursor": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "cursor"
+      },
+      "df": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "df"
+      },
+      "pageSize": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "pageSize"
+      },
+      "severity": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "severity"
+      },
+      "status": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "status"
+      },
+      "ts": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "ts"
+      },
+      "type": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "type"
+      }
+    },
+    "type": "object"
+  },
+  "queries.get-pending-failed-rejected-software-patches": {
+    "additionalProperties": true,
+    "properties": {
+      "cursor": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "cursor"
+      },
+      "df": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "df"
+      },
+      "impact": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "impact"
+      },
+      "pageSize": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "pageSize"
+      },
+      "productIdentifier": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "productIdentifier"
+      },
+      "status": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "status"
+      },
+      "ts": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "ts"
+      },
+      "type": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "type"
+      }
+    },
+    "type": "object"
+  },
+  "queries.get-policy-overrides-1": {
+    "additionalProperties": true,
+    "properties": {
+      "cursor": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "cursor"
+      },
+      "df": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "df"
+      },
+      "pageSize": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "pageSize"
+      }
+    },
+    "type": "object"
+  },
+  "queries.get-processors": {
+    "additionalProperties": true,
+    "properties": {
+      "cursor": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "cursor"
+      },
+      "df": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "df"
+      },
+      "pageSize": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "pageSize"
+      },
+      "ts": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "ts"
+      }
+    },
+    "type": "object"
+  },
+  "queries.get-raidcontroller-report": {
+    "additionalProperties": true,
+    "properties": {
+      "cursor": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "cursor"
+      },
+      "df": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "df"
+      },
+      "pageSize": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "pageSize"
+      },
+      "ts": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "ts"
+      }
+    },
+    "type": "object"
+  },
+  "queries.get-raiddrive-report": {
+    "additionalProperties": true,
+    "properties": {
+      "cursor": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "cursor"
+      },
+      "df": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "df"
+      },
+      "pageSize": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "pageSize"
+      },
+      "ts": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "ts"
+      }
+    },
+    "type": "object"
+  },
+  "queries.get-scoped-custom-fields-detailed-report": {
+    "additionalProperties": true,
+    "properties": {
+      "cursor": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "cursor"
+      },
+      "fields": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "fields"
+      },
+      "pageSize": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "pageSize"
+      },
+      "scopes": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "scopes"
+      },
+      "showSecureValues": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "showSecureValues"
+      },
+      "updatedAfter": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "updatedAfter"
+      }
+    },
+    "type": "object"
+  },
+  "queries.get-scoped-custom-fields-report": {
+    "additionalProperties": true,
+    "properties": {
+      "cursor": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "cursor"
+      },
+      "fields": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "fields"
+      },
+      "pageSize": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "pageSize"
+      },
+      "scopes": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "scopes"
+      },
+      "showSecureValues": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "showSecureValues"
+      },
+      "updatedAfter": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "updatedAfter"
+      }
+    },
+    "type": "object"
+  },
+  "queries.get-software": {
+    "additionalProperties": true,
+    "properties": {
+      "cursor": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "cursor"
+      },
+      "df": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "df"
+      },
+      "installedAfter": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "installedAfter"
+      },
+      "installedBefore": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "installedBefore"
+      },
+      "pageSize": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "pageSize"
+      }
+    },
+    "type": "object"
+  },
+  "queries.get-volumes": {
+    "additionalProperties": true,
+    "properties": {
+      "cursor": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "cursor"
+      },
+      "df": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "df"
+      },
+      "include": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "include"
+      },
+      "pageSize": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "pageSize"
+      },
+      "ts": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "ts"
+      }
+    },
+    "type": "object"
+  },
+  "queries.get-windows-services-report": {
+    "additionalProperties": true,
+    "properties": {
+      "cursor": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "cursor"
+      },
+      "df": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "df"
+      },
+      "name": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "name"
+      },
+      "pageSize": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "pageSize"
+      },
+      "state": {
+        "enum": [
+          "UNKNOWN",
+          "STOPPED",
+          "START_PENDING",
+          "RUNNING",
+          "STOP_PENDING",
+          "PAUSE_PENDING",
+          "PAUSED",
+          "CONTINUE_PENDING"
+        ],
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "state"
+      }
+    },
+    "type": "object"
+  },
+  "related-items.attachment.download-related-item": {
+    "additionalProperties": true,
+    "properties": {
+      "relatedItemId": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "relatedItemId"
+    ],
+    "type": "object"
+  },
+  "related-items.create": {
+    "additionalProperties": true,
+    "properties": {
+      "entityId": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "entityType": {
+        "enum": [
+          "ORGANIZATION",
+          "DOCUMENT",
+          "LOCATION",
+          "NODE",
+          "CHECKLIST",
+          "KB_DOCUMENT",
+          "END_USER"
+        ],
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "entityId",
+      "entityType"
+    ],
+    "type": "object"
+  },
+  "related-items.create-for-entity": {
+    "additionalProperties": true,
+    "properties": {
+      "entityId": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "entityType": {
+        "enum": [
+          "ORGANIZATION",
+          "DOCUMENT",
+          "LOCATION",
+          "NODE",
+          "CHECKLIST",
+          "KB_DOCUMENT",
+          "END_USER"
+        ],
+        "type": "string",
+        "x-location": "path"
+      },
+      "relEntityId": {
+        "description": "Related Entity Identifier",
+        "type": "string",
+        "x-location": "body"
+      },
+      "relEntityType": {
+        "description": "Related Entity Type",
+        "enum": [
+          "ORGANIZATION",
+          "DOCUMENT",
+          "LOCATION",
+          "NODE",
+          "ATTACHMENT",
+          "TECHNICIAN",
+          "CREDENTIAL",
+          "CHECKLIST",
+          "END_USER",
+          "CONTACT",
+          "KB_DOCUMENT"
+        ],
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "entityId",
+      "entityType"
+    ],
+    "type": "object"
+  },
+  "related-items.create-for-entity-1": {
+    "additionalProperties": true,
+    "properties": {
+      "body": {
+        "items": {
+          "type": "object"
+        },
+        "type": "array",
+        "x-location": "body",
+        "x-raw-body": true
+      },
+      "entityId": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "entityType": {
+        "enum": [
+          "ORGANIZATION",
+          "DOCUMENT",
+          "LOCATION",
+          "NODE",
+          "CHECKLIST",
+          "KB_DOCUMENT",
+          "END_USER"
+        ],
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "body",
+      "entityId",
+      "entityType"
+    ],
+    "type": "object"
+  },
+  "related-items.create-secure-for-entity": {
+    "additionalProperties": true,
+    "properties": {
+      "entityId": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "entityType": {
+        "enum": [
+          "ORGANIZATION",
+          "DOCUMENT",
+          "LOCATION",
+          "NODE",
+          "CHECKLIST",
+          "KB_DOCUMENT",
+          "END_USER"
+        ],
+        "type": "string",
+        "x-location": "path"
+      },
+      "name": {
+        "description": "Name",
+        "type": "string",
+        "x-location": "body"
+      },
+      "notes": {
+        "description": "Notes",
+        "type": "string",
+        "x-location": "body"
+      },
+      "password": {
+        "description": "Password",
+        "type": "string",
+        "x-location": "body"
+      },
+      "totpSecret": {
+        "description": "TOTP Secret",
+        "type": "string",
+        "x-location": "body"
+      },
+      "url": {
+        "description": "URL",
+        "type": "string",
+        "x-location": "body"
+      },
+      "username": {
+        "description": "Username",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "entityId",
+      "entityType"
+    ],
+    "type": "object"
+  },
+  "related-items.delete": {
+    "additionalProperties": true,
+    "properties": {
+      "relatedItemId": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "relatedItemId"
+    ],
+    "type": "object"
+  },
+  "related-items.delete-relateditems": {
+    "additionalProperties": true,
+    "properties": {
+      "entityId": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "entityType": {
+        "enum": [
+          "ORGANIZATION",
+          "DOCUMENT",
+          "LOCATION",
+          "NODE",
+          "ATTACHMENT",
+          "TECHNICIAN",
+          "CREDENTIAL",
+          "CHECKLIST",
+          "END_USER",
+          "CONTACT",
+          "KB_DOCUMENT"
+        ],
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "entityId",
+      "entityType"
+    ],
+    "type": "object"
+  },
+  "related-items.get-all": {
+    "additionalProperties": true,
+    "properties": {},
+    "type": "object"
+  },
+  "related-items.get-attachments-signed-urls": {
+    "additionalProperties": true,
+    "properties": {
+      "entityId": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "entityType": {
+        "enum": [
+          "ORGANIZATION",
+          "DOCUMENT",
+          "LOCATION",
+          "NODE",
+          "CHECKLIST",
+          "KB_DOCUMENT",
+          "END_USER"
+        ],
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "entityId",
+      "entityType"
+    ],
+    "type": "object"
+  },
+  "related-items.get-for-host-entity": {
+    "additionalProperties": true,
+    "properties": {
+      "entityId": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "entityType": {
+        "enum": [
+          "ORGANIZATION",
+          "DOCUMENT",
+          "LOCATION",
+          "NODE",
+          "CHECKLIST",
+          "KB_DOCUMENT",
+          "END_USER"
+        ],
+        "type": "string",
+        "x-location": "path"
+      },
+      "scope": {
+        "description": "Scope (one of: ALL, HOSTING, HOSTED_BY)",
+        "enum": [
+          "ALL",
+          "HOSTING",
+          "HOSTED_BY"
+        ],
+        "type": "string",
+        "x-location": "query"
+      }
+    },
+    "required": [
+      "entityId",
+      "entityType"
+    ],
+    "type": "object"
+  },
+  "related-items.get-with-entity": {
+    "additionalProperties": true,
+    "properties": {
+      "relEntityId": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "relEntityType": {
+        "enum": [
+          "ORGANIZATION",
+          "DOCUMENT",
+          "LOCATION",
+          "NODE",
+          "ATTACHMENT",
+          "TECHNICIAN",
+          "CREDENTIAL",
+          "CHECKLIST",
+          "END_USER",
+          "CONTACT",
+          "KB_DOCUMENT"
+        ],
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "relEntityId",
+      "relEntityType"
+    ],
+    "type": "object"
+  },
+  "related-items.get-with-entity-type": {
+    "additionalProperties": true,
+    "properties": {
+      "relatedEntityType": {
+        "enum": [
+          "ORGANIZATION",
+          "DOCUMENT",
+          "LOCATION",
+          "NODE",
+          "ATTACHMENT",
+          "TECHNICIAN",
+          "CREDENTIAL",
+          "CHECKLIST",
+          "END_USER",
+          "CONTACT",
+          "KB_DOCUMENT"
+        ],
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "relatedEntityType"
+    ],
+    "type": "object"
+  },
+  "related-items.get-with-host-entity-type": {
+    "additionalProperties": true,
+    "properties": {
+      "entityType": {
+        "enum": [
+          "ORGANIZATION",
+          "DOCUMENT",
+          "LOCATION",
+          "NODE",
+          "CHECKLIST",
+          "KB_DOCUMENT",
+          "END_USER"
+        ],
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "entityType"
+    ],
+    "type": "object"
+  },
+  "roles.get-node": {
+    "additionalProperties": true,
+    "properties": {},
+    "type": "object"
+  },
+  "software-products.get": {
+    "additionalProperties": true,
+    "properties": {},
+    "type": "object"
+  },
+  "tab.create-custom-public-api": {
+    "additionalProperties": true,
+    "properties": {
+      "entityId": {
+        "description": "For tab types that require an id to create (currently, only NODE_ROLE types), this field is the ID of the entity",
+        "type": "string",
+        "x-location": "body"
+      },
+      "entityType": {
+        "description": "The type to use for the custom tab. Organizations and Locations share the same type of tab",
+        "enum": [
+          "NODE_ROLE",
+          "ORGANIZATION",
+          "END_USER"
+        ],
+        "type": "string",
+        "x-location": "body"
+      },
+      "items": {
+        "description": "JSON value",
+        "items": {
+          "type": "object"
+        },
+        "type": "array",
+        "x-location": "body"
+      },
+      "name": {
+        "description": "The display name to use for the custom tab",
+        "type": "string",
+        "x-location": "body"
+      },
+      "position": {
+        "description": "Position",
+        "type": "integer",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "name"
+    ],
+    "type": "object"
+  },
+  "tab.delete-unmanaged-device-public-api-1": {
+    "additionalProperties": true,
+    "properties": {
+      "tabId": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "tabId"
+    ],
+    "type": "object"
+  },
+  "tab.end-user.get-tab-hierarchy-for": {
+    "additionalProperties": true,
+    "properties": {
+      "tabId": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "tabId"
+    ],
+    "type": "object"
+  },
+  "tab.get-custom-public-api": {
+    "additionalProperties": true,
+    "properties": {
+      "tabId": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "tabId"
+    ],
+    "type": "object"
+  },
+  "tab.get-summary-for-end-user": {
+    "additionalProperties": true,
+    "properties": {},
+    "type": "object"
+  },
+  "tab.get-summary-for-organization": {
+    "additionalProperties": true,
+    "properties": {},
+    "type": "object"
+  },
+  "tab.get-summary-for-role": {
+    "additionalProperties": true,
+    "properties": {
+      "roleId": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "roleId"
+    ],
+    "type": "object"
+  },
+  "tab.organization.get-tab-hierarchy-for": {
+    "additionalProperties": true,
+    "properties": {
+      "tabId": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "tabId"
+    ],
+    "type": "object"
+  },
+  "tab.rename-custom-public-api": {
+    "additionalProperties": true,
+    "properties": {
+      "name": {
+        "description": "Name",
+        "type": "string",
+        "x-location": "body"
+      },
+      "tabId": {
+        "description": "Tab id",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "name"
+    ],
+    "type": "object"
+  },
+  "tab.role.get-tab-hierarchy-for": {
+    "additionalProperties": true,
+    "properties": {
+      "roleId": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "tabId": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "roleId",
+      "tabId"
+    ],
+    "type": "object"
+  },
+  "tab.update-custom-display": {
+    "additionalProperties": true,
+    "properties": {
+      "body": {
+        "items": {
+          "type": "object"
+        },
+        "type": "array",
+        "x-location": "body",
+        "x-raw-body": true
+      },
+      "roleId": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "body",
+      "roleId"
+    ],
+    "type": "object"
+  },
+  "tab.update-custom-public-api": {
+    "additionalProperties": true,
+    "properties": {
+      "items": {
+        "description": "JSON value",
+        "items": {
+          "type": "object"
+        },
+        "type": "array",
+        "x-location": "body"
+      },
+      "position": {
+        "description": "Position",
+        "type": "integer",
+        "x-location": "body"
+      },
+      "roleId": {
+        "description": "Role id",
+        "type": "string",
+        "x-location": "body"
+      },
+      "tabId": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "tabId"
+    ],
+    "type": "object"
+  },
+  "tab.update-end-user-custom-order": {
+    "additionalProperties": true,
+    "properties": {
+      "body": {
+        "items": {
+          "type": "object"
+        },
+        "type": "array",
+        "x-location": "body",
+        "x-raw-body": true
+      }
+    },
+    "required": [
+      "body"
+    ],
+    "type": "object"
+  },
+  "tab.update-organization-custom-order": {
+    "additionalProperties": true,
+    "properties": {
+      "body": {
+        "items": {
+          "type": "object"
+        },
+        "type": "array",
+        "x-location": "body",
+        "x-raw-body": true
+      }
+    },
+    "required": [
+      "body"
+    ],
+    "type": "object"
+  },
+  "tab.update-role-custom-order": {
+    "additionalProperties": true,
+    "properties": {
+      "body": {
+        "items": {
+          "type": "object"
+        },
+        "type": "array",
+        "x-location": "body",
+        "x-raw-body": true
+      },
+      "roleId": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "body",
+      "roleId"
+    ],
+    "type": "object"
+  },
+  "tag.batch-update": {
+    "additionalProperties": true,
+    "properties": {
+      "assetIds": {
+        "description": "JSON value",
+        "items": {
+          "type": "integer"
+        },
+        "type": "array",
+        "x-location": "body"
+      },
+      "assetType": {
+        "enum": [
+          "device"
+        ],
+        "type": "string",
+        "x-location": "path"
+      },
+      "tagIdsToAdd": {
+        "description": "JSON value",
+        "items": {
+          "type": "integer"
+        },
+        "type": "array",
+        "x-location": "body"
+      },
+      "tagIdsToRemove": {
+        "description": "JSON value",
+        "items": {
+          "type": "integer"
+        },
+        "type": "array",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "assetType"
+    ],
+    "type": "object"
+  },
+  "tag.create": {
+    "additionalProperties": true,
+    "properties": {
+      "description": {
+        "description": "Description",
+        "type": "string",
+        "x-location": "body"
+      },
+      "name": {
+        "description": "Name",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "type": "object"
+  },
+  "tag.delete": {
+    "additionalProperties": true,
+    "properties": {
+      "body": {
+        "items": {
+          "type": "integer"
+        },
+        "type": "array",
+        "x-location": "body",
+        "x-raw-body": true
+      }
+    },
+    "required": [
+      "body"
+    ],
+    "type": "object"
+  },
+  "tag.delete-tagid": {
+    "additionalProperties": true,
+    "properties": {
+      "tagId": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "tagId"
+    ],
+    "type": "object"
+  },
+  "tag.get": {
+    "additionalProperties": true,
+    "properties": {},
+    "type": "object"
+  },
+  "tag.merge": {
+    "additionalProperties": true,
+    "properties": {
+      "description": {
+        "description": "If creating a new tag, you can supply the new tag description here",
+        "type": "string",
+        "x-location": "body"
+      },
+      "mergeIntoTagId": {
+        "description": "If merging into an existing tag, you must provide the target tag id here",
+        "type": "string",
+        "x-location": "body"
+      },
+      "mergeMethod": {
+        "description": "Method to use - merge into an existing tag or create a new one",
+        "enum": [
+          "MERGE_INTO_EXISTING_TAG",
+          "MERGE_INTO_NEW_TAG"
+        ],
+        "type": "string",
+        "x-location": "body"
+      },
+      "name": {
+        "description": "If creating a new tag, you must supply the new tag name here",
+        "type": "string",
+        "x-location": "body"
+      },
+      "tagIds": {
+        "description": "JSON value",
+        "items": {
+          "type": "integer"
+        },
+        "type": "array",
+        "x-location": "body"
+      }
+    },
+    "type": "object"
+  },
+  "tag.set-for-asset": {
+    "additionalProperties": true,
+    "properties": {
+      "assetId": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "assetType": {
+        "enum": [
+          "device"
+        ],
+        "type": "string",
+        "x-location": "path"
+      },
+      "tagIds": {
+        "description": "JSON value",
+        "items": {
+          "type": "integer"
+        },
+        "type": "array",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "assetId",
+      "assetType"
+    ],
+    "type": "object"
+  },
+  "tag.update": {
+    "additionalProperties": true,
+    "properties": {
+      "description": {
+        "description": "Description",
+        "type": "string",
+        "x-location": "body"
+      },
+      "name": {
+        "description": "Name",
+        "type": "string",
+        "x-location": "body"
+      },
+      "tagId": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "tagId"
+    ],
+    "type": "object"
+  },
+  "tasks.get-scheduled": {
+    "additionalProperties": true,
+    "properties": {},
+    "type": "object"
+  },
+  "ticketing.create": {
+    "additionalProperties": true,
+    "properties": {
+      "additionalAssignedTechnicianIds": {
+        "description": "JSON value",
+        "items": {
+          "type": "integer"
+        },
+        "type": "array",
+        "x-location": "body"
+      },
+      "assignedAppUserId": {
+        "description": "Assigned app user id",
+        "type": "string",
+        "x-location": "body"
+      },
+      "attributes": {
+        "description": "JSON value",
+        "items": {
+          "type": "object"
+        },
+        "type": "array",
+        "x-location": "body"
+      },
+      "cc": {
+        "additionalProperties": true,
+        "properties": {
+          "emails": {
+            "description": "emails",
+            "type": "string"
+          },
+          "uids": {
+            "description": "List of user uids to be carbon-copied",
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-location": "body"
+      },
+      "clientId": {
+        "description": "Client (Organization) identifier",
+        "type": "string",
+        "x-location": "body"
+      },
+      "description": {
+        "additionalProperties": true,
+        "properties": {
+          "body": {
+            "description": "Body",
+            "type": "string"
+          },
+          "duplicateInIncidents": {
+            "description": "Duplicate in incidents",
+            "type": "boolean"
+          },
+          "htmlBody": {
+            "description": "Html body",
+            "type": "string"
+          },
+          "public": {
+            "type": "boolean"
+          },
+          "timeTracked": {
+            "description": "time in seconds",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "public"
+        ],
+        "type": "object",
+        "x-location": "body"
+      },
+      "locationId": {
+        "description": "Location identifier",
+        "type": "string",
+        "x-location": "body"
+      },
+      "nodeId": {
+        "description": "Device identifier",
+        "type": "string",
+        "x-location": "body"
+      },
+      "parentTicketId": {
+        "description": "Ticket parent identifier",
+        "type": "string",
+        "x-location": "body"
+      },
+      "priority": {
+        "description": "Priority",
+        "enum": [
+          "NONE",
+          "LOW",
+          "MEDIUM",
+          "HIGH"
+        ],
+        "type": "string",
+        "x-location": "body"
+      },
+      "requesterUid": {
+        "description": "Requester uid",
+        "type": "string",
+        "x-location": "body"
+      },
+      "severity": {
+        "description": "Severity",
+        "enum": [
+          "NONE",
+          "MINOR",
+          "MODERATE",
+          "MAJOR",
+          "CRITICAL"
+        ],
+        "type": "string",
+        "x-location": "body"
+      },
+      "status": {
+        "description": "Status",
+        "type": "string",
+        "x-location": "body"
+      },
+      "subject": {
+        "description": "Subject",
+        "type": "string",
+        "x-location": "body"
+      },
+      "tags": {
+        "description": "Tags",
+        "type": "string",
+        "x-location": "body"
+      },
+      "ticketFormId": {
+        "description": "Ticket form identifier",
+        "type": "string",
+        "x-location": "body"
+      },
+      "type": {
+        "description": "Type of ticket",
+        "enum": [
+          "PROBLEM",
+          "QUESTION",
+          "INCIDENT",
+          "TASK"
+        ],
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "clientId",
+      "description",
+      "subject",
+      "ticketFormId"
+    ],
+    "type": "object"
+  },
+  "ticketing.create-comment": {
+    "additionalProperties": true,
+    "properties": {
+      "ticketId": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "ticketId"
+    ],
+    "type": "object"
+  },
+  "ticketing.get-all-statuses": {
+    "additionalProperties": true,
+    "properties": {},
+    "type": "object"
+  },
+  "ticketing.get-all-user-and-contacts": {
+    "additionalProperties": true,
+    "properties": {
+      "anchorNaturalId": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "anchorNaturalId"
+      },
+      "clientId": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "clientId"
+      },
+      "pageSize": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "pageSize"
+      },
+      "searchCriteria": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "searchCriteria"
+      },
+      "userType": {
+        "enum": [
+          "TECHNICIAN",
+          "END_USER",
+          "CONTACT"
+        ],
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "userType"
+      }
+    },
+    "type": "object"
+  },
+  "ticketing.get-boards": {
+    "additionalProperties": true,
+    "properties": {},
+    "type": "object"
+  },
+  "ticketing.get-contacts-1": {
+    "additionalProperties": true,
+    "properties": {},
+    "type": "object"
+  },
+  "ticketing.get-ticket-attributes": {
+    "additionalProperties": true,
+    "properties": {},
+    "type": "object"
+  },
+  "ticketing.get-ticket-by-id": {
+    "additionalProperties": true,
+    "properties": {
+      "ticketId": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "ticketId"
+    ],
+    "type": "object"
+  },
+  "ticketing.get-ticket-form-by-id": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "ticketing.get-ticket-forms": {
+    "additionalProperties": true,
+    "properties": {},
+    "type": "object"
+  },
+  "ticketing.get-ticket-log-entries-by-ticket-id": {
+    "additionalProperties": true,
+    "properties": {
+      "anchorId": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "anchorId"
+      },
+      "createTime": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "createTime"
+      },
+      "pageSize": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "pageSize"
+      },
+      "ticketId": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "type": {
+        "enum": [
+          "DESCRIPTION",
+          "COMMENT",
+          "CONDITION",
+          "SAVE",
+          "DELETE",
+          "PRODUCT"
+        ],
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "type"
+      }
+    },
+    "required": [
+      "ticketId"
+    ],
+    "type": "object"
+  },
+  "ticketing.get-tickets-by-board": {
+    "additionalProperties": true,
+    "properties": {
+      "boardId": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "filters": {
+        "description": "JSON value",
+        "items": {
+          "type": "object"
+        },
+        "type": "array",
+        "x-location": "body"
+      },
+      "includeColumns": {
+        "description": "Include columns",
+        "type": "string",
+        "x-location": "body"
+      },
+      "lastCursorId": {
+        "description": "Last cursor id",
+        "type": "string",
+        "x-location": "body"
+      },
+      "pageSize": {
+        "description": "Page size",
+        "type": "integer",
+        "x-location": "body"
+      },
+      "searchCriteria": {
+        "description": "Search criteria",
+        "type": "string",
+        "x-location": "body"
+      },
+      "sortBy": {
+        "description": "JSON value",
+        "items": {
+          "type": "object"
+        },
+        "type": "array",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "boardId"
+    ],
+    "type": "object"
+  },
+  "ticketing.update": {
+    "additionalProperties": true,
+    "properties": {
+      "additionalAssignedTechnicianIds": {
+        "description": "JSON value",
+        "items": {
+          "type": "integer"
+        },
+        "type": "array",
+        "x-location": "body"
+      },
+      "assignedAppUserId": {
+        "description": "Assigned app user id",
+        "type": "string",
+        "x-location": "body"
+      },
+      "attributes": {
+        "description": "JSON value",
+        "items": {
+          "type": "object"
+        },
+        "type": "array",
+        "x-location": "body"
+      },
+      "cc": {
+        "additionalProperties": true,
+        "properties": {
+          "emails": {
+            "description": "emails",
+            "type": "string"
+          },
+          "uids": {
+            "description": "List of user uids to be carbon-copied",
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-location": "body"
+      },
+      "clientId": {
+        "description": "Client (Organization) identifier",
+        "type": "string",
+        "x-location": "body"
+      },
+      "locationId": {
+        "description": "Location identifier",
+        "type": "string",
+        "x-location": "body"
+      },
+      "nodeId": {
+        "description": "Device identifier",
+        "type": "string",
+        "x-location": "body"
+      },
+      "parentTicketId": {
+        "description": "Ticket parent identifier",
+        "type": "string",
+        "x-location": "body"
+      },
+      "priority": {
+        "description": "Priority",
+        "enum": [
+          "NONE",
+          "LOW",
+          "MEDIUM",
+          "HIGH"
+        ],
+        "type": "string",
+        "x-location": "body"
+      },
+      "requesterUid": {
+        "description": "Requester uid",
+        "type": "string",
+        "x-location": "body"
+      },
+      "severity": {
+        "description": "Severity",
+        "enum": [
+          "NONE",
+          "MINOR",
+          "MODERATE",
+          "MAJOR",
+          "CRITICAL"
+        ],
+        "type": "string",
+        "x-location": "body"
+      },
+      "status": {
+        "description": "Status",
+        "type": "string",
+        "x-location": "body"
+      },
+      "subject": {
+        "description": "Subject",
+        "type": "string",
+        "x-location": "body"
+      },
+      "tags": {
+        "description": "Tags",
+        "type": "string",
+        "x-location": "body"
+      },
+      "ticketFormId": {
+        "description": "Ticket form identifier",
+        "type": "string",
+        "x-location": "body"
+      },
+      "ticketId": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "type": {
+        "description": "Type of ticket",
+        "enum": [
+          "PROBLEM",
+          "QUESTION",
+          "INCIDENT",
+          "TASK"
+        ],
+        "type": "string",
+        "x-location": "body"
+      },
+      "version": {
+        "description": "ticket version",
+        "type": "integer",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "clientId",
+      "requesterUid",
+      "subject",
+      "ticketFormId",
+      "ticketId",
+      "version"
+    ],
+    "type": "object"
+  },
+  "user.add-role-members": {
+    "additionalProperties": true,
+    "properties": {
+      "body": {
+        "items": {},
+        "type": "array",
+        "x-location": "body",
+        "x-raw-body": true
+      },
+      "roleId": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "body",
+      "roleId"
+    ],
+    "type": "object"
+  },
+  "user.create-end": {
+    "additionalProperties": true,
+    "properties": {
+      "email": {
+        "description": "Email address",
+        "type": "string",
+        "x-location": "body"
+      },
+      "firstName": {
+        "description": "First name should be between 1 and 150 characters",
+        "type": "string",
+        "x-location": "body"
+      },
+      "fullPortalAccess": {
+        "description": "Gives end user full portal access",
+        "type": "boolean",
+        "x-location": "body"
+      },
+      "lastName": {
+        "description": "Last name should be between 1 and 150 characters",
+        "type": "string",
+        "x-location": "body"
+      },
+      "organizationId": {
+        "description": "Organization identifier",
+        "type": "string",
+        "x-location": "body"
+      },
+      "phone": {
+        "description": "Phone number",
+        "type": "string",
+        "x-location": "body"
+      },
+      "send-invitation": {
+        "description": "Whether to send invitation to end user during creation",
+        "type": "boolean",
+        "x-location": "query",
+        "x-wire-name": "sendInvitation"
+      }
+    },
+    "type": "object"
+  },
+  "user.create-technician": {
+    "additionalProperties": true,
+    "properties": {
+      "email": {
+        "description": "Email address",
+        "type": "string",
+        "x-location": "body"
+      },
+      "firstName": {
+        "description": "First name should be between 1 and 150 characters",
+        "type": "string",
+        "x-location": "body"
+      },
+      "lastName": {
+        "description": "Last name should be between 1 and 150 characters",
+        "type": "string",
+        "x-location": "body"
+      },
+      "phone": {
+        "description": "Phone number",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "type": "object"
+  },
+  "user.delete-end": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "user.delete-technician": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "user.get-end": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "user.get-end-1": {
+    "additionalProperties": true,
+    "properties": {},
+    "type": "object"
+  },
+  "user.get-node-custom-fields-3": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "user.get-roles": {
+    "additionalProperties": true,
+    "properties": {
+      "role-type": {
+        "description": "User role type filter (one of: TECHNICIAN, END_USER)",
+        "enum": [
+          "TECHNICIAN",
+          "END_USER"
+        ],
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "roleType"
+      }
+    },
+    "type": "object"
+  },
+  "user.get-technician": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "user.get-technicians": {
+    "additionalProperties": true,
+    "properties": {},
+    "type": "object"
+  },
+  "user.patch-end": {
+    "additionalProperties": true,
+    "properties": {
+      "firstName": {
+        "description": "First name should be between 1 and 150 characters",
+        "type": "string",
+        "x-location": "body"
+      },
+      "fullPortalAccess": {
+        "description": "Gives end user full portal access",
+        "type": "boolean",
+        "x-location": "body"
+      },
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "lastName": {
+        "description": "Last name should be between 1 and 150 characters",
+        "type": "string",
+        "x-location": "body"
+      },
+      "organizationId": {
+        "description": "Organization identifier",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "user.remove-role-members": {
+    "additionalProperties": true,
+    "properties": {
+      "body": {
+        "items": {},
+        "type": "array",
+        "x-location": "body",
+        "x-raw-body": true
+      },
+      "roleId": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "body",
+      "roleId"
+    ],
+    "type": "object"
+  },
+  "user.update-node-attribute-values-3": {
+    "additionalProperties": true,
+    "properties": {
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "user.update-technician": {
+    "additionalProperties": true,
+    "properties": {
+      "firstName": {
+        "description": "First name",
+        "type": "string",
+        "x-location": "body"
+      },
+      "id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "lastName": {
+        "description": "Last name",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  },
+  "users.get": {
+    "additionalProperties": true,
+    "properties": {
+      "include-roles": {
+        "description": "Includes user role information",
+        "type": "boolean",
+        "x-location": "query",
+        "x-wire-name": "includeRoles"
+      },
+      "user-type": {
+        "description": "User type filter (one of: TECHNICIAN, END_USER)",
+        "enum": [
+          "TECHNICIAN",
+          "END_USER"
+        ],
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "userType"
+      }
+    },
+    "type": "object"
+  },
+  "vulnerability.fetch-all-scan-groups": {
+    "additionalProperties": true,
+    "properties": {},
+    "type": "object"
+  },
+  "vulnerability.fetch-scan-group-by-id": {
+    "additionalProperties": true,
+    "properties": {
+      "scan-group-id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "scan-group-id"
+    ],
+    "type": "object"
+  },
+  "vulnerability.update-scan-group": {
+    "additionalProperties": true,
+    "properties": {
+      "scan-group-id": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "scan-group-id"
+    ],
+    "type": "object"
+  },
+  "webhook.configure": {
+    "additionalProperties": true,
+    "properties": {
+      "activities": {
+        "description": "JSON value",
+        "type": "object",
+        "x-location": "body"
+      },
+      "expand": {
+        "description": "Which references to expand in payloads",
+        "type": "string",
+        "x-location": "body"
+      },
+      "headers": {
+        "description": "JSON value",
+        "items": {
+          "type": "object"
+        },
+        "type": "array",
+        "x-location": "body"
+      },
+      "organizationIds": {
+        "description": "JSON value",
+        "items": {
+          "type": "integer"
+        },
+        "type": "array",
+        "x-location": "body"
+      },
+      "url": {
+        "description": "Callback (WebHook) URL for activity notifications",
+        "type": "string",
+        "x-location": "body"
+      }
+    },
+    "type": "object"
+  },
+  "webhook.disable": {
+    "additionalProperties": true,
+    "properties": {},
+    "type": "object"
+  }
+}

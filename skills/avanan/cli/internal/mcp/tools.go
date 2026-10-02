@@ -523,6 +523,14 @@ func newMCPClient(ctx context.Context) (*client.Client, *platform.Session, error
 	if err != nil {
 		return nil, nil, err
 	}
+	// The CLI installs Avanan signing through a package-local client hook.
+	// MCP constructs its client directly and must apply that same transport.
+	if err := client.InstallAvananAuth(c); err != nil {
+		if session != nil {
+			session.ZeroCredentials()
+		}
+		return nil, nil, fmt.Errorf("installing Avanan MCP authentication: %w", err)
+	}
 	return c, session, nil
 }
 

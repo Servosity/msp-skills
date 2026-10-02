@@ -529,6 +529,44 @@
      "code_only": true
     }
    ]
+  },
+  {
+   "id": "mcp-executor-request-contracts",
+   "summary": "MCP discovery exposes executor-facing request schemas and indexes input names and known enum values",
+   "why": "Issue #351: endpoint summaries omitted required request inputs. Keep canonical JSON body case and nesting, path/header/query routing, and exact short request search terms. Contracts are derived from the shipped CLI source, and the existing CLI commands and auth remain intact. Upstream request metadata fix #4890 was not merged when this surgical repair was made.",
+   "status": "active",
+   "spec_encode_followup": "Replace this downstream contract extraction only when a released Printing Press generates equally complete executor-facing schemas and preserves every existing hand-fix.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "\"params_schema\":",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "codeOrchRequestScore(ep, query)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "codeOrchResolveContract(ep, ep.Path, params)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "codeOrchHasBody(ep)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/request_contract.go",
+     "contains": "func loadRequestContracts()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/request_contracts.json",
+     "contains": "\"properties\""
+    }
+   ]
   }
  ]
 }

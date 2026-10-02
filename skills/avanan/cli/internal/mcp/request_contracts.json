@@ -1,0 +1,1971 @@
+{
+  "action.post-entity": {
+    "additionalProperties": true,
+    "properties": {
+      "requestData": {
+        "additionalProperties": true,
+        "properties": {
+          "entityActionName": {
+            "description": "An enumeration.",
+            "type": "string"
+          },
+          "entityActionParam": {
+            "description": "Entity action param",
+            "type": "string"
+          },
+          "entityIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "entityType": {
+            "description": "Entity type",
+            "type": "string"
+          },
+          "scope": {
+            "description": "Scope",
+            "type": "string"
+          }
+        },
+        "required": [
+          "entityActionName",
+          "entityIds",
+          "entityType"
+        ],
+        "type": "object",
+        "x-location": "body"
+      },
+      "scopes": {
+        "description": "Scopes",
+        "type": "string",
+        "x-location": "header"
+      },
+      "x-av-req-id": {
+        "description": "X av req id",
+        "type": "string",
+        "x-location": "header"
+      }
+    },
+    "required": [
+      "requestData"
+    ],
+    "type": "object"
+  },
+  "action.post-event": {
+    "additionalProperties": true,
+    "properties": {
+      "requestData": {
+        "additionalProperties": true,
+        "properties": {
+          "eventActionName": {
+            "description": "An enumeration.",
+            "type": "string"
+          },
+          "eventActionParam": {
+            "description": "Event action param",
+            "type": "string"
+          },
+          "eventIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "scope": {
+            "description": "Scope",
+            "type": "string"
+          }
+        },
+        "required": [
+          "eventActionName",
+          "eventIds"
+        ],
+        "type": "object",
+        "x-location": "body"
+      },
+      "scopes": {
+        "description": "Scopes",
+        "type": "string",
+        "x-location": "header"
+      },
+      "x-av-req-id": {
+        "description": "X av req id",
+        "type": "string",
+        "x-location": "header"
+      }
+    },
+    "required": [
+      "requestData"
+    ],
+    "type": "object"
+  },
+  "avanan-search.get-saas-entity": {
+    "additionalProperties": true,
+    "properties": {
+      "entity_id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "scopes": {
+        "description": "Scopes",
+        "type": "string",
+        "x-location": "header"
+      },
+      "x-av-req-id": {
+        "description": "X av req id",
+        "type": "string",
+        "x-location": "header"
+      }
+    },
+    "required": [
+      "entity_id"
+    ],
+    "type": "object"
+  },
+  "avanan-search.query-saas-entity": {
+    "additionalProperties": true,
+    "properties": {
+      "requestData": {
+        "additionalProperties": true,
+        "properties": {
+          "entityExtendedFilter": {
+            "items": {},
+            "type": "array"
+          },
+          "entityFilter": {
+            "additionalProperties": true,
+            "properties": {
+              "endDate": {
+                "description": "End date",
+                "type": "string"
+              },
+              "saas": {
+                "description": "Saas",
+                "type": "string"
+              },
+              "saasEntity": {
+                "description": "Saas entity",
+                "type": "string"
+              },
+              "startDate": {
+                "description": "Start date",
+                "type": "string"
+              }
+            },
+            "required": [
+              "saas",
+              "startDate"
+            ],
+            "type": "object"
+          },
+          "scopes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "scrollId": {
+            "description": "Scroll id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "entityFilter"
+        ],
+        "type": "object",
+        "x-location": "body"
+      },
+      "scopes": {
+        "description": "Scopes",
+        "type": "string",
+        "x-location": "header"
+      },
+      "x-av-req-id": {
+        "description": "X av req id",
+        "type": "string",
+        "x-location": "header"
+      }
+    },
+    "required": [
+      "requestData"
+    ],
+    "type": "object"
+  },
+  "download-large-email.get-url": {
+    "additionalProperties": true,
+    "properties": {
+      "entity_id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "scope": {
+        "description": "Single {farm}:{tenant} scope. Required when the app client is bound to more than one tenant.",
+        "type": "string",
+        "x-location": "query"
+      }
+    },
+    "required": [
+      "entity_id"
+    ],
+    "type": "object"
+  },
+  "download.get-entity": {
+    "additionalProperties": true,
+    "properties": {
+      "entity_id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "original": {
+        "description": "true downloads the original message unmodified; false (default) adds Avanan security headers.",
+        "type": "boolean",
+        "x-location": "query"
+      },
+      "scopes": {
+        "description": "Comma-separated {farm}:{tenant} scopes to target.",
+        "type": "string",
+        "x-location": "query"
+      }
+    },
+    "required": [
+      "entity_id"
+    ],
+    "type": "object"
+  },
+  "event.get": {
+    "additionalProperties": true,
+    "properties": {
+      "event_id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "scopes": {
+        "description": "Scopes",
+        "type": "string",
+        "x-location": "header"
+      },
+      "x-av-req-id": {
+        "description": "X av req id",
+        "type": "string",
+        "x-location": "header"
+      }
+    },
+    "required": [
+      "event_id"
+    ],
+    "type": "object"
+  },
+  "event.query": {
+    "additionalProperties": true,
+    "properties": {
+      "requestData": {
+        "additionalProperties": true,
+        "properties": {
+          "confidenceIndicator": {
+            "description": "Confidence indicator",
+            "type": "string"
+          },
+          "description": {
+            "description": "Description",
+            "type": "string"
+          },
+          "endDate": {
+            "description": "End date",
+            "type": "string"
+          },
+          "eventIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "eventStates": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "eventTypes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "saas": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "scopes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "scrollId": {
+            "description": "Scroll id",
+            "type": "string"
+          },
+          "severities": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "startDate": {
+            "description": "Start date",
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-location": "body"
+      },
+      "scopes": {
+        "description": "Scopes",
+        "type": "string",
+        "x-location": "header"
+      },
+      "x-av-req-id": {
+        "description": "X av req id",
+        "type": "string",
+        "x-location": "header"
+      }
+    },
+    "type": "object"
+  },
+  "exceptions.create": {
+    "additionalProperties": true,
+    "properties": {
+      "requestData": {
+        "additionalProperties": true,
+        "properties": {
+          "actionNeeded": {
+            "description": "Action needed",
+            "type": "string"
+          },
+          "attachmentMd5": {
+            "description": "Attachment md5",
+            "type": "string"
+          },
+          "comment": {
+            "description": "Comment",
+            "type": "string"
+          },
+          "entityId": {
+            "description": "Entity id",
+            "type": "string"
+          },
+          "ignoringSpfCheck": {
+            "description": "Ignoring spf check",
+            "type": "boolean"
+          },
+          "linkDomainMatching": {
+            "description": "An enumeration.",
+            "type": "string"
+          },
+          "linkDomains": {
+            "description": "Link domains",
+            "type": "string"
+          },
+          "matchOnlyFuture": {
+            "description": "Match only future",
+            "type": "boolean"
+          },
+          "quarantineAll": {
+            "description": "Quarantine all",
+            "type": "boolean"
+          },
+          "recipient": {
+            "description": "Recipient",
+            "type": "string"
+          },
+          "recipientMatching": {
+            "description": "An enumeration.",
+            "type": "string"
+          },
+          "senderClientIp": {
+            "description": "Sender client ip",
+            "type": "string"
+          },
+          "senderDomain": {
+            "description": "Sender domain",
+            "type": "string"
+          },
+          "senderDomainMatching": {
+            "description": "An enumeration.",
+            "type": "string"
+          },
+          "senderEmail": {
+            "description": "Sender email",
+            "type": "string"
+          },
+          "senderEmailMatching": {
+            "description": "An enumeration.",
+            "type": "string"
+          },
+          "senderIp": {
+            "description": "Sender ip",
+            "type": "string"
+          },
+          "senderName": {
+            "description": "Sender name",
+            "type": "string"
+          },
+          "senderNameMatching": {
+            "description": "An enumeration.",
+            "type": "string"
+          },
+          "subject": {
+            "description": "Subject",
+            "type": "string"
+          },
+          "subjectMatching": {
+            "description": "An enumeration.",
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-location": "body"
+      },
+      "scope": {
+        "description": "Scope",
+        "type": "string",
+        "x-location": "query"
+      },
+      "scopes": {
+        "description": "Scopes",
+        "type": "string",
+        "x-location": "header"
+      },
+      "x-av-req-id": {
+        "description": "X av req id",
+        "type": "string",
+        "x-location": "header"
+      }
+    },
+    "type": "object"
+  },
+  "exceptions.create-whitelist": {
+    "additionalProperties": true,
+    "properties": {
+      "requestData": {
+        "additionalProperties": true,
+        "properties": {
+          "actionNeeded": {
+            "description": "Action needed",
+            "type": "string"
+          },
+          "attachmentMd5": {
+            "description": "Attachment md5",
+            "type": "string"
+          },
+          "comment": {
+            "description": "Comment",
+            "type": "string"
+          },
+          "entityId": {
+            "description": "Entity id",
+            "type": "string"
+          },
+          "ignoringSpfCheck": {
+            "description": "Ignoring spf check",
+            "type": "boolean"
+          },
+          "linkDomainMatching": {
+            "description": "An enumeration.",
+            "type": "string"
+          },
+          "linkDomains": {
+            "description": "Link domains",
+            "type": "string"
+          },
+          "matchOnlyFuture": {
+            "description": "Match only future",
+            "type": "boolean"
+          },
+          "quarantineAll": {
+            "description": "Quarantine all",
+            "type": "boolean"
+          },
+          "recipient": {
+            "description": "Recipient",
+            "type": "string"
+          },
+          "recipientMatching": {
+            "description": "An enumeration.",
+            "type": "string"
+          },
+          "senderClientIp": {
+            "description": "Sender client ip",
+            "type": "string"
+          },
+          "senderDomain": {
+            "description": "Sender domain",
+            "type": "string"
+          },
+          "senderDomainMatching": {
+            "description": "An enumeration.",
+            "type": "string"
+          },
+          "senderEmail": {
+            "description": "Sender email",
+            "type": "string"
+          },
+          "senderEmailMatching": {
+            "description": "An enumeration.",
+            "type": "string"
+          },
+          "senderIp": {
+            "description": "Sender ip",
+            "type": "string"
+          },
+          "senderName": {
+            "description": "Sender name",
+            "type": "string"
+          },
+          "senderNameMatching": {
+            "description": "An enumeration.",
+            "type": "string"
+          },
+          "subject": {
+            "description": "Subject",
+            "type": "string"
+          },
+          "subjectMatching": {
+            "description": "An enumeration.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "recipient",
+          "senderDomain",
+          "senderEmail",
+          "senderName",
+          "subject"
+        ],
+        "type": "object",
+        "x-location": "body"
+      },
+      "scope": {
+        "description": "Scope",
+        "type": "string",
+        "x-location": "query"
+      },
+      "scopes": {
+        "description": "Scopes",
+        "type": "string",
+        "x-location": "header"
+      },
+      "x-av-req-id": {
+        "description": "X av req id",
+        "type": "string",
+        "x-location": "header"
+      }
+    },
+    "required": [
+      "requestData"
+    ],
+    "type": "object"
+  },
+  "exceptions.delete.ap-exception": {
+    "additionalProperties": true,
+    "properties": {
+      "exc_id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "exc_type": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "scope": {
+        "description": "Scope",
+        "type": "string",
+        "x-location": "query"
+      },
+      "scopes": {
+        "description": "Scopes",
+        "type": "string",
+        "x-location": "header"
+      },
+      "x-av-req-id": {
+        "description": "X av req id",
+        "type": "string",
+        "x-location": "header"
+      }
+    },
+    "required": [
+      "exc_id",
+      "exc_type"
+    ],
+    "type": "object"
+  },
+  "exceptions.get-ap": {
+    "additionalProperties": true,
+    "properties": {
+      "exc-id": {
+        "description": "Exc id",
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "exc_id"
+      },
+      "exc_type": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "scope": {
+        "description": "Scope",
+        "type": "string",
+        "x-location": "query"
+      },
+      "scopes": {
+        "description": "Scopes",
+        "type": "string",
+        "x-location": "header"
+      },
+      "x-av-req-id": {
+        "description": "X av req id",
+        "type": "string",
+        "x-location": "header"
+      }
+    },
+    "required": [
+      "exc_type"
+    ],
+    "type": "object"
+  },
+  "exceptions.get-ap-exctype": {
+    "additionalProperties": true,
+    "properties": {
+      "exc_id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "exc_type": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "scope": {
+        "description": "Scope",
+        "type": "string",
+        "x-location": "query"
+      },
+      "scopes": {
+        "description": "Scopes",
+        "type": "string",
+        "x-location": "header"
+      },
+      "x-av-req-id": {
+        "description": "X av req id",
+        "type": "string",
+        "x-location": "header"
+      }
+    },
+    "required": [
+      "exc_id",
+      "exc_type"
+    ],
+    "type": "object"
+  },
+  "exceptions.update": {
+    "additionalProperties": true,
+    "properties": {
+      "exc_id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "requestData": {
+        "additionalProperties": true,
+        "properties": {
+          "actionNeeded": {
+            "description": "Action needed",
+            "type": "string"
+          },
+          "attachmentMd5": {
+            "description": "Attachment md5",
+            "type": "string"
+          },
+          "comment": {
+            "description": "Comment",
+            "type": "string"
+          },
+          "entityId": {
+            "description": "Entity id",
+            "type": "string"
+          },
+          "ignoringSpfCheck": {
+            "description": "Ignoring spf check",
+            "type": "boolean"
+          },
+          "linkDomainMatching": {
+            "description": "An enumeration.",
+            "type": "string"
+          },
+          "linkDomains": {
+            "description": "Link domains",
+            "type": "string"
+          },
+          "matchOnlyFuture": {
+            "description": "Match only future",
+            "type": "boolean"
+          },
+          "quarantineAll": {
+            "description": "Quarantine all",
+            "type": "boolean"
+          },
+          "recipient": {
+            "description": "Recipient",
+            "type": "string"
+          },
+          "recipientMatching": {
+            "description": "An enumeration.",
+            "type": "string"
+          },
+          "senderClientIp": {
+            "description": "Sender client ip",
+            "type": "string"
+          },
+          "senderDomain": {
+            "description": "Sender domain",
+            "type": "string"
+          },
+          "senderDomainMatching": {
+            "description": "An enumeration.",
+            "type": "string"
+          },
+          "senderEmail": {
+            "description": "Sender email",
+            "type": "string"
+          },
+          "senderEmailMatching": {
+            "description": "An enumeration.",
+            "type": "string"
+          },
+          "senderIp": {
+            "description": "Sender ip",
+            "type": "string"
+          },
+          "senderName": {
+            "description": "Sender name",
+            "type": "string"
+          },
+          "senderNameMatching": {
+            "description": "An enumeration.",
+            "type": "string"
+          },
+          "subject": {
+            "description": "Subject",
+            "type": "string"
+          },
+          "subjectMatching": {
+            "description": "An enumeration.",
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-location": "body"
+      },
+      "scope": {
+        "description": "Scope",
+        "type": "string",
+        "x-location": "query"
+      },
+      "scopes": {
+        "description": "Scopes",
+        "type": "string",
+        "x-location": "header"
+      },
+      "x-av-req-id": {
+        "description": "X av req id",
+        "type": "string",
+        "x-location": "header"
+      }
+    },
+    "required": [
+      "exc_id"
+    ],
+    "type": "object"
+  },
+  "exceptions.update-whitelist": {
+    "additionalProperties": true,
+    "properties": {
+      "exc_id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "requestData": {
+        "additionalProperties": true,
+        "properties": {
+          "actionNeeded": {
+            "description": "Action needed",
+            "type": "string"
+          },
+          "attachmentMd5": {
+            "description": "Attachment md5",
+            "type": "string"
+          },
+          "comment": {
+            "description": "Comment",
+            "type": "string"
+          },
+          "entityId": {
+            "description": "Entity id",
+            "type": "string"
+          },
+          "ignoringSpfCheck": {
+            "description": "Ignoring spf check",
+            "type": "boolean"
+          },
+          "linkDomainMatching": {
+            "description": "An enumeration.",
+            "type": "string"
+          },
+          "linkDomains": {
+            "description": "Link domains",
+            "type": "string"
+          },
+          "matchOnlyFuture": {
+            "description": "Match only future",
+            "type": "boolean"
+          },
+          "quarantineAll": {
+            "description": "Quarantine all",
+            "type": "boolean"
+          },
+          "recipient": {
+            "description": "Recipient",
+            "type": "string"
+          },
+          "recipientMatching": {
+            "description": "An enumeration.",
+            "type": "string"
+          },
+          "senderClientIp": {
+            "description": "Sender client ip",
+            "type": "string"
+          },
+          "senderDomain": {
+            "description": "Sender domain",
+            "type": "string"
+          },
+          "senderDomainMatching": {
+            "description": "An enumeration.",
+            "type": "string"
+          },
+          "senderEmail": {
+            "description": "Sender email",
+            "type": "string"
+          },
+          "senderEmailMatching": {
+            "description": "An enumeration.",
+            "type": "string"
+          },
+          "senderIp": {
+            "description": "Sender ip",
+            "type": "string"
+          },
+          "senderName": {
+            "description": "Sender name",
+            "type": "string"
+          },
+          "senderNameMatching": {
+            "description": "An enumeration.",
+            "type": "string"
+          },
+          "subject": {
+            "description": "Subject",
+            "type": "string"
+          },
+          "subjectMatching": {
+            "description": "An enumeration.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "recipient",
+          "senderDomain",
+          "senderEmail",
+          "senderName",
+          "subject"
+        ],
+        "type": "object",
+        "x-location": "body"
+      },
+      "scope": {
+        "description": "Scope",
+        "type": "string",
+        "x-location": "query"
+      },
+      "scopes": {
+        "description": "Scopes",
+        "type": "string",
+        "x-location": "header"
+      },
+      "x-av-req-id": {
+        "description": "X av req id",
+        "type": "string",
+        "x-location": "header"
+      }
+    },
+    "required": [
+      "exc_id",
+      "requestData"
+    ],
+    "type": "object"
+  },
+  "msp.create": {
+    "additionalProperties": true,
+    "properties": {
+      "msp-name": {
+        "description": "Msp name",
+        "type": "string",
+        "x-location": "header",
+        "x-wire-name": "msp_name"
+      },
+      "requestData": {
+        "additionalProperties": true,
+        "properties": {
+          "name": {
+            "description": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object",
+        "x-location": "body"
+      },
+      "x-av-req-id": {
+        "description": "X av req id",
+        "type": "string",
+        "x-location": "header"
+      }
+    },
+    "required": [
+      "msp-name",
+      "requestData"
+    ],
+    "type": "object"
+  },
+  "msp.create-tenants": {
+    "additionalProperties": true,
+    "properties": {
+      "msp-name": {
+        "description": "Msp name",
+        "type": "string",
+        "x-location": "header",
+        "x-wire-name": "msp_name"
+      },
+      "requestData": {
+        "additionalProperties": true,
+        "properties": {
+          "MSPId": {
+            "description": "Mspid",
+            "type": "integer"
+          },
+          "adminEmail": {
+            "description": "Admin email",
+            "type": "string"
+          },
+          "adminName": {
+            "description": "Admin name",
+            "type": "string"
+          },
+          "companyName": {
+            "description": "Company name",
+            "type": "string"
+          },
+          "phone": {
+            "description": "Phone",
+            "type": "string"
+          },
+          "tenantName": {
+            "description": "Tenant name",
+            "type": "string"
+          },
+          "tenantRegion": {
+            "description": "An enumeration.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "adminEmail",
+          "adminName",
+          "companyName",
+          "phone",
+          "tenantName",
+          "tenantRegion"
+        ],
+        "type": "object",
+        "x-location": "body"
+      },
+      "x-av-req-id": {
+        "description": "X av req id",
+        "type": "string",
+        "x-location": "header"
+      }
+    },
+    "required": [
+      "msp-name",
+      "requestData"
+    ],
+    "type": "object"
+  },
+  "msp.create-users": {
+    "additionalProperties": true,
+    "properties": {
+      "msp-name": {
+        "description": "Msp name",
+        "type": "string",
+        "x-location": "header",
+        "x-wire-name": "msp_name"
+      },
+      "requestData": {
+        "additionalProperties": true,
+        "properties": {
+          "MSPId": {
+            "description": "Mspid",
+            "type": "integer"
+          },
+          "directLogin": {
+            "type": "boolean"
+          },
+          "email": {
+            "description": "Email",
+            "type": "string"
+          },
+          "firstName": {
+            "description": "First name",
+            "type": "string"
+          },
+          "lastName": {
+            "description": "Last name",
+            "type": "string"
+          },
+          "receiveWeeklyReports": {
+            "type": "boolean"
+          },
+          "role": {
+            "description": "Role",
+            "type": "string"
+          },
+          "samlLogin": {
+            "type": "boolean"
+          },
+          "sendAlerts": {
+            "type": "boolean"
+          },
+          "viewPrivateData": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "directLogin",
+          "email",
+          "firstName",
+          "lastName",
+          "receiveWeeklyReports",
+          "role",
+          "samlLogin",
+          "sendAlerts",
+          "viewPrivateData"
+        ],
+        "type": "object",
+        "x-location": "body"
+      },
+      "x-av-req-id": {
+        "description": "X av req id",
+        "type": "string",
+        "x-location": "header"
+      }
+    },
+    "required": [
+      "msp-name",
+      "requestData"
+    ],
+    "type": "object"
+  },
+  "msp.delete": {
+    "additionalProperties": true,
+    "properties": {
+      "msp-name": {
+        "description": "Msp name",
+        "type": "string",
+        "x-location": "header",
+        "x-wire-name": "msp_name"
+      },
+      "msp_id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "x-av-req-id": {
+        "description": "X av req id",
+        "type": "string",
+        "x-location": "header"
+      }
+    },
+    "required": [
+      "msp-name",
+      "msp_id"
+    ],
+    "type": "object"
+  },
+  "msp.delete-tenants": {
+    "additionalProperties": true,
+    "properties": {
+      "msp-name": {
+        "description": "Msp name",
+        "type": "string",
+        "x-location": "header",
+        "x-wire-name": "msp_name"
+      },
+      "tenant_id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "x-av-req-id": {
+        "description": "X av req id",
+        "type": "string",
+        "x-location": "header"
+      }
+    },
+    "required": [
+      "msp-name",
+      "tenant_id"
+    ],
+    "type": "object"
+  },
+  "msp.delete-users": {
+    "additionalProperties": true,
+    "properties": {
+      "msp-name": {
+        "description": "Msp name",
+        "type": "string",
+        "x-location": "header",
+        "x-wire-name": "msp_name"
+      },
+      "user_id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "x-av-req-id": {
+        "description": "X av req id",
+        "type": "string",
+        "x-location": "header"
+      }
+    },
+    "required": [
+      "msp-name",
+      "user_id"
+    ],
+    "type": "object"
+  },
+  "msp.describe-tenant": {
+    "additionalProperties": true,
+    "properties": {
+      "msp-name": {
+        "description": "Msp name",
+        "type": "string",
+        "x-location": "header",
+        "x-wire-name": "msp_name"
+      },
+      "tenant_id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "x-av-req-id": {
+        "description": "X av req id",
+        "type": "string",
+        "x-location": "header"
+      }
+    },
+    "required": [
+      "msp-name",
+      "tenant_id"
+    ],
+    "type": "object"
+  },
+  "msp.describe-user": {
+    "additionalProperties": true,
+    "properties": {
+      "msp-name": {
+        "description": "Msp name",
+        "type": "string",
+        "x-location": "header",
+        "x-wire-name": "msp_name"
+      },
+      "user_id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "x-av-req-id": {
+        "description": "X av req id",
+        "type": "string",
+        "x-location": "header"
+      }
+    },
+    "required": [
+      "msp-name",
+      "user_id"
+    ],
+    "type": "object"
+  },
+  "msp.list": {
+    "additionalProperties": true,
+    "properties": {
+      "msp-name": {
+        "description": "Msp name",
+        "type": "string",
+        "x-location": "header",
+        "x-wire-name": "msp_name"
+      },
+      "x-av-req-id": {
+        "description": "X av req id",
+        "type": "string",
+        "x-location": "header"
+      }
+    },
+    "required": [
+      "msp-name"
+    ],
+    "type": "object"
+  },
+  "msp.list-addons": {
+    "additionalProperties": true,
+    "properties": {
+      "msp-name": {
+        "description": "Msp name",
+        "type": "string",
+        "x-location": "header",
+        "x-wire-name": "msp_name"
+      },
+      "x-av-req-id": {
+        "description": "X av req id",
+        "type": "string",
+        "x-location": "header"
+      }
+    },
+    "required": [
+      "msp-name"
+    ],
+    "type": "object"
+  },
+  "msp.list-daily-usages": {
+    "additionalProperties": true,
+    "properties": {
+      "day": {
+        "description": "Day",
+        "type": "integer",
+        "x-location": "query"
+      },
+      "month": {
+        "description": "Month",
+        "type": "integer",
+        "x-location": "query"
+      },
+      "msp-name": {
+        "description": "Msp name",
+        "type": "string",
+        "x-location": "header",
+        "x-wire-name": "msp_name"
+      },
+      "msp_ids": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "msp_ids"
+      },
+      "x-av-req-id": {
+        "description": "X av req id",
+        "type": "string",
+        "x-location": "header"
+      },
+      "year": {
+        "description": "Year",
+        "type": "integer",
+        "x-location": "query"
+      }
+    },
+    "required": [
+      "day",
+      "month",
+      "msp-name",
+      "year"
+    ],
+    "type": "object"
+  },
+  "msp.list-licenses": {
+    "additionalProperties": true,
+    "properties": {
+      "msp-name": {
+        "description": "Msp name",
+        "type": "string",
+        "x-location": "header",
+        "x-wire-name": "msp_name"
+      },
+      "x-av-req-id": {
+        "description": "X av req id",
+        "type": "string",
+        "x-location": "header"
+      }
+    },
+    "required": [
+      "msp-name"
+    ],
+    "type": "object"
+  },
+  "msp.list-monthly-usages": {
+    "additionalProperties": true,
+    "properties": {
+      "month": {
+        "description": "Month",
+        "type": "integer",
+        "x-location": "query"
+      },
+      "msp-name": {
+        "description": "Msp name",
+        "type": "string",
+        "x-location": "header",
+        "x-wire-name": "msp_name"
+      },
+      "msp_ids": {
+        "type": "string",
+        "x-location": "query",
+        "x-wire-name": "msp_ids"
+      },
+      "x-av-req-id": {
+        "description": "X av req id",
+        "type": "string",
+        "x-location": "header"
+      },
+      "year": {
+        "description": "Year",
+        "type": "integer",
+        "x-location": "query"
+      }
+    },
+    "required": [
+      "month",
+      "msp-name",
+      "year"
+    ],
+    "type": "object"
+  },
+  "msp.list-tenants": {
+    "additionalProperties": true,
+    "properties": {
+      "msp-name": {
+        "description": "Msp name",
+        "type": "string",
+        "x-location": "header",
+        "x-wire-name": "msp_name"
+      },
+      "x-av-req-id": {
+        "description": "X av req id",
+        "type": "string",
+        "x-location": "header"
+      }
+    },
+    "required": [
+      "msp-name"
+    ],
+    "type": "object"
+  },
+  "msp.list-users": {
+    "additionalProperties": true,
+    "properties": {
+      "msp-name": {
+        "description": "Msp name",
+        "type": "string",
+        "x-location": "header",
+        "x-wire-name": "msp_name"
+      },
+      "x-av-req-id": {
+        "description": "X av req id",
+        "type": "string",
+        "x-location": "header"
+      }
+    },
+    "required": [
+      "msp-name"
+    ],
+    "type": "object"
+  },
+  "msp.update": {
+    "additionalProperties": true,
+    "properties": {
+      "msp-name": {
+        "description": "Msp name",
+        "type": "string",
+        "x-location": "header",
+        "x-wire-name": "msp_name"
+      },
+      "requestData": {
+        "additionalProperties": true,
+        "properties": {
+          "MSPId": {
+            "description": "Mspid",
+            "type": "integer"
+          },
+          "directLogin": {
+            "type": "boolean"
+          },
+          "email": {
+            "description": "Email",
+            "type": "string"
+          },
+          "firstName": {
+            "description": "First name",
+            "type": "string"
+          },
+          "lastName": {
+            "description": "Last name",
+            "type": "string"
+          },
+          "receiveWeeklyReports": {
+            "type": "boolean"
+          },
+          "role": {
+            "description": "Role",
+            "type": "string"
+          },
+          "samlLogin": {
+            "type": "boolean"
+          },
+          "sendAlerts": {
+            "type": "boolean"
+          },
+          "viewPrivateData": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "directLogin",
+          "email",
+          "firstName",
+          "lastName",
+          "receiveWeeklyReports",
+          "role",
+          "samlLogin",
+          "sendAlerts",
+          "viewPrivateData"
+        ],
+        "type": "object",
+        "x-location": "body"
+      },
+      "user_id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "x-av-req-id": {
+        "description": "X av req id",
+        "type": "string",
+        "x-location": "header"
+      }
+    },
+    "required": [
+      "msp-name",
+      "requestData",
+      "user_id"
+    ],
+    "type": "object"
+  },
+  "msp.update-or-create-tenant-license": {
+    "additionalProperties": true,
+    "properties": {
+      "msp-name": {
+        "description": "Msp name",
+        "type": "string",
+        "x-location": "header",
+        "x-wire-name": "msp_name"
+      },
+      "requestData": {
+        "additionalProperties": true,
+        "properties": {
+          "addonIdList": {
+            "items": {},
+            "type": "array"
+          },
+          "licenseCodeName": {
+            "description": "License code name",
+            "type": "string"
+          },
+          "maxLicensedUsers": {
+            "description": "Max licensed users",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "licenseCodeName"
+        ],
+        "type": "object",
+        "x-location": "body"
+      },
+      "tenant_id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "x-av-req-id": {
+        "description": "X av req id",
+        "type": "string",
+        "x-location": "header"
+      }
+    },
+    "required": [
+      "msp-name",
+      "requestData",
+      "tenant_id"
+    ],
+    "type": "object"
+  },
+  "report.post-mis-classification": {
+    "additionalProperties": true,
+    "properties": {
+      "requestData": {
+        "additionalProperties": true,
+        "properties": {
+          "classification": {
+            "description": "The classification the message should have received.",
+            "type": "string"
+          },
+          "confident": {
+            "description": "Reporter confidence, as accepted by the API.",
+            "type": "string"
+          },
+          "entityIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "classification",
+          "entityIds"
+        ],
+        "type": "object",
+        "x-location": "body"
+      },
+      "scope": {
+        "description": "Single {farm}:{tenant} scope. Required when the app client is bound to more than one tenant.",
+        "type": "string",
+        "x-location": "query"
+      }
+    },
+    "required": [
+      "requestData"
+    ],
+    "type": "object"
+  },
+  "scopes.get": {
+    "additionalProperties": true,
+    "properties": {
+      "scopes": {
+        "description": "Scopes",
+        "type": "string",
+        "x-location": "header"
+      },
+      "x-av-req-id": {
+        "description": "X av req id",
+        "type": "string",
+        "x-location": "header"
+      }
+    },
+    "type": "object"
+  },
+  "sectool-exceptions.create": {
+    "additionalProperties": true,
+    "properties": {
+      "scope": {
+        "description": "Single {farm}:{tenant} scope. Required when the app client is bound to more than one tenant.",
+        "type": "string",
+        "x-location": "query"
+      },
+      "sectool": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "sectool"
+    ],
+    "type": "object"
+  },
+  "sectool-exceptions.delete": {
+    "additionalProperties": true,
+    "properties": {
+      "scope": {
+        "description": "Single {farm}:{tenant} scope. Required when the app client is bound to more than one tenant.",
+        "type": "string",
+        "x-location": "query"
+      },
+      "sectool": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "sectool"
+    ],
+    "type": "object"
+  },
+  "sectool-exceptions.exceptions.create-sectool-entry": {
+    "additionalProperties": true,
+    "properties": {
+      "scope": {
+        "description": "Single {farm}:{tenant} scope. Required when the app client is bound to more than one tenant.",
+        "type": "string",
+        "x-location": "query"
+      },
+      "sectool": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "sectool"
+    ],
+    "type": "object"
+  },
+  "sectool-exceptions.exceptions.delete-sectool-entries": {
+    "additionalProperties": true,
+    "properties": {
+      "scope": {
+        "description": "Single {farm}:{tenant} scope. Required when the app client is bound to more than one tenant.",
+        "type": "string",
+        "x-location": "query"
+      },
+      "sectool": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "sectool"
+    ],
+    "type": "object"
+  },
+  "sectool-exceptions.exceptions.get-sectool": {
+    "additionalProperties": true,
+    "properties": {
+      "exception_type": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "exceptions_str": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "scope": {
+        "description": "Single {farm}:{tenant} scope. Required when the app client is bound to more than one tenant.",
+        "type": "string",
+        "x-location": "query"
+      },
+      "sectool": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "exception_type",
+      "exceptions_str",
+      "sectool"
+    ],
+    "type": "object"
+  },
+  "sectool-exceptions.exceptions.list-sectool": {
+    "additionalProperties": true,
+    "properties": {
+      "exception_type": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "scope": {
+        "description": "Single {farm}:{tenant} scope. Required when the app client is bound to more than one tenant.",
+        "type": "string",
+        "x-location": "query"
+      },
+      "sectool": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "exception_type",
+      "sectool"
+    ],
+    "type": "object"
+  },
+  "sectool-exceptions.update": {
+    "additionalProperties": true,
+    "properties": {
+      "scope": {
+        "description": "Single {farm}:{tenant} scope. Required when the app client is bound to more than one tenant.",
+        "type": "string",
+        "x-location": "query"
+      },
+      "sectool": {
+        "type": "string",
+        "x-location": "path"
+      }
+    },
+    "required": [
+      "sectool"
+    ],
+    "type": "object"
+  },
+  "sectools.create-anomaly-exception": {
+    "additionalProperties": true,
+    "properties": {
+      "scope": {
+        "description": "Single {farm}:{tenant} scope. Required when the app client is bound to more than one tenant.",
+        "type": "string",
+        "x-location": "query"
+      }
+    },
+    "type": "object"
+  },
+  "sectools.create-ctp-item": {
+    "additionalProperties": true,
+    "properties": {
+      "scope": {
+        "description": "Single {farm}:{tenant} scope. Required when the app client is bound to more than one tenant.",
+        "type": "string",
+        "x-location": "query"
+      }
+    },
+    "type": "object"
+  },
+  "sectools.delete-anomaly-exceptions": {
+    "additionalProperties": true,
+    "properties": {
+      "scope": {
+        "description": "Single {farm}:{tenant} scope. Required when the app client is bound to more than one tenant.",
+        "type": "string",
+        "x-location": "query"
+      }
+    },
+    "type": "object"
+  },
+  "sectools.delete-ctp-item": {
+    "additionalProperties": true,
+    "properties": {
+      "item_id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "scope": {
+        "description": "Single {farm}:{tenant} scope. Required when the app client is bound to more than one tenant.",
+        "type": "string",
+        "x-location": "query"
+      }
+    },
+    "required": [
+      "item_id"
+    ],
+    "type": "object"
+  },
+  "sectools.delete-ctp-items": {
+    "additionalProperties": true,
+    "properties": {
+      "scope": {
+        "description": "Single {farm}:{tenant} scope. Required when the app client is bound to more than one tenant.",
+        "type": "string",
+        "x-location": "query"
+      }
+    },
+    "type": "object"
+  },
+  "sectools.delete-ctp-lists": {
+    "additionalProperties": true,
+    "properties": {
+      "scope": {
+        "description": "Single {farm}:{tenant} scope. Required when the app client is bound to more than one tenant.",
+        "type": "string",
+        "x-location": "query"
+      }
+    },
+    "type": "object"
+  },
+  "sectools.get-ctp-item": {
+    "additionalProperties": true,
+    "properties": {
+      "item_id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "scope": {
+        "description": "Single {farm}:{tenant} scope. Required when the app client is bound to more than one tenant.",
+        "type": "string",
+        "x-location": "query"
+      }
+    },
+    "required": [
+      "item_id"
+    ],
+    "type": "object"
+  },
+  "sectools.get-ctp-list": {
+    "additionalProperties": true,
+    "properties": {
+      "list_id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "scope": {
+        "description": "Single {farm}:{tenant} scope. Required when the app client is bound to more than one tenant.",
+        "type": "string",
+        "x-location": "query"
+      }
+    },
+    "required": [
+      "list_id"
+    ],
+    "type": "object"
+  },
+  "sectools.list-anomaly-exceptions": {
+    "additionalProperties": true,
+    "properties": {
+      "scope": {
+        "description": "Single {farm}:{tenant} scope. Required when the app client is bound to more than one tenant.",
+        "type": "string",
+        "x-location": "query"
+      }
+    },
+    "type": "object"
+  },
+  "sectools.list-ctp-items": {
+    "additionalProperties": true,
+    "properties": {
+      "scope": {
+        "description": "Single {farm}:{tenant} scope. Required when the app client is bound to more than one tenant.",
+        "type": "string",
+        "x-location": "query"
+      }
+    },
+    "type": "object"
+  },
+  "sectools.list-ctp-lists": {
+    "additionalProperties": true,
+    "properties": {
+      "scope": {
+        "description": "Single {farm}:{tenant} scope. Required when the app client is bound to more than one tenant.",
+        "type": "string",
+        "x-location": "query"
+      }
+    },
+    "type": "object"
+  },
+  "sectools.update-ctp-item": {
+    "additionalProperties": true,
+    "properties": {
+      "item_id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "scope": {
+        "description": "Single {farm}:{tenant} scope. Required when the app client is bound to more than one tenant.",
+        "type": "string",
+        "x-location": "query"
+      }
+    },
+    "required": [
+      "item_id"
+    ],
+    "type": "object"
+  },
+  "sectools.update-ctp-items": {
+    "additionalProperties": true,
+    "properties": {
+      "scope": {
+        "description": "Single {farm}:{tenant} scope. Required when the app client is bound to more than one tenant.",
+        "type": "string",
+        "x-location": "query"
+      }
+    },
+    "type": "object"
+  },
+  "soar.get-entity": {
+    "additionalProperties": true,
+    "properties": {
+      "entity_id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "scope": {
+        "description": "Single {farm}:{tenant} scope. Required when the app client is bound to more than one tenant.",
+        "type": "string",
+        "x-location": "query"
+      }
+    },
+    "required": [
+      "entity_id"
+    ],
+    "type": "object"
+  },
+  "soar.post-notify": {
+    "additionalProperties": true,
+    "properties": {
+      "requestData": {
+        "additionalProperties": true,
+        "properties": {
+          "emails": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "entityId": {
+            "description": "SaaS entity ID the notification is about.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "emails",
+          "entityId"
+        ],
+        "type": "object",
+        "x-location": "body"
+      },
+      "scope": {
+        "description": "Single {farm}:{tenant} scope. Required when the app client is bound to more than one tenant.",
+        "type": "string",
+        "x-location": "query"
+      }
+    },
+    "required": [
+      "requestData"
+    ],
+    "type": "object"
+  },
+  "task.get": {
+    "additionalProperties": true,
+    "properties": {
+      "scope": {
+        "description": "Scope",
+        "type": "string",
+        "x-location": "query"
+      },
+      "scopes": {
+        "description": "Scopes",
+        "type": "string",
+        "x-location": "header"
+      },
+      "task_id": {
+        "type": "string",
+        "x-location": "path"
+      },
+      "x-av-req-id": {
+        "description": "X av req id",
+        "type": "string",
+        "x-location": "header"
+      }
+    },
+    "required": [
+      "task_id"
+    ],
+    "type": "object"
+  }
+}
