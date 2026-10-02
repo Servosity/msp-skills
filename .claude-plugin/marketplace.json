@@ -133,7 +133,7 @@
       "name": "avanan",
       "source": "./skills/avanan",
       "description": "Every Avanan (Check Point Harmony Email and Collaboration) API operation, plus shift-start triage, phishing campaign clustering, single-message lifecycle timelines, one exception lookup across all seven security engines, and cross-tenant MSP fleet rollups that a stateless API mirror cannot answer in a single call.",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "category": "security",
       "tags": [
         "avanan",
@@ -212,7 +212,7 @@
       "name": "cipp",
       "source": "./skills/cipp",
       "description": "First single-binary CLI for CIPP \u2014 offline SQLite store, fleet posture analytics, and cross-tenant fan-out no other CIPP tool has.",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "category": "security",
       "tags": [
         "cipp",
@@ -440,7 +440,7 @@
       "name": "halopsa",
       "source": "./skills/halopsa",
       "description": "Every HaloPSA, HaloITSM and HaloCRM feature, plus a local SQLite store and cross-entity views the API can't return.",
-      "version": "0.2.17",
+      "version": "0.2.18",
       "category": "psa",
       "tags": [
         "halopsa",
@@ -470,7 +470,7 @@
       "name": "hudu",
       "source": "./skills/hudu",
       "description": "Every Hudu cmdlet, plus an offline SQLite mirror, cross-entity audits, and agent-native output no PowerShell module or read-only MCP ships.",
-      "version": "0.1.11",
+      "version": "0.1.12",
       "category": "documentation",
       "tags": [
         "hudu",
@@ -500,7 +500,7 @@
       "name": "immybot",
       "source": "./skills/immybot",
       "description": "Every ImmyBot endpoint typed, plus a local SQLite mirror that answers the cross-tenant questions the web UI cannot.",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "category": "rmm",
       "tags": [
         "immybot",
@@ -689,7 +689,7 @@
       "name": "ninjaone",
       "source": "./skills/ninjaone",
       "description": "Every NinjaOne report, plus a local store that answers fleet-wide questions no single API call can: patch compliance, backup gaps, AV blast-radius, health, drift.",
-      "version": "0.1.15",
+      "version": "0.1.16",
       "category": "rmm",
       "tags": [
         "ninjaone",
@@ -779,7 +779,7 @@
       "name": "quickbooks",
       "source": "./skills/quickbooks",
       "description": "Every QuickBooks Online Accounting entity, plus an offline SQLite mirror, cross-entity search, and AR/AP aging no SDK or read-only MCP ships.",
-      "version": "0.1.9",
+      "version": "0.1.10",
       "category": "billing",
       "tags": [
         "quickbooks",
@@ -915,7 +915,7 @@
       "name": "servosity",
       "source": "./skills/servosity",
       "description": "The first MSP-fleet CLI for backup. Every Servosity API endpoint as a typed command, plus a local mirror that lets you ask questions the dashboard can't \u2014 across your whole book of clients.",
-      "version": "0.6.5",
+      "version": "0.6.6",
       "category": "backup-dr",
       "tags": [
         "servosity",
@@ -1006,7 +1006,7 @@
       "name": "threatlocker",
       "source": "./skills/threatlocker",
       "description": "Every ThreatLocker Portal API feature, plus the write operations the read-only tools lack and a cross-tenant offline store no other ThreatLocker tool has.",
-      "version": "0.3.6",
+      "version": "0.3.7",
       "category": "security",
       "tags": [
         "threatlocker",
