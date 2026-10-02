@@ -16,11 +16,19 @@ The extractor parses Go syntax, tracks flag declarations, required-flag guards,
 request-map assignments, parsed JSON values, nested maps, converted scalar and
 list values, positional substitutions, and header bindings. It resolves catalog
 identifiers against exact HTTP method and path when generated CLI identifiers
-differ. Missing catalog coverage or ambiguous matches fail instead of silently
+differ. A function containing multiple annotated commands is rejected. Repeated
+annotation IDs on distinct paths remain resolvable by method and path; duplicate
+ID/method/path identities across files are rejected. Catalog contracts receive
+independent copies, so one endpoint's metadata cannot mutate another's.
+Missing catalog coverage or ambiguous matches fail instead of silently
 emitting an empty contract.
 
 Body properties keep their exact wire spelling and nesting. Query and header
-properties keep CLI public flag names with `x-wire-name` when different. A
+properties keep CLI public flag names with `x-wire-name` when different.
+Catalog wire aliases do not create a second input for an already-bound location
+and wire name. Native enum evidence under a wire alias is merged into the source
+public property. Callers should prefer the schema public name; if both it and a
+legacy wire alias are supplied, the public name takes precedence. A
 transport/body name collision uses `path_<name>`, `query_<name>`, or
 `header_<name>` for the transport parameter and leaves the body's wire key
 intact. Assignment order does not change these aliases or their requiredness. `x-location` records each top-level parameter's
@@ -30,7 +38,9 @@ Object schemas allow additional properties because CLI stdin JSON also accepts
 vendor fields beyond the generated flags. Arbitrary parsed JSON is unconstrained
 unless a source assertion or recorded native schema proves a narrower type.
 Array assertions use the declared element type; `[]any` and `[]interface{}`
-remain unconstrained instead of being mislabeled as string arrays.
+remain unconstrained instead of being mislabeled as string arrays. Typed slice
+flags retain their scalar element type. Source and supplemental required lists
+are combined as sets, including lists loaded from JSON.
 
 `supplements.json` records additional evidence from the pre-existing native
 Printing Press specifications. Each supplemented endpoint carries a source label,

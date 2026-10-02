@@ -2,9 +2,14 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"go/parser"
 	"go/token"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -187,5 +192,161 @@ func TestCatalogArrayHintDoesNotInventGETBody(t *testing.T) {
 	applyArrayBody(s, "POST", true)
 	if s["properties"].(schema)["body"].(schema)["type"] != "array" {
 		t.Fatal(s)
+	}
+}
+
+func TestTypedSliceFlags(t *testing.T) {
+	for _, tc := range []struct{ flagType, want string }{{"IntSliceVar", "integer"}, {"Int64SliceVar", "integer"}, {"UintSliceVar", "integer"}, {"Float64SliceVar", "number"}, {"BoolSliceVar", "boolean"}, {"StringArrayVar", "string"}} {
+		t.Run(tc.flagType, func(t *testing.T) {
+			source := `package cli;func f(){var values []int;cmd:=&cobra.Command{Annotations:map[string]string{"pp:endpoint":"items.create","pp:method":"POST","pp:path":"/items"},RunE:func(){bodyMap["values"]=values}};cmd.Flags().` + tc.flagType + `(&values,"values",nil,"Values")}`
+			f, err := parser.ParseFile(token.NewFileSet(), "fixture.go", source, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			cs, err := extractFile(f)
+			if err != nil {
+				t.Fatal(err)
+			}
+			got := cs["items.create"]["properties"].(schema)["values"].(schema)
+			items, _ := got["items"].(schema)
+			if got["type"] != "array" || items["type"] != tc.want {
+				t.Fatal(got)
+			}
+		})
+	}
+}
+
+func TestRequiredSurvivesJSONAndSupplementMerge(t *testing.T) {
+	s := object()
+	s["required"] = []any{"tenant"}
+	applyArrayBody(s, "POST", true)
+	got, _ := s["required"].([]string)
+	if fmt.Sprint(got) != "[body tenant]" {
+		t.Fatalf("lost JSON required names: %#v", s)
+	}
+	mergeSchema(s, schema{"required": []any{"revision", "tenant"}})
+	if got := fmt.Sprint(s["required"]); got != "[body revision tenant]" {
+		t.Fatalf("supplement replaced required list: %s", got)
+	}
+}
+
+func TestMultipleAnnotatedCommandsFailClosed(t *testing.T) {
+	source := `package cli;func f(){first:=&cobra.Command{Annotations:map[string]string{"pp:endpoint":"items.first","pp:method":"GET","pp:path":"/first"}};second:=&cobra.Command{Annotations:map[string]string{"pp:endpoint":"items.second","pp:method":"GET","pp:path":"/second"}}}`
+	f, err := parser.ParseFile(token.NewFileSet(), "fixture.go", source, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := extractFile(f); err == nil {
+		t.Fatal("multiple annotated commands silently collapsed into one schema")
+	}
+}
+
+func runExtractorFixture(t *testing.T, files map[string]string, catalog, supplements string) (map[string]schema, error) {
+	t.Helper()
+	root := t.TempDir()
+	for name, data := range files {
+		path := filepath.Join(root, "skills", "fixture", "cli", "internal", "cli", name)
+		if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(data), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for name, data := range map[string]string{"skills/fixture/cli/internal/mcp/code_orch.go": catalog, "tools/maintainer/request-contracts/supplements.json": supplements} {
+		path := filepath.Join(root, name)
+		if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(data), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	cmd := exec.Command("go", "run", "main.go", "-slug", "fixture", "-root", root)
+	cmd.Env = append(os.Environ(), "GO111MODULE=off")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return nil, fmt.Errorf("%w: %s", err, out)
+	}
+	data, err := os.ReadFile(filepath.Join(root, "skills/fixture/cli/internal/mcp/request_contracts.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]schema
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatal(err)
+	}
+	return got, nil
+}
+
+func TestCatalogSameRequestContractsRemainIndependent(t *testing.T) {
+	source := `package cli;func f(){_=map[string]string{"pp:endpoint":"items.original","pp:method":"POST","pp:path":"/items"}}`
+	catalog := `package mcp;var endpoints=[]endpoint{{ID:"items.first",Method:"POST",Path:"/items",TemplateParams:[]binding{{PublicName:"scope",WireName:"scope"}}},{ID:"items.second",Method:"POST",Path:"/items"}}`
+	got, err := runExtractorFixture(t, map[string]string{"items.go": source}, catalog, `{"fixture":{"items.first":{"properties":{"first_only":{"type":"string"}},"required":["first_only"]}}}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	first := got["items.first"]["properties"].(map[string]any)
+	second := got["items.second"]["properties"].(map[string]any)
+	if first["scope"] == nil || first["first_only"] == nil {
+		t.Fatal(first)
+	}
+	if len(second) != 0 || got["items.second"]["required"] != nil {
+		t.Fatalf("catalog metadata leaked to sibling: %#v", got)
+	}
+}
+
+func TestCrossFileEndpointIdentityFailsClosed(t *testing.T) {
+	source := `package cli;func f(){_=map[string]string{"pp:endpoint":"items.list","pp:method":"GET","pp:path":"/items"}}`
+	catalog := `package mcp;var endpoints=[]endpoint{{ID:"items.list",Method:"GET",Path:"/items"}}`
+	_, err := runExtractorFixture(t, map[string]string{"one.go": source, "two.go": source}, catalog, `{}`)
+	if err == nil || !strings.Contains(err.Error(), "duplicate CLI endpoint identity") {
+		t.Fatalf("duplicate identity not rejected: %v", err)
+	}
+}
+
+func TestDuplicateAnnotationIDWithDifferentPathsRemainsResolvable(t *testing.T) {
+	source := `package cli;func f(){_=map[string]string{"pp:endpoint":"logs.get","pp:method":"GET","pp:path":"/one"}}`
+	second := strings.ReplaceAll(source, "/one", "/two")
+	catalog := `package mcp;var endpoints=[]endpoint{{ID:"first.logs.get",Method:"GET",Path:"/one"},{ID:"second.logs.get",Method:"GET",Path:"/two"}}`
+	got, err := runExtractorFixture(t, map[string]string{"one.go": source, "two.go": second}, catalog, `{}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 {
+		t.Fatal(got)
+	}
+}
+
+func TestNativeWireAliasEnrichmentUsesSourcePublicProperty(t *testing.T) {
+	dst := object()
+	dst["properties"].(schema)["tenant-filter"] = schema{"type": "string", "x-location": "query", "x-wire-name": "tenantFilter"}
+	dst["required"] = []string{"tenant-filter"}
+	mergeContractSupplement(dst, schema{"required": []any{"tenantFilter"}, "properties": schema{"tenantFilter": schema{"enum": []string{"AllTenants"}}}})
+	if got := fmt.Sprint(dst["required"]); got != "[tenant-filter]" {
+		t.Fatalf("required alias was not remapped: %s", got)
+	}
+	p := dst["properties"].(schema)
+	if len(p) != 1 || p["tenant-filter"].(schema)["enum"] == nil {
+		t.Fatal(p)
+	}
+}
+
+func TestCatalogWireAliasDoesNotCreateSecondInput(t *testing.T) {
+	source := `package cli;func f(){var tenant string;cmd:=&cobra.Command{Annotations:map[string]string{"pp:endpoint":"items.list","pp:method":"GET","pp:path":"/items"},RunE:func(){if !cmd.Flags().Changed("tenant-filter"){return fmt.Errorf("required flag %s not set","tenant-filter")};params["tenantFilter"]=tenant}};cmd.Flags().StringVar(&tenant,"tenant-filter","","Tenant")}`
+	catalog := `package mcp;var endpoints=[]endpoint{{ID:"items.list",Method:"GET",Path:"/items",QueryParams:[]binding{{PublicName:"tenantFilter",WireName:"tenantFilter"}}}}`
+	got, err := runExtractorFixture(t, map[string]string{"items.go": source}, catalog, `{"fixture":{"items.list":{"properties":{"tenantFilter":{"enum":["AllTenants"]}}}}}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := got["items.list"]
+	props := s["properties"].(map[string]any)
+	if len(props) != 1 || props["tenant-filter"] == nil {
+		t.Fatal(props)
+	}
+	if fmt.Sprint(s["required"]) != "[tenant-filter]" {
+		t.Fatal(s)
+	}
+	if props["tenant-filter"].(map[string]any)["enum"] == nil {
+		t.Fatal(props)
 	}
 }

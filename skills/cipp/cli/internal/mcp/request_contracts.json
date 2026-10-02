@@ -5295,11 +5295,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
       }
     },
     "required": [
@@ -5598,18 +5593,8 @@
         "type": "string",
         "x-location": "body"
       },
-      "Type": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "Type"
-      },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -6241,11 +6226,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
       }
     },
     "required": [
@@ -6672,20 +6652,10 @@
   "exec-access-checks.create": {
     "additionalProperties": true,
     "properties": {
-      "SkipCache": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "SkipCache"
-      },
       "TenantId": {
         "description": "Tenant id",
         "type": "string",
         "x-location": "body"
-      },
-      "Type": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "Type"
       },
       "skip-cache": {
         "description": "Skip cache",
@@ -6927,11 +6897,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
       }
     },
     "required": [
@@ -7032,11 +6997,6 @@
   "exec-app-approval.list": {
     "additionalProperties": true,
     "properties": {
-      "ApplicationId": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "ApplicationId"
-      },
       "application-id": {
         "description": "Application id",
         "type": "string",
@@ -7504,11 +7464,6 @@
   "exec-backup-retention-config.create": {
     "additionalProperties": true,
     "properties": {
-      "List": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "List"
-      },
       "RetentionDays": {
         "description": "Retention days",
         "type": "string",
@@ -7526,11 +7481,6 @@
   "exec-beccheck.list": {
     "additionalProperties": true,
     "properties": {
-      "GUID": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "GUID"
-      },
       "guid": {
         "description": "Guid",
         "type": "string",
@@ -7548,18 +7498,8 @@
         "x-location": "query",
         "x-wire-name": "tenantFilter"
       },
-      "tenantFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
       "user-name": {
         "description": "User name",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "userName"
-      },
-      "userName": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "userName"
@@ -7658,11 +7598,6 @@
     "properties": {
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -8054,16 +7989,6 @@
   "exec-cippdbcache.list": {
     "additionalProperties": true,
     "properties": {
-      "Name": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "Name"
-      },
-      "Types": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "Types"
-      },
       "name": {
         "description": "Name",
         "type": "string",
@@ -8072,11 +7997,6 @@
       },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -8380,11 +8300,6 @@
   "exec-cpvpermissions.create": {
     "additionalProperties": true,
     "properties": {
-      "ResetSP": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "ResetSP"
-      },
       "reset-sp": {
         "description": "Reset sp",
         "type": "string",
@@ -8647,11 +8562,6 @@
         "x-location": "query",
         "x-wire-name": "targetObject"
       },
-      "targetObject": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "targetObject"
-      },
       "targetObjects": {
         "description": "Target objects",
         "type": "string",
@@ -8842,18 +8752,8 @@
         "x-location": "query",
         "x-wire-name": "clientId"
       },
-      "clientId": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "clientId"
-      },
       "device-code": {
         "description": "Device code",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "deviceCode"
-      },
-      "deviceCode": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "deviceCode"
@@ -8870,11 +8770,6 @@
       },
       "tenant-id": {
         "description": "Tenant id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantId"
-      },
-      "tenantId": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantId"
@@ -9178,16 +9073,6 @@
   "exec-durable-functions.list": {
     "additionalProperties": true,
     "properties": {
-      "Action": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "Action"
-      },
-      "PartitionKey": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "PartitionKey"
-      },
       "action": {
         "description": "Action",
         "type": "string",
@@ -9543,26 +9428,6 @@
   "exec-exclude-tenant.create": {
     "additionalProperties": true,
     "properties": {
-      "AddExclusion": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "AddExclusion"
-      },
-      "List": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "List"
-      },
-      "ListAll": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "ListAll"
-      },
-      "RemoveExclusion": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "RemoveExclusion"
-      },
       "add-exclusion": {
         "description": "Add exclusion",
         "type": "string",
@@ -9593,11 +9458,6 @@
         "x-location": "query",
         "x-wire-name": "tenantFilter"
       },
-      "tenantFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
       "value": {
         "description": "Value",
         "type": "string",
@@ -9612,21 +9472,6 @@
   "exec-extension-mapping.list": {
     "additionalProperties": true,
     "properties": {
-      "AddMapping": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "AddMapping"
-      },
-      "AutoMapping": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "AutoMapping"
-      },
-      "List": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "List"
-      },
       "add-mapping": {
         "description": "Add mapping",
         "type": "string",
@@ -9656,16 +9501,6 @@
   "exec-extension-sync.list": {
     "additionalProperties": true,
     "properties": {
-      "Extension": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "Extension"
-      },
-      "TenantID": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "TenantID"
-      },
       "extension": {
         "description": "Extension",
         "type": "string",
@@ -9686,11 +9521,6 @@
     "properties": {
       "extension-name": {
         "description": "Extension name",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "extensionName"
-      },
-      "extensionName": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "extensionName"
@@ -9865,11 +9695,6 @@
   "exec-gdaprole-template.delete": {
     "additionalProperties": true,
     "properties": {
-      "Action": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "Action"
-      },
       "GroupId": {
         "description": "Group id",
         "type": "string",
@@ -9943,18 +9768,8 @@
   "exec-gdaptrace.list": {
     "additionalProperties": true,
     "properties": {
-      "UPN": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "UPN"
-      },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -10444,16 +10259,6 @@
   "exec-incidents-list.list": {
     "additionalProperties": true,
     "properties": {
-      "EndDate": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "EndDate"
-      },
-      "StartDate": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "StartDate"
-      },
       "end-date": {
         "description": "End date",
         "type": "string",
@@ -10468,11 +10273,6 @@
       },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -10682,21 +10482,6 @@
   "exec-list-backup.list": {
     "additionalProperties": true,
     "properties": {
-      "BackupName": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "BackupName"
-      },
-      "NameOnly": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "NameOnly"
-      },
-      "Type": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "Type"
-      },
       "backup-name": {
         "description": "Backup name",
         "type": "string",
@@ -10711,11 +10496,6 @@
       },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -10735,11 +10515,6 @@
   "exec-log-retention-config.create": {
     "additionalProperties": true,
     "properties": {
-      "List": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "List"
-      },
       "RetentionDays": {
         "description": "Retention days",
         "type": "string",
@@ -10757,11 +10532,6 @@
   "exec-mail-test.list": {
     "additionalProperties": true,
     "properties": {
-      "Action": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "Action"
-      },
       "action": {
         "description": "Action",
         "type": "string",
@@ -10774,21 +10544,6 @@
   "exec-mailbox-mobile-devices.list": {
     "additionalProperties": true,
     "properties": {
-      "Delete": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "Delete"
-      },
-      "Quarantine": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "Quarantine"
-      },
-      "Userid": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "Userid"
-      },
       "delete": {
         "description": "Delete",
         "type": "string",
@@ -10813,11 +10568,6 @@
       },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -10959,11 +10709,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
       }
     },
     "required": [
@@ -10975,16 +10720,6 @@
   "exec-maintenance-scripts.list": {
     "additionalProperties": true,
     "properties": {
-      "MakeLink": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "MakeLink"
-      },
-      "ScriptFile": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "ScriptFile"
-      },
       "make-link": {
         "description": "Make link",
         "type": "string",
@@ -11092,11 +10827,6 @@
     "properties": {
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -11688,11 +11418,6 @@
   "exec-offload-functions.create": {
     "additionalProperties": true,
     "properties": {
-      "Action": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "Action"
-      },
       "OffloadFunctions": {
         "description": "Offload functions",
         "type": "boolean",
@@ -11858,16 +11583,6 @@
   "exec-partner-webhook.create": {
     "additionalProperties": true,
     "properties": {
-      "Action": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "Action"
-      },
-      "CorrelationId": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "CorrelationId"
-      },
       "EventType": {
         "additionalProperties": true,
         "properties": {
@@ -11911,11 +11626,6 @@
   "exec-password-config.create": {
     "additionalProperties": true,
     "properties": {
-      "List": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "List"
-      },
       "appendNumber": {
         "description": "Append number",
         "type": "string",
@@ -12109,11 +11819,6 @@
       },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -12479,11 +12184,6 @@
   "exec-samapp-permissions.create": {
     "additionalProperties": true,
     "properties": {
-      "Action": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "Action"
-      },
       "Permissions": {
         "description": "Permissions",
         "type": "string",
@@ -12501,11 +12201,6 @@
   "exec-samroles.create": {
     "additionalProperties": true,
     "properties": {
-      "Action": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "Action"
-      },
       "Roles": {
         "description": "Roles",
         "type": "string",
@@ -12528,16 +12223,6 @@
   "exec-samsetup.create": {
     "additionalProperties": true,
     "properties": {
-      "CheckSetupProcess": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "CheckSetupProcess"
-      },
-      "CreateSAM": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "CreateSAM"
-      },
       "RefreshToken": {
         "description": "Refresh token",
         "type": "string",
@@ -12582,11 +12267,6 @@
       },
       "error-description": {
         "description": "Error description",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "error_description"
-      },
-      "error_description": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "error_description"
@@ -12763,16 +12443,6 @@
   "exec-send-org-message.list": {
     "additionalProperties": true,
     "properties": {
-      "ID": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "ID"
-      },
-      "URL": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "URL"
-      },
       "freq": {
         "description": "Freq",
         "type": "string",
@@ -12786,11 +12456,6 @@
       },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -12834,26 +12499,6 @@
   "exec-service-principals.list": {
     "additionalProperties": true,
     "properties": {
-      "Action": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "Action"
-      },
-      "AppId": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "AppId"
-      },
-      "Id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "Id"
-      },
-      "Select": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "Select"
-      },
       "action": {
         "description": "Action",
         "type": "string",
@@ -13751,18 +13396,8 @@
         "x-location": "query",
         "x-wire-name": "templateId"
       },
-      "templateId": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "templateId"
-      },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -14182,16 +13817,6 @@
   "exec-webhook-subscriptions.delete": {
     "additionalProperties": true,
     "properties": {
-      "Action": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "Action"
-      },
-      "WebhookID": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "WebhookID"
-      },
       "action": {
         "description": "Action",
         "type": "string",
@@ -14221,11 +13846,6 @@
   "get-version.list": {
     "additionalProperties": true,
     "properties": {
-      "LocalVersion": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "LocalVersion"
-      },
       "local-version": {
         "description": "Local version",
         "type": "string",
@@ -14240,11 +13860,6 @@
     "properties": {
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -14268,11 +13883,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
       }
     },
     "required": [
@@ -14288,11 +13898,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
       }
     },
     "required": [
@@ -14305,11 +13910,6 @@
     "properties": {
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -14333,16 +13933,6 @@
   "list-app-consent-requests.list": {
     "additionalProperties": true,
     "properties": {
-      "Filter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "Filter"
-      },
-      "RequestStatus": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "RequestStatus"
-      },
       "filter": {
         "description": "Filter",
         "type": "string",
@@ -14357,11 +13947,6 @@
       },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -14380,11 +13965,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
       }
     },
     "required": [
@@ -14395,11 +13975,6 @@
   "list-app-status.list": {
     "additionalProperties": true,
     "properties": {
-      "AppFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "AppFilter"
-      },
       "app-filter": {
         "description": "App filter",
         "type": "string",
@@ -14408,11 +13983,6 @@
       },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -14681,11 +14251,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
       }
     },
     "required": [
@@ -14696,11 +14261,6 @@
   "list-assignment-filter-templates.list": {
     "additionalProperties": true,
     "properties": {
-      "ID": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "ID"
-      },
       "id": {
         "description": "Id",
         "type": "string",
@@ -14719,18 +14279,8 @@
         "x-location": "query",
         "x-wire-name": "filterId"
       },
-      "filterId": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "filterId"
-      },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -14744,21 +14294,6 @@
   "list-audit-log-searches.list": {
     "additionalProperties": true,
     "properties": {
-      "Days": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "Days"
-      },
-      "SearchId": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "SearchId"
-      },
-      "Type": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "Type"
-      },
       "days": {
         "description": "Days",
         "type": "string",
@@ -14773,11 +14308,6 @@
       },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -14797,11 +14327,6 @@
   "list-audit-log-test.list": {
     "additionalProperties": true,
     "properties": {
-      "SearchId": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "SearchId"
-      },
       "search-id": {
         "description": "Search id",
         "type": "string",
@@ -14810,11 +14335,6 @@
       },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -14828,26 +14348,6 @@
   "list-audit-logs.list": {
     "additionalProperties": true,
     "properties": {
-      "EndDate": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "EndDate"
-      },
-      "LogId": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "LogId"
-      },
-      "RelativeTime": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "RelativeTime"
-      },
-      "StartDate": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "StartDate"
-      },
       "end-date": {
         "description": "End date",
         "type": "string",
@@ -14877,11 +14377,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
       }
     },
     "required": [
@@ -14894,11 +14389,6 @@
     "properties": {
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -14922,11 +14412,6 @@
   "list-azure-adconnect-status.list": {
     "additionalProperties": true,
     "properties": {
-      "DataToReturn": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "DataToReturn"
-      },
       "data-to-return": {
         "description": "Data to return",
         "type": "string",
@@ -14935,11 +14420,6 @@
       },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -14958,11 +14438,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
       }
     },
     "required": [
@@ -14973,11 +14448,6 @@
   "list-bpa.list": {
     "additionalProperties": true,
     "properties": {
-      "Report": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "Report"
-      },
       "report": {
         "description": "Report",
         "type": "string",
@@ -14986,11 +14456,6 @@
       },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -15004,11 +14469,6 @@
   "list-bpatemplates.list": {
     "additionalProperties": true,
     "properties": {
-      "RawJson": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "RawJson"
-      },
       "raw-json": {
         "description": "Raw json",
         "type": "string",
@@ -15037,11 +14497,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
       }
     },
     "required": [
@@ -15052,21 +14507,6 @@
   "list-calendar-permissions.list": {
     "additionalProperties": true,
     "properties": {
-      "ByUser": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "ByUser"
-      },
-      "UseReportDB": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "UseReportDB"
-      },
-      "UserID": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "UserID"
-      },
       "by-user": {
         "description": "By user",
         "type": "string",
@@ -15075,11 +14515,6 @@
       },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -15105,16 +14540,6 @@
   "list-catemplates.list": {
     "additionalProperties": true,
     "properties": {
-      "GUID": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "GUID"
-      },
-      "ID": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "ID"
-      },
       "guid": {
         "description": "Guid",
         "type": "string",
@@ -15138,11 +14563,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
       }
     },
     "required": [
@@ -15153,11 +14573,6 @@
   "list-community-repos.list": {
     "additionalProperties": true,
     "properties": {
-      "WriteAccess": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "WriteAccess"
-      },
       "write-access": {
         "description": "Write access",
         "type": "string",
@@ -15175,11 +14590,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
       }
     },
     "required": [
@@ -15192,11 +14602,6 @@
     "properties": {
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -15216,11 +14621,6 @@
         "x-location": "query",
         "x-wire-name": "displayName"
       },
-      "displayName": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "displayName"
-      },
       "id": {
         "description": "Id",
         "type": "string",
@@ -15228,11 +14628,6 @@
       },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -15262,11 +14657,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
       }
     },
     "required": [
@@ -15277,18 +14667,8 @@
   "list-contact-permissions.list": {
     "additionalProperties": true,
     "properties": {
-      "UserID": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "UserID"
-      },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -15329,11 +14709,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
       }
     },
     "required": [
@@ -15346,11 +14721,6 @@
     "properties": {
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -15370,18 +14740,8 @@
         "x-location": "query",
         "x-wire-name": "currentSkuOnly"
       },
-      "currentSkuOnly": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "currentSkuOnly"
-      },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -15401,29 +14761,14 @@
         "x-location": "query",
         "x-wire-name": "directoryObject"
       },
-      "directoryObject": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "directoryObject"
-      },
       "source-type": {
         "description": "Source type",
         "type": "string",
         "x-location": "query",
         "x-wire-name": "sourceType"
       },
-      "sourceType": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "sourceType"
-      },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -15448,29 +14793,14 @@
         "x-location": "query",
         "x-wire-name": "excludeGlobalReserved"
       },
-      "excludeGlobalReserved": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "excludeGlobalReserved"
-      },
       "include-system": {
         "description": "Include system",
         "type": "string",
         "x-location": "query",
         "x-wire-name": "includeSystem"
       },
-      "includeSystem": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "includeSystem"
-      },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -15490,11 +14820,6 @@
         "x-location": "query",
         "x-wire-name": "tenantFilter"
       },
-      "tenantFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
       "type": {
         "description": "Type",
         "type": "string",
@@ -15509,11 +14834,6 @@
   "list-defender-state.list": {
     "additionalProperties": true,
     "properties": {
-      "DeviceID": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "DeviceID"
-      },
       "device-id": {
         "description": "Device id",
         "type": "string",
@@ -15522,11 +14842,6 @@
       },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -15545,11 +14860,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
       }
     },
     "required": [
@@ -15565,11 +14875,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
       }
     },
     "required": [
@@ -15580,11 +14885,6 @@
   "list-detected-app-devices.list": {
     "additionalProperties": true,
     "properties": {
-      "AppID": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "AppID"
-      },
       "app-id": {
         "description": "App id",
         "type": "string",
@@ -15593,11 +14893,6 @@
       },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -15611,11 +14906,6 @@
   "list-detected-apps.list": {
     "additionalProperties": true,
     "properties": {
-      "DeviceID": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "DeviceID"
-      },
       "device-id": {
         "description": "Device id",
         "type": "string",
@@ -15628,18 +14918,8 @@
         "x-location": "query",
         "x-wire-name": "includeDevices"
       },
-      "includeDevices": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "includeDevices"
-      },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -15653,21 +14933,6 @@
   "list-device-details.list": {
     "additionalProperties": true,
     "properties": {
-      "DeviceID": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "DeviceID"
-      },
-      "DeviceName": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "DeviceName"
-      },
-      "DeviceSerial": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "DeviceSerial"
-      },
       "device-id": {
         "description": "Device id",
         "type": "string",
@@ -15691,11 +14956,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
       }
     },
     "required": [
@@ -15708,11 +14968,6 @@
     "properties": {
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -15765,11 +15020,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
       }
     },
     "required": [
@@ -15780,36 +15030,6 @@
   "list-domain-health.list": {
     "additionalProperties": true,
     "properties": {
-      "Action": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "Action"
-      },
-      "Domain": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "Domain"
-      },
-      "ExpectedInclude": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "ExpectedInclude"
-      },
-      "Record": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "Record"
-      },
-      "Selector": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "Selector"
-      },
-      "Subdomains": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "Subdomains"
-      },
       "action": {
         "description": "Action",
         "type": "string",
@@ -15857,11 +15077,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
       }
     },
     "required": [
@@ -15872,11 +15087,6 @@
   "list-equipment.list": {
     "additionalProperties": true,
     "properties": {
-      "EquipmentId": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "EquipmentId"
-      },
       "equipment-id": {
         "description": "Equipment id",
         "type": "string",
@@ -15885,11 +15095,6 @@
       },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -15916,11 +15121,6 @@
     "properties": {
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -16051,21 +15251,6 @@
   "list-function-parameters.list": {
     "additionalProperties": true,
     "properties": {
-      "Compliance": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "Compliance"
-      },
-      "Function": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "Function"
-      },
-      "Module": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "Module"
-      },
       "compliance": {
         "description": "Compliance",
         "type": "string",
@@ -16090,21 +15275,6 @@
   "list-function-stats.list": {
     "additionalProperties": true,
     "properties": {
-      "FunctionType": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "FunctionType"
-      },
-      "Interval": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "Interval"
-      },
-      "Time": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "Time"
-      },
       "function-type": {
         "description": "Function type",
         "type": "string",
@@ -16119,11 +15289,6 @@
       },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -16143,11 +15308,6 @@
   "list-gdapaccess-assignments.list": {
     "additionalProperties": true,
     "properties": {
-      "Id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "Id"
-      },
       "id": {
         "description": "Id",
         "type": "string",
@@ -16160,11 +15320,6 @@
   "list-gdapinvite.list": {
     "additionalProperties": true,
     "properties": {
-      "RelationshipId": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "RelationshipId"
-      },
       "relationship-id": {
         "description": "Relationship id",
         "type": "string",
@@ -16187,16 +15342,6 @@
   "list-git-hub-release-notes.list": {
     "additionalProperties": true,
     "properties": {
-      "Owner": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "Owner"
-      },
-      "Repository": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "Repository"
-      },
       "owner": {
         "description": "Owner",
         "type": "string",
@@ -16217,11 +15362,6 @@
     "properties": {
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -16264,11 +15404,6 @@
   "list-graph-explorer-presets.list": {
     "additionalProperties": true,
     "properties": {
-      "Endpoint": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "Endpoint"
-      },
       "endpoint": {
         "description": "Endpoint",
         "type": "string",
@@ -16281,71 +15416,6 @@
   "list-graph-request.list": {
     "additionalProperties": true,
     "properties": {
-      "AsApp": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "AsApp"
-      },
-      "CountOnly": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "CountOnly"
-      },
-      "Endpoint": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "Endpoint"
-      },
-      "IgnoreErrors": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "IgnoreErrors"
-      },
-      "ListProperties": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "ListProperties"
-      },
-      "NoPagination": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "NoPagination"
-      },
-      "QueueId": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "QueueId"
-      },
-      "QueueNameOverride": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "QueueNameOverride"
-      },
-      "ReverseTenantLookup": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "ReverseTenantLookup"
-      },
-      "ReverseTenantLookupProperty": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "ReverseTenantLookupProperty"
-      },
-      "SkipCache": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "SkipCache"
-      },
-      "Sort": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "Sort"
-      },
-      "Version": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "Version"
-      },
       "as-app": {
         "description": "As app",
         "type": "string",
@@ -16375,11 +15445,6 @@
         "x-location": "query",
         "x-wire-name": "graphFilter"
       },
-      "graphFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "graphFilter"
-      },
       "ignore-errors": {
         "description": "Ignore errors",
         "type": "string",
@@ -16398,18 +15463,8 @@
         "x-location": "query",
         "x-wire-name": "manualPagination"
       },
-      "manualPagination": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "manualPagination"
-      },
       "next-link": {
         "description": "Next link",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "nextLink"
-      },
-      "nextLink": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "nextLink"
@@ -16462,11 +15517,6 @@
         "x-location": "query",
         "x-wire-name": "tenantFilter"
       },
-      "tenantFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
       "version": {
         "description": "Version",
         "type": "string",
@@ -16482,11 +15532,6 @@
   "list-group-sender-authentication.list": {
     "additionalProperties": true,
     "properties": {
-      "Type": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "Type"
-      },
       "groupid": {
         "description": "Groupid",
         "type": "string",
@@ -16494,11 +15539,6 @@
       },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -16535,11 +15575,6 @@
         "x-location": "query",
         "x-wire-name": "expandMembers"
       },
-      "expandMembers": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "expandMembers"
-      },
       "group-id": {
         "description": "Group id",
         "type": "string",
@@ -16548,16 +15583,6 @@
       },
       "group-type": {
         "description": "Group type",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "groupType"
-      },
-      "groupID": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "groupID"
-      },
-      "groupType": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "groupType"
@@ -16577,11 +15602,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
       }
     },
     "required": [
@@ -16597,11 +15617,6 @@
   "list-inactive-accounts.list": {
     "additionalProperties": true,
     "properties": {
-      "InactiveDays": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "InactiveDays"
-      },
       "inactive-days": {
         "description": "Inactive days",
         "type": "string",
@@ -16610,11 +15625,6 @@
       },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -16633,11 +15643,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
       }
     },
     "required": [
@@ -16648,16 +15653,6 @@
   "list-intune-policy.list": {
     "additionalProperties": true,
     "properties": {
-      "ID": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "ID"
-      },
-      "URLName": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "URLName"
-      },
       "id": {
         "description": "Id",
         "type": "string",
@@ -16666,11 +15661,6 @@
       },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -16690,11 +15680,6 @@
   "list-intune-reusable-setting-templates.list": {
     "additionalProperties": true,
     "properties": {
-      "ID": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "ID"
-      },
       "id": {
         "description": "Id",
         "type": "string",
@@ -16707,11 +15692,6 @@
   "list-intune-reusable-settings.list": {
     "additionalProperties": true,
     "properties": {
-      "ID": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "ID"
-      },
       "id": {
         "description": "Id",
         "type": "string",
@@ -16720,11 +15700,6 @@
       },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -16743,11 +15718,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
       }
     },
     "required": [
@@ -16758,11 +15728,6 @@
   "list-intune-templates.list": {
     "additionalProperties": true,
     "properties": {
-      "View": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "View"
-      },
       "id": {
         "description": "Id",
         "type": "string",
@@ -16790,11 +15755,6 @@
   "list-jitadmin-templates.create": {
     "additionalProperties": true,
     "properties": {
-      "GUID": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "GUID"
-      },
       "guid": {
         "description": "Guid",
         "type": "string",
@@ -16817,11 +15777,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
       }
     },
     "required": [
@@ -16834,11 +15789,6 @@
     "properties": {
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -16857,11 +15807,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
       }
     },
     "required": [
@@ -16877,11 +15822,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
       }
     },
     "required": [
@@ -16892,61 +15832,6 @@
   "list-logs.list": {
     "additionalProperties": true,
     "properties": {
-      "API": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "API"
-      },
-      "DateFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "DateFilter"
-      },
-      "EndDate": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "EndDate"
-      },
-      "Filter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "Filter"
-      },
-      "ListLogs": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "ListLogs"
-      },
-      "ScheduledTaskId": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "ScheduledTaskId"
-      },
-      "Severity": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "Severity"
-      },
-      "StandardTemplateId": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "StandardTemplateId"
-      },
-      "StartDate": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "StartDate"
-      },
-      "Tenant": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "Tenant"
-      },
-      "User": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "User"
-      },
       "api": {
         "description": "Api",
         "type": "string",
@@ -17024,11 +15909,6 @@
   "list-mail-quarantine-message.list": {
     "additionalProperties": true,
     "properties": {
-      "Identity": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "Identity"
-      },
       "identity": {
         "description": "Identity",
         "type": "string",
@@ -17037,11 +15917,6 @@
       },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -17060,11 +15935,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
       }
     },
     "required": [
@@ -17080,11 +15950,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
       }
     },
     "required": [
@@ -17095,18 +15960,8 @@
   "list-mailbox-forwarding.list": {
     "additionalProperties": true,
     "properties": {
-      "UseReportDB": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "UseReportDB"
-      },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -17126,11 +15981,6 @@
   "list-mailbox-mobile-devices.list": {
     "additionalProperties": true,
     "properties": {
-      "Mailbox": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "Mailbox"
-      },
       "mailbox": {
         "description": "Mailbox",
         "type": "string",
@@ -17139,11 +15989,6 @@
       },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -17157,21 +16002,6 @@
   "list-mailbox-restores.list": {
     "additionalProperties": true,
     "properties": {
-      "Identity": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "Identity"
-      },
-      "IncludeReport": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "IncludeReport"
-      },
-      "Statistics": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "Statistics"
-      },
       "identity": {
         "description": "Identity",
         "type": "string",
@@ -17195,11 +16025,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
       }
     },
     "required": [
@@ -17210,18 +16035,8 @@
   "list-mailbox-rules.list": {
     "additionalProperties": true,
     "properties": {
-      "UseReportDB": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "UseReportDB"
-      },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -17241,16 +16056,6 @@
   "list-mailboxes.list": {
     "additionalProperties": true,
     "properties": {
-      "PSObject": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "PSObject"
-      },
-      "UseReportDB": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "UseReportDB"
-      },
       "ps-object": {
         "description": "Psobject",
         "type": "string",
@@ -17259,11 +16064,6 @@
       },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -17285,11 +16085,6 @@
     "properties": {
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -17381,18 +16176,8 @@
   "list-mfausers.list": {
     "additionalProperties": true,
     "properties": {
-      "UseReportDB": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "UseReportDB"
-      },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -17417,11 +16202,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
       }
     },
     "required": [
@@ -17432,11 +16212,6 @@
   "list-new-user-defaults.create": {
     "additionalProperties": true,
     "properties": {
-      "ID": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "ID"
-      },
       "id": {
         "description": "Id",
         "type": "string",
@@ -17456,11 +16231,6 @@
       },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -17484,11 +16254,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
       }
     },
     "required": [
@@ -17501,11 +16266,6 @@
     "properties": {
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -17529,11 +16289,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
       }
     },
     "required": [
@@ -17546,11 +16301,6 @@
     "properties": {
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -17575,29 +16325,14 @@
         "x-location": "query",
         "x-wire-name": "allUsers"
       },
-      "allUsers": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "allUsers"
-      },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
       },
-      "tenantFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
       "user-id": {
         "description": "User id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "userId"
-      },
-      "userId": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "userId"
@@ -17866,18 +16601,8 @@
         "type": "string",
         "x-location": "body"
       },
-      "Type": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "Type"
-      },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -17903,11 +16628,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
       }
     },
     "required": [
@@ -17920,11 +16640,6 @@
     "properties": {
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -17944,11 +16659,6 @@
         "x-location": "query",
         "x-wire-name": "groupID"
       },
-      "groupID": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "groupID"
-      },
       "members": {
         "description": "Members",
         "type": "string",
@@ -17961,11 +16671,6 @@
       },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -17985,18 +16690,8 @@
         "x-location": "query",
         "x-wire-name": "roomId"
       },
-      "roomId": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "roomId"
-      },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -18012,11 +16707,6 @@
     "properties": {
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -18103,11 +16793,6 @@
     "properties": {
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -18220,29 +16905,14 @@
         "x-location": "query",
         "x-wire-name": "defaultDomainName"
       },
-      "defaultDomainName": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "defaultDomainName"
-      },
       "display-name": {
         "description": "Display name",
         "type": "string",
         "x-location": "query",
         "x-wire-name": "displayName"
       },
-      "displayName": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "displayName"
-      },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -18261,11 +16931,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
       }
     },
     "required": [
@@ -18281,11 +16946,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
       }
     },
     "required": [
@@ -18296,11 +16956,6 @@
   "list-sharepoint-admin-url.list": {
     "additionalProperties": true,
     "properties": {
-      "ReturnUrl": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "ReturnUrl"
-      },
       "return-url": {
         "description": "Return url",
         "type": "string",
@@ -18309,11 +16964,6 @@
       },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -18332,11 +16982,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
       }
     },
     "required": [
@@ -18352,11 +16997,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
       }
     },
     "required": [
@@ -18367,21 +17007,6 @@
   "list-sign-ins.list": {
     "additionalProperties": true,
     "properties": {
-      "Days": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "Days"
-      },
-      "FailureThreshold": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "FailureThreshold"
-      },
-      "Filter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "Filter"
-      },
       "days": {
         "description": "Days",
         "type": "string",
@@ -18390,11 +17015,6 @@
       },
       "failed-logons-only": {
         "description": "Failed logons only",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "failedLogonsOnly"
-      },
-      "failedLogonsOnly": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "failedLogonsOnly"
@@ -18416,11 +17036,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
       }
     },
     "required": [
@@ -18431,11 +17046,6 @@
   "list-site-members.list": {
     "additionalProperties": true,
     "properties": {
-      "SiteId": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "SiteId"
-      },
       "site-id": {
         "description": "Site id",
         "type": "string",
@@ -18444,11 +17054,6 @@
       },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -18462,28 +17067,8 @@
   "list-sites.list": {
     "additionalProperties": true,
     "properties": {
-      "Type": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "Type"
-      },
-      "URLOnly": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "URLOnly"
-      },
-      "UserUPN": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "UserUPN"
-      },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -18531,11 +17116,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
       }
     },
     "required": [
@@ -18563,18 +17143,8 @@
         "x-location": "query",
         "x-wire-name": "templateId"
       },
-      "templateId": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "templateId"
-      },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -18588,11 +17158,6 @@
   "list-standards.list": {
     "additionalProperties": true,
     "properties": {
-      "ShowConsolidated": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "ShowConsolidated"
-      },
       "show-consolidated": {
         "description": "Show consolidated",
         "type": "string",
@@ -18601,11 +17166,6 @@
       },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -18619,18 +17179,8 @@
   "list-teams-activity.list": {
     "additionalProperties": true,
     "properties": {
-      "Type": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "Type"
-      },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -18655,11 +17205,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
       }
     },
     "required": [
@@ -18675,11 +17220,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
       }
     },
     "required": [
@@ -18690,11 +17230,6 @@
   "list-teams.list": {
     "additionalProperties": true,
     "properties": {
-      "ID": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "ID"
-      },
       "id": {
         "description": "Id",
         "type": "string",
@@ -18703,11 +17238,6 @@
       },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -18736,11 +17266,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
       }
     },
     "required": [
@@ -18756,11 +17281,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
       }
     },
     "required": [
@@ -18773,11 +17293,6 @@
     "properties": {
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -18824,35 +17339,15 @@
   "list-tenants.create": {
     "additionalProperties": true,
     "properties": {
-      "AllTenantSelector": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "AllTenantSelector"
-      },
       "ClearCache": {
         "description": "Clear cache",
         "type": "string",
         "x-location": "body"
       },
-      "IncludeOffboardingDefaults": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "IncludeOffboardingDefaults"
-      },
-      "Mode": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "Mode"
-      },
       "TenantsOnly": {
         "description": "Tenants only",
         "type": "string",
         "x-location": "body"
-      },
-      "TriggerRefresh": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "TriggerRefresh"
       },
       "all-tenant-selector": {
         "description": "All tenant selector",
@@ -18889,11 +17384,6 @@
       },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -18971,11 +17461,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
       }
     },
     "required": [
@@ -18986,18 +17471,8 @@
   "list-user-conditional-access-policies.list": {
     "additionalProperties": true,
     "properties": {
-      "UserID": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "UserID"
-      },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -19022,11 +17497,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
       }
     },
     "required": [
@@ -19037,18 +17507,8 @@
   "list-user-devices.list": {
     "additionalProperties": true,
     "properties": {
-      "UserID": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "UserID"
-      },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -19074,18 +17534,8 @@
         "x-location": "query",
         "x-wire-name": "tenantFilter"
       },
-      "tenantFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
       "user-id": {
         "description": "User id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "userId"
-      },
-      "userId": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "userId"
@@ -19099,18 +17549,8 @@
   "list-user-mailbox-details.list": {
     "additionalProperties": true,
     "properties": {
-      "UserID": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "UserID"
-      },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -19126,11 +17566,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "userMail"
-      },
-      "userMail": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "userMail"
       }
     },
     "required": [
@@ -19141,18 +17576,8 @@
   "list-user-mailbox-rules.list": {
     "additionalProperties": true,
     "properties": {
-      "UserID": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "UserID"
-      },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -19168,11 +17593,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "UserID"
-      },
-      "userEmail": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "userEmail"
       }
     },
     "required": [
@@ -19183,18 +17603,8 @@
   "list-user-photo.list": {
     "additionalProperties": true,
     "properties": {
-      "UserID": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "UserID"
-      },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -19219,18 +17629,8 @@
   "list-user-signin-logs.list": {
     "additionalProperties": true,
     "properties": {
-      "UserID": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "UserID"
-      },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -19255,18 +17655,8 @@
   "list-user-trusted-blocked-senders.list": {
     "additionalProperties": true,
     "properties": {
-      "UserID": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "UserID"
-      },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -19279,11 +17669,6 @@
       },
       "user-principal-name": {
         "description": "User principal name",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "userPrincipalName"
-      },
-      "userPrincipalName": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "userPrincipalName"
@@ -19302,11 +17687,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
       }
     },
     "required": [
@@ -19317,23 +17697,8 @@
   "list-users.list": {
     "additionalProperties": true,
     "properties": {
-      "IncludeLogonDetails": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "IncludeLogonDetails"
-      },
-      "UserID": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "UserID"
-      },
       "graph-filter": {
         "description": "Graph filter",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "graphFilter"
-      },
-      "graphFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "graphFilter"
@@ -19346,11 +17711,6 @@
       },
       "tenant-filter": {
         "description": "Target tenant domain or 'AllTenants' for multi-tenant operations.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
@@ -19375,16 +17735,6 @@
   "listmailbox-permissions.list": {
     "additionalProperties": true,
     "properties": {
-      "ByUser": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "ByUser"
-      },
-      "UseReportDB": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "UseReportDB"
-      },
       "by-user": {
         "description": "By user",
         "type": "string",
@@ -19397,11 +17747,6 @@
         "x-location": "query",
         "x-wire-name": "tenantFilter"
       },
-      "tenantFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
-      },
       "use-report-db": {
         "description": "Use report db",
         "type": "string",
@@ -19410,11 +17755,6 @@
       },
       "user-id": {
         "description": "User id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "userId"
-      },
-      "userId": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "userId"
@@ -19499,21 +17839,6 @@
   "public-webhooks.create": {
     "additionalProperties": true,
     "properties": {
-      "CIPPID": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "CIPPID"
-      },
-      "Type": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "Type"
-      },
-      "ValidationToken": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "ValidationToken"
-      },
       "cippid": {
         "description": "Cippid",
         "type": "string",
@@ -20118,11 +18443,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
       }
     },
     "required": [
@@ -20234,11 +18554,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantFilter"
-      },
-      "tenantFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantFilter"
       }
     },
     "required": [
@@ -20266,11 +18581,6 @@
   "remove-standard.list": {
     "additionalProperties": true,
     "properties": {
-      "ID": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "ID"
-      },
       "id": {
         "description": "Id",
         "type": "string",
@@ -20309,11 +18619,6 @@
     "properties": {
       "default-domain-name": {
         "description": "Default domain name",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "defaultDomainName"
-      },
-      "defaultDomainName": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "defaultDomainName"

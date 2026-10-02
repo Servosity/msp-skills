@@ -611,11 +611,6 @@
         "x-location": "query",
         "x-wire-name": "exc_id"
       },
-      "exc_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "exc_id"
-      },
       "exc_type": {
         "type": "string",
         "x-location": "path"

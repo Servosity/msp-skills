@@ -159,11 +159,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "loadOptions"
-      },
-      "loadOptions": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "loadOptions"
       }
     },
     "type": "object"
@@ -173,11 +168,6 @@
     "properties": {
       "load-options": {
         "description": "Load options",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "loadOptions"
-      },
-      "loadOptions": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "loadOptions"
@@ -193,11 +183,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "loadOptions"
-      },
-      "loadOptions": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "loadOptions"
       }
     },
     "type": "object"
@@ -207,11 +192,6 @@
     "properties": {
       "load-options": {
         "description": "Load options",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "loadOptions"
-      },
-      "loadOptions": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "loadOptions"
@@ -438,11 +418,6 @@
     "properties": {
       "invoice-id": {
         "description": "Invoice id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "invoiceId"
-      },
-      "invoiceId": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "invoiceId"
@@ -885,11 +860,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "loadOptions"
-      },
-      "loadOptions": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "loadOptions"
       }
     },
     "type": "object"
@@ -920,11 +890,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "packageId"
-      },
-      "packageId": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "packageId"
       }
     },
     "type": "object"
@@ -934,11 +899,6 @@
     "properties": {
       "search-term": {
         "description": "Search term",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "searchTerm"
-      },
-      "searchTerm": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "searchTerm"
@@ -1207,18 +1167,8 @@
         "x-location": "query",
         "x-wire-name": "loadOptions"
       },
-      "loadOptions": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "loadOptions"
-      },
       "tenant-id": {
         "description": "Tenant id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantId"
-      },
-      "tenantId": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantId"
@@ -1262,31 +1212,6 @@
         "type": "boolean",
         "x-location": "query",
         "x-wire-name": "includeSessions"
-      },
-      "includeAdditionalPersons": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "includeAdditionalPersons"
-      },
-      "includePrimaryPerson": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "includePrimaryPerson"
-      },
-      "includeProviderAgents": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "includeProviderAgents"
-      },
-      "includeProviderAgentsDeviceUpdateFormData": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "includeProviderAgentsDeviceUpdateFormData"
-      },
-      "includeSessions": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "includeSessions"
       }
     },
     "required": [
@@ -1302,11 +1227,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "loadOptions"
-      },
-      "loadOptions": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "loadOptions"
       }
     },
     "type": "object"
@@ -1316,11 +1236,6 @@
     "properties": {
       "load-options": {
         "description": "Load options",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "loadOptions"
-      },
-      "loadOptions": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "loadOptions"
@@ -1336,11 +1251,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "loadOptions"
-      },
-      "loadOptions": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "loadOptions"
       }
     },
     "type": "object"
@@ -1350,11 +1260,6 @@
     "properties": {
       "load-options": {
         "description": "Load options",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "loadOptions"
-      },
-      "loadOptions": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "loadOptions"
@@ -1372,11 +1277,6 @@
       },
       "search-mode": {
         "description": "The string or integer value may be used. Contains = 0, Regex = 1, Traditional = 2 (one of: Contains, Regex, Traditional)",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "searchMode"
-      },
-      "searchMode": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "searchMode"
@@ -1485,18 +1385,8 @@
         "x-location": "query",
         "x-wire-name": "computerId"
       },
-      "computerId": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "computerId"
-      },
       "load-options": {
         "description": "Load options",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "loadOptions"
-      },
-      "loadOptions": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "loadOptions"
@@ -1509,11 +1399,6 @@
     "properties": {
       "load-options": {
         "description": "Load options",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "loadOptions"
-      },
-      "loadOptions": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "loadOptions"
@@ -2848,11 +2733,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "loadOptions"
-      },
-      "loadOptions": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "loadOptions"
       }
     },
     "type": "object"
@@ -2867,11 +2747,6 @@
       },
       "target-tenant-id": {
         "description": "Target tenant id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "targetTenantId"
-      },
-      "targetTenantId": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "targetTenantId"
@@ -3103,11 +2978,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "loadOptions"
-      },
-      "loadOptions": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "loadOptions"
       }
     },
     "required": [
@@ -3137,29 +3007,14 @@
         "x-location": "query",
         "x-wire-name": "createdDateUtc"
       },
-      "createdDateUtc": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "createdDateUtc"
-      },
       "load-options": {
         "description": "Load options",
         "type": "string",
         "x-location": "query",
         "x-wire-name": "loadOptions"
       },
-      "loadOptions": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "loadOptions"
-      },
       "session-type": {
         "description": "The string or integer value may be used. Cloud = 1, Computer = 2, Person = 3 (one of: Cloud, Computer, Person)",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "sessionType"
-      },
-      "sessionType": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "sessionType"
@@ -3179,11 +3034,6 @@
     "properties": {
       "date-utc": {
         "description": "Date utc",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "dateUtc"
-      },
-      "dateUtc": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "dateUtc"
@@ -3212,16 +3062,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "maintenanceType"
-      },
-      "maintenanceIdentifier": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "maintenanceIdentifier"
-      },
-      "maintenanceType": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "maintenanceType"
       }
     },
     "type": "object"
@@ -3237,16 +3077,6 @@
       },
       "software-type": {
         "description": "The string or integer value may be used. (one of: GlobalSoftware, LocalSoftware, WindowsUpdate, Chocolatey, Ninite)",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "softwareType"
-      },
-      "softwareIdentifier": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "softwareIdentifier"
-      },
-      "softwareType": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "softwareType"
@@ -3390,21 +3220,6 @@
         "x-location": "query",
         "x-wire-name": "includeStages"
       },
-      "includeActionActivities": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "includeActionActivities"
-      },
-      "includeActions": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "includeActions"
-      },
-      "includeStages": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "includeStages"
-      },
       "sessionId": {
         "type": "string",
         "x-location": "path"
@@ -3437,29 +3252,14 @@
         "x-location": "query",
         "x-wire-name": "computerId"
       },
-      "computerId": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "computerId"
-      },
       "full-maintenance-filter": {
         "description": "Full maintenance filter",
         "type": "boolean",
         "x-location": "query",
         "x-wire-name": "fullMaintenanceFilter"
       },
-      "fullMaintenanceFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "fullMaintenanceFilter"
-      },
       "load-options": {
         "description": "Load options",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "loadOptions"
-      },
-      "loadOptions": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "loadOptions"
@@ -3470,18 +3270,8 @@
         "x-location": "query",
         "x-wire-name": "onboardingFilter"
       },
-      "onboardingFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "onboardingFilter"
-      },
       "person-id": {
         "description": "Person id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "personId"
-      },
-      "personId": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "personId"
@@ -3492,29 +3282,14 @@
         "x-location": "query",
         "x-wire-name": "scheduledFilter"
       },
-      "scheduledFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "scheduledFilter"
-      },
       "session-type": {
         "description": "The string or integer value may be used. Cloud = 1, Computer = 2, Person = 3 (one of: Cloud, Computer, Person)",
         "type": "string",
         "x-location": "query",
         "x-wire-name": "sessionType"
       },
-      "sessionType": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "sessionType"
-      },
       "tenant-id": {
         "description": "Tenant id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantId"
-      },
-      "tenantId": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantId"
@@ -4485,16 +4260,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "maintenanceTaskType"
-      },
-      "maintenanceTaskId": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "maintenanceTaskId"
-      },
-      "maintenanceTaskType": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "maintenanceTaskType"
       }
     },
     "type": "object"
@@ -4756,11 +4521,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "loadOptions"
-      },
-      "loadOptions": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "loadOptions"
       }
     },
     "type": "object"
@@ -4801,11 +4561,6 @@
       },
       "load-options": {
         "description": "Load options",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "loadOptions"
-      },
-      "loadOptions": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "loadOptions"
@@ -4886,11 +4641,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "policyName"
-      },
-      "policyName": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "policyName"
       }
     },
     "type": "object"
@@ -4900,11 +4650,6 @@
     "properties": {
       "policy-name": {
         "description": "Policy name",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "policyName"
-      },
-      "policyName": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "policyName"
@@ -4956,11 +4701,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "loadOptions"
-      },
-      "loadOptions": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "loadOptions"
       }
     },
     "type": "object"
@@ -4986,11 +4726,6 @@
     "properties": {
       "object-id": {
         "description": "Object id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "objectId"
-      },
-      "objectId": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "objectId"
@@ -5311,23 +5046,8 @@
         "x-location": "query",
         "x-wire-name": "includeUserData"
       },
-      "includeTenant": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "includeTenant"
-      },
-      "includeUserData": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "includeUserData"
-      },
       "load-options": {
         "description": "Load options",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "loadOptions"
-      },
-      "loadOptions": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "loadOptions"
@@ -5338,18 +5058,8 @@
         "x-location": "query",
         "x-wire-name": "personType"
       },
-      "personType": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "personType"
-      },
       "tag-id": {
         "description": "Tag id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tagId"
-      },
-      "tagId": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tagId"
@@ -5631,11 +5341,6 @@
       },
       "manual-resolution-decision": {
         "description": "The string or integer value may be used. DeleteExisting = 0, GenerateNewDeviceId = 1, OverwriteExisting = 2 (one of: DeleteExisting, GenerateNewDeviceId, OverwriteExisting)",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "manualResolutionDecision"
-      },
-      "manualResolutionDecision": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "manualResolutionDecision"
@@ -6665,11 +6370,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "loadOptions"
-      },
-      "loadOptions": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "loadOptions"
       }
     },
     "required": [
@@ -6712,11 +6412,6 @@
       },
       "load-options": {
         "description": "Load options",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "loadOptions"
-      },
-      "loadOptions": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "loadOptions"
@@ -6926,11 +6621,6 @@
         "type": "boolean",
         "x-location": "query",
         "x-wire-name": "throwIfAgentInstallerVersionNotSet"
-      },
-      "throwIfAgentInstallerVersionNotSet": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "throwIfAgentInstallerVersionNotSet"
       }
     },
     "required": [
@@ -6974,11 +6664,6 @@
       "throw-if-agent-installer-version-not-set": {
         "description": "Throw if agent installer version not set",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "throwIfAgentInstallerVersionNotSet"
-      },
-      "throwIfAgentInstallerVersionNotSet": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "throwIfAgentInstallerVersionNotSet"
       }
@@ -7154,24 +6839,9 @@
         "x-location": "query",
         "x-wire-name": "includeProvidersLinkedFromThisProvider"
       },
-      "includeClients": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "includeClients"
-      },
-      "includeProvidersLinkedFromThisProvider": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "includeProvidersLinkedFromThisProvider"
-      },
       "throw-if-agent-installer-version-not-set": {
         "description": "Throw if agent installer version not set",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "throwIfAgentInstallerVersionNotSet"
-      },
-      "throwIfAgentInstallerVersionNotSet": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "throwIfAgentInstallerVersionNotSet"
       }
@@ -7219,24 +6889,9 @@
         "x-location": "query",
         "x-wire-name": "includeUnlinkedClients"
       },
-      "includeClients": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "includeClients"
-      },
-      "includeUnlinkedClients": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "includeUnlinkedClients"
-      },
       "throw-if-agent-installer-version-not-set": {
         "description": "Throw if agent installer version not set",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "throwIfAgentInstallerVersionNotSet"
-      },
-      "throwIfAgentInstallerVersionNotSet": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "throwIfAgentInstallerVersionNotSet"
       }
@@ -7315,11 +6970,6 @@
         "x-location": "query",
         "x-wire-name": "throwIfAgentInstallerVersionNotSet"
       },
-      "throwIfAgentInstallerVersionNotSet": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "throwIfAgentInstallerVersionNotSet"
-      },
       "updatedBy": {
         "description": "Updated by",
         "type": "integer",
@@ -7369,18 +7019,8 @@
         "x-location": "query",
         "x-wire-name": "providerLinkId"
       },
-      "providerLinkId": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "providerLinkId"
-      },
       "tenant-id": {
         "description": "Tenant id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantId"
-      },
-      "tenantId": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantId"
@@ -7404,18 +7044,8 @@
         "x-location": "query",
         "x-wire-name": "externalClientId"
       },
-      "externalClientId": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "externalClientId"
-      },
       "provider-link-id": {
         "description": "Provider link id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "providerLinkId"
-      },
-      "providerLinkId": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "providerLinkId"
@@ -7438,11 +7068,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "providerLinkId"
-      },
-      "providerLinkId": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "providerLinkId"
       }
     },
     "required": [
@@ -7456,11 +7081,6 @@
       "include-link-form-schemas": {
         "description": "Include link form schemas",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "includeLinkFormSchemas"
-      },
-      "includeLinkFormSchemas": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "includeLinkFormSchemas"
       }
@@ -7490,11 +7110,6 @@
         "type": "boolean",
         "x-location": "query",
         "x-wire-name": "throwIfAgentInstallerVersionNotSet"
-      },
-      "throwIfAgentInstallerVersionNotSet": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "throwIfAgentInstallerVersionNotSet"
       }
     },
     "required": [
@@ -7521,24 +7136,9 @@
         "x-location": "query",
         "x-wire-name": "includeProvidersLinkedFromThisProvider"
       },
-      "includeClients": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "includeClients"
-      },
-      "includeProvidersLinkedFromThisProvider": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "includeProvidersLinkedFromThisProvider"
-      },
       "throw-if-agent-installer-version-not-set": {
         "description": "Throw if agent installer version not set",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "throwIfAgentInstallerVersionNotSet"
-      },
-      "throwIfAgentInstallerVersionNotSet": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "throwIfAgentInstallerVersionNotSet"
       }
@@ -7563,24 +7163,9 @@
         "x-location": "query",
         "x-wire-name": "includeUnlinkedClients"
       },
-      "includeClients": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "includeClients"
-      },
-      "includeUnlinkedClients": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "includeUnlinkedClients"
-      },
       "throw-if-agent-installer-version-not-set": {
         "description": "Throw if agent installer version not set",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "throwIfAgentInstallerVersionNotSet"
-      },
-      "throwIfAgentInstallerVersionNotSet": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "throwIfAgentInstallerVersionNotSet"
       }
@@ -7625,11 +7210,6 @@
       "throw-if-agent-installer-version-not-set": {
         "description": "Throw if agent installer version not set",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "throwIfAgentInstallerVersionNotSet"
-      },
-      "throwIfAgentInstallerVersionNotSet": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "throwIfAgentInstallerVersionNotSet"
       },
@@ -8713,11 +8293,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantId"
-      },
-      "tenantId": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantId"
       }
     },
     "type": "object"
@@ -9070,11 +8645,6 @@
         "x-location": "query",
         "x-wire-name": "ignoreSyntaxErrors"
       },
-      "ignoreSyntaxErrors": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "ignoreSyntaxErrors"
-      },
       "name": {
         "description": "Name",
         "type": "string",
@@ -9133,11 +8703,6 @@
       "ignore-syntax-errors": {
         "description": "Ignore syntax errors",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "ignoreSyntaxErrors"
-      },
-      "ignoreSyntaxErrors": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "ignoreSyntaxErrors"
       },
@@ -9243,11 +8808,6 @@
         "x-location": "query",
         "x-wire-name": "ignoreSyntaxErrors"
       },
-      "ignoreSyntaxErrors": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "ignoreSyntaxErrors"
-      },
       "name": {
         "description": "Name",
         "type": "string",
@@ -9316,11 +8876,6 @@
       "ignore-syntax-errors": {
         "description": "Ignore syntax errors",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "ignoreSyntaxErrors"
-      },
-      "ignoreSyntaxErrors": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "ignoreSyntaxErrors"
       },
@@ -9735,18 +9290,8 @@
         "x-location": "query",
         "x-wire-name": "databaseType"
       },
-      "databaseType": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "databaseType"
-      },
       "load-options": {
         "description": "Load options",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "loadOptions"
-      },
-      "loadOptions": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "loadOptions"
@@ -9828,11 +9373,6 @@
         "x-location": "query",
         "x-wire-name": "scriptCategory"
       },
-      "scriptCategory": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "scriptCategory"
-      },
       "search-filter": {
         "description": "Search filter",
         "type": "string",
@@ -9841,16 +9381,6 @@
       },
       "search-type": {
         "description": "Search type",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "searchType"
-      },
-      "searchFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "searchFilter"
-      },
-      "searchType": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "searchType"
@@ -9966,11 +9496,6 @@
         "x-location": "query",
         "x-wire-name": "scriptCategory"
       },
-      "scriptCategory": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "scriptCategory"
-      },
       "search-filter": {
         "description": "Search filter",
         "type": "string",
@@ -9979,16 +9504,6 @@
       },
       "search-type": {
         "description": "Search type",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "searchType"
-      },
-      "searchFilter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "searchFilter"
-      },
-      "searchType": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "searchType"
@@ -10006,11 +9521,6 @@
       },
       "script-type": {
         "description": "The string or integer value may be used. Global = 0, Local = 1 (one of: Global, Local)",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "scriptType"
-      },
-      "scriptType": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "scriptType"
@@ -15967,18 +15477,8 @@
         "x-location": "query",
         "x-wire-name": "loadOptions"
       },
-      "loadOptions": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "loadOptions"
-      },
       "tenant-id": {
         "description": "Tenant id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantId"
-      },
-      "tenantId": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantId"
@@ -15995,18 +15495,8 @@
         "x-location": "query",
         "x-wire-name": "loadOptions"
       },
-      "loadOptions": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "loadOptions"
-      },
       "tenant-id": {
         "description": "Tenant id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenantId"
-      },
-      "tenantId": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenantId"
@@ -16479,11 +15969,6 @@
       },
       "redirect-url": {
         "description": "Redirect url",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "redirectUrl"
-      },
-      "redirectUrl": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "redirectUrl"

@@ -126,11 +126,6 @@
         "x-location": "query",
         "x-wire-name": "sourceType"
       },
-      "sourceType": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "sourceType"
-      },
       "tz": {
         "description": "Time Zone",
         "type": "string",
@@ -144,26 +139,6 @@
     "properties": {
       "entity-type": {
         "description": "Entity type (one of: TICKET, NODE, DOCUMENT, RELATED_ITEM, CHECKLIST, AUTOMATION, LOCATION, ORGANIZATION, TRIGGER, TECHNICIAN, FILE_TRANSFER_AUTOMATION, END_USER, EMAIL_TEMPLATE)",
-        "enum": [
-          "TICKET",
-          "NODE",
-          "DOCUMENT",
-          "RELATED_ITEM",
-          "CHECKLIST",
-          "AUTOMATION",
-          "LOCATION",
-          "ORGANIZATION",
-          "TRIGGER",
-          "TECHNICIAN",
-          "FILE_TRANSFER_AUTOMATION",
-          "END_USER",
-          "EMAIL_TEMPLATE"
-        ],
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "entityType"
-      },
-      "entityType": {
         "enum": [
           "TICKET",
           "NODE",
@@ -381,24 +356,9 @@
         "x-location": "query",
         "x-wire-name": "checklistTemplateName"
       },
-      "checklistTemplateIds": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "checklistTemplateIds"
-      },
-      "checklistTemplateName": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "checklistTemplateName"
-      },
       "include-archived": {
         "description": "Include archived",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "includeArchived"
-      },
-      "includeArchived": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "includeArchived"
       },
@@ -677,11 +637,6 @@
         "type": "boolean",
         "x-location": "query",
         "x-wire-name": "withInheritance"
-      },
-      "withInheritance": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "withInheritance"
       }
     },
     "required": [
@@ -851,16 +806,6 @@
       },
       "installed-before": {
         "description": "Include patches installed before specified date",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "installedBefore"
-      },
-      "installedAfter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "installedAfter"
-      },
-      "installedBefore": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "installedBefore"
@@ -1138,23 +1083,8 @@
         "x-location": "query",
         "x-wire-name": "installedBefore"
       },
-      "installedAfter": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "installedAfter"
-      },
-      "installedBefore": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "installedBefore"
-      },
       "product-identifier": {
         "description": "Product Identifier",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "productIdentifier"
-      },
-      "productIdentifier": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "productIdentifier"
@@ -1189,11 +1119,6 @@
       },
       "product-identifier": {
         "description": "Product Identifier",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "productIdentifier"
-      },
-      "productIdentifier": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "productIdentifier"
@@ -1594,11 +1519,6 @@
         "type": "boolean",
         "x-location": "query",
         "x-wire-name": "includeTechnicianRoles"
-      },
-      "includeTechnicianRoles": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "includeTechnicianRoles"
       }
     },
     "required": [
@@ -1615,18 +1535,8 @@
         "x-location": "query",
         "x-wire-name": "includeTechnicianRoles"
       },
-      "includeTechnicianRoles": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "includeTechnicianRoles"
-      },
       "template-name": {
         "description": "Template name",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "templateName"
-      },
-      "templateName": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "templateName"
@@ -1957,29 +1867,14 @@
         "x-location": "query",
         "x-wire-name": "articleName"
       },
-      "articleName": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "articleName"
-      },
       "include-archived": {
         "description": "Include archived",
         "type": "boolean",
         "x-location": "query",
         "x-wire-name": "includeArchived"
       },
-      "includeArchived": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "includeArchived"
-      },
       "organization-ids": {
         "description": "Organization ids",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "organizationIds"
-      },
-      "organizationIds": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "organizationIds"
@@ -1996,19 +1891,9 @@
         "x-location": "query",
         "x-wire-name": "articleName"
       },
-      "articleName": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "articleName"
-      },
       "include-archived": {
         "description": "Include archived",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "includeArchived"
-      },
-      "includeArchived": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "includeArchived"
       }
@@ -2040,11 +1925,6 @@
         "type": "boolean",
         "x-location": "query",
         "x-wire-name": "includeArchived"
-      },
-      "includeArchived": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "includeArchived"
       }
     },
     "required": [
@@ -2067,23 +1947,8 @@
         "x-location": "query",
         "x-wire-name": "folderPath"
       },
-      "folderId": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "folderId"
-      },
-      "folderPath": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "folderPath"
-      },
       "organization-id": {
         "description": "Organization id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "organizationId"
-      },
-      "organizationId": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "organizationId"
@@ -2205,11 +2070,6 @@
       },
       "job-type": {
         "description": "Job Type filter",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "jobType"
-      },
-      "jobType": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "jobType"
@@ -2487,11 +2347,6 @@
         "type": "boolean",
         "x-location": "query",
         "x-wire-name": "includeRoles"
-      },
-      "includeRoles": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "includeRoles"
       }
     },
     "required": [
@@ -2547,11 +2402,6 @@
         "x-location": "query",
         "x-wire-name": "assignedToUserId"
       },
-      "assignedToUserId": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "assignedToUserId"
-      },
       "checklist-ids": {
         "description": "Checklist ids",
         "type": "string",
@@ -2560,16 +2410,6 @@
       },
       "checklist-name": {
         "description": "Checklist name",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "checklistName"
-      },
-      "checklistIds": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "checklistIds"
-      },
-      "checklistName": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "checklistName"
@@ -2585,18 +2425,8 @@
         "x-location": "query",
         "x-wire-name": "includeArchived"
       },
-      "includeArchived": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "includeArchived"
-      },
       "organization-ids": {
         "description": "Organization ids",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "organizationIds"
-      },
-      "organizationIds": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "organizationIds"
@@ -2631,22 +2461,8 @@
         "x-location": "query",
         "x-wire-name": "documentName"
       },
-      "documentName": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "documentName"
-      },
       "group-by": {
         "description": "Group by (one of: TEMPLATE, ORGANIZATION)",
-        "enum": [
-          "TEMPLATE",
-          "ORGANIZATION"
-        ],
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "groupBy"
-      },
-      "groupBy": {
         "enum": [
           "TEMPLATE",
           "ORGANIZATION"
@@ -2661,11 +2477,6 @@
         "x-location": "query",
         "x-wire-name": "organizationIds"
       },
-      "organizationIds": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "organizationIds"
-      },
       "template-ids": {
         "description": "Template ids",
         "type": "string",
@@ -2674,16 +2485,6 @@
       },
       "template-name": {
         "description": "Template name",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "templateName"
-      },
-      "templateIds": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "templateIds"
-      },
-      "templateName": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "templateName"
@@ -2787,11 +2588,6 @@
       "with-inheritance": {
         "description": "Retrieve values using definition scope hierarchy",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "withInheritance"
-      },
-      "withInheritance": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "withInheritance"
       }
@@ -3246,11 +3042,6 @@
         "x-location": "query",
         "x-wire-name": "templateOrganizationId"
       },
-      "templateOrganizationId": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "templateOrganizationId"
-      },
       "userData": {
         "description": "JSON value",
         "type": "object",
@@ -3674,11 +3465,6 @@
       },
       "template-policy-id": {
         "description": "Template Policy identifier",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "templatePolicyId"
-      },
-      "templatePolicyId": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "templatePolicyId"
@@ -5816,11 +5602,6 @@
         "type": "boolean",
         "x-location": "query",
         "x-wire-name": "sendInvitation"
-      },
-      "sendInvitation": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "sendInvitation"
       }
     },
     "type": "object"
@@ -5913,15 +5694,6 @@
     "properties": {
       "role-type": {
         "description": "User role type filter (one of: TECHNICIAN, END_USER)",
-        "enum": [
-          "TECHNICIAN",
-          "END_USER"
-        ],
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "roleType"
-      },
-      "roleType": {
         "enum": [
           "TECHNICIAN",
           "END_USER"
@@ -6049,22 +5821,8 @@
         "x-location": "query",
         "x-wire-name": "includeRoles"
       },
-      "includeRoles": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "includeRoles"
-      },
       "user-type": {
         "description": "User type filter (one of: TECHNICIAN, END_USER)",
-        "enum": [
-          "TECHNICIAN",
-          "END_USER"
-        ],
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "userType"
-      },
-      "userType": {
         "enum": [
           "TECHNICIAN",
           "END_USER"

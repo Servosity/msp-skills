@@ -124,11 +124,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "ticket_id"
-      },
-      "ticket_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "ticket_id"
       }
     },
     "required": [
@@ -276,11 +271,6 @@
       },
       "ticket-id": {
         "description": "(int) The ID of the Ticket to get actions for.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "ticket_id"
-      },
-      "ticket_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "ticket_id"
@@ -454,29 +444,14 @@
         "x-location": "query",
         "x-wire-name": "site_id"
       },
-      "site_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "site_id"
-      },
       "type-id": {
         "description": "Type id",
         "type": "string",
         "x-location": "query",
         "x-wire-name": "type_id"
       },
-      "type_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "type_id"
-      },
       "user-id": {
         "description": "User id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "user_id"
-      },
-      "user_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "user_id"
@@ -682,29 +657,14 @@
         "x-location": "query",
         "x-wire-name": "agent_id"
       },
-      "agent_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "agent_id"
-      },
       "end-date": {
         "description": "End date",
         "type": "string",
         "x-location": "query",
         "x-wire-name": "end_date"
       },
-      "end_date": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "end_date"
-      },
       "start-date": {
         "description": "Start date",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "start_date"
-      },
-      "start_date": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "start_date"
@@ -771,11 +731,6 @@
       "get-htmldesigner-signature": {
         "description": "Get htmldesigner signature",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "get_htmldesigner_signature"
-      },
-      "get_htmldesigner_signature": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "get_htmldesigner_signature"
       },
@@ -908,11 +863,6 @@
       "get-htmldesigner-signature": {
         "description": "Get htmldesigner signature",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "get_htmldesigner_signature"
-      },
-      "get_htmldesigner_signature": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "get_htmldesigner_signature"
       },
@@ -3351,18 +3301,8 @@
         "x-location": "query",
         "x-wire-name": "process_id"
       },
-      "process_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "process_id"
-      },
       "step-id": {
         "description": "Step id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "step_id"
-      },
-      "step_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "step_id"
@@ -3426,11 +3366,6 @@
         "type": "integer",
         "x-location": "query",
         "x-wire-name": "access_control_level"
-      },
-      "access_control_level": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "access_control_level"
       }
     },
     "type": "object"
@@ -3444,18 +3379,8 @@
         "x-location": "query",
         "x-wire-name": "azure_tenant_id"
       },
-      "azure_tenant_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "azure_tenant_id"
-      },
       "client-id": {
         "description": "Client id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "client_id"
-      },
-      "client_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "client_id"
@@ -3466,19 +3391,9 @@
         "x-location": "query",
         "x-wire-name": "details_id"
       },
-      "details_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "details_id"
-      },
       "ignore-decrypt": {
         "description": "Ignore decrypt",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "ignore_decrypt"
-      },
-      "ignore_decrypt": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "ignore_decrypt"
       },
@@ -3494,11 +3409,6 @@
       },
       "site-id": {
         "description": "Site id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "site_id"
-      },
-      "site_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "site_id"
@@ -3826,18 +3736,8 @@
         "x-location": "query",
         "x-wire-name": "device_id"
       },
-      "device_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "device_id"
-      },
       "licence-id": {
         "description": "Licence id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "licence_id"
-      },
-      "licence_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "licence_id"
@@ -3854,23 +3754,8 @@
         "x-location": "query",
         "x-wire-name": "third_party_id"
       },
-      "third_party_field": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "third_party_field"
-      },
-      "third_party_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "third_party_id"
-      },
       "user-id": {
         "description": "User id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "user_id"
-      },
-      "user_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "user_id"
@@ -3887,11 +3772,6 @@
         "x-location": "query",
         "x-wire-name": "assetgroup_id"
       },
-      "assetgroup_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "assetgroup_id"
-      },
       "can-create-only": {
         "description": "Can create only",
         "type": "boolean",
@@ -3904,16 +3784,6 @@
         "x-location": "query",
         "x-wire-name": "can_edit_only"
       },
-      "can_create_only": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "can_create_only"
-      },
-      "can_edit_only": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "can_edit_only"
-      },
       "fixedassetgroups": {
         "description": "Fixedassetgroups",
         "type": "boolean",
@@ -3922,11 +3792,6 @@
       "include-current": {
         "description": "Include current",
         "type": "integer",
-        "x-location": "query",
-        "x-wire-name": "include_current"
-      },
-      "include_current": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "include_current"
       },
@@ -3942,11 +3807,6 @@
       },
       "tickettype-id": {
         "description": "Tickettype id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tickettype_id"
-      },
-      "tickettype_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tickettype_id"
@@ -4021,29 +3881,14 @@
         "x-location": "query",
         "x-wire-name": "booking_type"
       },
-      "booking_type": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "booking_type"
-      },
       "client-id": {
         "description": "Client id",
         "type": "string",
         "x-location": "query",
         "x-wire-name": "client_id"
       },
-      "client_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "client_id"
-      },
       "end-date": {
         "description": "End date",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "end_date"
-      },
-      "end_date": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "end_date"
@@ -4068,18 +3913,8 @@
         "x-location": "query",
         "x-wire-name": "site_id"
       },
-      "site_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "site_id"
-      },
       "start-date": {
         "description": "Start date",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "start_date"
-      },
-      "start_date": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "start_date"
@@ -4099,11 +3934,6 @@
         "x-location": "query",
         "x-wire-name": "assetgroup_id"
       },
-      "assetgroup_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "assetgroup_id"
-      },
       "can-create-only": {
         "description": "Can create only",
         "type": "boolean",
@@ -4116,16 +3946,6 @@
         "x-location": "query",
         "x-wire-name": "can_edit_only"
       },
-      "can_create_only": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "can_create_only"
-      },
-      "can_edit_only": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "can_edit_only"
-      },
       "fixedassetgroups": {
         "description": "Fixedassetgroups",
         "type": "boolean",
@@ -4134,11 +3954,6 @@
       "include-current": {
         "description": "Include current",
         "type": "integer",
-        "x-location": "query",
-        "x-wire-name": "include_current"
-      },
-      "include_current": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "include_current"
       },
@@ -4154,11 +3969,6 @@
       },
       "tickettype-id": {
         "description": "Tickettype id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tickettype_id"
-      },
-      "tickettype_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tickettype_id"
@@ -4206,11 +4016,6 @@
     "properties": {
       "assettype-id": {
         "description": "Assettype id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "assettype_id"
-      },
-      "assettype_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "assettype_id"
@@ -4713,76 +4518,6 @@
   "attachment.create-image": {
     "additionalProperties": true,
     "properties": {
-      "_alreadyuploaded": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "_alreadyuploaded"
-      },
-      "_canupdate": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "_canupdate"
-      },
-      "_enduserportalpdfprint": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "_enduserportalpdfprint"
-      },
-      "_importtype": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "_importtype"
-      },
-      "_is_new_version": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "_is_new_version"
-      },
-      "_isimport": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "_isimport"
-      },
-      "_match_additional_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "_match_additional_id"
-      },
-      "_match_integration_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "_match_integration_id"
-      },
-      "_match_integration_name": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "_match_integration_name"
-      },
-      "_match_thirdparty_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "_match_thirdparty_id"
-      },
-      "_start_transcription": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "_start_transcription"
-      },
-      "_transcription_is_new_action": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "_transcription_is_new_action"
-      },
-      "_transcription_started": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "_transcription_started"
-      },
-      "_warning": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "_warning"
-      },
       "aashowforchildren": {
         "description": "Aashowforchildren",
         "type": "boolean",
@@ -4820,23 +4555,8 @@
         "x-location": "query",
         "x-wire-name": "access_control_level"
       },
-      "access_control": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "access_control"
-      },
-      "access_control_level": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "access_control_level"
-      },
       "action-id": {
         "description": "Action id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "action_id"
-      },
-      "action_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "action_id"
@@ -4844,11 +4564,6 @@
       "already-posted": {
         "description": "Already posted",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "already_posted"
-      },
-      "already_posted": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "already_posted"
       },
@@ -4860,11 +4575,6 @@
       },
       "anon-outcomeid": {
         "description": "Anon outcomeid",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "anon_outcomeid"
-      },
-      "anon_outcomeid": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "anon_outcomeid"
@@ -4886,11 +4596,6 @@
       },
       "atblob-base64": {
         "description": "Atblob base64",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "atblob_base64"
-      },
-      "atblob_base64": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "atblob_base64"
@@ -4991,11 +4696,6 @@
         "x-location": "query",
         "x-wire-name": "attachmentaction_id"
       },
-      "attachmentaction_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "attachmentaction_id"
-      },
       "atthirdpartyid": {
         "description": "Atthirdpartyid",
         "type": "string",
@@ -5023,29 +4723,14 @@
         "x-location": "query",
         "x-wire-name": "child_count"
       },
-      "child_count": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "child_count"
-      },
       "content-id": {
         "description": "Content id",
         "type": "string",
         "x-location": "query",
         "x-wire-name": "content_id"
       },
-      "content_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "content_id"
-      },
       "copy-from-id": {
         "description": "Copy from id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "copy_from_id"
-      },
-      "copy_from_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "copy_from_id"
@@ -5061,11 +4746,6 @@
         "x-location": "query",
         "x-wire-name": "date_created_override"
       },
-      "date_created_override": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "date_created_override"
-      },
       "enduserportalpdfprint": {
         "description": "Enduserportalpdfprint",
         "type": "boolean",
@@ -5074,11 +4754,6 @@
       },
       "external-links": {
         "description": "External links",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "external_links"
-      },
-      "external_links": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "external_links"
@@ -5142,58 +4817,8 @@
         "x-location": "query",
         "x-wire-name": "file_stream.WriteTimeout"
       },
-      "file_stream.CanRead": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "file_stream.CanRead"
-      },
-      "file_stream.CanSeek": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "file_stream.CanSeek"
-      },
-      "file_stream.CanTimeout": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "file_stream.CanTimeout"
-      },
-      "file_stream.CanWrite": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "file_stream.CanWrite"
-      },
-      "file_stream.Capacity": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "file_stream.Capacity"
-      },
-      "file_stream.Length": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "file_stream.Length"
-      },
-      "file_stream.Position": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "file_stream.Position"
-      },
-      "file_stream.ReadTimeout": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "file_stream.ReadTimeout"
-      },
-      "file_stream.WriteTimeout": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "file_stream.WriteTimeout"
-      },
       "folder-hierarchy": {
         "description": "Folder hierarchy",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "folder_hierarchy"
-      },
-      "folder_hierarchy": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "folder_hierarchy"
@@ -5201,11 +4826,6 @@
       "has-scanned": {
         "description": "Has scanned",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "has_scanned"
-      },
-      "has_scanned": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "has_scanned"
       },
@@ -5221,16 +4841,6 @@
         "x-location": "query",
         "x-wire-name": "image_upload_key"
       },
-      "image_upload_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "image_upload_id"
-      },
-      "image_upload_key": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "image_upload_key"
-      },
       "import-details-id": {
         "description": "Import details id",
         "type": "string",
@@ -5239,16 +4849,6 @@
       },
       "import-parentid": {
         "description": "Import parentid",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "import_parentid"
-      },
-      "import_details_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "import_details_id"
-      },
-      "import_parentid": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "import_parentid"
@@ -5271,11 +4871,6 @@
         "x-location": "query",
         "x-wire-name": "is_s3"
       },
-      "is_s3": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "is_s3"
-      },
       "isimport": {
         "description": "Isimport",
         "type": "boolean",
@@ -5284,11 +4879,6 @@
       },
       "last-updated": {
         "description": "Last updated",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "last_updated"
-      },
-      "last_updated": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "last_updated"
@@ -5580,223 +5170,8 @@
         "x-location": "query",
         "x-wire-name": "new_external_link._webhookaction"
       },
-      "new_external_link._match": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "new_external_link._match"
-      },
-      "new_external_link._warning": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "new_external_link._warning"
-      },
-      "new_external_link._webhookaction": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "new_external_link._webhookaction"
-      },
-      "new_external_link.chat_message_count": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "new_external_link.chat_message_count"
-      },
-      "new_external_link.child_links": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "new_external_link.child_links"
-      },
-      "new_external_link.eldatecreated": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "new_external_link.eldatecreated"
-      },
-      "new_external_link.eldateupdated": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "new_external_link.eldateupdated"
-      },
-      "new_external_link.eldescription": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "new_external_link.eldescription"
-      },
-      "new_external_link.eldetailsid": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "new_external_link.eldetailsid"
-      },
-      "new_external_link.eldontmoveexistingassets": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "new_external_link.eldontmoveexistingassets"
-      },
-      "new_external_link.elhaloid": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "new_external_link.elhaloid"
-      },
-      "new_external_link.eliconforlinkedentity": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "new_external_link.eliconforlinkedentity"
-      },
-      "new_external_link.elid": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "new_external_link.elid"
-      },
-      "new_external_link.elintegrationname": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "new_external_link.elintegrationname"
-      },
-      "new_external_link.elisprimary": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "new_external_link.elisprimary"
-      },
-      "new_external_link.elmoduleid": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "new_external_link.elmoduleid"
-      },
-      "new_external_link.elparentid": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "new_external_link.elparentid"
-      },
-      "new_external_link.elrevisions": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "new_external_link.elrevisions"
-      },
-      "new_external_link.elsubscriptionexpiry": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "new_external_link.elsubscriptionexpiry"
-      },
-      "new_external_link.elsubscriptionid": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "new_external_link.elsubscriptionid"
-      },
-      "new_external_link.elsubscriptionkey": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "new_external_link.elsubscriptionkey"
-      },
-      "new_external_link.eltableid": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "new_external_link.eltableid"
-      },
-      "new_external_link.elthirdpartyadditionalid": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "new_external_link.elthirdpartyadditionalid"
-      },
-      "new_external_link.elthirdpartyassignedto": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "new_external_link.elthirdpartyassignedto"
-      },
-      "new_external_link.elthirdpartycount": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "new_external_link.elthirdpartycount"
-      },
-      "new_external_link.elthirdpartydesc": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "new_external_link.elthirdpartydesc"
-      },
-      "new_external_link.elthirdpartyid": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "new_external_link.elthirdpartyid"
-      },
-      "new_external_link.elthirdpartypriority": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "new_external_link.elthirdpartypriority"
-      },
-      "new_external_link.elthirdpartystatus": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "new_external_link.elthirdpartystatus"
-      },
-      "new_external_link.elthirdpartytype": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "new_external_link.elthirdpartytype"
-      },
-      "new_external_link.elthirdpartyurl": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "new_external_link.elthirdpartyurl"
-      },
-      "new_external_link.elurlforlinkedentity": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "new_external_link.elurlforlinkedentity"
-      },
-      "new_external_link.elurlforlinkedentitycaption": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "new_external_link.elurlforlinkedentitycaption"
-      },
-      "new_external_link.extra_match_field": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "new_external_link.extra_match_field"
-      },
-      "new_external_link.filters": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "new_external_link.filters"
-      },
-      "new_external_link.halo_desc": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "new_external_link.halo_desc"
-      },
-      "new_external_link.halo_second_desc": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "new_external_link.halo_second_desc"
-      },
-      "new_external_link.halo_second_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "new_external_link.halo_second_id"
-      },
-      "new_external_link.new_subscription_key": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "new_external_link.new_subscription_key"
-      },
-      "new_external_link.populate_url": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "new_external_link.populate_url"
-      },
-      "new_external_link.third_party_secondary_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "new_external_link.third_party_secondary_id"
-      },
-      "new_external_link.update_existing_link": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "new_external_link.update_existing_link"
-      },
       "outcome-id": {
         "description": "Outcome id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "outcome_id"
-      },
-      "outcome_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "outcome_id"
@@ -5809,16 +5184,6 @@
       },
       "parent-name": {
         "description": "Parent name",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "parent_name"
-      },
-      "parent_desc": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "parent_desc"
-      },
-      "parent_name": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "parent_name"
@@ -5840,18 +5205,8 @@
         "x-location": "query",
         "x-wire-name": "third_party_id"
       },
-      "third_party_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "third_party_id"
-      },
       "ticket-id": {
         "description": "Ticket id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "ticket_id"
-      },
-      "ticket_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "ticket_id"
@@ -5864,16 +5219,6 @@
       },
       "tickettype-id": {
         "description": "Tickettype id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tickettype_id"
-      },
-      "tickettype_guid": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tickettype_guid"
-      },
-      "tickettype_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tickettype_id"
@@ -5896,18 +5241,8 @@
         "x-location": "query",
         "x-wire-name": "useThisGuid"
       },
-      "useThisGuid": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "useThisGuid"
-      },
       "validate-guid": {
         "description": "Validate guid",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "validate_guid"
-      },
-      "validate_guid": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "validate_guid"
@@ -5915,11 +5250,6 @@
       "version-count": {
         "description": "Version count",
         "type": "integer",
-        "x-location": "query",
-        "x-wire-name": "version_count"
-      },
-      "version_count": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "version_count"
       },
@@ -6069,11 +5399,6 @@
         "x-location": "query",
         "x-wire-name": "action_id"
       },
-      "action_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "action_id"
-      },
       "domotzagents": {
         "description": "Domotzagents",
         "type": "boolean",
@@ -6096,11 +5421,6 @@
       },
       "one-attachment-id": {
         "description": "One attachment id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "one_attachment_id"
-      },
-      "one_attachment_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "one_attachment_id"
@@ -6166,11 +5486,6 @@
         "x-location": "query",
         "x-wire-name": "ticket_id"
       },
-      "ticket_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "ticket_id"
-      },
       "token": {
         "description": "Token",
         "type": "string",
@@ -6183,11 +5498,6 @@
       },
       "unique-id": {
         "description": "(int) Returns an attachment with the unique ID specified.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "unique_id"
-      },
-      "unique_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "unique_id"
@@ -6734,11 +6044,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "connection_id"
-      },
-      "connection_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "connection_id"
       }
     },
     "type": "object"
@@ -6791,11 +6096,6 @@
     "properties": {
       "client-id": {
         "description": "Client id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "client_id"
-      },
-      "client_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "client_id"
@@ -6928,11 +6228,6 @@
     "properties": {
       "ticket-id": {
         "description": "Ticket id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "ticket_id"
-      },
-      "ticket_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "ticket_id"
@@ -7269,18 +6564,8 @@
         "x-location": "query",
         "x-wire-name": "access_control_level"
       },
-      "access_control_level": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "access_control_level"
-      },
       "agent-id": {
         "description": "Agent id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "agent_id"
-      },
-      "agent_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "agent_id"
@@ -7291,18 +6576,8 @@
         "x-location": "query",
         "x-wire-name": "department_id"
       },
-      "department_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "department_id"
-      },
       "group-id": {
         "description": "Group id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "group_id"
-      },
-      "group_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "group_id"
@@ -7314,11 +6589,6 @@
       },
       "team-id": {
         "description": "Team id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "team_id"
-      },
-      "team_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "team_id"
@@ -7388,18 +6658,8 @@
         "x-location": "query",
         "x-wire-name": "client_id"
       },
-      "client_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "client_id"
-      },
       "service-id": {
         "description": "Service id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "service_id"
-      },
-      "service_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "service_id"
@@ -7416,34 +6676,14 @@
         "x-location": "query",
         "x-wire-name": "team_name"
       },
-      "team_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "team_id"
-      },
-      "team_name": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "team_name"
-      },
       "tickettype-id": {
         "description": "Tickettype id",
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tickettype_id"
       },
-      "tickettype_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tickettype_id"
-      },
       "type-id": {
         "description": "Type id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "type_id"
-      },
-      "type_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "type_id"
@@ -7536,29 +6776,14 @@
         "x-location": "query",
         "x-wire-name": "chargerate_id"
       },
-      "chargerate_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "chargerate_id"
-      },
       "client-id": {
         "description": "Client id",
         "type": "string",
         "x-location": "query",
         "x-wire-name": "client_id"
       },
-      "client_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "client_id"
-      },
       "contract-id": {
         "description": "Contract id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "contract_id"
-      },
-      "contract_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "contract_id"
@@ -7666,29 +6891,14 @@
         "x-location": "query",
         "x-wire-name": "chat_id"
       },
-      "chat_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "chat_id"
-      },
       "last-id": {
         "description": "Last id",
         "type": "string",
         "x-location": "query",
         "x-wire-name": "last_id"
       },
-      "last_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "last_id"
-      },
       "max-id": {
         "description": "Max id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "max_id"
-      },
-      "max_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "max_id"
@@ -7732,11 +6942,6 @@
       "check-available": {
         "description": "Check available",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "check_available"
-      },
-      "check_available": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "check_available"
       },
@@ -8398,11 +7603,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tickettype_id"
-      },
-      "tickettype_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tickettype_id"
       }
     },
     "required": [
@@ -8713,11 +7913,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "instance_id"
-      },
-      "instance_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "instance_id"
       }
     },
     "required": [
@@ -9003,11 +8198,6 @@
       "delete-order": {
         "description": "Delete order",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "deleteOrder"
-      },
-      "deleteOrder": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "deleteOrder"
       },
@@ -9485,11 +8675,6 @@
         "x-location": "query",
         "x-wire-name": "client_id"
       },
-      "client_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "client_id"
-      },
       "count": {
         "description": "Count",
         "type": "integer",
@@ -9501,18 +8686,8 @@
         "x-location": "query",
         "x-wire-name": "supplier_id"
       },
-      "supplier_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "supplier_id"
-      },
       "toplevel-id": {
         "description": "Toplevel id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "toplevel_id"
-      },
-      "toplevel_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "toplevel_id"
@@ -10035,11 +9210,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "module_id"
-      },
-      "module_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "module_id"
       }
     },
     "required": [
@@ -10101,11 +9271,6 @@
       },
       "module-id": {
         "description": "Module id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "module_id"
-      },
-      "module_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "module_id"
@@ -10223,11 +9388,6 @@
       "access-control-level": {
         "description": "Access control level",
         "type": "integer",
-        "x-location": "query",
-        "x-wire-name": "access_control_level"
-      },
-      "access_control_level": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "access_control_level"
       },
@@ -10643,11 +9803,6 @@
       },
       "lookup-value": {
         "description": "Lookup value",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "lookup_value"
-      },
-      "lookup_value": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "lookup_value"
@@ -11866,19 +11021,9 @@
         "x-location": "query",
         "x-wire-name": "access_control_level"
       },
-      "access_control_level": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "access_control_level"
-      },
       "ignore-mg": {
         "description": "Ignore mg",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "ignore_mg"
-      },
-      "ignore_mg": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "ignore_mg"
       },
@@ -11900,11 +11045,6 @@
       "release-only": {
         "description": "Release only",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "release_only"
-      },
-      "release_only": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "release_only"
       }
@@ -12450,11 +11590,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "page_id"
-      },
-      "page_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "page_id"
       }
     },
     "type": "object"
@@ -12506,11 +11641,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "organisation_id"
-      },
-      "organisation_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "organisation_id"
       }
     },
     "required": [
@@ -12542,18 +11672,8 @@
         "x-location": "query",
         "x-wire-name": "organisation_id"
       },
-      "organisation_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "organisation_id"
-      },
       "parent-id": {
         "description": "Parent id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "parent_id"
-      },
-      "parent_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "parent_id"
@@ -12676,19 +11796,9 @@
         "x-location": "query",
         "x-wire-name": "accountmanager_id"
       },
-      "accountmanager_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "accountmanager_id"
-      },
       "agent-only": {
         "description": "Agent only",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "agent_only"
-      },
-      "agent_only": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "agent_only"
       },
@@ -12703,19 +11813,9 @@
         "x-location": "query",
         "x-wire-name": "exclude_private"
       },
-      "exclude_private": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "exclude_private"
-      },
       "followed-only": {
         "description": "Followed only",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "followed_only"
-      },
-      "followed_only": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "followed_only"
       },
@@ -12725,18 +11825,8 @@
         "x-location": "query",
         "x-wire-name": "newer_than_id"
       },
-      "newer_than_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "newer_than_id"
-      },
       "older-than-id": {
         "description": "Older than id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "older_than_id"
-      },
-      "older_than_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "older_than_id"
@@ -12755,21 +11845,6 @@
       },
       "one-user-id": {
         "description": "One user id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "one_user_id"
-      },
-      "one_agent_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "one_agent_id"
-      },
-      "one_agents_tickets_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "one_agents_tickets_id"
-      },
-      "one_user_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "one_user_id"
@@ -12798,34 +11873,9 @@
         "x-location": "query",
         "x-wire-name": "related_user_id"
       },
-      "related_asset_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "related_asset_id"
-      },
-      "related_client_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "related_client_id"
-      },
-      "related_site_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "related_site_id"
-      },
-      "related_user_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "related_user_id"
-      },
       "user-only": {
         "description": "User only",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "user_only"
-      },
-      "user_only": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "user_only"
       }
@@ -12957,11 +12007,6 @@
         "x-location": "query",
         "x-wire-name": "access_control_level"
       },
-      "access_control_level": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "access_control_level"
-      },
       "includefields": {
         "description": "Includefields",
         "type": "boolean",
@@ -13049,11 +12094,6 @@
       "access-control-level": {
         "description": "Access control level",
         "type": "integer",
-        "x-location": "query",
-        "x-wire-name": "access_control_level"
-      },
-      "access_control_level": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "access_control_level"
       },
@@ -13231,11 +12271,6 @@
       },
       "type-id": {
         "description": "Type id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "type_id"
-      },
-      "type_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "type_id"
@@ -23826,11 +22861,6 @@
         "x-location": "query",
         "x-wire-name": "count_per_entity"
       },
-      "count_per_entity": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "count_per_entity"
-      },
       "search": {
         "description": "Search",
         "type": "string",
@@ -23954,29 +22984,14 @@
         "x-location": "query",
         "x-wire-name": "agent_id"
       },
-      "agent_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "agent_id"
-      },
       "approved-only": {
         "description": "Approved only",
         "type": "boolean",
         "x-location": "query",
         "x-wire-name": "approved_only"
       },
-      "approved_only": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "approved_only"
-      },
       "end-date": {
         "description": "End date",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "end_date"
-      },
-      "end_date": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "end_date"
@@ -23992,11 +23007,6 @@
         "x-location": "query",
         "x-wire-name": "include_apid"
       },
-      "include_apid": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "include_apid"
-      },
       "inclusive-end": {
         "description": "Inclusive end",
         "type": "boolean",
@@ -24009,34 +23019,14 @@
         "x-location": "query",
         "x-wire-name": "inclusive_start"
       },
-      "inclusive_end": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "inclusive_end"
-      },
-      "inclusive_start": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "inclusive_start"
-      },
       "my-approvals": {
         "description": "My approvals",
         "type": "boolean",
         "x-location": "query",
         "x-wire-name": "my_approvals"
       },
-      "my_approvals": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "my_approvals"
-      },
       "start-date": {
         "description": "Start date",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "start_date"
-      },
-      "start_date": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "start_date"
@@ -24168,11 +23158,6 @@
       },
       "type-id": {
         "description": "Type id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "type_id"
-      },
-      "type_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "type_id"
@@ -38518,19 +37503,9 @@
         "x-location": "query",
         "x-wire-name": "include_this_id"
       },
-      "include_this_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "include_this_id"
-      },
       "remove-existing": {
         "description": "Remove existing",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "remove_existing"
-      },
-      "remove_existing": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "remove_existing"
       },
@@ -38596,18 +37571,8 @@
         "x-location": "query",
         "x-wire-name": "account_id"
       },
-      "account_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "account_id"
-      },
       "include-this-id": {
         "description": "Include this id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "include_this_id"
-      },
-      "include_this_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "include_this_id"
@@ -38618,30 +37583,15 @@
         "x-location": "query",
         "x-wire-name": "module_id"
       },
-      "module_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "module_id"
-      },
       "remove-existing": {
         "description": "Remove existing",
         "type": "boolean",
         "x-location": "query",
         "x-wire-name": "remove_existing"
       },
-      "remove_existing": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "remove_existing"
-      },
       "reset-token": {
         "description": "Reset token",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "reset_token"
-      },
-      "reset_token": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "reset_token"
       },
@@ -38688,11 +37638,6 @@
         "x-location": "query",
         "x-wire-name": "keyPair"
       },
-      "keyPair": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "keyPair"
-      },
       "secondarydatatype": {
         "description": "Secondarydatatype",
         "type": "string",
@@ -38720,30 +37665,15 @@
         "x-location": "query",
         "x-wire-name": "dataType"
       },
-      "dataType": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "dataType"
-      },
       "fetch-sites": {
         "description": "Fetch sites",
         "type": "boolean",
         "x-location": "query",
         "x-wire-name": "fetchSites"
       },
-      "fetchSites": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "fetchSites"
-      },
       "key-pair": {
         "description": "Key pair",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "keyPair"
-      },
-      "keyPair": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "keyPair"
       }
@@ -38780,18 +37710,8 @@
         "x-location": "query",
         "x-wire-name": "include_this_id"
       },
-      "include_this_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "include_this_id"
-      },
       "next-url": {
         "description": "Next url",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "next_url"
-      },
-      "next_url": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "next_url"
@@ -38804,11 +37724,6 @@
       "remove-existing": {
         "description": "Remove existing",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "remove_existing"
-      },
-      "remove_existing": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "remove_existing"
       },
@@ -38834,19 +37749,9 @@
         "x-location": "query",
         "x-wire-name": "data_only"
       },
-      "data_only": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "data_only"
-      },
       "halo-product": {
         "description": "Halo product",
         "type": "integer",
-        "x-location": "query",
-        "x-wire-name": "haloProduct"
-      },
-      "haloProduct": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "haloProduct"
       },
@@ -38856,18 +37761,8 @@
         "x-location": "query",
         "x-wire-name": "instance_id"
       },
-      "instance_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "instance_id"
-      },
       "product-id": {
         "description": "Product id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "product_id"
-      },
-      "product_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "product_id"
@@ -38884,11 +37779,6 @@
       },
       "work-item-types": {
         "description": "Work item types",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "workItemTypes"
-      },
-      "workItemTypes": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "workItemTypes"
@@ -38909,11 +37799,6 @@
         "type": "boolean",
         "x-location": "query",
         "x-wire-name": "keyPair"
-      },
-      "keyPair": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "keyPair"
       }
     },
     "type": "object"
@@ -38927,19 +37812,9 @@
         "x-location": "query",
         "x-wire-name": "include_this_id"
       },
-      "include_this_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "include_this_id"
-      },
       "remove-existing": {
         "description": "Remove existing",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "remove_existing"
-      },
-      "remove_existing": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "remove_existing"
       },
@@ -38950,11 +37825,6 @@
       },
       "tenant-id": {
         "description": "Tenant id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tenant_id"
-      },
-      "tenant_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tenant_id"
@@ -39111,11 +37981,6 @@
         "x-location": "query",
         "x-wire-name": "facebook_details_id"
       },
-      "facebook_details_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "facebook_details_id"
-      },
       "resource": {
         "description": "Resource",
         "type": "string",
@@ -39159,19 +38024,9 @@
         "x-location": "query",
         "x-wire-name": "include_this_id"
       },
-      "include_this_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "include_this_id"
-      },
       "remove-existing": {
         "description": "Remove existing",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "remove_existing"
-      },
-      "remove_existing": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "remove_existing"
       },
@@ -39182,11 +38037,6 @@
       },
       "sub-resource": {
         "description": "Sub resource",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "sub_resource"
-      },
-      "sub_resource": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "sub_resource"
@@ -39302,18 +38152,8 @@
         "x-location": "query",
         "x-wire-name": "dataType"
       },
-      "dataType": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "dataType"
-      },
       "extra-filter": {
         "description": "Extra filter",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "extraFilter"
-      },
-      "extraFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "extraFilter"
@@ -39321,11 +38161,6 @@
       "key-pair": {
         "description": "Key pair",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "keyPair"
-      },
-      "keyPair": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "keyPair"
       }
@@ -39343,11 +38178,6 @@
       "data-only": {
         "description": "Data only",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "dataOnly"
-      },
-      "dataOnly": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "dataOnly"
       },
@@ -39491,19 +38321,9 @@
         "x-location": "query",
         "x-wire-name": "searchString"
       },
-      "searchString": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "searchString"
-      },
       "test-only": {
         "description": "Test only",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "testOnly"
-      },
-      "testOnly": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "testOnly"
       }
@@ -39516,11 +38336,6 @@
       "area-azure-tenant": {
         "description": "Area azure tenant",
         "type": "integer",
-        "x-location": "query",
-        "x-wire-name": "areaAzureTenant"
-      },
-      "areaAzureTenant": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "areaAzureTenant"
       },
@@ -39540,18 +38355,8 @@
         "x-location": "query",
         "x-wire-name": "doPaginate"
       },
-      "doPaginate": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "doPaginate"
-      },
       "next-link": {
         "description": "Next link",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "nextLink"
-      },
-      "nextLink": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "nextLink"
@@ -39565,11 +38370,6 @@
       "data-only": {
         "description": "Data only",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "dataOnly"
-      },
-      "dataOnly": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "dataOnly"
       },
@@ -39596,24 +38396,9 @@
         "x-location": "query",
         "x-wire-name": "dataType"
       },
-      "dataOnly": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "dataOnly"
-      },
-      "dataType": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "dataType"
-      },
       "halo-product": {
         "description": "Halo product",
         "type": "integer",
-        "x-location": "query",
-        "x-wire-name": "haloProduct"
-      },
-      "haloProduct": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "haloProduct"
       },
@@ -39623,18 +38408,8 @@
         "x-location": "query",
         "x-wire-name": "issueTypes"
       },
-      "issueTypes": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "issueTypes"
-      },
       "product-id": {
         "description": "Product id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "productId"
-      },
-      "productId": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "productId"
@@ -39755,11 +38530,6 @@
         "x-location": "query",
         "x-wire-name": "exportUrl"
       },
-      "exportUrl": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "exportUrl"
-      },
       "exportid": {
         "description": "Exportid",
         "type": "string",
@@ -39850,18 +38620,8 @@
         "x-location": "query",
         "x-wire-name": "alsoInclude"
       },
-      "alsoInclude": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "alsoInclude"
-      },
       "data-type": {
         "description": "Data type",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "dataType"
-      },
-      "dataType": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "dataType"
@@ -39872,18 +38632,8 @@
         "x-location": "query",
         "x-wire-name": "excludeMapped"
       },
-      "excludeMapped": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "excludeMapped"
-      },
       "extra-filter": {
         "description": "Extra filter",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "extraFilter"
-      },
-      "extraFilter": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "extraFilter"
@@ -39894,18 +38644,8 @@
         "x-location": "query",
         "x-wire-name": "mappedOnly"
       },
-      "mappedOnly": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "mappedOnly"
-      },
       "next-url": {
         "description": "Next url",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "next_url"
-      },
-      "next_url": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "next_url"
@@ -39921,18 +38661,8 @@
         "x-location": "query",
         "x-wire-name": "parentId"
       },
-      "parentId": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "parentId"
-      },
       "sub-data-type": {
         "description": "Sub data type",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "subDataType"
-      },
-      "subDataType": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "subDataType"
@@ -39954,11 +38684,6 @@
         "x-location": "query",
         "x-wire-name": "continuationToken"
       },
-      "continuationToken": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "continuationToken"
-      },
       "datatype": {
         "description": "Datatype",
         "type": "string",
@@ -39970,19 +38695,9 @@
         "x-location": "query",
         "x-wire-name": "detailsId"
       },
-      "detailsId": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "detailsId"
-      },
       "do-paginate": {
         "description": "Do paginate",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "doPaginate"
-      },
-      "doPaginate": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "doPaginate"
       },
@@ -39992,29 +38707,14 @@
         "x-location": "query",
         "x-wire-name": "isLookup"
       },
-      "isLookup": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "isLookup"
-      },
       "key-pair": {
         "description": "Key pair",
         "type": "boolean",
         "x-location": "query",
         "x-wire-name": "keyPair"
       },
-      "keyPair": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "keyPair"
-      },
       "next-link": {
         "description": "Next link",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "nextLink"
-      },
-      "nextLink": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "nextLink"
@@ -40053,11 +38753,6 @@
       "data-only": {
         "description": "Data only",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "dataOnly"
-      },
-      "dataOnly": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "dataOnly"
       },
@@ -40115,11 +38810,6 @@
         "x-location": "query",
         "x-wire-name": "override_mapping_id"
       },
-      "override_mapping_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "override_mapping_id"
-      },
       "validate": {
         "description": "Validate",
         "type": "boolean",
@@ -40134,11 +38824,6 @@
       "test-only": {
         "description": "Test only",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "testOnly"
-      },
-      "testOnly": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "testOnly"
       }
@@ -40156,11 +38841,6 @@
       "data-only": {
         "description": "Data only",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "dataOnly"
-      },
-      "dataOnly": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "dataOnly"
       },
@@ -40301,21 +38981,6 @@
         "x-location": "query",
         "x-wire-name": "account_type"
       },
-      "account_classification": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "account_classification"
-      },
-      "account_subtype": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "account_subtype"
-      },
-      "account_type": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "account_type"
-      },
       "companyid": {
         "description": "Companyid",
         "type": "string",
@@ -40354,19 +39019,9 @@
         "x-location": "query",
         "x-wire-name": "include_this_id"
       },
-      "include_this_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "include_this_id"
-      },
       "remove-existing": {
         "description": "Remove existing",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "remove_existing"
-      },
-      "remove_existing": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "remove_existing"
       },
@@ -40511,18 +39166,8 @@
         "x-location": "query",
         "x-wire-name": "customer_id"
       },
-      "customer_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "customer_id"
-      },
       "include-this-id": {
         "description": "Include this id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "include_this_id"
-      },
-      "include_this_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "include_this_id"
@@ -40533,19 +39178,9 @@
         "x-location": "query",
         "x-wire-name": "remove_existing"
       },
-      "remove_existing": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "remove_existing"
-      },
       "reset-token": {
         "description": "Reset token",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "reset_token"
-      },
-      "reset_token": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "reset_token"
       },
@@ -40599,11 +39234,6 @@
       "data-only": {
         "description": "Data only",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "dataOnly"
-      },
-      "dataOnly": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "dataOnly"
       },
@@ -40738,19 +39368,9 @@
         "x-location": "query",
         "x-wire-name": "include_this_id"
       },
-      "include_this_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "include_this_id"
-      },
       "remove-existing": {
         "description": "Remove existing",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "remove_existing"
-      },
-      "remove_existing": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "remove_existing"
       },
@@ -41009,19 +39629,9 @@
         "x-location": "query",
         "x-wire-name": "moduleId"
       },
-      "moduleId": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "moduleId"
-      },
       "ready-for-import": {
         "description": "Ready for import",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "readyForImport"
-      },
-      "readyForImport": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "readyForImport"
       }
@@ -41086,11 +39696,6 @@
       },
       "product-id": {
         "description": "Product id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "product_id"
-      },
-      "product_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "product_id"
@@ -41293,22 +39898,12 @@
         "x-location": "query",
         "x-wire-name": "exclude_method_id"
       },
-      "exclude_method_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "exclude_method_id"
-      },
       "id": {
         "type": "string",
         "x-location": "path"
       },
       "method-ids": {
         "description": "Method ids",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "method_ids"
-      },
-      "method_ids": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "method_ids"
@@ -41328,18 +39923,8 @@
         "x-location": "query",
         "x-wire-name": "exclude_method_id"
       },
-      "exclude_method_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "exclude_method_id"
-      },
       "one-runbook-id": {
         "description": "One runbook id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "one_runbook_id"
-      },
-      "one_runbook_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "one_runbook_id"
@@ -41356,11 +39941,6 @@
         "x-location": "query",
         "x-wire-name": "get_active_only"
       },
-      "get_active_only": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "get_active_only"
-      },
       "msid": {
         "description": "Msid",
         "type": "string",
@@ -41368,11 +39948,6 @@
       },
       "third-party-client-id": {
         "description": "Third party client id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "third_party_client_id"
-      },
-      "third_party_client_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "third_party_client_id"
@@ -41782,11 +40357,6 @@
       "bypass-accounts-sync": {
         "description": "Bypass accounts sync",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "bypass_accounts_sync"
-      },
-      "bypass_accounts_sync": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "bypass_accounts_sync"
       },
@@ -49504,11 +48074,6 @@
         "x-location": "query",
         "x-wire-name": "groupQuantity"
       },
-      "groupQuantity": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "groupQuantity"
-      },
       "id": {
         "type": "string",
         "x-location": "path"
@@ -49844,11 +48409,6 @@
     "properties": {
       "dbc-company-id": {
         "description": "Dbc company id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "dbc_company_id"
-      },
-      "dbc_company_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "dbc_company_id"
@@ -50591,23 +49151,8 @@
         "x-location": "query",
         "x-wire-name": "language_override"
       },
-      "language_code": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "language_code"
-      },
-      "language_override": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "language_override"
-      },
       "organisation-id": {
         "description": "Organisation id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "organisation_id"
-      },
-      "organisation_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "organisation_id"
@@ -51297,29 +49842,14 @@
         "x-location": "query",
         "x-wire-name": "access_control_level"
       },
-      "access_control_level": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "access_control_level"
-      },
       "assettype-id": {
         "description": "Assettype id",
         "type": "string",
         "x-location": "query",
         "x-wire-name": "assettype_id"
       },
-      "assettype_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "assettype_id"
-      },
       "client-id": {
         "description": "Client id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "client_id"
-      },
-      "client_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "client_id"
@@ -51335,29 +49865,14 @@
         "x-location": "query",
         "x-wire-name": "contract_id"
       },
-      "contract_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "contract_id"
-      },
       "country-code-id": {
         "description": "Country code id",
         "type": "string",
         "x-location": "query",
         "x-wire-name": "country_code_id"
       },
-      "country_code_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "country_code_id"
-      },
       "dbc-company-id": {
         "description": "Dbc company id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "dbc_company_id"
-      },
-      "dbc_company_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "dbc_company_id"
@@ -51382,21 +49897,6 @@
       "exclude-zero": {
         "description": "Exclude zero",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "exclude_zero"
-      },
-      "exclude_nocharge": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "exclude_nocharge"
-      },
-      "exclude_nolinkedtypes": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "exclude_nolinkedtypes"
-      },
-      "exclude_zero": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "exclude_zero"
       },
@@ -51426,11 +49926,6 @@
         "x-location": "query",
         "x-wire-name": "outcome_id"
       },
-      "outcome_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "outcome_id"
-      },
       "showallcodes": {
         "description": "Showallcodes",
         "type": "boolean",
@@ -51438,11 +49933,6 @@
       },
       "ticket-id": {
         "description": "Ticket id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "ticket_id"
-      },
-      "ticket_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "ticket_id"
@@ -52535,11 +51025,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "task_id"
-      },
-      "task_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "task_id"
       }
     },
     "required": [
@@ -52657,19 +51142,9 @@
         "x-location": "query",
         "x-wire-name": "department_id"
       },
-      "department_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "department_id"
-      },
       "from-addresses": {
         "description": "From addresses",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "from_addresses"
-      },
-      "from_addresses": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "from_addresses"
       },
@@ -52679,18 +51154,8 @@
         "x-location": "query",
         "x-wire-name": "ignore_default"
       },
-      "ignore_default": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "ignore_default"
-      },
       "organisation-id": {
         "description": "Organisation id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "organisation_id"
-      },
-      "organisation_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "organisation_id"
@@ -52702,11 +51167,6 @@
       },
       "team-id": {
         "description": "Team id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "team_id"
-      },
-      "team_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "team_id"
@@ -53406,29 +51866,14 @@
         "x-location": "query",
         "x-wire-name": "agent_id"
       },
-      "agent_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "agent_id"
-      },
       "restrictto-agent-id": {
         "description": "Restrictto agent id",
         "type": "string",
         "x-location": "query",
         "x-wire-name": "restrictto_agent_id"
       },
-      "restrictto_agent_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "restrictto_agent_id"
-      },
       "role-id": {
         "description": "Role id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "role_id"
-      },
-      "role_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "role_id"
@@ -53445,11 +51890,6 @@
       },
       "webhook-id": {
         "description": "Webhook id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "webhook_id"
-      },
-      "webhook_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "webhook_id"
@@ -53608,34 +52048,9 @@
   "online-status.list": {
     "additionalProperties": true,
     "properties": {
-      "IsOnline": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "IsOnline"
-      },
-      "LastOnline": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "LastOnline"
-      },
-      "LastOnlineDate": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "LastOnlineDate"
-      },
-      "TechID": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "TechID"
-      },
       "agent-status": {
         "description": "Agent status",
         "type": "integer",
-        "x-location": "query",
-        "x-wire-name": "agent_status"
-      },
-      "agent_status": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "agent_status"
       },
@@ -53650,19 +52065,9 @@
         "x-location": "query",
         "x-wire-name": "fetch_all"
       },
-      "fetch_all": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "fetch_all"
-      },
       "idle-warn": {
         "description": "Idle warn",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "idle_warn"
-      },
-      "idle_warn": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "idle_warn"
       },
@@ -53684,16 +52089,6 @@
         "x-location": "query",
         "x-wire-name": "IsOnline"
       },
-      "is_idle": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "is_idle"
-      },
-      "is_logout": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "is_logout"
-      },
       "last-active": {
         "description": "Last active",
         "type": "string",
@@ -53712,19 +52107,9 @@
         "x-location": "query",
         "x-wire-name": "LastOnlineDate"
       },
-      "last_active": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "last_active"
-      },
       "status-overidden": {
         "description": "Status overidden",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "status_overidden"
-      },
-      "status_overidden": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "status_overidden"
       },
@@ -53832,11 +52217,6 @@
         "x-location": "query",
         "x-wire-name": "include_auditing"
       },
-      "include_auditing": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "include_auditing"
-      },
       "includeagent": {
         "description": "Includeagent",
         "type": "boolean",
@@ -53890,11 +52270,6 @@
       "is-portal": {
         "description": "Is portal",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "is_portal"
-      },
-      "is_portal": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "is_portal"
       },
@@ -55017,29 +53392,14 @@
         "x-location": "query",
         "x-wire-name": "action_id"
       },
-      "action_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "action_id"
-      },
       "anon-ticketid": {
         "description": "Anon ticketid",
         "type": "string",
         "x-location": "query",
         "x-wire-name": "anon_ticketid"
       },
-      "anon_ticketid": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "anon_ticketid"
-      },
       "contract-id": {
         "description": "Contract id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "contract_id"
-      },
-      "contract_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "contract_id"
@@ -55064,11 +53424,6 @@
         "x-location": "query",
         "x-wire-name": "invoice_id"
       },
-      "invoice_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "invoice_id"
-      },
       "matched-kb-client-id": {
         "description": "Matched kb client id",
         "type": "string",
@@ -55081,23 +53436,8 @@
         "x-location": "query",
         "x-wire-name": "matched_kbid"
       },
-      "matched_kb_client_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "matched_kb_client_id"
-      },
-      "matched_kbid": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "matched_kbid"
-      },
       "override-user-id": {
         "description": "Override user id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "override_user_id"
-      },
-      "override_user_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "override_user_id"
@@ -55108,18 +53448,8 @@
         "x-location": "query",
         "x-wire-name": "purchaseorder_id"
       },
-      "purchaseorder_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "purchaseorder_id"
-      },
       "quotation-id": {
         "description": "Quotation id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "quotation_id"
-      },
-      "quotation_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "quotation_id"
@@ -55130,29 +53460,14 @@
         "x-location": "query",
         "x-wire-name": "salesorder_id"
       },
-      "salesorder_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "salesorder_id"
-      },
       "selected-supplier-id": {
         "description": "Selected supplier id",
         "type": "string",
         "x-location": "query",
         "x-wire-name": "selected_supplier_id"
       },
-      "selected_supplier_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "selected_supplier_id"
-      },
       "ticket-id": {
         "description": "Ticket id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "ticket_id"
-      },
-      "ticket_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "ticket_id"
@@ -55177,11 +53492,6 @@
         "x-location": "query",
         "x-wire-name": "access_control_level"
       },
-      "access_control_level": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "access_control_level"
-      },
       "debug": {
         "description": "Debug",
         "type": "boolean",
@@ -55195,11 +53505,6 @@
       "quick-only": {
         "description": "Quick only",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "quick_only"
-      },
-      "quick_only": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "quick_only"
       },
@@ -55235,23 +53540,8 @@
         "x-location": "query",
         "x-wire-name": "supplier_status"
       },
-      "supplier_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "supplier_id"
-      },
-      "supplier_status": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "supplier_status"
-      },
       "tickettype-id": {
         "description": "Tickettype id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tickettype_id"
-      },
-      "tickettype_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tickettype_id"
@@ -55265,16 +53555,6 @@
       "workflow-step": {
         "description": "Workflow step",
         "type": "integer",
-        "x-location": "query",
-        "x-wire-name": "workflow_step"
-      },
-      "workflow_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "workflow_id"
-      },
-      "workflow_step": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "workflow_step"
       }
@@ -55578,11 +53858,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "service_id"
-      },
-      "service_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "service_id"
       }
     },
     "type": "object"
@@ -55697,11 +53972,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "system_use"
-      },
-      "system_use": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "system_use"
       }
     },
     "required": [
@@ -55777,11 +54047,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "system_use"
-      },
-      "system_use": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "system_use"
       }
     },
     "required": [
@@ -55831,11 +54096,6 @@
         "x-location": "query",
         "x-wire-name": "client_id"
       },
-      "client_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "client_id"
-      },
       "showall": {
         "description": "Showall",
         "type": "boolean",
@@ -55847,18 +54107,8 @@
         "x-location": "query",
         "x-wire-name": "site_id"
       },
-      "site_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "site_id"
-      },
       "user-id": {
         "description": "User id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "user_id"
-      },
-      "user_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "user_id"
@@ -55919,11 +54169,6 @@
     "properties": {
       "script-id": {
         "description": "Script id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "script_id"
-      },
-      "script_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "script_id"
@@ -56211,11 +54456,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "product_id"
-      },
-      "product_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "product_id"
       }
     },
     "type": "object"
@@ -56273,11 +54513,6 @@
     "properties": {
       "product-id": {
         "description": "Product id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "product_id"
-      },
-      "product_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "product_id"
@@ -56342,19 +54577,9 @@
         "x-location": "query",
         "x-wire-name": "devops_instance"
       },
-      "devops_instance": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "devops_instance"
-      },
       "third-party-only": {
         "description": "Third party only",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "third_party_only"
-      },
-      "third_party_only": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "third_party_only"
       }
@@ -56473,11 +54698,6 @@
         "x-location": "query",
         "x-wire-name": "include_auditing"
       },
-      "include_auditing": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "include_auditing"
-      },
       "includeagent": {
         "description": "Includeagent",
         "type": "boolean",
@@ -56531,11 +54751,6 @@
       "is-portal": {
         "description": "Is portal",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "is_portal"
-      },
-      "is_portal": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "is_portal"
       },
@@ -60136,11 +58351,6 @@
         "x-location": "query",
         "x-wire-name": "bypass_accounts_sync"
       },
-      "bypass_accounts_sync": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "bypass_accounts_sync"
-      },
       "id": {
         "type": "string",
         "x-location": "path"
@@ -60454,19 +58664,9 @@
         "x-location": "query",
         "x-wire-name": "client_id"
       },
-      "client_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "client_id"
-      },
       "pending-recurring-invoice": {
         "description": "Pending recurring invoice",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "pending_recurring_invoice"
-      },
-      "pending_recurring_invoice": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "pending_recurring_invoice"
       }
@@ -60993,11 +59193,6 @@
         "x-location": "query",
         "x-wire-name": "client_id"
       },
-      "client_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "client_id"
-      },
       "clientname": {
         "description": "Clientname",
         "type": "string",
@@ -61011,16 +59206,6 @@
       },
       "dashboard-published-id": {
         "description": "Dashboard published id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "dashboard_published_id"
-      },
-      "dashboard_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "dashboard_id"
-      },
-      "dashboard_published_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "dashboard_published_id"
@@ -61050,11 +59235,6 @@
         "x-location": "query",
         "x-wire-name": "invoice_id"
       },
-      "invoice_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "invoice_id"
-      },
       "loadreport": {
         "description": "Loadreport",
         "type": "boolean",
@@ -61062,11 +59242,6 @@
       },
       "report-access-token": {
         "description": "Report access token",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "report_access_token"
-      },
-      "report_access_token": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "report_access_token"
@@ -61212,29 +59387,14 @@
         "x-location": "query",
         "x-wire-name": "access_control_level"
       },
-      "access_control_level": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "access_control_level"
-      },
       "assettype-id": {
         "description": "Assettype id",
         "type": "string",
         "x-location": "query",
         "x-wire-name": "assettype_id"
       },
-      "assettype_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "assettype_id"
-      },
       "client-id": {
         "description": "Client id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "client_id"
-      },
-      "client_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "client_id"
@@ -61250,29 +59410,14 @@
         "x-location": "query",
         "x-wire-name": "contract_id"
       },
-      "contract_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "contract_id"
-      },
       "country-code-id": {
         "description": "Country code id",
         "type": "string",
         "x-location": "query",
         "x-wire-name": "country_code_id"
       },
-      "country_code_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "country_code_id"
-      },
       "dbc-company-id": {
         "description": "Dbc company id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "dbc_company_id"
-      },
-      "dbc_company_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "dbc_company_id"
@@ -61297,21 +59442,6 @@
       "exclude-zero": {
         "description": "Exclude zero",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "exclude_zero"
-      },
-      "exclude_nocharge": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "exclude_nocharge"
-      },
-      "exclude_nolinkedtypes": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "exclude_nolinkedtypes"
-      },
-      "exclude_zero": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "exclude_zero"
       },
@@ -61341,11 +59471,6 @@
         "x-location": "query",
         "x-wire-name": "outcome_id"
       },
-      "outcome_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "outcome_id"
-      },
       "showallcodes": {
         "description": "Showallcodes",
         "type": "boolean",
@@ -61353,11 +59478,6 @@
       },
       "ticket-id": {
         "description": "Ticket id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "ticket_id"
-      },
-      "ticket_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "ticket_id"
@@ -78618,11 +76738,6 @@
         "x-location": "query",
         "x-wire-name": "client_id"
       },
-      "client_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "client_id"
-      },
       "clientname": {
         "description": "Clientname",
         "type": "string",
@@ -78636,16 +76751,6 @@
       },
       "dashboard-published-id": {
         "description": "Dashboard published id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "dashboard_published_id"
-      },
-      "dashboard_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "dashboard_id"
-      },
-      "dashboard_published_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "dashboard_published_id"
@@ -78675,11 +76780,6 @@
         "x-location": "query",
         "x-wire-name": "invoice_id"
       },
-      "invoice_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "invoice_id"
-      },
       "loadreport": {
         "description": "Loadreport",
         "type": "boolean",
@@ -78687,11 +76787,6 @@
       },
       "report-access-token": {
         "description": "Report access token",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "report_access_token"
-      },
-      "report_access_token": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "report_access_token"
@@ -78885,11 +76980,6 @@
         "x-location": "query",
         "x-wire-name": "product_id"
       },
-      "product_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "product_id"
-      },
       "roadmapcolumnview": {
         "description": "Roadmapcolumnview",
         "type": "boolean",
@@ -78957,11 +77047,6 @@
       "access-control-level": {
         "description": "Access control level",
         "type": "integer",
-        "x-location": "query",
-        "x-wire-name": "access_control_level"
-      },
-      "access_control_level": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "access_control_level"
       },
@@ -79155,11 +77240,6 @@
   "sales-mailbox.get": {
     "additionalProperties": true,
     "properties": {
-      "_test_access": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "_test_access"
-      },
       "id": {
         "type": "string",
         "x-location": "path"
@@ -79937,19 +78017,9 @@
         "x-location": "query",
         "x-wire-name": "access_control_level"
       },
-      "access_control_level": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "access_control_level"
-      },
       "include-parent-name": {
         "description": "Include parent name",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "include_parent_name"
-      },
-      "include_parent_name": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "include_parent_name"
       },
@@ -79959,18 +78029,8 @@
         "x-location": "query",
         "x-wire-name": "itil_ticket_type"
       },
-      "itil_ticket_type": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "itil_ticket_type"
-      },
       "user-id": {
         "description": "User id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "user_id"
-      },
-      "user_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "user_id"
@@ -80005,11 +78065,6 @@
         "x-location": "query",
         "x-wire-name": "exclude_urls"
       },
-      "exclude_urls": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "exclude_urls"
-      },
       "includedetails": {
         "description": "Includedetails",
         "type": "boolean",
@@ -80017,11 +78072,6 @@
       },
       "service-id": {
         "description": "Service id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "service_id"
-      },
-      "service_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "service_id"
@@ -80038,11 +78088,6 @@
         "x-location": "query",
         "x-wire-name": "client_id"
       },
-      "client_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "client_id"
-      },
       "service-category-id": {
         "description": "Service category id",
         "type": "string",
@@ -80051,16 +78096,6 @@
       },
       "service-id": {
         "description": "Service id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "service_id"
-      },
-      "service_category_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "service_category_id"
-      },
-      "service_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "service_id"
@@ -80288,11 +78323,6 @@
       },
       "user-id": {
         "description": "User id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "user_id"
-      },
-      "user_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "user_id"
@@ -80698,11 +78728,6 @@
         "x-location": "query",
         "x-wire-name": "client_override"
       },
-      "client_override": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "client_override"
-      },
       "domain": {
         "description": "(string) Filter on site permissions - 'opps' defaults sites opportunities.",
         "type": "string",
@@ -80729,11 +78754,6 @@
       },
       "tickettype-id": {
         "description": "Tickettype id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tickettype_id"
-      },
-      "tickettype_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tickettype_id"
@@ -81027,11 +79047,6 @@
         "x-location": "query",
         "x-wire-name": "access_control_level"
       },
-      "access_control_level": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "access_control_level"
-      },
       "isconfig": {
         "description": "Isconfig",
         "type": "boolean",
@@ -81160,18 +79175,8 @@
         "x-location": "query",
         "x-wire-name": "agent_id"
       },
-      "agent_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "agent_id"
-      },
       "channel-name": {
         "description": "Channel name",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "channel_name"
-      },
-      "channel_name": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "channel_name"
@@ -81188,11 +79193,6 @@
       },
       "team-name": {
         "description": "Team name",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "team_name"
-      },
-      "team_name": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "team_name"
@@ -81333,11 +79333,6 @@
         "x-location": "query",
         "x-wire-name": "doDecrypt"
       },
-      "doDecrypt": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "doDecrypt"
-      },
       "id": {
         "type": "string",
         "x-location": "path"
@@ -81369,11 +79364,6 @@
     "properties": {
       "softwarelicence-id": {
         "description": "Softwarelicence id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "softwarelicence_id"
-      },
-      "softwarelicence_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "softwarelicence_id"
@@ -81739,11 +79729,6 @@
         "x-location": "query",
         "x-wire-name": "outcome_id"
       },
-      "outcome_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "outcome_id"
-      },
       "showall": {
         "description": "Showall",
         "type": "boolean",
@@ -81765,11 +79750,6 @@
         "x-location": "query",
         "x-wire-name": "split_closed"
       },
-      "split_closed": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "split_closed"
-      },
       "ticket-id": {
         "description": "Ticket id",
         "type": "string",
@@ -81782,23 +79762,8 @@
         "x-location": "query",
         "x-wire-name": "ticket_id_firstchild"
       },
-      "ticket_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "ticket_id"
-      },
-      "ticket_id_firstchild": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "ticket_id_firstchild"
-      },
       "ticketarea-id": {
         "description": "Ticketarea id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "ticketarea_id"
-      },
-      "ticketarea_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "ticketarea_id"
@@ -81821,21 +79786,6 @@
         "x-location": "query",
         "x-wire-name": "tickettype_ids"
       },
-      "tickettype_group_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tickettype_group_id"
-      },
-      "tickettype_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tickettype_id"
-      },
-      "tickettype_ids": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tickettype_ids"
-      },
       "type": {
         "description": "Type",
         "type": "string",
@@ -81843,11 +79793,6 @@
       },
       "view-id": {
         "description": "View id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "view_id"
-      },
-      "view_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "view_id"
@@ -82713,11 +80658,6 @@
         "x-location": "query",
         "x-wire-name": "related_to"
       },
-      "related_to": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "related_to"
-      },
       "xerotenantid": {
         "description": "Xerotenantid",
         "type": "string",
@@ -82801,29 +80741,14 @@
         "x-location": "query",
         "x-wire-name": "can_edit_only"
       },
-      "can_edit_only": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "can_edit_only"
-      },
       "chat-only": {
         "description": "(bool) Filter on teams that are enabled fro live chat.",
         "type": "boolean",
         "x-location": "query",
         "x-wire-name": "chat_only"
       },
-      "chat_only": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "chat_only"
-      },
       "department-id": {
         "description": "(int) Filter Teams belonging to a particular department.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "department_id"
-      },
-      "department_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "department_id"
@@ -82841,11 +80766,6 @@
       "include-managers": {
         "description": "(bool) Show the managers in the response.",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "include_managers"
-      },
-      "include_managers": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "include_managers"
       },
@@ -82895,11 +80815,6 @@
         "x-location": "query",
         "x-wire-name": "outcome_id"
       },
-      "outcome_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "outcome_id"
-      },
       "showall": {
         "description": "(bool) Admin override to show all teams, overriding team permissions.",
         "type": "boolean",
@@ -82916,11 +80831,6 @@
         "x-location": "query",
         "x-wire-name": "ticketarea_id"
       },
-      "ticketarea_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "ticketarea_id"
-      },
       "type": {
         "description": "(string) Filter by team domain: reqs - tickets, opps - opportunities, prjs - projects.",
         "type": "string",
@@ -82928,11 +80838,6 @@
       },
       "view-id": {
         "description": "(int) Only for showcounts - ticket view filter.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "view_id"
-      },
-      "view_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "view_id"
@@ -83403,11 +81308,6 @@
         "x-location": "query",
         "x-wire-name": "action_number"
       },
-      "action_number": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "action_number"
-      },
       "include-agent-details": {
         "description": "Include agent details",
         "type": "boolean",
@@ -83417,16 +81317,6 @@
       "include-attachments": {
         "description": "Include attachments",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "include_attachments"
-      },
-      "include_agent_details": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "include_agent_details"
-      },
-      "include_attachments": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "include_attachments"
       },
@@ -83442,11 +81332,6 @@
       },
       "ticket-id": {
         "description": "Ticket id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "ticket_id"
-      },
-      "ticket_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "ticket_id"
@@ -83564,11 +81449,6 @@
         "x-location": "query",
         "x-wire-name": "access_control_level"
       },
-      "access_control_level": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "access_control_level"
-      },
       "excludeworkflow": {
         "description": "Excludeworkflow",
         "type": "boolean",
@@ -83587,11 +81467,6 @@
       "rule-use": {
         "description": "Rule use",
         "type": "integer",
-        "x-location": "query",
-        "x-wire-name": "rule_use"
-      },
-      "rule_use": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "rule_use"
       }
@@ -83722,16 +81597,6 @@
         "x-location": "query",
         "x-wire-name": "can_edit_only"
       },
-      "can_create_only": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "can_create_only"
-      },
-      "can_edit_only": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "can_edit_only"
-      },
       "debug": {
         "description": "(bool) Include debug information in the response.",
         "type": "boolean",
@@ -83777,18 +81642,8 @@
         "x-location": "query",
         "x-wire-name": "survey_fields"
       },
-      "survey_fields": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "survey_fields"
-      },
       "ticket-id": {
         "description": "(int) Filter by the specified ticket.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "ticket_id"
-      },
-      "ticket_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "ticket_id"
@@ -83805,11 +81660,6 @@
       "access-control-level": {
         "description": "(int) Filters response based on the access control level.",
         "type": "integer",
-        "x-location": "query",
-        "x-wire-name": "access_control_level"
-      },
-      "access_control_level": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "access_control_level"
       },
@@ -83830,16 +81680,6 @@
         "x-location": "query",
         "x-wire-name": "can_edit_only"
       },
-      "can_create_only": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "can_create_only"
-      },
-      "can_edit_only": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "can_edit_only"
-      },
       "canagentsselect": {
         "description": "(bool) Filter on ticket types that agents can select.",
         "type": "boolean",
@@ -83856,11 +81696,6 @@
         "x-location": "query",
         "x-wire-name": "client_id"
       },
-      "client_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "client_id"
-      },
       "domain": {
         "description": "(string) For use with counts: reqs - tickets, opps - opportunities, prjs - projects.",
         "type": "string",
@@ -83868,11 +81703,6 @@
       },
       "group-id": {
         "description": "(int) Filters by the ticket type group.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "group_id"
-      },
-      "group_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "group_id"
@@ -83889,16 +81719,6 @@
         "x-location": "query",
         "x-wire-name": "include_mandatory_field_check"
       },
-      "include_current": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "include_current"
-      },
-      "include_mandatory_field_check": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "include_mandatory_field_check"
-      },
       "isquicktimedropdown": {
         "description": "(bool) Filters by the ticket types that display on quick time.",
         "type": "boolean",
@@ -83910,18 +81730,8 @@
         "x-location": "query",
         "x-wire-name": "itil_type"
       },
-      "itil_type": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "itil_type"
-      },
       "outcome-id": {
         "description": "Outcome id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "outcome_id"
-      },
-      "outcome_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "outcome_id"
@@ -83952,18 +81762,8 @@
         "x-location": "query",
         "x-wire-name": "sprints_only"
       },
-      "sprints_only": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "sprints_only"
-      },
       "ticketarea-id": {
         "description": "(int) Only for showcounts - ticket area filter.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "ticketarea_id"
-      },
-      "ticketarea_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "ticketarea_id"
@@ -83974,18 +81774,8 @@
         "x-location": "query",
         "x-wire-name": "user_only"
       },
-      "user_only": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "user_only"
-      },
       "view-id": {
         "description": "(int) Only for showcounts - ticket view filter.",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "view_id"
-      },
-      "view_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "view_id"
@@ -90960,11 +88750,6 @@
         "x-location": "query",
         "x-wire-name": "include_auditing"
       },
-      "include_auditing": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "include_auditing"
-      },
       "includeagent": {
         "description": "Includeagent",
         "type": "boolean",
@@ -91018,11 +88803,6 @@
       "is-portal": {
         "description": "Is portal",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "is_portal"
-      },
-      "is_portal": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "is_portal"
       },
@@ -92115,11 +89895,6 @@
         "x-location": "query",
         "x-wire-name": "agent_id"
       },
-      "agent_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "agent_id"
-      },
       "agents": {
         "description": "Agents",
         "type": "string",
@@ -92131,18 +89906,8 @@
         "x-location": "query",
         "x-wire-name": "end_date"
       },
-      "end_date": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "end_date"
-      },
       "start-date": {
         "description": "Start date",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "start_date"
-      },
-      "start_date": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "start_date"
@@ -92186,11 +89951,6 @@
         "x-location": "query",
         "x-wire-name": "agent_id"
       },
-      "agent_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "agent_id"
-      },
       "date": {
         "description": "Date",
         "type": "string",
@@ -92230,18 +89990,8 @@
         "x-location": "query",
         "x-wire-name": "agent_id"
       },
-      "agent_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "agent_id"
-      },
       "workday-id": {
         "description": "Workday id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "workday_id"
-      },
-      "workday_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "workday_id"
@@ -92322,11 +90072,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "ticket_id"
-      },
-      "ticket_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "ticket_id"
       }
     },
     "type": "object"
@@ -92377,16 +90122,6 @@
       "include-teams": {
         "description": "Include teams",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "include_teams"
-      },
-      "include_agents": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "include_agents"
-      },
-      "include_teams": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "include_teams"
       },
@@ -92733,11 +90468,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "account_id"
-      },
-      "account_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "account_id"
       }
     },
     "type": "object"
@@ -93001,16 +90731,6 @@
         "x-location": "query",
         "x-wire-name": "client_override"
       },
-      "client_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "client_id"
-      },
-      "client_override": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "client_override"
-      },
       "domain": {
         "description": "(string) Filter on site permissions - 'opps' defaults users opportunities.",
         "type": "string",
@@ -93056,11 +90776,6 @@
         "x-location": "query",
         "x-wire-name": "opp_id"
       },
-      "opp_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "opp_id"
-      },
       "site-id": {
         "description": "(int) Filters by the specified site.",
         "type": "string",
@@ -93073,34 +90788,14 @@
         "x-location": "query",
         "x-wire-name": "site_override"
       },
-      "site_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "site_id"
-      },
-      "site_override": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "site_override"
-      },
       "supplier-id": {
         "description": "(int) Filters by the specified supplier.",
         "type": "string",
         "x-location": "query",
         "x-wire-name": "supplier_id"
       },
-      "supplier_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "supplier_id"
-      },
       "tickettype-id": {
         "description": "Tickettype id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "tickettype_id"
-      },
-      "tickettype_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "tickettype_id"
@@ -93451,11 +91146,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "product_id"
-      },
-      "product_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "product_id"
       }
     },
     "type": "object"
@@ -93484,11 +91174,6 @@
         "x-location": "query",
         "x-wire-name": "product_id"
       },
-      "product_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "product_id"
-      },
       "search": {
         "description": "Search",
         "type": "string",
@@ -93512,11 +91197,6 @@
       },
       "product-id": {
         "description": "Product id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "product_id"
-      },
-      "product_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "product_id"
@@ -93597,11 +91277,6 @@
       },
       "ticketarea-id": {
         "description": "Ticketarea id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "ticketarea_id"
-      },
-      "ticketarea_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "ticketarea_id"
@@ -93687,11 +91362,6 @@
       },
       "ticketarea-id": {
         "description": "Ticketarea id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "ticketarea_id"
-      },
-      "ticketarea_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "ticketarea_id"
@@ -93830,11 +91500,6 @@
         "x-location": "query",
         "x-wire-name": "connectedinstance_id"
       },
-      "connectedinstance_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "connectedinstance_id"
-      },
       "domain": {
         "description": "Domain",
         "type": "string",
@@ -93872,11 +91537,6 @@
       },
       "ticketarea-id": {
         "description": "Ticketarea id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "ticketarea_id"
-      },
-      "ticketarea_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "ticketarea_id"
@@ -94435,11 +92095,6 @@
         "x-location": "query",
         "x-wire-name": "access_control_level"
       },
-      "access_control_level": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "access_control_level"
-      },
       "isconfig": {
         "description": "Isconfig",
         "type": "boolean",
@@ -94558,11 +92213,6 @@
         "x-location": "query",
         "x-wire-name": "access_control_level"
       },
-      "access_control_level": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "access_control_level"
-      },
       "includeinactive": {
         "description": "Includeinactive",
         "type": "boolean",
@@ -94655,18 +92305,8 @@
         "x-location": "query",
         "x-wire-name": "xtype_id"
       },
-      "xtype_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "xtype_id"
-      },
       "xtyperole-id": {
         "description": "Xtyperole id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "xtyperole_id"
-      },
-      "xtyperole_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "xtyperole_id"

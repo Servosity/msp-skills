@@ -39,11 +39,6 @@
         "x-location": "query",
         "x-wire-name": "agent_session_id"
       },
-      "agent_session_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "agent_session_id"
-      },
       "token": {
         "description": "Token",
         "type": "string",
@@ -2710,11 +2705,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "instance_id"
-      },
-      "instance_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "instance_id"
       }
     },
     "required": [
@@ -3402,11 +3392,6 @@
       "include-reseller": {
         "description": "Include reseller",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "include_reseller"
-      },
-      "include_reseller": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "include_reseller"
       }
@@ -5014,11 +4999,6 @@
         "type": "boolean",
         "x-location": "query",
         "x-wire-name": "include_deleted"
-      },
-      "include_deleted": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "include_deleted"
       }
     },
     "type": "object"
@@ -5655,11 +5635,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "reboot_event_id"
-      },
-      "reboot_event_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "reboot_event_id"
       }
     },
     "required": [
@@ -5749,11 +5724,6 @@
         "type": "string",
         "x-location": "query",
         "x-wire-name": "snapshot_id"
-      },
-      "snapshot_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "snapshot_id"
       }
     },
     "required": [
@@ -5771,11 +5741,6 @@
       },
       "snapshot-id": {
         "description": "Snapshot id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "snapshot_id"
-      },
-      "snapshot_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "snapshot_id"
@@ -5994,11 +5959,6 @@
       },
       "snapshot-id": {
         "description": "Snapshot id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "snapshot_id"
-      },
-      "snapshot_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "snapshot_id"
@@ -6241,11 +6201,6 @@
         "x-location": "query",
         "x-wire-name": "snapshot_id"
       },
-      "snapshot_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "snapshot_id"
-      },
       "state": {
         "description": "State",
         "type": "string",
@@ -6484,11 +6439,6 @@
         "x-location": "query",
         "x-wire-name": "snapshot_id"
       },
-      "snapshot_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "snapshot_id"
-      },
       "state": {
         "description": "State",
         "type": "string",
@@ -6673,11 +6623,6 @@
         "x-location": "query",
         "x-wire-name": "reseller__dedicated_support_staff__username"
       },
-      "reseller__dedicated_support_staff__username": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "reseller__dedicated_support_staff__username"
-      },
       "search": {
         "description": "A search term.",
         "type": "string",
@@ -6685,11 +6630,6 @@
       },
       "support-tier": {
         "description": "Support tier",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "support_tier"
-      },
-      "support_tier": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "support_tier"
@@ -6994,11 +6934,6 @@
         "type": "boolean",
         "x-location": "query",
         "x-wire-name": "send_email"
-      },
-      "send_email": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "send_email"
       }
     },
     "type": "object"
@@ -7016,11 +6951,6 @@
         "type": "boolean",
         "x-location": "query",
         "x-wire-name": "send_email"
-      },
-      "send_email": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "send_email"
       }
     },
     "type": "object"
@@ -7034,19 +6964,9 @@
         "x-location": "query",
         "x-wire-name": "reseller_id"
       },
-      "reseller_id": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "reseller_id"
-      },
       "send-email": {
         "description": "Send email",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "send_email"
-      },
-      "send_email": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "send_email"
       }
@@ -7059,11 +6979,6 @@
       "send-email": {
         "description": "Send email",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "send_email"
-      },
-      "send_email": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "send_email"
       }
@@ -7088,11 +7003,6 @@
         "type": "boolean",
         "x-location": "query",
         "x-wire-name": "send_email"
-      },
-      "send_email": {
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "send_email"
       }
     },
     "type": "object"
@@ -7108,11 +7018,6 @@
       "only-resellers": {
         "description": "Only resellers",
         "type": "boolean",
-        "x-location": "query",
-        "x-wire-name": "only_resellers"
-      },
-      "only_resellers": {
-        "type": "string",
         "x-location": "query",
         "x-wire-name": "only_resellers"
       }
@@ -8538,11 +8443,6 @@
       },
       "snapshot-id": {
         "description": "Snapshot id",
-        "type": "string",
-        "x-location": "query",
-        "x-wire-name": "snapshot_id"
-      },
-      "snapshot_id": {
         "type": "string",
         "x-location": "query",
         "x-wire-name": "snapshot_id"

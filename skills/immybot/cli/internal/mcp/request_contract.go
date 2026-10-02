@@ -41,8 +41,8 @@ func init() {
 			for i := range ep.QueryParams {
 				binding := &ep.QueryParams[i]
 				if binding.WireName == wire {
+					binding.PublicName = name
 					if collision {
-						binding.PublicName = name
 						binding.PublicOnly = true
 					}
 					found = true
@@ -140,7 +140,7 @@ func codeOrchRequestScore(ep *codeOrchEndpoint, query string) int {
 		for _, word := range ep.keywords {
 			if word == term {
 				score += 2
-			} else if len(word) >= 3 && strings.Contains(word, term) {
+			} else if len(word) >= 3 && (strings.Contains(word, term) || term == word+"s" || word == term+"s") {
 				score++
 			}
 		}

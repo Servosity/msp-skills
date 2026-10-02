@@ -19,8 +19,8 @@ import (
 
 type schema = map[string]any
 type flagInfo struct {
-	name, typ, description string
-	required               bool
+	name, typ, itemType, description string
+	required                         bool
 }
 
 func lit(e ast.Expr) string {
@@ -64,11 +64,18 @@ func extractFile(file *ast.File) (map[string]schema, error) {
 			continue
 		}
 		meta := map[string]string{}
+		annotationCount := 0
 		inspect(fn.Body, func(n ast.Node) {
 			if kv, ok := n.(*ast.KeyValueExpr); ok && strings.HasPrefix(lit(kv.Key), "pp:") {
 				meta[lit(kv.Key)] = lit(kv.Value)
+				if lit(kv.Key) == "pp:endpoint" {
+					annotationCount++
+				}
 			}
 		})
+		if annotationCount > 1 {
+			return nil, fmt.Errorf("%s contains multiple annotated commands", fn.Name.Name)
+		}
 		id := meta["pp:endpoint"]
 		if id == "" {
 			continue
@@ -107,10 +114,13 @@ func extractFile(file *ast.File) (map[string]schema, error) {
 					typ = "integer"
 				case strings.HasPrefix(name, "Float"):
 					typ = "number"
-				case strings.Contains(name, "Slice"), strings.Contains(name, "Array"):
+				}
+				itemType := ""
+				if strings.Contains(name, "Slice") || strings.Contains(name, "Array") {
+					itemType = typ
 					typ = "array"
 				}
-				flags[v] = &flagInfo{name: lit(c.Args[1]), typ: typ, description: lit(c.Args[len(c.Args)-1])}
+				flags[v] = &flagInfo{itemType: itemType, name: lit(c.Args[1]), typ: typ, description: lit(c.Args[len(c.Args)-1])}
 			}
 			if name == "Errorf" && len(c.Args) > 1 && strings.Contains(lit(c.Args[0]), "required flag") {
 				requiredFlags[lit(c.Args[1])] = true
@@ -141,7 +151,7 @@ func extractFile(file *ast.File) (map[string]schema, error) {
 				if f := flags[v]; f != nil {
 					s := schema{"type": f.typ, "description": f.description}
 					if f.typ == "array" {
-						s["items"] = schema{"type": "string"}
+						s["items"] = schema{"type": f.itemType}
 					}
 					return s
 				}
@@ -349,8 +359,12 @@ func main() {
 		}
 		for id, c := range contracts {
 			key := fmt.Sprint(c["x-source-method"]) + " " + fmt.Sprint(c["x-source-path"])
+			identity := id + "\n" + key
+			if _, exists := all[identity]; exists {
+				panic("duplicate CLI endpoint identity: " + identity)
+			}
 			byRequest[key] = append(byRequest[key], c)
-			all[id] = c
+			all[identity] = c
 		}
 	}
 	// The orchestration registry is the coverage authority. It also retains root
@@ -406,7 +420,7 @@ func main() {
 		}
 		s := candidates[0]
 		matchedID := false
-		if candidate, ok := all[id]; ok && fmt.Sprint(candidate["x-source-method"])+" "+fmt.Sprint(candidate["x-source-path"]) == key {
+		if candidate, ok := all[id+"\n"+key]; ok {
 			s = candidate
 			matchedID = true
 		}
@@ -422,15 +436,14 @@ func main() {
 				panic("ambiguous CLI request contract: " + key)
 			}
 		}
+		s = cloneSchema(s)
 		contracts[id] = s
 		seen[id] = true
 		props := s["properties"].(schema)
 		applyArrayBody(s, lit(kvmap["Method"]), ident(kvmap["BodyIsArray"]) == "true")
 		catalogRequired := map[string]bool{}
-		if names, ok := s["required"].([]string); ok {
-			for _, name := range names {
-				catalogRequired[name] = true
-			}
+		for _, name := range requiredNames(s["required"]) {
+			catalogRequired[name] = true
 		}
 		for _, pair := range []struct{ field, loc string }{{"TemplateParams", "template"}, {"QueryParams", "query"}} {
 			if bindings, ok := kvmap[pair.field].(*ast.CompositeLit); ok {
@@ -448,10 +461,25 @@ func main() {
 							}
 						}
 						if public != "" {
-							// Preserve catalog public aliases; source bindings have precedence,
-							// including the explicit transport alias for a body-name collision.
-							if _, exists := props[public]; !exists {
-								putBinding(props, catalogRequired, public, wire, pair.loc, schema{"type": "string", "x-wire-name": wire}, false)
+							existing := false
+							for name, value := range props {
+								p, ok := value.(schema)
+								if !ok || p["x-location"] != pair.loc {
+									continue
+								}
+								bound, _ := p["x-wire-name"].(string)
+								if bound == "" {
+									bound = name
+								}
+								if bound == wire {
+									existing = true
+									break
+								}
+							}
+							if !existing {
+								if _, present := props[public]; !present {
+									putBinding(props, catalogRequired, public, wire, pair.loc, schema{"type": "string", "x-wire-name": wire}, false)
+								}
 							}
 						}
 					}
@@ -469,7 +497,7 @@ func main() {
 	})
 	for id, s := range contracts {
 		if supplement := supplements[id]; supplement != nil {
-			mergeSchema(s, supplement)
+			mergeContractSupplement(s, supplement)
 		}
 		cleanDescriptions(s)
 		delete(s, "x-source-method")
@@ -495,6 +523,11 @@ func main() {
 func mergeSchema(dst, src schema) {
 	for k, v := range src {
 		if k == "x-evidence" {
+			continue
+		}
+		if k == "required" {
+			names := append(requiredNames(dst[k]), requiredNames(v)...)
+			dst[k] = requiredNames(names)
 			continue
 		}
 		sm, ok := v.(map[string]any)
@@ -526,7 +559,7 @@ func applyArrayBody(s schema, method string, array bool) {
 	}
 	props := s["properties"].(schema)
 	props["body"] = schema{"type": "array", "items": schema{}, "x-location": "body", "x-raw-body": true}
-	r, _ := s["required"].([]string)
+	r := requiredNames(s["required"])
 	present := false
 	for _, name := range r {
 		if name == "body" {
@@ -612,4 +645,88 @@ func putBinding(props schema, required map[string]bool, name, wire, loc string, 
 	if needed {
 		required[name] = true
 	}
+}
+
+func requiredNames(value any) []string {
+	names := map[string]bool{}
+	switch v := value.(type) {
+	case []string:
+		for _, name := range v {
+			names[name] = true
+		}
+	case []any:
+		for _, item := range v {
+			name, ok := item.(string)
+			if !ok {
+				panic("required contains non-string value")
+			}
+			names[name] = true
+		}
+	case nil:
+	default:
+		panic("required must be an array")
+	}
+	result := []string{}
+	for name := range names {
+		result = append(result, name)
+	}
+	sort.Strings(result)
+	return result
+}
+
+func cloneSchema(s schema) schema {
+	data, err := json.Marshal(s)
+	if err != nil {
+		panic(err)
+	}
+	copy := schema{}
+	if err := json.Unmarshal(data, &copy); err != nil {
+		panic(err)
+	}
+	return copy
+}
+
+// Native supplements may name an old catalog wire alias. Merge its evidence
+// into the source-public property, without reintroducing a duplicate input.
+func mergeContractSupplement(dst, src schema) {
+	patch := cloneSchema(src)
+	renamed := map[string]string{}
+	if properties, ok := patch["properties"].(schema); ok {
+		target := dst["properties"].(schema)
+		for name, value := range properties {
+			if _, exists := target[name]; exists {
+				continue
+			}
+			canonical := ""
+			for key, entry := range target {
+				p, ok := entry.(schema)
+				if !ok || p["x-wire-name"] != name {
+					continue
+				}
+				if canonical != "" {
+					panic("ambiguous supplement property alias: " + name)
+				}
+				canonical = key
+			}
+			if canonical != "" {
+				renamed[name] = canonical
+				delete(properties, name)
+				if previous, ok := properties[canonical].(schema); ok {
+					mergeSchema(previous, value.(schema))
+				} else {
+					properties[canonical] = value
+				}
+			}
+		}
+	}
+	if value, present := patch["required"]; present {
+		names := requiredNames(value)
+		for i, name := range names {
+			if canonical, ok := renamed[name]; ok {
+				names[i] = canonical
+			}
+		}
+		patch["required"] = requiredNames(names)
+	}
+	mergeSchema(dst, patch)
 }
