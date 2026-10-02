@@ -217,9 +217,9 @@
     "released_hash": "sha256:f72fc39a25616d05639ab077c49ee5bf1d8e779675d90fff8240f74a5fbf4cfb"
   },
   "immybot": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.6",
-    "latest_tag": "immybot-v0.1.5",
+    "latest_tag": "immybot-v0.1.6",
     "current_hash": "sha256:c5c064b4d2641199daba0f71f29c96a43640a37eee490e59e23bdb2ce1313f12",
     "released_hash": "sha256:c5c064b4d2641199daba0f71f29c96a43640a37eee490e59e23bdb2ce1313f12"
   },
@@ -343,9 +343,9 @@
     "released_hash": "sha256:7506533e36e7cd4d0d1fa6faa8bf59b62317b3271d741c7afae1383d9fa5eadb"
   },
   "quickbooks": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.10",
-    "latest_tag": "quickbooks-v0.1.9",
+    "latest_tag": "quickbooks-v0.1.10",
     "current_hash": "sha256:3f35f0c34bf9e5c4265db866c8d59aa4ea2ef09489d5d4753e3464be1f976607",
     "released_hash": "sha256:3f35f0c34bf9e5c4265db866c8d59aa4ea2ef09489d5d4753e3464be1f976607"
   },
@@ -406,9 +406,9 @@
     "released_hash": "sha256:58e4ac5b3a5aa8178e8570ee7730d59ed6b3a954c558a0352eff32f6ce135840"
   },
   "servosity": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.6.6",
-    "latest_tag": "servosity-v0.6.5",
+    "latest_tag": "servosity-v0.6.6",
     "current_hash": "sha256:6357f96593453730f503adddfdbae47b3cd53d0f39508488f17c46cf67acb5da",
     "released_hash": "sha256:6357f96593453730f503adddfdbae47b3cd53d0f39508488f17c46cf67acb5da"
   },
@@ -448,9 +448,9 @@
     "released_hash": "sha256:c2ec39e79968c572bbfc500bf309458387b0e4815227950718bf561ab6670be6"
   },
   "threatlocker": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.3.7",
-    "latest_tag": "threatlocker-v0.3.6",
+    "latest_tag": "threatlocker-v0.3.7",
     "current_hash": "sha256:c211cedbd85eb6980508921d941df30003858b0906d5d09f51bc9feb4f2b7013",
     "released_hash": "sha256:c211cedbd85eb6980508921d941df30003858b0906d5d09f51bc9feb4f2b7013"
   },
