@@ -119,6 +119,10 @@
     {
      "file": ".printing-press-patches/software-repository-discovery.md",
      "contains": "Put edited version properties directly in MCP params."
+    },
+    {
+     "file": "governance.md",
+     "contains": "`software-repository versions packages-all-package-id-id-patch` (installer switches, approval, EULA: changes what deploys to endpoints)"
     }
    ]
   },

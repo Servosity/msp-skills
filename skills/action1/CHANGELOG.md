@@ -4,6 +4,12 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.6] - unreleased
+
+### Fixed
+- Software installer discovery: searching the MCP for `installer` now returns the package and version read/update tools, with guidance on Enterprise vs organization scope, version object IDs vs displayed version numbers, where edited properties go, and the separate approval/EULA permissions. Thanks @jomplox for the fix in #353.
+- Governance now tiers both installer PATCH endpoints: package metadata as a routine write, and version configuration (install switches, approval, EULA) as endpoint execution, human-in-the-loop.
+
 ## [0.1.5] - 2026-10-02
 
 ### Fixed
