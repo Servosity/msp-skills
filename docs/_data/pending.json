@@ -14,11 +14,11 @@
     "released_hash": "sha256:fff2a332bd9678068e8f72bd517af96bcd834338200c2fa3549f873ba80a5b09"
   },
   "action1": {
-    "state": "up-to-date",
-    "version": "0.1.5",
+    "state": "version-pending",
+    "version": "0.1.6",
     "latest_tag": "action1-v0.1.5",
-    "current_hash": "sha256:541f4e1d1d57be7fd94f2d0ff7e53a71e7fdf018f9d2428625bc46f689ed47c8",
-    "released_hash": "sha256:541f4e1d1d57be7fd94f2d0ff7e53a71e7fdf018f9d2428625bc46f689ed47c8"
+    "current_hash": "sha256:20f2790a3e4c272ccbf8e2ed99f8bddb56b0a5a763ccb6051d524f537182fd83",
+    "released_hash": "sha256:20f2790a3e4c272ccbf8e2ed99f8bddb56b0a5a763ccb6051d524f537182fd83"
   },
   "afi": {
     "state": "up-to-date",
