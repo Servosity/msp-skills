@@ -4,7 +4,7 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.6] - unreleased
+## [0.1.6] - 2026-10-03
 
 ### Fixed
 - Software installer discovery: searching the MCP for `installer` now returns the package and version read/update tools, with guidance on Enterprise vs organization scope, version object IDs vs displayed version numbers, where edited properties go, and the separate approval/EULA permissions. Thanks @jomplox for the fix in #353.

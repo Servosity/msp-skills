@@ -65,8 +65,8 @@
       "tagline": "Patch every client's endpoints and triage CVEs fleet-wide from your terminal.",
       "cli_hash": "sha256:afad777cf57e19f7676fd8edf31036e051f650a63faa222dc2206fc8868fb40a",
       "template_version": 3,
-      "version": "0.1.5",
-      "cli_hash_at_release": "sha256:541f4e1d1d57be7fd94f2d0ff7e53a71e7fdf018f9d2428625bc46f689ed47c8",
+      "version": "0.1.6",
+      "cli_hash_at_release": "sha256:20f2790a3e4c272ccbf8e2ed99f8bddb56b0a5a763ccb6051d524f537182fd83",
       "has_video": true,
       "live_verified": {
         "status": "awaiting",

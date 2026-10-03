@@ -43,7 +43,7 @@
       "name": "action1",
       "source": "./skills/action1",
       "description": "Every Action1 endpoint, plus fleet-wide patch and vulnerability views across all your organizations.",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "category": "rmm",
       "tags": [
         "action1",
