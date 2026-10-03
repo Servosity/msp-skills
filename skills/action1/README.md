@@ -220,6 +220,64 @@ authorized computer-use tools for the interactive part. See the
 [Action1 remote-session API](https://app.action1.com/apidocs/#/Endpoints.%20Remote%20Sessions./endpoints_managed_endpointId_remote_sessions_post)
 and [API credential roles](https://www.action1.com/api-documentation/api-credentials/).
 
+## Software installer packages through the MCP server
+
+The MCP already exposes Software Repository package and version reads and
+updates. API-key authorization is separate from browser/Entra SSO. A console
+sign-in failure does not establish that the package API is unavailable.
+
+- `orgId` is a scope selector. An organization ID requests that organization's
+  view; `all` requests Enterprise scope. Some Enterprise-shared packages are
+  readable through an organization view, but this does not prove Enterprise
+  write access. Use `all` for Enterprise-shared package updates.
+- Reads require **View Software Repository** in the requested scope. Updates
+  require **Manage Software Repository** in the package scope; it implicitly
+  includes View. For version PATCH, `approval_status` instead requires
+  **Approve Updates**, and `EULA_accepted` requires the API's `accept_eula`
+  permission. Script actions also require the appropriate **Use Scripts**
+  scope. Built-in package versions cannot be modified. An administrator can
+  extend the credential's existing role when authorized; HTTP 403 is a
+  permission/scope denial, not a missing MCP endpoint.
+- `versionId` is the version object's `id`, not its displayed `version`. For
+  example, `id: "21.07.00.0_1640795090369"` and `version: "21.07.00.0"` identify
+  different fields. Always discover current IDs instead of guessing them.
+
+For code-orchestration clients:
+
+1. Call `action1_search` with `installer` to find the package and version tools.
+2. Call `action1_execute` with endpoint ID
+   `software-repository.packages-all-package-id-get` and these params:
+
+   ```json
+   {"orgId":"<organization-id-or-all>","packageId":"<package-id>","fields":"versions"}
+   ```
+
+3. Take the selected object's `versions[].id`. Read its configuration using
+   `software-repository.versions.packages-all-package-id-id-get` with `orgId`,
+   `packageId`, and that `versionId`.
+4. Preserve the existing configuration and prepare the smallest authorized
+   update. Package metadata uses
+   `software-repository.packages-all-package-id-patch`; installer deployment
+   configuration uses
+   `software-repository.versions.packages-all-package-id-id-patch`. Pass the
+   same identifiers plus only the edited, writable version properties to
+   `action1_execute`. Put those properties directly in `params`, for example:
+
+   ```json
+   {"orgId":"<organization-id-or-all>","packageId":"<package-id>","versionId":"<returned-version-id>","silent_install_switches":"<reviewed silent-install switches>"}
+   ```
+
+   Use the Windows or Mac version PATCH schema in the
+   [vendor API reference](https://app.action1.com/apidocs/) for field names and
+   types. Do not replay the entire GET response or nest the properties under
+   `body-json`. That flag belongs to the equivalent CLI command, which accepts
+   the update object via `--body-json` or `--stdin`.
+5. Read back the package/version after updating. A successful write does not
+   prove installation or deployment on an endpoint.
+
+See [extended package data](https://www.action1.com/api-documentation/querying-extended-data/)
+and [repository permissions](https://www.action1.com/documentation/permissions/).
+
 ## Frequently asked questions
 
 ### Does this work with ChatGPT?

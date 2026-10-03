@@ -84,6 +84,49 @@
    ]
   },
   {
+   "id": "software-repository-installer-discovery",
+   "summary": "Document installer package scope, version object IDs, writable params, and permissions in MCP search and the agent recipe",
+   "why": "Live requests showed Enterprise scope can be denied while an organization view succeeds, and a displayed version number is not the API versionId. Truncated generated summaries hide the existing package update tools. Preserve the narrow guidance without changing transport or automatically escalating scope.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "versionId is the returned id, not the displayed version;",
+     "min_count": 4
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "HTTP 403 is a scope/role denial, not a missing package API.",
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/mcp/code_orch_search_test.go",
+     "contains": "func TestCodeOrchSearchFindsInstallerConfiguration(t *testing.T)"
+    },
+    {
+     "file": "README.md",
+     "contains": "## Software installer packages through the MCP server"
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "### Read or update a shared software installer"
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "approve_updates for approval_status",
+     "min_count": 2
+    },
+    {
+     "file": ".printing-press-patches/software-repository-discovery.md",
+     "contains": "Put edited version properties directly in MCP params."
+    },
+    {
+     "file": "governance.md",
+     "contains": "`software-repository versions packages-all-package-id-id-patch` (installer switches, approval, EULA: changes what deploys to endpoints)"
+    }
+   ]
+  },
+  {
    "id": "golangci-lint-v2-config",
    "summary": "Declare the Action1 lint configuration schema so golangci-lint v2 can run",
    "why": "The generated configuration already uses v2 formatters but omits the required schema version, so golangci-lint rejects it before checking code. Preserve the version without changing the enabled checks.",

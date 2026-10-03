@@ -362,6 +362,20 @@ action1-cli fleet patch-drift --agent
 
 What got patched and what newly appeared since the previous sync.
 
+### Read or update a shared software installer
+
+Use `action1_search` with `installer`, then package GET with `fields: versions`
+to discover `versions[].id`. Pass that ID as `versionId`, not the displayed
+`version` number. `orgId: all` requests Enterprise scope and needs repository
+permissions there; an organization-scoped read does not prove Enterprise write
+access. Manage Software Repository includes View in the same scope. Version
+PATCH takes edited properties directly in MCP `params`; approval and EULA
+acceptance fields require separate permissions. Built-in versions cannot be
+modified. API-key access is separate from browser/Entra SSO. Preserve existing
+configuration and read it back after an authorized update. See the
+[Software installer MCP recipe](./README.md#software-installer-packages-through-the-mcp-server)
+for endpoint IDs, params, and permission requirements.
+
 ## Auth Setup
 
 Action1 uses OAuth2 token-mint. Generate a Client ID and Client Secret on the API Credentials page in the Action1 console, then set ACTION1_CLIENT_ID and ACTION1_CLIENT_SECRET. The CLI POSTs them to /oauth2/token (JSON body) to obtain a bearer token automatically. Set ACTION1_ORG_ID to scope the fleet commands to one organization by default, and ACTION1_REGION (us/eu/au) to pick your data center. Per-organization API commands like 'endpoints managed <orgId>' take the organization id as their first argument.
