@@ -20,4 +20,4 @@ Five commands an MSP owner can run from a single AI prompt:
 
 ## Status
 
-Beta. Validated end-to-end against a live HubSpot tenant (sync of 50 meetings produced 2 ever-SCHEDULED rows with real title + owner_id + first-hit timestamp + current outcome). Validated with MSPs running it live against their own production tenant in our weekly Build Sessions. RSVP at [compoundingteams.com/build-sessions](https://compoundingteams.com/build-sessions). The closed-loop receipt (a named MSP customer running it against a production HubSpot portal to produce an actual monthly report) is tracked separately and will be added here as `video.md` once it exists.
+Live-verified. Confirmed by Servosity (maintainer) against their own production tenant.

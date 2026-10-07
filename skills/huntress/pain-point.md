@@ -27,6 +27,4 @@ MSP owner actually needs at triage time or QBR time.
 
 ## Status
 
-Beta. Validated against the Huntress API surface; the closed-loop receipt (a named
-MSP running it live in their production tenant at a Build Session) is tracked
-separately and added here as `video.md` once it exists.
+Live-verified. Confirmed by @Xenith-B (MSP) against their own production tenant ([receipt](https://github.com/Servosity/msp-skills/issues/144)).
