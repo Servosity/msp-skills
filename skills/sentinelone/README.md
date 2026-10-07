@@ -234,7 +234,7 @@ The strongest control is the **scope you grant the SentinelOne credentials** - t
 
 ## Status
 
-Beta. Validated against the SentinelOne API surface and being validated with MSPs running it live against their own production tenant in our weekly Build Sessions. RSVP at [compoundingteams.com/build-sessions](https://compoundingteams.com/build-sessions).
+Live-verified. Confirmed by a real MSP against their own production tenant. More MSPs run it live in our weekly Build Sessions. RSVP at [compoundingteams.com/build-sessions](https://compoundingteams.com/build-sessions).
 
 ---
 

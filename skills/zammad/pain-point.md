@@ -22,7 +22,4 @@ until the account is already gone.
 
 ## Status
 
-Beta. Validated read-only against a live production Zammad tenant (20,000+ tickets)
-and adversarially reviewed for analytics correctness. The closed-loop receipt (a
-named MSP running it live in their production tenant at a Build Session) is tracked
-separately and added here as `video.md` once it exists.
+Live-verified. Confirmed by Servosity (maintainer) against their own production tenant.

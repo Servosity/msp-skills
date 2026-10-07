@@ -27,6 +27,12 @@ This is a DOCS-ONLY flip. It changes skills.json (which the catalog + per-skill
 pages render from); it does NOT cut a release or push a tag. After a flip,
 regenerate the catalog and commit.
 
+Beta and live-verified are mutually exclusive. A flip also sets the registry
+"status" to "live-verified" and rewrites the "## Status" paragraph of
+skills/<slug>/README.md and pain-point.md; a revoke puts both back to Beta.
+--check (run by ci_guards.sh) fails on any skill where they disagree, and
+--sync repairs every one.
+
 Usage:
     python3 tools/maintainer/verify_live.py --slug halopsa --source build-session \\
         --evidence "https://circle.so/..." [--date 2026-06-04]
@@ -35,6 +41,8 @@ Usage:
         --verified-by "@AvlCompCo (MSP)"   # issue_url defaults from --evidence
     python3 tools/maintainer/verify_live.py --revoke --slug halopsa
     python3 tools/maintainer/verify_live.py --status
+    python3 tools/maintainer/verify_live.py --check   # exit 1 on Beta/verified drift
+    python3 tools/maintainer/verify_live.py --sync    # repair that drift
     python3 tools/maintainer/verify_live.py --slug halopsa --source self \\
         --evidence "redogfood" --force
 
@@ -45,6 +53,7 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -57,6 +66,9 @@ REGISTRY = registry.REGISTRY
 VALID_SOURCES = ("build-session", "circle", "github", "self")
 
 AWAITING = {"status": "awaiting", "date": None, "source": None, "evidence": None}
+
+RSVP = "RSVP at [compoundingteams.com/build-sessions](https://compoundingteams.com/build-sessions)."
+STATUS_PARA = re.compile(r"(^## Status\n\n)(.+?)(?=\n\n|\n#|\n*\Z)", re.M | re.S)
 
 
 def _read_registry() -> dict:
@@ -80,6 +92,91 @@ def _entry_state(entry: dict) -> dict:
     if not isinstance(lv, dict):
         return dict(AWAITING)
     return lv
+
+
+def _verified(entry: dict) -> bool:
+    return _entry_state(entry).get("status") == "live-verified"
+
+
+def _status_para(entry: dict, readme: bool) -> str:
+    """The Status paragraph README.md (readme=True) or pain-point.md must carry."""
+    if _verified(entry):
+        lv = _entry_state(entry)
+        receipt = f" ([receipt]({lv['issue_url']}))" if lv.get("issue_url") else ""
+        para = (f"Live-verified. Confirmed by {lv.get('verified_by') or 'a real MSP'} "
+                f"against their own production tenant{receipt}.")
+        return para + (f" More MSPs run it live in our weekly Build Sessions. {RSVP}" if readme else "")
+    vendor = entry.get("vendor") or entry["system"]
+    if readme:
+        return (f"Beta. Validated against the {vendor} API surface and being validated with "
+                "MSPs running it live against their own production tenant in our weekly "
+                f"Build Sessions. {RSVP}")
+    return (f"Beta. Validated against the {vendor} API surface; the closed-loop receipt (a "
+            "named MSP running it live in their production tenant at a Build Session) is "
+            "tracked separately and added here as `video.md` once it exists.")
+
+
+def _drift(slug: str, entry: dict) -> list[str]:
+    """Every place this skill claims Beta while verified, or verified while not."""
+    verified = _verified(entry)
+    out = []
+    if (entry.get("status") == "live-verified") != verified:
+        out.append(f"skills.json status is {entry.get('status')!r}")
+    for name in ("README.md", "pain-point.md"):
+        p = ROOT / "skills" / entry.get("source_dir", slug) / name
+        if not p.exists():
+            continue
+        text = p.read_text(encoding="utf-8")
+        m = STATUS_PARA.search(text)
+        # ponytail: an existing "Live-verified..." paragraph is kept as-is, so
+        # hand-written receipt detail (acronis #325) survives a --force re-flip.
+        if m and m.group(2).startswith("Live-verified") != verified:
+            out.append(f"{p.relative_to(ROOT)} Status says {m.group(2)[:14]!r}")
+        elif verified and re.search(r"\bBeta\b", text):
+            out.append(f"{p.relative_to(ROOT)} still says Beta outside its Status "
+                       "paragraph (--sync cannot fix this; edit by hand)")
+    return out
+
+
+def _sync(slug: str, entry: dict) -> None:
+    """Make the registry status + Status paragraphs agree with live_verified.
+    Caller writes the registry."""
+    verified = _verified(entry)
+    entry["status"] = "live-verified" if verified else "beta"
+    for name in ("README.md", "pain-point.md"):
+        p = ROOT / "skills" / entry.get("source_dir", slug) / name
+        if not p.exists():
+            continue
+        text = p.read_text(encoding="utf-8")
+        m = STATUS_PARA.search(text)
+        if m and m.group(2).startswith("Live-verified") != verified:
+            para = _status_para(entry, readme=name == "README.md")
+            p.write_text(text[:m.start(2)] + para + text[m.end(2):], encoding="utf-8")
+            print(f"  rewrote {p.relative_to(ROOT)} Status")
+
+
+def cmd_check() -> int:
+    skills = _read_registry().get("skills", {})
+    bad = [f"{slug}: {d}" for slug, e in sorted(skills.items()) for d in _drift(slug, e)]
+    if bad:
+        print("verify_live --check: FAIL - Beta and live-verified are mutually exclusive:")
+        for b in bad:
+            print(f"  - {b}")
+        print("  Fix: python3 tools/maintainer/verify_live.py --sync && "
+              "python3 tools/maintainer/build-catalog.py")
+        return 1
+    print(f"verify_live --check: OK ({len(skills)} skills)")
+    return 0
+
+
+def cmd_sync() -> int:
+    reg = _read_registry()
+    for slug, entry in reg.get("skills", {}).items():
+        if _drift(slug, entry):
+            print(slug)
+            _sync(slug, entry)
+    _write_registry(reg)
+    return 0
 
 
 def cmd_status() -> int:
@@ -189,6 +286,7 @@ def cmd_verify(
         "verified_by": verified_by,
         "issue_url": use_issue_url,
     }
+    _sync(slug, entry)
     _write_registry(reg)
 
     print(f"{slug}: live-verified ({source}, {use_date})")
@@ -210,6 +308,7 @@ def cmd_revoke(slug: str) -> int:
     # flip -> revoke round-trip a true no-op on skills.json for a skill that had
     # never been verified, leaving the registry byte-for-byte as it started.
     skills[slug].pop("live_verified", None)
+    _sync(slug, skills[slug])
     _write_registry(reg)
     print(f"{slug}: reverted to awaiting")
     print()
@@ -229,6 +328,8 @@ def parse_args(argv: list[str]) -> dict:
         "issue_url": None,
         "revoke": False,
         "status": False,
+        "check": False,
+        "sync": False,
         "force": False,
     }
     i = 0
@@ -256,6 +357,8 @@ def parse_args(argv: list[str]) -> dict:
             opts["revoke"] = True
         elif a == "--status":
             opts["status"] = True
+        elif a in ("--check", "--sync"):
+            opts[a[2:]] = True
         elif a == "--force":
             opts["force"] = True
         else:
@@ -269,6 +372,10 @@ def main(argv: list[str]) -> int:
 
     if opts["status"]:
         return cmd_status()
+    if opts["check"]:
+        return cmd_check()
+    if opts["sync"]:
+        return cmd_sync()
 
     if opts["revoke"]:
         if not opts["slug"]:

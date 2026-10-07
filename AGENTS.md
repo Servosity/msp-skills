@@ -88,6 +88,12 @@ python3 tools/maintainer/check_engine_freshness.py --slug <slug>
    fine. That is a false-GREEN, and it is exactly the failure this check exists
    to catch.
 
+**Beta and live-verified are mutually exclusive.** A live-verified connector
+never says Beta anywhere. Flip and revoke only through `verify_live.py`, which
+moves the registry `status` and the README / pain-point Status paragraphs with
+the badge; `verify_live.py --check` (ci_guards.sh guard 7) fails on any drift and
+`--sync` repairs it.
+
 `.github/workflows/live-verified.yml` runs this automatically on every badge flip
 and posts the result as an issue comment. It is **advisory** - nothing gates on
 it. Whoever decides should record the decision in a reply on that issue so the

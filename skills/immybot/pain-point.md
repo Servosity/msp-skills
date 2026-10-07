@@ -41,6 +41,4 @@ into one command:
 
 ## Status
 
-Beta. Validated against a live ImmyBot tenant by the contributing MSP, including a full
-sync of 119,687 records across 65 resources; the cross-tenant commands above were run
-against that real data.
+Live-verified. Confirmed by @geekbrownbear (MSP) against their own production tenant ([receipt](https://github.com/Servosity/msp-skills/pull/276)).

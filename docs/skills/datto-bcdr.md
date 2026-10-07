@@ -191,7 +191,7 @@ Run more than one Backup/DR tool, or comparing options? These connectors work th
 
 ## Status
 
-Beta. Validated against the Datto BCDR API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+Live-verified. Confirmed by Abhi Saini, Bearium Networks (MSP) against their own production tenant. More MSPs run it live in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
 
 Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
 

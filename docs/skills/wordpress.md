@@ -176,7 +176,7 @@ Run more than one Marketing tool, or comparing options? These connectors work th
 
 ## Status
 
-Beta. Validated against the WordPress API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+Live-verified. Confirmed by Servosity (maintainer) against their own production tenant. More MSPs run it live in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
 
 Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
 

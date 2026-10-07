@@ -104,6 +104,13 @@ if [ "$floor_bad" -ne 0 ]; then
   fail=1
 fi
 
+echo "==> 7. No skill claims both Beta and live-verified"
+# Mutually exclusive. verify_live.py flips the registry status and the README /
+# pain-point Status paragraphs together; this catches a hand edit or a stale merge.
+if ! python3 tools/maintainer/verify_live.py --check; then
+  fail=1
+fi
+
 if [ "$fail" -eq 0 ]; then
   echo "All CI guards passed."
 else

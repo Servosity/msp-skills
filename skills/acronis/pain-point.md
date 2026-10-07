@@ -45,6 +45,6 @@ cross-tenant questions become one offline query:
 
 ## Status
 
-Beta. Validated against the Acronis API surface; the closed-loop receipt (a named
-MSP running it live in their production tenant at a Build Session) is tracked
-separately and added here as `video.md` once it exists.
+Live-verified. @asterisk79 (MSP) re-tested 0.1.4 against their own partner
+account (~74 customer tenants) and confirmed sync, agents, usages and billing
+rollups work: [#325](https://github.com/Servosity/msp-skills/issues/325).
