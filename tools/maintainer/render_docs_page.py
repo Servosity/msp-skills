@@ -160,6 +160,14 @@ def render_page(slug: str) -> Path:
         badge = ("**Passes all 4 mechanical gates** (build · command-surface · "
                  "claims · install). Awaiting its first MSP receipt - "
                  f"[be the first, 60 seconds →]({RECEIPT_FORM_URL}).")
+    if lv.get("status") == "live-verified":
+        status_md = (f"Live-verified. Confirmed by {lv.get('verified_by') or 'a real MSP'} "
+                     f"against their own production tenant. More MSPs run it live in our "
+                     f"weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.")
+    else:
+        status_md = (f"Beta. Validated against the {display} API surface and being validated "
+                     f"with MSPs running it live against their own production tenants in our "
+                     f"weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.")
 
     # The literal direct answer AI search engines (and skimming MSP owners)
     # reward: the page answers its own title before anything else. Rendered as
@@ -377,7 +385,7 @@ iwr -useb https://raw.githubusercontent.com/{OWNER}/{REPO}/main/skills/{slug}/in
 {siblings}
 ## Status
 
-Beta. Validated against the {display} API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+{status_md}
 
 Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
 

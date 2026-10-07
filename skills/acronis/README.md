@@ -235,7 +235,7 @@ The strongest control is the **scope you grant the Acronis credentials** - the C
 
 ## Status
 
-Beta. Validated against the Acronis API surface and being validated with MSPs running it live against their own production tenant in our weekly Build Sessions. RSVP at [compoundingteams.com/build-sessions](https://compoundingteams.com/build-sessions).
+Live-verified. Confirmed by @asterisk79 (MSP) against their own multi-tenant partner account ([#325](https://github.com/Servosity/msp-skills/issues/325)). More MSPs run it live in our weekly Build Sessions. RSVP at [compoundingteams.com/build-sessions](https://compoundingteams.com/build-sessions).
 
 ---
 

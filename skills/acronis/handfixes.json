@@ -281,6 +281,26 @@
      "not_contains": "this usually means auth is missing or invalid"
     }
    ]
+  },
+  {
+   "id": "status-live-verified-not-beta",
+   "summary": "README.md and pain-point.md Status sections say Live-verified (#325), not the onboard template's Beta text.",
+   "why": "onboard.py writes a fixed 'Beta.' Status paragraph into README.md and pain-point.md with no knowledge of the live_verified registry block, so an UPDATE re-onboard would silently put acronis back to Beta after an MSP verified it against a real partner tenant in #325.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "README.md",
+     "not_contains": "Beta. Validated against the Acronis API surface"
+    },
+    {
+     "file": "pain-point.md",
+     "not_contains": "Beta. Validated against the Acronis API surface"
+    },
+    {
+     "file": "README.md",
+     "contains": "Live-verified. Confirmed by @asterisk79"
+    }
+   ]
   }
  ]
 }
