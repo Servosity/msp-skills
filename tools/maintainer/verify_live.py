@@ -68,7 +68,7 @@ VALID_SOURCES = ("build-session", "circle", "github", "self")
 AWAITING = {"status": "awaiting", "date": None, "source": None, "evidence": None}
 
 RSVP = "RSVP at [compoundingteams.com/build-sessions](https://compoundingteams.com/build-sessions)."
-STATUS_PARA = re.compile(r"(^## Status\n\n)(.+?)(?=\n\n|\n*\Z)", re.M | re.S)
+STATUS_PARA = re.compile(r"(^## Status\n\n)(.+?)(?=\n\n|\n#|\n*\Z)", re.M | re.S)
 
 
 def _read_registry() -> dict:
@@ -124,11 +124,17 @@ def _drift(slug: str, entry: dict) -> list[str]:
         out.append(f"skills.json status is {entry.get('status')!r}")
     for name in ("README.md", "pain-point.md"):
         p = ROOT / "skills" / entry.get("source_dir", slug) / name
-        m = p.exists() and STATUS_PARA.search(p.read_text(encoding="utf-8"))
+        if not p.exists():
+            continue
+        text = p.read_text(encoding="utf-8")
+        m = STATUS_PARA.search(text)
         # ponytail: an existing "Live-verified..." paragraph is kept as-is, so
         # hand-written receipt detail (acronis #325) survives a --force re-flip.
         if m and m.group(2).startswith("Live-verified") != verified:
             out.append(f"{p.relative_to(ROOT)} Status says {m.group(2)[:14]!r}")
+        elif verified and re.search(r"\bBeta\b", text):
+            out.append(f"{p.relative_to(ROOT)} still says Beta outside its Status "
+                       "paragraph (--sync cannot fix this; edit by hand)")
     return out
 
 
