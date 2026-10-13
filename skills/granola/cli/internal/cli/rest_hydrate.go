@@ -242,6 +242,10 @@ func upsertRichMeeting(ctx context.Context, db *sql.DB, d *restNoteDetail) error
 	// ended_at/calendar_event_id/transcript_available update only when this
 	// response actually carried that specific sub-field (presence flags), else
 	// keep the existing value.
+	// Stored as UTC "Z" text so string comparison and ordering stay
+	// chronological (handfixes.json: meeting-times-stored-utc).
+	startedAt, endedAt = utcRFC3339(startedAt), utcRFC3339(endedAt)
+	createdAt, updatedAt := utcRFC3339(d.CreatedAt), utcRFC3339(d.UpdatedAt)
 	if _, err := tx.ExecContext(ctx, `INSERT INTO meetings(
 		id, title, created_at, updated_at, started_at, ended_at, workspace_id,
 		calendar_event_id, deleted_at, notes_markdown, notes_plain,
@@ -258,7 +262,7 @@ func upsertRichMeeting(ctx context.Context, db *sql.DB, d *restNoteDetail) error
 		recipes_applied=excluded.recipes_applied, creation_source=excluded.creation_source,
 		valid_meeting=excluded.valid_meeting`,
 		// VALUES
-		d.ID, d.Title, d.CreatedAt, d.UpdatedAt, startedAt, endedAt, "",
+		d.ID, d.Title, createdAt, updatedAt, startedAt, endedAt, "",
 		calendarEventID, "", "", "", transcriptAvail, "[]", "api", 1,
 		// CASE presence flags (started, ended, calendar_id, transcript) — each
 		// bound guarded independently so a half-populated calendar_event can't
@@ -478,4 +482,18 @@ func effectiveRESTTarget(ctx context.Context, db *sql.DB, d *restNoteDetail) res
 		}
 	}
 	return restTarget{ID: d.ID, Title: title, Created: rfcToTime(created)}
+}
+
+// utcRFC3339 rewrites an RFC 3339 timestamp in UTC "Z" form so stored meeting
+// times compare and sort correctly as text. Empty or unparseable input is
+// returned unchanged.
+func utcRFC3339(s string) string {
+	if s == "" {
+		return s
+	}
+	t, err := time.Parse(time.RFC3339Nano, s)
+	if err != nil {
+		return s
+	}
+	return t.UTC().Format(time.RFC3339)
 }

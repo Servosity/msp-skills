@@ -166,8 +166,32 @@ func EnsureSchema(ctx context.Context, db *sql.DB) error {
 	// table an earlier build created, so a column added later is added here
 	// (handfixes.json: mcp-notes-backfill-tracked). Existing rows keep their
 	// data and take the column's default.
-	return addColumnIfMissing(ctx, db, "human_notes_state", "resolved",
-		`ALTER TABLE human_notes_state ADD COLUMN resolved INTEGER NOT NULL DEFAULT 0`)
+	if err := addColumnIfMissing(ctx, db, "human_notes_state", "resolved",
+		`ALTER TABLE human_notes_state ADD COLUMN resolved INTEGER NOT NULL DEFAULT 0`); err != nil {
+		return err
+	}
+	// Meeting timestamps are compared and ordered as TEXT, which is only
+	// chronological when every value is UTC "Z" form. Earlier builds stored
+	// calendar times with their offset ("...-04:00"); normalize any such row
+	// in place (handfixes.json: meeting-times-stored-utc). Idempotent: rows
+	// already in Z form, empty, or unparseable are left alone.
+	for _, stmt := range utcNormalizeSQL {
+		if _, err := db.ExecContext(ctx, stmt); err != nil {
+			return fmt.Errorf("granola schema: normalize timestamps: %w", err)
+		}
+	}
+	return nil
+}
+
+var utcNormalizeSQL = []string{
+	`UPDATE meetings SET started_at = strftime('%Y-%m-%dT%H:%M:%SZ', started_at)
+		WHERE started_at <> '' AND started_at NOT LIKE '%Z' AND strftime('%Y-%m-%dT%H:%M:%SZ', started_at) IS NOT NULL`,
+	`UPDATE meetings SET ended_at = strftime('%Y-%m-%dT%H:%M:%SZ', ended_at)
+		WHERE ended_at <> '' AND ended_at NOT LIKE '%Z' AND strftime('%Y-%m-%dT%H:%M:%SZ', ended_at) IS NOT NULL`,
+	`UPDATE meetings SET created_at = strftime('%Y-%m-%dT%H:%M:%SZ', created_at)
+		WHERE created_at <> '' AND created_at NOT LIKE '%Z' AND strftime('%Y-%m-%dT%H:%M:%SZ', created_at) IS NOT NULL`,
+	`UPDATE meetings SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', updated_at)
+		WHERE updated_at <> '' AND updated_at NOT LIKE '%Z' AND strftime('%Y-%m-%dT%H:%M:%SZ', updated_at) IS NOT NULL`,
 }
 
 // addColumnIfMissing runs alterStmt (a constant ALTER TABLE ... ADD COLUMN)

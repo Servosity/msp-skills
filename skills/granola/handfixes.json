@@ -1173,7 +1173,7 @@
     },
     {
      "file": "cli/internal/cli/mcp_notes.go",
-     "contains": "func recordHumanNotes(ctx context.Context, db *sql.DB, id, note string, resolved bool, checkedAt string) error {",
+     "contains": "func recordHumanNotes(ctx context.Context, db *sql.DB, id, note string, present, resolved bool, checkedAt string) error {",
      "min_count": 1,
      "code_only": true
     },
@@ -1289,11 +1289,11 @@
    "id": "mcp-notes-by-note-id",
    "status": "active",
    "summary": "private notes are fetched from Granola's official MCP by REST note id (get_meetings note_ids, one id per call), with meeting blocks matched loosely so extra tag attributes cannot break parsing",
-   "why": "The generated path listed meetings and matched them to REST meetings by title and date, with a regex that required the exact tag shape <meeting id title date>. Granola's list_meetings tag gained attributes (meeting_at, created_at, url, ...), the regex matched nothing, and every private note was silently dropped: proved on a live account, 0 of 150 meetings matched while get_meetings by note id returned their notes (149 of 150 after the fix). Fetching by note id also removes the title/date attribution heuristics the Codex review kept finding gaps in.",
+   "why": "The generated path listed meetings and matched them to REST meetings by title and date, with a regex that required the exact tag shape <meeting id title date>. Granola's list_meetings tag gained attributes (meeting_at, created_at, url, ...), the regex matched nothing, and every private note was silently dropped: proved on a live account, 0 of 150 meetings matched while get_meetings by note id returned their notes (149 of 150 after the fix). Fetching by note id also removes the title/date attribution heuristics the Codex review kept finding gaps in. Round 6: every MCP request carries the caller's context and the pass stops when it ends (a stalled server cannot hold a command for minutes); a failed call is recorded unresolved so the backfill moves on instead of re-selecting the same batch; an explicitly empty private_notes block clears notes the user deleted.",
    "asserts": [
     {
      "file": "cli/internal/cli/mcp_notes.go",
-     "contains": "mcpToolCall(access, sid, \"get_meetings\", map[string]any{\"note_ids\": []string{t.ID}})",
+     "contains": "mcpToolCallCtx(ctx, access, sid, \"get_meetings\", map[string]any{\"note_ids\": []string{t.ID}})",
      "min_count": 1,
      "code_only": true
     },
@@ -1309,13 +1309,57 @@
     },
     {
      "file": "cli/internal/cli/mcp_auth.go",
-     "contains": "pn, _ := privateNoteFromGetMeetings(gmText)",
+     "contains": "pn, _, _ := privateNoteFromGetMeetings(gmText)",
      "min_count": 1,
      "code_only": true
     },
     {
      "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
      "contains": "func TestPrivateNoteFromGetMeetingsReadsTheLiveFormat(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/granolamcp.go",
+     "contains": "req, err := http.NewRequestWithContext(ctx, method, u, body)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/mcp_notes.go",
+     "contains": "if err := recordHumanNotes(ctx, db, t.ID, \"\", false, false, checkedAt); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestExplicitEmptyPrivateNotesClear(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "meeting-times-stored-utc",
+   "status": "active",
+   "summary": "meeting times are stored as UTC \"Z\" text, and EnsureSchema normalizes rows an earlier build stored with an offset",
+   "why": "Filters and ordering compare timestamps as TEXT, which is only chronological in one representation. Calendar times arrived with their offset (09:00-04:00), so `stats frequency --since 2026-10-13T12:00:00Z` excluded a 13:00 UTC meeting (Codex full-PR review round 6).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/rest_hydrate.go",
+     "contains": "startedAt, endedAt = utcRFC3339(startedAt), utcRFC3339(endedAt)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/granola/store_sync.go",
+     "contains": "var utcNormalizeSQL = []string{",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestMeetingTimesAreStoredInUTC(",
      "min_count": 1,
      "code_only": true
     }

@@ -55,43 +55,64 @@ func enrichHumanNotes(ctx context.Context, db *sql.DB, targets []restTarget) (in
 	if err != nil {
 		return 0, err // errMCPNotConnected or expired — caller decides how to hint
 	}
-	sid, err := mcpSession(access)
+	sid, err := mcpSessionCtx(ctx, access)
 	if err != nil {
 		return 0, err
 	}
 	checkedAt := time.Now().UTC().Format(time.RFC3339)
-	n := 0
+	n, changed := 0, false
 	for _, t := range targets {
+		// The caller's deadline (auto-refresh's timeout) bounds the whole
+		// pass: every request carries ctx, and the loop stops once it ends.
+		if ctx.Err() != nil {
+			break
+		}
 		if validateNoteIDForFilename(t.ID) != nil {
 			continue
 		}
-		txt, isErr := mcpToolCall(access, sid, "get_meetings", map[string]any{"note_ids": []string{t.ID}})
+		txt, isErr := mcpToolCallCtx(ctx, access, sid, "get_meetings", map[string]any{"note_ids": []string{t.ID}})
 		if isErr {
-			continue // left pending; retried on a later pass
+			if ctx.Err() != nil {
+				break
+			}
+			// A failed call is recorded as unresolved, so it is retried after
+			// a day and the backfill moves on to other meetings meanwhile
+			// instead of re-selecting the same failing batch every command.
+			if err := recordHumanNotes(ctx, db, t.ID, "", false, false, checkedAt); err != nil {
+				return n, err
+			}
+			continue
 		}
-		note, resolved := privateNoteFromGetMeetings(txt)
-		if err := recordHumanNotes(ctx, db, t.ID, note, resolved, checkedAt); err != nil {
+		note, present, resolved := privateNoteFromGetMeetings(txt)
+		if err := recordHumanNotes(ctx, db, t.ID, note, present, resolved, checkedAt); err != nil {
 			return n, err
+		}
+		if present {
+			changed = true
 		}
 		if note != "" {
 			n++
 		}
 	}
-	if n > 0 {
+	if changed {
 		_, _ = db.ExecContext(ctx, `INSERT INTO meetings_fts(meetings_fts) VALUES ('rebuild')`)
 	}
 	return n, nil
 }
 
-// recordHumanNotes stores a meeting's private notes (when non-empty) and its
-// MCP completion state together, in one transaction.
-func recordHumanNotes(ctx context.Context, db *sql.DB, id, note string, resolved bool, checkedAt string) error {
+// recordHumanNotes stores a meeting's private notes (when the answer carried
+// a private_notes block, empty included) and its MCP completion state
+// together, in one transaction.
+func recordHumanNotes(ctx context.Context, db *sql.DB, id, note string, present, resolved bool, checkedAt string) error {
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer func() { _ = tx.Rollback() }()
-	if note != "" {
+	// present: the answer carried a <private_notes> block, so it is
+	// authoritative - an empty block CLEARS notes the user has since deleted.
+	// An answer without the block leaves stored notes alone.
+	if present {
 		if _, err := tx.ExecContext(ctx, `UPDATE meetings SET notes_markdown = ?, notes_plain = ? WHERE id = ?`, note, note, id); err != nil {
 			return err
 		}
@@ -112,7 +133,7 @@ func recordHumanNotes(ctx context.Context, db *sql.DB, id, note string, resolved
 func markHumanNotesChecked(ctx context.Context, db *sql.DB, targets []restTarget) {
 	checkedAt := time.Now().UTC().Format(time.RFC3339)
 	for _, t := range targets {
-		_ = recordHumanNotes(ctx, db, t.ID, "", false, checkedAt)
+		_ = recordHumanNotes(ctx, db, t.ID, "", false, false, checkedAt)
 	}
 }
 
@@ -151,13 +172,15 @@ func pendingHumanNoteTargets(ctx context.Context, db *sql.DB, limit int) ([]rest
 // note. resolved is true only when exactly one meeting block came back (that
 // note's); zero blocks means MCP does not know the note, more than one is
 // ambiguous, and either way the meeting is left unresolved for a later retry.
-func privateNoteFromGetMeetings(txt string) (note string, resolved bool) {
+// present reports whether that block carried a <private_notes> element at
+// all, so an explicitly empty one can clear notes the user deleted.
+func privateNoteFromGetMeetings(txt string) (note string, present, resolved bool) {
 	blocks := mcpBlockRe.FindAllStringSubmatch(txt, -1)
 	if len(blocks) != 1 {
-		return "", false
+		return "", false, false
 	}
 	if pn := mcpPrivateRe.FindStringSubmatch(blocks[0][2]); pn != nil {
-		note = strings.TrimSpace(html.UnescapeString(pn[1]))
+		return strings.TrimSpace(html.UnescapeString(pn[1])), true, true
 	}
-	return note, true
+	return "", false, true
 }

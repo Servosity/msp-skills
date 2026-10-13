@@ -98,7 +98,7 @@ func newMCPAuthVerifyCmd(flags *rootFlags) *cobra.Command {
 			// The live answer carries private notes in a <private_notes>
 			// block; read it (length only, never echoed) rather than guess
 			// from section labels (handfixes.json: mcp-notes-by-note-id).
-			pn, _ := privateNoteFromGetMeetings(gmText)
+			pn, _, _ := privateNoteFromGetMeetings(gmText)
 			human := pn != "" || contains(hits, "Notes") || contains(hits, "Human") || contains(hits, "Private")
 			if flags.asJSON {
 				return printJSONFiltered(w, map[string]any{
@@ -124,7 +124,11 @@ func newMCPAuthVerifyCmd(flags *rootFlags) *cobra.Command {
 // mcpToolCall issues a tools/call and returns the concatenated text content and
 // whether the tool reported isError.
 func mcpToolCall(access, sid, name string, arguments map[string]any) (string, bool) {
-	obj, _, err := mcpCall(access, "tools/call", map[string]any{"name": name, "arguments": arguments}, sid)
+	return mcpToolCallCtx(context.Background(), access, sid, name, arguments)
+}
+
+func mcpToolCallCtx(ctx context.Context, access, sid, name string, arguments map[string]any) (string, bool) {
+	obj, _, err := mcpCallCtx(ctx, access, "tools/call", map[string]any{"name": name, "arguments": arguments}, sid)
 	if err != nil || obj == nil {
 		return "", true // transport/protocol failure; caller reports generically
 	}

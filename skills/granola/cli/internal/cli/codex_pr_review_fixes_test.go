@@ -171,17 +171,17 @@ func TestPrivateNoteFromGetMeetingsReadsTheLiveFormat(t *testing.T) {
   <private_notes>the human notes &amp; more</private_notes>
   <summary>the ai summary</summary>
 </meeting>`
-	note, ok := privateNoteFromGetMeetings(live)
-	if !ok || note != "the human notes & more" {
+	note, present, ok := privateNoteFromGetMeetings(live)
+	if !ok || !present || note != "the human notes & more" {
 		t.Fatalf("live format: note=%q resolved=%v", note, ok)
 	}
-	if _, ok := privateNoteFromGetMeetings(""); ok {
+	if _, _, ok := privateNoteFromGetMeetings(""); ok {
 		t.Fatal("an empty answer resolved")
 	}
-	if _, ok := privateNoteFromGetMeetings(live + "\n" + live); ok {
+	if _, _, ok := privateNoteFromGetMeetings(live + "\n" + live); ok {
 		t.Fatal("an ambiguous two-block answer resolved")
 	}
-	if note, ok := privateNoteFromGetMeetings(`<meeting id="x" title="T" date="D"></meeting>`); !ok || note != "" {
+	if note, present, ok := privateNoteFromGetMeetings(`<meeting id="x" title="T" date="D"></meeting>`); !ok || present || note != "" {
 		t.Fatalf("a meeting without private notes: note=%q resolved=%v", note, ok)
 	}
 }
@@ -565,7 +565,7 @@ func TestRecordHumanNotesIsAtomic(t *testing.T) {
 	if _, err := s.DB().Exec(`CREATE TRIGGER fail_notes BEFORE UPDATE OF notes_markdown ON meetings BEGIN SELECT RAISE(ABORT, 'disk full'); END`); err != nil {
 		t.Fatal(err)
 	}
-	if err := recordHumanNotes(context.Background(), s.DB(), "not_atomic", "private note", true, "2026-10-13T00:00:00Z"); err == nil {
+	if err := recordHumanNotes(context.Background(), s.DB(), "not_atomic", "private note", true, true, "2026-10-13T00:00:00Z"); err == nil {
 		t.Fatal("a failed notes write was not reported")
 	}
 	var n int
@@ -584,10 +584,10 @@ func TestUnresolvedHumanNotesAreRetriedAfterADay(t *testing.T) {
 	insertMeeting(t, s, seedMeeting{ID: "not_unres", Title: "U", CreatedAt: "2026-10-12T09:00:00Z"})
 	insertMeeting(t, s, seedMeeting{ID: "not_res", Title: "R", CreatedAt: "2026-10-12T10:00:00Z"})
 	old := time.Now().UTC().Add(-48 * time.Hour).Format(time.RFC3339)
-	if err := recordHumanNotes(ctx, s.DB(), "not_unres", "", false, old); err != nil {
+	if err := recordHumanNotes(ctx, s.DB(), "not_unres", "", false, false, old); err != nil {
 		t.Fatal(err)
 	}
-	if err := recordHumanNotes(ctx, s.DB(), "not_res", "", true, old); err != nil {
+	if err := recordHumanNotes(ctx, s.DB(), "not_res", "", false, true, old); err != nil {
 		t.Fatal(err)
 	}
 	pending, err := pendingHumanNoteTargets(ctx, s.DB(), 25)
@@ -656,7 +656,7 @@ func TestEnsureSchemaUpgradesHumanNotesState(t *testing.T) {
 		t.Fatalf("EnsureSchema on the old shape: %v", err)
 	}
 	insertMeeting(t, s, seedMeeting{ID: "not_new", Title: "N", CreatedAt: "2026-10-12T09:00:00Z"})
-	if err := recordHumanNotes(ctx, s.DB(), "not_new", "", true, "2026-10-13T00:00:00Z"); err != nil {
+	if err := recordHumanNotes(ctx, s.DB(), "not_new", "", false, true, "2026-10-13T00:00:00Z"); err != nil {
 		t.Fatalf("recordHumanNotes after the upgrade: %v", err)
 	}
 	var n int
@@ -732,5 +732,67 @@ func TestStoredTranscriptEnvelopeSaysLocal(t *testing.T) {
 	}
 	if env.Meta["source"] != "local" {
 		t.Fatalf("meta.source = %v for a stored transcript, want local", env.Meta["source"])
+	}
+}
+
+// --- round 6 -----------------------------------------------------------------
+
+// TestExplicitEmptyPrivateNotesClear: a present-but-empty private_notes
+// block is authoritative (the user deleted the notes); an answer without the
+// block leaves stored notes alone.
+func TestExplicitEmptyPrivateNotesClear(t *testing.T) {
+	s := newIsolatedStore(t)
+	defer s.Close()
+	ctx := context.Background()
+	insertMeeting(t, s, seedMeeting{ID: "not_del", Title: "T", CreatedAt: "2026-10-12T09:00:00Z", NotesMarkdown: "old", NotesPlain: "old"})
+	notes := func() string {
+		var n string
+		_ = s.DB().QueryRow(`SELECT COALESCE(notes_markdown,'') FROM meetings WHERE id='not_del'`).Scan(&n)
+		return n
+	}
+	if err := recordHumanNotes(ctx, s.DB(), "not_del", "", false, true, "2026-10-13T00:00:00Z"); err != nil {
+		t.Fatal(err)
+	}
+	if notes() != "old" {
+		t.Fatal("an answer without a private_notes block erased stored notes")
+	}
+	_, present, ok := privateNoteFromGetMeetings(`<meeting id="u"><private_notes></private_notes></meeting>`)
+	if !present || !ok {
+		t.Fatal("an explicitly empty private_notes block was not reported as present")
+	}
+	if err := recordHumanNotes(ctx, s.DB(), "not_del", "", true, true, "2026-10-13T00:00:00Z"); err != nil {
+		t.Fatal(err)
+	}
+	if notes() != "" {
+		t.Fatalf("deleted private notes survived an authoritative empty answer: %q", notes())
+	}
+}
+
+// TestMeetingTimesAreStoredInUTC: calendar times arrive with an offset;
+// stored as text they must be UTC "Z" so --since filters and ordering are
+// chronological. Existing offset rows are normalized by EnsureSchema.
+func TestMeetingTimesAreStoredInUTC(t *testing.T) {
+	s := newIsolatedStore(t)
+	defer s.Close()
+	ctx := context.Background()
+	d := &restNoteDetail{ID: "not_utc", Title: "T", CreatedAt: "2026-10-13T08:55:00-04:00",
+		CalendarEvent: json.RawMessage(`{"scheduled_start_time":"2026-10-13T09:00:00-04:00","scheduled_end_time":"2026-10-13T09:30:00-04:00"}`)}
+	if err := upsertRichMeeting(ctx, s.DB(), d); err != nil {
+		t.Fatal(err)
+	}
+	var started, created string
+	_ = s.DB().QueryRow(`SELECT started_at, created_at FROM meetings WHERE id='not_utc'`).Scan(&started, &created)
+	if started != "2026-10-13T13:00:00Z" || created != "2026-10-13T12:55:00Z" {
+		t.Fatalf("stored started_at=%q created_at=%q, want UTC Z form", started, created)
+	}
+	if _, err := s.DB().Exec(`UPDATE meetings SET started_at='2026-10-13T09:00:00-04:00' WHERE id='not_utc'`); err != nil {
+		t.Fatal(err)
+	}
+	if err := granola.EnsureSchema(ctx, s.DB()); err != nil {
+		t.Fatal(err)
+	}
+	_ = s.DB().QueryRow(`SELECT started_at FROM meetings WHERE id='not_utc'`).Scan(&started)
+	if started != "2026-10-13T13:00:00Z" {
+		t.Fatalf("an existing offset row was not normalized: %q", started)
 	}
 }

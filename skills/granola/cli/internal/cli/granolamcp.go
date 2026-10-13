@@ -13,6 +13,7 @@ package cli
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
@@ -199,6 +200,12 @@ func kcNotFound(err error) bool {
 // --- OAuth --------------------------------------------------------------------
 
 func mcpJSON(method, u string, payload any, headers map[string]string) (int, http.Header, []byte, error) {
+	return mcpJSONCtx(context.Background(), method, u, payload, headers)
+}
+
+// mcpJSONCtx is mcpJSON bound to ctx, so a caller's deadline or cancellation
+// stops the request (handfixes.json: mcp-notes-by-note-id).
+func mcpJSONCtx(ctx context.Context, method, u string, payload any, headers map[string]string) (int, http.Header, []byte, error) {
 	var body io.Reader
 	h := map[string]string{"Accept": "application/json"}
 	if payload != nil {
@@ -212,7 +219,7 @@ func mcpJSON(method, u string, payload any, headers map[string]string) (int, htt
 	for k, v := range headers {
 		h[k] = v
 	}
-	req, err := http.NewRequest(method, u, body)
+	req, err := http.NewRequestWithContext(ctx, method, u, body)
 	if err != nil {
 		return 0, nil, nil, err
 	}
@@ -471,6 +478,10 @@ func mcpNotConnected(err error) bool { return err == errMCPNotConnected }
 // (text/event-stream) for some methods, so parse the last data: frame when the
 // content type says so. Returns the parsed envelope and the session id.
 func mcpCall(access, method string, params any, sessionID string) (map[string]any, string, error) {
+	return mcpCallCtx(context.Background(), access, method, params, sessionID)
+}
+
+func mcpCallCtx(ctx context.Context, access, method string, params any, sessionID string) (map[string]any, string, error) {
 	h := map[string]string{
 		"Authorization": "Bearer " + access,
 		"Accept":        "application/json, text/event-stream",
@@ -478,7 +489,7 @@ func mcpCall(access, method string, params any, sessionID string) (map[string]an
 	if sessionID != "" {
 		h["Mcp-Session-Id"] = sessionID
 	}
-	st, hdr, b, err := mcpJSON("POST", mcpURL, map[string]any{
+	st, hdr, b, err := mcpJSONCtx(ctx, "POST", mcpURL, map[string]any{
 		"jsonrpc": "2.0", "id": 1, "method": method, "params": params,
 	}, h)
 	if err != nil {
@@ -536,7 +547,11 @@ func parseMCPResult(method string, st int, contentType string, b []byte) (map[st
 // mcpSession runs initialize + notifications/initialized and returns a live
 // session id ready for tools/list or tools/call.
 func mcpSession(access string) (string, error) {
-	_, sid, err := mcpCall(access, "initialize", map[string]any{
+	return mcpSessionCtx(context.Background(), access)
+}
+
+func mcpSessionCtx(ctx context.Context, access string) (string, error) {
+	_, sid, err := mcpCallCtx(ctx, access, "initialize", map[string]any{
 		"protocolVersion": mcpProtoVer,
 		"capabilities":    map[string]any{},
 		"clientInfo":      map[string]any{"name": mcpClientName, "version": version},
@@ -544,6 +559,6 @@ func mcpSession(access string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	_, _, _ = mcpCall(access, "notifications/initialized", map[string]any{}, sid)
+	_, _, _ = mcpCallCtx(ctx, access, "notifications/initialized", map[string]any{}, sid)
 	return sid, nil
 }
