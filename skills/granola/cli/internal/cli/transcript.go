@@ -81,7 +81,13 @@ M:SS mark.`,
 						"source":      source,
 						"segments":    segs,
 					}
-					return emitJSONSource(cmd, flags, out, source)
+					// The envelope speaks "live" | "local"; the stored
+					// transcript path reports itself as "cache".
+					envSource := source
+					if envSource != "live" {
+						envSource = "local"
+					}
+					return emitJSONSource(cmd, flags, out, envSource)
 				}
 				fallthrough
 			case "text":

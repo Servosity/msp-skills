@@ -19,6 +19,7 @@ import (
 
 	"granola-pp-cli/internal/client"
 	"granola-pp-cli/internal/config"
+	"granola-pp-cli/internal/granola"
 )
 
 // isolateGranola points every path, the API, and the Keychain hook at
@@ -627,7 +628,8 @@ func TestEffectiveRESTTargetUsesStoredMetadata(t *testing.T) {
 }
 
 // TestExtractRefusesWhileAnotherRunHoldsTheLock: two extracts of one meeting
-// into one folder must not interleave; a stale lock is taken over.
+// into one folder must not interleave. The lock is OS-held (flock /
+// LockFileEx), so releasing it - or the holder dying - lets the next run in.
 func TestExtractRefusesWhileAnotherRunHoldsTheLock(t *testing.T) {
 	isolateGranola(t, "")
 	s := newIsolatedStore(t)
@@ -638,22 +640,45 @@ func TestExtractRefusesWhileAnotherRunHoldsTheLock(t *testing.T) {
 	}
 	s.Close()
 	out := t.TempDir()
-	lock := filepath.Join(out, ".extract-not_lock.lock")
-	if err := os.WriteFile(lock, nil, 0o600); err != nil {
+	unlock, err := lockExtract(out, "not_lock")
+	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err := runExtract("not_lock", out, "", false); err == nil || !strings.Contains(err.Error(), "another extract") {
 		t.Fatalf("extract ran while another held the lock: err=%v", err)
 	}
-	stale := time.Now().Add(-2 * extractLockStale)
-	if err := os.Chtimes(lock, stale, stale); err != nil {
+	unlock()
+	if _, err := runExtract("not_lock", out, "", false); err != nil {
+		t.Fatalf("extract did not run after the lock was released: %v", err)
+	}
+}
+
+// TestEnsureSchemaUpgradesHumanNotesState: a store created before the
+// resolved column existed gains it, keeping its rows.
+func TestEnsureSchemaUpgradesHumanNotesState(t *testing.T) {
+	s := newIsolatedStore(t)
+	defer s.Close()
+	ctx := context.Background()
+	if _, err := s.DB().Exec(`DROP TABLE human_notes_state`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := runExtract("not_lock", out, "", false); err != nil {
-		t.Fatalf("a stale lock was not taken over: %v", err)
+	if _, err := s.DB().Exec(`CREATE TABLE human_notes_state (meeting_id TEXT PRIMARY KEY, checked_at TEXT)`); err != nil {
+		t.Fatal(err)
 	}
-	if _, err := os.Stat(lock); !os.IsNotExist(err) {
-		t.Fatalf("the lock was not released: %v", err)
+	if _, err := s.DB().Exec(`INSERT INTO human_notes_state VALUES ('not_kept', '2026-10-01T00:00:00Z')`); err != nil {
+		t.Fatal(err)
+	}
+	if err := granola.EnsureSchema(ctx, s.DB()); err != nil {
+		t.Fatalf("EnsureSchema on the old shape: %v", err)
+	}
+	insertMeeting(t, s, seedMeeting{ID: "not_new", Title: "N", CreatedAt: "2026-10-12T09:00:00Z"})
+	if err := recordHumanNotes(ctx, s.DB(), "not_new", "", true, "2026-10-13T00:00:00Z"); err != nil {
+		t.Fatalf("recordHumanNotes after the upgrade: %v", err)
+	}
+	var n int
+	_ = s.DB().QueryRow(`SELECT COUNT(*) FROM human_notes_state WHERE meeting_id = 'not_kept'`).Scan(&n)
+	if n != 1 {
+		t.Fatal("the upgrade lost an existing row")
 	}
 }
 
@@ -690,7 +715,36 @@ func TestYAMLEscapeQuotesIndicatorLedTitles(t *testing.T) {
 			t.Errorf("yamlEscape(%q) = %s, want a quoted scalar", in, got)
 		}
 	}
+	for _, in := range []string{"true", "null", "2026", "1e3"} {
+		if got := yamlEscape(in); !strings.HasPrefix(got, `"`) {
+			t.Errorf("yamlEscape(%q) = %s, want a quoted string", in, got)
+		}
+	}
 	if got := yamlEscape("Weekly Sync"); got != "Weekly Sync" {
 		t.Errorf("plain title was quoted: %s", got)
+	}
+}
+
+// TestStoredTranscriptEnvelopeSaysLocal: the --agent envelope speaks
+// "live" | "local"; a stored transcript must not surface the internal
+// "cache" label.
+func TestStoredTranscriptEnvelopeSaysLocal(t *testing.T) {
+	isolateGranola(t, "")
+	s := newIsolatedStore(t)
+	insertMeeting(t, s, seedMeeting{ID: "not_tsrc", Title: "T", CreatedAt: "2026-05-01T10:00:00Z"})
+	insertSegment(t, s, "not_tsrc", 0, "microphone", "hello")
+	s.Close()
+	stdout, _, err := runRootArgs(t, "transcript", "get", "not_tsrc", "--data-source", "local", "--agent", "--no-refresh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var env struct {
+		Meta map[string]any `json:"meta"`
+	}
+	if err := json.Unmarshal([]byte(stdout), &env); err != nil {
+		t.Fatalf("not an envelope: %v\n%s", err, stdout)
+	}
+	if env.Meta["source"] != "local" {
+		t.Fatalf("meta.source = %v for a stored transcript, want local", env.Meta["source"])
 	}
 }

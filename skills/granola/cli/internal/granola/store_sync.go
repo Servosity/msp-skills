@@ -162,6 +162,39 @@ func EnsureSchema(ctx context.Context, db *sql.DB) error {
 			return fmt.Errorf("granola schema: %w: %s", err, firstLine(stmt))
 		}
 	}
+	// Additive column migrations: CREATE TABLE IF NOT EXISTS never alters a
+	// table an earlier build created, so a column added later is added here
+	// (handfixes.json: mcp-notes-backfill-tracked). Existing rows keep their
+	// data and take the column's default.
+	return addColumnIfMissing(ctx, db, "human_notes_state", "resolved",
+		`ALTER TABLE human_notes_state ADD COLUMN resolved INTEGER NOT NULL DEFAULT 0`)
+}
+
+// addColumnIfMissing runs alterStmt (a constant ALTER TABLE ... ADD COLUMN)
+// unless table already has column.
+func addColumnIfMissing(ctx context.Context, db *sql.DB, table, column, alterStmt string) error {
+	rows, err := db.QueryContext(ctx, "SELECT name FROM pragma_table_info(?)", table)
+	if err != nil {
+		return fmt.Errorf("granola schema: inspect %s: %w", table, err)
+	}
+	found := false
+	for rows.Next() {
+		var name string
+		if rows.Scan(&name) == nil && name == column {
+			found = true
+		}
+	}
+	rerr := rows.Err()
+	rows.Close()
+	if rerr != nil {
+		return fmt.Errorf("granola schema: inspect %s: %w", table, rerr)
+	}
+	if found {
+		return nil
+	}
+	if _, err := db.ExecContext(ctx, alterStmt); err != nil {
+		return fmt.Errorf("granola schema: add %s.%s: %w", table, column, err)
+	}
 	return nil
 }
 

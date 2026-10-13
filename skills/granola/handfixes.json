@@ -767,7 +767,7 @@
   {
    "id": "extract-triple-all-or-nothing",
    "summary": "extract stages the MEMO triple in private temporary files and renames them into place only when all three are written, full_<id>.md last",
-   "why": "A half-written triple left full_<id>.md behind, and the retry refused it as 'already exists' forever (Codex full-PR review). Round 2: a failure while writing the FIRST file also left a partial full_<id>.md, so the triple is now staged under hidden temporary names (skipped by the duplicate scan) and published last. Round 3: a per-meeting lock in the output folder is held from the 'already exists' check through publication, so two concurrent extracts cannot interleave snapshots (a lock older than 10 minutes is taken over).",
+   "why": "A half-written triple left full_<id>.md behind, and the retry refused it as 'already exists' forever (Codex full-PR review). Round 2: a failure while writing the FIRST file also left a partial full_<id>.md, so the triple is now staged under hidden temporary names (skipped by the duplicate scan) and published last. Round 3: a per-meeting lock in the output folder is held from the 'already exists' check through publication, so two concurrent extracts cannot interleave snapshots (a lock older than 10 minutes is taken over). Round 4: the lock is OS-held (flock / LockFileEx), released by the kernel when the holder exits, on a hidden file that is never unlinked, so stale-lock reclamation can no longer let two runs in at once.",
    "status": "active",
    "asserts": [
     {
@@ -793,6 +793,28 @@
      "contains": "func TestExtractRefusesWhileAnotherRunHoldsTheLock(",
      "min_count": 1,
      "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/extract.go",
+     "contains": "ok, err := tryLockFile(f)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/extract_lock_unix.go",
+     "contains": "syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/extract_lock_windows.go",
+     "contains": "windows.LockFileEx(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/extract.go",
+     "not_contains": "extractLockStale"
     }
    ]
   },
@@ -1155,7 +1177,7 @@
    "id": "mcp-notes-backfill-tracked",
    "summary": "private-notes completion is tracked per meeting (human_notes_state); auto-refresh backfills up to 25 pending meetings per command without refetching REST detail",
    "status": "active",
-   "why": "Eligibility depended only on REST timestamps, so meetings synced before MCP was connected, or whose MCP pass failed, were never asked again (Codex full-PR review round 2). Round 3: a meeting's notes and its completion state are written in one transaction; a meeting MCP lists no match for is recorded unresolved and retried after a day; match targets use the effective stored title/date, not a partial response's omitted fields.",
+   "why": "Eligibility depended only on REST timestamps, so meetings synced before MCP was connected, or whose MCP pass failed, were never asked again (Codex full-PR review round 2). Round 3: a meeting's notes and its completion state are written in one transaction; a meeting MCP lists no match for is recorded unresolved and retried after a day; match targets use the effective stored title/date, not a partial response's omitted fields. Round 4: EnsureSchema adds the resolved column to a human_notes_state table an earlier build created, keeping its rows.",
    "asserts": [
     {
      "file": "cli/internal/granola/store_sync.go",
@@ -1210,6 +1232,18 @@
      "contains": "func TestEffectiveRESTTargetUsesStoredMetadata(",
      "min_count": 1,
      "code_only": true
+    },
+    {
+     "file": "cli/internal/granola/store_sync.go",
+     "contains": "`ALTER TABLE human_notes_state ADD COLUMN resolved INTEGER NOT NULL DEFAULT 0`",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestEnsureSchemaUpgradesHumanNotesState(",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   },
@@ -1217,7 +1251,7 @@
    "id": "yaml-metadata-escaped",
    "summary": "metadata frontmatter escapes backslashes, quotes, and control characters in quoted scalars",
    "status": "active",
-   "why": "A title such as `QBR: C:\\\\Users\\\\Alice` produced an invalid double-quoted YAML scalar (Codex full-PR review round 2, P2). Round 3: a title led by a YAML indicator ([, {, -, ?, ...) or padded with spaces is quoted too.",
+   "why": "A title such as `QBR: C:\\\\Users\\\\Alice` produced an invalid double-quoted YAML scalar (Codex full-PR review round 2, P2). Round 3: a title led by a YAML indicator ([, {, -, ?, ...) or padded with spaces is quoted too. Round 4: strings a YAML parser would retype (true, null, 2026, 1e3) are quoted.",
    "asserts": [
     {
      "file": "cli/internal/cli/extract.go",
@@ -1234,6 +1268,12 @@
     {
      "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
      "contains": "func TestYAMLEscapeQuotesIndicatorLedTitles(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/extract.go",
+     "contains": "func yamlPlainWouldRetype(s string) bool {",
      "min_count": 1,
      "code_only": true
     }
@@ -1260,6 +1300,18 @@
     {
      "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
      "contains": "func TestLiveResultsCarryLiveProvenance(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcript.go",
+     "contains": "envSource = \"local\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestStoredTranscriptEnvelopeSaysLocal(",
      "min_count": 1,
      "code_only": true
     }

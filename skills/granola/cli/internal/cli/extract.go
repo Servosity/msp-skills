@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -243,7 +244,7 @@ func yamlEscape(s string) string {
 	// escaped first, then quotes and control characters (a title such as
 	// `QBR: C:\Users\Alice` used to produce invalid frontmatter).
 	if strings.ContainsAny(s, ":#@\"'\\") || strings.ContainsFunc(s, func(r rune) bool { return r < 0x20 || r == 0x7f }) ||
-		(s != "" && strings.ContainsRune("[]{}-?!&*|>%`,", rune(s[0]))) || strings.TrimSpace(s) != s {
+		(s != "" && strings.ContainsRune("[]{}-?!&*|>%`,", rune(s[0]))) || strings.TrimSpace(s) != s || yamlPlainWouldRetype(s) {
 		var b strings.Builder
 		b.WriteByte('"')
 		for _, r := range s {
@@ -329,38 +330,49 @@ func durationMinutes(start, end string) int {
 	return int(d / time.Minute)
 }
 
-// extractLockStale is how old a leftover lock may be before a new run treats
-// it as abandoned by a killed process and takes it over.
-const extractLockStale = 10 * time.Minute
-
-// lockExtract takes an exclusive, hidden lock file for one meeting in one
-// output folder and returns the function that releases it. The duplicate
-// scan skips hidden files, so the lock never reads as a finished memo.
+// lockExtract takes an exclusive, OS-held lock for one meeting in one output
+// folder and returns the function that releases it. The lock lives on a
+// hidden file that is never unlinked: removing it could let a third run lock
+// a fresh file while a second still waits on the old one. The kernel drops
+// the lock when the process exits, so nothing is ever guessed stale. The
+// duplicate scan skips hidden files, so the lock never reads as a memo.
 func lockExtract(outDir, id string) (func(), error) {
 	r, err := os.OpenRoot(outDir)
 	if err != nil {
 		return nil, ioErr(err)
 	}
-	name := ".extract-" + id + ".lock"
-	for attempt := 0; attempt < 2; attempt++ {
-		f, err := r.OpenFile(name, os.O_CREATE|os.O_EXCL|os.O_WRONLY, safeFilePerm)
-		if err == nil {
-			_ = f.Close()
-			return func() {
-				_ = r.Remove(name)
-				_ = r.Close()
-			}, nil
-		}
-		if !os.IsExist(err) {
-			_ = r.Close()
+	f, err := r.OpenFile(".extract-"+id+".lock", os.O_CREATE|os.O_RDWR, safeFilePerm)
+	_ = r.Close()
+	if err != nil {
+		return nil, ioErr(err)
+	}
+	ok, err := tryLockFile(f)
+	if err != nil || !ok {
+		_ = f.Close()
+		if err != nil {
 			return nil, ioErr(err)
 		}
-		if fi, serr := r.Lstat(name); serr == nil && time.Since(fi.ModTime()) > extractLockStale {
-			_ = r.Remove(name)
-			continue
-		}
-		break
+		return nil, ioErr(fmt.Errorf("another extract of %s is writing to %s; retry when it finishes", id, outDir))
 	}
-	_ = r.Close()
-	return nil, ioErr(fmt.Errorf("another extract of %s is writing to %s; retry when it finishes", id, outDir))
+	return func() {
+		unlockFile(f)
+		_ = f.Close()
+	}, nil
+}
+
+// yamlPlainWouldRetype reports whether s, written unquoted, would be read by
+// a YAML parser as something other than a string: a boolean or null word, or
+// a number ("2026", "1e3", "0x1F").
+func yamlPlainWouldRetype(s string) bool {
+	switch strings.ToLower(s) {
+	case "true", "false", "yes", "no", "on", "off", "y", "n", "null", "~", ".nan", ".inf", "-.inf", "+.inf":
+		return true
+	}
+	if _, err := strconv.ParseFloat(s, 64); err == nil {
+		return true
+	}
+	if _, err := strconv.ParseInt(s, 0, 64); err == nil {
+		return true
+	}
+	return false
 }
