@@ -266,6 +266,25 @@ func upsertRichMeeting(ctx context.Context, db *sql.DB, d *restNoteDetail) error
 		}
 	}
 
+	// Provenance per bound (handfixes.json: window-provenance): a calendar
+	// bound always wins; a transcript span may only fill a bound that is
+	// empty or was itself transcript-derived. A partial response that omits
+	// calendar_event must not shrink a stored scheduled window to the
+	// transcript span, while a transcript that grew may still extend one.
+	startedSrc, endedSrc := "", ""
+	if startedPresent {
+		startedSrc = "transcript"
+		if calPresent && cal.ScheduledStartTime != "" {
+			startedSrc = "calendar"
+		}
+	}
+	if endedPresent {
+		endedSrc = "transcript"
+		if calPresent && cal.ScheduledEndTime != "" {
+			endedSrc = "calendar"
+		}
+	}
+
 	// calendar_event_id is guarded on the sub-field itself: overwrite only when
 	// this response actually carried a non-empty id, else keep the stored one.
 	calendarEventID := ""
@@ -303,15 +322,25 @@ func upsertRichMeeting(ctx context.Context, db *sql.DB, d *restNoteDetail) error
 		id, title, created_at, updated_at, started_at, ended_at, workspace_id,
 		calendar_event_id, deleted_at, notes_markdown, notes_plain,
 		transcript_available, recipes_applied, creation_source, valid_meeting,
-		source_updated_at
-	) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+		source_updated_at, started_src, ended_src
+	) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 	ON CONFLICT(id) DO UPDATE SET
 		title=CASE WHEN excluded.title != '' THEN excluded.title ELSE meetings.title END,
 		created_at=CASE WHEN excluded.created_at != '' THEN excluded.created_at ELSE meetings.created_at END,
 		updated_at=CASE WHEN excluded.updated_at != '' THEN excluded.updated_at ELSE meetings.updated_at END,
 		source_updated_at=CASE WHEN excluded.source_updated_at != '' THEN excluded.source_updated_at ELSE meetings.source_updated_at END,
-		started_at=CASE WHEN ?=1 THEN excluded.started_at ELSE meetings.started_at END,
-		ended_at=CASE WHEN ?=1 THEN excluded.ended_at ELSE meetings.ended_at END,
+		started_at=CASE WHEN excluded.started_src = 'calendar' THEN excluded.started_at
+			WHEN excluded.started_src = 'transcript' AND (COALESCE(meetings.started_at, '') = '' OR meetings.started_src = 'transcript') THEN excluded.started_at
+			ELSE meetings.started_at END,
+		started_src=CASE WHEN excluded.started_src = 'calendar' THEN 'calendar'
+			WHEN excluded.started_src = 'transcript' AND (COALESCE(meetings.started_at, '') = '' OR meetings.started_src = 'transcript') THEN 'transcript'
+			ELSE meetings.started_src END,
+		ended_at=CASE WHEN excluded.ended_src = 'calendar' THEN excluded.ended_at
+			WHEN excluded.ended_src = 'transcript' AND (COALESCE(meetings.ended_at, '') = '' OR meetings.ended_src = 'transcript') THEN excluded.ended_at
+			ELSE meetings.ended_at END,
+		ended_src=CASE WHEN excluded.ended_src = 'calendar' THEN 'calendar'
+			WHEN excluded.ended_src = 'transcript' AND (COALESCE(meetings.ended_at, '') = '' OR meetings.ended_src = 'transcript') THEN 'transcript'
+			ELSE meetings.ended_src END,
 		calendar_event_id=CASE WHEN ?=1 THEN excluded.calendar_event_id ELSE meetings.calendar_event_id END,
 		transcript_available=CASE WHEN ?=1 THEN excluded.transcript_available ELSE meetings.transcript_available END,
 		recipes_applied=excluded.recipes_applied, creation_source=excluded.creation_source,
@@ -319,11 +348,12 @@ func upsertRichMeeting(ctx context.Context, db *sql.DB, d *restNoteDetail) error
 		// VALUES
 		d.ID, d.Title, createdAt, updatedAt, startedAt, endedAt, "",
 		calendarEventID, "", "", "", transcriptAvail, "[]", "api", 1,
-		freshnessWatermark(d.UpdatedAt),
-		// CASE presence flags (started, ended, calendar_id, transcript) — each
-		// bound guarded independently so a half-populated calendar_event can't
-		// blank the other bound.
-		b2i(startedPresent), b2i(endedPresent), b2i(calendarIDPresent), b2i(transcriptPresent),
+		freshnessWatermark(d.UpdatedAt), startedSrc, endedSrc,
+		// CASE presence flags (calendar_id, transcript). The bounds are guarded
+		// by their own provenance (started_src / ended_src) above, each
+		// independently, so a half-populated calendar_event can't blank the
+		// other bound.
+		b2i(calendarIDPresent), b2i(transcriptPresent),
 	); err != nil {
 		return fmt.Errorf("upsert meeting %s: %w", d.ID, err)
 	}

@@ -110,6 +110,13 @@ Exit codes:
 					d = c.DocumentByID(id)
 				}
 			}
+			// Without an API key the lookup above never ran, so nothing says
+			// the meeting does not exist: exit 5, not 3, or a caller that
+			// skips on 3 drops a real meeting (handfixes.json:
+			// preflight-hydrates-missing-meeting).
+			if d == nil && flags.dataSource != "local" && validateNoteIDForFilename(id) == nil && !apiKeyConfigured(flags) {
+				return apiErr(fmt.Errorf("meeting %s is not in the local store and no Granola API key is configured to ask about it (exit 5; the meeting may exist): set GRANOLA_API_KEY or run 'granola-cli auth set-token'", id))
+			}
 			if d == nil {
 				return notFoundErr(fmt.Errorf("meeting %s not in the local store and not fetchable from the Granola API (exit 3 here means NOT FOUND, not a duplicate)", id))
 			}

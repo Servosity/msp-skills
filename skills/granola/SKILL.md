@@ -96,7 +96,7 @@ treated as **unrecognized** rather than silently counted.
 | `2` | no transcript, or below the threshold (needs >= 5 `microphone` segments AND >= 10 CLASSIFIED segments) |
 | `3` | a file in `--root` already covers this meeting - the meeting id is in its filename, or a file whose name carries the meeting title declares that id (a `Meeting ID:` line, a `Meeting Link:` to notes.granola.ai, or frontmatter `id:`), or the file declares no comparable id and is named for this meeting's day and exact title (`<YYYY-MM-DD> <Title> - <Org> - Full.md`) - **or** the meeting is unknown to both the local store and the Granola API (preflight first tries to fetch a meeting sync has not enriched yet; stderr says which case it is). A same-title file from a different day (a recurring meeting), or a file whose name only contains the title, is reported as `title_collision` and does not block. `--root` defaults to `~/Documents/Dev/meeting-transcripts`; pass the folder your memos actually live in. |
 | `4` | transcript source labels are unrecognized, so the gate cannot classify the transcript -- upstream changed its grammar. **Not the same as exit 2:** the text is probably there, the channels just can't be read. |
-| `5` | the meeting is not in the local store and the Granola API refused or failed the lookup (bad key, outage). The meeting may exist; fix the key or retry. |
+| `5` | the meeting is not in the local store and the Granola API could not be asked (no key configured) or refused or failed the lookup (bad key, outage). The meeting may exist; set or fix the key, or retry. |
 
 Unclassified segments never count toward the threshold, so an upstream relabel
 cannot manufacture a passing verdict.

@@ -741,6 +741,18 @@
      "contains": "func TestPreflightLookupFailureIsNotNotFound(",
      "min_count": 1,
      "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/preflight.go",
+     "contains": "if d == nil && flags.dataSource != \"local\" && validateNoteIDForFilename(id) == nil && !apiKeyConfigured(flags) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestPreflightWithoutAKeyIsNotNotFound(",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   },
@@ -1614,6 +1626,32 @@
     {
      "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
      "contains": "func TestStoredWindowSurvivesWithoutCalendarID(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "window-provenance",
+   "status": "active",
+   "summary": "each stored meeting bound records its source (meetings.started_src / ended_src); a calendar bound always wins, and a transcript span only fills a bound that is empty or transcript-derived",
+   "why": "A partial response omitting calendar_event but carrying a transcript replaced the stored scheduled 09:00-10:00 window with the 09:05-09:55 span, so extract and duration stats reported 50 minutes instead of 60 (Codex full-PR review round 12).",
+   "asserts": [
+    {
+     "file": "cli/internal/granola/store_sync.go",
+     "contains": "`ALTER TABLE meetings ADD COLUMN started_src TEXT NOT NULL DEFAULT ''`",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/rest_hydrate.go",
+     "contains": "WHEN excluded.started_src = 'transcript' AND (COALESCE(meetings.started_at, '') = '' OR meetings.started_src = 'transcript') THEN excluded.started_at",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestPartialResponseKeepsTheScheduledWindow(",
      "min_count": 1,
      "code_only": true
     }

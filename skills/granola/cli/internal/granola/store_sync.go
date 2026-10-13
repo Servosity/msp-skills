@@ -189,6 +189,17 @@ func EnsureSchema(ctx context.Context, db *sql.DB) error {
 		`ALTER TABLE meetings ADD COLUMN source_updated_at TEXT NOT NULL DEFAULT ''`); err != nil {
 		return err
 	}
+	// started_src / ended_src: where each stored bound came from ('calendar'
+	// or 'transcript'; '' for rows from earlier builds), so a transcript span
+	// never replaces a scheduled bound (handfixes.json: window-provenance).
+	if err := addColumnIfMissing(ctx, db, "meetings", "started_src",
+		`ALTER TABLE meetings ADD COLUMN started_src TEXT NOT NULL DEFAULT ''`); err != nil {
+		return err
+	}
+	if err := addColumnIfMissing(ctx, db, "meetings", "ended_src",
+		`ALTER TABLE meetings ADD COLUMN ended_src TEXT NOT NULL DEFAULT ''`); err != nil {
+		return err
+	}
 	// Meeting timestamps are compared and ordered as TEXT, which is only
 	// chronological in ONE representation: UTC, whole seconds, "Z"
 	// (2026-10-13T13:00:00Z, what the --since bounds use). Earlier builds

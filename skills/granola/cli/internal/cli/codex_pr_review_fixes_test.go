@@ -1308,3 +1308,58 @@ func TestStoredWindowSurvivesWithoutCalendarID(t *testing.T) {
 		t.Fatalf("window = %s..%s, want the stored 09:00..10:00, not the transcript span", st, en)
 	}
 }
+
+// TestPartialResponseKeepsTheScheduledWindow: a later response that omits
+// calendar_event but carries a transcript used to replace the stored
+// 09:00-10:00 scheduled window with the 09:05-09:55 transcript span. A
+// transcript-derived window must still grow as the transcript does.
+func TestPartialResponseKeepsTheScheduledWindow(t *testing.T) {
+	s := newIsolatedStore(t)
+	defer s.Close()
+	ctx := context.Background()
+	span := func(st, en string) *[]restSegment {
+		r := restSegment{Text: "x", StartTime: st, EndTime: en}
+		r.Speaker.Source = "microphone"
+		return &[]restSegment{r}
+	}
+	window := func(id string) string {
+		var st, en string
+		_ = s.DB().QueryRow(`SELECT started_at, ended_at FROM meetings WHERE id = ?`, id).Scan(&st, &en)
+		return st + ".." + en
+	}
+	if err := upsertRichMeeting(ctx, s.DB(), &restNoteDetail{ID: "not_sched", Title: "S",
+		CalendarEvent: json.RawMessage(`{"scheduled_start_time":"2026-10-13T09:00:00Z","scheduled_end_time":"2026-10-13T10:00:00Z"}`),
+		Transcript:    span("2026-10-13T09:05:00Z", "2026-10-13T09:55:00Z")}); err != nil {
+		t.Fatal(err)
+	}
+	if err := upsertRichMeeting(ctx, s.DB(), &restNoteDetail{ID: "not_sched", Transcript: span("2026-10-13T09:05:00Z", "2026-10-13T09:55:00Z")}); err != nil {
+		t.Fatal(err)
+	}
+	if got := window("not_sched"); got != "2026-10-13T09:00:00Z..2026-10-13T10:00:00Z" {
+		t.Fatalf("a partial response shrank the scheduled window to %s", got)
+	}
+	if err := upsertRichMeeting(ctx, s.DB(), &restNoteDetail{ID: "not_tr", Title: "T", Transcript: span("2026-10-13T09:05:00Z", "2026-10-13T09:30:00Z")}); err != nil {
+		t.Fatal(err)
+	}
+	if err := upsertRichMeeting(ctx, s.DB(), &restNoteDetail{ID: "not_tr", Transcript: span("2026-10-13T09:05:00Z", "2026-10-13T09:55:00Z")}); err != nil {
+		t.Fatal(err)
+	}
+	if got := window("not_tr"); got != "2026-10-13T09:05:00Z..2026-10-13T09:55:00Z" {
+		t.Fatalf("a transcript-derived window did not grow with the transcript: %s", got)
+	}
+}
+
+// TestPreflightWithoutAKeyIsNotNotFound: with no API key the lookup for an
+// unenriched meeting never runs, so exit 3 ("not found", which callers skip)
+// was unsupported. It must be exit 5.
+func TestPreflightWithoutAKeyIsNotNotFound(t *testing.T) {
+	isolateGranola(t, "")
+	t.Setenv("GRANOLA_API_KEY", "")
+	s := newIsolatedStore(t)
+	s.Close()
+	_, _, err := runRootArgs(t, "preflight", "not_AAAAAAAAAAAA", "--root", t.TempDir(), "--json", "--no-refresh")
+	var ce *cliError
+	if !errors.As(err, &ce) || ce.code != 5 {
+		t.Fatalf("preflight with no key on an unknown meeting: err=%v, want exit 5", err)
+	}
+}
