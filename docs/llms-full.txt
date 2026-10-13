@@ -526,13 +526,13 @@ A: The cross-account commands (triage, overview, coverage across every client) r
 
 Governance: The skill reads findings, detections, agents, and evidence through your Blumira API credential and mirrors them into a local store. It can add comments, resolve findings, and assign owners when you ask, but those writes are opt-in and best previewed with --dry-run first. The safe default for an autonomous agent is read plus planned (dry-run) writes; keep a human on anything that resolves a finding or reassigns ownership.
 
-### CIPP (Security)
+### CIPP + Microsoft 365 (Security)
 
 Page: https://msp-skills.compoundingteams.com/skills/cipp/
 Verification: Live-verified by Abhi Saini, Bearium Networks (MSP) (2026-08-13)
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cipp/install.sh)
 
-CIPP manages Microsoft 365 across all your client tenants, but its portal and API work one tenant at a time. Ask your AI "which tenants are off our security baseline" or "where are we paying for unused licenses" and get the cross-tenant answer the UI never renders: one fan-out pulls every tenant into a local store, then posture, license-waste, stale-account, and standards-drift rollups run instantly - offline, across the whole fleet.
+This is the MCP server for CIPP, and through CIPP for the Microsoft 365 it manages: Entra ID, Intune, Exchange Online, Defender and GDAP, across every client tenant at once. CIPP manages Microsoft 365 across all your client tenants, but its portal and API work one tenant at a time. Ask your AI "which tenants are off our security baseline" or "where are we paying for unused licenses" and get the cross-tenant answer the UI never renders: one fan-out pulls every tenant into a local store, then posture, license-waste, stale-account, and standards-drift rollups run instantly - offline, across the whole fleet.
 
 Outcomes (question -> command your AI agent runs):
 - Which tenants still have users without MFA registered? -> cipp-cli posture --dimension mfa
@@ -545,6 +545,10 @@ Outcomes (question -> command your AI agent runs):
 - Are my CIPP credentials and connectivity healthy? -> cipp-cli doctor
 
 FAQ:
+Q: Is this an MCP server for Microsoft Defender, Intune, Exchange Online and Entra ID too?
+A: Yes, through your CIPP instance. CIPP manages Microsoft 365 for every client tenant, so this connector reaches what CIPP reaches: Entra ID users, MFA and Conditional Access (`cipp-cli list-mfausers`), Intune policies and Autopilot (`cipp-cli list-intune-policy`), Exchange Online mailboxes, rules and forwarding (`cipp-cli list-mailbox-forwarding`), Defender for Endpoint health, vulnerabilities and incidents (`cipp-cli list-defender-state`, `cipp-cli list-defender-tvm`, `cipp-cli exec-incidents-list`), Defender for Office 365 safe links and anti-phishing, SharePoint and Teams, and GDAP roles and relationships (`cipp-cli list-gdaproles`). If you don't run CIPP, the Microsoft Graph connector talks to Graph directly.
+Q: Why not use Microsoft's own Defender MCP server?
+A: Because it only sees your own tenant. Microsoft's Defender tools in the Sentinel MCP server can't be used "as a guest in another tenant or with delegated access" (Microsoft Learn, Sentinel MCP triage tool), so an MSP can't point them at client tenants. This connector reads Defender across every client tenant through the GDAP access your CIPP instance already holds.
 Q: Does this work with ChatGPT?
 A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, but cipp-mcp speaks HTTP natively: run `cipp-mcp --transport http --addr :7777` and put its /mcp endpoint behind an HTTPS tunnel or your own reverse proxy. Step-by-step in the install guide.
 Q: Do I need to know how to code?

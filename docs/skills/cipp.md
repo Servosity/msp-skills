@@ -1,16 +1,20 @@
 ---
 layout: default
-title: "CIPP MCP Server - Free, Open Source, Runs Locally | MSP Skills"
-description: "First single-binary CLI for CIPP \u2014 offline SQLite store, fleet posture analytics, and cross-tenant fan-out no other CIPP tool has."
+title: "CIPP + Microsoft 365 (Entra ID, Intune, Exchange Online, Defender, GDAP) MCP Server - Free, Open Source, Runs Locally | MSP Skills"
+description: "MCP server and CLI for CIPP - Microsoft 365, Entra ID, Intune, Exchange Online, Defender and GDAP across every client tenant, with an offline store, fleet posture analytics, and cross-tenant fan-out."
 permalink: /skills/cipp/
-skill_name: "CIPP MCP"
+skill_name: "CIPP + Microsoft 365 MCP"
 image: /assets/social/cipp/wide-1200x630.png
 verification: live-verified
 faqs:
-  - q: "Is there an MCP server for CIPP?"
-    a: "Yes - this one. A free, open source MCP server and Claude Code Skill for CIPP, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds."
-  - q: "Is the CIPP MCP server safe for client data?"
+  - q: "Is there an MCP server for CIPP + Microsoft 365?"
+    a: "Yes - this one. A free, open source MCP server and Claude Code Skill for CIPP + Microsoft 365, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds."
+  - q: "Is the CIPP + Microsoft 365 MCP server safe for client data?"
     a: "Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Three paths can move data off the machine, all opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `CIPP_FEEDBACK_AUTO_SEND=true` posts feedback you typed to the URL in `CIPP_FEEDBACK_ENDPOINT` (with no endpoint set, `feedback` only writes a local file); `--transport http` opens a local MCP listener you then choose whether to expose. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
+  - q: "Is this an MCP server for Microsoft Defender, Intune, Exchange Online and Entra ID too?"
+    a: "Yes, through your CIPP instance. CIPP manages Microsoft 365 for every client tenant, so this connector reaches what CIPP reaches: Entra ID users, MFA and Conditional Access (`cipp-cli list-mfausers`), Intune policies and Autopilot (`cipp-cli list-intune-policy`), Exchange Online mailboxes, rules and forwarding (`cipp-cli list-mailbox-forwarding`), Defender for Endpoint health, vulnerabilities and incidents (`cipp-cli list-defender-state`, `cipp-cli list-defender-tvm`, `cipp-cli exec-incidents-list`), Defender for Office 365 safe links and anti-phishing, SharePoint and Teams, and GDAP roles and relationships (`cipp-cli list-gdaproles`). If you don't run CIPP, the Microsoft Graph connector talks to Graph directly."
+  - q: "Why not use Microsoft's own Defender MCP server?"
+    a: "Because it only sees your own tenant. Microsoft's Defender tools in the Sentinel MCP server can't be used \"as a guest in another tenant or with delegated access\" (Microsoft Learn, Sentinel MCP triage tool), so an MSP can't point them at client tenants. This connector reads Defender across every client tenant through the GDAP access your CIPP instance already holds."
   - q: "Does this work with ChatGPT?"
     a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, but cipp-mcp speaks HTTP natively: run `cipp-mcp --transport http --addr :7777` and put its /mcp endpoint behind an HTTPS tunnel or your own reverse proxy. Step-by-step in the install guide."
   - q: "Do I need to know how to code?"
@@ -31,12 +35,12 @@ howto:
   - name: "Run the one-line installer"
     text: "macOS/Linux: bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/cipp/install.sh) - Windows PowerShell: iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/cipp/install.ps1 | iex"
   - name: "Authenticate"
-    text: "Enter your CIPP credentials once, then run cipp-cli doctor to check the install."
+    text: "Enter your CIPP + Microsoft 365 credentials once, then run cipp-cli doctor to check the install."
   - name: "Ask your first question"
-    text: "Ask your AI agent a CIPP question in plain language; it runs cipp-cli for you."
+    text: "Ask your AI agent a CIPP + Microsoft 365 question in plain language; it runs cipp-cli for you."
 ---
 
-# The CIPP MCP Server - free, local, built for MSPs
+# The CIPP + Microsoft 365 (Entra ID, Intune, Exchange Online, Defender, GDAP) MCP Server - free, local, built for MSPs
 
 > Independent, open source, inspectable. Every line of code is on GitHub
 > under Apache-2.0 - built for the MSP community, vendor-neutral by design.
@@ -44,15 +48,15 @@ howto:
 
 **✓ Live-verified by Abhi Saini, Bearium Networks (MSP)** against a production tenant · 2026-08-13 · [receipt →](https://compoundingteams.com/).
 
-Yes - there is an MCP server for CIPP. It's free, open source, and runs on your own machine, so your client data stays local unless you route it somewhere yourself. It connects CIPP to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
+Yes - there is an MCP server for CIPP + Microsoft 365. It's free, open source, and runs on your own machine, so your client data stays local unless you route it somewhere yourself. It connects CIPP + Microsoft 365 to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
-CIPP manages Microsoft 365 across all your client tenants, but its portal and API work one tenant at a time. Ask your AI "which tenants are off our security baseline" or "where are we paying for unused licenses" and get the cross-tenant answer the UI never renders: one fan-out pulls every tenant into a local store, then posture, license-waste, stale-account, and standards-drift rollups run instantly - offline, across the whole fleet.
+This is the MCP server for CIPP, and through CIPP for the Microsoft 365 it manages: Entra ID, Intune, Exchange Online, Defender and GDAP, across every client tenant at once. CIPP manages Microsoft 365 across all your client tenants, but its portal and API work one tenant at a time. Ask your AI "which tenants are off our security baseline" or "where are we paying for unused licenses" and get the cross-tenant answer the UI never renders: one fan-out pulls every tenant into a local store, then posture, license-waste, stale-account, and standards-drift rollups run instantly - offline, across the whole fleet.
 
 <sub>New to the term? An **MCP server** is the same thing ChatGPT calls an app or connector, Claude on the web calls a connector, and Claude Code calls a Skill. [One thing, many names →](/what-is-an-mcp-server/)</sub>
 
 [Install in 60s →](#install){: .btn .btn-primary} &nbsp; [View on GitHub →](https://github.com/servosity/msp-skills/tree/main/skills/cipp){: .btn}
 
-## Instead of clicking through CIPP, just ask
+## Instead of clicking through CIPP + Microsoft 365, just ask
 
 **Instead of** Logging into each client's tenant one at a time to count who still hasn't registered MFA, then pasting the numbers into a QBR spreadsheet
 **just ask:** *"Show me MFA registration across every tenant"*
@@ -92,7 +96,7 @@ Full command reference at [github.com/servosity/msp-skills/blob/main/skills/cipp
 
 Most CIPP integrations proxy each question into a live, single-tenant API call - fine for one record, but every tenant is a separate round trip and Microsoft Graph throttles you at fleet scale. This skill fans one read out across every tenant, persists the results into a local SQLite store, and then answers posture, license-waste, stale-account, and standards-drift questions from that store - instant, offline, and resumable after a 429. The drift report even compares two synced snapshots over time, history a stateless wrapper has nowhere to keep.
 
-CIPP's portal is where you act deeply on a single tenant; this skill is where you see across all of them. It complements CIPP - it reads and writes through the same CIPP API with your own scoped credentials - and adds the fleet-wide rollups plus the local snapshot history (drift over time) that the one-tenant-at-a-time UI never renders.
+CIPP's portal is where you act deeply on a single tenant; this skill is where you see across all of them. It complements CIPP - it reads and writes through the same CIPP API with your own scoped credentials - and adds the fleet-wide rollups plus the local snapshot history (drift over time) that the one-tenant-at-a-time UI never renders. Microsoft's own Defender tools in its Sentinel MCP server stop at your home tenant: "You can't use this collection as a guest in another tenant or with delegated access" (Microsoft Learn, Sentinel MCP triage tool). This connector reaches every client tenant through the GDAP access CIPP already holds.
 
 ## The pain this closes
 
@@ -126,7 +130,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/sk
 iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cipp/install.ps1 | iex
 ```
 
-After install, authenticate once with your CIPP credentials, then verify with `cipp-cli --version`.
+After install, authenticate once with your CIPP + Microsoft 365 credentials, then verify with `cipp-cli --version`.
 
 ## Safety model
 
@@ -141,13 +145,21 @@ The skill drives the cipp-cli and cipp-mcp binaries, authenticating to your self
 
 ## Frequently asked questions
 
-### Is there an MCP server for CIPP?
+### Is there an MCP server for CIPP + Microsoft 365?
 
-Yes - this one. A free, open source MCP server and Claude Code Skill for CIPP, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds.
+Yes - this one. A free, open source MCP server and Claude Code Skill for CIPP + Microsoft 365, built for MSPs. It runs locally on your machine, works with Claude, ChatGPT, Copilot, and any MCP-capable agent, and installs in about 60 seconds.
 
-### Is the CIPP MCP server safe for client data?
+### Is the CIPP + Microsoft 365 MCP server safe for client data?
 
 Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Three paths can move data off the machine, all opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `CIPP_FEEDBACK_AUTO_SEND=true` posts feedback you typed to the URL in `CIPP_FEEDBACK_ENDPOINT` (with no endpoint set, `feedback` only writes a local file); `--transport http` opens a local MCP listener you then choose whether to expose. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page.
+
+### Is this an MCP server for Microsoft Defender, Intune, Exchange Online and Entra ID too?
+
+Yes, through your CIPP instance. CIPP manages Microsoft 365 for every client tenant, so this connector reaches what CIPP reaches: Entra ID users, MFA and Conditional Access (`cipp-cli list-mfausers`), Intune policies and Autopilot (`cipp-cli list-intune-policy`), Exchange Online mailboxes, rules and forwarding (`cipp-cli list-mailbox-forwarding`), Defender for Endpoint health, vulnerabilities and incidents (`cipp-cli list-defender-state`, `cipp-cli list-defender-tvm`, `cipp-cli exec-incidents-list`), Defender for Office 365 safe links and anti-phishing, SharePoint and Teams, and GDAP roles and relationships (`cipp-cli list-gdaproles`). If you don't run CIPP, the Microsoft Graph connector talks to Graph directly.
+
+### Why not use Microsoft's own Defender MCP server?
+
+Because it only sees your own tenant. Microsoft's Defender tools in the Sentinel MCP server can't be used "as a guest in another tenant or with delegated access" (Microsoft Learn, Sentinel MCP triage tool), so an MSP can't point them at client tenants. This connector reads Defender across every client tenant through the GDAP access your CIPP instance already holds.
 
 ### Does this work with ChatGPT?
 
@@ -188,7 +200,7 @@ Run more than one Security tool, or comparing options? These connectors work the
 
 ## Status
 
-Beta. Validated against the CIPP API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
+Beta. Validated against the CIPP + Microsoft 365 API surface and being validated with MSPs running it live against their own production tenants in our weekly **[Build Sessions](https://compoundingteams.com/build-sessions)**.
 
 Build Sessions are free and stay free - [The Build Room](https://compoundingteams.com) is where the deep work happens.
 

@@ -1,6 +1,6 @@
 ---
 name: cipp
-description: "First single-binary CLI for CIPP  -  offline SQLite store, fleet posture analytics, and cross-tenant fan-out no other CIPP tool has. Trigger phrases: `check MFA across all my tenants`, `find unused M365 licenses`, `offboard users from a CSV in CIPP`, `which tenants drifted off baseline`, `list CIPP tenants`, `use cipp`, `run cipp-cli`."
+description: "MCP server and CLI for CIPP - Microsoft 365, Entra ID, Intune, Exchange Online, Defender and GDAP across every client tenant, with an offline store, fleet posture analytics, and cross-tenant fan-out. Trigger phrases: `check MFA across all my tenants`, `Defender vulnerabilities across all my clients`, `Intune policies for every tenant`, `mailbox forwarding across tenants`, `GDAP roles for each client`, `find unused M365 licenses`, `offboard users from a CSV in CIPP`, `which tenants drifted off baseline`, `list CIPP tenants`, `use cipp`, `run cipp-cli`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "CIPP"

@@ -141,6 +141,11 @@ def render_page(slug: str) -> Path:
     page = json.loads(page_path.read_text(encoding="utf-8"))
     vendor = entry.get("vendor", slug)
     display = entry.get("display_name", vendor)
+    # A connector that reaches other vendors' products (cipp -> Defender, Intune...)
+    # names them where MSPs search: the page title and H1. MSPs searching
+    # "Defender MCP" never type the wrapper's name.
+    covers = entry.get("covers") or []
+    headline = f"{display} ({', '.join(covers)})" if covers else display
     owner = entry.get("vendor_trademark_owner", vendor)
     first_party = bool(entry.get("first_party"))
     cli_bin = entry.get("cli_binary", f"{slug}-cli")
@@ -289,7 +294,7 @@ def render_page(slug: str) -> Path:
 
     text = f"""---
 layout: default
-title: "{display} MCP Server - Free, Open Source, Runs Locally | MSP Skills"
+title: "{headline} MCP Server - Free, Open Source, Runs Locally | MSP Skills"
 description: {json.dumps(desc or f"Free Claude Code Skill and MCP server for {display}. Built for MSP owners.")}
 permalink: /skills/{slug}/
 skill_name: "{display} MCP"
@@ -299,7 +304,7 @@ faqs:
 {fm_faqs}howto:
 {fm_howto}---
 
-# The {display} MCP Server - free, local, built for MSPs
+# The {headline} MCP Server - free, local, built for MSPs
 
 {banner(vendor, owner, first_party)}
 

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-10-03",
+  "generated_at": "2026-10-13",
   "skills": [
     {
       "name": "msp-skills-concierge",
@@ -283,7 +283,7 @@
     },
     {
       "name": "cipp",
-      "system": "the CyberDrain Improved Partner Portal (CIPP), the open-source Microsoft 365 multi-tenant management platform for MSPs",
+      "system": "the CyberDrain Improved Partner Portal (CIPP), the open-source Microsoft 365 multi-tenant management platform for MSPs - Entra ID, Intune, Exchange Online, Defender and GDAP",
       "status": "beta",
       "skill_path": "skills/cipp",
       "cli_binary": "cipp-cli",
@@ -296,10 +296,10 @@
       "first_party": false,
       "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cipp/install.sh)",
       "install_mcp_doc": "skills/cipp/mcp-install.md",
-      "description": "First single-binary CLI for CIPP \u2014 offline SQLite store, fleet posture analytics, and cross-tenant fan-out no other CIPP tool has.",
+      "description": "MCP server and CLI for CIPP - Microsoft 365, Entra ID, Intune, Exchange Online, Defender and GDAP across every client tenant, with an offline store, fleet posture analytics, and cross-tenant fan-out.",
       "verification": "live-verified",
       "category": "Security",
-      "tagline": "Every client tenant's M365 posture, license waste, and stale accounts in one cross-tenant rollup."
+      "tagline": "MCP server for CIPP and the Microsoft 365 it runs - Entra ID, Intune, Exchange Online, Defender and GDAP - across every client tenant at once."
     },
     {
       "name": "connect-tool",

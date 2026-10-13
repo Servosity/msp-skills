@@ -324,7 +324,7 @@
       }
     },
     "cipp": {
-      "system": "the CyberDrain Improved Partner Portal (CIPP), the open-source Microsoft 365 multi-tenant management platform for MSPs",
+      "system": "the CyberDrain Improved Partner Portal (CIPP), the open-source Microsoft 365 multi-tenant management platform for MSPs - Entra ID, Intune, Exchange Online, Defender and GDAP",
       "status": "beta",
       "cli_binary": "cipp-cli",
       "mcp_binary": "cipp-mcp",
@@ -332,8 +332,9 @@
       "vendor_trademark_owner": "CyberDrain",
       "first_party": false,
       "category": "Security",
-      "display_name": "CIPP",
-      "tagline": "Every client tenant's M365 posture, license waste, and stale accounts in one cross-tenant rollup.",
+      "display_name": "CIPP + Microsoft 365",
+      "covers": ["Entra ID", "Intune", "Exchange Online", "Defender", "GDAP"],
+      "tagline": "MCP server for CIPP and the Microsoft 365 it runs - Entra ID, Intune, Exchange Online, Defender and GDAP - across every client tenant at once.",
       "cli_hash": "sha256:aa0dc021cdb156c7c5bd704dc240c05f666bcc65074ff04bc8a5b76852f20f19",
       "template_version": 3,
       "version": "0.1.8",
