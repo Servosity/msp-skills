@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "datagate-mcp",
   "display_name": "DataGate",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Every DataGate telecom billing API resource, plus a local SQLite store and offline search the API can't return in one call.",
   "author": {
     "name": "msp-skills contributors"

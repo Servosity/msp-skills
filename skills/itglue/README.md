@@ -48,7 +48,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 > **Claude Desktop bundle:** the `.mcpb` launches on macOS (Intel and Apple Silicon), Windows x64 and Linux x64. Every tool shells out to the companion `itglue-cli`. Releases cut from 2026-09-18 on ship that CLI inside the bundle; older bundles contain only the MCP server, so if yours lacks the companion, run the Path A or Path B installer below first (or set `ITGLUE_CLI_PATH` to an existing binary). Details: [#331](https://github.com/Servosity/msp-skills/issues/331).
 
-[**Download IT Glue MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/itglue-v0.1.3/itglue-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every IT Glue release on the [releases page](https://github.com/servosity/msp-skills/releases?q=itglue).)
+[**Download IT Glue MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/itglue-v0.1.4/itglue-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every IT Glue release on the [releases page](https://github.com/servosity/msp-skills/releases?q=itglue).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
@@ -200,7 +200,7 @@ Your data stays on **your machine**. The CLI and MCP server are local binaries. 
 
 ### What credentials do I need?
 
-An IT Glue API key, generated in your IT Glue account settings (**Account > Settings > API Keys**). Set `ITGLUE_API_KEY` in your environment, or run `itglue-cli auth set-token`. The key inherits the permissions of the IT Glue account it belongs to, so scope that account to exactly what you want the AI to reach - note that a key with password access lets `passwords get`/`list` return stored secrets.
+An IT Glue API key, generated in your IT Glue account settings (**Account > Settings > API Keys**). Set `ITGLUE_API_KEY` in your environment, or run `itglue-cli auth set-token`. IT Glue API keys are account-wide, not per-user: only an Administrator can create one, and it reaches every organization in your IT Glue account. The one per-key restriction IT Glue offers is the **Password Access** checkbox - leave it off unless you need `passwords get`/`list`, because with it on those commands return stored secrets.
 
 ### Will this hit my IT Glue API rate limits?
 

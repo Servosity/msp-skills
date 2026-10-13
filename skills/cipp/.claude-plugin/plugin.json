@@ -1,6 +1,6 @@
 {
   "name": "cipp",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "MCP server and CLI for CIPP - Microsoft 365, Entra ID, Intune, Exchange Online, Defender and GDAP across every client tenant, with an offline store, fleet posture analytics, and cross-tenant fan-out.",
   "author": {
     "name": "Servosity",
