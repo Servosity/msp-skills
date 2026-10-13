@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 
 package cli
 
@@ -65,7 +65,7 @@ status values:
 			if root == "" {
 				root = filepath.Join(home, PreflightDefaultRoot)
 			}
-			if err := os.MkdirAll(outDir, 0o755); err != nil {
+			if err := ensureSafeDir(outDir); err != nil {
 				return ioErr(err)
 			}
 			w := cmd.OutOrStdout()

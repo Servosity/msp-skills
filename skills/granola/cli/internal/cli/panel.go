@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 
 package cli
 
@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -92,7 +93,9 @@ func restSummaryPanel(ctx context.Context, id string) (map[string]string, error)
 		return nil, configErr(err)
 	}
 	c := client.New(cfg, 30*time.Second, 0)
-	raw, err := c.Get(ctx, "/v1/notes/"+id, nil)
+	// id is an opaque single-segment note id; escape it so reserved characters
+	// stay inside this path segment (matches rest_hydrate.go).
+	raw, err := c.Get(ctx, "/v1/notes/"+url.PathEscape(id), nil)
 	if err != nil {
 		return nil, apiErr(fmt.Errorf("fetch AI summary for %s from the public API: %w", id, err))
 	}

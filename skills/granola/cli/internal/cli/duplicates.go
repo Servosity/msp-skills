@@ -1,9 +1,9 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 
 package cli
 
 import (
-	"crypto/sha1"
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"os"
@@ -156,7 +156,7 @@ func fingerprintMeeting(title string, t time.Time, attendees []string) string {
 	}
 	sort.Strings(sorted)
 	att := strings.Join(sorted, ",")
-	h := sha1.New()
+	h := sha256.New()
 	h.Write([]byte(tk))
 	h.Write([]byte{0})
 	h.Write([]byte(day))

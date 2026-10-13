@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 
 package cli
 
@@ -7,12 +7,12 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 	"granola-pp-cli/internal/client"
-	"granola-pp-cli/internal/cliutil"
 	"granola-pp-cli/internal/config"
 	"granola-pp-cli/internal/granola"
 )
@@ -28,24 +28,22 @@ func restNoteRaw(id string) (json.RawMessage, error) {
 	// v7.4x: the old client carried no context; the modern client is
 	// context-first. This leaf helper builds its own client (30s timeout),
 	// so a background context reproduces the reference's bounded behavior.
-	return c.Get(context.Background(), "/v1/notes/"+id, map[string]string{"include": "transcript"})
+	// id is an opaque single-segment note id; escape it into the path segment.
+	return c.Get(context.Background(), "/v1/notes/"+url.PathEscape(id), map[string]string{"include": "transcript"})
 }
 
 func newMeetingsCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "meetings",
-		Short: "List, fetch, delete and restore Granola meetings",
-		Long: `Granola meetings stored locally (after sync) and live via the internal API.
+		Short: "List and fetch Granola meetings",
+		Long: `Granola meetings stored locally (after sync) and live via the public REST API.
 
 The 'meetings list' command queries the synced SQLite store; 'meetings get'
-prefers the live API but falls back to cache; mutating commands always
-require an authenticated live call.`,
+prefers the local store but falls back to the public REST API for not_ ids.`,
 	}
 	cmd.AddCommand(newMeetingsListCmd(flags))
 	cmd.AddCommand(newMeetingsGetCmd(flags))
 	cmd.AddCommand(newMeetingsFetchBatchCmd(flags))
-	cmd.AddCommand(newMeetingsDeleteCmd(flags))
-	cmd.AddCommand(newMeetingsRestoreCmd(flags))
 	return cmd
 }
 
@@ -286,58 +284,6 @@ func newMeetingsFetchBatchCmd(flags *rootFlags) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&idsCSV, "ids", "", "Comma-separated meeting ids")
-	return cmd
-}
-
-func newMeetingsDeleteCmd(flags *rootFlags) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "delete <id>",
-		Short: "Soft-delete a meeting (sets deleted_at)",
-		Example: strings.Trim(`
-  granola-cli meetings delete not_06Yq6JtogRihEr --dry-run
-  granola-cli meetings delete not_06Yq6JtogRihEr`, "\n"),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) == 0 {
-				return cmd.Help()
-			}
-			id := args[0]
-			if dryRunOK(flags) {
-				fmt.Fprintf(cmd.OutOrStdout(), `{"dry_run":true,"action":"delete","id":%q}`+"\n", id)
-				return nil
-			}
-			if cliutil.IsVerifyEnv() {
-				fmt.Fprintf(cmd.OutOrStdout(), `{"verify":true,"action":"delete","id":%q}`+"\n", id)
-				return nil
-			}
-			return apiErr(fmt.Errorf("meeting delete is unavailable: it requires Granola's internal API, sealed on Granola v7.4x+ (the public REST API is read-only)"))
-		},
-	}
-	return cmd
-}
-
-func newMeetingsRestoreCmd(flags *rootFlags) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "restore <id>",
-		Short: "Restore a soft-deleted meeting",
-		Example: strings.Trim(`
-  granola-cli meetings restore not_06Yq6JtogRihEr --dry-run
-  granola-cli meetings restore not_06Yq6JtogRihEr`, "\n"),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) == 0 {
-				return cmd.Help()
-			}
-			id := args[0]
-			if dryRunOK(flags) {
-				fmt.Fprintf(cmd.OutOrStdout(), `{"dry_run":true,"action":"restore","id":%q}`+"\n", id)
-				return nil
-			}
-			if cliutil.IsVerifyEnv() {
-				fmt.Fprintf(cmd.OutOrStdout(), `{"verify":true,"action":"restore","id":%q}`+"\n", id)
-				return nil
-			}
-			return apiErr(fmt.Errorf("meeting restore is unavailable: it requires Granola's internal API, sealed on Granola v7.4x+ (the public REST API is read-only)"))
-		},
-	}
 	return cmd
 }
 

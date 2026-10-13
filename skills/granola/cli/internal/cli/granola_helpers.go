@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 
 package cli
 
@@ -6,64 +6,50 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 	"granola-pp-cli/internal/granola"
-	"granola-pp-cli/internal/granola/safestorage"
 	"granola-pp-cli/internal/store"
 )
 
-// openGranolaCache loads the local cache file. Returns a typed error if
-// the file is missing so commands can surface a helpful message.
+// openGranolaCache builds the in-memory Cache the read commands consume.
 //
-// PATCH(encrypted-cache): two changes vs. the generator-produced version:
+// Granola v7.4x+ sealed the desktop cache (cache-v6.json.enc, guarded by its
+// own Keychain access group), so a third-party binary can never decrypt it.
+// This connector therefore sources ENTIRELY from the public REST API, which
+// `sync` lands in the local SQLite store. The desktop-cache read is gone: we
+// start from an empty compatibility Cache and populate every block from the
+// store.
 //
-//  1. Pass an empty path to LoadCache so the resolver picks
-//     cache-v6.json.enc when it exists. The previous version pinned to
-//     DefaultCachePath() which is the plaintext path - on modern Granola
-//     installs that file is a stale stub.
-//  2. Backfill cache.Documents from the SQLite store. Granola desktop
-//     moved documents out of the local cache at the same time as the
-//     encryption rollout; sync populates the meetings table from the
-//     API. Without this backfill, every command that reads cache.Documents
-//     directly (show, notes-show, memo, export, tiptap) returns "meeting
-//     not in cache" even when sync has run.
+// A MISSING store (fresh install, before the first `sync`) is NOT an error -
+// openGranolaStoreRead returns (nil, nil) and each backfill no-ops, so
+// commands still run against an empty (nil-safe) cache. Only genuine store
+// open/query/scan failures propagate, so a real problem is surfaced honestly
+// instead of masquerading as "no data".
 func openGranolaCache() (*granola.Cache, error) {
-	c, err := granola.LoadCache("")
-	if err != nil {
-		// SOFT-FAIL (v7.4x+): Granola sealed the desktop store behind its own
-		// Keychain access group, so a third-party binary can never decrypt it.
-		// Rather than hard-fail every read command at this gate, degrade to the
-		// local SQLite store (populated by `sync` from REST) plus whatever each
-		// command can fetch live. doctor reports the desktop-store status
-		// honestly; commands serve store data instead of erroring. The Cache
-		// accessors are nil-safe, so an empty cache is a valid degraded value.
-		//
-		// Only the sealed-store errors are EXPECTED. Surface anything else (a
-		// genuinely corrupt cache file) so it isn't silently masked as "no data".
-		if !errors.Is(err, safestorage.ErrKeyUnavailable) &&
-			!errors.Is(err, safestorage.ErrDecryptFailed) &&
-			!errors.Is(err, safestorage.ErrUnsupportedPlatform) {
-			stderr("warning: unexpected Granola cache error (serving local store only): %v", err)
-		}
-		c = &granola.Cache{}
+	c := &granola.Cache{}
+	// Documents (show, notes-show, memo, export, tiptap) from the meetings
+	// table, with people + calendar reconstructed from attendees / calendar_event_id.
+	if err := backfillDocumentsFromStore(c); err != nil {
+		return nil, fmt.Errorf("backfill documents from store: %w", err)
 	}
-	// Backfill cache.Documents from the SQLite meetings table so the commands
-	// that read cache.Documents (show, notes-show, memo, export, tiptap) work
-	// off synced data whether or not the encrypted store was readable.
-	_ = backfillDocumentsFromStore(c)
-	// Backfill cache.Transcripts from transcript_segments so the transcript
-	// commands (transcript get, talktime, preflight, collect, memo/export
-	// transcript stream) read the REST-fed segments instead of the dead
-	// internal API.
-	_ = backfillTranscriptsFromStore(c)
+	// meetingsMetadata (talktime, duplicates, export, extract, meetings) so
+	// those readers get real attendee/calendar data instead of nil.
+	if err := backfillMeetingsMetadataFromStore(c); err != nil {
+		return nil, fmt.Errorf("backfill meetings metadata from store: %w", err)
+	}
+	// Transcripts (transcript get, talktime, preflight, collect, memo/export
+	// transcript stream) from the REST-fed transcript_segments table.
+	if err := backfillTranscriptsFromStore(c); err != nil {
+		return nil, fmt.Errorf("backfill transcripts from store: %w", err)
+	}
 	return c, nil
 }
 
@@ -123,10 +109,17 @@ func millisToISO(ms sql.NullInt64) string {
 }
 
 // backfillDocumentsFromStore reads rows from the meetings table that
-// sync populated from /v2/get-documents and reconstructs lightweight
-// Document structs into c.Documents. Quietly returns nil if the store
-// does not exist yet (fresh install before first sync) - the caller's
-// behavior on an empty cache.Documents is appropriate in that case.
+// sync populated from the public REST API and reconstructs Document structs
+// into c.Documents. It also rebuilds each doc's people block (from the
+// attendees table) and its google_calendar_event (id from
+// meetings.calendar_event_id, start/end from the stored meeting window) so
+// the readers that consult those fields (export/extract metadata, meetings
+// JSON, calendar, duplicates) see real data. Quietly returns nil if the
+// store does not exist yet (fresh install before first sync).
+//
+// Every nullable text column is scanned through sql.NullString so a partially
+// populated row can never crash the scan (converting NULL to string) nor be
+// silently dropped.
 func backfillDocumentsFromStore(c *granola.Cache) error {
 	if c == nil {
 		return nil
@@ -135,8 +128,8 @@ func backfillDocumentsFromStore(c *granola.Cache) error {
 		c.Documents = map[string]granola.Document{}
 	}
 	if len(c.Documents) > 0 {
-		// Cache already has documents (pre-encryption Granola or test
-		// fixtures); don't shadow them with potentially stale store rows.
+		// Cache already has documents (test fixtures seeded directly);
+		// don't shadow them with potentially stale store rows.
 		return nil
 	}
 	ctx := context.Background()
@@ -146,10 +139,17 @@ func backfillDocumentsFromStore(c *granola.Cache) error {
 	}
 	defer s.Close()
 
+	// Load attendees grouped by meeting first (drains + closes its own rows)
+	// so we can attach doc.people as we scan meetings.
+	people, err := attendeesByMeeting(ctx, s)
+	if err != nil {
+		return err
+	}
+
 	rows, err := s.DB().QueryContext(ctx, `
 		SELECT id, title, created_at, updated_at, started_at, ended_at,
-		       workspace_id, deleted_at, notes_markdown, notes_plain,
-		       creation_source, valid_meeting
+		       workspace_id, calendar_event_id, deleted_at, notes_markdown,
+		       notes_plain, creation_source, valid_meeting
 		FROM meetings
 	`)
 	if err != nil {
@@ -159,25 +159,135 @@ func backfillDocumentsFromStore(c *granola.Cache) error {
 
 	for rows.Next() {
 		var d granola.Document
-		var deletedAt, startedAt, endedAt string
-		var validMeeting int
-		_ = startedAt
-		_ = endedAt
+		var title, createdAt, updatedAt sql.NullString
+		var startedAt, endedAt, workspaceID sql.NullString
+		var calID, deletedAt, notesMD, notesPlain, creationSrc sql.NullString
+		var validMeeting sql.NullInt64
 		if err := rows.Scan(
-			&d.ID, &d.Title, &d.CreatedAt, &d.UpdatedAt,
+			&d.ID, &title, &createdAt, &updatedAt,
 			&startedAt, &endedAt,
-			&d.WorkspaceID, &deletedAt,
-			&d.NotesMarkdown, &d.NotesPlain,
-			&d.CreationSource, &validMeeting,
+			&workspaceID, &calID, &deletedAt,
+			&notesMD, &notesPlain,
+			&creationSrc, &validMeeting,
 		); err != nil {
 			return fmt.Errorf("backfill: scan meeting: %w", err)
 		}
-		if deletedAt != "" {
-			da := deletedAt
+		d.Title = title.String
+		d.CreatedAt = createdAt.String
+		d.UpdatedAt = updatedAt.String
+		d.WorkspaceID = workspaceID.String
+		d.NotesMarkdown = notesMD.String
+		d.NotesPlain = notesPlain.String
+		d.CreationSource = creationSrc.String
+		d.ValidMeeting = validMeeting.Valid && validMeeting.Int64 != 0
+		if deletedAt.Valid && deletedAt.String != "" {
+			da := deletedAt.String
 			d.DeletedAt = &da
 		}
-		d.ValidMeeting = validMeeting != 0
+		if ppl := people[d.ID]; len(ppl) > 0 {
+			d.People = &granola.DocPeople{Attendees: ppl}
+		}
+		// Reconstruct the calendar event when the store carries a calendar id.
+		// Start/End use Granola's {"dateTime": ...} shape so docWindow's
+		// extractCalTimeRaw reads the real meeting window from the store.
+		if calID.Valid && calID.String != "" {
+			ev := &granola.GoogleCalendarEvent{ID: calID.String}
+			if startedAt.Valid && startedAt.String != "" {
+				ev.Start = calEventTimeRaw(startedAt.String)
+			}
+			if endedAt.Valid && endedAt.String != "" {
+				ev.End = calEventTimeRaw(endedAt.String)
+			}
+			d.GoogleCalendarEvent = ev
+		}
 		c.Documents[d.ID] = d
+	}
+	return rows.Err()
+}
+
+// attendeesByMeeting loads the attendees table grouped by meeting_id into
+// DocPerson records (the shape doc.people.attendees uses). Nullable columns
+// are read through sql.NullString.
+func attendeesByMeeting(ctx context.Context, s *store.Store) (map[string][]granola.DocPerson, error) {
+	rows, err := s.DB().QueryContext(ctx, `
+		SELECT meeting_id, email, name, response_status
+		FROM attendees ORDER BY meeting_id`)
+	if err != nil {
+		return nil, fmt.Errorf("backfill: query attendees: %w", err)
+	}
+	defer rows.Close()
+	out := map[string][]granola.DocPerson{}
+	for rows.Next() {
+		var mid string
+		var email, name, resp sql.NullString
+		if err := rows.Scan(&mid, &email, &name, &resp); err != nil {
+			return nil, fmt.Errorf("backfill: scan attendee: %w", err)
+		}
+		out[mid] = append(out[mid], granola.DocPerson{
+			Name:           name.String,
+			Email:          email.String,
+			ResponseStatus: resp.String,
+		})
+	}
+	return out, rows.Err()
+}
+
+// calEventTimeRaw renders an ISO timestamp into the {"dateTime": ...} object
+// Granola uses for google_calendar_event.start/end, so the readers'
+// extractCalTimeRaw helper reads it back unchanged. Returns nil on the
+// (unreachable) marshal error rather than a malformed blob.
+func calEventTimeRaw(iso string) json.RawMessage {
+	b, err := json.Marshal(map[string]string{"dateTime": iso})
+	if err != nil {
+		return nil
+	}
+	return json.RawMessage(b)
+}
+
+// backfillMeetingsMetadataFromStore populates c.MeetingsMetadata from the
+// meetings + attendees tables so readers that consult meetingsMetadata
+// (talktime, duplicates, export, extract, meetings) get real attendee data
+// instead of nil. The public REST feed exposes no meeting "creator" and no
+// conferencing URL, so MeetingMetadata.Creator/Conferencing/URL are left
+// zero rather than fabricated. Quietly returns nil when the store is absent.
+func backfillMeetingsMetadataFromStore(c *granola.Cache) error {
+	if c == nil {
+		return nil
+	}
+	if c.MeetingsMetadata == nil {
+		c.MeetingsMetadata = map[string]granola.MeetingMetadata{}
+	}
+	if len(c.MeetingsMetadata) > 0 {
+		return nil
+	}
+	ctx := context.Background()
+	s, err := openGranolaStoreRead(ctx)
+	if err != nil || s == nil {
+		return err
+	}
+	defer s.Close()
+	rows, err := s.DB().QueryContext(ctx, `
+		SELECT a.meeting_id, a.email, a.name, a.response_status
+		FROM attendees a
+		JOIN meetings m ON m.id = a.meeting_id
+		ORDER BY a.meeting_id`)
+	if err != nil {
+		return fmt.Errorf("backfill: query meetings metadata: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var mid string
+		var email, name, resp sql.NullString
+		if err := rows.Scan(&mid, &email, &name, &resp); err != nil {
+			return fmt.Errorf("backfill: scan meeting metadata: %w", err)
+		}
+		md := c.MeetingsMetadata[mid]
+		md.Attendees = append(md.Attendees, granola.CalendarInvitee{
+			Name:           name.String,
+			Email:          email.String,
+			ResponseStatus: resp.String,
+		})
+		c.MeetingsMetadata[mid] = md
 	}
 	return rows.Err()
 }
@@ -203,11 +313,121 @@ func granolaStorePath() string {
 	return defaultDBPath("granola-cli")
 }
 
+// File-safety modes for MEMO-pipeline and store output. Meeting exports and
+// the local SQLite store can contain private notes, transcripts, and attendee
+// emails, so directories are owner-only 0700 and files owner-only 0600.
+const (
+	safeDirPerm  os.FileMode = 0o700
+	safeFilePerm os.FileMode = 0o600
+)
+
+// validNoteIDFilename matches an opaque Granola note/meeting id that is safe to
+// embed in a filename: letters, digits, underscore, hyphen only. It excludes
+// path separators and dots, so "..", ".", and dotted traversal are all
+// rejected. Real Granola ids (e.g. not_06Yq6JtogRihEr, UUIDs) satisfy it.
+var validNoteIDFilename = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
+
+// validateNoteIDForFilename rejects an id that is empty or contains anything
+// but [A-Za-z0-9_-] — path separators, "..", NUL, spaces — so it can never
+// escape the output directory when interpolated into a filename.
+func validateNoteIDForFilename(id string) error {
+	if !validNoteIDFilename.MatchString(id) {
+		return usageErr(fmt.Errorf("invalid meeting id %q: only letters, digits, '-', and '_' are allowed", id))
+	}
+	return nil
+}
+
+// ensureSafeDir creates dir (and parents) with 0700 perms and tightens an
+// already-existing dir to 0700 — os.MkdirAll leaves an existing looser dir's
+// mode untouched, so the explicit Chmod is load-bearing.
+func ensureSafeDir(dir string) error {
+	if err := os.MkdirAll(dir, safeDirPerm); err != nil {
+		return err
+	}
+	return os.Chmod(dir, safeDirPerm)
+}
+
+// writeSafeFile writes data to path with 0600 perms. Every filesystem call
+// goes through an os.Root opened on the file's own directory, so the write can
+// never land outside that directory even if a path component is swapped for a
+// symlink between the check and the open. On top of that, a pre-existing
+// SYMLINK at path is REFUSED outright (Lstat does not follow it): writing
+// through one would drop the sensitive bytes - and then chmod them - wherever
+// the link points. It opens O_WRONLY|O_CREATE|O_TRUNC (not O_EXCL, so a
+// legitimate re-export overwrites) and chmods explicitly afterward, because the
+// perm argument only applies when the file is CREATED - a pre-existing regular
+// file (possibly world-readable) keeps its old mode without the Chmod.
+func writeSafeFile(path string, data []byte) error {
+	r, err := os.OpenRoot(filepath.Dir(path))
+	if err != nil {
+		return ioErr(err)
+	}
+	defer r.Close()
+	name := filepath.Base(path)
+	if fi, err := r.Lstat(name); err == nil {
+		if fi.Mode()&os.ModeSymlink != 0 {
+			return ioErr(fmt.Errorf("refusing to write through pre-existing symlink %q", path))
+		}
+	} else if !os.IsNotExist(err) {
+		return ioErr(err)
+	}
+	f, err := r.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, safeFilePerm)
+	if err != nil {
+		return ioErr(err)
+	}
+	if _, werr := f.Write(data); werr != nil {
+		_ = f.Close()
+		return ioErr(werr)
+	}
+	if cerr := f.Close(); cerr != nil {
+		return ioErr(cerr)
+	}
+	return r.Chmod(name, safeFilePerm)
+}
+
+// safeJoinContained joins name onto dir and guarantees the result stays within
+// dir. name must be a single path element (no separators, no "." / ".."); dir
+// is resolved with filepath.Abs + filepath.EvalSymlinks (so a symlinked output
+// dir is compared by its real location), and the final path must have the
+// resolved dir as a prefix with a separator. Callers must create dir (via
+// ensureSafeDir) before calling so EvalSymlinks resolves it.
+func safeJoinContained(dir, name string) (string, error) {
+	if name == "" || name == "." || name == ".." ||
+		strings.ContainsAny(name, `/\`) || strings.ContainsRune(name, 0) {
+		return "", usageErr(fmt.Errorf("invalid output filename %q", name))
+	}
+	absDir, err := filepath.Abs(dir)
+	if err != nil {
+		return "", ioErr(err)
+	}
+	if resolved, rerr := filepath.EvalSymlinks(absDir); rerr == nil {
+		absDir = resolved
+	}
+	final := filepath.Join(absDir, name)
+	if final != absDir && !strings.HasPrefix(final, absDir+string(os.PathSeparator)) {
+		return "", usageErr(fmt.Errorf("refusing to write %q outside %s", name, absDir))
+	}
+	// Re-resolve the FINAL path's parent, not just the dir passed in. Because
+	// name is a single element its parent is absDir (already EvalSymlinks-
+	// resolved above), but resolving it again defensively confirms the parent
+	// still lands inside absDir — a parent swapped for a symlink escaping the
+	// output dir is rejected here rather than followed at write time.
+	parent := filepath.Dir(final)
+	if resolvedParent, perr := filepath.EvalSymlinks(parent); perr == nil {
+		if resolvedParent != absDir && !strings.HasPrefix(resolvedParent, absDir+string(os.PathSeparator)) {
+			return "", usageErr(fmt.Errorf("refusing to write %q: its parent %s escapes %s", name, resolvedParent, absDir))
+		}
+	}
+	return final, nil
+}
+
 // openGranolaStore opens (or creates) the SQLite store and ensures the
 // granola-specific schema is in place.
 func openGranolaStore(ctx context.Context) (*store.Store, error) {
 	dbPath := granolaStorePath()
-	if err := os.MkdirAll(filepath.Dir(dbPath), 0o755); err != nil {
+	// Create the data dir 0700 and tighten an existing looser dir; the store's
+	// own writes are already 0600/0700, this secures the hand-created parent.
+	if err := ensureSafeDir(filepath.Dir(dbPath)); err != nil {
 		return nil, fmt.Errorf("creating data dir: %w", err)
 	}
 	s, err := store.OpenWithContext(ctx, dbPath)
@@ -228,6 +448,13 @@ func openGranolaStoreRead(ctx context.Context) (*store.Store, error) {
 	dbPath := granolaStorePath()
 	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
 		return nil, nil
+	}
+	// The DB exists; tighten its containing dir to 0700 on the read path too
+	// (openGranolaStore already does this on the write path). The dir holds
+	// private notes/transcripts/attendee emails — a loose mode from an older
+	// version or a permissive umask is corrected here rather than trusted.
+	if err := ensureSafeDir(filepath.Dir(dbPath)); err != nil {
+		return nil, fmt.Errorf("tightening data dir: %w", err)
 	}
 	s, err := store.OpenWithContext(ctx, dbPath)
 	if err != nil {

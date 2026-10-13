@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 
 package cli
 
@@ -131,23 +131,29 @@ func newStatsDurationCmd(flags *rootFlags) *cobra.Command {
 			var q string
 			switch by {
 			case "participant":
+				// Empty-string bounds satisfy `IS NOT NULL` but carry no real
+				// duration; excluding them keeps meeting_count/averages honest
+				// (a bounds-less meeting must not count as a zero-duration one).
 				q = `SELECT a.email, COUNT(DISTINCT m.id), COALESCE(SUM(
 					(strftime('%s', m.ended_at) - strftime('%s', m.started_at)) / 60.0
 				), 0) FROM meetings m
 				JOIN attendees a ON a.meeting_id = m.id
 				WHERE m.started_at IS NOT NULL AND m.ended_at IS NOT NULL
+				  AND m.started_at <> '' AND m.ended_at <> ''
 				GROUP BY a.email ORDER BY 3 DESC`
 			case "calendar":
 				q = `SELECT COALESCE(calendar_event_id,'none'), COUNT(*), COALESCE(SUM(
 					(strftime('%s', ended_at) - strftime('%s', started_at)) / 60.0
 				), 0) FROM meetings
 				WHERE started_at IS NOT NULL AND ended_at IS NOT NULL
+				  AND started_at <> '' AND ended_at <> ''
 				GROUP BY calendar_event_id ORDER BY 3 DESC`
 			case "template":
 				q = `SELECT COALESCE(creation_source,'unknown'), COUNT(*), COALESCE(SUM(
 					(strftime('%s', ended_at) - strftime('%s', started_at)) / 60.0
 				), 0) FROM meetings
 				WHERE started_at IS NOT NULL AND ended_at IS NOT NULL
+				  AND started_at <> '' AND ended_at <> ''
 				GROUP BY creation_source ORDER BY 3 DESC`
 			default:
 				return usageErr(fmt.Errorf("invalid --by %q (participant|calendar|template)", by))

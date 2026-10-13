@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 
 package cli
 
@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"os/exec"
 	"regexp"
 	"runtime"
 	"sort"
@@ -235,7 +234,7 @@ func newMCPAuthLoginCmd(flags *rootFlags) *cobra.Command {
 			if noOpen {
 				fmt.Fprintln(w, "Authorize granola-cli with Granola — open this URL, approve, and I'll continue:")
 				fmt.Fprintln(w, "  "+authURL)
-			} else if oerr := exec.Command("open", authURL).Start(); oerr != nil {
+			} else if oerr := openSetupURL(authURL); oerr != nil {
 				fmt.Fprintln(w, "Could not open a browser. Re-run with --no-open to get the URL to open manually.")
 				return ioErr(fmt.Errorf("launching browser: %w", oerr))
 			} else {
@@ -383,11 +382,11 @@ func newMCPAuthStatusCmd(flags *rootFlags) *cobra.Command {
 			// not hit the network or rotate/persist tokens. Check Keychain
 			// presence + the locally-stored expiry; never refresh here (login
 			// and the enrich commands own refresh).
-			access, kerr := kcGet(kcAccessToken)
+			access, kerr := kcGet(kcAcctAccess)
 			present := kerr == nil && access != ""
 			expired := false
 			if present {
-				if expStr, e := kcGet(kcExpiry); e == nil {
+				if expStr, e := kcGet(kcAcctExpiry); e == nil {
 					if unix, e2 := strconv.ParseInt(expStr, 10, 64); e2 == nil {
 						expired = !time.Now().Before(time.Unix(unix, 0))
 					}
@@ -433,7 +432,7 @@ func newMCPAuthLogoutCmd(flags *rootFlags) *cobra.Command {
 			// (a token that survives while we claim "cleared" is a real risk).
 			// "item not found" is the expected no-op and is not a failure.
 			var failed []string
-			for _, acct := range []string{kcAccessToken, kcRefreshToken, kcClientID, kcExpiry} {
+			for _, acct := range []string{kcAcctAccess, kcAcctRefresh, kcAcctClientID, kcAcctExpiry} {
 				if err := kcDelete(acct); err != nil && !kcNotFound(err) {
 					failed = append(failed, acct)
 				}

@@ -1,11 +1,9 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 
 package cli
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -40,7 +38,7 @@ per segment, filtered to segments with >= --min-words words.`,
 			if dryRunOK(flags) {
 				return nil
 			}
-			if err := os.MkdirAll(outDir, 0o755); err != nil {
+			if err := ensureSafeDir(outDir); err != nil {
 				return ioErr(err)
 			}
 			var from, to time.Time
@@ -93,9 +91,13 @@ per segment, filtered to segments with >= --min-words words.`,
 			}
 			w := cmd.OutOrStdout()
 			for _, day := range perDayOrder {
-				path := filepath.Join(outDir, day+".md")
+				path, err := safeJoinContained(outDir, day+".md")
+				if err != nil {
+					fmt.Fprintf(w, `{"day":%q,"error":%q}`+"\n", day, err.Error())
+					continue
+				}
 				body := "# " + day + "\n\n" + strings.Join(perDay[day], "\n\n") + "\n"
-				if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+				if err := writeSafeFile(path, []byte(body)); err != nil {
 					fmt.Fprintf(w, `{"day":%q,"error":%q}`+"\n", day, err.Error())
 					continue
 				}

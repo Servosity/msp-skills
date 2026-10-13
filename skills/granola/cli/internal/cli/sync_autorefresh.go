@@ -1,14 +1,17 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 
 package cli
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"time"
 
+	"granola-pp-cli/internal/client"
 	"granola-pp-cli/internal/config"
+	"granola-pp-cli/internal/granola"
 	"granola-pp-cli/internal/store"
 )
 
@@ -116,6 +119,17 @@ func runApiSync(ctx context.Context, flags *rootFlags) (ApiSyncResult, error) {
 		}
 	}
 
+	// After the THIN sync (notes/folders) lands rows in the store, hydrate the
+	// RICH tables (meetings/attendees/transcript_segments) for a small, bounded
+	// set of recently-synced-but-not-yet-hydrated notes. Without this, KEEP
+	// commands (talktime/collect/attendee/export/memo/notes-show/stats/
+	// duplicates/preflight) read empty rich tables after a clean install because
+	// only an explicit `sync`/`enrich` used to call enrichRecent. Best-effort:
+	// any error is swallowed so the pre-command refresh never blocks the command,
+	// and it is incremental (only un-hydrated notes) so steady-state runs issue
+	// zero detail fetches and stay fast.
+	enrichRecentForAutoRefresh(ctx, db.DB(), c)
+
 	out := ApiSyncResult{
 		TotalRecords: totalSynced,
 		Resources:    successCount + warnCount + errCount,
@@ -136,6 +150,86 @@ func runApiSync(ctx context.Context, flags *rootFlags) (ApiSyncResult, error) {
 		return out, firstErr
 	}
 	return out, nil
+}
+
+// autoRefreshEnrichCap bounds how many un-hydrated recent notes the
+// pre-command auto-refresh enriches. Kept small so the refresh that runs before
+// EVERY command stays fast; under the dogfood runner it shrinks further to fit
+// the per-command timeout.
+func autoRefreshEnrichCap() int {
+	if isDogfoodEnv() {
+		return 1
+	}
+	return 25
+}
+
+// unhydratedRecentNoteIDs returns up to limit REST note ids (newest first) that
+// were synced into the thin `notes` table but never hydrated into the rich
+// `meetings` table (no meetings row). This LEFT JOIN is the cheap incremental
+// signal that keeps steady-state auto-refresh at ZERO detail fetches: once a
+// note is enriched it has a meetings row and is skipped on subsequent commands.
+func unhydratedRecentNoteIDs(ctx context.Context, db *sql.DB, limit int) ([]string, error) {
+	// Re-enrich a note when it has no meetings row yet (never hydrated) OR when
+	// the note was updated after its stored meeting (Granola advances a note's
+	// updated_at as transcription/notes complete, so a first pass that saw only
+	// partial detail is picked up again instead of being considered done forever).
+	// Timestamps are UTC RFC3339, so lexical > is chronological.
+	q := `SELECT n.id FROM notes n
+		LEFT JOIN meetings m ON m.id = n.id
+		WHERE n.id LIKE 'not_%'
+		  AND (m.id IS NULL OR n.updated_at > COALESCE(m.updated_at, ''))
+		ORDER BY n.updated_at DESC
+		LIMIT ?`
+	// LIMIT is a bound parameter, never spliced into the SQL text. SQLite
+	// reads a negative LIMIT as "no limit", which is what limit <= 0 means here.
+	lim := limit
+	if lim <= 0 {
+		lim = -1
+	}
+	rows, err := db.QueryContext(ctx, q, lim)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
+// enrichRecentForAutoRefresh hydrates the rich tables for a BOUNDED set of
+// recently-synced-but-not-yet-hydrated notes so KEEP commands return data after
+// a clean install without a manual `sync`/`enrich`. It reuses the caller's
+// already-open db handle + client (the same public-REST auth). Best-effort: any
+// error (network, MCP-unavailable) is swallowed — the pre-command refresh must
+// never block the user's command. Returns meetings enriched (for tests). A nil
+// db or client is a no-op.
+func enrichRecentForAutoRefresh(ctx context.Context, db *sql.DB, c *client.Client) int {
+	if db == nil || c == nil {
+		return 0
+	}
+	// The generic store creates `notes`, but the rich tables
+	// (meetings/attendees/transcript_segments) are the granola schema. Ensure
+	// them BEFORE the incremental LEFT JOIN below queries `meetings`; otherwise a
+	// clean install fails "no such table: meetings", the error is swallowed, and
+	// first-run hydration never happens (regression caught by the Codex re-review).
+	if err := granola.EnsureSchema(ctx, db); err != nil {
+		return 0
+	}
+	ids, err := unhydratedRecentNoteIDs(ctx, db, autoRefreshEnrichCap())
+	if err != nil || len(ids) == 0 {
+		return 0
+	}
+	n, _, err := hydrateRichFromREST(ctx, db, c, ids)
+	if err != nil {
+		return n // partial progress still populated the rich tables; never propagate
+	}
+	return n
 }
 
 // apiKeyConfigured returns true when the CLI has a usable public-API

@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 
 package cli
 
@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -124,14 +125,26 @@ M:SS mark.`,
 // (/v1/notes/{id}?include=transcript), not the old internal client.
 func loadTranscript(id, dataSource string) ([]granola.TranscriptSegment, string, error) {
 	if dataSource != "live" {
-		// openGranolaCache soft-fails to the SQLite store; TranscriptByID reads
-		// the segments the REST `enrich`/`sync` populated.
-		c, _ := openGranolaCache()
-		if segs := c.TranscriptByID(id); len(segs) > 0 {
-			return segs, "cache", nil
-		}
-		if dataSource == "local" {
-			return nil, "", notFoundErr(fmt.Errorf("transcript for %s not in local store; run 'granola-cli sync' (or 'enrich') first, or use --data-source live", id))
+		// openGranolaCache reads the segments the REST `enrich`/`sync` populated.
+		// A MISSING store is not an error (returns an empty, nil-safe cache); a
+		// REAL store error (corrupt/locked DB) IS propagated now that
+		// openGranolaCache no longer swallows it. Handle it explicitly rather
+		// than dereferencing a possibly-nil/partial cache.
+		c, err := openGranolaCache()
+		if err != nil {
+			// --data-source local has no live fallback → surface the real error.
+			// In auto mode (dataSource == ""), fall through to the live REST path
+			// deliberately instead of failing on a local store problem.
+			if dataSource == "local" {
+				return nil, "", apiErr(fmt.Errorf("read local transcript store for %s: %w", id, err))
+			}
+		} else {
+			if segs := c.TranscriptByID(id); len(segs) > 0 {
+				return segs, "cache", nil
+			}
+			if dataSource == "local" {
+				return nil, "", notFoundErr(fmt.Errorf("transcript for %s not in local store; run 'granola-cli sync' (or 'enrich') first, or use --data-source live", id))
+			}
 		}
 	}
 	segs, err := fetchTranscriptREST(id)
@@ -151,7 +164,8 @@ func fetchTranscriptREST(id string) ([]granola.TranscriptSegment, error) {
 	c := client.New(cfg, 30*time.Second, 0)
 	// v7.4x leaf REST helper with its own 30s-timeout client; a background
 	// context reproduces the reference's bounded, cancellation-free behavior.
-	raw, err := c.Get(context.Background(), "/v1/notes/"+id, map[string]string{"include": "transcript"})
+	// id is an opaque single-segment note id; escape it into the path segment.
+	raw, err := c.Get(context.Background(), "/v1/notes/"+url.PathEscape(id), map[string]string{"include": "transcript"})
 	if err != nil {
 		return nil, apiErr(fmt.Errorf("fetch transcript for %s from the public API: %w", id, err))
 	}
@@ -159,11 +173,11 @@ func fetchTranscriptREST(id string) ([]granola.TranscriptSegment, error) {
 	if err := json.Unmarshal(raw, &d); err != nil {
 		return nil, apiErr(fmt.Errorf("parse transcript for %s: %w", id, err))
 	}
-	if len(d.Transcript) == 0 {
+	if d.Transcript == nil || len(*d.Transcript) == 0 {
 		return nil, notFoundErr(fmt.Errorf("no transcript for %s (the meeting may not have been recorded/transcribed)", id))
 	}
-	segs := make([]granola.TranscriptSegment, 0, len(d.Transcript))
-	for _, t := range d.Transcript {
+	segs := make([]granola.TranscriptSegment, 0, len(*d.Transcript))
+	for _, t := range *d.Transcript {
 		segs = append(segs, granola.TranscriptSegment{
 			Source:         t.Speaker.Source,
 			Text:           t.Text,

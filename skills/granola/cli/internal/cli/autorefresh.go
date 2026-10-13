@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 
 package cli
 
@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -23,7 +22,7 @@ type agentContextAutoRefresh struct {
 	Flag         string   `json:"flag"`          // "--no-refresh"
 	Env          string   `json:"env"`           // "GRANOLA_NO_AUTO_REFRESH"
 	ProfileField string   `json:"profile_field"` // "no-refresh"
-	Surfaces     []string `json:"surfaces"`      // ["cache","api"]
+	Surfaces     []string `json:"surfaces"`      // ["api"]
 	SkipList     []string `json:"skip_list"`     // command names that bypass refresh
 }
 
@@ -42,7 +41,7 @@ func buildAutoRefreshContext() agentContextAutoRefresh {
 		Flag:         "--no-refresh",
 		Env:          "GRANOLA_NO_AUTO_REFRESH",
 		ProfileField: "no-refresh",
-		Surfaces:     []string{refreshSurfaceCache, refreshSurfaceAPI},
+		Surfaces:     []string{refreshSurfaceAPI},
 		SkipList:     skip,
 	}
 }
@@ -95,15 +94,14 @@ const (
 )
 
 // refreshPlan captures which auth surfaces auto-refresh should hit
-// for this invocation. Both, one, or neither may be true; an empty
-// plan is a legitimate "no auth configured" state and produces no
-// refresh and no provenance line.
+// for this invocation. On Granola v7.4x+ the desktop cache is sealed, so
+// the public REST API is the only surface; an empty plan is a legitimate
+// "no auth configured" state and produces no refresh and no provenance line.
 type refreshPlan struct {
-	cache bool
-	api   bool
+	api bool
 }
 
-func (p refreshPlan) empty() bool { return !p.cache && !p.api }
+func (p refreshPlan) empty() bool { return !p.api }
 
 // refreshResult is the per-surface outcome auto-refresh produces.
 // Errors are captured here rather than returned upward — refresh
@@ -215,69 +213,21 @@ func envBoolish(v string) bool {
 	return false
 }
 
-// detectRefreshPlan inspects auth surfaces in the user's environment
-// and config and decides which sync paths auto-refresh should run.
-// Both are independent: a user with desktop cache + API key gets both;
-// a user with only one gets one; a user with neither gets nothing.
+// detectRefreshPlan inspects the user's environment and config and decides
+// whether auto-refresh should run the public-REST sync. On Granola v7.4x+
+// the desktop cache is sealed, so the API is the only refreshable surface;
+// a user with no API credential configured gets nothing.
 func detectRefreshPlan(flags *rootFlags) refreshPlan {
 	return refreshPlan{
-		cache: encryptedCachePresent(),
-		api:   apiKeyConfigured(flags),
+		api: apiKeyConfigured(flags),
 	}
 }
 
-// encryptedCachePresent returns true when Granola's encrypted cache
-// file exists at the expected path. We do not attempt to decrypt — that
-// would require a Keychain prompt every time the hook fires. A present
-// file is the strongest signal we can read cheaply that auto-refresh
-// has something to do; if decrypt later fails, runCacheSync records
-// that on the SyncState the same way doctor does, and the provenance
-// line shows "cache=failed".
-//
-// Reuses the support-dir resolver from doctor_encrypted_store.go to
-// honor GRANOLA_SUPPORT_DIR overrides.
-func encryptedCachePresent() bool {
-	supportDir := granolaSupportDirFromEnv()
-	if _, err := os.Stat(supportDir); err != nil {
-		return false
-	}
-	encPath := filepath.Join(supportDir, "cache-v6.json.enc")
-	if fileExists(encPath) {
-		return true
-	}
-	// Pre-encryption installs ship cache-v6.json (plaintext). Treat
-	// those as refreshable too — runCacheSync's openGranolaCache
-	// handles both shapes.
-	plainPath := filepath.Join(supportDir, "cache-v6.json")
-	return fileExists(plainPath)
-}
-
-// run executes the refresh plan, calling whichever sync cores the
-// plan selected. Cache sync runs first because it is fast and local
-// (file decrypt + SQLite upsert); api sync is slower (HTTP) so an
-// already-stale-but-warm cache is available even if api sync hangs.
-// Each result captures errors locally so the caller never sees an
-// error return — best-effort is enforced at the type level.
+// run executes the refresh plan, calling the public-REST sync core when the
+// plan selected it. Each result captures errors locally so the caller never
+// sees an error return — best-effort is enforced at the type level.
 func (p refreshPlan) run(ctx context.Context, flags *rootFlags) []refreshResult {
 	var out []refreshResult
-	if p.cache {
-		res, err := runCacheSync(ctx)
-		// Cache refresh is "ok" when the decrypt + SQLite upsert
-		// succeeded, even if document-API hydration was unable to
-		// reach /v2/get-documents (HydrateErr) or the sync_state
-		// marker write failed (StateWriteErr). Both are non-fatal:
-		// the caller's command still gets fresh cached transcripts,
-		// folders, panels, recipes, and chats. Provenance line will
-		// show "cache=ok" with the rows count; doctor surfaces the
-		// hydrate/state-write detail.
-		out = append(out, refreshResult{
-			surface:  refreshSurfaceCache,
-			ok:       err == nil,
-			rows:     res.TotalRows(),
-			duration: res.Duration,
-			err:      err,
-		})
-	}
 	if p.api {
 		res, err := runApiSync(ctx, flags)
 		out = append(out, refreshResult{

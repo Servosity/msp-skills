@@ -1,9 +1,10 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 
 package cli
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
@@ -240,15 +241,23 @@ func findDuplicates(root, id, title, day string) (dup string, collisions []strin
 	if root == "" {
 		return "", nil
 	}
-	if _, err := os.Stat(root); err != nil {
+	// Every read is scoped to an os.Root opened on --root: a symlink that
+	// points outside the transcripts tree cannot pull a foreign file into the
+	// identity check, and the path handed to the reader is always relative to
+	// the root rather than re-resolved from a string between the walk and the
+	// read. Reported paths are re-joined onto root so output is unchanged.
+	r, err := os.OpenRoot(root)
+	if err != nil {
 		return "", nil
 	}
+	defer r.Close()
 	titleKey := strings.ToLower(strings.TrimSpace(title))
-	_ = filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info == nil || info.IsDir() || dup != "" {
+	_ = fs.WalkDir(r.FS(), ".", func(rel string, d fs.DirEntry, err error) error {
+		if err != nil || d == nil || d.IsDir() || dup != "" {
 			return nil
 		}
-		name := info.Name()
+		path := filepath.Join(root, filepath.FromSlash(rel))
+		name := d.Name()
 		if id != "" && strings.Contains(name, id) {
 			dup = path
 			return nil
@@ -263,7 +272,7 @@ func findDuplicates(root, id, title, day string) (dup string, collisions []strin
 		// the root would be correct but needlessly expensive; a file that does
 		// not even share the title is not a plausible duplicate.
 		if titleHit && id != "" {
-			if b, rerr := os.ReadFile(path); rerr == nil && strings.Contains(string(b), id) {
+			if b, rerr := r.ReadFile(filepath.FromSlash(rel)); rerr == nil && strings.Contains(string(b), id) {
 				dup = path
 				return nil
 			}

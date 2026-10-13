@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 
 package cli
 
@@ -131,7 +131,11 @@ const matchAmbiguityGap = 2 * time.Hour
 // none:
 //   - a target with NO title/date, or no in-window same-title candidate, is skipped;
 //   - a target whose two closest same-title candidates are within matchAmbiguityGap
-//     is skipped (too ambiguous to attribute);
+//     is skipped (MCP-side ambiguity: too close to tell which meeting to read);
+//   - an MCP meeting whose two closest REST targets are within matchAmbiguityGap is
+//     declined for BOTH (REST-side ambiguity: a repeated title / delayed note means
+//     we can't tell WHICH meeting the private notes belong to — writing to the
+//     closest would risk leaking one meeting's notes onto another);
 //   - each remaining target offers only its single closest candidate, and UUIDs are
 //     assigned closest-delta first, one-to-one, so one MCP meeting's notes are never
 //     written under several REST meetings.
@@ -173,13 +177,33 @@ func assignMeetingUUIDs(byTitle map[string][]mcpMeeting, targets []restTarget) m
 		}
 		cands = append(cands, cand{i, opts[0].uuid, opts[0].delta})
 	}
+	// REST-side ambiguity: an MCP meeting (uuid) that is the closest candidate
+	// for MULTIPLE same-title REST targets whose deltas are within the ambiguity
+	// gap is unattributable — writing its private notes to the closest REST
+	// meeting would risk the WRONG meeting. Decline the uuid entirely (mirror of
+	// the MCP-side check above). A clearly separated pair (gap > matchAmbiguityGap)
+	// is still resolvable: the closest target legitimately wins below.
+	deltasByUUID := map[string][]time.Duration{}
+	for _, c := range cands {
+		deltasByUUID[c.uuid] = append(deltasByUUID[c.uuid], c.delta)
+	}
+	ambiguousUUID := map[string]bool{}
+	for uuid, deltas := range deltasByUUID {
+		if len(deltas) < 2 {
+			continue
+		}
+		sort.Slice(deltas, func(a, b int) bool { return deltas[a] < deltas[b] })
+		if deltas[1]-deltas[0] <= matchAmbiguityGap {
+			ambiguousUUID[uuid] = true
+		}
+	}
 	// Assign closest-delta first, each UUID at most once (targets are already
-	// unique — one entry per target above).
+	// unique — one entry per target above), skipping any REST-side-ambiguous uuid.
 	sort.SliceStable(cands, func(a, b int) bool { return cands[a].delta < cands[b].delta })
 	usedUUID := map[string]bool{}
 	out := map[string]string{}
 	for _, c := range cands {
-		if usedUUID[c.uuid] {
+		if ambiguousUUID[c.uuid] || usedUUID[c.uuid] {
 			continue
 		}
 		usedUUID[c.uuid] = true

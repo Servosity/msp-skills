@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 
 package cli
 
@@ -119,5 +119,52 @@ func TestAssignMeetingUUIDs(t *testing.T) {
 	})
 	if len(got) != 0 {
 		t.Fatalf("empty/unknown/zero-date should not match, got %+v", got)
+	}
+}
+
+// TestAssignMeetingUUIDs_SameTitleRestCollisionDeclines is the FIX J
+// confidentiality guard: when a single MCP meeting is the closest candidate for
+// TWO same-title REST meetings within the ambiguity gap, we cannot tell which
+// meeting the private notes belong to — writing to the closest would risk
+// leaking one meeting's notes onto another, so BOTH are declined. A cleanly
+// unique match in the same batch is still written.
+func TestAssignMeetingUUIDs_SameTitleRestCollisionDeclines(t *testing.T) {
+	base := time.Date(2026, 7, 16, 14, 0, 0, 0, time.UTC)
+	byTitle := map[string][]mcpMeeting{
+		normTitle("Standup"): {{UUID: "s1", Title: "Standup", Date: base}},
+		normTitle("Unique"):  {{UUID: "u1", Title: "Unique", Date: base}},
+	}
+
+	got := assignMeetingUUIDs(byTitle, []restTarget{
+		// Two same-title REST meetings, both ~30m from the single MCP meeting →
+		// deltas within the 2h gap → REST-side ambiguous → decline BOTH.
+		{ID: "not_a", Title: "Standup", Created: base.Add(30 * time.Minute)},
+		{ID: "not_b", Title: "Standup", Created: base.Add(-30 * time.Minute)},
+		// Cleanly unique → still assigned (the decline must stay discriminating).
+		{ID: "not_u", Title: "Unique", Created: base.Add(30 * time.Minute)},
+	})
+	if u, ok := got["not_a"]; ok {
+		t.Fatalf("same-title REST collision must NOT write to not_a, got %q", u)
+	}
+	if u, ok := got["not_b"]; ok {
+		t.Fatalf("same-title REST collision must NOT write to not_b, got %q", u)
+	}
+	if got["not_u"] != "u1" {
+		t.Fatalf("cleanly-unique match should still be written, got %q", got["not_u"])
+	}
+
+	// Discrimination check: two same-title REST meetings clearly separated in
+	// time (gap > 2h) are resolvable — the closest legitimately wins.
+	got = assignMeetingUUIDs(
+		map[string][]mcpMeeting{normTitle("Sep"): {{UUID: "p1", Title: "Sep", Date: base}}},
+		[]restTarget{
+			{ID: "not_near", Title: "Sep", Created: base.Add(15 * time.Minute)}, // delta 15m
+			{ID: "not_far", Title: "Sep", Created: base.Add(4 * time.Hour)},     // delta 4h
+		})
+	if got["not_near"] != "p1" {
+		t.Fatalf("clearly-closest REST meeting should win, got %q", got["not_near"])
+	}
+	if u, ok := got["not_far"]; ok {
+		t.Fatalf("the same MCP notes must not also be written to the far meeting, got %q", u)
 	}
 }

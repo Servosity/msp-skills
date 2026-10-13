@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 
 package cli
 
@@ -42,15 +42,30 @@ const (
 
 // Keychain accounts under service granola-cli-mcp.
 const (
-	kcAccessToken  = "MCP_ACCESS_TOKEN"
-	kcRefreshToken = "MCP_REFRESH_TOKEN"
-	kcClientID     = "MCP_CLIENT_ID"
-	kcExpiry       = "MCP_TOKEN_EXPIRY" // unix seconds
+	kcAcctAccess   = "MCP_ACCESS_TOKEN"
+	kcAcctRefresh  = "MCP_REFRESH_TOKEN"
+	kcAcctClientID = "MCP_CLIENT_ID"
+	kcAcctExpiry   = "MCP_TOKEN_EXPIRY" // unix seconds
 )
 
 // maxMCPBody caps every response we read so a hostile/broken server can't OOM
 // us. get_meetings digests run a few KB; 16MB is generous headroom.
 const maxMCPBody = 16 << 20
+
+// readCappedMCPBody reads at most maxMCPBody bytes and REJECTS a larger body
+// rather than silently truncating it (a plain io.LimitReader would hand back a
+// corrupt, quietly-shortened JSON-RPC envelope or SSE stream). The read error
+// is surfaced, never swallowed. Mirrors client.readCappedBody.
+func readCappedMCPBody(r io.Reader) ([]byte, error) {
+	data, err := io.ReadAll(io.LimitReader(r, maxMCPBody+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(data)) > maxMCPBody {
+		return nil, fmt.Errorf("mcp response body exceeds %d-byte limit", int64(maxMCPBody))
+	}
+	return data, nil
+}
 
 // mcpHTTPClient refuses to follow redirects: a 307/308 from the token endpoint
 // would otherwise replay the form body (refresh token / PKCE verifier) to a
@@ -64,20 +79,86 @@ var mcpHTTPClient = &http.Client{
 
 // --- Keychain (macOS) ---------------------------------------------------------
 
-// kcSet stores a secret via /usr/bin/security. The value rides on argv, briefly
-// visible to a same-user `ps` watcher — an accepted residual on a single-user
-// Mac (the Security.framework alternative needs cgo, which a `go install`-ed
-// printed CLI can't take). ponytail: argv-passed secret; upgrade path is a cgo
-// Keychain lib if a multi-user threat model ever applies. The value never
-// touches disk or CLI output.
+// The token store is security(1). Every call runs it in interactive mode
+// (`security -i`) and hands it the command line on STDIN, never on argv:
+//
+//   - the secret no longer rides on the process argument list, where any
+//     same-user `ps` watcher could read it while the call ran (the residual the
+//     argv form had to accept);
+//   - the exec argv is a fixed literal pair, so nothing caller-supplied ever
+//     reaches exec.Command.
+//
+// security(1)'s interactive parser honors double quotes with backslash
+// escapes, so kcQuote wraps every operand and escapes `"` and `\`. A control
+// character (newline above all) would end the command line early and let the
+// remainder run as a second command, so kcQuote refuses one outright. A real
+// OAuth token is printable ASCII (RFC 6749 VSCHAR) and never trips it.
+//
+// kcKeychainPath, when non-empty, names an explicit keychain file instead of
+// the user's default search list. Production never sets it; the opt-in
+// integration test points it at a throwaway keychain.
+var kcKeychainPath string
+
+func kcQuote(v string) (string, error) {
+	for _, r := range v {
+		if r < 0x20 || r == 0x7f {
+			return "", errors.New("keychain operand contains a control character")
+		}
+	}
+	return `"` + strings.NewReplacer(`\`, `\\`, `"`, `\"`).Replace(v) + `"`, nil
+}
+
+// kcLine renders one security(1) command line from a subcommand and its
+// operands. Every operand is quoted, flags included (the parser strips the
+// quotes), so a value that happens to begin with "-" or contain a space can
+// never be misread. The explicit keychain, when set, is appended last.
+func kcLine(sub string, args ...string) (string, error) {
+	parts := []string{sub}
+	for _, a := range args {
+		q, err := kcQuote(a)
+		if err != nil {
+			return "", err
+		}
+		parts = append(parts, q)
+	}
+	if kcKeychainPath != "" {
+		q, err := kcQuote(kcKeychainPath)
+		if err != nil {
+			return "", err
+		}
+		parts = append(parts, q)
+	}
+	return strings.Join(parts, " ") + "\n", nil
+}
+
+// kcRun executes one command line through `security -i`. The exit status of
+// the command propagates (44 = errSecItemNotFound), so kcNotFound keeps
+// working unchanged.
+func kcRun(line string, capture bool) ([]byte, error) {
+	cmd := exec.Command("/usr/bin/security", "-i")
+	cmd.Stdin = strings.NewReader(line)
+	if capture {
+		return cmd.Output()
+	}
+	return nil, cmd.Run()
+}
+
+// kcSet stores a secret. The value never touches disk, argv, or CLI output.
 func kcSet(account, value string) error {
-	return exec.Command("/usr/bin/security", "add-generic-password",
-		"-U", "-a", account, "-s", mcpKCService, "-w", value).Run()
+	line, err := kcLine("add-generic-password", "-U", "-a", account, "-s", mcpKCService, "-w", value)
+	if err != nil {
+		return err
+	}
+	_, err = kcRun(line, false)
+	return err
 }
 
 func kcGet(account string) (string, error) {
-	out, err := exec.Command("/usr/bin/security", "find-generic-password",
-		"-a", account, "-s", mcpKCService, "-w").Output()
+	line, err := kcLine("find-generic-password", "-a", account, "-s", mcpKCService, "-w")
+	if err != nil {
+		return "", err
+	}
+	out, err := kcRun(line, true)
 	if err != nil {
 		return "", err
 	}
@@ -85,8 +166,12 @@ func kcGet(account string) (string, error) {
 }
 
 func kcDelete(account string) error {
-	return exec.Command("/usr/bin/security", "delete-generic-password",
-		"-a", account, "-s", mcpKCService).Run()
+	line, err := kcLine("delete-generic-password", "-a", account, "-s", mcpKCService)
+	if err != nil {
+		return err
+	}
+	_, err = kcRun(line, false)
+	return err
 }
 
 // kcNotFound reports whether a security(1) call failed only because the item
@@ -127,7 +212,10 @@ func mcpJSON(method, u string, payload any, headers map[string]string) (int, htt
 		return 0, nil, nil, err
 	}
 	defer resp.Body.Close()
-	data, _ := io.ReadAll(io.LimitReader(resp.Body, maxMCPBody))
+	data, rerr := readCappedMCPBody(resp.Body)
+	if rerr != nil {
+		return resp.StatusCode, resp.Header, nil, fmt.Errorf("reading mcp response: %w", rerr)
+	}
 	return resp.StatusCode, resp.Header, data, nil
 }
 
@@ -143,7 +231,10 @@ func mcpForm(u string, form url.Values) (int, []byte, error) {
 		return 0, nil, err
 	}
 	defer resp.Body.Close()
-	data, _ := io.ReadAll(io.LimitReader(resp.Body, maxMCPBody))
+	data, rerr := readCappedMCPBody(resp.Body)
+	if rerr != nil {
+		return resp.StatusCode, nil, fmt.Errorf("reading mcp response: %w", rerr)
+	}
 	return resp.StatusCode, data, nil
 }
 
@@ -262,21 +353,21 @@ func mcpRefresh(clientID, refresh string) (*mcpToken, error) {
 // storeMCPToken persists a token bundle in the Keychain. A refresh response may
 // omit refresh_token (reuse the prior one), so only overwrite when present.
 func storeMCPToken(clientID string, t *mcpToken) error {
-	if err := kcSet(kcAccessToken, t.AccessToken); err != nil {
+	if err := kcSet(kcAcctAccess, t.AccessToken); err != nil {
 		return err
 	}
 	if t.RefreshToken != "" {
-		if err := kcSet(kcRefreshToken, t.RefreshToken); err != nil {
+		if err := kcSet(kcAcctRefresh, t.RefreshToken); err != nil {
 			return err
 		}
 	}
 	if clientID != "" {
-		if err := kcSet(kcClientID, clientID); err != nil {
+		if err := kcSet(kcAcctClientID, clientID); err != nil {
 			return err
 		}
 	}
 	exp := time.Now().Add(time.Duration(t.ExpiresIn) * time.Second)
-	return kcSet(kcExpiry, strconv.FormatInt(exp.Unix(), 10))
+	return kcSet(kcAcctExpiry, strconv.FormatInt(exp.Unix(), 10))
 }
 
 // mcpAccessToken returns a usable access token, refreshing via the stored
@@ -285,11 +376,11 @@ func storeMCPToken(clientID string, t *mcpToken) error {
 // and a distinct error when the token is expired and cannot be refreshed —
 // callers must not treat an expired/unrefreshable token as connected.
 func mcpAccessToken() (string, error) {
-	access, err := kcGet(kcAccessToken)
+	access, err := kcGet(kcAcctAccess)
 	if err != nil || access == "" {
 		return "", errMCPNotConnected
 	}
-	expStr, expErr := kcGet(kcExpiry)
+	expStr, expErr := kcGet(kcAcctExpiry)
 	if expErr != nil {
 		return access, nil // unknown expiry: try as-is; a 401 prompts re-login
 	}
@@ -302,8 +393,8 @@ func mcpAccessToken() (string, error) {
 	}
 	// Expired — a refresh is required; surface failure rather than hand back a
 	// known-dead token.
-	refresh, _ := kcGet(kcRefreshToken)
-	clientID, _ := kcGet(kcClientID)
+	refresh, _ := kcGet(kcAcctRefresh)
+	clientID, _ := kcGet(kcAcctClientID)
 	if refresh == "" || clientID == "" {
 		return "", fmt.Errorf("granola mcp token expired and cannot refresh — re-run 'granola-cli mcp-auth login'")
 	}

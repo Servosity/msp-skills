@@ -1,11 +1,10 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 
 package cli
 
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -65,10 +64,16 @@ type extractResult struct {
 // memo.go.
 func runExtract(id, outDir, panelTemplate string, allowLive bool) (extractResult, error) {
 	res := extractResult{ID: id}
-	if err := os.MkdirAll(outDir, 0o755); err != nil {
+	if err := validateNoteIDForFilename(id); err != nil {
+		return res, err
+	}
+	if err := ensureSafeDir(outDir); err != nil {
 		return res, ioErr(err)
 	}
-	fullPath := filepath.Join(outDir, "full_"+id+".md")
+	fullPath, err := safeJoinContained(outDir, "full_"+id+".md")
+	if err != nil {
+		return res, err
+	}
 	if _, err := os.Stat(fullPath); err == nil {
 		return res, &cliError{code: 3, err: fmt.Errorf("full_%s.md already exists in %s", id, outDir)}
 	}
@@ -84,8 +89,14 @@ func runExtract(id, outDir, panelTemplate string, allowLive bool) (extractResult
 	full := composeFullMarkdown(a)
 	summary := composeSummaryMarkdown(a)
 	meta := composeMetadataMarkdown(a)
-	summaryPath := filepath.Join(outDir, "summary_"+id+".md")
-	metaPath := filepath.Join(outDir, "metadata_"+id+".md")
+	summaryPath, err := safeJoinContained(outDir, "summary_"+id+".md")
+	if err != nil {
+		return res, err
+	}
+	metaPath, err := safeJoinContained(outDir, "metadata_"+id+".md")
+	if err != nil {
+		return res, err
+	}
 
 	for _, kv := range []struct {
 		path    string
@@ -95,7 +106,7 @@ func runExtract(id, outDir, panelTemplate string, allowLive bool) (extractResult
 		{summaryPath, summary},
 		{metaPath, meta},
 	} {
-		if err := os.WriteFile(kv.path, []byte(kv.content), 0o644); err != nil {
+		if err := writeSafeFile(kv.path, []byte(kv.content)); err != nil {
 			return res, ioErr(err)
 		}
 		res.Files = append(res.Files, kv.path)
@@ -176,9 +187,16 @@ func yamlEscape(s string) string {
 	return s
 }
 
+// docWindow derives a meeting's REAL start/end bounds for the metadata block.
+// Source precedence is real-sources-only: the meeting's stored calendar window
+// (reconstructed into GoogleCalendarEvent.Start/End from meetings.started_at/
+// ended_at) first, else the transcript span, else empty. Note created_at/
+// updated_at are EDIT times, never the meeting duration — using them would
+// re-introduce the fabricated-duration bug the storage layer took care to
+// avoid. Date-range FILTERING still uses created_at elsewhere; this function is
+// strictly the start/end duration window.
 func docWindow(d *granola.Document, segs []granola.TranscriptSegment) (string, string) {
-	startedAt := d.CreatedAt
-	endedAt := d.UpdatedAt
+	startedAt, endedAt := "", ""
 	if d.GoogleCalendarEvent != nil {
 		if s := extractCalTimeRaw(d.GoogleCalendarEvent.Start); s != "" {
 			startedAt = s

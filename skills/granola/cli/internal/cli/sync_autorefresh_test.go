@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 
 package cli
 
@@ -55,31 +55,9 @@ func TestApiKeyConfigured_ConfigFile(t *testing.T) {
 	}
 }
 
-// TestCacheSyncResult_TotalRows covers the headline-count helper used by
-// the provenance line. Easy to regress by adding a new row category to the
-// struct and forgetting to include it in the sum.
-func TestCacheSyncResult_TotalRows(t *testing.T) {
-	r := CacheSyncResult{
-		Meetings:     3,
-		Attendees:    5,
-		Segments:     7,
-		Folders:      11,
-		Memberships:  13,
-		Panels:       17,
-		Recipes:      19,
-		Workspaces:   23,
-		ChatThreads:  29,
-		ChatMessages: 31,
-	}
-	want := 3 + 5 + 7 + 11 + 13 + 17 + 19 + 23 + 29 + 31
-	if got := r.TotalRows(); got != want {
-		t.Errorf("TotalRows() = %d, want %d", got, want)
-	}
-}
-
-// TestApiSyncResult_TotalRows mirrors the cache test for the api result
-// type. Keeps the two surfaces consistent — both feed the same provenance
-// line in the dispatcher.
+// TestApiSyncResult_TotalRows covers the headline-count helper used by the
+// provenance line. On Granola v7.4x+ the public REST API is the only refresh
+// surface, so this is the sole result type the dispatcher feeds.
 func TestApiSyncResult_TotalRows(t *testing.T) {
 	r := ApiSyncResult{TotalRecords: 42}
 	if got := r.TotalRows(); got != 42 {

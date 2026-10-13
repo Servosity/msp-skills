@@ -1,11 +1,10 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 
 package cli
 
 import (
 	"context"
 	"fmt"
-	"os"
 	"sort"
 	"strings"
 
@@ -120,12 +119,17 @@ can route each stream.`,
 				return nil
 			}
 			id := args[0]
+			if err := validateNoteIDForFilename(id); err != nil {
+				return err
+			}
 			a, err := buildArtifacts(id, flags.dataSource != "local", panelTemplate)
 			if err != nil {
 				return err
 			}
 			body := composeFullMarkdown(a)
-			if err := os.WriteFile(out, []byte(body), 0o644); err != nil {
+			// --out is a user-chosen file path; write owner-only 0600 (and
+			// chmod an existing file, which WriteFile would leave world-readable).
+			if err := writeSafeFile(out, []byte(body)); err != nil {
 				return ioErr(err)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), `{"exported":true,"id":%q,"path":%q,"bytes":%d}`+"\n", id, out, len(body))

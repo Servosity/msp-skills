@@ -1,11 +1,10 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 
 package cli
 
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -41,7 +40,7 @@ markdown file (same shape as 'export'). Emits ndjson per meeting:
 			if dryRunOK(flags) {
 				return nil
 			}
-			if err := os.MkdirAll(outDir, 0o755); err != nil {
+			if err := ensureSafeDir(outDir); err != nil {
 				return ioErr(err)
 			}
 			from, to, err := parseTimeWindow(last, since, until)
@@ -56,7 +55,15 @@ markdown file (same shape as 'export'). Emits ndjson per meeting:
 			_ = concurrency // serial for now; bursting Granola has a rate-limit cost
 			w := cmd.OutOrStdout()
 			for _, id := range ids {
-				out := filepath.Join(outDir, "export_"+id+".md")
+				if err := validateNoteIDForFilename(id); err != nil {
+					_ = emitNDJSONLine(w, map[string]any{"id": id, "status": "error", "error": err.Error()})
+					continue
+				}
+				out, err := safeJoinContained(outDir, "export_"+id+".md")
+				if err != nil {
+					_ = emitNDJSONLine(w, map[string]any{"id": id, "status": "error", "error": err.Error()})
+					continue
+				}
 				if skipExisting {
 					if _, err := os.Stat(out); err == nil {
 						_ = emitNDJSONLine(w, map[string]any{"id": id, "status": "skipped", "path": out})
@@ -69,7 +76,7 @@ markdown file (same shape as 'export'). Emits ndjson per meeting:
 					continue
 				}
 				body := composeFullMarkdown(a)
-				if err := os.WriteFile(out, []byte(body), 0o644); err != nil {
+				if err := writeSafeFile(out, []byte(body)); err != nil {
 					_ = emitNDJSONLine(w, map[string]any{"id": id, "status": "error", "error": err.Error()})
 					continue
 				}

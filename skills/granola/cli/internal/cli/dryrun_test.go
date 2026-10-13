@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 
 package cli
 
@@ -14,9 +14,6 @@ func TestDryRun_NoSideEffects(t *testing.T) {
 		name string
 		args []string
 	}{
-		{"meetings delete", []string{"meetings", "delete", "abc", "--dry-run"}},
-		{"meetings restore", []string{"meetings", "restore", "abc", "--dry-run"}},
-		{"warm", []string{"warm", "abc", "query", "--dry-run"}},
 		{"export", []string{"export", "abc", "-o", "/tmp/no-such-x", "--dry-run"}},
 	}
 	for _, tc := range cases {

@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 
 package cli
 
@@ -136,7 +136,7 @@ func TestAgentContext_AutoRefreshExposed(t *testing.T) {
 	if ctx.Env != "GRANOLA_NO_AUTO_REFRESH" {
 		t.Errorf("Env = %q, want \"GRANOLA_NO_AUTO_REFRESH\"", ctx.Env)
 	}
-	want := []string{"cache", "api"}
+	want := []string{"api"}
 	if !equalSlice(ctx.Surfaces, want) {
 		t.Errorf("Surfaces = %v, want %v", ctx.Surfaces, want)
 	}

@@ -1,9 +1,8 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 
 package cli
 
 import (
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -224,14 +223,16 @@ func write(t *testing.T, dir, name, body string) {
 }
 
 func TestPreflight_SyntheticCache_OK(t *testing.T) {
-	tmp := t.TempDir()
-	cachePath := filepath.Join(tmp, "cache.json")
-	cache := buildSyntheticCache(map[string]docFixture{
-		"good": {Title: "Good", CreatedAt: "2026-05-01T10:00:00Z", HasTranscript: true},
-	})
-	data, _ := json.Marshal(cache)
-	_ = os.WriteFile(cachePath, data, 0o644)
-	t.Setenv("GRANOLA_CACHE_PATH", cachePath)
+	s := newIsolatedStore(t)
+	insertMeeting(t, s, seedMeeting{ID: "good", Title: "Good", CreatedAt: "2026-05-01T10:00:00Z"})
+	for i := 0; i < 5; i++ {
+		insertSegment(t, s, "good", i, "microphone", "m")
+	}
+	for i := 0; i < 5; i++ {
+		insertSegment(t, s, "good", 5+i, "speaker", "s")
+	}
+	s.Close()
+
 	c, err := openGranolaCache()
 	if err != nil {
 		t.Fatal(err)

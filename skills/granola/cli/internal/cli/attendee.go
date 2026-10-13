@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 
 package cli
 
@@ -64,10 +64,26 @@ func newAttendeeTimelineCmd(flags *rootFlags) *cobra.Command {
 				args2 = append(args2, t.UTC().Format("2006-01-02T15:04:05Z"))
 			}
 			if folder != "" {
+				// The public REST /v1/folders endpoint exposes only
+				// id/name/object/parent_folder_id - no note->folder
+				// membership - so folder_memberships is never populated from
+				// REST. Filtering silently against an empty table would return
+				// zero rows and read as "this attendee has no meetings in that
+				// folder", which is a lie. Fail honestly instead. (The corrected
+				// query below still works if a future membership source lands.)
+				var hasMembership int
+				if err := s.DB().QueryRowContext(cmd.Context(),
+					`SELECT EXISTS(SELECT 1 FROM folder_memberships)`).Scan(&hasMembership); err != nil {
+					return err
+				}
+				if hasMembership == 0 {
+					return apiErr(fmt.Errorf("folder filtering is unavailable: the public Granola REST API does not expose folder membership (only folder id/name), so --folder cannot be honored"))
+				}
+				// The REST-populated folders table uses `name` (not `title`).
 				q += ` AND m.id IN (
 					SELECT fm.meeting_id FROM folder_memberships fm
 					JOIN folders f ON f.id = fm.folder_id
-					WHERE f.title = ? OR f.id = ?
+					WHERE f.name = ? OR f.id = ?
 				)`
 				args2 = append(args2, folder, folder)
 			}
@@ -98,7 +114,7 @@ func newAttendeeTimelineCmd(flags *rootFlags) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&since, "since", "", "Lower-bound date")
-	cmd.Flags().StringVar(&folder, "folder", "", "Restrict to a folder (id or title)")
+	cmd.Flags().StringVar(&folder, "folder", "", "Restrict to a folder (id or name); unavailable on the public REST API, which exposes no folder membership")
 	cmd.Flags().IntVar(&limit, "limit", 0, "Max rows")
 	return cmd
 }

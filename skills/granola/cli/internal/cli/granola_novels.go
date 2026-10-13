@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 
 package cli
 
@@ -32,19 +32,12 @@ func init() {
 		root.AddCommand(newExtractCmd(flags))
 		root.AddCommand(newExportAllCmd(flags))
 		root.AddCommand(newPreflightCmd(flags))
-		root.AddCommand(newWarmCmd(flags))
 		root.AddCommand(newShowCmd(flags))
 		root.AddCommand(newStatsCmd(flags))
 		root.AddCommand(newCollectCmd(flags))
-		root.AddCommand(newRecipesCmd(flags))
-		root.AddCommand(newWorkspacesCmd(flags))
 		root.AddCommand(newMemoCmd(flags))
 		root.AddCommand(newAttendeeCmd(flags))
-		root.AddCommand(newFolderCmd(flags))
 		root.AddCommand(newTalktimeCmd(flags))
-		root.AddCommand(newChatCmd(flags))
 		root.AddCommand(newDuplicatesCmd(flags))
-		root.AddCommand(newTiptapCmd(flags))
-		root.AddCommand(newCalendarCmd(flags))
 	})
 }

@@ -1,66 +1,37 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 
 package cli
 
 import (
-	"encoding/json"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
-
-	"granola-pp-cli/internal/granola"
 )
 
 // TestExtract_ThreeStreams asserts the three streams stay separate in
 // the full markdown — H2 sections named exactly "Notes (Human)",
-// "AI Summary", and "Transcript".
+// "AI Summary", and "Transcript". The doc + transcript are seeded into the
+// SQLite store (the only source since Granola sealed the desktop cache).
 func TestExtract_ThreeStreams(t *testing.T) {
 	tmp := t.TempDir()
-	// Build a synthetic cache containing one doc with TipTap notes and
-	// a transcript.
-	notes := `{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"hello world"}]}]}`
-	cachePath := filepath.Join(tmp, "cache.json")
-	cache := map[string]any{
-		"cache": map[string]any{
-			"version": 6,
-			"state": map[string]any{
-				"documents": map[string]any{
-					"abc": map[string]any{
-						"id":            "abc",
-						"title":         "Test Meeting",
-						"created_at":    "2026-05-01T10:00:00Z",
-						"updated_at":    "2026-05-01T11:00:00Z",
-						"notes":         json.RawMessage(notes),
-						"notes_plain":   "hello world",
-						"valid_meeting": true,
-					},
-				},
-				"transcripts": map[string]any{
-					"abc": []map[string]any{
-						{"source": "microphone", "text": "mic-1", "start_timestamp": "2026-05-01T10:00:00Z", "end_timestamp": "2026-05-01T10:00:05Z"},
-						{"source": "microphone", "text": "mic-2", "start_timestamp": "2026-05-01T10:00:05Z", "end_timestamp": "2026-05-01T10:00:10Z"},
-						{"source": "microphone", "text": "mic-3", "start_timestamp": "2026-05-01T10:00:10Z", "end_timestamp": "2026-05-01T10:00:15Z"},
-						{"source": "microphone", "text": "mic-4", "start_timestamp": "2026-05-01T10:00:15Z", "end_timestamp": "2026-05-01T10:00:20Z"},
-						{"source": "microphone", "text": "mic-5", "start_timestamp": "2026-05-01T10:00:20Z", "end_timestamp": "2026-05-01T10:00:25Z"},
-						{"source": "speaker", "text": "sys-1", "start_timestamp": "2026-05-01T10:00:25Z", "end_timestamp": "2026-05-01T10:00:30Z"},
-						{"source": "speaker", "text": "sys-2", "start_timestamp": "2026-05-01T10:00:30Z", "end_timestamp": "2026-05-01T10:00:35Z"},
-						{"source": "speaker", "text": "sys-3", "start_timestamp": "2026-05-01T10:00:35Z", "end_timestamp": "2026-05-01T10:00:40Z"},
-						{"source": "speaker", "text": "sys-4", "start_timestamp": "2026-05-01T10:00:40Z", "end_timestamp": "2026-05-01T10:00:45Z"},
-						{"source": "speaker", "text": "sys-5", "start_timestamp": "2026-05-01T10:00:45Z", "end_timestamp": "2026-05-01T10:00:50Z"},
-					},
-				},
-			},
-		},
+	s := newIsolatedStore(t)
+	insertMeeting(t, s, seedMeeting{
+		ID: "abc", Title: "Test Meeting",
+		CreatedAt: "2026-05-01T10:00:00Z", UpdatedAt: "2026-05-01T11:00:00Z",
+		NotesPlain: "hello world",
+	})
+	for i := 0; i < 5; i++ {
+		insertSegment(t, s, "abc", i, "microphone", "mic-"+strconv.Itoa(i+1))
 	}
-	data, _ := json.Marshal(cache)
-	if err := os.WriteFile(cachePath, data, 0o644); err != nil {
-		t.Fatal(err)
+	for i := 0; i < 5; i++ {
+		insertSegment(t, s, "abc", 5+i, "speaker", "sys-"+strconv.Itoa(i+1))
 	}
-	t.Setenv("GRANOLA_CACHE_PATH", cachePath)
+	s.Close()
 
 	outDir := filepath.Join(tmp, "out")
-	// Force "local" data source via flag so the live API isn't dialed.
+	// allowLive=false so the live API is never dialed.
 	res, err := runExtract("abc", outDir, "", false)
 	if err != nil {
 		t.Fatalf("runExtract: %v", err)
@@ -102,26 +73,9 @@ func TestExtract_ThreeStreams(t *testing.T) {
 
 func TestExtract_MissingTranscriptExits2(t *testing.T) {
 	tmp := t.TempDir()
-	cachePath := filepath.Join(tmp, "cache.json")
-	cache := map[string]any{
-		"cache": map[string]any{
-			"version": 6,
-			"state": map[string]any{
-				"documents": map[string]any{
-					"xyz": map[string]any{
-						"id":            "xyz",
-						"title":         "No Transcript",
-						"created_at":    "2026-05-01T10:00:00Z",
-						"valid_meeting": true,
-					},
-				},
-				"transcripts": map[string]any{},
-			},
-		},
-	}
-	data, _ := json.Marshal(cache)
-	_ = os.WriteFile(cachePath, data, 0o644)
-	t.Setenv("GRANOLA_CACHE_PATH", cachePath)
+	s := newIsolatedStore(t)
+	insertMeeting(t, s, seedMeeting{ID: "xyz", Title: "No Transcript", CreatedAt: "2026-05-01T10:00:00Z"})
+	s.Close()
 	_, err := runExtract("xyz", filepath.Join(tmp, "o"), "", false)
 	if err == nil {
 		t.Fatalf("expected error")
@@ -134,6 +88,3 @@ func TestExtract_MissingTranscriptExits2(t *testing.T) {
 		t.Errorf("expected exit code 2, got %d", ce.code)
 	}
 }
-
-// Reference granola import.
-var _ = granola.DefaultCachePath
