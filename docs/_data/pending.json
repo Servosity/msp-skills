@@ -301,9 +301,9 @@
     "released_hash": "sha256:babbdfb76a319602cb7ca5924173029c40edb209e647da83f9be85be397e2998"
   },
   "ninjaone": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.17",
-    "latest_tag": "ninjaone-v0.1.16",
+    "latest_tag": "ninjaone-v0.1.17",
     "current_hash": "sha256:f47a124859dabc88f64566ea9169fc2bfbc168d184491fc468a6b38a563e7924",
     "released_hash": "sha256:f47a124859dabc88f64566ea9169fc2bfbc168d184491fc468a6b38a563e7924"
   },
