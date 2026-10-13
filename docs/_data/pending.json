@@ -210,16 +210,16 @@
     "released_hash": "sha256:673cfdd0ca72787ea1a57f67222d0923da905d4a22feb0acdf9da75e0154b0ae"
   },
   "huntress": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.7",
-    "latest_tag": "huntress-v0.1.6",
+    "latest_tag": "huntress-v0.1.7",
     "current_hash": "sha256:0c2d82af72e9fcf85c6a3a9dd8fdfa6bd9abc06a1d3fbf3d6c119132ad6fd9cd",
     "released_hash": "sha256:0c2d82af72e9fcf85c6a3a9dd8fdfa6bd9abc06a1d3fbf3d6c119132ad6fd9cd"
   },
   "immybot": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.7",
-    "latest_tag": "immybot-v0.1.6",
+    "latest_tag": "immybot-v0.1.7",
     "current_hash": "sha256:06cdf52b955ff06dc92e27785711c65696f1cfe19dd717420a0c9bb3aea6ceb7",
     "released_hash": "sha256:06cdf52b955ff06dc92e27785711c65696f1cfe19dd717420a0c9bb3aea6ceb7"
   },
@@ -469,9 +469,9 @@
     "released_hash": "sha256:cbc2e1d1d15a44b92d168645cef8c2b0bceeeb01e6266ee3d3806ba4bc9e4b42"
   },
   "wordpress": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.6",
-    "latest_tag": "wordpress-v0.1.5",
+    "latest_tag": "wordpress-v0.1.6",
     "current_hash": "sha256:98f1005ab6da2252a9448a073bc7615b77218191071728fff7305c75e452887a",
     "released_hash": "sha256:98f1005ab6da2252a9448a073bc7615b77218191071728fff7305c75e452887a"
   },
@@ -483,9 +483,9 @@
     "released_hash": "sha256:cd84e45b2a94ba54d4a6912735eef58ef8903c0fa6de50a143f385df699fa04a"
   },
   "zammad": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.7",
-    "latest_tag": "zammad-v0.1.6",
+    "latest_tag": "zammad-v0.1.7",
     "current_hash": "sha256:c2f82539e84af84970c17805577a815e649e81b65e11f3d90a881928dbba6b2e",
     "released_hash": "sha256:c2f82539e84af84970c17805577a815e649e81b65e11f3d90a881928dbba6b2e"
   }
