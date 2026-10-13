@@ -3,12 +3,18 @@
 
 Two rules, both sourced from tools/maintainer/vocab.json:
 
-  banned          terms that must not appear in a skill's public prose. The
-                  multiword phrases ("agent-native CLI", "capability pack") are
-                  matched case-insensitively; the proper-noun competitor names
-                  ("Smithery", "Composio") are matched case-sensitively so a
-                  lowercased coincidence doesn't false-fire. Scanned files:
-                  README.md, SKILL.md, pain-point.md, page.json.
+  banned          insider-jargon terms that must not appear in a skill's public
+                  prose ("agent-native CLI", "capability pack"), matched
+                  case-insensitively. Any proper noun added later can be listed
+                  in CASE_SENSITIVE so a lowercased coincidence doesn't
+                  false-fire. Scanned files: README.md, SKILL.md, pain-point.md,
+                  page.json.
+
+                  Naming other projects and services is NOT banned. Since
+                  2026-10-13 the contributor rule (CONTRIBUTING.md) allows a
+                  comparison that is accurate, fair, and verifiable; that is a
+                  review judgment, not something a word list can check, so the
+                  competitor names this gate used to ban were removed.
 
   required_readme strings every skills/<slug>/README.md must contain verbatim
                   (case-sensitive). These are the terms MSPs actually search for
@@ -35,9 +41,10 @@ VOCAB = Path(__file__).resolve().parent / "vocab.json"
 SCAN_FILES = ["README.md", "SKILL.md", "pain-point.md", "page.json"]
 IGNORE_MARKER = "vocab:ignore"
 
-# Proper-noun competitor names are matched case-sensitively; everything else
-# (descriptive phrases) is matched case-insensitively.
-CASE_SENSITIVE = {"Smithery", "Composio"}
+# Proper nouns listed here are matched case-sensitively; everything else
+# (descriptive phrases) is matched case-insensitively. Empty today: the only
+# proper nouns ever listed were competitor names, which are no longer banned.
+CASE_SENSITIVE: set[str] = set()
 
 
 def load_vocab() -> dict:
@@ -99,10 +106,10 @@ def main() -> int:
         for v in violations:
             print(f"  {v}")
         print(
-            "\nBanned terms: rephrase, or add 'vocab:ignore' on the line ONLY if "
-            "it is a legitimate registry-infrastructure reference (not a "
-            "competitor comparison). Required terms: add the verbatim string to "
-            "the README."
+            "\nBanned terms: rephrase in words an MSP would search for, or add "
+            "'vocab:ignore' on the line ONLY if the term is quoted on purpose "
+            "(for example, naming the jargon to explain it). Required terms: "
+            "add the verbatim string to the README."
         )
         return 1
 

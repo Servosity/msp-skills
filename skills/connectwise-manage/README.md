@@ -191,9 +191,9 @@ See [pain-point.md](./pain-point.md) for the longer narrative.
 
 ### Is there an MCP server for ConnectWise Manage?
 
-Yes. This is a free, open source MCP server for ConnectWise Manage (now called ConnectWise PSA). It runs on your own machine, works with cloud and on-premises Manage, and connects to Claude Desktop, Claude Code, and other MCP-capable agents. Every install path is in [Install in 60 seconds](#install-in-60-seconds).
+Yes. This is a free, open source MCP server for ConnectWise Manage (now called ConnectWise PSA). It runs on your own machine, works with cloud and on-premises Manage, and connects to Claude Desktop, Claude Code, and other MCP-capable agents. Every install path is in [Install in 60 seconds](#install-in-60-seconds), and the [agent setup guide](./mcp-install.md) wires it into any other agent. Run `connectwise-manage-cli sync` once (or ask your agent to sync ConnectWise) before your first cross-table question.
 
-Other community MCP servers for ConnectWise Manage include WYRE's connectwise-manage-mcp and MSPStack's mcp-connectwise-psa. This one keeps a local SQLite copy of your PSA, so questions that join tickets, time, and agreements are answered in one local query, and its `condition build` command writes valid conditions filters.
+Other community MCP servers for ConnectWise Manage include [WYRE's connectwise-manage-mcp](https://github.com/WYRE-AI/connectwise-manage-mcp) and [MSPStack's mcp-connectwise-psa](https://github.com/mspstack/mcp-connectwise-psa). This one keeps a local SQLite copy of your PSA, so questions that join tickets, time, and agreements are answered from the local copy without calling the API again, on cloud or on-premises Manage. MSPStack's server can also answer cross-table questions with read-only SQL, but only against an on-premises Manage database or a reporting copy of it, since cloud-hosted ConnectWise gives no database access. This one also has a `condition build` command that writes valid conditions filters.
 
 ### Does this work with ChatGPT?
 

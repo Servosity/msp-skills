@@ -190,8 +190,10 @@ These run on your pull request. Each one exists because something went wrong onc
 - **No personal paths, emails, or API keys** in any committed file.
 - **The words MSPs search for.** Say "Claude Code Skill", "Skill", "MCP server",
   "MCP". Avoid insider jargon in anything a customer reads.
-- **No comparisons to other distribution platforms.** Describe what this is on its
-  own terms.
+- **Comparisons are welcome when they are fair.** You may name and compare other
+  projects and services, as long as the comparison is accurate, fair, and
+  verifiable: link it, or name it precisely enough that a reader can check the
+  claim themselves. Lead with what this connector is and does, then compare.
 
 Run them all locally with one command before you push:
 
