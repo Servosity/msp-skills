@@ -912,7 +912,10 @@ func resourceSupportsPagination(resource string) bool {
 func syncResourceSinceParam(resource string) string {
 	switch resource {
 	case "notes":
-		return "created_after"
+		// updated_after, not created_after: an edited note (transcript, notes,
+		// summary completing later) must be re-listed so its newer updated_at
+		// queues re-hydration (handfixes.json: incremental-sync-updated-after).
+		return "updated_after"
 	}
 	return ""
 }

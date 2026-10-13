@@ -137,6 +137,14 @@ var granolaSchemaSQL = []string{
 		resolved INTEGER NOT NULL DEFAULT 0
 	)`,
 
+	// Detail fetches that failed (deleted on the server, 5xx, bad response),
+	// so auto-refresh retries them last and at most daily
+	// (handfixes.json: hydrate-continues-past-failures).
+	`CREATE TABLE IF NOT EXISTS hydrate_failures (
+		note_id TEXT PRIMARY KEY,
+		failed_at TEXT NOT NULL
+	)`,
+
 	// AI summary from the REST detail endpoint, kept so local exports can
 	// include it (handfixes.json: export-summary-stored-locally).
 	`CREATE TABLE IF NOT EXISTS meeting_summaries (

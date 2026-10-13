@@ -181,12 +181,18 @@ func unhydratedRecentNoteIDs(ctx context.Context, db *sql.DB, limit int) ([]stri
 	// before the watermark existed has none and is re-hydrated once (bounded
 	// by the caller's cap); hydration always writes one, so it is not
 	// re-queued after that.
+	//
+	// A note whose detail fetch failed is retried only after a day and only
+	// after every other candidate, so notes deleted on the server (or failing
+	// for any reason) cannot take the whole per-command budget.
 	q := `SELECT n.id FROM notes n
 		LEFT JOIN meetings m ON m.id = n.id
+		LEFT JOIN hydrate_failures f ON f.note_id = n.id
 		WHERE n.id LIKE 'not_%'
 		  AND (m.id IS NULL OR COALESCE(m.source_updated_at, '') = ''
 		       OR COALESCE(julianday(n.updated_at), 0) > COALESCE(julianday(m.source_updated_at), 0))
-		ORDER BY julianday(n.updated_at) DESC
+		  AND (f.note_id IS NULL OR f.failed_at < ?)
+		ORDER BY (f.note_id IS NOT NULL), COALESCE(f.failed_at, ''), julianday(n.updated_at) DESC
 		LIMIT ?`
 	// LIMIT is a bound parameter, never spliced into the SQL text. SQLite
 	// reads a negative LIMIT as "no limit", which is what limit <= 0 means here.
@@ -194,7 +200,8 @@ func unhydratedRecentNoteIDs(ctx context.Context, db *sql.DB, limit int) ([]stri
 	if lim <= 0 {
 		lim = -1
 	}
-	rows, err := db.QueryContext(ctx, q, lim)
+	retryBefore := time.Now().UTC().Add(-24 * time.Hour).Format(time.RFC3339)
+	rows, err := db.QueryContext(ctx, q, retryBefore, lim)
 	if err != nil {
 		return nil, err
 	}

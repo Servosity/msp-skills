@@ -448,7 +448,7 @@
     },
     {
      "file": "cli/internal/cli/sync_autorefresh.go",
-     "contains": "rows, err := db.QueryContext(ctx, q, lim)",
+     "contains": "rows, err := db.QueryContext(ctx, q, retryBefore, lim)",
      "min_count": 1,
      "code_only": true
     },
@@ -1472,6 +1472,90 @@
     {
      "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
      "contains": "func TestTokenEndpointHonorsTheCallerDeadline(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "incremental-sync-updated-after",
+   "status": "active",
+   "summary": "incremental notes sync filters with updated_after instead of the generator's created_after (generated sync.go, syncResourceSinceParam)",
+   "why": "created_after never re-lists a note created before the last sync and edited after it, so its thin updated_at never advanced and the edited transcript/notes/summary were never re-hydrated. Live account: updated_after returned a note created before the cutoff and edited after it that created_after missed (Codex full-PR review round 10). Prefer moving this into the spec at the next reprint.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "return \"updated_after\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestIncrementalSyncRelistsEditedNotes(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "hydrate-continues-past-failures",
+   "status": "active",
+   "summary": "REST hydration continues past a note whose detail fetch fails (404, 5xx, bad body), records it in hydrate_failures, and auto-refresh queues failed notes last and retries them after a day; account-level failures (network, 401/403/429) stop the pass without blaming a note",
+   "why": "One deleted note aborted the pass before every later note, and auto-refresh re-selected it first on every command, starving the backlog (Codex full-PR review round 10).",
+   "asserts": [
+    {
+     "file": "cli/internal/granola/store_sync.go",
+     "contains": "CREATE TABLE IF NOT EXISTS hydrate_failures (",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/rest_hydrate.go",
+     "contains": "func recordHydrateFailure(ctx context.Context, db *sql.DB, id string) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync_autorefresh.go",
+     "contains": "ORDER BY (f.note_id IS NOT NULL), COALESCE(f.failed_at, ''), julianday(n.updated_at) DESC",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestHydrationContinuesPastAFailedNote(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestAccountLevelFailureIsNotBlamedOnANote(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "dry-run-never-writes-store",
+   "status": "active",
+   "summary": "REST hydration writes nothing for a --dry-run client, and auto-refresh is skipped under --dry-run",
+   "why": "The dry-run client answers every request with a {\"dry_run\":true} sentinel; auto-refresh hydrated it as an empty meeting stamped with a current watermark, so later refreshes skipped the real detail (Codex full-PR review round 10).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/rest_hydrate.go",
+     "contains": "if c.DryRun {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/autorefresh.go",
+     "contains": "if flags.dryRun {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestDryRunNeverWritesTheStore(",
      "min_count": 1,
      "code_only": true
     }

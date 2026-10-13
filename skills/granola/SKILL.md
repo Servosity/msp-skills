@@ -151,7 +151,7 @@ printf %s "$TOKEN" | granola-cli auth set-token
 ### Transcript analytics
 - **`talktime`** - Per-segment-source talk-time for one meeting - microphone (you) vs everyone else (reported as `system_seconds`) in minutes.
 
-  _Confidence column lets you grade transcript accuracy; mic vs system split is the input to “am I talking too much” retros._
+  _Granola's REST API does not report per-segment confidence, so `confidence_avg` is always 0; the mic vs system split is the input to “am I talking too much” retros._
 
   ```bash
   granola-cli talktime not_06Yq6JtogRihEr --json

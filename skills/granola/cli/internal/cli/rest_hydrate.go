@@ -15,6 +15,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
@@ -107,21 +108,61 @@ func hydrateRichFromREST(ctx context.Context, db *sql.DB, c *client.Client, ids 
 	// FTS is maintained by triggers inside each row's own transaction
 	// (handfixes.json: fts-maintained-by-triggers), so a pass that fails part
 	// way still leaves every written row searchable.
+	//
+	// One note that cannot be fetched (deleted on the server, a 5xx, a bad
+	// response) must not stop the rest: it is recorded in hydrate_failures,
+	// the pass moves on, and the first error is returned at the end
+	// (handfixes.json: hydrate-continues-past-failures). A database error
+	// still stops the pass. A --dry-run client prints each request and
+	// writes nothing.
 	var targets []restTarget
+	var firstErr error
+	fail := func(id string, err error) {
+		recordHydrateFailure(ctx, db, id)
+		if firstErr == nil {
+			firstErr = err
+		}
+	}
 	for _, id := range ids {
+		if ctx.Err() != nil {
+			if firstErr == nil {
+				firstErr = ctx.Err()
+			}
+			break
+		}
 		// Escape the opaque note id as a single path segment (it is not a path).
 		raw, err := c.Get(ctx, "/v1/notes/"+url.PathEscape(id), map[string]string{"include": "transcript"})
+		if c.DryRun {
+			continue
+		}
 		if err != nil {
-			return written, 0, fmt.Errorf("fetch note %s: %w", id, err)
+			if ctx.Err() != nil {
+				break
+			}
+			// Account-level failures (network down, key refused, rate
+			// limited) say nothing about this note and would fail every
+			// remaining fetch: stop without recording, so fixing the cause
+			// is not followed by a day of skipped notes.
+			var apiE *client.APIError
+			if !errors.As(err, &apiE) || apiE.StatusCode == 401 || apiE.StatusCode == 403 || apiE.StatusCode == 429 {
+				if firstErr == nil {
+					firstErr = fmt.Errorf("fetch note %s: %w", id, err)
+				}
+				break
+			}
+			fail(id, fmt.Errorf("fetch note %s: %w", id, err))
+			continue
 		}
 		var d restNoteDetail
 		if err := json.Unmarshal(raw, &d); err != nil {
-			return written, 0, fmt.Errorf("parse note %s: %w", id, err)
+			fail(id, fmt.Errorf("parse note %s: %w", id, err))
+			continue
 		}
 		// Reject a response whose id doesn't match the one requested: writing it
 		// would attribute one meeting's attendees/transcript to another id.
 		if d.ID != "" && d.ID != id {
-			return written, 0, fmt.Errorf("note %s: response id mismatch (got %q)", id, d.ID)
+			fail(id, fmt.Errorf("note %s: response id mismatch (got %q)", id, d.ID))
+			continue
 		}
 		if d.ID == "" {
 			d.ID = id
@@ -129,8 +170,12 @@ func hydrateRichFromREST(ctx context.Context, db *sql.DB, c *client.Client, ids 
 		if err := upsertRichMeeting(ctx, db, &d); err != nil {
 			return written, 0, err
 		}
+		_, _ = db.ExecContext(ctx, `DELETE FROM hydrate_failures WHERE note_id = ?`, id)
 		written++
 		targets = append(targets, effectiveRESTTarget(ctx, db, &d))
+	}
+	if c.DryRun {
+		return 0, 0, nil
 	}
 	// Best-effort human/private notes via MCP. Not connected/expired → notes
 	// stay empty (commands hint); never fails the sync.
@@ -141,7 +186,15 @@ func hydrateRichFromREST(ctx context.Context, db *sql.DB, c *client.Client, ids 
 		// otherwise silently notes-less in notes-show/export/MEMO).
 		stderr("note: private/human notes not enriched (Granola MCP unavailable): %v — run 'granola-cli mcp-auth login'", nerr)
 	}
-	return written, notesSet, nil
+	return written, notesSet, firstErr
+}
+
+// recordHydrateFailure notes that a detail fetch failed, so auto-refresh puts
+// the note behind every other candidate and retries it after a day instead of
+// spending its whole budget on notes that keep failing.
+func recordHydrateFailure(ctx context.Context, db *sql.DB, id string) {
+	_, _ = db.ExecContext(ctx, `INSERT INTO hydrate_failures(note_id, failed_at) VALUES (?, ?)
+		ON CONFLICT(note_id) DO UPDATE SET failed_at = excluded.failed_at`, id, time.Now().UTC().Format(time.RFC3339))
 }
 
 // rfcToTime parses an RFC3339 timestamp, returning the zero time on failure.

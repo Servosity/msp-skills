@@ -139,6 +139,12 @@ func runAutoRefreshImpl(cmd *cobra.Command, flags *rootFlags) {
 	if autoRefreshOptedOut(flags) {
 		return
 	}
+	// A dry run must not write the store: the client answers every request
+	// with a {"dry_run":true} sentinel, which hydration would otherwise store
+	// as an empty meeting (handfixes.json: dry-run-never-writes-store).
+	if flags.dryRun {
+		return
+	}
 	plan := detectRefreshPlan(flags)
 	if plan.empty() {
 		return

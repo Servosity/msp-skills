@@ -22,6 +22,7 @@ import (
 	"granola-pp-cli/internal/client"
 	"granola-pp-cli/internal/config"
 	"granola-pp-cli/internal/granola"
+	"granola-pp-cli/internal/store"
 )
 
 // isolateGranola points every path, the API, and the Keychain hook at
@@ -1028,4 +1029,209 @@ func TestTokenEndpointHonorsTheCallerDeadline(t *testing.T) {
 	if d := time.Since(start); d > 5*time.Second {
 		t.Fatalf("token call ignored the deadline: took %s", d)
 	}
+}
+
+// TestIncrementalSyncRelistsEditedNotes: incremental sync used created_after,
+// so a note created before the last sync and edited after it was never listed
+// again; its thin updated_at never advanced and it was never re-hydrated.
+// Drives sync end to end: the list request must carry updated_after, and the
+// edited note's newer detail must land in meetings.
+func TestIncrementalSyncRelistsEditedNotes(t *testing.T) {
+	var listQuery url.Values
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v1/notes":
+			listQuery = r.URL.Query()
+			_, _ = w.Write([]byte(`{"notes":[{"id":"not_edit","object":"note","title":"Edited","created_at":"2026-10-01T09:00:00Z","updated_at":"2026-10-13T10:00:00Z"}],"hasMore":false,"cursor":null}`))
+		case "/v1/folders":
+			_, _ = w.Write([]byte(`{"folders":[],"hasMore":false,"cursor":null}`))
+		case "/v1/notes/not_edit":
+			_ = json.NewEncoder(w).Encode(restNoteDetail{ID: "not_edit", Title: "Edited", CreatedAt: "2026-10-01T09:00:00Z", UpdatedAt: "2026-10-13T10:00:00Z"})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+	isolateGranola(t, srv.URL)
+	// The generated sync opens the default store path, so seed that file.
+	dbPath := defaultDBPath("granola-cli")
+	if err := os.MkdirAll(filepath.Dir(dbPath), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	s := newIsolatedStoreAt(t, dbPath)
+	if err := granola.EnsureSchema(context.Background(), s.DB()); err != nil {
+		t.Fatal(err)
+	}
+	if err := upsertRichMeeting(context.Background(), s.DB(), &restNoteDetail{ID: "not_edit", Title: "Edited", CreatedAt: "2026-10-01T09:00:00Z", UpdatedAt: "2026-10-02T09:00:00Z"}); err != nil {
+		t.Fatal(err)
+	}
+	for _, q := range []string{
+		`INSERT INTO notes(id, data, created_at, updated_at) VALUES ('not_edit', '{}', '2026-10-01T09:00:00Z', '2026-10-02T09:00:00Z')`,
+		`INSERT INTO resources(id, resource_type, data) VALUES ('not_edit', 'notes', '{}')`,
+		`INSERT INTO sync_state(resource_type, last_cursor, last_synced_at, total_count) VALUES ('notes', '', '2026-10-12T12:00:00Z', 1)`,
+	} {
+		if _, err := s.DB().Exec(q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	s.Close()
+
+	if _, stderr, err := runRootArgs(t, "sync", "--no-refresh"); err != nil {
+		t.Fatalf("sync: %v (%s)", err, stderr)
+	}
+	if listQuery == nil {
+		t.Fatal("sync never listed notes")
+	}
+	if listQuery.Get("updated_after") == "" || listQuery.Get("created_after") != "" {
+		t.Fatalf("incremental list query = %v, want updated_after and no created_after", listQuery)
+	}
+	s2 := newIsolatedStoreAt(t, dbPath)
+	defer s2.Close()
+	var wm string
+	_ = s2.DB().QueryRow(`SELECT source_updated_at FROM meetings WHERE id = 'not_edit'`).Scan(&wm)
+	if wm != "2026-10-13T10:00:00Z" {
+		t.Fatalf("edited note was not re-hydrated: watermark %q", wm)
+	}
+}
+
+// TestHydrationContinuesPastAFailedNote: a note deleted on the server (404)
+// used to abort the pass, and auto-refresh re-selected it first every time.
+// The pass now continues, records the failure, and the queue puts it last and
+// retries it only after a day.
+func TestHydrationContinuesPastAFailedNote(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/notes/not_ok" {
+			_ = json.NewEncoder(w).Encode(restNoteDetail{ID: "not_ok", Title: "OK", CreatedAt: "2026-10-01T09:00:00Z", UpdatedAt: "2026-10-01T09:00:00Z"})
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer srv.Close()
+	isolateGranola(t, srv.URL)
+	s := newIsolatedStore(t)
+	defer s.Close()
+	ctx := context.Background()
+	c := client.New(&config.Config{BaseURL: srv.URL, GranolaApiKey: "test-key"}, 0, 0)
+	c.NoCache = true
+	n, _, err := hydrateRichFromREST(ctx, s.DB(), c, []string{"not_gone", "not_ok"})
+	if err == nil {
+		t.Fatal("want the not_gone error reported")
+	}
+	if n != 1 || countRows(t, s, `SELECT COUNT(*) FROM meetings WHERE id = 'not_ok'`) != 1 {
+		t.Fatalf("a 404 on one note stopped the pass: wrote %d", n)
+	}
+	if countRows(t, s, `SELECT COUNT(*) FROM hydrate_failures WHERE note_id = 'not_gone'`) != 1 {
+		t.Fatal("the failed note was not recorded")
+	}
+	for _, q := range []string{
+		`INSERT INTO notes(id, data, updated_at) VALUES ('not_gone', '{}', '2026-10-13T12:00:00Z')`,
+		`INSERT INTO notes(id, data, updated_at) VALUES ('not_new', '{}', '2026-10-10T12:00:00Z')`,
+	} {
+		if _, err := s.DB().Exec(q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	ids, _ := unhydratedRecentNoteIDs(ctx, s.DB(), 10)
+	if strings.Join(ids, ",") != "not_new" {
+		t.Fatalf("queue = %v, want the recently failed note held back", ids)
+	}
+	if _, err := s.DB().Exec(`UPDATE hydrate_failures SET failed_at = '2026-01-01T00:00:00Z'`); err != nil {
+		t.Fatal(err)
+	}
+	ids, _ = unhydratedRecentNoteIDs(ctx, s.DB(), 10)
+	if strings.Join(ids, ",") != "not_new,not_gone" {
+		t.Fatalf("queue = %v, want the stale failure retried after every other note", ids)
+	}
+}
+
+// TestAccountLevelFailureIsNotBlamedOnANote: a refused key fails every fetch.
+// The pass must stop at the first one and record nothing, so fixing the key
+// is not followed by a day of skipped notes.
+func TestAccountLevelFailureIsNotBlamedOnANote(t *testing.T) {
+	calls := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		http.Error(w, "nope", http.StatusUnauthorized)
+	}))
+	defer srv.Close()
+	isolateGranola(t, srv.URL)
+	s := newIsolatedStore(t)
+	defer s.Close()
+	c := client.New(&config.Config{BaseURL: srv.URL, GranolaApiKey: "test-key"}, 0, 0)
+	c.NoCache = true
+	if _, _, err := hydrateRichFromREST(context.Background(), s.DB(), c, []string{"not_a", "not_b", "not_c"}); err == nil {
+		t.Fatal("want the 401 reported")
+	}
+	if calls != 1 {
+		t.Fatalf("kept fetching after a refused key: %d calls", calls)
+	}
+	if countRows(t, s, `SELECT COUNT(*) FROM hydrate_failures`) != 0 {
+		t.Fatal("an account-level failure was recorded against a note")
+	}
+}
+
+// TestDryRunNeverWritesTheStore: a --dry-run client answers every request
+// with a {"dry_run":true} sentinel; hydration used to store it as an empty
+// meeting stamped current, hiding the real detail from later refreshes.
+func TestDryRunNeverWritesTheStore(t *testing.T) {
+	isolateGranola(t, "http://127.0.0.1:1")
+	s := newIsolatedStore(t)
+	defer s.Close()
+	c := client.New(&config.Config{BaseURL: "http://127.0.0.1:1", GranolaApiKey: "test-key"}, 0, 0)
+	c.DryRun = true
+	n, _, err := hydrateRichFromREST(context.Background(), s.DB(), c, []string{"not_dry"})
+	if err != nil || n != 0 {
+		t.Fatalf("dry run: n=%d err=%v", n, err)
+	}
+	if countRows(t, s, `SELECT COUNT(*) FROM meetings`) != 0 {
+		t.Fatal("a dry run wrote a meeting")
+	}
+	if !autoRefreshSkipsDryRun(t) {
+		t.Fatal("auto-refresh runs under --dry-run")
+	}
+}
+
+// autoRefreshSkipsDryRun seeds a synced-but-unhydrated note in the store
+// auto-refresh reads, runs a read command with --dry-run and auto-refresh
+// enabled, and reports whether the store still has no meeting for it.
+func autoRefreshSkipsDryRun(t *testing.T) bool {
+	t.Helper()
+	isolateGranola(t, "http://127.0.0.1:1")
+	t.Setenv("GRANOLA_NO_AUTO_REFRESH", "")
+	dbPath := defaultDBPath("granola-cli")
+	if err := os.MkdirAll(filepath.Dir(dbPath), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	s := newIsolatedStoreAt(t, dbPath)
+	if err := granola.EnsureSchema(context.Background(), s.DB()); err != nil {
+		t.Fatal(err)
+	}
+	for _, q := range []string{
+		`INSERT INTO notes(id, data, updated_at) VALUES ('not_dry', '{}', '2026-10-13T12:00:00Z')`,
+		`INSERT INTO resources(id, resource_type, data) VALUES ('not_dry', 'notes', '{}')`,
+		`INSERT INTO sync_state(resource_type, last_cursor, last_synced_at, total_count) VALUES ('notes', '', '2026-10-01T00:00:00Z', 1)`,
+	} {
+		if _, err := s.DB().Exec(q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	s.Close()
+	_, _, _ = runRootArgs(t, "meetings", "list", "--dry-run", "--json")
+	s2 := newIsolatedStoreAt(t, dbPath)
+	defer s2.Close()
+	// Nor may it advance the sync watermark: a real incremental sync after
+	// it would skip every note changed in between.
+	var last string
+	_ = s2.DB().QueryRow(`SELECT COALESCE(last_synced_at, '') FROM sync_state WHERE resource_type = 'notes'`).Scan(&last)
+	return countRows(t, s2, `SELECT COUNT(*) FROM meetings`) == 0 && strings.HasPrefix(last, "2026-10-01")
+}
+
+// newIsolatedStoreAt reopens the test's isolated store after a command ran.
+func newIsolatedStoreAt(t *testing.T, path string) *store.Store {
+	t.Helper()
+	s, err := store.OpenWithContext(context.Background(), path)
+	if err != nil {
+		t.Fatalf("reopen store: %v", err)
+	}
+	return s
 }
