@@ -7,9 +7,9 @@
     "released_hash": "sha256:a745828080ab62bc3ea2c89931d6fecd41e7875a39bed30c16f2cfb700c6c258"
   },
   "acronis": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.6",
-    "latest_tag": "acronis-v0.1.5",
+    "latest_tag": "acronis-v0.1.6",
     "current_hash": "sha256:55fc1861cd54911b36d7fbc0a85f1d8ecf2faea01bf1e7f1e1a811c5f460ec81",
     "released_hash": "sha256:55fc1861cd54911b36d7fbc0a85f1d8ecf2faea01bf1e7f1e1a811c5f460ec81"
   },
@@ -133,9 +133,9 @@
     "released_hash": "sha256:1a9c5ab63587493b838a9d412ba66739f0f4547b0f9e6a137fd6d517f8f59d9a"
   },
   "cove": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.9",
-    "latest_tag": "cove-v0.1.8",
+    "latest_tag": "cove-v0.1.9",
     "current_hash": "sha256:bcd9b7da339ce9fba3336db1d403fe580c4fa7b73cbb7f0456ba8e9b79d63dd4",
     "released_hash": "sha256:bcd9b7da339ce9fba3336db1d403fe580c4fa7b73cbb7f0456ba8e9b79d63dd4"
   },
