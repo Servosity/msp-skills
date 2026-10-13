@@ -189,6 +189,12 @@ See [pain-point.md](./pain-point.md) for the longer narrative.
 
 ## Frequently asked questions
 
+### Is there an MCP server for ConnectWise Manage?
+
+Yes. This is a free, open source MCP server for ConnectWise Manage (now called ConnectWise PSA). It runs on your own machine, works with cloud and on-premises Manage, and connects to Claude Desktop, Claude Code, and other MCP-capable agents. Every install path is in [Install in 60 seconds](#install-in-60-seconds).
+
+It keeps a local SQLite copy of your PSA, so questions that join tickets, time, and agreements are answered in one local query, and its `condition build` command writes valid conditions filters.
+
 ### Does this work with ChatGPT?
 
 Yes, on **Plus, Pro, Team, Business, Enterprise, and Education** plans (Free tier does not yet expose Developer Mode). ChatGPT connects to **remote** MCP servers over HTTPS, not local stdio binaries. The ConnectWise Manage MCP server runs locally, but it speaks HTTP natively: start it with `connectwise-manage-mcp --transport http --addr :7777` and put it behind an HTTPS tunnel or your own reverse proxy. No bridge package is involved. Step-by-step in [mcp-install.md](./mcp-install.md).
