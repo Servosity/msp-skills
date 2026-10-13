@@ -7,10 +7,12 @@ package cli
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -794,5 +796,203 @@ func TestMeetingTimesAreStoredInUTC(t *testing.T) {
 	_ = s.DB().QueryRow(`SELECT started_at FROM meetings WHERE id='not_utc'`).Scan(&started)
 	if started != "2026-10-13T13:00:00Z" {
 		t.Fatalf("an existing offset row was not normalized: %q", started)
+	}
+}
+
+// TestPartialHydrationStaysSearchable: a pass that writes one meeting and then
+// fails on the next fetch must still index the written meeting. The rebuild
+// used to sit after the loop, so the early error return skipped it and
+// `search` missed rows that were already stored.
+func TestPartialHydrationStaysSearchable(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/notes/not_ok" {
+			http.Error(w, "boom", http.StatusInternalServerError)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(restNoteDetail{ID: "not_ok", Title: "Quarterly Pipeline Review", CreatedAt: "2026-07-01T09:00:00Z"})
+	}))
+	defer srv.Close()
+	isolateGranola(t, srv.URL)
+	s := newIsolatedStore(t)
+	defer s.Close()
+	c := client.New(&config.Config{BaseURL: srv.URL, GranolaApiKey: "test-key"}, 0, 0)
+	c.NoCache = true
+	if _, _, err := hydrateRichFromREST(context.Background(), s.DB(), c, []string{"not_ok", "not_bad"}); err == nil {
+		t.Fatal("want the not_bad fetch error")
+	}
+	if got := countRows(t, s, `SELECT COUNT(*) FROM meetings_fts WHERE meetings_fts MATCH 'pipeline'`); got != 1 {
+		t.Fatalf("written meeting is not searchable after a failed pass: %d FTS hits, want 1", got)
+	}
+}
+
+// ftsConsistent runs FTS5's own integrity check against the content table:
+// it fails when the index holds text a row no longer has, or misses a row.
+func ftsConsistent(t *testing.T, db interface {
+	Exec(string, ...any) (sql.Result, error)
+}) {
+	t.Helper()
+	for _, tbl := range []string{"meetings_fts", "transcript_fts"} {
+		if _, err := db.Exec(`INSERT INTO ` + tbl + `(` + tbl + `, rank) VALUES ('integrity-check', 1)`); err != nil {
+			t.Fatalf("%s out of step with its content table: %v", tbl, err)
+		}
+	}
+}
+
+// TestPrivateNoteChangesReindexInTheSameWrite: clearing or changing private
+// notes must change search in the same transaction. The index used to be
+// rebuilt only after the whole pass, so a cancelled pass left deleted words
+// searchable.
+func TestPrivateNoteChangesReindexInTheSameWrite(t *testing.T) {
+	s := newIsolatedStore(t)
+	defer s.Close()
+	ctx := context.Background()
+	insertMeeting(t, s, seedMeeting{ID: "not_fts", Title: "T", CreatedAt: "2026-10-12T09:00:00Z", NotesMarkdown: "zebra", NotesPlain: "zebra"})
+	hits := func(word string) int {
+		return countRows(t, s, `SELECT COUNT(*) FROM meetings_fts WHERE meetings_fts MATCH '`+word+`'`)
+	}
+	if hits("zebra") != 1 {
+		t.Fatal("a newly written meeting is not searchable")
+	}
+	if err := recordHumanNotes(ctx, s.DB(), "not_fts", "", true, true, "2026-10-13T00:00:00Z"); err != nil {
+		t.Fatal(err)
+	}
+	if hits("zebra") != 0 {
+		t.Fatal("cleared private notes are still searchable")
+	}
+	if err := recordHumanNotes(ctx, s.DB(), "not_fts", "giraffe", true, true, "2026-10-13T00:00:00Z"); err != nil {
+		t.Fatal(err)
+	}
+	if hits("giraffe") != 1 {
+		t.Fatal("new private notes are not searchable")
+	}
+	ftsConsistent(t, s.DB())
+}
+
+// TestEnsureSchemaReindexesALaggingStore: a store from an earlier build has no
+// triggers and may hold an index that lags its rows. Installing the triggers
+// must rebuild it in the same step, or the first 'delete' trigger would remove
+// text the index never had.
+func TestEnsureSchemaReindexesALaggingStore(t *testing.T) {
+	s := newIsolatedStore(t)
+	defer s.Close()
+	for _, tr := range []string{"meetings_fts_ai", "meetings_fts_ad", "meetings_fts_au", "transcript_fts_ai", "transcript_fts_ad", "transcript_fts_au"} {
+		if _, err := s.DB().Exec(`DROP TRIGGER ` + tr); err != nil {
+			t.Fatal(err)
+		}
+	}
+	insertMeeting(t, s, seedMeeting{ID: "not_lag", Title: "Lagging Review", CreatedAt: "2026-10-12T09:00:00Z"})
+	if err := granola.EnsureSchema(context.Background(), s.DB()); err != nil {
+		t.Fatal(err)
+	}
+	if got := countRows(t, s, `SELECT COUNT(*) FROM meetings_fts WHERE meetings_fts MATCH 'lagging'`); got != 1 {
+		t.Fatalf("lagging row not indexed after the upgrade: %d hits", got)
+	}
+	if _, err := s.DB().Exec(`UPDATE meetings SET title = 'Renamed' WHERE id = 'not_lag'`); err != nil {
+		t.Fatal(err)
+	}
+	ftsConsistent(t, s.DB())
+}
+
+// TestTimestampMigrationCanonicalizesFractionalZ: "...13:00:00.100Z" ends in Z
+// but is not the canonical form, and lexically sorts BEFORE nothing it should.
+// Every stored meeting time must end up as whole-second UTC "Z".
+func TestTimestampMigrationCanonicalizesFractionalZ(t *testing.T) {
+	s := newIsolatedStore(t)
+	defer s.Close()
+	insertMeeting(t, s, seedMeeting{ID: "not_frac", Title: "T", CreatedAt: "2026-10-13T13:00:00.100Z", StartedAt: "2026-10-13T13:00:00.100Z"})
+	if err := granola.EnsureSchema(context.Background(), s.DB()); err != nil {
+		t.Fatal(err)
+	}
+	var started string
+	_ = s.DB().QueryRow(`SELECT started_at FROM meetings WHERE id='not_frac'`).Scan(&started)
+	if started != "2026-10-13T13:00:00Z" {
+		t.Fatalf("fractional Z value not canonicalized: %q", started)
+	}
+}
+
+// TestIncrementalRefreshComparesInstants: the thin notes table keeps the
+// API's offset text while meetings is UTC "Z". A note revised at 13:01 UTC,
+// stored as "09:01:00-04:00", must count as newer than a meeting hydrated at
+// 13:00:00Z; as strings it compared smaller and the revision was skipped.
+func TestIncrementalRefreshComparesInstants(t *testing.T) {
+	s := newIsolatedStore(t)
+	defer s.Close()
+	insertMeeting(t, s, seedMeeting{ID: "not_rev", Title: "T", CreatedAt: "2026-10-13T12:00:00Z", UpdatedAt: "2026-10-13T13:00:00Z"})
+	if _, err := s.DB().Exec(`INSERT INTO notes(id, data, updated_at) VALUES ('not_rev', '{}', '2026-10-13T09:01:00-04:00')`); err != nil {
+		t.Fatal(err)
+	}
+	ids, err := unhydratedRecentNoteIDs(context.Background(), s.DB(), 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ids) != 1 || ids[0] != "not_rev" {
+		t.Fatalf("a newer revision with an offset timestamp was skipped: %v", ids)
+	}
+	// The same instant, stored with milliseconds in the thin table and as
+	// whole seconds in meetings (what a live account returns), is NOT newer:
+	// treating it as newer re-fetched every hydrated note on every command.
+	insertMeeting(t, s, seedMeeting{ID: "not_same", Title: "T", CreatedAt: "2026-10-13T12:00:00Z", UpdatedAt: "2026-10-13T18:32:58Z"})
+	if _, err := s.DB().Exec(`INSERT INTO notes(id, data, updated_at) VALUES ('not_same', '{}', '2026-10-13T18:32:58.382Z')`); err != nil {
+		t.Fatal(err)
+	}
+	ids, err = unhydratedRecentNoteIDs(context.Background(), s.DB(), 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range ids {
+		if id == "not_same" {
+			t.Fatalf("an already-hydrated note is re-fetched because of sub-second precision: %v", ids)
+		}
+	}
+}
+
+// TestBackfillAsksNeverAskedMeetingsFirst: meetings whose get_meetings keeps
+// failing are retried after a day, but they must not crowd out meetings that
+// were never asked, nor each other: never-asked first, then oldest attempt.
+func TestBackfillAsksNeverAskedMeetingsFirst(t *testing.T) {
+	s := newIsolatedStore(t)
+	defer s.Close()
+	ctx := context.Background()
+	insertMeeting(t, s, seedMeeting{ID: "not_failA", Title: "A", CreatedAt: "2026-10-10T09:00:00Z"})
+	insertMeeting(t, s, seedMeeting{ID: "not_failB", Title: "B", CreatedAt: "2026-10-11T09:00:00Z"})
+	insertMeeting(t, s, seedMeeting{ID: "not_never", Title: "C", CreatedAt: "2026-10-01T09:00:00Z"})
+	old := time.Now().UTC().Add(-72 * time.Hour).Format(time.RFC3339)
+	older := time.Now().UTC().Add(-96 * time.Hour).Format(time.RFC3339)
+	_ = recordHumanNotes(ctx, s.DB(), "not_failB", "", false, false, old)
+	_ = recordHumanNotes(ctx, s.DB(), "not_failA", "", false, false, older)
+	got, err := pendingHumanNoteTargets(ctx, s.DB(), 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var order []string
+	for _, g := range got {
+		order = append(order, g.ID)
+	}
+	if strings.Join(order, ",") != "not_never,not_failA,not_failB" {
+		t.Fatalf("backfill order = %v, want never-asked first, then oldest attempt", order)
+	}
+}
+
+// TestTokenEndpointHonorsTheCallerDeadline: a stalled token endpoint must not
+// hold a command past its own deadline (refresh used to run on no context and
+// wait the full 45s client timeout).
+func TestTokenEndpointHonorsTheCallerDeadline(t *testing.T) {
+	release := make(chan struct{})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case <-release:
+		case <-r.Context().Done():
+		}
+	}))
+	defer srv.Close()
+	defer close(release)
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+	start := time.Now()
+	if _, _, err := mcpForm(ctx, srv.URL, url.Values{"grant_type": {"refresh_token"}}); err == nil {
+		t.Fatal("a stalled token endpoint returned no error")
+	}
+	if d := time.Since(start); d > 5*time.Second {
+		t.Fatalf("token call ignored the deadline: took %s", d)
 	}
 }

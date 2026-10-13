@@ -442,7 +442,7 @@
    "asserts": [
     {
      "file": "cli/internal/cli/rest_hydrate.go",
-     "contains": "ORDER BY updated_at DESC LIMIT ?`",
+     "contains": "ORDER BY julianday(updated_at) DESC LIMIT ?`",
      "min_count": 1,
      "code_only": true
     },
@@ -1218,6 +1218,18 @@
      "contains": "func TestEnsureSchemaUpgradesHumanNotesState(",
      "min_count": 1,
      "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/mcp_notes.go",
+     "contains": "ORDER BY (h.meeting_id IS NOT NULL), COALESCE(h.checked_at,''), m.created_at DESC",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestBackfillAsksNeverAskedMeetingsFirst(",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   },
@@ -1342,7 +1354,7 @@
   {
    "id": "meeting-times-stored-utc",
    "status": "active",
-   "summary": "meeting times are stored as UTC \"Z\" text, and EnsureSchema normalizes rows an earlier build stored with an offset",
+   "summary": "meeting times are stored as whole-second UTC \"Z\" text, EnsureSchema rewrites any stored value not in that form (offsets and fractional seconds), and the thin-notes vs meetings freshness check compares instants",
    "why": "Filters and ordering compare timestamps as TEXT, which is only chronological in one representation. Calendar times arrived with their offset (09:00-04:00), so `stats frequency --since 2026-10-13T12:00:00Z` excluded a 13:00 UTC meeting (Codex full-PR review round 6).",
    "asserts": [
     {
@@ -1360,6 +1372,94 @@
     {
      "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
      "contains": "func TestMeetingTimesAreStoredInUTC(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync_autorefresh.go",
+     "contains": "COALESCE(strftime('%s', n.updated_at) + 0, 0) > COALESCE(strftime('%s', m.updated_at) + 0, 0)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestTimestampMigrationCanonicalizesFractionalZ(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestIncrementalRefreshComparesInstants(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "fts-maintained-by-triggers",
+   "status": "active",
+   "summary": "meetings_fts and transcript_fts are kept in step by SQLite triggers in each row write's own transaction; EnsureSchema installs them together with one full rebuild",
+   "why": "The index was rebuilt only after a whole hydration or private-notes pass, on the caller's context. A pass that failed or hit its deadline part way left written meetings unsearchable and cleared private notes still searchable (Codex full-PR review round 7).",
+   "asserts": [
+    {
+     "file": "cli/internal/granola/store_sync.go",
+     "contains": "CREATE TRIGGER IF NOT EXISTS meetings_fts_au AFTER UPDATE OF title, notes_plain ON meetings",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/granola/store_sync.go",
+     "contains": "CREATE TRIGGER IF NOT EXISTS transcript_fts_ad AFTER DELETE ON transcript_segments",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/granola/store_sync.go",
+     "contains": "if err := ensureFTSTriggers(ctx, db); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestPrivateNoteChangesReindexInTheSameWrite(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestEnsureSchemaReindexesALaggingStore(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestPartialHydrationStaysSearchable(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-token-calls-honor-context",
+   "status": "active",
+   "summary": "the MCP token exchange and refresh carry the caller's context (mcpForm, mcpRefresh, mcpExchange, mcpAccessToken take ctx)",
+   "why": "Refresh ran on no context, so a stalled token endpoint held an auto-refreshing command for the full 45s client timeout regardless of --timeout (Codex full-PR review round 7).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/granolamcp.go",
+     "contains": "func mcpForm(ctx context.Context, u string, form url.Values) (int, []byte, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/granolamcp.go",
+     "contains": "func mcpAccessToken(ctx context.Context) (string, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestTokenEndpointHonorsTheCallerDeadline(",
      "min_count": 1,
      "code_only": true
     }

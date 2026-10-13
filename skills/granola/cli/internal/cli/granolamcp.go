@@ -238,8 +238,10 @@ func mcpJSONCtx(ctx context.Context, method, u string, payload any, headers map[
 	return resp.StatusCode, resp.Header, data, nil
 }
 
-func mcpForm(u string, form url.Values) (int, []byte, error) {
-	req, err := http.NewRequest("POST", u, strings.NewReader(form.Encode()))
+// mcpForm carries the caller's context, so a stalled token endpoint cannot
+// outlive the command's deadline.
+func mcpForm(ctx context.Context, u string, form url.Values) (int, []byte, error) {
+	req, err := http.NewRequestWithContext(ctx, "POST", u, strings.NewReader(form.Encode()))
 	if err != nil {
 		return 0, nil, err
 	}
@@ -329,8 +331,8 @@ type mcpToken struct {
 	TokenType    string `json:"token_type"`
 }
 
-func mcpExchange(clientID, code, verifier string) (*mcpToken, error) {
-	st, b, err := mcpForm(mcpAuthBase+"/oauth2/token", url.Values{
+func mcpExchange(ctx context.Context, clientID, code, verifier string) (*mcpToken, error) {
+	st, b, err := mcpForm(ctx, mcpAuthBase+"/oauth2/token", url.Values{
 		"grant_type":    {"authorization_code"},
 		"code":          {code},
 		"redirect_uri":  {mcpRedirect},
@@ -350,8 +352,8 @@ func mcpExchange(clientID, code, verifier string) (*mcpToken, error) {
 	return &t, nil
 }
 
-func mcpRefresh(clientID, refresh string) (*mcpToken, error) {
-	st, b, err := mcpForm(mcpAuthBase+"/oauth2/token", url.Values{
+func mcpRefresh(ctx context.Context, clientID, refresh string) (*mcpToken, error) {
+	st, b, err := mcpForm(ctx, mcpAuthBase+"/oauth2/token", url.Values{
 		"grant_type":    {"refresh_token"},
 		"refresh_token": {refresh},
 		"client_id":     {clientID},
@@ -427,7 +429,7 @@ var errRefreshNotSaved = errors.New("refresh token not saved")
 // errMCPNotConnected (checked with mcpNotConnected) when no tokens are stored,
 // and a distinct error when the token is expired and cannot be refreshed —
 // callers must not treat an expired/unrefreshable token as connected.
-func mcpAccessToken() (string, error) {
+func mcpAccessToken(ctx context.Context) (string, error) {
 	access, err := kcGet(kcAcctAccess)
 	if err != nil || access == "" {
 		return "", errMCPNotConnected
@@ -450,7 +452,7 @@ func mcpAccessToken() (string, error) {
 	if refresh == "" || clientID == "" {
 		return "", fmt.Errorf("granola mcp token expired and cannot refresh — re-run 'granola-cli mcp-auth login'")
 	}
-	t, rerr := mcpRefresh(clientID, refresh)
+	t, rerr := mcpRefresh(ctx, clientID, refresh)
 	if rerr != nil {
 		return "", fmt.Errorf("granola mcp token refresh failed — re-run 'granola-cli mcp-auth login'")
 	}

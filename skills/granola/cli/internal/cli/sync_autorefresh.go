@@ -173,12 +173,18 @@ func unhydratedRecentNoteIDs(ctx context.Context, db *sql.DB, limit int) ([]stri
 	// the note was updated after its stored meeting (Granola advances a note's
 	// updated_at as transcription/notes complete, so a first pass that saw only
 	// partial detail is picked up again instead of being considered done forever).
-	// Timestamps are UTC RFC3339, so lexical > is chronological.
+	// The thin notes table keeps the API's text as-is (offset, fractional
+	// seconds) while meetings stores whole-second UTC "Z", so the two are
+	// compared as unix SECONDS - never as strings ("09:01-04:00" sorts below
+	// "13:00Z") and never at sub-second precision (".382Z" would look newer
+	// than the same instant stored as "58Z" and re-fetch every hydrated note
+	// on every command). An empty or unparseable meetings.updated_at counts
+	// as oldest.
 	q := `SELECT n.id FROM notes n
 		LEFT JOIN meetings m ON m.id = n.id
 		WHERE n.id LIKE 'not_%'
-		  AND (m.id IS NULL OR n.updated_at > COALESCE(m.updated_at, ''))
-		ORDER BY n.updated_at DESC
+		  AND (m.id IS NULL OR COALESCE(strftime('%s', n.updated_at) + 0, 0) > COALESCE(strftime('%s', m.updated_at) + 0, 0))
+		ORDER BY julianday(n.updated_at) DESC
 		LIMIT ?`
 	// LIMIT is a bound parameter, never spliced into the SQL text. SQLite
 	// reads a negative LIMIT as "no limit", which is what limit <= 0 means here.

@@ -162,6 +162,9 @@ func EnsureSchema(ctx context.Context, db *sql.DB) error {
 			return fmt.Errorf("granola schema: %w: %s", err, firstLine(stmt))
 		}
 	}
+	if err := ensureFTSTriggers(ctx, db); err != nil {
+		return err
+	}
 	// Additive column migrations: CREATE TABLE IF NOT EXISTS never alters a
 	// table an earlier build created, so a column added later is added here
 	// (handfixes.json: mcp-notes-backfill-tracked). Existing rows keep their
@@ -171,10 +174,13 @@ func EnsureSchema(ctx context.Context, db *sql.DB) error {
 		return err
 	}
 	// Meeting timestamps are compared and ordered as TEXT, which is only
-	// chronological when every value is UTC "Z" form. Earlier builds stored
-	// calendar times with their offset ("...-04:00"); normalize any such row
-	// in place (handfixes.json: meeting-times-stored-utc). Idempotent: rows
-	// already in Z form, empty, or unparseable are left alone.
+	// chronological in ONE representation: UTC, whole seconds, "Z"
+	// (2026-10-13T13:00:00Z, what the --since bounds use). Earlier builds
+	// stored calendar times with their offset ("...-04:00") and API times
+	// with fractional seconds ("...13:00:00.100Z", which sorts AFTER a
+	// 13:00:00Z bound only by accident); rewrite any value not already in
+	// that form (handfixes.json: meeting-times-stored-utc). Idempotent: empty
+	// and unparseable values are left alone.
 	for _, stmt := range utcNormalizeSQL {
 		if _, err := db.ExecContext(ctx, stmt); err != nil {
 			return fmt.Errorf("granola schema: normalize timestamps: %w", err)
@@ -185,13 +191,71 @@ func EnsureSchema(ctx context.Context, db *sql.DB) error {
 
 var utcNormalizeSQL = []string{
 	`UPDATE meetings SET started_at = strftime('%Y-%m-%dT%H:%M:%SZ', started_at)
-		WHERE started_at <> '' AND started_at NOT LIKE '%Z' AND strftime('%Y-%m-%dT%H:%M:%SZ', started_at) IS NOT NULL`,
+		WHERE strftime('%Y-%m-%dT%H:%M:%SZ', started_at) IS NOT NULL AND started_at <> strftime('%Y-%m-%dT%H:%M:%SZ', started_at)`,
 	`UPDATE meetings SET ended_at = strftime('%Y-%m-%dT%H:%M:%SZ', ended_at)
-		WHERE ended_at <> '' AND ended_at NOT LIKE '%Z' AND strftime('%Y-%m-%dT%H:%M:%SZ', ended_at) IS NOT NULL`,
+		WHERE strftime('%Y-%m-%dT%H:%M:%SZ', ended_at) IS NOT NULL AND ended_at <> strftime('%Y-%m-%dT%H:%M:%SZ', ended_at)`,
 	`UPDATE meetings SET created_at = strftime('%Y-%m-%dT%H:%M:%SZ', created_at)
-		WHERE created_at <> '' AND created_at NOT LIKE '%Z' AND strftime('%Y-%m-%dT%H:%M:%SZ', created_at) IS NOT NULL`,
+		WHERE strftime('%Y-%m-%dT%H:%M:%SZ', created_at) IS NOT NULL AND created_at <> strftime('%Y-%m-%dT%H:%M:%SZ', created_at)`,
 	`UPDATE meetings SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', updated_at)
-		WHERE updated_at <> '' AND updated_at NOT LIKE '%Z' AND strftime('%Y-%m-%dT%H:%M:%SZ', updated_at) IS NOT NULL`,
+		WHERE strftime('%Y-%m-%dT%H:%M:%SZ', updated_at) IS NOT NULL AND updated_at <> strftime('%Y-%m-%dT%H:%M:%SZ', updated_at)`,
+}
+
+// ftsTriggerSQL keeps the external-content FTS tables in step with their
+// content tables inside the SAME transaction as each row write, so search can
+// never serve a row it has not indexed or keep text the row no longer has
+// (handfixes.json: fts-maintained-by-triggers). The upsert in rest_hydrate.go
+// is INSERT ... ON CONFLICT DO UPDATE, which fires the UPDATE trigger; a
+// REPLACE would not fire the DELETE trigger and must never be used here.
+var ftsTriggerSQL = []string{
+	`CREATE TRIGGER IF NOT EXISTS meetings_fts_ai AFTER INSERT ON meetings BEGIN
+		INSERT INTO meetings_fts(rowid, title, notes_plain) VALUES (new.rowid, new.title, new.notes_plain);
+	END`,
+	`CREATE TRIGGER IF NOT EXISTS meetings_fts_ad AFTER DELETE ON meetings BEGIN
+		INSERT INTO meetings_fts(meetings_fts, rowid, title, notes_plain) VALUES ('delete', old.rowid, old.title, old.notes_plain);
+	END`,
+	`CREATE TRIGGER IF NOT EXISTS meetings_fts_au AFTER UPDATE OF title, notes_plain ON meetings BEGIN
+		INSERT INTO meetings_fts(meetings_fts, rowid, title, notes_plain) VALUES ('delete', old.rowid, old.title, old.notes_plain);
+		INSERT INTO meetings_fts(rowid, title, notes_plain) VALUES (new.rowid, new.title, new.notes_plain);
+	END`,
+	`CREATE TRIGGER IF NOT EXISTS transcript_fts_ai AFTER INSERT ON transcript_segments BEGIN
+		INSERT INTO transcript_fts(rowid, text) VALUES (new.rowid, new.text);
+	END`,
+	`CREATE TRIGGER IF NOT EXISTS transcript_fts_ad AFTER DELETE ON transcript_segments BEGIN
+		INSERT INTO transcript_fts(transcript_fts, rowid, text) VALUES ('delete', old.rowid, old.text);
+	END`,
+	`CREATE TRIGGER IF NOT EXISTS transcript_fts_au AFTER UPDATE OF text ON transcript_segments BEGIN
+		INSERT INTO transcript_fts(transcript_fts, rowid, text) VALUES ('delete', old.rowid, old.text);
+		INSERT INTO transcript_fts(rowid, text) VALUES (new.rowid, new.text);
+	END`,
+}
+
+// ensureFTSTriggers installs ftsTriggerSQL once. A 'delete' trigger is only
+// correct when the index already matches the rows, and a store from an
+// earlier build may hold an index that lags them, so the triggers and one
+// full rebuild land in a single transaction: either both happen or neither.
+func ensureFTSTriggers(ctx context.Context, db *sql.DB) error {
+	var n int
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM sqlite_master WHERE type = 'trigger'
+		AND name IN ('meetings_fts_ai','meetings_fts_ad','meetings_fts_au','transcript_fts_ai','transcript_fts_ad','transcript_fts_au')`).Scan(&n); err != nil {
+		return fmt.Errorf("granola schema: inspect fts triggers: %w", err)
+	}
+	if n == len(ftsTriggerSQL) {
+		return nil
+	}
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("granola schema: fts triggers: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	stmts := append(append([]string{}, ftsTriggerSQL...),
+		`INSERT INTO meetings_fts(meetings_fts) VALUES ('rebuild')`,
+		`INSERT INTO transcript_fts(transcript_fts) VALUES ('rebuild')`)
+	for _, stmt := range stmts {
+		if _, err := tx.ExecContext(ctx, stmt); err != nil {
+			return fmt.Errorf("granola schema: fts triggers: %w: %s", err, firstLine(stmt))
+		}
+	}
+	return tx.Commit()
 }
 
 // addColumnIfMissing runs alterStmt (a constant ALTER TABLE ... ADD COLUMN)

@@ -51,7 +51,7 @@ func enrichHumanNotes(ctx context.Context, db *sql.DB, targets []restTarget) (in
 	if len(targets) == 0 {
 		return 0, nil
 	}
-	access, err := mcpAccessToken()
+	access, err := mcpAccessToken(ctx)
 	if err != nil {
 		return 0, err // errMCPNotConnected or expired — caller decides how to hint
 	}
@@ -60,7 +60,7 @@ func enrichHumanNotes(ctx context.Context, db *sql.DB, targets []restTarget) (in
 		return 0, err
 	}
 	checkedAt := time.Now().UTC().Format(time.RFC3339)
-	n, changed := 0, false
+	n := 0
 	for _, t := range targets {
 		// The caller's deadline (auto-refresh's timeout) bounds the whole
 		// pass: every request carries ctx, and the loop stops once it ends.
@@ -87,15 +87,9 @@ func enrichHumanNotes(ctx context.Context, db *sql.DB, targets []restTarget) (in
 		if err := recordHumanNotes(ctx, db, t.ID, note, present, resolved, checkedAt); err != nil {
 			return n, err
 		}
-		if present {
-			changed = true
-		}
 		if note != "" {
 			n++
 		}
-	}
-	if changed {
-		_, _ = db.ExecContext(ctx, `INSERT INTO meetings_fts(meetings_fts) VALUES ('rebuild')`)
 	}
 	return n, nil
 }
@@ -137,10 +131,11 @@ func markHumanNotesChecked(ctx context.Context, db *sql.DB, targets []restTarget
 	}
 }
 
-// pendingHumanNoteTargets returns up to limit hydrated meetings (newest first)
-// that Granola's MCP has not answered for: never asked (hydrated before MCP
-// was connected, or the MCP pass failed), or listed no match more than a day
-// ago.
+// pendingHumanNoteTargets returns up to limit hydrated meetings that Granola's
+// MCP has not answered for: never asked (hydrated before MCP was connected),
+// or asked and unresolved more than a day ago. Never-asked meetings come
+// first (newest first), then retries by oldest attempt, so a set of meetings
+// that keeps failing cannot starve the rest of the backlog.
 func pendingHumanNoteTargets(ctx context.Context, db *sql.DB, limit int) ([]restTarget, error) {
 	lim := limit
 	if lim <= 0 {
@@ -151,7 +146,7 @@ func pendingHumanNoteTargets(ctx context.Context, db *sql.DB, limit int) ([]rest
 		LEFT JOIN human_notes_state h ON h.meeting_id = m.id
 		WHERE m.id LIKE 'not_%'
 		  AND (h.meeting_id IS NULL OR (h.resolved = 0 AND COALESCE(h.checked_at,'') < ?))
-		ORDER BY m.created_at DESC
+		ORDER BY (h.meeting_id IS NOT NULL), COALESCE(h.checked_at,''), m.created_at DESC
 		LIMIT ?`, retryBefore, lim)
 	if err != nil {
 		return nil, err

@@ -64,7 +64,7 @@ func newMCPAuthVerifyCmd(flags *rootFlags) *cobra.Command {
 				fmt.Fprintln(w, "verify: would probe Granola MCP get_meetings (no-op)")
 				return nil
 			}
-			access, err := mcpAccessToken()
+			access, err := mcpAccessToken(cmd.Context())
 			if err != nil {
 				if mcpNotConnected(err) {
 					return authErr(err)
@@ -258,7 +258,7 @@ func newMCPAuthLoginCmd(flags *rootFlags) *cobra.Command {
 				return ioErr(fmt.Errorf("timed out after %s waiting for browser approval; re-run when ready", timeout))
 			}
 
-			tok, err := mcpExchange(clientID, code, verifier)
+			tok, err := mcpExchange(cmd.Context(), clientID, code, verifier)
 			if err != nil {
 				return apiErr(err)
 			}

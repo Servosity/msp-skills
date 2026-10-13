@@ -3,6 +3,7 @@
 package cli
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -58,7 +59,7 @@ func TestMCPFormRejectsOversizedBody(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	_, _, err := mcpForm(server.URL, url.Values{"grant_type": {"refresh_token"}})
+	_, _, err := mcpForm(context.Background(), server.URL, url.Values{"grant_type": {"refresh_token"}})
 	if err == nil {
 		t.Fatalf("expected an error for an oversized MCP form body, got nil (body was silently truncated)")
 	}

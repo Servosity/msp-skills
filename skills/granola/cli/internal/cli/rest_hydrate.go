@@ -73,7 +73,7 @@ type restNoteDetail struct {
 // recentNoteIDs returns up to limit note ids from the REST-fed notes table,
 // newest first. limit <= 0 returns all of them.
 func recentNoteIDs(ctx context.Context, db *sql.DB, limit int) ([]string, error) {
-	q := `SELECT id FROM notes WHERE id LIKE 'not_%' ORDER BY updated_at DESC LIMIT ?`
+	q := `SELECT id FROM notes WHERE id LIKE 'not_%' ORDER BY julianday(updated_at) DESC LIMIT ?`
 	// LIMIT is a bound parameter, never spliced into the SQL text. SQLite
 	// reads a negative LIMIT as "no limit", which is what limit <= 0 means here.
 	lim := limit
@@ -104,6 +104,9 @@ func hydrateRichFromREST(ctx context.Context, db *sql.DB, c *client.Client, ids 
 		return 0, 0, err
 	}
 	written := 0
+	// FTS is maintained by triggers inside each row's own transaction
+	// (handfixes.json: fts-maintained-by-triggers), so a pass that fails part
+	// way still leaves every written row searchable.
 	var targets []restTarget
 	for _, id := range ids {
 		// Escape the opaque note id as a single path segment (it is not a path).
@@ -129,9 +132,6 @@ func hydrateRichFromREST(ctx context.Context, db *sql.DB, c *client.Client, ids 
 		written++
 		targets = append(targets, effectiveRESTTarget(ctx, db, &d))
 	}
-	// Rebuild FTS so search reflects the fresh rows.
-	_, _ = db.ExecContext(ctx, `INSERT INTO meetings_fts(meetings_fts) VALUES ('rebuild')`)
-	_, _ = db.ExecContext(ctx, `INSERT INTO transcript_fts(transcript_fts) VALUES ('rebuild')`)
 	// Best-effort human/private notes via MCP. Not connected/expired → notes
 	// stay empty (commands hint); never fails the sync.
 	notesSet, nerr := enrichHumanNotes(ctx, db, targets)
