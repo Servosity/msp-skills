@@ -38,7 +38,7 @@ Add (or merge with your existing `mcpServers` block):
       "command": "granola-mcp",
       "env": {
         "GRANOLA_API_KEY": "<your-granola_api_key>",
-        "GRANOLA_BASE_URL": "<your-granola_base_url>"
+        "GRANOLA_BASE_URL": "https://public-api.granola.ai"
       }
     }
   }
@@ -64,7 +64,7 @@ Configuration**) and add:
       "command": "granola-mcp",
       "env": {
         "GRANOLA_API_KEY": "<your-granola_api_key>",
-        "GRANOLA_BASE_URL": "<your-granola_base_url>"
+        "GRANOLA_BASE_URL": "https://public-api.granola.ai"
       }
     }
   }
@@ -86,7 +86,7 @@ Claude Desktop:
       "command": "granola-mcp",
       "env": {
         "GRANOLA_API_KEY": "<your-granola_api_key>",
-        "GRANOLA_BASE_URL": "<your-granola_base_url>"
+        "GRANOLA_BASE_URL": "https://public-api.granola.ai"
       }
     }
   }
@@ -107,7 +107,7 @@ on port 7777 by default; keep it there and let the tunnel reach it, rather than 
 its own):
 
 ```bash
-GRANOLA_API_KEY=<value> GRANOLA_BASE_URL=<value> granola-mcp --transport http
+GRANOLA_API_KEY=<value> GRANOLA_BASE_URL=https://public-api.granola.ai granola-mcp --transport http
 ```
 
 Then expose `http://localhost:7777/mcp` as a public HTTPS URL via a secure tunnel

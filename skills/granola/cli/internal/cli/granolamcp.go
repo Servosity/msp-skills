@@ -128,8 +128,20 @@ func kcLine(sub string, args ...string) (string, error) {
 		}
 		parts = append(parts, q)
 	}
-	return strings.Join(parts, " ") + "\n", nil
+	line := strings.Join(parts, " ") + "\n"
+	// security(1) reads interactive input with a 4096-byte line buffer. A
+	// longer line is split at the buffer boundary and the remainder runs as a
+	// second command, so the rendered line (newline included) is capped well
+	// under it. Real values are far shorter: an OAuth access token is about a
+	// kilobyte.
+	if len(line) > kcMaxLine {
+		return "", fmt.Errorf("keychain command line is %d bytes, over the %d-byte limit", len(line), kcMaxLine)
+	}
+	return line, nil
 }
+
+// kcMaxLine bounds one security(1) interactive command line, newline included.
+const kcMaxLine = 4000
 
 // kcRun executes one command line through `security -i`. The exit status of
 // the command propagates (44 = errSecItemNotFound), so kcNotFound keeps

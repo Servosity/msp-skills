@@ -28,9 +28,9 @@ func newAttendeeTimelineCmd(flags *rootFlags) *cobra.Command {
 		Use:   "timeline <email-or-name>",
 		Short: "Every meeting with a given attendee, ordered oldest -> newest",
 		Example: strings.Trim(`
-  granola-cli attendee timeline trevin@example.com
-  granola-cli attendee timeline "Trevin Chow" --since 90d --limit 20
-  granola-cli attendee timeline trevin@example.com --folder "Customer Calls" --json`, "\n"),
+  granola-cli attendee timeline alice@example.com
+  granola-cli attendee timeline "Alice Example" --since 90d --limit 20
+  granola-cli attendee timeline alice@example.com --since 30d --json`, "\n"),
 		Annotations: map[string]string{
 			"mcp:read-only": "true",
 		},

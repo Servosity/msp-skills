@@ -70,14 +70,14 @@ These capabilities aren't available in any other tool for this API.
   _Replaces the per-meeting shell loop that drives the MEMO pipeline  -  one call, one ndjson stream, agent-readable._
 
   ```bash
-  granola-cli memo run --since 24h --to ~/Documents/meeting-transcripts --json
+  granola-cli memo run --since 24h --to ~/Documents/meeting-transcripts --root ~/Documents/meeting-transcripts --json
   ```
 - **`memo queue`** - List every meeting whose transcript is in the local store but whose MEMO triple is not yet on disk.
 
   _Answers the daily question “what’s still un-MEMO’d?” without the user opening Granola at all._
 
   ```bash
-  granola-cli memo queue --since 7d --json
+  granola-cli memo queue --since 7d --root ~/Documents/meeting-transcripts --json
   ```
 
 ### Transcript source labels, exit codes, and drift
@@ -94,7 +94,7 @@ treated as **unrecognized** rather than silently counted.
 | --- | --- |
 | `0` | ready to extract |
 | `2` | no transcript, or below the threshold (needs >= 5 `microphone` segments AND >= 10 CLASSIFIED segments) |
-| `3` | a file in `--root` already covers this meeting: the meeting id appears in its filename or body, or its title AND day match. A same-title file from a different day is a recurring meeting, reported as `title_collision`, and does not block. |
+| `3` | a file in `--root` already covers this meeting - the meeting id is in its filename, or in the body of a file whose name carries the meeting title, or the title AND day match - **or** the meeting is unknown to both the local store and the Granola API (preflight first tries to fetch a meeting sync has not enriched yet; stderr says which case it is). A same-title file from a different day is a recurring meeting, reported as `title_collision`, and does not block. `--root` defaults to `~/Documents/Dev/meeting-transcripts`; pass the folder your memos actually live in. |
 | `4` | transcript source labels are unrecognized, so the gate cannot classify the transcript -- upstream changed its grammar. **Not the same as exit 2:** the text is probably there, the channels just can't be read. |
 
 Unclassified segments never count toward the threshold, so an upstream relabel
@@ -132,19 +132,19 @@ printf %s "$TOKEN" | granola-cli auth set-token
 ```
 
 ### Attendee intelligence
-- **`attendee timeline`** - Every meeting with a given attendee, ordered oldest→newest, with title, date, and folder per row.
+- **`attendee timeline`** - Every meeting with a given attendee, ordered oldest→newest, with title and date per row.
 
   _Pre-call prep in one command; surfaces the conversation arc with a single person across months of meetings._
 
   ```bash
-  granola-cli attendee timeline alice@example.com --since 60d --json --select id,title,started_at,folder
+  granola-cli attendee timeline alice@example.com --since 60d --json --select id,title,started_at
   ```
 - **`attendee brief`** - Pulls the last N meetings with an attendee and stitches together their real human notes plus real AI panel summaries - no synthesis.
 
   _Eliminates the click-each-meeting copy-paste that account leads do before every external call._
 
   ```bash
-  granola-cli attendee brief alice@example.com --last 3 --panel action-items --json
+  granola-cli attendee brief alice@example.com --last 3 --json
   ```
 
 ### Transcript analytics
@@ -155,7 +155,7 @@ printf %s "$TOKEN" | granola-cli auth set-token
   ```bash
   granola-cli talktime not_06Yq6JtogRihEr --json
   ```
-- **`talktime --by participant`** - Lifts the per-source talk-time aggregation across N meetings since a date - who-talked-most over time.
+- **`talktime --by participant`** - Lifts the per-source talk-time aggregation across N meetings since a date - your share of the talking (your microphone) versus everyone else, over time. The public API names no meeting owner, so this is a you-versus-everyone split, not a per-person ranking.
 
   _Time-defrag retro input that no per-meeting tool can produce._
 
@@ -241,7 +241,7 @@ granola-cli which "<capability in your own words>"
 ### Daily MEMO loop
 
 ```bash
-granola-cli memo run --since 24h --to ~/Documents/meeting-transcripts --json
+granola-cli memo run --since 24h --to ~/Documents/meeting-transcripts --root ~/Documents/meeting-transcripts --json
 ```
 
 Process every new meeting since yesterday into the MEMO triple format and yield only the new artifacts.
@@ -249,10 +249,10 @@ Process every new meeting since yesterday into the MEMO triple format and yield 
 ### Pre-call attendee brief
 
 ```bash
-granola-cli attendee brief alice@example.com --last 3 --panel action-items --json --select meetings.title,meetings.started_at,panels.action_items
+granola-cli attendee brief alice@example.com --last 3 --json --select id,title,started_at,panel_summary
 ```
 
-Pull the last three meetings with Alice and only the title, date, and action-items panel content per meeting.
+Pull the last three meetings with Alice and only the title, date, and AI summary per meeting.
 
 ### Weekly talk-time retro
 
@@ -260,7 +260,7 @@ Pull the last three meetings with Alice and only the title, date, and action-ite
 granola-cli talktime --by participant --since 7d --json
 ```
 
-Who talked most across this week's meetings - the time-defrag retro input no per-meeting tool can produce.
+How much of this week's meetings was you talking versus everyone else - the time-defrag retro input no per-meeting tool can produce.
 
 ### Repo-wide duplicate scrub
 
@@ -308,14 +308,13 @@ Two surfaces. The public REST API key is required and powers everything; Granola
 
 4. **The sealed desktop store is unused.** On Granola v7.4x+ the local store (`~/Library/Application Support/Granola/cache-v6.json.enc`) and the internal API token sit behind Granola's own macOS Keychain access group, so no third-party binary can decrypt them. The CLI does not try  -  all data flows through the public REST API and the official MCP instead.
 
-Run `granola-cli doctor` to verify setup: it makes a real REST call to confirm the key, reports whether Granola's MCP is connected, and reports the sealed desktop store as **app-private** (INFO, not an error).
+Run `granola-cli doctor` to verify setup: it makes a real REST call to confirm the key and reports whether Granola's MCP is connected. The sealed desktop store is not read at all, so doctor does not report on it.
 
 ### Troubleshooting
 
 | `doctor` says... | What to do |
 |---|---|
-| `INFO desktop store app-private on Granola v7.4x+ (using public REST API + official MCP)` | Expected, not an error. Granola sealed `cache-v6.json.enc` behind its own Keychain access group. Run `granola-cli sync` to populate the store from the REST API; run `granola-cli mcp-auth login` to add private notes. |
-| `auth: not configured` (hint `export GRANOLA_API_KEY=<your-key>`) | Set `GRANOLA_API_KEY` from Granola Settings → API (Personal or Workspace). The key powers `sync` and every data command. |
+| `auth: not configured` (hint `Run 'granola-cli auth setup' for credential setup steps.`) | Set `GRANOLA_API_KEY` from Granola Settings → API (Personal or Workspace). The key powers `sync` and every data command. |
 | `api: reachable (GET /v1/notes answered)` + `credentials: verified` | REST is wired up. `sync` will hydrate the local store; row counts and freshness show in `--json` output. |
 | `api: ERROR base_url is not the Granola public API root` | `GRANOLA_BASE_URL` (or `base_url` in the config file) points somewhere that is not the Granola API. Unset it to use `https://public-api.granola.ai`. |
 | `granola_mcp: connected (private/human notes available)` | Granola's official MCP is connected  -  human notes will appear in `notes-show`, `memo`, `extract`, `export`. |
@@ -329,16 +328,16 @@ Add `--agent` to any command. Expands to: `--json --compact --no-input --no-colo
 - **Filterable**  -  `--select` keeps a subset of fields. Dotted paths descend into nested structures; arrays traverse element-wise. Critical for keeping context small on verbose APIs:
 
   ```bash
-  granola-cli folders --agent --select id,name,status
+  granola-cli folders --agent --select folders.id,folders.name
   ```
 - **Previewable**  -  `--dry-run` shows the request without sending
-- **Offline-friendly**  -  `sync` and the `meetings list --query <text>` FTS path use the local SQLite store
+- **Offline-friendly**  -  `sync` fills the local SQLite store; `meetings list --query <text>` matches titles, notes, and transcript text there
 - **Non-interactive**  -  never prompts, every input is a flag
 - **Read-only against Granola** - every command inspects, exports, syncs, or analyzes; it never mutates remote Granola state. The only writes are local: saved credentials (`auth set-token`), Granola-MCP tokens (`mcp-auth login`), MEMO/export files on disk, and the local teach/learning store
 
 ### Response envelope
 
-Commands that read from the local store or the API wrap output in a provenance envelope:
+The generated read commands (`folders`, `notes list` / `notes get`, `search`, and the other API mirrors) wrap output in a provenance envelope. The cross-meeting commands (`meetings list`, `attendee`, `talktime`, `stats`, `memo`) emit plain JSON arrays or ndjson instead:
 
 ```json
 {
@@ -347,7 +346,7 @@ Commands that read from the local store or the API wrap output in a provenance e
 }
 ```
 
-Parse `.results` for data and `.meta.source` to know whether it's live or local. A human-readable `N results (live)` summary is printed to stderr only when stdout is a terminal  -  piped/agent consumers get pure JSON on stdout.
+For the enveloped commands, parse `.results` for data and `.meta.source` to know whether it's live or local. A human-readable `N results (live)` summary is printed to stderr only when stdout is a terminal  -  piped/agent consumers get pure JSON on stdout.
 
 ## Auto-Refresh
 
@@ -395,7 +394,7 @@ granola-cli feedback --stdin < notes.txt
 granola-cli feedback list --json --limit 10
 ```
 
-Entries are stored locally at `~/.granola-cli/feedback.jsonl`. They are never POSTed unless `GRANOLA_FEEDBACK_ENDPOINT` is set AND either `--send` is passed or `GRANOLA_FEEDBACK_AUTO_SEND=true`. Default behavior is local-only.
+Entries are stored locally in the CLI data directory's `feedback.jsonl` (`~/.local/share/granola-cli/` by default). They are never POSTed unless `GRANOLA_FEEDBACK_ENDPOINT` is set AND either `--send` is passed or `GRANOLA_FEEDBACK_AUTO_SEND=true`. Default behavior is local-only.
 
 Write what *surprised* you, not a bug report. Short, specific, one line: that is the part that compounds.
 

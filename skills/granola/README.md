@@ -12,7 +12,7 @@
 <p align="center"><sub>▶ <a href="https://msp-skills.compoundingteams.com/skills/granola/">Watch the 30-second demo</a> - demo data is simulated; every command shown exists in the real CLI.</sub></p>
 <!-- media:end -->
 
-Search, export, and analyze every Granola meeting across all your calls - attendee timelines, talk-time roll-ups, and full-text transcript search from an offline local mirror. Works with the AI you already use - **ChatGPT** (Plus/Pro+), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.
+Search, export, and analyze every Granola meeting across all your calls - attendee timelines, talk-time roll-ups, and transcript search from an offline local mirror. Works with the AI you already use - **ChatGPT** (Plus/Pro+), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.
 
 ## Works with your agent
 
@@ -149,10 +149,10 @@ GRANOLA_API_KEY=<value> granola-cli doctor
 | --- | --- |
 | Every meeting with a client contact, oldest to newest? | `granola-cli attendee timeline sarah@northwind.com` |
 | The last few calls with a contact, notes + AI summary inlined? | `granola-cli attendee brief sarah@northwind.com --last 5` |
-| Every mention of a topic across all synced meetings? | `granola-cli search "backup migration"` |
+| Every meeting where a topic came up - in the title, your notes, or the transcript? | `granola-cli meetings list --query "backup migration"` |
 | Bulk-export the last 7 days of calls to a folder? | `granola-cli export-all --out ./calls --last 7d` |
-| Who talked the most across last month's meetings? | `granola-cli talktime --by participant --since 30d` |
-| Which recent meetings have a transcript but no write-up on disk yet? | `granola-cli memo queue --since 7d` |
+| How much of last month's calls was you talking versus everyone else? | `granola-cli talktime --by participant --since 30d` |
+| Which recent meetings have a transcript but no write-up in your notes folder yet? | `granola-cli memo queue --since 7d --root ~/Documents/meeting-transcripts` |
 | Top attendees by meeting count? | `granola-cli stats attendees --top 10` |
 | Is auth working and is my local mirror fresh? | `granola-cli doctor` |
 
@@ -162,7 +162,7 @@ Full command reference: [guide.md](./guide.md). For the AI-agent operating contr
 
 Most Granola integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking "what did we tell this client across every call last quarter" and the answer is spread over thirty separate recordings.
 
-This skill syncs Granola into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like `attendee timeline`, `talktime --by participant`, and `stats attendees` join across meetings, transcripts, and attendees - work a stateless API wrapper can't do.
+This skill syncs Granola into a **local SQLite mirror** you can search by title, notes, and transcript text. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like `attendee timeline`, `talktime --by participant`, and `stats attendees` join across meetings, transcripts, and attendees - work a stateless API wrapper can't do.
 
 ## The pain this closes
 
@@ -172,9 +172,9 @@ This skill closes that gap by making every meeting queryable at once:
 
 - **`attendee timeline <contact>`** - every call with a client contact, oldest to newest, before you walk into their QBR.
 - **`attendee brief <contact> --last 5`** - the last few calls with a contact, real notes + AI summary inlined, as pre-call prep.
-- **`search "<topic>"`** - every mention of a topic across all synced meetings.
+- **`meetings list --query "<topic>"`** - every meeting where a topic came up, matched against titles, your notes, and transcript text.
 - **`export-all --out ./calls --last 7d`** - bulk-export a week of calls to markdown for your PSA or a follow-up doc.
-- **`talktime --by participant --since 30d`** - who did the talking across a month of client calls, without re-listening to any of them.
+- **`talktime --by participant --since 30d`** - how much of a month of calls was you talking (your microphone) versus everyone else, without re-listening to any of them.
 
 See [pain-point.md](./pain-point.md) for the longer narrative.
 
@@ -206,7 +206,7 @@ No. Keep recording and reviewing meetings in Granola as usual. This skill sits a
 
 ### How is this different from Granola's own AI?
 
-Granola's AI answers questions inside a single meeting. This complements it by making every meeting queryable at once - an attendee's whole history, talk-time rolled up across dozens of calls, and search over every transcript - the cross-call view the per-meeting summary can't give you.
+Granola's AI answers questions inside a single meeting. This complements it by making every meeting queryable at once - an attendee's whole history, talk-time rolled up across dozens of calls, and search over the transcripts you have synced - the cross-call view the per-meeting summary can't give you. `sync` pulls transcripts for your 50 most recent meetings; `sync --full` pulls the whole library.
 
 ### What does it cost?
 
@@ -216,8 +216,8 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | `search`, `meetings list/get`, `transcript get`, `attendee timeline/brief`, `talktime`, `stats`, `doctor` | Allow |
-| Local writes | `sync`, `export`, `export-all`, `extract`, `memo run` (local mirror and files you choose; never your Granola account) | Allow, with output folders you choose |
+| Read | `meetings list/get`, `search`, `transcript get`, `attendee timeline/brief`, `talktime`, `stats`, `doctor` | Allow |
+| Local writes | `sync`, `enrich`, `sync-api`, `export`, `export-all`, `extract`, `memo run`, `collect` (local mirror and files you choose; never your Granola account) | Allow, with output folders you choose |
 | Credential | `auth set-token` / `logout`, `mcp-auth login` / `logout` | Human-in-the-loop only |
 
 No command changes or deletes anything in your Granola account. The strongest control is the **scope of the API key you create** - a Personal key sees only your notes, a Workspace key sees workspace-visible notes. Full details, including how to lock it down, are in [governance.md](./governance.md).

@@ -3,6 +3,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"io/fs"
 	"os"
@@ -74,8 +75,22 @@ Exit codes:
 				return err
 			}
 			d := c.DocumentByID(id)
+			if d == nil && validateNoteIDForFilename(id) == nil && apiKeyConfigured(flags) {
+				// Hand-wired (handfixes.json: preflight-hydrates-missing-meeting):
+				// the rich store holds only meetings that sync or auto-refresh
+				// already enriched (the 50 / 25 most recent). Exit 3 used to
+				// fire for a synced-but-unenriched meeting too, which a caller
+				// reading exit 3 as "duplicate, skip" dropped silently. Fetch
+				// this one meeting from the REST detail endpoint and look again.
+				if herr := hydrateOneMeeting(cmd.Context(), flags, id); herr != nil {
+					stderr("note: could not fetch meeting %s from the Granola API: %v", id, herr)
+				} else if c2, rerr := openGranolaCache(); rerr == nil {
+					c = c2
+					d = c.DocumentByID(id)
+				}
+			}
 			if d == nil {
-				return notFoundErr(fmt.Errorf("meeting %s not in cache", id))
+				return notFoundErr(fmt.Errorf("meeting %s not in the local store and not fetchable from the Granola API (exit 3 here means NOT FOUND, not a duplicate)", id))
 			}
 			segs := c.TranscriptByID(id)
 			mic, far, unknownSegs, unknown := countSources(segs)
@@ -241,55 +256,81 @@ func findDuplicates(root, id, title, day string) (dup string, collisions []strin
 	if root == "" {
 		return "", nil
 	}
-	// Every read is scoped to an os.Root opened on --root: a symlink that
-	// points outside the transcripts tree cannot pull a foreign file into the
-	// identity check, and the path handed to the reader is always relative to
-	// the root rather than re-resolved from a string between the walk and the
-	// read. Reported paths are re-joined onto root so output is unchanged.
-	r, err := os.OpenRoot(root)
+	// Every read is scoped to an os.Root: a symlink that points outside the
+	// transcripts tree cannot pull a foreign file into the identity check, and
+	// the path handed to the reader is always relative to the root rather than
+	// re-resolved from a string between the walk and the read. Reported paths
+	// are re-joined onto --root so output is unchanged.
+	//
+	// --root may name a single file; it is then checked alone, through an
+	// os.Root on its parent, exactly as the old filepath.Walk visited it.
+	// A --root that is itself a symlink to a directory IS followed. The old
+	// filepath.Walk Lstat'ed the root and never descended into a symlinked
+	// root, so the duplicate gate silently passed every meeting; following it
+	// is the fix, not a regression. Symlinks found INSIDE the tree are still
+	// not followed as directories, and none may resolve outside the root.
+	info, err := os.Stat(root)
+	if err != nil {
+		return "", nil
+	}
+	base, start := root, "."
+	if !info.IsDir() {
+		base, start = filepath.Dir(root), filepath.Base(root)
+	}
+	r, err := os.OpenRoot(base)
 	if err != nil {
 		return "", nil
 	}
 	defer r.Close()
 	titleKey := strings.ToLower(strings.TrimSpace(title))
-	_ = fs.WalkDir(r.FS(), ".", func(rel string, d fs.DirEntry, err error) error {
-		if err != nil || d == nil || d.IsDir() || dup != "" {
-			return nil
-		}
-		path := filepath.Join(root, filepath.FromSlash(rel))
-		name := d.Name()
+	// consider applies the identity rules to one file. rel is the file's path
+	// relative to the os.Root, in native form, used only for the body read.
+	consider := func(path, name, rel string) {
 		if id != "" && strings.Contains(name, id) {
 			dup = path
-			return nil
+			return
 		}
 		if !strings.HasSuffix(strings.ToLower(name), ".md") {
-			return nil
+			return
 		}
 		// Normalize both sides so underscores in filenames match spaces in titles.
-		base := strings.ReplaceAll(strings.ToLower(strings.TrimSuffix(name, ".md")), "_", " ")
-		titleHit := titleKey != "" && strings.Contains(base, titleKey)
+		stem := strings.ReplaceAll(strings.ToLower(strings.TrimSuffix(name, ".md")), "_", " ")
+		titleHit := titleKey != "" && strings.Contains(stem, titleKey)
 		// Read the body only for same-title candidates. Scanning every file in
 		// the root would be correct but needlessly expensive; a file that does
 		// not even share the title is not a plausible duplicate.
 		if titleHit && id != "" {
-			if b, rerr := r.ReadFile(filepath.FromSlash(rel)); rerr == nil && strings.Contains(string(b), id) {
+			if b, rerr := r.ReadFile(rel); rerr == nil && strings.Contains(string(b), id) {
 				dup = path
-				return nil
+				return
 			}
 		}
 		if !titleHit {
-			return nil
+			return
 		}
 		// Same title. Same day means the same occurrence -- gate. A different
 		// day is a different occurrence of a recurring meeting -- report it so
 		// the caller can see the near-miss, but never block on it.
 		if day != "" && strings.Contains(name, day) {
 			dup = path
-			return nil
+			return
 		}
 		collisions = append(collisions, path)
-		return nil
-	})
+	}
+	if start != "." {
+		// Single-file root: checked directly through the native os.Root
+		// methods, so a basename fs.ValidPath would reject is still examined.
+		consider(root, start, start)
+	} else {
+		_ = fs.WalkDir(r.FS(), ".", func(rel string, d fs.DirEntry, err error) error {
+			if err != nil || d == nil || d.IsDir() || dup != "" {
+				return nil
+			}
+			native := filepath.FromSlash(rel)
+			consider(filepath.Join(base, native), d.Name(), native)
+			return nil
+		})
+	}
 	if dup != "" {
 		return dup, nil
 	}
@@ -305,4 +346,21 @@ func meetingDay(createdAt string) string {
 		return ""
 	}
 	return t.Format("2006-01-02")
+}
+
+// hydrateOneMeeting enriches a single meeting from the REST detail endpoint
+// into the rich store, so preflight can judge a meeting that sync has listed
+// but not yet enriched.
+func hydrateOneMeeting(ctx context.Context, flags *rootFlags, id string) error {
+	st, err := openGranolaStore(ctx)
+	if err != nil {
+		return err
+	}
+	defer st.Close()
+	c, err := flags.newClient()
+	if err != nil {
+		return err
+	}
+	_, _, err = hydrateRichFromREST(ctx, st.DB(), c, []string{id})
+	return err
 }

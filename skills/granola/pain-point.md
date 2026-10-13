@@ -21,12 +21,12 @@ questions that used to mean re-watching calls become one command:
   newest, so you walk into their QBR with the whole history in front of you.
 - **`attendee brief <contact> --last 5`** - the last few calls with a contact, real
   notes + AI summary inlined, as instant pre-call prep.
-- **`search "<topic>"`** - every mention of a topic (a project, a commitment, a
-  product) across all synced meetings at once.
+- **`meetings list --query "<topic>"`** - every meeting where a topic (a project, a
+  commitment, a product) came up, matched against titles, notes, and transcripts.
 - **`export-all --out ./calls --last 7d`** - bulk-export a week of client calls to
   markdown files for your PSA, a follow-up doc, or a downstream agent.
-- **`talktime --by participant --since 30d`** - see who did the talking across a
-  month of client calls, without re-listening to a single recording.
+- **`talktime --by participant --since 30d`** - see how much of a month of client
+  calls was you talking versus everyone else, without re-listening to a recording.
 
 ## Status
 

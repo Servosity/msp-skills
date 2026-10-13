@@ -72,7 +72,7 @@ func newMeetingsListCmd(flags *rootFlags) *cobra.Command {
 		Long: `Reads from the synced SQLite store. Run 'granola-cli sync' first.
 
 Filters compose: --last 7d, --since DATE, --until DATE, --participant EMAIL,
---query TEXT (FTS over title+notes_plain), --deleted (include soft-deleted).`,
+--query TEXT (matches the title, your notes, and the transcript text), --deleted (include soft-deleted).`,
 		Example: `  # Recent meetings, table form
   granola-cli meetings list --last 7d
 
@@ -113,7 +113,7 @@ Filters compose: --last 7d, --since DATE, --until DATE, --participant EMAIL,
 	cmd.Flags().StringVar(&since, "since", "", "Start date (RFC3339 or YYYY-MM-DD)")
 	cmd.Flags().StringVar(&until, "until", "", "End date (RFC3339 or YYYY-MM-DD)")
 	cmd.Flags().StringVar(&participant, "participant", "", "Filter by attendee email (substring match)")
-	cmd.Flags().StringVar(&query, "query", "", "Full-text query on title + notes")
+	cmd.Flags().StringVar(&query, "query", "", "Text to match in the title, your notes, or the transcript")
 	cmd.Flags().IntVar(&limit, "limit", 0, "Maximum rows to return (0 = unlimited)")
 	cmd.Flags().IntVar(&offset, "offset", 0, "Rows to skip")
 	cmd.Flags().BoolVar(&deleted, "deleted", false, "Include soft-deleted meetings")
@@ -148,10 +148,14 @@ func loadMeetings(ctx context.Context, from, to time.Time, participant, query st
 		args = append(args, "%"+strings.ToLower(participant)+"%", "%"+participant+"%")
 	}
 	if query != "" {
-		// Use FTS5 LIKE-fallback for safety; FTS MATCH would require us to
-		// re-rank.
-		whereParts = append(whereParts, "(title LIKE ? OR notes_plain LIKE ?)")
-		args = append(args, "%"+query+"%", "%"+query+"%")
+		// Use a LIKE match for safety (FTS MATCH would need its own query
+		// syntax handling and re-ranking). Hand-wired (handfixes.json:
+		// meetings-query-searches-transcripts): the generated query looked only
+		// at title + notes_plain, so a topic mentioned in a call but never typed
+		// into the notes was unfindable. Transcript text is matched too.
+		like := "%" + query + "%"
+		whereParts = append(whereParts, "(title LIKE ? OR notes_plain LIKE ? OR id IN (SELECT meeting_id FROM transcript_segments WHERE text LIKE ?))")
+		args = append(args, like, like, like)
 	}
 	q := `SELECT id, title, started_at, ended_at, created_at, updated_at, workspace_id, transcript_available, COALESCE(deleted_at,''), COALESCE(calendar_event_id,''), COALESCE(creation_source,'') FROM meetings`
 	if len(whereParts) > 0 {

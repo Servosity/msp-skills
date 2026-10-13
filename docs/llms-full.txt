@@ -997,12 +997,12 @@ Ask your AI "every meeting we've had with Northwind IT" or "talk-time across las
 Outcomes (question -> command your AI agent runs):
 - Every meeting with a client contact, oldest to newest? -> granola-cli attendee timeline sarah@northwind.com
 - The last few calls with a contact, notes and AI summary inlined? -> granola-cli attendee brief sarah@northwind.com --last 5
-- Every mention of a topic across all synced meetings? -> granola-cli search "backup migration"
+- Every meeting where a topic came up - in the title, your notes, or the transcript? -> granola-cli meetings list --query "backup migration"
 - One meeting as notes + summary + transcript in a single file? -> granola-cli export not_06Yq6JtogRihEr --out ./meeting.md
 - Bulk-export the last 7 days of calls to a folder? -> granola-cli export-all --out ./calls --last 7d
-- Who talked the most across last month's meetings? -> granola-cli talktime --by participant --since 30d
+- How much of last month's calls was you talking versus everyone else? -> granola-cli talktime --by participant --since 30d
 - Top attendees by meeting count? -> granola-cli stats attendees --top 10
-- Which recent meetings have a transcript but no write-up on disk yet? -> granola-cli memo queue --since 7d
+- Which recent meetings have a transcript but no write-up in your notes folder yet? -> granola-cli memo queue --since 7d --root ~/Documents/meeting-transcripts
 - Is auth working and is my local mirror fresh? -> granola-cli doctor
 
 FAQ:

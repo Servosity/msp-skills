@@ -1,10 +1,10 @@
 # Granola CLI
 
-**Search, export, and analyze every Granola meeting across all your calls  -  attendee timelines, talk-time roll-ups, and full-text transcript search from an offline local mirror.**
+**Search, export, and analyze every Granola meeting across all your calls  -  attendee timelines, talk-time roll-ups, and transcript search from an offline local mirror.**
 
 granola-cli sources every meeting from Granola’s public surfaces  -  the public REST API (`public-api.granola.ai/v1`) for the meeting list, speaker-labeled transcripts, AI summaries, folders, and attendees, plus Granola’s official MCP server (`mcp.granola.ai`) for the raw private/human notes the REST API omits  -  and syncs all of it into a local SQLite store. That store powers the cross-meeting queries Granola.ai’s web app and existing community CLIs cannot answer: memo run, memo queue, attendee timeline, attendee brief, talktime, and duplicates scan are offline data joins no per-meeting tool produces. The sealed desktop store (`cache-v6.json.enc`) is app-private on Granola v7.4x+ and is not used. Works offline once synced; agent-native JSON by default.
 
-Created by [@dstevens](https://github.com/dstevens) (Damien Stevens).
+Created by [@DamienStevens](https://github.com/DamienStevens) (Damien Stevens).
 
 ## Install
 
@@ -62,7 +62,7 @@ To install:
 2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
 3. Fill in `GRANOLA_API_KEY` when Claude Desktop prompts you.
 
-Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
+Requires Claude Desktop 1.0.0 or later. One bundle covers macOS (universal), Linux (amd64), and Windows (amd64); on other platforms, use the manual config below.
 
 <details>
 <summary>Manual JSON config (advanced)</summary>
@@ -138,15 +138,15 @@ granola-cli sync
 granola-cli mcp-auth login
 
 # What’s synced but not yet MEMO’d this week.
-granola-cli memo queue --since 7d --json
+granola-cli memo queue --since 7d --root ~/Documents/meeting-transcripts --json
 
 # Run the full MEMO pipeline on every meeting since yesterday.
-granola-cli memo run --since 24h --to ~/Documents/meeting-transcripts --json
+granola-cli memo run --since 24h --to ~/Documents/meeting-transcripts --root ~/Documents/meeting-transcripts --json
 
 # Every meeting with Alice in the last 60 days, oldest first.
-granola-cli attendee timeline alice@example.com --since 60d --json --select id,title,started_at,folder
+granola-cli attendee timeline alice@example.com --since 60d --json --select id,title,started_at
 
-# Who talked most across this week's meetings  -  the time-defrag retro input.
+# Your share of the talking across this week's meetings  -  the time-defrag retro input.
 granola-cli talktime --by participant --since 7d --json
 
 ```
@@ -161,14 +161,14 @@ These capabilities aren't available in any other tool for this API.
   _Replaces the per-meeting shell loop that drives the MEMO pipeline  -  one call, one ndjson stream, agent-readable._
 
   ```bash
-  granola-cli memo run --since 24h --to ~/Documents/meeting-transcripts --json
+  granola-cli memo run --since 24h --to ~/Documents/meeting-transcripts --root ~/Documents/meeting-transcripts --json
   ```
 - **`memo queue`**  -  List every meeting whose transcript is in the local store but whose MEMO triple is not yet on disk.
 
   _Answers the daily question “what’s still un-MEMO’d?” without the user opening Granola at all._
 
   ```bash
-  granola-cli memo queue --since 7d --json
+  granola-cli memo queue --since 7d --root ~/Documents/meeting-transcripts --json
   ```
 
 ### Transcript source labels, exit codes, and drift
@@ -185,7 +185,7 @@ treated as **unrecognized** rather than silently counted.
 | --- | --- |
 | `0` | ready to extract |
 | `2` | no transcript, or below the threshold (needs >= 5 `microphone` segments AND >= 10 CLASSIFIED segments) |
-| `3` | a file in `--root` already covers this meeting: the meeting id appears in its filename or body, or its title AND day match. A same-title file from a different day is a recurring meeting, reported as `title_collision`, and does not block. |
+| `3` | a file in `--root` already covers this meeting - the meeting id is in its filename, or in the body of a file whose name carries the meeting title, or the title AND day match - **or** the meeting is unknown to both the local store and the Granola API (preflight first tries to fetch a meeting sync has not enriched yet; stderr says which case it is). A same-title file from a different day is a recurring meeting, reported as `title_collision`, and does not block. `--root` defaults to `~/Documents/Dev/meeting-transcripts`; pass the folder your memos actually live in. |
 | `4` | transcript source labels are unrecognized, so the gate cannot classify the transcript -- upstream changed its grammar. **Not the same as exit 2:** the text is probably there, the channels just can't be read. |
 
 Unclassified segments never count toward the threshold, so an upstream relabel
@@ -223,19 +223,19 @@ printf %s "$TOKEN" | granola-cli auth set-token
 ```
 
 ### Attendee intelligence
-- **`attendee timeline`**  -  Every meeting with a given attendee, ordered oldest→newest, with title, date, and folder per row.
+- **`attendee timeline`**  -  Every meeting with a given attendee, ordered oldest→newest, with title and date per row.
 
   _Pre-call prep in one command; surfaces the conversation arc with a single person across months of meetings._
 
   ```bash
-  granola-cli attendee timeline alice@example.com --since 60d --json --select id,title,started_at,folder
+  granola-cli attendee timeline alice@example.com --since 60d --json --select id,title,started_at
   ```
 - **`attendee brief`**  -  Pulls the last N meetings with an attendee and stitches together their real human notes plus real AI panel summaries  -  no synthesis.
 
   _Eliminates the click-each-meeting copy-paste that account leads do before every external call._
 
   ```bash
-  granola-cli attendee brief alice@example.com --last 3 --panel action-items --json
+  granola-cli attendee brief alice@example.com --last 3 --json
   ```
 
 ### Transcript analytics
@@ -246,7 +246,7 @@ printf %s "$TOKEN" | granola-cli auth set-token
   ```bash
   granola-cli talktime not_06Yq6JtogRihEr --json
   ```
-- **`talktime --by participant`**  -  Lifts the per-source talk-time aggregation across N meetings since a date  -  who-talked-most over time.
+- **`talktime --by participant`**  -  Lifts the per-source talk-time aggregation across N meetings since a date  -  your share of the talking (your microphone) versus everyone else, over time. The public API names no meeting owner, so this is a you-versus-everyone split, not a per-person ranking.
 
   _Time-defrag retro input that no per-meeting tool can produce._
 
@@ -321,7 +321,7 @@ granola-cli folders
 granola-cli folders --json
 
 # Filter to specific fields
-granola-cli folders --json --select id,name,status
+granola-cli folders --json --select folders.id,folders.name
 
 # Dry run  -  show the request without sending
 granola-cli folders --dry-run
@@ -362,7 +362,7 @@ Auto-refresh reads from Granola’s public REST API; it does not poke the deskto
 granola-cli doctor
 ```
 
-`doctor` verifies your setup end-to-end: it makes a real call against the public REST API to confirm `GRANOLA_API_KEY` works, reports whether Granola’s official MCP is connected (so private/human notes are reachable), and reports the sealed desktop store as **app-private** on Granola v7.4x+  -  an INFO line, not an error. It also shows local-store freshness and row counts. Add `--json` for machine-readable output or `--fail-on error` to exit non-zero on failure.
+`doctor` verifies your setup end-to-end: it makes a real call against the public REST API to confirm `GRANOLA_API_KEY` works, reports whether Granola’s official MCP is connected (so private/human notes are reachable), and does not read the sealed desktop store at all. It also shows local-store freshness and row counts. Add `--json` for machine-readable output or `--fail-on error` to exit non-zero on failure.
 
 ## Configuration
 
@@ -388,10 +388,10 @@ Granola’s official MCP (for private/human notes) is connected separately with 
 
 ### API-specific
 
-- **doctor says `key_unavailable`, or "can't read the desktop cache" / "encrypted store app-private"**  -  Expected on Granola v7.4x+. Granola sealed its local store behind its own macOS Keychain access group, so no third-party binary can decrypt it  -  this is not an error. Run `granola-cli sync` to populate the store from the public REST API, and `granola-cli mcp-auth login` to add your private/human notes.
+- **doctor says `api: ERROR base_url is not the Granola public API root`**  -  `GRANOLA_BASE_URL` (or `base_url` in the config file) points somewhere that is not the Granola API. Unset it to use `https://public-api.granola.ai`.
 - **Authentication error (exit code 4) / empty results**  -  Make sure `GRANOLA_API_KEY` is set (`echo $GRANOLA_API_KEY`); get a Personal or Workspace key from Granola Settings → API. Run `granola-cli doctor` to confirm the key reaches the REST API.
 - **Human/private notes are missing from `notes-show`, `memo`, `extract`, or `export`**  -  The public REST API omits raw private notes. Connect Granola’s official MCP with `granola-cli mcp-auth login`, then `granola-cli mcp-auth verify` to confirm they’re reachable.
-- **memo run --since reports duplicate_of**  -  A file with the same title-date-attendees fingerprint already exists in --to. Pick a different `--to` directory, remove the existing file, or `mv` it out of the way.
+- **memo run --since reports duplicate_of**  -  A memo for that meeting already exists: `full_<id>.md` in `--to`, or a file in `--root` that carries the meeting id or the same title and day. Point `--root` at the folder your memos live in, or move the existing file out of the way.
 - **Transcript missing for a recent meeting**  -  Granola may not have processed it server-side yet, or it isn’t in the synced window. Run `granola-cli sync` (or `granola-cli enrich --full` to enrich the entire library), then retry.
 - **stats / talktime returns empty rows**  -  The local store is empty or stale. Run `granola-cli sync` to hydrate it from the REST API (add `--full` to pull the whole library). Confirm `GRANOLA_API_KEY` is set via `granola-cli doctor`. If you bypassed auto-refresh with `--no-refresh` or `GRANOLA_NO_AUTO_REFRESH=1`, run `granola-cli sync` manually.
 
@@ -401,7 +401,6 @@ Granola’s official MCP (for private/human notes) is connected separately with 
 
 This CLI was built by studying these projects and resources:
 
-- [**granola.py**](https://github.com/dstevens/cc-skills)  -  Python
 - [**GranolaMCP (pedramamini)**](https://github.com/pedramamini/GranolaMCP)  -  Python
 - [**granola-mcp (chrisguillory)**](https://github.com/chrisguillory/granola-mcp)  -  Python
 - [**reverse-engineering-granola-api (getprobo)**](https://github.com/getprobo/reverse-engineering-granola-api)  -  Python

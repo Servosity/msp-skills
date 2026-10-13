@@ -358,6 +358,12 @@ func ensureSafeDir(dir string) error {
 // perm argument only applies when the file is CREATED - a pre-existing regular
 // file (possibly world-readable) keeps its old mode without the Chmod.
 func writeSafeFile(path string, data []byte) error {
+	// A directory-form path ("out/" or an existing directory) is refused before
+	// it is split: filepath.Dir/Base drop a trailing separator, so "out/" would
+	// otherwise become the file "out/out" instead of failing.
+	if path == "" || strings.HasSuffix(path, string(os.PathSeparator)) || strings.HasSuffix(path, "/") {
+		return ioErr(fmt.Errorf("output path %q names a directory, not a file", path))
+	}
 	r, err := os.OpenRoot(filepath.Dir(path))
 	if err != nil {
 		return ioErr(err)
@@ -367,6 +373,9 @@ func writeSafeFile(path string, data []byte) error {
 	if fi, err := r.Lstat(name); err == nil {
 		if fi.Mode()&os.ModeSymlink != 0 {
 			return ioErr(fmt.Errorf("refusing to write through pre-existing symlink %q", path))
+		}
+		if fi.IsDir() {
+			return ioErr(fmt.Errorf("output path %q is an existing directory, not a file", path))
 		}
 	} else if !os.IsNotExist(err) {
 		return ioErr(err)

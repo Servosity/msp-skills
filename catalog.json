@@ -576,7 +576,7 @@
       "first_party": false,
       "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/granola/install.sh)",
       "install_mcp_doc": "skills/granola/mcp-install.md",
-      "description": "Search, export, and analyze every Granola meeting across all your calls - attendee timelines, talk-time roll-ups, and full-text transcript search from an offline local mirror.",
+      "description": "Search, export, and analyze every Granola meeting across all your calls - attendee timelines, talk-time roll-ups, and transcript search from an offline local mirror.",
       "verification": "awaiting",
       "category": "Documentation",
       "tagline": "Search and analyze every Granola meeting - transcripts, summaries, attendees, and talk-time - across all your calls."

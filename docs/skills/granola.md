@@ -1,7 +1,7 @@
 ---
 layout: default
 title: "Granola MCP Server - Free, Open Source, Runs Locally | MSP Skills"
-description: "Search, export, and analyze every Granola meeting across all your calls - attendee timelines, talk-time roll-ups, and full-text transcript search from an offline local mirror."
+description: "Search, export, and analyze every Granola meeting across all your calls - attendee timelines, talk-time roll-ups, and transcript search from an offline local mirror."
 permalink: /skills/granola/
 skill_name: "Granola MCP"
 image: /assets/social/granola/wide-1200x630.png
@@ -58,8 +58,8 @@ Ask your AI "every meeting we've had with Northwind IT" or "talk-time across las
 **just ask:** *"Export last week's client calls to markdown files"*
 <sub>Your agent runs: <code>granola-cli export-all --out ./client-calls --last 7d</code></sub>
 
-**Instead of** Re-listening to recorded client calls to judge whether your team let the client do the talking
-**just ask:** *"Who did most of the talking on last month's client calls?"*
+**Instead of** Re-listening to recorded client calls to judge whether you let the client do the talking
+**just ask:** *"How much of last month's calls was me talking versus everyone else?"*
 <sub>Your agent runs: <code>granola-cli talktime --by participant --since 30d</code></sub>
 
 
@@ -75,19 +75,19 @@ Ask your AI "every meeting we've had with Northwind IT" or "talk-time across las
 | --- | --- |
 | Every meeting with a client contact, oldest to newest? | `granola-cli attendee timeline sarah@northwind.com` |
 | The last few calls with a contact, notes and AI summary inlined? | `granola-cli attendee brief sarah@northwind.com --last 5` |
-| Every mention of a topic across all synced meetings? | `granola-cli search "backup migration"` |
+| Every meeting where a topic came up - in the title, your notes, or the transcript? | `granola-cli meetings list --query "backup migration"` |
 | One meeting as notes + summary + transcript in a single file? | `granola-cli export not_06Yq6JtogRihEr --out ./meeting.md` |
 | Bulk-export the last 7 days of calls to a folder? | `granola-cli export-all --out ./calls --last 7d` |
-| Who talked the most across last month's meetings? | `granola-cli talktime --by participant --since 30d` |
+| How much of last month's calls was you talking versus everyone else? | `granola-cli talktime --by participant --since 30d` |
 | Top attendees by meeting count? | `granola-cli stats attendees --top 10` |
-| Which recent meetings have a transcript but no write-up on disk yet? | `granola-cli memo queue --since 7d` |
+| Which recent meetings have a transcript but no write-up in your notes folder yet? | `granola-cli memo queue --since 7d --root ~/Documents/meeting-transcripts` |
 | Is auth working and is my local mirror fresh? | `granola-cli doctor` |
 
 Full command reference at [github.com/servosity/msp-skills/blob/main/skills/granola/guide.md](https://github.com/servosity/msp-skills/blob/main/skills/granola/guide.md).
 
 ## What makes this one different
 
-Most meeting-notes integrations answer one question by making one live API call - fine for a single meeting, useless when you need to reason across a quarter of calls. This skill syncs your meetings into a local SQLite mirror with full-text search, so cross-meeting questions - an attendee's whole timeline, talk-time rolled up across dozens of calls, every mention of a topic - resolve as one instant local query your agent can actually read.
+Most meeting-notes integrations answer one question by making one live API call - fine for a single meeting, useless when you need to reason across a quarter of calls. This skill syncs your meetings into a local SQLite mirror you can search by title, notes, and transcript text, so cross-meeting questions - an attendee's whole timeline, talk-time rolled up across dozens of calls, every mention of a topic - resolve as one instant local query your agent can actually read.
 
 Granola's own AI answers questions inside a single meeting; this complements it by making every meeting queryable at once - attendee history, cross-call search, and talk-time aggregation the per-meeting view can't give you.
 
@@ -128,8 +128,8 @@ After install, authenticate once with your Granola credentials, then verify with
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | search, meetings list/get, transcript get, attendee timeline/brief, talktime, stats, doctor | Allow |
-| Local writes | sync, export, export-all, extract, memo run (local mirror and files you choose; never your Granola account) | Allow, with output folders you choose |
+| Read | meetings list/get, search, transcript get, attendee timeline/brief, talktime, stats, doctor | Allow |
+| Local writes | sync, enrich, sync-api, export, export-all, extract, memo run, collect (local mirror and files you choose; never your Granola account) | Allow, with output folders you choose |
 | Credential | auth set-token / logout, mcp-auth login / logout | Human-in-the-loop only |
 
 The skill reads your Granola meetings - notes, AI summaries, transcripts, folders, and attendees - into a local mirror and answers questions against it. No command changes or deletes anything in your Granola account. The only writes are local: the mirror itself, the markdown files you export, your saved API key, and the optional Granola MCP sign-in. Let agents run the read and export commands; keep a human on any credential command. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/granola/governance.md).

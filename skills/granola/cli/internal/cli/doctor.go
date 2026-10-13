@@ -235,7 +235,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 					report["api"] = fmt.Sprintf("client init error: %s", clientErr)
 				} else {
 					// Step 1: Basic reachability via the configured transport.
-					reachBody, reachErr := c.Get(cmd.Context(), "/", nil)
+					reachBody, reachErr := c.GetNoCache(cmd.Context(), "/", nil)
 					var reachAPIErr *client.APIError
 					switch {
 					case reachErr == nil:
@@ -279,7 +279,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 							report["credentials"] = "skipped (API unreachable)"
 						}
 					} else {
-						_, perr := c.Get(cmd.Context(), "/v1/notes", map[string]string{"page_size": "1"})
+						_, perr := c.GetNoCache(cmd.Context(), "/v1/notes", map[string]string{"page_size": "1"})
 						var probeAPIErr *client.APIError
 						probeStatus := 0
 						if errors.As(perr, &probeAPIErr) {
@@ -295,8 +295,15 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 								report["credentials"] = "verified (authenticated GET /v1/notes succeeded)"
 							}
 						case probeStatus == 401 || probeStatus == 403:
+							// Something that demands auth answered, but a refusal
+							// proves neither that it is Granola nor that the key
+							// works, so the API verdict stays non-positive.
 							if !interstitial {
-								report["api"] = fmt.Sprintf("reachable (GET /v1/notes answered HTTP %d)", probeStatus)
+								if authHeader != "" {
+									report["api"] = fmt.Sprintf("WARN GET /v1/notes refused the configured key (HTTP %d); see credentials", probeStatus)
+								} else {
+									report["api"] = fmt.Sprintf("INFO GET /v1/notes requires a key (HTTP %d); set GRANOLA_API_KEY to verify", probeStatus)
+								}
 							}
 							if authHeader != "" {
 								// "ERROR"-prefixed so the human renderer marks it red and
@@ -593,6 +600,18 @@ func legacyCredentialProbePaths(cfg *config.Config) []string {
 // status meets the --fail-on gate. "error" trips on failing sections, "warn"
 // trips on deliberate WARN sections plus errors, and "stale" trips on cache
 // freshness plus errors. The default empty string means never fail on status.
+// doctorFailOnInfoKeys are report entries that carry paths, versions, or
+// free-text hints rather than a health verdict.
+var doctorFailOnInfoKeys = map[string]bool{
+	"config_path": true,
+	"base_url":    true,
+	"auth_source": true,
+	"auth_hint":   true,
+	"version":     true,
+	"db_path":     true,
+	"agentcookie": true,
+}
+
 func doctorExitForFailOn(failOn string, report map[string]any) error {
 	if failOn == "" {
 		return nil
@@ -600,10 +619,14 @@ func doctorExitForFailOn(failOn string, report map[string]any) error {
 	worstError := false
 	worstWarn := false
 	worstStale := false
-	for _, v := range report {
+	for k, v := range report {
 		s, ok := v.(string)
 		if ok {
-			if strings.Contains(s, "error") || strings.Contains(s, "unreachable") || strings.Contains(s, "invalid") || strings.Contains(s, "missing") {
+			// The ERROR/FAIL prefix marks a check's verdict. Paths, versions and
+			// hints are not verdicts, so a config file named "FAIL.toml" must not
+			// trip the gate.
+			verdictPrefix := !doctorFailOnInfoKeys[k] && (strings.HasPrefix(s, "ERROR") || strings.HasPrefix(s, "FAIL"))
+			if verdictPrefix || strings.Contains(s, "error") || strings.Contains(s, "unreachable") || strings.Contains(s, "invalid") || strings.Contains(s, "missing") {
 				worstError = true
 			}
 			if strings.HasPrefix(s, "WARN") {

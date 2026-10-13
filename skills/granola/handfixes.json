@@ -50,7 +50,7 @@
   {
    "id": "preflight-duplicate-identity-gate",
    "summary": "preflight exit 3 fires only on an identity match (meeting id in the filename or body, or title AND day); a same-title file from a different day is reported as title_collision and never blocks; the scan reads through an os.Root",
-   "why": "The transcripts layout names files '<YYYY-MM-DD> <Title> - <Org> - Full.md' - date in the name, never the id - so the id branch never fired and the title branch matched every earlier occurrence of a recurring meeting. Callers read exit 3 as 'skip', so real meetings were silently dropped (8 colliding titles measured on the live root). The os.Root scoping (added with the security gate pass) keeps a symlink in the transcripts tree from pulling an outside file into the body check. msp-skills commit 83dc8d2e0 (originally 1fa4e0aa).",
+   "why": "The transcripts layout names files '<YYYY-MM-DD> <Title> - <Org> - Full.md' - date in the name, never the id - so the id branch never fired and the title branch matched every earlier occurrence of a recurring meeting. Callers read exit 3 as 'skip', so real meetings were silently dropped (8 colliding titles measured on the live root). The os.Root scoping (added with the security gate pass) keeps a symlink in the transcripts tree from pulling an outside file into the body check. msp-skills commit 83dc8d2e0 (originally 1fa4e0aa). A --root naming a single file is still checked (through a root on its parent), as filepath.Walk did; a --root that is a symlink to a directory is now followed, where filepath.Walk silently skipped it.",
    "status": "active",
    "asserts": [
     {
@@ -67,13 +67,25 @@
     },
     {
      "file": "cli/internal/cli/preflight.go",
-     "contains": "r, err := os.OpenRoot(root)",
+     "contains": "r, err := os.OpenRoot(base)",
      "min_count": 1,
      "code_only": true
     },
     {
      "file": "cli/internal/cli/preflight.go",
      "not_contains": "func findDuplicateFile("
+    },
+    {
+     "file": "cli/internal/cli/preflight.go",
+     "contains": "base, start = filepath.Dir(root), filepath.Base(root)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/publish_review_fixes_test.go",
+     "contains": "func TestFindDuplicatesSingleFileRoot(",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   },
@@ -105,6 +117,34 @@
     {
      "file": "cli/internal/cli/granola_novels.go",
      "not_contains": "newWarmCmd("
+    },
+    {
+     "file": "cli/internal/cli/granola_novels.go",
+     "not_contains": "newChatCmd("
+    },
+    {
+     "file": "cli/internal/cli/granola_novels.go",
+     "not_contains": "newTiptapCmd("
+    },
+    {
+     "file": "cli/internal/cli/granola_novels.go",
+     "not_contains": "newWorkspacesCmd("
+    },
+    {
+     "file": "cli/internal/cli/granola_novels.go",
+     "not_contains": "newFolderCmd("
+    },
+    {
+     "file": "cli/internal/cli/granola_novels.go",
+     "not_contains": "newCalendarOverlayCmd("
+    },
+    {
+     "file": "cli/internal/cli/meetings.go",
+     "not_contains": "newMeetingsDeleteCmd("
+    },
+    {
+     "file": "cli/internal/cli/meetings.go",
+     "not_contains": "newMeetingsRestoreCmd("
     }
    ]
   },
@@ -233,7 +273,7 @@
   {
    "id": "memo-output-file-safety",
    "summary": "MEMO and export output: 0700 dirs, 0600 files, note-id allowlist, symlink-aware containment, and writes routed through an os.Root on the output directory",
-   "why": "Exports carry private notes, transcripts, and attendee emails. Library reprint step 9 made them owner-only and refused symlink targets; the security-gate pass (G304) moved the open, Lstat, and Chmod onto an os.Root so a swapped path component cannot redirect the write.",
+   "why": "Exports carry private notes, transcripts, and attendee emails. Library reprint step 9 made them owner-only and refused symlink targets; the security-gate pass (G304) moved the open, Lstat, and Chmod onto an os.Root so a swapped path component cannot redirect the write. A directory-form path ('out/' or an existing directory) is refused before it is split, because filepath.Dir/Base would otherwise turn 'out/' into the file 'out/out' (Codex review).",
    "status": "active",
    "asserts": [
     {
@@ -253,13 +293,25 @@
      "contains": "return r.Chmod(name, safeFilePerm)",
      "min_count": 1,
      "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/granola_helpers.go",
+     "contains": "return ioErr(fmt.Errorf(\"output path %q is an existing directory, not a file\", path))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/publish_review_fixes_test.go",
+     "contains": "func TestWriteSafeFileRefusesDirectoryForm(",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   },
   {
    "id": "keychain-secret-via-stdin",
    "summary": "Granola-MCP OAuth tokens are written to and read from the macOS Keychain through `security -i` with the command line on stdin, so no secret is ever on argv; operands are quoted and a control character is refused",
-   "why": "kcSet used to pass the token as a `security add-generic-password -w <token>` argument, visible to any same-user ps watcher while it ran, and the variable argv tripped gosec G204 three times. A newline in an operand would end the stdin command line and run the rest as a second command, so kcQuote refuses control characters. Round trip proved against a throwaway keychain (keychain_stdin_test.go, GRANOLA_KEYCHAIN_IT=1). The account constants were also renamed off the *Token suffix (gosec G101 false positive on the identifier).",
+   "why": "kcSet used to pass the token as a `security add-generic-password -w <token>` argument, visible to any same-user ps watcher while it ran, and the variable argv tripped gosec G204 three times. A newline in an operand would end the stdin command line and run the rest as a second command, so kcQuote refuses control characters. Round trip proved against a throwaway keychain (keychain_stdin_test.go, GRANOLA_KEYCHAIN_IT=1). The account constants were also renamed off the *Token suffix (gosec G101 false positive on the identifier). security(1) reads interactive lines into a 4096-byte buffer and runs any spill as a second command, so kcLine caps the rendered line at 4000 bytes (Codex review; a real access token is about 1 KB).",
    "status": "active",
    "asserts": [
     {
@@ -281,6 +333,18 @@
     {
      "file": "cli/internal/cli/keychain_stdin_test.go",
      "contains": "func TestKCQuoteRefusesControlCharacters(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/granolamcp.go",
+     "contains": "if len(line) > kcMaxLine {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/publish_review_fixes_test.go",
+     "contains": "func TestKCLineRefusesOverlongLine(",
      "min_count": 1,
      "code_only": true
     }
@@ -450,13 +514,13 @@
   },
   {
    "id": "doctor-verdict-tracks-reality",
-   "summary": "doctor's api AND credentials verdicts come from a real GET /v1/notes?page_size=1: 2xx = this is the Granola API (and the key works), 401/403 = API present but key rejected, 404 = base_url is not the Granola API root",
-   "why": "The generated doctor called any answer at GET / 'reachable', so a base_url aimed at a web app shell (200 at /, 404 everywhere else) rendered green. check_doctor_truth.py failed granola on exactly that wrong-base state; it passes all states after this change. Issue #282.",
+   "summary": "doctor's api AND credentials verdicts come from an uncached GET /v1/notes?page_size=1: 2xx = this is the Granola API (and the key works), 401/403 = non-positive (key refused or missing), 404 = base_url is not the Granola API root; an ERROR verdict trips --fail-on=error",
+   "why": "The generated doctor called any answer at GET / 'reachable', so a base_url aimed at a web app shell (200 at /, 404 everywhere else) rendered green. check_doctor_truth.py failed granola on exactly that wrong-base state; it passes all states after this change. Issue #282. Codex review then found three gaps, each fixed and tested: both probes went through the 5-minute response cache (a revoked key could still read 'verified'), a 401/403 still produced a positive api verdict, and doctorExitForFailOn never matched the uppercase ERROR prefix, so --fail-on=error stayed green on the wrong-base state.",
    "status": "active",
    "asserts": [
     {
      "file": "cli/internal/cli/doctor.go",
-     "contains": "_, perr := c.Get(cmd.Context(), \"/v1/notes\", map[string]string{\"page_size\": \"1\"})",
+     "contains": "_, perr := c.GetNoCache(cmd.Context(), \"/v1/notes\", map[string]string{\"page_size\": \"1\"})",
      "min_count": 1,
      "code_only": true
     },
@@ -469,6 +533,24 @@
     {
      "file": "cli/internal/cli/doctor.go",
      "not_contains": "report[\"api\"] = \"reachable\"\n"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "reachBody, reachErr := c.GetNoCache(cmd.Context(), \"/\", nil)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "verdictPrefix := !doctorFailOnInfoKeys[k] && (strings.HasPrefix(s, \"ERROR\") || strings.HasPrefix(s, \"FAIL\"))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/publish_review_fixes_test.go",
+     "contains": "func TestDoctorFailOnRecognizesErrorPrefix(",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   },
@@ -543,6 +625,52 @@
     {
      "file": "manifest.json",
      "not_contains": "granola-pp-mcp"
+    }
+   ]
+  },
+  {
+   "id": "preflight-hydrates-missing-meeting",
+   "summary": "preflight fetches a meeting that sync has listed but not yet enriched (one REST detail call) before judging it, and its not-found error says plainly that exit 3 here means NOT FOUND, not a duplicate",
+   "why": "The rich store holds only meetings that sync (50 most recent) or auto-refresh (25) enriched. preflight returned exit 3 for any other meeting, the same code as a duplicate, so a caller reading 3 as 'skip' dropped real meetings silently - the failure the identity gate was meant to remove (adversarial review P1).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/preflight.go",
+     "contains": "if herr := hydrateOneMeeting(cmd.Context(), flags, id); herr != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/preflight.go",
+     "contains": "func hydrateOneMeeting(ctx context.Context, flags *rootFlags, id string) error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/publish_review_fixes_test.go",
+     "contains": "func TestPreflightHydratesAMeetingSyncHasNotEnriched(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "meetings-query-searches-transcripts",
+   "summary": "meetings list --query matches transcript text as well as the title and typed notes",
+   "why": "The generated query looked only at title + notes_plain, and `search` covers only the note-list index (titles and owners), so nothing in the CLI could find a meeting by something said on the call even though the transcripts sit in the local store. The docs' 'transcript search' claim depends on this (adversarial review P1).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/meetings.go",
+     "contains": "OR id IN (SELECT meeting_id FROM transcript_segments WHERE text LIKE ?))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/publish_review_fixes_test.go",
+     "contains": "func TestLoadMeetingsQueryMatchesTranscript(",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   }

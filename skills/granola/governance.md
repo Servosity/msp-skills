@@ -17,9 +17,15 @@ anywhere except Granola.
 ## Default-safe behavior
 
 - **Nothing changes your Granola account.** The CLI has no command that creates,
-  edits, or deletes Granola data. Every write is local: the SQLite mirror (`sync`),
-  markdown files on disk (`export`, `export-all`, `extract`, `memo run`, `collect`),
-  the saved API key (`auth set-token`), and the Granola-MCP sign-in (`mcp-auth login`).
+  edits, or deletes Granola data. Its writes are local: the SQLite mirror (`sync`,
+  `enrich`, `sync-api`), markdown files on disk (`export`, `export-all`, `extract`,
+  `memo run`, `collect`), the saved API key (`auth set-token`), and the Granola-MCP
+  sign-in (`mcp-auth login`).
+- **Two commands can send output off the machine, and only when you ask.** Any
+  command accepts `--deliver webhook:<url>`, which POSTs its output to that URL, and
+  `feedback --send` posts a feedback note to `GRANOLA_FEEDBACK_ENDPOINT`. The MCP
+  server refuses `--deliver`; an agent driving the CLI directly does not, so keep
+  `--deliver` out of an unattended agent's allowed commands.
 - **Read commands are always safe to run** (reports, rollups, search); they cannot
   change anything.
 - **Agent mode is explicit.** `--agent` produces JSON for scripting but does not
@@ -33,7 +39,7 @@ choose**; require a human for anything below the line.
 | Tier | What it does | Examples | Recommended agent policy |
 | --- | --- | --- | --- |
 | **Read** | Reports, rollups, search. No change. | `search`, `meetings list/get`, `transcript get`, `attendee timeline/brief`, `talktime`, `stats`, `doctor` | Allow |
-| **Local writes** | Writes the local mirror or files on your own machine. Never your Granola account. | `sync`, `export` / `export-all`, `extract`, `memo run`, `collect` | Allow, with output folders you choose |
+| **Local writes** | Writes the local mirror or files on your own machine. Never your Granola account. | `sync`, `enrich`, `sync-api`, `workflow archive`, `export` / `export-all`, `extract`, `memo run`, `collect` | Allow, with output folders you choose |
 | **Credential / security** | Touches tokens and stored credentials. | `auth set-token`, `auth logout`, `mcp-auth login`, `mcp-auth logout` | Human-in-the-loop only |
 | **Destructive** | Irreversible data or config loss. | (none - no command changes or deletes Granola data) | Human-in-the-loop only, explicit confirmation |
 | **Admin** | Back-office administration. | (none detected) | Operator-only, not for agents |
@@ -47,8 +53,9 @@ change your Granola account.
 - **Scope the credential** to only what your workflow needs: a Personal API key sees
   only your own notes; a Workspace key sees workspace-visible notes.
 - **Keep autonomous agents to Read + Local writes.** Choose the output folders for
-  exports yourself; the MCP server refuses a tool call that tries to pick a file or
-  folder path.
+  exports yourself. The MCP server drops any file or folder path a tool call supplies
+  (`--out`, `--to`, `--root`, `--db` and the like), so over MCP a command runs with its
+  default location; the file-writing commands are meant for the CLI.
 - **Never let an agent run Credential, Destructive, or Admin tier commands
   unattended.** Treat them like a production database drop: human, reviewed, logged.
 - **Rotate the credential if it is ever exposed** (for example after bridging the

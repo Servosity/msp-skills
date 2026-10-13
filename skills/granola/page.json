@@ -12,8 +12,8 @@
       "cli": "granola-cli export-all --out ./client-calls --last 7d"
     },
     {
-      "instead": "Re-listening to recorded client calls to judge whether your team let the client do the talking",
-      "say": "Who did most of the talking on last month's client calls?",
+      "instead": "Re-listening to recorded client calls to judge whether you let the client do the talking",
+      "say": "How much of last month's calls was me talking versus everyone else?",
       "cli": "granola-cli talktime --by participant --since 30d"
     }
   ],
@@ -31,8 +31,8 @@
       "command": "granola-cli attendee brief sarah@northwind.com --last 5"
     },
     {
-      "question": "Every mention of a topic across all synced meetings?",
-      "command": "granola-cli search \"backup migration\""
+      "question": "Every meeting where a topic came up - in the title, your notes, or the transcript?",
+      "command": "granola-cli meetings list --query \"backup migration\""
     },
     {
       "question": "One meeting as notes + summary + transcript in a single file?",
@@ -43,7 +43,7 @@
       "command": "granola-cli export-all --out ./calls --last 7d"
     },
     {
-      "question": "Who talked the most across last month's meetings?",
+      "question": "How much of last month's calls was you talking versus everyone else?",
       "command": "granola-cli talktime --by participant --since 30d"
     },
     {
@@ -51,15 +51,15 @@
       "command": "granola-cli stats attendees --top 10"
     },
     {
-      "question": "Which recent meetings have a transcript but no write-up on disk yet?",
-      "command": "granola-cli memo queue --since 7d"
+      "question": "Which recent meetings have a transcript but no write-up in your notes folder yet?",
+      "command": "granola-cli memo queue --since 7d --root ~/Documents/meeting-transcripts"
     },
     {
       "question": "Is auth working and is my local mirror fresh?",
       "command": "granola-cli doctor"
     }
   ],
-  "different_vs_wrappers": "Most meeting-notes integrations answer one question by making one live API call - fine for a single meeting, useless when you need to reason across a quarter of calls. This skill syncs your meetings into a local SQLite mirror with full-text search, so cross-meeting questions - an attendee's whole timeline, talk-time rolled up across dozens of calls, every mention of a topic - resolve as one instant local query your agent can actually read.",
+  "different_vs_wrappers": "Most meeting-notes integrations answer one question by making one live API call - fine for a single meeting, useless when you need to reason across a quarter of calls. This skill syncs your meetings into a local SQLite mirror you can search by title, notes, and transcript text, so cross-meeting questions - an attendee's whole timeline, talk-time rolled up across dozens of calls, every mention of a topic - resolve as one instant local query your agent can actually read.",
   "different_vs_vendor": "Granola's own AI answers questions inside a single meeting; this complements it by making every meeting queryable at once - attendee history, cross-call search, and talk-time aggregation the per-meeting view can't give you.",
   "faqs": [
     {
@@ -91,12 +91,12 @@
   "safety_tiers": [
     {
       "tier": "Read",
-      "examples": "search, meetings list/get, transcript get, attendee timeline/brief, talktime, stats, doctor",
+      "examples": "meetings list/get, search, transcript get, attendee timeline/brief, talktime, stats, doctor",
       "policy": "Allow"
     },
     {
       "tier": "Local writes",
-      "examples": "sync, export, export-all, extract, memo run (local mirror and files you choose; never your Granola account)",
+      "examples": "sync, enrich, sync-api, export, export-all, extract, memo run, collect (local mirror and files you choose; never your Granola account)",
       "policy": "Allow, with output folders you choose"
     },
     {
