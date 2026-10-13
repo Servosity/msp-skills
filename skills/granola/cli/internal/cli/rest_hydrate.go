@@ -266,7 +266,7 @@ func upsertRichMeeting(ctx context.Context, db *sql.DB, d *restNoteDetail) error
 		// VALUES
 		d.ID, d.Title, createdAt, updatedAt, startedAt, endedAt, "",
 		calendarEventID, "", "", "", transcriptAvail, "[]", "api", 1,
-		d.UpdatedAt, // as the API sent it: the freshness watermark
+		freshnessWatermark(d.UpdatedAt),
 		// CASE presence flags (started, ended, calendar_id, transcript) — each
 		// bound guarded independently so a half-populated calendar_event can't
 		// blank the other bound.
@@ -499,4 +499,16 @@ func utcRFC3339(s string) string {
 		return s
 	}
 	return t.UTC().Format(time.RFC3339)
+}
+
+// freshnessWatermark is what meetings.source_updated_at records for a
+// hydrated detail: the API's updated_at exactly as sent (full precision), or,
+// when the response omits it, the hydration instant - any revision after that
+// is newer. Never empty, so a hydrated row is never re-queued as "no
+// watermark" (handfixes.json: meeting-times-stored-utc).
+func freshnessWatermark(apiUpdatedAt string) string {
+	if apiUpdatedAt != "" {
+		return apiUpdatedAt
+	}
+	return time.Now().UTC().Format(time.RFC3339Nano)
 }

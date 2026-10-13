@@ -1377,7 +1377,7 @@
     },
     {
      "file": "cli/internal/cli/sync_autorefresh.go",
-     "contains": "THEN COALESCE(julianday(n.updated_at), 0) > COALESCE(julianday(m.source_updated_at), 0)",
+     "contains": "OR COALESCE(julianday(n.updated_at), 0) > COALESCE(julianday(m.source_updated_at), 0)",
      "min_count": 1,
      "code_only": true
     },
@@ -1396,6 +1396,12 @@
     {
      "file": "cli/internal/granola/store_sync.go",
      "contains": "`ALTER TABLE meetings ADD COLUMN source_updated_at TEXT NOT NULL DEFAULT ''`",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/rest_hydrate.go",
+     "contains": "func freshnessWatermark(apiUpdatedAt string) string {",
      "min_count": 1,
      "code_only": true
     }

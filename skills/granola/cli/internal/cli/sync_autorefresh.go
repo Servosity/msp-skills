@@ -178,15 +178,14 @@ func unhydratedRecentNoteIDs(ctx context.Context, db *sql.DB, limit int) ([]stri
 	// "09:01-04:00" sorts below "13:00Z") against the watermark hydration
 	// saved at the API's own precision (meetings.source_updated_at), so a
 	// revision later in the same second is still picked up. A row hydrated
-	// before the watermark existed falls back to whole seconds against the
-	// canonical updated_at; comparing that at sub-second precision would make
-	// every such note look newer forever. Empty/unparseable counts as oldest.
+	// before the watermark existed has none and is re-hydrated once (bounded
+	// by the caller's cap); hydration always writes one, so it is not
+	// re-queued after that.
 	q := `SELECT n.id FROM notes n
 		LEFT JOIN meetings m ON m.id = n.id
 		WHERE n.id LIKE 'not_%'
-		  AND (m.id IS NULL OR CASE WHEN COALESCE(m.source_updated_at, '') <> ''
-		        THEN COALESCE(julianday(n.updated_at), 0) > COALESCE(julianday(m.source_updated_at), 0)
-		        ELSE COALESCE(strftime('%s', n.updated_at) + 0, 0) > COALESCE(strftime('%s', m.updated_at) + 0, 0) END)
+		  AND (m.id IS NULL OR COALESCE(m.source_updated_at, '') = ''
+		       OR COALESCE(julianday(n.updated_at), 0) > COALESCE(julianday(m.source_updated_at), 0))
 		ORDER BY julianday(n.updated_at) DESC
 		LIMIT ?`
 	// LIMIT is a bound parameter, never spliced into the SQL text. SQLite

@@ -911,66 +911,71 @@ func TestTimestampMigrationCanonicalizesFractionalZ(t *testing.T) {
 }
 
 // TestIncrementalRefreshComparesInstants: the thin notes table keeps the
-// API's offset text while meetings is UTC "Z". A note revised at 13:01 UTC,
-// stored as "09:01:00-04:00", must count as newer than a meeting hydrated at
-// 13:00:00Z; as strings it compared smaller and the revision was skipped.
+// API's text (offsets, milliseconds) while meetings stores canonical whole
+// seconds, so freshness is judged against a full-precision watermark that
+// hydration saves (meetings.source_updated_at), compared as an instant.
 func TestIncrementalRefreshComparesInstants(t *testing.T) {
 	s := newIsolatedStore(t)
 	defer s.Close()
-	insertMeeting(t, s, seedMeeting{ID: "not_rev", Title: "T", CreatedAt: "2026-10-13T12:00:00Z", UpdatedAt: "2026-10-13T13:00:00Z"})
-	if _, err := s.DB().Exec(`INSERT INTO notes(id, data, updated_at) VALUES ('not_rev', '{}', '2026-10-13T09:01:00-04:00')`); err != nil {
-		t.Fatal(err)
-	}
-	ids, err := unhydratedRecentNoteIDs(context.Background(), s.DB(), 10)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(ids) != 1 || ids[0] != "not_rev" {
-		t.Fatalf("a newer revision with an offset timestamp was skipped: %v", ids)
-	}
-	// The same instant, stored with milliseconds in the thin table and as
-	// whole seconds in meetings (what a live account returns), is NOT newer:
-	// treating it as newer re-fetched every hydrated note on every command.
-	insertMeeting(t, s, seedMeeting{ID: "not_same", Title: "T", CreatedAt: "2026-10-13T12:00:00Z", UpdatedAt: "2026-10-13T18:32:58Z"})
-	if _, err := s.DB().Exec(`INSERT INTO notes(id, data, updated_at) VALUES ('not_same', '{}', '2026-10-13T18:32:58.382Z')`); err != nil {
-		t.Fatal(err)
-	}
-	ids, err = unhydratedRecentNoteIDs(context.Background(), s.DB(), 10)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, id := range ids {
-		if id == "not_same" {
-			t.Fatalf("an already-hydrated note is re-fetched because of sub-second precision: %v", ids)
-		}
-	}
-	// Through the real write path: hydration keeps the API's full-precision
-	// updated_at as the watermark, so a revision later in the SAME second is
-	// picked up, and the unchanged value is not re-fetched.
-	if err := upsertRichMeeting(context.Background(), s.DB(), &restNoteDetail{ID: "not_ms", Title: "T", CreatedAt: "2026-10-13T12:00:00Z", UpdatedAt: "2026-10-13T13:00:00.100Z"}); err != nil {
-		t.Fatal(err)
-	}
-	refetch := func(thin string) bool {
+	ctx := context.Background()
+	queued := func(id, thin string) bool {
 		t.Helper()
-		if _, err := s.DB().Exec(`INSERT INTO notes(id, data, updated_at) VALUES ('not_ms', '{}', ?) ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at`, thin); err != nil {
+		if _, err := s.DB().Exec(`INSERT INTO notes(id, data, updated_at) VALUES (?, '{}', ?) ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at`, id, thin); err != nil {
 			t.Fatal(err)
 		}
-		ids, err := unhydratedRecentNoteIDs(context.Background(), s.DB(), 10)
+		ids, err := unhydratedRecentNoteIDs(ctx, s.DB(), 10)
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, id := range ids {
-			if id == "not_ms" {
+		for _, got := range ids {
+			if got == id {
 				return true
 			}
 		}
 		return false
 	}
-	if refetch("2026-10-13T13:00:00.100Z") {
+	hydrate := func(id, apiUpdated string) {
+		t.Helper()
+		if err := upsertRichMeeting(ctx, s.DB(), &restNoteDetail{ID: id, Title: "T", CreatedAt: "2026-10-13T12:00:00Z", UpdatedAt: apiUpdated}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// A revision stamped with an offset, newer as an instant but smaller as
+	// a string, is picked up.
+	hydrate("not_rev", "2026-10-13T13:00:00Z")
+	if !queued("not_rev", "2026-10-13T09:01:00-04:00") {
+		t.Fatal("a newer revision with an offset timestamp was skipped")
+	}
+
+	// Full precision: the unchanged value is not re-fetched; a revision later
+	// in the SAME second is.
+	hydrate("not_ms", "2026-10-13T13:00:00.100Z")
+	if queued("not_ms", "2026-10-13T13:00:00.100Z") {
 		t.Fatal("an unchanged fractional updated_at is re-fetched")
 	}
-	if !refetch("2026-10-13T13:00:00.900Z") {
+	if !queued("not_ms", "2026-10-13T13:00:00.900Z") {
 		t.Fatal("a revision later in the same second is skipped")
+	}
+
+	// Upgrade: a row hydrated before the watermark existed (canonical
+	// whole-second updated_at, no source_updated_at) is re-hydrated once, so
+	// a same-second revision it may hide is fetched; after hydration it is
+	// current.
+	insertMeeting(t, s, seedMeeting{ID: "not_old", Title: "T", CreatedAt: "2026-10-13T12:00:00Z", UpdatedAt: "2026-10-13T13:00:00Z"})
+	if !queued("not_old", "2026-10-13T13:00:00.900Z") {
+		t.Fatal("a pre-watermark row is never re-hydrated, hiding a same-second revision")
+	}
+	hydrate("not_old", "2026-10-13T13:00:00.900Z")
+	if queued("not_old", "2026-10-13T13:00:00.900Z") {
+		t.Fatal("a row is still queued after hydration wrote its watermark")
+	}
+
+	// A detail response that omits updated_at still records a watermark (the
+	// hydration instant), so the row is not re-fetched on every command.
+	hydrate("not_nots", "")
+	if queued("not_nots", "2026-10-13T13:00:00Z") {
+		t.Fatal("a row hydrated from a response without updated_at is re-queued forever")
 	}
 }
 
