@@ -162,43 +162,27 @@ func TestUpsertKeepsAttendeesWhenOnlyInviteesArrive(t *testing.T) {
 	}
 }
 
-// TestPrivateNotesAttributionSeesAllSameTitleMeetings: with A (09:00) and B
-// (10:00) titled alike and only B in the batch, the MCP copy of A must still
-// be matched to A, never written under B.
-func TestPrivateNotesAttributionSeesAllSameTitleMeetings(t *testing.T) {
-	s := newIsolatedStore(t)
-	defer s.Close()
-	insertMeeting(t, s, seedMeeting{ID: "not_A", Title: "Weekly Sync", CreatedAt: "2026-10-12T09:00:00Z"})
-	insertMeeting(t, s, seedMeeting{ID: "not_B", Title: "Weekly Sync", CreatedAt: "2026-10-12T10:00:00Z"})
-	targets := []restTarget{{ID: "not_B", Title: "Weekly Sync", Created: time.Date(2026, 10, 12, 10, 0, 0, 0, time.UTC)}}
-	byTitle := map[string][]mcpMeeting{normTitle("Weekly Sync"): {{UUID: "uuid-A", Title: "Weekly Sync", Date: time.Date(2026, 10, 12, 9, 0, 0, 0, time.UTC)}}}
-	cands, ok := withSameTitleStoredMeetings(context.Background(), s.DB(), targets)
-	if !ok {
-		t.Fatal("candidate listing failed")
+// TestPrivateNoteFromGetMeetingsReadsTheLiveFormat: the live get_meetings
+// tag carries extra attributes after date (meeting_at, created_at, url, ...);
+// the old exact-shape regex matched nothing and every private note was
+// dropped. One block resolves; zero or two do not.
+func TestPrivateNoteFromGetMeetingsReadsTheLiveFormat(t *testing.T) {
+	live := `<meeting id="0b9a63e7-468f-4950-a9f6-dabea60de3e7" title="Acme / Sync" date="Oct 13, 2026 2:00 PM EDT" meeting_at="2026-10-13T14:00:00.000-04:00" created_at="2026-10-13T13:58:00.000-04:00" updated_at="2026-10-13T15:00:00.000-04:00" url="https://notes.granola.ai/d/0b9a63e7-468f-4950-a9f6-dabea60de3e7">
+  <private_notes>the human notes &amp; more</private_notes>
+  <summary>the ai summary</summary>
+</meeting>`
+	note, ok := privateNoteFromGetMeetings(live)
+	if !ok || note != "the human notes & more" {
+		t.Fatalf("live format: note=%q resolved=%v", note, ok)
 	}
-	got := assignMeetingUUIDs(byTitle, cands)
-	if got["not_B"] == "uuid-A" {
-		t.Fatal("meeting A's private notes were attributed to meeting B")
+	if _, ok := privateNoteFromGetMeetings(""); ok {
+		t.Fatal("an empty answer resolved")
 	}
-}
-
-// TestPrivateNotesAttributionSeesThinSyncedNotes: A may be listed by sync
-// (thin notes table) without being hydrated; it still competes for its notes.
-func TestPrivateNotesAttributionSeesThinSyncedNotes(t *testing.T) {
-	s := newIsolatedStore(t)
-	defer s.Close()
-	insertMeeting(t, s, seedMeeting{ID: "not_B", Title: "Weekly Sync", CreatedAt: "2026-10-12T10:00:00Z"})
-	if _, err := s.DB().Exec(`INSERT INTO notes(id, data, title, created_at) VALUES ('not_A', '{}', 'Weekly Sync', '2026-10-12T09:00:00Z')`); err != nil {
-		t.Fatal(err)
+	if _, ok := privateNoteFromGetMeetings(live + "\n" + live); ok {
+		t.Fatal("an ambiguous two-block answer resolved")
 	}
-	targets := []restTarget{{ID: "not_B", Title: "Weekly Sync", Created: time.Date(2026, 10, 12, 10, 0, 0, 0, time.UTC)}}
-	byTitle := map[string][]mcpMeeting{normTitle("Weekly Sync"): {{UUID: "uuid-A", Title: "Weekly Sync", Date: time.Date(2026, 10, 12, 9, 0, 0, 0, time.UTC)}}}
-	cands, ok := withSameTitleStoredMeetings(context.Background(), s.DB(), targets)
-	if !ok {
-		t.Fatal("candidate listing failed")
-	}
-	if got := assignMeetingUUIDs(byTitle, cands); got["not_B"] == "uuid-A" {
-		t.Fatal("a synced-but-unhydrated meeting's private notes were attributed to another meeting")
+	if note, ok := privateNoteFromGetMeetings(`<meeting id="x" title="T" date="D"></meeting>`); !ok || note != "" {
+		t.Fatalf("a meeting without private notes: note=%q resolved=%v", note, ok)
 	}
 }
 
@@ -720,8 +704,10 @@ func TestYAMLEscapeQuotesIndicatorLedTitles(t *testing.T) {
 			t.Errorf("yamlEscape(%q) = %s, want a quoted string", in, got)
 		}
 	}
-	if got := yamlEscape("Weekly Sync"); got != "Weekly Sync" {
-		t.Errorf("plain title was quoted: %s", got)
+	for _, in := range []string{"Weekly Sync", "2026-10-13", ""} {
+		if got := yamlEscape(in); got != `"`+in+`"` {
+			t.Errorf("yamlEscape(%q) = %s, want it quoted as a string", in, got)
+		}
 	}
 }
 

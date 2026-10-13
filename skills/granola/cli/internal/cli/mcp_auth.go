@@ -95,7 +95,11 @@ func newMCPAuthVerifyCmd(flags *rootFlags) *cobra.Command {
 				return apiErr(fmt.Errorf("get_meetings returned an error"))
 			}
 			hits := sectionLabelsPresent(gmText)
-			human := contains(hits, "Notes") || contains(hits, "Human") || contains(hits, "Private")
+			// The live answer carries private notes in a <private_notes>
+			// block; read it (length only, never echoed) rather than guess
+			// from section labels (handfixes.json: mcp-notes-by-note-id).
+			pn, _ := privateNoteFromGetMeetings(gmText)
+			human := pn != "" || contains(hits, "Notes") || contains(hits, "Human") || contains(hits, "Private")
 			if flags.asJSON {
 				return printJSONFiltered(w, map[string]any{
 					"connected":          true,

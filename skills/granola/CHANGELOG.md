@@ -19,7 +19,8 @@ All notable changes to this skill are documented here. Format follows
 - `preflight` fetches a meeting that sync has listed but not yet enriched, instead
   of reporting it as missing.
 - `sync` from the Granola public REST API with detail-endpoint enrichment, and
-  optional private notes through Granola's official MCP (`mcp-auth login`).
+  optional private notes through Granola's official MCP (`mcp-auth login`),
+  fetched by each meeting's own note id so they land on the right meeting.
 - `doctor` verifies the API key with a real read and says plainly when the base
   URL is not the Granola API.
 - Read-only against Granola: no command creates, edits, or deletes Granola data.

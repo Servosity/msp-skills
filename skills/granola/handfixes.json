@@ -857,38 +857,6 @@
    ]
   },
   {
-   "id": "mcp-notes-attribution-all-candidates",
-   "summary": "private-note attribution weighs every stored meeting that shares a target's title, not just the current batch",
-   "why": "With A (09:00) and B (10:00) titled alike and only B in the batch, the MCP copy of A had no competitor and its private notes were written under B (Codex full-PR review). Round 2: meetings sync has listed but not hydrated (the thin notes table) are candidates too, and a failed candidate listing writes nothing.",
-   "status": "active",
-   "asserts": [
-    {
-     "file": "cli/internal/cli/mcp_notes.go",
-     "contains": "candidates, ok := withSameTitleStoredMeetings(ctx, db, targets)",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
-     "contains": "func TestPrivateNotesAttributionSeesAllSameTitleMeetings(",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/mcp_notes.go",
-     "contains": "FROM notes WHERE id LIKE 'not_%'",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
-     "contains": "func TestPrivateNotesAttributionSeesThinSyncedNotes(",
-     "min_count": 1,
-     "code_only": true
-    }
-   ]
-  },
-  {
    "id": "mcp-refresh-rotation-persistence",
    "summary": "after a token refresh, the rotated refresh token is written to the Keychain first, with a retry, and every failed write is reported",
    "why": "Granola retires the old refresh token on use. An access-token write failure used to stop the refresh token from ever being saved, losing the session on the next run, behind a soft warning (Codex full-PR review). Round 2: the expiry never advances when the access token was not saved (the next run refreshes), and a lost refresh token is returned as an error instead of a soft warning.",
@@ -1071,7 +1039,7 @@
   {
    "id": "export-summary-stored-locally",
    "summary": "hydration stores the AI summary (meeting_summaries table) so local exports include it; a failed live summary fetch is reported as a failure",
-   "why": "A local export always printed 'no AI panel available', and a 401/500 on the live summary fetch was swallowed and rendered the same way (Codex full-PR review).",
+   "why": "A local export always printed 'no AI panel available', and a 401/500 on the live summary fetch was swallowed and rendered the same way (Codex full-PR review). `panel get --data-source local` serves the stored summary too.",
    "status": "active",
    "asserts": [
     {
@@ -1095,6 +1063,12 @@
     {
      "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
      "contains": "func TestExportUsesStoredSummaryAndReportsFetchFailure(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/panel.go",
+     "contains": "md := storedSummary(id)",
      "min_count": 1,
      "code_only": true
     }
@@ -1251,7 +1225,7 @@
    "id": "yaml-metadata-escaped",
    "summary": "metadata frontmatter escapes backslashes, quotes, and control characters in quoted scalars",
    "status": "active",
-   "why": "A title such as `QBR: C:\\\\Users\\\\Alice` produced an invalid double-quoted YAML scalar (Codex full-PR review round 2, P2). Round 3: a title led by a YAML indicator ([, {, -, ?, ...) or padded with spaces is quoted too. Round 4: strings a YAML parser would retype (true, null, 2026, 1e3) are quoted.",
+   "why": "A title such as `QBR: C:\\\\Users\\\\Alice` produced an invalid double-quoted YAML scalar (Codex full-PR review round 2, P2). Round 3: a title led by a YAML indicator ([, {, -, ?, ...) or padded with spaces is quoted too. Round 4: strings a YAML parser would retype (true, null, 2026, 1e3) are quoted. Round 5: every title and name is written as a double-quoted scalar; enumerating retyping cases kept missing some (dates such as 2026-10-13, empty strings).",
    "asserts": [
     {
      "file": "cli/internal/cli/extract.go",
@@ -1268,12 +1242,6 @@
     {
      "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
      "contains": "func TestYAMLEscapeQuotesIndicatorLedTitles(",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/extract.go",
-     "contains": "func yamlPlainWouldRetype(s string) bool {",
      "min_count": 1,
      "code_only": true
     }
@@ -1312,6 +1280,42 @@
     {
      "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
      "contains": "func TestStoredTranscriptEnvelopeSaysLocal(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-notes-by-note-id",
+   "status": "active",
+   "summary": "private notes are fetched from Granola's official MCP by REST note id (get_meetings note_ids, one id per call), with meeting blocks matched loosely so extra tag attributes cannot break parsing",
+   "why": "The generated path listed meetings and matched them to REST meetings by title and date, with a regex that required the exact tag shape <meeting id title date>. Granola's list_meetings tag gained attributes (meeting_at, created_at, url, ...), the regex matched nothing, and every private note was silently dropped: proved on a live account, 0 of 150 meetings matched while get_meetings by note id returned their notes (149 of 150 after the fix). Fetching by note id also removes the title/date attribution heuristics the Codex review kept finding gaps in.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/mcp_notes.go",
+     "contains": "mcpToolCall(access, sid, \"get_meetings\", map[string]any{\"note_ids\": []string{t.ID}})",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/mcp_notes.go",
+     "contains": "mcpBlockRe   = regexp.MustCompile(`(?s)<meeting\\b([^>]*)>(.*?)</meeting>`)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/mcp_notes.go",
+     "not_contains": "mcpToolCall(access, sid, \"list_meetings\""
+    },
+    {
+     "file": "cli/internal/cli/mcp_auth.go",
+     "contains": "pn, _ := privateNoteFromGetMeetings(gmText)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestPrivateNoteFromGetMeetingsReadsTheLiveFormat(",
      "min_count": 1,
      "code_only": true
     }

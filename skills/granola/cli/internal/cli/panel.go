@@ -48,14 +48,23 @@ single AI summary, which this serves. --template summary selects it.`,
 				return nil
 			}
 			id := args[0]
+			// Hand-wired (handfixes.json: export-summary-stored-locally):
+			// --data-source local serves the summary hydration stored; the
+			// default fetches it live.
+			var panels map[string]string
+			source := "live"
 			if flags.dataSource == "local" {
-				// The AI summary is only in the live detail endpoint, not the
-				// local store; --data-source local can't serve it.
-				return notFoundErr(fmt.Errorf("AI summary for %s is not stored locally; omit --data-source local to fetch it", id))
-			}
-			panels, err := restSummaryPanel(cmd.Context(), id)
-			if err != nil {
-				return err
+				md := storedSummary(id)
+				if md == "" {
+					return notFoundErr(fmt.Errorf("no AI summary is stored locally for %s; run 'granola-cli enrich' or omit --data-source local to fetch it", id))
+				}
+				panels, source = map[string]string{"summary": md}, "local"
+			} else {
+				var err error
+				panels, err = restSummaryPanel(cmd.Context(), id)
+				if err != nil {
+					return err
+				}
 			}
 			if template != "" {
 				val, ok := panels[template]
@@ -66,7 +75,7 @@ single AI summary, which this serves. --template summary selects it.`,
 					fmt.Fprintln(cmd.OutOrStdout(), val)
 					return nil
 				}
-				return emitJSONSource(cmd, flags, map[string]string{template: val}, "live")
+				return emitJSONSource(cmd, flags, map[string]string{template: val}, source)
 			}
 			if asMarkdown {
 				for slug, content := range panels {
@@ -74,7 +83,7 @@ single AI summary, which this serves. --template summary selects it.`,
 				}
 				return nil
 			}
-			return emitJSONSource(cmd, flags, panels, "live")
+			return emitJSONSource(cmd, flags, panels, source)
 		},
 	}
 	cmd.Flags().StringVar(&template, "template", "", "Select one panel by template slug")

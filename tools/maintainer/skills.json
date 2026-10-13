@@ -676,7 +676,7 @@
       "category": "Documentation",
       "display_name": "Granola",
       "tagline": "Search and analyze every Granola meeting - transcripts, summaries, attendees, and talk-time - across all your calls.",
-      "cli_hash": "sha256:2b2bcb7bc979ba96349e2ece4cdf85e4baebcb81fd87fd03aeb8ea7056f2e5aa",
+      "cli_hash": "sha256:f5ca28bc702771a3123b5ffd8031e8b9dbcf85f1dce096f2780c350915da14e2",
       "template_version": 3,
       "version": "0.1.0",
       "cli_hash_at_release": null,

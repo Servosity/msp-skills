@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -239,34 +238,32 @@ func composeMetadataMarkdown(a *meetingArtifacts) string {
 }
 
 func yamlEscape(s string) string {
-	// Quote anything that could change how YAML reads the scalar. Inside a
-	// double-quoted scalar a backslash starts an escape, so backslashes are
-	// escaped first, then quotes and control characters (a title such as
-	// `QBR: C:\Users\Alice` used to produce invalid frontmatter).
-	if strings.ContainsAny(s, ":#@\"'\\") || strings.ContainsFunc(s, func(r rune) bool { return r < 0x20 || r == 0x7f }) ||
-		(s != "" && strings.ContainsRune("[]{}-?!&*|>%`,", rune(s[0]))) || strings.TrimSpace(s) != s || yamlPlainWouldRetype(s) {
-		var b strings.Builder
-		b.WriteByte('"')
-		for _, r := range s {
-			switch {
-			case r == '\\':
-				b.WriteString(`\\`)
-			case r == '"':
-				b.WriteString(`\"`)
-			case r == '\n':
-				b.WriteString(`\n`)
-			case r == '\t':
-				b.WriteString(`\t`)
-			case r < 0x20 || r == 0x7f:
-				fmt.Fprintf(&b, `\x%02x`, r)
-			default:
-				b.WriteRune(r)
-			}
+	// Always a double-quoted scalar (handfixes.json: yaml-metadata-escaped):
+	// enumerating the plain strings a YAML parser would retype (booleans,
+	// nulls, numbers, dates such as 2026-10-13, indicator-led text) kept
+	// missing cases, and quoting every title and name is always correct.
+	// Inside double quotes a backslash starts an escape, so backslashes,
+	// quotes, and control characters are escaped.
+	var b strings.Builder
+	b.WriteByte('"')
+	for _, r := range s {
+		switch {
+		case r == '\\':
+			b.WriteString(`\\`)
+		case r == '"':
+			b.WriteString(`\"`)
+		case r == '\n':
+			b.WriteString(`\n`)
+		case r == '\t':
+			b.WriteString(`\t`)
+		case r < 0x20 || r == 0x7f:
+			fmt.Fprintf(&b, `\x%02x`, r)
+		default:
+			b.WriteRune(r)
 		}
-		b.WriteByte('"')
-		return b.String()
 	}
-	return s
+	b.WriteByte('"')
+	return b.String()
 }
 
 // docWindow derives a meeting's REAL start/end bounds for the metadata block.
@@ -358,21 +355,4 @@ func lockExtract(outDir, id string) (func(), error) {
 		unlockFile(f)
 		_ = f.Close()
 	}, nil
-}
-
-// yamlPlainWouldRetype reports whether s, written unquoted, would be read by
-// a YAML parser as something other than a string: a boolean or null word, or
-// a number ("2026", "1e3", "0x1F").
-func yamlPlainWouldRetype(s string) bool {
-	switch strings.ToLower(s) {
-	case "true", "false", "yes", "no", "on", "off", "y", "n", "null", "~", ".nan", ".inf", "-.inf", "+.inf":
-		return true
-	}
-	if _, err := strconv.ParseFloat(s, 64); err == nil {
-		return true
-	}
-	if _, err := strconv.ParseInt(s, 0, 64); err == nil {
-		return true
-	}
-	return false
 }
