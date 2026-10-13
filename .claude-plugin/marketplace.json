@@ -28,7 +28,7 @@
       "name": "acronis",
       "source": "./skills/acronis",
       "description": "The first real CLI for the Acronis Cyber Protect Cloud platform \u2014 every tenant, agent, and usage metric mirrored locally, with cross-tenant rollups no single API call returns.",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "category": "backup-dr",
       "tags": [
         "acronis",
@@ -133,7 +133,7 @@
       "name": "avanan",
       "source": "./skills/avanan",
       "description": "Every Avanan (Check Point Harmony Email and Collaboration) API operation, plus shift-start triage, phishing campaign clustering, single-message lifecycle timelines, one exception lookup across all seven security engines, and cross-tenant MSP fleet rollups that a stateless API mirror cannot answer in a single call.",
-      "version": "0.1.6",
+      "version": "0.1.7",
       "category": "security",
       "tags": [
         "avanan",
@@ -166,7 +166,7 @@
       "name": "axcient",
       "source": "./skills/axcient",
       "description": "Every x360Recover endpoint, plus the fleet-wide backup-health answers the API alone can't give \u2014 offline, joined, and agent-ready.",
-      "version": "0.2.13",
+      "version": "0.2.14",
       "category": "backup-dr",
       "tags": [
         "axcient",
@@ -212,7 +212,7 @@
       "name": "cipp",
       "source": "./skills/cipp",
       "description": "First single-binary CLI for CIPP \u2014 offline SQLite store, fleet posture analytics, and cross-tenant fan-out no other CIPP tool has.",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "category": "security",
       "tags": [
         "cipp",
@@ -310,7 +310,7 @@
       "name": "cove",
       "source": "./skills/cove",
       "description": "The first CLI and MCP server for Cove Data Protection \u2014 fleet-wide backup health, billing usage, and storage trends from a terminal, with the local history the vendor console doesn't keep.",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "category": "backup-dr",
       "tags": [
         "cove",
@@ -341,7 +341,7 @@
       "name": "datagate",
       "source": "./skills/datagate",
       "description": "Every DataGate telecom billing API resource, plus a local SQLite store and offline search the API can't return in one call.",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "category": "billing",
       "tags": [
         "datagate",
@@ -356,7 +356,7 @@
       "name": "datto-bcdr",
       "source": "./skills/datto-bcdr",
       "description": "Sync your whole Datto BCDR fleet into local SQLite and answer the questions the per-appliance Partner Portal can't: which backups failed screenshot verification, which are stale, and which clients are at risk.",
-      "version": "0.1.6",
+      "version": "0.1.7",
       "category": "backup-dr",
       "tags": [
         "datto-bcdr",
@@ -440,7 +440,7 @@
       "name": "halopsa",
       "source": "./skills/halopsa",
       "description": "Every HaloPSA, HaloITSM and HaloCRM feature, plus a local SQLite store and cross-entity views the API can't return.",
-      "version": "0.2.18",
+      "version": "0.2.19",
       "category": "psa",
       "tags": [
         "halopsa",
@@ -455,7 +455,7 @@
       "name": "hubspot",
       "source": "./skills/hubspot",
       "description": "Every HubSpot Sales Hub feature, plus offline cross-object queries, property-change-history reporting, and an agent-native data layer no other HubSpot tool has.",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "category": "crm",
       "tags": [
         "hubspot",
@@ -470,7 +470,7 @@
       "name": "hudu",
       "source": "./skills/hudu",
       "description": "Every Hudu cmdlet, plus an offline SQLite mirror, cross-entity audits, and agent-native output no PowerShell module or read-only MCP ships.",
-      "version": "0.1.12",
+      "version": "0.1.13",
       "category": "documentation",
       "tags": [
         "hudu",
@@ -485,7 +485,7 @@
       "name": "huntress",
       "source": "./skills/huntress",
       "description": "Every Huntress endpoint, plus fleet-wide incident, coverage, and billing rollups the API can't.",
-      "version": "0.1.6",
+      "version": "0.1.7",
       "category": "security",
       "tags": [
         "huntress",
@@ -500,7 +500,7 @@
       "name": "immybot",
       "source": "./skills/immybot",
       "description": "Every ImmyBot endpoint typed, plus a local SQLite mirror that answers the cross-tenant questions the web UI cannot.",
-      "version": "0.1.6",
+      "version": "0.1.7",
       "category": "rmm",
       "tags": [
         "immybot",
@@ -515,7 +515,7 @@
       "name": "itglue",
       "source": "./skills/itglue",
       "description": "Every IT Glue resource, plus an offline SQLite mirror, fleet-wide cross-resource search, and documentation-hygiene analytics no other IT Glue tool offers.",
-      "version": "0.1.3",
+      "version": "0.1.4",
       "category": "documentation",
       "tags": [
         "itglue",
@@ -689,7 +689,7 @@
       "name": "ninjaone",
       "source": "./skills/ninjaone",
       "description": "Every NinjaOne report, plus a local store that answers fleet-wide questions no single API call can: patch compliance, backup gaps, AV blast-radius, health, drift.",
-      "version": "0.1.16",
+      "version": "0.1.17",
       "category": "rmm",
       "tags": [
         "ninjaone",
@@ -779,7 +779,7 @@
       "name": "quickbooks",
       "source": "./skills/quickbooks",
       "description": "Every QuickBooks Online Accounting entity, plus an offline SQLite mirror, cross-entity search, and AR/AP aging no SDK or read-only MCP ships.",
-      "version": "0.1.10",
+      "version": "0.1.11",
       "category": "billing",
       "tags": [
         "quickbooks",
@@ -900,7 +900,7 @@
       "name": "sentinelone",
       "source": "./skills/sentinelone",
       "description": "Every SentinelOne v2.1 management endpoint, plus an offline SQLite store and cross-entity analytics \u2014 fleet health, threat triage, blast radius, drift \u2014 that no console view offers.",
-      "version": "0.2.1",
+      "version": "0.2.2",
       "category": "security",
       "tags": [
         "sentinelone",
@@ -960,7 +960,7 @@
       "name": "superops",
       "source": "./skills/superops",
       "description": "Every SuperOps PSA+RMM entity in your terminal, plus a local SQLite mirror that answers cross-entity questions the web UI can't.",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "category": "psa",
       "tags": [
         "superops",
@@ -1006,7 +1006,7 @@
       "name": "threatlocker",
       "source": "./skills/threatlocker",
       "description": "Every ThreatLocker Portal API feature, plus the write operations the read-only tools lack and a cross-tenant offline store no other ThreatLocker tool has.",
-      "version": "0.3.7",
+      "version": "0.3.8",
       "category": "security",
       "tags": [
         "threatlocker",
@@ -1052,7 +1052,7 @@
       "name": "wordpress",
       "source": "./skills/wordpress",
       "description": "Publish and manage WordPress pages, posts, media",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "category": "marketing",
       "tags": [
         "wordpress",
@@ -1082,7 +1082,7 @@
       "name": "zammad",
       "source": "./skills/zammad",
       "description": "Every Zammad ticket, article, and Knowledge Base operation as one agent-native CLI  -  plus a team-management layer (agent load, customer health, aging backlog, escalation triage, churn risk, feedback mining) the Zammad API can't answer in a single call.",
-      "version": "0.1.6",
+      "version": "0.1.7",
       "category": "psa",
       "tags": [
         "zammad",

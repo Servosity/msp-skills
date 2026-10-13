@@ -4,6 +4,11 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.2.2] - 2026-10-13
+
+### Changed
+- Built with Go 1.26.9 (was 1.26.6). This fixes three Go `net/http` security advisories that `govulncheck` found reachable in the previous build: GO-2026-6617 (an HTTP/2 crash), GO-2026-6613 and GO-2026-6612. No commands, flags or output changed.
+
 ## [0.2.1] - 2026-09-28
 
 0.2.0 was tagged but never published: the release probe refused its MCP binary, which reported `serverInfo.version` 0.0.0-dev because the reprint dropped `var version` from the MCP entry point. That is restored (and recorded in `handfixes.json`), and 0.2.1 is the first release of this reprint.
