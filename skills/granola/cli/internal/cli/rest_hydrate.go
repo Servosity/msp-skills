@@ -249,12 +249,14 @@ func upsertRichMeeting(ctx context.Context, db *sql.DB, d *restNoteDetail) error
 	if _, err := tx.ExecContext(ctx, `INSERT INTO meetings(
 		id, title, created_at, updated_at, started_at, ended_at, workspace_id,
 		calendar_event_id, deleted_at, notes_markdown, notes_plain,
-		transcript_available, recipes_applied, creation_source, valid_meeting
-	) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+		transcript_available, recipes_applied, creation_source, valid_meeting,
+		source_updated_at
+	) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 	ON CONFLICT(id) DO UPDATE SET
 		title=CASE WHEN excluded.title != '' THEN excluded.title ELSE meetings.title END,
 		created_at=CASE WHEN excluded.created_at != '' THEN excluded.created_at ELSE meetings.created_at END,
 		updated_at=CASE WHEN excluded.updated_at != '' THEN excluded.updated_at ELSE meetings.updated_at END,
+		source_updated_at=CASE WHEN excluded.source_updated_at != '' THEN excluded.source_updated_at ELSE meetings.source_updated_at END,
 		started_at=CASE WHEN ?=1 THEN excluded.started_at ELSE meetings.started_at END,
 		ended_at=CASE WHEN ?=1 THEN excluded.ended_at ELSE meetings.ended_at END,
 		calendar_event_id=CASE WHEN ?=1 THEN excluded.calendar_event_id ELSE meetings.calendar_event_id END,
@@ -264,6 +266,7 @@ func upsertRichMeeting(ctx context.Context, db *sql.DB, d *restNoteDetail) error
 		// VALUES
 		d.ID, d.Title, createdAt, updatedAt, startedAt, endedAt, "",
 		calendarEventID, "", "", "", transcriptAvail, "[]", "api", 1,
+		d.UpdatedAt, // as the API sent it: the freshness watermark
 		// CASE presence flags (started, ended, calendar_id, transcript) — each
 		// bound guarded independently so a half-populated calendar_event can't
 		// blank the other bound.

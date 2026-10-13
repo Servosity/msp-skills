@@ -173,6 +173,14 @@ func EnsureSchema(ctx context.Context, db *sql.DB) error {
 		`ALTER TABLE human_notes_state ADD COLUMN resolved INTEGER NOT NULL DEFAULT 0`); err != nil {
 		return err
 	}
+	// source_updated_at: the API's updated_at for the hydrated detail, kept at
+	// the API's own precision. updated_at is canonical whole seconds for
+	// filtering; this is the watermark the freshness check compares against
+	// (handfixes.json: meeting-times-stored-utc).
+	if err := addColumnIfMissing(ctx, db, "meetings", "source_updated_at",
+		`ALTER TABLE meetings ADD COLUMN source_updated_at TEXT NOT NULL DEFAULT ''`); err != nil {
+		return err
+	}
 	// Meeting timestamps are compared and ordered as TEXT, which is only
 	// chronological in ONE representation: UTC, whole seconds, "Z"
 	// (2026-10-13T13:00:00Z, what the --since bounds use). Earlier builds

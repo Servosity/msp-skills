@@ -944,6 +944,34 @@ func TestIncrementalRefreshComparesInstants(t *testing.T) {
 			t.Fatalf("an already-hydrated note is re-fetched because of sub-second precision: %v", ids)
 		}
 	}
+	// Through the real write path: hydration keeps the API's full-precision
+	// updated_at as the watermark, so a revision later in the SAME second is
+	// picked up, and the unchanged value is not re-fetched.
+	if err := upsertRichMeeting(context.Background(), s.DB(), &restNoteDetail{ID: "not_ms", Title: "T", CreatedAt: "2026-10-13T12:00:00Z", UpdatedAt: "2026-10-13T13:00:00.100Z"}); err != nil {
+		t.Fatal(err)
+	}
+	refetch := func(thin string) bool {
+		t.Helper()
+		if _, err := s.DB().Exec(`INSERT INTO notes(id, data, updated_at) VALUES ('not_ms', '{}', ?) ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at`, thin); err != nil {
+			t.Fatal(err)
+		}
+		ids, err := unhydratedRecentNoteIDs(context.Background(), s.DB(), 10)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, id := range ids {
+			if id == "not_ms" {
+				return true
+			}
+		}
+		return false
+	}
+	if refetch("2026-10-13T13:00:00.100Z") {
+		t.Fatal("an unchanged fractional updated_at is re-fetched")
+	}
+	if !refetch("2026-10-13T13:00:00.900Z") {
+		t.Fatal("a revision later in the same second is skipped")
+	}
 }
 
 // TestBackfillAsksNeverAskedMeetingsFirst: meetings whose get_meetings keeps

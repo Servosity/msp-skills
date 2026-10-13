@@ -1354,7 +1354,7 @@
   {
    "id": "meeting-times-stored-utc",
    "status": "active",
-   "summary": "meeting times are stored as whole-second UTC \"Z\" text, EnsureSchema rewrites any stored value not in that form (offsets and fractional seconds), and the thin-notes vs meetings freshness check compares instants",
+   "summary": "meeting times are stored as whole-second UTC \"Z\" text, EnsureSchema rewrites any stored value not in that form (offsets and fractional seconds), and the thin-notes vs meetings freshness check compares instants; hydration keeps the API's full-precision updated_at as meetings.source_updated_at, the watermark that comparison uses",
    "why": "Filters and ordering compare timestamps as TEXT, which is only chronological in one representation. Calendar times arrived with their offset (09:00-04:00), so `stats frequency --since 2026-10-13T12:00:00Z` excluded a 13:00 UTC meeting (Codex full-PR review round 6).",
    "asserts": [
     {
@@ -1377,7 +1377,7 @@
     },
     {
      "file": "cli/internal/cli/sync_autorefresh.go",
-     "contains": "COALESCE(strftime('%s', n.updated_at) + 0, 0) > COALESCE(strftime('%s', m.updated_at) + 0, 0)",
+     "contains": "THEN COALESCE(julianday(n.updated_at), 0) > COALESCE(julianday(m.source_updated_at), 0)",
      "min_count": 1,
      "code_only": true
     },
@@ -1390,6 +1390,12 @@
     {
      "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
      "contains": "func TestIncrementalRefreshComparesInstants(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/granola/store_sync.go",
+     "contains": "`ALTER TABLE meetings ADD COLUMN source_updated_at TEXT NOT NULL DEFAULT ''`",
      "min_count": 1,
      "code_only": true
     }
