@@ -189,9 +189,9 @@
     "released_hash": "sha256:ecb9243e53302e8ddf5bb9bee871e92b527888ee35c6ab90c1465ba7f7b21ebd"
   },
   "halopsa": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.2.19",
-    "latest_tag": "halopsa-v0.2.18",
+    "latest_tag": "halopsa-v0.2.19",
     "current_hash": "sha256:d862ade93a9ee3f849144291560ad4eee11fc812e3d3983cd8daa9d1e2f0abaa",
     "released_hash": "sha256:d862ade93a9ee3f849144291560ad4eee11fc812e3d3983cd8daa9d1e2f0abaa"
   },
@@ -399,9 +399,9 @@
     "released_hash": "sha256:c74b9f70dfa00153c3082b954f8ff1439cf732a4019f6f2bd27419a4f4a99e90"
   },
   "sentinelone": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.2.2",
-    "latest_tag": "sentinelone-v0.2.1",
+    "latest_tag": "sentinelone-v0.2.2",
     "current_hash": "sha256:d9c79b54cdade127fb9f0da375227b79d91698386bf5bdecea28cf4f37d40eb5",
     "released_hash": "sha256:d9c79b54cdade127fb9f0da375227b79d91698386bf5bdecea28cf4f37d40eb5"
   },
@@ -448,9 +448,9 @@
     "released_hash": "sha256:c2ec39e79968c572bbfc500bf309458387b0e4815227950718bf561ab6670be6"
   },
   "threatlocker": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.3.8",
-    "latest_tag": "threatlocker-v0.3.7",
+    "latest_tag": "threatlocker-v0.3.8",
     "current_hash": "sha256:6ba1552b29e84569b9c13f766d3033e5f74853276635b8e75f884f549db01d24",
     "released_hash": "sha256:6ba1552b29e84569b9c13f766d3033e5f74853276635b8e75f884f549db01d24"
   },
