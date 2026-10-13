@@ -119,10 +119,10 @@
     "released_hash": "sha256:e4d833af9fa586aff2806ffbeec1426faa88c0381bb085ac6e6f1c0ecc767ad4"
   },
   "connectwise-manage": {
-    "state": "up-to-date",
+    "state": "binary-pending",
     "version": "0.2.0",
     "latest_tag": "connectwise-manage-v0.2.0",
-    "current_hash": "sha256:b05893974652584c7c987365f9e6639a421fa0bb5451e443533080fba7a38f2b",
+    "current_hash": "sha256:d10c02e059f94ad63982f73b105395d4876b96e7fd5b09b4fd47dff8b73a07b0",
     "released_hash": "sha256:b05893974652584c7c987365f9e6639a421fa0bb5451e443533080fba7a38f2b"
   },
   "cork": {
@@ -301,10 +301,10 @@
     "released_hash": "sha256:babbdfb76a319602cb7ca5924173029c40edb209e647da83f9be85be397e2998"
   },
   "ninjaone": {
-    "state": "up-to-date",
+    "state": "binary-pending",
     "version": "0.1.16",
     "latest_tag": "ninjaone-v0.1.16",
-    "current_hash": "sha256:3122ce8f90c17e70c94be44000db12ea6e48795e74160b81f88d8abd56df2f41",
+    "current_hash": "sha256:f47a124859dabc88f64566ea9169fc2bfbc168d184491fc468a6b38a563e7924",
     "released_hash": "sha256:3122ce8f90c17e70c94be44000db12ea6e48795e74160b81f88d8abd56df2f41"
   },
   "pagerduty": {
