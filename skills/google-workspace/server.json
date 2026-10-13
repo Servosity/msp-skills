@@ -1,0 +1,46 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Servosity/google-workspace-mcp",
+  "title": "Google Workspace MCP",
+  "description": "Cross-client Google Workspace admin: 2SV gaps, licence waste, sharing drift, safe offboarding.",
+  "version": "4.33.5",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/google-workspace/google-workspace-512x512.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/servosity/msp-skills",
+    "source": "github",
+    "subfolder": "skills/google-workspace"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/google-workspace-v4.33.5/google-workspace-mcp.mcpb",
+      "version": "4.33.5",
+      "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "ADMIN_ACCESS_TOKEN",
+          "description": "Set the ADMIN_ACCESS_TOKEN credential for the Google Workspace MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "GOOGLE_WORKSPACE_TOKEN",
+          "description": "Set the GOOGLE_WORKSPACE_TOKEN credential for the Google Workspace MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}

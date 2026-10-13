@@ -1108,6 +1108,22 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "google-workspace",
+      "source": "./skills/google-workspace",
+      "description": "Cross-client Google Workspace admin: 2SV gaps, license waste, sharing drift, safe offboarding.",
+      "version": "0.1.0",
+      "category": "security",
+      "tags": [
+        "google-workspace",
+        "google workspace",
+        "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }

@@ -1,0 +1,52 @@
+{
+  "manifest_version": "0.3",
+  "name": "google-workspace-pp-mcp",
+  "display_name": "Google Workspace Admin",
+  "version": "4.33.5",
+  "description": "Cross-client Google Workspace admin: 2SV gaps, licence waste, sharing drift, safe offboarding.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/google-workspace-pp-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/google-workspace-pp-mcp",
+      "args": [],
+      "env": {
+        "ADMIN_ACCESS_TOKEN": "${user_config.admin_access_token}",
+        "GOOGLE_WORKSPACE_TOKEN": "${user_config.google_workspace_token}"
+      }
+    }
+  },
+  "user_config": {
+    "admin_access_token": {
+      "type": "string",
+      "title": "ADMIN_ACCESS_TOKEN",
+      "description": "Optional. Sets ADMIN_ACCESS_TOKEN for the Google Workspace Admin MCP server.",
+      "sensitive": true
+    },
+    "google_workspace_token": {
+      "type": "string",
+      "title": "GOOGLE_WORKSPACE_TOKEN",
+      "description": "Optional. Sets GOOGLE_WORKSPACE_TOKEN for the Google Workspace Admin MCP server.",
+      "sensitive": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  },
+  "printing_press_version": "4.33.5",
+  "press_provenance": {
+    "printing_press_version": "4.33.5",
+    "generated_at": "2026-10-13T22:44:26.858556Z",
+    "spec_checksum": "sha256:7284e128477c332de66f776952ea3b97567b491385725afbe1389ca3b3103de7",
+    "spec_format": "internal"
+  }
+}
