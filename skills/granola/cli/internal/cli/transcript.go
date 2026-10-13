@@ -81,7 +81,7 @@ M:SS mark.`,
 						"source":      source,
 						"segments":    segs,
 					}
-					return emitJSON(cmd, flags, out)
+					return emitJSONSource(cmd, flags, out, source)
 				}
 				fallthrough
 			case "text":

@@ -259,7 +259,7 @@ func newMeetingsGetCmd(flags *rootFlags) *cobra.Command {
 				if rerr == nil {
 					var v any
 					if json.Unmarshal(raw, &v) == nil {
-						return emitJSON(cmd, flags, v)
+						return emitJSONSource(cmd, flags, v, "live")
 					}
 				} else if live {
 					return apiErr(fmt.Errorf("fetch meeting %s from the public API: %w", id, rerr))
@@ -303,7 +303,7 @@ func newMeetingsFetchBatchCmd(flags *rootFlags) *cobra.Command {
 					out = append(out, v)
 				}
 			}
-			return emitJSON(cmd, flags, out)
+			return emitJSONSource(cmd, flags, out, "live")
 		},
 	}
 	cmd.Flags().StringVar(&idsCSV, "ids", "", "Comma-separated meeting ids")

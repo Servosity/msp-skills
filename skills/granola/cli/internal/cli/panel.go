@@ -66,7 +66,7 @@ single AI summary, which this serves. --template summary selects it.`,
 					fmt.Fprintln(cmd.OutOrStdout(), val)
 					return nil
 				}
-				return emitJSON(cmd, flags, map[string]string{template: val})
+				return emitJSONSource(cmd, flags, map[string]string{template: val}, "live")
 			}
 			if asMarkdown {
 				for slug, content := range panels {
@@ -74,7 +74,7 @@ single AI summary, which this serves. --template summary selects it.`,
 				}
 				return nil
 			}
-			return emitJSON(cmd, flags, panels)
+			return emitJSONSource(cmd, flags, panels, "live")
 		},
 	}
 	cmd.Flags().StringVar(&template, "template", "", "Select one panel by template slug")

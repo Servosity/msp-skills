@@ -73,6 +73,15 @@ func runExtract(id, outDir, panelTemplate string, allowLive bool) (extractResult
 	if err := ensureSafeDir(outDir); err != nil {
 		return res, ioErr(err)
 	}
+	// One extract per (output folder, meeting) at a time, held from the
+	// "already exists" check through publication (handfixes.json:
+	// extract-triple-all-or-nothing): two concurrent runs could otherwise
+	// each publish part of a different snapshot.
+	unlock, err := lockExtract(outDir, id)
+	if err != nil {
+		return res, err
+	}
+	defer unlock()
 	fullPath, err := safeJoinContained(outDir, "full_"+id+".md")
 	if err != nil {
 		return res, err
@@ -233,7 +242,8 @@ func yamlEscape(s string) string {
 	// double-quoted scalar a backslash starts an escape, so backslashes are
 	// escaped first, then quotes and control characters (a title such as
 	// `QBR: C:\Users\Alice` used to produce invalid frontmatter).
-	if strings.ContainsAny(s, ":#@\"'\\") || strings.ContainsFunc(s, func(r rune) bool { return r < 0x20 || r == 0x7f }) {
+	if strings.ContainsAny(s, ":#@\"'\\") || strings.ContainsFunc(s, func(r rune) bool { return r < 0x20 || r == 0x7f }) ||
+		(s != "" && strings.ContainsRune("[]{}-?!&*|>%`,", rune(s[0]))) || strings.TrimSpace(s) != s {
 		var b strings.Builder
 		b.WriteByte('"')
 		for _, r := range s {
@@ -317,4 +327,40 @@ func durationMinutes(start, end string) int {
 		return 0
 	}
 	return int(d / time.Minute)
+}
+
+// extractLockStale is how old a leftover lock may be before a new run treats
+// it as abandoned by a killed process and takes it over.
+const extractLockStale = 10 * time.Minute
+
+// lockExtract takes an exclusive, hidden lock file for one meeting in one
+// output folder and returns the function that releases it. The duplicate
+// scan skips hidden files, so the lock never reads as a finished memo.
+func lockExtract(outDir, id string) (func(), error) {
+	r, err := os.OpenRoot(outDir)
+	if err != nil {
+		return nil, ioErr(err)
+	}
+	name := ".extract-" + id + ".lock"
+	for attempt := 0; attempt < 2; attempt++ {
+		f, err := r.OpenFile(name, os.O_CREATE|os.O_EXCL|os.O_WRONLY, safeFilePerm)
+		if err == nil {
+			_ = f.Close()
+			return func() {
+				_ = r.Remove(name)
+				_ = r.Close()
+			}, nil
+		}
+		if !os.IsExist(err) {
+			_ = r.Close()
+			return nil, ioErr(err)
+		}
+		if fi, serr := r.Lstat(name); serr == nil && time.Since(fi.ModTime()) > extractLockStale {
+			_ = r.Remove(name)
+			continue
+		}
+		break
+	}
+	_ = r.Close()
+	return nil, ioErr(fmt.Errorf("another extract of %s is writing to %s; retry when it finishes", id, outDir))
 }

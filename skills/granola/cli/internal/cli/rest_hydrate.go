@@ -127,7 +127,7 @@ func hydrateRichFromREST(ctx context.Context, db *sql.DB, c *client.Client, ids 
 			return written, 0, err
 		}
 		written++
-		targets = append(targets, restTarget{ID: d.ID, Title: d.Title, Created: rfcToTime(d.CreatedAt)})
+		targets = append(targets, effectiveRESTTarget(ctx, db, &d))
 	}
 	// Rebuild FTS so search reflects the fresh rows.
 	_, _ = db.ExecContext(ctx, `INSERT INTO meetings_fts(meetings_fts) VALUES ('rebuild')`)
@@ -459,4 +459,23 @@ store, delete the local database and re-sync:
 	cmd.Flags().IntVar(&limit, "limit", 50, "Enrich the N most-recent notes (0 = all)")
 	cmd.Flags().BoolVar(&full, "full", false, "Enrich the entire library (overrides --limit)")
 	return cmd
+}
+
+// effectiveRESTTarget builds the private-notes match target from the
+// EFFECTIVE stored title and created_at (handfixes.json:
+// mcp-notes-backfill-tracked): a partial response may omit them, and the
+// upsert kept the stored values, so matching on the response alone could miss
+// a meeting MCP does know.
+func effectiveRESTTarget(ctx context.Context, db *sql.DB, d *restNoteDetail) restTarget {
+	title, created := d.Title, d.CreatedAt
+	var st, sc string
+	if db.QueryRowContext(ctx, `SELECT COALESCE(title,''), COALESCE(created_at,'') FROM meetings WHERE id = ?`, d.ID).Scan(&st, &sc) == nil {
+		if st != "" {
+			title = st
+		}
+		if sc != "" {
+			created = sc
+		}
+	}
+	return restTarget{ID: d.ID, Title: title, Created: rfcToTime(created)}
 }

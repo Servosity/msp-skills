@@ -517,6 +517,17 @@ func emitJSON(cmd *cobra.Command, flags *rootFlags, v any) error {
 	return printJSONFiltered(cmd.OutOrStdout(), v, flags)
 }
 
+// emitJSONSource is emitJSON with the real provenance in the --agent
+// envelope (handfixes.json: live-output-provenance): emitJSON always labels
+// meta.source "local", which was false for data just fetched from the API.
+func emitJSONSource(cmd *cobra.Command, flags *rootFlags, v any, source string) error {
+	raw, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	return printOutputWithFlagsMeta(cmd.OutOrStdout(), json.RawMessage(raw), flags, map[string]any{"source": source})
+}
+
 // emitNDJSON writes each item on its own line.
 func emitNDJSON(cmd *cobra.Command, items []any) error {
 	w := cmd.OutOrStdout()

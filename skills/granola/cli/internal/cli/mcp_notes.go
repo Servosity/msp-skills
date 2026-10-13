@@ -254,7 +254,12 @@ func enrichHumanNotes(ctx context.Context, db *sql.DB, targets []restTarget) (in
 	}
 	uuidByRest := assignMeetingUUIDs(byTitle, candidates)
 	if len(uuidByRest) == 0 {
-		markHumanNotesChecked(ctx, db, targets)
+		checkedAt := time.Now().UTC().Format(time.RFC3339)
+		for _, t := range targets {
+			if err := recordHumanNotes(ctx, db, t.ID, "", false, checkedAt); err != nil {
+				return 0, err
+			}
+		}
 		return 0, nil
 	}
 	uuids := make([]string, 0, len(uuidByRest))
@@ -281,32 +286,25 @@ func enrichHumanNotes(ctx context.Context, db *sql.DB, targets []restTarget) (in
 			notesByUUID[k] = v
 		}
 	}
-	// Record which targets MCP has now answered for: those whose batch
-	// succeeded, and those MCP does not list at all (nothing to fetch). A
-	// target whose batch failed stays unrecorded and is retried.
+	// Write each meeting's notes and its completion state in ONE transaction
+	// (handfixes.json: mcp-notes-backfill-tracked), so a failed notes write
+	// can never leave the meeting marked done. A target whose batch failed is
+	// left untouched and retried; one MCP lists no match for is recorded as
+	// unresolved and retried after a day.
 	checkedAt := time.Now().UTC().Format(time.RFC3339)
-	for _, t := range targets {
-		u, resolved := uuidByRest[t.ID]
-		if resolved && !answered[u] {
-			continue
-		}
-		_, _ = db.ExecContext(ctx, `INSERT INTO human_notes_state(meeting_id, checked_at) VALUES (?, ?)
-			ON CONFLICT(meeting_id) DO UPDATE SET checked_at = excluded.checked_at`, t.ID, checkedAt)
-	}
-
-	// Write notes into the store.
 	n := 0
 	for _, t := range targets {
-		note := notesByUUID[uuidByRest[t.ID]]
-		if note == "" {
+		u, matched := uuidByRest[t.ID]
+		if matched && !answered[u] {
 			continue
 		}
-		if _, err := db.ExecContext(ctx,
-			`UPDATE meetings SET notes_markdown = ?, notes_plain = ? WHERE id = ?`,
-			note, note, t.ID); err != nil {
+		note := notesByUUID[u]
+		if err := recordHumanNotes(ctx, db, t.ID, note, matched, checkedAt); err != nil {
 			return n, err
 		}
-		n++
+		if note != "" {
+			n++
+		}
 	}
 	if n > 0 {
 		_, _ = db.ExecContext(ctx, `INSERT INTO meetings_fts(meetings_fts) VALUES ('rebuild')`)
@@ -363,29 +361,55 @@ func withSameTitleStoredMeetings(ctx context.Context, db *sql.DB, targets []rest
 	return out, true
 }
 
+// recordHumanNotes stores a meeting's private notes (when non-empty) and its
+// MCP completion state together, in one transaction.
+func recordHumanNotes(ctx context.Context, db *sql.DB, id, note string, resolved bool, checkedAt string) error {
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	if note != "" {
+		if _, err := tx.ExecContext(ctx, `UPDATE meetings SET notes_markdown = ?, notes_plain = ? WHERE id = ?`, note, note, id); err != nil {
+			return err
+		}
+	}
+	r := 0
+	if resolved {
+		r = 1
+	}
+	if _, err := tx.ExecContext(ctx, `INSERT INTO human_notes_state(meeting_id, checked_at, resolved) VALUES (?, ?, ?)
+		ON CONFLICT(meeting_id) DO UPDATE SET checked_at = excluded.checked_at, resolved = excluded.resolved`, id, checkedAt, r); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
 // markHumanNotesChecked records that MCP was asked about these meetings and
-// listed none of them, so the backfill does not retry them on every command.
+// matched none of them (unresolved: retried after a day).
 func markHumanNotesChecked(ctx context.Context, db *sql.DB, targets []restTarget) {
 	checkedAt := time.Now().UTC().Format(time.RFC3339)
 	for _, t := range targets {
-		_, _ = db.ExecContext(ctx, `INSERT INTO human_notes_state(meeting_id, checked_at) VALUES (?, ?)
-			ON CONFLICT(meeting_id) DO UPDATE SET checked_at = excluded.checked_at`, t.ID, checkedAt)
+		_ = recordHumanNotes(ctx, db, t.ID, "", false, checkedAt)
 	}
 }
 
 // pendingHumanNoteTargets returns up to limit hydrated meetings (newest first)
-// that Granola's MCP has never answered for: meetings hydrated before MCP was
-// connected, or whose MCP pass failed.
+// that Granola's MCP has not answered for: never asked (hydrated before MCP
+// was connected, or the MCP pass failed), or listed no match more than a day
+// ago.
 func pendingHumanNoteTargets(ctx context.Context, db *sql.DB, limit int) ([]restTarget, error) {
 	lim := limit
 	if lim <= 0 {
 		lim = -1
 	}
+	retryBefore := time.Now().UTC().Add(-24 * time.Hour).Format(time.RFC3339)
 	rows, err := db.QueryContext(ctx, `SELECT m.id, COALESCE(m.title,''), COALESCE(m.created_at,'') FROM meetings m
 		LEFT JOIN human_notes_state h ON h.meeting_id = m.id
-		WHERE h.meeting_id IS NULL AND m.id LIKE 'not_%'
+		WHERE m.id LIKE 'not_%'
+		  AND (h.meeting_id IS NULL OR (h.resolved = 0 AND COALESCE(h.checked_at,'') < ?))
 		ORDER BY m.created_at DESC
-		LIMIT ?`, lim)
+		LIMIT ?`, retryBefore, lim)
 	if err != nil {
 		return nil, err
 	}

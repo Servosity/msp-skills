@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -94,12 +95,21 @@ func newDuplicatesScanCmd(flags *rootFlags) *cobra.Command {
 				})
 			}
 			// Filesystem contributions.
-			if _, err := os.Stat(root); err == nil {
-				_ = filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
-					if err != nil || info == nil || info.IsDir() {
+			// Reads are scoped to an os.Root on --root (gosec G122): a symlink
+			// inside the tree cannot pull an outside file into the scan.
+			if r, rerr := os.OpenRoot(root); rerr == nil {
+				defer r.Close()
+				_ = fs.WalkDir(r.FS(), ".", func(rel string, de fs.DirEntry, err error) error {
+					if err != nil || de == nil || de.IsDir() {
 						return nil
 					}
-					name := info.Name()
+					info, ierr := de.Info()
+					if ierr != nil {
+						return nil
+					}
+					native := filepath.FromSlash(rel)
+					path := filepath.Join(root, native)
+					name := de.Name()
 					if !strings.HasSuffix(name, ".md") || strings.HasPrefix(name, ".") {
 						return nil
 					}
@@ -115,7 +125,7 @@ func newDuplicatesScanCmd(flags *rootFlags) *cobra.Command {
 					// 2. The id the file declares (Meeting ID / Meeting Link /
 					// frontmatter id), stored or not.
 					if key == "" {
-						if b, rerr := os.ReadFile(path); rerr == nil { // #nosec G304 -- walking the operator's own --root.
+						if b, rerr := r.ReadFile(native); rerr == nil {
 							for _, declared := range memoDeclaredIDs(string(b)) {
 								if rec, ok := byID[declared]; ok {
 									key = rec.key

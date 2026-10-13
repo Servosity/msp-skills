@@ -568,3 +568,129 @@ func TestPreflightLookupFailureIsNotNotFound(t *testing.T) {
 		t.Fatalf("preflight on a 401 lookup: err=%v, want exit code 5", err)
 	}
 }
+
+// --- round 3 -----------------------------------------------------------------
+
+// TestRecordHumanNotesIsAtomic: if the notes write fails, the meeting must
+// not be marked done.
+func TestRecordHumanNotesIsAtomic(t *testing.T) {
+	s := newIsolatedStore(t)
+	defer s.Close()
+	insertMeeting(t, s, seedMeeting{ID: "not_atomic", Title: "T", CreatedAt: "2026-10-12T09:00:00Z"})
+	if _, err := s.DB().Exec(`CREATE TRIGGER fail_notes BEFORE UPDATE OF notes_markdown ON meetings BEGIN SELECT RAISE(ABORT, 'disk full'); END`); err != nil {
+		t.Fatal(err)
+	}
+	if err := recordHumanNotes(context.Background(), s.DB(), "not_atomic", "private note", true, "2026-10-13T00:00:00Z"); err == nil {
+		t.Fatal("a failed notes write was not reported")
+	}
+	var n int
+	_ = s.DB().QueryRow(`SELECT COUNT(*) FROM human_notes_state WHERE meeting_id='not_atomic'`).Scan(&n)
+	if n != 0 {
+		t.Fatal("the meeting was marked done although its notes were not written")
+	}
+}
+
+// TestUnresolvedHumanNotesAreRetriedAfterADay: a meeting MCP listed no match
+// for is retried once its check is a day old; a resolved one never is.
+func TestUnresolvedHumanNotesAreRetriedAfterADay(t *testing.T) {
+	s := newIsolatedStore(t)
+	defer s.Close()
+	ctx := context.Background()
+	insertMeeting(t, s, seedMeeting{ID: "not_unres", Title: "U", CreatedAt: "2026-10-12T09:00:00Z"})
+	insertMeeting(t, s, seedMeeting{ID: "not_res", Title: "R", CreatedAt: "2026-10-12T10:00:00Z"})
+	old := time.Now().UTC().Add(-48 * time.Hour).Format(time.RFC3339)
+	if err := recordHumanNotes(ctx, s.DB(), "not_unres", "", false, old); err != nil {
+		t.Fatal(err)
+	}
+	if err := recordHumanNotes(ctx, s.DB(), "not_res", "", true, old); err != nil {
+		t.Fatal(err)
+	}
+	pending, err := pendingHumanNoteTargets(ctx, s.DB(), 25)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(pending) != 1 || pending[0].ID != "not_unres" {
+		t.Fatalf("pending = %v, want only the unresolved meeting", pending)
+	}
+}
+
+// TestEffectiveRESTTargetUsesStoredMetadata: a partial detail response that
+// omits title/created_at must not blank the private-notes match target.
+func TestEffectiveRESTTargetUsesStoredMetadata(t *testing.T) {
+	s := newIsolatedStore(t)
+	defer s.Close()
+	insertMeeting(t, s, seedMeeting{ID: "not_meta", Title: "Board Call", CreatedAt: "2026-10-12T09:00:00Z"})
+	got := effectiveRESTTarget(context.Background(), s.DB(), &restNoteDetail{ID: "not_meta", UpdatedAt: "2026-10-13T20:00:00Z"})
+	if got.Title != "Board Call" || got.Created.IsZero() {
+		t.Fatalf("target from a partial response = %+v, want the stored title and date", got)
+	}
+}
+
+// TestExtractRefusesWhileAnotherRunHoldsTheLock: two extracts of one meeting
+// into one folder must not interleave; a stale lock is taken over.
+func TestExtractRefusesWhileAnotherRunHoldsTheLock(t *testing.T) {
+	isolateGranola(t, "")
+	s := newIsolatedStore(t)
+	insertMeeting(t, s, seedMeeting{ID: "not_lock", Title: "T", CreatedAt: "2026-05-01T10:00:00Z"})
+	for i := 0; i < 6; i++ {
+		insertSegment(t, s, "not_lock", 2*i, "microphone", "m")
+		insertSegment(t, s, "not_lock", 2*i+1, "speaker", "s")
+	}
+	s.Close()
+	out := t.TempDir()
+	lock := filepath.Join(out, ".extract-not_lock.lock")
+	if err := os.WriteFile(lock, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runExtract("not_lock", out, "", false); err == nil || !strings.Contains(err.Error(), "another extract") {
+		t.Fatalf("extract ran while another held the lock: err=%v", err)
+	}
+	stale := time.Now().Add(-2 * extractLockStale)
+	if err := os.Chtimes(lock, stale, stale); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runExtract("not_lock", out, "", false); err != nil {
+		t.Fatalf("a stale lock was not taken over: %v", err)
+	}
+	if _, err := os.Stat(lock); !os.IsNotExist(err) {
+		t.Fatalf("the lock was not released: %v", err)
+	}
+}
+
+// TestLiveResultsCarryLiveProvenance: data fetched from the API must not be
+// labelled meta.source "local" in the --agent envelope.
+func TestLiveResultsCarryLiveProvenance(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{"id": "not_prov1", "title": "Live"})
+	}))
+	defer srv.Close()
+	isolateGranola(t, srv.URL)
+	s := newIsolatedStore(t)
+	s.Close()
+	stdout, _, err := runRootArgs(t, "meetings", "get", "not_prov1", "--data-source", "live", "--agent", "--no-refresh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var env struct {
+		Meta map[string]any `json:"meta"`
+	}
+	if err := json.Unmarshal([]byte(stdout), &env); err != nil {
+		t.Fatalf("not an envelope: %v\n%s", err, stdout)
+	}
+	if env.Meta["source"] != "live" {
+		t.Fatalf("meta.source = %v for a live fetch, want live", env.Meta["source"])
+	}
+}
+
+// TestYAMLEscapeQuotesIndicatorLedTitles: "[QBR]" and "- Planning" must stay
+// strings, not a sequence or invalid YAML.
+func TestYAMLEscapeQuotesIndicatorLedTitles(t *testing.T) {
+	for _, in := range []string{"[QBR]", "- Planning", "{x}", " padded"} {
+		if got := yamlEscape(in); !strings.HasPrefix(got, `"`) {
+			t.Errorf("yamlEscape(%q) = %s, want a quoted scalar", in, got)
+		}
+	}
+	if got := yamlEscape("Weekly Sync"); got != "Weekly Sync" {
+		t.Errorf("plain title was quoted: %s", got)
+	}
+}

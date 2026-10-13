@@ -767,7 +767,7 @@
   {
    "id": "extract-triple-all-or-nothing",
    "summary": "extract stages the MEMO triple in private temporary files and renames them into place only when all three are written, full_<id>.md last",
-   "why": "A half-written triple left full_<id>.md behind, and the retry refused it as 'already exists' forever (Codex full-PR review). Round 2: a failure while writing the FIRST file also left a partial full_<id>.md, so the triple is now staged under hidden temporary names (skipped by the duplicate scan) and published last.",
+   "why": "A half-written triple left full_<id>.md behind, and the retry refused it as 'already exists' forever (Codex full-PR review). Round 2: a failure while writing the FIRST file also left a partial full_<id>.md, so the triple is now staged under hidden temporary names (skipped by the duplicate scan) and published last. Round 3: a per-meeting lock in the output folder is held from the 'already exists' check through publication, so two concurrent extracts cannot interleave snapshots (a lock older than 10 minutes is taken over).",
    "status": "active",
    "asserts": [
     {
@@ -779,6 +779,18 @@
     {
      "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
      "contains": "func TestExtractLeavesNoPartialTriple(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/extract.go",
+     "contains": "unlock, err := lockExtract(outDir, id)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestExtractRefusesWhileAnotherRunHoldsTheLock(",
      "min_count": 1,
      "code_only": true
     }
@@ -811,6 +823,12 @@
     {
      "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
      "contains": "func TestDuplicatesScanKeepsDistinctMeetingsApart(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/duplicates.go",
+     "contains": "if b, rerr := r.ReadFile(native); rerr == nil {",
      "min_count": 1,
      "code_only": true
     }
@@ -1137,7 +1155,7 @@
    "id": "mcp-notes-backfill-tracked",
    "summary": "private-notes completion is tracked per meeting (human_notes_state); auto-refresh backfills up to 25 pending meetings per command without refetching REST detail",
    "status": "active",
-   "why": "Eligibility depended only on REST timestamps, so meetings synced before MCP was connected, or whose MCP pass failed, were never asked again (Codex full-PR review round 2).",
+   "why": "Eligibility depended only on REST timestamps, so meetings synced before MCP was connected, or whose MCP pass failed, were never asked again (Codex full-PR review round 2). Round 3: a meeting's notes and its completion state are written in one transaction; a meeting MCP lists no match for is recorded unresolved and retried after a day; match targets use the effective stored title/date, not a partial response's omitted fields.",
    "asserts": [
     {
      "file": "cli/internal/granola/store_sync.go",
@@ -1156,6 +1174,42 @@
      "contains": "func TestPendingHumanNotesAreTrackedApartFromREST(",
      "min_count": 1,
      "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/mcp_notes.go",
+     "contains": "func recordHumanNotes(ctx context.Context, db *sql.DB, id, note string, resolved bool, checkedAt string) error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/mcp_notes.go",
+     "contains": "AND (h.meeting_id IS NULL OR (h.resolved = 0 AND COALESCE(h.checked_at,'') < ?))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/rest_hydrate.go",
+     "contains": "targets = append(targets, effectiveRESTTarget(ctx, db, &d))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestRecordHumanNotesIsAtomic(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestUnresolvedHumanNotesAreRetriedAfterADay(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestEffectiveRESTTargetUsesStoredMetadata(",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   },
@@ -1163,7 +1217,7 @@
    "id": "yaml-metadata-escaped",
    "summary": "metadata frontmatter escapes backslashes, quotes, and control characters in quoted scalars",
    "status": "active",
-   "why": "A title such as `QBR: C:\\\\Users\\\\Alice` produced an invalid double-quoted YAML scalar (Codex full-PR review round 2, P2).",
+   "why": "A title such as `QBR: C:\\\\Users\\\\Alice` produced an invalid double-quoted YAML scalar (Codex full-PR review round 2, P2). Round 3: a title led by a YAML indicator ([, {, -, ?, ...) or padded with spaces is quoted too.",
    "asserts": [
     {
      "file": "cli/internal/cli/extract.go",
@@ -1174,6 +1228,38 @@
     {
      "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
      "contains": "func TestYAMLEscapeBackslashes(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestYAMLEscapeQuotesIndicatorLedTitles(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "live-output-provenance",
+   "summary": "results fetched from the API (meetings get --data-source live, meetings fetch-batch, panel get, live transcript get) carry meta.source \"live\" in the --agent envelope",
+   "status": "active",
+   "why": "emitJSON always labelled meta.source \"local\", which SKILL.md tells agents to trust, so live data was mislabelled (Codex full-PR review round 3).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/granola_helpers.go",
+     "contains": "func emitJSONSource(cmd *cobra.Command, flags *rootFlags, v any, source string) error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/meetings.go",
+     "contains": "emitJSONSource(cmd, flags, v, \"live\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestLiveResultsCarryLiveProvenance(",
      "min_count": 1,
      "code_only": true
     }
