@@ -56,9 +56,9 @@
     "released_hash": "sha256:233ec9bbf66d797ffc5f3885695e3d2cdf8a807509b3a309d01d79f7b32fc274"
   },
   "avanan": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.7",
-    "latest_tag": "avanan-v0.1.6",
+    "latest_tag": "avanan-v0.1.7",
     "current_hash": "sha256:5f2fd2567af5493fccc10617e1f9cc1db877fb39ca58ca1c7899f9543203e8e3",
     "released_hash": "sha256:5f2fd2567af5493fccc10617e1f9cc1db877fb39ca58ca1c7899f9543203e8e3"
   },
@@ -91,9 +91,9 @@
     "released_hash": "sha256:0f03b0c3ae0aac62ca22581e62793e53a71565a036b6d532586a8dbfc6ea013d"
   },
   "cipp": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.9",
-    "latest_tag": "cipp-v0.1.8",
+    "latest_tag": "cipp-v0.1.9",
     "current_hash": "sha256:be44268bbff67863ebf94025c5c98b8ab178913084a061027bde615f2b17fddd",
     "released_hash": "sha256:be44268bbff67863ebf94025c5c98b8ab178913084a061027bde615f2b17fddd"
   },
@@ -147,16 +147,16 @@
     "released_hash": "sha256:a2eaa2eaae3df72b5142a85110d4dae89065964fd388af7d720b157909588d9e"
   },
   "datagate": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.2",
-    "latest_tag": "datagate-v0.1.1",
+    "latest_tag": "datagate-v0.1.2",
     "current_hash": "sha256:eb9ad56cc207a7a5253df1bf6b454f091133b047524752c57d94df4f8233ee5d",
     "released_hash": "sha256:eb9ad56cc207a7a5253df1bf6b454f091133b047524752c57d94df4f8233ee5d"
   },
   "datto-bcdr": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.7",
-    "latest_tag": "datto-bcdr-v0.1.6",
+    "latest_tag": "datto-bcdr-v0.1.7",
     "current_hash": "sha256:f01fc45b847a1d25a899e897929b4c16a4cb50ae8e1cf35f87769fd43acd7eab",
     "released_hash": "sha256:f01fc45b847a1d25a899e897929b4c16a4cb50ae8e1cf35f87769fd43acd7eab"
   },
@@ -196,16 +196,16 @@
     "released_hash": "sha256:d862ade93a9ee3f849144291560ad4eee11fc812e3d3983cd8daa9d1e2f0abaa"
   },
   "hubspot": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.2.1",
-    "latest_tag": "hubspot-v0.2.0",
+    "latest_tag": "hubspot-v0.2.1",
     "current_hash": "sha256:2f0c00f239e7022ab9b3da7f68e23d75ebcace4a4a426c6aa28cbaa025c1399f",
     "released_hash": "sha256:2f0c00f239e7022ab9b3da7f68e23d75ebcace4a4a426c6aa28cbaa025c1399f"
   },
   "hudu": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.13",
-    "latest_tag": "hudu-v0.1.12",
+    "latest_tag": "hudu-v0.1.13",
     "current_hash": "sha256:673cfdd0ca72787ea1a57f67222d0923da905d4a22feb0acdf9da75e0154b0ae",
     "released_hash": "sha256:673cfdd0ca72787ea1a57f67222d0923da905d4a22feb0acdf9da75e0154b0ae"
   },
@@ -224,9 +224,9 @@
     "released_hash": "sha256:06cdf52b955ff06dc92e27785711c65696f1cfe19dd717420a0c9bb3aea6ceb7"
   },
   "itglue": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.4",
-    "latest_tag": "itglue-v0.1.3",
+    "latest_tag": "itglue-v0.1.4",
     "current_hash": "sha256:e0fa5a6db8a89060d2786d1484dc2f2b37dc131858e67cf6726a7fb5ff872602",
     "released_hash": "sha256:e0fa5a6db8a89060d2786d1484dc2f2b37dc131858e67cf6726a7fb5ff872602"
   },
@@ -343,9 +343,9 @@
     "released_hash": "sha256:7506533e36e7cd4d0d1fa6faa8bf59b62317b3271d741c7afae1383d9fa5eadb"
   },
   "quickbooks": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.11",
-    "latest_tag": "quickbooks-v0.1.10",
+    "latest_tag": "quickbooks-v0.1.11",
     "current_hash": "sha256:a08317d5e88c898d3e1b54cff5f75645ae9eb3d6317209cea06732a1bb9572c4",
     "released_hash": "sha256:a08317d5e88c898d3e1b54cff5f75645ae9eb3d6317209cea06732a1bb9572c4"
   },
@@ -427,9 +427,9 @@
     "released_hash": "sha256:c13b6545a06e0eee503b5d22abe10e6690c9f67c0c14ec66d5c8ae8a8d117e4a"
   },
   "superops": {
-    "state": "version-pending",
+    "state": "up-to-date",
     "version": "0.1.9",
-    "latest_tag": "superops-v0.1.8",
+    "latest_tag": "superops-v0.1.9",
     "current_hash": "sha256:40f8e7d4400dded7094e7e5e03379920bb0c79fab3188354dc4988e929400cbf",
     "released_hash": "sha256:40f8e7d4400dded7094e7e5e03379920bb0c79fab3188354dc4988e929400cbf"
   },
