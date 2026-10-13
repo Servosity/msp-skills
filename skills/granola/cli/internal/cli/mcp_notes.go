@@ -14,6 +14,7 @@ package cli
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"html"
 	"regexp"
 	"sort"
@@ -247,9 +248,13 @@ func enrichHumanNotes(ctx context.Context, db *sql.DB, targets []restTarget) (in
 	// not just this batch. Otherwise, with REST meetings A (09:00) and B
 	// (10:00) titled alike and only B in the batch, the MCP copy of A had no
 	// competitor and its private notes were written under B.
-	candidates := withSameTitleStoredMeetings(ctx, db, targets)
+	candidates, ok := withSameTitleStoredMeetings(ctx, db, targets)
+	if !ok {
+		return 0, fmt.Errorf("could not list same-title meetings to attribute private notes safely")
+	}
 	uuidByRest := assignMeetingUUIDs(byTitle, candidates)
 	if len(uuidByRest) == 0 {
+		markHumanNotesChecked(ctx, db, targets)
 		return 0, nil
 	}
 	uuids := make([]string, 0, len(uuidByRest))
@@ -259,6 +264,7 @@ func enrichHumanNotes(ctx context.Context, db *sql.DB, targets []restTarget) (in
 
 	// Batch get_meetings (10 UUIDs per call) and collect private notes.
 	notesByUUID := map[string]string{}
+	answered := map[string]bool{} // uuids whose batch call succeeded
 	for i := 0; i < len(uuids); i += 10 {
 		end := i + 10
 		if end > len(uuids) {
@@ -268,9 +274,24 @@ func enrichHumanNotes(ctx context.Context, db *sql.DB, targets []restTarget) (in
 		if isErr {
 			continue
 		}
+		for _, u := range uuids[i:end] {
+			answered[u] = true
+		}
 		for k, v := range parsePrivateNotes(txt) {
 			notesByUUID[k] = v
 		}
+	}
+	// Record which targets MCP has now answered for: those whose batch
+	// succeeded, and those MCP does not list at all (nothing to fetch). A
+	// target whose batch failed stays unrecorded and is retried.
+	checkedAt := time.Now().UTC().Format(time.RFC3339)
+	for _, t := range targets {
+		u, resolved := uuidByRest[t.ID]
+		if resolved && !answered[u] {
+			continue
+		}
+		_, _ = db.ExecContext(ctx, `INSERT INTO human_notes_state(meeting_id, checked_at) VALUES (?, ?)
+			ON CONFLICT(meeting_id) DO UPDATE SET checked_at = excluded.checked_at`, t.ID, checkedAt)
 	}
 
 	// Write notes into the store.
@@ -293,35 +314,89 @@ func enrichHumanNotes(ctx context.Context, db *sql.DB, targets []restTarget) (in
 	return n, nil
 }
 
-// withSameTitleStoredMeetings returns targets plus every other stored meeting
-// whose normalized title matches one of theirs, so the UUID assignment weighs
-// all plausible owners of a private note. Only targets are ever written to.
-func withSameTitleStoredMeetings(ctx context.Context, db *sql.DB, targets []restTarget) []restTarget {
+// withSameTitleStoredMeetings returns targets plus every other meeting this
+// store knows - hydrated (meetings) or only listed by sync (notes) - whose
+// normalized title matches one of theirs, deduplicated by REST id, so the
+// UUID assignment weighs all plausible owners of a private note. Only targets
+// are ever written to. ok is false when the candidates could not be listed;
+// the caller then writes nothing rather than guess.
+func withSameTitleStoredMeetings(ctx context.Context, db *sql.DB, targets []restTarget) ([]restTarget, bool) {
 	titles := map[string]bool{}
-	ids := map[string]bool{}
+	seen := map[string]bool{}
 	for _, t := range targets {
 		if k := normTitle(t.Title); k != "" {
 			titles[k] = true
 		}
-		ids[t.ID] = true
+		seen[t.ID] = true
 	}
 	out := append([]restTarget(nil), targets...)
 	if len(titles) == 0 {
-		return out
+		return out, true
 	}
-	rows, err := db.QueryContext(ctx, `SELECT id, COALESCE(title,''), COALESCE(created_at,'') FROM meetings`)
+	for _, q := range []string{
+		`SELECT id, COALESCE(title,''), COALESCE(created_at,'') FROM meetings`,
+		`SELECT id, COALESCE(title,''), COALESCE(CAST(created_at AS TEXT),'') FROM notes WHERE id LIKE 'not_%'`,
+	} {
+		rows, err := db.QueryContext(ctx, q)
+		if err != nil {
+			if strings.Contains(err.Error(), "no such table") {
+				continue
+			}
+			return nil, false
+		}
+		for rows.Next() {
+			var id, title, created string
+			if rows.Scan(&id, &title, &created) != nil || seen[id] {
+				continue
+			}
+			if titles[normTitle(title)] {
+				seen[id] = true
+				out = append(out, restTarget{ID: id, Title: title, Created: rfcToTime(created)})
+			}
+		}
+		err = rows.Err()
+		rows.Close()
+		if err != nil {
+			return nil, false
+		}
+	}
+	return out, true
+}
+
+// markHumanNotesChecked records that MCP was asked about these meetings and
+// listed none of them, so the backfill does not retry them on every command.
+func markHumanNotesChecked(ctx context.Context, db *sql.DB, targets []restTarget) {
+	checkedAt := time.Now().UTC().Format(time.RFC3339)
+	for _, t := range targets {
+		_, _ = db.ExecContext(ctx, `INSERT INTO human_notes_state(meeting_id, checked_at) VALUES (?, ?)
+			ON CONFLICT(meeting_id) DO UPDATE SET checked_at = excluded.checked_at`, t.ID, checkedAt)
+	}
+}
+
+// pendingHumanNoteTargets returns up to limit hydrated meetings (newest first)
+// that Granola's MCP has never answered for: meetings hydrated before MCP was
+// connected, or whose MCP pass failed.
+func pendingHumanNoteTargets(ctx context.Context, db *sql.DB, limit int) ([]restTarget, error) {
+	lim := limit
+	if lim <= 0 {
+		lim = -1
+	}
+	rows, err := db.QueryContext(ctx, `SELECT m.id, COALESCE(m.title,''), COALESCE(m.created_at,'') FROM meetings m
+		LEFT JOIN human_notes_state h ON h.meeting_id = m.id
+		WHERE h.meeting_id IS NULL AND m.id LIKE 'not_%'
+		ORDER BY m.created_at DESC
+		LIMIT ?`, lim)
 	if err != nil {
-		return out
+		return nil, err
 	}
 	defer rows.Close()
+	var out []restTarget
 	for rows.Next() {
 		var id, title, created string
-		if rows.Scan(&id, &title, &created) != nil || ids[id] {
-			continue
+		if err := rows.Scan(&id, &title, &created); err != nil {
+			return nil, err
 		}
-		if titles[normTitle(title)] {
-			out = append(out, restTarget{ID: id, Title: title, Created: rfcToTime(created)})
-		}
+		out = append(out, restTarget{ID: id, Title: title, Created: rfcToTime(created)})
 	}
-	return out
+	return out, rows.Err()
 }

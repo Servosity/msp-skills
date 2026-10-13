@@ -307,6 +307,12 @@ func findDuplicates(root, id, title, day string) (dup string, collisions []strin
 	// consider applies the identity rules to one file. rel is the file's path
 	// relative to the os.Root, in native form, used only for the body read.
 	consider := func(path, name, rel string) {
+		// Hidden files are skipped: extract stages its triple under
+		// ".<name>.tmp-*" names, and a temporary left by a killed run must
+		// not read as a finished memo.
+		if strings.HasPrefix(name, ".") {
+			return
+		}
 		if id != "" && strings.Contains(name, id) {
 			dup = path
 			return
@@ -323,23 +329,35 @@ func findDuplicates(root, id, title, day string) (dup string, collisions []strin
 		if !titleHit {
 			return
 		}
-		declaresOther := false
+		// Identity comes from what the file DECLARES (a "Meeting ID:" line, a
+		// "Meeting Link: notes.granola.ai/d/<id>" line, or frontmatter
+		// "id:"), never from an id merely mentioned somewhere in the body: a
+		// memo for meeting A that quotes meeting B's id is still A's memo.
+		// Declared ids from an older id scheme (the pre-7.4x desktop UUIDs)
+		// cannot be compared with today's REST ids, so such a file falls back
+		// to the title+day rung like a file that declares nothing.
+		comparable := false
 		if b, rerr := r.ReadFile(rel); rerr == nil {
-			body := string(b)
-			if id != "" && strings.Contains(body, id) {
-				dup = path
-				return
+			for _, declared := range memoDeclaredIDs(string(b)) {
+				if declared == id {
+					dup = path
+					return
+				}
+				if sameIDScheme(declared, id) {
+					comparable = true
+				}
 			}
-			// A file that records a DIFFERENT meeting id is a different
-			// meeting, even with the same title on the same day (two calls
-			// called "Weekly Sync" on one day). Only a file that records no id
-			// at all falls back to the title+day rung.
-			declaresOther = len(memoDeclaredIDs(body)) > 0
+		}
+		if comparable {
+			// It records a different meeting of the same id scheme: a
+			// different meeting, even on the same day.
+			collisions = append(collisions, path)
+			return
 		}
 		// Same title. Same day means the same occurrence -- gate. A different
 		// day is a different occurrence of a recurring meeting -- report it so
 		// the caller can see the near-miss, but never block on it.
-		if !declaresOther && day != "" && strings.Contains(name, day) {
+		if day != "" && strings.Contains(name, day) {
 			dup = path
 			return
 		}
@@ -393,9 +411,9 @@ func hydrateOneMeeting(ctx context.Context, flags *rootFlags, id string) error {
 	return err
 }
 
-// memoDeclaredIDs returns the Granola meeting ids a memo file records, from a
-// "Meeting ID:" line or a notes.granola.ai/d/<id> link. Empty when the file
-// records none (a legacy file written before ids were recorded).
+// memoDeclaredIDs returns the Granola meeting ids a memo file DECLARES: a
+// "Meeting ID:" line, a "Meeting Link: https://notes.granola.ai/d/<id>" line,
+// or a frontmatter "id:" line. Ids mentioned anywhere else are ignored.
 func memoDeclaredIDs(body string) []string {
 	var ids []string
 	for _, m := range memoIDPattern.FindAllStringSubmatch(body, -1) {
@@ -408,7 +426,13 @@ func memoDeclaredIDs(body string) []string {
 	return ids
 }
 
-var memoIDPattern = regexp.MustCompile(`(?i)meeting id:[\s*_]*([A-Za-z0-9][A-Za-z0-9_-]{5,})|notes\.granola\.ai/d/([A-Za-z0-9][A-Za-z0-9_-]{5,})`)
+var memoIDPattern = regexp.MustCompile(`(?mi)^[ \t]*(?:[-*][ \t]*)?\**meeting id:\**[ \t]*([A-Za-z0-9][A-Za-z0-9_-]{5,})|^[ \t]*(?:[-*][ \t]*)?\**meeting link:\**[ \t]*<?https?://notes\.granola\.ai/d/([A-Za-z0-9][A-Za-z0-9_-]{5,})|^id:[ \t]*([A-Za-z0-9][A-Za-z0-9_-]{5,})[ \t]*$`)
+
+// sameIDScheme reports whether two meeting ids come from the same id scheme:
+// both REST note ids ("not_..."), or both something else.
+func sameIDScheme(a, b string) bool {
+	return strings.HasPrefix(a, "not_") == strings.HasPrefix(b, "not_")
+}
 
 // warnIfRootMissing says so on stderr when the duplicate-scan root does not
 // exist: findDuplicates then finds nothing, which silently turns the

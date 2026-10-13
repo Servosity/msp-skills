@@ -125,6 +125,14 @@ var granolaSchemaSQL = []string{
 		raw TEXT
 	)`,
 
+	// Which meetings Granola's MCP has already been asked for private notes,
+	// tracked apart from the REST timestamps so a failed or not-yet-connected
+	// MCP pass is retried (handfixes.json: mcp-notes-backfill-tracked).
+	`CREATE TABLE IF NOT EXISTS human_notes_state (
+		meeting_id TEXT PRIMARY KEY,
+		checked_at TEXT
+	)`,
+
 	// AI summary from the REST detail endpoint, kept so local exports can
 	// include it (handfixes.json: export-summary-stored-locally).
 	`CREATE TABLE IF NOT EXISTS meeting_summaries (

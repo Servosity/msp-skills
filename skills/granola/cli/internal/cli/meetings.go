@@ -24,6 +24,7 @@ func restNoteRaw(id string) (json.RawMessage, error) {
 		return nil, err
 	}
 	c := client.New(cfg, 30*time.Second, 0)
+	applyCachePolicy(c)
 	// v7.4x: the old client carried no context; the modern client is
 	// context-first. This leaf helper builds its own client (30s timeout),
 	// so a background context reproduces the reference's bounded behavior.

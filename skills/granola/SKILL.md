@@ -94,7 +94,7 @@ treated as **unrecognized** rather than silently counted.
 | --- | --- |
 | `0` | ready to extract |
 | `2` | no transcript, or below the threshold (needs >= 5 `microphone` segments AND >= 10 CLASSIFIED segments) |
-| `3` | a file in `--root` already covers this meeting - the meeting id is in its filename, or in the body of a file whose name carries the meeting title, or the title AND day match for a file that records no meeting id - **or** the meeting is unknown to both the local store and the Granola API (preflight first tries to fetch a meeting sync has not enriched yet; stderr says which case it is). A same-title file from a different day is a recurring meeting, reported as `title_collision`, and does not block. `--root` defaults to `~/Documents/Dev/meeting-transcripts`; pass the folder your memos actually live in. |
+| `3` | a file in `--root` already covers this meeting - the meeting id is in its filename, or a file whose name carries the meeting title declares that id (a `Meeting ID:` line, a `Meeting Link:` to notes.granola.ai, or frontmatter `id:`), or the title AND day match for a file that declares no comparable id - **or** the meeting is unknown to both the local store and the Granola API (preflight first tries to fetch a meeting sync has not enriched yet; stderr says which case it is). A same-title file from a different day is a recurring meeting, reported as `title_collision`, and does not block. `--root` defaults to `~/Documents/Dev/meeting-transcripts`; pass the folder your memos actually live in. |
 | `4` | transcript source labels are unrecognized, so the gate cannot classify the transcript -- upstream changed its grammar. **Not the same as exit 2:** the text is probably there, the channels just can't be read. |
 | `5` | the meeting is not in the local store and the Granola API refused or failed the lookup (bad key, outage). The meeting may exist; fix the key or retry. |
 
@@ -165,7 +165,7 @@ printf %s "$TOKEN" | granola-cli auth set-token
   ```
 
 ### Pipeline hygiene
-- **`duplicates scan`** - Hash (title, date-bucket, attendee-email-set) across the local store and a meeting-transcripts repo to surface duplicates at scale.
+- **`duplicates scan`** - Groups the local store and a meeting-transcripts repo by meeting id (from the store, the file name, or the id a file declares); a file with no id is matched by title plus the date in its name, and only when exactly one stored meeting fits.
 
   _Repos accumulate near-duplicate files when meetings are re-extracted; this returns the dupe groups for cleanup._
 
@@ -299,7 +299,7 @@ Two surfaces. The public REST API key is required and powers everything; Granola
    granola-cli mcp-auth login     # browser OAuth (PKCE); tokens saved to the macOS Keychain, never on disk
    granola-cli mcp-auth status    # is it connected?
    granola-cli mcp-auth verify    # confirm private notes are reachable end-to-end
-   granola-cli enrich             # add private notes to meetings you already synced (enrich --full for all)
+   granola-cli enrich             # add private notes to meetings you already synced now (enrich --full for all)
    ```
 
    ![Connecting Granola's official MCP server](docs/images/granola-mcp-setup.png)
@@ -359,7 +359,7 @@ Every command auto-refreshes the local store as its first action. You do **not**
 | Surface | What runs | When it fires |
 |---------|-----------|---------------|
 | Public REST API | `sync-api` (public-api.granola.ai → SQLite) + per-meeting detail enrichment | When `GRANOLA_API_KEY` is set |
-| Granola's official MCP | private/human notes pulled into the store | When Granola's MCP is connected (`mcp-auth login`) |
+| Granola's official MCP | private/human notes pulled into the store, plus a backfill of up to 25 meetings per command that were synced before MCP was connected (or whose MCP pass failed) | When Granola's MCP is connected (`mcp-auth login`) |
 | Desktop encrypted cache | no-op | Sealed (app-private) on Granola v7.4x+  -  the CLI does not read it |
 
 When `GRANOLA_API_KEY` is not configured, auto-refresh is a silent no-op and your underlying command produces its own auth error.

@@ -383,10 +383,12 @@ func storeMCPToken(clientID string, t *mcpToken) error {
 	var errs []error
 	if t.RefreshToken != "" {
 		if err := set(kcAcctRefresh, t.RefreshToken); err != nil {
-			errs = append(errs, fmt.Errorf("refresh token: %w", err))
+			errs = append(errs, fmt.Errorf("%w: %v", errRefreshNotSaved, err))
 		}
 	}
+	accessSaved := true
 	if err := set(kcAcctAccess, t.AccessToken); err != nil {
+		accessSaved = false
 		errs = append(errs, fmt.Errorf("access token: %w", err))
 	}
 	if clientID != "" {
@@ -394,12 +396,24 @@ func storeMCPToken(clientID string, t *mcpToken) error {
 			errs = append(errs, fmt.Errorf("client id: %w", err))
 		}
 	}
+	// The expiry describes the STORED access token, so it only advances when
+	// that token was saved. Otherwise it is set to the past, which makes the
+	// next run refresh (with the refresh token saved above) instead of
+	// trusting a stale access token as fresh.
 	exp := time.Now().Add(time.Duration(t.ExpiresIn) * time.Second)
+	if !accessSaved {
+		exp = time.Unix(1, 0)
+	}
 	if err := set(kcAcctExpiry, strconv.FormatInt(exp.Unix(), 10)); err != nil {
 		errs = append(errs, fmt.Errorf("expiry: %w", err))
 	}
 	return errors.Join(errs...)
 }
+
+// errRefreshNotSaved marks a storeMCPToken failure that lost the rotated
+// refresh token: the old one is already retired, so the session cannot be
+// renewed without a new login.
+var errRefreshNotSaved = errors.New("refresh token not saved")
 
 // mcpAccessToken returns a usable access token, refreshing via the stored
 // refresh_token when the current one is within 60s of expiry. Returns
@@ -434,11 +448,15 @@ func mcpAccessToken() (string, error) {
 		return "", fmt.Errorf("granola mcp token refresh failed — re-run 'granola-cli mcp-auth login'")
 	}
 	if serr := storeMCPToken(clientID, t); serr != nil {
-		// Refresh succeeded but persisting to the Keychain failed. The new
-		// token works this session; warn so the user knows it wasn't saved —
-		// single-use refresh-token rotation could otherwise lose the session
-		// next run when the stale token is reloaded.
-		stderr("warning: the refreshed Granola MCP token could not be saved to the Keychain (%v). Private notes work for this run only; Granola has already retired the old refresh token, so re-run 'granola-cli mcp-auth login' before the next one.", serr)
+		if errors.Is(serr, errRefreshNotSaved) {
+			// The rotated refresh token is gone and the old one is retired:
+			// the session cannot be renewed. Fail loudly rather than carry on
+			// as if all were well.
+			return "", fmt.Errorf("granola mcp token refreshed but could not be saved to the Keychain (%v) — re-run 'granola-cli mcp-auth login'", serr)
+		}
+		// The refresh token is safe; only the access token or its metadata
+		// failed to save, and the expiry was set so the next run refreshes.
+		stderr("warning: part of the refreshed Granola MCP token could not be saved to the Keychain (%v); the next run will refresh again.", serr)
 	}
 	return t.AccessToken, nil
 }

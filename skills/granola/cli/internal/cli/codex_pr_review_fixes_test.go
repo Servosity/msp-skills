@@ -17,6 +17,7 @@ import (
 	"testing"
 	"time"
 
+	"granola-pp-cli/internal/client"
 	"granola-pp-cli/internal/config"
 )
 
@@ -170,9 +171,221 @@ func TestPrivateNotesAttributionSeesAllSameTitleMeetings(t *testing.T) {
 	insertMeeting(t, s, seedMeeting{ID: "not_B", Title: "Weekly Sync", CreatedAt: "2026-10-12T10:00:00Z"})
 	targets := []restTarget{{ID: "not_B", Title: "Weekly Sync", Created: time.Date(2026, 10, 12, 10, 0, 0, 0, time.UTC)}}
 	byTitle := map[string][]mcpMeeting{normTitle("Weekly Sync"): {{UUID: "uuid-A", Title: "Weekly Sync", Date: time.Date(2026, 10, 12, 9, 0, 0, 0, time.UTC)}}}
-	got := assignMeetingUUIDs(byTitle, withSameTitleStoredMeetings(context.Background(), s.DB(), targets))
+	cands, ok := withSameTitleStoredMeetings(context.Background(), s.DB(), targets)
+	if !ok {
+		t.Fatal("candidate listing failed")
+	}
+	got := assignMeetingUUIDs(byTitle, cands)
 	if got["not_B"] == "uuid-A" {
 		t.Fatal("meeting A's private notes were attributed to meeting B")
+	}
+}
+
+// TestPrivateNotesAttributionSeesThinSyncedNotes: A may be listed by sync
+// (thin notes table) without being hydrated; it still competes for its notes.
+func TestPrivateNotesAttributionSeesThinSyncedNotes(t *testing.T) {
+	s := newIsolatedStore(t)
+	defer s.Close()
+	insertMeeting(t, s, seedMeeting{ID: "not_B", Title: "Weekly Sync", CreatedAt: "2026-10-12T10:00:00Z"})
+	if _, err := s.DB().Exec(`INSERT INTO notes(id, data, title, created_at) VALUES ('not_A', '{}', 'Weekly Sync', '2026-10-12T09:00:00Z')`); err != nil {
+		t.Fatal(err)
+	}
+	targets := []restTarget{{ID: "not_B", Title: "Weekly Sync", Created: time.Date(2026, 10, 12, 10, 0, 0, 0, time.UTC)}}
+	byTitle := map[string][]mcpMeeting{normTitle("Weekly Sync"): {{UUID: "uuid-A", Title: "Weekly Sync", Date: time.Date(2026, 10, 12, 9, 0, 0, 0, time.UTC)}}}
+	cands, ok := withSameTitleStoredMeetings(context.Background(), s.DB(), targets)
+	if !ok {
+		t.Fatal("candidate listing failed")
+	}
+	if got := assignMeetingUUIDs(byTitle, cands); got["not_B"] == "uuid-A" {
+		t.Fatal("a synced-but-unhydrated meeting's private notes were attributed to another meeting")
+	}
+}
+
+// TestFindDuplicatesUsesDeclaredIdentityNotMentions: a memo that declares
+// meeting A and merely mentions meeting B's id is A's memo, not B's; and a
+// file that declares only a legacy (non-REST) id falls back to title + day.
+func TestFindDuplicatesUsesDeclaredIdentityNotMentions(t *testing.T) {
+	root := t.TempDir()
+	a := filepath.Join(root, "2026-10-12 Weekly Sync - Acme - Full.md")
+	body := "- **Meeting Link:** https://notes.granola.ai/d/not_AAAAAAAAAAAA\n\nFollow-up from not_BBBBBBBBBBBB discussed.\n"
+	if err := os.WriteFile(a, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if dup, _ := findDuplicates(root, "not_BBBBBBBBBBBB", "Weekly Sync", "2026-10-12"); dup != "" {
+		t.Fatalf("a mention of B's id in A's memo gated B: %s", dup)
+	}
+	if dup, _ := findDuplicates(root, "not_AAAAAAAAAAAA", "Weekly Sync", "2026-10-12"); dup != a {
+		t.Fatalf("A's own memo did not gate A: dup=%q", dup)
+	}
+	legacyRoot := t.TempDir()
+	legacy := filepath.Join(legacyRoot, "2026-07-01 Board Call - Acme - Full.md")
+	if err := os.WriteFile(legacy, []byte("- **Meeting Link:** https://notes.granola.ai/d/0f8fad5b-d9cb-469f-a165-70867728950e\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if dup, _ := findDuplicates(legacyRoot, "not_CCCCCCCCCCCC", "Board Call", "2026-07-01"); dup != legacy {
+		t.Fatalf("a legacy-id memo on the same day did not gate: dup=%q", dup)
+	}
+}
+
+// TestDuplicatesScanKeepsDistinctMeetingsApart: two different "QBR" meetings
+// on the same day are two meetings, never one duplicate group.
+func TestDuplicatesScanKeepsDistinctMeetingsApart(t *testing.T) {
+	isolateGranola(t, "")
+	s := newIsolatedStore(t)
+	insertMeeting(t, s, seedMeeting{ID: "not_qbr_alice1", Title: "QBR", CreatedAt: "2026-10-12T09:00:00Z"})
+	insertMeeting(t, s, seedMeeting{ID: "not_qbr_bob001", Title: "QBR", CreatedAt: "2026-10-12T15:00:00Z"})
+	s.Close()
+	stdout, _, err := runRootArgs(t, "duplicates", "scan", "--root", t.TempDir(), "--no-refresh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.TrimSpace(stdout) != "" {
+		t.Fatalf("two distinct meetings were reported as duplicates:\n%s", stdout)
+	}
+}
+
+// TestUpsertKeepsInviteesWhenOnlyAttendeesArrive is the reverse partial: an
+// attendees-only response must not delete a stored invitee or a known name.
+func TestUpsertKeepsInviteesWhenOnlyAttendeesArrive(t *testing.T) {
+	s := newIsolatedStore(t)
+	defer s.Close()
+	ctx := context.Background()
+	first := &restNoteDetail{ID: "not_rev", Title: "T",
+		Attendees:     &[]restAttendee{{Email: "alice@example.com", Name: "Alice"}},
+		CalendarEvent: json.RawMessage(`{"invitees":[{"email":"bob@example.com","name":"Bob"}]}`)}
+	if err := upsertRichMeeting(ctx, s.DB(), first); err != nil {
+		t.Fatal(err)
+	}
+	if err := upsertRichMeeting(ctx, s.DB(), &restNoteDetail{ID: "not_rev", Attendees: &[]restAttendee{{Email: "alice@example.com"}}}); err != nil {
+		t.Fatal(err)
+	}
+	var n int
+	var aliceName string
+	_ = s.DB().QueryRow(`SELECT COUNT(*) FROM attendees WHERE meeting_id='not_rev'`).Scan(&n)
+	_ = s.DB().QueryRow(`SELECT COALESCE(name,'') FROM attendees WHERE meeting_id='not_rev' AND email='alice@example.com'`).Scan(&aliceName)
+	if n != 2 || aliceName != "Alice" {
+		t.Fatalf("after an attendees-only response: %d rows, alice name %q; want 2 rows and Alice", n, aliceName)
+	}
+}
+
+// TestStoreMCPTokenNeverAdvancesExpiryWithoutTheAccessToken: if the access
+// token was not saved, the stored expiry must make the next run refresh.
+func TestStoreMCPTokenNeverAdvancesExpiryWithoutTheAccessToken(t *testing.T) {
+	saved := map[string]string{}
+	prev := kcSetFn
+	kcSetFn = func(account, value string) error {
+		if account == kcAcctAccess {
+			return errors.New("keychain write failed")
+		}
+		saved[account] = value
+		return nil
+	}
+	t.Cleanup(func() { kcSetFn = prev })
+	_ = storeMCPToken("client", &mcpToken{AccessToken: "a1", RefreshToken: "r1", ExpiresIn: 3600})
+	if saved[kcAcctRefresh] != "r1" {
+		t.Fatalf("refresh token not saved: %v", saved)
+	}
+	if saved[kcAcctExpiry] != "1" {
+		t.Fatalf("expiry advanced to %q although the access token was not saved", saved[kcAcctExpiry])
+	}
+	// A lost refresh token is a distinct, detectable failure.
+	kcSetFn = func(account, value string) error {
+		if account == kcAcctRefresh {
+			return errors.New("keychain write failed")
+		}
+		return nil
+	}
+	if err := storeMCPToken("client", &mcpToken{AccessToken: "a2", RefreshToken: "r2", ExpiresIn: 3600}); !errors.Is(err, errRefreshNotSaved) {
+		t.Fatalf("a lost refresh token was not reported as errRefreshNotSaved: %v", err)
+	}
+}
+
+// TestEnvAPIKeyWinsOverStoredAuthHeader: an explicit GRANOLA_API_KEY must be
+// the credential sent, even when a stored auth_header exists.
+func TestEnvAPIKeyWinsOverStoredAuthHeader(t *testing.T) {
+	isolateGranola(t, "")
+	cfgPath := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(cfgPath, []byte("auth_header = \"Bearer old\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GRANOLA_API_KEY", "new")
+	cfg, err := config.Load(cfgPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := cfg.AuthHeader(); got != "Bearer new" {
+		t.Fatalf("AuthHeader() = %q with GRANOLA_API_KEY set, want the env key", got)
+	}
+}
+
+// TestLeafRESTClientHonorsNoCache: --no-cache reaches the leaf helpers.
+func TestLeafRESTClientHonorsNoCache(t *testing.T) {
+	prev := granolaActiveFlags
+	granolaActiveFlags = &rootFlags{noCache: true}
+	t.Cleanup(func() { granolaActiveFlags = prev })
+	c := client.New(&config.Config{BaseURL: "http://127.0.0.1:1"}, 0, 0)
+	applyCachePolicy(c)
+	if !c.NoCache {
+		t.Fatal("--no-cache did not reach the leaf REST client")
+	}
+}
+
+// TestAttendeeBriefReturnsDistinctMeetings: two matching attendees on one
+// meeting must not make it appear twice and push an older meeting out.
+func TestAttendeeBriefReturnsDistinctMeetings(t *testing.T) {
+	isolateGranola(t, "")
+	s := newIsolatedStore(t)
+	insertMeeting(t, s, seedMeeting{ID: "not_new", Title: "New", CreatedAt: "2026-10-12T09:00:00Z", StartedAt: "2026-10-12T09:00:00Z"})
+	insertMeeting(t, s, seedMeeting{ID: "not_old", Title: "Old", CreatedAt: "2026-10-01T09:00:00Z", StartedAt: "2026-10-01T09:00:00Z"})
+	for _, q := range []string{
+		`INSERT INTO attendees(meeting_id,email,name) VALUES ('not_new','alice@smith.example','Alice Smith')`,
+		`INSERT INTO attendees(meeting_id,email,name) VALUES ('not_new','bob@smith.example','Bob Smith')`,
+		`INSERT INTO attendees(meeting_id,email,name) VALUES ('not_old','alice@smith.example','Alice Smith')`,
+	} {
+		if _, err := s.DB().Exec(q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	s.Close()
+	stdout, _, err := runRootArgs(t, "attendee", "brief", "Smith", "--last", "2", "--json", "--data-source", "local", "--no-refresh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ids := map[string]int{}
+	for _, line := range strings.Split(strings.TrimSpace(stdout), "\n") {
+		var r struct {
+			ID string `json:"id"`
+		}
+		if json.Unmarshal([]byte(line), &r) == nil {
+			ids[r.ID]++
+		}
+	}
+	if ids["not_new"] != 1 || ids["not_old"] != 1 {
+		t.Fatalf("attendee brief rows: %v, want each meeting once", ids)
+	}
+}
+
+// TestYAMLEscapeBackslashes: a title with backslashes must stay valid YAML.
+func TestYAMLEscapeBackslashes(t *testing.T) {
+	if got, want := yamlEscape(`QBR: C:\Users\Alice`), `"QBR: C:\\Users\\Alice"`; got != want {
+		t.Fatalf("yamlEscape = %s, want %s", got, want)
+	}
+}
+
+// TestPendingHumanNotesAreTrackedApartFromREST: hydrated meetings MCP never
+// answered for stay pending until an MCP pass records them.
+func TestPendingHumanNotesAreTrackedApartFromREST(t *testing.T) {
+	s := newIsolatedStore(t)
+	defer s.Close()
+	insertMeeting(t, s, seedMeeting{ID: "not_p1", Title: "P1", CreatedAt: "2026-10-12T09:00:00Z"})
+	ctx := context.Background()
+	pending, err := pendingHumanNoteTargets(ctx, s.DB(), 25)
+	if err != nil || len(pending) != 1 {
+		t.Fatalf("pending before any MCP pass: %v, %v", pending, err)
+	}
+	markHumanNotesChecked(ctx, s.DB(), pending)
+	if pending, _ = pendingHumanNoteTargets(ctx, s.DB(), 25); len(pending) != 0 {
+		t.Fatalf("still pending after MCP answered: %v", pending)
 	}
 }
 

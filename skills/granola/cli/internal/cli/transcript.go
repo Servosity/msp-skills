@@ -164,6 +164,7 @@ func fetchTranscriptREST(id string) ([]granola.TranscriptSegment, error) {
 		return nil, configErr(err)
 	}
 	c := client.New(cfg, 30*time.Second, 0)
+	applyCachePolicy(c)
 	// v7.4x leaf REST helper with its own 30s-timeout client; a background
 	// context reproduces the reference's bounded, cancellation-free behavior.
 	// id is an opaque single-segment note id; escape it into the path segment.

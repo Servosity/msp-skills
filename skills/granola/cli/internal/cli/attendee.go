@@ -52,8 +52,7 @@ func newAttendeeTimelineCmd(flags *rootFlags) *cobra.Command {
 			defer s.Close()
 			q := `SELECT m.id, m.title, m.started_at, m.calendar_event_id, m.creation_source
 				FROM meetings m
-				JOIN attendees a ON a.meeting_id = m.id
-				WHERE (a.email LIKE ? OR a.name LIKE ?)`
+				WHERE EXISTS (SELECT 1 FROM attendees a WHERE a.meeting_id = m.id AND (a.email LIKE ? OR a.name LIKE ?))`
 			args2 := []any{"%" + strings.ToLower(key) + "%", "%" + key + "%"}
 			if since != "" {
 				t, err := parseSinceOrDate(since, timeNow())
@@ -159,10 +158,12 @@ func newAttendeeBriefCmd(flags *rootFlags) *cobra.Command {
 				return notFoundErr(fmt.Errorf("no local data"))
 			}
 			defer s.Close()
+			// Hand-wired (handfixes.json: attendee-queries-distinct-meetings):
+			// EXISTS, not JOIN, so a meeting with two matching attendees
+			// ("Alice Smith", "Bob Smith") is one row, not two.
 			rows, err := s.DB().Query(`SELECT m.id, m.title, m.started_at
 				FROM meetings m
-				JOIN attendees a ON a.meeting_id = m.id
-				WHERE (a.email LIKE ? OR a.name LIKE ?)
+				WHERE EXISTS (SELECT 1 FROM attendees a WHERE a.meeting_id = m.id AND (a.email LIKE ? OR a.name LIKE ?))
 				ORDER BY m.started_at DESC
 				LIMIT ?`,
 				"%"+strings.ToLower(key)+"%", "%"+key+"%", last)

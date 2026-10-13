@@ -65,8 +65,10 @@ func newDuplicatesScanCmd(flags *rootFlags) *cobra.Command {
 			// both sides, but a file on disk never carries an attendee set and
 			// its day came from the file's mtime, so a stored meeting and its
 			// own memo file could never land in the same group. Identity is now
-			// the meeting id when a file name carries it, else (title, day),
-			// with the day read from the file name's YYYY-MM-DD prefix.
+			// the meeting id - from the store, the file name, or the id the
+			// file declares - and only a file with no id falls back to title
+			// plus the YYYY-MM-DD in its name, matched to a stored meeting only
+			// when exactly one fits.
 			type storeRec struct{ id, title, day, key string }
 			var stored []storeRec
 			byID := map[string]storeRec{}
@@ -79,7 +81,9 @@ func newDuplicatesScanCmd(flags *rootFlags) *cobra.Command {
 				if !ts.IsZero() {
 					day = ts.UTC().Format("2006-01-02")
 				}
-				rec := storeRec{id: id, title: d.Title, day: day, key: fingerprintMeeting(d.Title, ts, nil)}
+				// Every stored meeting is its own identity: two meetings that
+				// share a title and a day are still two meetings.
+				rec := storeRec{id: id, title: d.Title, day: day, key: "id:" + id}
 				stored = append(stored, rec)
 				byID[id] = rec
 				groups[rec.key] = append(groups[rec.key], map[string]any{
@@ -96,25 +100,46 @@ func newDuplicatesScanCmd(flags *rootFlags) *cobra.Command {
 						return nil
 					}
 					name := info.Name()
-					if !strings.HasSuffix(name, ".md") {
+					if !strings.HasSuffix(name, ".md") || strings.HasPrefix(name, ".") {
 						return nil
 					}
 					title, day := fileTitleAndDay(name, info.ModTime())
 					key := ""
+					// 1. An id in the file name.
 					for id, rec := range byID {
 						if strings.Contains(name, id) {
 							key = rec.key
 							break
 						}
 					}
+					// 2. The id the file declares (Meeting ID / Meeting Link /
+					// frontmatter id), stored or not.
+					if key == "" {
+						if b, rerr := os.ReadFile(path); rerr == nil { // #nosec G304 -- walking the operator's own --root.
+							for _, declared := range memoDeclaredIDs(string(b)) {
+								if rec, ok := byID[declared]; ok {
+									key = rec.key
+									break
+								}
+								if key == "" {
+									key = "id:" + declared
+								}
+							}
+						}
+					}
+					// 3. Title + the day in the file name, only when exactly
+					// one stored meeting fits; an ambiguous match is declined.
 					if key == "" {
 						norm := strings.ToLower(strings.TrimSpace(title))
+						var hits []storeRec
 						for _, rec := range stored {
 							rt := strings.ToLower(strings.TrimSpace(rec.title))
 							if rec.day == day && rt != "" && strings.HasPrefix(norm, rt) {
-								key = rec.key
-								break
+								hits = append(hits, rec)
 							}
+						}
+						if len(hits) == 1 {
+							key = hits[0].key
 						}
 					}
 					if key == "" {

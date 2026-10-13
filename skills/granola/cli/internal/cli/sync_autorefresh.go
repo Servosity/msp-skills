@@ -221,13 +221,17 @@ func enrichRecentForAutoRefresh(ctx context.Context, db *sql.DB, c *client.Clien
 	if err := granola.EnsureSchema(ctx, db); err != nil {
 		return 0
 	}
-	ids, err := unhydratedRecentNoteIDs(ctx, db, autoRefreshEnrichCap())
-	if err != nil || len(ids) == 0 {
-		return 0
+	n := 0
+	if ids, err := unhydratedRecentNoteIDs(ctx, db, autoRefreshEnrichCap()); err == nil && len(ids) > 0 {
+		// partial progress still populates the rich tables; never propagate
+		n, _, _ = hydrateRichFromREST(ctx, db, c, ids)
 	}
-	n, _, err := hydrateRichFromREST(ctx, db, c, ids)
-	if err != nil {
-		return n // partial progress still populated the rich tables; never propagate
+	// Private-notes backfill, bounded per command: meetings hydrated before
+	// Granola's MCP was connected, or whose MCP pass failed, are asked again
+	// without refetching their REST detail (handfixes.json:
+	// mcp-notes-backfill-tracked). Not connected = a silent no-op.
+	if pending, err := pendingHumanNoteTargets(ctx, db, autoRefreshEnrichCap()); err == nil && len(pending) > 0 {
+		_, _ = enrichHumanNotes(ctx, db, pending)
 	}
 	return n
 }

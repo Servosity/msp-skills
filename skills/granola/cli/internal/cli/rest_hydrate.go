@@ -298,13 +298,15 @@ func upsertRichMeeting(ctx context.Context, db *sql.DB, d *restNoteDetail) error
 				add(inv.Email, inv.Name)
 			}
 		}
-		// Only the note's own attendee list is authoritative for the SET of
-		// attendees. A response that omits `attendees` and carries just
-		// calendar invitees must not delete the attendees stored earlier
-		// (handfixes.json: rest-hydrate-presence-aware), so in that case the
-		// invitees are merged in additively. Either way an empty name never
-		// overwrites a known one.
-		if d.Attendees != nil {
+		// Rows are merged, never replaced wholesale (handfixes.json:
+		// rest-hydrate-presence-aware). The store does not record which source
+		// (note attendees or calendar invitees) contributed a row, so a
+		// response carrying only one source must not delete rows the other
+		// one added: invitees-only must keep the attendees, and attendees-only
+		// must keep the invitees. The one authoritative clear is an explicit,
+		// present-but-empty `attendees: []`. An empty name never overwrites a
+		// known one.
+		if d.Attendees != nil && len(*d.Attendees) == 0 {
 			if _, err := tx.ExecContext(ctx, `DELETE FROM attendees WHERE meeting_id = ?`, d.ID); err != nil {
 				return err
 			}

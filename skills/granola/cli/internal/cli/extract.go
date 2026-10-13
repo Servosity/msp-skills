@@ -3,8 +3,11 @@
 package cli
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -102,32 +105,60 @@ func runExtract(id, outDir, panelTemplate string, allowLive bool) (extractResult
 		path    string
 		content string
 	}{
-		{fullPath, full},
+		// full_<id>.md is the completion marker (preflight and memo look for
+		// it), so it is listed LAST and published last.
 		{summaryPath, summary},
 		{metaPath, meta},
+		{fullPath, full},
 	}
 	// Hand-wired (handfixes.json: extract-triple-all-or-nothing): the triple
-	// is all-or-nothing. Every target is checked before anything is written,
-	// and if a write still fails, the files this run created are removed.
-	// Otherwise a half-written triple left full_<id>.md behind, and the retry
-	// refused it as "already exists" forever.
+	// is all-or-nothing. Every target is checked first; each file is written
+	// to a private temporary name beside its target; only when all three
+	// are fully written are they renamed into place, full_<id>.md last. A
+	// failure at any step removes the temporaries and any target this run
+	// created, so a half-written triple can never block the retry.
 	for _, o := range outputs {
 		if fi, err := os.Lstat(o.path); err == nil && (fi.IsDir() || fi.Mode()&os.ModeSymlink != 0) {
 			return res, ioErr(fmt.Errorf("refusing to write %s: it is a directory or a symlink", o.path))
 		}
 	}
-	var created []string
-	for _, o := range outputs {
+	temps := make([]string, len(outputs))
+	cleanupTemps := func() {
+		for _, tmp := range temps {
+			if tmp != "" {
+				_ = os.Remove(tmp)
+			}
+		}
+	}
+	for i, o := range outputs {
+		suffix := make([]byte, 6)
+		_, _ = rand.Read(suffix)
+		tmp := filepath.Join(filepath.Dir(o.path), "."+filepath.Base(o.path)+".tmp-"+hex.EncodeToString(suffix))
+		temps[i] = tmp
+		if err := writeSafeFile(tmp, []byte(o.content)); err != nil {
+			cleanupTemps()
+			return extractResult{ID: id, Title: res.Title}, ioErr(err)
+		}
+	}
+	var published []string
+	for i, o := range outputs {
 		_, statErr := os.Lstat(o.path)
-		if err := writeSafeFile(o.path, []byte(o.content)); err != nil {
-			for _, c := range created {
-				_ = os.Remove(c)
+		if err := os.Rename(temps[i], o.path); err != nil {
+			cleanupTemps()
+			for _, p := range published {
+				_ = os.Remove(p)
 			}
 			return extractResult{ID: id, Title: res.Title}, ioErr(err)
 		}
+		temps[i] = ""
 		if os.IsNotExist(statErr) {
-			created = append(created, o.path)
+			published = append(published, o.path)
 		}
+	}
+	for _, o := range []struct {
+		path    string
+		content string
+	}{{fullPath, full}, {summaryPath, summary}, {metaPath, meta}} {
 		res.Files = append(res.Files, o.path)
 		res.Bytes += len(o.content)
 	}
@@ -198,10 +229,31 @@ func composeMetadataMarkdown(a *meetingArtifacts) string {
 }
 
 func yamlEscape(s string) string {
-	// Quote anything with special characters.
-	if strings.ContainsAny(s, `:#@"'`) || strings.Contains(s, "\n") {
-		// Escape internal quotes by doubling them.
-		return `"` + strings.ReplaceAll(s, `"`, `\"`) + `"`
+	// Quote anything that could change how YAML reads the scalar. Inside a
+	// double-quoted scalar a backslash starts an escape, so backslashes are
+	// escaped first, then quotes and control characters (a title such as
+	// `QBR: C:\Users\Alice` used to produce invalid frontmatter).
+	if strings.ContainsAny(s, ":#@\"'\\") || strings.ContainsFunc(s, func(r rune) bool { return r < 0x20 || r == 0x7f }) {
+		var b strings.Builder
+		b.WriteByte('"')
+		for _, r := range s {
+			switch {
+			case r == '\\':
+				b.WriteString(`\\`)
+			case r == '"':
+				b.WriteString(`\"`)
+			case r == '\n':
+				b.WriteString(`\n`)
+			case r == '\t':
+				b.WriteString(`\t`)
+			case r < 0x20 || r == 0x7f:
+				fmt.Fprintf(&b, `\x%02x`, r)
+			default:
+				b.WriteRune(r)
+			}
+		}
+		b.WriteByte('"')
+		return b.String()
 	}
 	return s
 }

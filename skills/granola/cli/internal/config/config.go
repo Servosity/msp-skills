@@ -223,6 +223,14 @@ func FileHasCredentialFields(path string) (bool, error) {
 }
 
 func (c *Config) AuthHeader() string {
+	// Hand-wired (handfixes.json: env-api-key-wins): an explicit
+	// GRANOLA_API_KEY in the environment wins over persisted authentication
+	// material, auth_header included. Before, a stored auth_header kept being
+	// sent while Load reported env:GRANOLA_API_KEY as the source.
+	if c.envOverrides["GranolaApiKey"] && c.GranolaApiKey != "" {
+		c.AuthSource = "env:GRANOLA_API_KEY"
+		return "Bearer " + c.GranolaApiKey
+	}
 	if c.AuthHeaderVal != "" {
 		return c.AuthHeaderVal
 	}

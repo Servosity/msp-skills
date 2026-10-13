@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"granola-pp-cli/internal/client"
 	"granola-pp-cli/internal/config"
 	"granola-pp-cli/internal/granola"
 	"granola-pp-cli/internal/store"
@@ -312,6 +313,16 @@ func granolaRESTConfig() (*config.Config, error) {
 		path = granolaActiveFlags.configPath
 	}
 	return config.Load(path)
+}
+
+// applyCachePolicy makes a leaf REST client honor the running command's
+// --no-cache (handfixes.json: rest-helpers-honor-config): a fresh client
+// otherwise defaults to the 5-minute response cache, so `--data-source live
+// --no-cache` could still be served a cached copy.
+func applyCachePolicy(c *client.Client) {
+	if c != nil && granolaActiveFlags != nil && granolaActiveFlags.noCache {
+		c.NoCache = true
+	}
 }
 
 // granolaStoreOverride, when non-empty, redirects the local SQLite store path.

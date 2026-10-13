@@ -50,7 +50,7 @@
   {
    "id": "preflight-duplicate-identity-gate",
    "summary": "preflight exit 3 fires only on an identity match (meeting id in the filename or body, or title AND day); a same-title file from a different day is reported as title_collision and never blocks; the scan reads through an os.Root",
-   "why": "The transcripts layout names files '<YYYY-MM-DD> <Title> - <Org> - Full.md' - date in the name, never the id - so the id branch never fired and the title branch matched every earlier occurrence of a recurring meeting. Callers read exit 3 as 'skip', so real meetings were silently dropped (8 colliding titles measured on the live root). The os.Root scoping (added with the security gate pass) keeps a symlink in the transcripts tree from pulling an outside file into the body check. msp-skills commit 83dc8d2e0 (originally 1fa4e0aa). A --root naming a single file is still checked (through a root on its parent), as filepath.Walk did; a --root that is a symlink to a directory is now followed, where filepath.Walk silently skipped it. Codex full-PR review: a same-title, same-day file that records a DIFFERENT meeting id is a different meeting and only reports a collision; the title+day rung applies only to files that record no id. A --root that does not exist is reported on stderr instead of silently turning the gate off.",
+   "why": "The transcripts layout names files '<YYYY-MM-DD> <Title> - <Org> - Full.md' - date in the name, never the id - so the id branch never fired and the title branch matched every earlier occurrence of a recurring meeting. Callers read exit 3 as 'skip', so real meetings were silently dropped (8 colliding titles measured on the live root). The os.Root scoping (added with the security gate pass) keeps a symlink in the transcripts tree from pulling an outside file into the body check. msp-skills commit 83dc8d2e0 (originally 1fa4e0aa). A --root naming a single file is still checked (through a root on its parent), as filepath.Walk did; a --root that is a symlink to a directory is now followed, where filepath.Walk silently skipped it. Codex full-PR review: a same-title, same-day file that records a DIFFERENT meeting id is a different meeting and only reports a collision; the title+day rung applies only to files that record no id. A --root that does not exist is reported on stderr instead of silently turning the gate off. Round 2: identity comes only from what a file DECLARES (Meeting ID line, Meeting Link to notes.granola.ai, frontmatter id), never from an id merely mentioned in the body; a legacy (pre-7.4x UUID) declaration cannot be compared with REST ids and falls back to title+day.",
    "status": "active",
    "asserts": [
     {
@@ -89,7 +89,7 @@
     },
     {
      "file": "cli/internal/cli/preflight.go",
-     "contains": "declaresOther = len(memoDeclaredIDs(body)) > 0",
+     "contains": "for _, declared := range memoDeclaredIDs(string(b)) {",
      "min_count": 1,
      "code_only": true
     },
@@ -102,6 +102,18 @@
     {
      "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
      "contains": "func TestFindDuplicatesDifferentRecordedIDIsNotADuplicate(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/preflight.go",
+     "contains": "if sameIDScheme(declared, id) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestFindDuplicatesUsesDeclaredIdentityNotMentions(",
      "min_count": 1,
      "code_only": true
     }
@@ -169,7 +181,7 @@
   {
    "id": "rest-hydrate-presence-aware",
    "summary": "REST hydration is non-destructive: absent attendees/transcript (nil pointer) preserve stored rows, present-empty clears them, and start/end/calendar fields are guarded independently",
-   "why": "upsertRichMeeting used to DELETE a meeting's attendees and transcript segments whenever a detail response omitted them, so a partial HTTP 200 wiped valid local data (adversarial P1). The pointer fields make 'absent' distinguishable from 'empty'. Library reprint step 1 + c99d4c4. Codex full-PR review: a response that omits `attendees` and carries only calendar invitees merges them in additively instead of deleting the stored set, and an empty name never overwrites a known one.",
+   "why": "upsertRichMeeting used to DELETE a meeting's attendees and transcript segments whenever a detail response omitted them, so a partial HTTP 200 wiped valid local data (adversarial P1). The pointer fields make 'absent' distinguishable from 'empty'. Library reprint step 1 + c99d4c4. Codex full-PR review: a response that omits `attendees` and carries only calendar invitees merges them in additively instead of deleting the stored set, and an empty name never overwrites a known one. Round 2: the store does not record which source added an attendee, so rows are merged, never replaced wholesale; only an explicit, present-but-empty attendees list clears them.",
    "status": "active",
    "asserts": [
     {
@@ -193,6 +205,18 @@
     {
      "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
      "contains": "func TestUpsertKeepsAttendeesWhenOnlyInviteesArrive(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/rest_hydrate.go",
+     "contains": "if d.Attendees != nil && len(*d.Attendees) == 0 {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestUpsertKeepsInviteesWhenOnlyAttendeesArrive(",
      "min_count": 1,
      "code_only": true
     }
@@ -742,13 +766,13 @@
   },
   {
    "id": "extract-triple-all-or-nothing",
-   "summary": "extract checks all three targets before writing and removes what it created if a write fails",
-   "why": "A half-written triple left full_<id>.md behind, and the retry refused it as 'already exists' forever (Codex full-PR review).",
+   "summary": "extract stages the MEMO triple in private temporary files and renames them into place only when all three are written, full_<id>.md last",
+   "why": "A half-written triple left full_<id>.md behind, and the retry refused it as 'already exists' forever (Codex full-PR review). Round 2: a failure while writing the FIRST file also left a partial full_<id>.md, so the triple is now staged under hidden temporary names (skipped by the duplicate scan) and published last.",
    "status": "active",
    "asserts": [
     {
      "file": "cli/internal/cli/extract.go",
-     "contains": "for _, c := range created {",
+     "contains": "if err := os.Rename(temps[i], o.path); err != nil {",
      "min_count": 1,
      "code_only": true
     },
@@ -763,7 +787,7 @@
   {
    "id": "duplicates-cross-source-identity",
    "summary": "duplicates scan groups a stored meeting with its memo file by the id in the file name, or by title + the YYYY-MM-DD in the file name",
-   "why": "The generated fingerprint mixed in an attendee set the file side never carried and took the file's day from its mtime, so a meeting and its own memo could never land in one group (Codex full-PR review; the library pass had deferred it).",
+   "why": "The generated fingerprint mixed in an attendee set the file side never carried and took the file's day from its mtime, so a meeting and its own memo could never land in one group (Codex full-PR review; the library pass had deferred it). Round 2: each stored meeting is its own identity (two same-title meetings on one day are two meetings), files are matched by the id they declare, and a title+day fallback is used only when exactly one stored meeting fits.",
    "status": "active",
    "asserts": [
     {
@@ -777,18 +801,30 @@
      "contains": "func TestDuplicatesScanMatchesAMeetingToItsMemoFile(",
      "min_count": 1,
      "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/duplicates.go",
+     "contains": "rec := storeRec{id: id, title: d.Title, day: day, key: \"id:\" + id}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestDuplicatesScanKeepsDistinctMeetingsApart(",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   },
   {
    "id": "mcp-notes-attribution-all-candidates",
    "summary": "private-note attribution weighs every stored meeting that shares a target's title, not just the current batch",
-   "why": "With A (09:00) and B (10:00) titled alike and only B in the batch, the MCP copy of A had no competitor and its private notes were written under B (Codex full-PR review).",
+   "why": "With A (09:00) and B (10:00) titled alike and only B in the batch, the MCP copy of A had no competitor and its private notes were written under B (Codex full-PR review). Round 2: meetings sync has listed but not hydrated (the thin notes table) are candidates too, and a failed candidate listing writes nothing.",
    "status": "active",
    "asserts": [
     {
      "file": "cli/internal/cli/mcp_notes.go",
-     "contains": "candidates := withSameTitleStoredMeetings(ctx, db, targets)",
+     "contains": "candidates, ok := withSameTitleStoredMeetings(ctx, db, targets)",
      "min_count": 1,
      "code_only": true
     },
@@ -797,13 +833,25 @@
      "contains": "func TestPrivateNotesAttributionSeesAllSameTitleMeetings(",
      "min_count": 1,
      "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/mcp_notes.go",
+     "contains": "FROM notes WHERE id LIKE 'not_%'",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestPrivateNotesAttributionSeesThinSyncedNotes(",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   },
   {
    "id": "mcp-refresh-rotation-persistence",
    "summary": "after a token refresh, the rotated refresh token is written to the Keychain first, with a retry, and every failed write is reported",
-   "why": "Granola retires the old refresh token on use. An access-token write failure used to stop the refresh token from ever being saved, losing the session on the next run, behind a soft warning (Codex full-PR review).",
+   "why": "Granola retires the old refresh token on use. An access-token write failure used to stop the refresh token from ever being saved, losing the session on the next run, behind a soft warning (Codex full-PR review). Round 2: the expiry never advances when the access token was not saved (the next run refreshes), and a lost refresh token is returned as an error instead of a soft warning.",
    "status": "active",
    "asserts": [
     {
@@ -815,6 +863,24 @@
     {
      "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
      "contains": "func TestStoreMCPTokenSavesRefreshTokenFirstAndReportsFailures(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/granolamcp.go",
+     "contains": "exp = time.Unix(1, 0)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/granolamcp.go",
+     "contains": "if errors.Is(serr, errRefreshNotSaved) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestStoreMCPTokenNeverAdvancesExpiryWithoutTheAccessToken(",
      "min_count": 1,
      "code_only": true
     }
@@ -849,7 +915,7 @@
   {
    "id": "rest-helpers-honor-config",
    "summary": "panel / transcript / meetings get REST helpers load the --config the command was given",
-   "why": "They called config.Load(\"\"), so `--config other.toml` was ignored and the default host and credentials were used (Codex full-PR review).",
+   "why": "They called config.Load(\"\"), so `--config other.toml` was ignored and the default host and credentials were used (Codex full-PR review). Round 2: they honor --no-cache too.",
    "status": "active",
    "asserts": [
     {
@@ -873,6 +939,18 @@
     {
      "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
      "contains": "func TestRESTHelpersHonorConfigFlag(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/granola_helpers.go",
+     "contains": "func applyCachePolicy(c *client.Client) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestLeafRESTClientHonorsNoCache(",
      "min_count": 1,
      "code_only": true
     }
@@ -1011,6 +1089,92 @@
      "file": "cli/internal/cli/stats.go",
      "contains": "CAST(strftime('%s', ended_at) AS INTEGER) > CAST(strftime('%s', started_at) AS INTEGER)",
      "min_count": 2,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "env-api-key-wins",
+   "summary": "an explicit GRANOLA_API_KEY in the environment is the credential sent, ahead of a stored auth_header",
+   "status": "active",
+   "why": "A stored auth_header kept being sent while Load reported env:GRANOLA_API_KEY as the source (Codex full-PR review round 2).",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "if c.envOverrides[\"GranolaApiKey\"] && c.GranolaApiKey != \"\" {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestEnvAPIKeyWinsOverStoredAuthHeader(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "attendee-queries-distinct-meetings",
+   "summary": "attendee timeline and brief select meetings with EXISTS, so a meeting with two matching attendees appears once",
+   "status": "active",
+   "why": "The JOIN returned one row per matching attendee, so `attendee brief Smith --last 2` could return the same meeting twice and drop the older one (Codex full-PR review round 2).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/attendee.go",
+     "contains": "WHERE EXISTS (SELECT 1 FROM attendees a WHERE a.meeting_id = m.id AND (a.email LIKE ? OR a.name LIKE ?))",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestAttendeeBriefReturnsDistinctMeetings(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-notes-backfill-tracked",
+   "summary": "private-notes completion is tracked per meeting (human_notes_state); auto-refresh backfills up to 25 pending meetings per command without refetching REST detail",
+   "status": "active",
+   "why": "Eligibility depended only on REST timestamps, so meetings synced before MCP was connected, or whose MCP pass failed, were never asked again (Codex full-PR review round 2).",
+   "asserts": [
+    {
+     "file": "cli/internal/granola/store_sync.go",
+     "contains": "CREATE TABLE IF NOT EXISTS human_notes_state (",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync_autorefresh.go",
+     "contains": "if pending, err := pendingHumanNoteTargets(ctx, db, autoRefreshEnrichCap()); err == nil && len(pending) > 0 {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestPendingHumanNotesAreTrackedApartFromREST(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "yaml-metadata-escaped",
+   "summary": "metadata frontmatter escapes backslashes, quotes, and control characters in quoted scalars",
+   "status": "active",
+   "why": "A title such as `QBR: C:\\\\Users\\\\Alice` produced an invalid double-quoted YAML scalar (Codex full-PR review round 2, P2).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/extract.go",
+     "contains": "case r == '\\\\':",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestYAMLEscapeBackslashes(",
+     "min_count": 1,
      "code_only": true
     }
    ]
