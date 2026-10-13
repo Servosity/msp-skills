@@ -183,7 +183,7 @@ No. The CLI reads, and creates or updates contacts, passwords, configurations, a
 
 ## More Documentation connectors
 
-Run more than one Documentation tool, or comparing options? These connectors work the same way: [Hudu](/skills/hudu/) · [Liongard](/skills/liongard/) · [PandaDoc](/skills/pandadoc/)
+Run more than one Documentation tool, or comparing options? These connectors work the same way: [Granola](/skills/granola/) · [Hudu](/skills/hudu/) · [Liongard](/skills/liongard/) · [PandaDoc](/skills/pandadoc/)
 
 ## Status
 

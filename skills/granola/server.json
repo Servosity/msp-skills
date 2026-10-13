@@ -30,9 +30,16 @@
       "environmentVariables": [
         {
           "name": "GRANOLA_API_KEY",
-          "description": "Set the GRANOLA_API_KEY credential for the Granola MCP server.",
+          "description": "Granola public API key (Personal or Workspace) from Granola Settings > API. Powers sync, notes, transcripts, summaries, folders, and every local-store command.",
           "isRequired": true,
           "isSecret": true
+        },
+        {
+          "name": "GRANOLA_BASE_URL",
+          "description": "Granola public API root. Leave unset to use https://public-api.granola.ai.",
+          "isRequired": false,
+          "isSecret": false,
+          "default": "https://public-api.granola.ai"
         }
       ]
     }

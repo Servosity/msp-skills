@@ -27,7 +27,7 @@ The six agents MSP owners actually use (self-serve, works today):
 | **Claude Cowork** | Paste the install prompt below. |
 | **GitHub Copilot** (VS Code) | Run installer, add `granola-mcp` to `mcp.json` under the `servers` key, then pick **Agent** mode. |
 
-For ChatGPT, the Granola MCP server is stdio - to use it with ChatGPT you expose it over HTTPS via the `mcp-remote` bridge or your own endpoint. See [mcp-install.md](./mcp-install.md).
+For ChatGPT, run `granola-mcp --transport http` and expose that behind HTTPS - no bridge package is needed. See [mcp-install.md](./mcp-install.md).
 
 ### Also for the Microsoft and Google stacks
 
@@ -152,7 +152,7 @@ GRANOLA_API_KEY=<value> granola-cli doctor
 | Every mention of a topic across all synced meetings? | `granola-cli search "backup migration"` |
 | Bulk-export the last 7 days of calls to a folder? | `granola-cli export-all --out ./calls --last 7d` |
 | Who talked the most across last month's meetings? | `granola-cli talktime --by participant --since 30d` |
-| Which scheduled calls this week never got recorded? | `granola-cli calendar overlay --missed-only` |
+| Which recent meetings have a transcript but no write-up on disk yet? | `granola-cli memo queue --since 7d` |
 | Top attendees by meeting count? | `granola-cli stats attendees --top 10` |
 | Is auth working and is my local mirror fresh? | `granola-cli doctor` |
 
@@ -174,7 +174,7 @@ This skill closes that gap by making every meeting queryable at once:
 - **`attendee brief <contact> --last 5`** - the last few calls with a contact, real notes + AI summary inlined, as pre-call prep.
 - **`search "<topic>"`** - every mention of a topic across all synced meetings.
 - **`export-all --out ./calls --last 7d`** - bulk-export a week of calls to markdown for your PSA or a follow-up doc.
-- **`calendar overlay --missed-only`** - which scheduled calls never actually got recorded.
+- **`talktime --by participant --since 30d`** - who did the talking across a month of client calls, without re-listening to any of them.
 
 See [pain-point.md](./pain-point.md) for the longer narrative.
 
@@ -182,7 +182,7 @@ See [pain-point.md](./pain-point.md) for the longer narrative.
 
 ### Does this work with ChatGPT?
 
-Yes, on **Plus, Pro, Team, Business, Enterprise, and Education** plans (Free tier does not yet expose Developer Mode). ChatGPT connects to **remote** MCP servers over HTTPS, not local stdio binaries. The Granola MCP server is local, so for ChatGPT you expose it via the `mcp-remote` bridge or your own HTTPS endpoint. Step-by-step in [mcp-install.md](./mcp-install.md).
+Yes, on **Plus, Pro, Team, Business, Enterprise, and Education** plans (Free tier does not yet expose Developer Mode). ChatGPT connects to **remote** MCP servers over HTTPS, not local stdio binaries. The Granola MCP server runs locally, so for ChatGPT you start it with `granola-mcp --transport http` and put it behind your own HTTPS endpoint (a secure tunnel or reverse proxy). Step-by-step in [mcp-install.md](./mcp-install.md).
 
 ### Does this work with Codex, Cursor, Windsurf, Cline, Copilot, or Gemini?
 
@@ -198,7 +198,7 @@ Your data stays on **your machine**. The CLI and MCP server are local binaries. 
 
 ### Do I need a Granola API key?
 
-You need a Granola account. Cross-meeting sync pulls from the Granola public REST API using a personal or enterprise API key (`GRANOLA_API_KEY`). Recent Granola desktop versions seal the local cache app-private, so the API key is the supported path. Run `granola-cli doctor` to confirm auth is working before anything touches data.
+You need a Granola account. Cross-meeting sync pulls from the Granola public REST API using a Personal or Workspace API key (`GRANOLA_API_KEY`) from Granola Settings > API. Recent Granola desktop versions seal the local cache app-private, so the API key is the supported path. Run `granola-cli doctor` to confirm auth is working before anything touches data.
 
 ### Will this replace the Granola app?
 
@@ -216,11 +216,11 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | `search`, `meetings list/get`, `transcript get`, `attendee timeline/brief`, `talktime`, `stats`, `calendar overlay`, `export`, `doctor` | Allow |
-| Write (routine) | `meetings delete` (reversible soft-delete), `meetings restore` | Preview with `--dry-run`, then a reviewed write |
-| Destructive / config | `auth set-token` / `logout`, `mcp-auth login` (credential handling) | Human-in-the-loop only |
+| Read | `search`, `meetings list/get`, `transcript get`, `attendee timeline/brief`, `talktime`, `stats`, `doctor` | Allow |
+| Local writes | `sync`, `export`, `export-all`, `extract`, `memo run` (local mirror and files you choose; never your Granola account) | Allow, with output folders you choose |
+| Credential | `auth set-token` / `logout`, `mcp-auth login` / `logout` | Human-in-the-loop only |
 
-The strongest control is the **scope you grant the Granola credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
+No command changes or deletes anything in your Granola account. The strongest control is the **scope of the API key you create** - a Personal key sees only your notes, a Workspace key sees workspace-visible notes. Full details, including how to lock it down, are in [governance.md](./governance.md).
 
 ## Status
 

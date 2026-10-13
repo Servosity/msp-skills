@@ -25,8 +25,8 @@ questions that used to mean re-watching calls become one command:
   product) across all synced meetings at once.
 - **`export-all --out ./calls --last 7d`** - bulk-export a week of client calls to
   markdown files for your PSA, a follow-up doc, or a downstream agent.
-- **`calendar overlay --missed-only`** - catch the scheduled calls that never
-  actually got recorded, before the client notices the gap.
+- **`talktime --by participant --since 30d`** - see who did the talking across a
+  month of client calls, without re-listening to a single recording.
 
 ## Status
 

@@ -169,7 +169,7 @@ Yes - you use your own Liongard instance and access keys, so the skill only reac
 
 ## More Documentation connectors
 
-Run more than one Documentation tool, or comparing options? These connectors work the same way: [Hudu](/skills/hudu/) · [IT Glue](/skills/itglue/) · [PandaDoc](/skills/pandadoc/)
+Run more than one Documentation tool, or comparing options? These connectors work the same way: [Granola](/skills/granola/) · [Hudu](/skills/hudu/) · [IT Glue](/skills/itglue/) · [PandaDoc](/skills/pandadoc/)
 
 ## Status
 

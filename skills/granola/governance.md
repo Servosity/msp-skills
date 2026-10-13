@@ -8,29 +8,34 @@
 ## What it authenticates as
 
 The skill drives the `granola-cli` binary (and `granola-mcp`),
-authenticating with `GRANOLA_API_KEY`. Credentials are read from the environment only -
-never written to disk, never logged, never sent anywhere except the Granola API.
+authenticating with `GRANOLA_API_KEY`, read from the environment or from the CLI's
+credentials file (written owner-only by `auth set-token`, which takes the key on stdin,
+never as an argument). The optional `mcp-auth login` stores Granola's official-MCP
+OAuth tokens in the macOS Keychain. Credentials are never logged and never sent
+anywhere except Granola.
 
 ## Default-safe behavior
 
-- **`--dry-run` is opt-in - use it.** Mutating commands send immediately unless you pass `--dry-run` first to preview the request without sending. Make your agent's policy: preview, show the exact command, get approval, then run the write.
+- **Nothing changes your Granola account.** The CLI has no command that creates,
+  edits, or deletes Granola data. Every write is local: the SQLite mirror (`sync`),
+  markdown files on disk (`export`, `export-all`, `extract`, `memo run`, `collect`),
+  the saved API key (`auth set-token`), and the Granola-MCP sign-in (`mcp-auth login`).
 - **Read commands are always safe to run** (reports, rollups, search); they cannot
   change anything.
 - **Agent mode is explicit.** `--agent` produces JSON for scripting but does not
-  add any write gating - the preview-then-approve policy above still applies. See
-  AGENTS.md.
+  add any write gating. See AGENTS.md.
 
 ## Permission tiers
 
-The safe default for an autonomous agent is **read plus planned (dry-run) writes**;
-require a human for anything below the line.
+The safe default for an autonomous agent is **read plus local writes to folders you
+choose**; require a human for anything below the line.
 
 | Tier | What it does | Examples | Recommended agent policy |
 | --- | --- | --- | --- |
-| **Read** | Reports, rollups, search, export. No change. | `search`, `meetings list/get`, `transcript get`, `attendee timeline/brief`, `talktime`, `stats`, `calendar overlay`, `export` / `export-all`, `doctor` | Allow |
-| **Write (routine)** | Reversible mutations on your Granola account. | `meetings delete` (soft-delete, sets `deleted_at`), `meetings restore` | Preview with `--dry-run`, then an approved write |
-| **Credential / security** | Touches tokens and stored credentials. | `auth set-token`, `auth logout`, `mcp-auth login` | Human-in-the-loop only |
-| **Destructive** | Irreversible data or config loss. | (none - `meetings delete` is a reversible soft-delete, restored via `meetings restore`) | Human-in-the-loop only, explicit confirmation |
+| **Read** | Reports, rollups, search. No change. | `search`, `meetings list/get`, `transcript get`, `attendee timeline/brief`, `talktime`, `stats`, `doctor` | Allow |
+| **Local writes** | Writes the local mirror or files on your own machine. Never your Granola account. | `sync`, `export` / `export-all`, `extract`, `memo run`, `collect` | Allow, with output folders you choose |
+| **Credential / security** | Touches tokens and stored credentials. | `auth set-token`, `auth logout`, `mcp-auth login`, `mcp-auth logout` | Human-in-the-loop only |
+| **Destructive** | Irreversible data or config loss. | (none - no command changes or deletes Granola data) | Human-in-the-loop only, explicit confirmation |
 | **Admin** | Back-office administration. | (none detected) | Operator-only, not for agents |
 
 Note: the local learning and profile commands (`teach*`, `playbook`, `learnings`,
@@ -39,11 +44,11 @@ change your Granola account.
 
 ## How to lock it down
 
-- **Scope the credential** to only what your workflow needs. A read/report workflow
-  does not need a credential that can run the Destructive or Credential tiers.
-- **Keep autonomous agents to Read + previewed writes.** Have a human approve the
-  actual write for Write tier and above - the gate lives in your agent's policy,
-  not in the binary's defaults.
+- **Scope the credential** to only what your workflow needs: a Personal API key sees
+  only your own notes; a Workspace key sees workspace-visible notes.
+- **Keep autonomous agents to Read + Local writes.** Choose the output folders for
+  exports yourself; the MCP server refuses a tool call that tries to pick a file or
+  folder path.
 - **Never let an agent run Credential, Destructive, or Admin tier commands
   unattended.** Treat them like a production database drop: human, reviewed, logged.
 - **Rotate the credential if it is ever exposed** (for example after bridging the
@@ -54,4 +59,4 @@ change your Granola account.
 The full source of the CLI and MCP server is in this repository under
 [`cli/`](./cli) (Apache-2.0). You supply the credential, the binary uses it against
 the Granola API, and you can read every line of how it does so. The skill is
-read-first, plan-by-default, and scoped to your own account.
+read-only against Granola and scoped to your own account.

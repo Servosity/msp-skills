@@ -37,7 +37,8 @@ Add (or merge with your existing `mcpServers` block):
     "granola": {
       "command": "granola-mcp",
       "env": {
-        "GRANOLA_API_KEY": "<your-granola_api_key>"
+        "GRANOLA_API_KEY": "<your-granola_api_key>",
+        "GRANOLA_BASE_URL": "<your-granola_base_url>"
       }
     }
   }
@@ -62,7 +63,8 @@ Configuration**) and add:
       "type": "stdio",
       "command": "granola-mcp",
       "env": {
-        "GRANOLA_API_KEY": "<your-granola_api_key>"
+        "GRANOLA_API_KEY": "<your-granola_api_key>",
+        "GRANOLA_BASE_URL": "<your-granola_base_url>"
       }
     }
   }
@@ -83,7 +85,8 @@ Claude Desktop:
     "granola": {
       "command": "granola-mcp",
       "env": {
-        "GRANOLA_API_KEY": "<your-granola_api_key>"
+        "GRANOLA_API_KEY": "<your-granola_api_key>",
+        "GRANOLA_BASE_URL": "<your-granola_base_url>"
       }
     }
   }
@@ -98,16 +101,21 @@ web** is remote-only - see the remote section below.)
 # Remote agents (expose the binary over HTTPS first)
 
 All remote agents need `granola-mcp` reachable as a public **HTTPS** endpoint. Run it
-in HTTP mode with your credentials in the environment:
+in HTTP mode with your credentials in the environment. It binds the loopback interface
+on port 7777 by default; keep it there and let the tunnel reach it, rather than passing an
+`--addr` that listens on every interface (the HTTP transport has no authentication of
+its own):
 
 ```bash
-GRANOLA_API_KEY=<value> granola-mcp --transport http --addr :7777
+GRANOLA_API_KEY=<value> GRANOLA_BASE_URL=<value> granola-mcp --transport http
 ```
 
-Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel
-(Cloudflare Tunnel, ngrok) or your own reverse proxy. **Treat that URL as
-sensitive** - it's a key to your MCP server. Never expose it bare on the internet;
-gate it behind SSO / Cloudflare Access for team use.
+Then expose `http://localhost:7777/mcp` as a public HTTPS URL via a secure tunnel
+(Cloudflare Tunnel, ngrok) or your own reverse proxy. The path is part of the
+endpoint: the server answers Streamable HTTP at `/mcp` and returns 404 at the
+bare root, so a connector pointed at the root URL never handshakes. **Treat that
+URL as sensitive** - it's a key to your MCP server. Never expose it bare on the
+internet; gate it behind SSO / Cloudflare Access for team use.
 
 ## ChatGPT (Developer Mode)
 

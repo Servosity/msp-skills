@@ -11,8 +11,13 @@ All notable changes to this skill are documented here. Format follows
 - Offline SQLite mirror of your meetings with FTS5 full-text `search` across
   notes, AI summaries, and transcripts.
 - Cross-meeting queries: `attendee timeline` / `attendee brief`, `talktime`
-  roll-ups, `stats` (attendees, duration, frequency), and `calendar overlay`
-  missed-recording detection.
+  roll-ups, and `stats` (attendees, duration, frequency).
 - `export` / `export-all` to combined notes + summary + transcript markdown.
-- `sync` from the Granola public REST API with detail-endpoint enrichment;
-  `doctor` health/auth check.
+- The MEMO pipeline: `preflight`, `extract`, `memo run`, and `memo queue`, with a
+  transcript gate that reads the public API's `microphone` / `speaker` labels and a
+  duplicate check keyed on meeting identity, not on a shared title.
+- `sync` from the Granola public REST API with detail-endpoint enrichment, and
+  optional private notes through Granola's official MCP (`mcp-auth login`).
+- `doctor` verifies the API key with a real read and says plainly when the base
+  URL is not the Granola API.
+- Read-only against Granola: no command creates, edits, or deletes Granola data.

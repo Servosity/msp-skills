@@ -167,7 +167,7 @@ Mostly. Audits and search run over whatever you've synced, so they work with any
 
 ## More Documentation connectors
 
-Run more than one Documentation tool, or comparing options? These connectors work the same way: [IT Glue](/skills/itglue/) · [Liongard](/skills/liongard/) · [PandaDoc](/skills/pandadoc/)
+Run more than one Documentation tool, or comparing options? These connectors work the same way: [Granola](/skills/granola/) · [IT Glue](/skills/itglue/) · [Liongard](/skills/liongard/) · [PandaDoc](/skills/pandadoc/)
 
 ## Status
 

@@ -2,50 +2,30 @@
 
 **Search, export, and analyze every Granola meeting across all your calls  -  attendee timelines, talk-time roll-ups, and full-text transcript search from an offline local mirror.**
 
-granola-cli sources every meeting from Granola’s public surfaces  -  the public REST API (`public-api.granola.ai/v1`) for the meeting list, speaker-labeled transcripts, AI summaries, folders, attendees, and calendar, plus Granola’s official MCP server (`mcp.granola.ai`) for the raw private/human notes the REST API omits  -  and syncs all of it into a local SQLite store. That store powers the cross-meeting queries Granola.ai’s web app and existing community CLIs cannot answer: memo run, memo queue, attendee timeline, recipes coverage, calendar overlay, and talktime are offline data joins no per-meeting tool produces. The sealed desktop store (`cache-v6.json.enc`) is app-private on Granola v7.4x+ and is not used. Works offline once synced; agent-native JSON by default.
+granola-cli sources every meeting from Granola’s public surfaces  -  the public REST API (`public-api.granola.ai/v1`) for the meeting list, speaker-labeled transcripts, AI summaries, folders, and attendees, plus Granola’s official MCP server (`mcp.granola.ai`) for the raw private/human notes the REST API omits  -  and syncs all of it into a local SQLite store. That store powers the cross-meeting queries Granola.ai’s web app and existing community CLIs cannot answer: memo run, memo queue, attendee timeline, attendee brief, talktime, and duplicates scan are offline data joins no per-meeting tool produces. The sealed desktop store (`cache-v6.json.enc`) is app-private on Granola v7.4x+ and is not used. Works offline once synced; agent-native JSON by default.
 
 Created by [@dstevens](https://github.com/dstevens) (Damien Stevens).
 
 ## Install
 
-The recommended path installs both the `granola-cli` binary and the `pp-granola` agent skill (Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot, and other agents supported by the upstream [`skills`](https://github.com/vercel-labs/skills) CLI) in one shot:
+This CLI ships as a Claude Code Skill and MCP server in [Servosity/msp-skills](https://github.com/Servosity/msp-skills). The installer downloads the `granola-cli` and `granola-mcp` binaries into `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows). It does not register the skill with your agent and writes no MCP client config - see [mcp-install.md](./mcp-install.md) for that wire-up.
 
-```bash
-npx -y @mvanhorn/printing-press-library install granola
-```
+1. macOS / Linux:
+   ```bash
+   bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/granola/install.sh)
+   ```
+2. Windows (PowerShell):
+   ```powershell
+   iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/granola/install.ps1 | iex
+   ```
+3. Verify: `granola-cli --version`
+4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
 
-For CLI only (no skill):
-
-```bash
-npx -y @mvanhorn/printing-press-library install granola --cli-only
-```
-
-For skill only  -  installs the skill into the same agents as the default command above, but skips the CLI binary (use this to update or reinstall just the skill):
-
-```bash
-npx -y @mvanhorn/printing-press-library install granola --skill-only
-```
-
-To constrain the skill install to one or more specific agents (repeatable  -  agent names match the [`skills`](https://github.com/vercel-labs/skills) CLI):
-
-```bash
-npx -y @mvanhorn/printing-press-library install granola --agent claude-code
-npx -y @mvanhorn/printing-press-library install granola --agent claude-code --agent codex
-```
-
-### Without Node (Go fallback)
-
-If `npx` isn't available (no Node, offline), install the CLI directly via Go (requires Go 1.26.5 or newer):
-
-```bash
-go install github.com/mvanhorn/printing-press-library/library/productivity/granola/cmd/granola-cli@latest
-```
-
-This installs the CLI only  -  no skill.
+If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed until verification succeeds.
 
 ### Pre-built binary
 
-Download a pre-built binary for your platform from the [latest release](https://github.com/mvanhorn/printing-press-library/releases/tag/granola-current). On macOS, clear the Gatekeeper quarantine: `xattr -d com.apple.quarantine <binary>`. On Unix, mark it executable: `chmod +x <binary>`.
+Download a pre-built binary for your platform from the [latest release](https://github.com/Servosity/msp-skills/releases?q=granola). On macOS, clear the Gatekeeper quarantine: `xattr -d com.apple.quarantine <binary>`. On Unix, mark it executable: `chmod +x <binary>`.
 
 <!-- pp-hermes-install-anchor -->
 ## Install for Hermes
@@ -53,24 +33,24 @@ Download a pre-built binary for your platform from the [latest release](https://
 From the Hermes CLI:
 
 ```bash
-hermes skills install mvanhorn/printing-press-library/cli-skills/pp-granola --force
+hermes skills install Servosity/msp-skills/skills/granola --force
 ```
 
 Inside a Hermes chat session:
 
-```text
-/skills install mvanhorn/printing-press-library/cli-skills/pp-granola --force
+```bash
+/skills install Servosity/msp-skills/skills/granola --force
 ```
+
+Hermes [speaks MCP natively](https://hermes-agent.nousresearch.com), so it can also use the `granola-mcp` server directly - same install path, same environment variables. Restart the Hermes session or gateway if the newly installed skill is not visible immediately.
 
 ## Install for OpenClaw
 
-Install both the CLI binary and the focused OpenClaw skill into runtime-visible locations:
+Tell your OpenClaw agent (copy this):
 
-```bash
-npx -y @mvanhorn/printing-press-library install granola --agent openclaw --bin-dir ~/.local/bin
-```
+> Install the granola skill from https://github.com/Servosity/msp-skills/tree/main/skills/granola. The skill defines how its required CLI (`granola-cli`) can be installed via the `openclaw:` frontmatter block.
 
-Restart the OpenClaw session or gateway if the newly installed skill is not visible immediately.
+OpenClaw isn't generally available yet; the frontmatter wiring is pre-shipped and will activate the moment OpenClaw launches.
 
 ## Use with Claude Desktop
 
@@ -78,7 +58,7 @@ This CLI ships an [MCPB](https://github.com/modelcontextprotocol/mcpb) bundle  -
 
 To install:
 
-1. Download the `.mcpb` for your platform from the [latest release](https://github.com/mvanhorn/printing-press-library/releases/tag/granola-current).
+1. Download the `.mcpb` for your platform from the [latest release](https://github.com/Servosity/msp-skills/releases?q=granola).
 2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
 3. Fill in `GRANOLA_API_KEY` when Claude Desktop prompts you.
 
@@ -163,11 +143,11 @@ granola-cli memo queue --since 7d --json
 # Run the full MEMO pipeline on every meeting since yesterday.
 granola-cli memo run --since 24h --to ~/Documents/meeting-transcripts --json
 
-# Every meeting with Alice in the last 60 days, oldest first, with the recipes applied per row.
-granola-cli attendee timeline alice@example.com --since 60d --json --select id,title,started_at,recipes
+# Every meeting with Alice in the last 60 days, oldest first.
+granola-cli attendee timeline alice@example.com --since 60d --json --select id,title,started_at,folder
 
-# Meetings missing the Discovery panel  -  the Friday retro gap.
-granola-cli recipes coverage --since 14d --json
+# Who talked most across this week's meetings  -  the time-defrag retro input.
+granola-cli talktime --by participant --since 7d --json
 
 ```
 
@@ -183,7 +163,7 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   granola-cli memo run --since 24h --to ~/Documents/meeting-transcripts --json
   ```
-- **`memo queue`**  -  List every meeting whose transcript is in the cache but whose MEMO triple is not yet on disk.
+- **`memo queue`**  -  List every meeting whose transcript is in the local store but whose MEMO triple is not yet on disk.
 
   _Answers the daily question “what’s still un-MEMO’d?” without the user opening Granola at all._
 
@@ -205,7 +185,7 @@ treated as **unrecognized** rather than silently counted.
 | --- | --- |
 | `0` | ready to extract |
 | `2` | no transcript, or below the threshold (needs >= 5 `microphone` segments AND >= 10 CLASSIFIED segments) |
-| `3` | a `full_<id>.md` or fuzzy title match already covers this meeting |
+| `3` | a file in `--root` already covers this meeting: the meeting id appears in its filename or body, or its title AND day match. A same-title file from a different day is a recurring meeting, reported as `title_collision`, and does not block. |
 | `4` | transcript source labels are unrecognized, so the gate cannot classify the transcript -- upstream changed its grammar. **Not the same as exit 2:** the text is probably there, the channels just can't be read. |
 
 Unclassified segments never count toward the threshold, so an upstream relabel
@@ -233,42 +213,29 @@ They exist so a fleet-wide relabel cannot present as an empty queue.
 
 ### Credentials
 
-Pass the token via the **`GRANOLA_API_KEY` environment variable**. `auth set-token
-<token>` takes the secret as a command-line argument, which leaks it into shell
-history and into `ps` output for the life of the process; prefer the environment
-variable, and treat `set-token` as unsupported for real credentials until it
-accepts stdin.
+Pass the token via the **`GRANOLA_API_KEY` environment variable**, or save it once
+with `auth set-token`, which reads the secret from stdin (or from `GRANOLA_API_KEY`)
+and refuses a command-line argument, so it never lands in shell history or `ps`
+output:
+
+```bash
+printf %s "$TOKEN" | granola-cli auth set-token
+```
 
 ### Attendee intelligence
-- **`attendee timeline`**  -  Every meeting with a given attendee, ordered oldest→newest, with title, date, folder, and recipe-applied flag per row.
+- **`attendee timeline`**  -  Every meeting with a given attendee, ordered oldest→newest, with title, date, and folder per row.
 
   _Pre-call prep in one command; surfaces the conversation arc with a single person across months of meetings._
 
   ```bash
-  granola-cli attendee timeline alice@example.com --since 60d --json --select id,title,started_at,folder,recipes
+  granola-cli attendee timeline alice@example.com --since 60d --json --select id,title,started_at,folder
   ```
-- **`attendee brief`**  -  Pulls the last N meetings with an attendee and stitches together their real cached notes plus real AI panel summaries  -  no synthesis.
+- **`attendee brief`**  -  Pulls the last N meetings with an attendee and stitches together their real human notes plus real AI panel summaries  -  no synthesis.
 
   _Eliminates the click-each-meeting copy-paste that account leads do before every external call._
 
   ```bash
   granola-cli attendee brief alice@example.com --last 3 --panel action-items --json
-  ```
-
-### Folders + recipes
-- **`folder stream`**  -  ndjson stream of every meeting in a Granola folder (resolved via documentLists + listRules) with notes and a named panel inlined.
-
-  _Replaces the weekly retro workflow of opening a folder and copy-pasting each meeting’s summary into a spreadsheet._
-
-  ```bash
-  granola-cli folder stream "Customer Calls" --panel summary --json
-  ```
-- **`recipes coverage`**  -  Surface meetings that did NOT have a named panel template/recipe applied within a date range.
-
-  _Friday retro question “did I run the Discovery recipe on every new-prospect call?” answered in one row per gap._
-
-  ```bash
-  granola-cli recipes coverage "discovery" --since 14d --json
   ```
 
 ### Transcript analytics
@@ -277,9 +244,9 @@ accepts stdin.
   _Confidence column lets you grade transcript accuracy; mic vs system split is the input to “am I talking too much” retros._
 
   ```bash
-  granola-cli talktime 196037d9 --json
+  granola-cli talktime not_06Yq6JtogRihEr --json
   ```
-- **`talktime`**  -  Lifts the per-source talk-time aggregation across N meetings since a date  -  who-talked-most over time.
+- **`talktime --by participant`**  -  Lifts the per-source talk-time aggregation across N meetings since a date  -  who-talked-most over time.
 
   _Time-defrag retro input that no per-meeting tool can produce._
 
@@ -287,36 +254,36 @@ accepts stdin.
   granola-cli talktime --by participant --since 7d --json
   ```
 
-### Cache-native data
-- **`chat list`**  -  List and dump Granola’s AI chat threads anchored to a meeting (entities.chat_thread + entities.chat_message in the cache).
-
-  _Recovers the AI Q&A history a user has accumulated against a meeting  -  useful when chasing what you asked about an account weeks ago._
-
-  ```bash
-  granola-cli chat list 196037d9 --json
-  ```
-- **`calendar overlay`**  -  Left-anti-join meetingsMetadata calendar events with documents.google_calendar_event to find calendared-but-not-recorded meetings.
-
-  _An account lead's Friday retro and a "what did I miss this week" sweep both reduce to this row-level diff._
-
-  ```bash
-  granola-cli calendar overlay --week 2026-05-11 --missed-only --json
-  ```
-
 ### Pipeline hygiene
-- **`duplicates scan`**  -  Hash (title, date-bucket, attendee-email-set) across the cache and a meeting-transcripts repo to surface duplicates at scale.
+- **`duplicates scan`**  -  Hash (title, date-bucket, attendee-email-set) across the local store and a meeting-transcripts repo to surface duplicates at scale.
 
   _Repos accumulate near-duplicate files when meetings are re-extracted; this returns the dupe groups for cleanup._
 
   ```bash
   granola-cli duplicates scan --root ~/Documents/meeting-transcripts --json
   ```
-- **`tiptap extract`**  -  Render documents[id].notes (TipTap JSON: headings, bullet_list, list_item, bold marks, paragraph_break) to canonical markdown instead of falling back to notes_plain.
 
-  _The MEMO summary file’s quality is bounded by extractor fidelity; granola.py loses sub-list hierarchy and bold runs._
+### REST + MCP backbone
+- **`enrich`**  -  Populate meetings, transcripts, and attendees from the public REST detail endpoint (`/v1/notes/{id}?include=transcript`). Needed on Granola v7.4x+ where the desktop cache is sealed; `sync` runs it for you, or call it directly with `--full` for the whole library.
+
+  _Hydrates the rich local tables straight from `public-api.granola.ai`  -  no desktop app, no decryption._
 
   ```bash
-  granola-cli tiptap extract 196037d9 --as markdown
+  granola-cli enrich --full --json
+  ```
+- **`mcp-auth login`**  -  Connect Granola's official MCP (OAuth + PKCE)  -  the only source of the private/human notes the public REST API omits.
+
+  _Adds the one stream REST cannot return; tokens land in the macOS Keychain, never on disk._
+
+  ```bash
+  granola-cli mcp-auth login
+  ```
+- **`notes-show`**  -  Show only the human-typed notes (rich-text notes rendered to markdown) for a meeting  -  the human stream, addressable separately from AI panels and transcript.
+
+  _Isolates what a person actually wrote from the AI summary, so agents can route the two streams differently._
+
+  ```bash
+  granola-cli notes-show not_06Yq6JtogRihEr --json
   ```
 
 ## Usage
@@ -330,14 +297,13 @@ This CLI exposes 35+ commands. Use `granola-cli --help` for the canonical tree a
 | Group | Commands |
 |-------|----------|
 | **MEMO pipeline** | `memo run`, `memo queue`, `preflight`, `extract` |
-| **Meetings** | `meetings list / get / fetch-batch / delete / restore`, `show` |
-| **Three streams** | `notes-show`, `panel get`, `transcript get`, `tiptap extract` |
+| **Meetings** | `meetings list / get / fetch-batch`, `show` |
+| **Three streams** | `notes-show`, `panel get`, `transcript get` |
 | **Export** | `export <id> -o FILE`, `export-all --since DATE -o DIR` |
-| **Cross-meeting analytics** | `attendee timeline / brief`, `folder stream`, `recipes coverage`, `talktime`, `calendar overlay`, `stats frequency / duration / attendees / calendar`, `collect`, `duplicates scan`, `chat list / get` |
-| **Granola entities** | `folders`, `folder list / stream`, `recipes list / describe / coverage`, `workspaces list` |
-| **Public API mirrors** | `sync-api`, `notes-show`, `folders` (require `GRANOLA_API_KEY`) |
+| **Cross-meeting analytics** | `attendee timeline / brief`, `talktime`, `stats frequency / duration / attendees / calendar`, `collect`, `duplicates scan` |
+| **Granola entities** | `folders` |
+| **Public API mirrors** | `notes list / get`, `folders` (require `GRANOLA_API_KEY`) |
 | **Sync / system** | `sync`, `enrich`, `sync-api`, `mcp-auth login / status / verify / logout`, `doctor`, `auth setup / status / set-token / logout`, `which`, `agent-context`, `version` |
-| **GUI bridge (macOS only)** | `warm <id> <query>`  -  prints by default; `--launch` activates the Granola desktop app |
 
 The REST + MCP model adds three commands worth calling out:
 
@@ -372,7 +338,7 @@ This CLI is designed for AI agent consumption:
 - **Pipeable** - `--json` output to stdout, errors to stderr
 - **Filterable** - `--select id,name` returns only fields you need
 - **Previewable** - `--dry-run` shows the request without sending
-- **Read-only by default with a narrow opt-in write surface**  -  `meetings delete`, `meetings restore`, and `warm --launch` mutate state; everything else inspects, exports, syncs, or analyzes
+- **Read-only against Granola**  -  every command inspects, exports, syncs, or analyzes; it never mutates remote Granola state. The only writes are local: saved credentials (`auth set-token`), Granola-MCP tokens (`mcp-auth login`), MEMO/export files on disk, and the local teach/learning store
 - **Offline-friendly** - `sync` and the `meetings list --query <text>` FTS path use the local SQLite store
 - **Agent-safe by default** - no colors or formatting unless `--human-friendly` is set
 
