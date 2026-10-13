@@ -1,5 +1,5 @@
 {
-  "count": 67,
+  "count": 68,
   "connectors": [
     {
       "slug": "abnormal",
@@ -275,6 +275,17 @@
       "source": null,
       "issue_url": null,
       "url": "/skills/gradient/"
+    },
+    {
+      "slug": "granola",
+      "display_name": "Granola",
+      "tagline": "Search and analyze every Granola meeting - transcripts, summaries, attendees, and talk-time - across all your calls.",
+      "category": "Documentation",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "url": "/skills/granola/"
     },
     {
       "slug": "halopsa",

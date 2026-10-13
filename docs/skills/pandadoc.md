@@ -179,7 +179,7 @@ No. You still create, send, and sign documents in PandaDoc. This adds the cross-
 
 ## More Documentation connectors
 
-Run more than one Documentation tool, or comparing options? These connectors work the same way: [Hudu](/skills/hudu/) · [IT Glue](/skills/itglue/) · [Liongard](/skills/liongard/)
+Run more than one Documentation tool, or comparing options? These connectors work the same way: [Granola](/skills/granola/) · [Hudu](/skills/hudu/) · [IT Glue](/skills/itglue/) · [Liongard](/skills/liongard/)
 
 ## Status
 

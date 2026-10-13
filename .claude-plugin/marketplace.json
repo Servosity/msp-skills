@@ -1092,6 +1092,21 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "granola",
+      "source": "./skills/granola",
+      "description": "Search, export, and analyze every Granola meeting across all your calls - attendee timelines, talk-time roll-ups, and full-text transcript search from an offline local mirror.",
+      "version": "0.1.0",
+      "category": "documentation",
+      "tags": [
+        "granola",
+        "documentation",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }

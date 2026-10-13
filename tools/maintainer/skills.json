@@ -666,6 +666,29 @@
         "issue_url": null
       }
     },
+    "granola": {
+      "system": "AI meeting notepad that records, transcribes, and summarizes meetings",
+      "status": "beta",
+      "cli_binary": "granola-cli",
+      "mcp_binary": "granola-mcp",
+      "vendor": "Granola",
+      "vendor_trademark_owner": "Granola",
+      "first_party": false,
+      "category": "Documentation",
+      "display_name": "Granola",
+      "tagline": "Search and analyze every Granola meeting - transcripts, summaries, attendees, and talk-time - across all your calls.",
+      "cli_hash": "sha256:607fc27a4692e8916a2e9665defcec8ab44e7e050ec02fa8bf78f04b7934357e",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "halopsa": {
       "system": "HaloPSA, HaloITSM, HaloCRM",
       "status": "beta",
@@ -1171,7 +1194,7 @@
       "cli_binary": "pipedrive-cli",
       "mcp_binary": "pipedrive-mcp",
       "vendor": "Pipedrive",
-      "vendor_trademark_owner": "Pipedrive O\u00dc",
+      "vendor_trademark_owner": "Pipedrive OÜ",
       "first_party": false,
       "category": "CRM",
       "display_name": "Pipedrive",

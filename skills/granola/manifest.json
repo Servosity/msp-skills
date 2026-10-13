@@ -1,0 +1,55 @@
+{
+  "manifest_version": "0.3",
+  "name": "granola-mcp",
+  "display_name": "Granola",
+  "version": "0.1.0",
+  "description": "Search, export, and analyze every Granola meeting across all your calls - attendee timelines, talk-time roll-ups, and transcript search from an offline local mirror.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/granola-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/granola-mcp",
+      "args": [],
+      "env": {
+        "GRANOLA_API_KEY": "${user_config.granola_api_key}",
+        "GRANOLA_BASE_URL": "${user_config.granola_base_url}"
+      }
+    }
+  },
+  "user_config": {
+    "granola_api_key": {
+      "type": "string",
+      "title": "Granola API key",
+      "description": "Granola public API key (Personal or Workspace) from Granola Settings > API. Powers sync, meetings, transcripts, summaries, folders, attendees, talk-time, search, and MEMO.",
+      "sensitive": true,
+      "required": true
+    },
+    "granola_base_url": {
+      "type": "string",
+      "title": "Granola API base URL",
+      "description": "The Granola public API root. Leave it at the default unless Granola support gives you a different host; a wrong value makes doctor report that base_url is not the Granola API.",
+      "required": false,
+      "sensitive": false,
+      "default": "https://public-api.granola.ai"
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  },
+  "printing_press_version": "4.29.0",
+  "press_provenance": {
+    "printing_press_version": "4.29.0",
+    "generated_at": "2026-07-20T21:34:35.973827Z",
+    "spec_checksum": "sha256:36161dcacb09ce0d24cf874157ebfad5ac53f2c90170a5b61460e97097da96a7",
+    "spec_format": "openapi3"
+  }
+}
