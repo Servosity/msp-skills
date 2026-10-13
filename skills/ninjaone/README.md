@@ -190,7 +190,7 @@ See [pain-point.md](./pain-point.md) for the longer narrative.
 
 Install this free NinjaOne MCP server, give it the client ID and secret of a NinjaOne API app (create one under **Administration > Apps > API**), and Claude can answer questions about your NinjaOne tenant in plain English. In Claude Desktop, select the one-click `.mcpb` under **Settings > Extensions**; in Claude Code, run `/plugin install ninjaone@msp-skills`. Every path is in [Install in 60 seconds](#install-in-60-seconds).
 
-It keeps a local SQLite copy of your estate, so fleet-wide questions are answered in one local query, and an MSP has confirmed it against a production NinjaOne tenant ([receipt](https://github.com/Servosity/msp-skills/issues/145)).
+Other ways to connect the two include community MCP servers such as WYRE's ninjaone-mcp and Lungshot's NinjaOneMCP, and hosted connector services such as Truto and MCPBundles. This one keeps a local SQLite copy of your estate, so fleet-wide questions are answered in one local query, and an MSP has confirmed it against a production NinjaOne tenant ([receipt](https://github.com/Servosity/msp-skills/issues/145)).
 
 ### Does this work with ChatGPT?
 
