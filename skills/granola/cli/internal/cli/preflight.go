@@ -273,6 +273,34 @@ func transcriptUsable(mic, classified int) bool {
 // file body (current-format memos carry "Meeting ID:" and a notes.granola.ai
 // link; the filename carries neither), or title AND day agreeing -- the last
 // rung covering legacy files written before ids were recorded at all.
+// exactMemoTitleDay reports whether a normalized memo file stem names this
+// meeting under the transcripts convention "<YYYY-MM-DD> <Title> - <Org> -
+// <Kind>": the leading date equals day and the rest is exactly the title, or
+// the title followed by one or two " - " segments (org and kind, or kind).
+// More segments are ambiguous ("Acme" vs "Acme - QBR - Org - Full") and do
+// not match.
+func exactMemoTitleDay(stem, titleKey, day string) bool {
+	m := memoDatePrefix.FindStringSubmatch(stem)
+	return m != nil && m[1] == day && exactMemoTitle(strings.TrimSpace(m[2]), titleKey)
+}
+
+// exactMemoTitle is the title half of exactMemoTitleDay, for a name whose
+// date was already split off (the duplicates command uses it too).
+func exactMemoTitle(rest, titleKey string) bool {
+	if titleKey == "" {
+		return false
+	}
+	if rest == titleKey {
+		return true
+	}
+	after, ok := strings.CutPrefix(rest, titleKey+" - ")
+	if !ok {
+		return false
+	}
+	n := len(strings.Split(after, " - "))
+	return n == 1 || n == 2
+}
+
 func findDuplicates(root, id, title, day string) (dup string, collisions []string) {
 	if root == "" {
 		return "", nil
@@ -354,10 +382,14 @@ func findDuplicates(root, id, title, day string) (dup string, collisions []strin
 			collisions = append(collisions, path)
 			return
 		}
-		// Same title. Same day means the same occurrence -- gate. A different
-		// day is a different occurrence of a recurring meeting -- report it so
-		// the caller can see the near-miss, but never block on it.
-		if day != "" && strings.Contains(name, day) {
+		// The title+day rung gates only on an EXACT parsed match: the file's
+		// leading date equals the meeting's day and its title is exactly this
+		// one (handfixes.json: preflight-exact-title-day). The substring test
+		// above only chose which bodies to read; "Planning" must not gate on
+		// "2026-10-13 Budget Planning - Northwind - Full.md". A looser match,
+		// or the same title on another day (a recurring meeting), is
+		// reported, never gated.
+		if day != "" && exactMemoTitleDay(stem, titleKey, day) {
 			dup = path
 			return
 		}

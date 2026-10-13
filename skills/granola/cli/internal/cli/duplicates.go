@@ -139,12 +139,15 @@ func newDuplicatesScanCmd(flags *rootFlags) *cobra.Command {
 					}
 					// 3. Title + the day in the file name, only when exactly
 					// one stored meeting fits; an ambiguous match is declined.
+					// The title must match exactly under the naming convention
+					// (exactMemoTitle): a bare prefix let "Plan" claim
+					// "Planning - Org - Full".
 					if key == "" {
 						norm := strings.ToLower(strings.TrimSpace(title))
 						var hits []storeRec
 						for _, rec := range stored {
 							rt := strings.ToLower(strings.TrimSpace(rec.title))
-							if rec.day == day && rt != "" && strings.HasPrefix(norm, rt) {
+							if rec.day == day && exactMemoTitle(norm, rt) {
 								hits = append(hits, rec)
 							}
 						}

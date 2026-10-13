@@ -189,10 +189,13 @@ func backfillDocumentsFromStore(c *granola.Cache) error {
 		if ppl := people[d.ID]; len(ppl) > 0 {
 			d.People = &granola.DocPeople{Attendees: ppl}
 		}
-		// Reconstruct the calendar event when the store carries a calendar id.
-		// Start/End use Granola's {"dateTime": ...} shape so docWindow's
-		// extractCalTimeRaw reads the real meeting window from the store.
-		if calID.Valid && calID.String != "" {
+		// Reconstruct the calendar event when the store carries a calendar id
+		// OR a stored meeting window: hydration keeps scheduled start/end even
+		// when the response has no calendar id, and docWindow must read that
+		// window rather than fall back to the narrower transcript span
+		// (handfixes.json: stored-window-without-calendar-id). Start/End use
+		// Granola's {"dateTime": ...} shape so extractCalTimeRaw reads them.
+		if (calID.Valid && calID.String != "") || (startedAt.Valid && startedAt.String != "") || (endedAt.Valid && endedAt.String != "") {
 			ev := &granola.GoogleCalendarEvent{ID: calID.String}
 			if startedAt.Valid && startedAt.String != "" {
 				ev.Start = calEventTimeRaw(startedAt.String)

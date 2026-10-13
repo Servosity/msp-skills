@@ -1560,6 +1560,64 @@
      "code_only": true
     }
    ]
+  },
+  {
+   "id": "preflight-exact-title-day",
+   "status": "active",
+   "summary": "the title+day duplicate rung (preflight, and the duplicates command's title rung) matches only an exact title under the '<YYYY-MM-DD> <Title> - <Org> - <Kind>' convention; a name that merely contains the title is reported, never gated",
+   "why": "Substring containment made 'Planning' gate (exit 3, memo run skips) on '2026-10-13 Budget Planning - Northwind - Full.md', and a bare prefix let 'Plan' claim 'Planning - Org - Full' in the duplicates report (Codex full-PR review round 11).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/preflight.go",
+     "contains": "func exactMemoTitleDay(stem, titleKey, day string) bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/preflight.go",
+     "contains": "if day != \"\" && exactMemoTitleDay(stem, titleKey, day) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/duplicates.go",
+     "contains": "if rec.day == day && exactMemoTitle(norm, rt) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestPreflightTitleDayRungNeedsAnExactTitle(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "stored-window-without-calendar-id",
+   "status": "active",
+   "summary": "the local cache reconstructs a meeting's stored start/end even when it has no calendar id, and meetings output omits an empty calendar_event_id",
+   "why": "Hydration keeps the scheduled window without a calendar id, but the cache dropped it unless an id was present, so extract wrote the transcript span and a shorter duration_min (Codex full-PR review round 11).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/granola_helpers.go",
+     "contains": "if (calID.Valid && calID.String != \"\") || (startedAt.Valid && startedAt.String != \"\") || (endedAt.Valid && endedAt.String != \"\") {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/meetings.go",
+     "contains": "if d.GoogleCalendarEvent != nil && d.GoogleCalendarEvent.ID != \"\" {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_pr_review_fixes_test.go",
+     "contains": "func TestStoredWindowSurvivesWithoutCalendarID(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
   }
  ]
 }

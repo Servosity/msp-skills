@@ -1235,3 +1235,76 @@ func newIsolatedStoreAt(t *testing.T, path string) *store.Store {
 	}
 	return s
 }
+
+// TestPreflightTitleDayRungNeedsAnExactTitle: the title+day rung matched any
+// file whose name CONTAINED the title, so "Planning" gated (exit 3, memo run
+// skips) on "2026-10-13 Budget Planning - Northwind - Full.md".
+func TestPreflightTitleDayRungNeedsAnExactTitle(t *testing.T) {
+	root := t.TempDir()
+	other := filepath.Join(root, "2026-10-13 Budget Planning - Northwind - Full.md")
+	if err := os.WriteFile(other, []byte("# Budget Planning\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	dup, coll := findDuplicates(root, "not_AAAAAAAAAAAA", "Planning", "2026-10-13")
+	if dup != "" {
+		t.Fatalf("a different meeting whose title contains this one gated: %q", dup)
+	}
+	if len(coll) != 1 {
+		t.Fatalf("the near-miss was not reported: %v", coll)
+	}
+	same := filepath.Join(root, "2026-10-13 Planning - Northwind - Full.md")
+	if err := os.WriteFile(same, []byte("# Planning\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if dup, _ := findDuplicates(root, "not_AAAAAAAAAAAA", "Planning", "2026-10-13"); dup != same {
+		t.Fatalf("the exact legacy file did not gate: dup=%q", dup)
+	}
+	for _, c := range []struct {
+		stem, title string
+		want        bool
+	}{
+		{"2026-10-13 acme - qbr - northwind - full", "acme - qbr", true},
+		{"2026-10-13 acme - qbr - northwind - full", "acme", false},
+		{"2026-10-13 planning - full", "planning", true},
+		{"2026-10-13 planning", "planning", true},
+		{"2026-10-12 planning - northwind - full", "planning", false},
+		{"planning - northwind - full", "planning", false},
+		{"2026-10-13 planning - northwind - full", "plan", false},
+	} {
+		if got := exactMemoTitleDay(c.stem, c.title, "2026-10-13"); got != c.want {
+			t.Errorf("exactMemoTitleDay(%q, %q) = %v, want %v", c.stem, c.title, got, c.want)
+		}
+	}
+}
+
+// TestStoredWindowSurvivesWithoutCalendarID: hydration keeps the scheduled
+// window even when the calendar event has no id, but the cache dropped the
+// window unless an id was present, so extract wrote the transcript span.
+func TestStoredWindowSurvivesWithoutCalendarID(t *testing.T) {
+	isolateGranola(t, "")
+	s := newIsolatedStore(t)
+	seg := func(st, en string) restSegment {
+		r := restSegment{Text: "x", StartTime: st, EndTime: en}
+		r.Speaker.Source = "microphone"
+		return r
+	}
+	segs := []restSegment{seg("2026-10-13T09:05:00Z", "2026-10-13T09:30:00Z"), seg("2026-10-13T09:30:00Z", "2026-10-13T09:55:00Z")}
+	if err := upsertRichMeeting(context.Background(), s.DB(), &restNoteDetail{ID: "not_win", Title: "W", CreatedAt: "2026-10-13T09:00:00Z",
+		CalendarEvent: json.RawMessage(`{"scheduled_start_time":"2026-10-13T09:00:00Z","scheduled_end_time":"2026-10-13T10:00:00Z"}`),
+		Transcript:    &segs}); err != nil {
+		t.Fatal(err)
+	}
+	s.Close()
+	c, err := openGranolaCache()
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := c.DocumentByID("not_win")
+	if d == nil {
+		t.Fatal("meeting missing from the cache")
+	}
+	st, en := docWindow(d, c.Transcripts["not_win"])
+	if st != "2026-10-13T09:00:00Z" || en != "2026-10-13T10:00:00Z" {
+		t.Fatalf("window = %s..%s, want the stored 09:00..10:00, not the transcript span", st, en)
+	}
+}

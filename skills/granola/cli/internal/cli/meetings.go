@@ -326,7 +326,8 @@ func flattenDocForJSON(c *granola.Cache, d *granola.Document) map[string]any {
 	if d.DeletedAt != nil {
 		out["deleted_at"] = *d.DeletedAt
 	}
-	if d.GoogleCalendarEvent != nil {
+	// An event reconstructed only to carry the stored window has no id.
+	if d.GoogleCalendarEvent != nil && d.GoogleCalendarEvent.ID != "" {
 		out["calendar_event_id"] = d.GoogleCalendarEvent.ID
 		out["calendar_summary"] = d.GoogleCalendarEvent.Summary
 		out["calendar_html_link"] = d.GoogleCalendarEvent.HtmlLink
