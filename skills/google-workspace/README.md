@@ -6,13 +6,13 @@
 <!-- media:start -->
 <p align="center">
   <a href="https://msp-skills.compoundingteams.com/skills/google-workspace/">
-    <img src="../../docs/assets/social/google-workspace/wide-1200x630.png" alt="Google Workspace - MCP server and Claude Code Skill" width="600">
+    <img src="../../docs/assets/video/google-workspace/animated-og.gif" alt="Google Workspace demo - animated preview" width="600">
   </a>
 </p>
-<p align="center"><sub><a href="https://msp-skills.compoundingteams.com/skills/google-workspace/">Full skill page</a> - install, outcomes, safety model.</sub></p>
+<p align="center"><sub>▶ <a href="https://msp-skills.compoundingteams.com/skills/google-workspace/">Watch the 30-second demo</a> - demo data is simulated; every command shown exists in the real CLI.</sub></p>
 <!-- media:end -->
 
-Cross-client Google Workspace admin: 2SV gaps, licence waste, sharing drift, safe offboarding. Works with the AI you already use - **ChatGPT** (Plus/Pro+), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.
+Cross-client Google Workspace admin: 2SV gaps, license waste, sharing drift, safe offboarding. Works with the AI you already use - **ChatGPT** (Plus/Pro+), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.
 
 ## Works with your agent
 
@@ -46,7 +46,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download Google Workspace MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/google-workspace-v4.33.5/google-workspace-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Google Workspace release on the [releases page](https://github.com/servosity/msp-skills/releases?q=google-workspace).)
+[**Download Google Workspace MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/google-workspace-v0.1.0/google-workspace-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Google Workspace release on the [releases page](https://github.com/servosity/msp-skills/releases?q=google-workspace).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
@@ -134,36 +134,62 @@ OpenClaw isn't generally available yet; the frontmatter wiring is pre-shipped an
 
 ### Authenticate
 
-Set the credentials the CLI needs (from your Google Workspace portal):
+Each client is a **tenant**: a Google Cloud service account with domain-wide delegation that impersonates that client's super admin. Set one up per client:
 
-```bash
-ADMIN_ACCESS_TOKEN=<value> GOOGLE_WORKSPACE_TOKEN=<value> google-workspace-cli doctor
-```
+1. In a Google Cloud project, enable the **Admin SDK API** and the **Enterprise License Manager API** (plus the **Cloud Identity API** if you will use the `policy` profile, and the **Google Workspace Reseller API** for your reseller domain), create a service account, and download its JSON key. (Google Cloud organizations created since May 2024 block key creation by default; an org admin has to allow it for that project.)
+2. Register the client. The key is copied into the CLI's config directory with owner-only permissions, so delete the downloaded original afterwards:
 
-`doctor` checks config, paths, and API reachability, and reports whether credentials are loaded - it does not validate them. Run a read command to confirm the credential actually works end-to-end.
+   ```bash
+   google-workspace-cli tenants add acme --domain example.com --admin admin@example.com --key ./acme-sa.json
+   ```
+
+3. Paste the printed Client ID and scopes into the client's **Admin console > Security > Access and data control > API controls > Domain-wide delegation** (`google-workspace-cli tenants scopes acme` prints them again).
+4. Confirm Google issues a token for every scope you delegated:
+
+   ```bash
+   google-workspace-cli tenants test acme
+   ```
+
+The default `read` scope profile covers every report. Profiles combine with commas, and only `full` includes `read`: use `--scopes full` for offboarding writes, `--scopes read,policy` (or `full,policy`) to add the current 2SV, Drive sharing, and Gmail forwarding policy to `posture`, and register your own reseller domain with `--reseller --scopes reseller` (it is excluded from `--all-tenants`). `--scopes policy` on its own replaces `read` and leaves the reports nothing to read. Pick a client per command with `--tenant <name>` (or `GOOGLE_WORKSPACE_TENANT`), or fan out with `--all-tenants`.
+
+Managing a single organization? Set `GOOGLE_WORKSPACE_TOKEN` to an OAuth access token that carries the Admin SDK scopes instead of registering tenants; the reports then run against that one organization. Do not leave it set once tenants are registered: any API command run without `--tenant` falls back to that token and acts on its organization, not a client's.
+
+`google-workspace-cli tenants test --all-tenants` is the real credential check: it mints a token per scope for every registered client, reads each client's customer record and domains, and exits non-zero when any delegation is missing. It cannot tell you whether the License Manager or Cloud Identity APIs are enabled (the first report that needs them will), and with no tenants registered it has nothing to check. `doctor` probes one real read endpoint with the selected tenant's token (`--tenant <name>`, or the only registered tenant) or the single-org token and reports a rejected or wrong-host credential as `ERROR`, but it exits 0 unless you pass `--fail-on error`.
 
 
 ## What this skill does
 
-<!-- TODO: outcome-first table mapping the 5-8 questions an MSP would ask to the single command that answers each. Source-of-truth is SKILL.md "Unique Capabilities" / "Command Reference" - extract the highest-leverage ones. Format:
-
 | Question your MSP keeps asking | Command |
 | --- | --- |
-| ... | `google-workspace-cli ...` |
-
--->
+| Which accounts across all my clients lack 2-Step Verification, admins first? | `google-workspace-cli mfa-gaps --all-tenants` |
+| Which Google Workspace licenses sit on suspended, never-signed-in, or idle accounts? | `google-workspace-cli stale-licenses --all-tenants` |
+| Did our suspended leavers keep a license, groups, an admin role, OAuth tokens, or an unfinished Drive transfer? | `google-workspace-cli leavers --all-tenants` |
+| One row per client for the QBR: 2SV coverage, admins without 2SV, stale licenses, Drive and Calendar setting changes | `google-workspace-cli posture --all-tenants` |
+| Who changed Drive or Calendar settings, and which files went external or public this week? | `google-workspace-cli sharing-drift --all-tenants --since 7d` |
+| Which third-party apps hold full mail, full Drive, or admin access to client data? | `google-workspace-cli oauth-apps --all-tenants --min-risk high` |
+| Any suspicious sign-ins, hijacked accounts, or 2SV turned off this week? | `google-workspace-cli login-alerts --all-tenants --since 7d` |
+| What would offboarding this leaver do, step by step, before anything changes? | `google-workspace-cli offboard "jane@example.com" --successor "manager@example.com" --ou "/Departed"` |
+| Is every client's domain-wide delegation still authorized? | `google-workspace-cli tenants test --all-tenants` |
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
 
 ## What makes this different
 
-Most Google Workspace integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking <!-- TODO: vendor-specific QBR-time example: e.g. "how many backup-failure tickets across all 47 clients last quarter" -->.
+Most Google Workspace MCP servers, such as [taylorwilsdon/google_workspace_mcp](https://github.com/taylorwilsdon/google_workspace_mcp), work inside one organization's Gmail, Drive, and Docs. [GAM](https://github.com/GAM-team/GAM), the tool most MSPs use for Workspace administration, keeps one config section per client and can loop a command over every section into one CSV, but you write the loop, the query, and any join across users, licenses, admin roles, and audit logs yourself, for each question.
 
-This skill syncs Google Workspace into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like <!-- TODO: 2-3 highest-leverage compound commands from this skill --> join across <!-- TODO: which entities --> - work a stateless API wrapper can't do.
+This skill keeps a **registry of client tenants**, each with its own service account and least-privilege scope profile, and fans one question out across all of them in parallel. `mfa-gaps`, `stale-licenses`, `leavers`, `posture`, `sharing-drift`, `oauth-apps`, and `login-alerts` already do those joins per client and return one ranked table; a client it could not read is listed in `fetch_failures`, never silently dropped. For deeper single-client work, `sync` pulls one tenant into a **local SQLite mirror** (kept separate per tenant) for `search`, `analytics`, and the MCP server's `sql` tool.
 
 ## The pain this closes
 
-<!-- TODO: fold pain-point.md content here. Cite a concrete community source (r/msp, MSPGeek, vendor survey). State the pain in MSP-owner vocabulary. Then list 3-5 of this skill's highest-leverage commands mapped to the pain. -->
+On r/msp's ["Google Workspace Management"](https://www.reddit.com/r/msp/comments/1tu2nas/google_workspace_management/) thread (June 2026), the original poster asked for "a CIPP equivalent for the GW side." An MSP managing about 10 Workspace tenants out of roughly 250 clients called it "a manual process for the most part," and the most common answer was multi-tenant GAM: "you just GAM select company to switch companies." Microsoft gives MSPs GDAP and CIPP; Google gives them a separate Admin console per client. So the questions an owner asks across the whole book - who lacks 2SV, where licenses are wasted, which leavers were never fully cleaned up - become a loop of logins, exports, and spreadsheet joins. Leavers cost real money: Google bills a suspended account the same as an active one.
+
+This skill closes that gap:
+
+- **`google-workspace-cli mfa-gaps --all-tenants`** - every account without 2SV across every client, unenrolled admins first.
+- **`google-workspace-cli stale-licenses --all-tenants`** - Workspace edition seats on suspended, never-signed-in, or idle accounts, ready to reclaim (`--products` adds other license products).
+- **`google-workspace-cli leavers --all-tenants`** - suspended accounts still holding a license, groups, an admin role, OAuth tokens, or an unfinished Drive transfer.
+- **`google-workspace-cli offboard "jane@example.com" --successor "manager@example.com"`** - the offboarding runbook, previewed with live reads before anything changes, with suspend last because backup-code cleanup fails on a suspended account.
+- **`google-workspace-cli posture --all-tenants`** - one row per client for the QBR.
 
 See [pain-point.md](./pain-point.md) for the longer narrative.
 
@@ -179,18 +205,27 @@ Yes - all of them speak MCP. Cross-tool install commands are in the matrix above
 
 ### Do I need to know how to code?
 
-No. The recommended install is to paste one sentence into Claude Code or Codex - your agent reads `SKILL.md` and does the install. The fallback is a one-line installer per OS (bash or PowerShell). Neither path requires writing code. You'll enter your Google Workspace credentials once.
+No. The recommended install is to paste one sentence into Claude Code or Codex - your agent reads `SKILL.md` and does the install. The fallback is a one-line installer per OS (bash or PowerShell). Neither path requires writing code. You register each client once with `google-workspace-cli tenants add` (see Authenticate above).
 
 ### Is my Google Workspace data safe?
 
-Your data stays on **your machine**. The CLI and MCP server are local binaries. The SQLite mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Credentials are read from your environment or your agent's config; never bundled into this repo or transmitted anywhere by MSP Skills.
+Your data stays on **your machine**. The CLI and MCP server are local binaries. The SQLite mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Each client's service-account key is copied into the CLI's config directory with owner-only permissions and used only to mint short-lived tokens from Google; keys are never bundled into this repo or transmitted anywhere by MSP Skills.
 
-<!-- TODO: 2-4 vendor-specific FAQ entries - answer real searches MSP owners type. Examples:
-- "How is this different from <vendor>'s built-in AI integration?" (if the vendor has one)
-- "Will this hit my <vendor> API rate limits?"
-- "Do I need to be a <vendor> partner/customer?"
-- "Will this replace my <vendor> portal/UI?"
--->
+### Do I need to be a Google partner or reseller?
+
+No. Each client tenant is just a service account that the client's own super admin authorizes for domain-wide delegation. Reseller status only matters for the Reseller API commands (`reseller-customers`, `subscriptions`), which run against your own reseller domain registered with `--reseller --scopes reseller`.
+
+### Can an agent change my clients' Google Workspace, or only read?
+
+Only what you authorize per client. The default `read` scope profile covers every report, but Google has no read-only scope for OAuth tokens and app passwords, and none for license assignments, so that profile can still revoke tokens, sign users out, read backup codes, turn off 2SV, and change licenses. Keep those commands human-in-the-loop (see the safety model below). Offboarding writes need `--scopes full`, and `offboard` only previews unless you type `--yes` yourself, which an MCP client cannot pass.
+
+### Will this hit Google's API quotas?
+
+The cross-client commands query Google live, so they count against the Admin SDK quota of the Google Cloud project that owns each client's service account. `--concurrency` caps how many clients run in parallel, `--max-scan-pages` caps paging, and a client whose calls fail or hit the cap is listed in `fetch_failures` instead of silently dropped.
+
+### Does it replace the Google Admin console?
+
+No. The Admin console stays the place for deep single-client work and for settings the API does not expose. This skill adds the cross-client view the console does not have and lets your AI agent drive it in plain English.
 
 ### What does it cost?
 
@@ -198,17 +233,15 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 ## Safety model
 
-<!-- TODO: tier table (Read / Write-routine / Destructive / etc.) from governance.md. Format:
-
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | ... | Allow |
-| Write (routine) | ... | Preview with `--dry-run`, then a reviewed write |
-| Destructive / config | ... | Human-in-the-loop only |
+| **Read** | `mfa-gaps`, `stale-licenses`, `leavers`, `posture`, `sharing-drift`, `oauth-apps`, `login-alerts`, `tenants list`, `tenants test`, `users list`, `sync`, `offboard "<email>"` without `--yes` (a preview) | Allow |
+| **Write (routine)** | `users insert`/`patch`, `users aliases insert`, `groups insert`/`patch`, `members insert`, `orgunits insert`/`patch`, `tenants add` (local config only) | Preview with `--dry-run`, then a reviewed write |
+| **Credential / security** | `verification-codes list` (returns a user's live backup codes), `verification-codes generate`/`invalidate`, `two-step-verification` (turns 2SV off), `tokens delete`, `asps delete`, `users sign-out`, `users make-admin`, `role-assignments insert`, `roles insert`/`patch`/`update` | Human-in-the-loop only |
+| **Data egress** | `activities watch`, `users watch`, `users aliases watch` (Google pushes a client's audit events or user changes to the `--address` URL you give it; they work under the default `read` profile) | Human-in-the-loop only |
+| **Destructive / billing** | `offboard --yes`, `users delete`, `groups delete`, `domains delete`, `transfers insert`, `license-assignments insert`/`update`/`delete`, `subscriptions insert`/`change-plan`/`change-seats`/`change-renewal-settings`/`start-paid-service`/`activate`/`suspend`/`delete`, `reseller-customers insert`, `mobiledevices action` (device wipe), `chromeosdevices action`, `customer devices-chromeos issue-command`/`batch-change-status` | Human-in-the-loop only, explicit confirmation |
 
--->
-
-The strongest control is the **scope you grant the Google Workspace credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
+The strongest control is the **scope profile you authorize in each client's Admin console** - the CLI can only do what that client's domain-wide delegation permits. Full details, including how to lock it down, are in [governance.md](./governance.md).
 
 ## Status
 
@@ -218,4 +251,4 @@ Beta. Validated against the Google Workspace API surface and being validated wit
 
 **Standards.** Conforms to the open [Agent Skills spec](https://agentskills.io) (Anthropic, Dec 2025; 40+ agents). MCP-compatible - works with any MCP-capable agent including [Hermes](https://hermes-agent.nousresearch.com). OpenClaw-ready (frontmatter pre-wired, awaiting OpenClaw launch).
 
-Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: <!-- TODO: YYYY-MM-DD -->._
+Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: 2026-10-13._

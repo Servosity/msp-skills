@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 
 package cli
 
@@ -670,6 +670,43 @@ func TestOffboardRefusesSuccessorAliasOfLeaver(t *testing.T) {
 	for _, r := range fake.reqs {
 		if !strings.HasPrefix(r, "GET ") {
 			t.Fatalf("no write may happen before the successor is validated: %s", r)
+		}
+	}
+}
+
+func TestGetenvTenantIgnoresMCPBPlaceholder(t *testing.T) {
+	t.Setenv("GOOGLE_WORKSPACE_TENANT", "${user_config.google_workspace_tenant}")
+	if got := getenvTenant(); got != "" {
+		t.Fatalf("an unresolved MCPB placeholder must read as no tenant, got %q", got)
+	}
+	t.Setenv("GOOGLE_WORKSPACE_TENANT", " acme ")
+	if got := getenvTenant(); got != "acme" {
+		t.Fatalf("got %q", got)
+	}
+}
+
+func TestOffboardFollowUpHintsAreRunnable(t *testing.T) {
+	for _, tc := range []struct {
+		tenant  gwsTenant
+		wantArg string
+	}{
+		{gwsTenant{Name: "default"}, ""}, // single-org bearer mode: no registry entry to name
+		{gwsTenant{Name: "acme", KeyFile: "keys/acme.json"}, " --tenant acme"},
+	} {
+		fake := &fakeGoogle{}
+		srv := httptest.NewServer(fake)
+		rec := &offboardReceipt{}
+		o := offboardOpts{successor: "boss@example.com", releaseLicense: true, keepGroups: true}
+		if err := runOffboard(context.Background(), testClient(t, srv.URL), tc.tenant, "jane@example.com", o, true, rec); err != nil {
+			t.Fatalf("runOffboard: %v", err)
+		}
+		srv.Close()
+		next := strings.Join(rec.Next, "\n")
+		if strings.Contains(next, "offboard ") || !strings.Contains(next, "license-assignments delete") {
+			t.Fatalf("follow-up must be a licence delete, not an offboard re-run:\n%s", next)
+		}
+		if strings.Contains(next, "--tenant default") || (tc.wantArg != "" && !strings.Contains(next, tc.wantArg)) {
+			t.Fatalf("tenant flag for %q wrong:\n%s", tc.tenant.Name, next)
 		}
 	}
 }

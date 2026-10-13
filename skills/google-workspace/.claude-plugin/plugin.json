@@ -1,7 +1,7 @@
 {
   "name": "google-workspace",
-  "version": "4.33.5",
-  "description": "Cross-client Google Workspace admin: 2SV gaps, licence waste, sharing drift, safe offboarding.",
+  "version": "0.1.0",
+  "description": "Cross-client Google Workspace admin: 2SV gaps, license waste, sharing drift, safe offboarding.",
   "author": {
     "name": "Servosity",
     "url": "https://www.servosity.com"

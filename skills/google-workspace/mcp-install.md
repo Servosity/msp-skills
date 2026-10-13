@@ -18,6 +18,27 @@ and `google-workspace-mcp` on your PATH. `google-workspace-mcp` is what the agen
 google-workspace-mcp --help
 ```
 
+## Before you wire any agent: register your clients
+
+The MCP server reads the same tenant registry as the CLI, and `tenants add` is not
+exposed over MCP. Register each client once from a terminal (full steps in
+[README.md](./README.md#authenticate)), then confirm every delegation works:
+
+```bash
+google-workspace-cli tenants add acme --domain example.com --admin admin@example.com --key ./acme-sa.json
+google-workspace-cli tenants test --all-tenants
+```
+
+Every variable in the `env` blocks below is optional and can stay blank:
+
+| Variable | Set it when |
+| --- | --- |
+| `GOOGLE_WORKSPACE_TENANT` | More than one tenant is registered. The raw API execute tool and the `sql`, `search`, and `context` tools take no tenant argument and use this one. Use a name from `tenants list`. |
+| `GOOGLE_WORKSPACE_MCP_READ_ONLY` | You want a read-only server: exactly `1` hides `offboard`, `sync`, `import`, `export`, and `tenants remove`, and refuses every non-GET API call. `true` or `yes` are ignored. |
+| `GOOGLE_WORKSPACE_TOKEN` | You manage ONE organization without registering tenants: an OAuth access token with Admin SDK scopes. `ADMIN_ACCESS_TOKEN` is an alternate name for it. Leave it blank once tenants are registered, or untargeted API calls act on its organization. |
+| `GOOGLE_WORKSPACE_MCP_HTTP_TOKEN` | You run the server with `--transport http` (the remote section below). |
+| `GOOGLE_WORKSPACE_BASE_URL`, `GOOGLE_WORKSPACE_USER_AGENT`, `PRINTING_PRESS_CLIENT_PROFILE` | Testing against a mock server, overriding the User-Agent, or binding a saved client profile. Leave blank. |
+
 ---
 
 # Local agents (launch the binary directly)
@@ -37,8 +58,14 @@ Add (or merge with your existing `mcpServers` block):
     "google-workspace": {
       "command": "google-workspace-mcp",
       "env": {
-        "ADMIN_ACCESS_TOKEN": "<your-admin_access_token>",
-        "GOOGLE_WORKSPACE_TOKEN": "<your-google_workspace_token>"
+        "GOOGLE_WORKSPACE_TENANT": "",
+        "GOOGLE_WORKSPACE_MCP_READ_ONLY": "",
+        "GOOGLE_WORKSPACE_TOKEN": "",
+        "ADMIN_ACCESS_TOKEN": "",
+        "GOOGLE_WORKSPACE_MCP_HTTP_TOKEN": "",
+        "GOOGLE_WORKSPACE_BASE_URL": "",
+        "GOOGLE_WORKSPACE_USER_AGENT": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
@@ -63,8 +90,14 @@ Configuration**) and add:
       "type": "stdio",
       "command": "google-workspace-mcp",
       "env": {
-        "ADMIN_ACCESS_TOKEN": "<your-admin_access_token>",
-        "GOOGLE_WORKSPACE_TOKEN": "<your-google_workspace_token>"
+        "GOOGLE_WORKSPACE_TENANT": "",
+        "GOOGLE_WORKSPACE_MCP_READ_ONLY": "",
+        "GOOGLE_WORKSPACE_TOKEN": "",
+        "ADMIN_ACCESS_TOKEN": "",
+        "GOOGLE_WORKSPACE_MCP_HTTP_TOKEN": "",
+        "GOOGLE_WORKSPACE_BASE_URL": "",
+        "GOOGLE_WORKSPACE_USER_AGENT": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
@@ -85,8 +118,14 @@ Claude Desktop:
     "google-workspace": {
       "command": "google-workspace-mcp",
       "env": {
-        "ADMIN_ACCESS_TOKEN": "<your-admin_access_token>",
-        "GOOGLE_WORKSPACE_TOKEN": "<your-google_workspace_token>"
+        "GOOGLE_WORKSPACE_TENANT": "",
+        "GOOGLE_WORKSPACE_MCP_READ_ONLY": "",
+        "GOOGLE_WORKSPACE_TOKEN": "",
+        "ADMIN_ACCESS_TOKEN": "",
+        "GOOGLE_WORKSPACE_MCP_HTTP_TOKEN": "",
+        "GOOGLE_WORKSPACE_BASE_URL": "",
+        "GOOGLE_WORKSPACE_USER_AGENT": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
@@ -101,11 +140,14 @@ web** is remote-only - see the remote section below.)
 # Remote agents (expose the binary over HTTPS first)
 
 All remote agents need `google-workspace-mcp` reachable as a public **HTTPS** endpoint. Run it
-in HTTP mode with your credentials in the environment (it listens on 127.0.0.1:7777 by
-default; press 4.32+ refuses a non-loopback bind without TLS, so do not pass `--addr :7777`):
+in HTTP mode (it listens on 127.0.0.1:7777 by default and refuses a non-loopback bind
+without TLS, so do not pass `--addr :7777`). HTTP mode will not start without
+`GOOGLE_WORKSPACE_MCP_HTTP_TOKEN`, and every caller must send it as an
+`Authorization: Bearer` header. `GOOGLE_WORKSPACE_MCP_READ_ONLY=1` is strongly
+recommended for anything reachable from outside your machine:
 
 ```bash
-ADMIN_ACCESS_TOKEN=<value> GOOGLE_WORKSPACE_TOKEN=<value> google-workspace-mcp --transport http
+GOOGLE_WORKSPACE_MCP_HTTP_TOKEN=<a long random secret> GOOGLE_WORKSPACE_MCP_READ_ONLY=1 google-workspace-mcp --transport http
 ```
 
 Then expose `http://localhost:7777/mcp` as a public HTTPS URL via a secure tunnel

@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Novel feature: posture - one row per client tenant rolling up 2SV coverage,
 // admin exposure, licence waste, sharing-setting changes and (with the policy
 // scope profile) the current Cloud Identity policy values.

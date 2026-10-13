@@ -1,0 +1,167 @@
+{
+ "slug": "google-workspace",
+ "doc": "docs/reprint-survival.md",
+ "_comment": "Connector-specific edits to GENERATED files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and banned anti-patterns absent) and fails CI if a reprint dropped one. Both edits are applied by the factory's overlay.sh (~/Documents/Dev/cli-factory/google-workspace/overlay.sh) after every generate. The multi-client tenant layer (gws_tenants.go, gws_tenants_cmd.go, gws_fanout.go and the novel report commands) is NOVEL and wires in through the generator's own hook points (registerNovelCommand, registerClientHook, config.StoreScopeIdentity), so regen-merge keeps it without a ledger entry.",
+ "handfixes": [
+  {
+   "id": "dead-retain-query-param-helpers-removed",
+   "summary": "helpers.go no longer defines retainCLIQueryParams / retainExplicitQueryParams",
+   "why": "The press 4.33 template emits both helpers for paginated generated callers, but a Google Discovery-sourced spec produces no generated caller that uses them, so they ship as dead code and the press's dogfood dead-helper check FAILs the build. The factory's overlay.sh deletes both function bodies after generate; a reprint re-emits them and dogfood/shipcheck fail again. Only a comment in paginatedGet still names retainCLIQueryParams, which is why the asserts pin the func declarations, not the bare name.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: only emit retainCLIQueryParams/retainExplicitQueryParams when at least one generated command calls them (Discovery-spec prints never do). Filed in the google-workspace press retro notes (~/Documents/Dev/cli-factory/google-workspace/FACTORY.md).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "not_contains": "func retainCLIQueryParams("
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "not_contains": "func retainExplicitQueryParams("
+    }
+   ]
+  },
+  {
+   "id": "reseller-licensing-tool-paths-absolute",
+   "summary": "Reseller and Licensing MCP tool paths are absolute URLs (https://reseller.googleapis.com, https://licensing.googleapis.com), matching resource_paths.go and the MCP code-orchestration table",
+   "why": "This print merges five Google APIs on three hosts. The press's multi-host merge records Reseller and Licensing tools in tools-manifest.json HOST-RELATIVE (/apps/reseller/..., /apps/licensing/...) while resource_paths.go and internal/mcp/code_orch.go carry them absolute; a relative path resolves against the default admin.googleapis.com host, which serves neither API, and press verify's resource-path contract check flags tail/export/import as 3 critical. overlay.sh rewrites the tools-manifest.json paths to absolute, and `lock promote` reverted them once, so the fix has to be re-applied after every promote. tools-manifest.json itself is a library artifact that onboarding does not vendor into this directory, so the asserts below pin the vendored twins it must agree with: if a reprint ever makes the code-orch table or resource paths host-relative as well, the Reseller and Licensing MCP tools would call the wrong host.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: the multi-host merge should record every non-default-host tool path absolute in tools-manifest.json, the same way resource_paths.go already does, and lock promote must not regenerate it host-relative.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "https://reseller.googleapis.com/apps/reseller/",
+     "min_count": 10
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "https://licensing.googleapis.com/apps/licensing/",
+     "min_count": 5
+    },
+    {
+     "file": "cli/internal/cli/resource_paths.go",
+     "contains": "https://licensing.googleapis.com/apps/licensing/",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/resource_paths.go",
+     "contains": "https://reseller.googleapis.com/apps/reseller/",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "group-key-example-not-secret-shaped",
+   "summary": "Group and member command Examples and pp:happy-args use the group email sales@example.com instead of the factory's invented group ID 03x8tuzt3hqdv5v",
+   "why": "The factory's curate-spec.sh feeds ID-form example hints into generation because the Discovery generator rejects '@' in example values; for groupKey it invented 03x8tuzt3hqdv5v. In 13 generated files that value sits in the pp:happy-args annotation as the value of the groupKey happy-arg, and gitleaks' default generic-api-key rule matches that pairing (a *Key= keyword followed by a high-entropy token), so the repo's CI secret scan fails the guards job on a fake ID. Google's groupKey accepts a group email, so the example now uses sales@example.com, which is a valid groupKey and does not match the rule. A reprint re-emits the invented ID.",
+   "status": "active",
+   "spec_encode_followup": "Factory-side: change the groupKey hint in ~/Documents/Dev/cli-factory/google-workspace/curate-spec.sh to a low-entropy value, or teach the press's descriptionExampleValue to accept email-shaped examples (the '@' rejection is already in the google-workspace press retro notes).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/groups_get.go",
+     "not_contains": "03x8tuzt3hqdv5v"
+    },
+    {
+     "file": "cli/internal/cli/members_get.go",
+     "not_contains": "03x8tuzt3hqdv5v"
+    },
+    {
+     "file": "cli/internal/cli/members_update.go",
+     "not_contains": "03x8tuzt3hqdv5v"
+    },
+    {
+     "file": "cli/internal/cli/groups_aliases_insert.go",
+     "not_contains": "03x8tuzt3hqdv5v"
+    },
+    {
+     "file": "cli/internal/cli/groups_get.go",
+     "contains": "groupKey=sales@example.com",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "tenant-env-honors-mcpb-placeholder",
+   "summary": "getenvTenant reads GOOGLE_WORKSPACE_TENANT through cliutil.EnvOverride, so an unset .mcpb field is no tenant rather than a tenant named ${user_config.google_workspace_tenant}",
+   "why": "manifest.json maps GOOGLE_WORKSPACE_TENANT to ${user_config.google_workspace_tenant}, and an MCPB host that skips an optional field leaves that template text in the environment (the binary's own cliutil.EnvOverride contract). The factory's tenant layer read it with raw os.Getenv, so a blank 'Default client tenant' made every tool call without an explicit tenant fail 'unknown tenant', including the raw-endpoint execute tool, which has no tenant argument. Found by the onboard adversarial review (round 1, P1). gws_tenants.go is a NOVEL file carried from the factory's novel/ directory, so a re-onboard from that source would bring the raw read back.",
+   "status": "active",
+   "spec_encode_followup": "Factory-side: apply the same one-line change to ~/Documents/Dev/cli-factory/google-workspace/novel/gws_tenants.go and the library copy so the next print carries it.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/gws_tenants.go",
+     "contains": "cliutil.EnvOverride(\"GOOGLE_WORKSPACE_TENANT\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants.go",
+     "not_contains": "os.Getenv(\"GOOGLE_WORKSPACE_TENANT\")"
+    },
+    {
+     "file": "cli/internal/cli/gws_novel_test.go",
+     "contains": "TestGetenvTenantIgnoresMCPBPlaceholder",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "offboard-followup-hints-runnable",
+   "summary": "offboard's follow-up hints name license-assignments delete per held licence and omit --tenant for the implicit single-org tenant",
+   "why": "When a Drive/Calendar transfer is pending, offboard skips licence release and prints a follow-up. The factory version printed 'offboard <email> --tenant <t> --release-license --keep-groups --yes', which (a) in single-org bearer mode named the implicit tenant 'default', which is not a registry entry, so it exited 2, and (b) re-ran the backup-code and token steps against the now-suspended account, where Google rejects them, so it ended exit 5 even after releasing the licence. The hint now lists one 'license-assignments delete <skuId> <email> --product-id <productId>' per held licence, and tenantArg() drops --tenant when the tenant has no key file. Found by the onboard adversarial review (round 1, P1).",
+   "status": "active",
+   "spec_encode_followup": "Factory-side: port licenseReleaseHints/tenantArg into ~/Documents/Dev/cli-factory/google-workspace/novel/ (offboard.go) and the library copy.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/offboard.go",
+     "contains": "func licenseReleaseHints(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/offboard.go",
+     "contains": "func tenantArg(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/offboard.go",
+     "not_contains": "--release-license --keep-groups --yes\")"
+    },
+    {
+     "file": "cli/internal/cli/gws_novel_test.go",
+     "contains": "TestOffboardFollowUpHintsAreRunnable",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "doctor-verdict-tracks-reality",
+   "summary": "doctor probes a real argument-free GET with the client's credential (the tenant-minted token or the single-org bearer) and reports a 404 as a wrong base_url, instead of 'present, not verified' and 'reachable (HTML body at /)'",
+   "why": "Same fleet defect as issue #282, gated by tools/maintainer/check_doctor_truth.py: as printed by press 4.33.5, doctor never probed the credential ('present, not verified') and called any answer at / reachable, so a working install, an expired credential and a wrong base_url produced the same report. Ported the fleet's doctor_verdict.go (doctorReadProbe, doctorProbeableLeaf, doctorProbeCredentials, doctorWrongBaseURL); 4.33.5 already emits doctorBaseURLIsPlaceholder and Client.ProbeGet natively, so those are not duplicated. The probe asks the CLIENT for its credential because a registered tenant's token is minted by the client hook into the client's config, never into the config doctor loads.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorProbeCredentials(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorWrongBaseURL(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeCredentials(cmd.Context(), c, cmd.Root(), \"google-workspace-cli\", report)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "present, not verified. Run `%s %s` to confirm the token works end-to-end."
+    }
+   ]
+  }
+ ]
+}

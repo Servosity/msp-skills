@@ -1,7 +1,7 @@
 ---
 layout: default
 title: "Google Workspace MCP Server - Free, Open Source, Runs Locally | MSP Skills"
-description: "Cross-client Google Workspace admin: 2SV gaps, licence waste, sharing drift, safe offboarding."
+description: "Cross-client Google Workspace admin: 2SV gaps, license waste, sharing drift, safe offboarding."
 permalink: /skills/google-workspace/
 skill_name: "Google Workspace MCP"
 image: /assets/social/google-workspace/wide-1200x630.png
@@ -12,15 +12,19 @@ faqs:
   - q: "Is the Google Workspace MCP server safe for client data?"
     a: "Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Three paths can move data off the machine, all opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `GOOGLE_WORKSPACE_FEEDBACK_AUTO_SEND=true` posts feedback you typed to the URL in `GOOGLE_WORKSPACE_FEEDBACK_ENDPOINT` (with no endpoint set, `feedback` only writes a local file); `--transport http` opens a local MCP listener you then choose whether to expose. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
-    a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Google Workspace MCP server via a secure bridge. Step-by-step in the install guide."
+    a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS. google-workspace-mcp speaks HTTP natively: run it with `--transport http` and a `GOOGLE_WORKSPACE_MCP_HTTP_TOKEN`, then put its /mcp endpoint behind an HTTPS tunnel or your own reverse proxy. Step-by-step in the install guide."
   - q: "Do I need to know how to code?"
-    a: "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
+    a: "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You register each client once with `tenants add`."
   - q: "Is my Google Workspace data safe?"
-    a: "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+    a: "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. Each client's service-account key is copied into the CLI's config directory with owner-only permissions, and tokens are minted on demand and sent only to Google. Credentials are never bundled or transmitted by MSP Skills."
+  - q: "How do I connect a client's Google Workspace?"
+    a: "In a Google Cloud project, create a service account and download its JSON key, and enable the Admin SDK API and the Enterprise License Manager API (plus the Cloud Identity API for the `policy` profile). Run `google-workspace-cli tenants add <name> --domain <client domain> --admin <client super admin> --key <key file>`. It prints the Client ID and the scopes to paste into the client's Admin console under Security, Access and data control, API controls, Domain-wide delegation. Then `google-workspace-cli tenants test <name>` confirms Google issues a token for every delegated scope."
+  - q: "Does an agent get write access to my clients?"
+    a: "Only what you authorize per client. The default `read` scope profile covers the reports, but Google has no read-only scope for OAuth tokens or app passwords, and none for license assignments, so that profile can still revoke tokens, sign users out, read backup codes, turn off 2SV, and change licenses: keep those commands human-in-the-loop. Offboarding writes need the `full` profile, and `offboard` only previews unless you pass `--yes` on the command line, which an MCP client cannot do. Setting `GOOGLE_WORKSPACE_MCP_READ_ONLY` to exactly `1` also hides the MCP server's write tools."
+  - q: "Will this hit Google's API quotas?"
+    a: "The cross-client commands query Google live, so they count against the Admin SDK quota of the Google Cloud project that owns each client's service account. `--concurrency` caps how many clients run in parallel, `--max-scan-pages` caps paging, and a client whose calls fail or hit the page cap is listed in `fetch_failures` rather than silently dropped."
   - q: "What does it cost?"
     a: "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
-  - q: "TODO: vendor-specific question MSP owners actually search (rate limits, partner requirements, replacing the Google Workspace portal)"
-    a: "TODO"
 howto:
   - name: "Run the one-line installer"
     text: "macOS/Linux: bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/google-workspace/install.sh) - Windows PowerShell: iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/google-workspace/install.ps1 | iex"
@@ -40,7 +44,7 @@ howto:
 
 Yes - there is an MCP server for Google Workspace. It's free, open source, and runs on your own machine, so your client data stays local unless you route it somewhere yourself. It connects Google Workspace to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
-TODO: <=70 words, MSP-owner language, leads with the outcome. What does Google Workspace + your AI answer in one sentence that the portal cannot?
+Google gives MSPs no cross-client admin console: every client is its own Admin console login. Register each client once (a service account with domain-wide delegation), then ask your AI "who still has no 2-Step Verification across all my clients," "which paid licenses can I reclaim," or "were last month's leavers fully offboarded," and get one ranked answer across every tenant, read live and in parallel.
 
 <sub>New to the term? An **MCP server** is the same thing ChatGPT calls an app or connector, Claude on the web calls a connector, and Claude Code calls a Skill. [One thing, many names →](/what-is-an-mcp-server/)</sub>
 
@@ -48,17 +52,17 @@ TODO: <=70 words, MSP-owner language, leads with the outcome. What does Google W
 
 ## Instead of clicking through Google Workspace, just ask
 
-**Instead of** TODO: the painful manual workflow (exporting reports, clicking through the portal)
-**just ask:** *"TODO: the natural-language question the MSP owner asks instead"*
-<sub>Your agent runs: <code>google-workspace-cli TODO</code></sub>
+**Instead of** Logging into each client's Admin console, filtering Users by 2-Step Verification enrollment, and copying the unenrolled admins into a spreadsheet, one client at a time
+**just ask:** *"Which accounts across all my clients still don't have 2-Step Verification, admins first?"*
+<sub>Your agent runs: <code>google-workspace-cli mfa-gaps --all-tenants --agent</code></sub>
 
-**Instead of** TODO
-**just ask:** *"TODO"*
-<sub>Your agent runs: <code>google-workspace-cli TODO</code></sub>
+**Instead of** Exporting each client's users and license assignments and matching suspended, never-signed-in, and idle accounts that still hold a paid seat
+**just ask:** *"Which paid Google Workspace licenses can I reclaim across my clients?"*
+<sub>Your agent runs: <code>google-workspace-cli stale-licenses --all-tenants --agent</code></sub>
 
-**Instead of** TODO
-**just ask:** *"TODO"*
-<sub>Your agent runs: <code>google-workspace-cli TODO</code></sub>
+**Instead of** Working through the offboarding checklist by hand in the Admin console, where suspending the account too early blocks the backup-code cleanup that has to run first
+**just ask:** *"Preview offboarding jane@example.com and hand her Drive and Calendar to her manager"*
+<sub>Your agent runs: <code>google-workspace-cli offboard "jane@example.com" --successor "manager@example.com" --ou "/Departed"</code></sub>
 
 
 ## See it in 30 seconds
@@ -71,20 +75,29 @@ TODO: <=70 words, MSP-owner language, leads with the outcome. What does Google W
 
 | Question your MSP keeps asking | Command your agent runs |
 | --- | --- |
-| TODO: question an MSP keeps asking | `google-workspace-cli TODO` |
+| Which accounts across all my clients lack 2-Step Verification, with unenrolled admins first? | `google-workspace-cli mfa-gaps --all-tenants --agent` |
+| Which Google Workspace licenses sit on suspended, never-signed-in, or idle accounts, per client? | `google-workspace-cli stale-licenses --all-tenants --agent` |
+| Did our suspended leavers keep a license, groups, an admin role, OAuth tokens, or an unfinished Drive transfer? | `google-workspace-cli leavers --all-tenants --agent` |
+| Where does each client stand on 2SV coverage, admins without 2SV, stale licenses, and Drive and Calendar setting changes? | `google-workspace-cli posture --all-tenants --agent` |
+| Who changed Drive or Calendar settings, and which files went external or public, in the last week? | `google-workspace-cli sharing-drift --all-tenants --since 7d --agent` |
+| Which third-party apps hold full mail, full Drive, or admin access to client data? | `google-workspace-cli oauth-apps --all-tenants --min-risk high --agent` |
+| Any suspicious sign-ins, hijacked accounts, or 2SV turned off across clients this week? | `google-workspace-cli login-alerts --all-tenants --since 7d --agent` |
+| What would offboarding this leaver do, step by step, before anything changes? | `google-workspace-cli offboard "jane@example.com" --successor "manager@example.com" --ou "/Departed"` |
+| Is every client's domain-wide delegation still authorized, scope by scope? | `google-workspace-cli tenants test --all-tenants --agent` |
 
 Full command reference at [github.com/servosity/msp-skills/blob/main/skills/google-workspace/guide.md](https://github.com/servosity/msp-skills/blob/main/skills/google-workspace/guide.md).
 
 ## What makes this one different
 
-TODO: one or two sentences vs typical MCP wrappers (you may name specific projects if accurate, fair and verifiable; link them): most Google Workspace integrations proxy each question into a live API call ...
+Most Google Workspace MCP servers, such as [taylorwilsdon/google_workspace_mcp](https://github.com/taylorwilsdon/google_workspace_mcp), work inside one organization's Gmail, Drive, and Docs. [GAM](https://github.com/GAM-team/GAM) keeps one config section per client and can loop a command over every section into one CSV, but you write the loop, the query, and any join across users, licenses, admin roles, and audit logs yourself. This skill keeps a registry of client tenants, each with its own service account and least-privilege scope profile, and fans one question out across all of them in parallel: 2SV gaps, license waste, incomplete offboarding, sharing drift, risky OAuth apps, and sign-in alerts come back as one ranked table, with any tenant it could not read listed as a failure rather than silently dropped.
 
-TODO: one sentence vs Google Workspace's own AI features (complements, not replaces). If the vendor has no AI integration, say what this adds that the portal cannot.
+The Google Admin console stays the place for deep single-client work and for settings the API does not expose. This skill adds what the console does not have: one view across every client domain you manage, driven from whichever AI agent you already use, plus an offboarding runbook that previews every step with live reads and suspends the account last, after the backup-code and token cleanup that fails on a suspended account.
 
 ## The pain this closes
 
-- TODO: pain 1 in MSP-owner vocabulary, sourced from a real community thread
-- TODO: pain 2
+- On r/msp's "Google Workspace Management" thread (June 2026) the original poster asked for "a CIPP equivalent for the GW side"; another MSP managing about 10 Workspace tenants out of roughly 250 clients called it "a manual process for the most part." Microsoft has GDAP and CIPP; Google has no cross-client admin view, so every client is a separate Admin console login.
+- The common workaround is GAM: "multi tenant GAM ... you just GAM select company to switch companies," as one reply in the same thread put it. GAM can loop a command over every client section, but each fleet question still means writing that loop and query yourself, and anything that joins users with licenses, admin roles, or audit events is a script you maintain.
+- Google bills a suspended account the same as an active one (Google Workspace Admin Help, "Preserve data for users who leave your organization"), so every leaver who was suspended instead of moved to an Archived User license, or never cleaned up at all, keeps costing the client a paid seat until someone finds it.
 
 ## Install
 
@@ -112,17 +125,19 @@ bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/sk
 iwr -useb https://raw.githubusercontent.com/servosity/msp-skills/main/skills/google-workspace/install.ps1 | iex
 ```
 
-After install, authenticate once with your Google Workspace credentials, then verify with `google-workspace-cli --version`.
+After install, register each client once with `google-workspace-cli tenants add` (a service account with domain-wide delegation, see the README's Authenticate section), then confirm with `google-workspace-cli tenants test --all-tenants`.
 
 ## Safety model
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | TODO: read commands | Allow |
-| Write (routine) | TODO | Preview with --dry-run, then a reviewed write |
-| Destructive / config | TODO | Human-in-the-loop only |
+| Read | google-workspace-cli mfa-gaps --all-tenants; google-workspace-cli stale-licenses --all-tenants; google-workspace-cli leavers --all-tenants; google-workspace-cli posture --all-tenants; google-workspace-cli sharing-drift --all-tenants --since 7d; google-workspace-cli oauth-apps --all-tenants; google-workspace-cli login-alerts --all-tenants; google-workspace-cli tenants test --all-tenants; google-workspace-cli users list; google-workspace-cli offboard "jane@example.com" (preview, no --yes); google-workspace-cli sync | Allow |
+| Write (routine) | users insert/patch, users aliases insert, groups insert/patch, members insert, orgunits insert/patch, resources calendars insert, tenants add (local config only) | Preview with --dry-run, then a reviewed write |
+| Credential / security | verification-codes list (returns a user's live backup codes), verification-codes generate/invalidate, two-step-verification (turns 2SV off), tokens delete, asps delete, users sign-out, users make-admin, role-assignments insert, roles insert/patch/update | Human-in-the-loop only |
+| Data egress | activities watch, users watch, users aliases watch: Google pushes a client's audit events or user changes to the --address URL you supply, and they work under the default read profile | Human-in-the-loop only |
+| Destructive / billing | offboard --yes, users delete, groups delete, domains delete, transfers insert (moves Drive and Calendar ownership), license-assignments insert/update/delete, subscriptions insert/change-plan/change-seats/change-renewal-settings/start-paid-service/activate/suspend/delete, reseller-customers insert, mobiledevices action (device wipe), chromeosdevices action, customer devices-chromeos issue-command/batch-change-status | Human-in-the-loop only, explicit confirmation |
 
-TODO: 2-3 plain-language sentences from governance.md - what the skill can read, what it can change, and the recommended agent policy per tier. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/google-workspace/governance.md).
+Each client is a registered tenant whose service account impersonates that client's super admin with only the scopes you grant. The cross-client reports (mfa-gaps, stale-licenses, leavers, posture, sharing-drift, oauth-apps, login-alerts) only read. The default read scope profile still allows token revocation, sign-out, backup-code reads, 2SV turn-off, and license changes, because Google offers no read-only scope for those surfaces, so those commands are human-in-the-loop. Offboarding needs the full profile and only acts with an explicit --yes. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/google-workspace/governance.md).
 
 ## Frequently asked questions
 
@@ -136,23 +151,31 @@ Yes, by design - and the exceptions are ones you switch on yourself. The CLI, th
 
 ### Does this work with ChatGPT?
 
-Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Google Workspace MCP server via a secure bridge. Step-by-step in the install guide.
+Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS. google-workspace-mcp speaks HTTP natively: run it with `--transport http` and a `GOOGLE_WORKSPACE_MCP_HTTP_TOKEN`, then put its /mcp endpoint behind an HTTPS tunnel or your own reverse proxy. Step-by-step in the install guide.
 
 ### Do I need to know how to code?
 
-No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You register each client once with `tenants add`.
 
 ### Is my Google Workspace data safe?
 
-Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. Each client's service-account key is copied into the CLI's config directory with owner-only permissions, and tokens are minted on demand and sent only to Google. Credentials are never bundled or transmitted by MSP Skills.
+
+### How do I connect a client's Google Workspace?
+
+In a Google Cloud project, create a service account and download its JSON key, and enable the Admin SDK API and the Enterprise License Manager API (plus the Cloud Identity API for the `policy` profile). Run `google-workspace-cli tenants add <name> --domain <client domain> --admin <client super admin> --key <key file>`. It prints the Client ID and the scopes to paste into the client's Admin console under Security, Access and data control, API controls, Domain-wide delegation. Then `google-workspace-cli tenants test <name>` confirms Google issues a token for every delegated scope.
+
+### Does an agent get write access to my clients?
+
+Only what you authorize per client. The default `read` scope profile covers the reports, but Google has no read-only scope for OAuth tokens or app passwords, and none for license assignments, so that profile can still revoke tokens, sign users out, read backup codes, turn off 2SV, and change licenses: keep those commands human-in-the-loop. Offboarding writes need the `full` profile, and `offboard` only previews unless you pass `--yes` on the command line, which an MCP client cannot do. Setting `GOOGLE_WORKSPACE_MCP_READ_ONLY` to exactly `1` also hides the MCP server's write tools.
+
+### Will this hit Google's API quotas?
+
+The cross-client commands query Google live, so they count against the Admin SDK quota of the Google Cloud project that owns each client's service account. `--concurrency` caps how many clients run in parallel, `--max-scan-pages` caps paging, and a client whose calls fail or hit the page cap is listed in `fetch_failures` rather than silently dropped.
 
 ### What does it cost?
 
 Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
-
-### TODO: vendor-specific question MSP owners actually search (rate limits, partner requirements, replacing the Google Workspace portal)
-
-TODO
 
 
 ## More Security connectors

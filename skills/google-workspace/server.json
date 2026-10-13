@@ -2,8 +2,8 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.Servosity/google-workspace-mcp",
   "title": "Google Workspace MCP",
-  "description": "Cross-client Google Workspace admin: 2SV gaps, licence waste, sharing drift, safe offboarding.",
-  "version": "4.33.5",
+  "description": "Cross-client Google Workspace admin: 2SV gaps, license waste, sharing drift, safe offboarding.",
+  "version": "0.1.0",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/google-workspace/google-workspace-512x512.png",
@@ -21,24 +21,60 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/google-workspace-v4.33.5/google-workspace-mcp.mcpb",
-      "version": "4.33.5",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/google-workspace-v0.1.0/google-workspace-mcp.mcpb",
+      "version": "0.1.0",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"
       },
       "environmentVariables": [
         {
-          "name": "ADMIN_ACCESS_TOKEN",
-          "description": "Set the ADMIN_ACCESS_TOKEN credential for the Google Workspace MCP server.",
-          "isRequired": true,
-          "isSecret": true
+          "name": "GOOGLE_WORKSPACE_TENANT",
+          "description": "Default client tenant (from google-workspace-cli tenants list) for tool calls that name no tenant, including sql, search and raw API calls. Leave blank.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "GOOGLE_WORKSPACE_MCP_READ_ONLY",
+          "description": "Set to exactly 1 to expose only read-only tools and refuse every non-GET API call (true or yes are ignored). Leave blank for the full tool set.",
+          "isRequired": false,
+          "isSecret": false
         },
         {
           "name": "GOOGLE_WORKSPACE_TOKEN",
-          "description": "Set the GOOGLE_WORKSPACE_TOKEN credential for the Google Workspace MCP server.",
-          "isRequired": true,
+          "description": "Optional single-organization OAuth access token with Admin SDK scopes, for use instead of registering client tenants. Leave blank once tenants are registered.",
+          "isRequired": false,
           "isSecret": true
+        },
+        {
+          "name": "ADMIN_ACCESS_TOKEN",
+          "description": "Optional alternate name for GOOGLE_WORKSPACE_TOKEN. Leave blank.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "GOOGLE_WORKSPACE_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http. Not needed for the default local stdio transport.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "GOOGLE_WORKSPACE_BASE_URL",
+          "description": "Overrides the https://admin.googleapis.com host, for testing against a mock server. Leave blank.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "GOOGLE_WORKSPACE_USER_AGENT",
+          "description": "Overrides the User-Agent the CLI sends on Google requests. Leave blank.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Binds this MCP server to one saved client profile (not a Google Workspace tenant). Leave blank.",
+          "isRequired": false,
+          "isSecret": false
         }
       ]
     }

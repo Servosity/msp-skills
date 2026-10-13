@@ -547,7 +547,7 @@
       "skill_path": "skills/google-workspace",
       "cli_binary": "google-workspace-cli",
       "mcp_binary": "google-workspace-mcp",
-      "version": "4.33.5",
+      "version": "0.1.0",
       "printing_press_version": "4.33.5",
       "license": "Apache-2.0",
       "vendor": "Google Workspace",
@@ -555,7 +555,7 @@
       "first_party": false,
       "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/google-workspace/install.sh)",
       "install_mcp_doc": "skills/google-workspace/mcp-install.md",
-      "description": "Cross-client Google Workspace admin: 2SV gaps, licence waste, sharing drift, safe offboarding.",
+      "description": "Cross-client Google Workspace admin: 2SV gaps, license waste, sharing drift, safe offboarding.",
       "verification": "awaiting",
       "category": "Security",
       "tagline": "Find accounts without 2SV, reclaim wasted licenses, and offboard leavers safely across every client's Google Workspace."

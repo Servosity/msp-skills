@@ -2,104 +2,18 @@
 
 **Cross-client Google Workspace admin: 2SV gaps, licence waste, sharing drift, safe offboarding.**
 
-Typed commands for the Admin SDK Directory, Reports, Enterprise License Manager, Data Transfer and Reseller methods, run per client tenant. Register each client once (a service account with domain-wide delegation impersonating that client's super admin), then ask fleet questions in one command: mfa-gaps, stale-licenses, sharing-drift, posture, leavers, oauth-apps and login-alerts fan out across every tenant. offboard runs a leaver in the order Google's API requires and previews before it changes anything.
+Typed commands for the Admin SDK Directory, Reports, Enterprise License Manager, Data Transfer and Reseller methods, run per client tenant. Register each client once (a service account with domain-wide delegation impersonating that client's super admin), then ask fleet questions in one command: mfa-gaps, stale-licenses, sharing-drift, posture, leavers, oauth-apps and login-alerts fan out across every tenant. offboard runs a leaver's cleanup with suspend last (backup-code and token cleanup fail on a suspended account) and previews before it changes anything.
 
-## Install
-
-This CLI ships as a Claude Code Skill and MCP server in [Servosity/msp-skills](https://github.com/Servosity/msp-skills). The installer downloads the `google-workspace-cli` and `google-workspace-mcp` binaries into `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows). It does not register the skill with your agent and writes no MCP client config - see [mcp-install.md](./mcp-install.md) for that wire-up.
-
-1. macOS / Linux:
-   ```bash
-   bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/google-workspace/install.sh)
-   ```
-2. Windows (PowerShell):
-   ```powershell
-   iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/google-workspace/install.ps1 | iex
-   ```
-3. Verify: `google-workspace-cli --version`
-4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
-
-If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed until verification succeeds.
-
-### Pre-built binary
-
-Download a pre-built binary for your platform from the [latest release](https://github.com/Servosity/msp-skills/releases?q=google-workspace). On macOS, clear the Gatekeeper quarantine: `xattr -d com.apple.quarantine <binary>`. On Unix, mark it executable: `chmod +x <binary>`.
-
-<!-- pp-hermes-install-anchor -->
-## Install for Hermes
-
-From the Hermes CLI:
-
-```bash
-hermes skills install Servosity/msp-skills/skills/google-workspace --force
-```
-
-Inside a Hermes chat session:
-
-```bash
-/skills install Servosity/msp-skills/skills/google-workspace --force
-```
-
-Hermes [speaks MCP natively](https://hermes-agent.nousresearch.com), so it can also use the `google-workspace-mcp` server directly - same install path, same environment variables. Restart the Hermes session or gateway if the newly installed skill is not visible immediately.
-
-## Install for OpenClaw
-
-Tell your OpenClaw agent (copy this):
-
-> Install the google-workspace skill from https://github.com/Servosity/msp-skills/tree/main/skills/google-workspace. The skill defines how its required CLI (`google-workspace-cli`) can be installed via the `openclaw:` frontmatter block.
-
-OpenClaw isn't generally available yet; the frontmatter wiring is pre-shipped and will activate the moment OpenClaw launches.
-
-## Use with Claude Desktop
-
-This CLI ships an [MCPB](https://github.com/modelcontextprotocol/mcpb) bundle  -  Claude Desktop's standard format for one-click MCP extension installs (no JSON config required).
-
-To install:
-
-1. Download the `.mcpb` for your platform from the [latest release](https://github.com/Servosity/msp-skills/releases?q=google-workspace).
-2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
-3. Fill in `GOOGLE_WORKSPACE_TOKEN` when Claude Desktop prompts you.
-
-Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
-
-<details>
-<summary>Manual JSON config (advanced)</summary>
-
-If you can't use the MCPB bundle (older Claude Desktop, unsupported platform), install the MCP binary and configure it manually.
-
-
-```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/google-workspace/install.sh)          # macOS / Linux
-```
-```powershell
-iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/google-workspace/install.ps1 | iex            # Windows
-```
-
-Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
-
-```json
-{
-  "mcpServers": {
-    "google-workspace": {
-      "command": "google-workspace-mcp",
-      "env": {
-        "GOOGLE_WORKSPACE_TOKEN": "<your-key>"
-      }
-    }
-  }
-}
-```
-
-</details>
+For the short install path and the MCP client wire-up see [README.md](./README.md) and [mcp-install.md](./mcp-install.md). This file is the command reference.
 
 ## Authentication
 
-Each client tenant is a Google service account with domain-wide delegation that impersonates that client's super admin, the same model GAM uses. Register it with 'tenants add <name> --domain <d> --admin <email> --key <sa.json>' (the key is copied to keys/<name>.json in the config dir at 0600, next to tenants.toml; both are secrets), paste the printed Client ID and scopes into that client's Admin console under Security > Access and data control > API controls > Domain-wide delegation, then run 'tenants test <name>' to mint one token per scope and name any missing delegation. Scope profiles (--scopes, comma-separated, raw scope names allowed): read is the default and covers every fan-out command, but two of its scopes have no read-only variant (admin.directory.user.security and apps.licensing), so it can also sign users out and change licences; full adds the offboarding writes (user, group membership, data transfer); policy adds cloud-identity.policies.readonly for posture's policy columns; reseller is for your own partner domain only ('tenants add <name> --reseller --scopes reseller'), is read-only (Reseller writes also need apps.order), and is never included in --all-tenants. Schemas, calendar resources, Chrome printers and most group, OU, domain, role and device writes need extra raw scopes. Change a tenant's scopes by re-running tenants add with --yes, and print them again with 'tenants scopes <name>'. Pick a client per command with --tenant <name> or GOOGLE_WORKSPACE_TENANT, or fan out with --all-tenants. With no tenants registered, a raw bearer token in GOOGLE_WORKSPACE_TOKEN (or 'auth set-token') acts as the single tenant "default", including for --all-tenants and offboard. The MCP server reads the same tenant registry: register tenants with the CLI first (tenants add is not exposed over MCP), pass a tenant argument per tool call, and set GOOGLE_WORKSPACE_TENANT in the MCP server's env for raw endpoint execution.
+Each client tenant is a Google service account with domain-wide delegation that impersonates that client's super admin, the same model GAM uses. Register it with 'tenants add <name> --domain <d> --admin <email> --key <sa.json>' (the key is copied to keys/<name>.json in the config dir at 0600, next to tenants.toml; both are secrets), paste the printed Client ID and scopes into that client's Admin console under Security > Access and data control > API controls > Domain-wide delegation, then run 'tenants test <name>' to mint one token per scope and name any missing delegation. Scope profiles (--scopes, comma-separated, raw scope names allowed): read is the default and covers every fan-out command, but two of its scopes have no read-only variant (admin.directory.user.security and apps.licensing), so it can also sign users out and change licences; full adds the offboarding writes (user, group membership, data transfer); policy adds cloud-identity.policies.readonly for posture's policy columns (only full includes read, so register it as --scopes read,policy or full,policy; --scopes policy alone leaves the reports nothing to read); reseller is for your own partner domain only ('tenants add <name> --reseller --scopes reseller'), is read-only (Reseller writes also need apps.order), and is never included in --all-tenants. Schemas, calendar resources, Chrome printers and most group, OU, domain, role and device writes need extra raw scopes. Change a tenant's scopes by re-running tenants add with --yes, and print them again with 'tenants scopes <name>'. Pick a client per command with --tenant <name> or GOOGLE_WORKSPACE_TENANT, or fan out with --all-tenants. With no tenants registered, a raw bearer token in GOOGLE_WORKSPACE_TOKEN (or 'auth set-token') acts as the single tenant "default", including for --all-tenants and offboard. The MCP server reads the same tenant registry: register tenants with the CLI first (tenants add is not exposed over MCP), pass a tenant argument per tool call, and set GOOGLE_WORKSPACE_TENANT in the MCP server's env for the raw endpoint execute tool and the sql, search and context tools, which take no tenant argument. Unset GOOGLE_WORKSPACE_TOKEN once tenants are registered: with two or more registered and none selected, generated API commands fall back to that token and act on its organization.
 
 ## Quick Start
 
 ```bash
-# Confirm the CLI is installed and wired, without credentials or network.
+# Confirm the binary runs (no credentials or network needed).
 google-workspace-cli doctor --dry-run
 
 # Register a client; prints the Client ID and exact scopes to authorize in that client's Admin console.
@@ -168,7 +82,7 @@ google-workspace-cli offboard jane@example.com --successor manager@example.com -
   ```
 
 ### Offboarding
-- **`offboard`**  -  Offboard a leaver in the order Google's API requires, with a read-only preview, dry-run, and a receipt per step.
+- **`offboard`**  -  Offboard a leaver with suspend last (backup-code and token cleanup fail on a suspended account), a read-only preview, dry-run, and a receipt per step.
 
   _Use it for any leaver: without --yes it only previews (read scopes are enough); applying needs a tenant registered with --scopes full. Over MCP it can only preview._
 
@@ -223,7 +137,7 @@ Suspended accounts still holding licences, groups, admin roles, tokens or unfini
 google-workspace-cli offboard jane@example.com --successor manager@example.com --ou /Departed --release-license --yes
 ```
 
-Runs every step in order and returns a receipt per step. Licence release is skipped while the Drive transfer runs; the receipt's next field prints the follow-up command to release it once the transfer completes.
+Runs every step in order and returns a receipt per step. Licence release is skipped while the Drive transfer runs; the receipt's next field lists one `license-assignments delete` command per held licence, to run once `transfers list` shows the transfer complete. Use `--json` rather than `--agent` for offboard: `--agent` implies `--compact`, which drops each step's detail (the OU move, token and group names, and any error text).
 
 ## Usage
 
@@ -280,167 +194,233 @@ Existing installs keep working because the platform-default rung matches the leg
 
 ## Commands
 
+Every command below is listed with its required positional arguments. Run `google-workspace-cli <command> --help` for flags.
+
 ### activities
 
-
-
-- **`google-workspace-cli activities list`** - Retrieves a list of activities for a specific customer's account and application such as the Admin console application or the Google Drive application. For more information, see the guides for administrator and Google Drive activity reports. For more information about the activity report's parameters, see the activity parameters reference guides. 
-- **`google-workspace-cli activities watch`** - Start receiving notifications for account activities. For more information, see Receiving Push Notifications.
+- **`google-workspace-cli activities list <applicationName>`** - Retrieves a list of activities for a specific customer's account and application such as the Admin console application
+- **`google-workspace-cli activities watch <applicationName>`** - Start receiving notifications for account activities. For more information, see Receiving Push Notifications.
 
 ### admin-channels
 
-
-
 - **`google-workspace-cli admin-channels`** - Stop watching resources through this channel.
+
+### analytics
+
+- **`google-workspace-cli analytics`** - Run analytics queries on locally synced data
+
+### api
+
+- **`google-workspace-cli api [interface]`** - Browse API resource interfaces by raw name
 
 ### applications
 
-
-
-- **`google-workspace-cli applications get`** - Retrieves information about an application for the given application ID.
+- **`google-workspace-cli applications get <applicationId>`** - Retrieves information about an application for the given application ID.
 - **`google-workspace-cli applications list`** - Lists the applications available for data transfer for a customer.
 
 ### asps
 
+- **`google-workspace-cli asps delete <userKey> <codeId>`** - Deletes an ASP issued by a user.
+- **`google-workspace-cli asps get <userKey> <codeId>`** - Gets information about an ASP issued by a user.
+- **`google-workspace-cli asps list <userKey>`** - Lists the ASPs issued by a user.
 
+### auth
 
-- **`google-workspace-cli asps delete`** - Deletes an ASP issued by a user.
-- **`google-workspace-cli asps get`** - Gets information about an ASP issued by a user.
-- **`google-workspace-cli asps list`** - Lists the ASPs issued by a user.
+- **`google-workspace-cli auth logout`** - Clear stored credentials
+- **`google-workspace-cli auth set-token`** - Save an API token to the credentials file
+- **`google-workspace-cli auth setup`** - Print steps for obtaining a credential (use --launch to open the URL)
+- **`google-workspace-cli auth status`** - Show authentication status
 
 ### channels
-
-
 
 - **`google-workspace-cli channels`** - Stops watching resources through this channel.
 
 ### chromeosdevices
 
-
-
-- **`google-workspace-cli chromeosdevices action`** - Use [BatchChangeChromeOsDeviceStatus](https://developers.google.com/workspace/admin/directory/reference/rest/v1/customer.devices.chromeos/batchChangeStatus) instead. Takes an action that affects a Chrome OS Device. This includes deprovisioning, disabling, and re-enabling devices. *Warning:* * Deprovisioning a device will stop device policy syncing and remove device-level printers. After a device is deprovisioned, it must be wiped before it can be re-enrolled. * Lost or stolen devices should use the disable action. * Re-enabling a disabled device will consume a device license. If you do not have sufficient licenses available when completing the re-enable action, you will receive an error. For more information about deprovisioning and disabling devices, visit the [help center](https://support.google.com/chrome/a/answer/3523633).
-- **`google-workspace-cli chromeosdevices get`** - Retrieves a Chrome OS device's properties.
+- **`google-workspace-cli chromeosdevices action <resourceId>`** - Use [BatchChangeChromeOsDeviceStatus](https://developers.google.
+- **`google-workspace-cli chromeosdevices get <deviceId>`** - Retrieves a Chrome OS device's properties.
 - **`google-workspace-cli chromeosdevices list`** - Retrieves a paginated list of Chrome OS devices within an account.
 - **`google-workspace-cli chromeosdevices move-devices-to-ou`** - Moves or inserts multiple Chrome OS devices to an organizational unit. You can move up to 50 devices at once.
-- **`google-workspace-cli chromeosdevices patch`** - Updates a device's updatable properties, such as `annotatedUser`, `annotatedLocation`, `notes`, `orgUnitPath`, or `annotatedAssetId`. This method supports [patch semantics](https://developers.google.com/workspace/admin/directory/v1/guides/performance#patch).
-- **`google-workspace-cli chromeosdevices update`** - Updates a device's updatable properties, such as `annotatedUser`, `annotatedLocation`, `notes`, `orgUnitPath`, or `annotatedAssetId`.
+- **`google-workspace-cli chromeosdevices patch <deviceId>`** - Updates a device's updatable properties, such as `annotatedUser`, `annotatedLocation`, `notes`, `orgUnitPath`
+- **`google-workspace-cli chromeosdevices update <deviceId>`** - Updates a device's updatable properties, such as `annotatedUser`, `annotatedLocation`, `notes`, `orgUnitPath`
 
 ### customer
 
+- **`google-workspace-cli customer devices-chromeos batch-change-status`** - Changes the status of a batch of ChromeOS devices.
+- **`google-workspace-cli customer devices-chromeos count-chrome-os-devices`** - Counts ChromeOS devices matching the request.
+- **`google-workspace-cli customer devices-chromeos issue-command <deviceId>`** - Issues a command for the device to execute.
+- **`google-workspace-cli customer devices-chromeos-commands get <deviceId> <commandId>`** - Gets command data a specific command issued to the device.
 
+### customer-usage-reports
 
-
-### customerUsageReports
-
-
-
-- **`google-workspace-cli customer-usage-reports <date>`** - Retrieves a report which is a collection of properties and statistics for a specific customer's account. For more information, see the Customers Usage Report guide. For more information about the customer report's parameters, see the Customers Usage parameters reference guides. 
+- **`google-workspace-cli customer-usage-reports <date>`** - Retrieves a report which is a collection of properties and statistics for a specific customer's account.
 
 ### customers
 
-
-
+- **`google-workspace-cli customers chrome-print-servers batch-create-print-servers <parent> <customersId>`** - Creates multiple print servers.
+- **`google-workspace-cli customers chrome-print-servers batch-delete-print-servers <parent> <customersId>`** - Deletes multiple print servers.
+- **`google-workspace-cli customers chrome-print-servers create <parent> <customersId>`** - Creates a print server.
+- **`google-workspace-cli customers chrome-print-servers delete <name> <customersId> <printServersId>`** - Deletes a print server.
+- **`google-workspace-cli customers chrome-print-servers get <name> <customersId> <printServersId>`** - Returns a print server's configuration.
+- **`google-workspace-cli customers chrome-print-servers list <parent> <customersId>`** - Lists print server configurations.
+- **`google-workspace-cli customers chrome-print-servers patch <name> <customersId> <printServersId>`** - Updates a print server's configuration.
+- **`google-workspace-cli customers chrome-printers batch-create-printers <parent> <customersId>`** - Creates printers under given Organization Unit.
+- **`google-workspace-cli customers chrome-printers batch-delete-printers <parent> <customersId>`** - Deletes printers in batch.
+- **`google-workspace-cli customers chrome-printers create <parent> <customersId>`** - Creates a printer under given Organization Unit.
+- **`google-workspace-cli customers chrome-printers delete <name> <customersId> <printersId>`** - Deletes a `Printer`.
+- **`google-workspace-cli customers chrome-printers get <name> <customersId> <printersId>`** - Returns a `Printer` resource (printer's config).
+- **`google-workspace-cli customers chrome-printers list <parent> <customersId>`** - List printers configs.
+- **`google-workspace-cli customers chrome-printers list-printer-models <parent> <customersId>`** - Lists the supported printer models.
+- **`google-workspace-cli customers chrome-printers patch <name> <customersId> <printersId>`** - Updates a `Printer` resource.
 - **`google-workspace-cli customers get`** - Retrieves a customer.
 - **`google-workspace-cli customers patch`** - Patches a customer.
 - **`google-workspace-cli customers update`** - Updates a customer.
 
-### domainAliases
+### doctor
 
+- **`google-workspace-cli doctor`** - Check CLI health
 
+### domain-aliases
 
-- **`google-workspace-cli domain-aliases delete`** - Deletes a domain Alias of the customer.
-- **`google-workspace-cli domain-aliases get`** - Retrieves a domain alias of the customer.
+- **`google-workspace-cli domain-aliases delete <domainAliasName>`** - Deletes a domain Alias of the customer.
+- **`google-workspace-cli domain-aliases get <domainAliasName>`** - Retrieves a domain alias of the customer.
 - **`google-workspace-cli domain-aliases insert`** - Inserts a domain alias of the customer.
 - **`google-workspace-cli domain-aliases list`** - Lists the domain aliases of the customer.
 
 ### domains
 
-
-
-- **`google-workspace-cli domains delete`** - Deletes a domain of the customer.
-- **`google-workspace-cli domains get`** - Retrieves a domain of the customer.
+- **`google-workspace-cli domains delete <domainName>`** - Deletes a domain of the customer.
+- **`google-workspace-cli domains get <domainName>`** - Retrieves a domain of the customer.
 - **`google-workspace-cli domains insert`** - Inserts a domain of the customer.
 - **`google-workspace-cli domains list`** - Lists the domains of the customer.
 
-### entityUsageReports
+### entity-usage-reports
 
+- **`google-workspace-cli entity-usage-reports <entityType> <entityKey> <date>`** - Retrieves a report which is a collection of properties and statistics for entities used by users within the account.
 
+### export
 
-- **`google-workspace-cli entity-usage-reports <entityType> <entityKey> <date>`** - Retrieves a report which is a collection of properties and statistics for entities used by users within the account. For more information, see the Entities Usage Report guide. For more information about the entities report's parameters, see the Entities Usage parameters reference guides.
+- **`google-workspace-cli export <resource> [id]`** - Export data to JSONL or JSON for backup, migration, or analysis
+
+### feedback
+
+- **`google-workspace-cli feedback list`** - List recent feedback entries
 
 ### groups
 
-
-
-- **`google-workspace-cli groups delete`** - Deletes a group.
-- **`google-workspace-cli groups get`** - Retrieves a group's properties.
+- **`google-workspace-cli groups aliases delete <groupKey> <alias>`** - Removes an alias.
+- **`google-workspace-cli groups aliases insert <groupKey>`** - Adds an alias for the group.
+- **`google-workspace-cli groups aliases list <groupKey>`** - Lists all aliases for a group.
+- **`google-workspace-cli groups delete <groupKey>`** - Deletes a group.
+- **`google-workspace-cli groups get <groupKey>`** - Retrieves a group's properties.
 - **`google-workspace-cli groups insert`** - Creates a group.
 - **`google-workspace-cli groups list`** - Retrieves all groups of a domain or of a user given a userKey (paginated).
-- **`google-workspace-cli groups patch`** - Updates a group's properties. This method supports [patch semantics](https://developers.google.com/workspace/admin/directory/v1/guides/performance#patch).
-- **`google-workspace-cli groups update`** - Updates a group's properties.
+- **`google-workspace-cli groups patch <groupKey>`** - Updates a group's properties. This method supports [patch semantics](https://developers.google.
+- **`google-workspace-cli groups update <groupKey>`** - Updates a group's properties.
 
-### licenseAssignments
+### import
 
+- **`google-workspace-cli import <resource>`** - Import data from JSONL file via API create/upsert calls
 
+### learnings
 
-- **`google-workspace-cli license-assignments delete`** - Revoke a license.
-- **`google-workspace-cli license-assignments get`** - Get a specific user's license by product SKU.
-- **`google-workspace-cli license-assignments insert`** - Assign a license.
+- **`google-workspace-cli learnings candidates`** - List auto-captured improvement candidates awaiting judgment
+- **`google-workspace-cli learnings confirm <id>`** - Confirm an open candidate: print its full payload, then materialize it
+- **`google-workspace-cli learnings forget <query>`** - Delete learnings matching a query (use --all to wipe every rule for that query)
+- **`google-workspace-cli learnings list`** - List recorded learnings from the local google-workspace-cli search_learnings table
+- **`google-workspace-cli learnings purge`** - Delete settled candidate rows (expired and confirmed; --tombstones adds rejected)
+- **`google-workspace-cli learnings reject <id>`** - Reject a candidate and tombstone its derivation signature
+- **`google-workspace-cli learnings stats`** - Report learn-loop effectiveness metrics from the local events table
+
+### leavers
+
+- **`google-workspace-cli leavers`** - Suspended accounts still holding a licence, groups, admin roles, OAuth tokens, or no completed transfer
+
+### license-assignments
+
+- **`google-workspace-cli license-assignments delete <skuId> <userId>`** - Revoke a license.
+- **`google-workspace-cli license-assignments get <skuId> <userId>`** - Get a specific user's license by product SKU.
+- **`google-workspace-cli license-assignments insert <skuId>`** - Assign a license.
 - **`google-workspace-cli license-assignments list-for-product`** - List all users assigned licenses for a specific product SKU.
-- **`google-workspace-cli license-assignments list-for-product-and-sku`** - List all users assigned licenses for a specific product SKU.
-- **`google-workspace-cli license-assignments patch`** - Reassign a user's product SKU with a different SKU in the same product. This method supports patch semantics.
-- **`google-workspace-cli license-assignments update`** - Reassign a user's product SKU with a different SKU in the same product.
+- **`google-workspace-cli license-assignments list-for-product-and-sku <skuId>`** - List all users assigned licenses for a specific product SKU.
+- **`google-workspace-cli license-assignments patch <skuId> <userId>`** - Reassign a user's product SKU with a different SKU in the same product. This method supports patch semantics.
+- **`google-workspace-cli license-assignments update <skuId> <userId>`** - Reassign a user's product SKU with a different SKU in the same product.
+
+### login-alerts
+
+- **`google-workspace-cli login-alerts`** - Suspicious sign-ins, accounts Google disabled, 2SV turned off, and out-of-domain forwarding across clients
 
 ### members
 
+- **`google-workspace-cli members delete <groupKey> <memberKey>`** - Removes a member from a group.
+- **`google-workspace-cli members get <groupKey> <memberKey>`** - Retrieves a group member's properties.
+- **`google-workspace-cli members has-member <groupKey> <memberKey>`** - Checks whether the given user is a member of the group.
+- **`google-workspace-cli members insert <groupKey>`** - Adds a user to the specified group.
+- **`google-workspace-cli members list <groupKey>`** - Retrieves a paginated list of all members in a group. This method times out after 60 minutes.
+- **`google-workspace-cli members patch <groupKey> <memberKey>`** - Updates the membership properties of a user in the specified group.
+- **`google-workspace-cli members update <groupKey> <memberKey>`** - Updates the membership of a user in the specified group.
 
+### mfa-gaps
 
-- **`google-workspace-cli members delete`** - Removes a member from a group.
-- **`google-workspace-cli members get`** - Retrieves a group member's properties.
-- **`google-workspace-cli members has-member`** - Checks whether the given user is a member of the group. Membership can be direct or nested, but if nested, the `memberKey` and `groupKey` must be entities in the same domain or an `Invalid input` error is returned. To check for nested memberships that include entities outside of the group's domain, use the [`checkTransitiveMembership()`](https://cloud.google.com/identity/docs/reference/rest/v1/groups.memberships/checkTransitiveMembership) method in the Cloud Identity Groups API.
-- **`google-workspace-cli members insert`** - Adds a user to the specified group.
-- **`google-workspace-cli members list`** - Retrieves a paginated list of all members in a group. This method times out after 60 minutes. For more information, see [Troubleshoot error codes](https://developers.google.com/workspace/admin/directory/v1/guides/troubleshoot-error-codes).
-- **`google-workspace-cli members patch`** - Updates the membership properties of a user in the specified group. This method supports [patch semantics](https://developers.google.com/workspace/admin/directory/v1/guides/performance#patch).
-- **`google-workspace-cli members update`** - Updates the membership of a user in the specified group.
+- **`google-workspace-cli mfa-gaps`** - Users without 2-Step Verification across client tenants, admins first
 
 ### mobiledevices
 
+- **`google-workspace-cli mobiledevices action <resourceId>`** - Takes an action that affects a mobile device. For example, remotely wiping a device.
+- **`google-workspace-cli mobiledevices delete <resourceId>`** - Removes a mobile device.
+- **`google-workspace-cli mobiledevices get <resourceId>`** - Retrieves a mobile device's properties.
+- **`google-workspace-cli mobiledevices list`** - Retrieves a paginated list of all user-owned mobile devices for an account.
 
+### oauth-apps
 
-- **`google-workspace-cli mobiledevices action`** - Takes an action that affects a mobile device. For example, remotely wiping a device.
-- **`google-workspace-cli mobiledevices delete`** - Removes a mobile device.
-- **`google-workspace-cli mobiledevices get`** - Retrieves a mobile device's properties.
-- **`google-workspace-cli mobiledevices list`** - Retrieves a paginated list of all user-owned mobile devices for an account. To retrieve a list that includes company-owned devices, use the Cloud Identity [Devices API](https://cloud.google.com/identity/docs/concepts/overview-devices) instead. This method times out after 60 minutes. For more information, see [Troubleshoot error codes](https://developers.google.com/workspace/admin/directory/v1/guides/troubleshoot-error-codes).
+- **`google-workspace-cli oauth-apps`** - Third-party OAuth apps with access to client data, across every user and tenant, ranked by scope risk
+
+### offboard
+
+- **`google-workspace-cli offboard <user-email>`** - Offboard a leaver in the right order: revoke access, remove groups, transfer data, suspend last
 
 ### orgunits
 
-
-
-- **`google-workspace-cli orgunits delete`** - Removes an organizational unit.
-- **`google-workspace-cli orgunits get`** - Retrieves an organizational unit.
+- **`google-workspace-cli orgunits delete <orgUnitPath> <orgunitsId>`** - Removes an organizational unit.
+- **`google-workspace-cli orgunits get <orgUnitPath> <orgunitsId>`** - Retrieves an organizational unit.
 - **`google-workspace-cli orgunits insert`** - Adds an organizational unit.
 - **`google-workspace-cli orgunits list`** - Retrieves a list of all organizational units for an account.
-- **`google-workspace-cli orgunits patch`** - Updates an organizational unit. This method supports [patch semantics](https://developers.google.com/workspace/admin/directory/v1/guides/performance#patch)
-- **`google-workspace-cli orgunits update`** - Updates an organizational unit.
+- **`google-workspace-cli orgunits patch <orgUnitPath> <orgunitsId>`** - Updates an organizational unit. This method supports [patch semantics](https://developers.google.
+- **`google-workspace-cli orgunits update <orgUnitPath> <orgunitsId>`** - Updates an organizational unit.
+
+### playbook
+
+- **`google-workspace-cli playbook amend`** - Append a note to an existing playbook (LLM-fired self-correction, silent)
+- **`google-workspace-cli playbook list`** - List stored playbooks (query_family, content presence, last observed)
+
+### posture
+
+- **`google-workspace-cli posture`** - One row per client tenant: 2SV coverage, admins without 2SV, stale licences, sharing changes
 
 ### privileges
 
-
-
 - **`google-workspace-cli privileges`** - Retrieves a paginated list of all privileges for a customer.
+
+### profile
+
+- **`google-workspace-cli profile delete <name>`** - Remove a profile
+- **`google-workspace-cli profile list`** - List saved profiles
+- **`google-workspace-cli profile save <name>`** - Save the current invocation's non-default flags as a named profile
+- **`google-workspace-cli profile show <name>`** - Show a profile's values as JSON
+- **`google-workspace-cli profile use <name>`** - Print the flag values a profile will apply (does not execute anything)
+
+### recall
+
+- **`google-workspace-cli recall <query>`** - Check prior learnings for a query before running discovery (LLM-fired, pre-discovery)
 
 ### reseller-customers
 
-
-
-- **`google-workspace-cli reseller-customers get`** - Gets a customer account. Use this operation to see a customer account already in your reseller management, or to see the minimal account information for an existing customer that you do not manage. For more information about the API response for existing customers, see [retrieving a customer account](https://developers.google.com/workspace/admin/reseller/v1/how-tos/manage_customers#get_customer).
-- **`google-workspace-cli reseller-customers insert`** - Orders a new customer's account. Before ordering a new customer account, establish whether the customer account already exists using the [`customers.get`](https://developers.google.com/workspace/admin/reseller/v1/reference/customers/get) If the customer account exists as a direct Google account or as a resold customer account from another reseller, use the `customerAuthToken\` as described in [order a resold account for an existing customer](https://developers.google.com/workspace/admin/reseller/v1/how-tos/manage_customers#create_existing_customer). For more information about ordering a new customer account, see [order a new customer account](https://developers.google.com/workspace/admin/reseller/v1/how-tos/manage_customers#create_customer). After creating a new customer account, you must provision a user as an administrator. The customer's administrator is required to sign in to the Admin console and sign the G Suite via Reseller agreement to activate the account. Resellers are prohibited from signing the G Suite via Reseller agreement on the customer's behalf. For more information, see [order a new customer account](https://developers.google.com/workspace/admin/reseller/v1/how-tos/manage_customers#tos).
-- **`google-workspace-cli reseller-customers patch`** - Updates a customer account's settings. This method supports patch semantics. You cannot update `customerType` via the Reseller API, but a `"team"` customer can verify their domain and become `customerType = "domain"`. For more information, see [Verify your domain to unlock Essentials features](https://support.google.com/a/answer/9122284).
-- **`google-workspace-cli reseller-customers update`** - Updates a customer account's settings. You cannot update `customerType` via the Reseller API, but a `"team"` customer can verify their domain and become `customerType = "domain"`. For more information, see [update a customer's settings](https://developers.google.com/workspace/admin/reseller/v1/how-tos/manage_customers#update_customer).
+- **`google-workspace-cli reseller-customers get <customerId>`** - Gets a customer account.
+- **`google-workspace-cli reseller-customers insert`** - Orders a new customer's account.
+- **`google-workspace-cli reseller-customers patch <customerId>`** - Updates a customer account's settings. This method supports patch semantics.
+- **`google-workspace-cli reseller-customers update <customerId>`** - Updates a customer account's settings.
 
 ### resellernotify
-
-
 
 - **`google-workspace-cli resellernotify getwatchdetails`** - Returns all the details of the watch corresponding to the reseller.
 - **`google-workspace-cli resellernotify register`** - Registers a Reseller for receiving notifications.
@@ -448,157 +428,168 @@ Existing installs keep working because the platform-default rung matches the leg
 
 ### resources
 
+- **`google-workspace-cli resources buildings delete <buildingId>`** - Deletes a building.
+- **`google-workspace-cli resources buildings get <buildingId>`** - Retrieves a building.
+- **`google-workspace-cli resources buildings insert`** - Inserts a building.
+- **`google-workspace-cli resources buildings list`** - Retrieves a list of buildings for an account.
+- **`google-workspace-cli resources buildings patch <buildingId>`** - Patches a building.
+- **`google-workspace-cli resources buildings update <buildingId>`** - Updates a building.
+- **`google-workspace-cli resources calendars delete <calendarResourceId>`** - Deletes a calendar resource.
+- **`google-workspace-cli resources calendars get <calendarResourceId>`** - Retrieves a calendar resource.
+- **`google-workspace-cli resources calendars insert`** - Inserts a calendar resource.
+- **`google-workspace-cli resources calendars list`** - Retrieves a list of calendar resources for an account.
+- **`google-workspace-cli resources calendars patch <calendarResourceId>`** - Patches a calendar resource.
+- **`google-workspace-cli resources calendars update <calendarResourceId>`** - Updates a calendar resource.
+- **`google-workspace-cli resources features delete <featureKey>`** - Deletes a feature.
+- **`google-workspace-cli resources features get <featureKey>`** - Retrieves a feature.
+- **`google-workspace-cli resources features insert`** - Inserts a feature.
+- **`google-workspace-cli resources features list`** - Retrieves a list of features for an account.
+- **`google-workspace-cli resources features patch <featureKey>`** - Patches a feature.
+- **`google-workspace-cli resources features rename <oldName>`** - Renames a feature.
+- **`google-workspace-cli resources features update <featureKey>`** - Updates a feature.
 
+### role-assignments
 
-
-### roleAssignments
-
-
-
-- **`google-workspace-cli role-assignments delete`** - Deletes a role assignment.
-- **`google-workspace-cli role-assignments get`** - Retrieves a role assignment.
+- **`google-workspace-cli role-assignments delete <roleAssignmentId>`** - Deletes a role assignment.
+- **`google-workspace-cli role-assignments get <roleAssignmentId>`** - Retrieves a role assignment.
 - **`google-workspace-cli role-assignments insert`** - Creates a role assignment.
 - **`google-workspace-cli role-assignments list`** - Retrieves a paginated list of all roleAssignments.
 
 ### roles
 
-
-
-- **`google-workspace-cli roles delete`** - Deletes a role.
-- **`google-workspace-cli roles get`** - Retrieves a role.
+- **`google-workspace-cli roles delete <roleId>`** - Deletes a role.
+- **`google-workspace-cli roles get <roleId>`** - Retrieves a role.
 - **`google-workspace-cli roles insert`** - Creates a role.
 - **`google-workspace-cli roles list`** - Retrieves a paginated list of all the roles in a domain.
-- **`google-workspace-cli roles patch`** - Patches a role.
-- **`google-workspace-cli roles update`** - Updates a role.
+- **`google-workspace-cli roles patch <roleId>`** - Patches a role.
+- **`google-workspace-cli roles update <roleId>`** - Updates a role.
 
 ### schemas
 
-
-
-- **`google-workspace-cli schemas delete`** - Deletes a schema.
-- **`google-workspace-cli schemas get`** - Retrieves a schema.
+- **`google-workspace-cli schemas delete <schemaKey>`** - Deletes a schema.
+- **`google-workspace-cli schemas get <schemaKey>`** - Retrieves a schema.
 - **`google-workspace-cli schemas insert`** - Creates a schema.
 - **`google-workspace-cli schemas list`** - Retrieves all schemas for a customer.
-- **`google-workspace-cli schemas patch`** - Patches a schema.
-- **`google-workspace-cli schemas update`** - Updates a schema.
+- **`google-workspace-cli schemas patch <schemaKey>`** - Patches a schema.
+- **`google-workspace-cli schemas update <schemaKey>`** - Updates a schema.
 
-### subscriptions
+### search
 
-
-
-- **`google-workspace-cli subscriptions activate`** - Activates a subscription previously suspended by the reseller. If you did not suspend the customer subscription and it is suspended for any other reason, such as for abuse or a pending ToS acceptance, this call will not reactivate the customer subscription.
-- **`google-workspace-cli subscriptions change-plan`** - Updates a subscription plan. Use this method to update a plan for a 30-day trial or a flexible plan subscription to an annual commitment plan with monthly or yearly payments. How a plan is updated differs depending on the plan and the products. For more information, see the description in [manage subscriptions](https://developers.google.com/workspace/admin/reseller/v1/how-tos/manage_subscriptions#update_subscription_plan).
-- **`google-workspace-cli subscriptions change-renewal-settings`** - Updates a user license's renewal settings. This is applicable for accounts with annual commitment plans only. For more information, see the description in [manage subscriptions](https://developers.google.com/workspace/admin/reseller/v1/how-tos/manage_subscriptions#update_renewal).
-- **`google-workspace-cli subscriptions change-seats`** - Updates a subscription's user license settings. For more information about updating an annual commitment plan or a flexible plan subscription’s licenses, see [Manage Subscriptions](https://developers.google.com/workspace/admin/reseller/v1/how-tos/manage_subscriptions#update_subscription_seat).
-- **`google-workspace-cli subscriptions delete`** - Cancels, suspends, or transfers a subscription to direct.
-- **`google-workspace-cli subscriptions get`** - Gets a specific subscription. The `subscriptionId` can be found using the [Retrieve all reseller subscriptions](https://developers.google.com/workspace/admin/reseller/v1/how-tos/manage_subscriptions#get_all_subscriptions) method. For more information about retrieving a specific subscription, see the information descrived in [manage subscriptions](https://developers.google.com/workspace/admin/reseller/v1/how-tos/manage_subscriptions#get_subscription).
-- **`google-workspace-cli subscriptions insert`** - Creates or transfer a subscription. Create a subscription for a customer's account that you ordered using the [Order a new customer account](https://developers.google.com/workspace/admin/reseller/v1/reference/customers/insert.html) method. For more information about creating a subscription for different payment plans, see [manage subscriptions](https://developers.google.com/workspace/admin/reseller/v1/how-tos/manage_subscriptions#create_subscription).\ If you did not order the customer's account using the customer insert method, use the customer's `customerAuthToken` when creating a subscription for that customer. If transferring a G Suite subscription with an associated Google Drive or Google Vault subscription, use the [batch operation](https://developers.google.com/workspace/admin/reseller/v1/how-tos/batch.html) to transfer all of these subscriptions. For more information, see how to [transfer subscriptions](https://developers.google.com/workspace/admin/reseller/v1/how-tos/manage_subscriptions#transfer_a_subscription).
-- **`google-workspace-cli subscriptions list`** - Lists of subscriptions managed by the reseller. The list can be all subscriptions, all of a customer's subscriptions, or all of a customer's transferable subscriptions. Optionally, this method can filter the response by a `customerNamePrefix`. For more information, see [manage subscriptions](https://developers.google.com/workspace/admin/reseller/v1/how-tos/manage_subscriptions).
-- **`google-workspace-cli subscriptions start-paid-service`** - Immediately move a 30-day free trial subscription to a paid service subscription. This method is only applicable if a payment plan has already been set up for the 30-day trial subscription. For more information, see [manage subscriptions](https://developers.google.com/workspace/admin/reseller/v1/how-tos/manage_subscriptions#paid_service).
-- **`google-workspace-cli subscriptions suspend`** - Suspends an active subscription. You can use this method to suspend a paid subscription that is currently in the `ACTIVE` state. * For `FLEXIBLE` subscriptions, billing is paused. * For `ANNUAL_MONTHLY_PAY` or `ANNUAL_YEARLY_PAY` subscriptions: * Suspending the subscription does not change the renewal date that was originally committed to. * A suspended subscription does not renew. If you activate the subscription after the original renewal date, a new annual subscription will be created, starting on the day of activation. We strongly encourage you to suspend subscriptions only for short periods of time as suspensions over 60 days may result in the subscription being cancelled.
-
-### tokens
-
-
-
-- **`google-workspace-cli tokens delete`** - Deletes all access tokens issued by a user for an application.
-- **`google-workspace-cli tokens get`** - Gets information about an access token issued by a user.
-- **`google-workspace-cli tokens list`** - Returns the set of tokens specified user has issued to 3rd party applications.
-
-### transfers
-
-
-
-- **`google-workspace-cli transfers get`** - Retrieves a data transfer request by its resource ID.
-- **`google-workspace-cli transfers insert`** - Inserts a data transfer request. See the [Transfer parameters](https://developers.google.com/workspace/admin/data-transfer/v1/parameters) reference for specific application requirements.
-- **`google-workspace-cli transfers list`** - Lists the transfers for a customer by source user, destination user, or status.
-
-### twoStepVerification
-
-
-
-- **`google-workspace-cli two-step-verification <userKey>`** - Turns off 2-Step Verification for user.
-
-### userUsageReport
-
-
-
-- **`google-workspace-cli user-usage-report <date>`** - Retrieves a report which is a collection of properties and statistics for a set of users with the account. For more information, see the User Usage Report guide. For more information about the user report's parameters, see the Users Usage parameters reference guides.
-
-### users
-
-
-
-- **`google-workspace-cli users create-guest`** - Create a guest user with access to a [subset of Workspace capabilities](https://support.google.com/a/answer/16558545). This feature is currently in Open Beta.
-- **`google-workspace-cli users delete`** - Deletes a user.
-- **`google-workspace-cli users get`** - Retrieves a user.
-- **`google-workspace-cli users insert`** - Creates a user. Mutate calls immediately following user creation might sometimes fail as the user isn't fully created due to propagation delay in our backends. Check the error details for the "User creation is not complete" message to see if this is the case. Retrying the calls after some time can help in this case. If `resolve_conflict_account` is set to `true`, the option selected for [Find and add unmanaged users](https://knowledge.workspace.google.com/admin/users/find-and-add-unmanaged-users) will apply to resolve conflicting accounts: - A `200` response code indicates the user was created (or replaced an existing unmanaged personal account). - A `202` response code means that a conflicting unmanaged personal account exists and was invited to join the organization. - A `409` response code means that a conflicting account exists so the user wasn't created (e.g. based on the option selected to preserve the account, or if the email conflicts with an unmanaged work account or existing managed user). For details on resolving duplicate account errors, see [Resolve duplicate account errors](https://knowledge.workspace.google.com/p/duplicate-account-errors) and [Transfer unmanaged work accounts](https://knowledge.workspace.google.com/p/unmanaged-work-accounts).
-- **`google-workspace-cli users list`** - Retrieves a paginated list of either deleted users or all users in a domain.
-- **`google-workspace-cli users make-admin`** - Makes a user a super administrator.
-- **`google-workspace-cli users patch`** - Updates a user using patch semantics. The update method should be used instead, because it also supports patch semantics and has better performance. If you're mapping an external identity to a Google identity, use the [`update`](https://developers.google.com/workspace/admin/directory/v1/reference/users/update) method instead of the `patch` method. This method is unable to clear fields that contain repeated objects (`addresses`, `phones`, etc). Use the update method instead.
-- **`google-workspace-cli users sign-out`** - Signs a user out of all web and device sessions and reset their sign-in cookies. User will have to sign in by authenticating again.
-- **`google-workspace-cli users undelete`** - Undeletes a deleted user.
-- **`google-workspace-cli users update`** - Updates a user. This method supports patch semantics, meaning that you only need to include the fields you wish to update. Fields that are not present in the request will be preserved, and fields set to `null` will be cleared. For repeating fields that contain arrays, individual items in the array can't be patched piecemeal; they must be supplied in the request body with the desired values for all items. See the [user accounts guide](https://developers.google.com/workspace/admin/directory/v1/guides/manage-users#update_user) for more information.
-- **`google-workspace-cli users watch`** - Watches for changes in users list.
-
-### verificationCodes
-
-
-
-- **`google-workspace-cli verification-codes generate`** - Generates new backup verification codes for the user.
-- **`google-workspace-cli verification-codes invalidate`** - Invalidates the current backup verification codes for the user.
-- **`google-workspace-cli verification-codes list`** - Returns the current set of valid backup verification codes for the specified user.
-
-
-### leavers
-
-
-- **`google-workspace-cli leavers`** - Suspended accounts that still hold a paid licence, groups, an admin role, OAuth tokens, or have no completed Drive transfer.
-
-
-### login-alerts
-
-
-- **`google-workspace-cli login-alerts`** - Suspicious sign-ins, accounts Google disabled, 2SV turned off, and out-of-domain mail forwarding across clients.
-
-
-### mfa-gaps
-
-
-- **`google-workspace-cli mfa-gaps`** - Every account without 2-Step Verification across all your client tenants, ranked with unenrolled admins first.
-
-
-### oauth-apps
-
-
-- **`google-workspace-cli oauth-apps`** - Third-party apps with access to client data across every active user and tenant, ranked by scope risk; --since switches to apps newly authorized in that window.
-
-
-### offboard
-
-
-- **`google-workspace-cli offboard`** - Offboard a leaver in the order Google's API requires, with a read-only preview, dry-run, and a receipt per step.
-
-
-### posture
-
-
-- **`google-workspace-cli posture`** - One row per client: 2SV coverage, admins without 2SV, stale licences and sharing changes, plus current sharing and 2SV policy for tenants registered with the policy scope profile.
-
+- **`google-workspace-cli search <query>`** - Search locally synced data
 
 ### sharing-drift
 
-
-- **`google-workspace-cli sharing-drift`** - Who changed Drive or Calendar sharing settings, and which files newly went external or public, across clients.
-
+- **`google-workspace-cli sharing-drift`** - External-sharing changes across client tenants: Drive sharing settings, new external shares, public links
 
 ### stale-licenses
 
+- **`google-workspace-cli stale-licenses`** - Paid licences held by suspended, never-used, or inactive accounts across client tenants
 
-- **`google-workspace-cli stale-licenses`** - Paid licences held by suspended, never-signed-in, or idle accounts, per client, ready to reclaim.
+### subscriptions
 
+- **`google-workspace-cli subscriptions activate <customerId> <subscriptionId>`** - Activates a subscription previously suspended by the reseller.
+- **`google-workspace-cli subscriptions change-plan <customerId> <subscriptionId>`** - Updates a subscription plan.
+- **`google-workspace-cli subscriptions change-renewal-settings <customerId> <subscriptionId>`** - Updates a user license's renewal settings. This is applicable for accounts with annual commitment plans only.
+- **`google-workspace-cli subscriptions change-seats <customerId> <subscriptionId>`** - Updates a subscription's user license settings.
+- **`google-workspace-cli subscriptions delete <customerId> <subscriptionId>`** - Cancels, suspends, or transfers a subscription to direct.
+- **`google-workspace-cli subscriptions get <customerId> <subscriptionId>`** - Gets a specific subscription.
+- **`google-workspace-cli subscriptions insert <customerId>`** - Creates or transfer a subscription.
+- **`google-workspace-cli subscriptions list`** - Lists of subscriptions managed by the reseller.
+- **`google-workspace-cli subscriptions start-paid-service <customerId> <subscriptionId>`** - Immediately move a 30-day free trial subscription to a paid service subscription.
+- **`google-workspace-cli subscriptions suspend <customerId> <subscriptionId>`** - Suspends an active subscription.
 
+### sync
 
+- **`google-workspace-cli sync`** - Sync API data to local SQLite for offline search and analysis
+
+### tail
+
+- **`google-workspace-cli tail [resource]`** - Stream live changes by polling the API at regular intervals
+
+### teach
+
+- **`google-workspace-cli teach`** - Record a query -> resource mapping for future recall (LLM-fired, silent)
+
+### teach-lookup
+
+- **`google-workspace-cli teach-lookup`** - Install a manual entity-lookup row (kind, canonical, value)
+
+### teach-pattern
+
+- **`google-workspace-cli teach-pattern`** - Install a manual generalization pattern (query_template, resource_template, entity_kind)
+
+### teach-playbook
+
+- **`google-workspace-cli teach-playbook`** - Record a CLI playbook + free-text notes for a query family
+
+### tenants
+
+- **`google-workspace-cli tenants add <name>`** - Register a client tenant (copies its service-account key into the config dir, mode 0600)
+- **`google-workspace-cli tenants list`** - List registered client tenants
+- **`google-workspace-cli tenants remove <name>`** - Remove a tenant and delete its stored service-account key copy
+- **`google-workspace-cli tenants scopes <name>`** - Print the Client ID and OAuth scopes to authorize in the client's Admin console
+- **`google-workspace-cli tenants test [name]`** - Verify each tenant's domain-wide delegation scope by scope, and record its customer ID and domains
+
+### tokens
+
+- **`google-workspace-cli tokens delete <userKey> <clientId>`** - Deletes all access tokens issued by a user for an application.
+- **`google-workspace-cli tokens get <userKey> <clientId>`** - Gets information about an access token issued by a user.
+- **`google-workspace-cli tokens list <userKey>`** - Returns the set of tokens specified user has issued to 3rd party applications.
+
+### transfers
+
+- **`google-workspace-cli transfers get <dataTransferId>`** - Retrieves a data transfer request by its resource ID.
+- **`google-workspace-cli transfers insert`** - Inserts a data transfer request. See the [Transfer parameters](https://developers.google.
+- **`google-workspace-cli transfers list`** - Lists the transfers for a customer by source user, destination user, or status.
+
+### two-step-verification
+
+- **`google-workspace-cli two-step-verification <userKey>`** - Turns off 2-Step Verification for user.
+
+### user-usage-report
+
+- **`google-workspace-cli user-usage-report <date>`** - Retrieves a report which is a collection of properties and statistics for a set of users with the account.
+
+### users
+
+- **`google-workspace-cli users aliases delete <userKey> <alias>`** - Removes an alias.
+- **`google-workspace-cli users aliases insert <userKey>`** - Adds an alias.
+- **`google-workspace-cli users aliases list <userKey>`** - Lists all aliases for a user.
+- **`google-workspace-cli users aliases watch <userKey>`** - Watches for changes in users list.
+- **`google-workspace-cli users create-guest`** - Create a guest user with access to a [subset of Workspace capabilities](https://support.google.com/a/answer/16558545).
+- **`google-workspace-cli users delete <userKey>`** - Deletes a user.
+- **`google-workspace-cli users get <userKey>`** - Retrieves a user.
+- **`google-workspace-cli users insert`** - Creates a user.
+- **`google-workspace-cli users list`** - Retrieves a paginated list of either deleted users or all users in a domain.
+- **`google-workspace-cli users make-admin <userKey>`** - Makes a user a super administrator.
+- **`google-workspace-cli users patch <userKey>`** - Updates a user using patch semantics.
+- **`google-workspace-cli users photos delete <userKey>`** - Removes the user's photo.
+- **`google-workspace-cli users photos get <userKey>`** - Retrieves the user's photo.
+- **`google-workspace-cli users photos patch <userKey>`** - Adds a photo for the user. This method supports [patch semantics](https://developers.google.
+- **`google-workspace-cli users photos update <userKey>`** - Adds a photo for the user.
+- **`google-workspace-cli users sign-out <userKey>`** - Signs a user out of all web and device sessions and reset their sign-in cookies.
+- **`google-workspace-cli users undelete <userKey>`** - Undeletes a deleted user.
+- **`google-workspace-cli users update <userKey>`** - Updates a user.
+- **`google-workspace-cli users watch`** - Watches for changes in users list.
+
+### verification-codes
+
+- **`google-workspace-cli verification-codes generate <userKey>`** - Generates new backup verification codes for the user.
+- **`google-workspace-cli verification-codes invalidate <userKey>`** - Invalidates the current backup verification codes for the user.
+- **`google-workspace-cli verification-codes list <userKey>`** - Returns the current set of valid backup verification codes for the specified user.
+
+### version
+
+- **`google-workspace-cli version`** - Print version
+
+### which
+
+- **`google-workspace-cli which [query]`** - Find the command that implements a capability
+
+### workflow
+
+- **`google-workspace-cli workflow archive`** - Sync all resources to local store for offline access and search
+- **`google-workspace-cli workflow status`** - Show local archive status and sync state for all resources
 
 ### Self-learning loop
 

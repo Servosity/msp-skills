@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-authored novel feature: multi-client tenant registry.
 //
 // One Google Workspace client = one service account with domain-wide
@@ -328,7 +328,12 @@ func confirmed(cmd *cobra.Command, flags *rootFlags) bool {
 	return f != nil && f.Changed
 }
 
-func getenvTenant() string { return strings.TrimSpace(os.Getenv("GOOGLE_WORKSPACE_TENANT")) }
+// getenvTenant goes through EnvOverride so an MCPB host that leaves an unset
+// optional field as the literal "${user_config.google_workspace_tenant}"
+// reads as no tenant, not as a tenant with that name.
+func getenvTenant() string {
+	return strings.TrimSpace(cliutil.EnvOverride("GOOGLE_WORKSPACE_TENANT"))
+}
 
 // resetTenantSelection is for tests.
 func resetTenantSelection() {

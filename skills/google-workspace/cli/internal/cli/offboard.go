@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Novel feature: offboard - one leaver, the right order.
 //
 // Order is forced by the API: backup-code invalidation and most security
@@ -325,13 +325,16 @@ func runOffboard(ctx context.Context, c *client.Client, t gwsTenant, email strin
 		}
 		rec.TransferID = id
 		if id != "" {
-			rec.Next = append(rec.Next, "transfer "+id+" runs asynchronously: check it with 'transfers get "+id+" --tenant "+t.Name+"'")
+			rec.Next = append(rec.Next, "transfer "+id+" runs asynchronously: check it with 'transfers get "+id+tenantArg(t)+"'")
 		}
 		return 0, detail + " to " + o.successor, nil
 	})
 	if o.releaseLicense && o.successor != "" {
 		rec.Steps = append(rec.Steps, offboardStep{Step: "release_licenses", Status: "skipped", Detail: "transfer pending; releasing a licence mid-transfer can strand data"})
-		rec.Next = append(rec.Next, "after the transfer completes: offboard "+email+" --tenant "+t.Name+" --release-license --keep-groups --yes")
+		// Re-running offboard would repeat the backup-code and token steps
+		// against the now-suspended account, where they fail, so point at
+		// the per-licence delete instead.
+		rec.Next = append(rec.Next, licenseReleaseHints(ctx, c, t, primary, o.products)...)
 	} else {
 		step("release_licenses", o.releaseLicense, func() (int, string, error) {
 			id, status, err := pendingTransfer(ctx, c, u.ID)
@@ -540,4 +543,41 @@ func printOffboard(cmd *cobra.Command, flags *rootFlags, rec offboardReceipt, ru
 		return err
 	}
 	return runErr
+}
+
+// tenantArg is the --tenant flag for a follow-up command. The implicit
+// single-org tenant (bearer token, no registry entry) has no key file and
+// must not be named: 'default' is not a registered tenant.
+func tenantArg(t gwsTenant) string {
+	if t.KeyFile == "" {
+		return ""
+	}
+	return " --tenant " + t.Name
+}
+
+// licenseReleaseHints lists the commands that release the leaver's licences
+// once their Drive/Calendar transfer completes.
+func licenseReleaseHints(ctx context.Context, c *client.Client, t gwsTenant, email, products string) []string {
+	const pre = "after the transfer completes ('transfers list"
+	fallback := []string{pre + tenantArg(t) + "'), release each licence with 'license-assignments delete <skuId> " + email + " --product-id <productId>" + tenantArg(t) + "'"}
+	custID, err := tenantCustomerID(ctx, c, t)
+	if err != nil {
+		return fallback
+	}
+	var out []string
+	for _, p := range splitTenantCSV(products) {
+		ls, err := listLicenses(ctx, c, custID, p)
+		if err != nil {
+			return fallback
+		}
+		for _, l := range ls {
+			if strings.EqualFold(l.UserID, email) {
+				out = append(out, pre+tenantArg(t)+"'), release "+l.SkuName+": license-assignments delete "+l.SkuID+" "+email+" --product-id "+l.ProductID+tenantArg(t))
+			}
+		}
+	}
+	if len(out) == 0 {
+		return []string{"no " + products + " licence is assigned to " + email + "; nothing to release"}
+	}
+	return out
 }
