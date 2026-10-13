@@ -102,7 +102,7 @@ CIPP's portal is where you act deeply on a single tenant; this skill is where yo
 
 - CIPP scopes nearly every endpoint by a single tenantFilter, so the portal forces you through one client tenant at a time. The fleet-wide questions an MSP owner actually asks at QBR time - how many users still lack MFA across all clients, which tenants drifted off baseline, where licenses sit unused - have no single screen; you click each tenant or script the API by hand.
 - The CIPP API (per the official CIPP API documentation at docs.cipp.app) authenticates with an Azure AD app registration via OAuth2 client credentials and runs through Microsoft Graph, which throttles at scale. A bulk change across dozens of tenants hits HTTP 429 / Retry-After limits, and a halted batch means re-running everything - there is no resumable, checkpointing bulk runner.
-- CIPP added its own MCP server in June 2026, and it is read-only by design: its code skips every endpoint that changes anything, so an agent using it cannot offboard a user, reset MFA, change licenses or convert a mailbox. This connector does those across every tenant, with `--dry-run` previews.
+- CIPP added its own MCP server in June 2026, and it is read-only by design: it leaves out every endpoint CIPP labels as a write, so an agent using it cannot offboard a user, reset MFA, change licenses or convert a mailbox. This connector wraps those endpoints too, one tenant per call, each previewable with `--dry-run`.
 
 ## Install
 
