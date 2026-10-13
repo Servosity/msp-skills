@@ -200,7 +200,7 @@ Your data stays on **your machine**. The CLI and MCP server are local binaries. 
 
 ### What credentials do I need?
 
-An IT Glue API key, generated in your IT Glue account settings (**Account > Settings > API Keys**). Set `ITGLUE_API_KEY` in your environment, or run `itglue-cli auth set-token`. The key inherits the permissions of the IT Glue account it belongs to, so scope that account to exactly what you want the AI to reach - note that a key with password access lets `passwords get`/`list` return stored secrets.
+An IT Glue API key, generated in your IT Glue account settings (**Account > Settings > API Keys**). Set `ITGLUE_API_KEY` in your environment, or run `itglue-cli auth set-token`. IT Glue API keys are account-wide, not per-user: only an Administrator can create one, and it reaches every organization in your IT Glue account. The one per-key restriction IT Glue offers is the **Password Access** checkbox - leave it off unless you need `passwords get`/`list`, because with it on those commands return stored secrets.
 
 ### Will this hit my IT Glue API rate limits?
 
