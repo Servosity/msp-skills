@@ -1194,7 +1194,7 @@ A: Your data stays on your machine. The CLI, MCP server, and the local mirror ar
 Q: What does it cost?
 A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 Q: What credentials do I need?
-A: An IT Glue API key, which you generate in your IT Glue account settings (Account > Settings > API Keys). Set ITGLUE_API_KEY in your environment, or run itglue-cli auth set-token. The key inherits the permissions of the IT Glue account it belongs to, so scope that account to exactly what you want the AI to reach - a key with password access lets passwords get/list return stored secrets, so scope it accordingly.
+A: An IT Glue API key, which you generate in your IT Glue account settings (Account > Settings > API Keys). Set ITGLUE_API_KEY in your environment, or run itglue-cli auth set-token. IT Glue API keys are account-wide, not per-user: only an Administrator can create one, and it reaches every organization in your IT Glue account. The one per-key restriction IT Glue offers is the Password Access checkbox - leave it off unless you need passwords get/list, because with it on those commands return stored secrets.
 Q: Will this blow through my IT Glue API limits?
 A: IT Glue meters the API at roughly 3000 requests per 5 minutes. The local mirror exists so reads stop hitting the API: after the first sync, search, coverage, passwords stale, changes, contacts dupes, org show, and orphans all run against local SQLite with zero API calls, and sync is incremental - it only fetches what changed since the last checkpoint.
 Q: Does it work with IT Glue's EU or AU data regions?

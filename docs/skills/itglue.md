@@ -20,7 +20,7 @@ faqs:
   - q: "What does it cost?"
     a: "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
   - q: "What credentials do I need?"
-    a: "An IT Glue API key, which you generate in your IT Glue account settings (Account > Settings > API Keys). Set ITGLUE_API_KEY in your environment, or run itglue-cli auth set-token. The key inherits the permissions of the IT Glue account it belongs to, so scope that account to exactly what you want the AI to reach - a key with password access lets passwords get/list return stored secrets, so scope it accordingly."
+    a: "An IT Glue API key, which you generate in your IT Glue account settings (Account > Settings > API Keys). Set ITGLUE_API_KEY in your environment, or run itglue-cli auth set-token. IT Glue API keys are account-wide, not per-user: only an Administrator can create one, and it reaches every organization in your IT Glue account. The one per-key restriction IT Glue offers is the Password Access checkbox - leave it off unless you need passwords get/list, because with it on those commands return stored secrets."
   - q: "Will this blow through my IT Glue API limits?"
     a: "IT Glue meters the API at roughly 3000 requests per 5 minutes. The local mirror exists so reads stop hitting the API: after the first sync, search, coverage, passwords stale, changes, contacts dupes, org show, and orphans all run against local SQLite with zero API calls, and sync is incremental - it only fetches what changed since the last checkpoint."
   - q: "Does it work with IT Glue's EU or AU data regions?"
@@ -166,7 +166,7 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
 
 ### What credentials do I need?
 
-An IT Glue API key, which you generate in your IT Glue account settings (Account > Settings > API Keys). Set ITGLUE_API_KEY in your environment, or run itglue-cli auth set-token. The key inherits the permissions of the IT Glue account it belongs to, so scope that account to exactly what you want the AI to reach - a key with password access lets passwords get/list return stored secrets, so scope it accordingly.
+An IT Glue API key, which you generate in your IT Glue account settings (Account > Settings > API Keys). Set ITGLUE_API_KEY in your environment, or run itglue-cli auth set-token. IT Glue API keys are account-wide, not per-user: only an Administrator can create one, and it reaches every organization in your IT Glue account. The one per-key restriction IT Glue offers is the Password Access checkbox - leave it off unless you need passwords get/list, because with it on those commands return stored secrets.
 
 ### Will this blow through my IT Glue API limits?
 
