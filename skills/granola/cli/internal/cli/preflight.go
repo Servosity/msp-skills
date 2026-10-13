@@ -4,15 +4,18 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
+	"granola-pp-cli/internal/client"
 	"granola-pp-cli/internal/granola"
 )
 
@@ -27,9 +30,16 @@ func newPreflightCmd(flags *rootFlags) *cobra.Command {
 		Long: `Returns exit 0 when the meeting has at least 5 microphone-source
 transcript segments AND at least 10 CLASSIFIED segments (microphone + speaker)
 AND no file in --root already covers this meeting -- matched by id (in the
-filename or the file body) or by title AND day. A same-title file from a
-DIFFERENT day is a recurring meeting, not a duplicate: it is reported as
-title_collision and does not affect the exit code.
+filename, or in the body of a file whose name carries the meeting title) or
+by title AND day for a file that records no meeting id at all. A same-title
+file from a DIFFERENT day, or one that records a different meeting id, is a
+different meeting: it is reported as title_collision and does not affect the
+exit code. --root defaults to ~/Documents/Dev/meeting-transcripts; a --root
+that does not exist is reported on stderr, because it turns the duplicate
+check off.
+
+A meeting that sync has listed but not yet enriched is fetched from the
+Granola API (one detail call) before it is judged.
 
 Segments whose source label is unrecognized do NOT count toward the threshold:
 an upstream relabel must not be able to manufacture a passing verdict.
@@ -41,11 +51,15 @@ care can act on it.
 Exit codes:
   0  ready to extract
   2  no transcript, or below the mic>=5 / classified>=10 threshold
-  3  a file already covers this meeting (exact identity: id, or title+day)
+  3  a file already covers this meeting (exact identity: id, or title+day),
+     OR the meeting is unknown to both the local store and the Granola API
+     (stderr says which)
   4  transcript source labels are unrecognized, so the gate cannot classify
      the transcript (upstream changed its grammar; expected
      microphone/speaker). Distinct from 2 on purpose: a relabel is not the
-     same as a missing transcript.`,
+     same as a missing transcript.
+  5  the meeting is not in the local store and the Granola API refused or
+     failed the lookup (the meeting may exist; check the key and retry)`,
 		Example: `  # Pass-fail gate before running extract
   granola-cli preflight ff1186df-593b-4ce5-bb1d-70e265f4a811
 
@@ -56,7 +70,7 @@ Exit codes:
   granola-cli preflight ff1186df-593b-4ce5-bb1d-70e265f4a811 --json`,
 		Annotations: map[string]string{
 			"mcp:read-only":       "true",
-			"pp:typed-exit-codes": "0,2,3,4",
+			"pp:typed-exit-codes": "0,2,3,4,5",
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
@@ -70,12 +84,13 @@ Exit codes:
 				home, _ := os.UserHomeDir()
 				root = filepath.Join(home, PreflightDefaultRoot)
 			}
+			warnIfRootMissing(root)
 			c, err := openGranolaCache()
 			if err != nil {
 				return err
 			}
 			d := c.DocumentByID(id)
-			if d == nil && validateNoteIDForFilename(id) == nil && apiKeyConfigured(flags) {
+			if d == nil && flags.dataSource != "local" && validateNoteIDForFilename(id) == nil && apiKeyConfigured(flags) {
 				// Hand-wired (handfixes.json: preflight-hydrates-missing-meeting):
 				// the rich store holds only meetings that sync or auto-refresh
 				// already enriched (the 50 / 25 most recent). Exit 3 used to
@@ -83,7 +98,13 @@ Exit codes:
 				// reading exit 3 as "duplicate, skip" dropped silently. Fetch
 				// this one meeting from the REST detail endpoint and look again.
 				if herr := hydrateOneMeeting(cmd.Context(), flags, id); herr != nil {
-					stderr("note: could not fetch meeting %s from the Granola API: %v", id, herr)
+					// Only a 404 means the meeting does not exist. A refused
+					// key, a 5xx, or a network failure says nothing about the
+					// meeting, so it must not read as "not found" (exit 3).
+					var apiE *client.APIError
+					if !(errors.As(herr, &apiE) && apiE.StatusCode == 404) {
+						return apiErr(fmt.Errorf("meeting %s is not in the local store and the Granola API could not be asked about it (exit 5; the meeting may exist): %w", id, herr))
+					}
 				} else if c2, rerr := openGranolaCache(); rerr == nil {
 					c = c2
 					d = c.DocumentByID(id)
@@ -299,19 +320,26 @@ func findDuplicates(root, id, title, day string) (dup string, collisions []strin
 		// Read the body only for same-title candidates. Scanning every file in
 		// the root would be correct but needlessly expensive; a file that does
 		// not even share the title is not a plausible duplicate.
-		if titleHit && id != "" {
-			if b, rerr := r.ReadFile(rel); rerr == nil && strings.Contains(string(b), id) {
+		if !titleHit {
+			return
+		}
+		declaresOther := false
+		if b, rerr := r.ReadFile(rel); rerr == nil {
+			body := string(b)
+			if id != "" && strings.Contains(body, id) {
 				dup = path
 				return
 			}
-		}
-		if !titleHit {
-			return
+			// A file that records a DIFFERENT meeting id is a different
+			// meeting, even with the same title on the same day (two calls
+			// called "Weekly Sync" on one day). Only a file that records no id
+			// at all falls back to the title+day rung.
+			declaresOther = len(memoDeclaredIDs(body)) > 0
 		}
 		// Same title. Same day means the same occurrence -- gate. A different
 		// day is a different occurrence of a recurring meeting -- report it so
 		// the caller can see the near-miss, but never block on it.
-		if day != "" && strings.Contains(name, day) {
+		if !declaresOther && day != "" && strings.Contains(name, day) {
 			dup = path
 			return
 		}
@@ -363,4 +391,30 @@ func hydrateOneMeeting(ctx context.Context, flags *rootFlags, id string) error {
 	}
 	_, _, err = hydrateRichFromREST(ctx, st.DB(), c, []string{id})
 	return err
+}
+
+// memoDeclaredIDs returns the Granola meeting ids a memo file records, from a
+// "Meeting ID:" line or a notes.granola.ai/d/<id> link. Empty when the file
+// records none (a legacy file written before ids were recorded).
+func memoDeclaredIDs(body string) []string {
+	var ids []string
+	for _, m := range memoIDPattern.FindAllStringSubmatch(body, -1) {
+		for _, g := range m[1:] {
+			if g != "" {
+				ids = append(ids, g)
+			}
+		}
+	}
+	return ids
+}
+
+var memoIDPattern = regexp.MustCompile(`(?i)meeting id:[\s*_]*([A-Za-z0-9][A-Za-z0-9_-]{5,})|notes\.granola\.ai/d/([A-Za-z0-9][A-Za-z0-9_-]{5,})`)
+
+// warnIfRootMissing says so on stderr when the duplicate-scan root does not
+// exist: findDuplicates then finds nothing, which silently turns the
+// duplicate gate off (a typo in --root, or the default never created).
+func warnIfRootMissing(root string) {
+	if _, err := os.Stat(root); err != nil {
+		stderr("note: --root %s does not exist, so the duplicate check found nothing; pass the folder your memos live in", root)
+	}
 }

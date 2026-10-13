@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"granola-pp-cli/internal/config"
 	"granola-pp-cli/internal/granola"
 	"granola-pp-cli/internal/store"
 )
@@ -298,6 +299,21 @@ func backfillMeetingsMetadataFromStore(c *granola.Cache) error {
 // curtail work under it to fit the dogfood runner's per-command timeout.
 func isDogfoodEnv() bool { return os.Getenv("PRINTING_PRESS_DOGFOOD") == "1" }
 
+// granolaActiveFlags is the running command's root flag set, captured by the
+// novel-command hook. Hand-wired (handfixes.json: rest-helpers-honor-config):
+// the leaf REST helpers loaded config.Load(""), so `--config other.toml`
+// was ignored and they used the default host and credentials.
+var granolaActiveFlags *rootFlags
+
+// granolaRESTConfig loads the config the running command was pointed at.
+func granolaRESTConfig() (*config.Config, error) {
+	path := ""
+	if granolaActiveFlags != nil {
+		path = granolaActiveFlags.configPath
+	}
+	return config.Load(path)
+}
+
 // granolaStoreOverride, when non-empty, redirects the local SQLite store path.
 // Set by `sync --db <path>` so the whole sync (framework notes/folders +
 // enrich) targets one store. Empty = the platform data dir.
@@ -383,6 +399,14 @@ func writeSafeFile(path string, data []byte) error {
 	f, err := r.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, safeFilePerm)
 	if err != nil {
 		return ioErr(err)
+	}
+	// Tighten the handle BEFORE any private byte lands: a pre-existing 0644
+	// file keeps its mode through O_TRUNC, so writing first left the new
+	// contents world-readable until the chmod (handfixes.json:
+	// memo-output-file-safety).
+	if cerr := f.Chmod(safeFilePerm); cerr != nil {
+		_ = f.Close()
+		return ioErr(cerr)
 	}
 	if _, werr := f.Write(data); werr != nil {
 		_ = f.Close()

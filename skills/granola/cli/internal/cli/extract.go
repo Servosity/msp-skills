@@ -98,19 +98,38 @@ func runExtract(id, outDir, panelTemplate string, allowLive bool) (extractResult
 		return res, err
 	}
 
-	for _, kv := range []struct {
+	outputs := []struct {
 		path    string
 		content string
 	}{
 		{fullPath, full},
 		{summaryPath, summary},
 		{metaPath, meta},
-	} {
-		if err := writeSafeFile(kv.path, []byte(kv.content)); err != nil {
-			return res, ioErr(err)
+	}
+	// Hand-wired (handfixes.json: extract-triple-all-or-nothing): the triple
+	// is all-or-nothing. Every target is checked before anything is written,
+	// and if a write still fails, the files this run created are removed.
+	// Otherwise a half-written triple left full_<id>.md behind, and the retry
+	// refused it as "already exists" forever.
+	for _, o := range outputs {
+		if fi, err := os.Lstat(o.path); err == nil && (fi.IsDir() || fi.Mode()&os.ModeSymlink != 0) {
+			return res, ioErr(fmt.Errorf("refusing to write %s: it is a directory or a symlink", o.path))
 		}
-		res.Files = append(res.Files, kv.path)
-		res.Bytes += len(kv.content)
+	}
+	var created []string
+	for _, o := range outputs {
+		_, statErr := os.Lstat(o.path)
+		if err := writeSafeFile(o.path, []byte(o.content)); err != nil {
+			for _, c := range created {
+				_ = os.Remove(c)
+			}
+			return extractResult{ID: id, Title: res.Title}, ioErr(err)
+		}
+		if os.IsNotExist(statErr) {
+			created = append(created, o.path)
+		}
+		res.Files = append(res.Files, o.path)
+		res.Bytes += len(o.content)
 	}
 	return res, nil
 }
@@ -133,7 +152,7 @@ func composeSummaryMarkdown(a *meetingArtifacts) string {
 		b.WriteString(strings.TrimSpace(a.PanelSummary))
 		b.WriteString("\n")
 	} else {
-		b.WriteString("_(no AI panel available)_\n")
+		b.WriteString(noSummaryLine(a))
 	}
 	return b.String()
 }

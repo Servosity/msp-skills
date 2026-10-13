@@ -268,8 +268,8 @@ func upsertRichMeeting(ctx context.Context, db *sql.DB, d *restNoteDetail) error
 		return fmt.Errorf("upsert meeting %s: %w", d.ID, err)
 	}
 
-	// Attendees: merge note attendees + calendar invitees. Replace rows only
-	// when at least one source was present, else keep the existing attendees.
+	// Attendees: merge note attendees + calendar invitees. Rows are touched
+	// only when at least one source was present, else the stored set is kept.
 	attendeesPresent := d.Attendees != nil || (calPresent && len(cal.Invitees) > 0)
 	if attendeesPresent {
 		merged := map[string]string{} // email -> best-known name
@@ -298,14 +298,36 @@ func upsertRichMeeting(ctx context.Context, db *sql.DB, d *restNoteDetail) error
 				add(inv.Email, inv.Name)
 			}
 		}
-		if _, err := tx.ExecContext(ctx, `DELETE FROM attendees WHERE meeting_id = ?`, d.ID); err != nil {
-			return err
+		// Only the note's own attendee list is authoritative for the SET of
+		// attendees. A response that omits `attendees` and carries just
+		// calendar invitees must not delete the attendees stored earlier
+		// (handfixes.json: rest-hydrate-presence-aware), so in that case the
+		// invitees are merged in additively. Either way an empty name never
+		// overwrites a known one.
+		if d.Attendees != nil {
+			if _, err := tx.ExecContext(ctx, `DELETE FROM attendees WHERE meeting_id = ?`, d.ID); err != nil {
+				return err
+			}
 		}
 		for _, email := range order {
-			if _, err := tx.ExecContext(ctx, `INSERT OR REPLACE INTO attendees(meeting_id,email,name,response_status) VALUES (?,?,?,?)`,
+			if _, err := tx.ExecContext(ctx, `INSERT INTO attendees(meeting_id,email,name,response_status) VALUES (?,?,?,?)
+				ON CONFLICT(meeting_id, email) DO UPDATE SET
+					name=CASE WHEN excluded.name != '' THEN excluded.name ELSE attendees.name END`,
 				d.ID, email, merged[email], ""); err != nil {
 				return fmt.Errorf("upsert attendee %s/%s: %w", d.ID, email, err)
 			}
+		}
+	}
+
+	// AI summary: stored so local exports carry it; an empty value never
+	// overwrites a stored one (a partial 200 must not erase it).
+	if strings.TrimSpace(d.SummaryMD) != "" || strings.TrimSpace(d.SummaryText) != "" {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO meeting_summaries(meeting_id, summary_markdown, summary_text) VALUES (?,?,?)
+			ON CONFLICT(meeting_id) DO UPDATE SET
+				summary_markdown=CASE WHEN excluded.summary_markdown != '' THEN excluded.summary_markdown ELSE meeting_summaries.summary_markdown END,
+				summary_text=CASE WHEN excluded.summary_text != '' THEN excluded.summary_text ELSE meeting_summaries.summary_text END`,
+			d.ID, d.SummaryMD, d.SummaryText); err != nil {
+			return fmt.Errorf("upsert summary %s: %w", d.ID, err)
 		}
 	}
 

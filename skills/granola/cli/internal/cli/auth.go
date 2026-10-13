@@ -147,8 +147,11 @@ secure ways:
 			// log line): a masked-tail variant could leak token bytes through
 			// scripted dogfood that captures stderr.
 			cfg.AuthHeaderVal = ""
-			if err := cfg.SaveTokens("", "", token, "", cfg.TokenExpiry); err != nil {
+			if err := cfg.SaveAPIKey(token); err != nil {
 				return configErr(fmt.Errorf("saving token: %w", err))
+			}
+			if env := strings.TrimSpace(os.Getenv("GRANOLA_API_KEY")); env != "" && env != token {
+				fmt.Fprintln(cmd.ErrOrStderr(), "note: GRANOLA_API_KEY is set in this environment and takes precedence over the saved key until you unset it.")
 			}
 
 			savePath := credentialSavePath(cfg)

@@ -169,10 +169,9 @@ func TestPreflightHydratesAMeetingSyncHasNotEnriched(t *testing.T) {
 		})
 	}))
 	defer srv.Close()
-	t.Setenv("GRANOLA_BASE_URL", srv.URL)
-	t.Setenv("GRANOLA_API_KEY", "test-key")
-	t.Setenv("GRANOLA_NO_AUTO_REFRESH", "1")
-	t.Setenv("GRANOLA_HOME", t.TempDir())
+	// Full isolation: HOME, GRANOLA_HOME, and the Keychain hook, so the MCP
+	// private-notes step can never read the real Keychain or call Granola.
+	isolateGranola(t, srv.URL)
 
 	stdout, _, err := runRootArgs(t, "preflight", "not_late", "--root", t.TempDir(), "--json", "--no-refresh")
 	if err != nil {

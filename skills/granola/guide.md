@@ -113,6 +113,7 @@ Granola’s REST API omits your raw private/human notes; Granola’s official MC
 granola-cli mcp-auth login     # browser OAuth (PKCE); tokens saved to the macOS Keychain, never on disk
 granola-cli mcp-auth status    # is it connected?
 granola-cli mcp-auth verify    # confirm private notes are reachable end-to-end
+granola-cli enrich             # add private notes to meetings you already synced (enrich --full for all)
 ```
 
 ![Connecting Granola’s official MCP server](docs/images/granola-mcp-setup.png)
@@ -185,8 +186,9 @@ treated as **unrecognized** rather than silently counted.
 | --- | --- |
 | `0` | ready to extract |
 | `2` | no transcript, or below the threshold (needs >= 5 `microphone` segments AND >= 10 CLASSIFIED segments) |
-| `3` | a file in `--root` already covers this meeting - the meeting id is in its filename, or in the body of a file whose name carries the meeting title, or the title AND day match - **or** the meeting is unknown to both the local store and the Granola API (preflight first tries to fetch a meeting sync has not enriched yet; stderr says which case it is). A same-title file from a different day is a recurring meeting, reported as `title_collision`, and does not block. `--root` defaults to `~/Documents/Dev/meeting-transcripts`; pass the folder your memos actually live in. |
+| `3` | a file in `--root` already covers this meeting - the meeting id is in its filename, or in the body of a file whose name carries the meeting title, or the title AND day match for a file that records no meeting id - **or** the meeting is unknown to both the local store and the Granola API (preflight first tries to fetch a meeting sync has not enriched yet; stderr says which case it is). A same-title file from a different day is a recurring meeting, reported as `title_collision`, and does not block. `--root` defaults to `~/Documents/Dev/meeting-transcripts`; pass the folder your memos actually live in. |
 | `4` | transcript source labels are unrecognized, so the gate cannot classify the transcript -- upstream changed its grammar. **Not the same as exit 2:** the text is probably there, the channels just can't be read. |
+| `5` | the meeting is not in the local store and the Granola API refused or failed the lookup (bad key, outage). The meeting may exist; fix the key or retry. |
 
 Unclassified segments never count toward the threshold, so an upstream relabel
 cannot manufacture a passing verdict.
@@ -339,7 +341,7 @@ This CLI is designed for AI agent consumption:
 - **Filterable** - `--select id,name` returns only fields you need
 - **Previewable** - `--dry-run` shows the request without sending
 - **Read-only against Granola**  -  every command inspects, exports, syncs, or analyzes; it never mutates remote Granola state. The only writes are local: saved credentials (`auth set-token`), Granola-MCP tokens (`mcp-auth login`), MEMO/export files on disk, and the local teach/learning store
-- **Offline-friendly** - `sync` and the `meetings list --query <text>` FTS path use the local SQLite store
+- **Offline-friendly** - `sync` fills the local SQLite store; `meetings list --query <text>` matches titles, notes, and transcript text there
 - **Agent-safe by default** - no colors or formatting unless `--human-friendly` is set
 
 Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `7` rate limited, `10` config error.

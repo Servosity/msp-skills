@@ -12,7 +12,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"granola-pp-cli/internal/client"
-	"granola-pp-cli/internal/config"
 )
 
 func newPanelCmd(flags *rootFlags) *cobra.Command {
@@ -88,7 +87,7 @@ single AI summary, which this serves. --template summary selects it.`,
 // (the /v1/notes/{id} detail carries summary_markdown/summary_text; the list
 // sync does not), shaped as a {"summary": ...} panel map.
 func restSummaryPanel(ctx context.Context, id string) (map[string]string, error) {
-	cfg, err := config.Load("")
+	cfg, err := granolaRESTConfig()
 	if err != nil {
 		return nil, configErr(err)
 	}
@@ -102,6 +101,9 @@ func restSummaryPanel(ctx context.Context, id string) (map[string]string, error)
 	var d restNoteDetail
 	if err := json.Unmarshal(raw, &d); err != nil {
 		return nil, apiErr(fmt.Errorf("parse summary for %s: %w", id, err))
+	}
+	if d.ID != "" && d.ID != id {
+		return nil, apiErr(fmt.Errorf("summary for %s: the API answered for a different meeting (%q)", id, d.ID))
 	}
 	summary := d.SummaryMD
 	if summary == "" {

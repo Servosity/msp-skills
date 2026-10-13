@@ -83,6 +83,11 @@ var noRefreshCommands = map[string]struct{}{
 	"profile":       {},
 	"feedback":      {},
 	"which":         {},
+	// Hand-wired (handfixes.json: mcp-auth-skips-auto-refresh): mcp-auth
+	// status/verify/login/logout manage the Granola-MCP tokens themselves.
+	// An auto-refresh in front of them could enrich private notes and so
+	// refresh (and rotate) those tokens before a "passive" status ran.
+	"mcp-auth": {},
 }
 
 // refreshSurface labels which auth path a refreshResult came from so

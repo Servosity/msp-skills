@@ -16,9 +16,11 @@ func newTalktimeCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "talktime [<meeting-id>]",
 		Short: "Per-source talk time for one meeting or rolled up across meetings",
-		Long: `Without args: returns microphone vs system seconds for one meeting.
-With --by participant --since DATE: aggregates across meetings, attributing
-to source for 2-attendee meetings and rolling up otherwise.`,
+		Long: `Without args: returns microphone vs system seconds for one meeting
+(microphone is the person running Granola; system is everyone else).
+With --by participant --since DATE: aggregates the same split across
+meetings. Granola's public API names no meeting owner, so the roll-up is
+always your microphone versus everyone else, not a per-person ranking.`,
 		Example: strings.Trim(`
   granola-cli talktime not_06Yq6JtogRihEr
   granola-cli talktime --by participant --since 30d

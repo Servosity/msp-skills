@@ -242,7 +242,13 @@ func enrichHumanNotes(ctx context.Context, db *sql.DB, targets []restTarget) (in
 	}
 
 	// Resolve targets to UUIDs as a one-to-one, date-windowed assignment.
-	uuidByRest := assignMeetingUUIDs(byTitle, targets)
+	// Hand-wired (handfixes.json: mcp-notes-attribution-all-candidates): the
+	// assignment must see EVERY stored meeting that shares a target's title,
+	// not just this batch. Otherwise, with REST meetings A (09:00) and B
+	// (10:00) titled alike and only B in the batch, the MCP copy of A had no
+	// competitor and its private notes were written under B.
+	candidates := withSameTitleStoredMeetings(ctx, db, targets)
+	uuidByRest := assignMeetingUUIDs(byTitle, candidates)
 	if len(uuidByRest) == 0 {
 		return 0, nil
 	}
@@ -285,4 +291,37 @@ func enrichHumanNotes(ctx context.Context, db *sql.DB, targets []restTarget) (in
 		_, _ = db.ExecContext(ctx, `INSERT INTO meetings_fts(meetings_fts) VALUES ('rebuild')`)
 	}
 	return n, nil
+}
+
+// withSameTitleStoredMeetings returns targets plus every other stored meeting
+// whose normalized title matches one of theirs, so the UUID assignment weighs
+// all plausible owners of a private note. Only targets are ever written to.
+func withSameTitleStoredMeetings(ctx context.Context, db *sql.DB, targets []restTarget) []restTarget {
+	titles := map[string]bool{}
+	ids := map[string]bool{}
+	for _, t := range targets {
+		if k := normTitle(t.Title); k != "" {
+			titles[k] = true
+		}
+		ids[t.ID] = true
+	}
+	out := append([]restTarget(nil), targets...)
+	if len(titles) == 0 {
+		return out
+	}
+	rows, err := db.QueryContext(ctx, `SELECT id, COALESCE(title,''), COALESCE(created_at,'') FROM meetings`)
+	if err != nil {
+		return out
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id, title, created string
+		if rows.Scan(&id, &title, &created) != nil || ids[id] {
+			continue
+		}
+		if titles[normTitle(title)] {
+			out = append(out, restTarget{ID: id, Title: title, Created: rfcToTime(created)})
+		}
+	}
+	return out
 }

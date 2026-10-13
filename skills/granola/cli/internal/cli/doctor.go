@@ -6,6 +6,7 @@ package cli
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -204,7 +205,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 			} else if os.Getenv("GRANOLA_API_KEY") != "" {
 				authEnvSet = append(authEnvSet, "GRANOLA_API_KEY")
 			} else {
-				authEnvInfo = append(authEnvInfo, "GRANOLA_API_KEY optional")
+				authEnvInfo = append(authEnvInfo, "GRANOLA_API_KEY not set")
 			}
 			switch {
 			case len(authEnvRequiredMissing) > 0:
@@ -212,9 +213,12 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 			case len(authEnvOptionalNames) > 1 && !authEnvOptionalSatisfied:
 				report["env_vars"] = "INFO set one of: " + strings.Join(authEnvOptionalNames, " or ")
 			case len(authEnvInfo) > 0 && authConfigured:
-				report["env_vars"] = "OK " + strings.Join(authEnvInfo, "; ")
+				report["env_vars"] = "OK " + strings.Join(authEnvInfo, "; ") + " (using the saved key)"
 			case len(authEnvInfo) > 0:
-				report["env_vars"] = "INFO " + strings.Join(authEnvInfo, "; ")
+				// Hand-wired (handfixes.json: doctor-verdict-tracks-reality):
+				// every data command needs the key, so a missing one is an
+				// error, not an optional INFO line (and --fail-on=error trips).
+				report["env_vars"] = "ERROR " + strings.Join(authEnvInfo, "; ") + " and no key is saved; run 'granola-cli auth set-token' or export GRANOLA_API_KEY"
 			default:
 				report["env_vars"] = fmt.Sprintf("OK %d/%d available", len(authEnvSet), 1)
 			}
@@ -279,7 +283,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 							report["credentials"] = "skipped (API unreachable)"
 						}
 					} else {
-						_, perr := c.GetNoCache(cmd.Context(), "/v1/notes", map[string]string{"page_size": "1"})
+						probeBody, perr := c.GetNoCache(cmd.Context(), "/v1/notes", map[string]string{"page_size": "1"})
 						var probeAPIErr *client.APIError
 						probeStatus := 0
 						if errors.As(perr, &probeAPIErr) {
@@ -287,6 +291,14 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 						}
 						interstitial := strings.HasPrefix(fmt.Sprint(report["api"]), "blocked by")
 						switch {
+						case perr == nil && !json.Valid(probeBody):
+							// A 2xx that is not JSON is a web page (an app shell
+							// with history fallback, a captive portal), not the
+							// Granola API; it proves nothing about the key.
+							report["api"] = "WARN GET /v1/notes answered, but not with JSON: base_url looks like a web page, not the Granola API"
+							if authHeader != "" {
+								report["credentials"] = "WARN not verified (the answer was not from the Granola API)"
+							}
 						case perr == nil:
 							if !interstitial {
 								report["api"] = "reachable (GET /v1/notes answered)"

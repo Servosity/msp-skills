@@ -65,6 +65,7 @@ status values:
 			if root == "" {
 				root = filepath.Join(home, PreflightDefaultRoot)
 			}
+			warnIfRootMissing(root)
 			if err := ensureSafeDir(outDir); err != nil {
 				return ioErr(err)
 			}
@@ -72,6 +73,17 @@ status values:
 			var ids []string
 			if len(args) > 0 {
 				ids = []string{args[0]}
+				// Same single-meeting fetch preflight does, so `memo run <id>`
+				// and `preflight <id>` agree on a meeting sync has listed but
+				// not yet enriched (handfixes.json: preflight-hydrates-missing-meeting).
+				if flags.dataSource != "local" {
+					if c, cerr := openGranolaCache(); cerr == nil && c.DocumentByID(args[0]) == nil &&
+						validateNoteIDForFilename(args[0]) == nil && apiKeyConfigured(flags) {
+						if herr := hydrateOneMeeting(cmd.Context(), flags, args[0]); herr != nil {
+							stderr("note: could not fetch meeting %s from the Granola API: %v", args[0], herr)
+						}
+					}
+				}
 			} else {
 				from, to, err := parseTimeWindow(last, since, until)
 				if err != nil {
@@ -214,6 +226,7 @@ a partial-drift run should still hand back the meetings that ARE ready.`,
 			if root == "" {
 				root = filepath.Join(home, PreflightDefaultRoot)
 			}
+			warnIfRootMissing(root)
 			from, to, err := parseTimeWindow(last, since, until)
 			if err != nil {
 				return usageErr(err)

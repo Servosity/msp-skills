@@ -140,6 +140,7 @@ func newStatsDurationCmd(flags *rootFlags) *cobra.Command {
 				JOIN attendees a ON a.meeting_id = m.id
 				WHERE m.started_at IS NOT NULL AND m.ended_at IS NOT NULL
 				  AND m.started_at <> '' AND m.ended_at <> ''
+				  AND CAST(strftime('%s', m.ended_at) AS INTEGER) > CAST(strftime('%s', m.started_at) AS INTEGER)
 				GROUP BY a.email ORDER BY 3 DESC`
 			case "calendar":
 				q = `SELECT COALESCE(calendar_event_id,'none'), COUNT(*), COALESCE(SUM(
@@ -147,6 +148,7 @@ func newStatsDurationCmd(flags *rootFlags) *cobra.Command {
 				), 0) FROM meetings
 				WHERE started_at IS NOT NULL AND ended_at IS NOT NULL
 				  AND started_at <> '' AND ended_at <> ''
+				  AND CAST(strftime('%s', ended_at) AS INTEGER) > CAST(strftime('%s', started_at) AS INTEGER)
 				GROUP BY calendar_event_id ORDER BY 3 DESC`
 			case "template":
 				q = `SELECT COALESCE(creation_source,'unknown'), COUNT(*), COALESCE(SUM(
@@ -154,6 +156,7 @@ func newStatsDurationCmd(flags *rootFlags) *cobra.Command {
 				), 0) FROM meetings
 				WHERE started_at IS NOT NULL AND ended_at IS NOT NULL
 				  AND started_at <> '' AND ended_at <> ''
+				  AND CAST(strftime('%s', ended_at) AS INTEGER) > CAST(strftime('%s', started_at) AS INTEGER)
 				GROUP BY creation_source ORDER BY 3 DESC`
 			default:
 				return usageErr(fmt.Errorf("invalid --by %q (participant|calendar|template)", by))

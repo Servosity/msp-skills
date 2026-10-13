@@ -258,6 +258,10 @@ func newMCPAuthLoginCmd(flags *rootFlags) *cobra.Command {
 				return ioErr(fmt.Errorf("storing tokens in Keychain: %w", err))
 			}
 			fmt.Fprintln(w, green("Connected. Tokens stored in macOS Keychain (granola-cli-mcp)."))
+			// Meetings already in the local store are not revisited by sync
+			// until Granola changes them, so say how to backfill their notes
+			// (handfixes.json: mcp-auth-login-backfill-hint).
+			fmt.Fprintln(w, "Private notes are added as meetings are enriched. For meetings you already synced, run: granola-cli enrich   (or enrich --full for your whole library)")
 
 			// Live proof: open a session and list the tools. No note content is
 			// printed — only tool names + whether the human-notes tool is present.

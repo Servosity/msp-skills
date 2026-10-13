@@ -125,6 +125,14 @@ var granolaSchemaSQL = []string{
 		raw TEXT
 	)`,
 
+	// AI summary from the REST detail endpoint, kept so local exports can
+	// include it (handfixes.json: export-summary-stored-locally).
+	`CREATE TABLE IF NOT EXISTS meeting_summaries (
+		meeting_id TEXT PRIMARY KEY,
+		summary_markdown TEXT,
+		summary_text TEXT
+	)`,
+
 	`CREATE VIRTUAL TABLE IF NOT EXISTS meetings_fts USING fts5(
 		title, notes_plain, content='meetings', content_rowid='rowid', tokenize='porter unicode61'
 	)`,

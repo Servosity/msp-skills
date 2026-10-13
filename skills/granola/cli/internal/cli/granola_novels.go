@@ -11,6 +11,9 @@ import "github.com/spf13/cobra"
 // is sealed on v7.4x+ and is only a soft-failing shim.
 func init() {
 	registerNovelCommand(func(root *cobra.Command, flags *rootFlags) {
+		// Leaf REST helpers (panel, transcript, meetings get) read --config
+		// through this pointer once flags are parsed.
+		granolaActiveFlags = flags
 		// Reclaim the top-level "sync" name for the cache→REST+enrich
 		// wrapper. The generator-emitted public-API sync is re-exposed as
 		// "sync-api" (newSyncApiCmd wraps newSyncCmd internally).

@@ -358,6 +358,24 @@ func (c *Config) SaveTokens(clientID, clientSecret, accessToken, refreshToken st
 	return c.save()
 }
 
+// SaveAPIKey persists token as the Granola API key - the field AuthHeader
+// prefers - and drops any stored access_token, so exactly one credential is
+// on disk. Hand-wired (handfixes.json: set-token-replaces-api-key): saving
+// the token as access_token left an older stored api_key in place, and
+// AuthHeader kept sending the old key.
+func (c *Config) SaveAPIKey(token string) error {
+	c.GranolaApiKey = token
+	delete(c.envOverrides, "GranolaApiKey")
+	c.updateFileConfigField("GranolaApiKey")
+	c.AccessToken = ""
+	delete(c.envOverrides, "AccessToken")
+	c.updateFileConfigField("AccessToken")
+	if err := c.saveCredentialsFirst(); err != nil {
+		return err
+	}
+	return c.save()
+}
+
 func (c *Config) ClearTokens() error {
 	// AuthHeader() falls back to the env-var-derived fields when AuthHeaderVal
 	// and AccessToken are empty, so dropping the working credential requires

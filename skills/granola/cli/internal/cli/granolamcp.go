@@ -364,22 +364,41 @@ func mcpRefresh(clientID, refresh string) (*mcpToken, error) {
 
 // storeMCPToken persists a token bundle in the Keychain. A refresh response may
 // omit refresh_token (reuse the prior one), so only overwrite when present.
+// kcSetFn is kcSet, indirected so the persistence order can be tested.
+var kcSetFn = kcSet
+
 func storeMCPToken(clientID string, t *mcpToken) error {
-	if err := kcSet(kcAcctAccess, t.AccessToken); err != nil {
+	// Hand-wired (handfixes.json: mcp-refresh-rotation-persistence): Granola
+	// rotates the refresh token on every use, so the NEW refresh token is the
+	// one value that cannot be recovered once lost. It is written first, with
+	// one retry, and a failure on any item no longer stops the others from
+	// being attempted; every failure is returned together.
+	set := func(account, value string) error {
+		err := kcSetFn(account, value)
+		if err != nil {
+			err = kcSetFn(account, value)
+		}
 		return err
 	}
+	var errs []error
 	if t.RefreshToken != "" {
-		if err := kcSet(kcAcctRefresh, t.RefreshToken); err != nil {
-			return err
+		if err := set(kcAcctRefresh, t.RefreshToken); err != nil {
+			errs = append(errs, fmt.Errorf("refresh token: %w", err))
 		}
 	}
+	if err := set(kcAcctAccess, t.AccessToken); err != nil {
+		errs = append(errs, fmt.Errorf("access token: %w", err))
+	}
 	if clientID != "" {
-		if err := kcSet(kcAcctClientID, clientID); err != nil {
-			return err
+		if err := set(kcAcctClientID, clientID); err != nil {
+			errs = append(errs, fmt.Errorf("client id: %w", err))
 		}
 	}
 	exp := time.Now().Add(time.Duration(t.ExpiresIn) * time.Second)
-	return kcSet(kcAcctExpiry, strconv.FormatInt(exp.Unix(), 10))
+	if err := set(kcAcctExpiry, strconv.FormatInt(exp.Unix(), 10)); err != nil {
+		errs = append(errs, fmt.Errorf("expiry: %w", err))
+	}
+	return errors.Join(errs...)
 }
 
 // mcpAccessToken returns a usable access token, refreshing via the stored
@@ -419,7 +438,7 @@ func mcpAccessToken() (string, error) {
 		// token works this session; warn so the user knows it wasn't saved —
 		// single-use refresh-token rotation could otherwise lose the session
 		// next run when the stale token is reloaded.
-		stderr("warning: refreshed Granola MCP token could not be saved to the Keychain: %v", serr)
+		stderr("warning: the refreshed Granola MCP token could not be saved to the Keychain (%v). Private notes work for this run only; Granola has already retired the old refresh token, so re-run 'granola-cli mcp-auth login' before the next one.", serr)
 	}
 	return t.AccessToken, nil
 }

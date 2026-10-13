@@ -13,14 +13,13 @@ import (
 
 	"github.com/spf13/cobra"
 	"granola-pp-cli/internal/client"
-	"granola-pp-cli/internal/config"
 	"granola-pp-cli/internal/granola"
 )
 
 // restNoteRaw fetches one meeting's full detail from the public REST API. Used
 // as the live fallback now that the internal API is sealed on Granola v7.4x+.
 func restNoteRaw(id string) (json.RawMessage, error) {
-	cfg, err := config.Load("")
+	cfg, err := granolaRESTConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -29,7 +28,17 @@ func restNoteRaw(id string) (json.RawMessage, error) {
 	// context-first. This leaf helper builds its own client (30s timeout),
 	// so a background context reproduces the reference's bounded behavior.
 	// id is an opaque single-segment note id; escape it into the path segment.
-	return c.Get(context.Background(), "/v1/notes/"+url.PathEscape(id), map[string]string{"include": "transcript"})
+	raw, err := c.Get(context.Background(), "/v1/notes/"+url.PathEscape(id), map[string]string{"include": "transcript"})
+	if err != nil {
+		return nil, err
+	}
+	var probe struct {
+		ID string `json:"id"`
+	}
+	if json.Unmarshal(raw, &probe) == nil && probe.ID != "" && probe.ID != id {
+		return nil, fmt.Errorf("meeting %s: the API answered for a different meeting (%q)", id, probe.ID)
+	}
+	return raw, nil
 }
 
 func newMeetingsCmd(flags *rootFlags) *cobra.Command {
@@ -215,9 +224,13 @@ func newMeetingsGetCmd(flags *rootFlags) *cobra.Command {
 				return nil
 			}
 			id := args[0]
+			// Hand-wired (handfixes.json: meetings-get-honors-live): an
+			// explicit --data-source live skips both local branches and asks
+			// the API, instead of returning a possibly stale stored copy.
+			live := flags.dataSource == "live"
 			// Prefer cache for richness (notes, transcript flag).
 			c, err := openGranolaCache()
-			if err == nil {
+			if err == nil && !live {
 				if d := c.DocumentByID(id); d != nil {
 					out := flattenDocForJSON(c, d)
 					return emitJSON(cmd, flags, out)
@@ -227,6 +240,8 @@ func newMeetingsGetCmd(flags *rootFlags) *cobra.Command {
 			s, err := openGranolaStoreRead(cmd.Context())
 			if err == nil && s != nil {
 				s.Close()
+			}
+			if err == nil && s != nil && !live {
 				rows, err := loadMeetings(cmd.Context(), time.Time{}, time.Time{}, "", "", true, 0, 0)
 				if err == nil {
 					for _, r := range rows {
@@ -239,11 +254,14 @@ func newMeetingsGetCmd(flags *rootFlags) *cobra.Command {
 			// Fallback: live public REST for not_ ids (the internal API is sealed
 			// on v7.4x+). Returns the raw note detail.
 			if flags.dataSource != "local" && strings.HasPrefix(id, "not_") {
-				if raw, rerr := restNoteRaw(id); rerr == nil {
+				raw, rerr := restNoteRaw(id)
+				if rerr == nil {
 					var v any
 					if json.Unmarshal(raw, &v) == nil {
 						return emitJSON(cmd, flags, v)
 					}
+				} else if live {
+					return apiErr(fmt.Errorf("fetch meeting %s from the public API: %w", id, rerr))
 				}
 			}
 			return notFoundErr(fmt.Errorf("meeting %s not found in the local store; run 'granola-cli sync' first", id))

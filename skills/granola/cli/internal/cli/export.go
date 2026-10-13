@@ -4,6 +4,8 @@ package cli
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -21,7 +23,10 @@ type meetingArtifacts struct {
 	NotesHuman   string
 	PanelSummary string
 	PanelMap     map[string]string
-	Transcript   []granola.TranscriptSegment
+	// PanelFetchErr is set when the live summary fetch FAILED, so the export
+	// can say so instead of claiming no summary exists.
+	PanelFetchErr string
+	Transcript    []granola.TranscriptSegment
 }
 
 // buildArtifacts gathers human notes + AI panels + transcript for one
@@ -53,14 +58,30 @@ func buildArtifacts(id string, allowLive bool, panelTemplate string) (*meetingAr
 
 	// Stream 2: AI panel/summary. On v7.4x+ the internal named-panel endpoint is
 	// sealed; the public API exposes the AI summary, which we fetch for not_ ids.
-	if allowLive && strings.HasPrefix(id, "not_") {
-		if panels, perr := restSummaryPanel(context.Background(), id); perr == nil {
+	// Hand-wired (handfixes.json: export-summary-stored-locally): the summary
+	// hydration already fetched is read from the store first, so a local
+	// export carries it; a live fetch fills the gap, and a FAILED live fetch
+	// is reported as a failure rather than rendered as "no AI panel".
+	if md := storedSummary(id); md != "" {
+		a.PanelMap = map[string]string{"summary": md}
+	}
+	if a.PanelMap == nil && allowLive && strings.HasPrefix(id, "not_") {
+		panels, perr := restSummaryPanel(context.Background(), id)
+		var ce *cliError
+		if perr == nil {
 			a.PanelMap = panels
-			if panelTemplate != "" {
-				a.PanelSummary = panels[panelTemplate]
-			} else {
-				a.PanelSummary = bestPanel(panels)
-			}
+		} else if !(errors.As(perr, &ce) && ce.code == 3) {
+			// code 3 = the API answered and the meeting has no summary: an
+			// authoritative absence, not a failure.
+			a.PanelFetchErr = perr.Error()
+			stderr("note: AI summary for %s could not be fetched: %v", id, perr)
+		}
+	}
+	if a.PanelMap != nil {
+		if panelTemplate != "" {
+			a.PanelSummary = a.PanelMap[panelTemplate]
+		} else {
+			a.PanelSummary = bestPanel(a.PanelMap)
 		}
 	}
 
@@ -162,7 +183,7 @@ func composeFullMarkdown(a *meetingArtifacts) string {
 		b.WriteString(strings.TrimSpace(a.PanelSummary))
 		b.WriteString("\n")
 	} else {
-		b.WriteString("_(no AI panel available)_\n")
+		b.WriteString(noSummaryLine(a))
 	}
 	b.WriteString("\n## Transcript\n\n")
 	if len(a.Transcript) > 0 {
@@ -215,4 +236,31 @@ func writeMetadataBlock(b *strings.Builder, a *meetingArtifacts) {
 // ioErr wraps an OS error with the canonical I/O exit code 1.
 func ioErr(err error) error {
 	return &cliError{code: 1, err: fmt.Errorf("io: %w", err)}
+}
+
+// noSummaryLine renders the AI Summary placeholder, distinguishing a fetch
+// that failed from a meeting that has no summary.
+func noSummaryLine(a *meetingArtifacts) string {
+	if a.PanelFetchErr != "" {
+		return "_(AI summary could not be fetched: " + a.PanelFetchErr + ")_\n"
+	}
+	return "_(no AI panel available)_\n"
+}
+
+// storedSummary returns the AI summary hydration saved for id (markdown
+// preferred), or "" when none is stored or the store predates the table.
+func storedSummary(id string) string {
+	s, err := openGranolaStoreRead(context.Background())
+	if err != nil || s == nil {
+		return ""
+	}
+	defer s.Close()
+	var md, txt sql.NullString
+	if err := s.DB().QueryRow(`SELECT summary_markdown, summary_text FROM meeting_summaries WHERE meeting_id = ?`, id).Scan(&md, &txt); err != nil {
+		return ""
+	}
+	if strings.TrimSpace(md.String) != "" {
+		return md.String
+	}
+	return txt.String
 }

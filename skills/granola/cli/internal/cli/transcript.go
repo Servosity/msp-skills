@@ -12,7 +12,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"granola-pp-cli/internal/client"
-	"granola-pp-cli/internal/config"
 	"granola-pp-cli/internal/granola"
 )
 
@@ -61,6 +60,12 @@ M:SS mark.`,
 			if err != nil {
 				return err
 			}
+			// SRT cues are relative to the meeting's FIRST segment, captured
+			// before --since trims anything, so a cue at 01:30 stays at 01:30.
+			var origin time.Time
+			if len(segs) > 0 {
+				origin, _ = granola.ParseISO(segs[0].StartTimestamp)
+			}
 			if since != "" {
 				cut, err := parseClock(since)
 				if err != nil {
@@ -93,10 +98,7 @@ M:SS mark.`,
 				w := cmd.OutOrStdout()
 				// SRT cues are RELATIVE to the meeting start, not wall-clock —
 				// a 2pm meeting starts at 00:00:00, not 14:00:00.
-				var base time.Time
-				if len(segs) > 0 {
-					base, _ = granola.ParseISO(segs[0].StartTimestamp)
-				}
+				base := origin
 				for i, s := range segs {
 					st, _ := granola.ParseISO(s.StartTimestamp)
 					en, _ := granola.ParseISO(s.EndTimestamp)
@@ -157,7 +159,7 @@ func loadTranscript(id, dataSource string) ([]granola.TranscriptSegment, string,
 // fetchTranscriptREST pulls a transcript live from the public REST API and maps
 // it to the in-memory segment shape.
 func fetchTranscriptREST(id string) ([]granola.TranscriptSegment, error) {
-	cfg, err := config.Load("")
+	cfg, err := granolaRESTConfig()
 	if err != nil {
 		return nil, configErr(err)
 	}
@@ -172,6 +174,11 @@ func fetchTranscriptREST(id string) ([]granola.TranscriptSegment, error) {
 	var d restNoteDetail
 	if err := json.Unmarshal(raw, &d); err != nil {
 		return nil, apiErr(fmt.Errorf("parse transcript for %s: %w", id, err))
+	}
+	// Hand-wired (handfixes.json: rest-response-id-checked): a 200 for a
+	// different id must never be labelled as the requested meeting.
+	if d.ID != "" && d.ID != id {
+		return nil, apiErr(fmt.Errorf("transcript for %s: the API answered for a different meeting (%q)", id, d.ID))
 	}
 	if d.Transcript == nil || len(*d.Transcript) == 0 {
 		return nil, notFoundErr(fmt.Errorf("no transcript for %s (the meeting may not have been recorded/transcribed)", id))

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -29,7 +30,7 @@ func newDuplicatesScanCmd(flags *rootFlags) *cobra.Command {
 	var root, since string
 	cmd := &cobra.Command{
 		Use:   "scan",
-		Short: "Hash (title, day-bucket, sorted-attendees) and surface duplicates",
+		Short: "Group stored meetings and memo files by meeting id or (title, day) and surface duplicates",
 		Example: strings.Trim(`
   granola-cli duplicates scan
   granola-cli duplicates scan --since 30d
@@ -45,6 +46,7 @@ func newDuplicatesScanCmd(flags *rootFlags) *cobra.Command {
 			if root == "" {
 				root = filepath.Join(home, PreflightDefaultRoot)
 			}
+			warnIfRootMissing(root)
 			var from time.Time
 			if since != "" {
 				t, err := parseAnyDate(since)
@@ -58,19 +60,33 @@ func newDuplicatesScanCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 			groups := map[string][]map[string]any{}
-			// Cache contributions.
+			// Hand-wired (handfixes.json: duplicates-cross-source-identity):
+			// the generated scan fingerprinted (title, day, attendee set) on
+			// both sides, but a file on disk never carries an attendee set and
+			// its day came from the file's mtime, so a stored meeting and its
+			// own memo file could never land in the same group. Identity is now
+			// the meeting id when a file name carries it, else (title, day),
+			// with the day read from the file name's YYYY-MM-DD prefix.
+			type storeRec struct{ id, title, day, key string }
+			var stored []storeRec
+			byID := map[string]storeRec{}
 			for id, d := range c.Documents {
 				ts, _ := granola.ParseISO(d.CreatedAt)
 				if !from.IsZero() && ts.Before(from) {
 					continue
 				}
-				md := c.MeetingMetadataByID(id)
-				fp := fingerprintMeeting(d.Title, ts, attendeeEmails(d, md))
-				groups[fp] = append(groups[fp], map[string]any{
+				day := ""
+				if !ts.IsZero() {
+					day = ts.UTC().Format("2006-01-02")
+				}
+				rec := storeRec{id: id, title: d.Title, day: day, key: fingerprintMeeting(d.Title, ts, nil)}
+				stored = append(stored, rec)
+				byID[id] = rec
+				groups[rec.key] = append(groups[rec.key], map[string]any{
 					"source": "cache",
 					"id":     id,
 					"title":  d.Title,
-					"date":   ts.Format("2006-01-02"),
+					"date":   day,
 				})
 			}
 			// Filesystem contributions.
@@ -83,14 +99,33 @@ func newDuplicatesScanCmd(flags *rootFlags) *cobra.Command {
 					if !strings.HasSuffix(name, ".md") {
 						return nil
 					}
-					title := nameToTitle(name)
-					mtime := info.ModTime()
-					fp := fingerprintMeeting(title, mtime, nil)
-					groups[fp] = append(groups[fp], map[string]any{
+					title, day := fileTitleAndDay(name, info.ModTime())
+					key := ""
+					for id, rec := range byID {
+						if strings.Contains(name, id) {
+							key = rec.key
+							break
+						}
+					}
+					if key == "" {
+						norm := strings.ToLower(strings.TrimSpace(title))
+						for _, rec := range stored {
+							rt := strings.ToLower(strings.TrimSpace(rec.title))
+							if rec.day == day && rt != "" && strings.HasPrefix(norm, rt) {
+								key = rec.key
+								break
+							}
+						}
+					}
+					if key == "" {
+						t, _ := time.Parse("2006-01-02", day)
+						key = fingerprintMeeting(title, t, nil)
+					}
+					groups[key] = append(groups[key], map[string]any{
 						"source": "fs",
 						"path":   path,
 						"title":  title,
-						"date":   mtime.Format("2006-01-02"),
+						"date":   day,
 					})
 					return nil
 				})
@@ -116,30 +151,6 @@ func newDuplicatesScanCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().StringVar(&root, "root", "", "Filesystem root to scan")
 	cmd.Flags().StringVar(&since, "since", "", "Lower-bound date")
 	return cmd
-}
-
-func attendeeEmails(d granola.Document, md *granola.MeetingMetadata) []string {
-	seen := map[string]struct{}{}
-	if d.People != nil {
-		for _, p := range d.People.Attendees {
-			if p.Email != "" {
-				seen[strings.ToLower(p.Email)] = struct{}{}
-			}
-		}
-	}
-	if md != nil {
-		for _, p := range md.Attendees {
-			if p.Email != "" {
-				seen[strings.ToLower(p.Email)] = struct{}{}
-			}
-		}
-	}
-	out := make([]string, 0, len(seen))
-	for e := range seen {
-		out = append(out, e)
-	}
-	sort.Strings(out)
-	return out
 }
 
 // fingerprintMeeting returns a stable identity string for dedup detection.
@@ -175,3 +186,18 @@ func nameToTitle(name string) string {
 
 // Ensure fmt used.
 var _ = fmt.Sprintf
+
+// memoDatePrefix matches the "YYYY-MM-DD " prefix of the transcripts naming
+// convention ("<YYYY-MM-DD> <Title> - <Org> - Full.md").
+var memoDatePrefix = regexp.MustCompile(`^(\d{4}-\d{2}-\d{2})[ _]+(.+)$`)
+
+// fileTitleAndDay reads a memo file's title and day from its name. The day
+// comes from a leading YYYY-MM-DD when present (the file's mtime is when it
+// was written, not when the meeting happened) and falls back to the mtime.
+func fileTitleAndDay(name string, mtime time.Time) (string, string) {
+	title := nameToTitle(name)
+	if m := memoDatePrefix.FindStringSubmatch(title); m != nil {
+		return strings.TrimSpace(m[2]), m[1]
+	}
+	return title, mtime.UTC().Format("2006-01-02")
+}
