@@ -672,6 +672,16 @@ Outcomes (question -> command your AI agent runs):
 - Write me a valid conditions filter for open Help Desk tickets -> connectwise-manage-cli condition build --field board/name --op = --value "Help Desk" --field closedFlag --op = --value false
 
 FAQ:
+Q: Is there an MCP server for ConnectWise Manage?
+A: Yes. This is a free, open source MCP server for ConnectWise Manage (now called ConnectWise PSA). It runs on your own machine, works with cloud and on-premises Manage, and connects to Claude Desktop, Claude Code, and other MCP-capable agents.
+
+1. In Manage, create an API Member with public and private keys (**System > Members > API Members**), and get a clientId from the [ConnectWise developer portal](https://developer.connectwise.com).
+2. **Claude Desktop:** download the ConnectWise Manage `.mcpb` from the [releases page](https://github.com/servosity/msp-skills/releases?q=connectwise-manage), open **Claude Desktop > Settings > Extensions**, select the file, and enter the values it asks for.
+3. **Claude Code:** run `/plugin marketplace add Servosity/msp-skills`, then `/plugin install connectwise-manage@msp-skills`.
+4. **Any other agent, or a terminal:** run `bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/connectwise-manage/install.sh)` on macOS or Linux, or `iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/connectwise-manage/install.ps1 | iex` in Windows PowerShell. Set `CW_COMPANY_ID`, `CW_PUBLIC_KEY`, `CW_PRIVATE_KEY`, `CW_CLIENT_ID`, and `CW_SITE` (your region host, such as api-na.myconnectwise.net, or your on-premises host), then run `connectwise-manage-cli doctor`.
+5. Ask your agent: "Which tickets did we close this week with no time logged?"
+
+Other community MCP servers for ConnectWise Manage include WYRE's connectwise-manage-mcp and MSPStack's mcp-connectwise-psa. This one differs in two ways: it keeps a local SQLite copy of your PSA, so questions that join tickets, time, and agreements (unbilled work, agreement burn, a full client view) are answered in one local query; and its `condition build` command writes valid ConnectWise conditions filters, so one wrong quote does not come back as a silently empty result.
 Q: Does this work with ChatGPT?
 A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, but connectwise-manage-mcp speaks HTTP natively: run `connectwise-manage-mcp --transport http --addr :7777` and put its /mcp endpoint behind an HTTPS tunnel or your own reverse proxy. Step-by-step in the install guide.
 Q: Do I need to know how to code?
@@ -1554,6 +1564,16 @@ Outcomes (question -> command your AI agent runs):
 - Search every synced device, organization, and alert for a string? -> ninjaone-cli search "disk full"
 
 FAQ:
+Q: How do I connect Claude to NinjaOne?
+A: Install this free NinjaOne MCP server, give it the client ID and secret of a NinjaOne API app, and Claude can answer questions about your NinjaOne tenant in plain English. It runs on your own machine and works in Claude Desktop and Claude Code.
+
+1. In NinjaOne, create an API app (OAuth2 client credentials) under **Administration > Apps > API** and copy its client ID and client secret.
+2. **Claude Desktop:** download the NinjaOne `.mcpb` from the [releases page](https://github.com/servosity/msp-skills/releases?q=ninjaone), open **Claude Desktop > Settings > Extensions**, select the file, and enter the values it asks for.
+3. **Claude Code:** run `/plugin marketplace add Servosity/msp-skills`, then `/plugin install ninjaone@msp-skills`.
+4. **Any other agent, or a terminal:** run `bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/ninjaone/install.sh)` on macOS or Linux, or `iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/ninjaone/install.ps1 | iex` in Windows PowerShell. Then check the credentials with `NINJAONE_CLIENT_ID=<value> NINJAONE_CLIENT_SECRET=<value> NINJAONE_OAUTH_SCOPE=<value> ninjaone-cli doctor`.
+5. Ask Claude: "Which clients are below 95% patch compliance right now?"
+
+Other ways to connect the two include community MCP servers such as WYRE's ninjaone-mcp and Lungshot's NinjaOneMCP, and hosted connector services such as Truto and MCPBundles. This one differs in three ways: it keeps a local SQLite copy of your estate, so fleet-wide questions (patch compliance by client, endpoints with no backup) are answered in one local query instead of many API calls; it ships as a prebuilt binary for macOS, Linux, and Windows; and an MSP has confirmed it against a production NinjaOne tenant ([receipt](https://github.com/Servosity/msp-skills/issues/145)).
 Q: Does this work with ChatGPT?
 A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, but ninjaone-mcp speaks HTTP natively: run `ninjaone-mcp --transport http --addr :7777` and put its /mcp endpoint behind an HTTPS tunnel or your own reverse proxy. Step-by-step in the install guide.
 Q: Do I need to know how to code?

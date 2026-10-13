@@ -175,6 +175,9 @@
     }
     nav.site-nav a { color: var(--muted); }
     nav.site-nav a:hover { color: var(--accent); text-decoration: none; }
+    /* Build Sessions goes straight to the signup page, so it reads as the call to action. */
+    nav.site-nav a.nav-cta { color: var(--accent); font-weight: 600; }
+    nav.site-nav a.nav-cta:hover { color: var(--accent-d); }
 
     footer {
       margin-top: 4rem;
@@ -299,7 +302,7 @@
     <a href="/why/">Why</a>
     <a href="/governance/">Trust Center</a>
     <a href="/verified/">Verified</a>
-    <a href="/build-sessions/">Build Sessions</a>
+    <a class="nav-cta" href="https://compoundingteams.com/build-sessions/?utm_source=msp-skills&amp;utm_medium=referral&amp;utm_campaign=nav">Build Sessions</a>
     <a href="https://github.com/servosity/msp-skills">GitHub</a>
   </nav>
 
@@ -311,7 +314,7 @@
     {% include email-capture.html %}
 
     <p><strong>MSP Skills</strong> · Built by <a href="https://www.servosity.com">Servosity Inc.</a> · Maintained by Damien Stevens · Apache-2.0 · <a href="https://github.com/servosity/msp-skills">github.com/servosity/msp-skills</a></p>
-    <p><a href="/what-is-an-mcp-server/">What is an MCP server?</a> · <a href="/guides/first-time-setup/">First-time setup</a> · <a href="/which-agent/">Which agent?</a></p>
+    <p><a href="/what-is-an-mcp-server/">What is an MCP server?</a> · <a href="/guides/first-time-setup/">First-time setup</a> · <a href="/which-agent/">Which agent?</a> · <a href="/build-sessions/">About Build Sessions</a></p>
     <p>Methodology: <a href="https://compoundingteams.com">Compounding Teams</a> · <a href="/llms.txt">/llms.txt</a> · <a href="/llms-full.txt">/llms-full.txt</a> for AI search engines.</p>
 
     {% include build-room-line.html %}
