@@ -1,7 +1,7 @@
 {
   "name": "cipp",
   "version": "0.1.9",
-  "description": "First single-binary CLI for CIPP \u2014 offline SQLite store, fleet posture analytics, and cross-tenant fan-out no other CIPP tool has.",
+  "description": "MCP server and CLI for CIPP - Microsoft 365, Entra ID, Intune, Exchange Online, Defender and GDAP across every client tenant, with an offline store, fleet posture analytics, and cross-tenant fan-out.",
   "author": {
     "name": "Servosity",
     "url": "https://www.servosity.com"
@@ -11,6 +11,14 @@
   "license": "Apache-2.0",
   "keywords": [
     "cipp",
+    "microsoft-365",
+    "m365",
+    "entra-id",
+    "intune",
+    "exchange-online",
+    "defender",
+    "gdap",
+    "multi-tenant",
     "security",
     "msp",
     "mcp",

@@ -1,8 +1,8 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.Servosity/cipp-mcp",
-  "title": "CIPP MCP",
-  "description": "First single-binary CLI for CIPP  -  offline SQLite store, fleet posture analytics, and",
+  "title": "CIPP MCP - Microsoft 365, Entra ID, Intune, Exchange, Defender, GDAP",
+  "description": "MSP MCP for CIPP: Microsoft 365, Entra ID, Intune, Exchange, Defender and GDAP across all tenants",
   "version": "0.1.9",
   "icons": [
     {

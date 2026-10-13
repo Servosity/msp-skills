@@ -1,13 +1,13 @@
 ---
 layout: default
 title: "The MSP AI Question Book - 200+ plain-English questions your AI can answer"
-description: "761 plain-English questions your AI can answer from the PSA, RMM, backup, security, and billing tools you already run - aggregated from all 65 free MSP Skills connectors. No code required, runs locally."
+description: "779 plain-English questions your AI can answer from the PSA, RMM, backup, security, and billing tools you already run - aggregated from all 67 free MSP Skills connectors. No code required, runs locally."
 permalink: /question-book/
 ---
 
 # The MSP AI Question Book
 
-761 plain-English questions MSP owners ask their AI every day - aggregated from the 65 free, open source connectors on this site and grouped by tool category. Every question maps to a real, gate-verified command your AI agent runs against your PSA, RMM, backup, security, or billing stack. It runs on your own machine, and your data stays local unless you route it somewhere yourself. Find your tools, steal the questions.
+779 plain-English questions MSP owners ask their AI every day - aggregated from the 67 free, open source connectors on this site and grouped by tool category. Every question maps to a real, gate-verified command your AI agent runs against your PSA, RMM, backup, security, or billing stack. It runs on your own machine, and your data stays local unless you route it somewhere yourself. Find your tools, steal the questions.
 
 Each connector installs in about 60 seconds and works with Claude, ChatGPT, Copilot, and any MCP-capable agent. New to the term? [What an MCP server is →](/what-is-an-mcp-server/)
 
@@ -206,6 +206,18 @@ Free AWS MCP server: [install and ask →](/skills/aws-billing/)
 - What will I spend next month?
 - How do I give a colleague read-only billing access?
 - What's a plain answer about my bill?
+
+### DataGate
+
+Free DataGate MCP server: [install and ask →](/skills/datagate/)
+
+- Pull this month's DataGate invoices as JSON.
+- List DataGate agreements with the customer each one belongs to.
+- Search DataGate for this customer by name.
+- Pull this month's invoices
+- Look up a customer
+- Which agreements belong to which customer?
+- Search for a customer or invoice by name/number
 
 ### Gradient MSP
 
@@ -474,6 +486,22 @@ Free Rootly MCP server: [install and ask →](/skills/rootly/)
 - Draft a paste-ready post-mortem skeleton for this incident.
 
 ## Marketing
+
+### Riverside.fm
+
+Free Riverside.fm MCP server: [install and ask →](/skills/riverside-fm/)
+
+- Archive my whole studio since April 1st to a folder.
+- Find every episode where we talked about compounding loops.
+- Give me a WebVTT caption file for this session.
+- Back up everything in a studio to disk?
+- Get the most useful asset for one recording in a single shot?
+- Find a quote across my whole transcript archive?
+- Turn a transcript into captions for a web player?
+- Who talked the most in this episode?
+- Which takes in a studio are fully ready to edit?
+- Pull every Magic Clip for a project with fresh download URLs?
+- Refresh expiring CloudFront media links before they die?
 
 ### WordPress
 
@@ -942,9 +970,9 @@ Free Blumira MCP server: [install and ask →](/skills/blumira/)
 - Give me a flat finding-to-owner-to-status table to reconcile against my PSA?
 - Which analyst is carrying the most open findings, and how old are they?
 
-### CIPP
+### CIPP + Microsoft 365
 
-Free CIPP MCP server: [install and ask →](/skills/cipp/)
+Free CIPP + Microsoft 365 MCP server: [install and ask →](/skills/cipp/)
 
 - Show me MFA registration across every tenant
 - Which assigned M365 licenses are going unused across all my clients?

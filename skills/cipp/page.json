@@ -1,5 +1,5 @@
 {
-  "outcome_intro": "CIPP manages Microsoft 365 across all your client tenants, but its portal and API work one tenant at a time. Ask your AI \"which tenants are off our security baseline\" or \"where are we paying for unused licenses\" and get the cross-tenant answer the UI never renders: one fan-out pulls every tenant into a local store, then posture, license-waste, stale-account, and standards-drift rollups run instantly - offline, across the whole fleet.",
+  "outcome_intro": "This is the MCP server for CIPP, and through CIPP for the Microsoft 365 it manages: Entra ID, Intune, Exchange Online, Defender and GDAP, across every client tenant at once. CIPP manages Microsoft 365 across all your client tenants, but its portal and API work one tenant at a time. Ask your AI \"which tenants are off our security baseline\" or \"where are we paying for unused licenses\" and get the cross-tenant answer the UI never renders: one fan-out pulls every tenant into a local store, then posture, license-waste, stale-account, and standards-drift rollups run instantly - offline, across the whole fleet.",
   "instead_of_say": [
     {
       "instead": "Logging into each client's tenant one at a time to count who still hasn't registered MFA, then pasting the numbers into a QBR spreadsheet",
@@ -20,7 +20,7 @@
   "pain_points": [
     "CIPP scopes nearly every endpoint by a single tenantFilter, so the portal forces you through one client tenant at a time. The fleet-wide questions an MSP owner actually asks at QBR time - how many users still lack MFA across all clients, which tenants drifted off baseline, where licenses sit unused - have no single screen; you click each tenant or script the API by hand.",
     "The CIPP API (per the official CIPP API documentation at docs.cipp.app) authenticates with an Azure AD app registration via OAuth2 client credentials and runs through Microsoft Graph, which throttles at scale. A bulk change across dozens of tenants hits HTTP 429 / Retry-After limits, and a halted batch means re-running everything - there is no resumable, checkpointing bulk runner.",
-    "As of June 2026 there is no published single-binary CLI or MCP server for CIPP that we could find - automating it means hand-rolled PowerShell against the API or clicking through the portal, neither of which an AI agent can drive in one natural-language step."
+    "CIPP added its own MCP server in June 2026, and it is read-only by design: it leaves out every endpoint CIPP labels as a write, so an agent using it cannot offboard a user, reset MFA, change licenses or convert a mailbox. This connector wraps those endpoints too, one tenant per call, each previewable with `--dry-run`."
   ],
   "outcomes": [
     {
@@ -57,8 +57,16 @@
     }
   ],
   "different_vs_wrappers": "Most CIPP integrations proxy each question into a live, single-tenant API call - fine for one record, but every tenant is a separate round trip and Microsoft Graph throttles you at fleet scale. This skill fans one read out across every tenant, persists the results into a local SQLite store, and then answers posture, license-waste, stale-account, and standards-drift questions from that store - instant, offline, and resumable after a 429. The drift report even compares two synced snapshots over time, history a stateless wrapper has nowhere to keep.",
-  "different_vs_vendor": "CIPP's portal is where you act deeply on a single tenant; this skill is where you see across all of them. It complements CIPP - it reads and writes through the same CIPP API with your own scoped credentials - and adds the fleet-wide rollups plus the local snapshot history (drift over time) that the one-tenant-at-a-time UI never renders.",
+  "different_vs_vendor": "CIPP's portal is where you act deeply on a single tenant; this skill is where you see across all of them. It complements CIPP - it reads and writes through the same CIPP API with your own scoped credentials - and adds the fleet-wide rollups plus the local snapshot history (drift over time) that the one-tenant-at-a-time UI never renders. Microsoft's own Defender tools in its Sentinel MCP server stop at your home tenant: \"You can't use this collection as a guest in another tenant or with delegated access\" (Microsoft Learn, Sentinel MCP triage tool). This connector reaches every client tenant through the GDAP access CIPP already holds.",
   "faqs": [
+    {
+      "q": "Is this an MCP server for Microsoft Defender, Intune, Exchange Online and Entra ID too?",
+      "a": "Yes, through your CIPP instance. CIPP manages Microsoft 365 for every client tenant, so this connector reaches what CIPP reaches: Entra ID users, MFA and Conditional Access (`cipp-cli list-mfausers`), Intune policies and Autopilot (`cipp-cli list-intune-policy`), Exchange Online mailboxes, rules and forwarding (`cipp-cli list-mailbox-forwarding`), Defender for Endpoint health, vulnerabilities and incidents (`cipp-cli list-defender-state`, `cipp-cli list-defender-tvm`, `cipp-cli exec-incidents-list`), Defender for Office 365 safe links and anti-phishing, SharePoint and Teams, and GDAP roles and relationships (`cipp-cli list-gdaproles`). If you don't run CIPP, the Microsoft Graph connector talks to Graph directly."
+    },
+    {
+      "q": "Why not use Microsoft's own Defender MCP server?",
+      "a": "Because it only sees your own tenant. Microsoft's Defender tools in the Sentinel MCP server can't be used \"as a guest in another tenant or with delegated access\" (Microsoft Learn, Sentinel MCP triage tool), so an MSP can't point them at client tenants. This connector reads Defender across every client tenant through the GDAP access your CIPP instance already holds."
+    },
     {
       "q": "Does this work with ChatGPT?",
       "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, but cipp-mcp speaks HTTP natively: run `cipp-mcp --transport http --addr :7777` and put its /mcp endpoint behind an HTTPS tunnel or your own reverse proxy. Step-by-step in the install guide."

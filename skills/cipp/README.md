@@ -1,4 +1,4 @@
-# CIPP + AI - for ChatGPT, Claude, GitHub Copilot, Microsoft 365 Copilot, Gemini, and any agent that speaks MCP
+# CIPP + AI: MCP server for Microsoft 365, Entra ID, Intune, Exchange, Defender and GDAP - for ChatGPT, Claude, GitHub Copilot, Microsoft 365 Copilot, Gemini, and any agent that speaks MCP
 
 > Unofficial. Community-built Claude Code Skill and MCP server for the CIPP
 > API. Not affiliated with, endorsed by, or sponsored by CyberDrain.
@@ -12,7 +12,7 @@
 <p align="center"><sub>▶ <a href="https://msp-skills.compoundingteams.com/skills/cipp/">Watch the 30-second demo</a> - demo data is simulated; every command shown exists in the real CLI.</sub></p>
 <!-- media:end -->
 
-First single-binary CLI for CIPP  -  offline SQLite store, fleet posture analytics, and cross-tenant fan-out no other CIPP tool has. Works with the AI you already use - **ChatGPT** (Plus/Pro+), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.
+MCP server and CLI for CIPP - Microsoft 365, Entra ID, Intune, Exchange Online, Defender and GDAP across every client tenant, with an offline store, fleet posture analytics, and cross-tenant fan-out. Works with the AI you already use - **ChatGPT** (Plus/Pro+), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.
 
 ## Works with your agent
 
@@ -168,7 +168,7 @@ This skill fans one read out across every tenant and persists it into a **local 
 
 ## The pain this closes
 
-CIPP scopes nearly every endpoint by a single `tenantFilter`, so the portal walks you through one client tenant at a time. The fleet-wide questions an MSP owner actually asks at QBR time - *how many users still lack MFA across all clients, which tenants drifted off baseline, where licenses sit unused* - have no single screen. Per the official [CIPP API documentation](https://docs.cipp.app/user-documentation/cipp/integrations/cipp-api), the API authenticates with an Azure AD app registration over OAuth2 client credentials and runs through Microsoft Graph, which throttles at scale; a bulk change across dozens of tenants hits HTTP 429 / Retry-After, and a halted batch means starting over. As of June 2026 there's no published single-binary CLI or MCP server for CIPP that we could find.
+CIPP scopes nearly every endpoint by a single `tenantFilter`, so the portal walks you through one client tenant at a time. The fleet-wide questions an MSP owner actually asks at QBR time - *how many users still lack MFA across all clients, which tenants drifted off baseline, where licenses sit unused* - have no single screen. Per the official [CIPP API documentation](https://docs.cipp.app/user-documentation/cipp/integrations/cipp-api), the API authenticates with an Azure AD app registration over OAuth2 client credentials and runs through Microsoft Graph, which throttles at scale; a bulk change across dozens of tenants hits HTTP 429 / Retry-After, and a halted batch means starting over. CIPP added its own MCP server in June 2026, and it is read-only by design: it leaves out every endpoint CIPP labels as a write, so an agent using it cannot offboard a user, reset MFA, change licenses or convert a mailbox. This connector wraps those endpoints too, one tenant per call, each previewable with `--dry-run`.
 
 This skill closes that gap:
 
