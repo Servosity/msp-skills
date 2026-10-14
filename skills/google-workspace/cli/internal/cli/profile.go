@@ -228,7 +228,10 @@ captured: they control profile/config resolution and would never apply).`,
 				// Hand-fix (handfixes.json profiles-never-store-url-secrets): a
 				// value carrying a URL secret (--deliver webhook:...?token=) is
 				// a credential whatever the flag is called.
-				if fl.Changed && (credentialLikeRunProfileFlag(fl.Name) || client.RedactURLSecrets(fl.Value.String()) != fl.Value.String()) {
+				// Slack, Teams and Discord webhooks carry their secret in the
+				// path, so no webhook URL is saved.
+				if fl.Changed && (credentialLikeRunProfileFlag(fl.Name) || client.RedactURLSecrets(fl.Value.String()) != fl.Value.String() ||
+					(fl.Name == "deliver" && strings.HasPrefix(fl.Value.String(), "webhook:"))) {
 					credentialFlags = append(credentialFlags, fl.Name)
 					return
 				}

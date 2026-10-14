@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"google-workspace-pp-cli/internal/client"
 	"io"
 	"net/http"
 	"os"
@@ -79,14 +80,15 @@ func postFeedback(url string, entry FeedbackEntry) error {
 	}
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
-		return fmt.Errorf("building feedback request: %w", err)
+		// Hand-fix (handfixes.json dry-run-redacts-secrets).
+		return fmt.Errorf("building feedback request: %s", client.RedactURLSecrets(err.Error()))
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", "google-workspace-cli/feedback")
-	client := &http.Client{Timeout: 15 * time.Second}
-	resp, err := client.Do(req)
+	httpClient := &http.Client{Timeout: 15 * time.Second}
+	resp, err := httpClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("posting feedback: %w", err)
+		return fmt.Errorf("posting feedback: %s", client.RedactURLSecrets(err.Error()))
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 400 {

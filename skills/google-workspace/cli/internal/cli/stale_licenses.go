@@ -142,9 +142,14 @@ var freeLicenseSKUs = map[string]bool{
 	"1010070004":                 true,
 }
 
+// freeLicenseSKU reports a licence that is never waste: a free SKU above, or
+// an Archived User seat (product 101034), which deliberately retains a
+// leaver's data. Hand-fix (handfixes.json free-license-skus-not-waste).
 func freeLicenseSKU(l licenseAssignment) bool {
-	return freeLicenseSKUs[l.SkuID]
+	return freeLicenseSKUs[l.SkuID] || l.ProductID == archivedUserProduct
 }
+
+const archivedUserProduct = "101034"
 
 func staleLicensesFor(tenant string, licenses []licenseAssignment, users []dirUser, now time.Time, inactiveDays, graceDays int) []staleLicense {
 	byEmail := make(map[string]dirUser, len(users))

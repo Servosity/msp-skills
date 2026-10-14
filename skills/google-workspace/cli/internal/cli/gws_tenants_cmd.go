@@ -308,8 +308,8 @@ type tenantTestResult struct {
 	Error      string       `json:"error,omitempty"`
 	tested     gwsTenant    // the registry entry this result was produced from
 	// wrongCustomer: the admin and key resolve to an organization that does
-	// not own the configured domain; its recorded customer and domains are
-	// cleared (handfixes.json tenants-test-checks-domain).
+	// not own the configured domain; the tenant is quarantined
+	// (handfixes.json tenants-test-checks-domain).
 	wrongCustomer bool
 }
 
@@ -374,10 +374,18 @@ func newTenantsTestCmd(flags *rootFlags) *cobra.Command {
 				// exist, so a concurrent remove is never undone.
 				err := updateTenantRegistry(func(reg *tenantRegistry) error {
 					for i := range reg.Tenants {
-						if v, ok := verified[reg.Tenants[i].Name]; ok && sameTenantConfig(reg.Tenants[i], v.tested) {
-							reg.Tenants[i].CustomerID = v.CustomerID
-							reg.Tenants[i].Domains = v.Domains
+						v, ok := verified[reg.Tenants[i].Name]
+						if !ok || !sameTenantConfig(reg.Tenants[i], v.tested) {
+							continue
 						}
+						if v.wrongCustomer {
+							// Keep what the operator recorded; refuse the tenant.
+							reg.Tenants[i].OwnershipMismatch = v.Error
+							continue
+						}
+						reg.Tenants[i].CustomerID = v.CustomerID
+						reg.Tenants[i].Domains = v.Domains
+						reg.Tenants[i].OwnershipMismatch = ""
 					}
 					return nil
 				})
@@ -406,6 +414,9 @@ func newTenantsTestCmd(flags *rootFlags) *cobra.Command {
 
 func testTenant(ctx context.Context, flags *rootFlags, t gwsTenant) tenantTestResult {
 	res := tenantTestResult{Tenant: t.Name, Domain: t.Domain, OK: true, tested: t}
+	// A quarantined tenant is re-tested with its own credentials; passing
+	// lifts the quarantine.
+	t.OwnershipMismatch = ""
 	for _, s := range t.Scopes {
 		chk := scopeCheck{Scope: strings.TrimPrefix(s, scopePrefix), Authorized: true}
 		if _, err := mintTenantToken(ctx, t, []string{s}); err != nil {
@@ -453,6 +464,7 @@ func testTenant(ctx context.Context, flags *rootFlags, t gwsTenant) tenantTestRe
 	if err != nil {
 		res.OK, res.Error, res.CustomerID = false, err.Error(), ""
 		res.wrongCustomer = errors.Is(err, errWrongCustomer)
+		res.Domains = nil
 		return res
 	}
 	res.Domains = domains
@@ -495,7 +507,7 @@ func tenantDomains(t gwsTenant, raw []byte) ([]string, error) {
 		}
 	}
 	if !owned {
-		return nil, fmt.Errorf("%w: domain %s is not one of this organization's domains (%s); its recorded customer and domains are cleared. Re-register with 'tenants add %s --yes' and the right --domain, --admin and --key", errWrongCustomer, want, strings.Join(out, ", "), t.Name)
+		return nil, fmt.Errorf("%w: domain %s is not one of this organization's domains (%s); the tenant is quarantined (every command refuses it) until 'tenants add %s --yes' re-registers it with the right --domain, --admin and --key and tenants test passes", errWrongCustomer, want, strings.Join(out, ", "), t.Name)
 	}
 	return out, nil
 }

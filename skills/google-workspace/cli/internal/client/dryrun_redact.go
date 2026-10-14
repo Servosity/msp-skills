@@ -53,22 +53,18 @@ func secretFieldName(k string) bool {
 			return true
 		}
 	}
-	// Webhook signatures (SAS sig=, Azure Functions code=) carried as query
-	// parameters in --deliver and watch addresses.
-	if k == "sig" || k == "code" || strings.Contains(k, "signature") {
+	// Webhook signatures and keys (SAS sig=, Azure Functions code=, Google
+	// key=) carried as query parameters in --deliver and watch addresses.
+	if k == "sig" || k == "code" || k == "key" || strings.Contains(k, "signature") {
 		return true
 	}
 	// Paging cursors are not credentials.
 	return strings.HasSuffix(k, "token") && !strings.HasSuffix(k, "pagetoken") && !strings.HasSuffix(k, "synctoken")
 }
 
-// queryParamPattern matches name=value after ?, & or a JSON/HTML-escaped &
-// (\u0026, &amp;); the value may open with a quote or an escaped quote.
-var queryParamPattern = regexp.MustCompile(`(&amp;|\\u0026|[?&])([A-Za-z0-9_.%-]+)=(\\?["']?)([^&\s"'#\\]*)`)
-
-// userinfoPasswordPattern splits userinfo the way net/url does: the
-// authority ends at the first / ? or #, and the password runs to its last @.
-var userinfoPasswordPattern = regexp.MustCompile(`(://[^/?#\s:"]*:)[^/?#\s"]*@`)
+// queryParamName matches the name= of a query parameter after ?, & or a
+// JSON/HTML-escaped & (\u0026, &amp;); secretValueSpan finds its value.
+var queryParamName = regexp.MustCompile(`(&amp;|\\u0026|[?&])([A-Za-z0-9_.%-]+)=`)
 
 // redactSecretQueryParams masks the value of every secret-named query
 // parameter in text (URLs inside error messages, dry-run lines, bodies).
@@ -76,21 +72,87 @@ func redactSecretQueryParams(text string) string {
 	if !strings.Contains(text, "=") {
 		return text
 	}
-	return queryParamPattern.ReplaceAllStringFunc(text, func(m string) string {
-		parts := queryParamPattern.FindStringSubmatch(m)
-		name, err := url.QueryUnescape(parts[2])
-		if err != nil || parts[4] == "" || !secretFieldName(name) {
-			return m
+	var b strings.Builder
+	last := 0
+	for _, m := range queryParamName.FindAllStringSubmatchIndex(text, -1) {
+		if m[0] < last {
+			continue
 		}
-		// An empty value followed by its closing quote ("...?token=",) is
-		// not a quoted value: leave the surrounding JSON intact. A real
-		// value only of these separators is not a secret worth the break.
-		if parts[3] != "" && strings.Trim(parts[4], ",;:)}]") == "" {
-			return m
+		name, err := url.QueryUnescape(text[m[4]:m[5]])
+		if err != nil || !secretFieldName(name) {
+			continue
 		}
-		return parts[1] + parts[2] + "=" + parts[3] + "[redacted]"
-	})
+		start, end := secretValueSpan(text, m[0], m[1])
+		if start == end {
+			continue
+		}
+		b.WriteString(text[last:start])
+		b.WriteString("[redacted]")
+		last = end
+	}
+	if last == 0 {
+		return text
+	}
+	b.WriteString(text[last:])
+	return b.String()
 }
+
+// secretValueSpan returns the span of the value that starts at i. The URL's
+// enclosing quote (the nearest quote before urlStart with no whitespace in
+// between) closes it, so a value that starts with that quote is empty
+// ("...?token=",). A value opening with another quote (\", " or ') runs to
+// the matching close; otherwise it runs to &, whitespace, #, ", a backslash
+// or the enclosing quote, so an apostrophe inside it (O'Hara) stays masked.
+// Hand-fix (handfixes.json dry-run-redacts-secrets).
+func secretValueSpan(s string, urlStart, i int) (int, int) {
+	enclosing := ""
+	for j := urlStart - 1; j >= 0; j-- {
+		c := s[j]
+		if c == ' ' || c == '\t' || c == '\n' || c == '\r' {
+			break
+		}
+		if c == '"' || c == '\'' {
+			enclosing = string(c)
+			if c == '"' && j > 0 && s[j-1] == '\\' {
+				enclosing = `\"`
+			}
+			break
+		}
+	}
+	rest := s[i:]
+	if enclosing != "" && strings.HasPrefix(rest, enclosing) {
+		return i, i
+	}
+	for _, q := range []string{`\"`, `"`, `'`} {
+		if strings.HasPrefix(rest, q) {
+			start := i + len(q)
+			if k := strings.Index(s[start:], q); k >= 0 {
+				return start, start + k
+			}
+			return start, start + valueEnd(s[start:], enclosing)
+		}
+	}
+	return i, i + valueEnd(rest, enclosing)
+}
+
+// valueEnd is the length of an unquoted query value at the start of s.
+func valueEnd(s, enclosing string) int {
+	for k := 0; k < len(s); k++ {
+		switch s[k] {
+		case '&', ' ', '\t', '\n', '\r', '#', '"', '\\':
+			return k
+		case '\'':
+			if enclosing == "'" {
+				return k
+			}
+		}
+	}
+	return len(s)
+}
+
+// userinfoPasswordPattern splits userinfo the way net/url does: the
+// authority ends at the first / ? or #, and the password runs to its last @.
+var userinfoPasswordPattern = regexp.MustCompile(`(://[^/?#\s:"]*:)[^/?#\s"]*@`)
 
 // RedactURLSecrets masks secret-named query parameters and any userinfo
 // password (https://user:pass@host) in URLs inside s.

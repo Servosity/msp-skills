@@ -36,7 +36,7 @@
       "command": "google-workspace-cli leavers --all-tenants --agent"
     },
     {
-      "question": "Where does each client stand on 2SV coverage, admins without 2SV, stale licenses, and Drive and Calendar setting changes?",
+      "question": "Where does each client stand on 2SV coverage, admins without 2SV, stale licenses, and Drive, Calendar and app-sharing setting changes?",
       "command": "google-workspace-cli posture --all-tenants --agent"
     },
     {

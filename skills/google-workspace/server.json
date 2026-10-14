@@ -72,7 +72,7 @@
         },
         {
           "name": "PRINTING_PRESS_CLIENT_PROFILE",
-          "description": "Binds this MCP server to one saved client profile (not a Google Workspace tenant). Leave blank.",
+          "description": "Has no effect for this connector (not a Google Workspace tenant). Leave blank.",
           "isRequired": false,
           "isSecret": false
         }

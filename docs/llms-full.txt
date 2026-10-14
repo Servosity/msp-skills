@@ -980,7 +980,7 @@ Outcomes (question -> command your AI agent runs):
 - Which accounts across all my clients lack 2-Step Verification, with unenrolled admins first? -> google-workspace-cli mfa-gaps --all-tenants --agent
 - Which Google Workspace licenses sit on suspended, never-signed-in, or idle accounts, per client? -> google-workspace-cli stale-licenses --all-tenants --agent
 - Did our suspended leavers keep a license, groups, an admin role, OAuth tokens, or an unfinished Drive transfer? -> google-workspace-cli leavers --all-tenants --agent
-- Where does each client stand on 2SV coverage, admins without 2SV, stale licenses, and Drive and Calendar setting changes? -> google-workspace-cli posture --all-tenants --agent
+- Where does each client stand on 2SV coverage, admins without 2SV, stale licenses, and Drive, Calendar and app-sharing setting changes? -> google-workspace-cli posture --all-tenants --agent
 - Who changed Drive or Calendar settings, and which files went external or public, in the last week? -> google-workspace-cli sharing-drift --all-tenants --since 7d --agent
 - Which third-party apps hold full mail, full Drive, or admin access to client data? -> google-workspace-cli oauth-apps --all-tenants --min-risk high --agent
 - Any suspicious sign-ins, hijacked accounts, or 2SV turned off across clients this week? -> google-workspace-cli login-alerts --all-tenants --since 7d --agent

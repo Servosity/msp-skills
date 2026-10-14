@@ -76,6 +76,19 @@ func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
 			authed := header != ""
 			refusals := cfg.CredentialRefusalSummaries()
 			credentialRefused := len(refusals) > 0
+			// Hand-fix (handfixes.json no-ambient-token-with-tenants): with
+			// client tenants registered the bearer token is not used.
+			if n := registeredTenantCount(); n > 0 {
+				if flags.asJSON {
+					return printJSONFiltered(w, map[string]any{
+						"authenticated": true, "verified": false, "source": "tenant registry",
+						"tenants": n, "config": cfg.Path, "token_used": false,
+					}, flags)
+				}
+				fmt.Fprintf(w, "%d client tenant(s) registered: each command authenticates as the selected tenant (--tenant <name>, or --all-tenants); GOOGLE_WORKSPACE_TOKEN is not used.\n", n)
+				fmt.Fprintln(w, "  Check delegation with: google-workspace-cli tenants test --all-tenants")
+				return nil
+			}
 			// JSON envelope: {authenticated, verified, source, config}. When not
 			// authenticated, write the envelope first then return authErr
 			// so exit code carries the auth-failure signal.
@@ -113,13 +126,6 @@ func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
 					fmt.Fprintf(w, "  %s\n", refusal)
 				}
 				return authErr(cfg.CredentialRefusalError())
-			}
-			// Hand-fix (handfixes.json no-ambient-token-with-tenants): with
-			// client tenants registered the bearer token is not used.
-			if n := registeredTenantCount(); n > 0 {
-				fmt.Fprintf(w, "%d client tenant(s) registered: each command authenticates as the selected tenant (--tenant <name>, or --all-tenants); GOOGLE_WORKSPACE_TOKEN is not used.\n", n)
-				fmt.Fprintln(w, "  Check delegation with: google-workspace-cli tenants test --all-tenants")
-				return nil
 			}
 			if !authed {
 				fmt.Fprintln(w, red("Not authenticated"))

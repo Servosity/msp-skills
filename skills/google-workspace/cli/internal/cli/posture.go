@@ -1,6 +1,6 @@
 // Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Novel feature: posture - one row per client tenant rolling up 2SV coverage,
-// admin exposure, licence waste, Drive and Calendar setting changes and (with the policy
+// admin exposure, licence waste, Drive, Calendar and app-sharing setting changes and (with the policy
 // scope profile) the current Cloud Identity policy values.
 
 // pp:data-source live
@@ -202,7 +202,7 @@ func newNovelPostureCmd(flags *rootFlags) *cobra.Command {
 	var minPct float64
 	cmd := &cobra.Command{
 		Use:   "posture",
-		Short: "One row per client tenant: 2SV coverage, admins without 2SV, stale licences, Drive and Calendar setting changes",
+		Short: "One row per client tenant: 2SV coverage, admins without 2SV, stale licences, Drive, Calendar and app-sharing setting changes",
 		Long: "The cross-client security and licence summary for QBRs and weekly review.\n" +
 			"Each tenant is graded critical (an admin without 2SV), warn (2SV coverage below\n" +
 			"--min-2sv-pct, any stale licence, or any Drive, Calendar or sharing setting change in --since), or ok;\n" +
@@ -283,7 +283,7 @@ func newNovelPostureCmd(flags *rootFlags) *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&ff.all, "all-tenants", false, allTenantsUsage)
 	ff.bind(cmd)
-	cmd.Flags().StringVar(&since, "since", "30d", "Window for Drive and Calendar setting changes, e.g. 7d, 30d")
+	cmd.Flags().StringVar(&since, "since", "30d", "Window for Drive, Calendar and app-sharing setting changes, e.g. 7d, 30d")
 	cmd.Flags().IntVar(&maxEvents, "max-events", 1000, "Cap setting-change audit events read per query per tenant")
 	cmd.Flags().IntVar(&inactiveDays, "inactive-days", 60, "Licence counts as stale after this many days without sign-in")
 	cmd.Flags().IntVar(&graceDays, "grace-days", 14, "Skip accounts created within this many days")

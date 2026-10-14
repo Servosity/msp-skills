@@ -202,7 +202,7 @@ func newNovelSharingDriftCmd(flags *rootFlags) *cobra.Command {
 	var settingsOnly bool
 	cmd := &cobra.Command{
 		Use:   "sharing-drift",
-		Short: "External-sharing changes across client tenants: Drive and Calendar setting changes, new external shares, public links",
+		Short: "External-sharing changes across client tenants: Drive, Calendar and app-sharing setting changes, new external shares, public links",
 		Long: "Reads each tenant's audit log for the --since window and reports three kinds of drift:\n" +
 			"  setting_change  any Drive (Docs) or Calendar setting changed in the Admin console\n" +
 			"                  (CHANGE_DOCS_SETTING, CHANGE_CALENDAR_SETTING, and sharing-related\n" +
@@ -286,6 +286,6 @@ func newNovelSharingDriftCmd(flags *rootFlags) *cobra.Command {
 	ff.bind(cmd)
 	cmd.Flags().StringVar(&since, "since", "30d", "Look-back window, e.g. 7d, 24h, 2w (max 180d)")
 	cmd.Flags().IntVar(&maxEvents, "max-events", 5000, "Cap audit events read per query per tenant")
-	cmd.Flags().BoolVar(&settingsOnly, "settings-only", false, "Only Admin console Drive and Calendar setting changes (no Drive activity scan)")
+	cmd.Flags().BoolVar(&settingsOnly, "settings-only", false, "Only Admin console Drive, Calendar and app-sharing setting changes (no Drive activity scan)")
 	return cmd
 }

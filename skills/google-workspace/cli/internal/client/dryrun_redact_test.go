@@ -64,6 +64,10 @@ func TestRedactSecretQueryParams(t *testing.T) {
 		`https://x/api/hook?code=azfn-SECRET`,
 		`https://hooks.example/cb?token=';HOOK-SECRET'`,
 		`https://b.s3.example/o?X-Amz-Signature=s3-SECRET&X-Amz-Date=1`,
+		`https://hooks.example/cb?token=O'Hara-SECRET`,
+		`https://hooks.example/cb?key=api-SECRET`,
+		`Post "https://hooks.example/cb?a=1&token=go-q-SECRET": dial tcp`,
+		`https://hooks.example/cb?token="unterminated-SECRET`,
 	} {
 		if got := RedactURLSecrets(tc); strings.Contains(got, "SECRET") {
 			t.Errorf("secret survived: %s -> %s", tc, got)
@@ -71,6 +75,8 @@ func TestRedactSecretQueryParams(t *testing.T) {
 	}
 	for _, keep := range []string{
 		`{"a":"https://x/?token=","b":"c"}`,
+		`["https://x/?token=",1]`,
+		`["https://x/?token=",{"k":"v"}]`,
 		`https://host:443?login_hint=bob@example.com`,
 		`https://x/?pageToken=p2&customer=my_customer`,
 	} {

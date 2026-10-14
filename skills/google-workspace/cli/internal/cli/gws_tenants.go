@@ -133,6 +133,10 @@ type gwsTenant struct {
 	CustomerID string   `toml:"customer_id,omitempty" json:"customer_id,omitempty"`
 	Scopes     []string `toml:"scopes" json:"scopes"`
 	Reseller   bool     `toml:"reseller,omitempty" json:"reseller,omitempty"`
+	// OwnershipMismatch is set by tenants test when the admin and key resolve
+	// to an organization that does not own Domain; the tenant is refused
+	// until it is re-registered or passes tenants test again.
+	OwnershipMismatch string `toml:"ownership_mismatch,omitempty" json:"ownership_mismatch,omitempty"`
 }
 
 // customer returns the Directory customer key for this tenant.
@@ -563,6 +567,11 @@ func expandTenantPath(p string) string {
 // applyTenantClient points a freshly built client at one tenant by minting
 // its bearer token. Dry-run never mints (no network, no key read).
 func applyTenantClient(ctx context.Context, c *client.Client, t gwsTenant) error {
+	// Hand-fix (handfixes.json tenants-test-checks-domain): a tenant whose
+	// credentials belong to another organization is never used.
+	if t.OwnershipMismatch != "" {
+		return configErr(fmt.Errorf("tenant %s is quarantined: %s", t.Name, t.OwnershipMismatch))
+	}
 	// The implicit "default" tenant (no key file) keeps the configured bearer.
 	if c == nil || c.Config == nil || c.DryRun || t.KeyFile == "" {
 		return nil

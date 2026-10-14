@@ -909,7 +909,7 @@
   {
    "id": "dry-run-redacts-secrets",
    "summary": "Secret-named query parameters are masked everywhere the client masks credential text (error URLs, dry-run lines, bodies), and --dry-run body previews redact every non-empty, non-boolean secret-named field (password, secret, private key, API key, *token except page/sync tokens)",
-   "why": "The generated dry-run printer wrote the request body verbatim to stderr, so previewing 'users patch <email> --password ...' put the password into the terminal and into agent transcripts. Found by the onboard Codex review (round 5, P1); receipt: the real binary's dry-run of users patch --password prints \"password\": \"[redacted]\" and the value appears nowhere in stdout or stderr. Round 6 (Codex): query parameters were still printed verbatim (subscriptions insert --customer-auth-token showed the transfer token; P1, also fleet-wide generated code), and the body rule hid the changePasswordAtNextLogin boolean (P2). Receipt: the dry-run now prints ?customerAuthToken=[redacted]. Round 7 (Codex, P1, fleet): a failed request's error message carried the full URL, so MCP execute of subscriptions.insert returned customerAuthToken verbatim; redactSecretQueryParams now runs inside maskCredentialText, which every error, URL and body passes through (receipt: the MCP error reads ?customerAuthToken=[redacted]). The adversarial reviewer also noted string-only body redaction let a numeric password or a 'Secrets' custom-schema object through; only booleans stay visible now. Round 8 (Codex, P1, fleet): the dry-run body bypassed maskCredentialText, so users watch --address 'https://hooks.example/?token=...' printed the webhook secret; the body text now goes through the mask (HTML escaping off so & stays literal), printing ?token=[redacted]. Round 11 (Codex, P1): the value pattern stopped at a quote, so ?token='SECRET' (and a JSON-escaped \\\"SECRET\\\") slipped through, and \\u0026 / &amp; separators were not recognised; the pattern now allows an opening (escaped) quote and those separators, and RedactURLSecrets also masks a userinfo password (https://user:pass@host). Round 12 (adversarial P2s): an empty value followed by its closing quote is left alone (the dry-run JSON stays valid); userinfo is split like net/url (password runs to the last @ before / ? #, quotes and @ allowed); sig= and code= are secret names (SAS and Azure Functions webhook signatures). TestRedactSecretQueryParams covers each case and the non-secret texts that must stay unchanged. Round 13 (Codex P1s): the empty-quoted-value exception applies only when the whole value is separators, so ?token=';SECRET' is masked; names containing 'signature' (X-Amz-Signature, X-Goog-Signature) are secret; and the client's request-build error (a URL that fails to parse, e.g. a base URL with user:pass@ and a bad escape) goes through maskCredentialText. TestRequestBuildErrorMasksURLSecrets fails without it.",
+   "why": "The generated dry-run printer wrote the request body verbatim to stderr, so previewing 'users patch <email> --password ...' put the password into the terminal and into agent transcripts. Found by the onboard Codex review (round 5, P1); receipt: the real binary's dry-run of users patch --password prints \"password\": \"[redacted]\" and the value appears nowhere in stdout or stderr. Round 6 (Codex): query parameters were still printed verbatim (subscriptions insert --customer-auth-token showed the transfer token; P1, also fleet-wide generated code), and the body rule hid the changePasswordAtNextLogin boolean (P2). Receipt: the dry-run now prints ?customerAuthToken=[redacted]. Round 7 (Codex, P1, fleet): a failed request's error message carried the full URL, so MCP execute of subscriptions.insert returned customerAuthToken verbatim; redactSecretQueryParams now runs inside maskCredentialText, which every error, URL and body passes through (receipt: the MCP error reads ?customerAuthToken=[redacted]). The adversarial reviewer also noted string-only body redaction let a numeric password or a 'Secrets' custom-schema object through; only booleans stay visible now. Round 8 (Codex, P1, fleet): the dry-run body bypassed maskCredentialText, so users watch --address 'https://hooks.example/?token=...' printed the webhook secret; the body text now goes through the mask (HTML escaping off so & stays literal), printing ?token=[redacted]. Round 11 (Codex, P1): the value pattern stopped at a quote, so ?token='SECRET' (and a JSON-escaped \\\"SECRET\\\") slipped through, and \\u0026 / &amp; separators were not recognised; the pattern now allows an opening (escaped) quote and those separators, and RedactURLSecrets also masks a userinfo password (https://user:pass@host). Round 12 (adversarial P2s): an empty value followed by its closing quote is left alone (the dry-run JSON stays valid); userinfo is split like net/url (password runs to the last @ before / ? #, quotes and @ allowed); sig= and code= are secret names (SAS and Azure Functions webhook signatures). TestRedactSecretQueryParams covers each case and the non-secret texts that must stay unchanged. Round 13 (Codex P1s): the empty-quoted-value exception applies only when the whole value is separators, so ?token=';SECRET' is masked; names containing 'signature' (X-Amz-Signature, X-Goog-Signature) are secret; and the client's request-build error (a URL that fails to parse, e.g. a base URL with user:pass@ and a bad escape) goes through maskCredentialText. TestRequestBuildErrorMasksURLSecrets fails without it. Round 14 (Codex P1s): the value is now found by a scanner instead of a regex: the URL's enclosing quote (nearest quote before the URL with no whitespace between) closes an empty value, another opening quote runs to its match, and an unquoted value may contain an apostrophe (?token=O'Hara-SECRET was half-printed); bare key= is a secret name (Google API keys); doctor's base_url and feedback --send errors are masked. TestRedactSecretQueryParams covers each case, including JSON arrays with an empty secret value.",
    "status": "active",
    "spec_encode_followup": "Press-side: redact secret-named fields in the generated dry-run body printer fleet-wide.",
    "asserts": [
@@ -974,13 +974,7 @@
     },
     {
      "file": "cli/internal/client/dryrun_redact.go",
-     "contains": "if k == \"sig\" || k == \"code\" || strings.Contains(k, \"signature\") {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/dryrun_redact.go",
-     "contains": "strings.Trim(parts[4], \",;:)}]\") == \"\"",
+     "contains": "if k == \"sig\" || k == \"code\" || k == \"key\" || strings.Contains(k, \"signature\") {",
      "min_count": 1,
      "code_only": true
     },
@@ -993,6 +987,36 @@
     {
      "file": "cli/internal/client/dryrun_redact_test.go",
      "contains": "func TestRequestBuildErrorMasksURLSecrets(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/dryrun_redact.go",
+     "contains": "func secretValueSpan(s string, urlStart, i int) (int, int)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/dryrun_redact.go",
+     "contains": "start, end := secretValueSpan(text, m[0], m[1])",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"base_url\"] = client.RedactURLSecrets(cfg.BaseURL)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "fmt.Errorf(\"posting feedback: %s\", client.RedactURLSecrets(err.Error()))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "fmt.Errorf(\"building feedback request: %s\", client.RedactURLSecrets(err.Error()))",
      "min_count": 1,
      "code_only": true
     }
@@ -1086,8 +1110,8 @@
   },
   {
    "id": "free-license-skus-not-waste",
-   "summary": "stale-licenses, posture and leavers skip the free Google-Apps SKUs (Google Workspace for Nonprofits, Education Fundamentals, Education Gmail Only) when reporting paid-licence waste",
-   "why": "The novel commands treated every Google-Apps assignment as a paid seat, so a nonprofit or school client's suspended accounts were reported as billing waste and posture graded them warn. The free SKU IDs come from Google's Licensing API 'Products and SKUs' table (Google-Apps-For-Nonprofits, Google-Apps-For-Education, 1010070001, 1010070004); the paid Nonprofit editions reuse the general SKU IDs and stay counted. Found by the onboard Codex review (round 8, P1); TestFreeSKUsAreNotWaste fails with the filter removed. stale_licenses.go and leavers.go are NOVEL files carried from the factory's novel/ directory. Round 12 (Codex P2): the free Education SKUs are pinned too, not just Nonprofits.",
+   "summary": "stale-licenses, posture and leavers skip the free Google-Apps SKUs (Google Workspace for Nonprofits, Education Fundamentals, Education Gmail Only) when reporting paid-licence waste; Archived User seats (product 101034) are never waste either",
+   "why": "The novel commands treated every Google-Apps assignment as a paid seat, so a nonprofit or school client's suspended accounts were reported as billing waste and posture graded them warn. The free SKU IDs come from Google's Licensing API 'Products and SKUs' table (Google-Apps-For-Nonprofits, Google-Apps-For-Education, 1010070001, 1010070004); the paid Nonprofit editions reuse the general SKU IDs and stay counted. Found by the onboard Codex review (round 8, P1); TestFreeSKUsAreNotWaste fails with the filter removed. stale_licenses.go and leavers.go are NOVEL files carried from the factory's novel/ directory. Round 12 (Codex P2): the free Education SKUs are pinned too, not just Nonprofits. Round 14 (Codex P1): an archived account's Archived User seat deliberately retains its data, so stale-licenses no longer recommends reclaiming it and posture no longer counts it. TestArchivedUserSeatIsNotWaste.",
    "status": "active",
    "spec_encode_followup": "Factory-side: port freeLicenseSKUs into ~/Documents/Dev/cli-factory/google-workspace/novel/ (stale_licenses.go, leavers.go).",
    "asserts": [
@@ -1136,6 +1160,18 @@
     {
      "file": "cli/internal/cli/stale_licenses.go",
      "contains": "\"1010070004\":                 true,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/stale_licenses.go",
+     "contains": "return freeLicenseSKUs[l.SkuID] || l.ProductID == archivedUserProduct",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_novel_test.go",
+     "contains": "func TestArchivedUserSeatIsNotWaste(",
      "min_count": 1,
      "code_only": true
     }
@@ -1301,8 +1337,8 @@
   },
   {
    "id": "tenants-test-checks-domain",
-   "summary": "tenants test fails a tenant whose configured --domain is not one of the domains (or aliases) Google returns for the customer its admin and key resolve to",
-   "why": "Registering domain A with domain B's delegated admin and key passed tenants test, which pre-accepted the configured domain, so every report labelled B's data as A and stored it in A's mirror. Found by the onboard Codex review (round 12, P1). tenantDomains is the decode-and-check; TestTenantDomainsRequiresConfiguredDomain fails without the ownership check. gws_tenants_cmd.go is a NOVEL file. Round 13 (adversarial P2s): a failed domain check now clears the tenant's recorded customer ID and domains (errWrongCustomer), so offboard stops routing that organization's emails to it, and tenants add trims --domain so a padded value cannot drop the primary domain from the recorded list.",
+   "summary": "tenants test fails a tenant whose configured --domain is not one of the domains (or aliases) Google returns for the customer its admin and key resolve to, and quarantines it (ownership_mismatch in tenants.toml): every command refuses the tenant until it is re-registered or passes tenants test again; the operator's recorded customer ID and domains are kept",
+   "why": "Registering domain A with domain B's delegated admin and key passed tenants test, which pre-accepted the configured domain, so every report labelled B's data as A and stored it in A's mirror. Found by the onboard Codex review (round 12, P1). tenantDomains is the decode-and-check; TestTenantDomainsRequiresConfiguredDomain fails without the ownership check. gws_tenants_cmd.go is a NOVEL file. Round 13 (adversarial P2s): a failed domain check now clears the tenant's recorded customer ID and domains (errWrongCustomer), so offboard stops routing that organization's emails to it, and tenants add trims --domain so a padded value cannot drop the primary domain from the recorded list. Round 14 (Codex P1 + adversarial P2): clearing the record left the wrong credentials selectable, and with the customer ID gone the reports fell back to my_customer, the wrong organization, labelled as this tenant. Now applyTenantClient refuses a tenant with OwnershipMismatch set (CLI, MCP and every fan-out), tenants test re-tests it with its own credentials and lifts the flag on success, and nothing the operator recorded is cleared. TestQuarantinedTenantRefused fails without the refusal.",
    "status": "active",
    "spec_encode_followup": "Factory-side: port tenantDomains into ~/Documents/Dev/cli-factory/google-workspace/novel/gws_tenants_cmd.go.",
    "asserts": [
@@ -1332,13 +1368,37 @@
     },
     {
      "file": "cli/internal/cli/gws_tenants_cmd.go",
-     "contains": "if r.Value.OK || r.Value.wrongCustomer {",
+     "contains": "Domain: strings.ToLower(strings.TrimSpace(domain)),",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants.go",
+     "contains": "OwnershipMismatch string `toml:\"ownership_mismatch,omitempty\" json:\"ownership_mismatch,omitempty\"`",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants.go",
+     "contains": "if t.OwnershipMismatch != \"\" {",
      "min_count": 1,
      "code_only": true
     },
     {
      "file": "cli/internal/cli/gws_tenants_cmd.go",
-     "contains": "Domain: strings.ToLower(strings.TrimSpace(domain)),",
+     "contains": "reg.Tenants[i].OwnershipMismatch = v.Error",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants_cmd.go",
+     "contains": "reg.Tenants[i].OwnershipMismatch = \"\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_novel_test.go",
+     "contains": "func TestQuarantinedTenantRefused(",
      "min_count": 1,
      "code_only": true
     }
@@ -1532,7 +1592,7 @@
   {
    "id": "oauth-apps-calendar-scopes-moderate",
    "summary": "oauth-apps rates calendar.events, calendar.readonly and calendar.events.readonly as moderate risk, alongside full calendar",
-   "why": "An app granted calendar.events (view and edit events on every calendar) fell through to low and vanished under --min-risk moderate, contradicting the documented tiers. Found by the onboard Codex review (round 12, P2). oauth_apps.go is a NOVEL file.",
+   "why": "An app granted calendar.events (view and edit events on every calendar) fell through to low and vanished under --min-risk moderate, contradicting the documented tiers. Found by the onboard Codex review (round 12, P2). oauth_apps.go is a NOVEL file. Round 14 (Codex P2): TestScopeRiskAndAggregateApps now asserts all three scopes are tier 2, so flipping a map value to false fails it.",
    "status": "active",
    "spec_encode_followup": "Factory-side: port the scope rows into novel/oauth_apps.go.",
    "asserts": [
@@ -1553,13 +1613,19 @@
      "contains": "\"https://www.googleapis.com/auth/calendar.events.readonly\":",
      "min_count": 1,
      "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_novel_test.go",
+     "contains": "scopePrefix + \"calendar.events.readonly\": 2,",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   },
   {
    "id": "chrome-printer-name-is-the-selector",
    "summary": "customers chrome-printers and chrome-print-servers commands (get, patch, delete, list, create, batch-*, list-printer-models) take one <name> or <parent> that must match customers/{customersId}/chrome/printers/{printersId} (or printServers, or customers/{customersId}) segment for segment and fills the fixed path template; the generated extra ID positionals and the name/parent query parameter are gone, in the CLI and MCP execute",
-   "why": "The Discovery print turned Google's {+name}/{+parent} into separate customersId/printersId path positionals plus a name/parent query parameter, so naming printer A while passing printer B's ID deleted B (same defect as orgunits). Found by the onboard Codex review (round 13, P1). Binding to the fixed template, not reserved expansion, matters: a free-form name like 'users/ceo@client.com' would otherwise turn 'chrome-printers delete' into DELETE /admin/directory/v1/users/ceo@client.com. TestBindResourceName covers the refusals.",
+   "why": "The Discovery print turned Google's {+name}/{+parent} into separate customersId/printersId path positionals plus a name/parent query parameter, so naming printer A while passing printer B's ID deleted B (same defect as orgunits). Found by the onboard Codex review (round 13, P1). Binding to the fixed template, not reserved expansion, matters: a free-form name like 'users/ceo@client.com' would otherwise turn 'chrome-printers delete' into DELETE /admin/directory/v1/users/ceo@client.com. TestBindResourceName covers the refusals. Round 14 (Codex + adversarial P2s): every one of the 15 command files and every MCP map entry is pinned, and the MCP summaries name the selector to pass.",
    "status": "active",
    "spec_encode_followup": "Press-side: map Discovery {+name}/{+parent} to one resource-name positional validated against the name pattern.",
    "asserts": [
@@ -1568,28 +1634,6 @@
      "contains": "func BindResourceName(path, tmpl, name string) (string, error)",
      "min_count": 1,
      "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/customers_chrome-printers_delete.go",
-     "contains": "if path, perr = bindResourceName(path, \"customers/{customersId}/chrome/printers/{printersId}\", args[0]); perr != nil {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/customers_chrome-printServers_delete.go",
-     "contains": "if path, perr = bindResourceName(path, \"customers/{customersId}/chrome/printServers/{printServersId}\", args[0]); perr != nil {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/customers_chrome-printers_list.go",
-     "contains": "if path, perr = bindResourceName(path, \"customers/{customersId}\", args[0]); perr != nil {",
-     "min_count": 1,
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/cli/customers_chrome-printers_delete.go",
-     "not_contains": "params[\"name\"] = args[0]"
     },
     {
      "file": "cli/internal/mcp/code_orch.go",
@@ -1608,12 +1652,252 @@
      "contains": "func TestBindResourceName(",
      "min_count": 1,
      "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printServers_batchCreatePrintServers.go",
+     "contains": "if path, perr = bindResourceName(path, \"customers/{customersId}\", args[0]); perr != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printServers_batchCreatePrintServers.go",
+     "not_contains": "args[1]"
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printServers_batchDeletePrintServers.go",
+     "contains": "if path, perr = bindResourceName(path, \"customers/{customersId}\", args[0]); perr != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printServers_batchDeletePrintServers.go",
+     "not_contains": "args[1]"
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printServers_create.go",
+     "contains": "if path, perr = bindResourceName(path, \"customers/{customersId}\", args[0]); perr != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printServers_create.go",
+     "not_contains": "args[1]"
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printServers_delete.go",
+     "contains": "if path, perr = bindResourceName(path, \"customers/{customersId}/chrome/printServers/{printServersId}\", args[0]); perr != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printServers_delete.go",
+     "not_contains": "args[1]"
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printServers_get.go",
+     "contains": "if path, perr = bindResourceName(path, \"customers/{customersId}/chrome/printServers/{printServersId}\", args[0]); perr != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printServers_get.go",
+     "not_contains": "args[1]"
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printServers_list.go",
+     "contains": "if path, perr = bindResourceName(path, \"customers/{customersId}\", args[0]); perr != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printServers_list.go",
+     "not_contains": "args[1]"
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printServers_patch.go",
+     "contains": "if path, perr = bindResourceName(path, \"customers/{customersId}/chrome/printServers/{printServersId}\", args[0]); perr != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printServers_patch.go",
+     "not_contains": "args[1]"
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printers_batchCreatePrinters.go",
+     "contains": "if path, perr = bindResourceName(path, \"customers/{customersId}\", args[0]); perr != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printers_batchCreatePrinters.go",
+     "not_contains": "args[1]"
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printers_batchDeletePrinters.go",
+     "contains": "if path, perr = bindResourceName(path, \"customers/{customersId}\", args[0]); perr != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printers_batchDeletePrinters.go",
+     "not_contains": "args[1]"
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printers_create.go",
+     "contains": "if path, perr = bindResourceName(path, \"customers/{customersId}\", args[0]); perr != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printers_create.go",
+     "not_contains": "args[1]"
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printers_delete.go",
+     "contains": "if path, perr = bindResourceName(path, \"customers/{customersId}/chrome/printers/{printersId}\", args[0]); perr != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printers_delete.go",
+     "not_contains": "args[1]"
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printers_get.go",
+     "contains": "if path, perr = bindResourceName(path, \"customers/{customersId}/chrome/printers/{printersId}\", args[0]); perr != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printers_get.go",
+     "not_contains": "args[1]"
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printers_list.go",
+     "contains": "if path, perr = bindResourceName(path, \"customers/{customersId}\", args[0]); perr != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printers_list.go",
+     "not_contains": "args[1]"
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printers_listPrinterModels.go",
+     "contains": "if path, perr = bindResourceName(path, \"customers/{customersId}\", args[0]); perr != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printers_listPrinterModels.go",
+     "not_contains": "args[1]"
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printers_patch.go",
+     "contains": "if path, perr = bindResourceName(path, \"customers/{customersId}/chrome/printers/{printersId}\", args[0]); perr != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printers_patch.go",
+     "not_contains": "args[1]"
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "\"parent\", \"customers/{customersId}\"}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "\"parent\", \"customers/{customersId}\"}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "\"parent\", \"customers/{customersId}\"}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "\"name\", \"customers/{customersId}/chrome/printServers/{printServersId}\"}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "\"name\", \"customers/{customersId}/chrome/printServers/{printServersId}\"}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "\"parent\", \"customers/{customersId}\"}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "\"name\", \"customers/{customersId}/chrome/printServers/{printServersId}\"}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "\"parent\", \"customers/{customersId}\"}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "\"parent\", \"customers/{customersId}\"}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "\"parent\", \"customers/{customersId}\"}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "\"name\", \"customers/{customersId}/chrome/printers/{printersId}\"}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "\"name\", \"customers/{customersId}/chrome/printers/{printersId}\"}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "\"parent\", \"customers/{customersId}\"}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "\"parent\", \"customers/{customersId}\"}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "\"name\", \"customers/{customersId}/chrome/printers/{printersId}\"}",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   },
   {
    "id": "profiles-never-store-url-secrets",
-   "summary": "profile save refuses any flag whose value carries a URL secret (a secret-named query parameter or a user:pass@ password), e.g. --deliver webhook:https://hooks.example/?token=..., as credential-like",
+   "summary": "profile save refuses any flag whose value carries a URL secret (a secret-named query parameter or a user:pass@ password), e.g. --deliver webhook:https://hooks.example/?token=..., as credential-like; no --deliver webhook URL is saved at all (Slack, Teams and Discord carry their secret in the path)",
    "why": "The run-profile credential check looked only at flag names, so 'profile save p --deliver webhook:...?token=SECRET' wrote the webhook secret to profiles.json in plain text and printed it, and profile show / use echoed it back. Found by the onboard Codex review (round 13, P1). TestProfileSaveRefusesURLSecrets fails without the value check.",
    "status": "active",
    "spec_encode_followup": "Press-side (fleet): treat URL-secret-bearing values as credential-like in generated run profiles.",
@@ -1629,6 +1913,90 @@
      "contains": "func TestProfileSaveRefusesURLSecrets(",
      "min_count": 1,
      "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "(fl.Name == \"deliver\" && strings.HasPrefix(fl.Value.String(), \"webhook:\"))",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "deliver-webhook-https-only",
+   "summary": "--deliver webhook:http:// is refused unless the host is localhost or a loopback IP; remote webhooks must use https://",
+   "why": "The deliver path uses its own HTTP client, without the API client's plaintext-credential guard, so 'webhook:http://user:SECRET@remote-host/path' sent the password, and every report's client data, in clear text. Found by the onboard Codex review (round 14, P1). TestDeliverWebhookHTTPSOnly covers remote http (refused), https and loopback http (allowed).",
+   "status": "active",
+   "spec_encode_followup": "Press-side (fleet): require https for non-loopback --deliver webhooks.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "if strings.HasPrefix(target, \"http://\") && !loopbackURL(target) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "func loopbackURL(raw string) bool",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_novel_test.go",
+     "contains": "func TestDeliverWebhookHTTPSOnly(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "docs-surface-truth",
+   "summary": "Re-vendored doc surfaces (SKILL.md, guide.md, manifest.json, server.json, mcp-install.md) state the reviewed behavior: one <orgUnitPath> and one printer <name>/<parent>, no ambient-token fallback once tenants are registered, and PRINTING_PRESS_CLIENT_PROFILE has no effect",
+   "why": "onboard.py --resume re-vendors SKILL.md, guide.md and manifest.json from the factory source, which still carries the generated command signatures ('orgunits get <orgUnitPath> <orgunitsId>'), the token-fallback warning and the client-profile binding claim, all corrected during the onboard reviews (rounds 12-14). This entry makes a re-vendor that brings them back fail the gate.",
+   "status": "active",
+   "spec_encode_followup": "Factory-side: carry these doc edits into the source SKILL.md/guide.md/manifest.json.",
+   "asserts": [
+    {
+     "file": "SKILL.md",
+     "not_contains": "<orgunitsId>"
+    },
+    {
+     "file": "guide.md",
+     "not_contains": "<orgunitsId>"
+    },
+    {
+     "file": "SKILL.md",
+     "not_contains": "<customersId>"
+    },
+    {
+     "file": "guide.md",
+     "not_contains": "<customersId>"
+    },
+    {
+     "file": "manifest.json",
+     "not_contains": "fall back to this token"
+    },
+    {
+     "file": "mcp-install.md",
+     "not_contains": "untargeted API calls act on its organization"
+    },
+    {
+     "file": "manifest.json",
+     "contains": "Has no effect for this connector (it registers no client-profile source)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "server.json",
+     "contains": "Has no effect for this connector",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "GOOGLE_WORKSPACE_TOKEN is not used once tenants are registered",
+     "min_count": 1,
+     "code_only": false
     }
    ]
   }

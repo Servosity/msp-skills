@@ -376,14 +376,17 @@ func TestLeaverIssues(t *testing.T) {
 
 func TestScopeRiskAndAggregateApps(t *testing.T) {
 	for scope, want := range map[string]int{
-		"https://mail.google.com/":           3,
-		scopePrefix + "drive":                3,
-		scopePrefix + "admin.directory.user": 3,
-		scopePrefix + "drive.readonly":       2,
-		scopePrefix + "calendar":             2,
-		scopePrefix + "drive.file":           1,
-		"openid":                             1,
-		scopePrefix + "userinfo.email":       1,
+		"https://mail.google.com/":               3,
+		scopePrefix + "drive":                    3,
+		scopePrefix + "admin.directory.user":     3,
+		scopePrefix + "drive.readonly":           2,
+		scopePrefix + "calendar":                 2,
+		scopePrefix + "calendar.events":          2,
+		scopePrefix + "calendar.readonly":        2,
+		scopePrefix + "calendar.events.readonly": 2,
+		scopePrefix + "drive.file":               1,
+		"openid":                                 1,
+		scopePrefix + "userinfo.email":           1,
 	} {
 		if got := scopeRiskTier(scope); got != want {
 			t.Fatalf("%s: got %d want %d", scope, got, want)
@@ -1058,13 +1061,15 @@ func TestProfileSaveRefusesURLSecrets(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer restore()
-	root := RootCmd()
-	var out bytes.Buffer
-	root.SetOut(&out)
-	root.SetErr(&out)
-	root.SetArgs([]string{"profile", "save", "p", "--deliver", "webhook:https://hooks.example/cb?token=SECRET"})
-	if err := root.Execute(); err == nil || !strings.Contains(err.Error(), "deliver") || strings.Contains(err.Error()+out.String(), "SECRET") {
-		t.Fatalf("a --deliver URL with a secret must not be saved: %v %s", err, out.String())
+	for _, spec := range []string{"webhook:https://hooks.example/cb?token=SECRET", "webhook:https://hooks.slack.example/services/T0/B0/SECRET"} {
+		root := RootCmd()
+		var out bytes.Buffer
+		root.SetOut(&out)
+		root.SetErr(&out)
+		root.SetArgs([]string{"profile", "save", "p", "--deliver", spec})
+		if err := root.Execute(); err == nil || !strings.Contains(err.Error(), "deliver") || strings.Contains(err.Error()+out.String(), "SECRET") {
+			t.Fatalf("%s must not be saved: %v %s", spec, err, out.String())
+		}
 	}
 }
 
@@ -1094,5 +1099,41 @@ func TestDeliverErrorsMaskURLSecrets(t *testing.T) {
 		if err := deliverWebhook(u, nil, false); err == nil || strings.Contains(err.Error(), "SECRET") {
 			t.Errorf("%s: %v", u, err)
 		}
+	}
+}
+
+// Hand-fix (handfixes.json deliver-webhook-https-only).
+func TestDeliverWebhookHTTPSOnly(t *testing.T) {
+	for spec, ok := range map[string]bool{
+		"webhook:http://hooks.example/cb":    false,
+		"webhook:http://user:pw@10.0.0.5/cb": false,
+		"webhook:https://hooks.example/cb":   true,
+		"webhook:http://127.0.0.1:9/cb":      true,
+		"webhook:http://localhost/cb":        true,
+	} {
+		if _, err := ParseDeliverSink(spec); (err == nil) != ok {
+			t.Errorf("%s: %v", spec, err)
+		}
+	}
+}
+
+// Hand-fix (handfixes.json tenants-test-checks-domain): a quarantined tenant
+// is never used to build a client.
+func TestQuarantinedTenantRefused(t *testing.T) {
+	c := client.New(&config.Config{BaseURL: "https://example.invalid"}, time.Second, 0)
+	err := applyTenantClient(context.Background(), c, gwsTenant{Name: "acme", KeyFile: "k.json", OwnershipMismatch: "wrong customer"})
+	if err == nil || !strings.Contains(err.Error(), "quarantined") {
+		t.Fatalf("a quarantined tenant must be refused: %v", err)
+	}
+}
+
+// Hand-fix (handfixes.json free-license-skus-not-waste): an Archived User
+// seat retains a leaver's data on purpose.
+func TestArchivedUserSeatIsNotWaste(t *testing.T) {
+	if !freeLicenseSKU(licenseAssignment{ProductID: "101034", SkuID: "1010340001"}) {
+		t.Fatal("Archived User seats are not waste")
+	}
+	if freeLicenseSKU(licenseAssignment{ProductID: "Google-Apps", SkuID: "1010020020"}) {
+		t.Fatal("a paid Workspace seat is not free")
 	}
 }

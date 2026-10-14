@@ -1,6 +1,6 @@
 ---
 name: google-workspace
-description: "Use when the user asks to audit or administer Google Workspace across several client domains: find accounts without 2-Step Verification, reclaim paid licenses on suspended or idle accounts, check that leavers were fully offboarded, offboard a leaver with suspension last, review Drive and Calendar setting changes and new external shares, inventory risky third-party OAuth apps, or pull a one-row-per-client posture summary for a QBR. Drives the Google Workspace Admin SDK (Directory, Reports, Enterprise License Manager, Data Transfer, Reseller) per client tenant via service accounts with domain-wide delegation. Trigger phrases: `who doesn't have 2SV across my clients`, `google workspace license waste`, `google workspace licence waste`, `offboard a google workspace user`, `did our google workspace leavers get cleaned up`, `external sharing changes in google workspace`, `risky oauth apps in google workspace`, `google workspace posture for every client`, `use google-workspace`, `run google-workspace-cli`."
+description: "Use when the user asks to audit or administer Google Workspace across several client domains: find accounts without 2-Step Verification, reclaim paid licenses on suspended or idle accounts, check that leavers were fully offboarded, offboard a leaver with suspension last, review Drive, Calendar and app-sharing setting changes and new external shares, inventory risky third-party OAuth apps, or pull a one-row-per-client posture summary for a QBR. Drives the Google Workspace Admin SDK (Directory, Reports, Enterprise License Manager, Data Transfer, Reseller) per client tenant via service accounts with domain-wide delegation. Trigger phrases: `who doesn't have 2SV across my clients`, `google workspace license waste`, `google workspace licence waste`, `offboard a google workspace user`, `did our google workspace leavers get cleaned up`, `external sharing changes in google workspace`, `risky oauth apps in google workspace`, `google workspace posture for every client`, `use google-workspace`, `run google-workspace-cli`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "Google Workspace"
@@ -73,7 +73,7 @@ Do not use this CLI for:
   ```bash
   google-workspace-cli sharing-drift --all-tenants --since 7d --agent
   ```
-- **`posture`**  -  One row per client: 2SV coverage, admins without 2SV, stale licences and Drive or Calendar setting changes, plus current sharing and 2SV policy for tenants registered with the policy scope profile.
+- **`posture`**  -  One row per client: 2SV coverage, admins without 2SV, stale licences and Drive, Calendar or app-sharing setting changes, plus current sharing and 2SV policy for tenants registered with the policy scope profile.
 
   _Start here for a fleet overview or a QBR headline, then drill in with mfa-gaps, stale-licenses or sharing-drift._
 
@@ -323,7 +323,7 @@ Every command below is listed with its required positional arguments. Run `googl
 
 **posture**
 
-- `google-workspace-cli posture` - One row per client tenant: 2SV coverage, admins without 2SV, stale licences, Drive and Calendar setting changes
+- `google-workspace-cli posture` - One row per client tenant: 2SV coverage, admins without 2SV, stale licences, Drive, Calendar and app-sharing setting changes
 
 **privileges**
 
@@ -407,7 +407,7 @@ Every command below is listed with its required positional arguments. Run `googl
 
 **sharing-drift**
 
-- `google-workspace-cli sharing-drift` - External-sharing changes across client tenants: Drive and Calendar setting changes, new external shares, public links
+- `google-workspace-cli sharing-drift` - External-sharing changes across client tenants: Drive, Calendar and app-sharing setting changes, new external shares, public links
 
 **stale-licenses**
 
@@ -553,7 +553,7 @@ Named accounts holding a paid licence that nobody uses, as CSV for the deck.
 google-workspace-cli sharing-drift --all-tenants --since 7d --settings-only
 ```
 
-Only Admin console Drive and Calendar setting changes (any setting, not only sharing), old to new, with who made them.
+Only Admin console Drive, Calendar and app-sharing setting changes (any setting, not only sharing), old to new, with who made them.
 
 ### Check last week's leavers were closed
 

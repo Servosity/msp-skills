@@ -9,7 +9,9 @@ import (
 	"fmt"
 	"google-workspace-pp-cli/internal/client"
 	"google-workspace-pp-cli/internal/cliutil"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -50,6 +52,12 @@ func ParseDeliverSink(spec string) (DeliverSink, error) {
 	case "webhook":
 		if !strings.HasPrefix(target, "http://") && !strings.HasPrefix(target, "https://") {
 			return DeliverSink{}, fmt.Errorf("--deliver webhook:<url> requires an http:// or https:// URL, got %q", client.RedactURLSecrets(target))
+		}
+		// Hand-fix (handfixes.json deliver-webhook-https-only): the output is
+		// client data and the URL can carry a password or token, so plain
+		// http is only allowed to this machine.
+		if strings.HasPrefix(target, "http://") && !loopbackURL(target) {
+			return DeliverSink{}, fmt.Errorf("--deliver webhook:<url> must use https:// (plain http is only allowed to localhost or a loopback IP), got %q", client.RedactURLSecrets(target))
 		}
 	default:
 		return DeliverSink{}, fmt.Errorf("unknown --deliver scheme %q (supported: stdout, file, webhook)", client.RedactURLSecrets(scheme))
@@ -154,4 +162,18 @@ func deliverWebhook(url string, body []byte, compact bool) error {
 		return fmt.Errorf("webhook returned %s", resp.Status)
 	}
 	return nil
+}
+
+// loopbackURL reports a URL whose host is localhost or a loopback IP.
+func loopbackURL(raw string) bool {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return false
+	}
+	h := u.Hostname()
+	if h == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(h)
+	return ip != nil && ip.IsLoopback()
 }

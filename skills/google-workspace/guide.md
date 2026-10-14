@@ -50,7 +50,7 @@ google-workspace-cli offboard jane@example.com --successor manager@example.com -
   ```bash
   google-workspace-cli sharing-drift --all-tenants --since 7d --agent
   ```
-- **`posture`**  -  One row per client: 2SV coverage, admins without 2SV, stale licences and Drive or Calendar setting changes, plus current sharing and 2SV policy for tenants registered with the policy scope profile.
+- **`posture`**  -  One row per client: 2SV coverage, admins without 2SV, stale licences and Drive, Calendar or app-sharing setting changes, plus current sharing and 2SV policy for tenants registered with the policy scope profile.
 
   _Start here for a fleet overview or a QBR headline, then drill in with mfa-gaps, stale-licenses or sharing-drift._
 
@@ -121,7 +121,7 @@ Named accounts holding a paid licence that nobody uses, as CSV for the deck.
 google-workspace-cli sharing-drift --all-tenants --since 7d --settings-only
 ```
 
-Only Admin console Drive and Calendar setting changes (any setting, not only sharing), old to new, with who made them.
+Only Admin console Drive, Calendar and app-sharing setting changes (any setting, not only sharing), old to new, with who made them.
 
 ### Check last week's leavers were closed
 
@@ -395,7 +395,7 @@ Every command below is listed with its required positional arguments. Run `googl
 
 ### posture
 
-- **`google-workspace-cli posture`** - One row per client tenant: 2SV coverage, admins without 2SV, stale licences, Drive and Calendar setting changes
+- **`google-workspace-cli posture`** - One row per client tenant: 2SV coverage, admins without 2SV, stale licences, Drive, Calendar and app-sharing setting changes
 
 ### privileges
 
@@ -479,7 +479,7 @@ Every command below is listed with its required positional arguments. Run `googl
 
 ### sharing-drift
 
-- **`google-workspace-cli sharing-drift`** - External-sharing changes across client tenants: Drive and Calendar setting changes, new external shares, public links
+- **`google-workspace-cli sharing-drift`** - External-sharing changes across client tenants: Drive, Calendar and app-sharing setting changes, new external shares, public links
 
 ### stale-licenses
 

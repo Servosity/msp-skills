@@ -46,7 +46,7 @@ least-privilege scopes), then:
   suspend last so backup-code cleanup still works), previewed with live reads and
   changing nothing until you add `--yes`.
 - **`google-workspace-cli posture --all-tenants`** - one row per client for the QBR:
-  2SV coverage, admins without 2SV, stale licenses, and Drive and Calendar setting changes.
+  2SV coverage, admins without 2SV, stale licenses, and Drive, Calendar and app-sharing setting changes.
 
 ## Status
 

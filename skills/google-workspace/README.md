@@ -162,7 +162,7 @@ Managing a single organization? Set `GOOGLE_WORKSPACE_TOKEN` to an OAuth access 
 | Which accounts across all my clients lack 2-Step Verification, admins first? | `google-workspace-cli mfa-gaps --all-tenants` |
 | Which Google Workspace licenses sit on suspended, never-signed-in, or idle accounts? | `google-workspace-cli stale-licenses --all-tenants` |
 | Did our suspended leavers keep a license, groups, an admin role, OAuth tokens, or an unfinished Drive transfer? | `google-workspace-cli leavers --all-tenants` |
-| One row per client for the QBR: 2SV coverage, admins without 2SV, stale licenses, Drive and Calendar setting changes | `google-workspace-cli posture --all-tenants` |
+| One row per client for the QBR: 2SV coverage, admins without 2SV, stale licenses, Drive, Calendar and app-sharing setting changes | `google-workspace-cli posture --all-tenants` |
 | Who changed Drive or Calendar settings, and which files went external or public this week? | `google-workspace-cli sharing-drift --all-tenants --since 7d` |
 | Which third-party apps hold full mail, full Drive, or admin access to client data? | `google-workspace-cli oauth-apps --all-tenants --min-risk high` |
 | Any suspicious sign-ins, hijacked accounts, or 2SV turned off this week? | `google-workspace-cli login-alerts --all-tenants --since 7d` |

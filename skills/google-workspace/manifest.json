@@ -75,7 +75,7 @@
     "printing_press_client_profile": {
       "type": "string",
       "title": "Client profile",
-      "description": "Binds this MCP server to one saved client profile. This is not a Google Workspace tenant; pick tenants with the default client tenant setting above. Leave blank.",
+      "description": "Has no effect for this connector (it registers no client-profile source). This is not a Google Workspace tenant; pick tenants with the default client tenant setting above. Leave blank.",
       "required": false
     }
   },
