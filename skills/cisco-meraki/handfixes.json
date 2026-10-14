@@ -132,8 +132,8 @@
   },
   {
    "id": "meraki-mcp-execute-link-next",
-   "summary": "The MCP cisco-meraki_execute tool marks a GET result has_more + next_starting_after (with a pagination_note) when the response's Link header names another page, instead of returning page one with a count that looks complete",
-   "why": "Every non-fleet operation reaches MCP agents through cisco-meraki_execute, which sends one GET and dropped the Link header, so an agent asking for network clients (default perPage 10 on many endpoints) silently got page one - the failure meraki-link-pagination fixed for sync, --all and fleet but not this twin path. Found by the fresh-context adversarial review (2026-10-13). The result is already capped at 50 items per MCP call, so the fix reports the cursor rather than walking every page. Helpers live in the hand-authored internal/cli/meraki_link_pagination.go (WithMerakiLinkNext, AnnotateMerakiNextPage); the three call-site lines in generated code_orch.go are re-applied by the factory's tools/apply_handfixes.py. TestCodeOrchExecuteReportsMerakiNextPage fails with the annotation removed (proven 2026-10-13).",
+   "summary": "The MCP cisco-meraki_execute tool marks a GET result has_more when the response's Link header names another page: with next_starting_after when the whole upstream page fit in the (50-item) MCP result, and, when the result was truncated to fit, a note to re-request with a smaller perPage instead of a cursor that would skip the cut items",
+   "why": "Every non-fleet operation reaches MCP agents through cisco-meraki_execute, which sends one GET and dropped the Link header, so an agent asking for network clients (default perPage 10 on many endpoints) silently got page one - the failure meraki-link-pagination fixed for sync, --all and fleet but not this twin path. Found by the fresh-context adversarial review (2026-10-13). The result is already capped at 50 items per MCP call, so the fix reports the cursor rather than walking every page. Helpers live in the hand-authored internal/cli/meraki_link_pagination.go (WithMerakiLinkNext, AnnotateMerakiNextPage); the three call-site lines in generated code_orch.go are re-applied by the factory's tools/apply_handfixes.py. TestCodeOrchExecuteReportsMerakiNextPage fails with the annotation removed (proven 2026-10-13). Round-2 adversarial review (2026-10-13) caught that the first version offered the Link cursor even when bound truncated a large page to 50 items, so following it skipped items 51..perPage; TestCodeOrchExecuteTruncatedPageWithholdsCursor fails on that version (proven) and a 1,200-item walk through the real MCP binary following the tool's own instructions returned all 1,200 with no gaps.",
    "status": "active",
    "spec_encode_followup": "Not spec-encodable; press retro: execute should surface response-header pagination.",
    "asserts": [
@@ -157,6 +157,18 @@
     {
      "file": "cli/internal/mcp/meraki_execute_link_test.go",
      "contains": "func TestCodeOrchExecuteReportsMerakiNextPage(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/meraki_execute_link_test.go",
+     "contains": "func TestCodeOrchExecuteTruncatedPageWithholdsCursor(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/meraki_link_pagination.go",
+     "contains": "if truncated, _ := obj[\"truncated\"].(bool); truncated {",
      "min_count": 1,
      "code_only": true
     }

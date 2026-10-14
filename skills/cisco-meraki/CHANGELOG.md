@@ -24,8 +24,10 @@ All notable changes to this skill are documented here. Format follows
   and `fleet changes --data-source local`.
 - MCP recipe tool `locate_a_mac_from_a_soc_alert` refuses flag-like values, so a tool
   call cannot smuggle a root flag such as `--deliver` into the CLI.
-- MCP `cisco-meraki_execute` reports `has_more` and the `startingAfter` cursor when
-  Meraki has another page, instead of returning page one as if it were the whole list.
+- MCP `cisco-meraki_execute` reports `has_more` when Meraki has another page, with the
+  `startingAfter` cursor when the whole page fit in the result (and, when it did not,
+  tells the agent to shrink `perPage` rather than hand it a cursor that skips items),
+  instead of returning page one as if it were the whole list.
 - `doctor` reports a 404 from its health check as a warning that names
   `CISCO_MERAKI_BASE_URL`, instead of calling a wrong base URL "reachable". The default
   base URL is the literal `https://api.meraki.com/api/v1`.

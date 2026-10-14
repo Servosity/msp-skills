@@ -428,8 +428,11 @@ func WithMerakiLinkNext(ctx context.Context) (context.Context, func() string) {
 }
 
 // AnnotateMerakiNextPage marks an MCP execute result as one page of several
-// when the Link header named a next page, so an agent sees has_more and the
-// cursor to resume with instead of a count that silently stops at page one.
+// when the Link header named a next page, so an agent sees has_more instead of
+// a count that silently stops at page one. The Link cursor points past the END
+// of the upstream page, so it is only offered when the whole page fit in the
+// MCP result; when the result was cut to fit (truncated), following it would
+// skip the items that were cut, so the agent is told to shrink perPage instead.
 func AnnotateMerakiNextPage(result, next string) string {
 	if next == "" {
 		return result
@@ -439,8 +442,12 @@ func AnnotateMerakiNextPage(result, next string) string {
 		obj = map[string]any{"result": result}
 	}
 	obj["has_more"] = true
-	obj["next_starting_after"] = next
-	obj["pagination_note"] = "This is one page; Meraki has more (Link rel=next). Call again with params.startingAfter set to next_starting_after to read the next page, and raise params.perPage within the endpoint's range to read more per call."
+	if truncated, _ := obj["truncated"].(bool); truncated {
+		obj["pagination_note"] = fmt.Sprintf("This upstream page held %v items but only %v fit in one MCP result, so its Link cursor would skip the rest. Re-request this page with params.perPage set to %v or fewer, then follow next_starting_after from that response.", obj["count"], obj["returned_count"], obj["returned_count"])
+	} else {
+		obj["next_starting_after"] = next
+		obj["pagination_note"] = "This is one page; Meraki has more (Link rel=next). Call again with params.startingAfter set to next_starting_after to read the next page. Keep params.perPage at 50 or below so every page fits in one MCP result."
+	}
 	b, err := json.Marshal(obj)
 	if err != nil {
 		return result

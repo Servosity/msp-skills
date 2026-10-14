@@ -202,6 +202,11 @@ Do NOT use this command to list the individual offline devices; use 'fleet down'
 			sortHealthRows(rows)
 			if unreachable > 0 {
 				fmt.Fprintf(cmd.ErrOrStderr(), "warning: %d of %d organizations unreachable; their counts are null, not zero\n", unreachable, len(rows))
+				for _, r := range rows {
+					if !r.Reachable {
+						fmt.Fprintf(cmd.ErrOrStderr(), "warning: %s (%s): %s\n", r.OrganizationName, r.OrganizationID, strings.Join(r.Errors, "; "))
+					}
+				}
 			}
 			if limit > 0 && len(rows) > limit {
 				rows = rows[:limit]

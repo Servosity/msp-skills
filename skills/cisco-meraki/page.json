@@ -104,17 +104,17 @@
   "safety_tiers": [
     {
       "tier": "Read",
-      "examples": "fleet health, fleet down, fleet renewals, fleet changes, fleet find, fleet fanout (GET-only), fleet admins, fleet flaps, fleet blame, fleet push without --apply (preview; see the credential tier), sync, search, and every GET command except the secret-bearing ones below",
+      "examples": "fleet health, fleet down, fleet renewals, fleet changes, fleet find, fleet fanout (GET-only), fleet admins, fleet flaps, fleet blame, fleet push without --apply (preview; see the credential tier), sync, search, and every GET command except the secret-bearing ones below; search, export, analytics and MCP sql read a mirror that holds license keys, so allow them only if that is acceptable",
       "policy": "Allow"
     },
     {
       "tier": "Credential (incl. secret-returning reads)",
-      "examples": "auth set-token, auth logout, administered generate-identities-me-api-keys, administered revoke-identities-me-api-keys, every organizations admins, organizations saml and organizations saml-roles write, and the reads whose output carries a live secret (the CLI redacts nothing): networks wireless get-network-ssid / get-network-ssids (Wi-Fi psk), networks wireless get-network-ssid-identity-psk / get-network-ssid-identity-psks (passphrase), networks camera get-network-wireless-profile / get-network-wireless-profiles, networks snmp get-network, organizations snmp get-organization (community strings), organizations appliance get-organization-vpn-third-party-vpnpeers (IPsec secret), networks appliance get-network-vpn-bgp, networks switch get-network-routing-ospf, devices cellular get-device-sims, organizations sm get-organization-vpp-accounts / get-organization-vpp-account (Apple VPP service token), license-key reads (organizations licenses get-organization, organizations licensing get-organization-coterm-licenses, networks sm get-network-device-softwares), plus fleet fanout pointed at an org-scoped one of those paths and a fleet push preview whose --body names a secret key",
+      "examples": "auth set-token, auth logout, administered generate-identities-me-api-keys, administered revoke-identities-me-api-keys, devices appliance create-device-vmx-authentication-token, networks sm create-network-bypass-activation-lock-attempt, every organizations admins, organizations saml and organizations saml-roles write, and the reads whose output carries a live secret (the CLI redacts nothing): networks wireless get-network-ssid / get-network-ssids (Wi-Fi psk), networks wireless get-network-ssid-identity-psk / get-network-ssid-identity-psks (passphrase), networks camera get-network-wireless-profile / get-network-wireless-profiles, networks snmp get-network, organizations snmp get-organization (community strings), organizations appliance get-organization-vpn-third-party-vpnpeers (IPsec secret), networks appliance get-network-vpn-bgp, networks switch get-network-routing-ospf, devices cellular get-device-sims, organizations sm get-organization-vpp-accounts / get-organization-vpp-account (Apple VPP service token), license-key reads (organizations licenses get-organization / get-organization-organizations, organizations licensing get-organization-coterm-licenses, networks sm get-network-device-softwares / get-network-user-softwares), plus fleet fanout pointed at an org-scoped one of those paths and a fleet push preview whose --body names a secret key",
       "policy": "Human-in-the-loop only - never in a blanket allow-all-reads policy, and do not hand the raw output to a model"
     },
     {
       "tier": "Write (routine)",
-      "examples": "networks update, networks wireless update-network-ssid, networks appliance update-network-vlan, devices update, networks snmp update-network, networks webhooks create-network-http-server, import",
+      "examples": "networks update, networks wireless update-network-ssid, networks appliance update-network-vlan, devices update, networks snmp update-network, networks webhooks create-network-http-server, import (any POST ending in an action such as /bind, /move, /remove, /renewSeats or /assignSeats is not routine)",
       "policy": "Preview with --dry-run, then a reviewed write"
     },
     {
@@ -124,7 +124,7 @@
     },
     {
       "tier": "Destructive",
-      "examples": "every delete command (organizations delete, networks delete, networks appliance delete-network-vlan, ...), networks devices remove-network, organizations inventory release-from-organization, networks unbind network, networks split network, organizations networks combine-organization, networks sm wipe-network-devices, networks sm unenroll-network-device, organizations licenses move-organization, organizations licenses move-organization-seats, organizations licensing move-organization-coterm-licenses, networks switch remove-network-stack, every .../bulkDelete POST",
+      "examples": "every delete command (organizations delete, networks delete, networks appliance delete-network-vlan, ...), networks devices remove-network, organizations inventory release-from-organization, networks unbind network, networks split network, organizations networks combine-organization, networks sm wipe-network-devices, networks sm unenroll-network-device, organizations licenses move-organization, organizations licenses move-organization-seats, organizations licensing move-organization-coterm-licenses, networks switch remove-network-stack, every .../bulkDelete POST, networks bind network, networks pii create-network-request",
       "policy": "Human-in-the-loop only, explicit confirmation"
     }
   ]

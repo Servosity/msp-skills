@@ -60,11 +60,11 @@ This CLI ships an [MCPB](https://github.com/modelcontextprotocol/mcpb) bundle  -
 
 To install:
 
-1. Download the `.mcpb` for your platform from the [latest release](https://github.com/Servosity/msp-skills/releases?q=cisco-meraki).
+1. Download the `.mcpb` from the [latest release](https://github.com/Servosity/msp-skills/releases?q=cisco-meraki).
 2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
 3. Fill in `MERAKI_DASHBOARD_API_KEY` when Claude Desktop prompts you.
 
-Requires Claude Desktop 1.0.0 or later. The bundle carries macOS (Apple Silicon and Intel), Linux x64 and Windows x64 binaries; on Linux or Windows on ARM, use the manual config below.
+Requires Claude Desktop 1.0.0 or later. The one bundle carries macOS (Apple Silicon and Intel), Linux x64 and Windows x64 binaries (Windows on ARM runs the x64 build under emulation); on Linux ARM, use the manual config below.
 
 <details>
 <summary>Manual JSON config (advanced)</summary>
