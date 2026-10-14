@@ -361,3 +361,43 @@ func TestFleetPushResourceScrubbedButTargetedWhole(t *testing.T) {
 		t.Fatalf("--apply did not target the real path: %s", batch.String())
 	}
 }
+
+// TestFleetPushWebhookErrorsWithheld: an API error body under a webhook path
+// can echo the HTTP server ID JSON-escaped ("\/"), past any pattern scrub, so
+// only the HTTP status is printed (Codex round 20).
+func TestFleetPushWebhookErrorsWithheld(t *testing.T) {
+	testenv.Isolate(t)
+	const id = "aHR0cHM6Ly9mLmF6dXJld2Vic2l0ZXMubmV0L2FwaS9oeHg/Y29kZT1YWFhYWFhYWA=="
+	escaped := strings.ReplaceAll("/api/v1/networks/N_1/webhooks/httpServers/"+id, "/", `\/`)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/organizations":
+			_, _ = w.Write([]byte(`[{"id":"1","name":"Acme","api":{"enabled":true}}]`))
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/organizations/1/networks":
+			_, _ = w.Write([]byte(`[{"id":"N_1","name":"HQ","organizationId":"1","productTypes":["appliance"],"tags":[]}]`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"errors":["No such server: ` + escaped + `"]}`))
+		}
+	}))
+	defer srv.Close()
+	t.Setenv("CISCO_MERAKI_BASE_URL", srv.URL+"/api/v1")
+	t.Setenv("MERAKI_DASHBOARD_API_KEY", "test-key")
+	cmd := RootCmd()
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	cmd.SetArgs([]string{"fleet", "push", "--path", "/networks/{networkId}/webhooks/httpServers/" + id, "--body", `{"name":"New"}`, "--all-networks", "--json"})
+	err := cmd.Execute()
+	all := out.String()
+	if err != nil {
+		all += err.Error()
+	}
+	if strings.Contains(all, "Y29kZT1YWFhYWFhYWA") || !strings.Contains(all, "HTTP 404 (details withheld under a webhook path)") {
+		t.Fatalf("webhook error body printed or status missing:\n%s", all)
+	}
+	if got := pushStatusText("/networks/{networkId}/webhooks/httpServers/"+id, "failed: No such server "+escaped); got != "failed (details withheld under a webhook path)" {
+		t.Fatalf("webhook batch status kept its details: %s", got)
+	}
+}

@@ -172,8 +172,7 @@ func planOrgPush(ctx context.Context, c *client.Client, o fleetOrg, path string,
 		row := pushRow{OrganizationID: o.ID, OrganizationName: o.Name, NetworkID: n.ID, NetworkName: n.Name, Resource: store.ScrubMerakiURLSecrets(resource), path: resource, Desired: desired, body: body, ChangedKeys: []string{}}
 		data, err := c.GetNoCache(ctx, resource, nil)
 		if err != nil {
-			// A webhook HTTP server ID in the path is the receiver URL.
-			row.Action, row.Error = "error", store.ScrubMerakiURLSecrets("reading current settings: "+err.Error())
+			row.Action, row.Error = "error", "reading current settings: "+pushErrText(path, err)
 			rows = append(rows, row)
 			continue
 		}
@@ -196,6 +195,32 @@ func planOrgPush(ctx context.Context, c *client.Client, o fleetOrg, path string,
 	return rows, nil
 }
 
+// pushErrText renders a push error. Under a webhook path the API's error body
+// can echo the HTTP server ID (the receiver URL) in any encoding (JSON "\/",
+// percent), so only the HTTP status survives; elsewhere the text is scrubbed.
+func pushErrText(path string, err error) string {
+	if !store.MerakiWebhookPath(path) {
+		return store.ScrubMerakiURLSecrets(err.Error())
+	}
+	var apiErr *client.APIError
+	if errors.As(err, &apiErr) {
+		return fmt.Sprintf("HTTP %d (details withheld under a webhook path)", apiErr.StatusCode)
+	}
+	return "request failed (details withheld under a webhook path)"
+}
+
+// pushStatusText keeps only the state word of a batch status under a webhook
+// path ("failed: <errors>" becomes "failed"), for the same reason.
+func pushStatusText(path, status string) string {
+	if !store.MerakiWebhookPath(path) {
+		return store.ScrubMerakiURLSecrets(status)
+	}
+	if i := strings.IndexAny(status, ":("); i > 0 {
+		return strings.TrimSpace(status[:i]) + " (details withheld under a webhook path)"
+	}
+	return status
+}
+
 // applyOrgPush sends one asynchronous action batch per actionBatchLimit
 // updates and polls each until it completes, fails, or wait runs out.
 func applyOrgPush(ctx context.Context, c *client.Client, orgID string, rows []*pushRow, wait time.Duration) {
@@ -210,7 +235,7 @@ func applyOrgPush(ctx context.Context, c *client.Client, orgID string, rows []*p
 		data, _, err := c.Post(ctx, batchPath, map[string]any{"confirmed": true, "synchronous": false, "actions": actions})
 		if err != nil {
 			for _, r := range chunk {
-				r.BatchStatus = store.ScrubMerakiURLSecrets("rejected: " + err.Error())
+				r.BatchStatus = "rejected: " + pushErrText(r.path, err)
 			}
 			continue
 		}
@@ -220,7 +245,7 @@ func applyOrgPush(ctx context.Context, c *client.Client, orgID string, rows []*p
 		_ = json.Unmarshal(data, &batch)
 		status := pollActionBatch(ctx, c, batchPath+"/"+url.PathEscape(batch.ID), wait)
 		for _, r := range chunk {
-			r.BatchID, r.BatchStatus = batch.ID, store.ScrubMerakiURLSecrets(status)
+			r.BatchID, r.BatchStatus = batch.ID, pushStatusText(r.path, status)
 		}
 	}
 }

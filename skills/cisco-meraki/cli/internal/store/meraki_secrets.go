@@ -527,13 +527,19 @@ func redactMerakiString(s string) string {
 	return scrubMerakiHTTPServerIDs(RedactMerakiJSONString(s))
 }
 
+// MerakiWebhookPath reports a path under /webhooks/ in any encoding
+// ("web%68ooks"); a malformed escape fails closed.
+func MerakiWebhookPath(path string) bool {
+	_, err := url.PathUnescape(path)
+	return err != nil || strings.Contains(merakiNormalized(path), "webhook")
+}
+
 // RedactMerakiObject redacts credentials in m in place (fleet push prints the
 // current settings it diffs against). Under a webhook path every string is
 // redacted: an HTTP server's plain "url" is its credential.
 func RedactMerakiObject(m map[string]any, path string) {
 	// Decoded first: "web%68ooks" reaches the same endpoint.
-	// A malformed escape fails closed.
-	if _, err := url.PathUnescape(path); err != nil || strings.Contains(merakiNormalized(path), "webhook") {
+	if MerakiWebhookPath(path) {
 		redactAllStrings(m)
 		return
 	}

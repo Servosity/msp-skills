@@ -1352,7 +1352,7 @@
   },
   {
    "id": "meraki-fleet-push-desired-redacted",
-   "summary": "fleet push prints a redacted copy of --body as 'desired' (RedactMerakiObject on a deep copy, so a PSK, RADIUS secret or webhook URL in the body never reaches the Read-tier preview), while --apply sends the unredacted body (pushRow.body, json:\"-\"). Likewise the printed resource path, per-row errors and batch statuses pass through ScrubMerakiURLSecrets (a webhook HTTP server ID in --path is the receiver URL), while the action batch targets the real path (pushRow.path).",
+   "summary": "fleet push prints a redacted copy of --body as 'desired' (RedactMerakiObject on a deep copy, so a PSK, RADIUS secret or webhook URL in the body never reaches the Read-tier preview), while --apply sends the unredacted body (pushRow.body, json:\"-\"). Likewise the printed resource path, per-row errors and batch statuses pass through ScrubMerakiURLSecrets (a webhook HTTP server ID in --path is the receiver URL), while the action batch targets the real path (pushRow.path). Under a webhook path (store.MerakiWebhookPath, any encoding) row errors keep only the HTTP status and batch statuses only their state word: an API error body can echo the HTTP server ID JSON-escaped past any pattern scrub (Codex round 20).",
    "why": "Codex round 18: a --body file holding a PSK printed it under desired in the preview. Pinned both directions by TestFleetPushDesiredRedactedButAppliedWhole: the output never carries the PSK and the action batch does. Codex round 19: the preview printed the HTTP server ID in resource; pinned by TestFleetPushResourceScrubbedButTargetedWhole.",
    "status": "active",
    "asserts": [
@@ -1383,6 +1383,24 @@
     {
      "file": "cli/internal/cli/fleet_push_test.go",
      "contains": "func TestFleetPushResourceScrubbedButTargetedWhole(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_push.go",
+     "contains": "func pushErrText(path string, err error) string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_push.go",
+     "contains": "func pushStatusText(path, status string) string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_push_test.go",
+     "contains": "func TestFleetPushWebhookErrorsWithheld(",
      "min_count": 1,
      "code_only": true
     }
