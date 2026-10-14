@@ -473,9 +473,9 @@ func ScrubMerakiURLSecrets(s string) string {
 	s = scrubMerakiHTTPServerIDs(s)
 	loc := merakiURLParamPattern.FindStringIndex(s)
 	if loc == nil {
-		return s
+		return merakiWithholdIfLeft(s, merakiURLLeftPattern)
 	}
-	return s[:loc[1]] + merakiRedactedHash(s[loc[1]:])
+	return merakiWithholdIfLeft(s[:loc[1]]+merakiRedactedHash(s[loc[1]:]), merakiURLLeftPattern)
 }
 
 // merakiBase64TokenPattern is a run long enough to be the base64 of a URL.
@@ -490,7 +490,7 @@ func scrubMerakiHTTPServerIDs(s string) string {
 		parts := merakiHTTPServerIDPattern.FindStringSubmatch(m)
 		return parts[1] + merakiRedactedHash(parts[2])
 	})
-	return merakiBase64TokenPattern.ReplaceAllStringFunc(s, func(m string) string {
+	s = merakiBase64TokenPattern.ReplaceAllStringFunc(s, func(m string) string {
 		for _, enc := range []*base64.Encoding{base64.StdEncoding, base64.URLEncoding, base64.RawStdEncoding, base64.RawURLEncoding} {
 			if b, err := enc.DecodeString(m); err == nil {
 				if l := strings.ToLower(string(b)); strings.HasPrefix(l, "http://") || strings.HasPrefix(l, "https://") {
@@ -500,6 +500,25 @@ func scrubMerakiHTTPServerIDs(s string) string {
 		}
 		return m
 	})
+	return merakiWithholdIfLeft(s, merakiHTTPServerIDLeftPattern)
+}
+
+// merakiHTTPServerIDLeftPattern and merakiURLLeftPattern match, in a
+// normalized string, an HTTP server ID or url= value the raw-text scrub did
+// not reach (nested escapes: "web%2568ooks", "%2575rl=").
+var (
+	merakiHTTPServerIDLeftPattern = regexp.MustCompile(`/webhooks/httpservers/[^\[/?#&"\s]`)
+	merakiURLLeftPattern          = regexp.MustCompile(`(^|[?&;"\s])url=[^\[]`)
+)
+
+// merakiWithholdIfLeft withholds all of s when its escapes hide a receiver
+// the scrub could not locate: there is no raw span to redact, so it fails
+// closed.
+func merakiWithholdIfLeft(s string, left *regexp.Regexp) string {
+	if !strings.ContainsAny(s, `%\`) || !left.MatchString(merakiNormalized(s)) {
+		return s
+	}
+	return merakiRedactedHash(s)
 }
 
 // merakiRequestLogKeys are the API request log fields that carry the webhook

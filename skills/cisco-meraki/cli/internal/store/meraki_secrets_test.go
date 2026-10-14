@@ -554,3 +554,30 @@ func TestBareHTTPServerIDWithheld(t *testing.T) {
 		t.Fatalf("base64 rule redacted ordinary IDs: %s", got)
 	}
 }
+
+// TestCodexRound21NestedEscapes: a double-encoded "web%2568ooks" path with a
+// fully percent-encoded HTTP server ID, and a double-encoded url= name, are
+// withheld whole when the raw-text scrub cannot locate them (Codex round 21).
+func TestCodexRound21NestedEscapes(t *testing.T) {
+	id := base64.StdEncoding.EncodeToString([]byte("https://hooks.slack.com/services/T0/B0/" + merakiSentinel))
+	var enc strings.Builder
+	for _, c := range []byte(id) {
+		enc.WriteString("%" + strconv.FormatInt(int64(c), 16))
+	}
+	for _, in := range []string{
+		"PUT /api/v1/networks/N_1/web%2568ooks/httpServers/" + enc.String(),
+		"perPage=5&%2575rl=https://hooks.slack.com/services/" + merakiSentinel,
+	} {
+		got := ScrubMerakiURLSecrets(in)
+		if strings.Contains(merakiNormalized(got), strings.ToLower(id)) || strings.Contains(merakiNormalized(got), strings.ToLower(merakiSentinel)) {
+			t.Fatalf("nested escapes kept the receiver: %q -> %q", in, got)
+		}
+	}
+	row := map[string]any{"label": "PUT /api/v1/networks/N_1/web%2568ooks/httpServers/" + enc.String(), "newValue": ""}
+	if got := string(RedactMerakiSecrets(mustJSON(t, row))); strings.Contains(merakiNormalized(got), strings.ToLower(id)) {
+		t.Fatalf("mirror kept a nested-escape HTTP server ID: %s", got)
+	}
+	if got := ScrubMerakiURLSecrets("perPage=5&startingAfter=100%25"); got != "perPage=5&startingAfter=100%25" {
+		t.Fatalf("backstop withheld a string with no receiver: %s", got)
+	}
+}
