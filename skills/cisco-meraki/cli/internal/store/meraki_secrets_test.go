@@ -333,6 +333,10 @@ func TestCodexRound14ReceiverScrub(t *testing.T) {
 		"perPage=10&url=https://f.azurewebsites.net/api/test#" + merakiSentinel:                                     "perPage=10&url=",
 		"url=https%3A%2F%2Ff.azurewebsites.net%2Fapi%3Fcode%3D" + merakiSentinel + "&perPage=10&startingAfter=ABCD": "&perPage=10&startingAfter=ABCD",
 		`{"queryString":"url=https://x/` + merakiSentinel + `"}`:                                                    `"}`,
+		// Round 22: "?" escaped, "&" and "=" raw (Go url.PathEscape); the receiver's own &code= follows.
+		"url=https:%2F%2Ff.azurewebsites.net%2Fapi%2Fhook%3Fa=1&code=" + merakiSentinel + "&perPage=5":                "&perPage=5",
+		"url=https://x/h?sig=" + merakiSentinel + "&perPage=1&code=" + merakiSentinel + "&perPage=10&startingAfter=A": "&perPage=10&startingAfter=A",
+		"url=[redacted:00000000000000000000000000000000]&code=" + merakiSentinel:                                      "",
 	} {
 		got := ScrubMerakiURLSecrets(in)
 		if strings.Contains(got, merakiSentinel) || !strings.Contains(got, "[redacted:") || !strings.Contains(got, want) {
@@ -340,6 +344,18 @@ func TestCodexRound14ReceiverScrub(t *testing.T) {
 		}
 		if again := ScrubMerakiURLSecrets(got); again != got {
 			t.Fatalf("url= scrub is not idempotent: %q -> %q", got, again)
+		}
+	}
+}
+
+// TestPushPreviewDecodesWebhookPath: a percent-encoded "web%68ooks" segment
+// reaches the HTTP server endpoint, so its preview is redacted too (round 22).
+func TestPushPreviewDecodesWebhookPath(t *testing.T) {
+	for _, path := range []string{"/networks/{networkId}/web%68ooks/httpServers/X", "/networks/{networkId}/%zz"} {
+		cur := map[string]any{"url": "https://hooks.slack.com/services/" + merakiSentinel}
+		RedactMerakiObject(cur, path)
+		if cur["url"] != RedactedSecret {
+			t.Fatalf("preview under %s kept the receiver: %v", path, cur)
 		}
 	}
 }
