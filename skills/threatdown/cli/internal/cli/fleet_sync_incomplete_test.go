@@ -99,7 +99,7 @@ func TestRound12SyncAndLoginEdges(t *testing.T) {
 	}
 	db.Close()
 
-	for _, res := range []string{tdResEndpoints, tdResDetections, tdResJobs} {
+	for _, res := range []string{tdResEndpoints, tdResDetections, tdResJobs, "jobs"} {
 		cmd := RootCmd()
 		cmd.SetArgs([]string{"sync", "--resources", res, "--full", "--db", dbPath})
 		var out bytes.Buffer

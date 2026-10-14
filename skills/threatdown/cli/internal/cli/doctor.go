@@ -757,7 +757,7 @@ func collectCacheReport(ctx context.Context, staleAfterSpec string) map[string]a
 	if err != nil {
 		if os.IsNotExist(err) {
 			report["status"] = "unknown"
-			report["hint"] = "Database not created yet; run 'threatdown-cli sync' to hydrate."
+			report["hint"] = "Database not created yet; run 'threatdown-cli fleet sync' (endpoints, detections, jobs) or 'threatdown-cli sync' (other resources) to hydrate."
 			return report
 		}
 		report["status"] = "error"
@@ -792,7 +792,7 @@ func collectCacheReport(ctx context.Context, staleAfterSpec string) map[string]a
 		// sync_state may not exist on a fresh DB that has migrated but not
 		// yet had any sync runs — treat as unknown rather than error.
 		report["status"] = "unknown"
-		report["hint"] = "No sync state recorded; run 'threatdown-cli sync' to populate."
+		report["hint"] = "No sync state recorded; run 'threatdown-cli fleet sync' (endpoints, detections, jobs) or 'threatdown-cli sync' (other resources) to populate."
 		return report
 	}
 	defer rows.Close()
@@ -835,13 +835,13 @@ func collectCacheReport(ctx context.Context, staleAfterSpec string) map[string]a
 		// Only sync-tracked resources are counted here. A store seeded by
 		// other paths (built-in reference data, local writes) can hold rows
 		// while sync_state stays empty, so say what was measured.
-		report["hint"] = "No sync recorded; run 'threatdown-cli sync' to hydrate API-backed resources. Rows written by other paths are not tracked in sync_state."
+		report["hint"] = "No sync recorded; run 'threatdown-cli fleet sync' (endpoints, detections, jobs) or 'threatdown-cli sync' (other resources) to hydrate API-backed resources. Rows written by other paths are not tracked in sync_state."
 	case fresh:
 		report["status"] = "fresh"
 	default:
 		report["status"] = "stale"
 		report["oldest_age"] = oldest.Round(time.Minute).String()
-		report["hint"] = "Some resources are older than stale_after; run 'threatdown-cli sync' to refresh."
+		report["hint"] = "Some resources are older than stale_after; run 'threatdown-cli fleet sync' (endpoints, detections, jobs) or 'threatdown-cli sync' (other resources) to refresh."
 	}
 	return report
 }

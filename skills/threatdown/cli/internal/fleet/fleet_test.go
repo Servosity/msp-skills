@@ -391,4 +391,11 @@ func TestUndatedDetectionBlocksRestoreSuggestion(t *testing.T) {
 			t.Fatalf("an undated detection must block the restore suggestion: %+v", r)
 		}
 	}
+	// Review round 13 + Codex round 10: an undated UNRESOLVED detection still
+	// queues the machine instead of vanishing into an all-clear.
+	clean := []Endpoint{{ID: "pc", AccountID: "a1", HostName: "pc2", Online: true}}
+	open := []Detection{{AccountID: "a1", MachineID: "pc", ThreatName: "Trojan", Status: "found"}}
+	if rows := Queue(clean, open, sites, since, "td"); len(rows) != 1 || rows[0].Kind != "active-threat" || rows[0].LastThreat != "Trojan" {
+		t.Fatalf("an undated unresolved detection must queue the machine: %+v", rows)
+	}
 }

@@ -574,7 +574,7 @@
   {
    "id": "respond-pending-truncated-warning",
    "summary": "respond pending treats a job search the server did not end with an empty next_cursor (page cap reached, or no cursor confirmation) as incomplete: human output warns and drops the all-clear, and the all-clear itself names what it checked (waiting, timed out, expired, failed; cancelled jobs are not listed). fleet stale applies the same unconfirmed-end rule to its stale and --twins searches, and the respond pending all-clear names any --command / --site filter. parseJobs keeps a job row whose online/data field has an unexpected type and counts any row it still cannot read; respond pending (live and local) and customer report then carry a note instead of an all-clear. fleet sync stores every job row parseJobs can read, and a full sync that could not read or confirm every record marks that resource's last attempt incomplete; fleetHint, respond pending (local) and customer report then name it instead of trusting the older freshness stamp. The same incomplete-sync note reaches fleet stale and fleet health (local), threats spread and threats queue, and customer report for endpoints and detections, and threats queue never suggests a forgotten-isolation restore while the detection or endpoint copy is incomplete.",
-   "why": "Found by the Codex branch review (2026-10-14): view.Truncated reached the JSON output but the table path ignored it, so a scan that hit the page cap could print an all-clear while older failed jobs went unchecked. respond_pending.go is a hand-written novel file; this entry pins the guard against a refactor. Codex round 2 added: a missing next_cursor ended the scan without marking it incomplete, and the old all-clear ('Every job ... completed') counted cancelled jobs as completed. Round 6 found the fleet stale twin (it printed 'No endpoints unseen' after an unconfirmed end) and the filtered all-clear reading as fleet-wide. Codex review round 6 (2026-10-14), P2: a failed job with \"online\":\"true\" failed the whole row's decode and vanished, so respond pending printed an all-clear with truncated:false. TestParseJobsNeverDropsSilently. Codex review round 7 (2026-10-14), P2: fleet sync's validJobs still strict-decoded, so the same odd row was dropped at sync time and the earlier freshness stamp let local respond pending print an all-clear. TestFleetSyncNeverLeavesASilentGap. Adversarial review round 11 + Codex round 8 (2026-10-14), P2: the round-7 note covered jobs only; an incomplete detections or endpoints sync still printed an all-clear, and threats queue could suggest a restore over a missed detection. Review round 12 + Codex round 9 (2026-10-14), P2: a first-ever incomplete sync left no marker (UPDATE with no row; now an upsert), the --max-pages note was unreachable behind the !certain case, and an undated detection was dropped by fleet.Queue so it could not block a forgotten-isolation restore. TestRound12SyncAndLoginEdges, TestUndatedDetectionBlocksRestoreSuggestion.",
+   "why": "Found by the Codex branch review (2026-10-14): view.Truncated reached the JSON output but the table path ignored it, so a scan that hit the page cap could print an all-clear while older failed jobs went unchecked. respond_pending.go is a hand-written novel file; this entry pins the guard against a refactor. Codex round 2 added: a missing next_cursor ended the scan without marking it incomplete, and the old all-clear ('Every job ... completed') counted cancelled jobs as completed. Round 6 found the fleet stale twin (it printed 'No endpoints unseen' after an unconfirmed end) and the filtered all-clear reading as fleet-wide. Codex review round 6 (2026-10-14), P2: a failed job with \"online\":\"true\" failed the whole row's decode and vanished, so respond pending printed an all-clear with truncated:false. TestParseJobsNeverDropsSilently. Codex review round 7 (2026-10-14), P2: fleet sync's validJobs still strict-decoded, so the same odd row was dropped at sync time and the earlier freshness stamp let local respond pending print an all-clear. TestFleetSyncNeverLeavesASilentGap. Adversarial review round 11 + Codex round 8 (2026-10-14), P2: the round-7 note covered jobs only; an incomplete detections or endpoints sync still printed an all-clear, and threats queue could suggest a restore over a missed detection. Review round 12 + Codex round 9 (2026-10-14), P2: a first-ever incomplete sync left no marker (UPDATE with no row; now an upsert), the --max-pages note was unreachable behind the !certain case, and an undated detection was dropped by fleet.Queue so it could not block a forgotten-isolation restore. TestRound12SyncAndLoginEdges, TestUndatedDetectionBlocksRestoreSuggestion. Review round 13 + Codex round 10: an undated UNRESOLVED detection was counted but not marked unresolved, so threats queue printed 'Nothing to triage' over it.",
    "status": "active",
    "asserts": [
     {
@@ -686,6 +686,11 @@
      "file": "cli/internal/fleet/fleet.go",
      "contains": "if ok && t.Before(since) {",
      "code_only": true
+    },
+    {
+     "file": "cli/internal/fleet/fleet.go",
+     "contains": "and an unresolved one still queues the machine.",
+     "code_only": false
     }
    ]
   },
@@ -925,8 +930,8 @@
   },
   {
    "id": "generic-sync-no-endpoints",
-   "summary": "The generic `sync` command no longer offers an `endpoints` resource. In the spec it was one endpoint's quarantine list (GET /v1/accounts/{account_id}/endpoints/{id}/quarantine) stored under resource_type `endpoints`, the table fleet sync keeps the endpoint mirror in. `sync --resources endpoints` now fails and points at `fleet sync`; the help example names sites,users. `sync --resources` naming endpoints, detections or jobs (endpoint_jobs) is refused as a usage error before --full resets any sync state.",
-   "why": "Adversarial review round 11 (2026-10-14), P2: `sync --resources endpoints --full --path-context account_id=a1 --path-context id=m01` reconciled away every real endpoint, stored a quarantine row in their place and re-stamped the copy complete, so fleet stale --data-source local listed the quarantine row as an endpoint. sync.go is generated (DO NOT EDIT); a reprint re-emits the resource from the spec unless x-resource handling drops it. TestGenericSyncLeavesTheEndpointMirrorAlone. Review round 12 (2026-10-14), P2: the --full reset loop zero-stamped the fleet-owned sync_state rows before the name was rejected, clearing the incomplete marker, and the pointer only showed with --human-friendly.",
+   "summary": "The generic `sync` command no longer offers an `endpoints` resource. In the spec it was one endpoint's quarantine list (GET /v1/accounts/{account_id}/endpoints/{id}/quarantine) stored under resource_type `endpoints`, the table fleet sync keeps the endpoint mirror in. `sync --resources endpoints` now fails and points at `fleet sync`; the help example names sites,users. `sync --resources` naming endpoints, detections or jobs (endpoint_jobs) is refused as a usage error before --full resets any sync state. `jobs` (fleet sync's own name for endpoint_jobs) is refused too. The MCP context tool no longer marks endpoints syncable, and the MCP store next_step and doctor's cache hints name fleet sync for endpoints, detections and jobs.",
+   "why": "Adversarial review round 11 (2026-10-14), P2: `sync --resources endpoints --full --path-context account_id=a1 --path-context id=m01` reconciled away every real endpoint, stored a quarantine row in their place and re-stamped the copy complete, so fleet stale --data-source local listed the quarantine row as an endpoint. sync.go is generated (DO NOT EDIT); a reprint re-emits the resource from the spec unless x-resource handling drops it. TestGenericSyncLeavesTheEndpointMirrorAlone. Review round 12 (2026-10-14), P2: the --full reset loop zero-stamped the fleet-owned sync_state rows before the name was rejected, clearing the incomplete marker, and the pointer only showed with --human-friendly. Review round 13 + Codex round 10 (2026-10-14), P2: MCP next_step sent agents to generic sync, which can never complete a fleet-owned resource; context advertised endpoints as syncable; `sync --resources jobs --full` wrote a junk sync_state row.",
    "status": "active",
    "spec_encode_followup": "Drop the quarantine path from the spec's sync resources (or give it its own resource name) so a reprint does not re-emit it under `endpoints`.",
    "asserts": [
@@ -945,7 +950,22 @@
     },
     {
      "file": "cli/internal/cli/sync.go",
-     "contains": "case tdResEndpoints, tdResDetections, tdResJobs:",
+     "contains": "case tdResEndpoints, tdResDetections, tdResJobs, \"jobs\":",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "Rerun threatdown-cli fleet sync (endpoints, detections, jobs) or threatdown-cli sync (other resources)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "\"suspicious-activity\"},\n\t\t\t\t\"searchable\":  true,",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "Some resources are older than stale_after; run 'threatdown-cli fleet sync' (endpoints, detections, jobs) or 'threatdown-cli sync' (other resources) to refresh.",
      "code_only": true
     }
    ]

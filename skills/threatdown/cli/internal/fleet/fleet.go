@@ -699,8 +699,15 @@ func Queue(endpoints []Endpoint, dets []Detection, sites map[string]Site, since 
 		}
 		if !ok {
 			// An undated detection may fall in the window: count it so the
-			// machine is never offered a forgotten-isolation restore over it.
+			// machine is never offered a forgotten-isolation restore over it,
+			// and an unresolved one still queues the machine.
 			h.count++
+			if !d.Resolved() {
+				h.unresolved++
+				if h.openName == "" {
+					h.openName = d.ThreatName
+				}
+			}
 			continue
 		}
 		h.count++

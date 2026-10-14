@@ -775,11 +775,13 @@ func mcpStoreStatus(db *store.Store) (mcpStoreStatusKind, error) {
 }
 
 func mcpEmptyStoreNextStep() string {
-	return "Run threatdown-cli sync to populate the local SQLite store before using MCP search/sql."
+	return "Run threatdown-cli fleet sync (endpoints, detections, jobs) and threatdown-cli sync (other resources) to populate the local SQLite store before using MCP search/sql."
 }
 
 func mcpPartialStoreNextStep() string {
-	return "The latest sync attempt is incomplete. Resume or rerun threatdown-cli sync before treating local search/sql results as a complete snapshot."
+	// hand-fix (handfixes.json generic-sync-no-endpoints): endpoints,
+	// detections and jobs are fleet sync's; generic sync cannot complete them.
+	return "The latest sync attempt is incomplete. Rerun threatdown-cli fleet sync (endpoints, detections, jobs) or threatdown-cli sync (other resources) before treating local search/sql results as a complete snapshot."
 }
 
 func handleSearch(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
@@ -1286,7 +1288,6 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 				"name":        "endpoints",
 				"description": "An Endpoint is a device which has the ThreatDown Endpoint Agent installed.",
 				"endpoints":   []string{"agent-info", "assets", "delete", "delete-bulk", "diag-log", "export", "export-async", "get", "network", "quarantine", "sa-close", "sa-exclusions", "sa-open", "sa-remediate", "scan", "scan-detections", "scans", "search", "search-groupby", "set-tags", "site-search", "status", "suspicious-activity"},
-				"syncable":    true,
 				"searchable":  true,
 				"writable":    true,
 			},

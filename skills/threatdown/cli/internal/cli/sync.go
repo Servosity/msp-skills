@@ -180,7 +180,7 @@ Resource scoping:
 			// these tables; refuse before --full resets their sync state.
 			for _, r := range resources {
 				switch r {
-				case tdResEndpoints, tdResDetections, tdResJobs:
+				case tdResEndpoints, tdResDetections, tdResJobs, "jobs":
 					return usageErr(fmt.Errorf("unknown sync resource %q: endpoints, detections and jobs come from 'threatdown-cli fleet sync'", r))
 				}
 			}
