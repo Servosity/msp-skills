@@ -154,3 +154,44 @@ func TestPushNotCompletedCountsPastTheNameCap(t *testing.T) {
 		t.Fatalf("got n=%d named=%d last=%q, want 50, 21, ...", n, len(named), named[len(named)-1])
 	}
 }
+
+// TestFleetPushRefusesBlankTargets: a blank --org is dropped by the org
+// filter, so it must not satisfy the targeting guard and push to every org.
+func TestFleetPushRefusesBlankTargets(t *testing.T) {
+	testenv.Isolate(t)
+	var batches int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.URL.Path == "/api/v1/organizations":
+			_, _ = w.Write([]byte(`[{"id":"1","name":"Acme","api":{"enabled":true}}]`))
+		case r.URL.Path == "/api/v1/organizations/1/networks":
+			_, _ = w.Write([]byte(`[{"id":"N_1","name":"HQ","organizationId":"1","productTypes":["appliance"],"tags":[]}]`))
+		case r.URL.Path == "/api/v1/networks/N_1/snmp":
+			_, _ = w.Write([]byte(`{"access":"none"}`))
+		case r.Method == http.MethodPost:
+			batches++
+			_, _ = w.Write([]byte(`{"id":"b1","status":{"completed":true}}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+	t.Setenv("CISCO_MERAKI_BASE_URL", srv.URL+"/api/v1")
+	t.Setenv("MERAKI_DASHBOARD_API_KEY", "test-key")
+	for _, blank := range [][]string{{"--org", " "}, {"--org", " , "}, {"--network-tag", " "}} {
+		cmd := RootCmd()
+		var out bytes.Buffer
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		cmd.SetArgs(append([]string{"fleet", "push", "--path", "/networks/{networkId}/snmp", "--body", `{"access":"community"}`, "--apply", "--json"}, blank...))
+		err := cmd.Execute()
+		var ce *cliError
+		if !errors.As(err, &ce) || ce.code != 2 {
+			t.Fatalf("fleet push %v: err=%v, want a usage error\n%s", blank, err, out.String())
+		}
+	}
+	if batches != 0 {
+		t.Fatalf("a blank target sent %d action batch(es)", batches)
+	}
+}

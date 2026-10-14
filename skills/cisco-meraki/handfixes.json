@@ -638,8 +638,8 @@
   },
   {
    "id": "meraki-fleet-push-exit",
-   "summary": "fleet push --apply exits 6 (partial failure) when a target's change did not land - batch rejected, failed, pending after --wait, current settings unreadable, or an organization's network list unreadable (an org with API access disabled stays a warning) - and the error gives the true count and names the first 20 targets (the MCP tool returns only stderr on a non-zero exit)",
-   "why": "Codex review (2026-10-14): a batch POST answered HTTP 400 and fleet push --apply printed 'rejected' but exited 0 with empty stderr, so automation and the companion MCP tool reported success although nothing changed. fleet_push.go is hand-authored (novel command); TestFleetPushApplyExitsPartialOnRejectedBatch fails on the prior version (proven). Codex round 2 + adversarial round 8 (2026-10-14): a target whose settings GET returned 403 got action 'error', no batch, and exit 0; and the MCP fleet_push tool, which drops stdout on a non-zero exit, gave the agent no per-network status. TestFleetPushApplyExitsPartialOnUnreadableTarget fails on the prior version (proven). An org whose network list fails stays a stderr warning, as in every fleet command. Codex round 3 + adversarial round 9 (2026-10-14): when every org's network-list read failed, --apply exited 0 with [] and no change made; and the error used the length of the capped name list as its count, so 50 failures read as 21. pushNotCompleted now also counts org planning failures and returns the true total. TestFleetPushApplyExitsPartialWhenOrgUnreadable fails on the prior version (proven); TestPushNotCompletedCountsPastTheNameCap pins the count.",
+   "summary": "fleet push --apply exits 6 (partial failure) when a target's change did not land - batch rejected, failed, pending after --wait, current settings unreadable, or an organization's network list unreadable (an org with API access disabled stays a warning) - and the error gives the true count and names the first 20 targets (the MCP tool returns only stderr on a non-zero exit); the targeting guard judges normalized filters, so a blank --org/--network/--network-tag/--product-type is not a target",
+   "why": "Codex review (2026-10-14): a batch POST answered HTTP 400 and fleet push --apply printed 'rejected' but exited 0 with empty stderr, so automation and the companion MCP tool reported success although nothing changed. fleet_push.go is hand-authored (novel command); TestFleetPushApplyExitsPartialOnRejectedBatch fails on the prior version (proven). Codex round 2 + adversarial round 8 (2026-10-14): a target whose settings GET returned 403 got action 'error', no batch, and exit 0; and the MCP fleet_push tool, which drops stdout on a non-zero exit, gave the agent no per-network status. TestFleetPushApplyExitsPartialOnUnreadableTarget fails on the prior version (proven). An org whose network list fails stays a stderr warning, as in every fleet command. Codex round 3 + adversarial round 9 (2026-10-14): when every org's network-list read failed, --apply exited 0 with [] and no change made; and the error used the length of the capped name list as its count, so 50 failures read as 21. pushNotCompleted now also counts org planning failures and returns the true total. TestFleetPushApplyExitsPartialWhenOrgUnreadable fails on the prior version (proven); TestPushNotCompletedCountsPastTheNameCap pins the count. Codex round 8 (2026-10-14): `fleet push --org \" \" --apply` passed the 'untargeted pushes are refused' guard, then fleetOrgFilter dropped the blank value and the push went to every network in every org. Filters are now split/trimmed before the guard (pushFilterValues); TestFleetPushRefusesBlankTargets fails without it (proven).",
    "status": "active",
    "asserts": [
     {
@@ -675,6 +675,18 @@
     {
      "file": "cli/internal/cli/fleet_push_test.go",
      "contains": "func TestPushNotCompletedCountsPastTheNameCap(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_push.go",
+     "contains": "orgFilter, networkFilter = pushFilterValues(orgFilter), pushFilterValues(networkFilter)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_push_test.go",
+     "contains": "func TestFleetPushRefusesBlankTargets(",
      "min_count": 1,
      "code_only": true
     }

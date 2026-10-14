@@ -100,6 +100,9 @@ func TestChangeLogValuesNeverCarrySecrets(t *testing.T) {
 	if got := RedactMerakiChangeValue("Password expiration", "90 days"); got != "90 days" {
 		t.Fatalf("non-secret label blanked: %s", got)
 	}
+	if got := RedactMerakiChangeValue("Group policy: PSK", merakiSentinel); got != RedactedSecret {
+		t.Fatalf("policy-worded PSK label not redacted: %s", got)
+	}
 	if got := RedactMerakiChangeValue("Pre-shared key (PSK)", merakiSentinel); got != RedactedSecret {
 		t.Fatalf("qualified secret label not redacted: %s", got)
 	}

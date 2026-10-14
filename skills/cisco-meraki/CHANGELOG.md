@@ -57,12 +57,13 @@ All notable changes to this skill are documented here. Format follows
   action batch was rejected, failed, or is still pending after `--wait`, or its
   current settings could not be read, or an organization's network list could not be
   read (an org with API access disabled is reported as a warning, not counted). The
-  error gives the true count and names the first 20 targets and why.
+  error gives the true count and names the first 20 targets and why. A blank `--org " "`
+  no longer counts as a target, so it cannot slip past the untargeted-push refusal.
 - The MCP server reports its release version in `serverInfo` (it was fixed at
   `0.0.0-dev`).
 - `fleet changes --data-source local` no longer says the mirror was never synced
   right after a sync.
-- The local mirror never stores credentials. Reads and writes write their response
+- The local mirror redacts credentials. Reads and writes write their response
   through to the mirror, and a routine SSID update used to store the PSK and RADIUS
   secret it echoes, where `search`, `analytics` and the MCP `sql` tool could return
   them. Every credential field (`psk`, `passphrase`, `password`, `secret`,

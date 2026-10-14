@@ -60,6 +60,20 @@ func (f pushTargetFilter) keep(id, name string, tags, productTypes []string) boo
 	return true
 }
 
+// pushFilterValues splits comma-separated filter values and drops blanks,
+// the same normalization fleetOrgFilter applies.
+func pushFilterValues(values []string) []string {
+	out := make([]string, 0, len(values))
+	for _, v := range values {
+		for _, part := range strings.Split(v, ",") {
+			if p := strings.TrimSpace(part); p != "" {
+				out = append(out, p)
+			}
+		}
+	}
+	return out
+}
+
 func containsFold(list []string, v string) bool {
 	for _, s := range list {
 		if strings.EqualFold(strings.TrimSpace(s), v) {
@@ -293,6 +307,11 @@ Do NOT use this command to read data across orgs; use 'fleet fanout' instead.`),
 			if bodySrc == "" {
 				return usageErr(fmt.Errorf("--body is required: a JSON file, '-' for stdin, or inline JSON"))
 			}
+			// Judge targeting on the values the filters will actually use: a
+			// blank --org " " is dropped by the org filter, so it must not count
+			// as a target (handfixes.json: meraki-fleet-push-exit).
+			orgFilter, networkFilter = pushFilterValues(orgFilter), pushFilterValues(networkFilter)
+			tag, productType = strings.TrimSpace(tag), strings.TrimSpace(productType)
 			targeted := len(orgFilter) > 0 || len(networkFilter) > 0 || tag != "" || productType != ""
 			if !targeted && !allNetworks {
 				return usageErr(fmt.Errorf("choose targets with --org, --network, --network-tag or --product-type, or pass --all-networks"))

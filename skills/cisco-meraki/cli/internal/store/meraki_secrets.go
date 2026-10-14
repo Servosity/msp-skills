@@ -163,21 +163,25 @@ func merakiIDCarriesSecret(id string, obj map[string]any) bool {
 
 // merakiSecretLabel reports a change-log label that names a credential
 // ("Pre-shared key (PSK)", "RADIUS secret 1", "SNMP community"). It fails
-// closed: any credential word counts unless the label is about a password
-// policy ("Password expiration", "Minimum password length").
+// closed: any strong credential word counts. A label whose only credential
+// word is "password" is skipped when it is about a password policy
+// ("Password expiration", "Minimum password length").
 func merakiSecretLabel(label string) bool {
 	l := strings.ToLower(label)
+	for _, w := range []string{"psk", "pre-shared", "preshared", "passphrase", "secret", "community", "api key", "authentication key", "shared key"} {
+		if strings.Contains(l, w) {
+			return true
+		}
+	}
+	if !strings.Contains(l, "password") {
+		return false
+	}
 	for _, policy := range []string{"expiration", "expiry", "policy", "length", "complexity", "history", "rotation", "strength", "lockout", "requirement"} {
 		if strings.Contains(l, policy) {
 			return false
 		}
 	}
-	for _, w := range []string{"psk", "pre-shared", "preshared", "password", "passphrase", "secret", "community", "api key", "authentication key", "shared key"} {
-		if strings.Contains(l, w) {
-			return true
-		}
-	}
-	return false
+	return true
 }
 
 // merakiSecretPairRe matches a "secret-key": "value" pair in text that looks
