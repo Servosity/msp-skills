@@ -34,7 +34,7 @@ Every variable in the `env` blocks below is optional and can stay blank:
 | Variable | Set it when |
 | --- | --- |
 | `GOOGLE_WORKSPACE_TENANT` | More than one tenant is registered. The raw API execute tool and the `sql`, `search`, and `context` tools take no tenant argument and use this one; without it `sql` and `search` refuse to answer. Use a name from `tenants list`. |
-| `GOOGLE_WORKSPACE_MCP_READ_ONLY` | You want a read-only server: exactly `1` hides `offboard`, `sync`, `export`, and `tenants remove`, and refuses every non-GET API call. (`import` is never exposed over MCP: it reads a local file.) `true` or `yes` are ignored. |
+| `GOOGLE_WORKSPACE_MCP_READ_ONLY` | You want a read-only server: exactly `1` hides `offboard`, `sync`, `export`, `tenants test`, `tenants remove`, `workflow archive`, `learnings forget`, and `learnings reject`, and refuses every non-GET API call. (`import` is never exposed over MCP: it reads a local file.) `true` or `yes` are ignored. |
 | `GOOGLE_WORKSPACE_TOKEN` | You manage ONE organization without registering tenants: an OAuth access token with Admin SDK scopes. `ADMIN_ACCESS_TOKEN` is an alternate name for it. Not used once tenants are registered (a call with no tenant selected is refused), so leave it blank then. |
 | `GOOGLE_WORKSPACE_MCP_HTTP_TOKEN` | You run the server with `--transport http` (the remote section below). |
 | `GOOGLE_WORKSPACE_BASE_URL`, `GOOGLE_WORKSPACE_USER_AGENT`, `PRINTING_PRESS_CLIENT_PROFILE` | Testing against a mock server or overriding the User-Agent; `PRINTING_PRESS_CLIENT_PROFILE` has no effect for this connector. Leave blank. |

@@ -442,8 +442,25 @@ func TestSummarizePolicyValues(t *testing.T) {
 	if got := summarizePolicyValues(drive, []map[string]any{pol(map[string]any{"externalSharingMode": "ALLOWED"})}, testNow); got != "ALLOWED" {
 		t.Fatal(got)
 	}
-	mixed := []map[string]any{pol(map[string]any{"externalSharingMode": "ALLOWED"}), pol(map[string]any{"external_sharing_mode": "DISALLOWED"})}
+	scoped := func(ou string, order float64, v map[string]any) map[string]any {
+		p := pol(v)
+		p["policyQuery"] = map[string]any{"orgUnit": ou, "sortOrder": order}
+		return p
+	}
+	mixed := []map[string]any{scoped("orgUnits/root", 1, map[string]any{"externalSharingMode": "ALLOWED"}), scoped("orgUnits/sales", 2, map[string]any{"external_sharing_mode": "DISALLOWED"})}
 	if got := summarizePolicyValues(drive, mixed, testNow); got != "mixed:ALLOWED,DISALLOWED" {
+		t.Fatal(got)
+	}
+	// Google's reduction: for the same users the greatest sortOrder wins, in
+	// either list order (a SYSTEM default overridden by an ADMIN policy).
+	overridden := []map[string]any{scoped("orgUnits/root", 1, map[string]any{"externalSharingMode": "ALLOWED"}), scoped("orgUnits/root", 7, map[string]any{"externalSharingMode": "DISALLOWED"})}
+	for _, list := range [][]map[string]any{overridden, {overridden[1], overridden[0]}} {
+		if got := summarizePolicyValues(drive, list, testNow); got != "DISALLOWED" {
+			t.Fatalf("higher sortOrder must win for one scope, got %s", got)
+		}
+	}
+	// A policy without the field does not win it.
+	if got := summarizePolicyValues(drive, []map[string]any{scoped("orgUnits/root", 1, map[string]any{"externalSharingMode": "ALLOWED"}), scoped("orgUnits/root", 9, map[string]any{})}, testNow); got != "ALLOWED" {
 		t.Fatal(got)
 	}
 	twosv := postureColumns[0]
@@ -1201,8 +1218,16 @@ func TestDiscardTenantMirror(t *testing.T) {
 	}
 	for _, f := range []string{base, base + "-wal"} {
 		if _, err := os.Stat(f); !os.IsNotExist(err) {
-			t.Fatalf("%s must be deleted: %v", f, err)
+			t.Fatalf("%s must be moved off the live path: %v", f, err)
 		}
+	}
+	// Moved aside, not erased: the learn tables live in the same file.
+	aside, _ := filepath.Glob(base + ".quarantined-*")
+	if len(aside) != 2 {
+		t.Fatalf("mirror and its -wal must be kept aside, got %v", aside)
+	}
+	if err := discardTenantMirror(tn); err != nil {
+		t.Fatalf("a retry with nothing left to move must succeed: %v", err)
 	}
 }
 
@@ -1215,6 +1240,9 @@ func TestEmptyTenantsSelectorRefused(t *testing.T) {
 	ff := fanoutFlags{tenants: ",,"}
 	if _, err := ff.targets(""); err == nil || !strings.Contains(err.Error(), "names no tenant") {
 		t.Fatalf("--tenants ',,' must be refused: %v", err)
+	}
+	if _, err := listProductLicenses(context.Background(), nil, "C0", ",,"); err == nil || !strings.Contains(err.Error(), "names no licence product") {
+		t.Fatalf("--products ',,' must be refused: %v", err)
 	}
 }
 
@@ -1238,5 +1266,9 @@ func TestQuarantinedTenantLocalReadRefused(t *testing.T) {
 	configureDefaultDBScope("")
 	if err := localStoreTenantErr(); err == nil || !strings.Contains(err.Error(), "quarantined") {
 		t.Fatalf("a quarantined tenant's mirror must not be read: %v", err)
+	}
+	// Every learn/playbook opener resolves its store through learnDBPath.
+	if _, err := learnDBPath(""); err == nil || !strings.Contains(err.Error(), "quarantined") {
+		t.Fatalf("the default learn store of a quarantined tenant must be refused: %v", err)
 	}
 }

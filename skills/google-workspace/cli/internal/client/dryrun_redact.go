@@ -101,9 +101,10 @@ func redactSecretQueryParams(text string) string {
 // enclosing quote is the character just before the URL's scheme (looked
 // up within a bounded window, so earlier text and earlier apostrophes in
 // the URL do not count). A quote right after '=' is the end of an empty
-// value when it is the enclosing quote, or a double quote with no
-// enclosing quote, and it is followed by a separator; otherwise it opens a
-// quoted value that runs to its match. An unquoted value runs to &,
+// value when it is the enclosing quote and a separator follows, or a double
+// quote with no enclosing quote and JSON structure follows (`","next"`,
+// `"}`); otherwise it opens a quoted value that runs to its match, so
+// ?token=";SECRET" is masked. An unquoted value runs to &,
 // whitespace, #, ", a backslash or the enclosing quote, so an apostrophe
 // inside it (O'Hara) stays masked. Hand-fix (handfixes.json
 // dry-run-redacts-secrets).
@@ -115,8 +116,10 @@ func secretValueSpan(s string, urlStart, i int) (int, int) {
 			continue
 		}
 		after := rest[len(q):]
-		closing := q == enclosing || (enclosing == "" && q != "'")
-		if closing && (after == "" || strings.ContainsRune(",;:)}] \t\r\n", rune(after[0]))) {
+		if q == enclosing && (after == "" || strings.ContainsRune(",;:)}] \t\r\n", rune(after[0]))) {
+			return i, i
+		}
+		if enclosing == "" && q == `"` && jsonStructureFollows(after) {
 			return i, i
 		}
 		start := i + len(q)
@@ -126,6 +129,19 @@ func secretValueSpan(s string, urlStart, i int) (int, int) {
 		return start, start + valueEnd(after, "")
 	}
 	return i, i + valueEnd(rest, enclosing)
+}
+
+// jsonStructureFollows reports whether s, the text after a closing " ,
+// continues JSON: the end, } or ], or a comma then a key, object or array.
+func jsonStructureFollows(s string) bool {
+	if s == "" || s[0] == '}' || s[0] == ']' {
+		return true
+	}
+	if s[0] != ',' {
+		return false
+	}
+	rest := strings.TrimLeft(s[1:], " \t\r\n")
+	return rest != "" && strings.ContainsRune(`"{[`, rune(rest[0]))
 }
 
 // enclosingQuote returns the quote (" ' or \") just before the scheme of the

@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -122,6 +123,14 @@ func newTenantsAddCmd(flags *rootFlags) *cobra.Command {
 				for _, existing := range reg.Tenants {
 					if existing.Name != name {
 						kept = append(kept, existing)
+						continue
+					}
+					// Replacing a quarantined tenant lifts the quarantine, so
+					// its possibly contaminated mirror must be gone first.
+					if existing.OwnershipMismatch != "" {
+						if err := discardTenantMirror(existing); err != nil {
+							return configErr(fmt.Errorf("tenant %s is quarantined and its local mirror could not be moved aside: %w", name, err))
+						}
 					}
 				}
 				reg.Tenants = append(kept, t)
@@ -333,8 +342,11 @@ func newTenantsTestCmd(flags *rootFlags) *cobra.Command {
 		Long: "Mints one token per configured scope so a missing delegation is named precisely,\n" +
 			"then reads the customer record and domain list to confirm impersonation works.\n" +
 			"Use this after 'tenants add' and whenever a client's Admin console changes.",
-		Example:     "  google-workspace-cli tenants test acme\n  google-workspace-cli tenants test --all-tenants --agent",
-		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "live"},
+		Example: "  google-workspace-cli tenants test acme\n  google-workspace-cli tenants test --all-tenants --agent",
+		// Hand-fix (handfixes.json tenants-test-checks-domain): not
+		// mcp:read-only - a domain mismatch quarantines the tenant and
+		// moves its local mirror aside.
+		Annotations: map[string]string{"pp:data-source": "live"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if done, err := helpOrDryRun(cmd, args, flags, "verify tenant delegation scope by scope"); done {
 				return err
@@ -364,9 +376,17 @@ func newTenantsTestCmd(flags *rootFlags) *cobra.Command {
 			out := []tenantTestResult{}
 			verified := map[string]tenantTestResult{}
 			for _, r := range results {
-				out = append(out, r.Value)
-				if r.Value.OK || r.Value.wrongCustomer {
-					verified[r.Value.Tenant] = r.Value
+				v := r.Value
+				// A quarantine lifts only once the mirror that may hold the
+				// other organization's rows is gone; a failed move keeps it.
+				if v.OK && v.tested.OwnershipMismatch != "" {
+					if err := discardTenantMirror(v.tested); err != nil {
+						v.OK, v.Error = false, "still quarantined: moving its local mirror aside failed: "+err.Error()
+					}
+				}
+				out = append(out, v)
+				if v.OK || v.wrongCustomer {
+					verified[v.Tenant] = v
 				}
 			}
 			// A worker that was cancelled or panicked returns no result; report
@@ -405,7 +425,7 @@ func newTenantsTestCmd(flags *rootFlags) *cobra.Command {
 			// them, so lifting the quarantine later must start from empty.
 			for _, t := range quarantined {
 				if err := discardTenantMirror(t); err != nil {
-					fmt.Fprintf(cmd.ErrOrStderr(), "warning: tenant %s: deleting its local mirror: %v\n", t.Name, err)
+					fmt.Fprintf(cmd.ErrOrStderr(), "warning: tenant %s: moving its local mirror aside: %v (retried before the quarantine lifts)\n", t.Name, err)
 				}
 			}
 			failed := 0
@@ -522,7 +542,7 @@ func tenantDomains(t gwsTenant, raw []byte) ([]string, error) {
 		}
 	}
 	if !owned {
-		return nil, fmt.Errorf("%w: domain %s is not one of this organization's domains (%s); the tenant is quarantined (every command refuses it) and its local mirror deleted. Re-register it with 'tenants add %s --yes' and the right --domain, --admin and --key, then run tenants test", errWrongCustomer, want, strings.Join(out, ", "), t.Name)
+		return nil, fmt.Errorf("%w: domain %s is not one of this organization's domains (%s); the tenant is quarantined (every command refuses it) and its local mirror moved aside. Re-register it with 'tenants add %s --yes' and the right --domain, --admin and --key, then run tenants test", errWrongCustomer, want, strings.Join(out, ", "), t.Name)
 	}
 	return out, nil
 }
@@ -552,16 +572,19 @@ func printTenantTest(cmd *cobra.Command, flags *rootFlags, out []tenantTestResul
 	return nil
 }
 
-// discardTenantMirror deletes a tenant's local mirror and its SQLite
-// sidecars (the learn tables live in the same file).
+// discardTenantMirror moves a tenant's local mirror and its SQLite sidecars
+// aside (data-<hash>.db.quarantined-<unixnano>), so the next sync starts
+// empty and nothing is erased: the learn tables live in the same file. A
+// missing file is not an error, so a retry after a partial move succeeds.
 func discardTenantMirror(t gwsTenant) error {
 	dir, err := cliutil.DataDir()
 	if err != nil {
 		return err
 	}
 	base := filepath.Join(dir, "data-"+hashDefaultDBScope(tenantStoreIdentity(&t))+".db")
+	aside := fmt.Sprintf("%s.quarantined-%d", base, time.Now().UnixNano())
 	for _, suffix := range []string{"", "-wal", "-shm", "-journal"} {
-		if err := os.Remove(base + suffix); err != nil && !os.IsNotExist(err) {
+		if err := os.Rename(base+suffix, aside+suffix); err != nil && !os.IsNotExist(err) {
 			return err
 		}
 	}

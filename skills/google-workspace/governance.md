@@ -71,7 +71,8 @@ those commands. Keep them in the human-in-the-loop tier below.
 - **The MCP server has a read-only switch.** Set `GOOGLE_WORKSPACE_MCP_READ_ONLY` to
   exactly `1` (the "Read-only mode" field in Claude Desktop; `true` or `yes` are ignored and
   leave every tool enabled) and the server hides `offboard`, `sync`,
-  `export`, and `tenants remove`, and refuses every non-GET API call (`import` is
+  `export`, `tenants test`, `tenants remove`, `workflow archive`, `learnings forget`,
+  and `learnings reject`, and refuses every non-GET API call (`import` is
   never exposed over MCP, because it reads a local file). Backup
   codes are still readable in that mode (`verification-codes list` is a GET), so the
   Credential / security tier below still applies.
@@ -85,8 +86,8 @@ require a human for anything below the line.
 
 | Tier | What it does | Examples | Recommended agent policy |
 | --- | --- | --- | --- |
-| **Read** | Reports, lists, and the local mirror. No change in Google. | `mfa-gaps`, `stale-licenses`, `leavers`, `posture`, `sharing-drift`, `oauth-apps`, `login-alerts`, `tenants list`, `tenants scopes`, `tenants test`, `users list`, `users get`, `groups list`, `activities list`, `sync`, `search`, `analytics`, `offboard "<email>"` without `--yes` | Allow |
-| **Write (routine)** | Day-to-day directory changes. | `users insert`, `users patch`, `users aliases insert`, `groups insert`, `groups patch`, `members insert`, `orgunits insert`, `orgunits patch`, `resources calendars insert`, `tenants add` (local config only) | Preview with `--dry-run`, then an approved write |
+| **Read** | Reports, lists, and the local mirror. No change in Google. | `mfa-gaps`, `stale-licenses`, `leavers`, `posture`, `sharing-drift`, `oauth-apps`, `login-alerts`, `tenants list`, `tenants scopes`, `users list`, `users get`, `groups list`, `activities list`, `sync`, `search`, `analytics`, `offboard "<email>"` without `--yes` | Allow |
+| **Write (routine)** | Day-to-day directory changes. | `users insert`, `users patch`, `users aliases insert`, `groups insert`, `groups patch`, `members insert`, `orgunits insert`, `orgunits patch`, `resources calendars insert`, `tenants add` and `tenants test` (local config only; `tenants test` quarantines a tenant whose key resolves to another organization and moves its local mirror aside) | Preview with `--dry-run`, then an approved write |
 | **Credential / security** | Reads or changes sign-in secrets, sessions, and admin rights. | `verification-codes list` (returns a user's live backup codes), `verification-codes generate`, `verification-codes invalidate`, `two-step-verification` (turns 2SV off), `tokens delete`, `asps delete`, `users sign-out`, `users make-admin`, `role-assignments insert`, `role-assignments delete`, `roles insert`, `roles patch`, `roles update`, `tenants remove` | Human-in-the-loop only |
 | **Data egress** | Tells Google to push a client's data to a URL you name. | `activities watch`, `users watch`, `users aliases watch` (`--address <url>`; they work under the default `read` profile) | Human-in-the-loop only |
 | **Destructive / billing** | Irreversible data, device, or billing changes. | `offboard --yes`, `users delete`, `groups delete`, `members delete`, `domains delete`, `transfers insert` (moves Drive and Calendar ownership), `license-assignments insert`, `license-assignments update`, `license-assignments delete`, `subscriptions insert`, `subscriptions change-plan`, `subscriptions change-seats`, `subscriptions change-renewal-settings`, `subscriptions start-paid-service`, `subscriptions activate`, `subscriptions suspend`, `subscriptions delete`, `reseller-customers insert`, `mobiledevices action` (can wipe a device), `mobiledevices delete`, `chromeosdevices action`, `customer devices-chromeos issue-command`, `customer devices-chromeos batch-change-status`, `import` | Human-in-the-loop only, explicit confirmation |

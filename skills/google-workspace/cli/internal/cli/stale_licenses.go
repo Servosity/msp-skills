@@ -94,6 +94,10 @@ const educationProduct = "101031"
 // (Google-Apps by default) proves the apps.licensing scope works.
 func listProductLicenses(ctx context.Context, c *client.Client, customerID, products string) ([]licenseAssignment, error) {
 	var out []licenseAssignment
+	// An empty list (--products ',,') would read nothing and report success.
+	if len(splitTenantCSV(products)) == 0 {
+		return nil, usageErr(fmt.Errorf("--products names no licence product"))
+	}
 	for i, p := range splitTenantCSV(products) {
 		ls, err := listLicenses(ctx, c, customerID, p)
 		if err != nil {

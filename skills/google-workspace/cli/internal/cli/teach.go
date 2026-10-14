@@ -308,11 +308,17 @@ func (silentSentinel) Error() string { return "" }
 
 // learnDBPath resolves the SQLite path the learn commands should use:
 // the explicit --db flag wins, otherwise the canonical default.
-func learnDBPath(explicit string) string {
+func learnDBPath(explicit string) (string, error) {
 	if explicit != "" {
-		return explicit
+		return explicit, nil
 	}
-	return defaultDBPath("google-workspace-cli")
+	// Hand-fix (handfixes.json local-read-needs-a-tenant): every default
+	// learn/playbook store is the selected tenant's mirror, so the guard
+	// lives here and no opener can skip it.
+	if err := localStoreTenantErr(); err != nil {
+		return "", err
+	}
+	return defaultDBPath("google-workspace-cli"), nil
 }
 
 // newTeachCmd builds the `teach` cobra command — the LLM-facing write
@@ -403,7 +409,11 @@ Disabling: pass --no-learn or set ` + noLearnEnvVar + `=true.`,
 					return err
 				}
 			}
-			dbPath = learnDBPath(dbPath)
+			resolved, err := learnDBPath(dbPath)
+			if err != nil {
+				return err
+			}
+			dbPath = resolved
 			s, err := store.OpenWithContext(cmd.Context(), dbPath)
 			if err != nil {
 				writeTeachErrLog(fmt.Sprintf("teach: open db: %v", err))
@@ -682,7 +692,11 @@ when learnings exist.`,
 					return err
 				}
 			}
-			dbPath = learnDBPath(dbPath)
+			resolved, err := learnDBPath(dbPath)
+			if err != nil {
+				return err
+			}
+			dbPath = resolved
 			s, err := store.OpenWithContext(cmd.Context(), dbPath)
 			if err != nil {
 				return fmt.Errorf("recall: %w", err)
@@ -926,7 +940,11 @@ func newLearningsListCmd(flags *rootFlags) *cobra.Command {
 					return err
 				}
 			}
-			dbPath = learnDBPath(dbPath)
+			resolved, err := learnDBPath(dbPath)
+			if err != nil {
+				return err
+			}
+			dbPath = resolved
 			s, err := store.OpenWithContext(cmd.Context(), dbPath)
 			if err != nil {
 				return fmt.Errorf("learnings list: %w", err)
@@ -1015,7 +1033,11 @@ Requires at least one of --resource, --action, or --all.`,
 					return err
 				}
 			}
-			dbPath = learnDBPath(dbPath)
+			resolved, err := learnDBPath(dbPath)
+			if err != nil {
+				return err
+			}
+			dbPath = resolved
 			s, err := store.OpenWithContext(cmd.Context(), dbPath)
 			if err != nil {
 				return fmt.Errorf("learnings forget: %w", err)
@@ -1136,7 +1158,11 @@ a whole family.`,
 					return err
 				}
 			}
-			dbPath = learnDBPath(dbPath)
+			resolved, err := learnDBPath(dbPath)
+			if err != nil {
+				return err
+			}
+			dbPath = resolved
 			s, err := store.OpenWithContext(cmd.Context(), dbPath)
 			if err != nil {
 				return fmt.Errorf("teach-pattern: %w", err)
@@ -1228,7 +1254,11 @@ cannot be taught — they are derived from the canonical input.`,
 					return err
 				}
 			}
-			dbPath = learnDBPath(dbPath)
+			resolved, err := learnDBPath(dbPath)
+			if err != nil {
+				return err
+			}
+			dbPath = resolved
 			s, err := store.OpenWithContext(cmd.Context(), dbPath)
 			if err != nil {
 				return fmt.Errorf("teach-lookup: %w", err)

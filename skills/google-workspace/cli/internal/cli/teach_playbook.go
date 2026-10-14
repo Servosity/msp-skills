@@ -93,7 +93,11 @@ agents can record playbooks without a file on disk.`,
 			}
 
 			normalized := learn.Normalize(query, learnCfg)
-			dbPath = learnDBPath(dbPath)
+			resolved, err := learnDBPath(dbPath)
+			if err != nil {
+				return err
+			}
+			dbPath = resolved
 			s, err := store.OpenWithContext(cmd.Context(), dbPath)
 			if err != nil {
 				return fmt.Errorf("teach-playbook: open db: %w", err)
@@ -220,7 +224,11 @@ Disabling: pass --no-learn or set ` + noLearnEnvVar + `=true.`,
 				return silentCodeErr(2)
 			}
 
-			dbPath = learnDBPath(dbPath)
+			resolved, err := learnDBPath(dbPath)
+			if err != nil {
+				return err
+			}
+			dbPath = resolved
 			s, err := store.OpenWithContext(cmd.Context(), dbPath)
 			if err != nil {
 				writeTeachErrLog(fmt.Sprintf("playbook amend: open db: %v", err))
@@ -294,7 +302,11 @@ func newPlaybookListCmd(flags *rootFlags) *cobra.Command {
 			if dryRunOK(flags) {
 				return writeDryRun(cmd.OutOrStdout(), flags, "playbook list")
 			}
-			dbPath = learnDBPath(dbPath)
+			resolved, err := learnDBPath(dbPath)
+			if err != nil {
+				return err
+			}
+			dbPath = resolved
 			s, err := store.OpenWithContext(cmd.Context(), dbPath)
 			if err != nil {
 				return fmt.Errorf("playbook list: %w", err)

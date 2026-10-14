@@ -74,6 +74,9 @@ func TestRedactSecretQueryParams(t *testing.T) {
 		`https://hooks.example/cb?token=';HOOK-SECRET'`,
 		`https://x/?token="a b SPACED-SECRET"`,
 		`{"d":"https://x/?token=\"a b ESC-SECRET\" more","e":"f"}`,
+		`https://x/?token=";PUNCT-SECRET"`,
+		`https://x/?token=" WS-SECRET"`,
+		`https://x/?token=",DANGLING-SECRET`,
 	} {
 		if got := RedactURLSecrets(tc); strings.Contains(got, "SECRET") {
 			t.Errorf("secret survived: %s -> %s", tc, got)

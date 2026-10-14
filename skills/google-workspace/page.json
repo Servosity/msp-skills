@@ -96,12 +96,12 @@
   "safety_tiers": [
     {
       "tier": "Read",
-      "examples": "google-workspace-cli mfa-gaps --all-tenants; google-workspace-cli stale-licenses --all-tenants; google-workspace-cli leavers --all-tenants; google-workspace-cli posture --all-tenants; google-workspace-cli sharing-drift --all-tenants --since 7d; google-workspace-cli oauth-apps --all-tenants; google-workspace-cli login-alerts --all-tenants; google-workspace-cli tenants test --all-tenants; google-workspace-cli users list; google-workspace-cli offboard \"jane@example.com\" (preview, no --yes); google-workspace-cli sync",
+      "examples": "google-workspace-cli mfa-gaps --all-tenants; google-workspace-cli stale-licenses --all-tenants; google-workspace-cli leavers --all-tenants; google-workspace-cli posture --all-tenants; google-workspace-cli sharing-drift --all-tenants --since 7d; google-workspace-cli oauth-apps --all-tenants; google-workspace-cli login-alerts --all-tenants; google-workspace-cli users list; google-workspace-cli offboard \"jane@example.com\" (preview, no --yes); google-workspace-cli sync",
       "policy": "Allow"
     },
     {
       "tier": "Write (routine)",
-      "examples": "users insert/patch, users aliases insert, groups insert/patch, members insert, orgunits insert/patch, resources calendars insert, tenants add (local config only)",
+      "examples": "users insert/patch, users aliases insert, groups insert/patch, members insert, orgunits insert/patch, resources calendars insert, tenants add and tenants test (local config only; a tenant whose key resolves to another organization is quarantined and its local mirror moved aside)",
       "policy": "Preview with --dry-run, then a reviewed write"
     },
     {

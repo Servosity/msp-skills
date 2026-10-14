@@ -110,11 +110,20 @@ var postureColumns = []policyColumn{
 	{setting: "gmail.auto_forwarding", keys: []string{"enableAutoForwarding", "enable_auto_forwarding"}},
 }
 
-// summarizePolicyValues collapses per-OU policies into one cell: the single
-// value, "mixed:a,b" when OUs differ, or "default" when no policy is set.
+// summarizePolicyValues collapses policies into one cell, applying Google's
+// reduction: within one applicability scope (org unit, group, or query) the
+// policy with the greatest sortOrder wins, so a system default overridden by
+// an admin policy for the same users is not a difference. The cell is the
+// single winning value, "mixed:a,b" when scopes resolve differently, or
+// "default" when no policy is set.
+// ponytail: scopes are not resolved against the OU tree, so mixed means the
+// scopes differ; read orgunits and walk inheritance if that ever matters.
 func summarizePolicyValues(col policyColumn, policies []map[string]any, now time.Time) string {
-	seen := map[string]bool{}
-	var vals []string
+	type winner struct {
+		order float64
+		value string
+	}
+	winners := map[string]winner{}
 	for _, p := range policies {
 		setting, _ := p["setting"].(map[string]any)
 		value, _ := setting["value"].(map[string]any)
@@ -132,9 +141,30 @@ func summarizePolicyValues(col policyColumn, policies []map[string]any, now time
 		if v == "" && col.present {
 			v = "not_enforced"
 		}
-		if v != "" && !seen[v] {
-			seen[v] = true
-			vals = append(vals, v)
+		// A policy without the field does not win it.
+		if v == "" {
+			continue
+		}
+		q, _ := p["policyQuery"].(map[string]any)
+		ou, _ := q["orgUnit"].(string)
+		group, _ := q["group"].(string)
+		scope := ou + "|" + group
+		if ou == "" && group == "" {
+			query, _ := q["query"].(string)
+			scope = "query|" + query
+		}
+		order, _ := q["sortOrder"].(float64)
+		if w, ok := winners[scope]; ok && w.order >= order {
+			continue
+		}
+		winners[scope] = winner{order, v}
+	}
+	seen := map[string]bool{}
+	var vals []string
+	for _, w := range winners {
+		if !seen[w.value] {
+			seen[w.value] = true
+			vals = append(vals, w.value)
 		}
 	}
 	switch len(vals) {
@@ -209,7 +239,8 @@ func newNovelPostureCmd(flags *rootFlags) *cobra.Command {
 			"a tenant that could not be read is an explicit error row, never a zeroed one.\n" +
 			"Tenants registered with the 'policy' scope profile also report the current 2SV\n" +
 			"enforcement, Drive external sharing mode and Gmail auto-forwarding policy\n" +
-			"(per-OU differences show as mixed:...); others read not_granted.\n" +
+			"(the highest-priority policy wins per org unit or group; differences between\n" +
+			"them show as mixed:...); others read not_granted.\n" +
 			"Use this command for a one-row-per-client security and licence-waste summary. Do NOT\n" +
 			"use it to list individual users; use 'mfa-gaps' (2SV), 'stale-licenses' (licence waste),\n" +
 			"or 'leavers' (incomplete offboarding) instead. Do NOT use it to list sharing events; use\n" +
