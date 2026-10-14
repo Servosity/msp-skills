@@ -445,6 +445,29 @@
         "issue_url": null
       }
     },
+    "connectwise-rmm": {
+      "system": "ConnectWise RMM (Asio) remote monitoring and management platform",
+      "status": "beta",
+      "cli_binary": "connectwise-rmm-cli",
+      "mcp_binary": "connectwise-rmm-mcp",
+      "vendor": "ConnectWise",
+      "vendor_trademark_owner": "ConnectWise, LLC",
+      "first_party": false,
+      "category": "RMM",
+      "display_name": "ConnectWise RMM",
+      "tagline": "Ask your ConnectWise RMM fleet which endpoints are stale, unpatched or failing scripts, across every company at once.",
+      "cli_hash": "sha256:3e7ce5ef31df94a51a7a28989b3df7afc3ad89ec7211b6b6ca19082a056c3807",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "cork": {
       "system": "Cork Vantage cyber risk, compliance, vulnerability, and cyber warranty platform",
       "status": "beta",

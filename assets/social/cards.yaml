@@ -81,6 +81,10 @@ connectwise-manage:
   vendor: "ConnectWise Manage"
   example_command: "Which closed tickets have no time logged?"
 
+connectwise-rmm:
+  vendor: "ConnectWise RMM"
+  example_command: "Which agents went offline overnight?"
+
 cork:
   vendor: "Cork"
   example_command: "Why did this client's Cork score drop?"

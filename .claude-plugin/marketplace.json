@@ -1092,6 +1092,22 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "connectwise-rmm",
+      "source": "./skills/connectwise-rmm",
+      "description": "66 ConnectWise RMM (Asio) partner API operations, plus a local fleet database, patch-compliance rollups, and script runs you can preview, schedule and watch in one command.",
+      "version": "0.1.0",
+      "category": "rmm",
+      "tags": [
+        "connectwise-rmm",
+        "connectwise",
+        "rmm",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }

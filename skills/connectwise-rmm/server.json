@@ -1,0 +1,88 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Servosity/connectwise-rmm-mcp",
+  "title": "ConnectWise RMM MCP",
+  "description": "ConnectWise RMM (Asio) MCP: offline agents, patch posture, and script runs across every client.",
+  "version": "0.1.0",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/connectwise-rmm/connectwise-rmm-512x512.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/servosity/msp-skills",
+    "source": "github",
+    "subfolder": "skills/connectwise-rmm"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/connectwise-rmm-v0.1.0/connectwise-rmm-mcp.mcpb",
+      "version": "0.1.0",
+      "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "CONNECTWISE_RMM_CLIENT_ID",
+          "description": "ConnectWise RMM (Asio) API client ID from Integrations > API Access in the ConnectWise portal. Its prefix picks the region (0e30 North America, 0e31 Europe, 0e32 Australia).",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "CONNECTWISE_RMM_CLIENT_SECRET",
+          "description": "Client secret paired with the API client ID. The connector exchanges the pair for a short-lived bearer token.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "CONNECTWISE_RMM_OAUTH_SCOPE",
+          "description": "Space-separated scopes to request. Leave blank to request every scope the connector uses; if your API key lacks one, the whole token request fails, so paste the line `connectwise-rmm-cli scopes` prints.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "CONNECTWISE_RMM_BASE_URL",
+          "description": "Leave blank to follow the client ID's region (NA openapi.service.itsupport247.net, EU openapi.service.euplatform.connectwise.com, AU openapi.service.auplatform.connectwise.com). Set it only to pin a different host.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "CONNECTWISE_RMM_TOKEN_URL",
+          "description": "Leave blank to mint tokens at <base URL>/v1/token for your region. Set it only if ConnectWise gives you a different token endpoint.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "CONNECTWISE_RMM_USER_AGENT",
+          "description": "Overrides the User-Agent the CLI sends on ConnectWise RMM requests. Leave blank to use the CLI's own.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "CONNECTWISE_RMM_MCP_READ_ONLY",
+          "description": "Set to 1 to make the MCP server read-only: it drops its write tools (run, sync; import is never an MCP tool) and refuses any non-GET API call. Leave blank for the full tool set.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "CONNECTWISE_RMM_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http (a remote or hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Leave blank. This connector registers no tenant-gated profile source, so the value is read but changes nothing; one MCP server serves the one API key it is given.",
+          "isRequired": false,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}

@@ -232,7 +232,9 @@ def render_page(slug: str) -> Path:
                 "yourself. The CLI, the MCP server, and any local data mirror run "
                 "on your own machine, and nothing is sent to MSP Skills or any "
                 f"third party unless you ask for it. {egress_sentence} "
-                "Credentials stay in your environment, and every command is "
+                # page.json `credentials_note` replaces the default clause for a
+                # connector that caches secrets on disk (connectwise-rmm).
+                f"{page.get('credentials_note') or 'Credentials stay in your environment'}, and every command is "
                 "safety-tiered (read, write, destructive) so your agent only gets "
                 "the permissions you grant. Full policy in the safety model on "
                 "this page."

