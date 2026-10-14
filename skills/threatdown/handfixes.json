@@ -613,6 +613,24 @@
      "code_only": true
     }
    ]
+  },
+  {
+   "id": "x-text-above-go-2026-6629",
+   "summary": "`golang.org/x/text` is pinned at v0.41.0, above the fixes for GO-2026-5970 and GO-2026-6629",
+   "why": "Press 4.33.5 emits `golang.org/x/text v0.39.0` as an indirect dependency. osv-scanner flags v0.39.0 for GO-2026-6629 (a panic parsing crafted input in x/text/secure/precis). The repo security gate tracks it, and a reprint from a press that still emits v0.39.0 would quietly bring it back. Bumped with `go get golang.org/x/text@v0.41.0` + `go mod tidy`; build and tests pass.",
+   "status": "active",
+   "spec_encode_followup": "Raise the golang.org/x/text floor in the press module template so generated go.mod files ship at v0.41.0 or later by construction.",
+   "asserts": [
+    {
+     "file": "cli/go.mod",
+     "contains": "golang.org/x/text v0.41.0",
+     "min_count": 1
+    },
+    {
+     "file": "cli/go.mod",
+     "not_contains": "golang.org/x/text v0.39.0"
+    }
+   ]
   }
  ]
 }
