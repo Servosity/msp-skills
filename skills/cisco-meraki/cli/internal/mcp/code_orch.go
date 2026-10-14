@@ -12822,7 +12822,7 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 	}
 	text := bound.EndpointResponse(ep.Method, data)
 	if linkNext != nil {
-		text = cli.AnnotateMerakiNextPage(text, linkNext()) // pp:handfix meraki-mcp-execute-link-next
+		text = cli.AnnotateMerakiNextPage(text, linkNext(), codeOrchTakesPerPage(ep)) // pp:handfix meraki-mcp-execute-link-next
 	}
 	if platformSession != nil {
 		text = bound.WithMetadata(text, platformSession.OutputMetadata())

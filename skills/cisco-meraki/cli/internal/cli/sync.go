@@ -2957,6 +2957,9 @@ func extractPageItemsWithPagination(data json.RawMessage, cursorParam, nextCurso
 	// Strategy 1: direct array
 	var items []json.RawMessage
 	if err := json.Unmarshal(data, &items); err == nil {
+		if inner, ok := merakiUnwrapEnvelopeArray(items); ok { // pp:handfix meraki-sync-envelope-array
+			return inner, "", false
+		}
 		return items, "", false
 	}
 

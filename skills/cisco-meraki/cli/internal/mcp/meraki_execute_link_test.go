@@ -99,8 +99,43 @@ func TestCodeOrchExecuteTruncatedPageWithholdsCursor(t *testing.T) {
 	if _, ok := out["next_starting_after"]; ok {
 		t.Fatalf("a truncated page must not offer the Link cursor (it skips unseen items): %v", out["next_starting_after"])
 	}
-	if note, _ := out["pagination_note"].(string); !strings.Contains(note, "perPage") {
-		t.Fatalf("note must tell the agent to shrink perPage, got %q", note)
+	want := fmt.Sprintf("perPage set to %v or fewer", out["returned_count"])
+	if note, _ := out["pagination_note"].(string); !strings.Contains(note, want) {
+		t.Fatalf("note must give the exact page size (%q), got %q", want, note)
+	}
+}
+
+// TestCodeOrchExecuteCutUnpagedResultKeepsBoundNote: an endpoint with no
+// perPage parameter (a switch's ports) cannot be re-requested smaller, so a cut
+// result keeps bound's own note and gets no perPage advice.
+func TestCodeOrchExecuteCutUnpagedResultKeepsBoundNote(t *testing.T) {
+	resetMCPPathEnv(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		ports := make([]string, 0, 52)
+		for i := 1; i <= 52; i++ {
+			ports = append(ports, fmt.Sprintf(`{"portId":"%d"}`, i))
+		}
+		_, _ = w.Write([]byte("[" + strings.Join(ports, ",") + "]"))
+	}))
+	defer srv.Close()
+	t.Setenv("CISCO_MERAKI_BASE_URL", srv.URL+"/api/v1")
+	t.Setenv("MERAKI_DASHBOARD_API_KEY", "test-key")
+	res, err := handleCodeOrchExecute(context.Background(), mcplib.CallToolRequest{Params: mcplib.CallToolParams{
+		Arguments: map[string]any{"endpoint_id": "devices.switch.get-device-ports", "params": map[string]any{"serial": "Q2SW-0001"}},
+	}})
+	if err != nil || res == nil || res.IsError {
+		t.Fatalf("execute failed: err=%v result=%+v", err, res)
+	}
+	var out map[string]any
+	if err := json.Unmarshal([]byte(res.Content[0].(mcplib.TextContent).Text), &out); err != nil {
+		t.Fatalf("result is not a JSON object: %v", err)
+	}
+	if out["truncated"] != true {
+		t.Fatalf("52 ports should be cut to the MCP item cap, got %v", out)
+	}
+	if _, ok := out["pagination_note"]; ok {
+		t.Fatalf("an unpaged endpoint must not get perPage advice: %v", out["pagination_note"])
 	}
 }
 

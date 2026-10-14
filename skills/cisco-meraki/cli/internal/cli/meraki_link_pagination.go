@@ -434,8 +434,9 @@ func WithMerakiLinkNext(ctx context.Context) (context.Context, func() string) {
 // fit in the MCP result. When the result was cut to fit - a bare array
 // ("truncated") or an object envelope ("_pp_truncated") - following it would
 // skip the items that were cut, so the agent is told to re-request the page
-// with a smaller perPage instead, whether or not a next page exists.
-func AnnotateMerakiNextPage(result, next string) string {
+// with a smaller perPage instead - including a cut last page, when the endpoint
+// takes perPage (pageable).
+func AnnotateMerakiNextPage(result, next string, pageable bool) string {
 	var obj map[string]any
 	if json.Unmarshal([]byte(result), &obj) != nil || obj == nil {
 		if next == "" {
@@ -444,7 +445,9 @@ func AnnotateMerakiNextPage(result, next string) string {
 		obj = map[string]any{"result": result}
 	}
 	total, returned, cut := merakiResultTruncation(obj)
-	if next == "" && !cut {
+	// A cut result from an endpoint that does not page (no perPage, no Link)
+	// keeps bound's own note: there is no smaller page to ask for.
+	if next == "" && (!cut || !pageable) {
 		return result
 	}
 	if next != "" {
@@ -477,11 +480,51 @@ func merakiResultTruncation(obj map[string]any) (total, returned int, cut bool) 
 		}
 		return -1
 	}
+	// The bare-array list envelope sets both truncated (with count and
+	// returned_count) and _pp_truncated (without counts), so read it first.
+	if t, _ := obj["truncated"].(bool); t && num(obj["returned_count"]) >= 0 {
+		return num(obj["count"]), num(obj["returned_count"]), true
+	}
 	if t, _ := obj["_pp_truncated"].(bool); t {
 		return num(obj["_pp_total_count"]), num(obj["_pp_returned_count"]), true
 	}
 	if t, _ := obj["truncated"].(bool); t {
-		return num(obj["count"]), num(obj["returned_count"]), true
+		return -1, -1, true
 	}
 	return -1, -1, false
+}
+
+// merakiUnwrapEnvelopeArray is hand-wired (handfixes.json:
+// meraki-sync-envelope-array). Several Meraki list reads (RF profile
+// assignments by device, floor-plan auto-locate, SM sentry assignments,
+// wireless-controller failover history, provisioning deployments) answer with
+// an ARRAY of {items, meta} envelopes rather than the records themselves, so
+// sync stored the envelope - a row with no identity - and exited 1. When every
+// element is such an envelope, its items are the records.
+func merakiUnwrapEnvelopeArray(elems []json.RawMessage) ([]json.RawMessage, bool) {
+	if len(elems) == 0 {
+		return nil, false
+	}
+	out := make([]json.RawMessage, 0)
+	for _, el := range elems {
+		var env map[string]json.RawMessage
+		if json.Unmarshal(el, &env) != nil {
+			return nil, false
+		}
+		raw, ok := env["items"]
+		if !ok {
+			return nil, false
+		}
+		for k := range env {
+			if k != "items" && k != "meta" {
+				return nil, false
+			}
+		}
+		var inner []json.RawMessage
+		if json.Unmarshal(raw, &inner) != nil {
+			return nil, false
+		}
+		out = append(out, inner...)
+	}
+	return out, true
 }

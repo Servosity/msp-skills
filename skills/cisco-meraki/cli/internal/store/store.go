@@ -10029,12 +10029,18 @@ func ExtractResourceID(resourceType string, obj map[string]any) string {
 	if s := suffixIDFieldFallback(resourceType, obj); s != "" {
 		return s
 	}
+	if s := merakiIdentityFallback(obj, true); s != "" { // pp:handfix meraki-sync-identity-fallback
+		return s
+	}
 	for _, key := range genericDescriptiveIDFieldFallbacks {
 		if s := canonicalIDFromKey(obj, key); s != "" {
 			return s
 		}
 	}
-	return mapKeyIDFallback(obj)
+	if s := mapKeyIDFallback(obj); s != "" {
+		return s
+	}
+	return merakiIdentityFallback(obj, false) // pp:handfix meraki-sync-identity-fallback
 }
 
 // Writer identity prefers a real resource id. A parameter-shaped payload

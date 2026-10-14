@@ -194,8 +194,12 @@ func localChanges(ctx context.Context, cmd *cobra.Command, flags *rootFlags, dbP
 		return nil, fmt.Errorf("opening local mirror: %w", err)
 	}
 	defer db.Close()
-	if !hintIfUnsynced(cmd, db, "configuration_changes") {
-		hintIfStale(cmd, db, "configuration_changes", flags.maxAge)
+	// configuration_changes is an organizations dependent and sync records no
+	// last_synced_at for dependents, so freshness is read from organizations
+	// (the same anchor fleet find uses); keying on the dependent always said
+	// "not synced yet", even right after a sync.
+	if !hintIfUnsynced(cmd, db, "organizations") {
+		hintIfStale(cmd, db, "organizations", flags.maxAge)
 	}
 	names := map[string]string{}
 	orgRows, err := db.DB().QueryContext(ctx, `SELECT id, COALESCE(name, '') FROM organizations`)

@@ -29,9 +29,14 @@ All notable changes to this skill are documented here. Format follows
   tells the agent to shrink `perPage` rather than hand it a cursor that skips items),
   instead of returning page one as if it were the whole list. This covers both bare
   arrays and `{items: [...]}` envelopes, and a truncated last page.
-- `sync` keys device availability change history on timestamp plus serial again: a
-  generated date-detection pattern misread those keys as dates, so every row was
-  dropped and `sync` exited 1 for any org with a recent status change.
+- `sync` exits 0 on real orgs: rows with no id field (VPN and uplink statuses, packet
+  loss and usage by device, network and SSID, sensor readings, wireless-controller
+  views, webhook and API request logs) are keyed on the network, device, SSID or
+  client they describe; `[{items, meta}]` responses are unwrapped into their records;
+  and a generated date-detection pattern no longer misreads timestamp-plus-serial
+  keys as dates. Before, each such resource dropped every row and `sync` exited 1.
+- `fleet changes --data-source local` no longer says the mirror was never synced
+  right after a sync.
 - `doctor` reports a 404 from its health check as a warning that names
   `CISCO_MERAKI_BASE_URL`, instead of calling a wrong base URL "reachable". The default
   base URL is the literal `https://api.meraki.com/api/v1`.

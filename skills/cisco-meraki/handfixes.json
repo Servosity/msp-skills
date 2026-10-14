@@ -165,7 +165,7 @@
   {
    "id": "meraki-mcp-execute-link-next",
    "summary": "The MCP cisco-meraki_execute tool marks a GET result has_more when the response's Link header names another page: with next_starting_after when the whole upstream page fit in the (50-item) MCP result, and, when the result was truncated to fit (a bare array marked truncated, or an object envelope marked _pp_truncated, including a truncated last page), a note to re-request with a smaller perPage instead of a cursor that would skip the cut items",
-   "why": "Every non-fleet operation reaches MCP agents through cisco-meraki_execute, which sends one GET and dropped the Link header, so an agent asking for network clients (default perPage 10 on many endpoints) silently got page one - the failure meraki-link-pagination fixed for sync, --all and fleet but not this twin path. Found by the fresh-context adversarial review (2026-10-13). The result is already capped at 50 items per MCP call, so the fix reports the cursor rather than walking every page. Helpers live in the hand-authored internal/cli/meraki_link_pagination.go (WithMerakiLinkNext, AnnotateMerakiNextPage); the three call-site lines in generated code_orch.go are re-applied by the factory's tools/apply_handfixes.py. TestCodeOrchExecuteReportsMerakiNextPage fails with the annotation removed (proven 2026-10-13). Round-2 adversarial review (2026-10-13) caught that the first version offered the Link cursor even when bound truncated a large page to 50 items, so following it skipped items 51..perPage; TestCodeOrchExecuteTruncatedPageWithholdsCursor fails on that version (proven) and a 1,200-item walk through the real MCP binary following the tool's own instructions returned all 1,200 with no gaps. Round 3 (2026-10-13) caught the object-envelope twin ({items:[...]} cut in place with _pp_truncated, e.g. switch port statuses by switch) and a truncated last page; TestCodeOrchExecuteTruncatedEnvelopeWithholdsCursor fails on the round-2 version (proven), and a 60-switch envelope walk following only the tool's notes returned all 60.",
+   "why": "Every non-fleet operation reaches MCP agents through cisco-meraki_execute, which sends one GET and dropped the Link header, so an agent asking for network clients (default perPage 10 on many endpoints) silently got page one - the failure meraki-link-pagination fixed for sync, --all and fleet but not this twin path. Found by the fresh-context adversarial review (2026-10-13). The result is already capped at 50 items per MCP call, so the fix reports the cursor rather than walking every page. Helpers live in the hand-authored internal/cli/meraki_link_pagination.go (WithMerakiLinkNext, AnnotateMerakiNextPage); the three call-site lines in generated code_orch.go are re-applied by the factory's tools/apply_handfixes.py. TestCodeOrchExecuteReportsMerakiNextPage fails with the annotation removed (proven 2026-10-13). Round-2 adversarial review (2026-10-13) caught that the first version offered the Link cursor even when bound truncated a large page to 50 items, so following it skipped items 51..perPage; TestCodeOrchExecuteTruncatedPageWithholdsCursor fails on that version (proven) and a 1,200-item walk through the real MCP binary following the tool's own instructions returned all 1,200 with no gaps. Round 3 (2026-10-13) caught the object-envelope twin ({items:[...]} cut in place with _pp_truncated, e.g. switch port statuses by switch) and a truncated last page; TestCodeOrchExecuteTruncatedEnvelopeWithholdsCursor fails on the round-2 version (proven), and a 60-switch envelope walk following only the tool's notes returned all 60. Round 4 (2026-10-13): the cut-page note now carries the exact page size for bare arrays (they set both truncated and _pp_truncated), and is emitted only for endpoints that take perPage (codeOrchTakesPerPage, hand-authored internal/mcp/meraki_execute.go) - a switch's 52 ports keep bound's own note instead of advice to shrink a page that does not exist.",
    "status": "active",
    "spec_encode_followup": "Not spec-encodable; press retro: execute should surface response-header pagination.",
    "asserts": [
@@ -177,7 +177,7 @@
     },
     {
      "file": "cli/internal/mcp/code_orch.go",
-     "contains": "cli.AnnotateMerakiNextPage(text, linkNext())",
+     "contains": "cli.AnnotateMerakiNextPage(text, linkNext(), codeOrchTakesPerPage(ep))",
      "min_count": 1,
      "code_only": true
     },
@@ -214,6 +214,18 @@
     {
      "file": "cli/internal/mcp/meraki_execute_link_test.go",
      "contains": "func TestCodeOrchExecuteTruncatedEnvelopeWithholdsCursor(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/meraki_execute.go",
+     "contains": "func codeOrchTakesPerPage(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/meraki_execute_link_test.go",
+     "contains": "func TestCodeOrchExecuteCutUnpagedResultKeepsBoundNote(",
      "min_count": 1,
      "code_only": true
     }
@@ -267,6 +279,65 @@
     {
      "file": "cli/internal/store/meraki_resource_id_test.go",
      "contains": "func TestMerakiCompositeTimestampIDIsUsable(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "meraki-sync-identity-fallback",
+   "summary": "When no id-like field resolves, store.ExtractResourceID composes a row identity from Meraki scope/entity fields (network.id or networkId, cluster, policy, profile, SSID number, device serial, gateway/controller serial, client, port, interface/rule-group/policy id, admin/method/path, metric, alertType, url, then a timestamp for history rows); rows that name a device serial use it ahead of the generic display-name fallback",
+   "why": "Round-4 adversarial review (2026-10-13) served every synced organizations dependent its documented 200 example and found 44 (68 by a later full probe) with no field the generated extractor accepts: VPN statuses, uplink statuses, packet loss and usage by device/network/SSID, wireless-controller views, sensor readings, webhook logs, API requests. Every row failed extraction, sync counted each as a critical IntegrityFailure, and `sync`/`sync --resources organizations` exited 1 for nearly any real MSP org (the factory fake 404s ~130 of those paths, which hid it). The composite never starts with a timestamp, so it never reads as a date; a row with only a timestamp still fails honestly. SSID number 0 is accepted (the composite-override path rejects 0). The lastReportedAt+rssi sensor key, which reads as a date, now resolves to network+sensor+gateway serial. Helper is hand-authored internal/store/meraki_identity.go; two call sites in generated store.go. TestMerakiIdentityFallbackKeysDocumentedRows fails without the hook (proven); sync against a stub serving every documented example exits 0 with 447 rows and no extraction failures.",
+   "status": "active",
+   "spec_encode_followup": "Partly spec-encodable: x-resource-id per operation for each of these resources would replace the fallback. Press retro: a dependent with no identity field should not be an IntegrityFailure, or should get a content key.",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "merakiIdentityFallback(obj, true)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "return merakiIdentityFallback(obj, false)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_identity.go",
+     "contains": "func merakiIdentityFallback(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_identity_test.go",
+     "contains": "func TestMerakiIdentityFallbackKeysDocumentedRows(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "meraki-sync-envelope-array",
+   "summary": "sync's page extractor unwraps an ARRAY of {items, meta} envelopes into the records inside it",
+   "why": "Several Meraki list reads (wireless RF-profile assignments by device, floor-plan auto-locate devices and statuses, SM sentry assignments, wireless-controller failover history, provisioning deployments) answer [{items:[...], meta:{...}}]. The generated extractor took the direct array as the records, stored the envelope (no identity), and the resource failed as critical - RF-profile assignments alone has rows in any org with MR access points. Found while fixing the round-4 sync P1 (2026-10-13). Helper merakiUnwrapEnvelopeArray is hand-authored in internal/cli/meraki_link_pagination.go; the call site in generated sync.go is re-applied by the factory's tools/apply_handfixes.py. TestSyncUnwrapsMerakiEnvelopeArray fails without it (proven).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "if inner, ok := merakiUnwrapEnvelopeArray(items); ok {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/meraki_link_pagination.go",
+     "contains": "func merakiUnwrapEnvelopeArray(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/meraki_envelope_array_test.go",
+     "contains": "func TestSyncUnwrapsMerakiEnvelopeArray(",
      "min_count": 1,
      "code_only": true
     }
