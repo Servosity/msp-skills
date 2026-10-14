@@ -381,6 +381,26 @@
       "tagline": "Triage boards, catch unbilled time, and prep QBRs by asking."
     },
     {
+      "name": "connectwise-rmm",
+      "system": "ConnectWise RMM (Asio) remote monitoring and management platform",
+      "status": "beta",
+      "skill_path": "skills/connectwise-rmm",
+      "cli_binary": "connectwise-rmm-cli",
+      "mcp_binary": "connectwise-rmm-mcp",
+      "version": "0.1.0",
+      "printing_press_version": "4.33.5",
+      "license": "Apache-2.0",
+      "vendor": "ConnectWise",
+      "vendor_trademark_owner": "ConnectWise, LLC",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/connectwise-rmm/install.sh)",
+      "install_mcp_doc": "skills/connectwise-rmm/mcp-install.md",
+      "description": "66 ConnectWise RMM (Asio) partner API operations, plus a local fleet database, patch-compliance rollups, and script runs you can preview, schedule and watch in one command.",
+      "verification": "awaiting",
+      "category": "RMM",
+      "tagline": "Ask your ConnectWise RMM fleet which endpoints are stale, unpatched or failing scripts, across every company at once."
+    },
+    {
       "name": "cork",
       "system": "Cork Vantage cyber risk, compliance, vulnerability, and cyber warranty platform",
       "status": "beta",

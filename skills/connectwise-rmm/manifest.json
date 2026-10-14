@@ -1,0 +1,105 @@
+{
+  "manifest_version": "0.3",
+  "name": "connectwise-rmm-mcp",
+  "display_name": "ConnectWise RMM",
+  "version": "0.1.0",
+  "description": "66 ConnectWise RMM (Asio) partner API operations, plus a local fleet database, patch-compliance rollups, and script runs you can preview, schedule and watch in one command.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/connectwise-rmm-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/connectwise-rmm-mcp",
+      "args": [],
+      "env": {
+        "CONNECTWISE_RMM_CLIENT_ID": "${user_config.connectwise_rmm_client_id}",
+        "CONNECTWISE_RMM_CLIENT_SECRET": "${user_config.connectwise_rmm_client_secret}",
+        "CONNECTWISE_RMM_OAUTH_SCOPE": "${user_config.connectwise_rmm_oauth_scope}",
+        "CONNECTWISE_RMM_BASE_URL": "${user_config.connectwise_rmm_base_url}",
+        "CONNECTWISE_RMM_TOKEN_URL": "${user_config.connectwise_rmm_token_url}",
+        "CONNECTWISE_RMM_USER_AGENT": "${user_config.connectwise_rmm_user_agent}",
+        "CONNECTWISE_RMM_MCP_READ_ONLY": "${user_config.connectwise_rmm_mcp_read_only}",
+        "CONNECTWISE_RMM_MCP_HTTP_TOKEN": "${user_config.connectwise_rmm_mcp_http_token}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
+      }
+    }
+  },
+  "user_config": {
+    "connectwise_rmm_client_id": {
+      "type": "string",
+      "title": "CONNECTWISE_RMM_CLIENT_ID",
+      "description": "ConnectWise RMM (Asio) API client ID from Integrations > API Access in the ConnectWise portal. Its prefix picks the region (0e30 North America, 0e31 Europe, 0e32 Australia).",
+      "required": true,
+      "sensitive": true
+    },
+    "connectwise_rmm_client_secret": {
+      "type": "string",
+      "title": "CONNECTWISE_RMM_CLIENT_SECRET",
+      "description": "Client secret paired with the API client ID. The connector exchanges the pair for a short-lived bearer token.",
+      "required": true,
+      "sensitive": true
+    },
+    "connectwise_rmm_oauth_scope": {
+      "type": "string",
+      "title": "OAuth scopes (optional)",
+      "description": "Space-separated scopes to request. Leave blank to request every scope the connector uses; if your API key lacks one, the whole token request fails, so paste the line `connectwise-rmm-cli scopes` prints.",
+      "required": false
+    },
+    "connectwise_rmm_base_url": {
+      "type": "string",
+      "title": "API base URL (optional)",
+      "description": "Leave blank to follow the client ID's region (NA openapi.service.itsupport247.net, EU openapi.service.euplatform.connectwise.com, AU openapi.service.auplatform.connectwise.com). Set it only to pin a different host.",
+      "required": false
+    },
+    "connectwise_rmm_token_url": {
+      "type": "string",
+      "title": "Token URL (optional)",
+      "description": "Leave blank to mint tokens at <base URL>/v1/token for your region. Set it only if ConnectWise gives you a different token endpoint.",
+      "required": false
+    },
+    "connectwise_rmm_user_agent": {
+      "type": "string",
+      "title": "User-Agent header (optional)",
+      "description": "Overrides the User-Agent the CLI sends on ConnectWise RMM requests. Leave blank to use the CLI's own.",
+      "required": false
+    },
+    "connectwise_rmm_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP server (optional)",
+      "description": "Set to 1 to make the MCP server read-only: it drops its write tools (run, import, sync) and refuses any non-GET API call. Leave blank for the full tool set.",
+      "required": false
+    },
+    "connectwise_rmm_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token (optional)",
+      "description": "Required only when running the MCP server with --transport http (a remote or hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+      "required": false,
+      "sensitive": true
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile (optional)",
+      "description": "Only for tenant-gated multi-client deployments: binds the MCP server to an existing client profile. Leave blank for a single-tenant install.",
+      "required": false,
+      "sensitive": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  },
+  "printing_press_version": "4.33.5",
+  "press_provenance": {
+    "printing_press_version": "4.33.5",
+    "generated_at": "2026-10-13T23:02:50.825169Z",
+    "spec_checksum": "sha256:26527a257678343a78cfd4c6299ee3eaf99231e9098ddff2a88bfd156a3b9b3d",
+    "spec_format": "openapi3"
+  }
+}

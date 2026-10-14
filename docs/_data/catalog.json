@@ -1,5 +1,5 @@
 {
-  "count": 67,
+  "count": 68,
   "connectors": [
     {
       "slug": "abnormal",
@@ -187,6 +187,17 @@
       "source": null,
       "issue_url": null,
       "url": "/skills/connectwise-manage/"
+    },
+    {
+      "slug": "connectwise-rmm",
+      "display_name": "ConnectWise RMM",
+      "tagline": "Ask your ConnectWise RMM fleet which endpoints are stale, unpatched or failing scripts, across every company at once.",
+      "category": "RMM",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "url": "/skills/connectwise-rmm/"
     },
     {
       "slug": "cork",

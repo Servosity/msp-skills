@@ -707,6 +707,37 @@ A: Yes. CW_SITE accepts your own server's hostname as well as the cloud region h
 
 Governance: The skill drives the connectwise-manage-cli and connectwise-manage-mcp binaries, authenticating with API Member keys read from the environment (CW_COMPANY_ID, CW_PUBLIC_KEY, CW_PRIVATE_KEY, CW_CLIENT_ID) - never logged and never sent anywhere except your ConnectWise Manage instance. Read commands (boards, cross-entity views, search, reports) can change nothing. Writes are not gated by default: --dry-run is an opt-in preview flag, so the recommended policy is an agent-level rule - preview with --dry-run, show the exact command, get approval, then run the write. Keep delete and member-administration commands human-only. The strongest control is the security role on the API Member you create.
 
+### ConnectWise RMM (RMM)
+
+Page: https://msp-skills.compoundingteams.com/skills/connectwise-rmm/
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/connectwise-rmm/install.sh)
+
+Ask your AI "which agents went offline overnight?" or "which clients are behind on patches?" and get one answer across every company. The ConnectWise RMM (Asio) partner API returns per-endpoint rows keyed by IDs and never rolls them up per client. This skill syncs companies, sites and endpoints into a local SQLite mirror, joins live availability and cached patch summaries to it, and previews script runs before anything is scheduled.
+
+Outcomes (question -> command your AI agent runs):
+- Which endpoints are offline or silent for more than a day, by client? -> connectwise-rmm-cli fleet stale --older-than 24h --agent
+- Which clients are behind on patches, worst first? -> connectwise-rmm-cli fleet patch-posture --min-compliance 90 --agent
+- Which machines need a reboot this patch week, and which have someone logged on? -> connectwise-rmm-cli fleet reboot-due --agent
+- Which machine is this user logged on to? -> connectwise-rmm-cli fleet whois "jsmith" --agent
+- Give me one client's health card for the review. -> connectwise-rmm-cli fleet scorecard "Acme Corp" --agent
+- Why did last night's script fail, and on which machines? -> connectwise-rmm-cli fleet task-failures "<task-id>" --agent
+- Which OAuth scopes did my API key actually get? -> connectwise-rmm-cli scopes --agent
+
+FAQ:
+Q: Is this for ConnectWise RMM, ConnectWise Automate, or ConnectWise PSA?
+A: ConnectWise RMM, the cloud RMM on the ConnectWise Asio platform (formerly Command and Continuum). ConnectWise Automate (LabTech), ConnectWise PSA (Manage) and ConnectWise ScreenConnect (Control) each have their own skill. This one talks to the Asio partner API for companies, sites, endpoints, patching, scripts and tasks, and Asio's own service tickets.
+Q: What credentials do I need?
+A: An API client ID and secret created under Integrations > API Access in the ConnectWise portal. A client ID starting 0e30, 0e31 or 0e32 picks North America, Europe or Australia for you; if yours starts differently, set `CONNECTWISE_RMM_BASE_URL` to your region's API host. If your key was not granted every scope, run `connectwise-rmm-cli scopes --agent` and set the `CONNECTWISE_RMM_OAUTH_SCOPE` line it prints, because Asio rejects a whole token request that asks for one scope it lacks.
+Q: Will this hit my ConnectWise RMM API rate limits?
+A: The local mirror is the point. You sync companies, sites, endpoints and tickets, and roll-ups run against that copy. Availability is checked 400 endpoints per call, patch summaries are cached for 12 hours by default, and the CLI slows down automatically when Asio answers HTTP 429.
+Q: Can my AI run scripts on client machines?
+A: Only through commands you allow. From the CLI, `run` previews by default and schedules nothing until you add `--confirm`. Three other paths schedule immediately: `tasks schedule`, `import` of task records, and the MCP server's generic `connectwise-rmm_execute` tool. For an agent that must never run scripts, set `CONNECTWISE_RMM_MCP_READ_ONLY=1` (the MCP server then drops its write tools and refuses every non-read API call) and do not grant the key the `platform.automation.create` scope.
+Q: Will this replace the ConnectWise RMM portal?
+A: No. The portal stays where you configure policies, monitoring and remote access. This skill answers cross-client reporting and triage questions from your AI agent or terminal.
+
+Governance: The skill is read-first: fleet roll-ups, patch posture, user lookup, task-failure grouping, search and every list or get command are read-only and safe to let an agent run. A small set of commands act on real machines or issue credentials - `run --confirm`, `tasks schedule` and `import` of task records run scripts on endpoints, `endpoints uninstall` removes the agent, and `endpoints create-agent-install-token` issues enrollment tokens - and the MCP server's generic `connectwise-rmm_execute` tool can reach all of them, so keep them human-in-the-loop or set `CONNECTWISE_RMM_MCP_READ_ONLY=1`. The API key's granted scopes are the outer limit on anything an agent can do.
+
 ### Cork (Security)
 
 Page: https://msp-skills.compoundingteams.com/skills/cork/

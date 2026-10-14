@@ -38,6 +38,7 @@ body:
         - connectwise-automate
         - connectwise-control
         - connectwise-manage
+        - connectwise-rmm
         - cork
         - cove
         - crowdstrike
