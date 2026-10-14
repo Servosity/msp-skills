@@ -602,24 +602,27 @@ func discardTenantMirror(t gwsTenant) error {
 	}
 	base := filepath.Join(dir, "data-"+hashDefaultDBScope(tenantStoreIdentity(&t))+".db")
 	aside := fmt.Sprintf("%s.quarantined-%d", base, time.Now().UnixNano())
+	prev := ""
 	if _, err := os.Stat(base); os.IsNotExist(err) {
-		// A retry after a partial move: keep the leftover sidecars paired
-		// with the newest mirror already moved aside (never overwriting).
-		if prev := unpairedQuarantinedMirror(base); prev != "" {
-			aside = prev
-		}
+		prev = latestQuarantinedMirror(base)
 	}
 	for _, suffix := range []string{"", "-wal", "-shm", "-journal"} {
-		if err := os.Rename(base+suffix, aside+suffix); err != nil && !os.IsNotExist(err) {
+		dst := aside + suffix
+		// A retry after a partial move: a leftover sidecar joins the newest
+		// mirror already moved aside, unless that slot is taken.
+		if _, err := os.Lstat(prev + suffix); prev != "" && os.IsNotExist(err) {
+			dst = prev + suffix
+		}
+		if err := os.Rename(base+suffix, dst); err != nil && !os.IsNotExist(err) {
 			return err
 		}
 	}
 	return nil
 }
 
-// unpairedQuarantinedMirror is the newest base.quarantined-<unixnano> main
-// file when it has no sidecar beside it yet, or "".
-func unpairedQuarantinedMirror(base string) string {
+// latestQuarantinedMirror is the newest base.quarantined-<unixnano> main
+// file (sidecars excluded), or "" when none exists.
+func latestQuarantinedMirror(base string) string {
 	matches, _ := filepath.Glob(base + ".quarantined-*")
 	latest := ""
 	for _, m := range matches {
@@ -628,11 +631,6 @@ func unpairedQuarantinedMirror(base string) string {
 		}
 		if len(m) > len(latest) || (len(m) == len(latest) && m > latest) {
 			latest = m
-		}
-	}
-	for _, suffix := range []string{"-wal", "-shm", "-journal"} {
-		if _, err := os.Lstat(latest + suffix); latest == "" || err == nil {
-			return ""
 		}
 	}
 	return latest

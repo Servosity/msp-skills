@@ -314,7 +314,7 @@ Highlights (not in the official API docs):
   • stale-licenses   Paid licences held by suspended, never-signed-in, or idle accounts, per client, ready to reclaim.
   • offboard   Offboard a leaver with suspension last (backup-code invalidation fails on a suspended account), with a read-only preview, dry-run, and a receipt per step.
   • leavers   Suspended accounts that still hold a paid licence, groups, an admin role, OAuth tokens, or have no completed Drive transfer.
-  • sharing-drift   Who changed Drive or Calendar settings (any setting, not only sharing) or an app's sharing settings in the Admin console, and which files newly went external or public, across clients.
+  • sharing-drift   Who changed Drive or Calendar settings (any setting, not only sharing) or an app's sharing settings in the Admin console, and how many files newly went external or public (up to 5 sample names per user), across clients.
   • posture   One row per client: 2SV coverage, admins without 2SV, stale licences and Drive, Calendar or app-sharing setting changes, plus current sharing and 2SV policy for tenants registered with the policy scope profile.
   • oauth-apps   Third-party apps with access to client data across every active user and tenant, ranked by scope risk; --since switches to apps newly authorized in that window.
   • login-alerts   Suspicious sign-ins, accounts Google disabled, 2SV turned off, and out-of-domain mail forwarding across clients.

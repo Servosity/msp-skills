@@ -24,7 +24,7 @@ func TestRecipeIntentHandlerBuildsRecipeArgs(t *testing.T) {
 	recipeCLIPathErr = nil
 
 	req := mcplib.CallToolRequest{Params: mcplib.CallToolParams{Arguments: map[string]any{}}}
-	result, err := handleCheckLastWeekSLeaversWereClosed(context.Background(), req)
+	result, err := handleCheckSuspendedLeaversWereFullyClosed(context.Background(), req)
 	if err != nil {
 		t.Fatalf("handler returned transport error: %v", err)
 	}
@@ -50,7 +50,7 @@ func TestRecipeIntentHandlerOverridesParams(t *testing.T) {
 	req := mcplib.CallToolRequest{Params: mcplib.CallToolParams{Arguments: map[string]any{
 		"all_tenants": false,
 	}}}
-	result, err := handleCheckLastWeekSLeaversWereClosed(context.Background(), req)
+	result, err := handleCheckSuspendedLeaversWereFullyClosed(context.Background(), req)
 	if err != nil {
 		t.Fatalf("handler returned transport error: %v", err)
 	}

@@ -235,8 +235,9 @@ func newNovelPostureCmd(flags *rootFlags) *cobra.Command {
 			"a tenant that could not be read is an explicit error row, never a zeroed one.\n" +
 			"Tenants registered with the 'policy' scope profile also report the current 2SV\n" +
 			"enforcement, Drive external sharing mode and Gmail auto-forwarding policy\n" +
-			"(the highest-priority policy wins per org unit or group; differences between\n" +
-			"them show as mixed:...); others read not_granted.\n" +
+			"(Google's reduction: per scope - org unit, group and licence condition - the\n" +
+			"highest-priority policy wins and a field it omits is Google's default;\n" +
+			"scopes that differ show as mixed:...); others read not_granted.\n" +
 			"Use this command for a one-row-per-client security and licence-waste summary. Do NOT\n" +
 			"use it to list individual users; use 'mfa-gaps' (2SV), 'stale-licenses' (licence waste),\n" +
 			"or 'leavers' (incomplete offboarding) instead. Do NOT use it to list sharing events; use\n" +

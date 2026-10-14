@@ -38,16 +38,19 @@ func RegisterIntents(s *server.MCPServer) {
 		opts := []mcplib.ToolOption{
 			mcplib.WithDescription("Suspended accounts still holding licences, groups, admin roles, tokens or unfinished transfers."),
 			mcplib.WithOpenWorldHintAnnotation(true),
+			// Hand-fix (handfixes.json docs-surface-truth): leavers only reads.
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
 		}
 		if !recipeDestinationBlocked(recipePath, "all-tenants") {
 			opts = append(opts, mcplib.WithBoolean("all_tenants", mcplib.Description("Override the recipe's --all-tenants value.")))
 		}
-		s.AddTool(mcplib.NewTool("check_last_week_s_leavers_were_closed", opts...), handleCheckLastWeekSLeaversWereClosed)
+		s.AddTool(mcplib.NewTool("check_suspended_leavers_were_fully_closed", opts...), handleCheckSuspendedLeaversWereFullyClosed)
 	}
 }
 
-// handleCheckLastWeekSLeaversWereClosed runs the check_last_week_s_leavers_were_closed recipe intent: Suspended accounts still holding licences, groups, admin roles, tokens or unfinished transfers.
-func handleCheckLastWeekSLeaversWereClosed(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+// handleCheckSuspendedLeaversWereFullyClosed runs the check_suspended_leavers_were_fully_closed recipe intent: Suspended accounts still holding licences, groups, admin roles, tokens or unfinished transfers.
+func handleCheckSuspendedLeaversWereFullyClosed(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
 	if recipeCLIPathErr != nil {
 		return mcplib.NewToolResultError(fmt.Sprintf("companion CLI binary not found: %v", recipeCLIPathErr)), nil
 	}

@@ -1546,7 +1546,7 @@
   {
    "id": "tenants-test-checks-domain",
    "summary": "tenants test fails a tenant whose configured --domain is not one of the domains (or aliases) Google returns for the customer its admin and key resolve to, and quarantines it (ownership_mismatch in tenants.toml): every command refuses the tenant until it is re-registered or passes tenants test again; the operator's recorded customer ID and domains are kept A quarantined mirror is moved aside, never deleted, and tenants test is not an MCP read-only tool.",
-   "why": "Registering domain A with domain B's delegated admin and key passed tenants test, which pre-accepted the configured domain, so every report labelled B's data as A and stored it in A's mirror. Found by the onboard Codex review (round 12, P1). tenantDomains is the decode-and-check; TestTenantDomainsRequiresConfiguredDomain fails without the ownership check. gws_tenants_cmd.go is a NOVEL file. Round 13 (adversarial P2s): a failed domain check now clears the tenant's recorded customer ID and domains (errWrongCustomer), so offboard stops routing that organization's emails to it, and tenants add trims --domain so a padded value cannot drop the primary domain from the recorded list. Round 14 (Codex P1 + adversarial P2): clearing the record left the wrong credentials selectable, and with the customer ID gone the reports fell back to my_customer, the wrong organization, labelled as this tenant. Now applyTenantClient refuses a tenant with OwnershipMismatch set (CLI, MCP and every fan-out), tenants test re-tests it with its own credentials and lifts the flag on success, and nothing the operator recorded is cleared. TestQuarantinedTenantRefused fails without the refusal. Round 15 (Codex P1 + adversarial P2s): local reads (search, sql, analytics, MCP) also refuse a quarantined tenant, whose mirror may already hold the other organization's data; tenants list shows the quarantine; and the lines that persist and lift it are pinned. Round 16 (adversarial P1 + Codex P1): lifting the quarantine reopened the same mirror with the other organization's rows still in it (sync never prunes), so quarantining now deletes the tenant's mirror and SQLite sidecars (discardTenantMirror; the learn tables share the file). TestDiscardTenantMirror. Round 17 (Codex P1 x2): deletion erased the learn tables (playbooks) from a tool advertised as MCP read-only, and a failed delete only warned, so a later passing test lifted the quarantine over the old rows. The mirror is now moved aside (data-<hash>.db.quarantined-<unixnano>, sidecars paired); every path that lifts a quarantine (a passing tenants test, tenants add --yes over a quarantined tenant) moves it first and keeps the quarantine when the move fails; tenants test drops mcp:read-only, so read-only MCP mode hides it (verified with tools/list on the built server) and governance, README, page.json and mcp-install.md list it with tenants add. TestDiscardTenantMirror fails with os.Remove restored. Round 18 (Codex P1 + adversarial P2s): tenants remove of a quarantined tenant now moves its mirror aside first (a later add under the same name and domain reopened it); tenants add --yes over a quarantined tenant moves the old mirror before writing the key and carries the quarantine forward, so only a passing tenants test lifts it; a retry after a partial move pairs a leftover sidecar with the newest unpaired moved-aside mirror and never overwrites one; the lift is clearQuarantinedMirror, tested with a read-only data dir; TestTenantsTestIsNotMCPReadOnly guards the annotation in any key order.",
+   "why": "Registering domain A with domain B's delegated admin and key passed tenants test, which pre-accepted the configured domain, so every report labelled B's data as A and stored it in A's mirror. Found by the onboard Codex review (round 12, P1). tenantDomains is the decode-and-check; TestTenantDomainsRequiresConfiguredDomain fails without the ownership check. gws_tenants_cmd.go is a NOVEL file. Round 13 (adversarial P2s): a failed domain check now clears the tenant's recorded customer ID and domains (errWrongCustomer), so offboard stops routing that organization's emails to it, and tenants add trims --domain so a padded value cannot drop the primary domain from the recorded list. Round 14 (Codex P1 + adversarial P2): clearing the record left the wrong credentials selectable, and with the customer ID gone the reports fell back to my_customer, the wrong organization, labelled as this tenant. Now applyTenantClient refuses a tenant with OwnershipMismatch set (CLI, MCP and every fan-out), tenants test re-tests it with its own credentials and lifts the flag on success, and nothing the operator recorded is cleared. TestQuarantinedTenantRefused fails without the refusal. Round 15 (Codex P1 + adversarial P2s): local reads (search, sql, analytics, MCP) also refuse a quarantined tenant, whose mirror may already hold the other organization's data; tenants list shows the quarantine; and the lines that persist and lift it are pinned. Round 16 (adversarial P1 + Codex P1): lifting the quarantine reopened the same mirror with the other organization's rows still in it (sync never prunes), so quarantining now deletes the tenant's mirror and SQLite sidecars (discardTenantMirror; the learn tables share the file). TestDiscardTenantMirror. Round 17 (Codex P1 x2): deletion erased the learn tables (playbooks) from a tool advertised as MCP read-only, and a failed delete only warned, so a later passing test lifted the quarantine over the old rows. The mirror is now moved aside (data-<hash>.db.quarantined-<unixnano>, sidecars paired); every path that lifts a quarantine (a passing tenants test, tenants add --yes over a quarantined tenant) moves it first and keeps the quarantine when the move fails; tenants test drops mcp:read-only, so read-only MCP mode hides it (verified with tools/list on the built server) and governance, README, page.json and mcp-install.md list it with tenants add. TestDiscardTenantMirror fails with os.Remove restored. Round 18 (Codex P1 + adversarial P2s): tenants remove of a quarantined tenant now moves its mirror aside first (a later add under the same name and domain reopened it); tenants add --yes over a quarantined tenant moves the old mirror before writing the key and carries the quarantine forward, so only a passing tenants test lifts it; a retry after a partial move pairs a leftover sidecar with the newest unpaired moved-aside mirror and never overwrites one; the lift is clearQuarantinedMirror, tested with a read-only data dir; TestTenantsTestIsNotMCPReadOnly guards the annotation in any key order. Round 19 (Codex P2): pairing is per file, so a leftover -shm joins its mirror even when an earlier retry already paired the -wal; TestTenantsTestIsNotMCPReadOnly requires the annotation to be absent (the classifier also reads 1 and yes as true).",
    "status": "active",
    "spec_encode_followup": "Factory-side: port tenantDomains into ~/Documents/Dev/cli-factory/google-workspace/novel/gws_tenants_cmd.go.",
    "asserts": [
@@ -1684,7 +1684,7 @@
     },
     {
      "file": "cli/internal/cli/gws_tenants_cmd.go",
-     "contains": "if err := os.Rename(base+suffix, aside+suffix); err != nil && !os.IsNotExist(err) {",
+     "contains": "if err := os.Rename(base+suffix, dst); err != nil && !os.IsNotExist(err) {",
      "min_count": 1,
      "code_only": true
     },
@@ -1744,7 +1744,7 @@
     },
     {
      "file": "cli/internal/cli/gws_tenants_cmd.go",
-     "contains": "if prev := unpairedQuarantinedMirror(base); prev != \"\" {",
+     "contains": "prev = latestQuarantinedMirror(base)",
      "min_count": 1,
      "code_only": true
     },
@@ -1763,6 +1763,12 @@
     {
      "file": "cli/internal/cli/gws_novel_test.go",
      "contains": "func TestTenantsTestIsNotMCPReadOnly(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants_cmd.go",
+     "contains": "if _, err := os.Lstat(prev + suffix); prev != \"\" && os.IsNotExist(err) {\n\t\t\tdst = prev + suffix",
      "min_count": 1,
      "code_only": true
     }
@@ -2376,7 +2382,7 @@
   {
    "id": "docs-surface-truth",
    "summary": "Re-vendored doc surfaces (SKILL.md, guide.md, manifest.json, server.json, mcp-install.md) state the reviewed behavior: one <orgUnitPath> and one printer <name>/<parent>, no ambient-token fallback once tenants are registered, and PRINTING_PRESS_CLIENT_PROFILE has no effect",
-   "why": "onboard.py --resume re-vendors SKILL.md, guide.md and manifest.json from the factory source, which still carries the generated command signatures ('orgunits get <orgUnitPath> <orgunitsId>'), the token-fallback warning and the client-profile binding claim, all corrected during the onboard reviews (rounds 12-14). This entry makes a re-vendor that brings them back fail the gate. Round 18 (adversarial P2): manifest.json's read-only field lists every hidden tool; SKILL.md/guide.md say a single registered tenant is auto-selected and where tenant keys live; tier tables add license-assignments patch, users patch/update --password, roles delete, resellernotify register and --deliver webhook egress; sharing-drift says how many files plus sample names, not which files.",
+   "why": "onboard.py --resume re-vendors SKILL.md, guide.md and manifest.json from the factory source, which still carries the generated command signatures ('orgunits get <orgUnitPath> <orgunitsId>'), the token-fallback warning and the client-profile binding claim, all corrected during the onboard reviews (rounds 12-14). This entry makes a re-vendor that brings them back fail the gate. Round 18 (adversarial P2): manifest.json's read-only field lists every hidden tool; SKILL.md/guide.md say a single registered tenant is auto-selected and where tenant keys live; tier tables add license-assignments patch, users patch/update --password, roles delete, resellernotify register and --deliver webhook egress; sharing-drift says how many files plus sample names, not which files. Round 19 (adversarial P2 + Codex P2): the MCP context payload, which index and root help carry the sharing-drift wording; the leavers recipe tool is named for what it checks (no time window) and annotated read-only; server.json's read-only field matches the code; the auto-select note excludes a lone --reseller tenant.",
    "status": "active",
    "spec_encode_followup": "Factory-side: carry these doc edits into the source SKILL.md/guide.md/manifest.json.",
    "asserts": [
@@ -2475,12 +2481,12 @@
     },
     {
      "file": "SKILL.md",
-     "contains": "with two or more tenants registered and none selected (a single registered tenant is selected automatically)",
+     "contains": "with two or more tenants registered and none selected (a single registered client tenant is selected automatically; a --reseller tenant never is)",
      "min_count": 1
     },
     {
      "file": "guide.md",
-     "contains": "with two or more tenants registered and none selected (a single registered tenant is selected automatically)",
+     "contains": "with two or more tenants registered and none selected (a single registered client tenant is selected automatically; a --reseller tenant never is)",
      "min_count": 1
     },
     {
@@ -2496,6 +2502,46 @@
     {
      "file": "SKILL.md",
      "contains": "how many files newly went external or public (up to 5 sample names per user)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "and how many files newly went external or public (up to 5 sample names per user), across clients.",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/which.go",
+     "contains": "and how many files newly went external or public (up to 5 sample names per user), across clients.",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "and how many files newly went external or public (up to 5 sample names per user), across clients.",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "contains": "s.AddTool(mcplib.NewTool(\"check_suspended_leavers_were_fully_closed\", opts...), handleCheckSuspendedLeaversWereFullyClosed)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "contains": "mcplib.WithReadOnlyHintAnnotation(true),\n\t\t\tmcplib.WithDestructiveHintAnnotation(false),",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "server.json",
+     "contains": "Set to exactly 1 to hide tools that change Google or the tenant registry and refuse every non-GET API call; local learn-store tools stay",
+     "min_count": 1
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "a single registered client tenant is selected automatically; a --reseller tenant never is",
      "min_count": 1
     }
    ]

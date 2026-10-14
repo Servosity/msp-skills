@@ -1272,6 +1272,16 @@ func TestDiscardTenantMirror(t *testing.T) {
 	if b, _ := os.ReadFile(base + ".quarantined-1-wal"); string(b) != "wal" {
 		t.Fatalf("an earlier moved-aside sidecar must never be overwritten: %q", b)
 	}
+	// A different leftover sidecar still joins the mirror whose slot is free.
+	if err := os.WriteFile(base+"-shm", []byte("shm"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := discardTenantMirror(tn); err != nil {
+		t.Fatal(err)
+	}
+	if b, err := os.ReadFile(base + ".quarantined-1-shm"); err != nil || string(b) != "shm" {
+		t.Fatalf("the leftover -shm must join its mirror: %q %v", b, err)
+	}
 }
 
 // Hand-fix (handfixes.json tenants-test-checks-domain): replacing or removing
@@ -1378,8 +1388,8 @@ func TestQuarantineLiftMovesMirrorFirst(t *testing.T) {
 // Hand-fix (handfixes.json tenants-test-checks-domain): tenants test writes
 // the registry and can move a mirror, so it is never an MCP read-only tool.
 func TestTenantsTestIsNotMCPReadOnly(t *testing.T) {
-	if newTenantsTestCmd(&rootFlags{}).Annotations["mcp:read-only"] == "true" {
-		t.Fatal("tenants test must not be mcp:read-only")
+	if v, ok := newTenantsTestCmd(&rootFlags{}).Annotations["mcp:read-only"]; ok {
+		t.Fatalf("tenants test must carry no mcp:read-only annotation, got %q", v)
 	}
 }
 
