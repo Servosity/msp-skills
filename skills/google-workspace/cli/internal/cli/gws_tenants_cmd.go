@@ -348,7 +348,7 @@ func newTenantsTestCmd(flags *rootFlags) *cobra.Command {
 				_ = cmd.Usage()
 				return usageErr(fmt.Errorf("name a tenant or pass --all-tenants"))
 			}
-			results, _ := cliutil.FanoutRun(cmd.Context(), targets, func(t gwsTenant) string { return t.Name },
+			results, errs := cliutil.FanoutRun(cmd.Context(), targets, func(t gwsTenant) string { return t.Name },
 				func(ctx context.Context, t gwsTenant) (tenantTestResult, error) {
 					return testTenant(ctx, flags, t), nil
 				}, cliutil.WithConcurrency(4))
@@ -359,6 +359,11 @@ func newTenantsTestCmd(flags *rootFlags) *cobra.Command {
 				if r.Value.OK {
 					verified[r.Value.Tenant] = r.Value
 				}
+			}
+			// A worker that was cancelled or panicked returns no result; report
+			// it as a failed tenant so the exit code cannot read as success.
+			for _, e := range errs {
+				out = append(out, tenantTestResult{Tenant: e.Source, Error: e.Err.Error()})
 			}
 			if len(verified) > 0 {
 				// Re-read under the lock and touch only tenants that still

@@ -1099,6 +1099,12 @@ func cursorPageHasContinuation(cursorType string, hasMore bool, nextCursor strin
 // Values are detected from the API spec by the profiler at generation time.
 func determinePaginationDefaults(resource string) paginationDefaults {
 	switch resource {
+	case "applications", "groups", "subscriptions", "transfers", "users":
+		// Hand-fix (handfixes.json sync-google-page-token-pagination): the
+		// Discovery-sourced print left this table empty, so sync read one
+		// page and recorded the resource complete. Every synced Google list
+		// pages with pageToken/nextPageToken; 100 is within each maxResults cap.
+		return paginationDefaults{cursorParam: "pageToken", cursorType: "page_token", nextCursorPath: "nextPageToken", limitParam: "maxResults", limit: 100}
 	}
 	return paginationDefaults{
 		cursorParam:    "after",
@@ -1111,6 +1117,8 @@ func determinePaginationDefaults(resource string) paginationDefaults {
 
 func resourceSupportsPagination(resource string) bool {
 	switch resource {
+	case "applications", "groups", "subscriptions", "transfers", "users":
+		return true
 	}
 	return false
 }

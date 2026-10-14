@@ -335,6 +335,13 @@ func getenvTenant() string {
 	return strings.TrimSpace(cliutil.EnvOverride("GOOGLE_WORKSPACE_TENANT"))
 }
 
+// tenantPinnedStore reports whether the local store is keyed to a registered
+// tenant (see config.StoreScopeIdentity below) rather than to a credential.
+func tenantPinnedStore() bool {
+	t, err := selectedTenant()
+	return err == nil && t != nil
+}
+
 // resetTenantSelection is for tests.
 func resetTenantSelection() {
 	tenantState.Lock()

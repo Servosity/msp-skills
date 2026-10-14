@@ -4315,7 +4315,15 @@ func configureDefaultDBScope(configPath string) {
 		setDefaultDBScopeIdentity("", "", "")
 		return
 	}
-	setDefaultDBScopeIdentity(cfg.StoreScopeCredential(), cfg.StoreScopeLegacyCredential(), cfg.BaseURL)
+	legacy := cfg.StoreScopeLegacyCredential()
+	if tenantPinnedStore() {
+		// Hand-fix (handfixes.json tenant-store-never-adopts-bearer-store):
+		// the legacy identity here is whatever bearer token is in the
+		// environment or credentials file, i.e. another organization, so a
+		// tenant-pinned store must never adopt the store named for it.
+		legacy = ""
+	}
+	setDefaultDBScopeIdentity(cfg.StoreScopeCredential(), legacy, cfg.BaseURL)
 }
 
 func setDefaultDBScopeIdentity(credential, legacyCredential, baseURL string) {

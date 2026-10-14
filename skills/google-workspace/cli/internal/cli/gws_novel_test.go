@@ -710,3 +710,38 @@ func TestOffboardFollowUpHintsAreRunnable(t *testing.T) {
 		}
 	}
 }
+
+func TestTenantStoreNeverAdoptsBearerStore(t *testing.T) {
+	restore, err := cliutil.SetHomeOverride(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer restore()
+	if err := updateTenantRegistry(func(reg *tenantRegistry) error {
+		reg.Tenants = append(reg.Tenants, gwsTenant{Name: "acme", Domain: "example.com", KeyFile: "k.json"}, gwsTenant{Name: "beta", Domain: "example.org", KeyFile: "k2.json"})
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GOOGLE_WORKSPACE_TOKEN", "another-orgs-token")
+	defer func() { tenantFlag = ""; resetTenantSelection(); setDefaultDBScopeIdentity("", "", "") }()
+
+	tenantFlag = "acme"
+	resetTenantSelection()
+	configureDefaultDBScope("")
+	hash, legacy, _ := currentDefaultDBScope()
+	if legacy != "" {
+		t.Fatalf("a tenant-pinned store must not adopt the bearer-named store (legacy hash %q)", legacy)
+	}
+	if hash != hashDefaultDBScope("tenant:acme") {
+		t.Fatalf("store must be keyed to the tenant: %q", hash)
+	}
+
+	// No tenant selected (two registered): the generic token-keyed behavior is unchanged.
+	tenantFlag = ""
+	resetTenantSelection()
+	configureDefaultDBScope("")
+	if hash, _, _ := currentDefaultDBScope(); hash == hashDefaultDBScope("tenant:acme") {
+		t.Fatal("without a selected tenant the store must not be the tenant's")
+	}
+}

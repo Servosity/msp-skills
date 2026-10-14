@@ -1325,6 +1325,12 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 		for k, v := range headerOverrides {
 			req.Header.Set(k, v)
 		}
+		// Hand-fix (handfixes.json no-credentials-over-plaintext-http): a base
+		// URL override may point at plain http; a credential (raw bearer or a
+		// tenant-minted token) must never leave this machine unencrypted.
+		if req.Header.Get("Authorization") != "" && credentialWouldTravelInPlaintext(req.URL) {
+			return nil, 0, fmt.Errorf("refusing to send credentials over plain HTTP to %s: use an https base URL (http is allowed only for localhost)", req.URL.Host)
+		}
 		req.Header.Del(ReplaySafeHeader)
 		binaryResponse := strings.EqualFold(req.Header.Get(BinaryResponseHeader), "true")
 		if binaryResponse {
@@ -2216,4 +2222,18 @@ func isPermanentDNSError(err error) bool {
 	// The generic "server misbehaving" text is also used for transient
 	// SERVFAIL responses, so only explicit refusal text is terminal here.
 	return strings.Contains(reason, "refused")
+}
+
+// credentialWouldTravelInPlaintext reports a plain-http request to anything
+// but a loopback host (local mock servers stay usable).
+func credentialWouldTravelInPlaintext(u *url.URL) bool {
+	if u == nil || !strings.EqualFold(u.Scheme, "http") {
+		return false
+	}
+	h := strings.ToLower(u.Hostname())
+	if h == "localhost" || strings.HasSuffix(h, ".localhost") {
+		return false
+	}
+	ip := net.ParseIP(h)
+	return ip == nil || !ip.IsLoopback()
 }

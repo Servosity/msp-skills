@@ -642,6 +642,9 @@ This CLI is designed for AI agent consumption:
 
 Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `6` partial failure, `7` rate limited, `10` config error.
 
+
+Cross-client commands exit 6 when some tenants fail but still print the other tenants' results with `meta.fetch_failures`; pass `--allow-partial-failure` (over MCP, `allow-partial-failure`) to exit 0 with those partial results.
+
 ## Health Check
 
 ```bash

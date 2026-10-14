@@ -598,6 +598,7 @@ Global format flags share one contract on promoted, novel, sync, and `--deliver`
 - **Offline-friendly**  -  sync/search commands can use the local SQLite store when available
 - **Non-interactive**  -  never prompts, every input is a flag
 - **Explicit confirmation**  -  `--agent` does not imply `--yes`; pass `--yes` separately only after the target, arguments, and side effects are clear
+- **Partial fan-out** - when some tenants fail, a cross-client command still prints the other tenants' results with `meta.fetch_failures` but exits 6. Over MCP a non-zero exit returns only the error text, so pass `allow-partial-failure` (CLI: `--allow-partial-failure`) on fan-out calls to get the partial results, then report `meta.fetch_failures` instead of treating missing tenants as clean.
 - **Explicit retries**  -  use `--idempotent` only when an already-existing create should count as success, and use `--ignore-missing` only when a missing delete target should count as success
 
 ### Response envelope

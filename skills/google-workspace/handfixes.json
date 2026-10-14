@@ -23,28 +23,28 @@
   {
    "id": "reseller-licensing-tool-paths-absolute",
    "summary": "Reseller and Licensing MCP tool paths are absolute URLs (https://reseller.googleapis.com, https://licensing.googleapis.com), matching resource_paths.go and the MCP code-orchestration table",
-   "why": "This print merges five Google APIs on three hosts. The press's multi-host merge records Reseller and Licensing tools in tools-manifest.json HOST-RELATIVE (/apps/reseller/..., /apps/licensing/...) while resource_paths.go and internal/mcp/code_orch.go carry them absolute; a relative path resolves against the default admin.googleapis.com host, which serves neither API, and press verify's resource-path contract check flags tail/export/import as 3 critical. overlay.sh rewrites the tools-manifest.json paths to absolute, and `lock promote` reverted them once, so the fix has to be re-applied after every promote. tools-manifest.json itself is a library artifact that onboarding does not vendor into this directory, so the asserts below pin the vendored twins it must agree with: if a reprint ever makes the code-orch table or resource paths host-relative as well, the Reseller and Licensing MCP tools would call the wrong host.",
+   "why": "This print merges five Google APIs on three hosts. The press's multi-host merge records Reseller and Licensing tools in tools-manifest.json HOST-RELATIVE (/apps/reseller/..., /apps/licensing/...) while resource_paths.go and internal/mcp/code_orch.go carry them absolute; a relative path resolves against the default admin.googleapis.com host, which serves neither API, and press verify's resource-path contract check flags tail/export/import as 3 critical. overlay.sh rewrites the tools-manifest.json paths to absolute, and `lock promote` reverted them once, so the fix has to be re-applied after every promote. tools-manifest.json itself is a library artifact that onboarding does not vendor into this directory, so the asserts below pin the vendored twins it must agree with: if a reprint ever makes the code-orch table or resource paths host-relative as well, the Reseller and Licensing MCP tools would call the wrong host. The code_orch.go asserts pin the executable Path fields themselves (17 Reseller, 7 Licensing endpoints); the same URLs also appear in search keywords, which an earlier, looser assert counted by mistake.",
    "status": "active",
    "spec_encode_followup": "Press-side: the multi-host merge should record every non-default-host tool path absolute in tools-manifest.json, the same way resource_paths.go already does, and lock promote must not regenerate it host-relative.",
    "asserts": [
     {
      "file": "cli/internal/mcp/code_orch.go",
-     "contains": "https://reseller.googleapis.com/apps/reseller/",
-     "min_count": 10
+     "contains": "Path:           \"https://reseller.googleapis.com/apps/reseller/",
+     "min_count": 17
     },
     {
      "file": "cli/internal/mcp/code_orch.go",
-     "contains": "https://licensing.googleapis.com/apps/licensing/",
-     "min_count": 5
+     "contains": "Path:           \"https://licensing.googleapis.com/apps/licensing/",
+     "min_count": 7
     },
     {
      "file": "cli/internal/cli/resource_paths.go",
-     "contains": "https://licensing.googleapis.com/apps/licensing/",
-     "min_count": 1
+     "contains": "\"https://reseller.googleapis.com/apps/reseller/v1/",
+     "min_count": 4
     },
     {
      "file": "cli/internal/cli/resource_paths.go",
-     "contains": "https://reseller.googleapis.com/apps/reseller/",
+     "contains": "\"https://licensing.googleapis.com/apps/licensing/v1/",
      "min_count": 1
     }
    ]
@@ -57,24 +57,120 @@
    "spec_encode_followup": "Factory-side: change the groupKey hint in ~/Documents/Dev/cli-factory/google-workspace/curate-spec.sh to a low-entropy value, or teach the press's descriptionExampleValue to accept email-shaped examples (the '@' rejection is already in the google-workspace press retro notes).",
    "asserts": [
     {
+     "file": "cli/internal/cli/groups_aliases_insert.go",
+     "not_contains": "03x8tuzt3hqdv5v"
+    },
+    {
+     "file": "cli/internal/cli/groups_aliases_insert.go",
+     "contains": "sales@example.com",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/groups_aliases_list.go",
+     "not_contains": "03x8tuzt3hqdv5v"
+    },
+    {
+     "file": "cli/internal/cli/groups_aliases_list.go",
+     "contains": "sales@example.com",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/groups_delete.go",
+     "not_contains": "03x8tuzt3hqdv5v"
+    },
+    {
+     "file": "cli/internal/cli/groups_delete.go",
+     "contains": "sales@example.com",
+     "min_count": 1
+    },
+    {
      "file": "cli/internal/cli/groups_get.go",
      "not_contains": "03x8tuzt3hqdv5v"
+    },
+    {
+     "file": "cli/internal/cli/groups_get.go",
+     "contains": "sales@example.com",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/groups_patch.go",
+     "not_contains": "03x8tuzt3hqdv5v"
+    },
+    {
+     "file": "cli/internal/cli/groups_patch.go",
+     "contains": "sales@example.com",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/groups_update.go",
+     "not_contains": "03x8tuzt3hqdv5v"
+    },
+    {
+     "file": "cli/internal/cli/groups_update.go",
+     "contains": "sales@example.com",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/members_delete.go",
+     "not_contains": "03x8tuzt3hqdv5v"
+    },
+    {
+     "file": "cli/internal/cli/members_delete.go",
+     "contains": "sales@example.com",
+     "min_count": 1
     },
     {
      "file": "cli/internal/cli/members_get.go",
      "not_contains": "03x8tuzt3hqdv5v"
     },
     {
+     "file": "cli/internal/cli/members_get.go",
+     "contains": "sales@example.com",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/members_hasMember.go",
+     "not_contains": "03x8tuzt3hqdv5v"
+    },
+    {
+     "file": "cli/internal/cli/members_hasMember.go",
+     "contains": "sales@example.com",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/members_insert.go",
+     "not_contains": "03x8tuzt3hqdv5v"
+    },
+    {
+     "file": "cli/internal/cli/members_insert.go",
+     "contains": "sales@example.com",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/members_list.go",
+     "not_contains": "03x8tuzt3hqdv5v"
+    },
+    {
+     "file": "cli/internal/cli/members_list.go",
+     "contains": "sales@example.com",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/members_patch.go",
+     "not_contains": "03x8tuzt3hqdv5v"
+    },
+    {
+     "file": "cli/internal/cli/members_patch.go",
+     "contains": "sales@example.com",
+     "min_count": 1
+    },
+    {
      "file": "cli/internal/cli/members_update.go",
      "not_contains": "03x8tuzt3hqdv5v"
     },
     {
-     "file": "cli/internal/cli/groups_aliases_insert.go",
-     "not_contains": "03x8tuzt3hqdv5v"
-    },
-    {
-     "file": "cli/internal/cli/groups_get.go",
-     "contains": "groupKey=sales@example.com",
+     "file": "cli/internal/cli/members_update.go",
+     "contains": "sales@example.com",
      "min_count": 1
     }
    ]
@@ -160,6 +256,130 @@
     {
      "file": "cli/internal/cli/doctor.go",
      "not_contains": "present, not verified. Run `%s %s` to confirm the token works end-to-end."
+    }
+   ]
+  },
+  {
+   "id": "sync-google-page-token-pagination",
+   "summary": "sync pages every synced resource (applications, groups, subscriptions, transfers, users) with pageToken/nextPageToken instead of reading one page and recording the resource complete",
+   "why": "The Discovery-sourced print emitted empty determinePaginationDefaults/resourceSupportsPagination switches, so `sync` sent no maxResults/pageToken, stored the first page (100 users on Google's default), and reported success: a tenant with 150 users mirrored 100 with no truncation warning, and search/analytics then answered from an incomplete mirror. Measured against a two-page stub: 100 records before, 150 after. Found by the onboard Codex review (P1). Every synced list method declares pageToken and maxResults in Google's Discovery docs; 100 is within each method's maxResults cap (users 500, groups 200, data-transfer applications/transfers 500, reseller subscriptions 100).",
+   "status": "active",
+   "spec_encode_followup": "Press-side: the googlediscovery profiler should populate the pagination tables from Discovery's pageToken/maxResults parameters and the response schema's nextPageToken.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "cursorParam: \"pageToken\", cursorType: \"page_token\", nextCursorPath: \"nextPageToken\", limitParam: \"maxResults\", limit: 100",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "case \"applications\", \"groups\", \"subscriptions\", \"transfers\", \"users\":",
+     "min_count": 2,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-execute-binds-every-path-variable",
+   "summary": "The MCP google-workspace_execute tool substitutes every {name} left in an endpoint path from the call's params, not only the endpoint's positional arguments",
+   "why": "The Discovery print binds some path variables as CLI flags (customerKey, customer and similar), so they never appear in the code-orchestration table's Positional list, and execute only substituted Positional names: `customers.get` with params {customerKey: my_customer} failed 'unresolved path parameter {customerKey}' (Codex counted 77 such endpoints). codeOrchBindRemainingPathVars now binds any remaining {name} supplied in params (path-escaped) and removes it from params; an unsupplied variable still fails clearly in the client. Found by the onboard Codex review (P1); receipt: the call now reaches GET /admin/directory/v1/customers/my_customer. The call-site test (TestCodeOrchExecuteBindsFlagBoundPathVar) fails with the guard removed; the helper-only test does not.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: emit a TemplateParams/Positional binding for every path variable in the code-orchestration table, including ones the CLI exposes as flags with defaults.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "path = codeOrchBindRemainingPathVars(path, params)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "func codeOrchBindRemainingPathVars(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch_pathvars_test.go",
+     "contains": "TestCodeOrchBindRemainingPathVars",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/mcp/code_orch_pathvars_test.go",
+     "contains": "func TestCodeOrchExecuteBindsFlagBoundPathVar(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "tenant-store-never-adopts-bearer-store",
+   "summary": "When a registered tenant is selected, the local store never adopts the store file named for an ambient bearer token",
+   "why": "The store is keyed to 'tenant:<name>' when a tenant is selected, but configureDefaultDBScope still passed the config's bearer credential (GOOGLE_WORKSPACE_TOKEN, ADMIN_ACCESS_TOKEN or an auth set-token value, i.e. some other organization) as the 'legacy' identity, and defaultDBPathInDir renames a legacy-named store onto the current one. An MSP who synced their own org in bearer mode and later ran --tenant acme with the token still set would have their own org's records moved into acme's store and served by acme's search/sql. tenantPinnedStore() now suppresses the legacy identity whenever a tenant is selected. Found by the onboard Codex review (P1); TestTenantStoreNeverAdoptsBearerStore fails with the guard removed.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "if tenantPinnedStore() {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants.go",
+     "contains": "func tenantPinnedStore() bool",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_novel_test.go",
+     "contains": "TestTenantStoreNeverAdoptsBearerStore",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "no-credentials-over-plaintext-http",
+   "summary": "The client refuses to send an Authorization header over plain http to anything but a loopback host",
+   "why": "GOOGLE_WORKSPACE_BASE_URL (declared in the .mcpb for mock testing) can point at http://. The generated client attached the raw bearer or the tenant-minted token to the first request regardless of scheme; the redirect guards only cover later hops. A non-loopback http override therefore sent a super-admin-delegated token in cleartext. credentialWouldTravelInPlaintext now refuses before dialling, while http://127.0.0.1 and localhost mocks keep working. Found by the onboard Codex review (P1); receipt: http://192.0.2.10 is refused, the loopback stub still answers. The call-site test (TestClientRefusesCredentialOverPlaintext) fails with the guard removed; the helper-only test does not.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: generated clients should refuse credential-bearing non-loopback plaintext requests fleet-wide.",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "credentialWouldTravelInPlaintext(req.URL)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "func credentialWouldTravelInPlaintext(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/plaintext_credential_test.go",
+     "contains": "TestCredentialWouldTravelInPlaintext",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/plaintext_credential_test.go",
+     "contains": "func TestClientRefusesCredentialOverPlaintext(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "tenants-test-reports-worker-errors",
+   "summary": "tenants test reports a fan-out worker that was cancelled or panicked as a failed tenant",
+   "why": "FanoutRun returns worker errors separately from results, and tenants test discarded them, so a cancelled or panicked worker vanished from the report and could not count toward the failure exit. Each FanoutError now becomes a failed tenantTestResult. Found by the onboard Codex review (P2). gws_tenants_cmd.go is a NOVEL file carried from the factory's novel/ directory.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/gws_tenants_cmd.go",
+     "contains": "for _, e := range errs {",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   }

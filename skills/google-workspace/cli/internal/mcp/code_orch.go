@@ -2257,6 +2257,11 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 			delete(params, p)
 		}
 	}
+	// Hand-fix (handfixes.json mcp-execute-binds-every-path-variable): the
+	// Discovery print binds some path variables as CLI flags (customerKey,
+	// customer, ...), so they are not in ep.Positional and an execute call
+	// that supplied them still failed "unresolved path parameter".
+	path = codeOrchBindRemainingPathVars(path, params)
 
 	hdrs := make(map[string]string, len(ep.HeaderOverrides)+len(ep.HeaderParams))
 	for k, v := range ep.HeaderOverrides {
@@ -2423,4 +2428,31 @@ func codeOrchWireQueryName(queryParams []codeOrchParamBinding, name string) stri
 		}
 	}
 	return name
+}
+
+// codeOrchBindRemainingPathVars substitutes every {name} still in path with
+// params[name] (path-escaped) and removes it from params, so it is not sent
+// again as a query or body field. Unsupplied names stay for the client to
+// reject.
+func codeOrchBindRemainingPathVars(path string, params map[string]any) string {
+	for start := strings.Index(path, "{"); start >= 0; {
+		end := strings.Index(path[start:], "}")
+		if end < 0 {
+			break
+		}
+		name := path[start+1 : start+end]
+		next := start + end + 1
+		if v, ok := params[name]; ok {
+			val := mcpPathValue(v)
+			path = path[:start] + val + path[next:]
+			delete(params, name)
+			next = start + len(val)
+		}
+		i := strings.Index(path[next:], "{")
+		if i < 0 {
+			break
+		}
+		start = next + i
+	}
+	return path
 }
