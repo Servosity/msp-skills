@@ -64,7 +64,13 @@ func (ff *fanoutFlags) targets(configPath string) ([]gwsTenant, error) {
 			return nil, usageErr(fmt.Errorf("--tenants %q names no tenant", ff.tenants))
 		}
 		var out []gwsTenant
+		seen := map[string]bool{}
 		for _, name := range splitTenantCSV(ff.tenants) {
+			// --tenants acme,acme queries acme once (no doubled counts).
+			if seen[name] {
+				continue
+			}
+			seen[name] = true
 			t, ok := reg.find(name)
 			if !ok {
 				return nil, usageErr(fmt.Errorf("unknown tenant %q", name))

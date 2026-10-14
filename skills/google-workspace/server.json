@@ -36,7 +36,7 @@
         },
         {
           "name": "GOOGLE_WORKSPACE_MCP_READ_ONLY",
-          "description": "Set to exactly 1 to hide tools that change Google or the tenant registry and refuse every non-GET API call; local learn-store tools stay (true or yes are ignored). Leave blank for the full tool set.",
+          "description": "Set to exactly 1 to hide offboard, sync, export, tenants test, tenants remove, workflow archive, learnings forget and learnings reject, and refuse every non-GET API call (true or yes are ignored). Leave blank for the full tool set.",
           "isRequired": false,
           "isSecret": false
         },

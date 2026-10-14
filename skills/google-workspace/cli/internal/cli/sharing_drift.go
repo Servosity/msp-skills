@@ -109,23 +109,28 @@ func settingChanges(tenant string, acts []auditActivity) []sharingFinding {
 // per actor, with the distinct external targets and a few file titles.
 func externalShares(tenant string, acts []auditActivity, sample int) []sharingFinding {
 	type agg struct {
-		count   int
+		docs    map[string]bool // distinct files (doc_id); re-sharing one file counts once
 		last    string
 		targets map[string]bool
 		files   []string
 	}
 	by := map[string]*agg{}
-	for _, a := range acts {
+	for j, a := range acts {
 		for i, ev := range a.Events {
 			if ev.Name != "change_user_access" || a.param(i, "visibility_change") != "external" {
 				continue
 			}
 			g := by[a.Actor.Email]
 			if g == nil {
-				g = &agg{targets: map[string]bool{}}
+				g = &agg{docs: map[string]bool{}, targets: map[string]bool{}}
 				by[a.Actor.Email] = g
 			}
-			g.count++
+			doc := a.param(i, "doc_id")
+			if doc == "" {
+				doc = fmt.Sprintf("event:%d/%d", j, i) // no doc_id: count the event
+			}
+			newDoc := !g.docs[doc]
+			g.docs[doc] = true
 			if g.last == "" || laterTS(a.ID.Time, g.last) {
 				g.last = a.ID.Time
 			}
@@ -135,7 +140,7 @@ func externalShares(tenant string, acts []auditActivity, sample int) []sharingFi
 				}
 				g.targets[strings.ToLower(tgt)] = true
 			}
-			if title := a.param(i, "doc_title"); title != "" && len(g.files) < sample {
+			if title := a.param(i, "doc_title"); title != "" && newDoc && len(g.files) < sample {
 				g.files = append(g.files, title)
 			}
 		}
@@ -147,7 +152,7 @@ func externalShares(tenant string, acts []auditActivity, sample int) []sharingFi
 			targets = append(targets, t)
 		}
 		sort.Strings(targets)
-		out = append(out, sharingFinding{Tenant: tenant, Kind: "external_share", Time: g.last, Actor: actor, Count: g.count, Targets: targets, Files: g.files})
+		out = append(out, sharingFinding{Tenant: tenant, Kind: "external_share", Time: g.last, Actor: actor, Count: len(g.docs), Targets: targets, Files: g.files})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Count > out[j].Count })
 	return out

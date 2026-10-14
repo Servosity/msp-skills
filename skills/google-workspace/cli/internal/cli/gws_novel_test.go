@@ -151,6 +151,16 @@ func TestSharingDriftParsers(t *testing.T) {
 	if len(ex) != 1 || ex[0].Actor != "bob@a.example.com" || ex[0].Count != 2 || strings.Join(ex[0].Targets, ",") != "example.net" || ex[0].Time != "2026-10-04T10:00:00Z" {
 		t.Fatalf("external shares: %+v", ex)
 	}
+	// One file shared out twice is one file, with one sample name.
+	var again []auditActivity
+	twice := `[{"id":{"time":"2026-10-03T10:00:00Z"},"actor":{"email":"bob@a.example.com"},"events":[{"name":"change_user_access","parameters":[{"name":"visibility_change","value":"external"},{"name":"doc_id","value":"d1"},{"name":"doc_title","value":"Q3 plan"}]}]},
+	 {"id":{"time":"2026-10-04T10:00:00Z"},"actor":{"email":"bob@a.example.com"},"events":[{"name":"change_user_access","parameters":[{"name":"visibility_change","value":"external"},{"name":"doc_id","value":"d1"},{"name":"doc_title","value":"Q3 plan"}]}]}]`
+	if err := json.Unmarshal([]byte(twice), &again); err != nil {
+		t.Fatal(err)
+	}
+	if ex := externalShares("a", again, 5); len(ex) != 1 || ex[0].Count != 1 || len(ex[0].Files) != 1 || ex[0].Time != "2026-10-04T10:00:00Z" {
+		t.Fatalf("re-sharing one file counts once: %+v", ex)
+	}
 	pl := publicLinks("a", acts)
 	if len(pl) != 1 || pl[0].To != "public_on_the_web" {
 		t.Fatalf("public links: %+v", pl)
@@ -1282,6 +1292,22 @@ func TestDiscardTenantMirror(t *testing.T) {
 	if b, err := os.ReadFile(base + ".quarantined-1-shm"); err != nil || string(b) != "shm" {
 		t.Fatalf("the leftover -shm must join its mirror: %q %v", b, err)
 	}
+	// A live mirror (re-quarantined after a lift) moves with its own
+	// sidecars; none of them joins an older moved-aside mirror.
+	if err := os.Remove(base + ".quarantined-1-journal"); err != nil && !os.IsNotExist(err) {
+		t.Fatal(err)
+	}
+	for _, f := range []string{base, base + "-journal"} {
+		if err := os.WriteFile(f, []byte("live"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := discardTenantMirror(tn); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(base + ".quarantined-1-journal"); !os.IsNotExist(err) {
+		t.Fatalf("a live mirror's sidecar must not join an older moved-aside mirror: %v", err)
+	}
 }
 
 // Hand-fix (handfixes.json tenants-test-checks-domain): replacing or removing
@@ -1442,6 +1468,27 @@ func TestOffboardEmptyProductsRefusedUpFront(t *testing.T) {
 	}
 }
 
+// Hand-fix (handfixes.json novel-review-round16-small): posture enforces the
+// same threshold bounds as stale-licenses.
+func TestPostureThresholdsValidated(t *testing.T) {
+	home := t.TempDir()
+	restore, err := cliutil.SetHomeOverride(home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer restore()
+	for _, bad := range [][]string{{"--inactive-days", "-1"}, {"--grace-days", "-1"}, {"--min-2sv-pct", "NaN"}, {"--min-2sv-pct", "101"}} {
+		root := RootCmd()
+		var out bytes.Buffer
+		root.SetOut(&out)
+		root.SetErr(&out)
+		root.SetArgs(append([]string{"posture", "--home", home}, bad...))
+		if err := root.Execute(); err == nil || !strings.Contains(err.Error(), "--inactive-days must be >= 1") {
+			t.Fatalf("posture %v must be refused: %v", bad, err)
+		}
+	}
+}
+
 // Hand-fix (handfixes.json verification-codes-never-cached): a user's live
 // backup codes are never written to the on-disk response cache.
 func TestVerificationCodesNeverCached(t *testing.T) {
@@ -1484,6 +1531,16 @@ func TestEmptyTenantsSelectorRefused(t *testing.T) {
 	ff := fanoutFlags{tenants: ",,"}
 	if _, err := ff.targets(""); err == nil || !strings.Contains(err.Error(), "names no tenant") {
 		t.Fatalf("--tenants ',,' must be refused: %v", err)
+	}
+	if err := updateTenantRegistry(func(reg *tenantRegistry) error {
+		reg.Tenants = append(reg.Tenants, gwsTenant{Name: "acme", Domain: "acme.com", KeyFile: "k.json"})
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	dup := fanoutFlags{tenants: "acme,acme"}
+	if got, err := dup.targets(""); err != nil || len(got) != 1 {
+		t.Fatalf("--tenants acme,acme must query acme once: %v %v", got, err)
 	}
 	if _, err := listProductLicenses(context.Background(), nil, "C0", ",,"); err == nil || !strings.Contains(err.Error(), "names no licence product") {
 		t.Fatalf("--products ',,' must be refused: %v", err)

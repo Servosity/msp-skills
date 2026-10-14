@@ -254,6 +254,10 @@ func newNovelPostureCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			// The same bounds stale-licenses enforces; NaN fails the range check.
+			if inactiveDays < 1 || graceDays < 0 || !(minPct >= 0 && minPct <= 100) {
+				return usageErr(fmt.Errorf("--inactive-days must be >= 1, --grace-days >= 0 and --min-2sv-pct between 0 and 100"))
+			}
 			now := time.Now().UTC()
 			res, err := fanout(cmd, flags, &ff, func(ctx context.Context, t gwsTenant, c *client.Client) ([]tenantPosture, error) {
 				users, err := listUsers(ctx, c, t, "")
