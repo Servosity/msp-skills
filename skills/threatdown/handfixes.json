@@ -1,0 +1,109 @@
+{
+ "slug": "threatdown",
+ "doc": "docs/reprint-survival.md",
+ "_comment": "Connector-specific edits to GENERATED/authored files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and banned anti-patterns absent) and fails CI if a reprint dropped one. The factory regen for this connector lives in ~/Documents/Dev/cli-factory/threatdown (tooling/derive_spec.py builds the derived spec, tooling/apply_handfixes.py re-applies the generated-file edits).",
+ "handfixes": [
+  {
+   "id": "oauth-scope-list",
+   "summary": "The client-credentials token mint builds its default scope from a list (execute, read, write) joined with spaces, in both the client auto-mint and `auth login`. The wire value is unchanged: scope=execute read write. THREATDOWN_OAUTH_SCOPE still overrides it, split on whitespace.",
+   "why": "Press dogfood's oauth_scope_coverage scan reads the generated single string \"execute read write\" as one scope and reported 0/418 operations covered, failing shipcheck on a correct CLI. The list form lets the scan see each scope. Recorded by the build pane in .printing-press-patches/oauth-scope-list.json and re-applied after a cross-spec regenerate by cli-factory/threatdown/tooling/apply_handfixes.py; a reprint that skips that script reverts to resolveClientCredentialsScope() while go build and go test stay green.",
+   "status": "active",
+   "spec_encode_followup": "Needs a press fix to the scope-coverage scan (split space-delimited scope literals); no spec extension can express it.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "scopes := []string{\"execute\", \"read\", \"write\"}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "form.Set(\"scope\", strings.Join(scopes, \" \"))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "scopes := []string{\"execute\", \"read\", \"write\"}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "form.Set(\"scope\", strings.Join(scopes, \" \"))",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "root-help-brand-casing",
+   "summary": "The root command's Short and Long help open with \"ThreatDown OneView CLI\" instead of the generated \"Threatdown CLI\".",
+   "why": "The press title-cases the API slug (threatdown -> Threatdown), which miscases the vendor brand on the first line of `threatdown-cli --help` and in the agent-context description. Applied at msp-skills onboarding (2026-10-14) to the stripped source; cli-factory/threatdown/tooling/apply_handfixes.py does not carry it, so a reprint reverts it unless this entry catches it.",
+   "status": "active",
+   "spec_encode_followup": "The derived spec already sets x-display-name \"ThreatDown OneView\"; the press should use it for the root help line instead of title-casing the slug.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "Short: `ThreatDown OneView CLI",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "`Threatdown CLI"
+    }
+   ]
+  },
+  {
+   "id": "generated-doc-corrections",
+   "summary": "Generated SKILL.md, AGENTS.md and guide.md (the source README) carry corrections for this CLI: the teach example passes --resource-type, the Claude Code MCP registration passes both OAuth env vars, the async-jobs section explains `respond --wait`, the respond verbs are documented as preview-until---confirm, and guide.md documents THREATDOWN_OAUTH_SCOPE and the client-secret prompt.",
+   "why": "These files are re-rendered on every generate and re-vendored by onboard.py on every --resume. The generated text was wrong for this CLI: teach without --resource-type fails, `claude mcp add` with no --env gives an MCP server that 401s, and the generic `--dry-run` wording implied a preview the respond verbs do not give. Applied by cli-factory/threatdown/tooling/apply_handfixes.py (DOC_EDITS); a reprint that skips it ships the wrong instructions while every build gate stays green.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "SKILL.md",
+     "contains": "--resource-type <type>"
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "claude mcp add threatdown-mcp --env THREATDOWN_CLIENT_ID=<your-client-id> --env THREATDOWN_CLIENT_SECRET=<your-client-secret> -- threatdown-mcp"
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "`respond <verb> --wait` is separate from the flags below"
+    },
+    {
+     "file": "AGENTS.md",
+     "contains": "send nothing until `--confirm` or `--yes` is given"
+    },
+    {
+     "file": "guide.md",
+     "contains": "| `THREATDOWN_OAUTH_SCOPE` | optional | No |"
+    },
+    {
+     "file": "guide.md",
+     "contains": "Fill in `THREATDOWN_CLIENT_ID` and `THREATDOWN_CLIENT_SECRET` when Claude Desktop prompts you."
+    }
+   ]
+  },
+  {
+   "id": "respond-preview-by-default",
+   "summary": "The respond verbs (isolate, restore, scan, reboot, update) print a target preview and send nothing without --confirm or the global --yes, and refuse more than --max-targets endpoints (default 25).",
+   "why": "This is the safety property governance.md, page.json and the README promise for the only commands that act on client machines by host name. The code is hand-written (respond_isolate.go is a novel file regen-merge keeps), but a reprint that regenerated the respond scaffold, or a refactor that flipped the default, would send jobs on a bare `respond isolate --host X` while the docs still say it previews. The asserts pin the preview note, the default cap and the refusal.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/respond_isolate.go",
+     "contains": "preview only; add --confirm to issue",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/respond_isolate.go",
+     "contains": "cmd.Flags().IntVar(&maxTargets, \"max-targets\", 25,",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/respond_isolate.go",
+     "contains": "more than --max-targets %d",
+     "code_only": true
+    }
+   ]
+  }
+ ]
+}

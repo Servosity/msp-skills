@@ -277,6 +277,10 @@ tactical-rmm:
   vendor: "Tactical RMM"
   example_command: "Where do patches and reboots stand across every client?"
 
+threatdown:
+  vendor: "ThreatDown"
+  example_command: "Which endpoints went dark this week?"
+
 threatlocker:
   vendor: "ThreatLocker"
   example_command: "What approvals are pending everywhere?"
