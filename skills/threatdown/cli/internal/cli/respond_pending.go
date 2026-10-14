@@ -299,11 +299,11 @@ them, and keeps waiting jobs only once they are older than --min-age.`,
 				fmt.Fprintf(cmd.OutOrStdout(), "note: %s\n", view.Note)
 			}
 			if view.Truncated {
-				fmt.Fprintf(cmd.OutOrStdout(), "warning: stopped after --max-scan-pages %d; older jobs in the window were not checked. Raise --max-scan-pages or narrow --since.\n", maxPages)
+				fmt.Fprintf(cmd.OutOrStdout(), "warning: the job search did not finish (it reached --max-scan-pages %d or the server did not confirm the last page); older jobs in the window may be unchecked. Raise --max-scan-pages or narrow --since.\n", maxPages)
 			}
 			if view.Count == 0 {
 				if view.Note == "" && !view.Truncated {
-					fmt.Fprintf(cmd.OutOrStdout(), "Every job in the last %s completed (or is still inside --min-age %s).\n", since, minAge)
+					fmt.Fprintf(cmd.OutOrStdout(), "No job in the last %s is still waiting, timed out, expired or failed (cancelled jobs are not listed; waiting jobs younger than --min-age %s are skipped).\n", since, minAge)
 				}
 				return nil
 			}
@@ -345,5 +345,6 @@ func pendingLive(ctx context.Context, flags *rootFlags, siteFilter string, since
 	if err != nil {
 		return nil, sites, false, err
 	}
-	return parseJobs(raws), sites, info.Truncated, nil
+	// An all-clear needs the server to end the cursor chain, not just a cap.
+	return parseJobs(raws), sites, info.Truncated || !info.Complete, nil
 }

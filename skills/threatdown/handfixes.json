@@ -52,7 +52,7 @@
   },
   {
    "id": "generated-doc-corrections",
-   "summary": "Generated SKILL.md, AGENTS.md and guide.md (the source README) carry corrections for this CLI: the teach example passes --resource-type, the Claude Code MCP registration passes both OAuth env vars, the async-jobs section explains `respond --wait`, the respond verbs are documented as preview-until---confirm, and guide.md documents THREATDOWN_OAUTH_SCOPE and the client-secret prompt.",
+   "summary": "Generated SKILL.md, AGENTS.md and guide.md (the source README) carry corrections for this CLI: the teach example passes --resource-type, the Claude Code MCP registration passes both OAuth env vars, the async-jobs section explains `respond --wait`, the respond verbs are documented as preview-until---confirm, and guide.md documents THREATDOWN_OAUTH_SCOPE and the client-secret prompt. SKILL.md and guide.md say the CLI requests a new token when the client or THREATDOWN_OAUTH_SCOPE changes and refuses to borrow another client's token (round 5, 2026-10-14), and SKILL.md's read-only line names endpoints diag-log.",
    "why": "These files are re-rendered on every generate and re-vendored by onboard.py on every --resume. The generated text was wrong for this CLI: teach without --resource-type fails, `claude mcp add` with no --env gives an MCP server that 401s, and the generic `--dry-run` wording implied a preview the respond verbs do not give. Applied by cli-factory/threatdown/tooling/apply_handfixes.py (DOC_EDITS); a reprint that skips it ships the wrong instructions while every build gate stays green.",
    "status": "active",
    "asserts": [
@@ -79,6 +79,22 @@
     {
      "file": "guide.md",
      "contains": "Fill in `THREATDOWN_CLIENT_ID` and `THREATDOWN_CLIENT_SECRET` when Claude Desktop prompts you."
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "a process with no client secret refuses to borrow another client's cached token."
+    },
+    {
+     "file": "guide.md",
+     "contains": "a process with no client secret refuses to borrow another client's cached token."
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "refuses every non-GET call, and endpoints diag-log, through threatdown_execute."
+    },
+    {
+     "file": "SKILL.md",
+     "not_contains": "after changing THREATDOWN_OAUTH_SCOPE run 'threatdown-cli auth login' to mint a new one"
     }
    ]
   },
@@ -310,16 +326,11 @@
   },
   {
    "id": "token-bound-to-client",
-   "summary": "A client-credentials token is saved with token_binding, a fingerprint of the client ID, scope and token URL it was minted for (config.TokenBindingFor). needsClientCredentialsMint requests a new token when the current process's client ID, THREATDOWN_OAUTH_SCOPE or token URL produce a different fingerprint; auth login records it, auth set-token clears it.",
-   "why": "Found by the round-4 adversarial review and the Codex branch review (2026-10-14). Every process run as the same OS user shares one credentials.toml, and the generated needsClientCredentialsMint checked only token presence and expiry. So an MCP server configured with a separate read-only OAuth client (and THREATDOWN_OAUTH_SCOPE=read) reused the admin's cached execute token and issued an isolation job through threatdown_execute, with no token request of its own; the README's 'the CLI can only do what that client is permitted to do' was false. A reprint regenerates client.go, config.go, credentials.go and auth.go and silently reverts this while go build and go test stay green. internal/client/token_binding_test.go fails with the check removed.",
+   "summary": "A client-credentials token is saved with token_binding, a fingerprint of the client ID, scope and token URL it was minted for (config.TokenBindingFor). tokenBoundElsewhere is true when the current process's client ID, THREATDOWN_OAUTH_SCOPE or token URL give a different fingerprint, or the token is unbound (auth set-token) while client credentials are configured; then the client mints its own token, and when it has no secret to mint with, authHeader returns an error instead of the cached token. validateCachedRequestAuth resolves the token first so a response cached under another client's token is never served. resolveClientCredentials trims like auth login. auth login records the binding, auth set-token clears it.",
+   "why": "Found by the round-4 adversarial review and the Codex branch review (2026-10-14). Every process run as the same OS user shares one credentials.toml, and the generated needsClientCredentialsMint checked only token presence and expiry. So an MCP server configured with a separate read-only OAuth client (and THREATDOWN_OAUTH_SCOPE=read) reused the admin's cached execute token and issued an isolation job through threatdown_execute, with no token request of its own; the README's 'the CLI can only do what that client is permitted to do' was false. A reprint regenerates client.go, config.go, credentials.go and auth.go and silently reverts this while go build and go test stay green. Round 5 (adversarial + Codex, 2026-10-14) found the first version failed open: a process with a client ID but no secret, or only THREATDOWN_OAUTH_SCOPE set, still used the admin token; a GET cache hit (keyed on the cached token) served the other client's data before authHeader ran; and an unbound token outranked configured credentials. internal/client/token_binding_test.go (both tests) fails with any of these guards removed.",
    "status": "active",
    "spec_encode_followup": "Generator defect: the press's client-credentials cache should key the token on the client ID and scope.",
    "asserts": [
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "cfg.TokenBinding != config.TokenBindingFor(id, resolveClientCredentialsScopes(), effectiveTokenURL(cfg))",
-     "code_only": true
-    },
     {
      "file": "cli/internal/client/client.go",
      "contains": "c.Config.TokenBinding = config.TokenBindingFor(clientID, resolveClientCredentialsScopes(), tokenURL)",
@@ -353,6 +364,35 @@
     {
      "file": "governance.md",
      "contains": "The cached\ntoken is reused only by a process with the same client ID, scope and token URL"
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "return cfg.TokenBinding != config.TokenBindingFor(id, resolveClientCredentialsScopes(), effectiveTokenURL(cfg))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "\tif c.tokenBoundElsewhere() {\n\t\treturn \"\", fmt.Errorf(\"the cached OneView token was issued for a different OAuth client",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "\tif c.tokenBoundElsewhere() {\n\t\tif _, err := c.authHeader(ctx); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "return strings.TrimSpace(id), strings.TrimSpace(secret)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/token_binding_test.go",
+     "contains": "func TestCachedTokenBindingFailsClosed(",
+     "code_only": true
+    },
+    {
+     "file": "governance.md",
+     "contains": "stops with an error rather\nthan borrow the cached token"
     }
    ]
   },
@@ -439,14 +479,23 @@
   },
   {
    "id": "respond-pending-truncated-warning",
-   "summary": "respond pending's human output prints a warning when the job search stopped at --max-scan-pages and suppresses the 'Every job ... completed' all-clear in that case.",
-   "why": "Found by the Codex branch review (2026-10-14): view.Truncated reached the JSON output but the table path ignored it, so a scan that hit the page cap could print an all-clear while older failed jobs went unchecked. respond_pending.go is a hand-written novel file; this entry pins the guard against a refactor.",
+   "summary": "respond pending treats a job search the server did not end with an empty next_cursor (page cap reached, or no cursor confirmation) as incomplete: human output warns and drops the all-clear, and the all-clear itself names what it checked (waiting, timed out, expired, failed; cancelled jobs are not listed).",
+   "why": "Found by the Codex branch review (2026-10-14): view.Truncated reached the JSON output but the table path ignored it, so a scan that hit the page cap could print an all-clear while older failed jobs went unchecked. respond_pending.go is a hand-written novel file; this entry pins the guard against a refactor. Codex round 2 added: a missing next_cursor ended the scan without marking it incomplete, and the old all-clear ('Every job ... completed') counted cancelled jobs as completed.",
    "status": "active",
    "asserts": [
     {
      "file": "cli/internal/cli/respond_pending.go",
      "contains": "if view.Note == \"\" && !view.Truncated {",
      "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/respond_pending.go",
+     "contains": "return parseJobs(raws), sites, info.Truncated || !info.Complete, nil",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/respond_pending.go",
+     "not_contains": "Every job in the last %s completed"
     }
    ]
   }

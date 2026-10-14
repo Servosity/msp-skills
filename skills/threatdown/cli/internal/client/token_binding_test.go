@@ -3,6 +3,7 @@
 package client
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -33,5 +34,45 @@ func TestCachedTokenBoundToClientAndScope(t *testing.T) {
 	t.Setenv("THREATDOWN_OAUTH_SCOPE", "read")
 	if !newClient("admin-client").needsClientCredentialsMint() {
 		t.Fatal("narrower THREATDOWN_OAUTH_SCOPE reused a token minted with execute scope")
+	}
+}
+
+// The binding fails closed: a process that cannot mint (no secret, or no
+// client credentials at all) never falls back to another client's token, on
+// the request path or the response-cache path.
+func TestCachedTokenBindingFailsClosed(t *testing.T) {
+	t.Setenv("THREATDOWN_OAUTH_SCOPE", "")
+	t.Setenv("THREATDOWN_CLIENT_ID", "")
+	t.Setenv("THREATDOWN_CLIENT_SECRET", "")
+	minted := config.TokenBindingFor("admin-client", resolveClientCredentialsScopes(), effectiveTokenURL(nil))
+	cached := func(id, secret, binding string) *Client {
+		return &Client{Config: &config.Config{
+			AccessToken:  "cached-execute-token",
+			TokenExpiry:  time.Now().Add(time.Hour),
+			ClientID:     id,
+			ClientSecret: secret,
+			TokenBinding: binding,
+		}}
+	}
+	ctx := context.Background()
+	if _, err := cached("reporting-client", "", minted).authHeader(ctx); err == nil {
+		t.Fatal("client ID without a secret rode another client's cached token")
+	}
+	if err := cached("reporting-client", "", minted).validateCachedRequestAuth(ctx); err == nil {
+		t.Fatal("cache path accepted another client's cached token")
+	}
+	t.Setenv("THREATDOWN_OAUTH_SCOPE", "read")
+	if _, err := cached("", "", minted).authHeader(ctx); err == nil {
+		t.Fatal("THREATDOWN_OAUTH_SCOPE=read with no client credentials rode the execute token")
+	}
+	t.Setenv("THREATDOWN_OAUTH_SCOPE", "")
+	if h, err := cached("admin-client ", "", minted).authHeader(ctx); err != nil || h != "Bearer cached-execute-token" {
+		t.Fatalf("same client (padded ID) lost its own token: %q %v", h, err)
+	}
+	if !cached("admin-client", "s", "").needsClientCredentialsMint() {
+		t.Fatal("unbound token outranked configured client credentials")
+	}
+	if h, err := cached("", "", "").authHeader(ctx); err != nil || h != "Bearer cached-execute-token" {
+		t.Fatalf("auth set-token token unusable with no client credentials: %q %v", h, err)
 	}
 }

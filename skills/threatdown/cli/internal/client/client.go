@@ -627,6 +627,14 @@ func (c *Client) validateCachedRequestAuth(ctx context.Context) error {
 	if authHeaderLooksLikePlaceholderCredential(c.Config.AuthHeader()) {
 		return authPlaceholderCredentialError(c.Config)
 	}
+	// hand-fix (handfixes.json token-bound-to-client): the cache key includes
+	// the bearer token, so resolve this process's own token before a lookup
+	// could serve responses cached for another client.
+	if c.tokenBoundElsewhere() {
+		if _, err := c.authHeader(ctx); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -1669,6 +1677,11 @@ func (c *Client) authHeader(ctx context.Context) (string, error) {
 		}
 		c.ccMu.Unlock()
 	}
+	// No mint ran (no client secret here): never fall back to a token that
+	// belongs to another client configuration.
+	if c.tokenBoundElsewhere() {
+		return "", fmt.Errorf("the cached OneView token was issued for a different OAuth client, scope or token URL; set THREATDOWN_CLIENT_ID and THREATDOWN_CLIENT_SECRET for this process, or run threatdown-cli auth login")
+	}
 	authHeader := c.Config.AuthHeader()
 	if authHeader == "" && c.Config.HasCredentialRefusals() {
 		return "", c.Config.CredentialRefusalError()
@@ -1736,17 +1749,30 @@ func authPlaceholderCredentialErrorWithSetup(cfg *config.Config, setup string) e
 	return fmt.Errorf("%w configured in %s; set a real token with: %s", ErrPlaceholderCredential, location, setup)
 }
 
+// tokenBoundElsewhere reports whether the cached access token must not be used
+// by this process (hand-fix, handfixes.json token-bound-to-client): it was
+// minted for a different OAuth client, scope or token URL, or it is unbound
+// (auth set-token) while this process has client credentials of its own.
+// Every process run as the same OS user shares one credentials file.
+func (c *Client) tokenBoundElsewhere() bool {
+	cfg := c.Config
+	if cfg == nil || cfg.AccessToken == "" {
+		return false
+	}
+	id, secret := resolveClientCredentials(cfg)
+	if cfg.TokenBinding == "" {
+		return id != "" && secret != ""
+	}
+	return cfg.TokenBinding != config.TokenBindingFor(id, resolveClientCredentialsScopes(), effectiveTokenURL(cfg))
+}
+
 func (c *Client) needsClientCredentialsMint() bool {
 	cfg := c.Config
 	if cfg.AccessToken == "" {
 		return true
 	}
-	// hand-fix (handfixes.json token-bound-to-client): a token minted for a
-	// different OAuth client, scope or token URL is never reused.
-	if cfg.TokenBinding != "" {
-		if id, _ := resolveClientCredentials(cfg); id != "" && cfg.TokenBinding != config.TokenBindingFor(id, resolveClientCredentialsScopes(), effectiveTokenURL(cfg)) {
-			return true
-		}
+	if c.tokenBoundElsewhere() {
+		return true
 	}
 	if cfg.TokenExpiry.IsZero() {
 		// A stored token with no recorded expiry can be long-dead. Mint once
@@ -1773,7 +1799,8 @@ func resolveClientCredentials(cfg *config.Config) (string, string) {
 	if secret == "" {
 		secret = os.Getenv("THREATDOWN_CLIENT_SECRET")
 	}
-	return id, secret
+	// Trimmed like auth login, so the token binding it records matches.
+	return strings.TrimSpace(id), strings.TrimSpace(secret)
 }
 
 func resolveClientCredentialsScope() string {

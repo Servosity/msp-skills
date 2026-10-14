@@ -99,7 +99,7 @@ Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_
 
 ## Authentication
 
-OneView uses OAuth2 client credentials. Create an API client in OneView (Integrate), then set THREATDOWN_CLIENT_ID and THREATDOWN_CLIENT_SECRET. The CLI exchanges them at https://api.threatdown.com/oneview/oauth2/token with HTTP Basic client authentication and caches the bearer token. It requests the read, write and execute scopes by default; set THREATDOWN_OAUTH_SCOPE (for example 'read write') to request fewer. The respond commands need the execute scope. The token is cached, so after changing THREATDOWN_OAUTH_SCOPE run 'threatdown-cli auth login' to mint a new one. A 403 means either the OAuth scope or the creating user's OneView permission is missing.
+OneView uses OAuth2 client credentials. Create an API client in OneView (Integrate), then set THREATDOWN_CLIENT_ID and THREATDOWN_CLIENT_SECRET. The CLI exchanges them at https://api.threatdown.com/oneview/oauth2/token with HTTP Basic client authentication and caches the bearer token. It requests the read, write and execute scopes by default; set THREATDOWN_OAUTH_SCOPE (for example 'read write') to request fewer. The respond commands need the execute scope. The cached token is used only for the same client ID and scope: change THREATDOWN_OAUTH_SCOPE or the client and the CLI requests a new token, and a process with no client secret refuses to borrow another client's cached token. A 403 means either the OAuth scope or the creating user's OneView permission is missing.
 
 ## Quick Start
 
@@ -2375,7 +2375,7 @@ Environment variables:
 | --- | --- | --- | --- |
 | `THREATDOWN_CLIENT_ID` | per_call | Yes | OAuth2 client id of the OneView API client (OneView > Integrate). |
 | `THREATDOWN_CLIENT_SECRET` | per_call | Yes | OAuth2 client secret paired with the client id. |
-| `THREATDOWN_OAUTH_SCOPE` | optional | No | Space-separated scopes to request (default `execute read write`); respond commands need `execute`. Run `threatdown-cli auth login` after changing it. |
+| `THREATDOWN_OAUTH_SCOPE` | optional | No | Space-separated scopes to request (default `execute read write`); respond commands need `execute`. Changing it makes the CLI request a new token. |
 
 ### agentcookie (optional)
 
