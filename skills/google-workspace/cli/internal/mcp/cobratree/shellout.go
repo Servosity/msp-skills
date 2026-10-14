@@ -240,6 +240,14 @@ var blockedDestinationFlags = map[string]bool{
 	"output-dir":   true,
 	"output-file":  true,
 	"receipt-file": true,
+	// Hand-fix (handfixes.json mcp-blocks-local-file-reads): flags that READ
+	// a local file are blocked the same way. Over MCP they would let a caller
+	// copy any file the server account can read (another tenant's
+	// service-account key) into the local store and read it back.
+	"input":               true,
+	"notes-file":          true,
+	"playbook-file":       true,
+	"playbook-notes-file": true,
 }
 
 // confirmationBypassYesFlag is the root flag that skips a command's own

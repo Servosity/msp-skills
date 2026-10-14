@@ -787,8 +787,8 @@
   },
   {
    "id": "auth-hints-name-the-tenant",
-   "summary": "The 400/401/403 auth hints name --tenant / GOOGLE_WORKSPACE_TENANT (or the selected tenant's delegation and scopes) when client tenants are registered, and the bearer-token line only when none are; the MCP execute tool appends the same hint to 401/403 errors, and the MCP context tool's auth section names GOOGLE_WORKSPACE_TENANT and scopes the bearer tokens to single-organization use",
-   "why": "The generated hints always said to export GOOGLE_WORKSPACE_TOKEN, while the docs say to unset it once tenants are registered. With several tenants and none selected, a generated command goes out with no credential and the hint pointed the user, or an MCP agent, at the wrong fix. Found by the onboard adversarial review (round 4, P2). Round 5 (adversarial, P2): the in-process MCP execute tool returned the raw 401 and the context tool listed only the bearer tokens ('Set to your API credential'), so an MCP-only agent still had no path to the tenant fix.",
+   "summary": "The 400/401/403 auth hints name --tenant / GOOGLE_WORKSPACE_TENANT (or the selected tenant's delegation and scopes) when client tenants are registered, and the bearer-token line only when none are; the MCP execute tool appends the same hint to 401/403 errors, and the MCP context tool's auth section names GOOGLE_WORKSPACE_TENANT and scopes the bearer tokens to single-organization use; a Google quota/rate 403 is classified as a rate limit, not a permission problem; agent-context .auth and guide.md's env table name GOOGLE_WORKSPACE_TENANT",
+   "why": "The generated hints always said to export GOOGLE_WORKSPACE_TOKEN, while the docs say to unset it once tenants are registered. With several tenants and none selected, a generated command goes out with no credential and the hint pointed the user, or an MCP agent, at the wrong fix. Found by the onboard adversarial review (round 4, P2). Round 5 (adversarial, P2): the in-process MCP execute tool returned the raw 401 and the context tool listed only the bearer tokens ('Set to your API credential'), so an MCP-only agent still had no path to the tenant fix. Round 6: the MCP execute 403 hint in single-organization mode told the agent to set the token it had already sent (adversarial, P2); a quota 403 (rateLimitExceeded and similar) got credential advice (Codex, P2); the CLI agent-context twin of the MCP context auth section still listed only the bearer tokens (adversarial, P2).",
    "status": "active",
    "asserts": [
     {
@@ -832,6 +832,29 @@
      "contains": "func TestAuthErrorHintForMCPExecute(",
      "min_count": 1,
      "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "case strings.Contains(msg, \"HTTP 403\") && googleQuotaExceeded(msg):",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants.go",
+     "contains": "func googleQuotaExceeded(msg string) bool",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/agent_context.go",
+     "contains": "Name:        \"GOOGLE_WORKSPACE_TENANT\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "guide.md",
+     "contains": "| `GOOGLE_WORKSPACE_TENANT` | per_call | No |",
+     "min_count": 1
     }
    ]
   },
@@ -885,8 +908,8 @@
   },
   {
    "id": "dry-run-redacts-secrets",
-   "summary": "--dry-run previews replace secret-named body fields (password, secret, private key, API key, *token) with [redacted]",
-   "why": "The generated dry-run printer wrote the request body verbatim to stderr, so previewing 'users patch <email> --password ...' put the password into the terminal and into agent transcripts. Found by the onboard Codex review (round 5, P1); receipt: the real binary's dry-run of users patch --password prints \"password\": \"[redacted]\" and the value appears nowhere in stdout or stderr.",
+   "summary": "--dry-run previews redact secret-named query parameters and non-empty string body fields (password, secret, private key, API key, *token except page/sync tokens); booleans such as changePasswordAtNextLogin and paging cursors stay visible",
+   "why": "The generated dry-run printer wrote the request body verbatim to stderr, so previewing 'users patch <email> --password ...' put the password into the terminal and into agent transcripts. Found by the onboard Codex review (round 5, P1); receipt: the real binary's dry-run of users patch --password prints \"password\": \"[redacted]\" and the value appears nowhere in stdout or stderr. Round 6 (Codex): query parameters were still printed verbatim (subscriptions insert --customer-auth-token showed the transfer token; P1, also fleet-wide generated code), and the body rule hid the changePasswordAtNextLogin boolean (P2). Receipt: the dry-run now prints ?customerAuthToken=[redacted].",
    "status": "active",
    "spec_encode_followup": "Press-side: redact secret-named fields in the generated dry-run body printer fleet-wide.",
    "asserts": [
@@ -907,6 +930,17 @@
      "contains": "func TestRedactDryRunBody(",
      "min_count": 1,
      "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if value != \"\" && secretFieldName(k) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/dryrun_redact_test.go",
+     "contains": "\"changePasswordAtNextLogin\":true",
+     "min_count": 1
     }
    ]
   },
@@ -925,6 +959,64 @@
      "file": "guide.md",
      "contains": "[ -n \"$GOOGLE_WORKSPACE_TOKEN\" ] && echo set || echo unset",
      "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "import-users-uses-insert",
+   "summary": "import users posts each record to users.insert (/admin/directory/v1/users), not users:createGuest",
+   "why": "The generated resourceWritePaths mapped the users resource to users.createGuest, whose request schema is a guest invitation, so importing ordinary Directory user records failed. Found by the onboard Codex review (round 6, P1); receipt: import users --input sends POST /admin/directory/v1/users against a stub.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: pick a resource's insert method, not the last POST on the collection, as its import write path.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/resource_paths.go",
+     "contains": "\"users\":              \"/admin/directory/v1/users\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/resource_paths.go",
+     "not_contains": "\"/admin/directory/v1/users:createGuest\""
+    }
+   ]
+  },
+  {
+   "id": "mcp-blocks-local-file-reads",
+   "summary": "MCP tool calls cannot set flags that READ a local file (--input, --notes-file, --playbook-file, --playbook-notes-file); they are blocked like the write-destination flags",
+   "why": "teach --notes-file / --playbook-file, teach-playbook and import --input read any file the MCP server account can reach. Over MCP a caller (or a prompt-injected agent) could copy another tenant's service-account key from keys/<tenant>.json into the local learn store and read it back with playbook list or recall, even in read-only mode, because teach is a local-write tool. Found by the onboard Codex review (round 6, P1; the generated cobratree code is fleet-wide). Receipt: tools/list on the real MCP binary exposes none of the four flags across its 39 tools; TestLocalFileReadFlagsBlockedOverMCP fails with the entries removed.",
+   "status": "active",
+   "spec_encode_followup": "Press-side (fleet): treat local file-read flags as blocked MCP arguments in cobratree, alongside blockedDestinationFlags.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "\"notes-file\":          true,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "\"playbook-file\":       true,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "\"playbook-notes-file\": true,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "\"input\":               true,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/read_source_flags_test.go",
+     "contains": "func TestLocalFileReadFlagsBlockedOverMCP(",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   }

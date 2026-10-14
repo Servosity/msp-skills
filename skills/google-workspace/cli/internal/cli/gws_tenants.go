@@ -400,10 +400,29 @@ func AuthErrorHint(err error) string {
 	if err == nil {
 		return ""
 	}
-	if msg := err.Error(); !strings.Contains(msg, "HTTP 401") && !strings.Contains(msg, "HTTP 403") {
-		return ""
+	msg := err.Error()
+	switch {
+	case strings.Contains(msg, "HTTP 401"):
+		return "\nhint:" + strings.TrimPrefix(authSetupHint(), "\n     ")
+	case strings.Contains(msg, "HTTP 403") && !googleQuotaExceeded(msg):
+		lead := "\nhint: permission denied: the credential was accepted but lacks access (a missing scope, admin role, or API not enabled)."
+		if reg, err := loadTenantRegistry(); err != nil || len(reg.Tenants) == 0 {
+			return lead
+		}
+		return lead + authSetupHint()
 	}
-	return "\nhint:" + strings.TrimPrefix(authSetupHint(), "\n     ")
+	return ""
+}
+
+// googleQuotaExceeded reports a Google 403 that is a rate or quota limit, not
+// a permission problem.
+func googleQuotaExceeded(msg string) bool {
+	for _, reason := range []string{"rateLimitExceeded", "userRateLimitExceeded", "quotaExceeded", "dailyLimitExceeded", "RATE_LIMIT_EXCEEDED", "RESOURCE_EXHAUSTED"} {
+		if strings.Contains(msg, reason) {
+			return true
+		}
+	}
+	return false
 }
 
 // authSetupHint is the credential line of the 400/401/403 hints. With client

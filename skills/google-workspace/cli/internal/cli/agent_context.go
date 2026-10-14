@@ -119,20 +119,29 @@ reading source. Schema is versioned via schema_version.`,
 }
 
 func buildAgentContext(rootCmd *cobra.Command) agentContext {
+	// Hand-fix (handfixes.json auth-hints-name-the-tenant): client tenants
+	// are the normal credential; the bearer tokens are single-org only.
 	envVars := []agentContextAuthEnvVar{
+		{
+			Name:        "GOOGLE_WORKSPACE_TENANT",
+			Kind:        "per_call",
+			Required:    false,
+			Sensitive:   false,
+			Description: "Client tenant to act as (a name from 'tenants list'), same as --tenant. Required for single-tenant commands when more than one tenant is registered.",
+		},
 		{
 			Name:        "GOOGLE_WORKSPACE_TOKEN",
 			Kind:        "per_call",
 			Required:    false,
 			Sensitive:   true,
-			Description: "Set to your API credential.",
+			Description: "Single-organization bearer token, only when no client tenants are registered.",
 		},
 		{
 			Name:        "ADMIN_ACCESS_TOKEN",
 			Kind:        "per_call",
 			Required:    false,
 			Sensitive:   true,
-			Description: "Set to your API credential.",
+			Description: "Single-organization bearer token, only when no client tenants are registered.",
 		},
 	}
 	authMode := "bearer_token"

@@ -25,6 +25,12 @@ func TestRedactDryRunBody(t *testing.T) {
 			t.Fatalf("non-secret field lost: %s", s)
 		}
 	}
+	v, _ = redactDryRunBody([]byte(`{"changePasswordAtNextLogin":true,"pageToken":"p2","customerAuthToken":"xfer-secret"}`))
+	out, _ = json.Marshal(v)
+	s = string(out)
+	if !strings.Contains(s, `"changePasswordAtNextLogin":true`) || !strings.Contains(s, `"pageToken":"p2"`) || strings.Contains(s, "xfer-secret") {
+		t.Fatalf("booleans and paging cursors stay visible, transfer tokens do not: %s", s)
+	}
 	if _, ok := redactDryRunBody([]byte("not json")); ok {
 		t.Fatal("a non-JSON body is not printed")
 	}

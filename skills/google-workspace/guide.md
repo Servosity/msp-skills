@@ -663,8 +663,9 @@ Environment variables:
 
 | Name | Kind | Required | Description |
 | --- | --- | --- | --- |
-| `GOOGLE_WORKSPACE_TOKEN` | per_call | No | Set to your API credential. |
-| `ADMIN_ACCESS_TOKEN` | per_call | No | Set to your API credential. |
+| `GOOGLE_WORKSPACE_TENANT` | per_call | No | Client tenant to act as (a name from `tenants list`), same as `--tenant`. Required for single-tenant commands when more than one tenant is registered. |
+| `GOOGLE_WORKSPACE_TOKEN` | per_call | No | Single-organization bearer token, only when no client tenants are registered. |
+| `ADMIN_ACCESS_TOKEN` | per_call | No | Single-organization bearer token, only when no client tenants are registered. |
 
 ### agentcookie (optional)
 

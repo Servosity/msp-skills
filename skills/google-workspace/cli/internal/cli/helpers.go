@@ -1018,6 +1018,8 @@ func classifyAPIErrorOnly(err error) error {
 		return authErr(fmt.Errorf("%w\nhint: check your token."+
 			authSetupHint()+ // Hand-fix (handfixes.json auth-hints-name-the-tenant)
 			"\n      Run 'google-workspace-cli doctor' to check auth status.", err))
+	case strings.Contains(msg, "HTTP 403") && googleQuotaExceeded(msg): // Hand-fix (handfixes.json auth-hints-name-the-tenant)
+		return rateLimitErr(err)
 	case strings.Contains(msg, "HTTP 403"):
 		return authErr(fmt.Errorf("%w\nhint: permission denied. Your credentials are valid but lack access to this resource."+
 			"\n      Check that your credentials have the required permissions and match the API's expected auth scheme."+

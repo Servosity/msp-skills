@@ -984,4 +984,17 @@ func TestAuthErrorHintForMCPExecute(t *testing.T) {
 	if h := AuthErrorHint(errors.New("returned HTTP 404")); h != "" {
 		t.Fatalf("only auth errors get the hint: %q", h)
 	}
+	if h := AuthErrorHint(errors.New(`returned HTTP 403: {"error":{"errors":[{"reason":"userRateLimitExceeded"}]}}`)); h != "" {
+		t.Fatalf("a quota 403 is not a permission problem: %q", h)
+	}
+	if h := AuthErrorHint(errors.New("returned HTTP 403: PERMISSION_DENIED")); !strings.Contains(h, "permission denied") || !strings.Contains(h, "--tenant") {
+		t.Fatalf("a tenant-mode 403 names the permission problem and the tenant fix: %q", h)
+	}
+	if err := updateTenantRegistry(func(reg *tenantRegistry) error { reg.Tenants = nil; return nil }); err != nil {
+		t.Fatal(err)
+	}
+	resetTenantSelection()
+	if h := AuthErrorHint(errors.New("returned HTTP 403: PERMISSION_DENIED")); !strings.Contains(h, "permission denied") || strings.Contains(h, "GOOGLE_WORKSPACE_TOKEN") {
+		t.Fatalf("a bearer-mode 403 must not tell the user to set the token they already sent: %q", h)
+	}
 }

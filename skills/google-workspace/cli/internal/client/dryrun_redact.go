@@ -10,8 +10,9 @@ import (
 )
 
 // redactDryRunBody parses a request body for the dry-run preview and replaces
-// the value of every secret-named field (password, secret, private key, API
-// key, *token) with "[redacted]". ok is false when the body is not JSON.
+// every non-empty string value of a secret-named field (password, secret,
+// private key, API key, *token but not page/sync tokens) with "[redacted]".
+// ok is false when the body is not JSON.
 func redactDryRunBody(body []byte) (any, bool) {
 	dec := json.NewDecoder(bytes.NewReader(body))
 	dec.UseNumber()
@@ -26,10 +27,8 @@ func redactSecretFields(v any) any {
 	switch t := v.(type) {
 	case map[string]any:
 		for k, child := range t {
-			if secretFieldName(k) {
-				if child != nil && child != "" {
-					t[k] = "[redacted]"
-				}
+			if s, isString := child.(string); isString && s != "" && secretFieldName(k) {
+				t[k] = "[redacted]" // booleans such as changePasswordAtNextLogin stay visible
 				continue
 			}
 			t[k] = redactSecretFields(child)
@@ -49,5 +48,6 @@ func secretFieldName(k string) bool {
 			return true
 		}
 	}
-	return strings.HasSuffix(k, "token")
+	// Paging cursors are not credentials.
+	return strings.HasSuffix(k, "token") && !strings.HasSuffix(k, "pagetoken") && !strings.HasSuffix(k, "synctoken")
 }

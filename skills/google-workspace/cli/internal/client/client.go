@@ -1570,7 +1570,11 @@ func (c *Client) dryRun(method, targetURL, path string, params map[string]string
 			if queryPrinted {
 				sep = "&"
 			}
-			fmt.Fprintf(os.Stderr, "  %s%s=%s\n", sep, k, c.maskCredentialText(params[k], authHeader))
+			value := params[k]
+			if value != "" && secretFieldName(k) { // Hand-fix (handfixes.json dry-run-redacts-secrets)
+				value = "[redacted]"
+			}
+			fmt.Fprintf(os.Stderr, "  %s%s=%s\n", sep, k, c.maskCredentialText(value, authHeader))
 			queryPrinted = true
 		}
 	}

@@ -60,7 +60,7 @@ var resourceWritePaths = map[string]string{ // #nosec G101 -- endpoint paths, no
 	"reseller-customers": "https://reseller.googleapis.com/apps/reseller/v1/customers",
 	"resellernotify":     "https://reseller.googleapis.com/apps/reseller/v1/resellernotify/register",
 	"transfers":          "/admin/datatransfer/v1/transfers",
-	"users":              "/admin/directory/v1/users:createGuest",
+	"users":              "/admin/directory/v1/users", // Hand-fix (handfixes.json import-users-uses-insert): not users:createGuest
 }
 
 // Hand-fix (handfixes.json export-google-list-paging): the Discovery print
