@@ -213,6 +213,9 @@ func newNovelLeaversCmd(flags *rootFlags) *cobra.Command {
 				}
 				paid := map[string][]string{}
 				for _, l := range licenses {
+					if freeLicenseSKU(l) {
+						continue
+					}
 					k := strings.ToLower(l.UserID)
 					paid[k] = append(paid[k], l.SkuName)
 				}

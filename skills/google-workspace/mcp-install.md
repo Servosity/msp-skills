@@ -150,10 +150,12 @@ recommended for anything reachable from outside your machine:
 GOOGLE_WORKSPACE_MCP_HTTP_TOKEN=<a long random secret> GOOGLE_WORKSPACE_MCP_READ_ONLY=1 google-workspace-mcp --transport http
 ```
 
-Then expose `http://localhost:7777/mcp` as a public HTTPS URL via a secure tunnel
-(Cloudflare Tunnel, ngrok) or your own reverse proxy. The path is part of the
-endpoint: the server answers Streamable HTTP at `/mcp` and returns 404 at the
-bare root, so a connector pointed at the root URL never handshakes. **Treat that
+Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel
+(Cloudflare Tunnel, ngrok) or your own reverse proxy, and point connectors at the
+`/mcp` path of that URL. The tunnel must rewrite the Host header to `localhost`:
+the server rejects a request that reaches it over loopback with any other Host
+(HTTP 403, its protection against DNS rebinding). With Cloudflare that is
+`cloudflared tunnel --url http://localhost:7777 --http-host-header localhost`. **Treat that
 URL as sensitive** - it's a key to your MCP server. Never expose it bare on the
 internet; gate it behind SSO / Cloudflare Access for team use.
 

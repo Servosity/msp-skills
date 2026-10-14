@@ -909,7 +909,7 @@
   {
    "id": "dry-run-redacts-secrets",
    "summary": "Secret-named query parameters are masked everywhere the client masks credential text (error URLs, dry-run lines, bodies), and --dry-run body previews redact every non-empty, non-boolean secret-named field (password, secret, private key, API key, *token except page/sync tokens)",
-   "why": "The generated dry-run printer wrote the request body verbatim to stderr, so previewing 'users patch <email> --password ...' put the password into the terminal and into agent transcripts. Found by the onboard Codex review (round 5, P1); receipt: the real binary's dry-run of users patch --password prints \"password\": \"[redacted]\" and the value appears nowhere in stdout or stderr. Round 6 (Codex): query parameters were still printed verbatim (subscriptions insert --customer-auth-token showed the transfer token; P1, also fleet-wide generated code), and the body rule hid the changePasswordAtNextLogin boolean (P2). Receipt: the dry-run now prints ?customerAuthToken=[redacted]. Round 7 (Codex, P1, fleet): a failed request's error message carried the full URL, so MCP execute of subscriptions.insert returned customerAuthToken verbatim; redactSecretQueryParams now runs inside maskCredentialText, which every error, URL and body passes through (receipt: the MCP error reads ?customerAuthToken=[redacted]). The adversarial reviewer also noted string-only body redaction let a numeric password or a 'Secrets' custom-schema object through; only booleans stay visible now.",
+   "why": "The generated dry-run printer wrote the request body verbatim to stderr, so previewing 'users patch <email> --password ...' put the password into the terminal and into agent transcripts. Found by the onboard Codex review (round 5, P1); receipt: the real binary's dry-run of users patch --password prints \"password\": \"[redacted]\" and the value appears nowhere in stdout or stderr. Round 6 (Codex): query parameters were still printed verbatim (subscriptions insert --customer-auth-token showed the transfer token; P1, also fleet-wide generated code), and the body rule hid the changePasswordAtNextLogin boolean (P2). Receipt: the dry-run now prints ?customerAuthToken=[redacted]. Round 7 (Codex, P1, fleet): a failed request's error message carried the full URL, so MCP execute of subscriptions.insert returned customerAuthToken verbatim; redactSecretQueryParams now runs inside maskCredentialText, which every error, URL and body passes through (receipt: the MCP error reads ?customerAuthToken=[redacted]). The adversarial reviewer also noted string-only body redaction let a numeric password or a 'Secrets' custom-schema object through; only booleans stay visible now. Round 8 (Codex, P1, fleet): the dry-run body bypassed maskCredentialText, so users watch --address 'https://hooks.example/?token=...' printed the webhook secret; the body text now goes through the mask (HTML escaping off so & stays literal), printing ?token=[redacted].",
    "status": "active",
    "spec_encode_followup": "Press-side: redact secret-named fields in the generated dry-run body printer fleet-wide.",
    "asserts": [
@@ -957,6 +957,12 @@
     {
      "file": "cli/internal/client/dryrun_redact_test.go",
      "contains": "func TestRedactSecretQueryParams(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.maskCredentialText(buf.String(), authHeader)",
      "min_count": 1,
      "code_only": true
     }
@@ -1041,6 +1047,67 @@
      "contains": "Annotations: map[string]string{\"mcp:hidden\": \"true\"},",
      "min_count": 1,
      "code_only": true
+    },
+    {
+     "file": "manifest.json",
+     "not_contains": "offboard, sync, import, export"
+    }
+   ]
+  },
+  {
+   "id": "free-license-skus-not-waste",
+   "summary": "stale-licenses, posture and leavers skip the free Google-Apps SKUs (Google Workspace for Nonprofits, Education Fundamentals, Education Gmail Only) when reporting paid-licence waste",
+   "why": "The novel commands treated every Google-Apps assignment as a paid seat, so a nonprofit or school client's suspended accounts were reported as billing waste and posture graded them warn. The free SKU IDs come from Google's Licensing API 'Products and SKUs' table (Google-Apps-For-Nonprofits, Google-Apps-For-Education, 1010070001, 1010070004); the paid Nonprofit editions reuse the general SKU IDs and stay counted. Found by the onboard Codex review (round 8, P1); TestFreeSKUsAreNotWaste fails with the filter removed. stale_licenses.go and leavers.go are NOVEL files carried from the factory's novel/ directory.",
+   "status": "active",
+   "spec_encode_followup": "Factory-side: port freeLicenseSKUs into ~/Documents/Dev/cli-factory/google-workspace/novel/ (stale_licenses.go, leavers.go).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/stale_licenses.go",
+     "contains": "func freeLicenseSKU(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/stale_licenses.go",
+     "contains": "\"Google-Apps-For-Nonprofits\": true,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/stale_licenses.go",
+     "contains": "if freeLicenseSKU(l) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/leavers.go",
+     "contains": "if freeLicenseSKU(l) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/stale_licenses_test.go",
+     "contains": "func TestFreeSKUsAreNotWaste(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-install-tunnel-host-header",
+   "summary": "mcp-install.md's remote-agent section tells the tunnel to rewrite the Host header to localhost (with the cloudflared flag) and no longer claims the server returns 404 at the bare root",
+   "why": "The generated text sent users to expose the loopback HTTP server through Cloudflare Tunnel or ngrok without a Host rewrite, but mcp-go v0.57's StreamableHTTPServer rejects a loopback request whose Host is not localhost with 403 (DNS-rebinding protection), so the documented setup could never handshake. It also claimed a 404 at the root, while main.go installs the handler for every path. Found by the onboard Codex review (round 8, P1 and P2). mcp-install.md is a generated template file (fleet-wide text), re-rendered by onboard.",
+   "status": "active",
+   "spec_encode_followup": "Template-side (msp-skills-publish mcp-install template, fleet): add the Host-rewrite step and drop the root-404 claim.",
+   "asserts": [
+    {
+     "file": "mcp-install.md",
+     "contains": "--http-host-header localhost",
+     "min_count": 1
+    },
+    {
+     "file": "mcp-install.md",
+     "not_contains": "returns 404 at the"
     }
    ]
   }

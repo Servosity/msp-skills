@@ -33,3 +33,18 @@ func TestNovelStaleLicensesHelpWires(t *testing.T) {
 		}
 	}
 }
+
+// TestFreeSKUsAreNotWaste: Nonprofits and Education Fundamentals seats cost
+// nothing, so a suspended account holding one is not licence waste.
+func TestFreeSKUsAreNotWaste(t *testing.T) {
+	now := testNow
+	users := []dirUser{{PrimaryEmail: "gone@example.org", Suspended: true}}
+	free := []licenseAssignment{{UserID: "gone@example.org", ProductID: "Google-Apps", SkuID: "Google-Apps-For-Nonprofits", SkuName: "Google Workspace for Nonprofits"}}
+	if got := staleLicensesFor("acme", free, users, now, 90, 0); len(got) != 0 {
+		t.Fatalf("a free Nonprofits seat must not be reported as waste: %+v", got)
+	}
+	paid := []licenseAssignment{{UserID: "gone@example.org", ProductID: "Google-Apps", SkuID: "1010020028", SkuName: "Google Workspace Business Standard"}}
+	if got := staleLicensesFor("acme", paid, users, now, 90, 0); len(got) != 1 {
+		t.Fatalf("a paid seat on a suspended account is waste: %+v", got)
+	}
+}

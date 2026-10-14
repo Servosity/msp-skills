@@ -99,6 +99,21 @@ func classifyStale(u dirUser, found bool, now time.Time, inactiveDays, graceDays
 	return "", d
 }
 
+// freeLicenseSKUs are the Google-Apps SKUs Google does not bill for (Licensing
+// API "Products and SKUs": Nonprofits, Education Fundamentals and Gmail
+// Only). The paid Nonprofit editions reuse the general SKU IDs, so they stay
+// counted.
+var freeLicenseSKUs = map[string]bool{
+	"Google-Apps-For-Nonprofits": true,
+	"Google-Apps-For-Education":  true,
+	"1010070001":                 true,
+	"1010070004":                 true,
+}
+
+func freeLicenseSKU(l licenseAssignment) bool {
+	return freeLicenseSKUs[l.SkuID]
+}
+
 func staleLicensesFor(tenant string, licenses []licenseAssignment, users []dirUser, now time.Time, inactiveDays, graceDays int) []staleLicense {
 	byEmail := make(map[string]dirUser, len(users))
 	for _, u := range users {
@@ -106,6 +121,9 @@ func staleLicensesFor(tenant string, licenses []licenseAssignment, users []dirUs
 	}
 	out := []staleLicense{}
 	for _, l := range licenses {
+		if freeLicenseSKU(l) {
+			continue
+		}
 		u, ok := byEmail[strings.ToLower(l.UserID)]
 		reason, days := classifyStale(u, ok, now, inactiveDays, graceDays)
 		if reason == "" {
