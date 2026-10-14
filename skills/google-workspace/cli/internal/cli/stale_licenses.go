@@ -98,7 +98,13 @@ func listProductLicenses(ctx context.Context, c *client.Client, customerID, prod
 	if len(splitTenantCSV(products)) == 0 {
 		return nil, usageErr(fmt.Errorf("--products names no licence product"))
 	}
+	seen := map[string]bool{}
 	for i, p := range splitTenantCSV(products) {
+		// --products Google-Apps,Google-Apps reads (and offboard releases) once.
+		if seen[p] {
+			continue
+		}
+		seen[p] = true
 		ls, err := listLicenses(ctx, c, customerID, p)
 		if err != nil {
 			var apiErr *client.APIError

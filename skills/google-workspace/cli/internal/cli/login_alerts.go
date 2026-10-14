@@ -152,13 +152,7 @@ func newNovelLoginAlertsCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			sort.SliceStable(res.Results, func(i, j int) bool {
-				a, b := res.Results[i], res.Results[j]
-				if severityRank[a.Severity] != severityRank[b.Severity] {
-					return severityRank[a.Severity] < severityRank[b.Severity]
-				}
-				return a.Last > b.Last
-			})
+			sortLoginAlerts(res.Results)
 			return emitFanout(cmd, flags, res, func(rs []loginAlert) ([]string, [][]string) {
 				body := [][]string{}
 				for _, r := range rs {
@@ -174,4 +168,16 @@ func newNovelLoginAlertsCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().StringVar(&events, "events", "", "Only these event names, comma-separated (default: all listed in --help)")
 	cmd.Flags().IntVar(&maxEvents, "max-events", 2000, "Cap audit events read per event per tenant")
 	return cmd
+}
+
+// sortLoginAlerts orders by severity, then newest first by instant (a
+// string compare puts ...:00Z ahead of the newer ...:00.001Z).
+func sortLoginAlerts(rs []loginAlert) {
+	sort.SliceStable(rs, func(i, j int) bool {
+		a, b := rs[i], rs[j]
+		if severityRank[a.Severity] != severityRank[b.Severity] {
+			return severityRank[a.Severity] < severityRank[b.Severity]
+		}
+		return laterTS(a.Last, b.Last)
+	})
 }

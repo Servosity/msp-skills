@@ -172,6 +172,28 @@ func TestSharingDriftParsers(t *testing.T) {
 	}
 }
 
+// Hand-fix (handfixes.json novel-review-round16-small): duplicate products are
+// read once, and alerts sort newest first by instant.
+func TestDuplicateProductsAndAlertOrder(t *testing.T) {
+	calls := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		_, _ = io.WriteString(w, `{"items":[{"userId":"u@a.example.com","skuId":"1010020027"}]}`)
+	}))
+	defer srv.Close()
+	c := client.New(&config.Config{BaseURL: srv.URL}, time.Second, 0)
+	c.NoCache = true
+	ls, err := listProductLicenses(context.Background(), c, "C0", "Google-Apps,Google-Apps")
+	if err != nil || len(ls) != 1 || calls != 1 {
+		t.Fatalf("a duplicated product must be read once: %d licences, %d calls, %v", len(ls), calls, err)
+	}
+	rs := []loginAlert{{Severity: "high", User: "old", Last: "2026-10-01T10:00:00Z"}, {Severity: "high", User: "new", Last: "2026-10-01T10:00:00.001Z"}}
+	sortLoginAlerts(rs)
+	if rs[0].User != "new" {
+		t.Fatalf("newer alert first by instant: %+v", rs)
+	}
+}
+
 func TestDaysSinceAndNeverSentinel(t *testing.T) {
 	if daysSince("1970-01-01T00:00:00.000Z", testNow) != -1 || daysSince("", testNow) != -1 {
 		t.Fatal("never sentinel must be -1")
@@ -348,6 +370,16 @@ func TestRollupPosture(t *testing.T) {
 	}
 	if p := rollupPosture(gwsTenant{Name: "a"}, many, nil, 0, testNow, 60, 14, 95); p.Status != "warn" || p.TwoSVEnrolledPct != 95 {
 		t.Fatalf("94.95%% coverage must warn at a 95%% threshold: %+v", p)
+	}
+	// Exactly on the threshold is not below it (0.57*100 is 56.999... in floats).
+	for _, k := range []int{29, 57, 58} {
+		hundred := many[:100]
+		for i := range hundred {
+			hundred[i].IsEnrolledIn2Sv = i < k
+		}
+		if p := rollupPosture(gwsTenant{Name: "a"}, hundred, nil, 0, testNow, 60, 14, float64(k)); p.Status != "ok" {
+			t.Fatalf("%d of 100 at a %d%% threshold must be ok: %+v", k, k, p)
+		}
 	}
 }
 
