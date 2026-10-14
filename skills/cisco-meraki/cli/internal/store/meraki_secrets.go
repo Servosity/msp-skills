@@ -162,13 +162,18 @@ func merakiIDCarriesSecret(id string, obj map[string]any) bool {
 }
 
 // merakiSecretLabel reports a change-log label that names a credential
-// ("Pre-shared key", "RADIUS secret", "SNMP community string"). It matches
-// the label's ending, so "Password expiration" or "Secret SSID setting"
-// keep their audit values.
+// ("Pre-shared key (PSK)", "RADIUS secret 1", "SNMP community"). It fails
+// closed: any credential word counts unless the label is about a password
+// policy ("Password expiration", "Minimum password length").
 func merakiSecretLabel(label string) bool {
-	l := strings.ToLower(strings.TrimSpace(label))
-	for _, w := range []string{"password", "passphrase", "secret", "psk", "pre-shared key", "preshared key", "shared key", "community string", "api key"} {
-		if strings.HasSuffix(l, w) {
+	l := strings.ToLower(label)
+	for _, policy := range []string{"expiration", "expiry", "policy", "length", "complexity", "history", "rotation", "strength", "lockout", "requirement"} {
+		if strings.Contains(l, policy) {
+			return false
+		}
+	}
+	for _, w := range []string{"psk", "pre-shared", "preshared", "password", "passphrase", "secret", "community", "api key", "authentication key", "shared key"} {
+		if strings.Contains(l, w) {
 			return true
 		}
 	}
@@ -178,7 +183,7 @@ func merakiSecretLabel(label string) bool {
 // merakiSecretPairRe matches a "secret-key": "value" pair in text that looks
 // like JSON but does not parse (a truncated change-log body); the value may
 // run to the end of the text.
-var merakiSecretPairRe = regexp.MustCompile(`(?i)("(?:[a-z0-9_]*(?:password|passphrase|secret|psk)|apikey|claimkey|communitystring|v2communitystring|v3authpass|v3privpass|md5authenticationkey|token|contenttoken|parsedtoken|vppservicetoken|hashedtoken|key)"\s*:\s*")((?:[^"\\]|\\.)*)("|$)`)
+var merakiSecretPairRe = regexp.MustCompile(`(?i)("(?:[a-z0-9_]*(?:password|passphrase|secret|psk)|apikey|claimkey|communitystring|v2communitystring|v3authpass|v3privpass|md5authenticationkey|token|contenttoken|parsedtoken|vppservicetoken|hashedtoken|key)"\s*:\s*")((?:[^"\\]|\\.|\\$)*)("|$)`)
 
 // RedactMerakiJSONString redacts credentials inside a string that holds JSON
 // (a change-log oldValue/newValue). Any other string is returned unchanged.

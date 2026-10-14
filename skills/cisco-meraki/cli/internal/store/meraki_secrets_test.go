@@ -100,6 +100,12 @@ func TestChangeLogValuesNeverCarrySecrets(t *testing.T) {
 	if got := RedactMerakiChangeValue("Password expiration", "90 days"); got != "90 days" {
 		t.Fatalf("non-secret label blanked: %s", got)
 	}
+	if got := RedactMerakiChangeValue("Pre-shared key (PSK)", merakiSentinel); got != RedactedSecret {
+		t.Fatalf("qualified secret label not redacted: %s", got)
+	}
+	if got := RedactMerakiChangeValue("PUT /api/v1/networks/N_1/wireless/ssids/0", `{"psk":"`+merakiSentinel+`\`); strings.Contains(got, merakiSentinel) {
+		t.Fatalf("truncated body ending in a backslash leaked: %s", got)
+	}
 	if got := RedactMerakiChangeValue("PUT /api/v1/networks/N_1/wireless/ssids/0", `{"name":"Lobby","psk":"`+merakiSentinel); strings.Contains(got, merakiSentinel) || !strings.Contains(got, "Lobby") {
 		t.Fatalf("truncated JSON body leaked or lost its non-secret text: %s", got)
 	}
