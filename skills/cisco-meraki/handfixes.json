@@ -1258,6 +1258,23 @@
      "code_only": true
     }
    ]
+  },
+  {
+   "id": "meraki-gitleaks-low-entropy-fixtures",
+   "summary": "Test fixtures use low-entropy placeholder secrets: fleet_push_test.go's RADIUS secret is LIVE-XXXXXXXX, not a realistic token.",
+   "why": "CI runs gitleaks 8.18.4 (generic-api-key) over tracked files; the realistic fixture \"secret\":\"LIVE-RADIUS-7731\" tripped it (found by a local gitleaks 8.18.4 --no-git scan 2026-10-14). The test only asserts no LIVE- value reaches the preview, so the placeholder keeps its meaning. A re-vendor from the factory source would bring the realistic value back; this entry notices.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fleet_push_test.go",
+     "not_contains": "LIVE-RADIUS-7731"
+    },
+    {
+     "file": "cli/internal/cli/fleet_push_test.go",
+     "contains": "\"secret\":\"LIVE-XXXXXXXX\"",
+     "min_count": 1
+    }
+   ]
   }
  ]
 }

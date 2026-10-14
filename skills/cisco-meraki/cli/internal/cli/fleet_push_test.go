@@ -208,7 +208,7 @@ func TestFleetPushPreviewRedactsCurrentSecrets(t *testing.T) {
 		case "/api/v1/organizations/1/networks":
 			_, _ = w.Write([]byte(`[{"id":"N_1","name":"HQ","organizationId":"1","productTypes":["wireless"],"tags":[]}]`))
 		case "/api/v1/networks/N_1/wireless/ssids/0":
-			_, _ = w.Write([]byte(`{"number":0,"name":"Staff","psk":"LIVE-PSK-7731","radiusServers":[{"host":"10.0.0.1","secret":"LIVE-RADIUS-7731"}]}`))
+			_, _ = w.Write([]byte(`{"number":0,"name":"Staff","psk":"LIVE-PSK-7731","radiusServers":[{"host":"10.0.0.1","secret":"LIVE-XXXXXXXX"}]}`))
 		default:
 			http.NotFound(w, r)
 		}
