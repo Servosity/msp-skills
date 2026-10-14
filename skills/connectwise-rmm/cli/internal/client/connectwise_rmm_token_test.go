@@ -90,7 +90,7 @@ func TestDryRunNeverMintsAToken(t *testing.T) {
 		_, _ = io.WriteString(w, `{"access_token":"t","expires_in":3600}`)
 	}))
 	defer srv.Close()
-	c := New(&config.Config{BaseURL: srv.URL, TokenURL: srv.URL + "/token", ConnectwiseRmmClientId: "id-1234567", ConnectwiseRmmClientSecret: "secret-1234567"}, 5*time.Second, 0)
+	c := New(&config.Config{BaseURL: srv.URL, TokenURL: srv.URL + "/token", ConnectwiseRmmClientId: "id-1234567", ConnectwiseRmmClientSecret: "test-secret"}, 5*time.Second, 0)
 	c.DryRun = true
 	if _, err := c.Get(context.Background(), "/api/platform/v1/company/companies", nil); err != nil {
 		t.Fatalf("dry-run Get: %v", err)

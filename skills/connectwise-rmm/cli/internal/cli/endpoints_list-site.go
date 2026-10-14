@@ -21,7 +21,7 @@ func newEndpointsListSiteCmd(flags *rootFlags) *cobra.Command {
 		Args: func(cmd *cobra.Command, args []string) error {
 			return endpointPositionalArgs(cmd, flags, args, cobra.MaximumNArgs(2))
 		},
-		Annotations: map[string]string{"pp:endpoint": "endpoints.list-site", "pp:method": "GET", "pp:path": "/api/platform/v1/device/clients/{clientID}/sites/{siteID}/endpoints", "mcp:read-only": "true", "pp:happy-args": "clientID=436f6d6d-616e-6420-4944-6a200a0a2c75;siteID=436f6d6d-616e-6420-4944-6a200a0a2c75"},
+		Annotations: map[string]string{"pp:endpoint": "endpoints.list-site", "pp:method": "GET", "pp:path": "/api/platform/v1/device/clients/{clientID}/sites/{siteID}/endpoints", "mcp:read-only": "true", "pp:happy-args": "clientID=00000000-0000-0000-0000-000000000001;siteID=00000000-0000-0000-0000-000000000002"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				// A missing required positional is a usage error in every output

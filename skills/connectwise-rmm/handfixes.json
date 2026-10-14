@@ -546,6 +546,25 @@
      "code_only": true
     }
    ]
+  },
+  {
+   "id": "happy-args-low-entropy-placeholders",
+   "summary": "endpoints list-company and list-site carry low-entropy placeholder UUIDs in their pp:happy-args annotation instead of the vendor-docs sample UUID",
+   "why": "The press copies the spec's path-parameter example into pp:happy-args as clientID=<uuid>. The vendor-docs sample UUID (436f6d6d-...) is high-entropy and sits right after the word client, so gitleaks generic-api-key flags both files and the guards job fails. The value is example data, not a credential; the fix is an obviously fake placeholder, never an allowlist. A reprint from the unchanged spec regenerates the sample UUID.",
+   "status": "active",
+   "spec_encode_followup": "Change the example: values for clientID/siteID on /api/platform/v1/device/clients/{clientID}/endpoints and .../sites/{siteID}/endpoints in cli-factory/connectwise-rmm/spec.yaml to 00000000-0000-0000-0000-000000000001 / ...0002 so a reprint emits these placeholders by construction.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/endpoints_list-company.go",
+     "contains": "\"pp:happy-args\": \"clientID=00000000-0000-0000-0000-000000000001\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/endpoints_list-site.go",
+     "contains": "\"pp:happy-args\": \"clientID=00000000-0000-0000-0000-000000000001;siteID=00000000-0000-0000-0000-000000000002\"",
+     "code_only": true
+    }
+   ]
   }
  ]
 }
