@@ -5536,15 +5536,19 @@ func canonicalCompositeIDFromOverride(obj map[string]any, override string) strin
 		s := ""
 		if v, ok := lookupRawFieldValue(obj, strings.TrimSuffix(key, "?")); ok {
 			s = strings.TrimSpace(ResourceIDString(v))
+			// A numeric zero is a placeholder id; a string such as a tag
+			// value "0" is real data (Codex round 20).
+			if _, isString := v.(string); !isString {
+				if f, err := strconv.ParseFloat(s, 64); err == nil && f == 0 {
+					s = ""
+				}
+			}
 		}
 		if s == "<nil>" {
 			s = ""
 		}
 		// Date-shaped parts are allowed inside a composite; CanonicalResourceID
 		// still refuses a solo ISO date after the join.
-		if f, err := strconv.ParseFloat(s, 64); err == nil && f == 0 {
-			s = ""
-		}
 		if s == "" && !optional {
 			return ""
 		}
@@ -10309,7 +10313,7 @@ var resourceIDFieldOverrides = map[string]string{
 	"report_queries-application-vulnerabilities-net-suppressed":                    "id",
 	"report_queries-application-vulnerabilities-net-suppressed-tag":                "id",
 	"report_queries-application-vulnerabilities-net-tag":                           "id",
-	"report_queries-application-vulnerabilities-patching-asset-details":            "agent_id?+host_name?+ip?+name+version?+path?", // Hand-fix (handfixes.json: per-client-report-keys)
+	"report_queries-application-vulnerabilities-patching-asset-details":            "agent_id?+host_name?+ip?+name+version?", // Hand-fix (handfixes.json: per-client-report-keys)
 	"report_queries-application-vulnerabilities-suppressed":                        "id",
 	"report_queries-application-vulnerabilities-suppressed-by-os":                  "id",
 	"report_queries-application-vulnerabilities-suppressed-tag":                    "id",
@@ -10331,7 +10335,7 @@ var resourceIDFieldOverrides = map[string]string{
 	"report_queries-asset-software":                                                "id",
 	"report_queries-asset-stats":                                                   "id",
 	"report_queries-asset-users":                                                   "id",
-	"report_queries-asset-wise-vulnerabilities":                                    "company_id?+agent_id?+host_name?+ip?+vul_id+port?+software_name?+discovered?", // Hand-fix (handfixes.json: per-client-report-keys)
+	"report_queries-asset-wise-vulnerabilities":                                    "company_id?+agent_id?+host_name?+ip?+vul_id+port?+discovered?", // Hand-fix (handfixes.json: per-client-report-keys)
 	"report_queries-assets":                                                        "id",
 	"report_queries-assets-by-application":                                         "id",
 	"report_queries-assets-by-application-suppressed":                              "id",
@@ -10355,8 +10359,8 @@ var resourceIDFieldOverrides = map[string]string{
 	"report_queries-kernel-modules":                                                "id",
 	"report_queries-ports-view":                                                    "company_id", // Hand-fix (handfixes.json: per-client-report-keys)
 	"report_queries-problems-summary-asset-details":                                "id",
-	"report_queries-problems-summary-global":                                       "problem_name+software_name?+port?",            // Hand-fix (handfixes.json: per-client-report-keys)
-	"report_queries-problems-summary-group-by-companies":                           "problem_name+company_id+software_name?+port?", // Hand-fix (handfixes.json: per-client-report-keys)
+	"report_queries-problems-summary-global":                                       "problem_name",
+	"report_queries-problems-summary-group-by-companies":                           "problem_name+company_id",
 	"report_queries-registry-problems-remediation":                                 "id",
 	"report_queries-registry-problems-summary":                                     "id",
 	"report_queries-remediate-records":                                             "solution_id", // Hand-fix (handfixes.json: per-client-report-keys)
@@ -10374,7 +10378,7 @@ var resourceIDFieldOverrides = map[string]string{
 	"report_queries-suppress-vulnerability-problems":                               "id",
 	"report_queries-suppress-vulnerability-problems-sid":                           "id",
 	"report_queries-suppress-vulnerability-solution":                               "id",
-	"report_queries-sw-problems-remediations-view":                                 "problem_name+company_id+fix?+software_name?", // Hand-fix (handfixes.json: per-client-report-keys)
+	"report_queries-sw-problems-remediations-view":                                 "problem_name+company_id+fix",
 	"report_queries-system-events-view":                                            "id",
 	"report_queries-system-events-view-ticketid":                                   "id",
 	"report_queries-tags-view":                                                     "id",

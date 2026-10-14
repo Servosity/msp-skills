@@ -556,3 +556,15 @@ func TestRefusedRedirectDoesNotEchoTheSubmittedSecret(t *testing.T) {
 		t.Fatalf("want a withheld redirect error, got %v", err)
 	}
 }
+
+// TestTransportErrorKeptWhenOnlyOurURLMatches: the request URL is built by the
+// CLI, so a secret that happens to appear in it does not hide a DNS failure
+// (adversarial round 21).
+func TestTransportErrorKeptWhenOnlyOurURLMatches(t *testing.T) {
+	c := New(&config.Config{BaseURL: "http://coincidence-sentinel-host.invalid"}, 5*time.Second, 0)
+	c.NoCache = true
+	_, _, err := c.PostWithParamsAndHeaders(context.Background(), "/r/company/scheduler", nil, map[string]any{"name": "nightly", "password": "coincidence-sentinel-host"}, nil)
+	if err == nil || strings.Contains(err.Error(), "withheld") {
+		t.Fatalf("want the real transport cause, got %v", err)
+	}
+}

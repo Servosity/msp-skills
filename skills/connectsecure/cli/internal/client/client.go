@@ -1575,7 +1575,7 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 			if ctxErr := ctx.Err(); ctxErr != nil {
 				return nil, 0, ctxErr
 			}
-			shownErr := connectsecureTransportError(err, bodyBytes, c.connectsecureSentHeaders(headerOverrides), authHeader) // Hand-fix (handfixes.json: transport-error-withholds-echoed-secret)
+			shownErr := connectsecureTransportError(err, req.URL.String(), bodyBytes, c.connectsecureSentHeaders(headerOverrides), authHeader) // Hand-fix (handfixes.json: transport-error-withholds-echoed-secret)
 			lastErr = fmt.Errorf("%s %s: %w", method, c.displayURL(path, authHeader), c.maskError(shownErr, authHeader))
 			// Transient network failure (connection reset, DNS blip, request
 			// timeout). Back off before retrying — same exponential schedule as

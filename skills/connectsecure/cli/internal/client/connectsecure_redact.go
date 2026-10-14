@@ -12,6 +12,7 @@ import (
 	"errors"
 	"io"
 	"mime/multipart"
+	"net/url"
 	"strconv"
 	"strings"
 )
@@ -183,11 +184,17 @@ func (c *Client) connectsecureSentHeaders(overrides map[string]string) map[strin
 
 // connectsecureTransportError withholds a transport error that echoes a
 // secret the request carried: a refused redirect's error names its Location,
-// which a pod can fill with the submitted password.
-func connectsecureTransportError(err error, reqBody []byte, headers map[string]string, authHeader string) error {
+// which a pod can fill with the submitted password. The request's own URL
+// and host are built by the CLI (a DNS error names the host), so they are
+// dropped before matching; a server-supplied Location keeps its query.
+func connectsecureTransportError(err error, reqURL string, reqBody []byte, headers map[string]string, authHeader string) error {
+	text := strings.ReplaceAll(err.Error(), reqURL, "")
+	if u, perr := url.Parse(reqURL); perr == nil && u.Host != "" {
+		text = strings.ReplaceAll(strings.ReplaceAll(text, u.Host, ""), u.Hostname(), "")
+	}
 	secrets := append(connectsecureRequestSecrets(reqBody, headers), authSecrets(authHeader)...)
-	if cliutil.ConnectsecureEchoesSecret(err.Error(), secrets) {
-		return errors.New("[transport error withheld: it echoed a secret the request carried]")
+	if cliutil.ConnectsecureEchoesSecret(text, secrets) {
+		return errors.New("[transport error withheld: it echoed a secret the request carried, possibly by coincidence]")
 	}
 	return err
 }
