@@ -8,6 +8,7 @@ package store
 import (
 	"encoding/json"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -99,6 +100,22 @@ func TestChangeLogValuesNeverCarrySecrets(t *testing.T) {
 	}
 	if got := RedactMerakiChangeValue("Password expiration", "90 days"); got != "90 days" {
 		t.Fatalf("non-secret label blanked: %s", got)
+	}
+	if got := RedactMerakiChangeValue("Access policy: RADIUS password", merakiSentinel); got != RedactedSecret {
+		t.Fatalf("password under a policy-named page not redacted: %s", got)
+	}
+	for _, body := range []string{
+		`{"name":"Lobby","psk":"` + merakiSentinel + `","psk":""}`,
+		`{"name":"Lobby","psk":"` + merakiSentinel + `","psk":"[redacted]"}`,
+		`{"name":"Lobby","psk":"` + merakiSentinel + `","psk":5}`,
+		`{"name":"Lobby","\u0070sk":"` + merakiSentinel,
+	} {
+		if got := RedactMerakiChangeValue("PUT /api/v1/networks/N_1/wireless/ssids/0", body); strings.Contains(got, merakiSentinel) {
+			t.Fatalf("change-log body leaked a secret: %s -> %s", body, got)
+		}
+		if got := string(RedactMerakiSecrets(json.RawMessage(`{"oldValue":` + strconv.Quote(body) + `}`))); strings.Contains(got, merakiSentinel) {
+			t.Fatalf("mirror kept a secret: %s -> %s", body, got)
+		}
 	}
 	if got := RedactMerakiChangeValue("Group policy: PSK", merakiSentinel); got != RedactedSecret {
 		t.Fatalf("policy-worded PSK label not redacted: %s", got)

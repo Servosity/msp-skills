@@ -109,8 +109,9 @@ Exit codes & warnings:
   the spec as critical (x-critical: true) failed; non-critical failures
   emit {"event":"sync_warning","reason":"exit_policy_default_changed",
   ...} so callers can detect that a partial failure was tolerated. Pass
-  --strict to exit non-zero on any per-resource failure or warning
-  (including an access-denied resource). Exit is always
+  --strict to exit non-zero on any failed resource, any resource that
+  completed with warnings (an access-denied dependent, for example), or
+  any resource that stopped before its last page. Exit is always
   non-zero when every selected resource failed, regardless of --strict.
 
 Resource scoping:
@@ -493,7 +494,7 @@ Resource scoping:
 	cmd.Flags().StringVar(&dbPath, "db", "", "SQLite database file path (default: resolved data directory data.db)")
 	cmd.Flags().IntVar(&maxPages, "max-pages", 0, "Maximum pages to fetch per resource (0 = unlimited; cap-hit emits a sync_warning event)")
 	cmd.Flags().BoolVar(&latestOnly, "latest-only", false, "Refresh head of each resource only; clears resume cursor and caps pages at 1. Mutually exclusive with --since (--since wins).")
-	cmd.Flags().BoolVar(&strict, "strict", false, "Exit non-zero on any per-resource failure or warning, including access-denied resources (default: only critical failures or all-resource failure exit non-zero).")
+	cmd.Flags().BoolVar(&strict, "strict", false, "Exit non-zero on any failed or warned resource (access-denied included) or one cut short before its last page (default: only critical failures or all-resource failure exit non-zero).")
 	cmd.Flags().StringArrayVar(&paramFlags, "param", nil, "Extra query param to inject into flat-list sync requests (repeatable, key=value). Skipped on path-scoped dependent requests so a top-level scope like workspace=<id> does not double up on /parents/<id>/children calls. Use --global-param to inject everywhere. Avoid pagination keys (limit/since/cursor) — overriding them corrupts resume state.")
 	cmd.Flags().StringArrayVar(&resourceParamFlags, "resource-param", nil, "Per-resource extra query param (repeatable, resource:key=value). Wins over --param and --global-param when keys conflict.")
 	cmd.Flags().StringArrayVar(&globalParamFlags, "global-param", nil, "Extra query param to inject into every sync request including dependent path-scoped calls (repeatable, key=value). Use when an API requires a scope on every call regardless of path nesting.")

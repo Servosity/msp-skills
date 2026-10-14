@@ -63,9 +63,9 @@ All notable changes to this skill are documented here. Format follows
   `0.0.0-dev`).
 - `fleet changes --data-source local` no longer says the mirror was never synced
   right after a sync.
-- The local mirror redacts credentials. Reads and writes write their response
-  through to the mirror, and a routine SSID update used to store the PSK and RADIUS
-  secret it echoes, where `search`, `analytics` and the MCP `sql` tool could return
+- The local mirror redacts credentials by field name and change-log label. Reads and
+  writes write their response through to the mirror, and a routine SSID update used
+  to store the PSK and RADIUS secret it echoes, where `search`, `analytics` and the MCP `sql` tool could return
   them. Every credential field (`psk`, `passphrase`, `password`, `secret`,
   `sharedSecret`, SNMP community strings and v3 passwords, API keys and tokens) is now
   stored as `[redacted]`, and a credential is never used as a row ID (a newly generated

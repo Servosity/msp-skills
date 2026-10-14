@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -72,19 +73,19 @@ func redactMerakiValue(v any) (any, bool) {
 		changed := false
 		label, _ := tv["label"].(string)
 		for k, child := range tv {
+			// A secret-named key always forces a re-encode, even when its
+			// decoded value is empty or not a string: the decoder keeps only
+			// the LAST duplicate key, so the original bytes could still hold
+			// an earlier secret ({"psk":"x","psk":""}).
+			if merakiSecretKey(k, tv) || ((k == "oldValue" || k == "newValue") && merakiSecretLabel(label)) {
+				if s, ok := child.(string); ok && s != "" {
+					tv[k] = RedactedSecret
+				}
+				changed = true
+				continue
+			}
 			if s, ok := child.(string); ok && s != "" && s != RedactedSecret {
-				if merakiSecretKey(k, tv) {
-					tv[k] = RedactedSecret
-					changed = true
-					continue
-				}
-				// Change-log rows carry the request body as a JSON string
-				// (oldValue/newValue of an API PUT) or a secret-labelled value.
-				if (k == "oldValue" || k == "newValue") && merakiSecretLabel(label) {
-					tv[k] = RedactedSecret
-					changed = true
-					continue
-				}
+				// Change-log rows carry an API request body as a JSON string.
 				if next := RedactMerakiJSONString(s); next != s {
 					tv[k] = next
 					changed = true
@@ -173,16 +174,21 @@ func merakiSecretLabel(label string) bool {
 			return true
 		}
 	}
-	if !strings.Contains(l, "password") {
+	i := strings.LastIndex(l, "password")
+	if i < 0 {
 		return false
 	}
-	for _, policy := range []string{"expiration", "expiry", "policy", "length", "complexity", "history", "rotation", "strength", "lockout", "requirement"} {
-		if strings.Contains(l, policy) {
+	// Only a policy word AFTER the password names a policy setting
+	// ("Password expiration"); "Access policy: RADIUS password" is a secret.
+	for _, policy := range []string{"expiration", "expiry", "length", "complexity", "history", "rotation", "strength", "lockout", "requirement"} {
+		if strings.Contains(l[i:], policy) {
 			return false
 		}
 	}
 	return true
 }
+
+var merakiASCIIEscRe = regexp.MustCompile(`\\u[0-9a-fA-F]{4}`)
 
 // merakiSecretPairRe matches a "secret-key": "value" pair in text that looks
 // like JSON but does not parse (a truncated change-log body); the value may
@@ -197,8 +203,19 @@ func RedactMerakiJSONString(s string) string {
 		return s
 	}
 	if !json.Valid([]byte(t)) {
-		// Truncated or broken JSON: scrub secret-named pairs textually.
-		return merakiSecretPairRe.ReplaceAllString(s, "${1}"+RedactedSecret+"${3}")
+		// Truncated or broken JSON: scrub secret-named pairs textually, after
+		// decoding \uXXXX escapes so "\u0070sk" cannot hide a key name.
+		u := merakiASCIIEscRe.ReplaceAllStringFunc(s, func(m string) string {
+			n, err := strconv.ParseUint(m[2:], 16, 32)
+			if err != nil || n < 0x20 || n >= 0x7f || n == '"' || n == '\\' {
+				return m
+			}
+			return string(rune(n))
+		})
+		if r := merakiSecretPairRe.ReplaceAllString(u, "${1}"+RedactedSecret+"${3}"); r != u {
+			return r
+		}
+		return s
 	}
 	if out := RedactMerakiSecrets(json.RawMessage(t)); string(out) != t {
 		return string(out)
