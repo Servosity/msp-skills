@@ -81,6 +81,22 @@ Credentials default to THREATDOWN_CLIENT_ID (Client ID) and THREATDOWN_CLIENT_SE
 			if clientID == "" || clientSecret == "" {
 				return authErr(fmt.Errorf("client ID and secret required (set --client-id/--client-secret or THREATDOWN_CLIENT_ID/THREATDOWN_CLIENT_SECRET)"))
 			}
+			// hand-fix (handfixes.json auth-status-tracks-binding): a doc
+			// placeholder is never sent to the token endpoint.
+			for _, v := range []struct {
+				value    string
+				fromFlag bool
+				flag     string
+				env      string
+			}{{clientID, clientIDFromFlag, "--client-id", "THREATDOWN_CLIENT_ID"}, {clientSecret, clientSecretFromFlag, "--client-secret", "THREATDOWN_CLIENT_SECRET"}} {
+				if client.LooksLikeCredentialPlaceholder(v.value) {
+					src := "$" + v.env
+					if v.fromFlag {
+						src = v.flag
+					}
+					return authErr(fmt.Errorf("%s holds a placeholder, not a credential; use the real value from OneView", src))
+				}
+			}
 
 			cfg, err := config.Load(flags.configPath)
 			if err != nil {

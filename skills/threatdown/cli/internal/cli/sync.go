@@ -176,6 +176,14 @@ Resource scoping:
 				resources = defaultSyncResources()
 			}
 			resources = flatSyncResources(resources)
+			// hand-fix (handfixes.json generic-sync-no-endpoints): fleet sync owns
+			// these tables; refuse before --full resets their sync state.
+			for _, r := range resources {
+				switch r {
+				case tdResEndpoints, tdResDetections, tdResJobs:
+					return usageErr(fmt.Errorf("unknown sync resource %q: endpoints, detections and jobs come from 'threatdown-cli fleet sync'", r))
+				}
+			}
 
 			// Reject --resource-param keys that don't match a known resource.
 			// Validates against the full top-level + dependent set, not the

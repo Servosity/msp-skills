@@ -281,10 +281,10 @@ func recordFreshness(db *store.Store, res *fleetSyncResult, more, fullScope, cer
 	}()
 	switch {
 	case res.Error != "":
+	case more:
+		res.Note = joinNotes(res.Note, "stopped at --max-pages; raise it for a complete copy (freshness not recorded)")
 	case !certain:
 		// the reason is already in res.Note
-	case more:
-		res.Note = "stopped at --max-pages; raise it for a complete copy (freshness not recorded)"
 	case !fullScope:
 		res.Note = "--site scoped sync; fleet-wide freshness not recorded"
 	default:

@@ -574,7 +574,7 @@
   {
    "id": "respond-pending-truncated-warning",
    "summary": "respond pending treats a job search the server did not end with an empty next_cursor (page cap reached, or no cursor confirmation) as incomplete: human output warns and drops the all-clear, and the all-clear itself names what it checked (waiting, timed out, expired, failed; cancelled jobs are not listed). fleet stale applies the same unconfirmed-end rule to its stale and --twins searches, and the respond pending all-clear names any --command / --site filter. parseJobs keeps a job row whose online/data field has an unexpected type and counts any row it still cannot read; respond pending (live and local) and customer report then carry a note instead of an all-clear. fleet sync stores every job row parseJobs can read, and a full sync that could not read or confirm every record marks that resource's last attempt incomplete; fleetHint, respond pending (local) and customer report then name it instead of trusting the older freshness stamp. The same incomplete-sync note reaches fleet stale and fleet health (local), threats spread and threats queue, and customer report for endpoints and detections, and threats queue never suggests a forgotten-isolation restore while the detection or endpoint copy is incomplete.",
-   "why": "Found by the Codex branch review (2026-10-14): view.Truncated reached the JSON output but the table path ignored it, so a scan that hit the page cap could print an all-clear while older failed jobs went unchecked. respond_pending.go is a hand-written novel file; this entry pins the guard against a refactor. Codex round 2 added: a missing next_cursor ended the scan without marking it incomplete, and the old all-clear ('Every job ... completed') counted cancelled jobs as completed. Round 6 found the fleet stale twin (it printed 'No endpoints unseen' after an unconfirmed end) and the filtered all-clear reading as fleet-wide. Codex review round 6 (2026-10-14), P2: a failed job with \"online\":\"true\" failed the whole row's decode and vanished, so respond pending printed an all-clear with truncated:false. TestParseJobsNeverDropsSilently. Codex review round 7 (2026-10-14), P2: fleet sync's validJobs still strict-decoded, so the same odd row was dropped at sync time and the earlier freshness stamp let local respond pending print an all-clear. TestFleetSyncNeverLeavesASilentGap. Adversarial review round 11 + Codex round 8 (2026-10-14), P2: the round-7 note covered jobs only; an incomplete detections or endpoints sync still printed an all-clear, and threats queue could suggest a restore over a missed detection.",
+   "why": "Found by the Codex branch review (2026-10-14): view.Truncated reached the JSON output but the table path ignored it, so a scan that hit the page cap could print an all-clear while older failed jobs went unchecked. respond_pending.go is a hand-written novel file; this entry pins the guard against a refactor. Codex round 2 added: a missing next_cursor ended the scan without marking it incomplete, and the old all-clear ('Every job ... completed') counted cancelled jobs as completed. Round 6 found the fleet stale twin (it printed 'No endpoints unseen' after an unconfirmed end) and the filtered all-clear reading as fleet-wide. Codex review round 6 (2026-10-14), P2: a failed job with \"online\":\"true\" failed the whole row's decode and vanished, so respond pending printed an all-clear with truncated:false. TestParseJobsNeverDropsSilently. Codex review round 7 (2026-10-14), P2: fleet sync's validJobs still strict-decoded, so the same odd row was dropped at sync time and the earlier freshness stamp let local respond pending print an all-clear. TestFleetSyncNeverLeavesASilentGap. Adversarial review round 11 + Codex round 8 (2026-10-14), P2: the round-7 note covered jobs only; an incomplete detections or endpoints sync still printed an all-clear, and threats queue could suggest a restore over a missed detection. Review round 12 + Codex round 9 (2026-10-14), P2: a first-ever incomplete sync left no marker (UPDATE with no row; now an upsert), the --max-pages note was unreachable behind the !certain case, and an undated detection was dropped by fleet.Queue so it could not block a forgotten-isolation restore. TestRound12SyncAndLoginEdges, TestUndatedDetectionBlocksRestoreSuggestion.",
    "status": "active",
    "asserts": [
     {
@@ -671,6 +671,21 @@
      "file": "cli/internal/cli/customer_report.go",
      "contains": "for _, res := range []string{tdResEndpoints, tdResDetections} {",
      "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/threatdown_fleet.go",
+     "contains": "ON CONFLICT(resource_type) DO UPDATE SET last_attempt_complete = 0`, resource)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_sync.go",
+     "contains": "res.Note = joinNotes(res.Note, \"stopped at --max-pages; raise it for a complete copy (freshness not recorded)\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/fleet/fleet.go",
+     "contains": "if ok && t.Before(since) {",
+     "code_only": true
     }
    ]
   },
@@ -739,7 +754,7 @@
   },
   {
    "id": "auth-status-tracks-binding",
-   "summary": "`auth status` reports whether THIS process can authenticate: a complete client ID + secret pair (env or saved) counts as authenticated ('minted on first call'), and a cached token bound to a different OAuth client, scope or token URL with no secret to mint a replacement reports authenticated:false, token_bound_elsewhere:true and exits 4 (client.ErrTokenBoundElsewhere), the same verdict doctor gives. Placeholder values and unresolved MCPB ${...} templates never count as a pair (resolveClientCredentials reads the env through cliutil.EnvOverride, like config.Load), and doctor uses the same AuthState, so the two never disagree. Any <...> value is a placeholder (the docs print <client-id>, <your-client-secret>, <value>), auth login reads the env through EnvOverride, and doctor reports a rejected token mint (client.ErrTokenMintRejected) as a credentials ERROR instead of 'API unreachable'. A placeholder that came from THREATDOWN_CLIENT_ID or THREATDOWN_CLIENT_SECRET is reported against that variable, not config.toml, and doctor shows it as a Credentials ERROR with the API not probed.",
+   "summary": "`auth status` reports whether THIS process can authenticate: a complete client ID + secret pair (env or saved) counts as authenticated ('minted on first call'), and a cached token bound to a different OAuth client, scope or token URL with no secret to mint a replacement reports authenticated:false, token_bound_elsewhere:true and exits 4 (client.ErrTokenBoundElsewhere), the same verdict doctor gives. Placeholder values and unresolved MCPB ${...} templates never count as a pair (resolveClientCredentials reads the env through cliutil.EnvOverride, like config.Load), and doctor uses the same AuthState, so the two never disagree. Any <...> value is a placeholder (the docs print <client-id>, <your-client-secret>, <value>), auth login reads the env through EnvOverride, and doctor reports a rejected token mint (client.ErrTokenMintRejected) as a credentials ERROR instead of 'API unreachable'. A placeholder that came from THREATDOWN_CLIENT_ID or THREATDOWN_CLIENT_SECRET is reported against that variable, not config.toml, and doctor shows it as a Credentials ERROR with the API not probed. auth login refuses a placeholder client ID or secret (flag or env) before any token request.",
    "why": "Adversarial review round 8 (2026-10-14): the generated status only checked that a token was cached. With a saved admin login and THREATDOWN_CLIENT_ID=reporting it printed authenticated:true while every API call exited 4; on a fresh home with a valid env ID + secret pair it printed authenticated:false and told the user to export variables that were already exported. An agent gating on `auth status --json` either walked into exit-4 failures or asked the user for credentials they had already given. A reprint regenerates the cached-token-only check. Round 9 (2026-10-14) found the twin: doctor still said 'Auth: not configured' on a fresh home with a valid env pair, and AuthState called placeholder or ${...} values mintable. TestAuthStatusAndDoctorAgreeOnEnvPairs covers all three cases for both commands. Review round 10: the placeholder matcher missed the connector's own documented placeholders, and with a typo'd secret doctor blamed the network. TestDoctorReportsRejectedMintAsCredentials. Adversarial review round 11 (2026-10-14), P2: an env placeholder was reported as 'configured in config.toml' (a file holding no credential) and doctor called it 'API: unreachable'. TestPlaceholderErrorNamesTheEnvVar.",
    "status": "active",
    "spec_encode_followup": "Have the press auth-status template consult the same token-binding and client-credentials resolution the client uses before minting.",
@@ -820,6 +835,11 @@
     {
      "file": "cli/internal/cli/doctor.go",
      "contains": "if errors.Is(reachErr, client.ErrPlaceholderCredential) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "if client.LooksLikeCredentialPlaceholder(v.value) {",
      "code_only": true
     }
    ]
@@ -905,8 +925,8 @@
   },
   {
    "id": "generic-sync-no-endpoints",
-   "summary": "The generic `sync` command no longer offers an `endpoints` resource. In the spec it was one endpoint's quarantine list (GET /v1/accounts/{account_id}/endpoints/{id}/quarantine) stored under resource_type `endpoints`, the table fleet sync keeps the endpoint mirror in. `sync --resources endpoints` now fails and points at `fleet sync`; the help example names sites,users.",
-   "why": "Adversarial review round 11 (2026-10-14), P2: `sync --resources endpoints --full --path-context account_id=a1 --path-context id=m01` reconciled away every real endpoint, stored a quarantine row in their place and re-stamped the copy complete, so fleet stale --data-source local listed the quarantine row as an endpoint. sync.go is generated (DO NOT EDIT); a reprint re-emits the resource from the spec unless x-resource handling drops it. TestGenericSyncLeavesTheEndpointMirrorAlone.",
+   "summary": "The generic `sync` command no longer offers an `endpoints` resource. In the spec it was one endpoint's quarantine list (GET /v1/accounts/{account_id}/endpoints/{id}/quarantine) stored under resource_type `endpoints`, the table fleet sync keeps the endpoint mirror in. `sync --resources endpoints` now fails and points at `fleet sync`; the help example names sites,users. `sync --resources` naming endpoints, detections or jobs (endpoint_jobs) is refused as a usage error before --full resets any sync state.",
+   "why": "Adversarial review round 11 (2026-10-14), P2: `sync --resources endpoints --full --path-context account_id=a1 --path-context id=m01` reconciled away every real endpoint, stored a quarantine row in their place and re-stamped the copy complete, so fleet stale --data-source local listed the quarantine row as an endpoint. sync.go is generated (DO NOT EDIT); a reprint re-emits the resource from the spec unless x-resource handling drops it. TestGenericSyncLeavesTheEndpointMirrorAlone. Review round 12 (2026-10-14), P2: the --full reset loop zero-stamped the fleet-owned sync_state rows before the name was rejected, clearing the incomplete marker, and the pointer only showed with --human-friendly.",
    "status": "active",
    "spec_encode_followup": "Drop the quarantine path from the spec's sync resources (or give it its own resource name) so a reprint does not re-emit it under `endpoints`.",
    "asserts": [
@@ -922,6 +942,11 @@
     {
      "file": "cli/internal/cli/sync.go",
      "not_contains": "threatdown-cli sync --resources sites,endpoints"
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "case tdResEndpoints, tdResDetections, tdResJobs:",
+     "code_only": true
     }
    ]
   }

@@ -92,7 +92,7 @@ clean, no detections in the window). Each row carries the next command to run.`,
 					}
 					view.Queue = kept
 					if dropped > 0 {
-						view.Note = strings.TrimPrefix(view.Note+fmt.Sprintf("; %d isolated endpoint(s) not listed as forgotten-isolation: detection history does not cover the window or predates the endpoint snapshot", dropped), "; ")
+						view.Note = strings.TrimPrefix(view.Note+fmt.Sprintf("; %d isolated endpoint(s) not listed as forgotten-isolation: detection history does not cover the window, predates the endpoint snapshot, or the latest fleet sync was incomplete", dropped), "; ")
 					}
 				}
 			}

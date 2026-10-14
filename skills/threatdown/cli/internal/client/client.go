@@ -1732,6 +1732,9 @@ func authHeaderLooksLikePlaceholderCredential(header string) bool {
 	return looksLikeCredentialPlaceholder(header)
 }
 
+// LooksLikeCredentialPlaceholder reports a doc placeholder such as <value>.
+func LooksLikeCredentialPlaceholder(value string) bool { return looksLikeCredentialPlaceholder(value) }
+
 func looksLikeCredentialPlaceholder(value string) bool {
 	value = strings.Trim(strings.TrimSpace(value), `"'`)
 	switch value {

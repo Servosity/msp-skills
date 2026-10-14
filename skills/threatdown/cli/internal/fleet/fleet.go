@@ -689,13 +689,19 @@ func Queue(endpoints []Endpoint, dets []Detection, sites map[string]Site, since 
 	byMachine := map[string]*hist{}
 	for _, d := range dets {
 		t, ok := d.When()
-		if !ok || t.Before(since) {
+		if ok && t.Before(since) {
 			continue
 		}
 		h := byMachine[d.MachineID]
 		if h == nil {
 			h = &hist{days: map[string]bool{}}
 			byMachine[d.MachineID] = h
+		}
+		if !ok {
+			// An undated detection may fall in the window: count it so the
+			// machine is never offered a forgotten-isolation restore over it.
+			h.count++
+			continue
 		}
 		h.count++
 		if !d.Resolved() {

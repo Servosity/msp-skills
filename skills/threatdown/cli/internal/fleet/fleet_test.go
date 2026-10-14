@@ -375,3 +375,20 @@ func TestKnownJobState(t *testing.T) {
 		}
 	}
 }
+
+// Codex review round 9 (2026-10-14): an undated detection was dropped, so an
+// isolated machine with one could be offered a forgotten-isolation restore.
+func TestUndatedDetectionBlocksRestoreSuggestion(t *testing.T) {
+	sites := map[string]Site{"a1": {Name: "Acme"}}
+	eps := []Endpoint{{ID: "iso", AccountID: "a1", HostName: "pc1", Isolated: true}}
+	since := now.Add(-7 * 24 * time.Hour)
+	if rows := Queue(eps, nil, sites, since, "td"); len(rows) != 1 || rows[0].Kind != "forgotten-isolation" {
+		t.Fatalf("a quiet isolated machine is a forgotten isolation: %+v", rows)
+	}
+	undated := []Detection{{AccountID: "a1", MachineID: "iso", ThreatName: "Trojan", Status: "quarantined", ReportedAt: "not-a-time"}}
+	for _, r := range Queue(eps, undated, sites, since, "td") {
+		if r.Kind == "forgotten-isolation" {
+			t.Fatalf("an undated detection must block the restore suggestion: %+v", r)
+		}
+	}
+}
