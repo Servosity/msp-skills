@@ -585,6 +585,24 @@
    ]
   },
   {
+   "id": "transport-error-withholds-echoed-secret",
+   "status": "active",
+   "summary": "The generic client's transport-error branch (client.go, after httpClient.Do) passes the error through connectsecureTransportError (hand-authored connectsecure_redact.go), which withholds it when its text echoes a secret the request carried. Both the returned error and the retry notice on stderr use the withheld form.",
+   "why": "Codex round 19 (2026-10-14): a refused redirect's *url.Error names its Location, so a pod answering a scheduler or credential write with `302 Location: /error?password=<submitted>` printed the password, including one read from --stdin. TestRefusedRedirectDoesNotEchoTheSubmittedSecret fails with the call reverted (verified). The token mint uses its own request, which never follows a redirect and drops the URL from its transport errors.",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "connectsecureTransportError(err, bodyBytes,",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.maskError(shownErr, authHeader), wait",
+     "code_only": true
+    }
+   ]
+  },
+  {
    "id": "dry-run-redacts-secret-body",
    "status": "active",
    "summary": "--dry-run masks secret-named body fields (password, secret, token, params and similar) before printing the request preview.",
@@ -1264,20 +1282,20 @@
   {
    "id": "per-client-report-keys",
    "status": "active",
-   "summary": "Report resources whose rows share a display name across clients are keyed by a per-client identity in both resourceIDFieldOverrides maps (store.go and sync.go): object_guid for AD OUs, GPOs and group computers; company_id (with compliance_id) for per-client rollups; company_id+solution_id for remediation-plan-by-company; name+value, solution_id, company_name+canonical_name, agent_id+name+version and company_id?+agent_id?+host_name?+ip?+vul_id+port?+software_name?+discovered? elsewhere. A trailing \"?\" (handled in canonicalCompositeIDFromOverride and overrideIdentityPresent) marks a part a row may lack: it joins as empty instead of dropping the row to the generic chain.",
-   "why": "Codex round 14 / adversarial round 14 (2026-10-14): the generator keyed these by `name`, so `sync --full --resources report_queries-ad-ous-view` kept only the last client's 'Workstations' OU and exited 0 - and every AD domain carries a 'Default Domain Policy' GPO, so ad-gpos-view collapsed the same way. A row missing a key part falls back to the generic id chain (id, then name, the old behavior), so such rows can still collapse into one; Codex round 17 (2026-10-14): host_name+ip+vul_id collapsed one CVE found on two ports of a host, or in two products on it. The key now adds port and software_name as optional parts, since a non-network finding may carry no port and a required part would send it to the name fallback. Codex round 18 + adversarial round 19: the key still lacked client identity and required host_name, which network-discovered assets often leave blank. Every part except vul_id is now optional, and company_id, agent_id and discovered (first-seen time, stable per finding) are added: the spec's asset_wise_vulnerabilities rows carry no client field, so company_id and agent_id discriminate only if the live API sends them, and discovered separates two clients' identical builds found at different times. Two rows that match on every one of those fields (the same host name, IP, port, CVE, product and first-seen time at two clients, with no client id) still share a row: the accepted residual, since nothing in the row tells them apart. TestPerClientReportRowsKeepDistinctIDs fails with the round-17 key restored (verified).",
+   "summary": "Report resources whose rows share a display name across clients are keyed by a per-client identity in both resourceIDFieldOverrides maps (store.go and sync.go): object_guid for AD OUs, GPOs and group computers; company_id (with compliance_id) for per-client rollups; company_id+solution_id for remediation-plan-by-company; name+value, solution_id, company_name+canonical_name, agent_id+name+version and company_id?+agent_id?+host_name?+ip?+vul_id+port?+software_name?+discovered? elsewhere. A trailing \"?\" (handled in canonicalCompositeIDFromOverride and overrideIdentityPresent) marks a part a row may lack: it joins as empty instead of dropping the row to the generic chain. Codex round 19 widened patching-asset-details (agent_id?+host_name?+ip?+name+version?+path?: one discovery agent scans many machines), compliance-check-company-count (+compliance_status?+platform?: pass and fail buckets are separate rows), and added optional software_name/port parts to problems-summary-global, problems-summary-group-by-companies and sw-problems-remediations-view.",
+   "why": "Codex round 14 / adversarial round 14 (2026-10-14): the generator keyed these by `name`, so `sync --full --resources report_queries-ad-ous-view` kept only the last client's 'Workstations' OU and exited 0 - and every AD domain carries a 'Default Domain Policy' GPO, so ad-gpos-view collapsed the same way. A row missing a key part falls back to the generic id chain (id, then name, the old behavior), so such rows can still collapse into one; Codex round 17 (2026-10-14): host_name+ip+vul_id collapsed one CVE found on two ports of a host, or in two products on it. The key now adds port and software_name as optional parts, since a non-network finding may carry no port and a required part would send it to the name fallback. Codex round 18 + adversarial round 19: the key still lacked client identity and required host_name, which network-discovered assets often leave blank. Every part except vul_id is now optional, and company_id, agent_id and discovered (first-seen time, stable per finding) are added: the spec's asset_wise_vulnerabilities rows carry no client field, so company_id and agent_id discriminate only if the live API sends them, and discovered separates two clients' identical builds found at different times. Two rows that match on every one of those fields (the same host name, IP, port, CVE, product and first-seen time at two clients, with no client id) still share a row: the accepted residual, since nothing in the row tells them apart. TestPerClientReportRowsKeepDistinctIDs fails with the round-17 key restored (verified). Codex round 19 (2026-10-14): a sweep of every override against the spec's row fields found three more merges: one agent's two scanned machines with the same app and version, a check's passing and failing bucket for one client (a later passing bucket erased the failing assets), and one problem in two products. Optional parts are used wherever a row might lack the field. TestPerClientReportRowsKeepDistinctIDs fails with the round-18 store.go (verified, 5 collisions).",
    "asserts": [
     {
      "file": "cli/internal/store/store.go",
      "contains": "// Hand-fix (handfixes.json: per-client-report-keys)",
      "code_only": false,
-     "min_count": 15
+     "min_count": 20
     },
     {
      "file": "cli/internal/cli/sync.go",
      "contains": "// Hand-fix (handfixes.json: per-client-report-keys)",
      "code_only": false,
-     "min_count": 14
+     "min_count": 17
     },
     {
      "file": "cli/internal/store/connectsecure_report_keys_test.go",
@@ -1307,6 +1325,26 @@
     {
      "file": "cli/internal/store/store.go",
      "contains": "optional := strings.HasSuffix(key, \"?\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\"agent_id?+host_name?+ip?+name+version?+path?\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\"company_id+compliance_id+compliance_status?+platform?\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\"problem_name+company_id+software_name?+port?\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\"problem_name+company_id+fix?+software_name?\"",
      "code_only": true
     }
    ]

@@ -540,3 +540,19 @@ func TestConfiguredBearerTokenEchoWithheld(t *testing.T) {
 		t.Fatalf("bare bearer token leaked: %v", err)
 	}
 }
+
+// TestRefusedRedirectDoesNotEchoTheSubmittedSecret: a refused redirect's
+// error names its Location; a pod that puts the submitted password there must
+// not get it printed (Codex round 19).
+func TestRefusedRedirectDoesNotEchoTheSubmittedSecret(t *testing.T) {
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "http://attacker.example/error?password=test-pw-sentinel-0001", http.StatusTemporaryRedirect)
+	}))
+	defer origin.Close()
+	c := New(&config.Config{BaseURL: origin.URL}, 5*time.Second, 0)
+	c.NoCache = true
+	_, _, err := c.PostWithParamsAndHeaders(context.Background(), "/r/company/scheduler", nil, map[string]any{"name": "nightly", "password": "test-pw-sentinel-0001"}, nil)
+	if err == nil || strings.Contains(err.Error(), "test-pw-sentinel") || !strings.Contains(err.Error(), "withheld") {
+		t.Fatalf("want a withheld redirect error, got %v", err)
+	}
+}

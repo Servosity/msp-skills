@@ -9,6 +9,7 @@ import (
 	"connectsecure-pp-cli/internal/cliutil"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"io"
 	"mime/multipart"
 	"strconv"
@@ -178,6 +179,17 @@ func (c *Client) connectsecureSentHeaders(overrides map[string]string) map[strin
 		out[k] = v
 	}
 	return out
+}
+
+// connectsecureTransportError withholds a transport error that echoes a
+// secret the request carried: a refused redirect's error names its Location,
+// which a pod can fill with the submitted password.
+func connectsecureTransportError(err error, reqBody []byte, headers map[string]string, authHeader string) error {
+	secrets := append(connectsecureRequestSecrets(reqBody, headers), authSecrets(authHeader)...)
+	if cliutil.ConnectsecureEchoesSecret(err.Error(), secrets) {
+		return errors.New("[transport error withheld: it echoed a secret the request carried]")
+	}
+	return err
 }
 
 // connectsecureErrorBody is the text an API error may show: withheld when the

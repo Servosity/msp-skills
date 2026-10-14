@@ -10309,7 +10309,7 @@ var resourceIDFieldOverrides = map[string]string{
 	"report_queries-application-vulnerabilities-net-suppressed":                    "id",
 	"report_queries-application-vulnerabilities-net-suppressed-tag":                "id",
 	"report_queries-application-vulnerabilities-net-tag":                           "id",
-	"report_queries-application-vulnerabilities-patching-asset-details":            "agent_id+name+version", // Hand-fix (handfixes.json: per-client-report-keys)
+	"report_queries-application-vulnerabilities-patching-asset-details":            "agent_id?+host_name?+ip?+name+version?+path?", // Hand-fix (handfixes.json: per-client-report-keys)
 	"report_queries-application-vulnerabilities-suppressed":                        "id",
 	"report_queries-application-vulnerabilities-suppressed-by-os":                  "id",
 	"report_queries-application-vulnerabilities-suppressed-tag":                    "id",
@@ -10342,7 +10342,7 @@ var resourceIDFieldOverrides = map[string]string{
 	"report_queries-companies-by-problem-group":                                    "company_id", // Hand-fix (handfixes.json: per-client-report-keys)
 	"report_queries-companies-by-problem-group-suppressed":                         "company_id", // Hand-fix (handfixes.json: per-client-report-keys)
 	"report_queries-compliance-check-asset-count":                                  "id",
-	"report_queries-compliance-check-company-count":                                "company_id+compliance_id", // Hand-fix (handfixes.json: per-client-report-keys)
+	"report_queries-compliance-check-company-count":                                "company_id+compliance_id+compliance_status?+platform?", // Hand-fix (handfixes.json: per-client-report-keys)
 	"report_queries-cron-jobs":                                                     "id",
 	"report_queries-distinct-software":                                             "id",
 	"report_queries-distinct-tags":                                                 "name+value", // Hand-fix (handfixes.json: per-client-report-keys)
@@ -10355,8 +10355,8 @@ var resourceIDFieldOverrides = map[string]string{
 	"report_queries-kernel-modules":                                                "id",
 	"report_queries-ports-view":                                                    "company_id", // Hand-fix (handfixes.json: per-client-report-keys)
 	"report_queries-problems-summary-asset-details":                                "id",
-	"report_queries-problems-summary-global":                                       "problem_name",
-	"report_queries-problems-summary-group-by-companies":                           "problem_name+company_id",
+	"report_queries-problems-summary-global":                                       "problem_name+software_name?+port?",            // Hand-fix (handfixes.json: per-client-report-keys)
+	"report_queries-problems-summary-group-by-companies":                           "problem_name+company_id+software_name?+port?", // Hand-fix (handfixes.json: per-client-report-keys)
 	"report_queries-registry-problems-remediation":                                 "id",
 	"report_queries-registry-problems-summary":                                     "id",
 	"report_queries-remediate-records":                                             "solution_id", // Hand-fix (handfixes.json: per-client-report-keys)
@@ -10374,7 +10374,7 @@ var resourceIDFieldOverrides = map[string]string{
 	"report_queries-suppress-vulnerability-problems":                               "id",
 	"report_queries-suppress-vulnerability-problems-sid":                           "id",
 	"report_queries-suppress-vulnerability-solution":                               "id",
-	"report_queries-sw-problems-remediations-view":                                 "problem_name+company_id+fix",
+	"report_queries-sw-problems-remediations-view":                                 "problem_name+company_id+fix?+software_name?", // Hand-fix (handfixes.json: per-client-report-keys)
 	"report_queries-system-events-view":                                            "id",
 	"report_queries-system-events-view-ticketid":                                   "id",
 	"report_queries-tags-view":                                                     "id",

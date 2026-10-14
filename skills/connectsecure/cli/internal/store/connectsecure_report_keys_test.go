@@ -30,6 +30,25 @@ func TestPerClientReportRowsKeepDistinctIDs(t *testing.T) {
 			t.Errorf("%s: ids %q and %q collapse two clients' rows", res, a, b)
 		}
 	}
+	// Rows the round-17 keys still merged (Codex round 19): one discovery
+	// agent's two machines, a check's pass and fail buckets, one problem in two
+	// products at a client.
+	more := []struct {
+		res  string
+		a, b row
+	}{
+		{"report_queries-application-vulnerabilities-patching-asset-details", row{"name": "Chrome", "agent_id": "a1", "version": "1", "host_name": "pc1", "ip": "10.0.0.1"}, row{"name": "Chrome", "agent_id": "a1", "version": "1", "host_name": "pc2", "ip": "10.0.0.2"}},
+		{"report_queries-compliance-check-company-count", row{"company_id": 1, "compliance_id": 7, "compliance_status": "pass"}, row{"company_id": 1, "compliance_id": 7, "compliance_status": "fail"}},
+		{"report_queries-problems-summary-group-by-companies", row{"problem_name": "CVE-1", "company_id": 1, "software_name": "Chrome"}, row{"problem_name": "CVE-1", "company_id": 1, "software_name": "Edge"}},
+		{"report_queries-problems-summary-global", row{"problem_name": "CVE-1", "software_name": "Chrome"}, row{"problem_name": "CVE-1", "software_name": "Edge"}},
+		{"report_queries-sw-problems-remediations-view", row{"problem_name": "CVE-1", "company_id": 1, "software_name": "Chrome"}, row{"problem_name": "CVE-1", "company_id": 1, "software_name": "Edge"}},
+	}
+	for _, m := range more {
+		a, b := ExtractResourceID(m.res, m.a), ExtractResourceID(m.res, m.b)
+		if a == "" || a == b {
+			t.Errorf("%s: ids %q and %q collapse two distinct rows", m.res, a, b)
+		}
+	}
 	// asset-wise-vulnerabilities: one CVE on two ports of a host, or in two
 	// products on it, stays two rows. A row with no port or product still
 	// keys on host, ip and CVE, never on name (Codex round 17).

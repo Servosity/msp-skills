@@ -1575,7 +1575,8 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 			if ctxErr := ctx.Err(); ctxErr != nil {
 				return nil, 0, ctxErr
 			}
-			lastErr = fmt.Errorf("%s %s: %w", method, c.displayURL(path, authHeader), c.maskError(err, authHeader))
+			shownErr := connectsecureTransportError(err, bodyBytes, c.connectsecureSentHeaders(headerOverrides), authHeader) // Hand-fix (handfixes.json: transport-error-withholds-echoed-secret)
+			lastErr = fmt.Errorf("%s %s: %w", method, c.displayURL(path, authHeader), c.maskError(shownErr, authHeader))
 			// Transient network failure (connection reset, DNS blip, request
 			// timeout). Back off before retrying — same exponential schedule as
 			// the 5xx path below — so a brief outage does not burn every attempt
@@ -1585,7 +1586,7 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 				if !retryWithinBudget(wait) {
 					return nil, 0, lastErr
 				}
-				fmt.Fprintf(os.Stderr, "network error (%v), retrying in %s (attempt %d/%d)\n", c.maskError(err, authHeader), wait, attempt+1, maxRetries)
+				fmt.Fprintf(os.Stderr, "network error (%v), retrying in %s (attempt %d/%d)\n", c.maskError(shownErr, authHeader), wait, attempt+1, maxRetries)
 				if serr := sleepContext(opCtx, wait); serr != nil {
 					return nil, 0, serr
 				}
