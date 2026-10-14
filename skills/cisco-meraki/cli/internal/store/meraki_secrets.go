@@ -88,15 +88,16 @@ func merakiSecretField(k string, obj map[string]any) bool {
 }
 
 // merakiSecretName reports a credential header or parameter name
-// ("Authorization", "X-Api-Key", "Cookie", "client_secret").
+// ("Authorization", "X-Api-Key", "x-functions-key", "Cookie",
+// "client_secret"). It fails closed: any name ending in "key" counts.
 func merakiSecretName(name string) bool {
 	l := strings.NewReplacer("-", "", "_", "", " ", "").Replace(strings.ToLower(name))
-	for _, w := range []string{"authorization", "cookie", "apikey", "token", "secret", "password", "passphrase", "psk", "community"} {
+	for _, w := range []string{"auth", "cookie", "apikey", "token", "secret", "password", "passphrase", "psk", "community", "credential", "signature"} {
 		if strings.Contains(l, w) {
 			return true
 		}
 	}
-	return l == "key" || merakiSecretKeys[l]
+	return strings.HasSuffix(l, "key") || merakiSecretKeys[l]
 }
 
 // redactAllStrings replaces every non-empty string in v with RedactedSecret.
@@ -172,8 +173,10 @@ func redactMerakiValue(v any) (any, bool) {
 }
 
 // RedactMerakiSecrets returns data with every credential value replaced by
-// RedactedSecret. JSON that carries no secret and repeats no key is returned
-// unchanged byte for byte; text that is not valid JSON is scrubbed textually.
+// RedactedSecret. JSON with no secret field and no repeated key is returned
+// unchanged byte for byte; JSON with a secret field is re-encoded (keys
+// sorted) even when nothing under it was a string. Text that is not valid
+// JSON is scrubbed textually.
 func RedactMerakiSecrets(data json.RawMessage) json.RawMessage {
 	if !json.Valid(data) {
 		return json.RawMessage(merakiScrubText(string(data)))
@@ -261,9 +264,19 @@ var merakiASCIIEscRe = regexp.MustCompile(`\\u[0-9a-fA-F]{4}`)
 // run to the end of the text.
 var merakiSecretPairRe = regexp.MustCompile(`(?i)("(?:[a-z0-9_]*(?:password|passphrase|secret|psk)|apikey|claimkey|communitystring|v2communitystring|v3authpass|v3privpass|md5authenticationkey|token|contenttoken|parsedtoken|vppservicetoken|hashedtoken|key)"\s*:\s*")((?:[^"\\]|\\.|\\$)*)("|$)`)
 
+// merakiNameRe and merakiPairValueRe find name/value pairs in text that does
+// not parse ({"name":"Authorization","template":"Basic ...); either may run
+// to the end of the text.
+var (
+	merakiNameRe      = regexp.MustCompile(`(?i)"name"\s*:\s*"((?:[^"\\]|\\.)*)`)
+	merakiPairValueRe = regexp.MustCompile(`(?i)("(?:value|template)"\s*:\s*")((?:[^"\\]|\\.|\\$)*)("|$)`)
+)
+
 // merakiScrubText scrubs secret-named pairs from text that looks like JSON
 // but does not parse (a truncated change-log body), after decoding \uXXXX
-// escapes so "\u0070sk" cannot hide a key name. Text with no such pair is
+// escapes so "\u0070sk" cannot hide a key name. When any "name" in the text
+// is a credential name, every "value" and "template" string is scrubbed too
+// (fail closed: the pairing cannot be parsed). Text with nothing to scrub is
 // returned unchanged.
 func merakiScrubText(s string) string {
 	u := merakiASCIIEscRe.ReplaceAllStringFunc(s, func(m string) string {
@@ -273,7 +286,14 @@ func merakiScrubText(s string) string {
 		}
 		return string(rune(n))
 	})
-	if r := merakiSecretPairRe.ReplaceAllString(u, "${1}"+RedactedSecret+"${3}"); r != u {
+	r := merakiSecretPairRe.ReplaceAllString(u, "${1}"+RedactedSecret+"${3}")
+	for _, m := range merakiNameRe.FindAllStringSubmatch(u, -1) {
+		if merakiSecretName(m[1]) {
+			r = merakiPairValueRe.ReplaceAllString(r, "${1}"+RedactedSecret+"${3}")
+			break
+		}
+	}
+	if r != u {
 		return r
 	}
 	return s

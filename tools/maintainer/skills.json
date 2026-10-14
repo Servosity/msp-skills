@@ -366,7 +366,7 @@
       "category": "Network Monitoring",
       "display_name": "Cisco Meraki",
       "tagline": "See every client Meraki org at once: devices down, failed uplinks, renewals, and config changes from your terminal.",
-      "cli_hash": "sha256:3e3487565de0b3bfc81ff448a4723ac7a13d5f211d4767cce4a35fdcd4063d8d",
+      "cli_hash": "sha256:7221bc0bd833044dd592aac9b3dbaa9706e5cdc5bed4488a9bb2d4049246eca7",
       "template_version": 3,
       "version": "0.1.0",
       "cli_hash_at_release": null,

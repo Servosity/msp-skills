@@ -144,12 +144,12 @@ cisco-meraki-cli fleet renewals --within 90d
   ```bash
   cisco-meraki-cli fleet find Q2QN-9J8L-SLPD --agent
   ```
-- **`fleet fanout`**  -  Run any organization-scoped read against every org, fully paginated, with observed-at, item count, completeness and next-cursor metadata per org.
+- **`fleet fanout`**  -  Run any organization-scoped read against every org, fully paginated, with observed-at, item count, completeness and next-cursor metadata per org (use `--json`: `--agent` compacts away `next_cursor`, `limit_reason` and `error`).
 
   _Use this for any cross-org read that has no dedicated command, when you need to know the answer is complete._
 
   ```bash
-  cisco-meraki-cli fleet fanout organizations/{organizationId}/firmware/upgrades --agent
+  cisco-meraki-cli fleet fanout organizations/{organizationId}/firmware/upgrades --json
   ```
 
 ### Deadlines and access audits
@@ -253,7 +253,7 @@ This CLI separates local files into four path kinds:
 | Kind | Contents |
 |------|----------|
 | `config` | User-editable settings such as `config.toml` and saved profiles |
-| `data` | Durable local data: `credentials.toml`, `data.db`, cookies, browser-session proof files, and other auth sidecars |
+| `data` | Durable local data: `credentials.toml`, the local mirror (`data-<hash>.db`, one per API key), cookies, browser-session proof files, and other auth sidecars |
 | `state` | Runtime state such as persisted queries, jobs, and `teach.log` |
 | `cache` | Regenerable HTTP/cache files |
 

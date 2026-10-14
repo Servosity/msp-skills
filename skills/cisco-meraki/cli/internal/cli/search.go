@@ -201,6 +201,10 @@ across every org, use 'fleet find'.`,
 			default:
 				// Unrecognized type -- filter generic resources by type.
 				results, err = db.Search(query, limit, resourceType)
+				var rows int
+				if err == nil && len(results) == 0 && db.DB().QueryRow(`SELECT COUNT(*) FROM resources WHERE resource_type = ?`, resourceType).Scan(&rows) == nil && rows == 0 {
+					fmt.Fprintf(cmd.ErrOrStderr(), "hint: the local store holds no %q rows; 'sync' covers organization-level resources only. Use 'fleet find' or 'fleet fanout' for a live read.\n", resourceType)
+				}
 			}
 			if err != nil {
 				return fmt.Errorf("search failed: %w", err)

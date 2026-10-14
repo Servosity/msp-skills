@@ -37,9 +37,9 @@ All notable changes to this skill are documented here. Format follows
   client they describe; `[{items, meta}]` responses are unwrapped into their records;
   and a generated date-detection pattern no longer misreads timestamp-plus-serial
   keys as dates. Before, each such resource dropped every row and `sync` exited 1.
-- Local-mirror rows are keyed on serials and real IDs, not display names, so two
-  switches both called "Core Switch", or "Data" VLANs in several networks, stay
-  separate rows instead of silently merging. Intrusion rules are keyed on policy plus
+- Local-mirror rows written by `sync` are keyed on serials and real IDs, not display
+  names, so two switches both called "Core Switch", or "Data" VLANs in several
+  networks, stay separate rows instead of silently merging. Intrusion rules are keyed on policy plus
   rule ID (not the Snort generator ID shared by nearly every rule), group-policy
   assignments on the assignment ID (not the policy they point at), MX port profile
   assignments on device plus port, and a renamed network or access point keeps its
@@ -65,13 +65,16 @@ All notable changes to this skill are documented here. Format follows
   `0.0.0-dev`).
 - `fleet changes --data-source local` no longer says the mirror was never synced
   right after a sync.
-- The local mirror redacts credentials by field name and change-log label. Write
-  commands store the response they get back, so a routine SSID update used to store
-  the PSK and RADIUS secret it echoes, and the synced configuration change log
-  records an API change's request body; `search`, `analytics` and the MCP `sql` tool
-  could return them. Every credential field (`psk`, `passphrase`, `password`, `secret`,
-  `sharedSecret`, SNMP community strings and v3 passwords, API keys and tokens) is now
-  stored as `[redacted]`, and a credential is never used as a row ID (a newly generated
+- Write commands no longer store their response in the local mirror. A routine SSID
+  update stored the PSK and RADIUS secret it echoes, a webhook payload template its
+  `Authorization` header, and an SSID or VLAN from two networks merged into one row
+  keyed on its name or number. A write now reaches the mirror at the next `sync`.
+- The local mirror redacts credentials by field name and change-log label. The
+  synced configuration change log records an API change's request body, and `search`,
+  `analytics` and the MCP `sql` tool could return it. Every credential field (`psk`, `passphrase`, `password`, `secret`,
+  `sharedSecret`, SNMP community strings and v3 passwords, API keys and tokens, and the
+  value of a header pair named like a credential, such as `Authorization` or
+  `x-functions-key`) is now stored as `[redacted]`, and a credential is never used as a row ID (a newly generated
   API key used to become one). Change-log old and new values, which carry an API
   change's whole request body, are redacted in the mirror and in `fleet changes` and
   `fleet blame` output. License keys are kept.

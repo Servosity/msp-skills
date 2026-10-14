@@ -120,6 +120,9 @@ func TestChangeLogValuesNeverCarrySecrets(t *testing.T) {
 		`{"psk":["` + merakiSentinel + `"]}`,
 		`{"token":{"value":{"deeper":"` + merakiSentinel + `"}}}`,
 		`{"label":"RADIUS secret","oldValue":["` + merakiSentinel + `"]}`,
+		`{"headers":[{"name":"Authorization","template":"Basic ` + merakiSentinel + `"}],"body":"{\"text\":\"aaaa`,
+		`{"headers":[{"template":"Basic ` + merakiSentinel + `","name":"Authorization"},`,
+		`{"headers":[{"name":"x-functions-key","template":"` + merakiSentinel + `"},{"name":"Ocp-Apim-Subscription-Key","value":"` + merakiSentinel + `"},{"name":"X-Auth-Key","template":"` + merakiSentinel + `"}]}`,
 	} {
 		if got := RedactMerakiChangeValue("PUT /api/v1/networks/N_1/wireless/ssids/0", body); strings.Contains(got, merakiSentinel) {
 			t.Fatalf("change-log body leaked a secret: %s -> %s", body, got)
@@ -147,6 +150,8 @@ func TestChangeLogValuesNeverCarrySecrets(t *testing.T) {
 
 // TestRedactKeepsCleanJSONByteForByte: a key reused in sibling or nested
 // objects is not a duplicate, so secret-free rows keep their original bytes.
+// The {"key":{...}} fixture is already in sorted key order on purpose: a
+// secret-named key forces a sorted re-encode, which must not change data.
 func TestRedactKeepsCleanJSONByteForByte(t *testing.T) {
 	for _, body := range []string{
 		`{"z":1,"a":{"a":[{"a":2},{"a":3}]},"b":[]}`,
@@ -158,6 +163,10 @@ func TestRedactKeepsCleanJSONByteForByte(t *testing.T) {
 		if got := string(RedactMerakiSecrets(json.RawMessage(body))); got != body {
 			t.Fatalf("clean JSON rewritten: %s -> %s", body, got)
 		}
+	}
+	clean := `{"headers":[{"name":"Content-Type","template":"application/json"}],"body":"{\"text\":\"aaaa`
+	if got := RedactMerakiJSONString(clean); got != clean {
+		t.Fatalf("clean truncated body rewritten: %s -> %s", clean, got)
 	}
 	if !merakiHasDuplicateKey([]byte(`[{"a":{"b":1,"b":2}}]`)) {
 		t.Fatal("nested duplicate key not detected")

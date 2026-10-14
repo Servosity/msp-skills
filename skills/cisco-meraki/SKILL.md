@@ -80,12 +80,12 @@ Do not use this CLI for:
   ```bash
   cisco-meraki-cli fleet find Q2QN-9J8L-SLPD --agent
   ```
-- **`fleet fanout`**  -  Run any organization-scoped read against every org, fully paginated, with observed-at, item count, completeness and next-cursor metadata per org.
+- **`fleet fanout`**  -  Run any organization-scoped read against every org, fully paginated, with observed-at, item count, completeness and next-cursor metadata per org (use `--json`: `--agent` compacts away `next_cursor`, `limit_reason` and `error`).
 
   _Use this for any cross-org read that has no dedicated command, when you need to know the answer is complete._
 
   ```bash
-  cisco-meraki-cli fleet fanout organizations/{organizationId}/firmware/upgrades --agent
+  cisco-meraki-cli fleet fanout organizations/{organizationId}/firmware/upgrades --json
   ```
 
 ### Deadlines and access audits
@@ -300,7 +300,7 @@ Agents should treat the CLI's path resolver as part of the runtime contract:
 - Use `--home <dir>` for one invocation, or set `CISCO_MERAKI_HOME=<dir>` to relocate all four path kinds under one root.
 - Use per-kind env vars only when a specific kind must diverge: `CISCO_MERAKI_CONFIG_DIR`, `CISCO_MERAKI_DATA_DIR`, `CISCO_MERAKI_STATE_DIR`, `CISCO_MERAKI_CACHE_DIR`.
 - Resolution order is per-kind env var, `--home`, `CISCO_MERAKI_HOME`, XDG (`XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME`, `XDG_CACHE_HOME`), then platform defaults.
-- `config` contains settings like `config.toml` and profiles. `data` contains `credentials.toml`, `data.db`, cookies, and auth sidecars. `state` contains persisted queries, jobs, and `teach.log`. `cache` contains regenerable HTTP/cache files.
+- `config` contains settings like `config.toml` and profiles. `data` contains `credentials.toml`, the local mirror (`data-<hash>.db`, one per API key), cookies, and auth sidecars. `state` contains persisted queries, jobs, and `teach.log`. `cache` contains regenerable HTTP/cache files.
 - Stored secrets live in `credentials.toml` under the data dir. Existing legacy `config.toml` secrets are read for compatibility and leave `config.toml` on the first auth write.
 - Run `cisco-meraki-cli doctor --fail-on warn` to surface path and credential-location warnings. `agent-context` exposes a schema v4 `paths` block for agents that need the resolved dirs.
 - For MCP, pass relocation through the MCP host config. The MCP binary does not inherit CLI flags:
@@ -326,7 +326,7 @@ This CLI ships a self-capturing learning loop. The CLI does its own bookkeeping:
 
 ### Step 1: `recall` before any discovery
 
-Before list/search/drill commands on a new user question, pass the question as an argv or MCP tool argument to `recall --agent`. Do not interpolate user-controlled text into a shell command line.
+Before list/search/drill commands on a new user question, pass the question as an argv or MCP tool argument to `recall --json` (under `--agent` the envelope below arrives wrapped as `{"meta": ..., "results": <envelope>}`). Do not interpolate user-controlled text into a shell command line.
 
 Quoted `recall "<question>"` breaks on an apostrophe, which is ordinary English. A quoted heredoc breaks when a body line equals the delimiter, and that delimiter is published in these docs. Write the question with a non-shell file-writing tool, then read it back as data:
 
@@ -335,7 +335,7 @@ Quoted `recall "<question>"` breaks on an apostrophe, which is ordinary English.
 # Command substitution on a file only ever yields data  -  the shell never
 # parses the file's bytes as syntax.
 QUERY=$(cat /path/to/question.txt)
-cisco-meraki-cli recall "$QUERY" --agent
+cisco-meraki-cli recall "$QUERY" --json
 ```
 
 Prefer MCP: pass the question as the tool's query argument. `"$QUERY"` after a file read is argv-safe; putting the question itself in the command text is not.

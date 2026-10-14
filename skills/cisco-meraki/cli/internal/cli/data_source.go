@@ -650,19 +650,12 @@ func isRawJSONNull(raw json.RawMessage) bool {
 	return strings.TrimSpace(string(raw)) == "null"
 }
 
+// pp:handfix meraki-writes-not-mirrored: a write never stores its response.
+// Meraki write responses are network-scoped objects keyed by a per-network
+// number or a display name (SSID 0, VLAN 10, a header name), so storing them
+// blended rows across networks, and they echo credentials (PSKs, webhook
+// Authorization headers). A write reaches the mirror at the next sync.
 func writeMutationResponseToStore(ctx context.Context, resourceType string, data json.RawMessage, responsePath string) {
-	db, err := store.OpenWithContext(ctx, defaultDBPath("cisco-meraki-cli"))
-	if err != nil {
-		return
-	}
-	defer db.Close()
-
-	storedType := localWriteResourceType(db, resourceType)
-	items := mutationResponseEntityItems(storedType, data, responsePath)
-	if len(items) == 0 {
-		return
-	}
-	_, _, _ = db.UpsertBatch(storedType, items)
 }
 
 // Partitions sync passes to UpsertBatch (profiler resource name and dependent
