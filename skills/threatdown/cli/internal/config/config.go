@@ -219,9 +219,11 @@ func Load(configPath string) (*Config, error) {
 	// Base URL override (used by printing-press verify to point at mock/test servers)
 	if v := cliutil.EnvOverride("THREATDOWN_BASE_URL"); v != "" {
 		cfg.BaseURL = v
+		cfg.markEnvOverride("BaseURL")
 	}
 	if v := cliutil.EnvOverride("THREATDOWN_TOKEN_URL"); v != "" {
 		cfg.TokenURL = v
+		cfg.markEnvOverride("TokenURL")
 	}
 	return cfg, nil
 }
@@ -748,6 +750,16 @@ func (c *Config) configForSave() Config {
 		}
 		if c.envOverrides["ClientSecret"] {
 			out.ClientSecret = c.fileConfig.ClientSecret
+		}
+		// hand-fix (handfixes.json env-urls-never-persisted): an env-sourced
+		// base or token URL is a per-process override; persisting it made
+		// unsetting the variable a no-op and kept the client secret going to
+		// the old token host on every later mint.
+		if c.envOverrides["BaseURL"] {
+			out.BaseURL = c.fileConfig.BaseURL
+		}
+		if c.envOverrides["TokenURL"] {
+			out.TokenURL = c.fileConfig.TokenURL
 		}
 	}
 	out.envOverrides = nil

@@ -3652,6 +3652,10 @@ func isSQLiteBusy(err error) bool {
 func (s *Store) mergeIncomingResourceData(tx *sql.Tx, resourceType, id string, incoming json.RawMessage) json.RawMessage {
 	// hand-fix: every generic and typed write passes through here, so this is
 	// the one place secret-named fields are dropped before they reach SQLite.
+	// Installer rows are nothing but enrollment links and signed URLs.
+	if resourceType == "installers" {
+		return json.RawMessage(`{}`)
+	}
 	redacted, _ := cliutil.RedactSecretFields(s.mergeIncomingResourceDataRaw(tx, resourceType, id, incoming))
 	return redacted
 }

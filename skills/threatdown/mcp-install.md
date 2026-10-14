@@ -123,7 +123,7 @@ web** is remote-only - see the remote section below.)
 
 All remote agents need `threatdown-mcp` reachable as a public **HTTPS** endpoint. Run it
 in HTTP mode with your credentials and a bearer token of your choosing in the environment
-(it serves `http://127.0.0.1:7777/mcp` by default; press 4.32+ refuses a non-loopback bind
+(it serves `http://127.0.0.1:7777/mcp` by default; the server refuses a non-loopback bind
 without TLS, so do not pass `--addr :7777`):
 
 ```bash

@@ -32,6 +32,9 @@ func TestSecretFieldsNeverPersisted(t *testing.T) {
 	if err := s.Upsert("sites", "s1", json.RawMessage(`{"id":"s1","secret":"`+sentinel+`"}`)); err != nil {
 		t.Fatalf("Upsert: %v", err)
 	}
+	if err := s.Upsert("installers", "a1", json.RawMessage(`{"win_msi":{"link":"https://dl.test/`+sentinel+`/setup.msi","url":"https://dl.test/a?sig=`+sentinel+`"}}`)); err != nil {
+		t.Fatalf("Upsert installers: %v", err)
+	}
 
 	got, err := s.Get("policies", "p1")
 	if err != nil {

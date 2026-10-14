@@ -307,7 +307,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 							report["api"] = fmt.Sprintf("blocked by %s interstitial (HTTP %d) — the configured transport reached the wall.", vendor, status)
 						} else if status == 404 {
 							// hand-fix (doctor-wrong-base-not-reachable): no OneView API here.
-							report["api"] = fmt.Sprintf("ERROR the host answered but %s is not there - base_url is not the OneView API root. Point THREATDOWN_BASE_URL at https://api.threatdown.com/oneview or unset it.", healthPath)
+							report["api"] = fmt.Sprintf("ERROR the host answered but %s is not there - base_url is not the OneView API root. Point THREATDOWN_BASE_URL at https://api.threatdown.com/oneview or unset it, and check base_url in the file named by config_path.", healthPath)
 						} else {
 							report["api"] = fmt.Sprintf("reachable (HTTP %d at /)", status)
 						}
@@ -360,7 +360,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 								// api row must stop reading "reachable" too.
 								if authAPIErr.StatusCode == 404 {
 									report["credentials"] = fmt.Sprintf("ERROR not verified (HTTP 404 from %s) - the endpoint does not exist at this base_url, so the credential was never checked.", verifyPath)
-									report["api"] = fmt.Sprintf("ERROR the host answered but %s is not there - base_url is not the OneView API root. Point THREATDOWN_BASE_URL at https://api.threatdown.com/oneview or unset it.", verifyPath)
+									report["api"] = fmt.Sprintf("ERROR the host answered but %s is not there - base_url is not the OneView API root. Point THREATDOWN_BASE_URL at https://api.threatdown.com/oneview or unset it, and check base_url in the file named by config_path.", verifyPath)
 								}
 							}
 						default:

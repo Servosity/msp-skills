@@ -5,6 +5,7 @@ package cliutil
 import (
 	"bytes"
 	"encoding/json"
+	"strings"
 )
 
 // hand-fix (handfixes.json secret-fields-never-persisted): OneView GET
@@ -25,6 +26,13 @@ var secretFieldKeys = map[string]bool{
 	"secret_token":          true,
 	"token":                 true,
 	"custom_headers":        true,
+}
+
+// IsSecretBearingPath reports whether a GET path returns credentials in
+// fields whose names are not secret-shaped: the installers response carries
+// account-specific download links and signed URLs that can enroll an agent.
+func IsSecretBearingPath(path string) bool {
+	return strings.HasSuffix(strings.TrimRight(path, "/"), "/installers")
 }
 
 // IsSecretFieldKey reports whether a JSON key names a credential value.

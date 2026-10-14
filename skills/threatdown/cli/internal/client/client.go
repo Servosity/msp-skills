@@ -844,7 +844,7 @@ func (c *Client) writeCache(path string, params map[string]string, data json.Raw
 func (c *Client) writeCacheWithHeaders(path string, params map[string]string, headers map[string]string, data json.RawMessage) {
 	// hand-fix: a body carrying a credential (tamper-protection password,
 	// policy/site secret, webhook signing key) is never written to disk.
-	if cliutil.ContainsSecretField(data) {
+	if cliutil.ContainsSecretField(data) || cliutil.IsSecretBearingPath(path) {
 		return
 	}
 	resourceDir := c.cacheResourceDir(path)

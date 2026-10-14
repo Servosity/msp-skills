@@ -2388,6 +2388,46 @@ A: No - it complements it. The UI stays your system of record and remote-access 
 
 Governance: The skill reads everything across your fleet - agents, clients, sites, checks, alerts, patches, software, services, and the cross-client rollups - and through the API it can also create and update config, delete records, run scripts and commands on endpoints, reboot or shut machines down, install Windows updates, and manage users, roles, and API keys. Reads are safe to run unattended, with one exception: listing API keys or reading the keystore, codesign token, or core settings can return stored secrets, so treat those as credential-tier. Keep an autonomous agent to reads plus previewed writes; require a human for anything that runs on an endpoint, deletes, or touches credentials. The CLI can only do what your API key is permitted to do, so scope the key to the workflow.
 
+### ThreatDown (Security)
+
+Page: https://msp-skills.compoundingteams.com/skills/threatdown/
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/threatdown/install.sh)
+
+Ask your AI "which machines went dark this week?" or "which customer needs attention first?" and get one answer across every ThreatDown OneView site. OneView answers one site at a time, and its endpoint searches only take explicit account IDs. This skill resolves every site for you, ranks site health, reconciles seats, and its respond commands preview isolations, scans and reboots before any job is sent.
+
+Outcomes (question -> command your AI agent runs):
+- Which endpoints haven't checked in for 24 hours, across every site? -> threatdown-cli fleet stale --hours 24 --agent
+- Which customer site needs attention first? -> threatdown-cli fleet health --agent
+- Which sites are over- or under-allocated on seats, and which subscriptions are expiring? -> threatdown-cli seats reconcile --agent
+- Which scans or isolations never ran? -> threatdown-cli respond pending --since 7d --agent
+- Which threats hit more than one customer this month? -> threatdown-cli threats spread --since 30d --min-sites 2 --agent
+- Which infected or suspicious machine should I contain next? -> threatdown-cli threats queue --since 7d --agent
+- Give me everything about one customer while they're on the phone. -> threatdown-cli customer report "Acme Corp" --agent
+- Isolate a machine, with a preview first. -> threatdown-cli respond isolate --host LAPTOP-042 --agent
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you run the ThreatDown MCP server in its built-in HTTP mode with a bearer token (THREATDOWN_MCP_HTTP_TOKEN) and put it behind an HTTPS tunnel or reverse proxy. No bridge package is needed. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my ThreatDown data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Is this for ThreatDown OneView or ThreatDown Nebula?
+A: OneView, the multi-site console ThreatDown (Malwarebytes) gives MSPs. It talks to the OneView API at api.threatdown.com/oneview and works across every site you manage. A single-company Nebula console is not a OneView account; it uses a different API, which this skill does not cover.
+Q: What credentials do I need?
+A: An OAuth client ID and secret from OneView: open Integrate in the left menu, click Add, name the app and tick the scopes. ThreatDown says a Global or Site Administrator has to create it, and the secret is shown only once. Read covers every report; the respond commands (isolate, restore, scan, reboot, update) also need execute, and other changes need write. Set THREATDOWN_CLIENT_ID and THREATDOWN_CLIENT_SECRET, then run threatdown-cli doctor.
+Q: Can my AI isolate or scan client machines?
+A: Only through commands you allow. The respond commands preview by default: they list the machines that would get the job and send nothing until you add --confirm (or the global --yes), and they refuse more than 25 endpoints unless you raise --max-targets. Other paths send immediately: endpoint-jobs issue, endpoint-jobs bulk-issue, grid jobs-bulk, import endpoint_jobs, and the MCP server's generic threatdown_execute tool. For a reporting agent, create the OAuth client with read only, or set THREATDOWN_MCP_READ_ONLY=1 so the MCP server drops its write tools and refuses every non-GET call through threatdown_execute.
+Q: Has it been tested against a live OneView tenant?
+A: Not yet. Every command was built from ThreatDown's published OneView API specification and tested against a local mock of that API, not a real tenant. If you run it against your own OneView account, tell us what worked or broke on the GitHub issue tracker or at a Build Session; a real MSP run is what earns the live-verified badge.
+Q: Will this replace the OneView console?
+A: No. OneView stays where you set policies, manage subscriptions and deploy agents. This skill answers cross-site reporting and triage questions from your AI agent or terminal, and sends response jobs: the respond commands preview first, while the raw job commands send immediately.
+
+Governance: The skill is read-first: the fleet reports, seat reconciliation, threat triage, customer report, sync, search and nearly every list, get and search command are read-only and safe to let an agent run; the exceptions are the reads that return tamper-protection passwords and enrollment tokens (every policies read, sites secret, installation-tokens search, installers, webhooks and notifications list / get, and export of policies or notifications), which belong with the credential commands, and the local mirror never stores those secrets. The respond commands send isolation, restore, scan, reboot and update jobs to real machines but preview until you add --confirm; the raw job commands (endpoint-jobs issue, grid jobs-bulk), import endpoint_jobs and the MCP server's generic threatdown_execute tool send immediately, so keep them human-in-the-loop or set THREATDOWN_MCP_READ_ONLY=1. The scopes you tick on the OneView OAuth client (read, write, execute) are the outer limit on anything an agent can do.
+
 ### ThreatLocker (Security)
 
 Page: https://msp-skills.compoundingteams.com/skills/threatlocker/

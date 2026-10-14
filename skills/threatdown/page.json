@@ -97,31 +97,31 @@
       "a": "No. OneView stays where you set policies, manage subscriptions and deploy agents. This skill answers cross-site reporting and triage questions from your AI agent or terminal, and sends response jobs: the respond commands preview first, while the raw job commands send immediately."
     }
   ],
-  "governance_summary": "The skill is read-first: the fleet reports, seat reconciliation, threat triage, customer report, sync, search and nearly every list, get and search command are read-only and safe to let an agent run; the exceptions are the reads that return tamper-protection passwords and enrollment tokens (every policies read, sites secret, installation-tokens search, installers, webhooks and notifications list / get, and export of those resources), which belong with the credential commands, and the local mirror never stores those secrets. The respond commands send isolation, restore, scan, reboot and update jobs to real machines but preview until you add --confirm; the raw job commands (endpoint-jobs issue, grid jobs-bulk), import endpoint_jobs and the MCP server's generic threatdown_execute tool send immediately, so keep them human-in-the-loop or set THREATDOWN_MCP_READ_ONLY=1. The scopes you tick on the OneView OAuth client (read, write, execute) are the outer limit on anything an agent can do.",
+  "governance_summary": "The skill is read-first: the fleet reports, seat reconciliation, threat triage, customer report, sync, search and nearly every list, get and search command are read-only and safe to let an agent run; the exceptions are the reads that return tamper-protection passwords and enrollment tokens (every policies read, sites secret, installation-tokens search, installers, webhooks and notifications list / get, and export of policies or notifications), which belong with the credential commands, and the local mirror never stores those secrets. The respond commands send isolation, restore, scan, reboot and update jobs to real machines but preview until you add --confirm; the raw job commands (endpoint-jobs issue, grid jobs-bulk), import endpoint_jobs and the MCP server's generic threatdown_execute tool send immediately, so keep them human-in-the-loop or set THREATDOWN_MCP_READ_ONLY=1. The scopes you tick on the OneView OAuth client (read, write, execute) are the outer limit on anything an agent can do.",
   "safety_tiers": [
     {
       "tier": "Read",
-      "examples": "fleet stale, fleet health, seats reconcile, respond pending, threats spread, threats queue, customer report, fleet sync, sync, search, analytics, the respond commands without --confirm (preview only), and every list / get / search / export command except the credential reads under Credential and admin",
+      "examples": "fleet stale, fleet health, seats reconcile, respond pending, threats spread, threats queue, customer report, fleet sync, sync, search, analytics, the respond commands without --confirm (preview only), and every list / get / search / export command except the credential reads under Credential and admin and endpoints diag-log",
       "policy": "Allow"
     },
     {
       "tier": "Endpoint actions",
-      "examples": "respond isolate / restore / scan / reboot / update with --confirm, endpoint-jobs issue, endpoint-jobs bulk-issue, endpoint-jobs quarantine-bulk, endpoint-jobs parent-reissue, grid jobs-bulk, endpoints sa-remediate, suspicious-activity remediate, import endpoint_jobs, and the MCP threatdown_execute tool on a jobs endpoint",
+      "examples": "respond isolate / restore / scan / reboot / update with --confirm, endpoint-jobs issue, endpoint-jobs bulk-issue, endpoint-jobs quarantine-bulk, endpoint-jobs parent-reissue, endpoint-jobs parent-children-reissue, the endpoint-jobs cancels, grid jobs-bulk, endpoints sa-remediate, suspicious-activity remediate, endpoints diag-log, import endpoint_jobs, and the MCP threatdown_execute tool on a jobs endpoint",
       "policy": "Human-in-the-loop, explicit confirmation"
     },
     {
       "tier": "Security config",
-      "examples": "exclusions create / update, policies update, policies auto-isolation-set, firewall rules, content-filtering rules, device-control exclusions, app-block rules, schedules, webhooks",
+      "examples": "exclusions create / update, policies create / update / promote and the other policy writes, groups assign-endpoints, firewall, content-filtering, device-control, app-block and AIDR rules, schedules, webhooks and notifications create / update, syslog and email-protection settings, and every other write not in the tiers around it",
       "policy": "Preview with --dry-run, then a human-approved write"
     },
     {
       "tier": "Destructive",
-      "examples": "endpoints delete / delete-bulk, grid endpoints-delete, sites delete, policies delete, exclusions delete, users delete, subscriptions delete",
+      "examples": "endpoints delete / delete-bulk, grid endpoints-delete, sites delete, policies delete, exclusions delete, users delete, subscriptions delete, webhooks delete, notifications delete, and every other delete command",
       "policy": "Human-in-the-loop only, explicit confirmation"
     },
     {
       "tier": "Credential and admin",
-      "examples": "every policies read (list, get, search, system-default, the -v2 forms, secret-get / secret-get-v2), sites secret, installation-tokens search, installers (download links may embed the site's enrollment credential), webhooks list / get, notifications list / get, and export of policies, webhooks or notifications (their output carries uninstall passwords, enrollment tokens or webhook signing keys), installation-tokens create / send / revoke, policies secret-set (tamper-protection password), users create / update, sites create, subscriptions create / update, auth login, auth set-token",
+      "examples": "every policies read (list, get, search, system-default, the -v2 forms, secret-get / secret-get-v2), sites secret, installation-tokens search, installers (download links may embed the site's enrollment credential), webhooks list / get, notifications list / get, and export of policies or notifications (their output carries uninstall passwords, enrollment tokens or webhook signing keys), installation-tokens create / send / revoke, policies secret-set (tamper-protection password), users create / update, sites create / update, import of users or sites, subscriptions create / update, the email-protection register, migrate and authorize commands, auth login, auth set-token",
       "policy": "Human-in-the-loop only"
     }
   ]

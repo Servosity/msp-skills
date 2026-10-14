@@ -107,19 +107,14 @@
   },
   {
    "id": "secret-fields-never-persisted",
-   "summary": "Secret-named JSON keys (as_uninstall_password, uninstall_password, password, secret, secret_hash, secret_token, token, custom_headers) are dropped at any depth before any row reaches the local store (generic blob, typed columns and FTS index, via the single mergeIncomingResourceData choke point), and an HTTP response that carries one is never written to the response cache. Helper: internal/cliutil/secretfields.go.",
-   "why": "Default `sync` pulls GET /v1/policies, whose every row carries as_uninstall_password (the tamper-protection password that uninstalls the ThreatDown agent), and GET /v1/notifications/subscriptions, whose rows carry the HMAC signing key secret_token; the generated store wrote both into data.db and resources_fts, and the response cache wrote GET bodies such as /v1/policies/{id}/secret to disk. Found at msp-skills onboarding (2026-10-14) by scanning the spec's 2xx response schemas for password/secret/token keys. A reprint regenerates store.go and client.go and silently drops both hooks while go build and go test stay green. internal/store/secret_fields_test.go proves both directions: with the hook reverted the sentinel lands in resources_fts. custom_headers was added after the round-1 adversarial review drove a webhook subscription whose custom_headers carried 'authorization: Bearer <sentinel>' into data.db, resources_fts and the response cache (the spec's example header key is authorization).",
+   "summary": "Secret-named JSON keys (as_uninstall_password, uninstall_password, password, secret, secret_hash, secret_token, token, custom_headers) are dropped at any depth before any row reaches the local store (generic blob, typed columns and FTS index, via the single mergeIncomingResourceData choke point), and an HTTP response that carries one is never written to the response cache. Helper: internal/cliutil/secretfields.go. The installers response (account-specific download links and signed URLs, no secret-named key) is also never cached (cliutil.IsSecretBearingPath) and never stored (mergeIncomingResourceData stores an empty object for the installers resource).",
+   "why": "Default `sync` pulls GET /v1/policies, whose every row carries as_uninstall_password (the tamper-protection password that uninstalls the ThreatDown agent), and GET /v1/notifications/subscriptions, whose rows carry the HMAC signing key secret_token; the generated store wrote both into data.db and resources_fts, and the response cache wrote GET bodies such as /v1/policies/{id}/secret to disk. Found at msp-skills onboarding (2026-10-14) by scanning the spec's 2xx response schemas for password/secret/token keys. A reprint regenerates store.go and client.go and silently drops both hooks while go build and go test stay green. internal/store/secret_fields_test.go proves both directions: with the hook reverted the sentinel lands in resources_fts. custom_headers was added after the round-1 adversarial review drove a webhook subscription whose custom_headers carried 'authorization: Bearer <sentinel>' into data.db, resources_fts and the response cache (the spec's example header key is authorization). installers was added after the round-3 adversarial review (2026-10-14) found `installers <account_id>` writing its signed url and link into the HTTP response cache while governance.md tiers it as credential-bearing; secret_fields_test.go upserts an installers row with a sentinel and fails with the guard reverted.",
    "status": "active",
    "spec_encode_followup": "Needs a press feature: an x-secret / writeOnly-aware store projection that never persists credential fields; no spec extension expresses it today.",
    "asserts": [
     {
      "file": "cli/internal/store/store.go",
      "contains": "redacted, _ := cliutil.RedactSecretFields(s.mergeIncomingResourceDataRaw(tx, resourceType, id, incoming))",
-     "code_only": true
-    },
-    {
-     "file": "cli/internal/client/client.go",
-     "contains": "if cliutil.ContainsSecretField(data) {",
      "code_only": true
     },
     {
@@ -136,18 +131,33 @@
      "file": "cli/internal/cliutil/secretfields.go",
      "contains": "\"custom_headers\":        true,",
      "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if cliutil.ContainsSecretField(data) || cliutil.IsSecretBearingPath(path) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/secretfields.go",
+     "contains": "return strings.HasSuffix(strings.TrimRight(path, \"/\"), \"/installers\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "if resourceType == \"installers\" {\n\t\treturn json.RawMessage(`{}`)",
+     "code_only": true
     }
    ]
   },
   {
    "id": "secret-reads-credential-tier",
-   "summary": "governance.md, README.md and page.json put every read whose output carries a credential in the Credential tier, not Read: every policies read (list/get/search/system-default/-v2/secret-get), sites secret, installation-tokens search, installers, webhooks and notifications list / get, and export of policies, webhooks or notifications. governance.md also names the MCP read-only mode's GET gap. `export` is not listed as a blanket Read command.",
-   "why": "The generated governance tiers by verb, so 'every list / get / search' was Read and an agent policy keyed on it would let an agent read every customer's tamper-protection password. Applied at msp-skills onboarding (2026-10-14); these files are preserved across onboard --resume but a fleet re-mint or a hand rewrite can drop the carve-out. Round-2 review (2026-10-14) found `export policies` / `export notifications` dumping uninstall passwords and signing keys while `export` was named in the Read row.",
+   "summary": "governance.md, README.md and page.json put every read whose output carries a credential in the Credential tier, not Read: every policies read (list/get/search/system-default/-v2/secret-get), sites secret, installation-tokens search, installers, webhooks and notifications list / get, and export of policies or notifications (export has no webhooks resource). governance.md also names the MCP read-only mode's GET gap. `export` is not listed as a blanket Read command.",
+   "why": "The generated governance tiers by verb, so 'every list / get / search' was Read and an agent policy keyed on it would let an agent read every customer's tamper-protection password. Applied at msp-skills onboarding (2026-10-14); these files are preserved across onboard --resume but a fleet re-mint or a hand rewrite can drop the carve-out. Round-2 review (2026-10-14) found `export policies` / `export notifications` dumping uninstall passwords and signing keys while `export` was named in the Read row. Round-3 review (2026-10-14) found `export` cannot export webhooks, so the wording names policies and notifications only.",
    "status": "active",
    "asserts": [
     {
      "file": "governance.md",
-     "contains": "and `export` of policies, webhooks or notifications (their live output carries those secrets)"
+     "contains": "and `export` of policies or notifications (their live output carries those secrets)"
     },
     {
      "file": "governance.md",
@@ -155,11 +165,11 @@
     },
     {
      "file": "README.md",
-     "contains": "and `export` of policies, webhooks or notifications"
+     "contains": "and `export` of policies or notifications"
     },
     {
      "file": "page.json",
-     "contains": "and export of policies, webhooks or notifications"
+     "contains": "and export of policies or notifications"
     },
     {
      "file": "page.json",
@@ -225,7 +235,7 @@
    "asserts": [
     {
      "file": "cli/internal/cli/doctor.go",
-     "contains": "base_url is not the OneView API root. Point THREATDOWN_BASE_URL at https://api.threatdown.com/oneview or unset it.",
+     "contains": "base_url is not the OneView API root. Point THREATDOWN_BASE_URL at https://api.threatdown.com/oneview or unset it, and check base_url in the file named by config_path.",
      "min_count": 2,
      "code_only": true
     },
@@ -233,6 +243,68 @@
      "file": "cli/internal/cli/doctor.go",
      "contains": "ERROR not verified (HTTP 404 from %s)",
      "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "env-urls-never-persisted",
+   "summary": "An env-sourced THREATDOWN_BASE_URL or THREATDOWN_TOKEN_URL is marked as an env override in config.Load and configForSave writes the file's own value back instead, so config.toml never captures the override and unsetting the variable restores the default on the next run.",
+   "why": "The generated configForSave restored only env-sourced ClientID/ClientSecret, so the first token mint (auth login, doctor or any MCP tool call) wrote the env base_url and token_url into config.toml. After that, unsetting the variable had no effect: requests kept going to the old base URL and every new mint sent the client ID and secret to the old token host. The doctor hint ('or unset it'), the manifest's 'leave blank for the default' and governance.md's 'override' were all false after one use. Found by the round-3 adversarial review (2026-10-14); a reprint regenerates config.go and silently reverts it while go build and go test stay green. internal/config/env_urls_test.go fails with the restore lines removed.",
+   "status": "active",
+   "spec_encode_followup": "Generator defect (66 of 68 fleet configs behave the same): configForSave should restore every env-overridden field, not only credentials.",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cfg.markEnvOverride(\"BaseURL\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cfg.markEnvOverride(\"TokenURL\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "out.BaseURL = c.fileConfig.BaseURL",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "out.TokenURL = c.fileConfig.TokenURL",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/env_urls_test.go",
+     "contains": "func TestEnvURLsNeverPersisted(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "governance-every-write-tiered",
+   "summary": "governance.md's tier tables name every non-GET write command in the binary (job issue and cancel, policy -v2 writes, group assignment, alert routing, email-protection, imports, every delete) plus endpoints diag-log, and state the rule for anything missing: a POST, PUT or DELETE pp:method that is not a search, export or report query is Security config at minimum. README.md and page.json carry the same Endpoint actions list.",
+   "why": "The generated governance tiers by keyword, and the round-3 adversarial review (2026-10-14) enumerated 310 non-GET commands from agent-context and found dozens in no tier (notifications change-owner / remove-email can silence alerting; groups assign-endpoints moves machines across policies). governance.md is preserved across onboard --resume, but a fleet re-mint or a hand rewrite can shrink the tables back to examples.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "governance.md",
+     "contains": "The tables name every write command in this release."
+    },
+    {
+     "file": "governance.md",
+     "contains": "the job cancels (`endpoint-jobs bulk-cancel`, `parent-cancel`, `parent-children-cancel`)"
+    },
+    {
+     "file": "governance.md",
+     "contains": "`notifications create` / `update` / `bulk-update` / `change-owner` / `remove-email`"
+    },
+    {
+     "file": "README.md",
+     "contains": "`endpoint-jobs parent-children-reissue`, the `endpoint-jobs` cancels"
+    },
+    {
+     "file": "page.json",
+     "contains": "endpoint-jobs parent-children-reissue, the endpoint-jobs cancels"
     }
    ]
   }
