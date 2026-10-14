@@ -2581,7 +2581,14 @@ func isSQLiteBusy(err error) bool {
 // A later list-shaped write must not shrink a richer cached blob. First
 // write is incoming as-is. Callers apply the result to both the generic
 // resources blob and the typed-table projection.
+// mergeIncomingResourceData is the one funnel every resource write passes
+// through (generic, typed and batch upserts), so the credential redaction
+// lives here (handfixes.json: meraki-mirror-redacts-secrets).
 func (s *Store) mergeIncomingResourceData(tx *sql.Tx, resourceType, id string, incoming json.RawMessage) json.RawMessage {
+	return RedactMerakiSecrets(s.mergeIncomingResourceDataUnredacted(tx, resourceType, id, incoming))
+}
+
+func (s *Store) mergeIncomingResourceDataUnredacted(tx *sql.Tx, resourceType, id string, incoming json.RawMessage) json.RawMessage {
 	var existing string
 	err := tx.QueryRow(
 		`SELECT data FROM resources WHERE resource_type = ? AND id = ?`,

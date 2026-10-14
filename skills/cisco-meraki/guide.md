@@ -103,8 +103,8 @@ Meraki uses one Dashboard API key, sent as the X-Cisco-Meraki-API-Key header. En
 ## Quick Start
 
 ```bash
-# Check the binary and its command tree without touching the network; run doctor without --dry-run once MERAKI_DASHBOARD_API_KEY is set
-cisco-meraki-cli doctor --dry-run
+# Once MERAKI_DASHBOARD_API_KEY is set, check the config, the key and Dashboard reachability
+cisco-meraki-cli doctor
 
 # Mirror organizations, networks, devices, licenses and change logs from every org into local SQLite
 cisco-meraki-cli sync --full

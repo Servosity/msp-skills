@@ -112,3 +112,45 @@ func TestFleetPushApplyExitsPartialOnUnreadableTarget(t *testing.T) {
 		t.Fatalf("unreadable target: err=%v posts=%d, want exit 6 and no batch\n%s", err, posts, out.String())
 	}
 }
+
+// TestFleetPushApplyExitsPartialWhenOrgUnreadable: an org whose network list
+// cannot be read had none of its networks evaluated, so --apply must not exit
+// 0 with an empty result.
+func TestFleetPushApplyExitsPartialWhenOrgUnreadable(t *testing.T) {
+	testenv.Isolate(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/api/v1/organizations" {
+			_, _ = w.Write([]byte(`[{"id":"1","name":"Acme","api":{"enabled":true}}]`))
+			return
+		}
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte(`{"errors":["forbidden"]}`))
+	}))
+	defer srv.Close()
+	t.Setenv("CISCO_MERAKI_BASE_URL", srv.URL+"/api/v1")
+	t.Setenv("MERAKI_DASHBOARD_API_KEY", "test-key")
+	cmd := RootCmd()
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	cmd.SetArgs([]string{"fleet", "push", "--path", "/networks/{networkId}/snmp", "--body", `{"access":"none"}`, "--all-networks", "--apply", "--json"})
+	err := cmd.Execute()
+	var ce *cliError
+	if !errors.As(err, &ce) || ce.code != 6 || !strings.Contains(err.Error(), "Acme:") {
+		t.Fatalf("unreadable org under --apply: err=%v, want exit 6 naming the org\n%s", err, out.String())
+	}
+}
+
+// TestPushNotCompletedCountsPastTheNameCap: the count is the true total even
+// when only the first 20 targets are named.
+func TestPushNotCompletedCountsPastTheNameCap(t *testing.T) {
+	rows := make([]pushRow, 50)
+	for i := range rows {
+		rows[i] = pushRow{OrganizationName: "Acme", NetworkName: "Site", Action: "error", Error: "403"}
+	}
+	named, n := pushNotCompleted(rows, nil)
+	if n != 50 || len(named) != 21 || named[20] != "..." {
+		t.Fatalf("got n=%d named=%d last=%q, want 50, 21, ...", n, len(named), named[len(named)-1])
+	}
+}

@@ -377,7 +377,10 @@ func merakiGetAllValues(ctx context.Context, c *client.Client, path string, para
 			}
 			var obj map[string]json.RawMessage
 			field := ""
-			if json.Unmarshal(data, &obj) == nil {
+			// A network/device record (warm spare byNetwork) is one row even
+			// when its only array is empty; same rule as sync (pp:handfix
+			// meraki-sync-record-object).
+			if json.Unmarshal(data, &obj) == nil && !merakiRecordObject(obj) {
 				field = envelopeArrayField(obj)
 			}
 			if field == "" {

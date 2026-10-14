@@ -2238,10 +2238,37 @@ func rawAtPath(obj map[string]json.RawMessage, path string) (json.RawMessage, bo
 }
 
 func applyResponsePath(data json.RawMessage, responsePath string) json.RawMessage {
+	if merakiResponseHasSiblingFields(data, responsePath) {
+		return data
+	}
 	if pathData, ok := responsePayloadAtPath(data, responsePath); ok {
 		return pathData
 	}
 	return data
+}
+
+// merakiResponseHasSiblingFields reports whether the object holding the
+// response path carries fields other than the path itself and a "meta" block.
+// The Dashboard API has no list envelopes outside {items, meta}; the generator
+// inferred a response path from an object's only array field (action batch
+// "actions", org SNMP "peerIps", firewall "rules"), and unwrapping it silently
+// dropped the rest of the record (handfixes.json: meraki-response-path-keeps-object).
+func merakiResponseHasSiblingFields(data json.RawMessage, responsePath string) bool {
+	path := strings.TrimPrefix(strings.TrimSpace(responsePath), "$.")
+	if path == "" {
+		return false
+	}
+	var root map[string]json.RawMessage
+	if json.Unmarshal(data, &root) != nil {
+		return false
+	}
+	field := strings.SplitN(path, ".", 2)[0]
+	for k := range root {
+		if k != field && k != "meta" {
+			return true
+		}
+	}
+	return false
 }
 
 func responsePayloadAtPath(data json.RawMessage, responsePath string) (json.RawMessage, bool) {

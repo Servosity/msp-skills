@@ -17,6 +17,7 @@ import (
 	mcplib "github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 func boundedToolResultError(message string) *mcplib.CallToolResult {
@@ -229,17 +230,137 @@ var reservedStructuredArgs = map[string]bool{
 // destinations would let a tool write or truncate anything that account can
 // reach. Unambiguous destination names are listed here; a command declares
 // any other write-sink flag with mcp:write-flags.
+//
+// Hand-wired (handfixes.json: mcp-filesystem-source-gate): the local-file
+// SOURCE flags are refused too. teach playbook --notes-file and teach
+// --playbook-file read a file of the caller's choosing into the store, and
+// playbook list then hands its contents back, so one tool call could read any
+// file the server account can reach, even in read-only mode.
 var blockedDestinationFlags = map[string]bool{
-	"audit-dir":    true,
-	"db":           true,
-	"o":            true,
-	"out":          true,
-	"out-dir":      true,
-	"out-file":     true,
-	"output":       true,
-	"output-dir":   true,
-	"output-file":  true,
-	"receipt-file": true,
+	"audit-dir":           true,
+	"db":                  true,
+	"input":               true,
+	"notes-file":          true,
+	"o":                   true,
+	"out":                 true,
+	"out-dir":             true,
+	"out-file":            true,
+	"output":              true,
+	"output-dir":          true,
+	"output-file":         true,
+	"playbook-file":       true,
+	"playbook-notes-file": true,
+	"receipt-file":        true,
+}
+
+// InlineOnlyFlagsAnnotation names flags that take either a local file path or
+// inline JSON (fleet push --body). Over MCP only an inline JSON object is
+// forwarded; a path would make the server account read a caller-chosen file
+// and echo it back in the preview.
+const InlineOnlyFlagsAnnotation = "mcp:inline-only-flags"
+
+func inlineOnlyFlagNames(cmd *cobra.Command) []string {
+	if cmd == nil || cmd.Annotations == nil {
+		return nil
+	}
+	return annotationListParts(cmd.Annotations[InlineOnlyFlagsAnnotation])
+}
+
+func guardInlineOnlyFlags(cmd *cobra.Command, next server.ToolHandlerFunc) server.ToolHandlerFunc {
+	names := inlineOnlyFlagNames(cmd)
+	if len(names) == 0 {
+		return next
+	}
+	return func(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+		args := req.GetArguments()
+		for _, name := range names {
+			v, ok := args[name]
+			if !ok || v == nil {
+				continue
+			}
+			if s, _ := v.(string); !strings.HasPrefix(strings.TrimSpace(s), "{") {
+				return boundedToolResultError(fmt.Sprintf("--%s takes an inline JSON object over MCP; file paths and stdin are not available to MCP tools", name)), nil
+			}
+		}
+		return next(ctx, req)
+	}
+}
+
+// filesystemPathFlagPhrases are usage-string fragments that mark a flag as
+// naming a filesystem location the server account would read or write. The
+// usage TEXT is matched rather than the flag NAME because generated vendor body
+// fields (--path, --filename) describe themselves with a bare noun and never
+// touch this account's disk.
+var filesystemPathFlagPhrases = []string{
+	"file path",
+	"path to ",
+	"database path",
+	"output directory",
+	"audit directory",
+	"directory path",
+	"store path",
+	"mirror path",
+	"receipt destination",
+	"root directory for",
+	"markdown file",
+	"json file",
+}
+
+func isFilesystemPathFlag(flag *pflag.Flag) bool {
+	if flag == nil {
+		return false
+	}
+	usage := strings.ToLower(flag.Usage)
+	for _, phrase := range filesystemPathFlagPhrases {
+		if strings.Contains(usage, phrase) {
+			return true
+		}
+	}
+	return false
+}
+
+// UnblockedFilesystemPathFlags reports every flag a shell-out MCP tool would
+// still forward whose usage text names a filesystem location. It walks exactly
+// the command set RegisterAll mirrors, so a regenerated CLI that grows a new
+// local-path flag fails the package test instead of quietly becoming a
+// file-read or file-write primitive.
+func UnblockedFilesystemPathFlags(root *cobra.Command) []string {
+	if root == nil {
+		return nil
+	}
+	found := map[string]bool{}
+	walk(root, nil, func(cmd *cobra.Command, path []string) {
+		switch classify(cmd) {
+		case commandHidden, commandEndpoint, commandGroup, commandFramework:
+			return
+		}
+		if !cmd.Runnable() {
+			return
+		}
+		blocked := blockedStructuredArgsForCommand(cmd)
+		for name := range blockedRootFlags {
+			blocked[name] = true
+		}
+		for _, name := range inlineOnlyFlagNames(cmd) {
+			blocked[name] = true
+		}
+		check := func(flag *pflag.Flag) {
+			if flag == nil || flag.Hidden || flag.Deprecated != "" || blocked[flag.Name] {
+				return
+			}
+			if isFilesystemPathFlag(flag) {
+				found[cmd.CommandPath()+" --"+flag.Name] = true
+			}
+		}
+		cmd.NonInheritedFlags().VisitAll(check)
+		cmd.InheritedFlags().VisitAll(check)
+	})
+	out := make([]string, 0, len(found))
+	for name := range found {
+		out = append(out, name)
+	}
+	sort.Strings(out)
+	return out
 }
 
 // confirmationBypassYesFlag is the root flag that skips a command's own

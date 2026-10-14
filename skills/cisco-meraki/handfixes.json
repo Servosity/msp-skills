@@ -543,7 +543,7 @@
   {
    "id": "meraki-sync-partial-exit",
    "summary": "sync exits 0 when the only non-success results are warnings and rows were stored ('completed with warnings but no successful syncs' fires only when nothing was stored); --strict exits non-zero on any warned or errored resource",
-   "why": "A dependent resource whose parent list includes an org with API access disabled (a normal MSP case) is counted 'warned', never 'success', even after storing every other org's rows, so `sync --resources <dependent>` exited 1 with 'no successful syncs' - contradicting the sync help ('Exit 0 when at least one resource synced'). Found by the round-6 adversarial review (2026-10-14). Receipt: against the factory fake (Dormant Org 600003), `sync --resources organizations_devices_statuses` stored 7 rows and exited 1 before, exits 0 after; a warn-only run that stored nothing still exits 1. The edit in generated sync.go is re-applied by the factory's tools/apply_handfixes.py. Round 7 (2026-10-14): the first version also let --strict exit 0 on a warned dependent whose parents returned 500, contradicting --strict's help; --strict now fails any warned resource. Round 8 (2026-10-14): the round-7 '|| strict' sat inside the successCount == 0 branch, so a normal `sync --strict` with a warned dependent still exited 0; --strict is now its own check beside the generated errCount one.",
+   "why": "A dependent resource whose parent list includes an org with API access disabled (a normal MSP case) is counted 'warned', never 'success', even after storing every other org's rows, so `sync --resources <dependent>` exited 1 with 'no successful syncs' - contradicting the sync help ('Exit 0 when at least one resource synced'). Found by the round-6 adversarial review (2026-10-14). Receipt: against the factory fake (Dormant Org 600003), `sync --resources organizations_devices_statuses` stored 7 rows and exited 1 before, exits 0 after; a warn-only run that stored nothing still exits 1. The edit in generated sync.go is re-applied by the factory's tools/apply_handfixes.py. Round 7 (2026-10-14): the first version also let --strict exit 0 on a warned dependent whose parents returned 500, contradicting --strict's help; --strict now fails any warned resource. Round 8 (2026-10-14): the round-7 '|| strict' sat inside the successCount == 0 branch, so a normal `sync --strict` with a warned dependent still exited 0; --strict is now its own check beside the generated errCount one. Round 9 (2026-10-14): the sync help and --strict flag text still said access-denied resources never fail the run, and no test drove --strict + warning; both fixed. TestSyncStrictFailsOnWarnedResource (a 403 on every organizations dependent: plain sync exits 0, --strict exits non-zero for the warnings) fails with the strict-warn check removed (proven).",
    "status": "active",
    "spec_encode_followup": "Not spec-encodable; press retro: count a warned resource that stored rows toward the exit-0 rule.",
    "asserts": [
@@ -558,13 +558,25 @@
      "contains": "if strict && warnCount > 0 {",
      "min_count": 1,
      "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "Exit non-zero on any per-resource failure or warning, including access-denied resources",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/meraki_sync_strict_test.go",
+     "contains": "func TestSyncStrictFailsOnWarnedResource(",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   },
   {
    "id": "meraki-sync-record-object",
-   "summary": "sync stores an object page that names its own network or device (networkId/serial) as one record, ahead of the generic single-array-sibling heuristic, so its only array of sub-objects is not taken for the records and an empty array does not read as an empty page",
-   "why": "GET /organizations/{organizationId}/appliance/devices/redundancy/byNetwork (MX warm-spare settings) is documented as one object per network with a single array (designations). The generated extractor's single-array-sibling heuristic stored only {serial, priority} and dropped networkId, mode and uplink settings, with sync exiting 0. Found by Codex review (2026-10-14). Applied only where that heuristic fires, so every other envelope shape is unchanged. Helper merakiRecordObject is hand-authored in internal/cli/meraki_link_pagination.go; the call site in generated sync.go is re-applied by the factory's tools/apply_handfixes.py. TestSyncKeepsMerakiRecordObject fails without it (proven). Round 8 (2026-10-14): applied only where the heuristic fired, a network with warm spare disabled (designations: []) still read as an empty page and its earlier active-active row was never replaced; the check now runs before the heuristic. Across every synced resource's documented example it fires only for redundancy byNetwork.",
+   "summary": "sync stores an object page that names its own network or device (networkId/serial) as one record, ahead of the generic single-array-sibling heuristic, so its only array of sub-objects is not taken for the records and an empty array does not read as an empty page. fleet fanout (merakiGetAll) applies the same rule",
+   "why": "GET /organizations/{organizationId}/appliance/devices/redundancy/byNetwork (MX warm-spare settings) is documented as one object per network with a single array (designations). The generated extractor's single-array-sibling heuristic stored only {serial, priority} and dropped networkId, mode and uplink settings, with sync exiting 0. Found by Codex review (2026-10-14). Applied only where that heuristic fires, so every other envelope shape is unchanged. Helper merakiRecordObject is hand-authored in internal/cli/meraki_link_pagination.go; the call site in generated sync.go is re-applied by the factory's tools/apply_handfixes.py. TestSyncKeepsMerakiRecordObject fails without it (proven). Round 8 (2026-10-14): applied only where the heuristic fired, a network with warm spare disabled (designations: []) still read as an empty page and its earlier active-active row was never replaced; the check now runs before the heuristic. Across every synced resource's documented example it fires only for redundancy byNetwork. Round 9 (2026-10-14): the fleet fanout twin (merakiGetAll) still ran the envelope heuristic first and reported items_returned 0 for a disabled warm-spare network; it now checks merakiRecordObject first. TestMerakiGetAllCountsDisabledWarmSpareAsRecord fails without it (proven).",
    "status": "active",
    "spec_encode_followup": "Not spec-encodable; press retro: never treat an object carrying its own identity as an envelope.",
    "asserts": [
@@ -585,18 +597,36 @@
      "contains": "func TestSyncKeepsMerakiRecordObject(",
      "min_count": 1,
      "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/meraki_link_pagination.go",
+     "contains": "if json.Unmarshal(data, &obj) == nil && !merakiRecordObject(obj) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/meraki_link_pagination_test.go",
+     "contains": "func TestMerakiGetAllCountsDisabledWarmSpareAsRecord(",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   },
   {
    "id": "meraki-fleet-push-exit",
-   "summary": "fleet push --apply exits 6 (partial failure) when a target network's change did not land - batch rejected, failed, pending after --wait, or current settings unreadable - and the error names each network (the MCP tool returns only stderr on a non-zero exit)",
-   "why": "Codex review (2026-10-14): a batch POST answered HTTP 400 and fleet push --apply printed 'rejected' but exited 0 with empty stderr, so automation and the companion MCP tool reported success although nothing changed. fleet_push.go is hand-authored (novel command); TestFleetPushApplyExitsPartialOnRejectedBatch fails on the prior version (proven). Codex round 2 + adversarial round 8 (2026-10-14): a target whose settings GET returned 403 got action 'error', no batch, and exit 0; and the MCP fleet_push tool, which drops stdout on a non-zero exit, gave the agent no per-network status. TestFleetPushApplyExitsPartialOnUnreadableTarget fails on the prior version (proven). An org whose network list fails stays a stderr warning, as in every fleet command.",
+   "summary": "fleet push --apply exits 6 (partial failure) when a target's change did not land - batch rejected, failed, pending after --wait, current settings unreadable, or an organization's network list unreadable (an org with API access disabled stays a warning) - and the error gives the true count and names the first 20 targets (the MCP tool returns only stderr on a non-zero exit)",
+   "why": "Codex review (2026-10-14): a batch POST answered HTTP 400 and fleet push --apply printed 'rejected' but exited 0 with empty stderr, so automation and the companion MCP tool reported success although nothing changed. fleet_push.go is hand-authored (novel command); TestFleetPushApplyExitsPartialOnRejectedBatch fails on the prior version (proven). Codex round 2 + adversarial round 8 (2026-10-14): a target whose settings GET returned 403 got action 'error', no batch, and exit 0; and the MCP fleet_push tool, which drops stdout on a non-zero exit, gave the agent no per-network status. TestFleetPushApplyExitsPartialOnUnreadableTarget fails on the prior version (proven). An org whose network list fails stays a stderr warning, as in every fleet command. Codex round 3 + adversarial round 9 (2026-10-14): when every org's network-list read failed, --apply exited 0 with [] and no change made; and the error used the length of the capped name list as its count, so 50 failures read as 21. pushNotCompleted now also counts org planning failures and returns the true total. TestFleetPushApplyExitsPartialWhenOrgUnreadable fails on the prior version (proven); TestPushNotCompletedCountsPastTheNameCap pins the count.",
    "status": "active",
    "asserts": [
     {
      "file": "cli/internal/cli/fleet_push.go",
-     "contains": "if failed := pushNotCompleted(rows); len(failed) > 0 {",
+     "contains": "if failed, n := pushNotCompleted(rows, outcomes); n > 0 {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_push.go",
+     "contains": "if oc.Err != nil && !errors.Is(oc.Err, errOrgAPIDisabled) {",
      "min_count": 1,
      "code_only": true
     },
@@ -609,6 +639,18 @@
     {
      "file": "cli/internal/cli/fleet_push_test.go",
      "contains": "func TestFleetPushApplyExitsPartialOnUnreadableTarget(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_push_test.go",
+     "contains": "func TestFleetPushApplyExitsPartialWhenOrgUnreadable(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_push_test.go",
+     "contains": "func TestPushNotCompletedCountsPastTheNameCap(",
      "min_count": 1,
      "code_only": true
     }
@@ -658,6 +700,142 @@
      "file": "cli/cmd/cisco-meraki-mcp/main.go",
      "contains": "\t\tversion,\n",
      "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "mcp-filesystem-source-gate",
+   "summary": "The MCP shell-out layer refuses local-file SOURCE flags (teach --playbook-file / --playbook-notes-file, teach-playbook --notes-file / --playbook-file, import --input) by name, fleet push --body accepts only an inline JSON object over MCP (mcp:inline-only-flags annotation + guardInlineOnlyFlags), and UnblockedFilesystemPathFlags applies the fleet's usage-text rule to the live command tree so a regenerated local-path flag fails the build",
+   "why": "Adversarial round 9 (2026-10-14): press 4.33.5's restructured cobratree carries only write-destination names in blockedDestinationFlags, so the fleet #193 fix (closed 2026-08-31; 65 of 68 connectors carry filesystemPathFlagPhrases) did not reach this print. With CISCO_MERAKI_MCP_READ_ONLY=1, MCP teach_playbook {notes-file:/path/secret.txt} stored the file and playbook_list returned its contents, and MCP fleet_push {body:'/path/creds.json'} returned the file's JSON in each preview row's desired field: an arbitrary local-file read by the server account. Ported the fleet rule into the 4.33.5 layout: the name floor in shellout.go, the inline-only guard wired in walker.go, the annotation on fleet push, and TestNoShellOutToolCanDirectAFilesystemPath + TestFleetPushBodyIsInlineOnlyOverMCP (both fail with the fix removed, proven). The generated-file edits are re-applied by the factory's tools/apply_handfixes.py.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: the 4.33.5 cobratree dropped the #193 usage-text rule; a reprint needs it back in the generator.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "\"notes-file\":          true,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "\"playbook-file\":       true,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "func UnblockedFilesystemPathFlags(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "func guardInlineOnlyFlags(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/walker.go",
+     "contains": "guardInlineOnlyFlags(cmd, shellOutToCLI(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_push.go",
+     "contains": "\"mcp:inline-only-flags\": \"body\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/filesystem_tree_test.go",
+     "contains": "func TestNoShellOutToolCanDirectAFilesystemPath(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/filesystem_tree_test.go",
+     "contains": "func TestFleetPushBodyIsInlineOnlyOverMCP(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "meraki-mirror-redacts-secrets",
+   "summary": "Every local-mirror write (sync, read write-through, mutation write-through; generic, typed and batch upserts) passes through mergeIncomingResourceData, which now replaces credential values (psk, passphrase, password, secret, sharedSecret, SNMP community strings and v3 passwords, API keys, tokens, by key name and suffix) with [redacted] before storing. License keys are kept on purpose.",
+   "why": "Adversarial round 9 (2026-10-14): a routine `networks wireless update-network-ssid` stored the PSK and RADIUS secret its response echoes, and `search`, `analytics` and MCP sql (Allow tier, available in MCP read-only mode) returned them, contradicting governance ('credentials are only ever read live'). A default --data-source auto GET of a secret-bearing path wrote through the same way. The redaction sits at the one funnel every upsert uses, so the typed upsert<X>Tx writers cannot bypass it (the connectsecure lesson). Key set derived from a scan of every property name in the vendor spec. TestMirrorNeverStoresMerakiSecrets drives batch, generic and typed upserts with a sentinel and fails with the wrapper removed (proven).",
+   "status": "active",
+   "spec_encode_followup": "Not spec-encodable; press retro: generated stores should redact x-sensitive response fields.",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "return RedactMerakiSecrets(s.mergeIncomingResourceDataUnredacted(tx, resourceType, id, incoming))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_secrets.go",
+     "contains": "func RedactMerakiSecrets(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_secrets_test.go",
+     "contains": "func TestMirrorNeverStoresMerakiSecrets(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "meraki-response-path-keeps-object",
+   "summary": "applyResponsePath unwraps a response path only when the object holds nothing but that field and a meta block ({items, meta}); otherwise the whole object is printed",
+   "why": "Adversarial round 9 (2026-10-14): the generator inferred a response path from an object's only array field on ~59 typed GET commands, so `organizations action-batches get-organization-action-batch` printed only actions (dropping status.failed / errors, which fleet push tells the user to check), `organizations snmp get-organization` only peerIps, and `networks snmp get-network` only users, all exit 0, while the MCP execute twin returned the full object. The Dashboard API has no list envelope besides {items, meta}. TestApplyResponsePathKeepsMerakiObjects fails without the check (proven).",
+   "status": "active",
+   "spec_encode_followup": "Spec-encodable later: drop the inferred response path on object-shaped GET responses in the overlay.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "if merakiResponseHasSiblingFields(data, responsePath) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "func merakiResponseHasSiblingFields(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/meraki_response_path_test.go",
+     "contains": "func TestApplyResponsePathKeepsMerakiObjects(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "meraki-vmx-claim-is-a-write",
+   "summary": "networks devices vmx-network-claim (POST /networks/{networkId}/devices/claim/vmx) goes through the client's write path and no longer carries mcp:read-only",
+   "why": "Adversarial round 9 (2026-10-14): the generator annotated this license-consuming POST mcp:read-only and sent it through PostQueryWithParams (the read path), which replays after an ambiguous failure and skips the verify-mode mutation gate: against a stub answering 502 it POSTed 4 times, and agent-context labelled it read-only. It was the only write so annotated. TestVmxClaimIsNotReplayed (1 POST after a 502, no read-only annotation) fails on the generated file (proven).",
+   "status": "active",
+   "spec_encode_followup": "Press retro: never classify a non-GET operation as read-only.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/networks_devices_vmx-network-claim.go",
+     "contains": "data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/networks_devices_vmx-network-claim.go",
+     "not_contains": "\"mcp:read-only\": \"true\""
+    },
+    {
+     "file": "cli/internal/cli/meraki_vmx_claim_test.go",
+     "contains": "func TestVmxClaimIsNotReplayed(",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   }

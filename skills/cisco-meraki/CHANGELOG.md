@@ -53,13 +53,33 @@ All notable changes to this skill are documented here. Format follows
   `sync --strict` exits non-zero when any resource failed or completed with warnings.
 - `fleet push --apply` exits 6 when a target network's change did not land: its
   action batch was rejected, failed, or is still pending after `--wait`, or its
-  current settings could not be read. The error names each network and why. An
-  organization whose network list cannot be read is reported on stderr, as in every
-  fleet command.
+  current settings could not be read, or an organization's network list could not be
+  read (an org with API access disabled is reported as a warning, not counted). The
+  error gives the true count and names the first 20 targets and why.
 - The MCP server reports its release version in `serverInfo` (it was fixed at
   `0.0.0-dev`).
 - `fleet changes --data-source local` no longer says the mirror was never synced
   right after a sync.
+- The local mirror never stores credentials. Reads and writes write their response
+  through to the mirror, and a routine SSID update used to store the PSK and RADIUS
+  secret it echoes, where `search`, `analytics` and the MCP `sql` tool could return
+  them. Every credential field (`psk`, `passphrase`, `password`, `secret`,
+  `sharedSecret`, SNMP community strings and v3 passwords, API keys and tokens) is now
+  stored as `[redacted]`. License keys are kept.
+- The MCP server refuses local-file flags (`--notes-file`, `--playbook-file`,
+  `--playbook-notes-file`, `--input`), and the MCP `fleet_push` tool takes `body` only
+  as inline JSON, so a tool call cannot make the server read a file of its choosing.
+- Single-record GET commands print the whole record. Commands such as
+  `organizations action-batches get-organization-action-batch` and
+  `organizations snmp get-organization` used to print only one array field, hiding a
+  batch's `status.failed` and errors.
+- `networks devices vmx-network-claim` is treated as the write it is: it is no longer
+  labelled read-only and is never resent after an ambiguous network error (it could
+  claim a vMX up to four times).
+- `fleet changes` judges `--max-age` by the change log's own sync time once a sync has
+  walked it completely.
+- `fleet fanout` counts a network with warm spare disabled as one record, matching
+  `sync`.
 - `doctor` reports a 404 from its health check as a warning that names
   `CISCO_MERAKI_BASE_URL`, instead of calling a wrong base URL "reachable". The default
   base URL is the literal `https://api.meraki.com/api/v1`.

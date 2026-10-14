@@ -194,12 +194,17 @@ func localChanges(ctx context.Context, cmd *cobra.Command, flags *rootFlags, dbP
 		return nil, fmt.Errorf("opening local mirror: %w", err)
 	}
 	defer db.Close()
-	// configuration_changes is an organizations dependent and sync records no
-	// last_synced_at for dependents, so freshness is read from organizations
-	// (the same anchor fleet find uses); keying on the dependent always said
-	// "not synced yet", even right after a sync.
-	if !hintIfUnsynced(cmd, db, "organizations") {
-		hintIfStale(cmd, db, "organizations", flags.maxAge)
+	// configuration_changes is an organizations dependent: a complete
+	// dependent walk records its own watermark, which is the one --max-age
+	// must judge (organizations can be fresher than the change log). Before
+	// any complete walk there is no such row, so freshness falls back to
+	// organizations rather than always saying "not synced yet".
+	anchor := "configuration_changes"
+	if st, err := readSyncHintState(db, anchor); err != nil || !st.hasState {
+		anchor = "organizations"
+	}
+	if !hintIfUnsynced(cmd, db, anchor) {
+		hintIfStale(cmd, db, anchor, flags.maxAge)
 	}
 	names := map[string]string{}
 	orgRows, err := db.DB().QueryContext(ctx, `SELECT id, COALESCE(name, '') FROM organizations`)

@@ -24,7 +24,7 @@ func newNetworksDevicesVmxNetworkClaimCmd(flags *rootFlags) *cobra.Command {
 		Args: func(cmd *cobra.Command, args []string) error {
 			return endpointPositionalArgs(cmd, flags, args, cobra.MaximumNArgs(1))
 		},
-		Annotations: map[string]string{"pp:endpoint": "devices.vmx-network-claim", "pp:method": "POST", "pp:path": "/networks/{networkId}/devices/claim/vmx", "mcp:read-only": "true", "pp:requires-input": "true", "pp:happy-args": "networkId=L_646829496481105433;--size=100"},
+		Annotations: map[string]string{"pp:endpoint": "devices.vmx-network-claim", "pp:method": "POST", "pp:path": "/networks/{networkId}/devices/claim/vmx", "pp:requires-input": "true", "pp:happy-args": "networkId=L_646829496481105433;--size=100"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help
 			// instead of pflag's terse "required flag not set" error. Optional-
@@ -92,7 +92,9 @@ func newNetworksDevicesVmxNetworkClaimCmd(flags *rootFlags) *cobra.Command {
 					bodyMap["size"] = bodySize
 				}
 			}
-			data, statusCode, err := c.PostQueryWithParams(cmd.Context(), path, params, body)
+			// handfixes.json: meraki-vmx-claim-is-a-write. Claiming a vMX uses a license;
+			// it goes through the write path (no replay after an ambiguous failure).
+			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

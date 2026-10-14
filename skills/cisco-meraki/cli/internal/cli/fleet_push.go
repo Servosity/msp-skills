@@ -272,8 +272,11 @@ Do NOT use this command to read data across orgs; use 'fleet fanout' instead.`),
 		Annotations: map[string]string{
 			"pp:data-source":             "live",
 			"mcp:read-only-unless-flags": "apply",
-			"pp:preview-happy-path":      "true",
-			"pp:happy-args":              `--path=/networks/{networkId}/syslogServers;--body={"servers":[]};--network-tag=managed`,
+			// handfixes.json: mcp-filesystem-source-gate. Over MCP --body must be
+			// inline JSON; a path would read a caller-chosen local file.
+			"mcp:inline-only-flags": "body",
+			"pp:preview-happy-path": "true",
+			"pp:happy-args":         `--path=/networks/{networkId}/syslogServers;--body={"servers":[]};--network-tag=managed`,
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 && cmd.Flags().NFlag() == 0 {
@@ -343,11 +346,11 @@ Do NOT use this command to read data across orgs; use 'fleet fanout' instead.`),
 				return err
 			}
 			if apply {
-				if failed := pushNotCompleted(rows); len(failed) > 0 {
+				if failed, n := pushNotCompleted(rows, outcomes); n > 0 {
 					// Exit 6 so automation and the MCP tool never read a change
 					// that did not land as success. The MCP tool returns only
-					// stderr on a non-zero exit, so the error names each network.
-					return partialFailureErr(fmt.Errorf("%d target network(s) did not complete (a pending batch may still finish in the Dashboard): %s", len(failed), strings.Join(failed, "; ")))
+					// stderr on a non-zero exit, so the error names each target.
+					return partialFailureErr(fmt.Errorf("%d target(s) did not complete (a pending batch may still finish in the Dashboard): %s", n, strings.Join(failed, "; ")))
 				}
 			}
 			return nil
@@ -365,27 +368,34 @@ Do NOT use this command to read data across orgs; use 'fleet fanout' instead.`),
 	return cmd
 }
 
-// pushNotCompleted names each target network whose change did not land: an
-// update whose action batch was rejected, failed, is still pending after
-// --wait or could not be read, and a network whose current settings could not
-// be read, so no change was planned for it. At most 20 are named.
-func pushNotCompleted(rows []pushRow) []string {
-	var out []string
+// pushNotCompleted names each target whose change did not land: an update
+// whose action batch was rejected, failed, is still pending after --wait or
+// could not be read; a network whose current settings could not be read, so
+// no change was planned for it; and an organization whose network list could
+// not be read, so none of its networks were evaluated. An org with API access
+// disabled is not counted: that is a standing Dashboard setting, already
+// reported as a warning. At most 20 are named; n is the true total.
+func pushNotCompleted(rows []pushRow, outcomes []orgOutcome[[]pushRow]) (named []string, n int) {
+	add := func(s string) {
+		n++
+		if len(named) < 20 {
+			named = append(named, s)
+		} else if len(named) == 20 {
+			named = append(named, "...")
+		}
+	}
+	for _, oc := range outcomes {
+		if oc.Err != nil && !errors.Is(oc.Err, errOrgAPIDisabled) {
+			add(fmt.Sprintf("%s: %s", oc.Org.Name, oc.Err.Error()))
+		}
+	}
 	for _, r := range rows {
-		var why string
 		switch {
 		case r.Action == "update" && r.BatchStatus != "completed":
-			why = r.BatchStatus
+			add(fmt.Sprintf("%s / %s: %s", r.OrganizationName, r.NetworkName, r.BatchStatus))
 		case r.Action == "error":
-			why = r.Error
-		default:
-			continue
+			add(fmt.Sprintf("%s / %s: %s", r.OrganizationName, r.NetworkName, r.Error))
 		}
-		if len(out) == 20 {
-			out = append(out, "...")
-			break
-		}
-		out = append(out, fmt.Sprintf("%s / %s: %s", r.OrganizationName, r.NetworkName, why))
 	}
-	return out
+	return named, n
 }

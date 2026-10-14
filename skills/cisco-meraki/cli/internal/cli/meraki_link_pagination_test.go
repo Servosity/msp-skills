@@ -346,3 +346,20 @@ func TestPollActionBatchSurfacesStatusReadFailure(t *testing.T) {
 		t.Fatalf("403 on status read must be reported at once, got %q after %s", got, time.Since(start))
 	}
 }
+
+// TestMerakiGetAllCountsDisabledWarmSpareAsRecord: fleet fanout shares the
+// sync record-object rule, so a network with designations [] is one record.
+func TestMerakiGetAllCountsDisabledWarmSpareAsRecord(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"networkId":"L_12345","enabled":false,"mode":"disabled","designations":[]}`))
+	}))
+	defer srv.Close()
+	c := testMerakiClient(t, srv.URL)
+	res, err := merakiGetAll(context.Background(), c, "/organizations/1/appliance/devices/redundancy/byNetwork", nil, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.ItemsReturned != 1 || len(res.Items) != 1 {
+		t.Fatalf("want the network as one record, got items_returned=%d items=%d", res.ItemsReturned, len(res.Items))
+	}
+}
