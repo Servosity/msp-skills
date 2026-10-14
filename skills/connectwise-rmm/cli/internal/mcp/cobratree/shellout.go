@@ -389,6 +389,10 @@ func cliArgsFromMCP(args map[string]any, blocked map[string]bool) []string {
 		case bool:
 			if tv {
 				out = append(out, "--"+k)
+			} else {
+				// Hand-wired (handfixes.json: mcp-bool-false-forwarded): an
+				// explicit false must reach default-true flags (tail --follow).
+				out = append(out, "--"+k+"=false")
 			}
 		case float64:
 			out = append(out, "--"+k+"="+strconv.FormatFloat(tv, 'f', -1, 64))

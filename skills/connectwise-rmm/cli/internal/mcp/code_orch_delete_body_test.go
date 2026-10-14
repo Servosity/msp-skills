@@ -1,7 +1,7 @@
 // Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 //
 // Hand-written (NOT generated): pinned by skills/connectwise-rmm/handfixes.json
-// under the "code-orch-delete-body" entry.
+// under the "code-orch-delete-body" and "tickets-paging-together" entries.
 
 package mcp
 
@@ -67,5 +67,42 @@ func TestCodeOrchExecuteSendsUninstallBody(t *testing.T) {
 	eps, _ := gotBody["endpoints"].([]any)
 	if len(eps) != 1 || gotBody["feedback"] != "decommissioned" || gotBody["reason"] != "hardware retired" {
 		t.Fatalf("uninstall body = %v, want endpoints/feedback/reason", gotBody)
+	}
+}
+
+// TestCodeOrchTicketsListPairsPagingKeys: the execute twin of the CLI's
+// tickets list pairing. A lone pageSize gains pageNum=1; a lone pageNum is
+// refused before any request.
+func TestCodeOrchTicketsListPairsPagingKeys(t *testing.T) {
+	var queries []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/token") {
+			_, _ = io.WriteString(w, `{"access_token":"stub-token","expires_in":3600}`)
+			return
+		}
+		queries = append(queries, r.URL.RawQuery)
+		_, _ = io.WriteString(w, `{"tickets":[]}`)
+	}))
+	defer srv.Close()
+	t.Setenv("CONNECTWISE_RMM_HOME", t.TempDir())
+	t.Setenv("CONNECTWISE_RMM_BASE_URL", srv.URL)
+	t.Setenv("CONNECTWISE_RMM_TOKEN_URL", srv.URL+"/token")
+	t.Setenv("CONNECTWISE_RMM_CLIENT_ID", "stub-id")
+	t.Setenv("CONNECTWISE_RMM_CLIENT_SECRET", "stub-secret")
+
+	call := func(params map[string]any) *mcplib.CallToolResult {
+		res, err := handleCodeOrchExecute(context.Background(), mcplib.CallToolRequest{Params: mcplib.CallToolParams{Arguments: map[string]any{
+			"endpoint_id": "tickets.list", "params": params}}})
+		if err != nil {
+			t.Fatalf("execute: %v", err)
+		}
+		return res
+	}
+	if res := call(map[string]any{"pageSize": float64(5)}); res.IsError || len(queries) != 1 || !strings.Contains(queries[0], "pageNum=1") || !strings.Contains(queries[0], "pageSize=5") {
+		t.Fatalf("lone pageSize: result=%+v queries=%q, want pageNum=1&pageSize=5", res, queries)
+	}
+	queries = nil
+	if res := call(map[string]any{"pageNum": float64(2)}); !res.IsError || len(queries) != 0 {
+		t.Fatalf("lone pageNum: result=%+v queries=%q, want a refusal and no request", res, queries)
 	}
 }

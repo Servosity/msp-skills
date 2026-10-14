@@ -1084,6 +1084,17 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 	if params == nil {
 		params = map[string]any{}
 	}
+	// Hand-wired (handfixes.json: tickets-paging-together): Asio ignores a lone
+	// pageSize or pageNum; same pairing as the CLI's tickets list.
+	if ep.ID == "tickets.list" {
+		_, hasSize := params["pageSize"]
+		_, hasNum := params["pageNum"]
+		if hasSize && !hasNum {
+			params["pageNum"] = 1
+		} else if hasNum && !hasSize {
+			return mcplib.NewToolResultError("pageNum needs pageSize: Asio ignores one paging key sent alone"), nil
+		}
+	}
 
 	c, platformSession, err := newMCPClient(ctx)
 	if err != nil {

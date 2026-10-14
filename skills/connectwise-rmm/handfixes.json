@@ -71,8 +71,8 @@
   },
   {
    "id": "tickets-paging-together",
-   "summary": "`tickets list` never sends pageSize or pageNum alone: --page-size by itself is paired with pageNum=1, --page-num by itself is refused before any request, and sync stores the unpaged response instead of the press's auto-pagination.",
-   "why": "The Asio ticket list documents that pageSize must be sent with pageNum and that either one alone is ignored or returns an empty page with a total count of 0 even when records exist. The press's generic paginator sent one paging key at a time, which on Asio reads as 'no tickets'. Encoded in the spec as x-pp-pagination: none on GET /api/platform/v1/service/ticketing/tickets, so a reprint from the same spec keeps it; the asserts catch a reprint from a spec that lost the extension. Acceptance (cli-factory/connectwise-rmm/acceptance/accept.sh) proves page 2 returns and that no request ever carries a lone paging key. Codex review (2026-10-13) caught that the generated flag retention still forwarded a lone --page-size; RunE now pairs or refuses, and tickets_paging_test.go drives both cases against a stub server.",
+   "summary": "`tickets list` never sends pageSize or pageNum alone: --page-size by itself is paired with pageNum=1, --page-num by itself is refused before any request, and sync stores the unpaged response instead of the press's auto-pagination. The MCP execute tool (code_orch.go) applies the same pairing to tickets.list.",
+   "why": "The Asio ticket list documents that pageSize must be sent with pageNum and that either one alone is ignored or returns an empty page with a total count of 0 even when records exist. The press's generic paginator sent one paging key at a time, which on Asio reads as 'no tickets'. Encoded in the spec as x-pp-pagination: none on GET /api/platform/v1/service/ticketing/tickets, so a reprint from the same spec keeps it; the asserts catch a reprint from a spec that lost the extension. Acceptance (cli-factory/connectwise-rmm/acceptance/accept.sh) proves page 2 returns and that no request ever carries a lone paging key. Codex review (2026-10-13) caught that the generated flag retention still forwarded a lone --page-size; RunE now pairs or refuses, and tickets_paging_test.go drives both cases against a stub server. Codex round 2 caught the twin: connectwise-rmm_execute on tickets.list forwarded a lone pageSize; TestCodeOrchTicketsListPairsPagingKeys pins it.",
    "status": "active",
    "spec_encode_followup": "Already encoded in spec.yaml (x-pp-pagination: none); keep the extension on any spec refresh.",
    "asserts": [
@@ -91,8 +91,18 @@
      "code_only": true
     },
     {
-     "file": "cli/internal/cli/tickets_paging_test.go",
+     "file": "cli/internal/cli/handfixes_test.go",
      "contains": "func TestTicketsListNeverSendsALonePagingKey(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "if ep.ID == \"tickets.list\" {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch_delete_body_test.go",
+     "contains": "func TestCodeOrchTicketsListPairsPagingKeys(",
      "code_only": true
     }
    ]
@@ -418,7 +428,7 @@
   {
    "id": "mcp-filesystem-destination-gate",
    "summary": "The MCP shell-out layer refuses local-file READ flags (--from-csv, --home, --input, --notes-file, --playbook-file, --playbook-notes-file, --reconcile) on top of the write-sink names press 4.33.5 already blocks, and a tree test fails the build when any shell-out tool still forwards a flag whose usage text names a filesystem path.",
-   "why": "Codex review (2026-10-13, P1): teach-playbook --notes-file and teach --playbook-file / --playbook-notes-file read any file the server account can reach (credentials.toml included) into the local store, where playbook_list and sql hand it back, even with CONNECTWISE_RMM_MCP_READ_ONLY=1 since teach is a local-write command. The tree test also found 30 commands that declare their own --home (which a command-local flag exempted from the root-flag block) and import --input. Fleet precedent: skills/zammad, huntress, hubspot, datto-bcdr, wordpress (same id). The name floor is unioned into blockedDestinationFlags, which blockedStructuredArgsForCommand feeds to both the tool schema and cliArgsFromMCP, so the flags vanish from tools/list and are dropped at call time. The usage-text rule (isFilesystemPathFlag) is deliberately not a name rule: generated API body fields named like paths go to the vendor, not this disk. Proven both ways: removing the seven names makes TestNoShellOutToolCanDirectAFilesystemPath fail listing them; restored, it passes and tools/list over stdio no longer offers notes-file or playbook-file. Not yet scripted in ~/Documents/Dev/cli-factory/connectwise-rmm/handfixes/ (the library source ~/printing-press/library/connectwise-rmm carries it); a regen that skips it drops it while go build stays green, and these asserts are what notice.",
+   "why": "Codex review (2026-10-13, P1): teach-playbook --notes-file and teach --playbook-file / --playbook-notes-file read any file the server account can reach (credentials.toml included) into the local store, where playbook_list and sql hand it back, even with CONNECTWISE_RMM_MCP_READ_ONLY=1 since teach is a local-write command. The tree test also found 30 commands that declare their own --home (which a command-local flag exempted from the root-flag block) and import --input. Fleet precedent: skills/zammad, huntress, hubspot, datto-bcdr, wordpress (same id). The name floor is unioned into blockedDestinationFlags, which blockedStructuredArgsForCommand feeds to both the tool schema and cliArgsFromMCP, so the flags vanish from tools/list and are dropped at call time. The usage-text rule (isFilesystemPathFlag) is deliberately not a name rule: generated API body fields named like paths go to the vendor, not this disk. Proven both ways: removing the seven names makes TestNoShellOutToolCanDirectAFilesystemPath fail listing them; restored, it passes and tools/list over stdio no longer offers notes-file or playbook-file. Not yet scripted in ~/Documents/Dev/cli-factory/connectwise-rmm/handfixes/ (the library source ~/printing-press/library/connectwise-rmm carries it); a regen that skips it drops it while go build stays green, and these asserts are what notice. Known consequence, accepted: the MCP import tool now has no --input, and import requires it, so import is CLI-only in practice; that is the intended posture (an MCP caller must not choose a local file to read, and import mints install tokens and schedules script runs). zammad and huntress carry the same consequence.",
    "status": "active",
    "spec_encode_followup": "Press-side: the read-source names and the usage-text rule belong in the generator's blockedDestinationFlags; a press that emits them natively retires this entry.",
    "asserts": [
@@ -478,8 +488,8 @@
   },
   {
    "id": "dry-run-never-mints",
-   "summary": "--dry-run previews with cached credentials only: it never POSTs the client ID and secret to the token URL and never writes credentials.toml.",
-   "why": "Codex review (2026-10-13, P2), reproduced: authHeader ran before the dry-run branch and minted a token when none was cached, so a preview sent the client secret to the live Asio token endpoint and persisted it, while the generated comment and the docs say a dry run sends no request. TestDryRunNeverMintsAToken counts requests to a stub token server and fails on the generated order. Not yet scripted in ~/Documents/Dev/cli-factory/connectwise-rmm/handfixes/ (the library source ~/printing-press/library/connectwise-rmm carries it); a regen that skips it drops it while go build stays green, and these asserts are what notice.",
+   "summary": "--dry-run previews with cached credentials only: neither an API command nor `auth login --dry-run` POSTs the client ID and secret to the token URL or writes credentials.toml.",
+   "why": "Codex review (2026-10-13, P2), reproduced: authHeader ran before the dry-run branch and minted a token when none was cached, so a preview sent the client secret to the live Asio token endpoint and persisted it, while the generated comment and the docs say a dry run sends no request. TestDryRunNeverMintsAToken counts requests to a stub token server and fails on the generated order. Not yet scripted in ~/Documents/Dev/cli-factory/connectwise-rmm/handfixes/ (the library source ~/printing-press/library/connectwise-rmm carries it); a regen that skips it drops it while go build stays green, and these asserts are what notice. Codex round 2 caught the twin: auth login mints through its own path (mintClientCredentialsToken), which ignored flags.dryRun; TestAuthLoginDryRunSendsNothing pins it.",
    "status": "active",
    "asserts": [
     {
@@ -490,6 +500,35 @@
     {
      "file": "cli/internal/client/connectwise_rmm_token_test.go",
      "contains": "func TestDryRunNeverMintsAToken(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "(dry run - no request sent, nothing saved)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/handfixes_test.go",
+     "contains": "func TestAuthLoginDryRunSendsNothing(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-bool-false-forwarded",
+   "summary": "The MCP shell-out layer forwards an explicit boolean false as --name=false instead of dropping it, so a default-true flag can be turned off from a tool call.",
+   "why": "Codex round 2 (2026-10-13, P2): cliArgsFromMCP emitted only true booleans, so MCP `tail` with {\"follow\": false} kept the default --follow=true and polled until the call timed out instead of returning one poll. pflag accepts --flag=false for every bool flag, and blocked flags are filtered before this point, so forwarding the caller's explicit value is the faithful translation. bool_false_test.go fails on the generated code (argv carried only --json). Not yet scripted in ~/Documents/Dev/cli-factory/connectwise-rmm/handfixes/ (the library source carries it); a regen that skips it drops it while go build stays green.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: cliArgsFromMCP should forward explicit false; fleet-wide generator behaviour.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "out = append(out, \"--\"+k+\"=false\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/bool_false_test.go",
+     "contains": "func TestExplicitFalseReachesTheCLI(",
      "code_only": true
     }
    ]
