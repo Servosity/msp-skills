@@ -2,7 +2,7 @@
 
 **Every Meraki Dashboard operation, plus cross-org fleet views that read every page, built for MSPs running many client orgs.**
 
-One API key reaches every organization you administer, so this CLI treats them as one fleet: fleet health and fleet down show what is broken across all clients, fleet renewals lists license and hardware deadlines, and fleet find resolves a MAC, IP or serial to the client that owns it. Fleet commands walk every Link-header page; when some orgs fail they still exit 0 with the rows they could read and name the failed orgs on stderr (fleet health and fleet fanout also carry the error in each org's JSON row). Generated list commands read every page with --all, and every write supports --dry-run.
+One API key reaches every organization you administer, so this CLI treats them as one fleet: fleet health and fleet down show what is broken across all clients, fleet renewals lists license and hardware deadlines, and fleet find resolves a MAC, IP or serial to the client that owns it. Fleet commands walk every Link-header page; when some orgs fail they still exit 0 with the rows they could read and name the failed orgs on stderr (fleet health also marks each unreachable org's row, and fleet fanout carries the error in each org's row under --json). Generated list commands read every page with --all, and every write supports --dry-run.
 
 Learn more at [Cisco Meraki](https://developer.cisco.com/meraki/api-v1/).
 
@@ -64,7 +64,7 @@ To install:
 2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
 3. Fill in `MERAKI_DASHBOARD_API_KEY` when Claude Desktop prompts you.
 
-Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
+Requires Claude Desktop 1.0.0 or later. The bundle carries macOS (Apple Silicon and Intel), Linux x64 and Windows x64 binaries; on Linux or Windows on ARM, use the manual config below.
 
 <details>
 <summary>Manual JSON config (advanced)</summary>
@@ -232,7 +232,7 @@ Resolve a client MAC to the org and network that owns it without guessing.
 cisco-meraki-cli fleet renewals --within 90d --csv
 ```
 
-Export license and end-of-support deadlines due within 90 days, plus overdue ones, across all orgs for quoting; add --include-expired=false to hide overdue items.
+Export license and end-of-support deadlines due within 90 days, plus overdue ones, across all orgs for quoting; add --include-expired=false to hide overdue items (CLI only: an MCP call cannot switch this default-on flag off, so filter out rows with negative days_remaining instead).
 
 ### Preview a bulk SNMP change
 
@@ -415,14 +415,9 @@ This CLI is designed for AI agent consumption:
 
 Exit codes: `0` success, `1` generic error, `2` usage error, `3` not found, `4` auth error, `5` API error, `6` partial failure, `7` rate limited, `10` config error.
 
-## Runtime Endpoint
+## Endpoint
 
-This CLI resolves endpoint placeholders at runtime, so one installed binary can target different tenants or API versions without regeneration.
-
-Endpoint environment variables:
-- `CISCO_MERAKI_BASE_PATH` resolves `{basePath}`
-
-Base URL: `https://api.meraki.com/{basePath}`
+Base URL: `https://api.meraki.com/api/v1`. Set `CISCO_MERAKI_BASE_URL` to use a regional dashboard instead.
 
 ## Health Check
 
@@ -442,7 +437,6 @@ Environment variables:
 
 | Name | Kind | Required | Description |
 | --- | --- | --- | --- |
-| `CISCO_MERAKI_BASE_PATH` | endpoint | No | API path; defaults to `api/v1`. |
 | `CISCO_MERAKI_BASE_URL` | endpoint | No | Regional dashboard base URL: `https://api.meraki.ca/api/v1` (Canada), `https://api.meraki.cn/api/v1` (China), `https://api.meraki.in/api/v1` (India), `https://api.gov-meraki.com/api/v1` (FedRAMP). |
 | `MERAKI_DASHBOARD_API_KEY` | per_call | Yes | Set to your API credential. |
 

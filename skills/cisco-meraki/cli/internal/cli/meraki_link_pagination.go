@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 
 package cli
 
@@ -416,4 +416,34 @@ func merakiGetAllValues(ctx context.Context, c *client.Client, path string, para
 		}
 		q.Set(merakiCursorParam, tok)
 	}
+}
+
+// WithMerakiLinkNext is hand-wired (handfixes.json: meraki-mcp-execute-link-next)
+// for the MCP execute tool, which sends one GET outside this package. It
+// returns the context to send that GET with and a func reporting the rel=next
+// startingAfter token the response's Link header named ("" = last page).
+func WithMerakiLinkNext(ctx context.Context) (context.Context, func() string) {
+	linkCtx, s := withLinkSink(ctx)
+	return linkCtx, s.next
+}
+
+// AnnotateMerakiNextPage marks an MCP execute result as one page of several
+// when the Link header named a next page, so an agent sees has_more and the
+// cursor to resume with instead of a count that silently stops at page one.
+func AnnotateMerakiNextPage(result, next string) string {
+	if next == "" {
+		return result
+	}
+	var obj map[string]any
+	if json.Unmarshal([]byte(result), &obj) != nil || obj == nil {
+		obj = map[string]any{"result": result}
+	}
+	obj["has_more"] = true
+	obj["next_starting_after"] = next
+	obj["pagination_note"] = "This is one page; Meraki has more (Link rel=next). Call again with params.startingAfter set to next_starting_after to read the next page, and raise params.perPage within the endpoint's range to read more per call."
+	b, err := json.Marshal(obj)
+	if err != nil {
+		return result
+	}
+	return string(b)
 }

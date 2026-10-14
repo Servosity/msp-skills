@@ -12,7 +12,7 @@
 <p align="center"><sub>▶ <a href="https://msp-skills.compoundingteams.com/skills/cisco-meraki/">Watch the 30-second demo</a> - demo data is simulated; every command shown exists in the real CLI.</sub></p>
 <!-- media:end -->
 
-Every Meraki Dashboard operation, plus cross-org fleet views, complete pagination, and a local mirror built for MSPs running many client orgs. Works with the AI you already use - **ChatGPT** (Plus/Pro+), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.
+Every Meraki Dashboard operation, plus cross-org fleet views that read every page, and a local mirror built for MSPs running many client orgs. Works with the AI you already use - **ChatGPT** (Plus/Pro+), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.
 
 ## Works with your agent
 
@@ -166,7 +166,7 @@ Full command reference: [guide.md](./guide.md). For the AI-agent operating contr
 
 Most Meraki integrations and MCP servers proxy one question into one live API call against one organization, and often read only the first page of a list. That's fine for one record. It dies at MSP scale, when you're asking "what is down for all 30 clients, and since when?"
 
-This skill is built for that question. The `fleet` commands run across **every org the key can see** under one rate limiter, follow every `Link`-header page, and keep an org that fails to answer in the result as unreachable instead of counting it as zero devices. Compound views do the joins a stateless wrapper can't: `fleet down` joins device status to org and network names and computes downtime, `fleet blame` lines up each outage with the config changes made just before it, and `fleet renewals` merges three licensing models with hardware end-of-support dates into one date-sorted list. The fleet views query the Dashboard live; `sync` also keeps a **local SQLite mirror** of the org-level data so `search`, `fleet find`, and `fleet changes --data-source local` can answer offline.
+This skill is built for that question. The `fleet` commands run across **every org the key can see** under one rate limiter, follow every `Link`-header page, and keep an org that fails to answer in the result as unreachable instead of counting it as zero devices. Compound views do the joins a stateless wrapper can't: `fleet down` joins device status to org and network names and computes downtime, `fleet blame` lines up each outage with the config changes made just before it, and `fleet renewals` merges three licensing models with hardware end-of-support dates into one date-sorted list. The fleet views query the Dashboard live; `sync` also keeps a **local SQLite mirror** of the org-level data so `search "Acme" --data-source local`, `fleet find`, and `fleet changes --data-source local` can answer offline. Single-endpoint reads through the MCP server say when Meraki has more pages (`has_more` plus the cursor to resume).
 
 ## The pain this closes
 
@@ -203,7 +203,7 @@ A Meraki API key carries the Dashboard permissions of the admin account that gen
 
 ### Will this hit my Meraki API rate limit?
 
-Meraki allows about ten calls per second per organization. The CLI paces itself at 10 requests per second by default (change it with `--rate-limit`) and, when Meraki answers HTTP 429, waits for the `Retry-After` header before trying again. Fleet commands across many orgs take longer; they do not fail.
+Meraki allows about ten calls per second per organization. The CLI paces itself at 10 requests per second by default (change it with `--rate-limit`) and, when Meraki answers HTTP 429, waits for the `Retry-After` header before trying again. Fleet commands across many orgs take longer: each run has one overall `--timeout` (default 1m), so raise it (for example `--timeout 10m`) for a large fleet. An org that runs out of time is reported as partial on stderr, not silently dropped.
 
 ### Does it work with the Canada, China, India, or FedRAMP dashboards?
 
@@ -222,9 +222,9 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
 | Read | `fleet health`, `fleet down`, `fleet renewals`, `fleet changes`, `fleet find`, `fleet fanout`, `fleet admins`, `fleet flaps`, `fleet blame`, `fleet push` without `--apply`, every GET except the secret-bearing ones | Allow |
-| Credential (incl. secret-returning reads) | `auth set-token`, `administered generate-identities-me-api-keys`, admin and SAML writes, and reads that return live secrets: `networks wireless get-network-ssids` (Wi-Fi PSK), `networks wireless get-network-ssid-identity-psks`, `networks snmp get-network`, `organizations snmp get-organization`, `organizations appliance get-organization-vpn-third-party-vpnpeers` | Human-in-the-loop only - the CLI does not redact output |
+| Credential (incl. secret-returning reads) | `auth set-token`, `administered generate-identities-me-api-keys`, admin and SAML writes, and reads that return live secrets: `networks wireless get-network-ssids` (Wi-Fi PSK), `networks wireless get-network-ssid-identity-psks`, `networks snmp get-network`, `organizations snmp get-organization`, `organizations appliance get-organization-vpn-third-party-vpnpeers`, `organizations sm get-organization-vpp-accounts` (Apple VPP token), and license-key reads such as `organizations licenses get-organization` | Human-in-the-loop only - the CLI does not redact output; [governance.md](./governance.md) has the full list |
 | Write (routine) | `networks update`, `networks wireless update-network-ssid`, `networks appliance update-network-vlan`, `devices update` | Preview with `--dry-run`, then a reviewed write |
-| Bulk and device-disrupting | `fleet push --apply`, `devices reboot device`, `devices switch cycle-device-ports`, `networks firmware-upgrades update-network` | Human-in-the-loop only |
+| Bulk and device-disrupting | `fleet push --apply`, `devices reboot device`, `devices switch cycle-device-ports`, `networks firmware-upgrades update-network`, `networks firmware-upgrades create-network-rollback` | Human-in-the-loop only |
 | Destructive | every delete, `networks devices remove-network`, `organizations inventory release-from-organization`, `networks sm wipe-network-devices` | Human-in-the-loop only, explicit confirmation |
 
 The strongest control is the **Dashboard admin behind the API key** - the CLI can only do what that admin is permitted to do, so generate the key from a read-only admin for reporting. For an MCP agent that should never write, also set `CISCO_MERAKI_MCP_READ_ONLY=1`: the server then refuses every non-GET call and `fleet push --apply`. Full details, including how to lock it down, are in [governance.md](./governance.md).

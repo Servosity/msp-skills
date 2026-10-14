@@ -47,12 +47,6 @@
           "isSecret": false
         },
         {
-          "name": "CISCO_MERAKI_BASE_PATH",
-          "description": "API path appended to the global host. Leave blank for api/v1.",
-          "isRequired": false,
-          "isSecret": false
-        },
-        {
           "name": "CISCO_MERAKI_USER_AGENT",
           "description": "Overrides the User-Agent the CLI sends on Meraki requests.",
           "isRequired": false,

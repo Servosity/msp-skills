@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 
 package cli
 
@@ -178,7 +178,9 @@ func reportFleetFailures[T any](w io.Writer, outcomes []orgOutcome[T]) {
 	fmt.Fprintf(w, "warning: %d of %d organizations failed; results cover the remaining %d\n", failed, len(outcomes), len(outcomes)-failed)
 	for _, oc := range outcomes {
 		if oc.Err != nil {
-			fmt.Fprintf(w, "  %s (%s): %s\n", oc.Org.Name, oc.Org.ID, oc.Err.Error())
+			// "warning:" prefix: the MCP server forwards only hint:/warning: stderr
+			// lines, and an agent needs the org name, not just the count.
+			fmt.Fprintf(w, "warning: %s (%s): %s\n", oc.Org.Name, oc.Org.ID, oc.Err.Error())
 		}
 	}
 }

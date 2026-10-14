@@ -316,7 +316,7 @@
       "first_party": false,
       "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cisco-meraki/install.sh)",
       "install_mcp_doc": "skills/cisco-meraki/mcp-install.md",
-      "description": "Every Meraki Dashboard operation, plus cross-org fleet views, complete pagination, and a local mirror built for MSPs running many client orgs.",
+      "description": "Every Meraki Dashboard operation, plus cross-org fleet views that read every page, and a local mirror built for MSPs running many client orgs.",
       "verification": "awaiting",
       "category": "Network Monitoring",
       "tagline": "See every client Meraki org at once: devices down, failed uplinks, renewals, and config changes from your terminal."

@@ -42,7 +42,7 @@ register the skill with your agent and writes no MCP client config - see
 
 If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
-One API key reaches every organization you administer, so this CLI treats them as one fleet: fleet health and fleet down show what is broken across all clients, fleet renewals lists license and hardware deadlines, and fleet find resolves a MAC, IP or serial to the client that owns it. Fleet commands walk every Link-header page; when some orgs fail they still exit 0 with the rows they could read and name the failed orgs on stderr (fleet health and fleet fanout also carry the error in each org's JSON row). Generated list commands read every page with --all, and every write supports --dry-run.
+One API key reaches every organization you administer, so this CLI treats them as one fleet: fleet health and fleet down show what is broken across all clients, fleet renewals lists license and hardware deadlines, and fleet find resolves a MAC, IP or serial to the client that owns it. Fleet commands walk every Link-header page; when some orgs fail they still exit 0 with the rows they could read and name the failed orgs on stderr (fleet health also marks each unreachable org's row, and fleet fanout carries the error in each org's row under --json). Generated list commands read every page with --all, and every write supports --dry-run.
 
 ## When to Use This CLI
 
@@ -241,7 +241,7 @@ Resolve a client MAC to the org and network that owns it without guessing.
 cisco-meraki-cli fleet renewals --within 90d --csv
 ```
 
-Export license and end-of-support deadlines due within 90 days, plus overdue ones, across all orgs for quoting; add --include-expired=false to hide overdue items.
+Export license and end-of-support deadlines due within 90 days, plus overdue ones, across all orgs for quoting; add --include-expired=false to hide overdue items (CLI only: an MCP call cannot switch this default-on flag off, so filter out rows with negative days_remaining instead).
 
 ### Preview a bulk SNMP change
 

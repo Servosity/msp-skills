@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // pp:data-source live
 
 package cli
@@ -142,6 +142,11 @@ Do NOT use this command for writes; use 'fleet push' instead.`),
 			}
 			if failed > 0 {
 				fmt.Fprintf(cmd.ErrOrStderr(), "warning: %d of %d organizations returned an error; see each row's error field\n", failed, len(results))
+				for _, r := range results {
+					if r.Error != "" {
+						fmt.Fprintf(cmd.ErrOrStderr(), "warning: %s (%s): %s\n", r.OrganizationName, r.OrganizationID, r.Error)
+					}
+				}
 			}
 			if partial > 0 {
 				fmt.Fprintf(cmd.ErrOrStderr(), "warning: %d organizations are incomplete (limit_reason set); rerun with a higher --max-pages\n", partial)

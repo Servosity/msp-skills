@@ -129,6 +129,65 @@
      "code_only": true
     }
    ]
+  },
+  {
+   "id": "meraki-mcp-execute-link-next",
+   "summary": "The MCP cisco-meraki_execute tool marks a GET result has_more + next_starting_after (with a pagination_note) when the response's Link header names another page, instead of returning page one with a count that looks complete",
+   "why": "Every non-fleet operation reaches MCP agents through cisco-meraki_execute, which sends one GET and dropped the Link header, so an agent asking for network clients (default perPage 10 on many endpoints) silently got page one - the failure meraki-link-pagination fixed for sync, --all and fleet but not this twin path. Found by the fresh-context adversarial review (2026-10-13). The result is already capped at 50 items per MCP call, so the fix reports the cursor rather than walking every page. Helpers live in the hand-authored internal/cli/meraki_link_pagination.go (WithMerakiLinkNext, AnnotateMerakiNextPage); the three call-site lines in generated code_orch.go are re-applied by the factory's tools/apply_handfixes.py. TestCodeOrchExecuteReportsMerakiNextPage fails with the annotation removed (proven 2026-10-13).",
+   "status": "active",
+   "spec_encode_followup": "Not spec-encodable; press retro: execute should surface response-header pagination.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "pp:handfix meraki-mcp-execute-link-next",
+     "min_count": 3
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "cli.AnnotateMerakiNextPage(text, linkNext())",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/meraki_link_pagination.go",
+     "contains": "func AnnotateMerakiNextPage(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/meraki_execute_link_test.go",
+     "contains": "func TestCodeOrchExecuteReportsMerakiNextPage(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "meraki-doctor-truth",
+   "summary": "doctor reports a 404 from its health path (/administered/identities/me) as a WARN naming CISCO_MERAKI_BASE_URL instead of 'reachable', and the default base URL is the literal https://api.meraki.com/api/v1 (no {basePath} template, no CISCO_MERAKI_BASE_PATH)",
+   "why": "check_doctor_truth.py (issue #282) failed two ways. wrong-base: a base_url whose every API path 404s rendered as 'reachable (HTTP 404 at /)', a health claim for a broken install. placeholder: the gate treats any {var} in the default base URL as an unset placeholder, so the generated https://api.meraki.com/{basePath} - which always resolved to the working api/v1 - made it demand that doctor call a correct global-dashboard install broken. The spec's basePath server variable only ever had one value, so the default is now literal (spec-encoded in the factory's spec/spec-overlay.json servers block, so the next generate emits it natively) and CISCO_MERAKI_BASE_PATH, an env var that only ever selected that one value, is gone from the binary and every install surface. Proven both directions 2026-10-13: the original doctor.go fails the gate's wrong-base state, the fixed one passes all states.",
+   "status": "active",
+   "spec_encode_followup": "Base URL: spec-encoded (overlay servers). doctor 404 verdict: press retro (any non-auth 404 at the health path should be negative).",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "BaseURL: \"https://api.meraki.com/api/v1\"",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "not_contains": "CISCO_MERAKI_BASE_PATH"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "pp:handfix meraki-doctor-truth",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "reachable (HTTP %d at /)"
+    }
+   ]
   }
  ]
 }

@@ -1,5 +1,5 @@
 {
-  "outcome_intro": "Cisco Meraki plus your AI answers the questions that span every client org at once: what is down right now and since when, which licenses and hardware hit their end date this quarter, who changed what across all orgs this week, and which change landed just before a site dropped. One API key, every org it can reach, every page read, and an org that fails to answer is named instead of silently counted as zero.",
+  "outcome_intro": "Cisco Meraki plus your AI answers the questions that span every client org at once: what is down right now and since when, which licenses and hardware hit their end date this quarter, who changed what across all orgs this week, and which change landed just before a site dropped. One API key, every org it can reach, every page of every org read by the fleet views, and an org that fails to answer is named instead of silently counted as zero.",
   "instead_of_say": [
     {
       "instead": "Opening the MSP Portal, spotting an org with a red device count, then clicking into that org and its networks to find which device is offline and how long it has been down - once per client",
@@ -64,7 +64,7 @@
       "command": "cisco-meraki-cli fleet push --path /networks/{networkId}/syslogServers --body syslog.json --network-tag managed"
     }
   ],
-  "different_vs_wrappers": "Most Meraki integrations, including the many single-org Meraki MCP servers, proxy one question into one live API call against one organization, and often read only the first page of a list. This connector is built for the MSP case: the fleet commands run across every org the key can see under one rate limiter, follow every Link-header page, and keep an org that fails to answer in the result as unreachable instead of reporting zero devices. It also wraps all 1,035 Dashboard operations as typed commands, so the fleet views are a starting point, not the ceiling.",
+  "different_vs_wrappers": "Most Meraki integrations, including the many single-org Meraki MCP servers, proxy one question into one live API call against one organization, and often read only the first page of a list. This connector is built for the MSP case: the fleet commands run across every org the key can see under one rate limiter, follow every Link-header page, and keep an org that fails to answer in the result as unreachable instead of reporting zero devices. It also wraps all 1,035 Dashboard operations as typed commands, and a single-endpoint read through MCP says when Meraki has more pages instead of passing page one off as the whole list.",
   "different_vs_vendor": "The Meraki Dashboard and its MSP Portal stay the place you configure networks; the portal, as Meraki documents it, shows per-org device counts and one co-term date. This adds the cross-org answers on top: a single list of what is down with network names and downtime, renewals across all three licensing models plus end-of-support hardware, one change log for every org, admin two-factor and offboarding checks, and the config changes made just before an outage.",
   "faqs": [
     {
@@ -89,7 +89,7 @@
     },
     {
       "q": "Will this hit my Meraki API rate limit?",
-      "a": "Meraki allows about ten calls per second per organization. The CLI paces itself at 10 requests per second by default (change it with --rate-limit) and, when Meraki answers HTTP 429, waits for the Retry-After header before trying again. Fleet commands across many orgs take longer; they do not fail."
+      "a": "Meraki allows about ten calls per second per organization. The CLI paces itself at 10 requests per second by default (change it with --rate-limit) and, when Meraki answers HTTP 429, waits for the Retry-After header before trying again. Fleet commands across many orgs take longer: each run has one overall --timeout (default 1m), so raise it (for example --timeout 10m) for a large fleet; an org that runs out of time is reported as partial, not silently dropped."
     },
     {
       "q": "Does it work with the Canada, China, India, or FedRAMP dashboards?",
@@ -100,7 +100,7 @@
       "a": "Writes send immediately when called, with no confirmation prompt, so keep autonomous agents to reads and --dry-run previews. The bulk tool, fleet push, previews a per-network diff by default and sends nothing unless you add --apply. See the safety model for which commands to keep behind a human. Set CISCO_MERAKI_MCP_READ_ONLY=1 on the MCP server and it refuses every write outright."
     }
   ],
-  "governance_summary": "Reads - the fleet views, every GET, sync and search - change nothing in the Dashboard and are safe for an agent, with one exception: a dozen reads return live secrets (SSID pre-shared keys, identity PSK passphrases, SNMP community strings, site-to-site VPN peer secrets, BGP and OSPF passwords) and the CLI does not redact them, so those belong behind a human. Routine config writes should be previewed with --dry-run and approved. Bulk pushes, reboots and port cycles, admin and SAML changes, API key generation, and deletes or unclaims should never run unattended. For an MCP agent that should never write, CISCO_MERAKI_MCP_READ_ONLY=1 makes the server refuse every non-GET call. The real ceiling is the API key: it can do whatever the Dashboard admin who generated it can do.",
+  "governance_summary": "Reads - the fleet views, every GET, sync and search - change nothing in the Dashboard and are safe for an agent, with one exception: about twenty reads return live secrets or license keys (SSID pre-shared keys, identity PSK passphrases, SNMP community strings, site-to-site VPN peer secrets, BGP and OSPF passwords, Apple VPP tokens, license keys) and the CLI does not redact them, so those belong behind a human. Routine config writes should be previewed with --dry-run and approved. Bulk pushes, reboots and port cycles, admin and SAML changes, API key generation, and deletes or unclaims should never run unattended. For an MCP agent that should never write, CISCO_MERAKI_MCP_READ_ONLY=1 makes the server refuse every non-GET call. The real ceiling is the API key: it can do whatever the Dashboard admin who generated it can do.",
   "safety_tiers": [
     {
       "tier": "Read",
@@ -109,7 +109,7 @@
     },
     {
       "tier": "Credential (incl. secret-returning reads)",
-      "examples": "auth set-token, auth logout, administered generate-identities-me-api-keys, administered revoke-identities-me-api-keys, every organizations admins, organizations saml and organizations saml-roles write, and the reads whose output carries a live secret (the CLI redacts nothing): networks wireless get-network-ssid / get-network-ssids (Wi-Fi psk), networks wireless get-network-ssid-identity-psk / get-network-ssid-identity-psks (passphrase), networks camera get-network-wireless-profile / get-network-wireless-profiles, networks snmp get-network, organizations snmp get-organization (community strings), organizations appliance get-organization-vpn-third-party-vpnpeers (IPsec secret), networks appliance get-network-vpn-bgp, networks switch get-network-routing-ospf, devices cellular get-device-sims, plus fleet fanout pointed at an org-scoped one of those paths and a fleet push preview whose --body names a secret key",
+      "examples": "auth set-token, auth logout, administered generate-identities-me-api-keys, administered revoke-identities-me-api-keys, every organizations admins, organizations saml and organizations saml-roles write, and the reads whose output carries a live secret (the CLI redacts nothing): networks wireless get-network-ssid / get-network-ssids (Wi-Fi psk), networks wireless get-network-ssid-identity-psk / get-network-ssid-identity-psks (passphrase), networks camera get-network-wireless-profile / get-network-wireless-profiles, networks snmp get-network, organizations snmp get-organization (community strings), organizations appliance get-organization-vpn-third-party-vpnpeers (IPsec secret), networks appliance get-network-vpn-bgp, networks switch get-network-routing-ospf, devices cellular get-device-sims, organizations sm get-organization-vpp-accounts / get-organization-vpp-account (Apple VPP service token), license-key reads (organizations licenses get-organization, organizations licensing get-organization-coterm-licenses, networks sm get-network-device-softwares), plus fleet fanout pointed at an org-scoped one of those paths and a fleet push preview whose --body names a secret key",
       "policy": "Human-in-the-loop only - never in a blanket allow-all-reads policy, and do not hand the raw output to a model"
     },
     {
@@ -119,12 +119,12 @@
     },
     {
       "tier": "Bulk and device-disrupting",
-      "examples": "fleet push --apply (one change to many networks across orgs), devices reboot device, devices switch cycle-device-ports, devices live-tools create-device-ports-cycle, devices live-tools create-device-cable-test, networks sm reboot-network-devices, networks sm shutdown-network-devices, networks appliance swap-network-warm-spare, networks firmware-upgrades update-network",
+      "examples": "fleet push --apply (one change to many networks across orgs), devices reboot device, devices switch cycle-device-ports, devices live-tools create-device-ports-cycle, devices live-tools create-device-cable-test, networks sm reboot-network-devices, networks sm shutdown-network-devices, networks appliance swap-network-warm-spare, networks firmware-upgrades update-network, networks firmware-upgrades create-network-rollback, networks sm lock-network-devices, networks appliance create-network-devices-redundancy-swap; any POST ending in an action such as /reboot, /cycle, /swap, /lock or /rollbacks",
       "policy": "Human-in-the-loop only - these take effect on live client networks at once"
     },
     {
       "tier": "Destructive",
-      "examples": "every delete command (organizations delete, networks delete, networks appliance delete-network-vlan, ...), networks devices remove-network, organizations inventory release-from-organization, networks unbind network, networks split network, organizations networks combine-organization, networks sm wipe-network-devices, networks sm unenroll-network-device, organizations licenses move-organization",
+      "examples": "every delete command (organizations delete, networks delete, networks appliance delete-network-vlan, ...), networks devices remove-network, organizations inventory release-from-organization, networks unbind network, networks split network, organizations networks combine-organization, networks sm wipe-network-devices, networks sm unenroll-network-device, organizations licenses move-organization, organizations licenses move-organization-seats, organizations licensing move-organization-coterm-licenses, networks switch remove-network-stack, every .../bulkDelete POST",
       "policy": "Human-in-the-loop only, explicit confirmation"
     }
   ]

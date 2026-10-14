@@ -46,7 +46,6 @@ applies to the configs below.
         "MERAKI_DASHBOARD_API_KEY": "<your-meraki-dashboard-api-key>",
         "CISCO_MERAKI_BASE_URL": "",
         "CISCO_MERAKI_MCP_READ_ONLY": "",
-        "CISCO_MERAKI_BASE_PATH": "",
         "CISCO_MERAKI_USER_AGENT": "",
         "CISCO_MERAKI_MCP_HTTP_TOKEN": "",
         "PRINTING_PRESS_CLIENT_PROFILE": ""
@@ -77,7 +76,6 @@ Configuration**) and add:
         "MERAKI_DASHBOARD_API_KEY": "<your-meraki-dashboard-api-key>",
         "CISCO_MERAKI_BASE_URL": "",
         "CISCO_MERAKI_MCP_READ_ONLY": "",
-        "CISCO_MERAKI_BASE_PATH": "",
         "CISCO_MERAKI_USER_AGENT": "",
         "CISCO_MERAKI_MCP_HTTP_TOKEN": "",
         "PRINTING_PRESS_CLIENT_PROFILE": ""
@@ -104,7 +102,6 @@ Claude Desktop:
         "MERAKI_DASHBOARD_API_KEY": "<your-meraki-dashboard-api-key>",
         "CISCO_MERAKI_BASE_URL": "",
         "CISCO_MERAKI_MCP_READ_ONLY": "",
-        "CISCO_MERAKI_BASE_PATH": "",
         "CISCO_MERAKI_USER_AGENT": "",
         "CISCO_MERAKI_MCP_HTTP_TOKEN": "",
         "PRINTING_PRESS_CLIENT_PROFILE": ""
@@ -134,9 +131,8 @@ any request that does not send it as `Authorization: Bearer <token>` - configure
 connector or proxy to send that header.
 
 Then expose `http://localhost:7777/mcp` as a public HTTPS URL via a secure tunnel
-(Cloudflare Tunnel, ngrok) or your own reverse proxy. The path is part of the
-endpoint: the server answers Streamable HTTP at `/mcp` and returns 404 at the
-bare root, so a connector pointed at the root URL never handshakes. **Treat that
+(Cloudflare Tunnel, ngrok) or your own reverse proxy, and point your connector at
+the `/mcp` path. **Treat that
 URL as sensitive** - it's a key to your MCP server. Never expose it bare on the
 internet; gate it behind SSO / Cloudflare Access for team use.
 

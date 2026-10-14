@@ -3,7 +3,7 @@
   "name": "cisco-meraki-mcp",
   "display_name": "Cisco Meraki",
   "version": "0.1.0",
-  "description": "Every Meraki Dashboard operation, plus cross-org fleet views, complete pagination, and a local mirror built for MSPs running many client orgs.",
+  "description": "Every Meraki Dashboard operation, plus cross-org fleet views that read every page, and a local mirror built for MSPs running many client orgs.",
   "author": {
     "name": "Servosity Inc."
   },
@@ -18,7 +18,6 @@
         "MERAKI_DASHBOARD_API_KEY": "${user_config.meraki_dashboard_api_key}",
         "CISCO_MERAKI_BASE_URL": "${user_config.cisco_meraki_base_url}",
         "CISCO_MERAKI_MCP_READ_ONLY": "${user_config.cisco_meraki_mcp_read_only}",
-        "CISCO_MERAKI_BASE_PATH": "${user_config.cisco_meraki_base_path}",
         "CISCO_MERAKI_USER_AGENT": "${user_config.cisco_meraki_user_agent}",
         "CISCO_MERAKI_MCP_HTTP_TOKEN": "${user_config.cisco_meraki_mcp_http_token}",
         "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
@@ -43,12 +42,6 @@
       "type": "string",
       "title": "Read-only mode",
       "description": "Set to 1 to make the MCP server refuse every write: only GET endpoints are callable and fleet push --apply is refused. Secret-bearing GETs (SSID pre-shared keys, SNMP community strings) still return data. Leave blank to allow writes.",
-      "required": false
-    },
-    "cisco_meraki_base_path": {
-      "type": "string",
-      "title": "API base path",
-      "description": "API path appended to the global host. Leave blank for api/v1; ignored when CISCO_MERAKI_BASE_URL is set.",
       "required": false
     },
     "cisco_meraki_user_agent": {
