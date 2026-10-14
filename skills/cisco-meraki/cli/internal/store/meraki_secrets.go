@@ -165,7 +165,11 @@ func redactMerakiValue(v any) (any, bool) {
 			}
 			if s, ok := child.(string); ok && s != "" && s != RedactedSecret {
 				// Change-log rows carry an API request body as a JSON string.
-				if next := redactMerakiString(s); next != s {
+				next := redactMerakiString(s)
+				if merakiRequestLogKeys[strings.ToLower(k)] {
+					next = ScrubMerakiURLSecrets(next)
+				}
+				if next != s {
 					tv[k] = next
 					changed = true
 					continue
@@ -420,10 +424,6 @@ var merakiHTTPServerIDPattern = regexp.MustCompile(`(?i)(` + merakiLoose("/webho
 // API request query strings.
 var merakiURLParamPattern = regexp.MustCompile(`(?i)(?:^|[?&"])` + merakiLoose("url="))
 
-// merakiWebhookLogParams are the other query parameters of the one endpoint
-// that takes url= (GET /organizations/{organizationId}/webhooks/logs).
-var merakiWebhookLogParams = map[string]bool{"t0": true, "t1": true, "timespan": true, "perpage": true, "startingafter": true, "endingbefore": true, "url": true}
-
 // merakiPercentDecodePattern is one %XX escape.
 var merakiPercentDecodePattern = regexp.MustCompile(`%[0-9A-Fa-f]{2}`)
 
@@ -443,56 +443,42 @@ func merakiPercentDecoded(s string) string {
 	return s
 }
 
-// merakiURLValueBounded reports whether the first raw "&" after a url= value
-// v certainly starts the outer query: the receiver URL has no query of its
-// own, or its encoder escaped query syntax (no raw "?", "#" or "=" in v).
-// Otherwise a later "&name=" may be the receiver's own (?sig=, &code=, even
-// &t0=), and the caller withholds the rest of the string.
-func merakiURLValueBounded(v string) bool {
-	d := merakiPercentDecoded(v)
-	if !strings.ContainsAny(d, "?#") {
-		return true
-	}
-	return !strings.ContainsAny(v, "?#=") && strings.ContainsAny(d, "=&")
-}
-
 // ScrubMerakiURLSecrets replaces webhook HTTP server IDs and url= query values
 // in s with "[redacted:<hash>]". The 128-bit hash keeps two receivers (and two
 // row IDs built from them) distinct without revealing either; an already
 // scrubbed value is left alone. fleet changes and fleet blame apply it to
-// labels; the mirror applies it to every decoded string, never to serialized
-// JSON.
+// labels, row identities to each part, and the mirror to API request paths
+// and query strings (scrubMerakiHTTPServerIDs covers every other string).
 //
-// A url= value ends at the next "&" only when that boundary is certain (see
-// merakiURLValueBounded) and a webhook logs parameter follows; otherwise it
-// runs to the end of the string.
+// A url= value runs to the end of the string: a receiver URL can be sent
+// unencoded, partly encoded or double encoded, so no later "&" is certainly
+// the outer query's. The webhook logs parameters after it (perPage,
+// startingAfter) are withheld with it on purpose.
 func ScrubMerakiURLSecrets(s string) string {
-	s = merakiHTTPServerIDPattern.ReplaceAllStringFunc(s, func(m string) string {
+	s = scrubMerakiHTTPServerIDs(s)
+	loc := merakiURLParamPattern.FindStringIndex(s)
+	if loc == nil {
+		return s
+	}
+	rest := s[loc[1]:]
+	end := strings.IndexAny(rest, "\"\t\n\f\r ")
+	if end < 0 {
+		end = len(rest)
+	}
+	return s[:loc[1]] + merakiRedactedHash(rest[:end]) + ScrubMerakiURLSecrets(rest[end:])
+}
+
+// scrubMerakiHTTPServerIDs replaces webhook HTTP server IDs in a path.
+func scrubMerakiHTTPServerIDs(s string) string {
+	return merakiHTTPServerIDPattern.ReplaceAllStringFunc(s, func(m string) string {
 		parts := merakiHTTPServerIDPattern.FindStringSubmatch(m)
 		return parts[1] + merakiRedactedHash(parts[2])
 	})
-	var b strings.Builder
-	for {
-		loc := merakiURLParamPattern.FindStringIndex(s)
-		if loc == nil {
-			return b.String() + s
-		}
-		rest := s[loc[1]:]
-		end := strings.IndexAny(rest, "\"\t\n\f\r ")
-		if end < 0 {
-			end = len(rest)
-		}
-		if amp := strings.IndexByte(rest[:end], '&'); amp >= 0 && merakiURLValueBounded(rest[:amp]) {
-			key, _, _ := strings.Cut(rest[amp+1:end], "=")
-			if merakiWebhookLogParams[strings.ToLower(merakiPercentDecoded(key))] {
-				end = amp
-			}
-		}
-		b.WriteString(s[:loc[1]])
-		b.WriteString(merakiRedactedHash(rest[:end]))
-		s = rest[end:]
-	}
 }
+
+// merakiRequestLogKeys are the API request log fields that carry the webhook
+// logs url= filter; a url= anywhere else (a splash page redirect) is kept.
+var merakiRequestLogKeys = map[string]bool{"querystring": true, "path": true}
 
 // merakiScrubbedPattern is a value this scrub already produced.
 var merakiScrubbedPattern = regexp.MustCompile(`^\[redacted(:[0-9a-f]{32})?\]$`)
@@ -511,7 +497,7 @@ func redactMerakiString(s string) string {
 	if t := strings.TrimSpace(s); t != "" && (t[0] == '{' || t[0] == '[') && json.Valid([]byte(t)) {
 		return RedactMerakiJSONString(s) // its string leaves were scrubbed decoded
 	}
-	return ScrubMerakiURLSecrets(RedactMerakiJSONString(s))
+	return scrubMerakiHTTPServerIDs(RedactMerakiJSONString(s))
 }
 
 // RedactMerakiObject redacts credentials in m in place (fleet push prints the

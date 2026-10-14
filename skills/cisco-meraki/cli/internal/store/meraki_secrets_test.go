@@ -329,9 +329,10 @@ func TestCodexRound14ReceiverScrub(t *testing.T) {
 		t.Fatalf("receiver hash is not 128 bits: %s", got)
 	}
 	for in, want := range map[string]string{
-		"url=https://f.azurewebsites.net/api/test?code=" + merakiSentinel + "&clientId=" + merakiSentinel:           "",
-		"perPage=10&url=https://f.azurewebsites.net/api/test#" + merakiSentinel:                                     "perPage=10&url=",
-		"url=https%3A%2F%2Ff.azurewebsites.net%2Fapi%3Fcode%3D" + merakiSentinel + "&perPage=10&startingAfter=ABCD": "&perPage=10&startingAfter=ABCD",
+		"url=https://f.azurewebsites.net/api/test?code=" + merakiSentinel + "&clientId=" + merakiSentinel: "",
+		"perPage=10&url=https://f.azurewebsites.net/api/test#" + merakiSentinel:                           "perPage=10&url=",
+		// Withheld with the receiver on purpose (Codex round 16: no "&" after a url= value is certainly outer).
+		"url=https%3A%2F%2Ff.azurewebsites.net%2Fapi%3Fcode%3D" + merakiSentinel + "&perPage=10&startingAfter=ABCD": "",
 		`{"queryString":"url=https://x/` + merakiSentinel + `"}`:                                                    `"}`,
 		// Round 22: "?" escaped, "&" and "=" raw (Go url.PathEscape): ambiguous, so the whole tail is withheld (round 15).
 		"url=https:%2F%2Ff.azurewebsites.net%2Fapi%2Fhook%3Fa=1&code=" + merakiSentinel + "&perPage=5":                "",
@@ -404,5 +405,29 @@ func TestCodexRound15ReceiverScrub(t *testing.T) {
 	}
 	if len(ids) != 2 {
 		t.Fatalf("two API requests that differ by query string collapsed: %v", ids)
+	}
+}
+
+// TestCodexRound16URLValueRunsToEnd: no encoding inference decides where a
+// url= value ends (Codex round 16 double-encoded "="); the url= scrub is scoped
+// to API request query strings and paths, and a composite identity is not
+// re-hashed after its url= part (adversarial round 23).
+func TestCodexRound16URLValueRunsToEnd(t *testing.T) {
+	in := "url=https:%2F%2Freceiver.example%2Fhook%3Fx%253D1&t0=" + merakiSentinel + "&perPage=5"
+	if got := ScrubMerakiURLSecrets(in); strings.Contains(got, merakiSentinel) || got != "url="+merakiRedactedHash(in[len("url="):]) {
+		t.Fatalf("double-encoded receiver tail kept: %q", got)
+	}
+	splash := "https://portal.example.com/?url=https://dest.example.com/&lang=en&ssid=Guest"
+	row := map[string]any{"label": "Splash page URL", "newValue": splash, "queryString": "url=https://x/" + merakiSentinel}
+	stored := string(RedactMerakiSecrets(mustJSON(t, row)))
+	if !strings.Contains(stored, "dest.example.com/&lang=en&ssid=Guest") || strings.Contains(stored, merakiSentinel) {
+		t.Fatalf("url= scrub not scoped to request-log fields: %s", stored)
+	}
+	if got := RedactMerakiChangeValue("Splash page URL", splash); got != splash {
+		t.Fatalf("splash redirect URL redacted in fleet changes: %s", got)
+	}
+	req := map[string]any{"ts": "2026-10-14T10:00:00.000000Z", "adminId": "A1", "method": "GET", "path": "/api/v1/organizations/1/webhooks/logs", "queryString": "perPage=5&url=https://x/" + merakiSentinel, "sourceIp": "203.0.113.9", "userAgent": "agent/1.0"}
+	if id := ExtractResourceID("api_requests", req); strings.Contains(id, merakiSentinel) || !strings.Contains(id, "+203.0.113.9+agent/1.0") {
+		t.Fatalf("api_requests ID hid the parts after url= or kept the receiver: %q", id)
 	}
 }

@@ -10030,7 +10030,13 @@ func ExtractResourceID(resourceType string, obj map[string]any) string {
 	// identity. {"key": "<new API key>"} would otherwise key its row on the
 	// key itself, past the data redaction, and a change-log label or API
 	// request path would key it on a webhook HTTP server ID.
-	if s := ScrubMerakiURLSecrets(extractResourceIDUnguarded(resourceType, obj)); s != "" && !merakiIDCarriesSecret(s, obj) {
+	// A nullable composite scrubbed each part already; scrubbing the joined
+	// ID again would hash every part after a url= value.
+	s := merakiNullableCompositeID(resourceType, obj)
+	if s == "" {
+		s = ScrubMerakiURLSecrets(extractResourceIDUnguarded(resourceType, obj))
+	}
+	if s != "" && !merakiIDCarriesSecret(s, obj) {
 		return s
 	}
 	return ""
