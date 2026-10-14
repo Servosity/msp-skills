@@ -104,7 +104,7 @@
   "safety_tiers": [
     {
       "tier": "Read",
-      "examples": "fleet health, fleet down, fleet renewals, fleet changes, fleet find, fleet fanout (GET-only), fleet admins, fleet flaps, fleet blame, fleet push without --apply (preview; see the credential tier), sync, search, and every GET command except the secret-bearing ones below; search, export, analytics and MCP sql read a mirror that holds license keys, so allow them only if that is acceptable",
+      "examples": "fleet health, fleet down, fleet renewals, fleet changes, fleet find, fleet fanout (GET-only; not at a credential-tier path), fleet admins, fleet flaps, fleet blame, fleet push without --apply (preview; see the credential tier), sync, search, and every GET command except the secret-bearing ones below; search, analytics and MCP sql read a mirror that holds license keys, so allow them only if that is acceptable",
       "policy": "Allow"
     },
     {

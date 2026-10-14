@@ -319,8 +319,8 @@
   },
   {
    "id": "meraki-sync-envelope-array",
-   "summary": "sync's page extractor unwraps an ARRAY of {items, meta} envelopes into the records inside it; fleet fanout's walker (merakiGetAll) does the same, so items_returned counts records",
-   "why": "Several Meraki list reads (wireless RF-profile assignments by device, floor-plan auto-locate devices and statuses, SM sentry assignments, wireless-controller failover history, provisioning deployments) answer [{items:[...], meta:{...}}]. The generated extractor took the direct array as the records, stored the envelope (no identity), and the resource failed as critical - RF-profile assignments alone has rows in any org with MR access points. Found while fixing the round-4 sync P1 (2026-10-13). Helper merakiUnwrapEnvelopeArray is hand-authored in internal/cli/meraki_link_pagination.go; the call site in generated sync.go is re-applied by the factory's tools/apply_handfixes.py. TestSyncUnwrapsMerakiEnvelopeArray fails without it (proven).",
+   "summary": "sync's page extractor unwraps an ARRAY of {items, meta} envelopes into the records inside it; fleet fanout's walker (merakiGetAll) does the same, so items_returned counts records; MCP cisco-meraki_execute counts and returns the records too (UnwrapMerakiEnvelopeArray)",
+   "why": "Several Meraki list reads (wireless RF-profile assignments by device, floor-plan auto-locate devices and statuses, SM sentry assignments, wireless-controller failover history, provisioning deployments) answer [{items:[...], meta:{...}}]. The generated extractor took the direct array as the records, stored the envelope (no identity), and the resource failed as critical - RF-profile assignments alone has rows in any org with MR access points. Found while fixing the round-4 sync P1 (2026-10-13). Helper merakiUnwrapEnvelopeArray is hand-authored in internal/cli/meraki_link_pagination.go; the call site in generated sync.go is re-applied by the factory's tools/apply_handfixes.py. TestSyncUnwrapsMerakiEnvelopeArray fails without it (proven). Round-6 adversarial review (2026-10-14): the MCP execute twin still reported count 1 per envelope page; the call site in generated code_orch.go is re-applied by tools/apply_handfixes.py. TestCodeOrchExecuteCountsEnvelopeRecords fails with the call site removed (proven).",
    "status": "active",
    "asserts": [
     {
@@ -346,13 +346,31 @@
      "contains": "func TestMerakiGetAllCountsEnvelopeRecords(",
      "min_count": 1,
      "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "data = cli.UnwrapMerakiEnvelopeArray(data)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/meraki_link_pagination.go",
+     "contains": "func UnwrapMerakiEnvelopeArray(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/meraki_execute_link_test.go",
+     "contains": "func TestCodeOrchExecuteCountsEnvelopeRecords(",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   },
   {
    "id": "meraki-row-keys-not-display-names",
-   "summary": "Mirror row keys for 31 resources the generator keyed on the display name \"name\" now use the real identity: device serial (switch-port, uplink-address, firmware-by-device, power/CPU/memory history, SSID status and other per-device views), the resource's own id (policyId, profileId, captureId, rulesetId(+ruleId), roleId, subscriptionId, clientId, floorPlanId), policy.id+groupId for intrusion rule groups, network.id+vlanId for VLAN assignments, networkId(+name) for per-network rows",
-   "why": "Round-5 adversarial review (2026-10-13): Meraki does not require unique names, so two switches both called \"Core Switch\" at different sites, same-named firewall rules, or \"Data\" VLANs in several networks collapsed into one local-mirror row with no warning - sync exited 0, and `search` returned the other switch's port config. Keys are set in both generated maps (internal/store/store.go and internal/cli/sync.go resourceIDFieldOverrides) and spec-encoded as x-resource-id in the factory's spec/spec-overlay.json so the next generate emits them natively. TestMerakiSameNameRowsStayDistinct fails on the generated maps (proven).",
+   "summary": "Mirror row keys for 31 resources the generator keyed on the display name \"name\" now use the real identity: device serial (switch-port, uplink-address, firmware-by-device, power/CPU/memory history, SSID status and other per-device views), the resource's own id (policyId, profileId, captureId, rulesetId(+ruleId), roleId, subscriptionId, clientId, floorPlanId), policy.id+groupId for intrusion rule groups, network.id+vlanId for VLAN assignments, networkId(+name) for per-network rows; round 6: intrusion rules on ruleId (not the Snort gid), the three group-policy assignment lists on assignmentId (not the foreign policyId), and keys that carried a mutable name or URL (XDR networks, campus-gateway connections/network overviews/SSIDs) or a timestamp+RSSI (sensor gateway connections) on their stable identity",
+   "why": "Round-5 adversarial review (2026-10-13): Meraki does not require unique names, so two switches both called \"Core Switch\" at different sites, same-named firewall rules, or \"Data\" VLANs in several networks collapsed into one local-mirror row with no warning - sync exited 0, and `search` returned the other switch's port config. Keys are set in both generated maps (internal/store/store.go and internal/cli/sync.go resourceIDFieldOverrides) and spec-encoded as x-resource-id in the factory's spec/spec-overlay.json so the next generate emits them natively. TestMerakiSameNameRowsStayDistinct fails on the generated maps (proven). Round-6 adversarial review (2026-10-14) found the same silent-merge class outside the name keys: gid is 1 for nearly every Snort rule, so an org's IPS rules collapsed to one row, and one policy assigned to several VLANs/rulesets/adaptive groups kept one assignment. A rename of a network or AP left a ghost row under the old name/URL. TestMerakiRowKeysAreOwnIdentity fails on the round-5 maps (proven: intrusion rules got IDs \"1\" and \"1\"); e2e against the documented-example stub with a duplicated fixture stores 6 rows (was 3) for each of the four resources, and a --full re-sync keeps 447 rows.",
    "status": "active",
    "spec_encode_followup": "Spec-encoded (x-resource-id on each GET in spec/spec-overlay.json). Press retro: never infer a row key from a display name.",
    "asserts": [
@@ -395,6 +413,96 @@
     {
      "file": "cli/internal/store/meraki_identity_test.go",
      "contains": "func TestMerakiSameNameRowsStayDistinct(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\"ruleId\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"ruleId\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\"assignmentId\",",
+     "min_count": 4,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"assignmentId\",",
+     "min_count": 4,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\"network.id+sensor.serial+gateway.serial\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_identity_test.go",
+     "contains": "func TestMerakiRowKeysAreOwnIdentity(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "meraki-export-link-pagination",
+   "summary": "export walks the Meraki Link header (startingAfter) for perPage-only resources and always bypasses the response cache, so `export organizations` returns every org once",
+   "why": "The generator classifies perPage-only endpoints as offset paging with no offset param. Once a page came back full (a key with 100+ orgs at perPage=100), export re-requested page one until its 100000-page cap, writing duplicates; a cached page also carries no Link header. Found by the round-6 adversarial review (2026-10-14). Helper merakiLinkReadConfig is hand-authored in internal/cli/meraki_link_pagination.go; the call sites in generated export.go are re-applied by the factory's tools/apply_handfixes.py. TestExportFollowsMerakiLinkHeader (250 orgs, 100 per page) fails on the generated export with 'export pagination exceeded 100000 pages' (proven).",
+   "status": "active",
+   "spec_encode_followup": "Not spec-encodable on press 4.33.5 (no response-header cursor support). Same press retro as meraki-link-pagination.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "config := merakiLinkReadConfig(resourceReadConfigFor(resource))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "linkCtx, linkPage := withLinkSink(cmd.Context())",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "if tok := linkPage.next(); tok != \"\" && nextCursor == \"\" {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/meraki_link_pagination.go",
+     "contains": "func merakiLinkReadConfig(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/meraki_export_link_test.go",
+     "contains": "func TestExportFollowsMerakiLinkHeader(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "meraki-sync-partial-exit",
+   "summary": "sync exits 0 when the only non-success results are warnings and rows were stored; 'completed with warnings but no successful syncs' fires only when nothing was stored",
+   "why": "A dependent resource whose parent list includes an org with API access disabled (a normal MSP case) is counted 'warned', never 'success', even after storing every other org's rows, so `sync --resources <dependent>` exited 1 with 'no successful syncs' - contradicting the sync help ('Exit 0 when at least one resource synced'). Found by the round-6 adversarial review (2026-10-14). Receipt: against the factory fake (Dormant Org 600003), `sync --resources organizations_devices_statuses` stored 7 rows and exited 1 before, exits 0 after; a warn-only run that stored nothing still exits 1. The edit in generated sync.go is re-applied by the factory's tools/apply_handfixes.py.",
+   "status": "active",
+   "spec_encode_followup": "Not spec-encodable; press retro: count a warned resource that stored rows toward the exit-0 rule.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "if warnCount > 0 && errCount == 0 && totalSynced == 0 {",
      "min_count": 1,
      "code_only": true
     }

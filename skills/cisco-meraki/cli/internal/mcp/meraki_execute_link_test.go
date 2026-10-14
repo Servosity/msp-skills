@@ -195,3 +195,30 @@ func TestCodeOrchExecuteTruncatedEnvelopeWithholdsCursor(t *testing.T) {
 		}
 	}
 }
+
+// TestCodeOrchExecuteCountsEnvelopeRecords guards the MCP execute twin of
+// meraki-sync-envelope-array: an [{items, meta}] page is counted as its
+// records, not as one envelope.
+func TestCodeOrchExecuteCountsEnvelopeRecords(t *testing.T) {
+	resetMCPPathEnv(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`[{"items":[{"serial":"Q1"},{"serial":"Q2"},{"serial":"Q3"}],"meta":{"counts":{"items":{"total":3,"remaining":0}}}}]`))
+	}))
+	defer srv.Close()
+	t.Setenv("CISCO_MERAKI_BASE_URL", srv.URL+"/api/v1")
+	t.Setenv("MERAKI_DASHBOARD_API_KEY", "test-key")
+	res, err := handleCodeOrchExecute(context.Background(), mcplib.CallToolRequest{Params: mcplib.CallToolParams{
+		Arguments: map[string]any{"endpoint_id": "organizations.wireless.get-organization-rf-profiles-assignments-by-device", "params": map[string]any{"organizationId": "1"}},
+	}})
+	if err != nil || res == nil || res.IsError {
+		t.Fatalf("execute failed: err=%v result=%+v", err, res)
+	}
+	var out map[string]any
+	if err := json.Unmarshal([]byte(res.Content[0].(mcplib.TextContent).Text), &out); err != nil {
+		t.Fatalf("result is not a JSON object: %v", err)
+	}
+	if out["count"] != float64(3) {
+		t.Fatalf("count = %v, want the 3 records inside the envelope; got %v", out["count"], out)
+	}
+}

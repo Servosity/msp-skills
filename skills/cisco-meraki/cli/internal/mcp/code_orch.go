@@ -12820,6 +12820,9 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 	if err != nil {
 		return mcplib.NewToolResultError(err.Error()), nil
 	}
+	if linkNext != nil {
+		data = cli.UnwrapMerakiEnvelopeArray(data) // pp:handfix meraki-sync-envelope-array
+	}
 	text := bound.EndpointResponse(ep.Method, data)
 	if linkNext != nil {
 		text = cli.AnnotateMerakiNextPage(text, linkNext(), codeOrchTakesPerPage(ep)) // pp:handfix meraki-mcp-execute-link-next

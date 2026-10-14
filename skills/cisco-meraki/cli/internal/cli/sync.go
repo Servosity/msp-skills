@@ -428,7 +428,9 @@ Resource scoping:
 				return errors.New(describeCriticalFailedResources(criticalErrCount, criticalFailedResources))
 			}
 			if successCount == 0 {
-				if warnCount > 0 && errCount == 0 {
+				// pp:handfix meraki-sync-partial-exit: a dependent whose dormant-org
+				// parents 404 is "warned" even after storing the other orgs' rows.
+				if warnCount > 0 && errCount == 0 && totalSynced == 0 {
 					return fmt.Errorf("%d resource(s) completed with warnings but no successful syncs", warnCount)
 				}
 				if errCount > 0 {
@@ -5540,13 +5542,13 @@ var resourceIDFieldOverrides = map[string]string{
 	"bluetooth-clients":     "id",
 	"clients":               "id",
 	"configuration_changes": "ts+adminId+page+label",
-	"integrations":          "networkId+name",
+	"integrations":          "networkId",
 	"inventory":             "serial",
 	"licenses":              "id",
 	"organizations":         "id",
 	"organizations_appliance_security_intrusion_policies":                              "policyId",
 	"organizations_appliance_security_intrusion_rule_groups":                           "policy.id+groupId",
-	"organizations_appliance_security_intrusion_rules":                                 "gid",
+	"organizations_appliance_security_intrusion_rules":                                 "ruleId",
 	"organizations_appliance_traffic_shaping_vpn_exclusions_by_network":                "networkId",
 	"organizations_appliance_uplink_statuses":                                          "serial",
 	"organizations_assurance_alerts":                                                   "id",
@@ -5555,9 +5557,9 @@ var resourceIDFieldOverrides = map[string]string{
 	"organizations_campus_gateway_clusters":                                            "clusterId",
 	"organizations_campus_gateway_clusters_failover_targets":                           "clusterId",
 	"organizations_campus_gateway_clusters_failover_targets_by_cluster":                "clusterId",
-	"organizations_campus_gateway_clusters_networks_overviews":                         "url",
-	"organizations_campus_gateway_clusters_ssids":                                      "url",
-	"organizations_campus_gateway_connections":                                         "url",
+	"organizations_campus_gateway_clusters_networks_overviews":                         "networkId",
+	"organizations_campus_gateway_clusters_ssids":                                      "ssidId",
+	"organizations_campus_gateway_connections":                                         "serial",
 	"organizations_campus_gateway_devices_system_cpu_load":                             "serial",
 	"organizations_devices":                                                            "serial",
 	"organizations_devices_availabilities":                                             "serial",
@@ -5578,16 +5580,16 @@ var resourceIDFieldOverrides = map[string]string{
 	"organizations_policies_global_firewall_rulesets":                                  "rulesetId",
 	"organizations_policies_global_firewall_rulesets_rules":                            "rulesetId+ruleId",
 	"organizations_policies_global_group_policies":                                     "policyId",
-	"organizations_policies_global_group_policies_adaptive_policy_groups_assignments":  "policyId",
-	"organizations_policies_global_group_policies_appliance_vlans_assignments":         "policyId",
+	"organizations_policies_global_group_policies_adaptive_policy_groups_assignments":  "assignmentId",
+	"organizations_policies_global_group_policies_appliance_vlans_assignments":         "assignmentId",
 	"organizations_policies_global_group_policies_appliance_vlans_assignments_by_vlan": "network.id+vlanId",
-	"organizations_policies_global_group_policies_firewall_rulesets_assignments":       "policyId",
+	"organizations_policies_global_group_policies_firewall_rulesets_assignments":       "assignmentId",
 	"organizations_policies_global_group_policies_networks_assignments":                "assignmentId",
 	"organizations_policy_objects":                                                     "id",
 	"organizations_policy_objects_groups":                                              "id",
 	"organizations_sase_networks_eligible":                                             "networkId",
 	"organizations_sase_sites":                                                         "siteId",
-	"organizations_sensor_gateways_connections_latest":                                 "lastReportedAt+rssi",
+	"organizations_sensor_gateways_connections_latest":                                 "network.id+sensor.serial+gateway.serial",
 	"organizations_sm_admins_roles":                                                    "roleId",
 	"organizations_switch_ports_by_switch":                                             "serial",
 	"organizations_switch_ports_clients_overview_by_device":                            "serial",

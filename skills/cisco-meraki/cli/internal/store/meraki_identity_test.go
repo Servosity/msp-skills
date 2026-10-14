@@ -67,3 +67,44 @@ func TestMerakiSameNameRowsStayDistinct(t *testing.T) {
 		}
 	}
 }
+
+// TestMerakiRowKeysAreOwnIdentity extends meraki-row-keys-not-display-names to
+// the generator's other non-identity picks: intrusion rules keyed on the Snort
+// generator id (gid is 1 for nearly every rule), policy assignments keyed on
+// the foreign policyId, and keys that carry a mutable name or URL (a rename
+// left a ghost row). Rows that differ only in their own id stay distinct;
+// a row whose name or URL changed keeps its id.
+func TestMerakiRowKeysAreOwnIdentity(t *testing.T) {
+	decode := func(s string) map[string]any {
+		var m map[string]any
+		if err := json.Unmarshal([]byte(s), &m); err != nil {
+			t.Fatal(err)
+		}
+		return m
+	}
+	distinct := []struct{ resource, a, b string }{
+		{"organizations_appliance_security_intrusion_rules", `{"gid":1,"sid":57556,"ruleId":"r-A"}`, `{"gid":1,"sid":58556,"ruleId":"r-B"}`},
+		{"organizations_policies_global_group_policies_appliance_vlans_assignments", `{"policyId":"p1","assignmentId":"a1","interfaceId":"i1"}`, `{"policyId":"p1","assignmentId":"a2","interfaceId":"i2"}`},
+		{"organizations_policies_global_group_policies_firewall_rulesets_assignments", `{"policyId":"p1","assignmentId":"a1","rulesetId":"rs1"}`, `{"policyId":"p1","assignmentId":"a2","rulesetId":"rs2"}`},
+		{"organizations_policies_global_group_policies_adaptive_policy_groups_assignments", `{"policyId":"p1","assignmentId":"a1","adaptivePolicyGroupId":"g1"}`, `{"policyId":"p1","assignmentId":"a2","adaptivePolicyGroupId":"g2"}`},
+	}
+	for _, p := range distinct {
+		ida, idb := ExtractResourceID(p.resource, decode(p.a)), ExtractResourceID(p.resource, decode(p.b))
+		if ida == "" || idb == "" || ida == idb {
+			t.Fatalf("%s: distinct rows got IDs %q and %q, want two distinct IDs", p.resource, ida, idb)
+		}
+	}
+	stable := []struct{ resource, a, b string }{
+		{"integrations", `{"networkId":"N_1","name":"Test network"}`, `{"networkId":"N_1","name":"Test network RENAMED"}`},
+		{"organizations_campus_gateway_connections", `{"serial":"Q1","url":"https://n1.meraki.com/Old/n/x/manage/access_points/Q1/summary"}`, `{"serial":"Q1","url":"https://n1.meraki.com/New/n/x/manage/access_points/Q1/summary"}`},
+		{"organizations_campus_gateway_clusters_networks_overviews", `{"networkId":"N_1","url":"old"}`, `{"networkId":"N_1","url":"new"}`},
+		{"organizations_campus_gateway_clusters_ssids", `{"ssidId":"s1","url":"old"}`, `{"ssidId":"s1","url":"new"}`},
+		{"organizations_sensor_gateways_connections_latest", `{"lastReportedAt":"2026-10-01T00:00:00Z","rssi":-24,"network":{"id":"N_1"},"sensor":{"serial":"S1"},"gateway":{"serial":"G1"}}`, `{"lastReportedAt":"2026-10-02T00:00:00Z","rssi":-30,"network":{"id":"N_1"},"sensor":{"serial":"S1"},"gateway":{"serial":"G1"}}`},
+	}
+	for _, p := range stable {
+		ida, idb := ExtractResourceID(p.resource, decode(p.a)), ExtractResourceID(p.resource, decode(p.b))
+		if ida == "" || ida != idb {
+			t.Fatalf("%s: the same row after a rename got IDs %q and %q, want one stable ID", p.resource, ida, idb)
+		}
+	}
+}

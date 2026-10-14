@@ -498,6 +498,38 @@ func merakiResultTruncation(obj map[string]any) (total, returned int, cut bool) 
 	return -1, -1, false
 }
 
+// merakiLinkReadConfig is hand-wired (handfixes.json:
+// meraki-export-link-pagination). The generator classifies perPage-only
+// endpoints as offset paging with no offset param, so `export organizations`
+// re-requested page one forever once a page came back full. Meraki pages them
+// by the Link header's startingAfter cursor.
+func merakiLinkReadConfig(c resourceReadConfig) resourceReadConfig {
+	if c.limitParam == "perPage" && c.cursorParam == "" {
+		c.paginationType, c.cursorParam = "cursor", merakiCursorParam
+	}
+	return c
+}
+
+// UnwrapMerakiEnvelopeArray is the MCP execute twin of merakiUnwrapEnvelopeArray
+// (handfixes.json: meraki-sync-envelope-array): an [{items, meta}] page is
+// returned and counted as its records, so count is not 1 per envelope. Any
+// other shape comes back unchanged.
+func UnwrapMerakiEnvelopeArray(data json.RawMessage) json.RawMessage {
+	var elems []json.RawMessage
+	if json.Unmarshal(data, &elems) != nil {
+		return data
+	}
+	inner, ok := merakiUnwrapEnvelopeArray(elems)
+	if !ok {
+		return data
+	}
+	b, err := json.Marshal(inner)
+	if err != nil {
+		return data
+	}
+	return b
+}
+
 // merakiUnwrapEnvelopeArray is hand-wired (handfixes.json:
 // meraki-sync-envelope-array). Several Meraki list reads (RF profile
 // assignments by device, floor-plan auto-locate, SM sentry assignments,

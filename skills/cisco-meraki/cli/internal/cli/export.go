@@ -56,9 +56,10 @@ large datasets as it has no memory pressure.`,
 			if err != nil {
 				return err
 			}
-			if noCache {
-				c.NoCache = true
-			}
+			// pp:handfix meraki-export-link-pagination: a cached page has no Link
+			// header, so the walk would stop at page one; --no-cache is implied.
+			c.NoCache = true
+			_ = noCache
 
 			path, err := resourceReadPath(resource)
 			if err != nil {
@@ -102,7 +103,7 @@ large datasets as it has no memory pressure.`,
 				return nil
 			}
 
-			config := resourceReadConfigFor(resource)
+			config := merakiLinkReadConfig(resourceReadConfigFor(resource)) // pp:handfix meraki-export-link-pagination
 			allItems := []json.RawMessage{}
 			var singlePayload json.RawMessage
 			count, page, cursor := 0, 0, ""
@@ -115,7 +116,8 @@ large datasets as it has no memory pressure.`,
 				if !singleItem && config.paginationType != "" {
 					params = resourcePageParams(config, cursor, page, remaining)
 				}
-				data, err := c.Get(cmd.Context(), path, params)
+				linkCtx, linkPage := withLinkSink(cmd.Context()) // pp:handfix meraki-export-link-pagination
+				data, err := c.Get(linkCtx, path, params)
 				if err != nil {
 					return classifyAPIError(cmd.OutOrStdout(), err, flags)
 				}
@@ -131,6 +133,9 @@ large datasets as it has no memory pressure.`,
 					break
 				}
 				items, nextCursor, hasMore := extractResourcePage(data, config)
+				if tok := linkPage.next(); tok != "" && nextCursor == "" { // pp:handfix meraki-export-link-pagination
+					nextCursor, hasMore = tok, true
+				}
 				if items == nil {
 					items = []json.RawMessage{data}
 				}
