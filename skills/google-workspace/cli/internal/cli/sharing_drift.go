@@ -276,7 +276,7 @@ func newNovelSharingDriftCmd(flags *rootFlags) *cobra.Command {
 					what := r.Setting
 					switch r.Kind {
 					case "external_share":
-						what = fmt.Sprintf("%d shares -> %s", r.Count, strings.Join(r.Targets, ","))
+						what = fmt.Sprintf("%d file(s) -> %s", r.Count, strings.Join(r.Targets, ","))
 					case "public_link":
 						what = strings.Join(r.Files, ",") + " -> " + r.To
 					case "setting_change":

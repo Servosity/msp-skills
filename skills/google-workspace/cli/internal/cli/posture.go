@@ -63,8 +63,10 @@ func rollupPosture(t gwsTenant, users []dirUser, licenses []licenseAssignment, s
 			p.AdminsWithout2SV++
 		}
 	}
+	coverage := 0.0 // unrounded: 1,899 of 2,000 is below 95%, though it displays as 95.0
 	if p.ActiveUsers > 0 {
-		p.TwoSVEnrolledPct = float64(int(float64(enrolled)/float64(p.ActiveUsers)*1000+0.5)) / 10
+		coverage = float64(enrolled) / float64(p.ActiveUsers) * 100
+		p.TwoSVEnrolledPct = float64(int(coverage*10+0.5)) / 10
 	}
 	for _, s := range staleLicensesFor(t.Name, licenses, users, now, inactiveDays, graceDays) {
 		p.StaleLicenses++
@@ -85,7 +87,7 @@ func rollupPosture(t gwsTenant, users []dirUser, licenses []licenseAssignment, s
 			p.Reasons = append(p.Reasons, reason)
 		}
 	}
-	warn(p.ActiveUsers > 0 && p.TwoSVEnrolledPct < minPct, fmt.Sprintf("2SV coverage %.1f%% < %.0f%%", p.TwoSVEnrolledPct, minPct))
+	warn(p.ActiveUsers > 0 && coverage < minPct, fmt.Sprintf("2SV coverage %.2f%% < %g%%", coverage, minPct))
 	warn(p.StaleLicenses > 0, fmt.Sprintf("%d stale licence(s)", p.StaleLicenses))
 	warn(settingEdits > 0, fmt.Sprintf("%d setting change(s) (Drive, Calendar, app sharing)", settingEdits))
 	return p

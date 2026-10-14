@@ -2570,7 +2570,7 @@
   {
    "id": "novel-review-round16-small",
    "summary": "oauth-apps leaves archived (non-suspended) accounts out of the --max-users count; a fan-out --tenants value that names no tenant (',,') is refused instead of scanning nothing and reporting no findings; likewise --products and --events values that name nothing (round 17); --tenants acme,acme queries a tenant once; sharing-drift counts distinct files (doc_id), not events; posture validates its thresholds like stale-licenses (round 20)",
-   "why": "Found by the onboard Codex review (round 16, P2s). Archived users cannot use apps but were listed by isSuspended=false, so 900 active plus 200 archived accounts failed the default cap as 1100 active users. '--tenants ,,' parsed into zero targets and printed 'No findings'. TestEmptyTenantsSelectorRefused. oauth_apps.go and gws_fanout.go are NOVEL files. Round 17 (Codex P2): stale-licenses/posture/offboard --products and login-alerts --events had the same empty-list success; listProductLicenses (shared by all three licence readers) and login-alerts refuse it. Round 18 (Codex + adversarial P1): the round-17 --events check tested want after the loop had deleted every valid name, so every valid list was refused; it now refuses only when the list names nothing, and TestLoginAlertsEventsSelector drives valid, empty and unknown lists. offboard refuses an empty --products before any step runs. Round 20 (Codex P2): duplicate --tenants names doubled counts; sharing-drift counted share events while the docs promise files, so re-sharing one file counted twice and repeated titles took sample slots; posture accepted --inactive-days -1 and a NaN --min-2sv-pct. Each fix fails its test when reverted.",
+   "why": "Found by the onboard Codex review (round 16, P2s). Archived users cannot use apps but were listed by isSuspended=false, so 900 active plus 200 archived accounts failed the default cap as 1100 active users. '--tenants ,,' parsed into zero targets and printed 'No findings'. TestEmptyTenantsSelectorRefused. oauth_apps.go and gws_fanout.go are NOVEL files. Round 17 (Codex P2): stale-licenses/posture/offboard --products and login-alerts --events had the same empty-list success; listProductLicenses (shared by all three licence readers) and login-alerts refuse it. Round 18 (Codex + adversarial P1): the round-17 --events check tested want after the loop had deleted every valid name, so every valid list was refused; it now refuses only when the list names nothing, and TestLoginAlertsEventsSelector drives valid, empty and unknown lists. offboard refuses an empty --products before any step runs. Round 20 (Codex P2): duplicate --tenants names doubled counts; sharing-drift counted share events while the docs promise files, so re-sharing one file counted twice and repeated titles took sample slots; posture accepted --inactive-days -1 and a NaN --min-2sv-pct. Each fix fails its test when reverted. Round 21 (Codex P2 + adversarial P2): files are identified by doc_id (pinned, with a same-title test), the human table says file(s) not shares, and posture compares unrounded 2SV coverage (1,899 of 2,000 displays as 95.0 but is below a 95% threshold).",
    "status": "active",
    "spec_encode_followup": "Factory-side: port into novel/oauth_apps.go and novel/gws_fanout.go.",
    "asserts": [
@@ -2665,6 +2665,30 @@
     {
      "file": "cli/internal/cli/gws_novel_test.go",
      "contains": "func TestPostureThresholdsValidated(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sharing_drift.go",
+     "contains": "doc := a.param(i, \"doc_id\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sharing_drift.go",
+     "contains": "what = fmt.Sprintf(\"%d file(s) -> %s\", r.Count, strings.Join(r.Targets, \",\"))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/posture.go",
+     "contains": "warn(p.ActiveUsers > 0 && coverage < minPct,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_novel_test.go",
+     "contains": "again[1].Events[0].Parameters[1].Value = \"d2\"",
      "min_count": 1,
      "code_only": true
     }

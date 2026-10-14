@@ -161,6 +161,11 @@ func TestSharingDriftParsers(t *testing.T) {
 	if ex := externalShares("a", again, 5); len(ex) != 1 || ex[0].Count != 1 || len(ex[0].Files) != 1 || ex[0].Time != "2026-10-04T10:00:00Z" {
 		t.Fatalf("re-sharing one file counts once: %+v", ex)
 	}
+	// Files are identified by doc_id: two files with one title are two files.
+	again[1].Events[0].Parameters[1].Value = "d2"
+	if ex := externalShares("a", again, 5); len(ex) != 1 || ex[0].Count != 2 {
+		t.Fatalf("distinct doc_ids sharing a title are two files: %+v", ex)
+	}
 	pl := publicLinks("a", acts)
 	if len(pl) != 1 || pl[0].To != "public_on_the_web" {
 		t.Fatalf("public links: %+v", pl)
@@ -335,6 +340,14 @@ func TestRollupPosture(t *testing.T) {
 	users[0].IsEnrolledIn2Sv = true
 	if p := rollupPosture(gwsTenant{Name: "a"}, users, nil, 0, testNow, 60, 14, 95); p.Status != "ok" || p.TwoSVEnrolledPct != 100 {
 		t.Fatalf("clean tenant should be ok: %+v", p)
+	}
+	// The threshold compares unrounded coverage: 1,899 of 2,000 is 94.95%.
+	many := make([]dirUser, 2000)
+	for i := range many {
+		many[i] = dirUser{PrimaryEmail: fmt.Sprintf("u%d@a.example.com", i), IsEnrolledIn2Sv: i < 1899, LastLoginTime: ts(1), CreationTime: ts(400)}
+	}
+	if p := rollupPosture(gwsTenant{Name: "a"}, many, nil, 0, testNow, 60, 14, 95); p.Status != "warn" || p.TwoSVEnrolledPct != 95 {
+		t.Fatalf("94.95%% coverage must warn at a 95%% threshold: %+v", p)
 	}
 }
 
