@@ -31,6 +31,11 @@ func doctorAuthConfiguredState(cfg *config.Config) (bool, string) {
 	if cfg != nil && cfg.CredentialConfigured() {
 		return true, cfg.AuthSource
 	}
+	// hand-fix (handfixes.json auth-status-tracks-binding): a client ID +
+	// secret pair mints on first call, so it is configured, as auth status says.
+	if canMint, _ := client.AuthState(cfg); canMint {
+		return true, cfg.AuthSource
+	}
 	if doctorAuthConfiguredHook != nil {
 		return doctorAuthConfiguredHook()
 	}
@@ -323,7 +328,8 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 
 					// Step 2: Validate credentials with an authenticated probe.
 					authHeader := cfg.AuthHeader()
-					if authHeader == "" {
+					canMint, _ := client.AuthState(cfg)
+					if authHeader == "" && !canMint {
 						// No auth configured — skip credential validation
 					} else if errors.Is(reachErr, client.ErrTokenBoundElsewhere) {
 						report["credentials"] = fmt.Sprintf("ERROR %s", reachErr)

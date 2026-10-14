@@ -300,7 +300,8 @@ func newAuthSetTokenCmd(flags *rootFlags) *cobra.Command {
 			// OAuth flow, so clear the saved client pair even when an env var
 			// overrides it; a leftover client_id would refuse this token.
 			cfg.MarkCredentialsExplicit(true, true)
-			if err := cfg.SaveTokens("", "", token, "", cfg.TokenExpiry); err != nil {
+			// The pasted token's lifetime is unknown; never inherit the old expiry.
+			if err := cfg.SaveTokens("", "", token, "", time.Time{}); err != nil {
 				return configErr(fmt.Errorf("saving token: %w", err))
 			}
 			savePath := credentialSavePath(cfg)

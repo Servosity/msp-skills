@@ -1766,7 +1766,8 @@ func AuthState(cfg *config.Config) (canMint, boundElsewhere bool) {
 		return false, false
 	}
 	id, secret := resolveClientCredentials(cfg)
-	canMint = id != "" && secret != ""
+	canMint = id != "" && secret != "" &&
+		!authHeaderLooksLikePlaceholderCredential(id) && !authHeaderLooksLikePlaceholderCredential(secret)
 	return canMint, !canMint && (&Client{Config: cfg}).tokenBoundElsewhere()
 }
 
@@ -1809,11 +1810,12 @@ func (c *Client) needsClientCredentialsMint() bool {
 func resolveClientCredentials(cfg *config.Config) (string, string) {
 	id := cfg.ClientID
 	secret := cfg.ClientSecret
+	// EnvOverride, like config.Load: an unresolved MCPB ${...} template is unset.
 	if id == "" {
-		id = os.Getenv("THREATDOWN_CLIENT_ID")
+		id = cliutil.EnvOverride("THREATDOWN_CLIENT_ID")
 	}
 	if secret == "" {
-		secret = os.Getenv("THREATDOWN_CLIENT_SECRET")
+		secret = cliutil.EnvOverride("THREATDOWN_CLIENT_SECRET")
 	}
 	// Trimmed like auth login, so the token binding it records matches.
 	return strings.TrimSpace(id), strings.TrimSpace(secret)

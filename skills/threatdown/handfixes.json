@@ -453,8 +453,8 @@
   },
   {
    "id": "diag-log-is-endpoint-action",
-   "summary": "endpoints diag-log (a GET that makes the endpoint generate a diagnostic log) is marked Mutating in the MCP code-orchestration table, so THREATDOWN_MCP_READ_ONLY=1 refuses it through threatdown_execute; the CLI command no longer carries mcp:read-only; and its signed download URL is never written to the HTTP response cache (IsSecretBearingPath), so every call reaches the endpoint.",
-   "why": "Found by the round-4 adversarial review and the Codex branch review (2026-10-14). The generated read-only gate allowed every GET, so a 'reporting agent' MCP server could make client endpoints generate logs, which governance.md tiers as an Endpoint action. The response is a signed S3 URL that was cached at rest and served on a repeat call without asking the endpoint again. code_orch.go, endpoints_diag-log.go and secretfields' caller are regenerated on a reprint; TestCodeOrchExecuteReadOnlyRefusesNonGET in code_orch_writebody_test.go fails if diag-log stops being refused.",
+   "summary": "endpoints diag-log (a GET that makes the endpoint generate a diagnostic log) is marked Mutating in the MCP code-orchestration table, so THREATDOWN_MCP_READ_ONLY=1 refuses it through threatdown_execute; the CLI command no longer carries mcp:read-only; and its signed download URL is never written to the HTTP response cache (IsSecretBearingPath), so every call reaches the endpoint. The CLI command sends it through GetMutating too (never served from the response cache, never retried after an ambiguous failure).",
+   "why": "Found by the round-4 adversarial review and the Codex branch review (2026-10-14). The generated read-only gate allowed every GET, so a 'reporting agent' MCP server could make client endpoints generate logs, which governance.md tiers as an Endpoint action. The response is a signed S3 URL that was cached at rest and served on a repeat call without asking the endpoint again. code_orch.go, endpoints_diag-log.go and secretfields' caller are regenerated on a reprint; TestCodeOrchExecuteReadOnlyRefusesNonGET in code_orch_writebody_test.go fails if diag-log stops being refused. Codex review round 5 (2026-10-14): the CLI still sent it through the read path, so a dropped response replayed the request (TestDiagLogIsNeverRetried: 4 API hits before, 1 after).",
    "status": "active",
    "spec_encode_followup": "Needs a spec extension the press honors for side-effecting GETs (mark the operation mutating) so the gate, cache bypass and MCP hint follow by construction.",
    "asserts": [
@@ -481,6 +481,17 @@
     {
      "file": "cli/internal/cli/endpoints_diag-log.go",
      "not_contains": "\"mcp:read-only\": \"true\""
+    },
+    {
+     "file": "cli/internal/cli/endpoints_diag-log.go",
+     "contains": "data, err := c.GetMutating(cmd.Context(), path, params)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/diag_log_once_test.go",
+     "contains": "func TestDiagLogIsNeverRetried(",
+     "min_count": 1
     }
    ]
   },
@@ -634,8 +645,8 @@
   },
   {
    "id": "auth-status-tracks-binding",
-   "summary": "`auth status` reports whether THIS process can authenticate: a complete client ID + secret pair (env or saved) counts as authenticated ('minted on first call'), and a cached token bound to a different OAuth client, scope or token URL with no secret to mint a replacement reports authenticated:false, token_bound_elsewhere:true and exits 4 (client.ErrTokenBoundElsewhere), the same verdict doctor gives.",
-   "why": "Adversarial review round 8 (2026-10-14): the generated status only checked that a token was cached. With a saved admin login and THREATDOWN_CLIENT_ID=reporting it printed authenticated:true while every API call exited 4; on a fresh home with a valid env ID + secret pair it printed authenticated:false and told the user to export variables that were already exported. An agent gating on `auth status --json` either walked into exit-4 failures or asked the user for credentials they had already given. A reprint regenerates the cached-token-only check.",
+   "summary": "`auth status` reports whether THIS process can authenticate: a complete client ID + secret pair (env or saved) counts as authenticated ('minted on first call'), and a cached token bound to a different OAuth client, scope or token URL with no secret to mint a replacement reports authenticated:false, token_bound_elsewhere:true and exits 4 (client.ErrTokenBoundElsewhere), the same verdict doctor gives. Placeholder values and unresolved MCPB ${...} templates never count as a pair (resolveClientCredentials reads the env through cliutil.EnvOverride, like config.Load), and doctor uses the same AuthState, so the two never disagree.",
+   "why": "Adversarial review round 8 (2026-10-14): the generated status only checked that a token was cached. With a saved admin login and THREATDOWN_CLIENT_ID=reporting it printed authenticated:true while every API call exited 4; on a fresh home with a valid env ID + secret pair it printed authenticated:false and told the user to export variables that were already exported. An agent gating on `auth status --json` either walked into exit-4 failures or asked the user for credentials they had already given. A reprint regenerates the cached-token-only check. Round 9 (2026-10-14) found the twin: doctor still said 'Auth: not configured' on a fresh home with a valid env pair, and AuthState called placeholder or ${...} values mintable. TestAuthStatusAndDoctorAgreeOnEnvPairs covers all three cases for both commands.",
    "status": "active",
    "spec_encode_followup": "Have the press auth-status template consult the same token-binding and client-credentials resolution the client uses before minting.",
    "asserts": [
@@ -655,13 +666,36 @@
      "file": "cli/internal/cli/auth_status_binding_test.go",
      "contains": "func TestAuthStatusTracksTokenBinding(",
      "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "!authHeaderLooksLikePlaceholderCredential(id) && !authHeaderLooksLikePlaceholderCredential(secret)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "id = cliutil.EnvOverride(\"THREATDOWN_CLIENT_ID\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "if canMint, _ := client.AuthState(cfg); canMint {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth_status_binding_test.go",
+     "contains": "func TestAuthStatusAndDoctorAgreeOnEnvPairs(",
+     "min_count": 1
     }
    ]
   },
   {
    "id": "set-token-clears-saved-client",
-   "summary": "`auth set-token` calls cfg.MarkCredentialsExplicit(true, true) before SaveTokens(\"\", \"\", ...), so it clears the saved client ID and secret even while THREATDOWN_CLIENT_ID is exported.",
-   "why": "Adversarial review round 8 (2026-10-14): after a flag-form `auth login`, running set-token with THREATDOWN_CLIENT_ID exported kept client_id in credentials.toml (the env-overridden field fell back to the file value). Every later process then refused the new unbound token with 'issued for a different OAuth client' until `auth logout`, contradicting governance.md (a set-token token is used while no client is configured).",
+   "summary": "`auth set-token` calls cfg.MarkCredentialsExplicit(true, true) before SaveTokens(\"\", \"\", ...), so it clears the saved client ID and secret even while THREATDOWN_CLIENT_ID is exported. It also saves a zero expiry, since the pasted token's lifetime is unknown.",
+   "why": "Adversarial review round 8 (2026-10-14): after a flag-form `auth login`, running set-token with THREATDOWN_CLIENT_ID exported kept client_id in credentials.toml (the env-overridden field fell back to the file value). Every later process then refused the new unbound token with 'issued for a different OAuth client' until `auth logout`, contradicting governance.md (a set-token token is used while no client is configured). Round 9: it used to keep the replaced OAuth token's expiry, so auth status showed a past 'Expires:' for a working token.",
    "status": "active",
    "spec_encode_followup": "Have the press set-token template clear both client-credential halves explicitly instead of through env-override-filtered fields.",
    "asserts": [
@@ -674,6 +708,54 @@
     {
      "file": "cli/internal/cli/auth_status_binding_test.go",
      "contains": "func TestSetTokenClearsSavedClientUnderEnvID(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "cfg.SaveTokens(\"\", \"\", token, \"\", time.Time{})",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth_status_binding_test.go",
+     "contains": "func TestSetTokenDoesNotInheritOldExpiry(",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "mcp-local-file-sources-blocked",
+   "summary": "The MCP shell-out gate blocks local file SOURCE flags (--input, --notes-file, --playbook-file, --playbook-notes-file) the way the press already blocks destination flags: they are dropped from every tool's schema and refused as arguments, including in read-only mode.",
+   "why": "Codex review round 5 (2026-10-14), P1: the MCP server runs the companion CLI as the server account, and teach_playbook forwarded notes-file, so {\"query\":\"x\",\"notes-file\":\"/proc/self/environ\"} read the inherited OneView client secret and MCP bearer token into the learn store, and playbook_list returned it, even with THREATDOWN_MCP_READ_ONLY=1. The same class covered teach --playbook-file / --playbook-notes-file, teach-playbook --playbook-file and import --input. Press 4.33.5 blocks only write destinations, so a reprint reopens it. TestNoMCPToolTakesALocalFilePath walks the live registered tool surface (it fails on any of the four names or on flag help that names a local path), and TestTeachPlaybookRefusesNotesFile proves the path is never forwarded; both fail with the four names removed.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: block local file source flags in the generated MCP shell-out gate, and classify path flags by usage text (see skills/huntress mcp-filesystem-destination-gate).",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "\"notes-file\":          true,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "\"playbook-notes-file\": true,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "\"input\":               true,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/local_file_sources_test.go",
+     "contains": "func TestNoMCPToolTakesALocalFilePath(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/mcp/local_file_sources_test.go",
+     "contains": "func TestTeachPlaybookRefusesNotesFile(",
      "min_count": 1
     }
    ]

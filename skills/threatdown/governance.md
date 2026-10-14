@@ -108,6 +108,9 @@ triage tools keep working. Read-only mode still allows other GET calls, includin
 tamper-protection password reads (`GET /v1/policies/{id}/secret`,
 `GET /v1/sites/{id}/secret`), so do not hand a read-only MCP server to an agent you
 would not trust with those passwords.
+MCP tools never take a local file path: `--input`, `--notes-file`, `--playbook-file`
+and `--playbook-notes-file` are refused, so the server account cannot be pointed at a
+file to read. MCP agents pass playbooks and notes inline; run `import` from the CLI.
 
 ## How to lock it down
 

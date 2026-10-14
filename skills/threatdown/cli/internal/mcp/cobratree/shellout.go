@@ -240,6 +240,14 @@ var blockedDestinationFlags = map[string]bool{
 	"output-dir":   true,
 	"output-file":  true,
 	"receipt-file": true,
+	// hand-fix (handfixes.json mcp-local-file-sources-blocked): local file
+	// SOURCES too. A path flag read by the server account let a tool call
+	// pull any file it can reach (/proc/self/environ, credentials.toml)
+	// into the learn store, then out through playbook_list.
+	"input":               true,
+	"notes-file":          true,
+	"playbook-file":       true,
+	"playbook-notes-file": true,
 }
 
 // confirmationBypassYesFlag is the root flag that skips a command's own

@@ -51,9 +51,16 @@ func newEndpointsDiagLogCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 			params := map[string]string{}
-			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "endpoints", false, path, params, nil, "", cmd.ErrOrStderr())
+			// hand-fix (handfixes.json diag-log-is-endpoint-action): this GET
+			// makes the endpoint generate a log, so send it like a write - never
+			// served from the response cache, never retried - as the MCP does.
+			data, err := c.GetMutating(cmd.Context(), path, params)
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
+			}
+			prov := attachFreshness(DataProvenance{Source: "live"}, flags)
+			if isDryRunResponse(c.IsDryRun(), data) {
+				prov = attachFreshness(DataProvenance{Source: "dry-run"}, flags)
 			}
 			outputData := data
 			// Print provenance to stderr for human-facing output only.
