@@ -326,7 +326,7 @@
   },
   {
    "id": "token-bound-to-client",
-   "summary": "A client-credentials token is saved with token_binding, a fingerprint of the client ID, scope and token URL it was minted for (config.TokenBindingFor). tokenBoundElsewhere is true when the current process's client ID, THREATDOWN_OAUTH_SCOPE or token URL give a different fingerprint, or the token is unbound (auth set-token) while client credentials are configured; then the client mints its own token, and when it has no secret to mint with, authHeader returns an error instead of the cached token. validateCachedRequestAuth resolves the token first so a response cached under another client's token is never served. resolveClientCredentials trims like auth login. auth login records the binding, auth set-token clears it. Round 6 (2026-10-14): the refusal is the typed client.ErrTokenBoundElsewhere, which exits with the auth code 4 and which doctor reports as a credentials error (the API is not probed); an unbound token yields to a client ID or a secret (either one); and config.Load never pairs an environment client ID with the secret saved for a different client in credentials.toml.",
+   "summary": "A client-credentials token is saved with token_binding, a fingerprint of the client ID, scope and token URL it was minted for (config.TokenBindingFor). tokenBoundElsewhere is true when the current process's client ID, THREATDOWN_OAUTH_SCOPE or token URL give a different fingerprint, or the token is unbound (auth set-token) while client credentials are configured; then the client mints its own token, and when it has no secret to mint with, authHeader returns an error instead of the cached token. validateCachedRequestAuth resolves the token first so a response cached under another client's token is never served. resolveClientCredentials trims like auth login. auth login records the binding, auth set-token clears it. Round 6 (2026-10-14): the refusal is the typed client.ErrTokenBoundElsewhere, which exits with the auth code 4 and which doctor reports as a credentials error (the API is not probed); an unbound token yields to a client ID or a secret (either one); and config.Load never pairs an environment client ID with the secret saved for a different client in credentials.toml. Round 7 (2026-10-14): auth login given either flag saves the exact client pair it minted with, and save() keeps the saved pair in its snapshot so a second mint in one process (tail --follow, a long sync) does not write it back empty.",
    "why": "Found by the round-4 adversarial review and the Codex branch review (2026-10-14). Every process run as the same OS user shares one credentials.toml, and the generated needsClientCredentialsMint checked only token presence and expiry. So an MCP server configured with a separate read-only OAuth client (and THREATDOWN_OAUTH_SCOPE=read) reused the admin's cached execute token and issued an isolation job through threatdown_execute, with no token request of its own; the README's 'the CLI can only do what that client is permitted to do' was false. A reprint regenerates client.go, config.go, credentials.go and auth.go and silently reverts this while go build and go test stay green. Round 5 (adversarial + Codex, 2026-10-14) found the first version failed open: a process with a client ID but no secret, or only THREATDOWN_OAUTH_SCOPE set, still used the admin token; a GET cache hit (keyed on the cached token) served the other client's data before authHeader ran; and an unbound token outranked configured credentials. internal/client/token_binding_test.go (both tests) fails with any of these guards removed.",
    "status": "active",
    "spec_encode_followup": "Generator defect: the press's client-credentials cache should key the token on the client ID and scope.",
@@ -427,6 +427,26 @@
     {
      "file": "cli/internal/client/token_binding_test.go",
      "contains": "func TestSetTokenYieldsToAnyClientCredential(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "explicit := clientIDFromFlag || clientSecretFromFlag\n\t\t\tcfg.MarkCredentialsExplicit(explicit, explicit)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "persisted.ClientID, persisted.ClientSecret = savedID, savedSecret",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/env_client_secret_test.go",
+     "contains": "func TestRepeatedSavesKeepSavedClientPair(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth_login_pair_test.go",
+     "contains": "func TestAuthLoginSavesThePairItUsed(",
      "code_only": true
     }
    ]

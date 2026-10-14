@@ -37,9 +37,10 @@ Power Automate or Logic Apps `sig=` link), treat the CLI's data directory as hol
 **What is stored on disk.** After a successful token request the CLI caches the bearer
 token and its expiry in a private `credentials.toml` (file mode 0600) under the CLI's
 data directory. A client ID and secret taken from the environment are not written there;
-they are read again each time a new token is needed. `auth login --client-id ...
---client-secret ...` does save both in that file, so later runs can request new tokens
-with no environment variables until you run `threatdown-cli auth logout`. The cached
+they are read again each time a new token is needed. `auth login` given `--client-id`
+or `--client-secret` saves the client ID and secret it used in that file (including a
+half taken from the environment), so later runs can request new tokens with no
+environment variables until you run `threatdown-cli auth logout`. The cached
 token is reused only by a process with the same client ID, scope and token URL; a
 process configured with a different OAuth client or `THREATDOWN_OAUTH_SCOPE` requests
 its own token, and one that has no client secret to do that stops with an error rather

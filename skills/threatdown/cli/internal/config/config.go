@@ -836,7 +836,12 @@ func (c *Config) save() error {
 	}
 	c.scrubLegacyCredentials()
 	if !c.AgentcookieManagedByExternalStore() {
+		// hand-fix (handfixes.json token-bound-to-client): the snapshot keeps
+		// the saved client pair, so a later save in this process restores it
+		// for env-overridden fields instead of writing it back empty.
+		savedID, savedSecret := persisted.ClientID, persisted.ClientSecret
 		persisted.clearCredentialFields()
+		persisted.ClientID, persisted.ClientSecret = savedID, savedSecret
 	}
 	c.fileConfig = &persisted
 	c.fileConfig.envOverrides = nil

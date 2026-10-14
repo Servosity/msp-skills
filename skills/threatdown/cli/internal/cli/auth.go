@@ -103,7 +103,11 @@ Credentials default to THREATDOWN_CLIENT_ID (Client ID) and THREATDOWN_CLIENT_SE
 			if tok.ExpiresIn > 0 {
 				expiry = time.Now().Add(time.Duration(tok.ExpiresIn) * time.Second)
 			}
-			cfg.MarkCredentialsExplicit(clientIDFromFlag, clientSecretFromFlag)
+			// hand-fix (handfixes.json token-bound-to-client): a login given either
+			// flag saves the exact pair it minted with, never one half beside the
+			// other half of a previously saved client.
+			explicit := clientIDFromFlag || clientSecretFromFlag
+			cfg.MarkCredentialsExplicit(explicit, explicit)
 			cfg.TokenBinding = config.TokenBindingFor(clientID, resolveClientCredentialsScopes(), tokenURL)
 			if err := cfg.SaveTokens(clientID, clientSecret, tok.AccessToken, "", expiry); err != nil {
 				return configErr(fmt.Errorf("saving token: %w", err))
