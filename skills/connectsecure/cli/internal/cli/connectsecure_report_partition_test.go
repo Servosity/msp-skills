@@ -56,6 +56,8 @@ func TestReportQueriesLocalReadReturnsOnlyThatReport(t *testing.T) {
 			_, _ = w.Write([]byte(`{"status":true,"data":[{"name":"RECEPTION","company_id":1,"object_guid":"g-pc-1"},{"name":"RECEPTION","company_id":2,"object_guid":"g-pc-2"}]}`))
 		case "/r/report_queries/registry_problems_remediation_asset_details":
 			_, _ = w.Write([]byte(`{"status":true,"data":[{"id":9001,"problem":"SMBv1 enabled"}]}`))
+		case "/r/report_queries/remediation_plan_by_company":
+			_, _ = w.Write([]byte(`{"status":true,"data":[{"solution_id":"SOL-1","product":"Google Chrome","company_id":1},{"solution_id":"SOL-2","product":"Mozilla Firefox","company_id":1}]}`))
 		case "/report_queries/ad_gpos_view":
 			_, _ = w.Write([]byte(`{"status":true,"data":[{"name":"Default Domain Policy","company_id":1,"object_guid":"g-gpo-1"}]}`))
 		default:
@@ -82,6 +84,7 @@ func TestReportQueriesLocalReadReturnsOnlyThatReport(t *testing.T) {
 	run("--no-cache", "--json", "report-queries", "ad-gpos-view")
 	run("--no-cache", "--json", "report-queries", "ad-computers-view")
 	run("--no-cache", "--json", "report-queries", "registry-problems-remediation-asset-details", "--asset-id", "55")
+	run("--no-cache", "--json", "report-queries", "remediation-plan-by-company", "--company-id", "1")
 	var got struct {
 		Results []map[string]any `json:"results"`
 	}
@@ -105,6 +108,16 @@ func TestReportQueriesLocalReadReturnsOnlyThatReport(t *testing.T) {
 	}
 	if len(got.Results) != 2 || got.Results[0]["name"] != "RECEPTION" || got.Results[1]["name"] != "RECEPTION" {
 		t.Fatalf("local ad-computers-view must return both clients' RECEPTION and nothing else, got %s", raw)
+	}
+	// Every row of a per-company report shares company_id; each of the
+	// client's remediation plans must survive (handfixes.json: per-client-report-keys).
+	got.Results = nil
+	raw = run("--json", "--data-source", "local", "report-queries", "remediation-plan-by-company", "--company-id", "1")
+	if err := json.Unmarshal(raw, &got); err != nil {
+		t.Fatalf("%v: %s", err, raw)
+	}
+	if len(got.Results) != 2 || got.Results[0]["solution_id"] == got.Results[1]["solution_id"] {
+		t.Fatalf("local remediation-plan-by-company must return both of the client's plans, got %s", raw)
 	}
 }
 

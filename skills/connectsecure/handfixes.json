@@ -1264,14 +1264,14 @@
   {
    "id": "per-client-report-keys",
    "status": "active",
-   "summary": "Report resources whose rows share a display name across clients are keyed by a per-client identity in both resourceIDFieldOverrides maps (store.go and sync.go): object_guid for AD OUs, GPOs and group computers; company_id (with compliance_id) for per-client rollups; name+value, solution_id, company_name+canonical_name, agent_id+name+version and host_name+ip+vul_id elsewhere.",
-   "why": "Codex round 14 / adversarial round 14 (2026-10-14): the generator keyed these by `name`, so `sync --full --resources report_queries-ad-ous-view` kept only the last client's 'Workstations' OU and exited 0 - and every AD domain carries a 'Default Domain Policy' GPO, so ad-gpos-view collapsed the same way. A row missing a key part falls back to the generic id chain (id, then name, the old behavior), so such rows can still collapse into one; host_name+ip+vul_id carries no port and no client, so a standardized build (the same host name and IP at two clients) still shares a row. Accepted as the residual (adversarial round 15, P2). TestPerClientReportRowsKeepDistinctIDs covers the family and TestSyncKeepsEveryClientsSameNamedOU the sync path; both fail with the maps reverted. risk-score and total-asset-count carry no per-client id in the spec and stay as they were (qbr and portfolio already flag shared client names).",
+   "summary": "Report resources whose rows share a display name across clients are keyed by a per-client identity in both resourceIDFieldOverrides maps (store.go and sync.go): object_guid for AD OUs, GPOs and group computers; company_id (with compliance_id) for per-client rollups; company_id+solution_id for remediation-plan-by-company; name+value, solution_id, company_name+canonical_name, agent_id+name+version and host_name+ip+vul_id elsewhere.",
+   "why": "Codex round 14 / adversarial round 14 (2026-10-14): the generator keyed these by `name`, so `sync --full --resources report_queries-ad-ous-view` kept only the last client's 'Workstations' OU and exited 0 - and every AD domain carries a 'Default Domain Policy' GPO, so ad-gpos-view collapsed the same way. A row missing a key part falls back to the generic id chain (id, then name, the old behavior), so such rows can still collapse into one; host_name+ip+vul_id carries no port and no client, so a standardized build (the same host name and IP at two clients) still shares a row. Accepted as the residual (adversarial round 15, P2). TestPerClientReportRowsKeepDistinctIDs covers the family and TestSyncKeepsEveryClientsSameNamedOU the sync path; both fail with the maps reverted. risk-score and total-asset-count carry no per-client id in the spec and stay as they were (qbr and portfolio already flag shared client names). Adversarial round 17 (2026-10-14): report-queries remediation-plan-by-company is a per-company report sync never fetches, so live write-through alone fills its partition (stored as report_queries_remediation_plan_by_company). With no override the suffix fallback keyed every row on company_id, which all of one client's rows share, so --data-source local and the auto api_unreachable fallback returned one of the client's N remediation plans with exit 0. Keyed by company_id+solution_id; TestReportQueriesLocalReadReturnsOnlyThatReport drives it through a stub pod and fails with the override removed (verified). A full spec-shaped scan of every report-queries leaf found no other multi-row collapse.",
    "asserts": [
     {
      "file": "cli/internal/store/store.go",
      "contains": "// Hand-fix (handfixes.json: per-client-report-keys)",
      "code_only": false,
-     "min_count": 14
+     "min_count": 15
     },
     {
      "file": "cli/internal/cli/sync.go",
@@ -1287,6 +1287,11 @@
     {
      "file": "cli/internal/cli/connectsecure_novel_test.go",
      "contains": "func TestSyncKeepsEveryClientsSameNamedOU(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\"report_queries_remediation_plan_by_company\":",
      "code_only": true
     }
    ]
@@ -1330,7 +1335,12 @@
     },
     {
      "file": "cli/internal/store/store.go",
-     "contains": "\"report_queries_ad_computers_view\":                                             \"object_guid\", // Hand-fix (handfixes.json: report-queries-own-partition)"
+     "contains": "\"report_queries_ad_computers_view\":",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "// Hand-fix (handfixes.json: report-queries-own-partition)"
     }
    ]
   },
