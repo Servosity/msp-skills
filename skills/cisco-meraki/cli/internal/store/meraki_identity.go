@@ -49,7 +49,9 @@ func merakiIdentityFallback(obj map[string]any, requireDevice bool) string {
 				// Unlike the composite override path, 0 is a real value here
 				// (SSID number 0 is the first SSID of every network).
 				if s := strings.TrimSpace(ResourceIDString(v)); s != "" && s != "<nil>" {
-					return s
+					// Scrubbed per part, so a receiver hash never swallows
+					// the parts (the timestamp) joined after it.
+					return ScrubMerakiURLSecrets(s)
 				}
 			}
 		}
@@ -94,7 +96,7 @@ func merakiNullableCompositeID(resourceType string, obj map[string]any) string {
 	for i, field := range fields {
 		if v, ok := lookupRawFieldValue(obj, field); ok {
 			if s := strings.TrimSpace(ResourceIDString(v)); s != "<nil>" {
-				values[i] = s
+				values[i] = ScrubMerakiURLSecrets(s)
 			}
 		}
 	}

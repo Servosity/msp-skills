@@ -397,26 +397,57 @@ func merakiBracketTag(t string) bool {
 	return t[0] == '[' && end > 1 && !strings.ContainsAny(t[1:end], `[{",:`)
 }
 
-// merakiURLSecretPattern matches a webhook HTTP server ID in a path (the ID is
-// the base64 of the receiver URL, "/" and "+" included; a Slack, Teams or
-// PagerDuty URL is a credential), as change-log labels and API request paths
-// carry it, and a url= query value (the webhook logs filter puts the receiver
-// URL in API request query strings), up to the end of the string.
-var merakiURLSecretPattern = regexp.MustCompile(`(?i)(/webhooks/httpServers/|(?:^|[?&"])url=)([^?#"\s]+)`)
+// merakiHTTPServerIDPattern matches a webhook HTTP server ID in a path: the ID
+// is the base64 of the receiver URL ("/" and "+" included; a Slack, Teams or
+// PagerDuty URL is a credential), and change-log labels and API request paths
+// carry it.
+var merakiHTTPServerIDPattern = regexp.MustCompile(`(?i)(/webhooks/httpServers/)([^?#&"\s]+)`)
+
+// merakiURLParamPattern matches a url= query parameter up to the next "&": the
+// webhook logs filter puts the receiver URL in API request query strings.
+var merakiURLParamPattern = regexp.MustCompile(`(?i)((?:^|[?&"])url=)([^&"\s]*)`)
+
+// merakiURLTailPattern is the rest of a url= value whose receiver URL was sent
+// unencoded: after a raw "?" or "#", every later "&" may be the receiver's own.
+var merakiURLTailPattern = regexp.MustCompile(`^[^"\s]*`)
+
+// merakiScrubbedPattern is a value this scrub already produced.
+var merakiScrubbedPattern = regexp.MustCompile(`^\[redacted(:[0-9a-f]{32})?\]`)
 
 // ScrubMerakiURLSecrets replaces webhook HTTP server IDs and url= query values
-// in s with "[redacted:<hash>]". The short hash keeps two receivers (and two
-// row IDs built from them) distinct without revealing either; an already
-// scrubbed value is left alone. fleet changes and fleet blame apply it to labels.
+// in s with "[redacted:<hash>]". The 128-bit hash keeps two receivers (and two
+// row IDs built from them) distinct without revealing either; other query
+// parameters survive, and an already scrubbed value is left alone. fleet
+// changes and fleet blame apply it to labels.
 func ScrubMerakiURLSecrets(s string) string {
-	return merakiURLSecretPattern.ReplaceAllStringFunc(s, func(m string) string {
-		parts := merakiURLSecretPattern.FindStringSubmatch(m)
-		if strings.HasPrefix(parts[2], "[redacted") {
-			return m
-		}
-		sum := sha256.Sum256([]byte(parts[2]))
-		return parts[1] + "[redacted:" + hex.EncodeToString(sum[:4]) + "]"
+	s = merakiHTTPServerIDPattern.ReplaceAllStringFunc(s, func(m string) string {
+		parts := merakiHTTPServerIDPattern.FindStringSubmatch(m)
+		return parts[1] + merakiRedactedHash(parts[2])
 	})
+	var b strings.Builder
+	for {
+		loc := merakiURLParamPattern.FindStringSubmatchIndex(s)
+		if loc == nil {
+			return b.String() + s
+		}
+		end := loc[5]
+		if strings.ContainsAny(s[loc[4]:end], "?#") {
+			end += len(merakiURLTailPattern.FindString(s[end:]))
+		}
+		b.WriteString(s[:loc[3]])
+		b.WriteString(merakiRedactedHash(s[loc[4]:end]))
+		s = s[end:]
+	}
+}
+
+// merakiRedactedHash is "[redacted:<128-bit sha256 prefix>]" for v, or v when
+// it is empty or already scrubbed.
+func merakiRedactedHash(v string) string {
+	if v == "" || merakiScrubbedPattern.MatchString(v) {
+		return v
+	}
+	sum := sha256.Sum256([]byte(v))
+	return "[redacted:" + hex.EncodeToString(sum[:16]) + "]"
 }
 
 func redactMerakiString(s string) string {

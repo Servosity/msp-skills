@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -303,5 +304,42 @@ func TestRound21ReceiverLeaks(t *testing.T) {
 	}
 	if len(ids) != 2 {
 		t.Fatalf("two webhook API requests collapsed into one row ID: %v", ids)
+	}
+}
+
+// TestCodexRound14ReceiverScrub: two webhook API requests whose scrubbed IDs
+// collided on a 32-bit hash prefix (the timestamp was hashed in with the
+// receiver), and a url= scrub that kept an unencoded receiver's ?code= and
+// dropped the parameters after an encoded one (Codex round 14).
+func TestCodexRound14ReceiverScrub(t *testing.T) {
+	b64 := base64.StdEncoding.EncodeToString([]byte("https://hooks.slack.com/services/T000/B000/" + merakiSentinel))
+	ids := map[string]bool{}
+	for _, ts := range []string{"2026-10-11T01:32:13Z", "2026-10-11T14:42:34Z"} {
+		row := map[string]any{"ts": ts, "adminId": "A1", "method": "PUT", "path": "/api/v1/networks/N_1/webhooks/httpServers/" + b64}
+		id := ExtractResourceID("api_requests", row)
+		if strings.Contains(id, b64) || !strings.HasSuffix(id, "+"+ts) {
+			t.Fatalf("api_requests ID lost its timestamp or kept the receiver: %q", id)
+		}
+		ids[id] = true
+	}
+	if len(ids) != 2 {
+		t.Fatalf("two webhook API requests collapsed into one row ID: %v", ids)
+	}
+	if got := ScrubMerakiURLSecrets("/webhooks/httpServers/" + b64); !regexp.MustCompile(`\[redacted:[0-9a-f]{32}\]$`).MatchString(got) {
+		t.Fatalf("receiver hash is not 128 bits: %s", got)
+	}
+	for in, want := range map[string]string{
+		"url=https://f.azurewebsites.net/api/test?code=" + merakiSentinel + "&clientId=" + merakiSentinel:           "",
+		"perPage=10&url=https://f.azurewebsites.net/api/test#" + merakiSentinel:                                     "perPage=10&url=",
+		"url=https%3A%2F%2Ff.azurewebsites.net%2Fapi%3Fcode%3D" + merakiSentinel + "&perPage=10&startingAfter=ABCD": "&perPage=10&startingAfter=ABCD",
+		`{"queryString":"url=https://x/` + merakiSentinel + `"}`:                                                    `"}`,
+	} {
+		got := ScrubMerakiURLSecrets(in)
+		if strings.Contains(got, merakiSentinel) || !strings.Contains(got, "[redacted:") || !strings.Contains(got, want) {
+			t.Fatalf("url= scrub: %q -> %q (want it to keep %q)", in, got, want)
+		}
+		if again := ScrubMerakiURLSecrets(got); again != got {
+			t.Fatalf("url= scrub is not idempotent: %q -> %q", got, again)
+		}
 	}
 }
