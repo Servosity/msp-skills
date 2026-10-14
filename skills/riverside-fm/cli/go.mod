@@ -1,6 +1,6 @@
 module riverside-fm-pp-cli
 
-go 1.26.6
+go 1.26.9
 
 require (
 	github.com/enetx/surf v1.0.199

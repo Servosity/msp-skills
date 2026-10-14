@@ -2,7 +2,7 @@ module connectwise-control-pp-cli
 
 go 1.26
 
-toolchain go1.26.6
+toolchain go1.26.9
 
 require (
 	github.com/enetx/http v1.0.28
