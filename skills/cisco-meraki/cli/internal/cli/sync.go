@@ -4480,9 +4480,9 @@ func dependentResourceDefs() []dependentResourceDef {
 		{Name: "organizations_switch_ports_usage_history_by_device_by_interval", ParentTable: "organizations", ParentIDParam: "organizationId", PathTemplate: "/organizations/{organizationId}/switch/ports/usage/history/byDevice/byInterval", KeyField: "", ReconcileMode: "per_parent", GenericScopeJSONPath: "$.organization", PathParams: []dependentPathParamDef{
 			{Param: "organizationId", Field: "id"},
 		}},
-		{Name: "organizations_webhooks", ParentTable: "organizations", ParentIDParam: "organizationId", PathTemplate: "/organizations/{organizationId}/webhooks/logs", KeyField: "", ReconcileMode: "none", GenericScopeJSONPath: "", PathParams: []dependentPathParamDef{
-			{Param: "organizationId", Field: "id"},
-		}},
+		// pp:handfix meraki-sync-skips-webhook-logs: each webhook delivery log
+		// row carries the receiver URL (a Slack, Teams or PagerDuty URL is a
+		// credential), so organizations_webhooks is never mirrored.
 		{Name: "organizations_wireless_air_marshal_rules", ParentTable: "organizations", ParentIDParam: "organizationId", PathTemplate: "/organizations/{organizationId}/wireless/airMarshal/rules", KeyField: "", ReconcileMode: "none", GenericScopeJSONPath: "", PathParams: []dependentPathParamDef{
 			{Param: "organizationId", Field: "id"},
 		}},

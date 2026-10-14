@@ -125,6 +125,10 @@ func TestChangeLogValuesNeverCarrySecrets(t *testing.T) {
 		`{"headers":[{"template":"Basic ` + merakiSentinel + `","name":"Authorization"},`,
 		`{"name":"Pushover","body":"{\"token\":\"` + merakiSentinel + `\",\"user\":\"u1\",\"message\":\"{{alertType}}`,
 		`{"headers":[{"template":"` + merakiSentinel + `","name":"X-Api-Ke`,
+		`{"name":"PagerDuty","body":"{\"routing_key\":\"` + merakiSentinel + `\",\"event_action\":\"trigger\"}"}`,
+		`{"api_key":"` + merakiSentinel + `","access_token":"` + merakiSentinel + `","accessToken":"` + merakiSentinel + `","privateKey":"` + merakiSentinel + `"}`,
+		`{"community_string":"` + merakiSentinel + `","v3_auth_pass":"` + merakiSentinel + `"}`,
+		`{"list":["{\"token\":\"` + merakiSentinel + `\"}"]}`,
 		`{"headers":[{"name":"x-functions-key","template":"` + merakiSentinel + `"},{"name":"Ocp-Apim-Subscription-Key","value":"` + merakiSentinel + `"},{"name":"X-Auth-Key","template":"` + merakiSentinel + `"}]}`,
 	} {
 		if got := RedactMerakiChangeValue("PUT /api/v1/networks/N_1/wireless/ssids/0", body); strings.Contains(got, merakiSentinel) {
@@ -149,8 +153,14 @@ func TestChangeLogValuesNeverCarrySecrets(t *testing.T) {
 	if got := RedactMerakiChangeValue("PUT /api/v1/networks/N_1/wireless/ssids/0", `{"name":"Lobby","psk":"`+merakiSentinel); got != RedactedCutOff {
 		t.Fatalf("cut-off JSON body not withheld whole: %s", got)
 	}
-	if got := RedactMerakiChangeValue("SSID name", "[Default] Guest"); got != "[Default] Guest" {
-		t.Fatalf("bracketed label treated as JSON: %s", got)
+	for _, name := range []string{"[Default] Guest", `[Cedar] "Clinic"`, "{{alertType}}", "[1, 2"} {
+		if got := RedactMerakiChangeValue("SSID name", name); got != name {
+			t.Fatalf("non-JSON value treated as JSON: %s -> %s", name, got)
+		}
+	}
+	// Webhook bodies are free-form templates: withheld whole by label.
+	if got := RedactMerakiChangeValue("PUT /api/v1/networks/N_1/webhooks/payloadTemplates/wpt_1", `{"name":"Push","body":"token=`+merakiSentinel+`&user=u1"}`); got != RedactedSecret {
+		t.Fatalf("webhook change value not withheld: %s", got)
 	}
 	// headersFile/bodyFile are base64; the secret never appears in clear.
 	headers := base64.StdEncoding.EncodeToString([]byte(`{"Authorization":"Bearer ` + merakiSentinel + `"}`))
@@ -170,6 +180,7 @@ func TestRedactKeepsCleanJSONByteForByte(t *testing.T) {
 		`{"id":12345678901234567890,"tags":["a","a"]}`,
 		`{"headers":[{"name":"Content-Type","template":"application/json"}],"details":[{"name":"Model","value":"MX68"}]}`,
 		`{"key":{"created":true},"n":1e400}`,
+		`{"licenseKey":"Z2KEEP","name":"[Cedar] \"Clinic\""}`,
 	} {
 		if got := string(RedactMerakiSecrets(json.RawMessage(body))); got != body {
 			t.Fatalf("clean JSON rewritten: %s -> %s", body, got)

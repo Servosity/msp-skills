@@ -19,9 +19,10 @@ import (
 // mirror, so the value must never be stored.
 const RedactedSecret = "[redacted]"
 
-// merakiSecretKeys are Dashboard API field names (lowercased) whose string
-// value is a credential. Keys ending in password/passphrase/secret/psk are
-// redacted by suffix as well, which covers authPassword, radiusSecret and
+// merakiSecretKeys are Dashboard API field names (lowercased, with "_", "-"
+// and spaces removed) whose string value is a credential. Keys ending in
+// password/passphrase/secret/psk/token/key are redacted by suffix as well,
+// which covers authPassword, radiusSecret, access_token, routing_key and
 // friends.
 var merakiSecretKeys = map[string]bool{
 	"apikey":               true,
@@ -30,6 +31,8 @@ var merakiSecretKeys = map[string]bool{
 	"communitystring":      true,
 	"contenttoken":         true,
 	"hashedtoken":          true,
+	"httpserverid":         true, // a webhook HTTP server ID is the base64 of its URL
+	"httpserverids":        true,
 	"headersfile":          true, // base64 webhook headers (Authorization)
 	"md5authenticationkey": true,
 	"parsedtoken":          true,
@@ -40,7 +43,7 @@ var merakiSecretKeys = map[string]bool{
 	"vppservicetoken":      true,
 }
 
-var merakiSecretSuffixes = []string{"password", "passphrase", "secret", "psk"}
+var merakiSecretSuffixes = []string{"password", "passphrase", "secret", "psk", "token", "key"}
 
 // merakiLicenseSiblings mark an object whose "key" is a license key, which the
 // mirror keeps on purpose (license audits); any other string "key" (Umbrella,
@@ -48,25 +51,30 @@ var merakiSecretSuffixes = []string{"password", "passphrase", "secret", "psk"}
 // GRE key) are not strings and are kept.
 var merakiLicenseSiblings = []string{"mode", "editions", "counts", "licenseType"}
 
+var merakiKeyNameNormalizer = strings.NewReplacer("-", "", "_", "", " ", "")
+
 func merakiSecretKey(name string, obj map[string]any) bool {
-	lower := strings.ToLower(name)
+	lower := merakiKeyNameNormalizer.Replace(strings.ToLower(name))
 	if merakiSecretKeys[lower] {
 		return true
 	}
-	for _, suffix := range merakiSecretSuffixes {
-		if strings.HasSuffix(lower, suffix) {
-			return true
-		}
+	if lower == "licensekey" {
+		return false // license keys are kept on purpose
 	}
-	if lower == "key" {
-		for _, sibling := range merakiLicenseSiblings {
-			if _, ok := obj[sibling]; ok {
-				return false
+	if lower != "key" {
+		for _, suffix := range merakiSecretSuffixes {
+			if strings.HasSuffix(lower, suffix) {
+				return true
 			}
 		}
-		return true
+		return false
 	}
-	return false
+	for _, sibling := range merakiLicenseSiblings {
+		if _, ok := obj[sibling]; ok {
+			return false
+		}
+	}
+	return true
 }
 
 // merakiSecretField reports whether obj[k] holds a credential: a secret-named
@@ -163,6 +171,13 @@ func redactMerakiValue(v any) (any, bool) {
 	case []any:
 		changed := false
 		for i, child := range tv {
+			if s, ok := child.(string); ok {
+				if next := RedactMerakiJSONString(s); next != s {
+					tv[i] = next
+					changed = true
+				}
+				continue
+			}
 			if next, ok := redactMerakiValue(child); ok {
 				tv[i] = next
 				changed = true
@@ -243,7 +258,10 @@ func merakiIDCarriesSecret(id string, obj map[string]any) bool {
 // ("Password expiration", "Minimum password length").
 func merakiSecretLabel(label string) bool {
 	l := strings.ToLower(label)
-	for _, w := range []string{"psk", "pre-shared", "preshared", "passphrase", "secret", "community", "api key", "authentication key", "shared key"} {
+	// "webhook": payload-template bodies and headers are free-form templates
+	// (a PagerDuty routing_key, a form-encoded token), and an HTTP server's
+	// URL and ID are credentials, so webhook change values are withheld whole.
+	for _, w := range []string{"psk", "pre-shared", "preshared", "passphrase", "secret", "community", "api key", "authentication key", "shared key", "webhook"} {
 		if strings.Contains(l, w) {
 			return true
 		}
@@ -321,10 +339,13 @@ func RedactMerakiJSONString(s string) string {
 		return s
 	}
 	if !json.Valid([]byte(t)) {
-		if strings.Contains(t, `"`) {
+		// JSON-looking means a key or string comes first ({", [", [{): a
+		// name such as `[Cedar] "Clinic"` or "[Default] Guest" is kept.
+		rest := strings.TrimLeft(t[1:], " \t\r\n")
+		if rest != "" && (rest[0] == '"' || ((rest[0] == '{' || rest[0] == '[') && strings.Contains(rest, `"`))) {
 			return RedactedCutOff
 		}
-		return s // "[Default] Guest" is a label, not JSON
+		return s
 	}
 	if out := RedactMerakiSecrets(json.RawMessage(t)); string(out) != t {
 		return string(out)

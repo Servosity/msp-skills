@@ -414,8 +414,13 @@ func cliArgsFromMCP(args map[string]any, blocked map[string]bool) []string {
 		// re-parsed as its own flag (bool flags do not consume the next token).
 		switch tv := v.(type) {
 		case bool:
+			// pp:handfix meraki-mcp-bool-false: an explicit false is sent, so
+			// a default-on flag (fleet renewals --include-expired) can be
+			// switched off from MCP.
 			if tv {
 				out = append(out, "--"+k)
+			} else {
+				out = append(out, "--"+k+"=false")
 			}
 		case float64:
 			out = append(out, "--"+k+"="+strconv.FormatFloat(tv, 'f', -1, 64))

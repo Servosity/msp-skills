@@ -33,7 +33,7 @@ All notable changes to this skill are documented here. Format follows
   arrays and `{items: [...]}` envelopes, and a truncated last page.
 - `sync` exits 0 on real orgs: rows with no id field (VPN and uplink statuses, packet
   loss and usage by device, network and SSID, sensor readings, wireless-controller
-  views, webhook and API request logs) are keyed on the network, device, SSID or
+  views, API request logs) are keyed on the network, device, SSID or
   client they describe; `[{items, meta}]` responses are unwrapped into their records;
   and a generated date-detection pattern no longer misreads timestamp-plus-serial
   keys as dates. Before, each such resource dropped every row and `sync` exited 1.
@@ -77,11 +77,17 @@ All notable changes to this skill are documented here. Format follows
   `sharedSecret`, SNMP community strings and v3 passwords, API keys and tokens, and the
   value of a header pair named like a credential, such as `Authorization` or
   `x-functions-key`, and the base64 webhook `headersFile` and `bodyFile`) is now
-  stored as `[redacted]`, a change-log value that is cut-off JSON is withheld whole
-  as `[redacted: cut-off JSON]`, and a credential is never used as a row ID (a newly generated
+  stored as `[redacted]`. Key names match with `_`, `-` and case ignored, and any key
+  ending in `token` or `key` counts (`api_key`, `access_token`, a PagerDuty
+  `routing_key`), except `licenseKey`. A change-log value that is cut-off JSON is
+  withheld whole as `[redacted: cut-off JSON]`, a webhook change's old and new values
+  (free-form payload templates, HTTP server URLs) are withheld whole, `sync` no longer
+  mirrors webhook delivery logs (each row carries the receiver URL), and a credential is never used as a row ID (a newly generated
   API key used to become one). Change-log old and new values, which carry an API
   change's whole request body, are redacted in the mirror and in `fleet changes` and
   `fleet blame` output. License keys are kept.
+- An MCP call can switch a default-on flag off: an explicit `false` is passed as
+  `--flag=false` (the MCP `fleet_renewals` tool's `include-expired` used to ignore it).
 - The MCP server refuses local-file flags (`--notes-file`, `--playbook-file`,
   `--playbook-notes-file`, `--input`), and the MCP `fleet_push` tool takes `body` only
   as inline JSON, so a tool call cannot make the server read a file of its choosing.

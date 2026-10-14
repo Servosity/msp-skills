@@ -1,7 +1,7 @@
 // Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 //
 // Hand-written (NOT generated): pinned by skills/cisco-meraki/handfixes.json
-// under "meraki-writes-not-mirrored".
+// under "meraki-writes-not-mirrored" and "meraki-sync-skips-webhook-logs".
 
 package cli
 
@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"cisco-meraki-pp-cli/internal/cliutil/testenv"
@@ -56,4 +57,14 @@ func TestWriteResponseIsNotMirrored(t *testing.T) {
 		}
 		return nil
 	})
+}
+
+// TestSyncSkipsWebhookLogs: every webhook delivery log row carries the
+// receiver URL, which for Slack, Teams or PagerDuty is a credential.
+func TestSyncSkipsWebhookLogs(t *testing.T) {
+	for _, d := range dependentResourceDefs() {
+		if strings.Contains(d.PathTemplate, "/webhooks/") {
+			t.Fatalf("sync mirrors %s (%s)", d.Name, d.PathTemplate)
+		}
+	}
 }

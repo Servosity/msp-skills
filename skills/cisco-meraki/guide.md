@@ -232,7 +232,7 @@ Resolve a client MAC to the org and network that owns it without guessing.
 cisco-meraki-cli fleet renewals --within 90d --csv
 ```
 
-Export license and end-of-support deadlines due within 90 days, plus overdue ones, across all orgs for quoting; add --include-expired=false to hide overdue items (CLI only: an MCP call cannot switch this default-on flag off, so filter out rows with negative days_remaining instead).
+Export license and end-of-support deadlines due within 90 days, plus overdue ones, across all orgs for quoting; add --include-expired=false to hide overdue items (over MCP, pass "include-expired": false).
 
 ### Preview a bulk SNMP change
 
