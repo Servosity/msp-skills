@@ -140,7 +140,7 @@ web** is remote-only - see the remote section below.)
 # Remote agents (expose the binary over HTTPS first)
 
 All remote agents need `google-workspace-mcp` reachable as a public **HTTPS** endpoint. Run it
-in HTTP mode (it listens on 127.0.0.1:7777 by default and refuses a non-loopback bind
+in HTTP mode (it serves `http://127.0.0.1:7777/mcp` by default and refuses a non-loopback bind
 without TLS, so do not pass `--addr :7777`). HTTP mode will not start without
 `GOOGLE_WORKSPACE_MCP_HTTP_TOKEN`, and every caller must send it as an
 `Authorization: Bearer` header. `GOOGLE_WORKSPACE_MCP_READ_ONLY=1` is strongly
@@ -150,9 +150,9 @@ recommended for anything reachable from outside your machine:
 GOOGLE_WORKSPACE_MCP_HTTP_TOKEN=<a long random secret> GOOGLE_WORKSPACE_MCP_READ_ONLY=1 google-workspace-mcp --transport http
 ```
 
-Then expose `http://localhost:7777` as a public HTTPS URL via a secure tunnel
+Then expose the local listener as a public HTTPS URL via a secure tunnel
 (Cloudflare Tunnel, ngrok) or your own reverse proxy, and point connectors at the
-`/mcp` path of that URL. The tunnel must rewrite the Host header to `localhost`:
+`/mcp` path of that URL (locally, `http://localhost:7777/mcp`). The tunnel must rewrite the Host header to `localhost`:
 the server rejects a request that reaches it over loopback with any other Host
 (HTTP 403, its protection against DNS rebinding). With Cloudflare that is
 `cloudflared tunnel --url http://localhost:7777 --http-host-header localhost`. **Treat that

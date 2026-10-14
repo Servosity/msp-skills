@@ -57,7 +57,11 @@ func secretFieldName(k string) bool {
 	return strings.HasSuffix(k, "token") && !strings.HasSuffix(k, "pagetoken") && !strings.HasSuffix(k, "synctoken")
 }
 
-var queryParamPattern = regexp.MustCompile(`([?&])([A-Za-z0-9_.%-]+)=([^&\s"'#]*)`)
+// queryParamPattern matches name=value after ?, & or a JSON/HTML-escaped &
+// (\u0026, &amp;); the value may open with a quote or an escaped quote.
+var queryParamPattern = regexp.MustCompile(`(&amp;|\\u0026|[?&])([A-Za-z0-9_.%-]+)=(\\?["']?)([^&\s"'#\\]*)`)
+
+var userinfoPasswordPattern = regexp.MustCompile(`(://[^/\s:@'"]+:)[^@\s/'"]+@`)
 
 // redactSecretQueryParams masks the value of every secret-named query
 // parameter in text (URLs inside error messages, dry-run lines, bodies).
@@ -68,11 +72,17 @@ func redactSecretQueryParams(text string) string {
 	return queryParamPattern.ReplaceAllStringFunc(text, func(m string) string {
 		parts := queryParamPattern.FindStringSubmatch(m)
 		name, err := url.QueryUnescape(parts[2])
-		if err != nil || parts[3] == "" || !secretFieldName(name) {
+		if err != nil || parts[4] == "" || !secretFieldName(name) {
 			return m
 		}
-		return parts[1] + parts[2] + "=[redacted]"
+		return parts[1] + parts[2] + "=" + parts[3] + "[redacted]"
 	})
+}
+
+// RedactURLSecrets masks secret-named query parameters and any userinfo
+// password (https://user:pass@host) in URLs inside s.
+func RedactURLSecrets(s string) string {
+	return userinfoPasswordPattern.ReplaceAllString(redactSecretQueryParams(s), "${1}[redacted]@")
 }
 
 // redactChannelToken masks the token Google echoes back in a watch response

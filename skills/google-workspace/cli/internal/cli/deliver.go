@@ -7,6 +7,7 @@ package cli
 import (
 	"bytes"
 	"fmt"
+	"google-workspace-pp-cli/internal/client"
 	"google-workspace-pp-cli/internal/cliutil"
 	"net/http"
 	"os"
@@ -37,7 +38,7 @@ func ParseDeliverSink(spec string) (DeliverSink, error) {
 	}
 	idx := strings.Index(spec, ":")
 	if idx == -1 {
-		return DeliverSink{}, fmt.Errorf("unknown --deliver sink %q: expected scheme:target (supported: stdout, file:<path>, webhook:<url>)", spec)
+		return DeliverSink{}, fmt.Errorf("unknown --deliver sink %q: expected scheme:target (supported: stdout, file:<path>, webhook:<url>)", client.RedactURLSecrets(spec))
 	}
 	scheme := spec[:idx]
 	target := spec[idx+1:]
@@ -48,7 +49,7 @@ func ParseDeliverSink(spec string) (DeliverSink, error) {
 		}
 	case "webhook":
 		if !strings.HasPrefix(target, "http://") && !strings.HasPrefix(target, "https://") {
-			return DeliverSink{}, fmt.Errorf("--deliver webhook:<url> requires an http:// or https:// URL, got %q", target)
+			return DeliverSink{}, fmt.Errorf("--deliver webhook:<url> requires an http:// or https:// URL, got %q", client.RedactURLSecrets(target))
 		}
 	default:
 		return DeliverSink{}, fmt.Errorf("unknown --deliver scheme %q (supported: stdout, file, webhook)", scheme)
@@ -143,7 +144,9 @@ func deliverWebhook(url string, body []byte, compact bool) error {
 	httpClient := &http.Client{Timeout: 30 * time.Second}
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("posting to webhook: %w", err)
+		// Hand-fix (handfixes.json deliver-errors-mask-url-secrets): the
+		// transport error carries the full webhook URL.
+		return fmt.Errorf("posting to webhook: %s", client.RedactURLSecrets(err.Error()))
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 400 {

@@ -197,7 +197,8 @@ func Execute() (retErr error) {
 	envelopeWritten := writeCredentialSaveErrorEnvelope(envelopeWriter, &flags, err)
 	if envelopeWritten && flags.deliverBuf != nil {
 		if derr := Deliver(flags.deliverSink, flags.deliverBuf.Bytes(), flags.compact); derr != nil {
-			fmt.Fprintf(os.Stderr, "warning: deliver to %s:%s failed: %v\n", flags.deliverSink.Scheme, flags.deliverSink.Target, derr)
+			// Hand-fix (handfixes.json deliver-errors-mask-url-secrets).
+			fmt.Fprintf(os.Stderr, "warning: deliver to %s:%s failed: %s\n", flags.deliverSink.Scheme, client.RedactURLSecrets(flags.deliverSink.Target), client.RedactURLSecrets(derr.Error()))
 		}
 	}
 	if err != nil && strings.Contains(err.Error(), "unknown flag") {
@@ -226,7 +227,8 @@ func Execute() (retErr error) {
 	}
 	if err == nil && flags.deliverBuf != nil {
 		if derr := Deliver(flags.deliverSink, flags.deliverBuf.Bytes(), flags.compact); derr != nil {
-			fmt.Fprintf(os.Stderr, "warning: deliver to %s:%s failed: %v\n", flags.deliverSink.Scheme, flags.deliverSink.Target, derr)
+			// Hand-fix (handfixes.json deliver-errors-mask-url-secrets).
+			fmt.Fprintf(os.Stderr, "warning: deliver to %s:%s failed: %s\n", flags.deliverSink.Scheme, client.RedactURLSecrets(flags.deliverSink.Target), client.RedactURLSecrets(derr.Error()))
 			return derr
 		}
 	}

@@ -909,7 +909,7 @@
   {
    "id": "dry-run-redacts-secrets",
    "summary": "Secret-named query parameters are masked everywhere the client masks credential text (error URLs, dry-run lines, bodies), and --dry-run body previews redact every non-empty, non-boolean secret-named field (password, secret, private key, API key, *token except page/sync tokens)",
-   "why": "The generated dry-run printer wrote the request body verbatim to stderr, so previewing 'users patch <email> --password ...' put the password into the terminal and into agent transcripts. Found by the onboard Codex review (round 5, P1); receipt: the real binary's dry-run of users patch --password prints \"password\": \"[redacted]\" and the value appears nowhere in stdout or stderr. Round 6 (Codex): query parameters were still printed verbatim (subscriptions insert --customer-auth-token showed the transfer token; P1, also fleet-wide generated code), and the body rule hid the changePasswordAtNextLogin boolean (P2). Receipt: the dry-run now prints ?customerAuthToken=[redacted]. Round 7 (Codex, P1, fleet): a failed request's error message carried the full URL, so MCP execute of subscriptions.insert returned customerAuthToken verbatim; redactSecretQueryParams now runs inside maskCredentialText, which every error, URL and body passes through (receipt: the MCP error reads ?customerAuthToken=[redacted]). The adversarial reviewer also noted string-only body redaction let a numeric password or a 'Secrets' custom-schema object through; only booleans stay visible now. Round 8 (Codex, P1, fleet): the dry-run body bypassed maskCredentialText, so users watch --address 'https://hooks.example/?token=...' printed the webhook secret; the body text now goes through the mask (HTML escaping off so & stays literal), printing ?token=[redacted].",
+   "why": "The generated dry-run printer wrote the request body verbatim to stderr, so previewing 'users patch <email> --password ...' put the password into the terminal and into agent transcripts. Found by the onboard Codex review (round 5, P1); receipt: the real binary's dry-run of users patch --password prints \"password\": \"[redacted]\" and the value appears nowhere in stdout or stderr. Round 6 (Codex): query parameters were still printed verbatim (subscriptions insert --customer-auth-token showed the transfer token; P1, also fleet-wide generated code), and the body rule hid the changePasswordAtNextLogin boolean (P2). Receipt: the dry-run now prints ?customerAuthToken=[redacted]. Round 7 (Codex, P1, fleet): a failed request's error message carried the full URL, so MCP execute of subscriptions.insert returned customerAuthToken verbatim; redactSecretQueryParams now runs inside maskCredentialText, which every error, URL and body passes through (receipt: the MCP error reads ?customerAuthToken=[redacted]). The adversarial reviewer also noted string-only body redaction let a numeric password or a 'Secrets' custom-schema object through; only booleans stay visible now. Round 8 (Codex, P1, fleet): the dry-run body bypassed maskCredentialText, so users watch --address 'https://hooks.example/?token=...' printed the webhook secret; the body text now goes through the mask (HTML escaping off so & stays literal), printing ?token=[redacted]. Round 11 (Codex, P1): the value pattern stopped at a quote, so ?token='SECRET' (and a JSON-escaped \\\"SECRET\\\") slipped through, and \\u0026 / &amp; separators were not recognised; the pattern now allows an opening (escaped) quote and those separators, and RedactURLSecrets also masks a userinfo password (https://user:pass@host).",
    "status": "active",
    "spec_encode_followup": "Press-side: redact secret-named fields in the generated dry-run body printer fleet-wide.",
    "asserts": [
@@ -944,7 +944,7 @@
     },
     {
      "file": "cli/internal/client/client.go",
-     "contains": "text = redactSecretQueryParams(text)",
+     "contains": "text = RedactURLSecrets(text)",
      "min_count": 1,
      "code_only": true
     },
@@ -963,6 +963,12 @@
     {
      "file": "cli/internal/client/client.go",
      "contains": "c.maskCredentialText(buf.String(), authHeader)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/dryrun_redact.go",
+     "contains": "func RedactURLSecrets(",
      "min_count": 1,
      "code_only": true
     }
@@ -1144,6 +1150,33 @@
     {
      "file": "cli/internal/client/dryrun_redact.go",
      "contains": "masked := redactSecretQueryParams(address)",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "deliver-errors-mask-url-secrets",
+   "summary": "--deliver errors (bad sink spec, non-http target, failed webhook POST, and the root warning) print the target through client.RedactURLSecrets",
+   "why": "The generated deliver path echoed the full webhook URL, including a ?token= query secret or a user:pass@ password, in its warning and error text on any failure, even before a request was made. --deliver is already blocked over MCP, so this is the CLI user's own terminal and logs. Found by the onboard Codex review (round 11, P1; fleet-wide generated code). Receipt: a failed delivery to webhook:https://user:pw@127.0.0.1:9/cb?token=... prints user:[redacted]@ and ?token=[redacted], 0 secret hits.",
+   "status": "active",
+   "spec_encode_followup": "Press-side (fleet): mask URL secrets in the generated deliver error paths.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "client.RedactURLSecrets(flags.deliverSink.Target)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "client.RedactURLSecrets(err.Error())",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "client.RedactURLSecrets(target)",
      "min_count": 1,
      "code_only": true
     }

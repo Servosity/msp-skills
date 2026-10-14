@@ -51,6 +51,17 @@ func TestRedactSecretQueryParams(t *testing.T) {
 	if !strings.Contains(out, "pageToken=p2") || !strings.Contains(out, "customer=my_customer") {
 		t.Fatalf("non-secret parameters must stay: %s", out)
 	}
+	for _, tc := range []string{
+		`?token='quoted-SECRET'`,
+		`{"address":"https://x/?token=\"esc-SECRET\""}`,
+		`https://x/cb?a=1\u0026token=json-SECRET`,
+		`https://x/cb?a=1&amp;token=html-SECRET`,
+		`https://user:pass-SECRET@hooks.example/cb`,
+	} {
+		if got := RedactURLSecrets(tc); strings.Contains(got, "SECRET") {
+			t.Errorf("secret survived: %s -> %s", tc, got)
+		}
+	}
 	c := New(&config.Config{BaseURL: "https://example.invalid"}, time.Second, 0)
 	if got := c.maskCredentialText(in); strings.Contains(got, "xfer-SECRET") {
 		t.Fatalf("maskCredentialText must mask secret query parameters: %s", got)
