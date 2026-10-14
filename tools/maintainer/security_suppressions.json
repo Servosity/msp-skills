@@ -460,6 +460,56 @@
       "file": "skills/google-workspace/cli/internal/store/store.go",
       "rule": "G202",
       "reason": "google-workspace only (generated, printing-press 4.33.5). loadParentKeyLegacyBatch concatenates bareWhere, which parentKeyLegacyBareWhere builds solely from the generated constant map resourceParentKeyColumns (sorted, each name single-quote-escaped); the cursor values afterType/afterID are passed as bound ? parameters. No user or API input reaches the SQL text."
+    },
+    {
+      "file": "skills/fortinet/cli/internal/cli/store_adopt_darwin.go",
+      "rule": "unsafe-import",
+      "reason": "fortinet (generated, printing-press 4.33.5; first connector on this engine). darwin-only (//go:build darwin && (amd64 || arm64)) guard used before the CLI renames a legacy credential-scoped store (data-<legacyHash>.db and its -wal/-shm/-journal siblings, see adoptLegacyScopedStore/claimClosedStore) to its new scoped name: it asks the kernel via the proc_info syscall (unix.Syscall6) whether any other process holds those files open. unsafe is used only to hand a Go-allocated buffer (int32 PID list, proc_fdinfo array, vnode_fdinfowithpath struct) and its unsafe.Sizeof length to the kernel to fill; no pointer arithmetic, no conversion of foreign memory, buffer growth is bounded (n < 1<<20). Failure handling is best-effort, not uniformly fail-closed: an unreadable PID list, an unreadable own descriptor, or (for files with any group/world permission bit set, Mode & 0o077) another process's unreadable descriptor list declines the rename, while a failed per-descriptor vnode lookup on another process is skipped. Local process-table metadata only; no network, tool-call or API input reaches it. Repo-relative, scoped to fortinet; widen to cli/... when more connectors reach 4.33.5."
+    },
+    {
+      "file": "skills/fortinet/cli/internal/cli/store_adopt_darwin.go",
+      "rule": "msp-unsafe-import",
+      "reason": "fortinet (generated, printing-press 4.33.5). Same import as the unsafe-import entry above (semgrep's rule). Vetted for the same reason: unsafe only passes bounded Go buffers to the darwin proc_info syscall for the legacy-store rename guard; no pointer arithmetic or foreign-memory conversion."
+    },
+    {
+      "file": "skills/fortinet/cli/internal/cli/store_adopt_darwin.go",
+      "rule": "G115",
+      "reason": "fortinet (generated, printing-press 4.33.5). Integer conversions in the darwin store-adoption guard, of two kinds. Syscall selectors: int32 PIDs and descriptor numbers that proc_info itself returned are widened (int(pid), uint64(fd)) to name the process and descriptor for the next proc_info query; a value the kernel handed back cannot select memory outside the kernel-checked call. Identity comparison: the device number from unix.Fstat (Darwin dev_t is a signed int32) is converted with uint32(self.Dev), preserving its bits, to compare against the proc_info vnode st_dev (uint32). None sizes an allocation or indexes a Go slice."
+    },
+    {
+      "file": "skills/fortinet/cli/internal/cli/store_adopt_darwin.go",
+      "rule": "G304",
+      "reason": "fortinet (generated, printing-press 4.33.5). claimClosedStore os.Opens paths from legacyStoreAdoptPaths(legacy): the CLI's own legacy store data-<legacyHash>.db under its resolved data directory plus its -wal, -shm and -journal siblings, opened read-only only to compare inode/device against other processes' descriptors. The path is built from the data dir and a hash the CLI computes; no tool-call or API value reaches it."
+    },
+    {
+      "file": "skills/fortinet/cli/internal/cli/store_adopt_linux.go",
+      "rule": "G304",
+      "reason": "fortinet only (generated, printing-press 4.33.5). Linux twin of the store_adopt_darwin.go G304 entry above: gosec sees this file only when the gate runs with GOOS=linux, as CI does. store_adopt_linux.go is byte-identical in the cisco-duo, connectwise-rmm, fortinet, google-workspace and threatdown trees (verified by checksum). Both flagged opens are in pinClosedStoreFile, which claimClosedStore calls for each path from legacyStoreAdoptPaths(legacy): the CLI's own legacy store data-<legacyHash>.db in its resolved data directory (legacyHash is the first 12 hex characters of a SHA-256 the CLI computes) plus whichever of the fixed SQLite sidecars -wal, -shm and -journal exist. os.OpenFile uses os.O_RDWR with no O_CREATE or O_TRUNC, so it cannot create or truncate a file; the writable descriptor exists only to take an F_SETLEASE write lease, which the kernel refuses while any other descriptor has the file open. The os.Open fallback is read-only and runs only when no writable descriptor is available, to compare inode/device against /proc/<pid>/fd entries. Nothing is read from or written through either descriptor, and both are closed on release. The directory is the user's own data directory, which they can relocate with --home or the CLI's data-directory environment variables; no API, MCP, tool-call or tenant input reaches the path. The file's other reads (os.ReadDir of /proc and /proc/<pid>/fd, os.ReadFile of /proc/<pid>/status) use fixed /proc paths with a PID that strconv.Atoi parsed from the /proc listing."
+    },
+    {
+      "file": "skills/fortinet/cli/internal/cli/helpers.go",
+      "rule": "G304",
+      "reason": "fortinet (generated, printing-press 4.33.5). claimLegacyUnscopedDB reads the '<data dir>/data.db.owner' marker it publishes itself (hard-linked, so it cannot appear empty). Path is filepath.Join(<resolved data dir>, \"data.db\") + \".owner\"; no tool-call or API value reaches it."
+    },
+    {
+      "file": "skills/fortinet/cli/internal/store/store.go",
+      "rule": "G202",
+      "reason": "fortinet (generated, printing-press 4.33.5). The parent-key legacy migration concatenates bareWhere into SELECT/CREATE INDEX text. bareWhere is built by parentKeyLegacyBareWhere from the compile-time resourceParentKeyColumns map keys (generated resource-type names), each single-quoted with '' escaping into a resource_type IN (...) literal list; the table name is the fixed `resources`; no runtime or API value reaches it, and the remaining values (cursor type/id) are bound with ? placeholders."
+    },
+    {
+      "file": "skills/fortinet/cli/cmd/fortinet-mcp/main.go",
+      "rule": "G101",
+      "reason": "fortinet (generated, printing-press 4.33.5). gosec G101 false-positive on the constant NAME 'httpTokenEnvVar' (the 'Token' substring). Its value is the NAME of an environment variable (FORTINET_MCP_HTTP_TOKEN), not a credential; the token is read at runtime via os.Getenv and never appears in the source. Same class as the datagate, zammad, huntress, datto-bcdr, wordpress and sentinelone entries."
+    },
+    {
+      "file": "skills/fortinet/cli/internal/fortimgr/client.go",
+      "rule": "disabled-tls-verify",
+      "reason": "fortinet (hand-authored FortiManager client). InsecureSkipVerify is set ONLY inside `if insecure`. newFMGClient (internal/cli/fortinet_fmg.go) sets insecure from the global --insecure flag, FORTINET_SKIP_TLS_VERIFY=true (which therefore disables verification for FortiManager as well as FortiGates), or FORTINET_FMG_INSECURE=true: FortiManager ships a factory self-signed certificate. Default is full verification, the URL must be https, and the client sends only the read-only JSON-RPC 'get' method. With verification off the API key is exposed to an on-path attacker, which is why this stays an explicit opt-in and never an install prompt (env_schema_internal.json waivers). Same explicit opt-in posture as fortinet_tls.go (FortiGate); unlike some connectors, nothing turns verification off automatically for private or loopback hosts."
+    },
+    {
+      "file": "skills/fortinet/cli/internal/fortimgr/client.go",
+      "rule": "msp-insecure-skip-verify",
+      "reason": "fortinet. Same call site as the disabled-tls-verify entry above (semgrep's rule): explicit --insecure, FORTINET_SKIP_TLS_VERIFY or FORTINET_FMG_INSECURE opt-in only; default verifies."
     }
   ]
 }
