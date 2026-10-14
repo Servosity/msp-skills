@@ -568,6 +568,46 @@ A: No. CIPP stays your portal for deep single-tenant work. This skill adds the c
 
 Governance: The skill drives the cipp-cli and cipp-mcp binaries, authenticating to your self-hosted CIPP instance with a bearer token from CIPP_API_KEY (obtained via OAuth2 client credentials - 'auth login' performs and caches the exchange) read from the environment, never logged or sent anywhere except the CIPP API. CIPP is a read-write management API: read and rollup commands change nothing; bulk prints its plan and only writes with --execute; everything else (create/edit/offboard/delete, MFA and token actions) sends on run unless you pass --dry-run first. The real permission boundary is the scope you grant the API client in CIPP, so keep autonomous agents to reads plus previewed writes.
 
+### Cisco Meraki (Network Monitoring)
+
+Page: https://msp-skills.compoundingteams.com/skills/cisco-meraki/
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cisco-meraki/install.sh)
+
+Cisco Meraki plus your AI answers the questions that span every client org at once: what is down right now and since when, which licenses and hardware hit their end date this quarter, who changed what across all orgs this week, and which change landed just before a site dropped. One API key, every org it can reach, every page read, and an org that fails to answer is named instead of silently counted as zero.
+
+Outcomes (question -> command your AI agent runs):
+- Which client org is in the worst shape right now? -> cisco-meraki-cli fleet health --agent
+- What is offline or alerting across every org, and for how long? -> cisco-meraki-cli fleet down --agent
+- Which MX WAN uplinks have failed? -> cisco-meraki-cli fleet down --kind uplink --json
+- Which licenses, subscriptions, and end-of-support dates are due in 90 days? -> cisco-meraki-cli fleet renewals --within 90d --agent
+- Who changed what across all orgs this week? -> cisco-meraki-cli fleet changes --since 7d --group-by admin --agent
+- Which org and network owns this MAC, IP, or serial? -> cisco-meraki-cli fleet find "00:18:0a:12:34:56" --agent
+- Which admins have two-factor off or have not signed in for 90 days? -> cisco-meraki-cli fleet admins --stale 90d --flagged --agent
+- A tech left - which orgs still grant them access? -> cisco-meraki-cli fleet admins --email "departed.tech@msp.example" --json
+- Which devices flapped or were down longest this week? -> cisco-meraki-cli fleet flaps --since 7d --agent
+- Point every managed network at the new syslog server - show me the diff first -> cisco-meraki-cli fleet push --path /networks/{networkId}/syslogServers --body syslog.json --network-tag managed
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, and cisco-meraki-mcp speaks HTTP natively: set CISCO_MERAKI_MCP_HTTP_TOKEN, run `cisco-meraki-mcp --transport http`, and put its /mcp endpoint behind an HTTPS tunnel or your own reverse proxy. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your Meraki API key once.
+Q: Is my Cisco Meraki data safe?
+A: Your data stays on your machine. The CLI, MCP server, and the optional local mirror all run locally and talk only to the Meraki Dashboard API. The AI sees query results, not raw bulk data, and your API key is never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: What can the API key reach?
+A: A Meraki API key carries the Dashboard permissions of the admin account that generated it, across every organization that admin can see. Generate it from an admin with read-only access if you only want reporting. Each org must also have Dashboard API access enabled (Organization > Settings); an org without it shows up in `fleet health` as reachable: false rather than disappearing.
+Q: Will this hit my Meraki API rate limit?
+A: Meraki allows about ten calls per second per organization. The CLI paces itself at 10 requests per second by default (change it with --rate-limit) and, when Meraki answers HTTP 429, waits for the Retry-After header before trying again. Fleet commands across many orgs take longer; they do not fail.
+Q: Does it work with the Canada, China, India, or FedRAMP dashboards?
+A: Yes. Set CISCO_MERAKI_BASE_URL to your region's API host, for example https://api.meraki.ca/api/v1 (Canada), https://api.meraki.cn/api/v1 (China), https://api.meraki.in/api/v1 (India), or https://api.gov-meraki.com/api/v1 (FedRAMP). Leave it unset for the global dashboard.
+Q: Can an agent change my clients' networks by accident?
+A: Writes send immediately when called, with no confirmation prompt, so keep autonomous agents to reads and --dry-run previews. The bulk tool, fleet push, previews a per-network diff by default and sends nothing unless you add --apply. See the safety model for which commands to keep behind a human. Set CISCO_MERAKI_MCP_READ_ONLY=1 on the MCP server and it refuses every write outright.
+
+Governance: Reads - the fleet views, every GET, sync and search - change nothing in the Dashboard and are safe for an agent, with one exception: a dozen reads return live secrets (SSID pre-shared keys, identity PSK passphrases, SNMP community strings, site-to-site VPN peer secrets, BGP and OSPF passwords) and the CLI does not redact them, so those belong behind a human. Routine config writes should be previewed with --dry-run and approved. Bulk pushes, reboots and port cycles, admin and SAML changes, API key generation, and deletes or unclaims should never run unattended. For an MCP agent that should never write, CISCO_MERAKI_MCP_READ_ONLY=1 makes the server refuse every non-GET call. The real ceiling is the API key: it can do whatever the Dashboard admin who generated it can do.
+
 ### connect-tool (Meta)
 
 Page: https://msp-skills.compoundingteams.com/skills/connect-tool/

@@ -456,7 +456,7 @@ If you use agentcookie to sync secrets across machines, this CLI auto-adopts age
 - Verify the environment variable is set: `echo $MERAKI_DASHBOARD_API_KEY`
 **Not found errors (exit code 3)**
 - Check the resource ID is correct
-- Run `cisco-meraki-cli organizations list --all` to see which organizations the key can reach
+- Run `cisco-meraki-cli organizations get --all` to see which organizations the key can reach
 
 ### API-specific
 - **HTTP 429 Too Many Requests during sync**  -  The Dashboard allows 10 requests per second per org; lower the request rate with --rate-limit 5 (requests per second) and, for sync, --concurrency 2, then rerun

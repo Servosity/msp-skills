@@ -29,7 +29,13 @@ Edit your Claude Desktop config:
 - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
 
-Add (or merge with your existing `mcpServers` block):
+Add (or merge with your existing `mcpServers` block). The API key comes from Meraki
+Dashboard > My profile > API access. Every other variable is optional and can stay
+blank: set `CISCO_MERAKI_BASE_URL` only for a regional dashboard
+(`https://api.meraki.ca/api/v1` Canada, `https://api.meraki.cn/api/v1` China,
+`https://api.meraki.in/api/v1` India, `https://api.gov-meraki.com/api/v1` FedRAMP), and
+set `CISCO_MERAKI_MCP_READ_ONLY` to `1` to make the server refuse every write. The same
+applies to the configs below.
 
 ```json
 {
@@ -37,8 +43,13 @@ Add (or merge with your existing `mcpServers` block):
     "cisco-meraki": {
       "command": "cisco-meraki-mcp",
       "env": {
-        "MERAKI_DASHBOARD_API_KEY": "<your-meraki_dashboard_api_key>",
-        "CISCO_MERAKI_BASE_URL": "<your-cisco_meraki_base_url>"
+        "MERAKI_DASHBOARD_API_KEY": "<your-meraki-dashboard-api-key>",
+        "CISCO_MERAKI_BASE_URL": "",
+        "CISCO_MERAKI_MCP_READ_ONLY": "",
+        "CISCO_MERAKI_BASE_PATH": "",
+        "CISCO_MERAKI_USER_AGENT": "",
+        "CISCO_MERAKI_MCP_HTTP_TOKEN": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
@@ -63,8 +74,13 @@ Configuration**) and add:
       "type": "stdio",
       "command": "cisco-meraki-mcp",
       "env": {
-        "MERAKI_DASHBOARD_API_KEY": "<your-meraki_dashboard_api_key>",
-        "CISCO_MERAKI_BASE_URL": "<your-cisco_meraki_base_url>"
+        "MERAKI_DASHBOARD_API_KEY": "<your-meraki-dashboard-api-key>",
+        "CISCO_MERAKI_BASE_URL": "",
+        "CISCO_MERAKI_MCP_READ_ONLY": "",
+        "CISCO_MERAKI_BASE_PATH": "",
+        "CISCO_MERAKI_USER_AGENT": "",
+        "CISCO_MERAKI_MCP_HTTP_TOKEN": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
@@ -85,8 +101,13 @@ Claude Desktop:
     "cisco-meraki": {
       "command": "cisco-meraki-mcp",
       "env": {
-        "MERAKI_DASHBOARD_API_KEY": "<your-meraki_dashboard_api_key>",
-        "CISCO_MERAKI_BASE_URL": "<your-cisco_meraki_base_url>"
+        "MERAKI_DASHBOARD_API_KEY": "<your-meraki-dashboard-api-key>",
+        "CISCO_MERAKI_BASE_URL": "",
+        "CISCO_MERAKI_MCP_READ_ONLY": "",
+        "CISCO_MERAKI_BASE_PATH": "",
+        "CISCO_MERAKI_USER_AGENT": "",
+        "CISCO_MERAKI_MCP_HTTP_TOKEN": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
@@ -105,8 +126,12 @@ in HTTP mode with your credentials in the environment (it listens on 127.0.0.1:7
 default; press 4.32+ refuses a non-loopback bind without TLS, so do not pass `--addr :7777`):
 
 ```bash
-MERAKI_DASHBOARD_API_KEY=<value> CISCO_MERAKI_BASE_URL=<value> cisco-meraki-mcp --transport http
+MERAKI_DASHBOARD_API_KEY=<value> CISCO_MERAKI_MCP_HTTP_TOKEN=<long-random-string> cisco-meraki-mcp --transport http
 ```
+
+`--transport http` refuses to start without `CISCO_MERAKI_MCP_HTTP_TOKEN`, and rejects
+any request that does not send it as `Authorization: Bearer <token>` - configure your
+connector or proxy to send that header.
 
 Then expose `http://localhost:7777/mcp` as a public HTTPS URL via a secure tunnel
 (Cloudflare Tunnel, ngrok) or your own reverse proxy. The path is part of the

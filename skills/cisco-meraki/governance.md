@@ -1,53 +1,111 @@
 # cisco-meraki skill - governance and safety model
 
-> Unofficial. Community-built skill for the Cisco Meraki API. Not affiliated with,
-> endorsed by, or sponsored by the vendor.
+> Unofficial. Community-built skill for the Cisco Meraki Dashboard API. Not affiliated
+> with, endorsed by, or sponsored by Cisco Systems, Inc.
 > This page tells an MSP owner exactly what the cisco-meraki skill can touch and how to
 > scope it, so you can decide what to let an AI agent do.
 
 ## What it authenticates as
 
-The skill drives the `cisco-meraki-cli` binary (and `cisco-meraki-mcp`),
-authenticating with `CISCO_MERAKI_BASE_URL`, `MERAKI_DASHBOARD_API_KEY`. Credentials are read from the environment only -
-never written to disk, never logged, never sent anywhere except the Cisco Meraki API.
+The skill drives the `cisco-meraki-cli` binary (and `cisco-meraki-mcp`) against the
+Meraki Dashboard API with one credential:
+
+- `MERAKI_DASHBOARD_API_KEY` - a Dashboard API key (Dashboard > My profile > API access).
+  It carries the permissions of the Dashboard admin account that generated it, in
+  **every organization that admin can see**. A key from a full org admin can change
+  anything in every client org; a key from a read-only admin can only read.
+
+Optional:
+
+- `CISCO_MERAKI_BASE_URL` - only for a regional dashboard
+  (`https://api.meraki.ca/api/v1` Canada, `https://api.meraki.cn/api/v1` China,
+  `https://api.meraki.in/api/v1` India, `https://api.gov-meraki.com/api/v1` FedRAMP).
+  Unset means the global `https://api.meraki.com/api/v1`.
+- `CISCO_MERAKI_MCP_HTTP_TOKEN` - required only to run `cisco-meraki-mcp --transport http`;
+  callers must send it as a bearer token.
+- `CISCO_MERAKI_MCP_READ_ONLY` - set to `1` to make the MCP server refuse every write
+  (see "How to lock it down").
+
+The key is read from the environment, or from `credentials.toml` under the CLI's data
+directory when you save it with `auth set-token` (`auth logout` removes it). It
+is never logged and never sent anywhere except the Meraki Dashboard API. Each org must
+also have Dashboard API access enabled (Organization > Settings); an org without it is
+reported as `reachable: false` by `fleet health`, not silently skipped.
 
 ## Default-safe behavior
 
-- **`--dry-run` is opt-in - use it.** Mutating commands send immediately unless you pass `--dry-run` first to preview the request without sending. Make your agent's policy: preview, show the exact command, get approval, then run the write.
-- **Read commands are always safe to run** (reports, rollups, search); they cannot
-  change anything.
+- **`--dry-run` is opt-in - use it.** Mutating commands send immediately unless you
+  pass `--dry-run` first to preview the request without sending. There is no
+  confirmation prompt. Make your agent's policy: preview, show the exact command, get
+  approval, then run the write.
+- **`fleet push` previews by default.** It reads each target network's current
+  settings and shows a per-network diff; nothing is sent unless you add `--apply`.
+  Untargeted pushes are refused - you must name `--org`, `--network`, `--network-tag`,
+  `--product-type`, or pass `--all-networks`.
+- **`fleet fanout` is GET-only.** It runs one org-scoped read against every org and
+  cannot send a write.
+- **Read commands change nothing in the Dashboard** - with the secret-bearing
+  exceptions in the Credential tier below.
 - **Agent mode is explicit.** `--agent` produces JSON for scripting but does not
   add any write gating - the preview-then-approve policy above still applies. See
   AGENTS.md.
+- **The MCP server blocks output-routing flags.** Tool calls cannot set `--deliver`,
+  `--config`, `--home`, `--profile`, `--yes` or similar root flags, and a tool-call
+  value cannot be smuggled in as an extra flag.
 
 ## Permission tiers
 
 The safe default for an autonomous agent is **read plus planned (dry-run) writes**;
-require a human for anything below the line.
+require a human for anything below that line. The tiers follow the HTTP method of
+each command (`agent-context` lists it per command as `pp:method`): 555 GET, 202 PUT,
+199 POST, 79 DELETE. Commands that only write local state (`sync`, `teach*`,
+`learnings`, `playbook amend`, `profile`, `feedback`) are not listed.
 
 | Tier | What it does | Examples | Recommended agent policy |
 | --- | --- | --- | --- |
-| **Read** | Reports, rollups, search. No change. | the cross-entity views and any non-mutating command | Allow |
-| **Write (routine)** | Day-to-day mutations. | `devices appliance create-device-interfaces-ports-update`, `devices appliance get-device-radio-settings`, `devices appliance get-device-uplinks-settings`, `devices appliance update-device-interfaces-port`, `devices appliance update-device-radio-settings`, `devices appliance update-device-uplinks-settings`, `devices camera get-device-video-settings`, `devices camera update-device-custom-analytics`, ... (339 total) | Preview with `--dry-run`, then an approved write (where a command documents its own confirm gate, use it too) |
-| **Credential / security** | Touches tokens, keys, MFA. | `devices appliance create-device-vmx-authentication-token` | Human-in-the-loop only |
-| **Destructive** | Irreversible data or config loss. | `devices switch delete-device-routing-interface`, `devices switch delete-device-routing-static-route`, `networks appliance delete-network-interfaces-l3`, `networks appliance delete-network-prefixes-delegated-static`, `networks appliance delete-network-rf-profile`, `networks appliance delete-network-static-route`, `networks appliance delete-network-traffic-shaping-custom-performance-class`, `networks appliance delete-network-vlan`, ... (86 total) | Human-in-the-loop only, explicit confirmation |
-| **Admin** | Back-office administration. | `administered`, `administered bind-licensing-subscription-subscription`, `administered claim-licensing-subscription-subscriptions`, `administered generate-identities-me-api-keys`, `administered get-identities-me`, `administered get-identities-me-api-keys`, `administered get-licensing-subscription-entitlements`, `administered get-licensing-subscription-subscriptions`, ... (11 total) | Operator-only, not for agents |
+| **Read** | Reports, cross-org rollups, lookups. No Dashboard change. | `fleet health`, `fleet down`, `fleet renewals`, `fleet changes`, `fleet find`, `fleet fanout`, `fleet admins`, `fleet flaps`, `fleet blame`, `fleet push` without `--apply`, `sync`, `search`, and every GET command **except the secret-bearing ones in the Credential tier** | Allow |
+| **Write (routine)** | Day-to-day config changes on one network, device or org. | `networks update`, `networks wireless update-network-ssid`, `networks appliance update-network-vlan`, `devices update`, `networks snmp update-network`, `networks webhooks create-network-http-server`, `import`, and the other PUT/POST commands not listed below | Preview with `--dry-run`, then a reviewed write |
+| **Bulk and device-disrupting** | Takes effect on live client networks at once. | `fleet push --apply` (one change to many networks across orgs via action batches), `devices reboot device`, `devices switch cycle-device-ports`, `devices live-tools create-device-ports-cycle`, `devices live-tools create-device-cable-test`, `networks sm reboot-network-devices`, `networks sm shutdown-network-devices`, `networks appliance swap-network-warm-spare`, `networks firmware-upgrades update-network` | Human-in-the-loop only. A port cycle drops whatever is plugged in, including PoE phones and APs |
+| **Destructive** | Irreversible config, device or license loss. | Every DELETE command (79, including `organizations delete` and `networks delete`), `networks devices remove-network`, `organizations inventory release-from-organization`, `networks unbind network`, `networks split network`, `organizations networks combine-organization`, `networks sm wipe-network-devices`, `networks sm unenroll-network-device`, `organizations licenses move-organization` | Human-in-the-loop only, explicit confirmation |
+| **Credential / security** | Creates, revokes or RETURNS secrets and admin access. | `auth set-token`, `auth logout`, `administered generate-identities-me-api-keys`, `administered revoke-identities-me-api-keys`, every `organizations admins`, `organizations saml` and `organizations saml-roles` write. **Secret-returning reads** (GETs, but the CLI passes response bodies through unredacted): `networks wireless get-network-ssid` / `get-network-ssids` (Wi-Fi `psk`), `networks wireless get-network-ssid-identity-psk` / `get-network-ssid-identity-psks` (`passphrase`), `networks camera get-network-wireless-profile` / `get-network-wireless-profiles`, `networks snmp get-network` and `organizations snmp get-organization` (community strings), `organizations appliance get-organization-vpn-third-party-vpnpeers` (IPsec `secret`), `networks appliance get-network-vpn-bgp`, `networks switch get-network-routing-ospf`, `devices cellular get-device-sims` | Human-in-the-loop only. Do not put these in an agent's Allow list, and do not hand their raw output to a model |
 
 ## How to lock it down
 
-- **Scope the credential** to only what your workflow needs. A read/report workflow
-  does not need a credential that can run the Destructive or Credential tiers.
+- **Scope the key, because it is the real gate.** This CLI applies no privilege
+  separation of its own: whatever the generating admin can do, any command can do.
+  For reporting and triage, generate the key from a Dashboard admin with
+  **read-only** organization access. Use a full-access key only for a workflow that
+  must write, and only for the orgs it needs.
+- **Turn on the MCP read-only switch for agents that should never write.** Set
+  `CISCO_MERAKI_MCP_READ_ONLY=1` in the MCP server's environment (in Claude Desktop it is
+  the "Read-only mode" setting). The server then hides the write commands, refuses
+  every non-GET API call, and refuses `fleet push --apply`. It does not stop the
+  secret-bearing GETs below, so it is a write guard, not a secrets guard.
 - **Keep autonomous agents to Read + previewed writes.** Have a human approve the
-  actual write for Write tier and above - the gate lives in your agent's policy,
-  not in the binary's defaults.
-- **Never let an agent run Credential, Destructive, or Admin tier commands
+  actual write for Write tier and above, and every `fleet push --apply`.
+- **The rule, not the list: the CLI never redacts output.** Any command that returns a
+  stored field verbatim can return a secret. Three paths reach the secret-bearing reads
+  above without naming them: `fleet fanout` pointed at an org-scoped secret path (for
+  example `organizations/{organizationId}/appliance/vpn/thirdPartyVPNPeers` or
+  `organizations/{organizationId}/snmp`) returns that secret for **every** org; a
+  `fleet push` preview prints each network's **current** value for every key in
+  `--body`, so a push touching `psk` or `communityString` prints the live one; and the
+  writes on those same paths (for example `networks wireless update-network-ssid`,
+  `networks snmp update-network`) echo the stored value back in their response.
+- **`sync` does not mirror these secrets.** It stores the organization list and the
+  org-level resources under it in a local SQLite file under your user account; the
+  secret-bearing endpoints above are network- or device-scoped (or org SNMP and VPN
+  peers, which sync does not fetch), so they are only ever read live.
+- **Never let an agent run Bulk, Destructive, or Credential tier commands
   unattended.** Treat them like a production database drop: human, reviewed, logged.
-- **Rotate the credential if it is ever exposed** (for example after bridging the
-  MCP server to a public endpoint for ChatGPT - see mcp-install.md).
+- **Rotate the key if it is ever exposed** (for example after bridging the MCP server
+  to a public endpoint for ChatGPT - see mcp-install.md). Keys are revoked and
+  regenerated under Dashboard > My profile > API access.
 
 ## Why an MSP owner can be comfortable
 
 The full source of the CLI and MCP server is in this repository under
-[`cli/`](./cli) (Apache-2.0). You supply the credential, the binary uses it against
-the Cisco Meraki API, and you can read every line of how it does so. The skill is
-read-first, plan-by-default, and scoped to your own account.
+[`cli/`](./cli) (Apache-2.0). You supply the key, the binary uses it against the Meraki
+Dashboard API, and you can read every line of how it does so. The skill is read-first,
+preview-by-default for bulk changes, and scoped to whatever your Dashboard admin
+account can already reach.

@@ -1,6 +1,6 @@
 ---
 name: cisco-meraki
-description: "Every Meraki Dashboard operation, plus cross-org fleet views that read every page, built for MSPs running many client orgs. Trigger phrases: `which meraki devices are offline`, `meraki license expirations across clients`, `find this mac in meraki`, `who changed the meraki config`, `use cisco-meraki`, `run cisco-meraki`."
+description: "Use when the user asks about Cisco Meraki across one or many client organizations: what is offline or alerting right now, failed MX WAN uplinks, license, subscription and end-of-support renewals, who changed the Dashboard config, which org owns a MAC, IP or serial, admins without two-factor or a departed tech's access, or any Meraki Dashboard API operation. Trigger phrases: `which meraki devices are offline`, `meraki license expirations across clients`, `find this mac in meraki`, `who changed the meraki config`, `did a change take this site down`, `meraki admins without 2fa`, `use cisco-meraki`, `run cisco-meraki`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "Cisco Meraki"
@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/cisco-meraki/install.ps1
 ---
 
-# Cisco Meraki  -  Printing Press CLI
+# Cisco Meraki - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 

