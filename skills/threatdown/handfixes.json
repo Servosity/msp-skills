@@ -104,6 +104,129 @@
      "code_only": true
     }
    ]
+  },
+  {
+   "id": "secret-fields-never-persisted",
+   "summary": "Secret-named JSON keys (as_uninstall_password, uninstall_password, password, secret, secret_hash, secret_token, token, custom_headers) are dropped at any depth before any row reaches the local store (generic blob, typed columns and FTS index, via the single mergeIncomingResourceData choke point), and an HTTP response that carries one is never written to the response cache. Helper: internal/cliutil/secretfields.go.",
+   "why": "Default `sync` pulls GET /v1/policies, whose every row carries as_uninstall_password (the tamper-protection password that uninstalls the ThreatDown agent), and GET /v1/notifications/subscriptions, whose rows carry the HMAC signing key secret_token; the generated store wrote both into data.db and resources_fts, and the response cache wrote GET bodies such as /v1/policies/{id}/secret to disk. Found at msp-skills onboarding (2026-10-14) by scanning the spec's 2xx response schemas for password/secret/token keys. A reprint regenerates store.go and client.go and silently drops both hooks while go build and go test stay green. internal/store/secret_fields_test.go proves both directions: with the hook reverted the sentinel lands in resources_fts. custom_headers was added after the round-1 adversarial review drove a webhook subscription whose custom_headers carried 'authorization: Bearer <sentinel>' into data.db, resources_fts and the response cache (the spec's example header key is authorization).",
+   "status": "active",
+   "spec_encode_followup": "Needs a press feature: an x-secret / writeOnly-aware store projection that never persists credential fields; no spec extension expresses it today.",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "redacted, _ := cliutil.RedactSecretFields(s.mergeIncomingResourceDataRaw(tx, resourceType, id, incoming))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if cliutil.ContainsSecretField(data) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/secretfields.go",
+     "contains": "\"as_uninstall_password\": true,",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/secret_fields_test.go",
+     "contains": "func TestSecretFieldsNeverPersisted(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/secretfields.go",
+     "contains": "\"custom_headers\":        true,",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "secret-reads-credential-tier",
+   "summary": "governance.md, README.md and page.json put every read whose output carries a credential in the Credential tier, not Read: policies secret-get / secret-get-v2, sites secret, installation-tokens search, and policies, webhooks and notifications list / get (uninstall passwords, signing keys, custom auth headers). governance.md also names the MCP read-only mode's GET gap.",
+   "why": "The generated governance tiers by verb, so 'every list / get / search' was Read and an agent policy keyed on it would let an agent read every customer's tamper-protection password. Applied at msp-skills onboarding (2026-10-14); these files are preserved across onboard --resume but a fleet re-mint or a hand rewrite can drop the carve-out.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "governance.md",
+     "contains": "`policies secret-get` / `secret-get-v2`, `sites secret`, `installation-tokens search`, `policies list` / `get`, `webhooks list` / `get`, `notifications list` / `get`"
+    },
+    {
+     "file": "README.md",
+     "contains": "`policies list` / `get`, `webhooks list` / `get` and `notifications list` / `get`"
+    },
+    {
+     "file": "page.json",
+     "contains": "policies list / get, webhooks list / get and notifications list / get"
+    },
+    {
+     "file": "page.json",
+     "not_contains": "previews every response job"
+    }
+   ]
+  },
+  {
+   "id": "install-env-declared-on-every-channel",
+   "summary": "Every variable the binaries read is declared on all three install channels: manifest.json (.mcpb user_config + server.mcp_config.env), server.json (MCP Registry) and the three mcp-install.md env blocks. Beyond the client id and secret these are the optional THREATDOWN_OAUTH_SCOPE, THREATDOWN_BASE_URL, THREATDOWN_TOKEN_URL, THREATDOWN_USER_AGENT, THREATDOWN_MCP_READ_ONLY, THREATDOWN_MCP_HTTP_TOKEN and PRINTING_PRESS_CLIENT_PROFILE, blank (not placeholders) in mcp-install.md.",
+   "why": "check_env_schema failed the onboard with 7 read-but-undeclared variables, so a Claude Desktop install could never set read-only mode or a reduced scope. onboard.py --resume re-vendors manifest.json from the press source, which declares only the two credentials, so a re-onboard drops the other seven while the build stays green (check_env_schema would then catch it; this entry names the cause). Applied at msp-skills onboarding 2026-10-14.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "manifest.json",
+     "contains": "\"THREATDOWN_MCP_READ_ONLY\": \"${user_config.threatdown_mcp_read_only}\""
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"THREATDOWN_OAUTH_SCOPE\": \"${user_config.threatdown_oauth_scope}\""
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"THREATDOWN_MCP_HTTP_TOKEN\""
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"THREATDOWN_MCP_READ_ONLY\": \"\"",
+     "min_count": 3
+    }
+   ]
+  },
+  {
+   "id": "http-transport-needs-bearer-token",
+   "summary": "Every documented `threatdown-mcp --transport http` launch (README ChatGPT line and FAQ, mcp-install.md remote section) sets THREATDOWN_MCP_HTTP_TOKEN and says callers send it as Authorization: Bearer.",
+   "why": "The scaffolded docs launched `threatdown-mcp --transport http` with only the OAuth credentials; the binary exits 1 with 'THREATDOWN_MCP_HTTP_TOKEN must be set to a non-empty bearer token before starting --transport http' (measured 2026-10-14), so the documented ChatGPT/remote path never started. check_install_docs does not check the token, so nothing gates this.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "mcp-install.md",
+     "contains": "THREATDOWN_CLIENT_ID=<value> THREATDOWN_CLIENT_SECRET=<value> THREATDOWN_MCP_HTTP_TOKEN=<value> threatdown-mcp --transport http"
+    },
+    {
+     "file": "README.md",
+     "contains": "THREATDOWN_MCP_HTTP_TOKEN=<a-bearer-token> threatdown-mcp --transport http",
+     "min_count": 2
+    },
+    {
+     "file": "README.md",
+     "not_contains": "start it with `threatdown-mcp --transport http`"
+    }
+   ]
+  },
+  {
+   "id": "doctor-wrong-base-not-reachable",
+   "summary": "doctor reports an ERROR api verdict (and an ERROR credentials verdict) when the OneView account probe GET /v1/info/account returns 404, instead of 'reachable (HTTP 404 at /)' and a WARN.",
+   "why": "check_doctor_truth (CI hard gate, issue #282) failed the onboard: a THREATDOWN_BASE_URL that is not the OneView API root made doctor report the API as healthy. Generated doctor.go has no doctorUnexpectedStatus/doctorWrongBaseURL (the fleet's hand-wired fix), so a reprint reverts this; the gate would then fail again. Applied at msp-skills onboarding 2026-10-14.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "base_url is not the OneView API root. Point THREATDOWN_BASE_URL at https://api.threatdown.com/oneview or unset it.",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "ERROR not verified (HTTP 404 from %s)",
+     "code_only": true
+    }
+   ]
   }
  ]
 }

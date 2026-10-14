@@ -24,6 +24,12 @@ Optional settings:
 - `THREATDOWN_BASE_URL` / `THREATDOWN_TOKEN_URL` - override the API and token hosts.
 - `THREATDOWN_USER_AGENT` - override the User-Agent header.
 
+**Credentials from OneView are never stored.** `sync` and the HTTP response cache drop
+the secret fields OneView returns inside ordinary rows (`as_uninstall_password`,
+`secret`, `secret_hash`, `secret_token`, `custom_headers`, `password`, `token`) before anything reaches
+the local SQLite mirror, and a response that carries one is never cached. The live
+command output still shows them, which is why those reads sit in the Credential tier.
+
 **What is stored on disk.** After a successful token request the CLI caches the bearer
 token and its expiry in a private `credentials.toml` (file mode 0600) under the CLI's
 data directory. The client ID and secret are not written there; they are read from the
@@ -49,7 +55,13 @@ and API endpoints.
   agent's policy: preview, show the exact command, get approval, then run the write.
 - **Read commands are always safe to run** (the fleet reports, triage views, sync,
   search, and every list, get, search and export command); they cannot change anything
-  in OneView. Many OneView reads are POST searches, which is why the tiers below are
+  in OneView. Some reads return credentials, though: `policies secret-get`,
+  `policies secret-get-v2` and `sites secret` return tamper-protection passwords,
+  `installation-tokens search` returns agent enrollment tokens, `policies list` / `get`
+  include each policy's uninstall password (`as_uninstall_password`), and `notifications`
+  and `webhooks` list / get include the HMAC signing key (`secret_token`) and any custom
+  auth headers (`custom_headers`). Treat those as
+  the Credential tier below. Many OneView reads are POST searches, which is why the tiers below are
   based on what a command does, not its HTTP method.
 - **Agent mode is explicit.** `--agent` produces JSON for scripting but does not add any
   write gating - the preview-then-approve policy above still applies. See AGENTS.md.
@@ -61,11 +73,11 @@ human for anything below the line.
 
 | Tier | What it does | Examples | Recommended agent policy |
 | --- | --- | --- | --- |
-| **Read** | Reports, triage, search, lookups. No change in OneView. | `fleet stale`, `fleet health`, `seats reconcile`, `respond pending`, `threats spread`, `threats queue`, `customer report`, `fleet sync`, `sync`, `search`, `analytics`, `export`, the `respond` commands without `--confirm`, every `list` / `get` / `search` / `export` command | Allow |
+| **Read** | Reports, triage, search, lookups. No change in OneView. | `fleet stale`, `fleet health`, `seats reconcile`, `respond pending`, `threats spread`, `threats queue`, `customer report`, `fleet sync`, `sync`, `search`, `analytics`, `export`, the `respond` commands without `--confirm`, every `list` / `get` / `search` / `export` command except the credential reads in the last row | Allow |
 | **Endpoint actions** | Sends a job that runs on real client machines: isolate, release, scan and quarantine, reboot, update, remediate. | `respond isolate` / `restore` / `scan` / `reboot` / `update` with `--confirm`, `endpoint-jobs issue`, `endpoint-jobs bulk-issue`, `endpoint-jobs quarantine-bulk`, `endpoint-jobs parent-reissue`, `endpoint-jobs parent-children-reissue`, `grid jobs-bulk`, `endpoints sa-remediate`, `suspicious-activity remediate`, `import endpoint_jobs` (each line issues a job, with no preview) | Human-in-the-loop, explicit confirmation |
 | **Security config** | Changes what the agent protects against or how. An exclusion lets software run that would otherwise be blocked. | `exclusions create` / `update`, `policies create` / `update` / `promote`, `policies auto-isolation-set`, `firewall rules-create` / `rules-update`, `content-filtering create` / `update` / `enable`, `device-control exclusions-create`, `app-block rules-create`, `schedules create` / `update`, `webhooks create`, `notifications create`, `syslog create` | Preview with `--dry-run`, then a human-approved write |
 | **Destructive** | Removes endpoints, sites, policies or users; not undoable from the CLI. | `endpoints delete`, `endpoints delete-bulk`, `grid endpoints-delete`, `sites delete`, `policies delete`, `exclusions delete`, `groups delete`, `users delete`, `subscriptions delete`, `reports delete-bulk`, `notifications delete-by-owner` | Human-in-the-loop only, explicit confirmation |
-| **Credential and admin** | Issues enrollment tokens, sets the tamper-protection password, manages users, sites and billing. | `installation-tokens create` / `send` / `revoke`, `policies secret-set`, `users create` / `update` / `resend-invite`, `sites create` / `update`, `subscriptions create` / `update` / `extend`, `email-protection migrate`, `auth login`, `auth set-token` | Human-in-the-loop only |
+| **Credential and admin** | Reads or sets tamper-protection passwords and webhook signing keys, issues and lists enrollment tokens, manages users, sites and billing. | `policies secret-get` / `secret-get-v2`, `sites secret`, `installation-tokens search`, `policies list` / `get`, `webhooks list` / `get`, `notifications list` / `get` (their live output carries those secrets), `installation-tokens create` / `send` / `revoke`, `policies secret-set` / `secret-set-v2`, `users create` / `update` / `resend-invite`, `sites create` / `update`, `subscriptions create` / `update` / `extend`, `email-protection migrate`, `auth login`, `auth set-token` | Human-in-the-loop only |
 
 **The MCP server.** Besides one tool per fleet, triage and `respond` command, the MCP
 server exposes a generic `threatdown_execute` tool that can call any OneView API
@@ -75,7 +87,10 @@ preview step. An allowlist keyed on CLI command names does not cover it. Set
 (among them the five `respond` job verbs, `sync`, `import` and `export`) and refuses
 every non-GET call through `threatdown_execute`. Because OneView searches are POSTs,
 read-only mode also blocks raw searches through `threatdown_execute`; the fleet and
-triage tools keep working.
+triage tools keep working. Read-only mode still allows GET calls, including the
+tamper-protection password reads (`GET /v1/policies/{id}/secret`,
+`GET /v1/sites/{id}/secret`), so do not hand a read-only MCP server to an agent you
+would not trust with those passwords.
 
 ## How to lock it down
 

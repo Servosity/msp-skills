@@ -12,7 +12,7 @@ faqs:
   - q: "Is the ThreatDown MCP server safe for client data?"
     a: "Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Three paths can move data off the machine, all opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `THREATDOWN_FEEDBACK_AUTO_SEND=true` posts feedback you typed to the URL in `THREATDOWN_FEEDBACK_ENDPOINT` (with no endpoint set, `feedback` only writes a local file); `--transport http` opens a local MCP listener you then choose whether to expose. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
-    a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local ThreatDown MCP server via a secure bridge. Step-by-step in the install guide."
+    a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you run the ThreatDown MCP server in its built-in HTTP mode with a bearer token (THREATDOWN_MCP_HTTP_TOKEN) and put it behind an HTTPS tunnel or reverse proxy. No bridge package is needed. Step-by-step in the install guide."
   - q: "Do I need to know how to code?"
     a: "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
   - q: "Is my ThreatDown data safe?"
@@ -48,7 +48,7 @@ howto:
 
 Yes - there is an MCP server for ThreatDown. It's free, open source, and runs on your own machine, so your client data stays local unless you route it somewhere yourself. It connects ThreatDown to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
-Ask your AI "which machines went dark this week?" or "which customer needs attention first?" and get one answer across every ThreatDown OneView site. OneView answers one site at a time, and its endpoint searches only take explicit account IDs. This skill resolves every site for you, ranks site health, reconciles seats, and previews isolations, scans and reboots before any job is sent.
+Ask your AI "which machines went dark this week?" or "which customer needs attention first?" and get one answer across every ThreatDown OneView site. OneView answers one site at a time, and its endpoint searches only take explicit account IDs. This skill resolves every site for you, ranks site health, reconciles seats, and its respond commands preview isolations, scans and reboots before any job is sent.
 
 <sub>New to the term? An **MCP server** is the same thing ChatGPT calls an app or connector, Claude on the web calls a connector, and Claude Code calls a Skill. [One thing, many names →](/what-is-an-mcp-server/)</sub>
 
@@ -92,7 +92,7 @@ Full command reference at [github.com/servosity/msp-skills/blob/main/skills/thre
 
 ## What makes this one different
 
-We found no other MCP server for ThreatDown OneView on GitHub as of October 2026. The integrations that do exist, such as the [Sumo Logic](https://help.sumologic.com/docs/platform-services/automation-service/app-central/integrations/threatdown-oneview) and [Datadog (Crest Data)](https://docs.datadoghq.com/integrations/crest-data-systems-threatdown-oneview/) apps, move OneView data into a SIEM or monitoring tool, and community scripts like [nebula2nebula](https://github.com/B10sp4rt4n/nebula2nebula) target migrations. This skill fans every question out across all your sites, syncs sites, endpoints, detections and jobs into a local SQLite mirror, and previews every response job before it is sent.
+We found no other MCP server for ThreatDown OneView on GitHub as of October 2026. The integrations that do exist, such as the [Sumo Logic](https://help.sumologic.com/docs/platform-services/automation-service/app-central/integrations/threatdown-oneview) and [Datadog (Crest Data)](https://docs.datadoghq.com/integrations/crest-data-systems-threatdown-oneview/) apps, move OneView data into a SIEM or monitoring tool, and community scripts like [nebula2nebula](https://github.com/B10sp4rt4n/nebula2nebula) target migrations. This skill fans every question out across all your sites, syncs sites, endpoints, detections and jobs into a local SQLite mirror, and previews every `respond` job (isolate, restore, scan, reboot, update) before it is sent; the raw job commands and the MCP server's generic `threatdown_execute` tool send immediately.
 
 ThreatDown's own AI features, such as the AI-assisted Security Advisor and AI Detection & Response, work inside the ThreatDown console. This skill complements them by bringing every OneView site into the AI agent you already use, answering cross-site questions in one command without replacing OneView.
 
@@ -135,13 +135,13 @@ After install, authenticate once with your ThreatDown credentials, then verify w
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | fleet stale, fleet health, seats reconcile, respond pending, threats spread, threats queue, customer report, fleet sync, sync, search, analytics, the respond commands without --confirm (preview only), and every list / get / search / export command | Allow |
+| Read | fleet stale, fleet health, seats reconcile, respond pending, threats spread, threats queue, customer report, fleet sync, sync, search, analytics, the respond commands without --confirm (preview only), and every list / get / search / export command except the credential reads under Credential and admin | Allow |
 | Endpoint actions | respond isolate / restore / scan / reboot / update with --confirm, endpoint-jobs issue, endpoint-jobs bulk-issue, endpoint-jobs quarantine-bulk, endpoint-jobs parent-reissue, grid jobs-bulk, endpoints sa-remediate, suspicious-activity remediate, import endpoint_jobs, and the MCP threatdown_execute tool on a jobs endpoint | Human-in-the-loop, explicit confirmation |
 | Security config | exclusions create / update, policies update, policies auto-isolation-set, firewall rules, content-filtering rules, device-control exclusions, app-block rules, schedules, webhooks | Preview with --dry-run, then a human-approved write |
 | Destructive | endpoints delete / delete-bulk, grid endpoints-delete, sites delete, policies delete, exclusions delete, users delete, subscriptions delete | Human-in-the-loop only, explicit confirmation |
-| Credential and admin | installation-tokens create / send / revoke, policies secret-set (tamper-protection password), users create / update, sites create, subscriptions create / update, auth login, auth set-token | Human-in-the-loop only |
+| Credential and admin | policies secret-get / secret-get-v2 and sites secret (return tamper-protection passwords), installation-tokens search (returns enrollment tokens), policies list / get, webhooks list / get and notifications list / get (they carry uninstall passwords and webhook signing keys), installation-tokens create / send / revoke, policies secret-set (tamper-protection password), users create / update, sites create, subscriptions create / update, auth login, auth set-token | Human-in-the-loop only |
 
-The skill is read-first: the fleet reports, seat reconciliation, threat triage, customer report, sync, search and every list, get and search command are read-only and safe to let an agent run. The respond commands send isolation, restore, scan, reboot and update jobs to real machines but preview until you add --confirm; the raw job commands (endpoint-jobs issue, grid jobs-bulk), import endpoint_jobs and the MCP server's generic threatdown_execute tool send immediately, so keep them human-in-the-loop or set THREATDOWN_MCP_READ_ONLY=1. The scopes you tick on the OneView OAuth client (read, write, execute) are the outer limit on anything an agent can do. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/threatdown/governance.md).
+The skill is read-first: the fleet reports, seat reconciliation, threat triage, customer report, sync, search and nearly every list, get and search command are read-only and safe to let an agent run; the exceptions are the reads that return tamper-protection passwords and enrollment tokens (policies secret-get, sites secret, installation-tokens search, and policies, webhooks and notifications list / get), which belong with the credential commands, and the local mirror never stores those secrets. The respond commands send isolation, restore, scan, reboot and update jobs to real machines but preview until you add --confirm; the raw job commands (endpoint-jobs issue, grid jobs-bulk), import endpoint_jobs and the MCP server's generic threatdown_execute tool send immediately, so keep them human-in-the-loop or set THREATDOWN_MCP_READ_ONLY=1. The scopes you tick on the OneView OAuth client (read, write, execute) are the outer limit on anything an agent can do. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/threatdown/governance.md).
 
 ## Frequently asked questions
 
@@ -155,7 +155,7 @@ Yes, by design - and the exceptions are ones you switch on yourself. The CLI, th
 
 ### Does this work with ChatGPT?
 
-Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local ThreatDown MCP server via a secure bridge. Step-by-step in the install guide.
+Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you run the ThreatDown MCP server in its built-in HTTP mode with a bearer token (THREATDOWN_MCP_HTTP_TOKEN) and put it behind an HTTPS tunnel or reverse proxy. No bridge package is needed. Step-by-step in the install guide.
 
 ### Do I need to know how to code?
 

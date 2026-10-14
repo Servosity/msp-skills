@@ -27,7 +27,7 @@ The six agents MSP owners actually use (self-serve, works today):
 | **Claude Cowork** | Paste the install prompt below. |
 | **GitHub Copilot** (VS Code) | Run installer, add `threatdown-mcp` to `mcp.json` under the `servers` key, then pick **Agent** mode. |
 
-For ChatGPT, run `threatdown-mcp --transport http` and expose that behind HTTPS - no bridge package is needed. See [mcp-install.md](./mcp-install.md).
+For ChatGPT, run `THREATDOWN_MCP_HTTP_TOKEN=<a-bearer-token> threatdown-mcp --transport http` and expose that behind HTTPS - no bridge package is needed. See [mcp-install.md](./mcp-install.md).
 
 ### Also for the Microsoft and Google stacks
 
@@ -140,7 +140,7 @@ Set the credentials the CLI needs (from your ThreatDown portal):
 THREATDOWN_CLIENT_ID=<value> THREATDOWN_CLIENT_SECRET=<value> threatdown-cli doctor
 ```
 
-`doctor` checks config, paths, and API reachability, and reports whether credentials are loaded - it does not validate them. Run a read command to confirm the credential actually works end-to-end.
+On a fresh install run `threatdown-cli auth login` first: it exchanges the client ID and secret for a token, and a wrong secret fails right there with HTTP 401. After that, `doctor` shows `Auth: configured` and probes the credential with an authenticated call to OneView's account endpoint (its `Credentials` row); before a token is cached it reads `Auth: not configured` and skips that probe.
 
 
 ## What this skill does
@@ -164,7 +164,7 @@ Full command reference: [guide.md](./guide.md). For the AI-agent operating contr
 
 We found no other MCP server for ThreatDown OneView on GitHub as of October 2026. The integrations that do exist, such as the [Sumo Logic](https://help.sumologic.com/docs/platform-services/automation-service/app-central/integrations/threatdown-oneview) and [Datadog (Crest Data)](https://docs.datadoghq.com/integrations/crest-data-systems-threatdown-oneview/) apps, move OneView data into a SIEM or monitoring tool. A question like "which threats hit more than one of my 40 customers this month" is still a per-site export and a spreadsheet.
 
-This skill resolves every site's account ID for you and syncs sites, endpoints, detections and jobs into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like `threats spread`, `threats queue` and `customer report` join detections, endpoints, jobs and sites - work a stateless API wrapper can't do. ThreatDown's own AI features, such as the AI-assisted Security Advisor and AI Detection & Response, work inside the ThreatDown console; this skill complements them by bringing every OneView site into the agent you already use.
+This skill resolves every site's account ID for you and syncs sites, endpoints, detections and jobs into a **local SQLite mirror** with full-text search (`search --data-source local`). Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like `threats spread`, `threats queue` and `customer report` join detections, endpoints, jobs and sites - work a stateless API wrapper can't do. ThreatDown's own AI features, such as the AI-assisted Security Advisor and AI Detection & Response, work inside the ThreatDown console; this skill complements them by bringing every OneView site into the agent you already use.
 
 ## The pain this closes
 
@@ -182,7 +182,7 @@ See [pain-point.md](./pain-point.md) for the longer narrative.
 
 ### Does this work with ChatGPT?
 
-Yes, on **Plus, Pro, Team, Business, Enterprise, and Education** plans (Free tier does not yet expose Developer Mode). ChatGPT connects to **remote** MCP servers over HTTPS, not local stdio binaries. The ThreatDown MCP server runs locally, but it speaks HTTP natively: start it with `threatdown-mcp --transport http` (it listens on 127.0.0.1:7777 by default) and put its /mcp endpoint behind an HTTPS tunnel or your own reverse proxy. No bridge package is involved. Step-by-step in [mcp-install.md](./mcp-install.md).
+Yes, on **Plus, Pro, Team, Business, Enterprise, and Education** plans (Free tier does not yet expose Developer Mode). ChatGPT connects to **remote** MCP servers over HTTPS, not local stdio binaries. The ThreatDown MCP server runs locally, but it speaks HTTP natively: start it with `THREATDOWN_MCP_HTTP_TOKEN=<a-bearer-token> threatdown-mcp --transport http` (it serves `http://127.0.0.1:7777/mcp` by default and refuses to start without that token; callers send it as `Authorization: Bearer`) and put that endpoint behind an HTTPS tunnel or your own reverse proxy. No bridge package is involved. Step-by-step in [mcp-install.md](./mcp-install.md).
 
 ### Does this work with Codex, Cursor, Windsurf, Cline, Copilot, or Gemini?
 
@@ -225,11 +225,11 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | `fleet stale`, `fleet health`, `seats reconcile`, `respond pending`, `threats spread`, `threats queue`, `customer report`, `fleet sync`, `search`, the `respond` commands without `--confirm`, every list / get / search / export command | Allow |
+| Read | `fleet stale`, `fleet health`, `seats reconcile`, `respond pending`, `threats spread`, `threats queue`, `customer report`, `fleet sync`, `search`, the `respond` commands without `--confirm`, every list / get / search / export command except the credential reads in the last row | Allow |
 | Endpoint actions | `respond isolate` / `restore` / `scan` / `reboot` / `update` with `--confirm`, `endpoint-jobs issue`, `endpoint-jobs bulk-issue`, `grid jobs-bulk`, `endpoints sa-remediate`, `import endpoint_jobs`, the MCP `threatdown_execute` tool on a jobs endpoint | Human-in-the-loop, explicit confirmation |
 | Security config | `exclusions create` / `update`, `policies update`, `policies auto-isolation-set`, firewall, content-filtering, device-control and app-block rules | Preview with `--dry-run`, then a human-approved write |
 | Destructive | `endpoints delete` / `delete-bulk`, `grid endpoints-delete`, `sites delete`, `policies delete`, `exclusions delete`, `users delete` | Human-in-the-loop only, explicit confirmation |
-| Credential and admin | `installation-tokens create` / `send` / `revoke`, `policies secret-set`, `users create` / `update`, `sites create`, `subscriptions create` / `update` | Human-in-the-loop only |
+| Credential and admin | `policies secret-get`, `sites secret`, `installation-tokens search`, `policies list` / `get`, `webhooks list` / `get` and `notifications list` / `get` (their output carries tamper-protection passwords, enrollment tokens or webhook signing keys; the local mirror never stores them), `installation-tokens create` / `send` / `revoke`, `policies secret-set`, `users create` / `update`, `sites create`, `subscriptions create` / `update` | Human-in-the-loop only |
 
 
 The strongest control is the **scope you tick on the OneView OAuth client** (`read`, `write`, `execute`) - the CLI can only do what that client is permitted to do. Set `THREATDOWN_MCP_READ_ONLY=1` to run the MCP server read-only. Full details, including how to lock it down, are in [governance.md](./governance.md).

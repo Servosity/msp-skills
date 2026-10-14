@@ -1,5 +1,5 @@
 {
-  "outcome_intro": "Ask your AI \"which machines went dark this week?\" or \"which customer needs attention first?\" and get one answer across every ThreatDown OneView site. OneView answers one site at a time, and its endpoint searches only take explicit account IDs. This skill resolves every site for you, ranks site health, reconciles seats, and previews isolations, scans and reboots before any job is sent.",
+  "outcome_intro": "Ask your AI \"which machines went dark this week?\" or \"which customer needs attention first?\" and get one answer across every ThreatDown OneView site. OneView answers one site at a time, and its endpoint searches only take explicit account IDs. This skill resolves every site for you, ranks site health, reconciles seats, and its respond commands preview isolations, scans and reboots before any job is sent.",
   "instead_of_say": [
     {
       "instead": "Re-running ThreatDown's \"endpoints not seen for more than 24 hours\" PowerShell example, or filtering each customer site's Endpoints page by Last Sync",
@@ -57,12 +57,12 @@
       "command": "threatdown-cli respond isolate --host LAPTOP-042 --agent"
     }
   ],
-  "different_vs_wrappers": "We found no other MCP server for ThreatDown OneView on GitHub as of October 2026. The integrations that do exist, such as the [Sumo Logic](https://help.sumologic.com/docs/platform-services/automation-service/app-central/integrations/threatdown-oneview) and [Datadog (Crest Data)](https://docs.datadoghq.com/integrations/crest-data-systems-threatdown-oneview/) apps, move OneView data into a SIEM or monitoring tool, and community scripts like [nebula2nebula](https://github.com/B10sp4rt4n/nebula2nebula) target migrations. This skill fans every question out across all your sites, syncs sites, endpoints, detections and jobs into a local SQLite mirror, and previews every response job before it is sent.",
+  "different_vs_wrappers": "We found no other MCP server for ThreatDown OneView on GitHub as of October 2026. The integrations that do exist, such as the [Sumo Logic](https://help.sumologic.com/docs/platform-services/automation-service/app-central/integrations/threatdown-oneview) and [Datadog (Crest Data)](https://docs.datadoghq.com/integrations/crest-data-systems-threatdown-oneview/) apps, move OneView data into a SIEM or monitoring tool, and community scripts like [nebula2nebula](https://github.com/B10sp4rt4n/nebula2nebula) target migrations. This skill fans every question out across all your sites, syncs sites, endpoints, detections and jobs into a local SQLite mirror, and previews every `respond` job (isolate, restore, scan, reboot, update) before it is sent; the raw job commands and the MCP server's generic `threatdown_execute` tool send immediately.",
   "different_vs_vendor": "ThreatDown's own AI features, such as the AI-assisted Security Advisor and AI Detection & Response, work inside the ThreatDown console. This skill complements them by bringing every OneView site into the AI agent you already use, answering cross-site questions in one command without replacing OneView.",
   "faqs": [
     {
       "q": "Does this work with ChatGPT?",
-      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local ThreatDown MCP server via a secure bridge. Step-by-step in the install guide."
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you run the ThreatDown MCP server in its built-in HTTP mode with a bearer token (THREATDOWN_MCP_HTTP_TOKEN) and put it behind an HTTPS tunnel or reverse proxy. No bridge package is needed. Step-by-step in the install guide."
     },
     {
       "q": "Do I need to know how to code?",
@@ -97,11 +97,11 @@
       "a": "No. OneView stays where you set policies, manage subscriptions and deploy agents. This skill answers cross-site reporting and triage questions from your AI agent or terminal, and sends response jobs you have previewed."
     }
   ],
-  "governance_summary": "The skill is read-first: the fleet reports, seat reconciliation, threat triage, customer report, sync, search and every list, get and search command are read-only and safe to let an agent run. The respond commands send isolation, restore, scan, reboot and update jobs to real machines but preview until you add --confirm; the raw job commands (endpoint-jobs issue, grid jobs-bulk), import endpoint_jobs and the MCP server's generic threatdown_execute tool send immediately, so keep them human-in-the-loop or set THREATDOWN_MCP_READ_ONLY=1. The scopes you tick on the OneView OAuth client (read, write, execute) are the outer limit on anything an agent can do.",
+  "governance_summary": "The skill is read-first: the fleet reports, seat reconciliation, threat triage, customer report, sync, search and nearly every list, get and search command are read-only and safe to let an agent run; the exceptions are the reads that return tamper-protection passwords and enrollment tokens (policies secret-get, sites secret, installation-tokens search, and policies, webhooks and notifications list / get), which belong with the credential commands, and the local mirror never stores those secrets. The respond commands send isolation, restore, scan, reboot and update jobs to real machines but preview until you add --confirm; the raw job commands (endpoint-jobs issue, grid jobs-bulk), import endpoint_jobs and the MCP server's generic threatdown_execute tool send immediately, so keep them human-in-the-loop or set THREATDOWN_MCP_READ_ONLY=1. The scopes you tick on the OneView OAuth client (read, write, execute) are the outer limit on anything an agent can do.",
   "safety_tiers": [
     {
       "tier": "Read",
-      "examples": "fleet stale, fleet health, seats reconcile, respond pending, threats spread, threats queue, customer report, fleet sync, sync, search, analytics, the respond commands without --confirm (preview only), and every list / get / search / export command",
+      "examples": "fleet stale, fleet health, seats reconcile, respond pending, threats spread, threats queue, customer report, fleet sync, sync, search, analytics, the respond commands without --confirm (preview only), and every list / get / search / export command except the credential reads under Credential and admin",
       "policy": "Allow"
     },
     {
@@ -121,7 +121,7 @@
     },
     {
       "tier": "Credential and admin",
-      "examples": "installation-tokens create / send / revoke, policies secret-set (tamper-protection password), users create / update, sites create, subscriptions create / update, auth login, auth set-token",
+      "examples": "policies secret-get / secret-get-v2 and sites secret (return tamper-protection passwords), installation-tokens search (returns enrollment tokens), policies list / get, webhooks list / get and notifications list / get (they carry uninstall passwords and webhook signing keys), installation-tokens create / send / revoke, policies secret-set (tamper-protection password), users create / update, sites create, subscriptions create / update, auth login, auth set-token",
       "policy": "Human-in-the-loop only"
     }
   ]

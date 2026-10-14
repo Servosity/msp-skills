@@ -38,7 +38,14 @@ Add (or merge with your existing `mcpServers` block):
       "command": "threatdown-mcp",
       "env": {
         "THREATDOWN_CLIENT_ID": "<your-threatdown_client_id>",
-        "THREATDOWN_CLIENT_SECRET": "<your-threatdown_client_secret>"
+        "THREATDOWN_CLIENT_SECRET": "<your-threatdown_client_secret>",
+        "THREATDOWN_OAUTH_SCOPE": "",
+        "THREATDOWN_BASE_URL": "",
+        "THREATDOWN_TOKEN_URL": "",
+        "THREATDOWN_USER_AGENT": "",
+        "THREATDOWN_MCP_READ_ONLY": "",
+        "THREATDOWN_MCP_HTTP_TOKEN": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
@@ -64,7 +71,14 @@ Configuration**) and add:
       "command": "threatdown-mcp",
       "env": {
         "THREATDOWN_CLIENT_ID": "<your-threatdown_client_id>",
-        "THREATDOWN_CLIENT_SECRET": "<your-threatdown_client_secret>"
+        "THREATDOWN_CLIENT_SECRET": "<your-threatdown_client_secret>",
+        "THREATDOWN_OAUTH_SCOPE": "",
+        "THREATDOWN_BASE_URL": "",
+        "THREATDOWN_TOKEN_URL": "",
+        "THREATDOWN_USER_AGENT": "",
+        "THREATDOWN_MCP_READ_ONLY": "",
+        "THREATDOWN_MCP_HTTP_TOKEN": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
@@ -86,7 +100,14 @@ Claude Desktop:
       "command": "threatdown-mcp",
       "env": {
         "THREATDOWN_CLIENT_ID": "<your-threatdown_client_id>",
-        "THREATDOWN_CLIENT_SECRET": "<your-threatdown_client_secret>"
+        "THREATDOWN_CLIENT_SECRET": "<your-threatdown_client_secret>",
+        "THREATDOWN_OAUTH_SCOPE": "",
+        "THREATDOWN_BASE_URL": "",
+        "THREATDOWN_TOKEN_URL": "",
+        "THREATDOWN_USER_AGENT": "",
+        "THREATDOWN_MCP_READ_ONLY": "",
+        "THREATDOWN_MCP_HTTP_TOKEN": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
@@ -101,12 +122,16 @@ web** is remote-only - see the remote section below.)
 # Remote agents (expose the binary over HTTPS first)
 
 All remote agents need `threatdown-mcp` reachable as a public **HTTPS** endpoint. Run it
-in HTTP mode with your credentials in the environment (it listens on 127.0.0.1:7777 by
-default; press 4.32+ refuses a non-loopback bind without TLS, so do not pass `--addr :7777`):
+in HTTP mode with your credentials and a bearer token of your choosing in the environment
+(it serves `http://127.0.0.1:7777/mcp` by default; press 4.32+ refuses a non-loopback bind
+without TLS, so do not pass `--addr :7777`):
 
 ```bash
-THREATDOWN_CLIENT_ID=<value> THREATDOWN_CLIENT_SECRET=<value> threatdown-mcp --transport http
+THREATDOWN_CLIENT_ID=<value> THREATDOWN_CLIENT_SECRET=<value> THREATDOWN_MCP_HTTP_TOKEN=<value> threatdown-mcp --transport http
 ```
+
+The server refuses to start in HTTP mode without `THREATDOWN_MCP_HTTP_TOKEN`, and every
+caller must send `Authorization: Bearer <THREATDOWN_MCP_HTTP_TOKEN>`.
 
 Then expose `http://localhost:7777/mcp` as a public HTTPS URL via a secure tunnel
 (Cloudflare Tunnel, ngrok) or your own reverse proxy. The path is part of the

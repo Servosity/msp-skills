@@ -39,6 +39,48 @@
           "description": "Set the THREATDOWN_CLIENT_SECRET credential for the ThreatDown MCP server.",
           "isRequired": true,
           "isSecret": true
+        },
+        {
+          "name": "THREATDOWN_OAUTH_SCOPE",
+          "description": "Optional: space-separated OAuth scopes to request; default `execute read write`.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "THREATDOWN_BASE_URL",
+          "description": "Optional: override the OneView API base URL (default https://api.threatdown.com/oneview).",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "THREATDOWN_TOKEN_URL",
+          "description": "Optional: override the OAuth2 token endpoint.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "THREATDOWN_USER_AGENT",
+          "description": "Optional: override the User-Agent the CLI sends on OneView requests.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "THREATDOWN_MCP_READ_ONLY",
+          "description": "Optional: set to 1 to run the MCP server read-only.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "THREATDOWN_MCP_HTTP_TOKEN",
+          "description": "Bearer token callers must present when the server runs with --transport http; not used by the stdio transport.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Optional: bind the MCP server to one tenant-gated client profile; leave unset to use default_client_profile.",
+          "isRequired": false,
+          "isSecret": false
         }
       ]
     }

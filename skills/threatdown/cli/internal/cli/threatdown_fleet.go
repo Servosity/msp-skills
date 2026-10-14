@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 
 // Shared plumbing for the cross-site OneView commands (fleet, threats,
 // respond, seats, customer): resolve every site's Nebula account_id, page
