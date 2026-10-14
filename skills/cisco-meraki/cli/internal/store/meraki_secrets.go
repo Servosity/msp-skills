@@ -275,7 +275,7 @@ func merakiIDCarriesSecret(id string, obj map[string]any) bool {
 // word is "password" is skipped when it is about a password policy
 // ("Password expiration", "Minimum password length").
 func merakiSecretLabel(label string) bool {
-	l := strings.ToLower(merakiPercentDecoded(label)) // "web%68ooks" is "webhooks"
+	l := merakiNormalized(label) // "web%68ooks" is "webhooks"
 	// "webhook": payload-template bodies and headers are free-form templates
 	// (a PagerDuty routing_key, a form-encoded token), and an HTTP server's
 	// URL and ID are credentials, so webhook change values are withheld whole.
@@ -384,15 +384,7 @@ func RedactMerakiChangeValue(label, v string) string {
 // whose action targets /webhooks/ carries receiver URLs and free-form
 // payload templates, whatever the label says).
 func merakiSecretChange(label, v string) bool {
-	if merakiSecretLabel(label) || strings.Contains(strings.ToLower(merakiPercentDecoded(v)), "webhook") {
-		return true
-	}
-	var x any // a \u-escaped "webhook" inside valid JSON
-	if json.Unmarshal([]byte(v), &x) == nil {
-		b, _ := json.Marshal(x)
-		return strings.Contains(strings.ToLower(string(b)), "webhook")
-	}
-	return false
+	return merakiSecretLabel(label) || strings.Contains(merakiNormalized(v), "webhook")
 }
 
 // merakiBracketTag reports a value that opens with a bracketed name tag
@@ -441,6 +433,28 @@ func merakiPercentDecoded(s string) string {
 		s = next
 	}
 	return s
+}
+
+// merakiJSONEscapePattern is one \uXXXX escape.
+var merakiJSONEscapePattern = regexp.MustCompile(`\\u[0-9A-Fa-f]{4}`)
+
+// merakiNormalized lowercases s with %XX and \uXXXX escapes decoded (nested
+// or mixed: "web%68\u006foks") and backslashes dropped, for the keyword checks
+// that withhold a webhook value. It fails closed: it only ever adds matches.
+func merakiNormalized(s string) string {
+	for i := 0; i < 4; i++ {
+		next := merakiPercentDecoded(s)
+		next = merakiJSONEscapePattern.ReplaceAllStringFunc(next, func(m string) string {
+			c, _ := strconv.ParseUint(m[2:], 16, 32)
+			return string(rune(c))
+		})
+		next = strings.ReplaceAll(next, `\`, "")
+		if next == s {
+			break
+		}
+		s = next
+	}
+	return strings.ToLower(s)
 }
 
 // ScrubMerakiURLSecrets replaces webhook HTTP server IDs and url= query values
@@ -506,7 +520,7 @@ func redactMerakiString(s string) string {
 func RedactMerakiObject(m map[string]any, path string) {
 	// Decoded first: "web%68ooks" reaches the same endpoint.
 	// A malformed escape fails closed.
-	if _, err := url.PathUnescape(path); err != nil || strings.Contains(strings.ToLower(merakiPercentDecoded(path)), "webhook") {
+	if _, err := url.PathUnescape(path); err != nil || strings.Contains(merakiNormalized(path), "webhook") {
 		redactAllStrings(m)
 		return
 	}

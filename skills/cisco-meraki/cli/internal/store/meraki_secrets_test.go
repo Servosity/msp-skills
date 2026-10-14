@@ -431,3 +431,37 @@ func TestCodexRound16URLValueRunsToEnd(t *testing.T) {
 		t.Fatalf("api_requests ID hid the parts after url= or kept the receiver: %q", id)
 	}
 }
+
+// TestCodexRound17: a JSON \u escape stacked on a percent escape hid a webhook
+// action batch from the keyword check, and two identical API request log
+// entries collapsed into one row (Codex round 17).
+func TestCodexRound17(t *testing.T) {
+	jsonEscapeO := "\\" + "u006f" // a JSON escape for "o", built so no tool decodes it
+	v := `{"actions":[{"resource":"/networks/N_1/web%68` + jsonEscapeO + `oks/httpServers","operation":"create","body":{"url":"https://hooks.slack.com/services/` + merakiSentinel + `"}}]}`
+	label := "POST /api/v1/organizations/1/actionBatches"
+	if got := RedactMerakiChangeValue(label, v); got != RedactedSecret {
+		t.Fatalf("escaped webhook action batch printed: %s", got)
+	}
+	if got := string(RedactMerakiSecrets(mustJSON(t, map[string]any{"label": label, "newValue": v}))); strings.Contains(got, merakiSentinel) {
+		t.Fatalf("mirror kept an escaped webhook action batch: %s", got)
+	}
+	db, err := Open(filepath.Join(t.TempDir(), "data.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	req := json.RawMessage(`{"ts":"2026-10-14T10:00:00.090210Z","adminId":"A1","method":"GET","path":"/api/v1/organizations/1/networks","queryString":"perPage=5","organizationId":"1"}`)
+	if _, _, err := db.UpsertBatch("api_requests", []json.RawMessage{req, req}); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := db.UpsertBatch("api_requests", []json.RawMessage{req, req}); err != nil {
+		t.Fatal(err)
+	}
+	var n int
+	if err := db.DB().QueryRow(`SELECT COUNT(*) FROM resources WHERE resource_type = 'api_requests'`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 2 {
+		t.Fatalf("two identical API requests stored as %d rows across two syncs, want 2", n)
+	}
+}

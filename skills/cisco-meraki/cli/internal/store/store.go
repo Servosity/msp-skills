@@ -10793,6 +10793,7 @@ func (s *Store) UpsertBatchDetailed(resourceType string, items []json.RawMessage
 	defer tx.Rollback()
 
 	var stored, skippedCount, extractFailures, typedFailures int
+	occurrences := map[string]int{} // pp:handfix meraki-log-occurrences
 	for i, item := range items {
 		obj, err := DecodeJSONObject(item)
 		if err != nil {
@@ -10818,6 +10819,17 @@ func (s *Store) UpsertBatchDetailed(resourceType string, items []json.RawMessage
 			skippedCount++
 			extractFailures++
 			continue
+		}
+		// pp:handfix meraki-log-occurrences: two API request log entries can
+		// match on every field (a client retrying in the same microsecond);
+		// each is a row. api_requests is never reconciled, so the suffix is
+		// stable across syncs.
+		// ponytail: per batch (one page); identical entries split across a page boundary still merge.
+		if resourceType == "api_requests" {
+			occurrences[id]++
+			if n := occurrences[id]; n > 1 {
+				id += "+#" + strconv.Itoa(n)
+			}
 		}
 		storageID := resourceStorageID(resourceType, id, obj)
 		item = s.mergeIncomingResourceData(tx, resourceType, storageID, item)
