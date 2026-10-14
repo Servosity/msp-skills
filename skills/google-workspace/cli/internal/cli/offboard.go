@@ -1,9 +1,8 @@
 // Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Novel feature: offboard - one leaver, the right order.
 //
-// Order is forced by the API: backup-code invalidation and most security
-// calls fail on a suspended account, and Drive/Calendar transfers need a
-// live owner, so suspension runs LAST. Licence release waits for the async
+// Backup-code invalidation fails on a suspended account, so suspension runs
+// LAST. Licence release waits for the async
 // transfer. Without --yes the command previews the plan using live reads
 // and changes nothing; --dry-run makes no network calls at all.
 
@@ -72,7 +71,7 @@ func newNovelOffboardCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "offboard <user-email>",
 		Short: "Offboard a leaver in the right order: revoke access, remove groups, transfer data, suspend last",
-		Long: "Runs the offboarding runbook for one account in the order the API requires:\n" +
+		Long: "Runs the offboarding runbook for one account in a safe order:\n" +
 			"  move OU, scramble password, sign out, revoke OAuth tokens, delete app passwords,\n" +
 			"  invalidate backup codes, remove from groups, transfer Drive+Calendar to --successor,\n" +
 			"  release licences (only when no transfer is pending), and suspend LAST.\n" +
@@ -83,7 +82,7 @@ func newNovelOffboardCmd(flags *rootFlags) *cobra.Command {
 			"Use this command to offboard one leaver in the correct order. Do NOT use this command to\n" +
 			"audit accounts that are already suspended; use 'leavers' instead.",
 		Example: "  google-workspace-cli offboard jane@example.com --successor manager@example.com --ou /Departed\n" +
-			"  google-workspace-cli offboard jane@example.com --successor manager@example.com --ou /Departed --yes --agent",
+			"  google-workspace-cli offboard jane@example.com --successor manager@example.com --ou /Departed --yes --json",
 		Annotations: map[string]string{"pp:data-source": "live"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 && cmd.Flags().NFlag() == 0 {

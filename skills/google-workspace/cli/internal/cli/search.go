@@ -115,6 +115,10 @@ Run sync first to populate the local search index.`,
 
 			// Local FTS search
 			if dbPath == "" {
+				// Hand-fix (handfixes.json local-read-needs-a-tenant).
+				if err := localStoreTenantErr(); err != nil {
+					return err
+				}
 				dbPath = defaultDBPath("google-workspace-cli")
 			}
 

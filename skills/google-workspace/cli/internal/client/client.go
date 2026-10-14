@@ -2225,13 +2225,15 @@ func isPermanentDNSError(err error) bool {
 }
 
 // credentialWouldTravelInPlaintext reports a plain-http request to anything
-// but a loopback host (local mock servers stay usable).
+// but a loopback host (local mock servers stay usable). Only the names Go's
+// environment proxy also exempts count: a *.localhost name is sent through
+// HTTP_PROXY, so it would carry the credential off the machine.
 func credentialWouldTravelInPlaintext(u *url.URL) bool {
 	if u == nil || !strings.EqualFold(u.Scheme, "http") {
 		return false
 	}
 	h := strings.ToLower(u.Hostname())
-	if h == "localhost" || strings.HasSuffix(h, ".localhost") {
+	if h == "localhost" {
 		return false
 	}
 	ip := net.ParseIP(h)

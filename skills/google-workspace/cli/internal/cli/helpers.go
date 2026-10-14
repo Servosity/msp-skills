@@ -4663,6 +4663,12 @@ func defaultDBPathInDir(dir string) string {
 		if scopedExists {
 			return scoped
 		}
+		if tenantPinnedStore() {
+			// Hand-fix (handfixes.json tenant-store-never-claims-unscoped-db):
+			// data.db is the store a read with no tenant selected opens, so a
+			// client tenant must never adopt it as its own mirror.
+			return scoped
+		}
 		if _, err := os.Stat(unscoped); err != nil {
 			if !os.IsNotExist(err) {
 				return unscoped
@@ -4683,6 +4689,11 @@ func defaultDBPathInDir(dir string) string {
 // that never wrote the unscoped file.
 func MCPStorePath() (string, error) {
 	configureDefaultDBScope("")
+	// Hand-fix (handfixes.json local-read-needs-a-tenant): sql and search
+	// take no tenant argument; refuse rather than answer from no client.
+	if err := localStoreTenantErr(); err != nil {
+		return "", err
+	}
 	dir, err := cliutil.DataDir()
 	if err != nil {
 		return "", err

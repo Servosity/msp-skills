@@ -340,7 +340,7 @@
   {
    "id": "no-credentials-over-plaintext-http",
    "summary": "The client refuses to send an Authorization header over plain http to anything but a loopback host",
-   "why": "GOOGLE_WORKSPACE_BASE_URL (declared in the .mcpb for mock testing) can point at http://. The generated client attached the raw bearer or the tenant-minted token to the first request regardless of scheme; the redirect guards only cover later hops. A non-loopback http override therefore sent a super-admin-delegated token in cleartext. credentialWouldTravelInPlaintext now refuses before dialling, while http://127.0.0.1 and localhost mocks keep working. Found by the onboard Codex review (P1); receipt: http://192.0.2.10 is refused, the loopback stub still answers. The call-site test (TestClientRefusesCredentialOverPlaintext) fails with the guard removed; the helper-only test does not.",
+   "why": "GOOGLE_WORKSPACE_BASE_URL (declared in the .mcpb for mock testing) can point at http://. The generated client attached the raw bearer or the tenant-minted token to the first request regardless of scheme; the redirect guards only cover later hops. A non-loopback http override therefore sent a super-admin-delegated token in cleartext. credentialWouldTravelInPlaintext now refuses before dialling, while http://127.0.0.1 and localhost mocks keep working. Found by the onboard Codex review (P1); receipt: http://192.0.2.10 is refused, the loopback stub still answers. The call-site test (TestClientRefusesCredentialOverPlaintext) fails with the guard removed; the helper-only test does not. Round 2 (Codex, P1): the first version also exempted *.localhost, but Go's environment proxy only exempts localhost and loopback IPs, so http://fixture.localhost with HTTP_PROXY set delivered the bearer header to the proxy. Only localhost and loopback IPs are exempt now.",
    "status": "active",
    "spec_encode_followup": "Press-side: generated clients should refuse credential-bearing non-loopback plaintext requests fleet-wide.",
    "asserts": [
@@ -366,6 +366,15 @@
      "contains": "func TestClientRefusesCredentialOverPlaintext(",
      "min_count": 1,
      "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "strings.HasSuffix(h, \".localhost\")"
+    },
+    {
+     "file": "cli/internal/client/plaintext_credential_test.go",
+     "contains": "\"http://fixture.localhost:8080/x\": true",
+     "min_count": 1
     }
    ]
   },
@@ -378,6 +387,154 @@
     {
      "file": "cli/internal/cli/gws_tenants_cmd.go",
      "contains": "for _, e := range errs {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "sync-google-empty-list-page",
+   "summary": "sync treats a Google list page with no items array ({kind, etag}) as an empty page instead of storing the envelope as one record",
+   "why": "Google omits the items array when a list is empty. The generated sync loop falls through to 'single object response - store as-is' when it finds no items and isEmptyPageResponse does not recognise the envelope, so a tenant with no data transfers stored the {kind, etag} envelope as a transfer and reported total_records 1. All five synced resources are lists, so an item-less Google envelope is always an empty page. Found by the onboard Codex review (round 2, P1); receipt: a stub returning {kind, etag} for transfers stored 1 record before and 0 after. The helper lives in the hand-written gws_sync_envelope.go; the call site in sync.go is the generated-file edit.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: the googlediscovery profiler should populate responsePathForResource with each list method's items key, and the sync loop should never store a list resource's page as a single object.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "|| googleListPageIsEmpty(resource, data)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_sync_envelope.go",
+     "contains": "func googleListPageIsEmpty(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_sync_envelope_test.go",
+     "contains": "func TestGoogleListEnvelopeRules(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "sync-google-last-page-proven",
+   "summary": "pageMayHaveMore treats a Google list envelope without nextPageToken as the proven last page",
+   "why": "With pagination now declared (sync-google-page-token-pagination), a final page of exactly maxResults records and no nextPageToken hit the generic 'full page without a usable next cursor' rule: sync emitted a false truncation warning and left the resource's completion unproven while still reporting success. In Google's list contract a missing nextPageToken is the end. Found by the onboard Codex review (round 2, P2); receipt: a stub returning exactly 100 users with no token warned pagination_cursor_missing before and completes cleanly after.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: treat a page_token paginator's absent next-token as a proven end when the response is an object envelope.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "if googleListEnvelopeEnded(data) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_sync_envelope.go",
+     "contains": "func googleListEnvelopeEnded(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "tenant-store-never-claims-unscoped-db",
+   "summary": "A selected client tenant always uses its own data-<hash>.db and never claims the shared, unscoped data.db",
+   "why": "The press's legacy-store migration lets the first scoped identity to find an existing data.db claim it (claimLegacyUnscopedDB writes data.db.owner). In this multi-tenant CLI data.db is what a read with no tenant selected opens, so whichever client synced first had its mirror served to every unscoped sql/search call: the adversarial reviewer synced acme then beta and an MCP sql call with GOOGLE_WORKSPACE_TENANT unset returned acme's users. defaultDBPathInDir now returns the tenant's scoped file before the claim step. Found by the onboard adversarial review (round 2, P1); TestTenantStoreNeverClaimsUnscopedDBAndLocalReadNeedsTenant fails with the guard removed.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "if tenantPinnedStore() {",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_novel_test.go",
+     "contains": "func TestTenantStoreNeverClaimsUnscopedDBAndLocalReadNeedsTenant(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "local-read-needs-a-tenant",
+   "summary": "Local-store reads (MCP sql/search, CLI search/analytics, --data-source local) refuse when tenants are registered, none is selected, and no bearer token keys the store",
+   "why": "With no tenant selected and no bearer token the store scope is empty and reads open the shared data.db, which holds no client's mirror, so an empty result reads as a clean one (no users without 2SV, no stale licences). localStoreTenantErr (novel gws_tenants.go) returns a usage error naming --tenant / GOOGLE_WORKSPACE_TENANT; a bearer token keys the store to its own organization, the same one generated API commands act on, so that case is allowed. Found by the onboard adversarial review (round 2, P1, with tenant-store-never-claims-unscoped-db).",
+   "status": "active",
+   "spec_encode_followup": "Factory-side: carry localStoreTenantErr in ~/Documents/Dev/cli-factory/google-workspace/novel/gws_tenants.go; the four call sites are generated-file edits a reprint drops.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/gws_tenants.go",
+     "contains": "func localStoreTenantErr() error",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "if err := localStoreTenantErr(); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/search.go",
+     "contains": "if err := localStoreTenantErr(); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/analytics.go",
+     "contains": "if err := localStoreTenantErr(); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "if err := localStoreTenantErr(); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "novel-help-text-accuracy",
+   "summary": "Novel-command help text says what the code does: offboard's order is 'safe' (not API-required) and its Example uses --json; posture and sharing-drift count every Drive/Calendar setting change, not only sharing; tenants add's mode 0600 applies on macOS/Linux",
+   "why": "The adversarial review (round 2, P2) and Codex (round 2, P1, Windows key ACLs) found help text that overclaimed: Google does not require offboard's order (backup-code invalidation failing on a suspended account is why suspend runs last), --agent's compact output drops each offboard step's detail, settingChanges keeps every CHANGE_DOCS_SETTING and CHANGE_CALENDAR_SETTING event, and on Windows the copied key inherits the config folder's ACL. These are NOVEL files carried from the factory's novel/ directory, so a re-onboard from that source brings the old text back.",
+   "status": "active",
+   "spec_encode_followup": "Factory-side: port the same wording into ~/Documents/Dev/cli-factory/google-workspace/novel/ (offboard.go, posture.go, sharing_drift.go, gws_tenants_cmd.go).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/offboard.go",
+     "contains": "in a safe order:",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/offboard.go",
+     "not_contains": "in the order the API requires"
+    },
+    {
+     "file": "cli/internal/cli/offboard.go",
+     "contains": "--ou /Departed --yes --json",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/posture.go",
+     "not_contains": "sharing setting change(s)"
+    },
+    {
+     "file": "cli/internal/cli/sharing_drift.go",
+     "contains": "any Drive (Docs) or Calendar setting changed in the Admin console",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants_cmd.go",
+     "contains": "mode 0600 on macOS/Linux",
      "min_count": 1,
      "code_only": true
     }

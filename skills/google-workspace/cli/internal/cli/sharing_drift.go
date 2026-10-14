@@ -198,9 +198,9 @@ func newNovelSharingDriftCmd(flags *rootFlags) *cobra.Command {
 	var settingsOnly bool
 	cmd := &cobra.Command{
 		Use:   "sharing-drift",
-		Short: "External-sharing changes across client tenants: Drive sharing settings, new external shares, public links",
+		Short: "External-sharing changes across client tenants: Drive and Calendar setting changes, new external shares, public links",
 		Long: "Reads each tenant's audit log for the --since window and reports three kinds of drift:\n" +
-			"  setting_change  Drive or Calendar sharing settings changed in the Admin console\n" +
+			"  setting_change  any Drive (Docs) or Calendar setting changed in the Admin console\n" +
 			"                  (CHANGE_DOCS_SETTING, CHANGE_CALENDAR_SETTING, and sharing-related\n" +
 			"                  CHANGE_APPLICATION_SETTING events), with old -> new and who changed it\n" +
 			"  external_share  files that newly became visible outside the domain (Google's\n" +
@@ -210,7 +210,7 @@ func newNovelSharingDriftCmd(flags *rootFlags) *cobra.Command {
 			"Drive audit data needs Business Standard or higher; for tenants without it the Drive\n" +
 			"queries fail and the tenant lands in fetch_failures, so run those with --settings-only.\n" +
 			"Use this command for changes to external sharing in a recent window: who changed a Drive or\n" +
-			"Calendar sharing setting, and which files newly went external or public. Do NOT use this\n" +
+			"Calendar setting, and which files newly went external or public. Do NOT use this\n" +
 			"command for a tenant's current sharing setting; use 'posture' instead.",
 		Example: "  google-workspace-cli sharing-drift --all-tenants --since 7d\n" +
 			"  google-workspace-cli sharing-drift --all-tenants --settings-only --agent --select results.tenant,results.setting,results.from,results.to,results.actor",

@@ -137,7 +137,7 @@ OpenClaw isn't generally available yet; the frontmatter wiring is pre-shipped an
 Each client is a **tenant**: a Google Cloud service account with domain-wide delegation that impersonates that client's super admin. Set one up per client:
 
 1. In a Google Cloud project, enable the **Admin SDK API** and the **Enterprise License Manager API** (plus the **Cloud Identity API** if you will use the `policy` profile, and the **Google Workspace Reseller API** for your reseller domain), create a service account, and download its JSON key. (Google Cloud organizations created since May 2024 block key creation by default; an org admin has to allow it for that project.)
-2. Register the client. The key is copied into the CLI's config directory with owner-only permissions, so delete the downloaded original afterwards:
+2. Register the client. The key is copied into the CLI's config directory with owner-only permissions (mode 0600 on macOS and Linux; on Windows the file inherits the config folder's permissions), so delete the downloaded original afterwards:
 
    ```bash
    google-workspace-cli tenants add acme --domain example.com --admin admin@example.com --key ./acme-sa.json
@@ -150,7 +150,7 @@ Each client is a **tenant**: a Google Cloud service account with domain-wide del
    google-workspace-cli tenants test acme
    ```
 
-The default `read` scope profile covers every report. Profiles combine with commas, and only `full` includes `read`: use `--scopes full` for offboarding writes, `--scopes read,policy` (or `full,policy`) to add the current 2SV, Drive sharing, and Gmail forwarding policy to `posture`, and register your own reseller domain with `--reseller --scopes reseller` (it is excluded from `--all-tenants`). `--scopes policy` on its own replaces `read` and leaves the reports nothing to read. Pick a client per command with `--tenant <name>` (or `GOOGLE_WORKSPACE_TENANT`), or fan out with `--all-tenants`.
+The default `read` scope profile covers every report. Profiles combine with commas, and only `full` includes `read`: use `--scopes full` for offboarding writes (it also authorizes every user write, including deleting users and granting super admin), `--scopes read,policy` (or `full,policy`) to add the current 2SV, Drive sharing, and Gmail forwarding policy to `posture`, and register your own reseller domain with `--reseller --scopes reseller` (it is excluded from `--all-tenants`). `--scopes policy` on its own replaces `read` and leaves the reports nothing to read. Pick a client per command with `--tenant <name>` (or `GOOGLE_WORKSPACE_TENANT`), or fan out with `--all-tenants`.
 
 Managing a single organization? Set `GOOGLE_WORKSPACE_TOKEN` to an OAuth access token that carries the Admin SDK scopes instead of registering tenants; the reports then run against that one organization. Do not leave it set once tenants are registered: any API command run without `--tenant` falls back to that token and acts on its organization, not a client's.
 
@@ -186,7 +186,7 @@ On r/msp's ["Google Workspace Management"](https://www.reddit.com/r/msp/comments
 This skill closes that gap:
 
 - **`google-workspace-cli mfa-gaps --all-tenants`** - every account without 2SV across every client, unenrolled admins first.
-- **`google-workspace-cli stale-licenses --all-tenants`** - Workspace edition seats on suspended, never-signed-in, or idle accounts, ready to reclaim (`--products` adds other license products).
+- **`google-workspace-cli stale-licenses --all-tenants`** - Workspace edition seats on suspended, never-signed-in, or idle accounts, ready to reclaim (`--products` replaces the default `Google-Apps`, so list it too: `--products Google-Apps,Google-Vault`).
 - **`google-workspace-cli leavers --all-tenants`** - suspended accounts still holding a license, groups, an admin role, OAuth tokens, or an unfinished Drive transfer.
 - **`google-workspace-cli offboard "jane@example.com" --successor "manager@example.com"`** - the offboarding runbook, previewed with live reads before anything changes, with suspend last because backup-code cleanup fails on a suspended account.
 - **`google-workspace-cli posture --all-tenants`** - one row per client for the QBR.
@@ -209,7 +209,7 @@ No. The recommended install is to paste one sentence into Claude Code or Codex -
 
 ### Is my Google Workspace data safe?
 
-Your data stays on **your machine**. The CLI and MCP server are local binaries. The SQLite mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Each client's service-account key is copied into the CLI's config directory with owner-only permissions and used only to mint short-lived tokens from Google; keys are never bundled into this repo or transmitted anywhere by MSP Skills.
+Your data stays on **your machine**. The CLI and MCP server are local binaries. The SQLite mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Each client's service-account key is copied into the CLI's config directory with owner-only permissions (mode 0600 on macOS and Linux; on Windows the file inherits the config folder's permissions) and used only to mint short-lived tokens from Google; keys are never bundled into this repo or transmitted anywhere by MSP Skills.
 
 ### Do I need to be a Google partner or reseller?
 

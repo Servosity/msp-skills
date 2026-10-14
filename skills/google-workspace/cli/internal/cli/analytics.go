@@ -40,6 +40,10 @@ Null or missing --group-by values are JSON null. Table output labels them (none)
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := cmd.OutOrStdout()
 			if dbPath == "" {
+				// Hand-fix (handfixes.json local-read-needs-a-tenant).
+				if err := localStoreTenantErr(); err != nil {
+					return err
+				}
 				dbPath = defaultDBPath("google-workspace-cli")
 			}
 

@@ -679,7 +679,9 @@ func syncResource(ctx context.Context, c interface {
 		}
 
 		if len(items) == 0 && !cursorPageHasContinuation(pageSize.cursorType, hasMore, nextCursor) {
-			if isEmptyPageResponse(data, responsePathForResource(resource, path)...) {
+			// Hand-fix (handfixes.json sync-google-empty-list-page): Google
+			// omits the items array on an empty list, leaving {kind, etag}.
+			if isEmptyPageResponse(data, responsePathForResource(resource, path)...) || googleListPageIsEmpty(resource, data) {
 				// Natural end: the API legitimately returned an empty page.
 				outcome.complete = true
 				break
@@ -1727,6 +1729,11 @@ func pageAllowsPageIntFallback(data json.RawMessage) bool {
 }
 
 func pageMayHaveMore(data json.RawMessage, responsePaths ...string) bool {
+	// Hand-fix (handfixes.json sync-google-last-page-proven): a Google list
+	// envelope without nextPageToken is the last page, even when it is full.
+	if googleListEnvelopeEnded(data) {
+		return false
+	}
 	hasMore, parsed := pageExplicitHasMore(data, responsePaths...)
 	return !parsed || hasMore
 }

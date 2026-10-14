@@ -342,6 +342,26 @@ func tenantPinnedStore() bool {
 	return err == nil && t != nil
 }
 
+// localStoreTenantErr refuses a local-store read that would open the shared,
+// unscoped data.db while tenants are registered and none is selected. No
+// client's mirror lives there (a tenant never claims it), so an empty answer
+// would read as a clean one. A bearer token keys the store to its own
+// organization, the same one generated API commands then act on.
+func localStoreTenantErr() error {
+	t, err := selectedTenant()
+	if err != nil || t != nil {
+		return err
+	}
+	if hash, _, _ := currentDefaultDBScope(); hash != "" {
+		return nil
+	}
+	reg, err := loadTenantRegistry()
+	if err != nil || len(reg.Tenants) == 0 {
+		return nil
+	}
+	return usageErr(fmt.Errorf("%d tenants are registered and none is selected, so there is no client mirror to read: pass --tenant <name> (MCP server: set GOOGLE_WORKSPACE_TENANT in its env)", len(reg.Tenants)))
+}
+
 // resetTenantSelection is for tests.
 func resetTenantSelection() {
 	tenantState.Lock()

@@ -61,7 +61,7 @@
     }
   ],
   "different_vs_wrappers": "Most Google Workspace MCP servers, such as [taylorwilsdon/google_workspace_mcp](https://github.com/taylorwilsdon/google_workspace_mcp), work inside one organization's Gmail, Drive, and Docs. [GAM](https://github.com/GAM-team/GAM) keeps one config section per client and can loop a command over every section into one CSV, but you write the loop, the query, and any join across users, licenses, admin roles, and audit logs yourself. This skill keeps a registry of client tenants, each with its own service account and least-privilege scope profile, and fans one question out across all of them in parallel: 2SV gaps, license waste, incomplete offboarding, sharing drift, risky OAuth apps, and sign-in alerts come back as one ranked table, with any tenant it could not read listed as a failure rather than silently dropped.",
-  "different_vs_vendor": "The Google Admin console stays the place for deep single-client work and for settings the API does not expose. This skill adds what the console does not have: one view across every client domain you manage, driven from whichever AI agent you already use, plus an offboarding runbook that previews every step with live reads and suspends the account last, after the backup-code and token cleanup that fails on a suspended account.",
+  "different_vs_vendor": "The Google Admin console stays the place for deep single-client work and for settings the API does not expose. This skill adds what the console does not have: one view across every client domain you manage, driven from whichever AI agent you already use, plus an offboarding runbook that previews every step with live reads and suspends the account last, after the backup-code invalidation that fails on a suspended account.",
   "faqs": [
     {
       "q": "Does this work with ChatGPT?",
@@ -73,7 +73,7 @@
     },
     {
       "q": "Is my Google Workspace data safe?",
-      "a": "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. Each client's service-account key is copied into the CLI's config directory with owner-only permissions, and tokens are minted on demand and sent only to Google. Credentials are never bundled or transmitted by MSP Skills."
+      "a": "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. Each client's service-account key is copied into the CLI's config directory with owner-only permissions (mode 0600 on macOS and Linux; on Windows the file inherits the config folder's permissions), and tokens are minted on demand and sent only to Google. Credentials are never bundled or transmitted by MSP Skills."
     },
     {
       "q": "How do I connect a client's Google Workspace?",

@@ -16,7 +16,7 @@ faqs:
   - q: "Do I need to know how to code?"
     a: "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You register each client once with `tenants add`."
   - q: "Is my Google Workspace data safe?"
-    a: "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. Each client's service-account key is copied into the CLI's config directory with owner-only permissions, and tokens are minted on demand and sent only to Google. Credentials are never bundled or transmitted by MSP Skills."
+    a: "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. Each client's service-account key is copied into the CLI's config directory with owner-only permissions (mode 0600 on macOS and Linux; on Windows the file inherits the config folder's permissions), and tokens are minted on demand and sent only to Google. Credentials are never bundled or transmitted by MSP Skills."
   - q: "How do I connect a client's Google Workspace?"
     a: "In a Google Cloud project, create a service account and download its JSON key, and enable the Admin SDK API and the Enterprise License Manager API (plus the Cloud Identity API for the `policy` profile). Run `google-workspace-cli tenants add <name> --domain <client domain> --admin <client super admin> --key <key file>`. It prints the Client ID and the scopes to paste into the client's Admin console under Security, Access and data control, API controls, Domain-wide delegation. Then `google-workspace-cli tenants test <name>` confirms Google issues a token for every delegated scope."
   - q: "Does an agent get write access to my clients?"
@@ -91,7 +91,7 @@ Full command reference at [github.com/servosity/msp-skills/blob/main/skills/goog
 
 Most Google Workspace MCP servers, such as [taylorwilsdon/google_workspace_mcp](https://github.com/taylorwilsdon/google_workspace_mcp), work inside one organization's Gmail, Drive, and Docs. [GAM](https://github.com/GAM-team/GAM) keeps one config section per client and can loop a command over every section into one CSV, but you write the loop, the query, and any join across users, licenses, admin roles, and audit logs yourself. This skill keeps a registry of client tenants, each with its own service account and least-privilege scope profile, and fans one question out across all of them in parallel: 2SV gaps, license waste, incomplete offboarding, sharing drift, risky OAuth apps, and sign-in alerts come back as one ranked table, with any tenant it could not read listed as a failure rather than silently dropped.
 
-The Google Admin console stays the place for deep single-client work and for settings the API does not expose. This skill adds what the console does not have: one view across every client domain you manage, driven from whichever AI agent you already use, plus an offboarding runbook that previews every step with live reads and suspends the account last, after the backup-code and token cleanup that fails on a suspended account.
+The Google Admin console stays the place for deep single-client work and for settings the API does not expose. This skill adds what the console does not have: one view across every client domain you manage, driven from whichever AI agent you already use, plus an offboarding runbook that previews every step with live reads and suspends the account last, after the backup-code invalidation that fails on a suspended account.
 
 ## The pain this closes
 
@@ -159,7 +159,7 @@ No. Paste one sentence into Claude Code or Codex and your agent does the install
 
 ### Is my Google Workspace data safe?
 
-Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. Each client's service-account key is copied into the CLI's config directory with owner-only permissions, and tokens are minted on demand and sent only to Google. Credentials are never bundled or transmitted by MSP Skills.
+Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. Each client's service-account key is copied into the CLI's config directory with owner-only permissions (mode 0600 on macOS and Linux; on Windows the file inherits the config folder's permissions), and tokens are minted on demand and sent only to Google. Credentials are never bundled or transmitted by MSP Skills.
 
 ### How do I connect a client's Google Workspace?
 

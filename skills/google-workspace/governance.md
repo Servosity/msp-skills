@@ -13,7 +13,8 @@ two ways to authenticate:
 - **Client tenants (the MSP path).** Each client is registered with `tenants add`: a
   Google Cloud service account with domain-wide delegation that impersonates that
   client's super admin. `tenants add` copies the service-account JSON key into the
-  CLI's config directory (`keys/<tenant>.json`, file mode 0600) and records the tenant
+  CLI's config directory (`keys/<tenant>.json`, file mode 0600 on macOS and Linux; on Windows the file inherits the
+  config folder's ACL, which under your user profile means your account, SYSTEM and Administrators) and records the tenant
   in `tenants.toml`. For every command the CLI mints a short-lived access token for the
   selected tenant, requesting exactly that tenant's configured scopes, and sends it only
   to Google. `tenants remove <name> --yes` deletes the stored key copy.
@@ -41,7 +42,7 @@ That authorization, not the CLI, is the hard limit. Profiles combine with commas
 | Profile | Scopes | What it unlocks |
 | --- | --- | --- |
 | `read` (default) | Read-only Directory, Reports, Data Transfer; plus `admin.directory.user.security` and `apps.licensing` | Every report. **Not purely read-only** - see below. |
-| `full` | `read` plus `admin.directory.user`, `admin.directory.group.member`, `admin.datatransfer` | `offboard --yes`: OU move, password scramble, suspend, group removal, Drive and Calendar transfer |
+| `full` | `read` plus `admin.directory.user`, `admin.directory.group.member`, `admin.datatransfer` | `offboard --yes`: OU move, password scramble, suspend, group removal, Drive and Calendar transfer. **Also every user write**: `admin.directory.user` authorizes `users delete`, `users insert`, password changes and `users make-admin` (super admin), including through the MCP execute tool |
 | `policy` | `cloud-identity.policies.readonly` | `posture` columns for current 2SV enforcement, Drive external sharing, Gmail auto-forwarding |
 | `reseller` | `apps.order.readonly` | Reseller reads for your own reseller domain (register it with `--reseller`; it is excluded from `--all-tenants`) |
 
@@ -92,7 +93,8 @@ require a human for anything below the line.
 ## How to lock it down
 
 - **Register reporting-only clients with the default `read` profile**, and add `full`
-  only for clients where you offboard through the CLI. A profile you never authorize in
+  only for clients where you offboard through the CLI: it authorizes every user write,
+  including deleting users and granting super admin. A profile you never authorize in
   the client's Admin console cannot be used, whatever the agent asks for.
 - **Keep autonomous agents to Read + previewed writes.** The gate lives in your agent's
   policy for every generated write command, not in the binary's defaults.

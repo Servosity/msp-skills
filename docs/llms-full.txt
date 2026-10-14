@@ -993,7 +993,7 @@ A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS
 Q: Do I need to know how to code?
 A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You register each client once with `tenants add`.
 Q: Is my Google Workspace data safe?
-A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. Each client's service-account key is copied into the CLI's config directory with owner-only permissions, and tokens are minted on demand and sent only to Google. Credentials are never bundled or transmitted by MSP Skills.
+A: Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. Each client's service-account key is copied into the CLI's config directory with owner-only permissions (mode 0600 on macOS and Linux; on Windows the file inherits the config folder's permissions), and tokens are minted on demand and sent only to Google. Credentials are never bundled or transmitted by MSP Skills.
 Q: How do I connect a client's Google Workspace?
 A: In a Google Cloud project, create a service account and download its JSON key, and enable the Admin SDK API and the Enterprise License Manager API (plus the Cloud Identity API for the `policy` profile). Run `google-workspace-cli tenants add <name> --domain <client domain> --admin <client super admin> --key <key file>`. It prints the Client ID and the scopes to paste into the client's Admin console under Security, Access and data control, API controls, Domain-wide delegation. Then `google-workspace-cli tenants test <name>` confirms Google issues a token for every delegated scope.
 Q: Does an agent get write access to my clients?

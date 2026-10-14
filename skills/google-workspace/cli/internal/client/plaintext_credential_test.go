@@ -18,12 +18,13 @@ import (
 
 func TestCredentialWouldTravelInPlaintext(t *testing.T) {
 	for raw, want := range map[string]bool{
-		"https://admin.googleapis.com/x": false,
-		"http://127.0.0.1:18777/x":       false,
-		"http://[::1]:80/x":              false,
-		"http://localhost:8080/x":        false,
-		"http://192.0.2.10/x":            true,
-		"http://admin.googleapis.com/x":  true,
+		"https://admin.googleapis.com/x":  false,
+		"http://127.0.0.1:18777/x":        false,
+		"http://[::1]:80/x":               false,
+		"http://localhost:8080/x":         false,
+		"http://192.0.2.10/x":             true,
+		"http://fixture.localhost:8080/x": true,
+		"http://admin.googleapis.com/x":   true,
 	} {
 		u, _ := url.Parse(raw)
 		if got := credentialWouldTravelInPlaintext(u); got != want {

@@ -70,7 +70,7 @@ func newTenantsAddCmd(flags *rootFlags) *cobra.Command {
 	var reseller bool
 	cmd := &cobra.Command{
 		Use:   "add <name>",
-		Short: "Register a client tenant (copies its service-account key into the config dir, mode 0600)",
+		Short: "Register a client tenant (copies its service-account key into the config dir, mode 0600 on macOS/Linux)",
 		// Registering a key reads an arbitrary local path; that is operator
 		// setup, not an agent action, so it stays off the MCP surface.
 		Annotations: map[string]string{"mcp:hidden": "true"},

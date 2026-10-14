@@ -30,7 +30,7 @@
       "environmentVariables": [
         {
           "name": "GOOGLE_WORKSPACE_TENANT",
-          "description": "Default client tenant (from google-workspace-cli tenants list) for tool calls that name no tenant, including sql, search and raw API calls. Leave blank.",
+          "description": "Default client tenant (from google-workspace-cli tenants list) for tool calls that name no tenant, including sql, search and raw API calls. Set it when more than one tenant is registered: without it sql and search refuse to answer.",
           "isRequired": false,
           "isSecret": false
         },

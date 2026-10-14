@@ -10,6 +10,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -743,5 +745,63 @@ func TestTenantStoreNeverAdoptsBearerStore(t *testing.T) {
 	configureDefaultDBScope("")
 	if hash, _, _ := currentDefaultDBScope(); hash == hashDefaultDBScope("tenant:acme") {
 		t.Fatal("without a selected tenant the store must not be the tenant's")
+	}
+}
+
+func TestTenantStoreNeverClaimsUnscopedDBAndLocalReadNeedsTenant(t *testing.T) {
+	restore, err := cliutil.SetHomeOverride(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer restore()
+	if err := updateTenantRegistry(func(reg *tenantRegistry) error {
+		reg.Tenants = append(reg.Tenants, gwsTenant{Name: "acme", Domain: "example.com", KeyFile: "k.json"}, gwsTenant{Name: "beta", Domain: "example.org", KeyFile: "k2.json"})
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GOOGLE_WORKSPACE_TOKEN", "")
+	t.Setenv("ADMIN_ACCESS_TOKEN", "")
+	defer func() { tenantFlag = ""; resetTenantSelection(); setDefaultDBScopeIdentity("", "", "") }()
+	dir, err := cliutil.DataDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	unscoped := filepath.Join(dir, "data.db")
+	if err := os.WriteFile(unscoped, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	tenantFlag = "acme"
+	resetTenantSelection()
+	configureDefaultDBScope("")
+	if got := defaultDBPathInDir(dir); got != filepath.Join(dir, "data-"+hashDefaultDBScope("tenant:acme")+".db") {
+		t.Fatalf("a tenant must use its own store, never claim data.db: %s", got)
+	}
+	if _, err := os.Stat(unscoped + ".owner"); !os.IsNotExist(err) {
+		t.Fatalf("a tenant must not mark data.db as its own: %v", err)
+	}
+	if err := localStoreTenantErr(); err != nil {
+		t.Fatalf("a selected tenant reads its own mirror: %v", err)
+	}
+
+	tenantFlag = ""
+	resetTenantSelection()
+	configureDefaultDBScope("")
+	if err := localStoreTenantErr(); err == nil || !strings.Contains(err.Error(), "none is selected") {
+		t.Fatalf("two tenants and none selected must refuse a local read: %v", err)
+	}
+	if _, err := MCPStorePath(); err == nil {
+		t.Fatal("MCP sql/search must refuse too")
+	}
+
+	t.Setenv("GOOGLE_WORKSPACE_TOKEN", "own-org-token")
+	resetTenantSelection()
+	configureDefaultDBScope("")
+	if err := localStoreTenantErr(); err != nil {
+		t.Fatalf("a bearer token keys the store to its own organization: %v", err)
 	}
 }

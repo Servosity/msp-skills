@@ -1,6 +1,6 @@
 ---
 name: google-workspace
-description: "Use when the user asks to audit or administer Google Workspace across several client domains: find accounts without 2-Step Verification, reclaim paid licenses on suspended or idle accounts, check that leavers were fully offboarded, offboard a leaver in the order Google requires, review Drive and Calendar sharing changes, inventory risky third-party OAuth apps, or pull a one-row-per-client posture summary for a QBR. Drives the Google Workspace Admin SDK (Directory, Reports, Enterprise License Manager, Data Transfer, Reseller) per client tenant via service accounts with domain-wide delegation. Trigger phrases: `who doesn't have 2SV across my clients`, `google workspace license waste`, `google workspace licence waste`, `offboard a google workspace user`, `did our google workspace leavers get cleaned up`, `external sharing changes in google workspace`, `risky oauth apps in google workspace`, `google workspace posture for every client`, `use google-workspace`, `run google-workspace-cli`."
+description: "Use when the user asks to audit or administer Google Workspace across several client domains: find accounts without 2-Step Verification, reclaim paid licenses on suspended or idle accounts, check that leavers were fully offboarded, offboard a leaver with suspension last, review Drive and Calendar setting changes and new external shares, inventory risky third-party OAuth apps, or pull a one-row-per-client posture summary for a QBR. Drives the Google Workspace Admin SDK (Directory, Reports, Enterprise License Manager, Data Transfer, Reseller) per client tenant via service accounts with domain-wide delegation. Trigger phrases: `who doesn't have 2SV across my clients`, `google workspace license waste`, `google workspace licence waste`, `offboard a google workspace user`, `did our google workspace leavers get cleaned up`, `external sharing changes in google workspace`, `risky oauth apps in google workspace`, `google workspace posture for every client`, `use google-workspace`, `run google-workspace-cli`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "Google Workspace"
@@ -42,11 +42,11 @@ register the skill with your agent and writes no MCP client config - see
 
 If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
-Typed commands for the Admin SDK Directory, Reports, Enterprise License Manager, Data Transfer and Reseller methods, run per client tenant. Register each client once (a service account with domain-wide delegation impersonating that client's super admin), then ask fleet questions in one command: mfa-gaps, stale-licenses, sharing-drift, posture, leavers, oauth-apps and login-alerts fan out across every tenant. offboard runs a leaver's cleanup with suspend last (backup-code and token cleanup fail on a suspended account) and previews before it changes anything.
+Typed commands for the Admin SDK Directory, Reports, Enterprise License Manager, Data Transfer and Reseller methods, run per client tenant. Register each client once (a service account with domain-wide delegation impersonating that client's super admin), then ask fleet questions in one command: mfa-gaps, stale-licenses, sharing-drift, posture, leavers, oauth-apps and login-alerts fan out across every tenant. offboard runs a leaver's cleanup with suspend last (backup-code invalidation fails on a suspended account) and previews before it changes anything.
 
 ## When to Use This CLI
 
-Use this CLI when an MSP needs answers across several Google Workspace client tenants at once: 2SV coverage, licence waste, external-sharing changes, risky sign-ins, third-party app access, or a per-client posture row for a QBR. It is also the safe way to offboard a leaver in the order Google requires, and gives typed access to all 163 Admin SDK, Reports, Licensing, Data Transfer and Reseller methods per tenant.
+Use this CLI when an MSP needs answers across several Google Workspace client tenants at once: 2SV coverage, licence waste, external-sharing changes, risky sign-ins, third-party app access, or a per-client posture row for a QBR. It is also the safe way to offboard a leaver, suspending the account last, and gives typed access to all 163 Admin SDK, Reports, Licensing, Data Transfer and Reseller methods per tenant.
 
 ## Anti-triggers
 
@@ -66,14 +66,14 @@ Do not use this CLI for:
   ```bash
   google-workspace-cli mfa-gaps --all-tenants --admins-only --agent
   ```
-- **`sharing-drift`**  -  Who changed Drive or Calendar sharing settings, and which files newly went external or public, across clients.
+- **`sharing-drift`**  -  Who changed Drive or Calendar settings in the Admin console (any setting, not only sharing), and which files newly went external or public, across clients.
 
   _Use it for 'what changed in sharing since last review' across clients; Drive audit needs Business Standard or higher, so run Business Starter tenants with --settings-only._
 
   ```bash
   google-workspace-cli sharing-drift --all-tenants --since 7d --agent
   ```
-- **`posture`**  -  One row per client: 2SV coverage, admins without 2SV, stale licences and sharing changes, plus current sharing and 2SV policy for tenants registered with the policy scope profile.
+- **`posture`**  -  One row per client: 2SV coverage, admins without 2SV, stale licences and Drive or Calendar setting changes, plus current sharing and 2SV policy for tenants registered with the policy scope profile.
 
   _Start here for a fleet overview or a QBR headline, then drill in with mfa-gaps, stale-licenses or sharing-drift._
 
@@ -105,7 +105,7 @@ Do not use this CLI for:
   ```
 
 ### Offboarding
-- **`offboard`**  -  Offboard a leaver with suspend last (backup-code and token cleanup fail on a suspended account), a read-only preview, dry-run, and a receipt per step.
+- **`offboard`**  -  Offboard a leaver with suspend last (backup-code invalidation fails on a suspended account), a read-only preview, dry-run, and a receipt per step.
 
   _Use it for any leaver: without --yes it only previews (read scopes are enough); applying needs a tenant registered with --scopes full. Over MCP it can only preview._
 
@@ -323,7 +323,7 @@ Every command below is listed with its required positional arguments. Run `googl
 
 **posture**
 
-- `google-workspace-cli posture` - One row per client tenant: 2SV coverage, admins without 2SV, stale licences, sharing changes
+- `google-workspace-cli posture` - One row per client tenant: 2SV coverage, admins without 2SV, stale licences, Drive and Calendar setting changes
 
 **privileges**
 
@@ -407,7 +407,7 @@ Every command below is listed with its required positional arguments. Run `googl
 
 **sharing-drift**
 
-- `google-workspace-cli sharing-drift` - External-sharing changes across client tenants: Drive sharing settings, new external shares, public links
+- `google-workspace-cli sharing-drift` - External-sharing changes across client tenants: Drive and Calendar setting changes, new external shares, public links
 
 **stale-licenses**
 
@@ -452,7 +452,7 @@ Every command below is listed with its required positional arguments. Run `googl
 
 **tenants**
 
-- `google-workspace-cli tenants add <name>` - Register a client tenant (copies its service-account key into the config dir, mode 0600)
+- `google-workspace-cli tenants add <name>` - Register a client tenant (copies its service-account key into the config dir, mode 0600 on macOS/Linux)
 - `google-workspace-cli tenants list` - List registered client tenants
 - `google-workspace-cli tenants remove <name>` - Remove a tenant and delete its stored service-account key copy
 - `google-workspace-cli tenants scopes <name>` - Print the Client ID and OAuth scopes to authorize in the client's Admin console
@@ -573,7 +573,7 @@ Runs every step in order and returns a receipt per step. Licence release is skip
 
 ## Auth Setup
 
-Each client tenant is a Google service account with domain-wide delegation that impersonates that client's super admin, the same model GAM uses. Register it with 'tenants add <name> --domain <d> --admin <email> --key <sa.json>' (the key is copied to keys/<name>.json in the config dir at 0600, next to tenants.toml; both are secrets), paste the printed Client ID and scopes into that client's Admin console under Security > Access and data control > API controls > Domain-wide delegation, then run 'tenants test <name>' to mint one token per scope and name any missing delegation. Scope profiles (--scopes, comma-separated, raw scope names allowed): read is the default and covers every fan-out command, but two of its scopes have no read-only variant (admin.directory.user.security and apps.licensing), so it can also sign users out and change licences; full adds the offboarding writes (user, group membership, data transfer); policy adds cloud-identity.policies.readonly for posture's policy columns (only full includes read, so register it as --scopes read,policy or full,policy; --scopes policy alone leaves the reports nothing to read); reseller is for your own partner domain only ('tenants add <name> --reseller --scopes reseller'), is read-only (Reseller writes also need apps.order), and is never included in --all-tenants. Schemas, calendar resources, Chrome printers and most group, OU, domain, role and device writes need extra raw scopes. Change a tenant's scopes by re-running tenants add with --yes, and print them again with 'tenants scopes <name>'. Pick a client per command with --tenant <name> or GOOGLE_WORKSPACE_TENANT, or fan out with --all-tenants. With no tenants registered, a raw bearer token in GOOGLE_WORKSPACE_TOKEN (or 'auth set-token') acts as the single tenant "default", including for --all-tenants and offboard. The MCP server reads the same tenant registry: register tenants with the CLI first (tenants add is not exposed over MCP), pass a tenant argument per tool call, and set GOOGLE_WORKSPACE_TENANT in the MCP server's env for the raw endpoint execute tool and the sql, search and context tools, which take no tenant argument. Unset GOOGLE_WORKSPACE_TOKEN once tenants are registered: with two or more registered and none selected, generated API commands fall back to that token and act on its organization.
+Each client tenant is a Google service account with domain-wide delegation that impersonates that client's super admin, the same model GAM uses. Register it with 'tenants add <name> --domain <d> --admin <email> --key <sa.json>' (the key is copied to keys/<name>.json in the config dir at 0600 on macOS and Linux (on Windows it inherits the folder's permissions), next to tenants.toml; both are secrets), paste the printed Client ID and scopes into that client's Admin console under Security > Access and data control > API controls > Domain-wide delegation, then run 'tenants test <name>' to mint one token per scope and name any missing delegation. Scope profiles (--scopes, comma-separated, raw scope names allowed): read is the default and covers every fan-out command, but two of its scopes have no read-only variant (admin.directory.user.security and apps.licensing), so it can also sign users out and change licences; full adds the offboarding writes (user, group membership, data transfer), and its admin.directory.user scope also allows every user write, including users delete and users make-admin; policy adds cloud-identity.policies.readonly for posture's policy columns (only full includes read, so register it as --scopes read,policy or full,policy; --scopes policy alone leaves the reports nothing to read); reseller is for your own partner domain only ('tenants add <name> --reseller --scopes reseller'), is read-only (Reseller writes also need apps.order), and is never included in --all-tenants. Schemas, calendar resources, Chrome printers and most group, OU, domain, role and device writes need extra raw scopes. Change a tenant's scopes by re-running tenants add with --yes, and print them again with 'tenants scopes <name>'. Pick a client per command with --tenant <name> or GOOGLE_WORKSPACE_TENANT, or fan out with --all-tenants. With no tenants registered, a raw bearer token in GOOGLE_WORKSPACE_TOKEN (or 'auth set-token') acts as the single tenant "default", including for --all-tenants and offboard. The MCP server reads the same tenant registry: register tenants with the CLI first (tenants add is not exposed over MCP), pass a tenant argument per tool call, and set GOOGLE_WORKSPACE_TENANT in the MCP server's env for the raw endpoint execute tool and the sql, search and context tools, which take no tenant argument; with tenants registered, none selected and no bearer token, the sql, search and analytics reads refuse rather than answer from no client's mirror. Unset GOOGLE_WORKSPACE_TOKEN once tenants are registered: with two or more registered and none selected, generated API commands fall back to that token and act on its organization.
 
 Run `google-workspace-cli tenants test --all-tenants` to verify every client's delegation; it exits non-zero when any scope is missing. `doctor` exits 0 even on a rejected key unless you pass `--fail-on error`.
 
@@ -921,7 +921,7 @@ Parse `$ARGUMENTS`:
 1. Check if installed: `which google-workspace-cli`
    If not found, offer to install (see Prerequisites at the top of this skill).
 2. Match the user query to the best command from the Unique Capabilities and Command Reference above.
-3. Execute with the `--agent` flag:
+3. Execute with the `--agent` flag (exception: run `offboard` with `--json`, because `--agent` output is compact and drops each step's detail):
    ```bash
    google-workspace-cli <command> [subcommand] [args] --agent
    ```

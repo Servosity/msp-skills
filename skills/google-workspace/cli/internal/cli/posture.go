@@ -87,7 +87,7 @@ func rollupPosture(t gwsTenant, users []dirUser, licenses []licenseAssignment, s
 	}
 	warn(p.ActiveUsers > 0 && p.TwoSVEnrolledPct < minPct, fmt.Sprintf("2SV coverage %.1f%% < %.0f%%", p.TwoSVEnrolledPct, minPct))
 	warn(p.StaleLicenses > 0, fmt.Sprintf("%d stale licence(s)", p.StaleLicenses))
-	warn(settingEdits > 0, fmt.Sprintf("%d sharing setting change(s)", settingEdits))
+	warn(settingEdits > 0, fmt.Sprintf("%d Drive/Calendar setting change(s)", settingEdits))
 	return p
 }
 
@@ -202,10 +202,10 @@ func newNovelPostureCmd(flags *rootFlags) *cobra.Command {
 	var minPct float64
 	cmd := &cobra.Command{
 		Use:   "posture",
-		Short: "One row per client tenant: 2SV coverage, admins without 2SV, stale licences, sharing changes",
+		Short: "One row per client tenant: 2SV coverage, admins without 2SV, stale licences, Drive and Calendar setting changes",
 		Long: "The cross-client security and licence summary for QBRs and weekly review.\n" +
 			"Each tenant is graded critical (an admin without 2SV), warn (2SV coverage below\n" +
-			"--min-2sv-pct, any stale licence, or any Drive sharing setting change in --since), or ok;\n" +
+			"--min-2sv-pct, any stale licence, or any Drive or Calendar setting change in --since), or ok;\n" +
 			"a tenant that could not be read is an explicit error row, never a zeroed one.\n" +
 			"Tenants registered with the 'policy' scope profile also report the current 2SV\n" +
 			"enforcement, Drive external sharing mode and Gmail auto-forwarding policy\n" +
@@ -280,7 +280,7 @@ func newNovelPostureCmd(flags *rootFlags) *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&ff.all, "all-tenants", false, allTenantsUsage)
 	ff.bind(cmd)
-	cmd.Flags().StringVar(&since, "since", "30d", "Window for sharing setting changes, e.g. 7d, 30d")
+	cmd.Flags().StringVar(&since, "since", "30d", "Window for Drive and Calendar setting changes, e.g. 7d, 30d")
 	cmd.Flags().IntVar(&inactiveDays, "inactive-days", 60, "Licence counts as stale after this many days without sign-in")
 	cmd.Flags().IntVar(&graceDays, "grace-days", 14, "Skip accounts created within this many days")
 	cmd.Flags().Float64Var(&minPct, "min-2sv-pct", 95, "Warn when 2SV enrollment is below this percentage")

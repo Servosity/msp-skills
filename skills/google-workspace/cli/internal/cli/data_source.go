@@ -141,6 +141,10 @@ func isNetworkError(err error) bool {
 // threaded into OpenReadOnlyContext so a cancelled command (SIGINT, deadline)
 // interrupts the driver-init SQLITE_BUSY retry rather than blocking on it.
 func openStoreForRead(ctx context.Context, cliName string) (*store.Store, error) {
+	// Hand-fix (handfixes.json local-read-needs-a-tenant).
+	if err := localStoreTenantErr(); err != nil {
+		return nil, err
+	}
 	dbPath := defaultDBPath(cliName)
 	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
 		return nil, nil

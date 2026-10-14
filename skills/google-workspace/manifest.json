@@ -30,7 +30,7 @@
     "google_workspace_tenant": {
       "type": "string",
       "title": "Default client tenant",
-      "description": "Tenant name (from google-workspace-cli tenants list) used by tool calls that name no tenant: the raw API execute tool and the sql, search and context tools take no tenant argument, so set this when more than one tenant is registered. Register client tenants first with google-workspace-cli tenants add. Leave blank to auto-select when exactly one tenant is registered.",
+      "description": "Tenant name (from google-workspace-cli tenants list) used by tool calls that name no tenant: the raw API execute tool and the sql, search and context tools take no tenant argument, so set this when more than one tenant is registered (without it, sql and search refuse rather than answer from no client). Register client tenants first with google-workspace-cli tenants add. Leave blank to auto-select when exactly one tenant is registered.",
       "required": false
     },
     "google_workspace_mcp_read_only": {
