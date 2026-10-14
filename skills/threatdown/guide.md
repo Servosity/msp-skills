@@ -2385,7 +2385,7 @@ If you use agentcookie to sync secrets across machines, this CLI auto-adopts age
 **Authentication errors (exit code 4)**
 - Run `threatdown-cli doctor` to check credentials
 - Verify both variables are set: `echo $THREATDOWN_CLIENT_ID` and `test -n "$THREATDOWN_CLIENT_SECRET" && echo secret set`
-- Check the cached token and its source: `threatdown-cli auth status`; mint a fresh one with `threatdown-cli auth login`
+- Check whether this process can authenticate and where its credentials come from: `threatdown-cli auth status` (exit 4 when the cached token belongs to a different OAuth client); mint a fresh one with `threatdown-cli auth login`
 **Not found errors (exit code 3)**
 - Check the resource ID is correct
 - Run the `list` command to see available items

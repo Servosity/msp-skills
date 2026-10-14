@@ -631,6 +631,52 @@
      "not_contains": "golang.org/x/text v0.39.0"
     }
    ]
+  },
+  {
+   "id": "auth-status-tracks-binding",
+   "summary": "`auth status` reports whether THIS process can authenticate: a complete client ID + secret pair (env or saved) counts as authenticated ('minted on first call'), and a cached token bound to a different OAuth client, scope or token URL with no secret to mint a replacement reports authenticated:false, token_bound_elsewhere:true and exits 4 (client.ErrTokenBoundElsewhere), the same verdict doctor gives.",
+   "why": "Adversarial review round 8 (2026-10-14): the generated status only checked that a token was cached. With a saved admin login and THREATDOWN_CLIENT_ID=reporting it printed authenticated:true while every API call exited 4; on a fresh home with a valid env ID + secret pair it printed authenticated:false and told the user to export variables that were already exported. An agent gating on `auth status --json` either walked into exit-4 failures or asked the user for credentials they had already given. A reprint regenerates the cached-token-only check.",
+   "status": "active",
+   "spec_encode_followup": "Have the press auth-status template consult the same token-binding and client-credentials resolution the client uses before minting.",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "func AuthState(cfg *config.Config) (canMint, boundElsewhere bool) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "authed := canMint || (header != \"\" && !boundElsewhere)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth_status_binding_test.go",
+     "contains": "func TestAuthStatusTracksTokenBinding(",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "set-token-clears-saved-client",
+   "summary": "`auth set-token` calls cfg.MarkCredentialsExplicit(true, true) before SaveTokens(\"\", \"\", ...), so it clears the saved client ID and secret even while THREATDOWN_CLIENT_ID is exported.",
+   "why": "Adversarial review round 8 (2026-10-14): after a flag-form `auth login`, running set-token with THREATDOWN_CLIENT_ID exported kept client_id in credentials.toml (the env-overridden field fell back to the file value). Every later process then refused the new unbound token with 'issued for a different OAuth client' until `auth logout`, contradicting governance.md (a set-token token is used while no client is configured).",
+   "status": "active",
+   "spec_encode_followup": "Have the press set-token template clear both client-credential halves explicitly instead of through env-override-filtered fields.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "cfg.MarkCredentialsExplicit(true, true)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth_status_binding_test.go",
+     "contains": "func TestSetTokenClearsSavedClientUnderEnvID(",
+     "min_count": 1
+    }
+   ]
   }
  ]
 }

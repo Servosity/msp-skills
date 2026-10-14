@@ -1757,6 +1757,19 @@ func authPlaceholderCredentialErrorWithSetup(cfg *config.Config, setup string) e
 // minted for a different OAuth client, scope or token URL, or it is unbound
 // (auth set-token) while this process has a client ID or secret of its own.
 // Every process run as the same OS user shares one credentials file.
+// AuthState: hand-fix (handfixes.json auth-status-tracks-binding). canMint
+// when a full client ID + secret pair resolves (a token is minted on the
+// first call); boundElsewhere when the cached token belongs to another
+// client configuration and nothing can mint a replacement.
+func AuthState(cfg *config.Config) (canMint, boundElsewhere bool) {
+	if cfg == nil {
+		return false, false
+	}
+	id, secret := resolveClientCredentials(cfg)
+	canMint = id != "" && secret != ""
+	return canMint, !canMint && (&Client{Config: cfg}).tokenBoundElsewhere()
+}
+
 func (c *Client) tokenBoundElsewhere() bool {
 	cfg := c.Config
 	if cfg == nil || cfg.AccessToken == "" {

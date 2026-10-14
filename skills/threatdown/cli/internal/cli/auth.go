@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"threatdown-pp-cli/internal/client"
 	"threatdown-pp-cli/internal/cliutil"
 	"threatdown-pp-cli/internal/config"
 )
@@ -197,7 +198,10 @@ func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
 
 			w := cmd.OutOrStdout()
 			header := cfg.AuthHeader()
-			authed := header != ""
+			// hand-fix (auth-status-tracks-binding): report what THIS process
+			// can authenticate with, like doctor - not just "a token is cached".
+			canMint, boundElsewhere := client.AuthState(cfg)
+			authed := canMint || (header != "" && !boundElsewhere)
 			refusals := cfg.CredentialRefusalSummaries()
 			credentialRefused := len(refusals) > 0
 			// JSON envelope: {authenticated, verified, source, config}. When not
@@ -214,8 +218,17 @@ func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
 					out["credential_refused"] = true
 					out["credential_refusals"] = refusals
 				}
+				if boundElsewhere {
+					out["token_bound_elsewhere"] = true
+				}
+				if canMint && header == "" {
+					out["token"] = "minted on first call"
+				}
 				if printErr := printJSONFiltered(w, out, flags); printErr != nil {
 					return printErr
+				}
+				if boundElsewhere {
+					return authErr(tokenBoundElsewhereErr())
 				}
 				if !authed && credentialRefused {
 					return authErr(cfg.CredentialRefusalError())
@@ -224,6 +237,11 @@ func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
 					return authErr(fmt.Errorf("no credentials configured"))
 				}
 				return nil
+			}
+			if boundElsewhere {
+				fmt.Fprintln(w, red("Not authenticated: the cached token belongs to a different OAuth client, scope or token URL"))
+				fmt.Fprintln(w, "  Set THREATDOWN_CLIENT_ID and THREATDOWN_CLIENT_SECRET for this process, or run threatdown-cli auth login")
+				return authErr(tokenBoundElsewhereErr())
 			}
 			if !authed && credentialRefused {
 				fmt.Fprintln(w, red("Credentials present but refused"))
@@ -245,12 +263,18 @@ func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
 			fmt.Fprintln(w, green("Credentials present (not verified)"))
 			fmt.Fprintf(w, "  Source: %s\n", cfg.AuthSource)
 			fmt.Fprintf(w, "  Config: %s\n", cfg.Path)
-			if !cfg.TokenExpiry.IsZero() {
+			if canMint && header == "" {
+				fmt.Fprintln(w, "  Token: minted on first call")
+			} else if !cfg.TokenExpiry.IsZero() {
 				fmt.Fprintf(w, "  Expires: %s\n", cfg.TokenExpiry.Format(time.RFC3339))
 			}
 			return nil
 		},
 	}
+}
+
+func tokenBoundElsewhereErr() error {
+	return fmt.Errorf("%w; set THREATDOWN_CLIENT_ID and THREATDOWN_CLIENT_SECRET for this process, or run threatdown-cli auth login", client.ErrTokenBoundElsewhere)
 }
 
 func newAuthSetTokenCmd(flags *rootFlags) *cobra.Command {
@@ -272,6 +296,10 @@ func newAuthSetTokenCmd(flags *rootFlags) *cobra.Command {
 			}
 			cfg.AuthHeaderVal = ""
 			cfg.TokenBinding = ""
+			// hand-fix (set-token-clears-saved-client): the token replaces the
+			// OAuth flow, so clear the saved client pair even when an env var
+			// overrides it; a leftover client_id would refuse this token.
+			cfg.MarkCredentialsExplicit(true, true)
 			if err := cfg.SaveTokens("", "", token, "", cfg.TokenExpiry); err != nil {
 				return configErr(fmt.Errorf("saving token: %w", err))
 			}
