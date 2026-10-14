@@ -112,9 +112,12 @@ func redactMerakiValue(v any) (any, bool) {
 }
 
 // RedactMerakiSecrets returns data with every credential value replaced by
-// RedactedSecret. Input that is not JSON, or carries no secret, is returned
-// unchanged byte for byte.
+// RedactedSecret. JSON that carries no secret and repeats no key is returned
+// unchanged byte for byte; text that is not valid JSON is scrubbed textually.
 func RedactMerakiSecrets(data json.RawMessage) json.RawMessage {
+	if !json.Valid(data) {
+		return json.RawMessage(merakiScrubText(string(data)))
+	}
 	// UseNumber keeps large numeric IDs exact across the re-encode.
 	dec := json.NewDecoder(bytes.NewReader(data))
 	dec.UseNumber()
@@ -123,7 +126,10 @@ func RedactMerakiSecrets(data json.RawMessage) json.RawMessage {
 		return data
 	}
 	redacted, changed := redactMerakiValue(v)
-	if !changed {
+	// The decoder keeps only the LAST duplicate key, so a repeated key (at
+	// any depth) can hide an earlier secret from the walk above; re-encoding
+	// the decoded value drops those earlier bytes.
+	if !changed && !merakiHasDuplicateKey(data) {
 		return data
 	}
 	var buf bytes.Buffer
@@ -195,6 +201,64 @@ var merakiASCIIEscRe = regexp.MustCompile(`\\u[0-9a-fA-F]{4}`)
 // run to the end of the text.
 var merakiSecretPairRe = regexp.MustCompile(`(?i)("(?:[a-z0-9_]*(?:password|passphrase|secret|psk)|apikey|claimkey|communitystring|v2communitystring|v3authpass|v3privpass|md5authenticationkey|token|contenttoken|parsedtoken|vppservicetoken|hashedtoken|key)"\s*:\s*")((?:[^"\\]|\\.|\\$)*)("|$)`)
 
+// merakiScrubText scrubs secret-named pairs from text that looks like JSON
+// but does not parse (a truncated change-log body), after decoding \uXXXX
+// escapes so "\u0070sk" cannot hide a key name. Text with no such pair is
+// returned unchanged.
+func merakiScrubText(s string) string {
+	u := merakiASCIIEscRe.ReplaceAllStringFunc(s, func(m string) string {
+		n, err := strconv.ParseUint(m[2:], 16, 32)
+		if err != nil || n < 0x20 || n >= 0x7f || n == '"' || n == '\\' {
+			return m
+		}
+		return string(rune(n))
+	})
+	if r := merakiSecretPairRe.ReplaceAllString(u, "${1}"+RedactedSecret+"${3}"); r != u {
+		return r
+	}
+	return s
+}
+
+// merakiHasDuplicateKey reports whether any object in valid JSON data repeats
+// a key.
+func merakiHasDuplicateKey(data []byte) bool {
+	type frame struct {
+		keys      map[string]bool // nil for an array
+		expectKey bool
+	}
+	dec := json.NewDecoder(bytes.NewReader(data))
+	var stack []*frame
+	for {
+		tok, err := dec.Token()
+		if err != nil {
+			return false
+		}
+		if d, ok := tok.(json.Delim); ok && (d == '}' || d == ']') {
+			stack = stack[:len(stack)-1]
+			continue
+		}
+		if n := len(stack); n > 0 && stack[n-1].keys != nil {
+			top := stack[n-1]
+			if top.expectKey {
+				k, _ := tok.(string)
+				if top.keys[k] {
+					return true
+				}
+				top.keys[k] = true
+				top.expectKey = false
+				continue
+			}
+			top.expectKey = true
+		}
+		switch tok {
+		case json.Delim('{'):
+			stack = append(stack, &frame{keys: map[string]bool{}, expectKey: true})
+		case json.Delim('['):
+			stack = append(stack, &frame{})
+		}
+	}
+}
+
 // RedactMerakiJSONString redacts credentials inside a string that holds JSON
 // (a change-log oldValue/newValue). Any other string is returned unchanged.
 func RedactMerakiJSONString(s string) string {
@@ -203,19 +267,7 @@ func RedactMerakiJSONString(s string) string {
 		return s
 	}
 	if !json.Valid([]byte(t)) {
-		// Truncated or broken JSON: scrub secret-named pairs textually, after
-		// decoding \uXXXX escapes so "\u0070sk" cannot hide a key name.
-		u := merakiASCIIEscRe.ReplaceAllStringFunc(s, func(m string) string {
-			n, err := strconv.ParseUint(m[2:], 16, 32)
-			if err != nil || n < 0x20 || n >= 0x7f || n == '"' || n == '\\' {
-				return m
-			}
-			return string(rune(n))
-		})
-		if r := merakiSecretPairRe.ReplaceAllString(u, "${1}"+RedactedSecret+"${3}"); r != u {
-			return r
-		}
-		return s
+		return merakiScrubText(s)
 	}
 	if out := RedactMerakiSecrets(json.RawMessage(t)); string(out) != t {
 		return string(out)

@@ -109,12 +109,19 @@ func TestChangeLogValuesNeverCarrySecrets(t *testing.T) {
 		`{"name":"Lobby","psk":"` + merakiSentinel + `","psk":"[redacted]"}`,
 		`{"name":"Lobby","psk":"` + merakiSentinel + `","psk":5}`,
 		`{"name":"Lobby","\u0070sk":"` + merakiSentinel,
+		`{"radiusServers":[{"secret":"` + merakiSentinel + `"}],"radiusServers":[]}`,
+		`{"ldap":{"credentials":{"password":"` + merakiSentinel + `"}},"ldap":null}`,
+		`[{"a":{"psk":"` + merakiSentinel + `"},"a":{}}]`,
+		`{"name":"Lobby"}{"psk":"` + merakiSentinel + `"}`,
 	} {
 		if got := RedactMerakiChangeValue("PUT /api/v1/networks/N_1/wireless/ssids/0", body); strings.Contains(got, merakiSentinel) {
 			t.Fatalf("change-log body leaked a secret: %s -> %s", body, got)
 		}
 		if got := string(RedactMerakiSecrets(json.RawMessage(`{"oldValue":` + strconv.Quote(body) + `}`))); strings.Contains(got, merakiSentinel) {
 			t.Fatalf("mirror kept a secret: %s -> %s", body, got)
+		}
+		if got := string(RedactMerakiSecrets(json.RawMessage(body))); strings.Contains(got, merakiSentinel) {
+			t.Fatalf("mirror row kept a secret: %s -> %s", body, got)
 		}
 	}
 	if got := RedactMerakiChangeValue("Group policy: PSK", merakiSentinel); got != RedactedSecret {
@@ -128,5 +135,22 @@ func TestChangeLogValuesNeverCarrySecrets(t *testing.T) {
 	}
 	if got := RedactMerakiChangeValue("PUT /api/v1/networks/N_1/wireless/ssids/0", `{"name":"Lobby","psk":"`+merakiSentinel); strings.Contains(got, merakiSentinel) || !strings.Contains(got, "Lobby") {
 		t.Fatalf("truncated JSON body leaked or lost its non-secret text: %s", got)
+	}
+}
+
+// TestRedactKeepsCleanJSONByteForByte: a key reused in sibling or nested
+// objects is not a duplicate, so secret-free rows keep their original bytes.
+func TestRedactKeepsCleanJSONByteForByte(t *testing.T) {
+	for _, body := range []string{
+		`{"z":1,"a":{"a":[{"a":2},{"a":3}]},"b":[]}`,
+		`[{"name":"x"},{"name":"y"}]`,
+		`{"id":12345678901234567890,"tags":["a","a"]}`,
+	} {
+		if got := string(RedactMerakiSecrets(json.RawMessage(body))); got != body {
+			t.Fatalf("clean JSON rewritten: %s -> %s", body, got)
+		}
+	}
+	if !merakiHasDuplicateKey([]byte(`[{"a":{"b":1,"b":2}}]`)) {
+		t.Fatal("nested duplicate key not detected")
 	}
 }
