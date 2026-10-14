@@ -2,7 +2,11 @@
 
 package store
 
-import "strings"
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"strings"
+)
 
 // merakiIdentityGroups is hand-wired (handfixes.json: meraki-sync-identity-fallback).
 // Many Meraki org-level reads (VPN statuses, uplink statuses, packet loss by
@@ -83,7 +87,7 @@ func merakiIdentityFallback(obj map[string]any, requireDevice bool) string {
 // the Snort gid shared by nearly every rule). These keys keep a missing part as
 // an empty slot, so the key stays positional. The first field is required.
 var merakiNullableCompositeKeys = map[string][]string{
-	"configuration_changes":                            {"ts", "networkId", "ssidNumber", "adminId", "page", "label"},
+	"configuration_changes":                            {"ts", "networkId", "ssidNumber", "adminId", "page", "label", "client.id"},
 	"organizations_appliance_security_intrusion_rules": {"ruleId", "policy.id"},
 	// An API request log row is an immutable record: every request field is
 	// its identity (two requests in the same second differ by query string).
@@ -106,5 +110,29 @@ func merakiNullableCompositeID(resourceType string, obj map[string]any) string {
 	if values[0] == "" {
 		return ""
 	}
+	if resourceType == "configuration_changes" {
+		values = append(values, merakiChangeValueFingerprint(obj))
+	}
 	return CanonicalResourceID(joinCompositeResourceID(values))
+}
+
+// merakiChangeValueFingerprint keeps two changes to one setting in the same
+// microsecond apart ({"policy":"deny"} then {"policy":"allow"}). It hashes the
+// REDACTED old and new values, so no credential (a PSK a dictionary attack
+// could test against a hash) enters the identity; two changes that differ only
+// in a secret still share a row, and that row shows nothing either would.
+func merakiChangeValueFingerprint(obj map[string]any) string {
+	label, _ := obj["label"].(string)
+	str := func(k string) string {
+		v, ok := obj[k]
+		if !ok || v == nil {
+			return ""
+		}
+		if s, ok := v.(string); ok {
+			return s
+		}
+		return ResourceIDString(v)
+	}
+	sum := sha256.Sum256([]byte(RedactMerakiChangeValue(label, str("oldValue")) + "\x00" + RedactMerakiChangeValue(label, str("newValue"))))
+	return "v:" + hex.EncodeToString(sum[:8])
 }

@@ -333,7 +333,7 @@ func TestCodexRound14ReceiverScrub(t *testing.T) {
 		"perPage=10&url=https://f.azurewebsites.net/api/test#" + merakiSentinel:                           "perPage=10&url=",
 		// Withheld with the receiver on purpose (Codex round 16: no "&" after a url= value is certainly outer).
 		"url=https%3A%2F%2Ff.azurewebsites.net%2Fapi%3Fcode%3D" + merakiSentinel + "&perPage=10&startingAfter=ABCD": "",
-		`{"queryString":"url=https://x/` + merakiSentinel + `"}`:                                                    `"}`,
+		`{"queryString":"url=https://x/` + merakiSentinel + `"}`:                                                    ``,
 		// Round 22: "?" escaped, "&" and "=" raw (Go url.PathEscape): ambiguous, so the whole tail is withheld (round 15).
 		"url=https:%2F%2Ff.azurewebsites.net%2Fapi%2Fhook%3Fa=1&code=" + merakiSentinel + "&perPage=5":                "",
 		"url=https://x/h?sig=" + merakiSentinel + "&perPage=1&code=" + merakiSentinel + "&perPage=10&startingAfter=A": "",
@@ -463,5 +463,94 @@ func TestCodexRound17(t *testing.T) {
 	}
 	if n != 2 {
 		t.Fatalf("two identical API requests stored as %d rows across two syncs, want 2", n)
+	}
+}
+
+// TestCodexRound18ChangeIdentity: two changes to one setting in the same
+// microsecond are two rows, stable across syncs; the identity hashes only
+// redacted values, so a PSK never reaches it (Codex round 18).
+func TestCodexRound18ChangeIdentity(t *testing.T) {
+	change := func(label, newValue string) json.RawMessage {
+		return mustJSON(t, map[string]any{"ts": "2026-10-14T10:00:00.090210Z", "networkId": "N_1", "adminId": "A1", "page": "Firewall", "label": label, "oldValue": "", "newValue": newValue, "organizationId": "1"})
+	}
+	db, err := Open(filepath.Join(t.TempDir(), "data.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	items := []json.RawMessage{change("Rule 1", `{"policy":"deny"}`), change("Rule 1", `{"policy":"allow"}`), change("PSK", merakiSentinel)}
+	for range 2 {
+		if _, _, err := db.UpsertBatch("configuration_changes", items); err != nil {
+			t.Fatal(err)
+		}
+	}
+	rows, err := db.DB().Query(`SELECT id, data FROM resources WHERE resource_type = 'configuration_changes'`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	n := 0
+	for rows.Next() {
+		var id, data string
+		if err := rows.Scan(&id, &data); err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(id, merakiSentinel) || strings.Contains(data, merakiSentinel) {
+			t.Fatalf("change row carries the PSK: %q %s", id, data)
+		}
+		n++
+	}
+	if n != 3 {
+		t.Fatalf("got %d change rows across two syncs, want 3", n)
+	} // The identity depends on redacted values only: no hash of a PSK.
+	idOf := func(raw json.RawMessage) string {
+		var obj map[string]any
+		if err := json.Unmarshal(raw, &obj); err != nil {
+			t.Fatal(err)
+		}
+		return ExtractResourceID("configuration_changes", obj)
+	}
+	if a, b := idOf(change("PSK", "first-XXXXXXXX")), idOf(change("PSK", "second-XXXXXXXX")); a != b {
+		t.Fatalf("change identity depends on a secret value: %q vs %q", a, b)
+	}
+}
+
+// TestRound24URLScrubToEnd: url= runs to the very end of the string (no stop
+// at a quote or whitespace), matches after ";" or whitespace, and a change-log
+// label's url= is scrubbed in the mirror as in fleet changes (adversarial
+// round 24).
+func TestRound24URLScrubToEnd(t *testing.T) {
+	for _, in := range []string{
+		"perPage=5;url=https://hooks.slack.com/services/" + merakiSentinel,
+		"url=https://hooks.slack.com/services/a " + merakiSentinel,
+		"url=https://hooks.slack.com/services/a\"" + merakiSentinel,
+		"GET /api/v1/organizations/1/webhooks/logs url=https://x/" + merakiSentinel,
+	} {
+		if got := ScrubMerakiURLSecrets(in); strings.Contains(got, merakiSentinel) {
+			t.Fatalf("url= scrub stopped early: %q -> %q", in, got)
+		}
+	}
+	row := map[string]any{"label": "GET /api/v1/organizations/1/webhooks/logs?url=https://hooks.slack.com/services/" + merakiSentinel, "newValue": ""}
+	if got := string(RedactMerakiSecrets(mustJSON(t, row))); strings.Contains(got, merakiSentinel) {
+		t.Fatalf("mirror kept a url= receiver in a change-log label: %s", got)
+	}
+}
+
+// TestBareHTTPServerIDWithheld: a base64 HTTP server ID with no path around it
+// (an alert-recipient change value) is still a receiver URL (adversarial
+// round 24).
+func TestBareHTTPServerIDWithheld(t *testing.T) {
+	id := base64.StdEncoding.EncodeToString([]byte("https://hooks.slack.com/services/" + merakiSentinel + "?x=1"))
+	v := `["` + id + `"]`
+	if got := RedactMerakiChangeValue("Alert recipients", v); strings.Contains(got, id) || strings.Contains(got, merakiSentinel) {
+		t.Fatalf("fleet changes printed a bare HTTP server ID: %s", got)
+	}
+	row := map[string]any{"label": "Alert recipients", "newValue": v, "networkId": "L_646829496481105433", "serial": "Q2XX-XXXX-XXXX"}
+	got := string(RedactMerakiSecrets(mustJSON(t, row)))
+	if strings.Contains(got, id) {
+		t.Fatalf("mirror kept a bare HTTP server ID: %s", got)
+	}
+	if !strings.Contains(got, "L_646829496481105433") || !strings.Contains(got, "Q2XX-XXXX-XXXX") {
+		t.Fatalf("base64 rule redacted ordinary IDs: %s", got)
 	}
 }

@@ -36,7 +36,8 @@ type pushRow struct {
 	Action           string         `json:"action"` // update | no-change | error
 	ChangedKeys      []string       `json:"changed_keys"`
 	Current          map[string]any `json:"current,omitempty"`
-	Desired          map[string]any `json:"desired,omitempty"`
+	Desired          map[string]any `json:"desired,omitempty"` // redacted copy for output
+	body             map[string]any // what --apply sends
 	Error            string         `json:"error,omitempty"`
 	BatchID          string         `json:"batch_id,omitempty"`
 	BatchStatus      string         `json:"batch_status,omitempty"`
@@ -149,6 +150,12 @@ func planOrgPush(ctx context.Context, c *client.Client, o fleetOrg, path string,
 	if err != nil {
 		return nil, fmt.Errorf("networks: %w", err)
 	}
+	// The preview prints a redacted copy of --body: a PSK the caller loaded
+	// from a file never reaches Read-tier output.
+	var desired map[string]any
+	b, _ := json.Marshal(body)
+	_ = json.Unmarshal(b, &desired)
+	store.RedactMerakiObject(desired, path)
 	rows := make([]pushRow, 0)
 	for _, raw := range res.Items {
 		var n struct {
@@ -161,7 +168,7 @@ func planOrgPush(ctx context.Context, c *client.Client, o fleetOrg, path string,
 			continue
 		}
 		resource := strings.ReplaceAll(path, "{networkId}", url.PathEscape(n.ID))
-		row := pushRow{OrganizationID: o.ID, OrganizationName: o.Name, NetworkID: n.ID, NetworkName: n.Name, Resource: resource, Desired: body, ChangedKeys: []string{}}
+		row := pushRow{OrganizationID: o.ID, OrganizationName: o.Name, NetworkID: n.ID, NetworkName: n.Name, Resource: resource, Desired: desired, body: body, ChangedKeys: []string{}}
 		data, err := c.GetNoCache(ctx, resource, nil)
 		if err != nil {
 			row.Action, row.Error = "error", "reading current settings: "+err.Error()
@@ -195,7 +202,7 @@ func applyOrgPush(ctx context.Context, c *client.Client, orgID string, rows []*p
 		chunk := rows[start:end]
 		actions := make([]map[string]any, 0, len(chunk))
 		for _, r := range chunk {
-			actions = append(actions, map[string]any{"resource": r.Resource, "operation": "update", "body": r.Desired})
+			actions = append(actions, map[string]any{"resource": r.Resource, "operation": "update", "body": r.body})
 		}
 		batchPath := orgPath("/organizations/{organizationId}/actionBatches", orgID)
 		data, _, err := c.Post(ctx, batchPath, map[string]any{"confirmed": true, "synchronous": false, "actions": actions})

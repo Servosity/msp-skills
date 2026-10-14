@@ -8,6 +8,7 @@ package store
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"io"
@@ -414,7 +415,7 @@ var merakiHTTPServerIDPattern = regexp.MustCompile(`(?i)(` + merakiLoose("/webho
 // merakiURLParamPattern matches the start of a url= query parameter, its name
 // possibly percent-encoded: the webhook logs filter puts the receiver URL in
 // API request query strings.
-var merakiURLParamPattern = regexp.MustCompile(`(?i)(?:^|[?&"])` + merakiLoose("url="))
+var merakiURLParamPattern = regexp.MustCompile(`(?i)(?:^|[?&;"\s])` + merakiLoose("url="))
 
 // merakiPercentDecodePattern is one %XX escape.
 var merakiPercentDecodePattern = regexp.MustCompile(`%[0-9A-Fa-f]{2}`)
@@ -464,7 +465,7 @@ func merakiNormalized(s string) string {
 // labels, row identities to each part, and the mirror to API request paths
 // and query strings (scrubMerakiHTTPServerIDs covers every other string).
 //
-// A url= value runs to the end of the string: a receiver URL can be sent
+// A url= value runs to the very end of the string: a receiver URL can be sent
 // unencoded, partly encoded or double encoded, so no later "&" is certainly
 // the outer query's. The webhook logs parameters after it (perPage,
 // startingAfter) are withheld with it on purpose.
@@ -474,25 +475,37 @@ func ScrubMerakiURLSecrets(s string) string {
 	if loc == nil {
 		return s
 	}
-	rest := s[loc[1]:]
-	end := strings.IndexAny(rest, "\"\t\n\f\r ")
-	if end < 0 {
-		end = len(rest)
-	}
-	return s[:loc[1]] + merakiRedactedHash(rest[:end]) + ScrubMerakiURLSecrets(rest[end:])
+	return s[:loc[1]] + merakiRedactedHash(s[loc[1]:])
 }
 
-// scrubMerakiHTTPServerIDs replaces webhook HTTP server IDs in a path.
+// merakiBase64TokenPattern is a run long enough to be the base64 of a URL.
+var merakiBase64TokenPattern = regexp.MustCompile(`[A-Za-z0-9+/_-]{16,}={0,2}`)
+
+// scrubMerakiHTTPServerIDs replaces webhook HTTP server IDs in a path, and any
+// base64 token that decodes to an http(s) URL wherever it appears: that is
+// what an HTTP server ID is, so a bare one in an alert-recipient change value
+// is withheld too.
 func scrubMerakiHTTPServerIDs(s string) string {
-	return merakiHTTPServerIDPattern.ReplaceAllStringFunc(s, func(m string) string {
+	s = merakiHTTPServerIDPattern.ReplaceAllStringFunc(s, func(m string) string {
 		parts := merakiHTTPServerIDPattern.FindStringSubmatch(m)
 		return parts[1] + merakiRedactedHash(parts[2])
+	})
+	return merakiBase64TokenPattern.ReplaceAllStringFunc(s, func(m string) string {
+		for _, enc := range []*base64.Encoding{base64.StdEncoding, base64.URLEncoding, base64.RawStdEncoding, base64.RawURLEncoding} {
+			if b, err := enc.DecodeString(m); err == nil {
+				if l := strings.ToLower(string(b)); strings.HasPrefix(l, "http://") || strings.HasPrefix(l, "https://") {
+					return merakiRedactedHash(m)
+				}
+			}
+		}
+		return m
 	})
 }
 
 // merakiRequestLogKeys are the API request log fields that carry the webhook
-// logs url= filter; a url= anywhere else (a splash page redirect) is kept.
-var merakiRequestLogKeys = map[string]bool{"querystring": true, "path": true}
+// logs url= filter, plus the change-log label (fleet changes scrubs it too);
+// a url= anywhere else (a splash page redirect) is kept.
+var merakiRequestLogKeys = map[string]bool{"querystring": true, "path": true, "label": true}
 
 // merakiScrubbedPattern is a value this scrub already produced.
 var merakiScrubbedPattern = regexp.MustCompile(`^\[redacted(:[0-9a-f]{32})?\]$`)

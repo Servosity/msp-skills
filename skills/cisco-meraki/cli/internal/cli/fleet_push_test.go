@@ -261,3 +261,53 @@ func TestFleetPushPreviewRedactsWebhookURL(t *testing.T) {
 		t.Fatalf("preview leaked the receiver URL or did not diff:\n%s", out.String())
 	}
 }
+
+// TestFleetPushDesiredRedactedButAppliedWhole: the preview prints a redacted
+// copy of --body (a PSK loaded from a file is a credential, Codex round 18),
+// while --apply still sends the real value in the action batch.
+func TestFleetPushDesiredRedactedButAppliedWhole(t *testing.T) {
+	testenv.Isolate(t)
+	var batch bytes.Buffer
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/organizations":
+			_, _ = w.Write([]byte(`[{"id":"1","name":"Acme","api":{"enabled":true}}]`))
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/organizations/1/networks":
+			_, _ = w.Write([]byte(`[{"id":"N_1","name":"HQ","organizationId":"1","productTypes":["wireless"],"tags":[]}]`))
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/networks/N_1/wireless/ssids/0":
+			_, _ = w.Write([]byte(`{"number":0,"name":"Staff","psk":"OLD-XXXXXXXX"}`))
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/organizations/1/actionBatches":
+			_, _ = batch.ReadFrom(r.Body)
+			_, _ = w.Write([]byte(`{"id":"B1","status":{"completed":true,"failed":false,"errors":[]}}`))
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/organizations/1/actionBatches/B1":
+			_, _ = w.Write([]byte(`{"id":"B1","status":{"completed":true,"failed":false,"errors":[]}}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+	t.Setenv("CISCO_MERAKI_BASE_URL", srv.URL+"/api/v1")
+	t.Setenv("MERAKI_DASHBOARD_API_KEY", "test-key")
+	body := `{"psk":"NEW-XXXXXXXX"}`
+	for _, apply := range []bool{false, true} {
+		cmd := RootCmd()
+		var out bytes.Buffer
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		args := []string{"fleet", "push", "--path", "/networks/{networkId}/wireless/ssids/0", "--body", body, "--all-networks", "--json"}
+		if apply {
+			args = append(args, "--apply")
+		}
+		cmd.SetArgs(args)
+		if err := cmd.Execute(); err != nil {
+			t.Fatalf("fleet push (apply=%v): %v\n%s", apply, err, out.String())
+		}
+		if strings.Contains(out.String(), "NEW-XXXXXXXX") || strings.Contains(out.String(), "OLD-XXXXXXXX") {
+			t.Fatalf("output printed a PSK (apply=%v):\n%s", apply, out.String())
+		}
+	}
+	if !strings.Contains(batch.String(), `"psk":"NEW-XXXXXXXX"`) {
+		t.Fatalf("--apply did not send the real PSK: %s", batch.String())
+	}
+}
