@@ -21,6 +21,10 @@ import (
 // surface scan found.
 var secretBodyKeys = []string{"password", "secret", "token", "passphrase", "private", "privkey", "community", "apikey", "api_key", "params", "creds", "hashes"}
 
+// RedactSecretBody masks secret-named JSON fields for callers outside this
+// package (the token mint's error output).
+func RedactSecretBody(body []byte) []byte { return connectsecureRedactBody(body) }
+
 // connectsecureRedactBody returns body with every secret-named field's value
 // replaced. A body that is not JSON is returned unchanged (dryRun skips it).
 func connectsecureRedactBody(body []byte) []byte {

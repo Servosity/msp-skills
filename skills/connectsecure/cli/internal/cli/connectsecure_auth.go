@@ -247,7 +247,8 @@ func connectsecureMintResult(status int, body []byte, base string) (connectsecur
 	case status == http.StatusNotFound:
 		return connectsecureToken{}, configErr(fmt.Errorf("ConnectSecure /w/authorize not found at %s (HTTP 404); CONNECTSECURE_BASE_URL must be the pod API host", base))
 	case status < 200 || status >= 300:
-		return connectsecureToken{}, apiErr(fmt.Errorf("ConnectSecure token mint failed with HTTP %d: %s", status, cliutil.SanitizeErrorBody(string(bytes.TrimSpace(body)))))
+		// A failed mint can still carry a fresh access_token; mask secret fields.
+		return connectsecureToken{}, apiErr(fmt.Errorf("ConnectSecure token mint failed with HTTP %d: %s", status, cliutil.SanitizeErrorBody(string(bytes.TrimSpace(client.RedactSecretBody(body))))))
 	}
 	tok, err := parseConnectsecureAuthorize(body)
 	if err != nil {

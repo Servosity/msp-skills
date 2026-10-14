@@ -42,7 +42,12 @@ func TestPerClientReportRowsKeepDistinctIDs(t *testing.T) {
 		return r
 	}
 	ids := map[string]bool{}
-	for _, r := range []row{finding(nil), finding(row{"port": 443}), finding(row{"port": 8443}), finding(row{"port": 443, "software_name": "Chrome"}), finding(row{"port": 443, "software_name": "Edge"})} {
+	// Two clients' identical builds differ by client id when the API sends
+	// one, else by when the finding was first discovered (Codex round 18). A
+	// row with no host name keys on its IP (adversarial round 19).
+	for _, r := range []row{finding(nil), finding(row{"port": 443}), finding(row{"port": 8443}), finding(row{"port": 443, "software_name": "Chrome"}), finding(row{"port": 443, "software_name": "Edge"}),
+		finding(row{"company_id": 1}), finding(row{"company_id": 2}), finding(row{"discovered": "2026-09-01T10:00:00Z"}), finding(row{"discovered": "2026-09-02T10:00:00Z"}),
+		{"name": "CVE-1", "host_name": "", "ip": "10.0.1.5", "vul_id": 5}, {"name": "CVE-1", "ip": "10.0.1.6", "vul_id": 5}} {
 		id := ExtractResourceID(aw, r)
 		if id == "" || id == "CVE-1" || ids[id] {
 			t.Errorf("%s: row %v got id %q (empty, name, or a collision)", aw, r, id)

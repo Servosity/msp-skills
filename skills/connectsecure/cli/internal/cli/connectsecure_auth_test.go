@@ -305,3 +305,12 @@ func TestMintWithholdsAnEchoedCredential(t *testing.T) {
 		srv.Close()
 	}
 }
+
+// A failed mint whose body still carries a freshly issued token must not
+// print it (Codex round 18).
+func TestMintFailureMasksIssuedToken(t *testing.T) {
+	_, err := connectsecureMintResult(500, []byte(`{"status":false,"message":"upstream error","data":{"access_token":"SENTINEL-TOKEN","user_id":7}}`), "https://pod1.myconnectsecure.com")
+	if err == nil || strings.Contains(err.Error(), "SENTINEL") || !strings.Contains(err.Error(), "upstream error") {
+		t.Fatalf("want a mint error that masks the token and keeps the message, got %v", err)
+	}
+}
