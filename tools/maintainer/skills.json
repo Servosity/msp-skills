@@ -456,7 +456,7 @@
       "category": "RMM",
       "display_name": "ConnectWise RMM",
       "tagline": "Ask your ConnectWise RMM fleet which endpoints are stale, unpatched or failing scripts, across every company at once.",
-      "cli_hash": "sha256:f8038fff45d18a0e254c5fc4804549a6017ca0536bb4dc584131eca7635ccf34",
+      "cli_hash": "sha256:3e7ce5ef31df94a51a7a28989b3df7afc3ad89ec7211b6b6ca19082a056c3807",
       "template_version": 3,
       "version": "0.1.0",
       "cli_hash_at_release": null,
