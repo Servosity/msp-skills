@@ -394,3 +394,22 @@ func csEmit[T any](cmd *cobra.Command, flags *rootFlags, rows []T, unsynced []st
 	}
 	return printAutoTable(cmd.OutOrStdout(), items)
 }
+
+// csParentScopedParams names list params that pick the AD group a report
+// lists the members of. Each member row's object_guid is the member's own,
+// so a local read cannot apply the group's guid and must fail closed instead
+// of answering "no members" (handfixes.json: local-group-guid-not-row-field).
+var csParentScopedParams = map[string][]string{
+	"report_queries-ad-group-computers": {"object_guid"},
+	"report_queries-ad-group-users":     {"object_guid"},
+}
+
+func csRefuseParentScopedParams(requestedType string, q *localListQuery) {
+	for _, key := range csParentScopedParams[requestedType] {
+		if _, ok := q.equality[key]; ok {
+			delete(q.equality, key)
+			q.rowSelecting = append(q.rowSelecting, key)
+		}
+	}
+	sort.Strings(q.rowSelecting)
+}

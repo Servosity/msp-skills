@@ -16,8 +16,10 @@ import (
 )
 
 // secretBodyKeys name body fields whose values are secrets. "params" is the
-// whole credential object on credentials and integration-credentials writes.
-var secretBodyKeys = []string{"password", "secret", "token", "passphrase", "private", "privkey", "community", "apikey", "api_key", "params"}
+// whole credential object on credentials and integration-credentials writes;
+// "creds" and "hashes" carry the credentials and password hashes an attack
+// surface scan found.
+var secretBodyKeys = []string{"password", "secret", "token", "passphrase", "private", "privkey", "community", "apikey", "api_key", "params", "creds", "hashes"}
 
 // connectsecureRedactBody returns body with every secret-named field's value
 // replaced. A body that is not JSON is returned unchanged (dryRun skips it).

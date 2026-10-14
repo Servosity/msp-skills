@@ -30,6 +30,25 @@ func TestPerClientReportRowsKeepDistinctIDs(t *testing.T) {
 			t.Errorf("%s: ids %q and %q collapse two clients' rows", res, a, b)
 		}
 	}
+	// asset-wise-vulnerabilities: one CVE on two ports of a host, or in two
+	// products on it, stays two rows. A row with no port or product still
+	// keys on host, ip and CVE, never on name (Codex round 17).
+	aw := "report_queries-asset-wise-vulnerabilities"
+	finding := func(extra row) row {
+		r := row{"name": "CVE-1", "host_name": "pc1", "ip": "10.0.0.1", "vul_id": 5}
+		for k, v := range extra {
+			r[k] = v
+		}
+		return r
+	}
+	ids := map[string]bool{}
+	for _, r := range []row{finding(nil), finding(row{"port": 443}), finding(row{"port": 8443}), finding(row{"port": 443, "software_name": "Chrome"}), finding(row{"port": 443, "software_name": "Edge"})} {
+		id := ExtractResourceID(aw, r)
+		if id == "" || id == "CVE-1" || ids[id] {
+			t.Errorf("%s: row %v got id %q (empty, name, or a collision)", aw, r, id)
+		}
+		ids[id] = true
+	}
 	// A row missing the key part falls back to the old key, never to nothing.
 	if id := ExtractResourceID("report_queries-ad-ous-view", map[string]any{"name": "Workstations"}); id == "" {
 		t.Error("ad-ous-view row without object_guid lost its id")

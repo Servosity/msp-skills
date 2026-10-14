@@ -1264,8 +1264,8 @@
   {
    "id": "per-client-report-keys",
    "status": "active",
-   "summary": "Report resources whose rows share a display name across clients are keyed by a per-client identity in both resourceIDFieldOverrides maps (store.go and sync.go): object_guid for AD OUs, GPOs and group computers; company_id (with compliance_id) for per-client rollups; company_id+solution_id for remediation-plan-by-company; name+value, solution_id, company_name+canonical_name, agent_id+name+version and host_name+ip+vul_id elsewhere.",
-   "why": "Codex round 14 / adversarial round 14 (2026-10-14): the generator keyed these by `name`, so `sync --full --resources report_queries-ad-ous-view` kept only the last client's 'Workstations' OU and exited 0 - and every AD domain carries a 'Default Domain Policy' GPO, so ad-gpos-view collapsed the same way. A row missing a key part falls back to the generic id chain (id, then name, the old behavior), so such rows can still collapse into one; host_name+ip+vul_id carries no port and no client, so a standardized build (the same host name and IP at two clients) still shares a row. Accepted as the residual (adversarial round 15, P2). TestPerClientReportRowsKeepDistinctIDs covers the family and TestSyncKeepsEveryClientsSameNamedOU the sync path; both fail with the maps reverted. risk-score and total-asset-count carry no per-client id in the spec and stay as they were (qbr and portfolio already flag shared client names). Adversarial round 17 (2026-10-14): report-queries remediation-plan-by-company is a per-company report sync never fetches, so live write-through alone fills its partition (stored as report_queries_remediation_plan_by_company). With no override the suffix fallback keyed every row on company_id, which all of one client's rows share, so --data-source local and the auto api_unreachable fallback returned one of the client's N remediation plans with exit 0. Keyed by company_id+solution_id; TestReportQueriesLocalReadReturnsOnlyThatReport drives it through a stub pod and fails with the override removed (verified). A full spec-shaped scan of every report-queries leaf found no other multi-row collapse.",
+   "summary": "Report resources whose rows share a display name across clients are keyed by a per-client identity in both resourceIDFieldOverrides maps (store.go and sync.go): object_guid for AD OUs, GPOs and group computers; company_id (with compliance_id) for per-client rollups; company_id+solution_id for remediation-plan-by-company; name+value, solution_id, company_name+canonical_name, agent_id+name+version and host_name+ip+vul_id+port?+software_name? elsewhere. A trailing \"?\" (handled in canonicalCompositeIDFromOverride and overrideIdentityPresent) marks a part a row may lack: it joins as empty instead of dropping the row to the generic chain.",
+   "why": "Codex round 14 / adversarial round 14 (2026-10-14): the generator keyed these by `name`, so `sync --full --resources report_queries-ad-ous-view` kept only the last client's 'Workstations' OU and exited 0 - and every AD domain carries a 'Default Domain Policy' GPO, so ad-gpos-view collapsed the same way. A row missing a key part falls back to the generic id chain (id, then name, the old behavior), so such rows can still collapse into one; Codex round 17 (2026-10-14): host_name+ip+vul_id collapsed one CVE found on two ports of a host, or in two products on it. The key now adds port and software_name as optional parts, since a non-network finding may carry no port and a required part would send it to the name fallback. The spec's asset_wise_vulnerabilities rows carry no client field, so the same host name, IP, port, CVE and product at two clients (a standardized build) still shares a row: the accepted residual. TestPerClientReportRowsKeepDistinctIDs covers the family and TestSyncKeepsEveryClientsSameNamedOU the sync path; both fail with the maps reverted. risk-score and total-asset-count carry no per-client id in the spec and stay as they were (qbr and portfolio already flag shared client names). Adversarial round 17 (2026-10-14): report-queries remediation-plan-by-company is a per-company report sync never fetches, so live write-through alone fills its partition (stored as report_queries_remediation_plan_by_company). With no override the suffix fallback keyed every row on company_id, which all of one client's rows share, so --data-source local and the auto api_unreachable fallback returned one of the client's N remediation plans with exit 0. Keyed by company_id+solution_id; TestReportQueriesLocalReadReturnsOnlyThatReport drives it through a stub pod and fails with the override removed (verified). A full spec-shaped scan of every report-queries leaf found no other multi-row collapse.",
    "asserts": [
     {
      "file": "cli/internal/store/store.go",
@@ -1292,6 +1292,34 @@
     {
      "file": "cli/internal/store/store.go",
      "contains": "\"report_queries_remediation_plan_by_company\":",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\"host_name+ip+vul_id+port?+software_name?\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "strings.HasSuffix(part, \"?\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "optional := strings.HasSuffix(key, \"?\")",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "local-group-guid-not-row-field",
+   "status": "active",
+   "summary": "loadLocalList (data_source.go) calls csRefuseParentScopedParams, which moves object_guid from an equality filter to a refused row-selecting param for report-queries ad-group-computers and ad-group-users, so a local read fails closed ('local data could not apply object_guid; use --data-source live') instead of returning an empty group.",
+   "why": "Codex round 17 (2026-10-14): those reports take the GROUP's object_guid as a query param, but each returned member row's object_guid is the member's own. The generated local filter matched the param against the row field, so --data-source local and the auto fallback for an unreachable pod returned zero members for a cached non-empty group, exit 0. A spec scan of every GET whose query param shares a name with a response field found only these two with different meanings (get-user-details, get-computer-details and ad-roles-details look up the row itself). The map lives in hand-authored connectsecure_local.go. TestReportQueriesLocalReadReturnsOnlyThatReport fails with the call removed (verified).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "csRefuseParentScopedParams(requestedType, &q)",
      "code_only": true
     }
    ]

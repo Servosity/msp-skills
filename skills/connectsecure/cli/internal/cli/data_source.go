@@ -1535,6 +1535,7 @@ func localRecordIsEmpty(raw json.RawMessage) bool {
 
 func loadLocalList(db *store.Store, storedType, requestedType, path string, params map[string]string) ([]json.RawMessage, []string, []string, string, bool, error) {
 	q := parseLocalListQuery(params)
+	csRefuseParentScopedParams(requestedType, &q) // Hand-fix (handfixes.json: local-group-guid-not-row-field)
 	parents := localReadPathParents(requestedType, path)
 	complete, _, err := db.TypedPartitionComplete(storedType)
 	if err != nil {

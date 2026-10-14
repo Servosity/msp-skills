@@ -6,6 +6,8 @@ package client
 import (
 	"context"
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
@@ -33,5 +35,20 @@ func TestDryRunRedactsSecretBody(t *testing.T) {
 	}
 	if !strings.Contains(string(out), "nightly") || !strings.Contains(string(out), "[redacted]") {
 		t.Fatalf("dry run lost the non-secret preview:\n%s", out)
+	}
+}
+
+// An attack-surface failure body carrying the scan's found credentials and
+// password hashes must not print them in the error (Codex round 17).
+func TestErrorBodyMasksScanCredsAndHashes(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"status":false,"message":"partial","data":[{"host":"10.0.0.5","creds":"SENTINEL-CRED","hashes":["SENTINEL-HASH"]}]}`))
+	}))
+	defer srv.Close()
+	c := New(&config.Config{BaseURL: srv.URL, AccessToken: "test-token-0001", ConnectsecureUserId: "1"}, 5*time.Second, 0)
+	c.NoCache = true
+	_, err := c.Get(context.Background(), "/r/company/attack_surface_results", nil)
+	if err == nil || strings.Contains(err.Error(), "SENTINEL") || !strings.Contains(err.Error(), "10.0.0.5") {
+		t.Fatalf("want an error that masks creds/hashes and keeps the host, got %v", err)
 	}
 }

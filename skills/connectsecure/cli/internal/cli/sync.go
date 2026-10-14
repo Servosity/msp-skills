@@ -6269,7 +6269,7 @@ var resourceIDFieldOverrides = map[string]string{
 	"report_queries-asset-software":                                                "id",
 	"report_queries-asset-stats":                                                   "id",
 	"report_queries-asset-users":                                                   "id",
-	"report_queries-asset-wise-vulnerabilities":                                    "host_name+ip+vul_id", // Hand-fix (handfixes.json: per-client-report-keys)
+	"report_queries-asset-wise-vulnerabilities":                                    "host_name+ip+vul_id+port?+software_name?", // Hand-fix (handfixes.json: per-client-report-keys)
 	"report_queries-assets":                                                        "id",
 	"report_queries-assets-by-application":                                         "id",
 	"report_queries-assets-by-application-suppressed":                              "id",

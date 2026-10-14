@@ -5492,6 +5492,9 @@ func overrideIdentityPresent(obj map[string]any, override string) bool {
 		return false
 	}
 	for _, part := range parts {
+		if strings.HasSuffix(part, "?") { // Hand-fix (handfixes.json: per-client-report-keys): optional part
+			continue
+		}
 		if _, found := lookupRawFieldValue(obj, part); !found {
 			return false
 		}
@@ -5526,17 +5529,23 @@ func canonicalCompositeIDFromOverride(obj map[string]any, override string) strin
 	}
 	values := make([]string, 0, len(parts))
 	for _, key := range parts {
-		v, ok := lookupRawFieldValue(obj, key)
-		if !ok {
-			return ""
+		// Hand-fix (handfixes.json: per-client-report-keys): a trailing "?"
+		// marks a part a row may lack. It joins as empty instead of dropping
+		// the row to the generic id chain, which keys these reports by name.
+		optional := strings.HasSuffix(key, "?")
+		s := ""
+		if v, ok := lookupRawFieldValue(obj, strings.TrimSuffix(key, "?")); ok {
+			s = strings.TrimSpace(ResourceIDString(v))
 		}
-		s := strings.TrimSpace(ResourceIDString(v))
-		if s == "" || s == "<nil>" {
-			return ""
+		if s == "<nil>" {
+			s = ""
 		}
 		// Date-shaped parts are allowed inside a composite; CanonicalResourceID
 		// still refuses a solo ISO date after the join.
 		if f, err := strconv.ParseFloat(s, 64); err == nil && f == 0 {
+			s = ""
+		}
+		if s == "" && !optional {
 			return ""
 		}
 		values = append(values, s)
@@ -10322,7 +10331,7 @@ var resourceIDFieldOverrides = map[string]string{
 	"report_queries-asset-software":                                                "id",
 	"report_queries-asset-stats":                                                   "id",
 	"report_queries-asset-users":                                                   "id",
-	"report_queries-asset-wise-vulnerabilities":                                    "host_name+ip+vul_id", // Hand-fix (handfixes.json: per-client-report-keys)
+	"report_queries-asset-wise-vulnerabilities":                                    "host_name+ip+vul_id+port?+software_name?", // Hand-fix (handfixes.json: per-client-report-keys)
 	"report_queries-assets":                                                        "id",
 	"report_queries-assets-by-application":                                         "id",
 	"report_queries-assets-by-application-suppressed":                              "id",

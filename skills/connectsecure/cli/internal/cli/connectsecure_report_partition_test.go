@@ -58,6 +58,8 @@ func TestReportQueriesLocalReadReturnsOnlyThatReport(t *testing.T) {
 			_, _ = w.Write([]byte(`{"status":true,"data":[{"id":9001,"problem":"SMBv1 enabled"}]}`))
 		case "/r/report_queries/remediation_plan_by_company":
 			_, _ = w.Write([]byte(`{"status":true,"data":[{"solution_id":"SOL-1","product":"Google Chrome","company_id":1},{"solution_id":"SOL-2","product":"Mozilla Firefox","company_id":1}]}`))
+		case "/report_queries/ad_group_computers":
+			_, _ = w.Write([]byte(`{"status":true,"data":[{"name":"PC01","company_id":1,"object_guid":"g-member-1"}]}`))
 		case "/report_queries/ad_gpos_view":
 			_, _ = w.Write([]byte(`{"status":true,"data":[{"name":"Default Domain Policy","company_id":1,"object_guid":"g-gpo-1"}]}`))
 		default:
@@ -108,6 +110,20 @@ func TestReportQueriesLocalReadReturnsOnlyThatReport(t *testing.T) {
 	}
 	if len(got.Results) != 2 || got.Results[0]["name"] != "RECEPTION" || got.Results[1]["name"] != "RECEPTION" {
 		t.Fatalf("local ad-computers-view must return both clients' RECEPTION and nothing else, got %s", raw)
+	}
+	// The group's guid selects which group's members come back; each member
+	// row's object_guid is its own. A local read fails closed rather than
+	// report an empty group (handfixes.json: local-group-guid-not-row-field).
+	run("--no-cache", "--json", "report-queries", "ad-group-computers", "--company-id", "1", "--object-guid", "g-group-1")
+	{
+		cmd := RootCmd()
+		var out, errOut bytes.Buffer
+		cmd.SetOut(&out)
+		cmd.SetErr(&errOut)
+		cmd.SetArgs([]string{"--json", "--data-source", "local", "report-queries", "ad-group-computers", "--company-id", "1", "--object-guid", "g-group-1"})
+		if err := cmd.Execute(); err == nil || !strings.Contains(err.Error(), "could not apply object_guid") {
+			t.Fatalf("local ad-group-computers must refuse the group guid, got err=%v out=%s", err, out.String())
+		}
 	}
 	// Every row of a per-company report shares company_id; each of the
 	// client's remediation plans must survive (handfixes.json: per-client-report-keys).
