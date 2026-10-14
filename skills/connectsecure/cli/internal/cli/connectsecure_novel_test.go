@@ -944,3 +944,32 @@ func TestSyncKeepsEveryClientsSameNamedOU(t *testing.T) {
 		t.Fatalf("stored %d OU rows, want 2 (events %s)", n, events.String())
 	}
 }
+
+// TestQBRComplianceCountsChecksNotBuckets: compliance rows are per check x
+// status buckets with asset_count. One failing asset fails the check; a
+// failing bucket with zero assets does not (Codex round 21).
+func TestQBRComplianceCountsChecksNotBuckets(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/r/report_queries/compliance_check_company_count" {
+			_, _ = w.Write([]byte(`{"status":true,"data":[
+				{"compliance_id":"C1","compliance_status":"pass","asset_count":99},
+				{"compliance_id":"C1","compliance_status":"fail","asset_count":1},
+				{"compliance_id":"C2","compliance_status":"pass","asset_count":50},
+				{"compliance_id":"C3","compliance_status":"fail","asset_count":0}]}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"status":true,"data":[]}`))
+	}))
+	defer srv.Close()
+	c := client.New(&config.Config{BaseURL: srv.URL, AccessToken: "t", ConnectsecureUserId: "1"}, 5*time.Second, 0)
+	c.NoCache = true
+	pack, err := buildQBR(context.Background(), c, "1", "Acme", qbrOpts{now: time.Now().UTC(), complianceType: "cis", platform: "windows", section: "1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, _ := json.Marshal(pack.Compliance)
+	want := `{"assets_not_pass":1,"assets_pass":149,"checks":3,"compliance_type":"cis","not_pass":1,"pass":2}`
+	if string(got) != want {
+		t.Fatalf("compliance = %s, want %s", got, want)
+	}
+}

@@ -277,15 +277,41 @@ func buildQBR(ctx context.Context, c *client.Client, id, name string, o qbrOpts)
 		pack.Compliance = map[string]string{"skipped": "pass --compliance-type, --compliance-platform and --compliance-section (list types with: connectsecure-cli compliance)"}
 	} else if rows, _, ok := fetch("compliance_check_company_count", "/r/report_queries/compliance_check_company_count",
 		map[string]string{"condition": "company_id=" + id, "compliance_type": o.complianceType, "platform": o.platform, "section": o.section}, qbrMaxPages); ok {
-		pass, notPass := 0, 0
-		for _, r := range rows {
+		// Rows are per check x status buckets carrying asset_count, so a check
+		// with 99 passing assets and 1 failing one arrives as two rows. A check
+		// passes only when none of its assets fail (Codex round 21).
+		failing := map[string]bool{}
+		var checks []string
+		assetsPass, assetsNotPass := 0.0, 0.0
+		for i, r := range rows {
+			check := csString(r["compliance_id"])
+			if check == "" {
+				check = fmt.Sprintf("row-%d", i)
+			}
+			if _, seen := failing[check]; !seen {
+				failing[check] = false
+				checks = append(checks, check)
+			}
+			n := 1.0 // a bucket that omits asset_count still counts
+			if v, ok := csFloat(r["asset_count"]); ok {
+				n = v
+			}
 			if st := strings.ToLower(csString(r["compliance_status"])); st == "pass" || st == "passed" {
-				pass++
+				assetsPass += n
 			} else {
+				assetsNotPass += n
+				if n > 0 {
+					failing[check] = true
+				}
+			}
+		}
+		notPass := 0
+		for _, c := range checks {
+			if failing[c] {
 				notPass++
 			}
 		}
-		pack.Compliance = map[string]any{"checks": len(rows), "pass": pass, "not_pass": notPass, "compliance_type": o.complianceType}
+		pack.Compliance = map[string]any{"checks": len(checks), "pass": len(checks) - notPass, "not_pass": notPass, "assets_pass": assetsPass, "assets_not_pass": assetsNotPass, "compliance_type": o.complianceType}
 	}
 	if firstErr != nil && len(pack.FetchFailures) == sections {
 		return pack, classifyAPIErrorOnly(firstErr)

@@ -111,7 +111,7 @@
     },
     {
       "tier": "Endpoint-affecting / posture",
-      "examples": "patching patch-now (alias patching create), scheduler create / update / update-schedule, companies scan, companies external-scan, agents reset (alias agents create), suppress-vulnerability create / update, discovery-settings / application-baseline-rules / pii-scan-settings / agent-discoverysettings-mapping / attack-surface-domain create / update",
+      "examples": "patching patch-now (alias patching create), scheduler create / update / update-schedule, companies scan, companies external-scan, agents reset (alias agents create), suppress-vulnerability create / update, discovery-settings / application-baseline-rules / pii-scan-settings / agent-discoverysettings-mapping / attack-surface-domain create / update, assets create / update (scan credentials, discovery settings, deprecation)",
       "policy": "Human-in-the-loop only, explicit confirmation"
     },
     {

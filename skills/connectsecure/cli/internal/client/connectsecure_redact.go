@@ -188,12 +188,23 @@ func (c *Client) connectsecureSentHeaders(overrides map[string]string) map[strin
 // and host are built by the CLI (a DNS error names the host), so they are
 // dropped before matching; a server-supplied Location keeps its query.
 func connectsecureTransportError(err error, reqURL string, reqBody []byte, headers map[string]string, authHeader string) error {
-	text := strings.ReplaceAll(err.Error(), reqURL, "")
+	full := err.Error()
+	text := strings.ReplaceAll(full, reqURL, "")
+	host, hostname := "", ""
 	if u, perr := url.Parse(reqURL); perr == nil && u.Host != "" {
-		text = strings.ReplaceAll(strings.ReplaceAll(text, u.Host, ""), u.Hostname(), "")
+		host, hostname = u.Host, u.Hostname()
+		text = strings.ReplaceAll(strings.ReplaceAll(text, host, ""), hostname, "")
 	}
 	secrets := append(connectsecureRequestSecrets(reqBody, headers), authSecrets(authHeader)...)
-	if cliutil.ConnectsecureEchoesSecret(text, secrets) {
+	// Stripping the host would also cut it out of a secret that contains it,
+	// so such a secret is matched against the unstripped text.
+	var hostSecrets []string
+	for _, sec := range secrets {
+		if hostname != "" && (strings.Contains(sec, host) || strings.Contains(sec, hostname)) {
+			hostSecrets = append(hostSecrets, sec)
+		}
+	}
+	if cliutil.ConnectsecureEchoesSecret(text, secrets) || (len(hostSecrets) > 0 && cliutil.ConnectsecureEchoesSecret(full, hostSecrets)) {
 		return errors.New("[transport error withheld: it echoed a secret the request carried, possibly by coincidence]")
 	}
 	return err

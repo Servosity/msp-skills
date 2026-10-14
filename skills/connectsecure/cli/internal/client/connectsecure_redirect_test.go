@@ -568,3 +568,20 @@ func TestTransportErrorKeptWhenOnlyOurURLMatches(t *testing.T) {
 		t.Fatalf("want the real transport cause, got %v", err)
 	}
 }
+
+// TestRedirectEchoOfSecretContainingTheHostIsWithheld: the host strip must not
+// cut the host out of an echoed secret that contains it (adversarial round 22).
+func TestRedirectEchoOfSecretContainingTheHostIsWithheld(t *testing.T) {
+	var pw string
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/error?password="+pw, http.StatusFound)
+	}))
+	defer origin.Close()
+	pw = "pw-" + strings.TrimPrefix(origin.URL, "http://") + "-tail"
+	c := New(&config.Config{BaseURL: origin.URL}, 5*time.Second, 0)
+	c.NoCache = true
+	_, _, err := c.PostWithParamsAndHeaders(context.Background(), "/r/company/scheduler", nil, map[string]any{"name": "nightly", "password": pw}, nil)
+	if err == nil || strings.Contains(err.Error(), pw) {
+		t.Fatalf("want the echoed secret withheld, got %v", err)
+	}
+}
