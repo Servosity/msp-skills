@@ -63,12 +63,15 @@ var resourceWritePaths = map[string]string{ // #nosec G101 -- endpoint paths, no
 	"users":              "/admin/directory/v1/users:createGuest",
 }
 
+// Hand-fix (handfixes.json export-google-list-paging): the Discovery print
+// left these empty, so export wrote each Google envelope as one record and
+// never followed nextPageToken.
 var resourceReadConfigs = map[string]resourceReadConfig{
-	"applications":  {responsePath: "", pageSize: 100},
-	"groups":        {responsePath: "", pageSize: 100},
-	"subscriptions": {responsePath: "", pageSize: 100},
-	"transfers":     {responsePath: "", pageSize: 100},
-	"users":         {responsePath: "", pageSize: 100},
+	"applications":  {responsePath: "applications", paginationType: "cursor", cursorParam: "pageToken", limitParam: "maxResults", nextCursorPath: "nextPageToken", pageSize: 100},
+	"groups":        {responsePath: "groups", paginationType: "cursor", cursorParam: "pageToken", limitParam: "maxResults", nextCursorPath: "nextPageToken", pageSize: 100},
+	"subscriptions": {responsePath: "subscriptions", paginationType: "cursor", cursorParam: "pageToken", limitParam: "maxResults", nextCursorPath: "nextPageToken", pageSize: 100},
+	"transfers":     {responsePath: "dataTransfers", paginationType: "cursor", cursorParam: "pageToken", limitParam: "maxResults", nextCursorPath: "nextPageToken", pageSize: 100},
+	"users":         {responsePath: "users", paginationType: "cursor", cursorParam: "pageToken", limitParam: "maxResults", nextCursorPath: "nextPageToken", pageSize: 100},
 }
 
 func resourceReadPath(resource string) (string, error) {
@@ -117,6 +120,10 @@ func extractResourcePage(data json.RawMessage, config resourceReadConfig) ([]jso
 				next, hasMore := resourcePagination(data, envelope, config)
 				return items, next, hasMore
 			}
+		} else if _, google := envelope["kind"]; google {
+			// Hand-fix (handfixes.json export-google-list-paging): Google
+			// omits the items array on an empty list.
+			return []json.RawMessage{}, "", false
 		}
 	}
 	for _, key := range []string{"data", "results", "items", "records", "nodes", "entries", "features", "Data", "Results", "Items", "Records", "Nodes", "Entries", "Features"} {

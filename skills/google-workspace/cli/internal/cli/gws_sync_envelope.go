@@ -57,3 +57,18 @@ func googleListEnvelopeEnded(data json.RawMessage) bool {
 	var s string
 	return json.Unmarshal(tok, &s) == nil && s == ""
 }
+
+// withSyncParamDefaults adds the list endpoint's spec defaults (for users and
+// groups, customer=my_customer) that sync sends, without overriding params
+// already set. export and tail read the same lists.
+func withSyncParamDefaults(resource string, params map[string]string) map[string]string {
+	for k, v := range syncResourceParamDefaults(resource) {
+		if params == nil {
+			params = map[string]string{}
+		}
+		if _, set := params[k]; !set {
+			params[k] = v
+		}
+	}
+	return params
+}

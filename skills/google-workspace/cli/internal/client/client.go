@@ -2232,7 +2232,8 @@ func credentialWouldTravelInPlaintext(u *url.URL) bool {
 	if u == nil || !strings.EqualFold(u.Scheme, "http") {
 		return false
 	}
-	h := strings.ToLower(u.Hostname())
+	// Case-exact, as Go's proxy matching is: LOCALHOST is proxied.
+	h := u.Hostname()
 	if h == "localhost" {
 		return false
 	}

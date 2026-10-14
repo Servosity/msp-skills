@@ -49,7 +49,7 @@ func RegisterTools(s *server.MCPServer) {
 	// Search tool — faster than iterating list endpoints for finding specific items
 	s.AddTool(
 		mcplib.NewTool("search",
-			mcplib.WithDescription("Full-text search across all synced data. Faster than paginating list endpoints. Requires sync first."),
+			mcplib.WithDescription("Full-text search across all synced data of one client tenant: the GOOGLE_WORKSPACE_TENANT tenant, or the only registered one (it takes no tenant argument and refuses when several are registered and none is set). Faster than paginating list endpoints. Requires sync first."),
 			mcplib.WithString("query", mcplib.Required(), mcplib.Description("Search query (supports FTS5 syntax: AND, OR, NOT, quotes for phrases)")),
 			mcplib.WithNumber("limit", mcplib.Description("Max results (default 25)")),
 			mcplib.WithReadOnlyHintAnnotation(true),
@@ -60,7 +60,7 @@ func RegisterTools(s *server.MCPServer) {
 	// SQL tool — ad-hoc analysis on synced data without API calls
 	s.AddTool(
 		mcplib.NewTool("sql",
-			mcplib.WithDescription("Run read-only SQL against local database. Use for ad-hoc analysis, aggregations, and joins across synced resources. Requires sync first."),
+			mcplib.WithDescription("Run read-only SQL against local database of one client tenant: the GOOGLE_WORKSPACE_TENANT tenant, or the only registered one (it takes no tenant argument and refuses when several are registered and none is set). Use for ad-hoc analysis, aggregations, and joins across synced resources. Requires sync first."),
 			mcplib.WithString("query", mcplib.Required(), mcplib.Description("SQL query (SELECT or WITH...SELECT). Synced records live in resources(resource_type, id, data); filter by resource_type and use json_extract on data, e.g. SELECT json_extract(data,'$.name') FROM resources WHERE resource_type='activities'.")),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
@@ -1288,8 +1288,8 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 			{"name": "Licence waste per client", "command": "stale-licenses", "cli_command": "stale-licenses", "description": "Paid licences held by suspended, never-signed-in, or idle accounts, per client, ready to reclaim.", "rationale": "Joins Enterprise License Manager assignments to Directory sign-in state for each tenant; neither API answers it alone.", "via": "mcp-command-mirror"},
 			{"name": "Ordered offboarding", "command": "offboard", "cli_command": "offboard", "description": "Offboard a leaver in the order Google's API requires, with a read-only preview, dry-run, and a receipt per step.", "rationale": "Sequences about ten Directory, Data Transfer and Licensing calls (revoke before suspend, transfer by user ID", "via": "mcp-command-mirror"},
 			{"name": "Incomplete-offboarding sweep", "command": "leavers", "cli_command": "leavers", "description": "Suspended accounts that still hold a paid licence, groups, an admin role, OAuth tokens", "rationale": "Joins suspended users to licences, group memberships, role assignments, tokens and transfers per tenant.", "via": "mcp-command-mirror"},
-			{"name": "External-sharing drift", "command": "sharing-drift", "cli_command": "sharing-drift", "description": "Who changed Drive or Calendar sharing settings, and which files newly went external or public, across clients.", "rationale": "Merges admin setting-change events with Drive external-share and public-link audit events per tenant", "via": "mcp-command-mirror"},
-			{"name": "One-row-per-client posture", "command": "posture", "cli_command": "posture", "description": "One row per client: 2SV coverage, admins without 2SV, stale licences and sharing changes", "rationale": "Rolls up Directory, Licensing, Reports and (when granted)", "via": "mcp-command-mirror"},
+			{"name": "External-sharing drift", "command": "sharing-drift", "cli_command": "sharing-drift", "description": "Who changed Drive or Calendar settings in the Admin console (any setting, not only sharing), and which files newly went external or public, across clients.", "rationale": "Merges admin setting-change events with Drive external-share and public-link audit events per tenant", "via": "mcp-command-mirror"},
+			{"name": "One-row-per-client posture", "command": "posture", "cli_command": "posture", "description": "One row per client: 2SV coverage, admins without 2SV, stale licences and Drive or Calendar setting changes", "rationale": "Rolls up Directory, Licensing, Reports and (when granted)", "via": "mcp-command-mirror"},
 			{"name": "Cross-tenant OAuth app inventory", "command": "oauth-apps", "cli_command": "oauth-apps", "description": "Third-party apps with access to client data across every active user and tenant, ranked by scope risk", "rationale": "Aggregates per-user OAuth grants by client ID across tenants with a curated scope-risk tier", "via": "mcp-command-mirror"},
 			{"name": "Risky sign-in sweep", "command": "login-alerts", "cli_command": "login-alerts", "description": "Suspicious sign-ins, accounts Google disabled, 2SV turned off, and out-of-domain mail forwarding across clients.", "rationale": "Polls the login audit events Google raises for compromise across every tenant and groups them by user and severity.", "via": "mcp-command-mirror"},
 		}),

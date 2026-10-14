@@ -275,21 +275,45 @@ var (
 	tenantState struct {
 		sync.Mutex
 		resolved bool
+		stamp    string
 		tenant   *gwsTenant
 		err      error
 	}
 )
 
+// tenantRegistryStamp changes whenever tenants.toml is written. The MCP
+// server is long-lived, so a tenant added from a terminal must end the
+// single-tenant auto-selection it resolved earlier.
+func tenantRegistryStamp() string {
+	path, err := tenantRegistryPath()
+	if err != nil {
+		return ""
+	}
+	fi, err := os.Stat(path)
+	if err != nil {
+		return "absent"
+	}
+	return fmt.Sprintf("%d/%d", fi.ModTime().UnixNano(), fi.Size())
+}
+
+// tenantStoreIdentity keys a tenant's local store to its name and domain, so
+// re-registering a name for a different client never reopens the previous
+// client's mirror.
+func tenantStoreIdentity(t *gwsTenant) string {
+	return "tenant:" + t.Name + "/" + strings.ToLower(strings.TrimSpace(t.Domain))
+}
+
 // selectedTenant resolves --tenant > GOOGLE_WORKSPACE_TENANT > the only
 // registered client tenant. Returns nil (no error) when no tenant applies, in
 // which case the raw bearer token env var / auth set-token path is used.
 func selectedTenant() (*gwsTenant, error) {
+	stamp := tenantRegistryStamp()
 	tenantState.Lock()
 	defer tenantState.Unlock()
-	if tenantState.resolved {
+	if tenantState.resolved && tenantState.stamp == stamp {
 		return tenantState.tenant, tenantState.err
 	}
-	tenantState.resolved = true
+	tenantState.resolved, tenantState.stamp, tenantState.tenant, tenantState.err = true, stamp, nil, nil
 	name := strings.TrimSpace(tenantFlag)
 	if name == "" {
 		name = getenvTenant()
@@ -349,10 +373,17 @@ func tenantPinnedStore() bool {
 // organization, the same one generated API commands then act on.
 func localStoreTenantErr() error {
 	t, err := selectedTenant()
-	if err != nil || t != nil {
+	if err != nil {
 		return err
 	}
-	if hash, _, _ := currentDefaultDBScope(); hash != "" {
+	hash, _, _ := currentDefaultDBScope()
+	if t != nil {
+		if hash != hashDefaultDBScope(tenantStoreIdentity(t)) {
+			return configErr(fmt.Errorf("the local store for tenant %q could not be resolved; check the CLI config file", t.Name))
+		}
+		return nil
+	}
+	if hash != "" {
 		return nil
 	}
 	reg, err := loadTenantRegistry()
@@ -365,7 +396,7 @@ func localStoreTenantErr() error {
 // resetTenantSelection is for tests.
 func resetTenantSelection() {
 	tenantState.Lock()
-	tenantState.resolved, tenantState.tenant, tenantState.err = false, nil, nil
+	tenantState.resolved, tenantState.stamp, tenantState.tenant, tenantState.err = false, "", nil, nil
 	tenantState.Unlock()
 }
 
@@ -540,7 +571,7 @@ func init() {
 	// so each client keeps one stable database.
 	config.StoreScopeIdentity = func(*config.Config) string {
 		if t, err := selectedTenant(); err == nil && t != nil {
-			return "tenant:" + t.Name
+			return tenantStoreIdentity(t)
 		}
 		return ""
 	}

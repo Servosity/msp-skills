@@ -24,6 +24,7 @@ func TestCredentialWouldTravelInPlaintext(t *testing.T) {
 		"http://localhost:8080/x":         false,
 		"http://192.0.2.10/x":             true,
 		"http://fixture.localhost:8080/x": true,
+		"http://LOCALHOST:8080/x":         true,
 		"http://admin.googleapis.com/x":   true,
 	} {
 		u, _ := url.Parse(raw)

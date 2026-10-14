@@ -21,7 +21,7 @@ All notable changes to this skill are documented here. Format follows
     OAuth tokens, or an unfinished Drive transfer.
   - `posture` - one row per client: 2SV coverage, admins without 2SV, stale licenses,
     Drive and Calendar setting changes, and (with the `policy` profile) current sharing and 2SV policy.
-  - `sharing-drift` - Drive and Calendar sharing-setting changes and files that newly
+  - `sharing-drift` - Drive and Calendar setting changes and files that newly
     went external or public.
   - `oauth-apps` - third-party OAuth apps across every user and client, ranked by
     scope risk.

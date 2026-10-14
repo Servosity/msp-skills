@@ -121,6 +121,12 @@ large datasets as it has no memory pressure.`,
 				if !singleItem && config.paginationType != "" {
 					params = resourcePageParams(config, cursor, page, remaining)
 				}
+				if !singleItem {
+					// Hand-fix (handfixes.json export-google-list-paging): seed
+					// the list's spec defaults the way sync does; Google
+					// rejects a users or groups list without customer.
+					params = withSyncParamDefaults(resource, params)
+				}
 				data, err := c.Get(cmd.Context(), path, params)
 				if err != nil {
 					return classifyAPIError(cmd.OutOrStdout(), err, flags)

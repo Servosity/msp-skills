@@ -277,6 +277,6 @@ func newNovelSharingDriftCmd(flags *rootFlags) *cobra.Command {
 	ff.bind(cmd)
 	cmd.Flags().StringVar(&since, "since", "30d", "Look-back window, e.g. 7d, 24h, 2w (max 180d)")
 	cmd.Flags().IntVar(&maxEvents, "max-events", 5000, "Cap audit events read per query per tenant")
-	cmd.Flags().BoolVar(&settingsOnly, "settings-only", false, "Only Admin console sharing-setting changes (no Drive activity scan)")
+	cmd.Flags().BoolVar(&settingsOnly, "settings-only", false, "Only Admin console Drive and Calendar setting changes (no Drive activity scan)")
 	return cmd
 }

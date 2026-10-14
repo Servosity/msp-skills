@@ -735,7 +735,7 @@ func TestTenantStoreNeverAdoptsBearerStore(t *testing.T) {
 	if legacy != "" {
 		t.Fatalf("a tenant-pinned store must not adopt the bearer-named store (legacy hash %q)", legacy)
 	}
-	if hash != hashDefaultDBScope("tenant:acme") {
+	if hash != hashDefaultDBScope(tenantStoreIdentity(&gwsTenant{Name: "acme", Domain: "example.com"})) {
 		t.Fatalf("store must be keyed to the tenant: %q", hash)
 	}
 
@@ -743,7 +743,7 @@ func TestTenantStoreNeverAdoptsBearerStore(t *testing.T) {
 	tenantFlag = ""
 	resetTenantSelection()
 	configureDefaultDBScope("")
-	if hash, _, _ := currentDefaultDBScope(); hash == hashDefaultDBScope("tenant:acme") {
+	if hash, _, _ := currentDefaultDBScope(); hash == hashDefaultDBScope(tenantStoreIdentity(&gwsTenant{Name: "acme", Domain: "example.com"})) {
 		t.Fatal("without a selected tenant the store must not be the tenant's")
 	}
 }
@@ -778,7 +778,7 @@ func TestTenantStoreNeverClaimsUnscopedDBAndLocalReadNeedsTenant(t *testing.T) {
 	tenantFlag = "acme"
 	resetTenantSelection()
 	configureDefaultDBScope("")
-	if got := defaultDBPathInDir(dir); got != filepath.Join(dir, "data-"+hashDefaultDBScope("tenant:acme")+".db") {
+	if got := defaultDBPathInDir(dir); got != filepath.Join(dir, "data-"+hashDefaultDBScope(tenantStoreIdentity(&gwsTenant{Name: "acme", Domain: "example.com"}))+".db") {
 		t.Fatalf("a tenant must use its own store, never claim data.db: %s", got)
 	}
 	if _, err := os.Stat(unscoped + ".owner"); !os.IsNotExist(err) {
@@ -803,5 +803,64 @@ func TestTenantStoreNeverClaimsUnscopedDBAndLocalReadNeedsTenant(t *testing.T) {
 	configureDefaultDBScope("")
 	if err := localStoreTenantErr(); err != nil {
 		t.Fatalf("a bearer token keys the store to its own organization: %v", err)
+	}
+}
+
+// TestTenantSelectionFollowsRegistryChanges runs the way a long-lived MCP
+// server does: no resetTenantSelection between phases.
+func TestTenantSelectionFollowsRegistryChanges(t *testing.T) {
+	restore, err := cliutil.SetHomeOverride(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer restore()
+	t.Setenv("GOOGLE_WORKSPACE_TOKEN", "")
+	t.Setenv("ADMIN_ACCESS_TOKEN", "")
+	tenantFlag = ""
+	resetTenantSelection()
+	defer func() { resetTenantSelection(); setDefaultDBScopeIdentity("", "", "") }()
+	add := func(tn gwsTenant) {
+		t.Helper()
+		if err := updateTenantRegistry(func(reg *tenantRegistry) error {
+			reg.Tenants = append(reg.Tenants, tn)
+			return nil
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	add(gwsTenant{Name: "acme", Domain: "example.com", KeyFile: "k.json"})
+	if got, err := selectedTenant(); err != nil || got == nil || got.Name != "acme" {
+		t.Fatalf("the only tenant auto-selects: %v %v", got, err)
+	}
+	add(gwsTenant{Name: "beta", Domain: "example.org", KeyFile: "k2.json"})
+	if got, err := selectedTenant(); err != nil || got != nil {
+		t.Fatalf("a second registered tenant must end auto-selection without a restart: %v %v", got, err)
+	}
+	configureDefaultDBScope("")
+	if err := localStoreTenantErr(); err == nil {
+		t.Fatal("after a second tenant is added, an unscoped local read must refuse")
+	}
+
+	// Same name, different client: a different store.
+	acme := tenantStoreIdentity(&gwsTenant{Name: "acme", Domain: "example.com"})
+	if acme == tenantStoreIdentity(&gwsTenant{Name: "acme", Domain: "other.example"}) {
+		t.Fatal("re-registering a name for another domain must not reuse its store")
+	}
+
+	// A malformed config keeps the tenant's own store scope.
+	tenantFlag = "acme"
+	defer func() { tenantFlag = "" }()
+	resetTenantSelection()
+	bad := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(bad, []byte("not = [valid"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	configureDefaultDBScope(bad)
+	if hash, _, _ := currentDefaultDBScope(); hash != hashDefaultDBScope(acme) {
+		t.Fatalf("a bad config must not drop the tenant's store scope (hash %q)", hash)
+	}
+	if err := localStoreTenantErr(); err != nil {
+		t.Fatalf("the tenant's own store stays readable: %v", err)
 	}
 }

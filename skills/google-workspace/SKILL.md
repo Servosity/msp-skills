@@ -553,7 +553,7 @@ Named accounts holding a paid licence that nobody uses, as CSV for the deck.
 google-workspace-cli sharing-drift --all-tenants --since 7d --settings-only
 ```
 
-Only Admin console sharing-setting changes, old to new, with who made them.
+Only Admin console Drive and Calendar setting changes (any setting, not only sharing), old to new, with who made them.
 
 ### Check last week's leavers were closed
 

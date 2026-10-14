@@ -4312,7 +4312,10 @@ var defaultDBScopeState struct {
 func configureDefaultDBScope(configPath string) {
 	cfg, err := config.Load(configPath)
 	if err != nil {
-		setDefaultDBScopeIdentity("", "", "")
+		// Hand-fix (handfixes.json tenant-store-survives-bad-config): a
+		// tenant's store does not depend on the config file; an empty scope
+		// would open the shared data.db.
+		setDefaultDBScopeIdentity((&config.Config{}).StoreScopeCredential(), "", "")
 		return
 	}
 	legacy := cfg.StoreScopeLegacyCredential()

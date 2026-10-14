@@ -96,7 +96,7 @@ native streaming instead of polling.`,
 			}
 
 			// Initial fetch
-			if err := fetchAndEmit(cmd.Context(), c, path, readConfig, enc); err != nil {
+			if err := fetchAndEmit(cmd.Context(), c, path, withSyncParamDefaults(resource, nil), readConfig, enc); err != nil {
 				if !follow {
 					return classifyAPIError(cmd.OutOrStdout(), err, flags)
 				}
@@ -115,7 +115,7 @@ native streaming instead of polling.`,
 					fmt.Fprintln(os.Stderr, "\nShutting down gracefully...")
 					return nil
 				case <-ticker.C:
-					if err := fetchAndEmit(cmd.Context(), c, path, readConfig, enc); err != nil {
+					if err := fetchAndEmit(cmd.Context(), c, path, withSyncParamDefaults(resource, nil), readConfig, enc); err != nil {
 						fmt.Fprintf(os.Stderr, "warning: poll failed: %v\n", err)
 					}
 				}
@@ -146,8 +146,10 @@ func tailKnownResources() []string {
 
 func fetchAndEmit(ctx context.Context, c interface {
 	Get(context.Context, string, map[string]string) (json.RawMessage, error)
-}, path string, config resourceReadConfig, enc *json.Encoder) error {
-	data, err := c.Get(ctx, path, nil)
+}, path string, params map[string]string, config resourceReadConfig, enc *json.Encoder) error {
+	// Hand-fix (handfixes.json export-google-list-paging): params carries the
+	// list's spec defaults (customer=my_customer for users and groups).
+	data, err := c.Get(ctx, path, params)
 	if err != nil {
 		return err
 	}

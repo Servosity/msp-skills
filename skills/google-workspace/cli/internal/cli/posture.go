@@ -1,6 +1,6 @@
 // Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Novel feature: posture - one row per client tenant rolling up 2SV coverage,
-// admin exposure, licence waste, sharing-setting changes and (with the policy
+// admin exposure, licence waste, Drive and Calendar setting changes and (with the policy
 // scope profile) the current Cloud Identity policy values.
 
 // pp:data-source live
@@ -31,7 +31,7 @@ type tenantPosture struct {
 	AdminsWithout2SV    int      `json:"admins_without_2sv"`
 	StaleLicenses       int      `json:"stale_licenses"`
 	SuspendedLicensed   int      `json:"suspended_licensed"`
-	SharingSettingEdits int      `json:"sharing_setting_changes"`
+	SharingSettingEdits int      `json:"drive_calendar_setting_changes"`
 	TwoSVEnforcement    string   `json:"policy_2sv_enforcement"`
 	DriveExternalShare  string   `json:"policy_drive_external_sharing"`
 	GmailAutoForwarding string   `json:"policy_gmail_auto_forwarding"`
@@ -274,7 +274,7 @@ func newNovelPostureCmd(flags *rootFlags) *cobra.Command {
 					body = append(body, []string{r.Status, r.Tenant, fmt.Sprint(r.ActiveUsers), fmt.Sprintf("%.1f", r.TwoSVEnrolledPct),
 						fmt.Sprint(r.AdminsWithout2SV), fmt.Sprint(r.StaleLicenses), fmt.Sprint(r.SharingSettingEdits), r.DriveExternalShare})
 				}
-				return []string{"STATUS", "TENANT", "USERS", "2SV_%", "ADMINS_NO_2SV", "STALE_LIC", "SHARING_CHANGES", "DRIVE_SHARING"}, body
+				return []string{"STATUS", "TENANT", "USERS", "2SV_%", "ADMINS_NO_2SV", "STALE_LIC", "SETTING_CHANGES", "DRIVE_SHARING"}, body
 			})
 		},
 	}

@@ -340,7 +340,7 @@
   {
    "id": "no-credentials-over-plaintext-http",
    "summary": "The client refuses to send an Authorization header over plain http to anything but a loopback host",
-   "why": "GOOGLE_WORKSPACE_BASE_URL (declared in the .mcpb for mock testing) can point at http://. The generated client attached the raw bearer or the tenant-minted token to the first request regardless of scheme; the redirect guards only cover later hops. A non-loopback http override therefore sent a super-admin-delegated token in cleartext. credentialWouldTravelInPlaintext now refuses before dialling, while http://127.0.0.1 and localhost mocks keep working. Found by the onboard Codex review (P1); receipt: http://192.0.2.10 is refused, the loopback stub still answers. The call-site test (TestClientRefusesCredentialOverPlaintext) fails with the guard removed; the helper-only test does not. Round 2 (Codex, P1): the first version also exempted *.localhost, but Go's environment proxy only exempts localhost and loopback IPs, so http://fixture.localhost with HTTP_PROXY set delivered the bearer header to the proxy. Only localhost and loopback IPs are exempt now.",
+   "why": "GOOGLE_WORKSPACE_BASE_URL (declared in the .mcpb for mock testing) can point at http://. The generated client attached the raw bearer or the tenant-minted token to the first request regardless of scheme; the redirect guards only cover later hops. A non-loopback http override therefore sent a super-admin-delegated token in cleartext. credentialWouldTravelInPlaintext now refuses before dialling, while http://127.0.0.1 and localhost mocks keep working. Found by the onboard Codex review (P1); receipt: http://192.0.2.10 is refused, the loopback stub still answers. The call-site test (TestClientRefusesCredentialOverPlaintext) fails with the guard removed; the helper-only test does not. Round 2 (Codex, P1): the first version also exempted *.localhost, but Go's environment proxy only exempts localhost and loopback IPs, so http://fixture.localhost with HTTP_PROXY set delivered the bearer header to the proxy. Only localhost and loopback IPs are exempt now. Round 3 (adversarial): the guard lower-cased the host, but Go's proxy match on localhost is case-exact, so http://LOCALHOST was exempt from the guard yet sent through HTTP_PROXY; the comparison is case-exact now.",
    "status": "active",
    "spec_encode_followup": "Press-side: generated clients should refuse credential-bearing non-loopback plaintext requests fleet-wide.",
    "asserts": [
@@ -374,6 +374,15 @@
     {
      "file": "cli/internal/client/plaintext_credential_test.go",
      "contains": "\"http://fixture.localhost:8080/x\": true",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "strings.ToLower(u.Hostname())"
+    },
+    {
+     "file": "cli/internal/client/plaintext_credential_test.go",
+     "contains": "\"http://LOCALHOST:8080/x\":",
      "min_count": 1
     }
    ]
@@ -502,7 +511,7 @@
   {
    "id": "novel-help-text-accuracy",
    "summary": "Novel-command help text says what the code does: offboard's order is 'safe' (not API-required) and its Example uses --json; posture and sharing-drift count every Drive/Calendar setting change, not only sharing; tenants add's mode 0600 applies on macOS/Linux",
-   "why": "The adversarial review (round 2, P2) and Codex (round 2, P1, Windows key ACLs) found help text that overclaimed: Google does not require offboard's order (backup-code invalidation failing on a suspended account is why suspend runs last), --agent's compact output drops each offboard step's detail, settingChanges keeps every CHANGE_DOCS_SETTING and CHANGE_CALENDAR_SETTING event, and on Windows the copied key inherits the config folder's ACL. These are NOVEL files carried from the factory's novel/ directory, so a re-onboard from that source brings the old text back.",
+   "why": "The adversarial review (round 2, P2) and Codex (round 2, P1, Windows key ACLs) found help text that overclaimed: Google does not require offboard's order (backup-code invalidation failing on a suspended account is why suspend runs last), --agent's compact output drops each offboard step's detail, settingChanges keeps every CHANGE_DOCS_SETTING and CHANGE_CALENDAR_SETTING event, and on Windows the copied key inherits the config folder's ACL. These are NOVEL files carried from the factory's novel/ directory, so a re-onboard from that source brings the old text back. Round 3 (adversarial, P2) found the same 'sharing settings' text on the generated surfaces that carry the novel-feature list (root --help, which's curated index, the MCP context tool) and in posture's table column and JSON key, now SETTING_CHANGES and drive_calendar_setting_changes.",
    "status": "active",
    "spec_encode_followup": "Factory-side: port the same wording into ~/Documents/Dev/cli-factory/google-workspace/novel/ (offboard.go, posture.go, sharing_drift.go, gws_tenants_cmd.go).",
    "asserts": [
@@ -536,6 +545,161 @@
      "file": "cli/internal/cli/gws_tenants_cmd.go",
      "contains": "mode 0600 on macOS/Linux",
      "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "any setting, not only sharing",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/which.go",
+     "contains": "any setting, not only sharing",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "any setting, not only sharing",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/posture.go",
+     "contains": "`json:\"drive_calendar_setting_changes\"`",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/posture.go",
+     "not_contains": "SHARING_CHANGES"
+    }
+   ]
+  },
+  {
+   "id": "tenant-selection-follows-registry",
+   "summary": "selectedTenant re-resolves whenever tenants.toml changes, so a long-running MCP server stops auto-selecting the only tenant once a second one is registered",
+   "why": "selectedTenant cached its first answer for the life of the process. The MCP server is long-lived (Claude Desktop, --transport http), and tenants are added from a terminal because tenants add is not exposed over MCP. A server that had auto-selected the only tenant kept serving it after a second was registered: sql returned the first client's rows, search returned a clean-looking zero for the second client, and the raw execute tool kept minting the first client's token. The cache is now keyed to the registry file's mtime and size. Found by the onboard adversarial review (round 3, P1); TestTenantSelectionFollowsRegistryChanges runs without resetTenantSelection, the way production does, and fails with the stamp check removed.",
+   "status": "active",
+   "spec_encode_followup": "Factory-side: carry tenantRegistryStamp into ~/Documents/Dev/cli-factory/google-workspace/novel/gws_tenants.go.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/gws_tenants.go",
+     "contains": "if tenantState.resolved && tenantState.stamp == stamp {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants.go",
+     "contains": "func tenantRegistryStamp() string",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_novel_test.go",
+     "contains": "func TestTenantSelectionFollowsRegistryChanges(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "tenant-store-identity-includes-domain",
+   "summary": "A tenant's local store is keyed to its name AND domain",
+   "why": "Keyed to the name alone, removing a tenant and registering the same name for a different client reopened the previous client's mirror and later syncs mixed both clients' records. A Google Workspace primary domain identifies the client, so it is part of the key; changing a tenant's scopes with tenants add --yes keeps the same store. Found by the onboard Codex review (round 3, P1).",
+   "status": "active",
+   "spec_encode_followup": "Factory-side: carry tenantStoreIdentity into the factory's novel/gws_tenants.go.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/gws_tenants.go",
+     "contains": "return tenantStoreIdentity(t)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants.go",
+     "contains": "return \"tenant:\" + t.Name + \"/\" + strings.ToLower(strings.TrimSpace(t.Domain))",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "tenant-store-survives-bad-config",
+   "summary": "When the config file fails to load, a selected tenant keeps its own store scope instead of falling back to the shared data.db; localStoreTenantErr also refuses if a selected tenant's scope is not the current one",
+   "why": "configureDefaultDBScope cleared the store scope on any config.Load error, which sends every store open to the unscoped data.db, possibly another organization's bearer-mode mirror, while localStoreTenantErr allowed the read because a tenant was selected. A tenant's store does not depend on the config file, so the scope is computed from an empty config (the tenant hook still applies), and the read guard checks that the active scope is the selected tenant's. Found by the onboard Codex review (round 3, P1); the malformed-config phase of TestTenantSelectionFollowsRegistryChanges fails with the old line.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "setDefaultDBScopeIdentity((&config.Config{}).StoreScopeCredential(), \"\", \"\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants.go",
+     "contains": "if hash != hashDefaultDBScope(tenantStoreIdentity(t)) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "export-google-list-paging",
+   "summary": "export and tail read Google lists properly: the read configs carry each list's items key and pageToken/nextPageToken paging, an item-less Google envelope is an empty page, and both send the list's spec defaults (customer=my_customer for users and groups)",
+   "why": "The Discovery print left resourceReadConfigs empty, so export wrote the first Google envelope as one record and never followed nextPageToken (Codex round 3, P1: incomplete backups that exit 0), wrote a {kind, etag} envelope for an empty list, and sent no customer parameter, which Google requires for users.list and groups.list. Receipts against a two-page stub: export users wrote 1 line before and 130 after, export transfers on an empty list writes nothing, and both requests now carry customer=my_customer.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: the googlediscovery profiler should fill resourceReadConfigs (responsePath, cursor paging) and export/tail should seed the same spec defaults sync does.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/resource_paths.go",
+     "contains": "responsePath: \"dataTransfers\", paginationType: \"cursor\", cursorParam: \"pageToken\", limitParam: \"maxResults\", nextCursorPath: \"nextPageToken\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/resource_paths.go",
+     "contains": "paginationType: \"cursor\", cursorParam: \"pageToken\"",
+     "min_count": 5,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/resource_paths.go",
+     "contains": "} else if _, google := envelope[\"kind\"]; google {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "params = withSyncParamDefaults(resource, params)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/tail.go",
+     "contains": "withSyncParamDefaults(resource, nil)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_sync_envelope.go",
+     "contains": "func withSyncParamDefaults(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-sql-search-describe-tenant-scope",
+   "summary": "The MCP sql and search tool descriptions say they read one client tenant's mirror (GOOGLE_WORKSPACE_TENANT or the only registered tenant) and refuse when several are registered and none is set",
+   "why": "The generated descriptions said 'across all synced data', but in this multi-tenant CLI they read exactly one tenant's store and take no tenant argument, which an MCP-only agent (Claude Desktop, ChatGPT) cannot learn from human docs. Found by the onboard adversarial review (round 3, P2). The generated prefixes are kept because tools_test.go pins them.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "of one client tenant: the GOOGLE_WORKSPACE_TENANT tenant, or the only registered one",
+     "min_count": 2,
      "code_only": true
     }
    ]
