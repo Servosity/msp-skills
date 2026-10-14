@@ -66,7 +66,7 @@ Do not use this CLI for:
   ```bash
   google-workspace-cli mfa-gaps --all-tenants --admins-only --agent
   ```
-- **`sharing-drift`**  -  Who changed Drive or Calendar settings in the Admin console (any setting, not only sharing), and which files newly went external or public, across clients.
+- **`sharing-drift`**  -  Who changed Drive or Calendar settings (any setting, not only sharing) or an app's sharing settings in the Admin console, and which files newly went external or public, across clients.
 
   _Use it for 'what changed in sharing since last review' across clients; Drive audit needs Business Standard or higher, so run Business Starter tenants with --settings-only._
 
@@ -553,7 +553,7 @@ Named accounts holding a paid licence that nobody uses, as CSV for the deck.
 google-workspace-cli sharing-drift --all-tenants --since 7d --settings-only
 ```
 
-Only Admin console Drive, Calendar and app-sharing setting changes (any setting, not only sharing), old to new, with who made them.
+Only Admin console setting changes (any Drive or Calendar setting, plus app sharing settings), old to new, with who made them.
 
 ### Check last week's leavers were closed
 

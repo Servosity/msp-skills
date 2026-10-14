@@ -383,6 +383,11 @@ func localStoreTenantErr() error {
 	}
 	hash, _, _ := currentDefaultDBScope()
 	if t != nil {
+		// Hand-fix (handfixes.json tenants-test-checks-domain): a quarantined
+		// tenant's mirror may hold another organization's data.
+		if t.OwnershipMismatch != "" {
+			return configErr(fmt.Errorf("tenant %s is quarantined: %s", t.Name, t.OwnershipMismatch))
+		}
 		if hash != hashDefaultDBScope(tenantStoreIdentity(t)) {
 			return configErr(fmt.Errorf("the local store for tenant %q could not be resolved; check the CLI config file", t.Name))
 		}

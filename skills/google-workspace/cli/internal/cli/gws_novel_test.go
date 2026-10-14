@@ -1137,3 +1137,46 @@ func TestArchivedUserSeatIsNotWaste(t *testing.T) {
 		t.Fatal("a paid Workspace seat is not free")
 	}
 }
+
+// Hand-fix (handfixes.json deliver-errors-mask-url-secrets): a webhook is
+// named by host only (Slack keeps its secret in the path), and a redirect is
+// refused (deliver-webhook-https-only).
+func TestDeliverWebhookLabelsAndRedirects(t *testing.T) {
+	if got := webhookLabel("https://user:pw@hooks.slack.example/services/T0/B0/PATH-SECRET?token=Q-SECRET"); got != "https://hooks.slack.example/..." {
+		t.Fatalf("label %q", got)
+	}
+	redirect := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "http://203.0.113.9/cb?token=R-SECRET", http.StatusTemporaryRedirect)
+	}))
+	defer redirect.Close()
+	err := deliverWebhook(redirect.URL+"/services/T0/B0/PATH-SECRET", []byte(`{}`), false)
+	if err == nil || !strings.Contains(err.Error(), "redirect") || strings.Contains(err.Error(), "SECRET") {
+		t.Fatalf("a redirect must be refused without echoing the URL: %v", err)
+	}
+	if err := postFeedback("http://203.0.113.9/fb?token=F-SECRET", FeedbackEntry{}); err == nil || strings.Contains(err.Error(), "SECRET") {
+		t.Fatalf("plain-http feedback to a remote host must be refused: %v", err)
+	}
+}
+
+// Hand-fix (handfixes.json tenants-test-checks-domain): a quarantined
+// tenant's local mirror is not served either.
+func TestQuarantinedTenantLocalReadRefused(t *testing.T) {
+	restore, err := cliutil.SetHomeOverride(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer restore()
+	if err := updateTenantRegistry(func(reg *tenantRegistry) error {
+		reg.Tenants = append(reg.Tenants, gwsTenant{Name: "acme", Domain: "example.com", KeyFile: "k.json", OwnershipMismatch: "wrong customer"})
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { tenantFlag = ""; resetTenantSelection(); setDefaultDBScopeIdentity("", "", "") }()
+	tenantFlag = "acme"
+	resetTenantSelection()
+	configureDefaultDBScope("")
+	if err := localStoreTenantErr(); err == nil || !strings.Contains(err.Error(), "quarantined") {
+		t.Fatalf("a quarantined tenant's mirror must not be read: %v", err)
+	}
+}

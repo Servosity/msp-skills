@@ -97,42 +97,61 @@ func redactSecretQueryParams(text string) string {
 	return b.String()
 }
 
-// secretValueSpan returns the span of the value that starts at i. The URL's
-// enclosing quote (the nearest quote before urlStart with no whitespace in
-// between) closes it, so a value that starts with that quote is empty
-// ("...?token=",). A value opening with another quote (\", " or ') runs to
-// the matching close; otherwise it runs to &, whitespace, #, ", a backslash
-// or the enclosing quote, so an apostrophe inside it (O'Hara) stays masked.
-// Hand-fix (handfixes.json dry-run-redacts-secrets).
+// secretValueSpan returns the span of the value that starts at i. The
+// enclosing quote is the character just before the URL's scheme (looked
+// up within a bounded window, so earlier text and earlier apostrophes in
+// the URL do not count). A quote right after '=' is the end of an empty
+// value when it is the enclosing quote, or a double quote with no
+// enclosing quote, and it is followed by a separator; otherwise it opens a
+// quoted value that runs to its match. An unquoted value runs to &,
+// whitespace, #, ", a backslash or the enclosing quote, so an apostrophe
+// inside it (O'Hara) stays masked. Hand-fix (handfixes.json
+// dry-run-redacts-secrets).
 func secretValueSpan(s string, urlStart, i int) (int, int) {
-	enclosing := ""
-	for j := urlStart - 1; j >= 0; j-- {
-		c := s[j]
-		if c == ' ' || c == '\t' || c == '\n' || c == '\r' {
-			break
-		}
-		if c == '"' || c == '\'' {
-			enclosing = string(c)
-			if c == '"' && j > 0 && s[j-1] == '\\' {
-				enclosing = `\"`
-			}
-			break
-		}
-	}
+	enclosing := enclosingQuote(s, urlStart)
 	rest := s[i:]
-	if enclosing != "" && strings.HasPrefix(rest, enclosing) {
-		return i, i
-	}
 	for _, q := range []string{`\"`, `"`, `'`} {
-		if strings.HasPrefix(rest, q) {
-			start := i + len(q)
-			if k := strings.Index(s[start:], q); k >= 0 {
-				return start, start + k
-			}
-			return start, start + valueEnd(s[start:], enclosing)
+		if !strings.HasPrefix(rest, q) {
+			continue
 		}
+		after := rest[len(q):]
+		closing := q == enclosing || (enclosing == "" && q != "'")
+		if closing && (after == "" || strings.ContainsRune(",;:)}] \t\r\n", rune(after[0]))) {
+			return i, i
+		}
+		start := i + len(q)
+		end := start + valueEnd(after, "")
+		if k := strings.Index(s[start:end+min(len(q), len(s)-end)], q); k >= 0 {
+			end = start + k
+		}
+		return start, end
 	}
 	return i, i + valueEnd(rest, enclosing)
+}
+
+// enclosingQuote returns the quote (" ' or \") just before the scheme of the
+// URL that contains position urlStart, or "" when the URL is not quoted.
+func enclosingQuote(s string, urlStart int) string {
+	lo := max(0, urlStart-2048)
+	k := strings.LastIndex(s[lo:urlStart], "://")
+	if k < 0 || strings.ContainsAny(s[lo+k:urlStart], " \t\r\n") {
+		return ""
+	}
+	j := lo + k
+	for j > 0 && (isSchemeByte(s[j-1])) {
+		j--
+	}
+	switch {
+	case j > 1 && s[j-1] == '"' && s[j-2] == '\\':
+		return `\"`
+	case j > 0 && (s[j-1] == '"' || s[j-1] == '\''):
+		return string(s[j-1])
+	}
+	return ""
+}
+
+func isSchemeByte(c byte) bool {
+	return c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '+' || c == '-' || c == '.'
 }
 
 // valueEnd is the length of an unquoted query value at the start of s.

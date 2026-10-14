@@ -243,7 +243,7 @@ captured: they control profile/config resolution and would never apply).`,
 			cmd.Flags().VisitAll(visit)
 			if len(credentialFlags) > 0 {
 				sort.Strings(credentialFlags)
-				return fmt.Errorf("run profiles may not store credential-like flags: %s; use --client-profile with exact external references", strings.Join(credentialFlags, ", "))
+				return fmt.Errorf("run profiles may not store credential-like flags: %s; pass them on each invocation instead", strings.Join(credentialFlags, ", "))
 			}
 			if len(values) == 0 {
 				return fmt.Errorf("no non-default flags set - pass at least one flag to save into %q", name)

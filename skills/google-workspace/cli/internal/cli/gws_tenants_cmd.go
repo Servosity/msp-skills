@@ -193,11 +193,13 @@ func newTenantsListCmd(flags *rootFlags) *cobra.Command {
 				Scopes   int      `json:"scope_count"`
 				Reseller bool     `json:"reseller,omitempty"`
 				KeyOK    bool     `json:"key_present"`
+				// Hand-fix (handfixes.json tenants-test-checks-domain).
+				Quarantined string `json:"ownership_mismatch,omitempty"`
 			}
 			rows := []row{}
 			for _, t := range reg.Tenants {
 				_, statErr := os.Stat(expandTenantPath(t.KeyFile))
-				rows = append(rows, row{t.Name, t.Domain, t.Domains, t.Admin, t.customer(), len(t.Scopes), t.Reseller, statErr == nil})
+				rows = append(rows, row{t.Name, t.Domain, t.Domains, t.Admin, t.customer(), len(t.Scopes), t.Reseller, statErr == nil, t.OwnershipMismatch})
 			}
 			if !wantsHumanTable(cmd.OutOrStdout(), flags) {
 				return printJSONFiltered(cmd.OutOrStdout(), rows, flags)
@@ -211,6 +213,9 @@ func newTenantsListCmd(flags *rootFlags) *cobra.Command {
 				kind := "client"
 				if r.Reseller {
 					kind = "reseller"
+				}
+				if r.Quarantined != "" {
+					kind += " (QUARANTINED: run tenants test " + r.Name + ")"
 				}
 				table = append(table, []string{r.Name, r.Domain, r.Admin, kind, fmt.Sprint(r.Scopes), fmt.Sprint(r.KeyOK)})
 			}

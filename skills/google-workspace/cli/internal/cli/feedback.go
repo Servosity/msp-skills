@@ -74,6 +74,12 @@ func appendFeedback(entry FeedbackEntry) error {
 }
 
 func postFeedback(url string, entry FeedbackEntry) error {
+	// Hand-fix (handfixes.json deliver-webhook-https-only): same rules as a
+	// --deliver webhook (https off this machine, no redirects, host-only
+	// labels in errors).
+	if strings.HasPrefix(url, "http://") && !loopbackURL(url) {
+		return fmt.Errorf("feedback endpoint %s must use https:// (plain http is only allowed to localhost or a loopback IP)", webhookLabel(url))
+	}
 	body, err := json.Marshal(entry)
 	if err != nil {
 		return err
@@ -81,14 +87,14 @@ func postFeedback(url string, entry FeedbackEntry) error {
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
 		// Hand-fix (handfixes.json dry-run-redacts-secrets).
-		return fmt.Errorf("building feedback request: %s", client.RedactURLSecrets(err.Error()))
+		return fmt.Errorf("building feedback request for %s: %s", webhookLabel(url), client.RedactURLSecrets(transportErr(err).Error()))
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", "google-workspace-cli/feedback")
-	httpClient := &http.Client{Timeout: 15 * time.Second}
+	httpClient := &http.Client{Timeout: 15 * time.Second, CheckRedirect: refuseRedirect}
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("posting feedback: %s", client.RedactURLSecrets(err.Error()))
+		return fmt.Errorf("posting feedback to %s: %s", webhookLabel(url), client.RedactURLSecrets(transportErr(err).Error()))
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 400 {
@@ -154,7 +160,7 @@ maintainer sees it.`,
 					upstreamResult["error"] = err.Error()
 				} else {
 					upstreamResult["sent"] = true
-					upstreamResult["endpoint"] = endpoint
+					upstreamResult["endpoint"] = webhookLabel(endpoint)
 				}
 			}
 

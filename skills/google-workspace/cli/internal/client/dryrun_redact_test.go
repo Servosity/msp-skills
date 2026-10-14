@@ -68,6 +68,10 @@ func TestRedactSecretQueryParams(t *testing.T) {
 		`https://hooks.example/cb?key=api-SECRET`,
 		`Post "https://hooks.example/cb?a=1&token=go-q-SECRET": dial tcp`,
 		`https://hooks.example/cb?token="unterminated-SECRET`,
+		`webhook:https://hooks.example/cb?name=O'Hara&token=O'Brien-SECRET`,
+		`'https://hooks.example/cb?token='lead-SECRET`,
+		`{"description":"https://hooks.example/cb?note=it's&token='q-SECRET'"}`,
+		`https://hooks.example/cb?token=';HOOK-SECRET'`,
 	} {
 		if got := RedactURLSecrets(tc); strings.Contains(got, "SECRET") {
 			t.Errorf("secret survived: %s -> %s", tc, got)
@@ -77,6 +81,7 @@ func TestRedactSecretQueryParams(t *testing.T) {
 		`{"a":"https://x/?token=","b":"c"}`,
 		`["https://x/?token=",1]`,
 		`["https://x/?token=",{"k":"v"}]`,
+		`{"msg":"see https://x/?token=","b":"c"}`,
 		`https://host:443?login_hint=bob@example.com`,
 		`https://x/?pageToken=p2&customer=my_customer`,
 	} {
@@ -127,5 +132,17 @@ func TestRequestBuildErrorMasksURLSecrets(t *testing.T) {
 	_, err := c.Get(context.Background(), "/x?token=SECRET", nil)
 	if err == nil || strings.Contains(err.Error(), "SECRET") {
 		t.Fatalf("request error leaked a secret: %v", err)
+	}
+}
+
+// The scanner's quote lookup is bounded: a megabyte of parameters stays fast.
+func TestRedactSecretQueryParamsIsLinear(t *testing.T) {
+	in := strings.Repeat("&token=a", 125000)
+	start := time.Now()
+	if out := RedactURLSecrets(in); strings.Contains(out, "=a&") {
+		t.Fatal("values must be masked")
+	}
+	if d := time.Since(start); d > 5*time.Second {
+		t.Fatalf("1 MB took %s", d)
 	}
 }

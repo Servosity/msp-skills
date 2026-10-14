@@ -6,6 +6,7 @@ package cli
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"google-workspace-pp-cli/internal/client"
 	"google-workspace-pp-cli/internal/cliutil"
@@ -51,13 +52,13 @@ func ParseDeliverSink(spec string) (DeliverSink, error) {
 		}
 	case "webhook":
 		if !strings.HasPrefix(target, "http://") && !strings.HasPrefix(target, "https://") {
-			return DeliverSink{}, fmt.Errorf("--deliver webhook:<url> requires an http:// or https:// URL, got %q", client.RedactURLSecrets(target))
+			return DeliverSink{}, fmt.Errorf("--deliver webhook:<url> requires an http:// or https:// URL, got %s", webhookLabel(target))
 		}
 		// Hand-fix (handfixes.json deliver-webhook-https-only): the output is
 		// client data and the URL can carry a password or token, so plain
 		// http is only allowed to this machine.
 		if strings.HasPrefix(target, "http://") && !loopbackURL(target) {
-			return DeliverSink{}, fmt.Errorf("--deliver webhook:<url> must use https:// (plain http is only allowed to localhost or a loopback IP), got %q", client.RedactURLSecrets(target))
+			return DeliverSink{}, fmt.Errorf("--deliver webhook:<url> must use https:// (plain http is only allowed to localhost or a loopback IP), got %s", webhookLabel(target))
 		}
 	default:
 		return DeliverSink{}, fmt.Errorf("unknown --deliver scheme %q (supported: stdout, file, webhook)", client.RedactURLSecrets(scheme))
@@ -141,7 +142,7 @@ func deliverWebhook(url string, body []byte, compact bool) error {
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
 		// Hand-fix (handfixes.json deliver-errors-mask-url-secrets).
-		return fmt.Errorf("building webhook request: %s", client.RedactURLSecrets(err.Error()))
+		return fmt.Errorf("building webhook request for %s: %s", webhookLabel(url), client.RedactURLSecrets(transportErr(err).Error()))
 	}
 	req.Header.Set("Content-Type", contentType)
 	if ua := cliutil.EnvOverride("GOOGLE_WORKSPACE_USER_AGENT"); ua != "" {
@@ -150,12 +151,14 @@ func deliverWebhook(url string, body []byte, compact bool) error {
 		req.Header.Set("User-Agent", "google-workspace-cli/deliver")
 	}
 
-	httpClient := &http.Client{Timeout: 30 * time.Second}
+	// Hand-fix (handfixes.json deliver-webhook-https-only): a redirect could
+	// move the body (and a token in its URL) to plain http.
+	httpClient := &http.Client{Timeout: 30 * time.Second, CheckRedirect: refuseRedirect}
 	resp, err := httpClient.Do(req)
 	if err != nil {
 		// Hand-fix (handfixes.json deliver-errors-mask-url-secrets): the
 		// transport error carries the full webhook URL.
-		return fmt.Errorf("posting to webhook: %s", client.RedactURLSecrets(err.Error()))
+		return fmt.Errorf("posting to webhook %s: %s", webhookLabel(url), client.RedactURLSecrets(transportErr(err).Error()))
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 400 {
@@ -176,4 +179,36 @@ func loopbackURL(raw string) bool {
 	}
 	ip := net.ParseIP(h)
 	return ip != nil && ip.IsLoopback()
+}
+
+// webhookLabel names a webhook by scheme and host only: Slack, Teams and
+// Discord carry their secret in the path, others in the query or userinfo.
+// Hand-fix (handfixes.json deliver-errors-mask-url-secrets).
+func webhookLabel(raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil || u.Host == "" {
+		return "<webhook URL>"
+	}
+	return u.Scheme + "://" + u.Host + "/..."
+}
+
+// deliverTargetLabel is the --deliver target as it may appear in a message.
+func deliverTargetLabel(sink DeliverSink) string {
+	if sink.Scheme == "webhook" {
+		return webhookLabel(sink.Target)
+	}
+	return sink.Target
+}
+
+// transportErr drops the *url.Error wrapper, whose text repeats the URL.
+func transportErr(err error) error {
+	var ue *url.Error
+	if errors.As(err, &ue) {
+		return ue.Err
+	}
+	return err
+}
+
+func refuseRedirect(*http.Request, []*http.Request) error {
+	return errors.New("the endpoint answered with a redirect; refusing to follow it")
 }

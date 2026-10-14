@@ -2337,3 +2337,12 @@ func toolResultContentText(result *mcplib.CallToolResult, index int) string {
 	}
 	return text.Text
 }
+
+// Hand-fix (handfixes.json mcp-bool-false-forwarded).
+func TestCliArgsFromMCPForwardsExplicitFalse(t *testing.T) {
+	got := cliArgsFromMCP(map[string]any{"follow": false, "json": true}, nil)
+	want := []string{"--follow=false", "--json"}
+	if strings.Join(got, " ") != strings.Join(want, " ") {
+		t.Fatalf("got %v want %v", got, want)
+	}
+}

@@ -198,7 +198,7 @@ func Execute() (retErr error) {
 	if envelopeWritten && flags.deliverBuf != nil {
 		if derr := Deliver(flags.deliverSink, flags.deliverBuf.Bytes(), flags.compact); derr != nil {
 			// Hand-fix (handfixes.json deliver-errors-mask-url-secrets).
-			fmt.Fprintf(os.Stderr, "warning: deliver to %s:%s failed: %s\n", flags.deliverSink.Scheme, client.RedactURLSecrets(flags.deliverSink.Target), client.RedactURLSecrets(derr.Error()))
+			fmt.Fprintf(os.Stderr, "warning: deliver to %s:%s failed: %s\n", flags.deliverSink.Scheme, deliverTargetLabel(flags.deliverSink), client.RedactURLSecrets(derr.Error()))
 		}
 	}
 	if err != nil && strings.Contains(err.Error(), "unknown flag") {
@@ -228,7 +228,7 @@ func Execute() (retErr error) {
 	if err == nil && flags.deliverBuf != nil {
 		if derr := Deliver(flags.deliverSink, flags.deliverBuf.Bytes(), flags.compact); derr != nil {
 			// Hand-fix (handfixes.json deliver-errors-mask-url-secrets).
-			fmt.Fprintf(os.Stderr, "warning: deliver to %s:%s failed: %s\n", flags.deliverSink.Scheme, client.RedactURLSecrets(flags.deliverSink.Target), client.RedactURLSecrets(derr.Error()))
+			fmt.Fprintf(os.Stderr, "warning: deliver to %s:%s failed: %s\n", flags.deliverSink.Scheme, deliverTargetLabel(flags.deliverSink), client.RedactURLSecrets(derr.Error()))
 			return derr
 		}
 	}
@@ -314,7 +314,7 @@ Highlights (not in the official API docs):
   • stale-licenses   Paid licences held by suspended, never-signed-in, or idle accounts, per client, ready to reclaim.
   • offboard   Offboard a leaver with suspension last (backup-code invalidation fails on a suspended account), with a read-only preview, dry-run, and a receipt per step.
   • leavers   Suspended accounts that still hold a paid licence, groups, an admin role, OAuth tokens, or have no completed Drive transfer.
-  • sharing-drift   Who changed Drive or Calendar settings in the Admin console (any setting, not only sharing), and which files newly went external or public, across clients.
+  • sharing-drift   Who changed Drive or Calendar settings (any setting, not only sharing) or an app's sharing settings in the Admin console, and which files newly went external or public, across clients.
   • posture   One row per client: 2SV coverage, admins without 2SV, stale licences and Drive, Calendar or app-sharing setting changes, plus current sharing and 2SV policy for tenants registered with the policy scope profile.
   • oauth-apps   Third-party apps with access to client data across every active user and tenant, ranked by scope risk; --since switches to apps newly authorized in that window.
   • login-alerts   Suspicious sign-ins, accounts Google disabled, 2SV turned off, and out-of-domain mail forwarding across clients.
@@ -353,7 +353,7 @@ See README.md or the bundled SKILL.md for recipes.`,
 	rootCmd.PersistentFlags().StringVar(&flags.dataSource, "data-source", "auto", "Data source for read commands: auto (live with local fallback), live (API only), local (synced data only)")
 	rootCmd.PersistentFlags().DurationVar(&flags.maxAge, "max-age", 30*time.Minute, "Maximum acceptable age of local-store data before a stderr hint suggests sync; 0 disables")
 	rootCmd.PersistentFlags().StringVar(&flags.runProfileName, "profile", "", "Apply values from a saved run profile; this does not select a client (see 'google-workspace-cli profile list')")
-	rootCmd.PersistentFlags().StringVar(&flags.clientProfileName, "client-profile", "", "Select the tenant-gated client profile (env: PRINTING_PRESS_CLIENT_PROFILE)")
+	rootCmd.PersistentFlags().StringVar(&flags.clientProfileName, "client-profile", "", "No effect for this connector; pick a client with --tenant (env: PRINTING_PRESS_CLIENT_PROFILE)")
 	if strings.TrimSpace(os.Getenv(mcpBoundProfileEnv)) != "" {
 		if flag := rootCmd.PersistentFlags().Lookup("client-profile"); flag != nil {
 			flag.Hidden = true
