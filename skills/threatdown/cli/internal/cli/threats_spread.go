@@ -29,6 +29,7 @@ type localThreatData struct {
 	synced     bool   // detections have been fleet-synced at least once
 	behind     bool   // detections were last synced before endpoints were
 	coverage   string // set when the requested window predates the synced one
+	incomplete string // set when the latest fleet sync of what was read was not whole
 	sites      []fleet.Site
 	endpoints  []fleet.Endpoint
 	detections []fleet.Detection
@@ -75,6 +76,7 @@ func loadThreatData(cmd *cobra.Command, dbPath string, needEndpoints bool, since
 		out.synced = state.hasState
 	}
 	out.coverage = coverageNote(cmd.Context(), db, tdResDetections, since)
+	out.incomplete = incompleteSyncNote(db, tdResDetections)
 	ctx := cmd.Context()
 	if out.sites, err = loadLocalSites(ctx, db); err != nil {
 		return out, true, err
@@ -86,6 +88,7 @@ func loadThreatData(cmd *cobra.Command, dbPath string, needEndpoints bool, since
 	out.detections = parseDetections(raws)
 	if needEndpoints {
 		fleetHint(cmd, db, tdResEndpoints, tdMaxAge(cmd))
+		out.incomplete = joinNotes(out.incomplete, incompleteSyncNote(db, tdResEndpoints))
 		det, derr := readSyncHintState(db, tdResDetections)
 		epWrite, eerr := latestRowSync(ctx, db, tdResEndpoints)
 		// ponytail: second-resolution stamps, so an endpoints-only refresh in the
@@ -137,6 +140,7 @@ seen, and how often each action was taken.`,
 			} else if data.coverage != "" {
 				view.Note = data.coverage
 			}
+			view.Note = joinNotes(view.Note, data.incomplete)
 			if ok {
 				view.Threats = fleet.Spread(data.detections, fleet.SiteIndex(data.sites), time.Now().UTC().Add(-window), minSites)
 			}

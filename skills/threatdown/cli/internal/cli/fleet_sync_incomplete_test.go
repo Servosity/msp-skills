@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"threatdown-pp-cli/internal/store"
@@ -52,5 +53,19 @@ func TestFleetSyncNeverLeavesASilentGap(t *testing.T) {
 	recordFreshness(db, &r, false, false, false, "")
 	if n := incompleteSyncNote(db, tdResJobs); n != "" {
 		t.Fatalf("a --site scoped sync must not flag the fleet-wide copy, got %q", n)
+	}
+}
+
+// Adversarial review round 11 (2026-10-14): generic sync's "endpoints"
+// resource was one endpoint's quarantine list stored in the fleet endpoint
+// mirror's table; with --full it deleted the real endpoints.
+func TestGenericSyncLeavesTheEndpointMirrorAlone(t *testing.T) {
+	if _, err := syncResourcePath(tdResEndpoints); err == nil || !strings.Contains(err.Error(), "fleet sync") {
+		t.Fatalf("generic sync must refuse %q and point at fleet sync, got %v", tdResEndpoints, err)
+	}
+	for _, n := range knownSyncResourceNames() {
+		if n == tdResEndpoints {
+			t.Fatalf("generic sync must not advertise %q", n)
+		}
 	}
 }

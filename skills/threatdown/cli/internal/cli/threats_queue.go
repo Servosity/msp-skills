@@ -57,6 +57,7 @@ clean, no detections in the window). Each row carries the next command to run.`,
 			} else if data.coverage != "" {
 				view.Note = data.coverage
 			}
+			view.Note = joinNotes(view.Note, data.incomplete)
 			if ok {
 				sites, err := scopeSites(data.sites, siteFilter)
 				if err != nil {
@@ -79,7 +80,7 @@ clean, no detections in the window). Each row carries the next command to run.`,
 				// "Forgotten" means no detections in the window; without synced
 				// history covering the window that is unproven, so never offer
 				// a restore for it.
-				if !data.synced || data.coverage != "" || data.behind {
+				if !data.synced || data.coverage != "" || data.behind || data.incomplete != "" {
 					kept, dropped := view.Queue[:0], 0
 					for _, q := range view.Queue {
 						if q.Kind == "forgotten-isolation" {

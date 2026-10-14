@@ -316,7 +316,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 						} else {
 							report["api"] = fmt.Sprintf("reachable (HTTP %d at /)", status)
 						}
-					case errors.Is(reachErr, client.ErrTokenBoundElsewhere), errors.Is(reachErr, client.ErrTokenMintRejected):
+					case errors.Is(reachErr, client.ErrTokenBoundElsewhere), errors.Is(reachErr, client.ErrTokenMintRejected), errors.Is(reachErr, client.ErrPlaceholderCredential):
 						// hand-fix (token-bound-to-client): refused locally, nothing was sent.
 						report["api"] = "not probed (credentials error below)"
 					default:
@@ -329,7 +329,9 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 					// Step 2: Validate credentials with an authenticated probe.
 					authHeader := cfg.AuthHeader()
 					canMint, _ := client.AuthState(cfg)
-					if authHeader == "" && !canMint {
+					if errors.Is(reachErr, client.ErrPlaceholderCredential) {
+						report["credentials"] = fmt.Sprintf("ERROR %s", reachErr)
+					} else if authHeader == "" && !canMint {
 						// No auth configured — skip credential validation
 					} else if errors.Is(reachErr, client.ErrTokenBoundElsewhere) || errors.Is(reachErr, client.ErrTokenMintRejected) {
 						report["credentials"] = fmt.Sprintf("ERROR %s", reachErr)

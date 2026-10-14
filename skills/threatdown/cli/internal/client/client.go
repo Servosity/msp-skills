@@ -1748,6 +1748,13 @@ func authPlaceholderCredentialError(cfg *config.Config) error {
 }
 
 func authPlaceholderCredentialErrorWithSetup(cfg *config.Config, setup string) error {
+	// hand-fix (handfixes.json auth-status-tracks-binding): an env placeholder
+	// wins over the file, so point at the variable, not at config.toml.
+	for _, name := range []string{"THREATDOWN_CLIENT_ID", "THREATDOWN_CLIENT_SECRET"} {
+		if looksLikeCredentialPlaceholder(cliutil.EnvOverride(name)) {
+			return fmt.Errorf("%w in $%s; replace it with the real value where that variable is set (your shell or your MCP client's env block)", ErrPlaceholderCredential, name)
+		}
+	}
 	location := "config file"
 	if cfg != nil && cfg.Path != "" {
 		location = cfg.Path

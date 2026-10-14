@@ -108,7 +108,7 @@ Resource scoping:
 		Example: `  # Sync all resources
   threatdown-cli sync
   # Sync specific resources only
-  threatdown-cli sync --resources sites,endpoints
+  threatdown-cli sync --resources sites,users
 
   # Full resync (ignore previous checkpoint)
   threatdown-cli sync --full
@@ -2309,7 +2309,6 @@ func defaultSyncResources() []string {
 // validation to reject misspellings before they become silent no-ops.
 func knownSyncResourceNames() []string {
 	names := []string{
-		"endpoints",
 		"exclusions",
 		"notifications",
 		"policies",
@@ -2346,7 +2345,6 @@ func describeResourceFailure(count int, label string, resources []string) string
 // this preserves the actual endpoint path like "/ISteamApps/GetAppList/v2".
 func syncResourcePath(resource string) (string, error) {
 	paths := map[string]string{ // #nosec G101 -- endpoint paths, not credentials.
-		"endpoints":              "/v1/accounts/{account_id}/endpoints/{id}/quarantine",
 		"exclusions":             "/v1/exclusions",
 		"notifications":          "/v1/notifications/subscriptions",
 		"policies":               "/v1/policies",
@@ -2357,6 +2355,12 @@ func syncResourcePath(resource string) (string, error) {
 	}
 	if p, ok := paths[resource]; ok {
 		return p, nil
+	}
+	// hand-fix (handfixes.json generic-sync-no-endpoints): the spec's
+	// "endpoints" sync resource was one endpoint's quarantine list, stored
+	// under the table fleet sync keeps the endpoint mirror in.
+	if resource == "endpoints" {
+		return "", fmt.Errorf("unknown sync resource %q: run 'threatdown-cli fleet sync' for the endpoint mirror", resource)
 	}
 	return "", fmt.Errorf("unknown sync resource %q", resource)
 }

@@ -198,6 +198,7 @@ func fleetStaleLocal(cmd *cobra.Command, opts fleet.StaleOptions, siteFilter, db
 	if state, err := readSyncHintState(db, tdResEndpoints); err == nil && !state.hasState {
 		view.Note = "no endpoints synced yet; run " + tdFleetSyncCommand
 	}
+	view.Note = joinNotes(view.Note, incompleteSyncNote(db, tdResEndpoints))
 	sites, err := loadLocalSites(cmd.Context(), db)
 	if err != nil {
 		return view, true, err

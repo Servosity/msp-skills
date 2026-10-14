@@ -142,7 +142,7 @@ export THREATDOWN_CLIENT_SECRET=<value>
 threatdown-cli doctor
 ```
 
-Keep both variables set for every process that runs the CLI or the MCP server (the MCP install puts them in your client's env block). `doctor` exchanges them for a token and probes it with an authenticated call to OneView's account endpoint (its `Credentials` row), so a wrong secret shows there as a credentials error with HTTP 401. Only the minted token is cached, in the CLI's `credentials.toml`, and a process without the variables does not reuse it. To store the pair instead, run `threatdown-cli auth login --client-id <id> --client-secret <secret>`, which saves both in that file until `threatdown-cli auth logout`.
+Keep both variables set for every process that runs the CLI or the MCP server (the MCP install puts them in your client's env block). `doctor` exchanges them for a token and probes it with an authenticated call to OneView's account endpoint (its `Credentials` row), so a wrong secret shows there as a credentials error with HTTP 401. Only the minted token is cached, in the CLI's `credentials.toml`, and a process without the variables does not reuse it. To store the pair instead, export both variables once and run `threatdown-cli auth login --client-id <id>`: it saves that client ID and the secret from the environment in that file until `threatdown-cli auth logout`, and the secret never appears on a command line.
 
 
 ## What this skill does

@@ -227,6 +227,11 @@ empty profile.`,
 					notes = append(notes, n)
 				}
 			}
+			for _, res := range []string{tdResEndpoints, tdResDetections} {
+				if n := incompleteSyncNote(db, res); n != "" {
+					notes = append(notes, n)
+				}
+			}
 			view.Note = strings.Join(notes, "; ")
 			if h := fleet.HealthFromEndpoints(mine, []fleet.Site{site}, now, 24, 7); len(h) > 0 {
 				view.Health = h[0]

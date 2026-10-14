@@ -135,8 +135,7 @@ caller must send `Authorization: Bearer <THREATDOWN_MCP_HTTP_TOKEN>`.
 
 Then expose `http://localhost:7777/mcp` as a public HTTPS URL via a secure tunnel
 (Cloudflare Tunnel, ngrok) or your own reverse proxy. The path is part of the
-endpoint: point the connector at `/mcp`, the endpoint the server documents (paths
-other than `/` and `/mcp` return 404). **Treat that
+endpoint: point the connector at `/mcp`, the endpoint the server documents. **Treat that
 URL as sensitive** - it's a key to your MCP server. Never expose it bare on the
 internet; gate it behind SSO / Cloudflare Access for team use.
 
