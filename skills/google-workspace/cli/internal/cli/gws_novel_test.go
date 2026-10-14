@@ -973,7 +973,7 @@ func TestTokenSourceFollowsKeyRotation(t *testing.T) {
 	keyPath := filepath.Join(dir, "k.json")
 	write := func(id string) {
 		t.Helper()
-		key := `{"client_email":"sa@example.iam.gserviceaccount.com","private_key":"-----BEGIN PRIVATE KEY-----\nAA==\n-----END PRIVATE KEY-----\n","private_key_id":"` + id + `"}`
+		key := `{"client_email":"sa@example.iam.gserviceaccount.com","private_key":"fake-key","private_key_id":"` + id + `"}`
 		if err := os.WriteFile(keyPath, []byte(key), 0o600); err != nil {
 			t.Fatal(err)
 		}
