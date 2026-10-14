@@ -350,7 +350,7 @@ See README.md or the bundled SKILL.md for recipes.`,
 	rootCmd.PersistentFlags().StringVar(&flags.dataSource, "data-source", "auto", "Data source for read commands: auto (live with local fallback), live (API only), local (synced data only)")
 	rootCmd.PersistentFlags().DurationVar(&flags.maxAge, "max-age", 30*time.Minute, "Maximum acceptable age of local-store data before a stderr hint suggests sync; 0 disables")
 	rootCmd.PersistentFlags().StringVar(&flags.runProfileName, "profile", "", "Apply values from a saved run profile; this does not select a client (see 'connectwise-rmm-cli profile list')")
-	rootCmd.PersistentFlags().StringVar(&flags.clientProfileName, "client-profile", "", "Select the tenant-gated client profile (env: PRINTING_PRESS_CLIENT_PROFILE)")
+	rootCmd.PersistentFlags().StringVar(&flags.clientProfileName, "client-profile", "", "Unused by this connector: no tenant-gated profile source is registered, so the value changes nothing (env: PRINTING_PRESS_CLIENT_PROFILE)")
 	if strings.TrimSpace(os.Getenv(mcpBoundProfileEnv)) != "" {
 		if flag := rootCmd.PersistentFlags().Lookup("client-profile"); flag != nil {
 			flag.Hidden = true

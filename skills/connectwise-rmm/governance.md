@@ -55,7 +55,7 @@ human for anything below the line.
 `connectwise-rmm_execute` tool that can call any partner API operation, including
 `tasks.schedule` and `endpoints.uninstall`, with no preview step. An allowlist keyed on
 CLI command names does not cover it. Set `CONNECTWISE_RMM_MCP_READ_ONLY=1` in the MCP
-server's environment and it drops its write tools (`run`, `import`, `sync` among them)
+server's environment and it drops its write tools (`run` and `sync` among them; `import` is CLI-only and never an MCP tool)
 and refuses every non-read call through `connectwise-rmm_execute`.
 
 ## How to lock it down

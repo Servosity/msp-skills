@@ -66,7 +66,7 @@
         },
         {
           "name": "CONNECTWISE_RMM_MCP_READ_ONLY",
-          "description": "Set to 1 to make the MCP server read-only: it drops its write tools (run, import, sync) and refuses any non-GET API call. Leave blank for the full tool set.",
+          "description": "Set to 1 to make the MCP server read-only: it drops its write tools (run, sync; import is never an MCP tool) and refuses any non-GET API call. Leave blank for the full tool set.",
           "isRequired": false,
           "isSecret": false
         },

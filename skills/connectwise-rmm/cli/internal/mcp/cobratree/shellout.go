@@ -245,13 +245,11 @@ var blockedDestinationFlags = map[string]bool{
 	// READ sources. Forwarded, they let a tool call load any file this account
 	// can reach (credentials.toml included) into the store, where playbook_list
 	// and sql hand it back.
-	"from-csv":            true,
 	"home":                true,
 	"input":               true,
 	"notes-file":          true,
 	"playbook-file":       true,
 	"playbook-notes-file": true,
-	"reconcile":           true,
 }
 
 // filesystemPathFlagPhrases are usage-string fragments that mark a flag as
@@ -357,6 +355,7 @@ var blockedRootFlags = map[string]bool{
 	"audit-dir":               true,
 	"base-url":                true,
 	"client":                  true,
+	"client-profile":          true, // hand-fix: inert here (no platform source); keep it out of tool schemas
 	"config":                  true,
 	confirmationBypassYesFlag: true,
 	"deliver":                 true,
