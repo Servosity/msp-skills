@@ -125,7 +125,7 @@ func readPushBody(src string, stdin io.Reader) (map[string]any, error) {
 	default:
 		// --body names a local JSON file the caller chose to send; reading it is
 		// the flag's purpose, and its content must parse as a JSON object.
-		data, err = os.ReadFile(src) // #nosec G304 -- caller-chosen --body file, same class as import/export paths
+		data, err = os.ReadFile(src)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("reading --body: %w", err)
