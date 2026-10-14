@@ -660,7 +660,7 @@
       "category": "Security",
       "display_name": "Google Workspace",
       "tagline": "Find accounts without 2SV, reclaim wasted licenses, and offboard leavers safely across every client's Google Workspace.",
-      "cli_hash": "sha256:4be32451fbbba756ab058ad9b2ca2bcc21acb7799e74b436fd5884f3034bad98",
+      "cli_hash": "sha256:c85b9491aa2cb85b36b07ab723d02080643306076ad7ddfd7d6c829bd74e48e9",
       "template_version": 3,
       "version": "0.1.0",
       "cli_hash_at_release": null,
