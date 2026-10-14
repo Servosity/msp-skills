@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"cisco-meraki-pp-cli/internal/store"
+
 	"github.com/spf13/cobra"
 )
 
@@ -73,7 +75,7 @@ func correlateOutages(orgID string, history []availabilityChange, changesByNet m
 			}
 			o.Suspects = append(o.Suspects, blameSuspect{TS: p.ch.TS, MinutesBefore: int64(at.Sub(p.t) / time.Minute),
 				AdminName: p.ch.AdminName, AdminEmail: p.ch.AdminEmail, Page: p.ch.Page, Label: p.ch.Label,
-				SSIDName: p.ch.SSIDName, OldValue: p.ch.OldValue, NewValue: p.ch.NewValue})
+				SSIDName: p.ch.SSIDName, OldValue: store.RedactMerakiChangeValue(p.ch.Label, p.ch.OldValue), NewValue: store.RedactMerakiChangeValue(p.ch.Label, p.ch.NewValue)})
 		}
 		sort.Slice(o.Suspects, func(i, j int) bool { return o.Suspects[i].MinutesBefore < o.Suspects[j].MinutesBefore })
 		o.SuspectCount = len(o.Suspects)

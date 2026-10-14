@@ -51,7 +51,8 @@ All notable changes to this skill are documented here. Format follows
 - A `sync` of only dependent resources exits 0 when it stored rows, even if one
   organization has API access disabled; each failed organization is still reported.
   `sync --strict` exits non-zero when any resource failed or completed with warnings,
-  including one cut short by `--max-pages`.
+  including one that stopped before its last page (`--max-pages`, or an API that
+  repeated a page or cursor).
 - `fleet push --apply` exits 6 when a target network's change did not land: its
   action batch was rejected, failed, or is still pending after `--wait`, or its
   current settings could not be read, or an organization's network list could not be
@@ -67,7 +68,9 @@ All notable changes to this skill are documented here. Format follows
   them. Every credential field (`psk`, `passphrase`, `password`, `secret`,
   `sharedSecret`, SNMP community strings and v3 passwords, API keys and tokens) is now
   stored as `[redacted]`, and a credential is never used as a row ID (a newly generated
-  API key used to become one). License keys are kept.
+  API key used to become one). Change-log old and new values, which carry an API
+  change's whole request body, are redacted in the mirror and in `fleet changes` and
+  `fleet blame` output. License keys are kept.
 - The MCP server refuses local-file flags (`--notes-file`, `--playbook-file`,
   `--playbook-notes-file`, `--input`), and the MCP `fleet_push` tool takes `body` only
   as inline JSON, so a tool call cannot make the server read a file of its choosing.

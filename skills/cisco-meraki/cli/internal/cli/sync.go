@@ -67,6 +67,11 @@ type syncResult struct {
 	Warn             error
 	IntegrityFailure bool
 	Duration         time.Duration
+	// Truncated: a flat resource stopped before its last page (--max-pages
+	// cap, a stuck page or cursor, or a non-JSON 200) after emitting a
+	// warning. It still counts as synced; only --strict fails on it
+	// (pp:handfix meraki-sync-partial-exit).
+	Truncated bool
 }
 
 const syncWatermarkOverlap = time.Second
@@ -319,7 +324,11 @@ Resource scoping:
 			var criticalFailedResources []string
 			var firstErr error
 			var firstPlaceholderErr error
+			var truncatedCount int
 			for res := range results {
+				if res.Truncated {
+					truncatedCount++
+				}
 				if res.Err != nil {
 					if humanFriendly {
 						fmt.Fprintf(os.Stderr, "  %s: error: %v\n", res.Resource, res.Err)
@@ -427,6 +436,9 @@ Resource scoping:
 			}
 			if strict && warnCount > 0 { // pp:handfix meraki-sync-partial-exit
 				return fmt.Errorf("--strict: %d resource(s) completed with warnings; see the sync_warning and sync_error events", warnCount)
+			}
+			if strict && truncatedCount > 0 { // pp:handfix meraki-sync-partial-exit
+				return fmt.Errorf("--strict: %d resource(s) stopped before their last page (--max-pages cap, stuck pagination or a non-JSON page); data may be truncated", truncatedCount)
 			}
 			if criticalErrCount > 0 {
 				return errors.New(describeCriticalFailedResources(criticalErrCount, criticalFailedResources))
@@ -1176,10 +1188,8 @@ func syncResource(ctx context.Context, c interface {
 	if reconcileErr != nil {
 		return syncResult{Resource: resource, Count: cachedCount, Warn: reconcileErr, Duration: time.Since(started)}
 	}
-	if capExitHit { // pp:handfix meraki-sync-partial-exit: a truncated resource is a warning, so --strict fails on it
-		return syncResult{Resource: resource, Count: cachedCount, Warn: fmt.Errorf("reached --max-pages cap of %d; data may be truncated", maxPages), Duration: time.Since(started)}
-	}
-	return syncResult{Resource: resource, Count: cachedCount, Duration: time.Since(started)}
+	truncated := capExitHit || outcome.reason == "stuck_page" || outcome.reason == "stuck_cursor" || outcome.reason == "non_json_200_body"
+	return syncResult{Resource: resource, Count: cachedCount, Duration: time.Since(started), Truncated: truncated}
 }
 
 // paginationDefaults holds the resolved pagination parameter names and page size.

@@ -69,11 +69,26 @@ func redactMerakiValue(v any) (any, bool) {
 	switch tv := v.(type) {
 	case map[string]any:
 		changed := false
+		label, _ := tv["label"].(string)
 		for k, child := range tv {
-			if s, ok := child.(string); ok && s != "" && s != RedactedSecret && merakiSecretKey(k, tv) {
-				tv[k] = RedactedSecret
-				changed = true
-				continue
+			if s, ok := child.(string); ok && s != "" && s != RedactedSecret {
+				if merakiSecretKey(k, tv) {
+					tv[k] = RedactedSecret
+					changed = true
+					continue
+				}
+				// Change-log rows carry the request body as a JSON string
+				// (oldValue/newValue of an API PUT) or a secret-labelled value.
+				if (k == "oldValue" || k == "newValue") && merakiSecretLabel(label) {
+					tv[k] = RedactedSecret
+					changed = true
+					continue
+				}
+				if next := RedactMerakiJSONString(s); next != s {
+					tv[k] = next
+					changed = true
+					continue
+				}
 			}
 			if next, ok := redactMerakiValue(child); ok {
 				tv[k] = next
@@ -143,4 +158,38 @@ func merakiIDCarriesSecret(id string, obj map[string]any) bool {
 		return false
 	}
 	return walk(obj)
+}
+
+// merakiSecretLabel reports a change-log label that names a credential
+// ("Pre-shared key", "RADIUS secret", "SNMP community string").
+func merakiSecretLabel(label string) bool {
+	l := strings.ToLower(label)
+	for _, w := range []string{"psk", "pre-shared", "preshared", "password", "passphrase", "secret", "community string", "api key"} {
+		if strings.Contains(l, w) {
+			return true
+		}
+	}
+	return false
+}
+
+// RedactMerakiJSONString redacts credentials inside a string that holds JSON
+// (a change-log oldValue/newValue). Any other string is returned unchanged.
+func RedactMerakiJSONString(s string) string {
+	t := strings.TrimSpace(s)
+	if t == "" || (t[0] != '{' && t[0] != '[') {
+		return s
+	}
+	if out := RedactMerakiSecrets(json.RawMessage(t)); string(out) != t {
+		return string(out)
+	}
+	return s
+}
+
+// RedactMerakiChangeValue is the change-log output twin of the mirror
+// redaction: fleet changes and fleet blame print oldValue/newValue live.
+func RedactMerakiChangeValue(label, v string) string {
+	if v != "" && merakiSecretLabel(label) {
+		return RedactedSecret
+	}
+	return RedactMerakiJSONString(v)
 }

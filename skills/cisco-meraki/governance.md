@@ -86,8 +86,10 @@ each command (`agent-context` lists it per command as `pp:method`): 555 GET, 202
   secret-bearing GETs below, so it is a write guard, not a secrets guard.
 - **Keep autonomous agents to Read + previewed writes.** Have a human approve the
   actual write for Write tier and above, and every `fleet push --apply`.
-- **The rule, not the list: the CLI never redacts output.** Any command that returns a
-  stored field verbatim can return a secret. Three paths reach the secret-bearing reads
+- **The rule, not the list: the CLI does not redact command output.** Any command that
+  returns a stored field verbatim can return a secret. The one exception is the change
+  log: `fleet changes` and `fleet blame` redact credentials inside each change's old
+  and new values (an API change logs its whole request body there). Three paths reach the secret-bearing reads
   above without naming them: `fleet fanout` pointed at an org-scoped secret path (for
   example `organizations/{organizationId}/appliance/vpn/thirdPartyVPNPeers`,
   `organizations/{organizationId}/snmp` or `organizations/{organizationId}/sm/vppAccounts`)

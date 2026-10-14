@@ -543,7 +543,7 @@
   {
    "id": "meraki-sync-partial-exit",
    "summary": "sync exits 0 when the only non-success results are warnings and rows were stored ('completed with warnings but no successful syncs' fires only when nothing was stored); --strict exits non-zero on any warned or errored resource",
-   "why": "A dependent resource whose parent list includes an org with API access disabled (a normal MSP case) is counted 'warned', never 'success', even after storing every other org's rows, so `sync --resources <dependent>` exited 1 with 'no successful syncs' - contradicting the sync help ('Exit 0 when at least one resource synced'). Found by the round-6 adversarial review (2026-10-14). Receipt: against the factory fake (Dormant Org 600003), `sync --resources organizations_devices_statuses` stored 7 rows and exited 1 before, exits 0 after; a warn-only run that stored nothing still exits 1. The edit in generated sync.go is re-applied by the factory's tools/apply_handfixes.py. Round 7 (2026-10-14): the first version also let --strict exit 0 on a warned dependent whose parents returned 500, contradicting --strict's help; --strict now fails any warned resource. Round 8 (2026-10-14): the round-7 '|| strict' sat inside the successCount == 0 branch, so a normal `sync --strict` with a warned dependent still exited 0; --strict is now its own check beside the generated errCount one. Round 9 (2026-10-14): the sync help and --strict flag text still said access-denied resources never fail the run, and no test drove --strict + warning; both fixed. TestSyncStrictFailsOnWarnedResource (a 403 on every organizations dependent: plain sync exits 0, --strict exits non-zero for the warnings) fails with the strict-warn check removed (proven). Codex round 4 (2026-10-14): a flat resource cut short by --max-pages emitted max_pages_cap_hit but returned success, so --strict exited 0; it now returns a warning. TestSyncStrictFailsOnMaxPagesTruncation fails without it (proven).",
+   "why": "A dependent resource whose parent list includes an org with API access disabled (a normal MSP case) is counted 'warned', never 'success', even after storing every other org's rows, so `sync --resources <dependent>` exited 1 with 'no successful syncs' - contradicting the sync help ('Exit 0 when at least one resource synced'). Found by the round-6 adversarial review (2026-10-14). Receipt: against the factory fake (Dormant Org 600003), `sync --resources organizations_devices_statuses` stored 7 rows and exited 1 before, exits 0 after; a warn-only run that stored nothing still exits 1. The edit in generated sync.go is re-applied by the factory's tools/apply_handfixes.py. Round 7 (2026-10-14): the first version also let --strict exit 0 on a warned dependent whose parents returned 500, contradicting --strict's help; --strict now fails any warned resource. Round 8 (2026-10-14): the round-7 '|| strict' sat inside the successCount == 0 branch, so a normal `sync --strict` with a warned dependent still exited 0; --strict is now its own check beside the generated errCount one. Round 9 (2026-10-14): the sync help and --strict flag text still said access-denied resources never fail the run, and no test drove --strict + warning; both fixed. TestSyncStrictFailsOnWarnedResource (a 403 on every organizations dependent: plain sync exits 0, --strict exits non-zero for the warnings) fails with the strict-warn check removed (proven). Codex round 4 (2026-10-14): a flat resource cut short by --max-pages emitted max_pages_cap_hit but returned success, so --strict exited 0; it now sets syncResult.Capped, and only --strict fails on it (round 11: returning a warning instead broke `workflow archive --max-pages` and a non-strict exit code). TestSyncStrictFailsOnMaxPagesTruncation fails without it (proven). Codex round 5 (2026-10-14): a flat resource that stopped on a repeated page or cursor (or a non-JSON 200) also exited 0 under --strict; syncResult.Truncated now covers all four early stops. TestSyncStrictFailsOnStuckPagination fails without it (proven).",
    "status": "active",
    "spec_encode_followup": "Not spec-encodable; press retro: count a warned resource that stored rows toward the exit-0 rule.",
    "asserts": [
@@ -573,13 +573,25 @@
     },
     {
      "file": "cli/internal/cli/sync.go",
-     "contains": "Warn: fmt.Errorf(\"reached --max-pages cap of %d; data may be truncated\", maxPages)",
+     "contains": "if strict && truncatedCount > 0 {",
      "min_count": 1,
      "code_only": true
     },
     {
      "file": "cli/internal/cli/meraki_sync_strict_test.go",
      "contains": "func TestSyncStrictFailsOnMaxPagesTruncation(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "truncated := capExitHit || outcome.reason == \"stuck_page\" || outcome.reason == \"stuck_cursor\" || outcome.reason == \"non_json_200_body\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/meraki_sync_strict_test.go",
+     "contains": "func TestSyncStrictFailsOnStuckPagination(",
      "min_count": 1,
      "code_only": true
     }
@@ -774,8 +786,8 @@
   },
   {
    "id": "meraki-mirror-redacts-secrets",
-   "summary": "Every local-mirror write (sync, read write-through, mutation write-through; generic, typed and batch upserts) passes through mergeIncomingResourceData, which now replaces credential values (psk, passphrase, password, secret, sharedSecret, SNMP community strings and v3 passwords, API keys, tokens, by key name and suffix) with [redacted] before storing. License keys are kept on purpose. ExtractResourceID also refuses an identity that contains a credential value.",
-   "why": "Adversarial round 9 (2026-10-14): a routine `networks wireless update-network-ssid` stored the PSK and RADIUS secret its response echoes, and `search`, `analytics` and MCP sql (Allow tier, available in MCP read-only mode) returned them, contradicting governance ('credentials are only ever read live'). A default --data-source auto GET of a secret-bearing path wrote through the same way. The redaction sits at the one funnel every upsert uses, so the typed upsert<X>Tx writers cannot bypass it (the connectsecure lesson). Key set derived from a scan of every property name in the vendor spec. TestMirrorNeverStoresMerakiSecrets drives batch, generic and typed upserts with a sentinel and fails with the wrapper removed (proven). Round 10 + Codex round 4 (2026-10-14): ID resolution ran on the unredacted object before the funnel, so `administered generate-identities-me-api-keys` ({\"key\": \"<new API key>\"}, no other identity) stored the key itself as resources.id and resources_fts.id, readable by MCP sql. ExtractResourceID now returns \"\" for an id carrying a secret value (merakiIDCarriesSecret); the test asserts ids and FTS ids too and fails without the guard (proven). The generated TestUpsertBatch_GenericFallbackList asserted that a bare {\"key\": \"value\"} resolves as an id; for Meraki that shape is an API key, so \"key\" is dropped from its loop (a regeneration restores the old list and the test then fails, which is the signal).",
+   "summary": "Every local-mirror write (sync, read write-through, mutation write-through; generic, typed and batch upserts) passes through mergeIncomingResourceData, which now replaces credential values (psk, passphrase, password, secret, sharedSecret, SNMP community strings and v3 passwords, API keys, tokens, by key name and suffix) with [redacted] before storing. License keys are kept on purpose. ExtractResourceID also refuses an identity that contains a credential value. Change-log oldValue/newValue (an API change's JSON request body, or a secret-labelled UI value) are redacted in the mirror and in fleet changes / fleet blame output.",
+   "why": "Adversarial round 9 (2026-10-14): a routine `networks wireless update-network-ssid` stored the PSK and RADIUS secret its response echoes, and `search`, `analytics` and MCP sql (Allow tier, available in MCP read-only mode) returned them, contradicting governance ('credentials are only ever read live'). A default --data-source auto GET of a secret-bearing path wrote through the same way. The redaction sits at the one funnel every upsert uses, so the typed upsert<X>Tx writers cannot bypass it (the connectsecure lesson). Key set derived from a scan of every property name in the vendor spec. TestMirrorNeverStoresMerakiSecrets drives batch, generic and typed upserts with a sentinel and fails with the wrapper removed (proven). Round 10 + Codex round 4 (2026-10-14): ID resolution ran on the unredacted object before the funnel, so `administered generate-identities-me-api-keys` ({\"key\": \"<new API key>\"}, no other identity) stored the key itself as resources.id and resources_fts.id, readable by MCP sql. ExtractResourceID now returns \"\" for an id carrying a secret value (merakiIDCarriesSecret); the test asserts ids and FTS ids too and fails without the guard (proven). The generated TestUpsertBatch_GenericFallbackList asserted that a bare {\"key\": \"value\"} resolves as an id; for Meraki that shape is an API key, so \"key\" is dropped from its loop (a regeneration restores the old list and the test then fails, which is the signal). Codex round 5 (2026-10-14): configuration_changes rows carry an API PUT's request body as a JSON-encoded string in oldValue/newValue, so a PSK set over the API reached the mirror (and fleet changes / blame output, both Allow tier) inside a string the key-name walk never parsed. JSON strings are now parsed and redacted, secret-labelled values blanked; TestChangeLogValuesNeverCarrySecrets fails without it (proven).",
    "status": "active",
    "spec_encode_followup": "Not spec-encodable; press retro: generated stores should redact x-sensitive response fields.",
    "asserts": [
@@ -806,6 +818,30 @@
     {
      "file": "cli/internal/store/upsert_batch_test.go",
      "contains": "\"guid\", \"api_id\", \"name\", \"slug\", \"code\"}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_secrets.go",
+     "contains": "func RedactMerakiChangeValue(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_changes.go",
+     "contains": "OldValue: store.RedactMerakiChangeValue(ch.Label, ch.OldValue)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_blame.go",
+     "contains": "OldValue: store.RedactMerakiChangeValue(p.ch.Label, p.ch.OldValue)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_secrets_test.go",
+     "contains": "func TestChangeLogValuesNeverCarrySecrets(",
      "min_count": 1,
      "code_only": true
     }

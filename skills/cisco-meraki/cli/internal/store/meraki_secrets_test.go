@@ -66,3 +66,35 @@ func TestMirrorNeverStoresMerakiSecrets(t *testing.T) {
 		}
 	}
 }
+
+// TestChangeLogValuesNeverCarrySecrets: an API change logs its request body
+// as a JSON string, and a UI change can carry a secret-labelled value; both
+// are redacted in the mirror and in the fleet changes / blame output twin.
+func TestChangeLogValuesNeverCarrySecrets(t *testing.T) {
+	db, err := Open(filepath.Join(t.TempDir(), "data.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	rows := []json.RawMessage{
+		json.RawMessage(`{"ts":"2026-10-01T00:00:00Z","networkId":"N_1","page":"via API","label":"PUT /api/v1/networks/N_1/wireless/ssids/0","oldValue":"{\"name\":\"Front Desk\",\"psk\":\"` + merakiSentinel + `\"}","newValue":"{\"name\":\"Front Desk\"}"}`),
+		json.RawMessage(`{"ts":"2026-10-01T00:00:01Z","networkId":"N_1","page":"Access control","label":"Pre-shared key","oldValue":"` + merakiSentinel + `","newValue":"` + merakiSentinel + `"}`),
+	}
+	if _, _, err := db.UpsertBatch("configuration_changes", rows); err != nil {
+		t.Fatal(err)
+	}
+	var all string
+	_ = db.DB().QueryRow(`SELECT group_concat(id || data) FROM resources`).Scan(&all)
+	if strings.Contains(all, merakiSentinel) || !strings.Contains(all, "Front Desk") {
+		t.Fatalf("change-log secret stored or non-secret lost: %s", all)
+	}
+	if got := RedactMerakiChangeValue("PUT /api/v1/networks/N_1/snmp", `{"communityString":"`+merakiSentinel+`"}`); strings.Contains(got, merakiSentinel) {
+		t.Fatalf("output twin leaked: %s", got)
+	}
+	if got := RedactMerakiChangeValue("RADIUS secret", merakiSentinel); got != RedactedSecret {
+		t.Fatalf("labelled secret not redacted: %s", got)
+	}
+	if got := RedactMerakiChangeValue("Name", "HQ"); got != "HQ" {
+		t.Fatalf("plain value changed: %s", got)
+	}
+}

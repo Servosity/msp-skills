@@ -68,7 +68,7 @@ func changeFromRaw(org fleetOrg, raw json.RawMessage, source string) (changeRow,
 	}
 	return changeRow{TS: ch.TS, OrganizationID: org.ID, OrganizationName: org.Name, NetworkID: ch.NetworkID, NetworkName: ch.NetworkName,
 		AdminName: ch.AdminName, AdminEmail: ch.AdminEmail, Page: ch.Page, Label: ch.Label, SSIDName: ch.SSIDName,
-		OldValue: ch.OldValue, NewValue: ch.NewValue, Source: source}, true
+		OldValue: store.RedactMerakiChangeValue(ch.Label, ch.OldValue), NewValue: store.RedactMerakiChangeValue(ch.Label, ch.NewValue), Source: source}, true
 }
 
 type changeFilter struct {

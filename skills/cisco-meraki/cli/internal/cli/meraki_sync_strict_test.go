@@ -57,8 +57,8 @@ func TestSyncStrictFailsOnWarnedResource(t *testing.T) {
 }
 
 // TestSyncStrictFailsOnMaxPagesTruncation: a --max-pages cap that leaves a
-// next page unread is a warning, so --strict exits non-zero while a plain
-// sync still exits 0 with the rows it stored.
+// next page unread fails --strict, while a plain sync still exits 0 with the
+// rows it stored and counts the resource as synced.
 func TestSyncStrictFailsOnMaxPagesTruncation(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -92,7 +92,39 @@ func TestSyncStrictFailsOnMaxPagesTruncation(t *testing.T) {
 	if err := run(false); err != nil {
 		t.Fatalf("plain sync truncated by --max-pages should exit 0: %v", err)
 	}
-	if err := run(true); err == nil || !strings.Contains(err.Error(), "completed with warnings") {
-		t.Fatalf("sync --strict truncated by --max-pages: err=%v, want the warnings failure", err)
+	if err := run(true); err == nil || !strings.Contains(err.Error(), "stopped before their last page") {
+		t.Fatalf("sync --strict truncated by --max-pages: err=%v, want the --max-pages cap failure", err)
+	}
+}
+
+// TestSyncStrictFailsOnStuckPagination: an API that repeats the same next
+// cursor makes sync stop early with a warning; --strict must not exit 0.
+func TestSyncStrictFailsOnStuckPagination(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path != "/api/v1/organizations" {
+			_, _ = w.Write([]byte(`[]`))
+			return
+		}
+		// Every page points at the same next cursor with fresh items.
+		w.Header().Set("Link", "<http://"+r.Host+"/api/v1/organizations?startingAfter=2>; rel=next")
+		after := r.URL.Query().Get("startingAfter")
+		_, _ = w.Write([]byte(`[{"id":"1` + after + `","name":"Acme` + after + `","api":{"enabled":true}},{"id":"2` + after + `","name":"Bayside` + after + `","api":{"enabled":true}}]`))
+	}))
+	defer srv.Close()
+	testenv.Isolate(t)
+	t.Setenv("CISCO_MERAKI_BASE_URL", srv.URL+"/api/v1")
+	t.Setenv("MERAKI_DASHBOARD_API_KEY", "test-key")
+	cmd := RootCmd()
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	cmd.SetArgs([]string{"sync", "--resources", "organizations", "--rate-limit", "0", "--strict", "--json"})
+	err := cmd.Execute()
+	if !strings.Contains(out.String(), "stuck_pagination") {
+		t.Fatalf("stub did not trigger stuck pagination: %s", out.String())
+	}
+	if err == nil || !strings.Contains(err.Error(), "stopped before their last page") {
+		t.Fatalf("sync --strict after stuck pagination: err=%v, want the truncation failure", err)
 	}
 }
