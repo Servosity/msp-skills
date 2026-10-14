@@ -510,6 +510,41 @@
       "file": "skills/fortinet/cli/internal/fortimgr/client.go",
       "rule": "msp-insecure-skip-verify",
       "reason": "fortinet. Same call site as the disabled-tls-verify entry above (semgrep's rule): explicit --insecure, FORTINET_SKIP_TLS_VERIFY or FORTINET_FMG_INSECURE opt-in only; default verifies."
+    },
+    {
+      "file": "skills/threatdown/cli/internal/cli/store_adopt_darwin.go",
+      "rule": "unsafe-import",
+      "reason": "threatdown only (generated, printing-press 4.33.5 - byte-identical template output to the connectwise-rmm entries in PR #362 and cisco-duo in PR #361, verified by diff with the slug normalized). store_adopt_darwin.go decides whether a legacy local SQLite store can be renamed onto the new per-account store name: it calls the read-only macOS proc_info syscall (unix.Syscall6 SYS_PROC_INFO: list PIDs, list a PID's file descriptors, read a descriptor's vnode inode/dev) to confirm no other process holds the store file open, and fails closed on any error. unsafe is needed only to pass Go buffers to that syscall; nothing is written through the pointers but kernel-filled proc_info structs."
+    },
+    {
+      "file": "skills/threatdown/cli/internal/cli/store_adopt_darwin.go",
+      "rule": "msp-unsafe-import",
+      "reason": "Same file and import as the unsafe-import entry above (semgrep flags the identical `import \"unsafe\"`). threatdown only (generated, printing-press 4.33.5 - byte-identical template output to the connectwise-rmm entries in PR #362 and cisco-duo in PR #361, verified by diff with the slug normalized). store_adopt_darwin.go decides whether a legacy local SQLite store can be renamed onto the new per-account store name: it calls the read-only macOS proc_info syscall (unix.Syscall6 SYS_PROC_INFO: list PIDs, list a PID's file descriptors, read a descriptor's vnode inode/dev) to confirm no other process holds the store file open, and fails closed on any error. unsafe is needed only to pass Go buffers to that syscall; nothing is written through the pointers but kernel-filled proc_info structs."
+    },
+    {
+      "file": "skills/threatdown/cli/internal/cli/store_adopt_darwin.go",
+      "rule": "G304",
+      "reason": "threatdown only (generated, printing-press 4.33.5 - byte-identical template output to the connectwise-rmm entries in PR #362 and cisco-duo in PR #361, verified by diff with the slug normalized). os.Open reads the legacy store paths from legacyStoreAdoptPaths: the CLI's own data-dir store file plus fixed SQLite sidecar suffixes (-wal, -shm, -journal). No user-supplied path reaches it."
+    },
+    {
+      "file": "skills/threatdown/cli/internal/cli/store_adopt_linux.go",
+      "rule": "G304",
+      "reason": "threatdown only (generated, printing-press 4.33.5). Linux twin of the store_adopt_darwin.go G304 entry above: gosec sees this file only when the gate runs with GOOS=linux, as CI does. store_adopt_linux.go is byte-identical in the cisco-duo, connectwise-rmm, fortinet, google-workspace and threatdown trees (verified by checksum). Both flagged opens are in pinClosedStoreFile, which claimClosedStore calls for each path from legacyStoreAdoptPaths(legacy): the CLI's own legacy store data-<legacyHash>.db in its resolved data directory (legacyHash is the first 12 hex characters of a SHA-256 the CLI computes) plus whichever of the fixed SQLite sidecars -wal, -shm and -journal exist. os.OpenFile uses os.O_RDWR with no O_CREATE or O_TRUNC, so it cannot create or truncate a file; the writable descriptor exists only to take an F_SETLEASE write lease, which the kernel refuses while any other descriptor has the file open. The os.Open fallback is read-only and runs only when no writable descriptor is available, to compare inode/device against /proc/<pid>/fd entries. Nothing is read from or written through either descriptor, and both are closed on release. The directory is the user's own data directory, which they can relocate with --home or the CLI's data-directory environment variables; no API, MCP, tool-call or tenant input reaches the path. The file's other reads (os.ReadDir of /proc and /proc/<pid>/fd, os.ReadFile of /proc/<pid>/status) use fixed /proc paths with a PID that strconv.Atoi parsed from the /proc listing."
+    },
+    {
+      "file": "skills/threatdown/cli/internal/cli/helpers.go",
+      "rule": "G304",
+      "reason": "threatdown only (generated, printing-press 4.33.5 - byte-identical template output to the connectwise-rmm entries in PR #362 and cisco-duo in PR #361, verified by diff with the slug normalized). Both flagged reads are in claimLegacyUnscopedDB, which reads the `<data.db>.owner` marker file next to the CLI's own store in its resolved data directory (and a temp file it just created there) to decide which credential scope adopts a legacy data.db. The path is derived from the CLI's data dir, never from user or API input."
+    },
+    {
+      "file": "skills/threatdown/cli/internal/store/store.go",
+      "rule": "G202",
+      "reason": "threatdown only (generated, printing-press 4.33.5 - byte-identical template output to the connectwise-rmm entries in PR #362 and cisco-duo in PR #361, verified by diff with the slug normalized). loadParentKeyLegacyBatch concatenates bareWhere, which parentKeyLegacyBareWhere builds solely from the generated constant map resourceParentKeyColumns (sorted, each name single-quote-escaped); the cursor values afterType/afterID are passed as bound ? parameters. No user or API input reaches the SQL text."
+    },
+    {
+      "file": "skills/threatdown/cli/cmd/threatdown-mcp/main.go",
+      "rule": "G101",
+      "reason": "threatdown (generated, printing-press 4.33.5). gosec G101 false-positive on the constant NAME 'httpTokenEnvVar' (the 'Token' substring), emitted by the press template main_mcp.go.tmpl for every connector. Its value is the NAME of an environment variable, \"THREATDOWN_MCP_HTTP_TOKEN\", not a credential; the actual token is read from the environment at runtime. Same entry as datagate, zammad, huntress, datto-bcdr, wordpress, sentinelone and connectwise-rmm."
     }
   ]
 }
