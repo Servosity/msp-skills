@@ -1,0 +1,46 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Servosity/sophos-central-mcp",
+  "title": "Sophos Central MCP",
+  "description": "The Sophos Central partner, organization and tenant APIs, routed to the right tenant and region",
+  "version": "1.0.0",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/sophos-central/sophos-central-512x512.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/servosity/msp-skills",
+    "source": "github",
+    "subfolder": "skills/sophos-central"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/sophos-central-v1.0.0/sophos-central-mcp.mcpb",
+      "version": "1.0.0",
+      "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "SOPHOS_CENTRAL_CLIENT_ID",
+          "description": "Set the SOPHOS_CENTRAL_CLIENT_ID credential for the Sophos Central MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "SOPHOS_CENTRAL_CLIENT_SECRET",
+          "description": "Set the SOPHOS_CENTRAL_CLIENT_SECRET credential for the Sophos Central MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}

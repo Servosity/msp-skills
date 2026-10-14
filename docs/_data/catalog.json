@@ -706,6 +706,17 @@
       "url": "/skills/skykick/"
     },
     {
+      "slug": "sophos-central",
+      "display_name": "Sophos Central",
+      "tagline": "Triage alerts, restore tamper protection and contain a machine by hostname across every Sophos Central tenant by asking.",
+      "category": "Security",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "url": "/skills/sophos-central/"
+    },
+    {
       "slug": "superops",
       "display_name": "SuperOps",
       "tagline": "Catch SLA breaches, unbilled time, and at-risk assets across PSA and RMM by asking.",

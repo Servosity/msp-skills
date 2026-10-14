@@ -1,0 +1,54 @@
+{
+  "manifest_version": "0.3",
+  "name": "sophos-central-pp-mcp",
+  "display_name": "Sophos Central",
+  "version": "1.0.0",
+  "description": "The Sophos Central partner, organization and tenant APIs, routed to the right tenant and region automatically, plus a cross-tenant triage queue, fleet tamper remediation, a multi-tenant SIEM collector and hostname-based containment.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/sophos-central-pp-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/sophos-central-pp-mcp",
+      "args": [],
+      "env": {
+        "SOPHOS_CENTRAL_CLIENT_ID": "${user_config.sophos_central_client_id}",
+        "SOPHOS_CENTRAL_CLIENT_SECRET": "${user_config.sophos_central_client_secret}"
+      }
+    }
+  },
+  "user_config": {
+    "sophos_central_client_id": {
+      "type": "string",
+      "title": "SOPHOS_CENTRAL_CLIENT_ID",
+      "description": "Sets SOPHOS_CENTRAL_CLIENT_ID for the Sophos Central MCP server. Get a credential from https://developer.sophos.com/getting-started/.",
+      "sensitive": true,
+      "required": true
+    },
+    "sophos_central_client_secret": {
+      "type": "string",
+      "title": "SOPHOS_CENTRAL_CLIENT_SECRET",
+      "description": "Sets SOPHOS_CENTRAL_CLIENT_SECRET for the Sophos Central MCP server. Get a credential from https://developer.sophos.com/getting-started/.",
+      "sensitive": true,
+      "required": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  },
+  "printing_press_version": "4.33.5",
+  "press_provenance": {
+    "printing_press_version": "4.33.5",
+    "generated_at": "2026-10-14T03:57:14.749888Z",
+    "spec_checksum": "sha256:372391f51256c468dd6d60f5d37a7a10f210fa617bcfb127adac8c6f1e8d23ef",
+    "spec_format": "openapi3"
+  }
+}
