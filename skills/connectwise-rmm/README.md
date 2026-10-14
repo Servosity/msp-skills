@@ -188,7 +188,7 @@ See [pain-point.md](./pain-point.md) for the longer narrative.
 
 ### Does this work with ChatGPT?
 
-Yes, on **Plus, Pro, Team, Business, Enterprise, and Education** plans (Free tier does not yet expose Developer Mode). ChatGPT connects to **remote** MCP servers over HTTPS, not local stdio binaries. The ConnectWise RMM MCP server runs locally, but it speaks HTTP natively: set `CONNECTWISE_RMM_MCP_HTTP_TOKEN` to a long random value, start it with `connectwise-rmm-mcp --transport http` (it listens on 127.0.0.1:7777 by default and refuses to start without that token), and put its /mcp endpoint behind an HTTPS tunnel or your own reverse proxy. No bridge package is involved. Step-by-step in [mcp-install.md](./mcp-install.md).
+Yes, on **Plus, Pro, Team, Business, Enterprise, and Education** plans (Free tier does not yet expose Developer Mode). ChatGPT connects to **remote** MCP servers over HTTPS, not local stdio binaries. The ConnectWise RMM MCP server runs locally, but it speaks HTTP natively: set `CONNECTWISE_RMM_MCP_HTTP_TOKEN` to a long random value, start it with `connectwise-rmm-mcp --transport http` (it serves http://127.0.0.1:7777/mcp by default and refuses to start without that token), and put its /mcp endpoint behind an HTTPS tunnel or your own reverse proxy. No bridge package is involved. Step-by-step in [mcp-install.md](./mcp-install.md).
 
 ### Does this work with Codex, Cursor, Windsurf, Cline, Copilot, or Gemini?
 

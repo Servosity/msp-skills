@@ -122,7 +122,7 @@ web** is remote-only - see the remote section below.)
 # Remote agents (expose the binary over HTTPS first)
 
 All remote agents need `connectwise-rmm-mcp` reachable as a public **HTTPS** endpoint. Run it
-in HTTP mode with your credentials in the environment (it listens on 127.0.0.1:7777 by
+in HTTP mode with your credentials in the environment (it serves http://127.0.0.1:7777/mcp by
 default and refuses a non-loopback bind without `--tls-cert`/`--tls-key`, so do not pass `--addr :7777`).
 Only the client ID, the client secret and `CONNECTWISE_RMM_MCP_HTTP_TOKEN` are required; leave out
 any optional variable you are not setting:
