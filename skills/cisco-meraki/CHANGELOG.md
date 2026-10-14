@@ -35,6 +35,9 @@ All notable changes to this skill are documented here. Format follows
   client they describe; `[{items, meta}]` responses are unwrapped into their records;
   and a generated date-detection pattern no longer misreads timestamp-plus-serial
   keys as dates. Before, each such resource dropped every row and `sync` exited 1.
+- Local-mirror rows are keyed on serials and real IDs, not display names, so two
+  switches both called "Core Switch", or "Data" VLANs in several networks, stay
+  separate rows instead of silently merging.
 - `fleet changes --data-source local` no longer says the mirror was never synced
   right after a sync.
 - `doctor` reports a 404 from its health check as a warning that names

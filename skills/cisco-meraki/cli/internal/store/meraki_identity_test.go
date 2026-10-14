@@ -37,3 +37,33 @@ func TestMerakiIdentityFallbackKeysDocumentedRows(t *testing.T) {
 		t.Fatalf("timestamp-only row got ID %q", got)
 	}
 }
+
+// TestMerakiSameNameRowsStayDistinct guards the hand-fix meraki-row-keys-not-
+// display-names: the generator keyed ~30 resources on "name", so two switches
+// both called "Core Switch", or "Data" VLANs in two networks, collapsed into one
+// mirror row with no warning. Distinct devices, rules and VLANs must keep
+// distinct IDs even when their display names match.
+func TestMerakiSameNameRowsStayDistinct(t *testing.T) {
+	pairs := []struct {
+		resource, a, b string
+	}{
+		{"organizations_switch_ports_statuses_by_switch", `{"name":"Core Switch","serial":"Q555-5555-5555","network":{"id":"N_1"}}`, `{"name":"Core Switch","serial":"Q555-5555-9999","network":{"id":"N_2"}}`},
+		{"organizations_policies_global_firewall_rulesets_rules", `{"name":"Block","rulesetId":"rs1","ruleId":"r1"}`, `{"name":"Block","rulesetId":"rs1","ruleId":"r2"}`},
+		{"organizations_policies_global_group_policies_appliance_vlans_assignments_by_vlan", `{"name":"Data","vlanId":10,"network":{"id":"N_1"}}`, `{"name":"Data","vlanId":10,"network":{"id":"N_2"}}`},
+		{"organizations_appliance_security_intrusion_rule_groups", `{"name":"Malware","groupId":"g1","policy":{"id":"p1"}}`, `{"name":"Malware","groupId":"g2","policy":{"id":"p1"}}`},
+		{"organizations_floor_plans_auto_locate_statuses", `{"name":"Floor 1","floorPlanId":"g_1","network":{"id":"N_1"}}`, `{"name":"Floor 1","floorPlanId":"g_2","network":{"id":"N_2"}}`},
+	}
+	for _, p := range pairs {
+		var a, b map[string]any
+		if err := json.Unmarshal([]byte(p.a), &a); err != nil {
+			t.Fatal(err)
+		}
+		if err := json.Unmarshal([]byte(p.b), &b); err != nil {
+			t.Fatal(err)
+		}
+		ida, idb := ExtractResourceID(p.resource, a), ExtractResourceID(p.resource, b)
+		if ida == "" || idb == "" || ida == idb {
+			t.Fatalf("%s: same-name rows got IDs %q and %q, want two distinct IDs", p.resource, ida, idb)
+		}
+	}
+}

@@ -395,6 +395,10 @@ func merakiGetAllValues(ctx context.Context, c *client.Client, path string, para
 			}
 			merged = append(merged, page...)
 		} else {
+			// [{items, meta}] pages count and return their records, not envelopes.
+			if inner, ok := merakiUnwrapEnvelopeArray(items); ok {
+				items = inner
+			}
 			res.Items = append(res.Items, items...)
 			res.ItemsReturned = len(res.Items)
 		}
@@ -455,7 +459,7 @@ func AnnotateMerakiNextPage(result, next string, pageable bool) string {
 	}
 	switch {
 	case cut && returned >= 1:
-		obj["pagination_note"] = fmt.Sprintf("This upstream page held %d items but only %d fit in one MCP result, so do not page from it: its Link cursor would skip the items that were cut. Re-request it with params.perPage set to %d or fewer (and at or above the endpoint's minimum), then follow next_starting_after from that response.", total, returned, returned)
+		obj["pagination_note"] = fmt.Sprintf("This upstream page held %d items but only %d fit in one MCP result, so do not page from it: its Link cursor would skip the items that were cut. Re-request it with params.perPage set to %d or fewer, then follow next_starting_after from that response. If that is below the endpoint's minimum perPage, narrow the request with the endpoint's filters (for example networkIds[] or serials[]) instead.", total, returned, returned)
 	case cut:
 		obj["pagination_note"] = "This upstream page was too large for one MCP result, so do not page from it: its Link cursor would skip the items that were cut. Re-request it with a smaller params.perPage (at or above the endpoint's minimum) or narrower filters, then follow next_starting_after from that response."
 	default:

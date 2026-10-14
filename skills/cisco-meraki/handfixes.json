@@ -319,7 +319,7 @@
   },
   {
    "id": "meraki-sync-envelope-array",
-   "summary": "sync's page extractor unwraps an ARRAY of {items, meta} envelopes into the records inside it",
+   "summary": "sync's page extractor unwraps an ARRAY of {items, meta} envelopes into the records inside it; fleet fanout's walker (merakiGetAll) does the same, so items_returned counts records",
    "why": "Several Meraki list reads (wireless RF-profile assignments by device, floor-plan auto-locate devices and statuses, SM sentry assignments, wireless-controller failover history, provisioning deployments) answer [{items:[...], meta:{...}}]. The generated extractor took the direct array as the records, stored the envelope (no identity), and the resource failed as critical - RF-profile assignments alone has rows in any org with MR access points. Found while fixing the round-4 sync P1 (2026-10-13). Helper merakiUnwrapEnvelopeArray is hand-authored in internal/cli/meraki_link_pagination.go; the call site in generated sync.go is re-applied by the factory's tools/apply_handfixes.py. TestSyncUnwrapsMerakiEnvelopeArray fails without it (proven).",
    "status": "active",
    "asserts": [
@@ -338,6 +338,63 @@
     {
      "file": "cli/internal/cli/meraki_envelope_array_test.go",
      "contains": "func TestSyncUnwrapsMerakiEnvelopeArray(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/meraki_envelope_array_test.go",
+     "contains": "func TestMerakiGetAllCountsEnvelopeRecords(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "meraki-row-keys-not-display-names",
+   "summary": "Mirror row keys for 31 resources the generator keyed on the display name \"name\" now use the real identity: device serial (switch-port, uplink-address, firmware-by-device, power/CPU/memory history, SSID status and other per-device views), the resource's own id (policyId, profileId, captureId, rulesetId(+ruleId), roleId, subscriptionId, clientId, floorPlanId), policy.id+groupId for intrusion rule groups, network.id+vlanId for VLAN assignments, networkId(+name) for per-network rows",
+   "why": "Round-5 adversarial review (2026-10-13): Meraki does not require unique names, so two switches both called \"Core Switch\" at different sites, same-named firewall rules, or \"Data\" VLANs in several networks collapsed into one local-mirror row with no warning - sync exited 0, and `search` returned the other switch's port config. Keys are set in both generated maps (internal/store/store.go and internal/cli/sync.go resourceIDFieldOverrides) and spec-encoded as x-resource-id in the factory's spec/spec-overlay.json so the next generate emits them natively. TestMerakiSameNameRowsStayDistinct fails on the generated maps (proven).",
+   "status": "active",
+   "spec_encode_followup": "Spec-encoded (x-resource-id on each GET in spec/spec-overlay.json). Press retro: never infer a row key from a display name.",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\"rulesetId+ruleId\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\"network.id+vlanId\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\"policy.id+groupId\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\"floorPlanId\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"rulesetId+ruleId\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"network.id+vlanId\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_identity_test.go",
+     "contains": "func TestMerakiSameNameRowsStayDistinct(",
      "min_count": 1,
      "code_only": true
     }
