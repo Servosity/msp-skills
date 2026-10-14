@@ -113,8 +113,19 @@ func newTenantsAddCmd(flags *rootFlags) *cobra.Command {
 				Admin: admin, KeyFile: keyDest, CustomerID: customerID, Scopes: resolved, Reseller: reseller,
 			}
 			err = updateTenantRegistry(func(reg *tenantRegistry) error {
-				if _, exists := reg.find(name); exists && !confirmed(cmd, flags) {
+				existing, exists := reg.find(name)
+				if exists && !confirmed(cmd, flags) {
 					return usageErr(fmt.Errorf("tenant %q already exists (pass --yes to replace it)", name))
+				}
+				// Hand-fix (handfixes.json tenants-test-checks-domain): a
+				// replacement stays quarantined (only a passing tenants test
+				// lifts it), and the old registration's mirror leaves its live
+				// path before anything, the key included, is written.
+				if exists && existing.OwnershipMismatch != "" {
+					if err := discardTenantMirror(existing); err != nil {
+						return configErr(fmt.Errorf("tenant %s is quarantined and its local mirror could not be moved aside: %w", name, err))
+					}
+					t.OwnershipMismatch = existing.OwnershipMismatch
 				}
 				if err := cliutil.AtomicWritePrivateFile(keyDest, raw, 0o600, 0o700); err != nil {
 					return configErr(fmt.Errorf("storing service-account key: %w", err))
@@ -123,14 +134,6 @@ func newTenantsAddCmd(flags *rootFlags) *cobra.Command {
 				for _, existing := range reg.Tenants {
 					if existing.Name != name {
 						kept = append(kept, existing)
-						continue
-					}
-					// Replacing a quarantined tenant lifts the quarantine, so
-					// its possibly contaminated mirror must be gone first.
-					if existing.OwnershipMismatch != "" {
-						if err := discardTenantMirror(existing); err != nil {
-							return configErr(fmt.Errorf("tenant %s is quarantined and its local mirror could not be moved aside: %w", name, err))
-						}
 					}
 				}
 				reg.Tenants = append(kept, t)
@@ -138,6 +141,9 @@ func newTenantsAddCmd(flags *rootFlags) *cobra.Command {
 			})
 			if err != nil {
 				return registryErr(err)
+			}
+			if t.OwnershipMismatch != "" {
+				fmt.Fprintf(cmd.ErrOrStderr(), "note: tenant %s stays quarantined until 'tenants test %s' passes\n", name, name)
 			}
 			return printTenantSetup(cmd, flags, t, id, "registered")
 		},
@@ -254,6 +260,14 @@ func newTenantsRemoveCmd(flags *rootFlags) *cobra.Command {
 				}
 				if !confirmed(cmd, flags) {
 					return usageErr(fmt.Errorf("removing tenant %q deletes its stored key; re-run with --yes", t.Name))
+				}
+				// Hand-fix (handfixes.json tenants-test-checks-domain): a
+				// later registration under the same name and domain must not
+				// reopen a quarantined mirror.
+				if t.OwnershipMismatch != "" {
+					if err := discardTenantMirror(t); err != nil {
+						return configErr(fmt.Errorf("tenant %s is quarantined and its local mirror could not be moved aside: %w", t.Name, err))
+					}
 				}
 				kept := reg.Tenants[:0]
 				for _, existing := range reg.Tenants {
@@ -376,14 +390,7 @@ func newTenantsTestCmd(flags *rootFlags) *cobra.Command {
 			out := []tenantTestResult{}
 			verified := map[string]tenantTestResult{}
 			for _, r := range results {
-				v := r.Value
-				// A quarantine lifts only once the mirror that may hold the
-				// other organization's rows is gone; a failed move keeps it.
-				if v.OK && v.tested.OwnershipMismatch != "" {
-					if err := discardTenantMirror(v.tested); err != nil {
-						v.OK, v.Error = false, "still quarantined: moving its local mirror aside failed: "+err.Error()
-					}
-				}
+				v := clearQuarantinedMirror(r.Value)
 				out = append(out, v)
 				if v.OK || v.wrongCustomer {
 					verified[v.Tenant] = v
@@ -572,6 +579,18 @@ func printTenantTest(cmd *cobra.Command, flags *rootFlags, out []tenantTestResul
 	return nil
 }
 
+// clearQuarantinedMirror: a quarantine lifts only once the mirror that may
+// hold the other organization's rows is off its live path; a failed move
+// fails the result, which keeps the quarantine.
+func clearQuarantinedMirror(v tenantTestResult) tenantTestResult {
+	if v.OK && v.tested.OwnershipMismatch != "" {
+		if err := discardTenantMirror(v.tested); err != nil {
+			v.OK, v.Error = false, "still quarantined: moving its local mirror aside failed: "+err.Error()
+		}
+	}
+	return v
+}
+
 // discardTenantMirror moves a tenant's local mirror and its SQLite sidecars
 // aside (data-<hash>.db.quarantined-<unixnano>), so the next sync starts
 // empty and nothing is erased: the learn tables live in the same file. A
@@ -583,10 +602,38 @@ func discardTenantMirror(t gwsTenant) error {
 	}
 	base := filepath.Join(dir, "data-"+hashDefaultDBScope(tenantStoreIdentity(&t))+".db")
 	aside := fmt.Sprintf("%s.quarantined-%d", base, time.Now().UnixNano())
+	if _, err := os.Stat(base); os.IsNotExist(err) {
+		// A retry after a partial move: keep the leftover sidecars paired
+		// with the newest mirror already moved aside (never overwriting).
+		if prev := unpairedQuarantinedMirror(base); prev != "" {
+			aside = prev
+		}
+	}
 	for _, suffix := range []string{"", "-wal", "-shm", "-journal"} {
 		if err := os.Rename(base+suffix, aside+suffix); err != nil && !os.IsNotExist(err) {
 			return err
 		}
 	}
 	return nil
+}
+
+// unpairedQuarantinedMirror is the newest base.quarantined-<unixnano> main
+// file when it has no sidecar beside it yet, or "".
+func unpairedQuarantinedMirror(base string) string {
+	matches, _ := filepath.Glob(base + ".quarantined-*")
+	latest := ""
+	for _, m := range matches {
+		if strings.HasSuffix(m, "-wal") || strings.HasSuffix(m, "-shm") || strings.HasSuffix(m, "-journal") {
+			continue
+		}
+		if len(m) > len(latest) || (len(m) == len(latest) && m > latest) {
+			latest = m
+		}
+	}
+	for _, suffix := range []string{"-wal", "-shm", "-journal"} {
+		if _, err := os.Lstat(latest + suffix); latest == "" || err == nil {
+			return ""
+		}
+	}
+	return latest
 }

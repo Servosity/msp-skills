@@ -125,7 +125,7 @@ func newNovelLoginAlertsCmd(flags *rootFlags) *cobra.Command {
 						delete(want, e.name)
 					}
 				}
-				if len(want) == 0 {
+				if len(selected) == 0 && len(want) == 0 {
 					// --events ',,' would scan nothing and report no alerts.
 					return usageErr(fmt.Errorf("--events names no event"))
 				}

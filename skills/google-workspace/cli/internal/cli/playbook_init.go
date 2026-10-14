@@ -71,7 +71,12 @@ var playbookInitOnce sync.Once
 // playbooks.
 func runPlaybookInitOnce(ctx context.Context) {
 	playbookInitOnce.Do(func() {
-		dbPath := defaultDBPath("google-workspace-cli")
+		// Hand-fix (handfixes.json local-read-needs-a-tenant): seed only
+		// the selected, unquarantined tenant's store.
+		dbPath, err := learnDBPath("")
+		if err != nil {
+			return
+		}
 		s, err := store.OpenWithContext(ctx, dbPath)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "warning: google-workspace-cli: playbook init: open store: %v\n", err)

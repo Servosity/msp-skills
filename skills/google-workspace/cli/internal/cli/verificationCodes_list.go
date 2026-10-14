@@ -47,6 +47,9 @@ func newVerificationCodesListCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			// Hand-fix (handfixes.json verification-codes-never-cached): the
+			// response holds a user's live backup codes.
+			c.NoCache = true
 			params := map[string]string{}
 			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "verificationCodes", false, path, params, nil, "", cmd.ErrOrStderr())
 			if err != nil {

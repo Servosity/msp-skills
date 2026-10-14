@@ -77,6 +77,9 @@ func TestRedactSecretQueryParams(t *testing.T) {
 		`https://x/?token=";PUNCT-SECRET"`,
 		`https://x/?token=" WS-SECRET"`,
 		`https://x/?token=",DANGLING-SECRET`,
+		`https://x/?token="}BRACE-SECRET"`,
+		`https://x/?token="]BRACKET-SECRET"`,
+		`https://x/?x-api-key=HYPHEN-SECRET`,
 	} {
 		if got := RedactURLSecrets(tc); strings.Contains(got, "SECRET") {
 			t.Errorf("secret survived: %s -> %s", tc, got)
@@ -87,6 +90,8 @@ func TestRedactSecretQueryParams(t *testing.T) {
 		`["https://x/?token=",1]`,
 		`["https://x/?token=",{"k":"v"}]`,
 		`{"msg":"see https://x/?token=","b":"c"}`,
+		`{"msg":"see https://x/?token="}`,
+		`[{"msg":"see https://x/?token="},{"k":"v"}]`,
 		`https://host:443?login_hint=bob@example.com`,
 		`https://x/?pageToken=p2&customer=my_customer`,
 	} {

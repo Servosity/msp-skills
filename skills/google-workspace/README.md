@@ -44,7 +44,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download Google Workspace MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/google-workspace-v0.1.0/google-workspace-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every Google Workspace release on the [releases page](https://github.com/servosity/msp-skills/releases?q=google-workspace).)
+[**Download Google Workspace MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/google-workspace-v0.1.0/google-workspace-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. Client tenants are registered with the CLI (`tenants add` is CLI-only), so install it too (Path B below). (Browse every Google Workspace release on the [releases page](https://github.com/servosity/msp-skills/releases?q=google-workspace).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
@@ -163,7 +163,7 @@ Managing a single organization? Set `GOOGLE_WORKSPACE_TOKEN` to an OAuth access 
 | Which Google Workspace licenses sit on suspended, never-signed-in, or idle accounts? | `google-workspace-cli stale-licenses --all-tenants` |
 | Did our suspended leavers keep a license, groups, an admin role, OAuth tokens, or an unfinished Drive transfer? | `google-workspace-cli leavers --all-tenants` |
 | One row per client for the QBR: 2SV coverage, admins without 2SV, stale licenses, Drive, Calendar and app-sharing setting changes | `google-workspace-cli posture --all-tenants` |
-| Who changed Drive or Calendar settings, and which files went external or public this week? | `google-workspace-cli sharing-drift --all-tenants --since 7d` |
+| Who changed Drive or Calendar settings, and how many files went external or public (with sample names) this week? | `google-workspace-cli sharing-drift --all-tenants --since 7d` |
 | Which third-party apps hold full mail, full Drive, or admin access to client data? | `google-workspace-cli oauth-apps --all-tenants --min-risk high` |
 | Any suspicious sign-ins, hijacked accounts, or 2SV turned off this week? | `google-workspace-cli login-alerts --all-tenants --since 7d` |
 | What would offboarding this leaver do, step by step, before anything changes? | `google-workspace-cli offboard "jane@example.com" --successor "manager@example.com" --ou "/Departed"` |
@@ -234,10 +234,10 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
 | **Read** | `mfa-gaps`, `stale-licenses`, `leavers`, `posture`, `sharing-drift`, `oauth-apps`, `login-alerts`, `tenants list`, `users list`, `sync`, `offboard "<email>"` without `--yes` (a preview) | Allow |
-| **Write (routine)** | `users insert`/`patch`, `users aliases insert`, `groups insert`/`patch`, `members insert`, `orgunits insert`/`patch`, `tenants add` and `tenants test` (local config only; a tenant whose key resolves to another organization is quarantined and its local mirror moved aside) | Preview with `--dry-run`, then a reviewed write |
-| **Credential / security** | `verification-codes list` (returns a user's live backup codes), `verification-codes generate`/`invalidate`, `two-step-verification` (turns 2SV off), `tokens delete`, `asps delete`, `users sign-out`, `users make-admin`, `role-assignments insert`, `roles insert`/`patch`/`update` | Human-in-the-loop only |
-| **Data egress** | `activities watch`, `users watch`, `users aliases watch` (Google pushes a client's audit events or user changes to the `--address` URL you give it; they work under the default `read` profile) | Human-in-the-loop only |
-| **Destructive / billing** | `offboard --yes`, `users delete`, `groups delete`, `domains delete`, `transfers insert`, `license-assignments insert`/`update`/`delete`, `subscriptions insert`/`change-plan`/`change-seats`/`change-renewal-settings`/`start-paid-service`/`activate`/`suspend`/`delete`, `reseller-customers insert`, `mobiledevices action` (device wipe), `chromeosdevices action`, `customer devices-chromeos issue-command`/`batch-change-status` | Human-in-the-loop only, explicit confirmation |
+| **Write (routine)** | `users insert`/`patch`, `users aliases insert`, `groups insert`/`patch`, `members insert`, `orgunits insert`/`patch`, `users undelete`, `domains insert`, `tenants add` and `tenants test` (local config only; a tenant whose key resolves to another organization is quarantined and its local mirror moved aside) | Preview with `--dry-run`, then a reviewed write |
+| **Credential / security** | `verification-codes list` (returns a user's live backup codes), `verification-codes generate`/`invalidate`, `two-step-verification` (turns 2SV off), `tokens delete`, `asps delete`, `users sign-out`, `users make-admin`, `users patch`/`update` with `--password`, `role-assignments insert`, `roles insert`/`patch`/`update`/`delete` | Human-in-the-loop only |
+| **Data egress** | `activities watch`, `users watch`, `users aliases watch` (Google pushes a client's audit events or user changes to the `--address` URL you give it; they work under the default `read` profile), `resellernotify register`, and any report run with `--deliver webhook:<url>` | Human-in-the-loop only |
+| **Destructive / billing** | `offboard --yes`, `users delete`, `groups delete`, `domains delete`, `transfers insert`, `license-assignments insert`/`update`/`patch`/`delete`, `subscriptions insert`/`change-plan`/`change-seats`/`change-renewal-settings`/`start-paid-service`/`activate`/`suspend`/`delete`, `reseller-customers insert`, `mobiledevices action` (device wipe), `chromeosdevices action`, `customer devices-chromeos issue-command`/`batch-change-status` | Human-in-the-loop only, explicit confirmation |
 
 The strongest control is the **scope profile you authorize in each client's Admin console** - the CLI can only do what that client's domain-wide delegation permits. Full details, including how to lock it down, are in [governance.md](./governance.md).
 

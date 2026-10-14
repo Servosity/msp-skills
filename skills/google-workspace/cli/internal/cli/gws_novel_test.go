@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -459,9 +460,25 @@ func TestSummarizePolicyValues(t *testing.T) {
 			t.Fatalf("higher sortOrder must win for one scope, got %s", got)
 		}
 	}
-	// A policy without the field does not win it.
-	if got := summarizePolicyValues(drive, []map[string]any{scoped("orgUnits/root", 1, map[string]any{"externalSharingMode": "ALLOWED"}), scoped("orgUnits/root", 9, map[string]any{})}, testNow); got != "ALLOWED" {
-		t.Fatal(got)
+	// Max reducer: a winning policy that omits the field takes Google's
+	// documented default, not a lower policy's value.
+	if got := summarizePolicyValues(drive, []map[string]any{scoped("orgUnits/root", 1, map[string]any{"externalSharingMode": "DISALLOWED"}), scoped("orgUnits/root", 9, map[string]any{})}, testNow); got != "ALLOWED" {
+		t.Fatalf("an omitted field must read as the default, got %s", got)
+	}
+	gmail := postureColumns[2]
+	if got := summarizePolicyValues(gmail, []map[string]any{scoped("orgUnits/root", 1, map[string]any{"enableAutoForwarding": false}), scoped("orgUnits/root", 9, map[string]any{})}, testNow); got != "true" {
+		t.Fatalf("gmail auto-forwarding defaults to true, got %s", got)
+	}
+	// Licence conditions live in the query: same org unit, different SKUs
+	// are different users.
+	licensed := func(query string, order float64, v map[string]any) map[string]any {
+		p := scoped("orgUnits/root", order, v)
+		p["policyQuery"].(map[string]any)["query"] = query
+		return p
+	}
+	bySKU := []map[string]any{licensed("sku == 'A'", 1, map[string]any{"externalSharingMode": "ALLOWED"}), licensed("sku == 'B'", 9, map[string]any{"externalSharingMode": "DISALLOWED"})}
+	if got := summarizePolicyValues(drive, bySKU, testNow); got != "mixed:ALLOWED,DISALLOWED" {
+		t.Fatalf("licence-scoped policies must not collapse, got %s", got)
 	}
 	twosv := postureColumns[0]
 	if got := summarizePolicyValues(twosv, []map[string]any{pol(map[string]any{"enforcedFrom": "2024-01-01T00:00:00Z"})}, testNow); got != "enforced" {
@@ -1229,6 +1246,223 @@ func TestDiscardTenantMirror(t *testing.T) {
 	if err := discardTenantMirror(tn); err != nil {
 		t.Fatalf("a retry with nothing left to move must succeed: %v", err)
 	}
+	// A retry after a partial move pairs a leftover sidecar with the newest
+	// moved-aside mirror that has none, and never overwrites one.
+	for _, f := range aside {
+		_ = os.Remove(f)
+	}
+	if err := os.WriteFile(base+".quarantined-1", []byte("db"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(base+"-wal", []byte("wal"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := discardTenantMirror(tn); err != nil {
+		t.Fatal(err)
+	}
+	if b, err := os.ReadFile(base + ".quarantined-1-wal"); err != nil || string(b) != "wal" {
+		t.Fatalf("the leftover -wal must join its mirror: %q %v", b, err)
+	}
+	if err := os.WriteFile(base+"-wal", []byte("wal2"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := discardTenantMirror(tn); err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := os.ReadFile(base + ".quarantined-1-wal"); string(b) != "wal" {
+		t.Fatalf("an earlier moved-aside sidecar must never be overwritten: %q", b)
+	}
+}
+
+// Hand-fix (handfixes.json tenants-test-checks-domain): replacing or removing
+// a quarantined tenant moves its mirror aside first, and a replacement stays
+// quarantined until tenants test passes.
+func TestQuarantineReplaceAndRemoveMoveMirror(t *testing.T) {
+	home := t.TempDir()
+	restore, err := cliutil.SetHomeOverride(home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer restore()
+	defer func() { tenantFlag = ""; resetTenantSelection(); setDefaultDBScopeIdentity("", "", "") }()
+	keyPath := filepath.Join(t.TempDir(), "sa.json")
+	if err := os.WriteFile(keyPath, []byte(`{"type":"service_account","client_email":"sa@p.iam.gserviceaccount.com","client_id":"111"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	tn := gwsTenant{Name: "acme", Domain: "acme.com", Admin: "admin@acme.com", KeyFile: keyPath, OwnershipMismatch: "wrong customer"}
+	if err := updateTenantRegistry(func(reg *tenantRegistry) error { reg.Tenants = append(reg.Tenants, tn); return nil }); err != nil {
+		t.Fatal(err)
+	}
+	dir, err := cliutil.DataDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	mirror := filepath.Join(dir, "data-"+hashDefaultDBScope(tenantStoreIdentity(&tn))+".db")
+	seed := func() {
+		t.Helper()
+		if err := os.MkdirAll(dir, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(mirror, []byte("ORG_B_ROWS"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	run := func(args ...string) error {
+		root := RootCmd()
+		var out bytes.Buffer
+		root.SetOut(&out)
+		root.SetErr(&out)
+		root.SetArgs(append(args, "--home", home))
+		return root.Execute()
+	}
+	seed()
+	if err := run("tenants", "add", "acme", "--domain", "acme.com", "--admin", "admin@acme.com", "--key", keyPath, "--yes"); err != nil {
+		t.Fatal(err)
+	}
+	reg, err := loadTenantRegistry()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, ok := reg.find("acme"); !ok || got.OwnershipMismatch == "" || got.KeyFile == keyPath {
+		t.Fatalf("a replacement must stay quarantined until tenants test passes: %+v", got)
+	}
+	if _, err := os.Stat(mirror); !os.IsNotExist(err) {
+		t.Fatalf("replacing a quarantined tenant must move its mirror aside: %v", err)
+	}
+	seed()
+	if err := run("tenants", "remove", "acme", "--yes"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(mirror); !os.IsNotExist(err) {
+		t.Fatalf("removing a quarantined tenant must move its mirror aside: %v", err)
+	}
+}
+
+// Hand-fix (handfixes.json tenants-test-checks-domain): a passing test of a
+// quarantined tenant moves its mirror aside before the quarantine lifts, and
+// stays failed (quarantined) when the move fails.
+func TestQuarantineLiftMovesMirrorFirst(t *testing.T) {
+	restore, err := cliutil.SetHomeOverride(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer restore()
+	tn := gwsTenant{Name: "acme", Domain: "acme.com", OwnershipMismatch: "wrong customer"}
+	dir, err := cliutil.DataDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	mirror := filepath.Join(dir, "data-"+hashDefaultDBScope(tenantStoreIdentity(&tn))+".db")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(mirror, []byte("ORG_B_ROWS"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(dir, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	failed := clearQuarantinedMirror(tenantTestResult{OK: true, tested: tn})
+	_ = os.Chmod(dir, 0o700)
+	if failed.OK || !strings.Contains(failed.Error, "still quarantined") {
+		t.Fatalf("a failed move must keep the quarantine: %+v", failed)
+	}
+	if got := clearQuarantinedMirror(tenantTestResult{OK: true, tested: tn}); !got.OK {
+		t.Fatalf("a successful move lifts: %+v", got)
+	}
+	if _, err := os.Stat(mirror); !os.IsNotExist(err) {
+		t.Fatalf("the mirror must be off its live path before the lift: %v", err)
+	}
+}
+
+// Hand-fix (handfixes.json tenants-test-checks-domain): tenants test writes
+// the registry and can move a mirror, so it is never an MCP read-only tool.
+func TestTenantsTestIsNotMCPReadOnly(t *testing.T) {
+	if newTenantsTestCmd(&rootFlags{}).Annotations["mcp:read-only"] == "true" {
+		t.Fatal("tenants test must not be mcp:read-only")
+	}
+}
+
+// Hand-fix (handfixes.json novel-review-round16-small): an --events list
+// that names nothing is refused, and a valid one is not.
+func TestLoginAlertsEventsSelector(t *testing.T) {
+	home := t.TempDir()
+	restore, err := cliutil.SetHomeOverride(home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer restore()
+	run := func(events string) error {
+		root := RootCmd()
+		var out bytes.Buffer
+		root.SetOut(&out)
+		root.SetErr(&out)
+		root.SetArgs([]string{"login-alerts", "--events", events, "--home", home})
+		return root.Execute()
+	}
+	if err := run(",,"); err == nil || !strings.Contains(err.Error(), "names no event") {
+		t.Fatalf("--events ',,' must be refused: %v", err)
+	}
+	for _, valid := range []string{"suspicious_login", "suspicious_login,2sv_disable"} {
+		if err := run(valid); err != nil && strings.Contains(err.Error(), "names no event") {
+			t.Fatalf("--events %s is valid: %v", valid, err)
+		}
+	}
+	if err := run("bogus"); err == nil || !strings.Contains(err.Error(), "unknown --events bogus") {
+		t.Fatalf("an unknown event must be named: %v", err)
+	}
+}
+
+// Hand-fix (handfixes.json novel-review-round16-small): offboard refuses an
+// empty --products list before any step runs.
+func TestOffboardEmptyProductsRefusedUpFront(t *testing.T) {
+	home := t.TempDir()
+	restore, err := cliutil.SetHomeOverride(home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer restore()
+	root := RootCmd()
+	var out bytes.Buffer
+	root.SetOut(&out)
+	root.SetErr(&out)
+	root.SetArgs([]string{"offboard", "jane@acme.com", "--products", ",,", "--yes", "--home", home})
+	if err := root.Execute(); err == nil || !strings.Contains(err.Error(), "names no licence product") {
+		t.Fatalf("offboard --products ',,' must be refused up front: %v", err)
+	}
+}
+
+// Hand-fix (handfixes.json verification-codes-never-cached): a user's live
+// backup codes are never written to the on-disk response cache.
+func TestVerificationCodesNeverCached(t *testing.T) {
+	home := t.TempDir()
+	restore, err := cliutil.SetHomeOverride(home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer restore()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, `{"kind":"admin#directory#verificationCodesList","items":[{"verificationCode":"BACKUP_CODE_SENTINEL"}]}`)
+	}))
+	defer srv.Close()
+	t.Setenv("GOOGLE_WORKSPACE_BASE_URL", srv.URL)
+	t.Setenv("GOOGLE_WORKSPACE_TOKEN", "test-token")
+	root := RootCmd()
+	var out bytes.Buffer
+	root.SetOut(&out)
+	root.SetErr(&out)
+	root.SetArgs([]string{"verification-codes", "list", "jane@acme.com", "--json", "--home", home})
+	if err := root.Execute(); err != nil || !strings.Contains(out.String(), "BACKUP_CODE_SENTINEL") {
+		t.Fatalf("the stub must be read: %v %s", err, out.String())
+	}
+	_ = filepath.WalkDir(home, func(p string, d fs.DirEntry, err error) error {
+		if err == nil && !d.IsDir() {
+			if b, _ := os.ReadFile(p); bytes.Contains(b, []byte("BACKUP_CODE_SENTINEL")) {
+				t.Errorf("backup codes written to disk: %s", p)
+			}
+		}
+		return nil
+	})
 }
 
 func TestEmptyTenantsSelectorRefused(t *testing.T) {

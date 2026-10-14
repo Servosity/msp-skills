@@ -974,14 +974,14 @@ Page: https://msp-skills.compoundingteams.com/skills/google-workspace/
 Verification: Awaiting live verification
 Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/google-workspace/install.sh)
 
-Google gives MSPs no cross-client admin console: every client is its own Admin console login. Register each client once (a service account with domain-wide delegation), then ask your AI "who still has no 2-Step Verification across all my clients," "which paid licenses can I reclaim," or "were last month's leavers fully offboarded," and get one ranked answer across every tenant, read live and in parallel.
+Google gives MSPs no cross-client admin console: every client is its own Admin console login. Register each client once (a service account with domain-wide delegation), then ask your AI "who still has no 2-Step Verification across all my clients," "which paid licenses can I reclaim," or "were our suspended leavers fully offboarded," and get one ranked answer across every tenant, read live and in parallel.
 
 Outcomes (question -> command your AI agent runs):
 - Which accounts across all my clients lack 2-Step Verification, with unenrolled admins first? -> google-workspace-cli mfa-gaps --all-tenants --agent
 - Which Google Workspace licenses sit on suspended, never-signed-in, or idle accounts, per client? -> google-workspace-cli stale-licenses --all-tenants --agent
 - Did our suspended leavers keep a license, groups, an admin role, OAuth tokens, or an unfinished Drive transfer? -> google-workspace-cli leavers --all-tenants --agent
 - Where does each client stand on 2SV coverage, admins without 2SV, stale licenses, and Drive, Calendar and app-sharing setting changes? -> google-workspace-cli posture --all-tenants --agent
-- Who changed Drive or Calendar settings, and which files went external or public, in the last week? -> google-workspace-cli sharing-drift --all-tenants --since 7d --agent
+- Who changed Drive or Calendar settings, and how many files went external or public (with sample names), in the last week? -> google-workspace-cli sharing-drift --all-tenants --since 7d --agent
 - Which third-party apps hold full mail, full Drive, or admin access to client data? -> google-workspace-cli oauth-apps --all-tenants --min-risk high --agent
 - Any suspicious sign-ins, hijacked accounts, or 2SV turned off across clients this week? -> google-workspace-cli login-alerts --all-tenants --since 7d --agent
 - What would offboarding this leaver do, step by step, before anything changes? -> google-workspace-cli offboard "jane@example.com" --successor "manager@example.com" --ou "/Departed"
@@ -997,7 +997,7 @@ A: Your data stays on your machine. The CLI, MCP server, and the local mirror ar
 Q: How do I connect a client's Google Workspace?
 A: In a Google Cloud project, create a service account and download its JSON key, and enable the Admin SDK API and the Enterprise License Manager API (plus the Cloud Identity API for the `policy` profile). Run `google-workspace-cli tenants add <name> --domain <client domain> --admin <client super admin> --key <key file>`. It prints the Client ID and the scopes to paste into the client's Admin console under Security, Access and data control, API controls, Domain-wide delegation. Then `google-workspace-cli tenants test <name>` confirms Google issues a token for every delegated scope.
 Q: Does an agent get write access to my clients?
-A: Only what you authorize per client. The default `read` scope profile covers the reports, but Google has no read-only scope for OAuth tokens or app passwords, and none for license assignments, so that profile can still revoke tokens, sign users out, read backup codes, turn off 2SV, and change licenses: keep those commands human-in-the-loop. Offboarding writes need the `full` profile, and `offboard` only previews unless you pass `--yes` on the command line, which an MCP client cannot do. Setting `GOOGLE_WORKSPACE_MCP_READ_ONLY` to exactly `1` also hides the MCP server's write tools.
+A: Only what you authorize per client. The default `read` scope profile covers the reports, but Google has no read-only scope for OAuth tokens or app passwords, and none for license assignments, so that profile can still revoke tokens, sign users out, read backup codes, turn off 2SV, and change licenses: keep those commands human-in-the-loop. Offboarding writes need the `full` profile, and `offboard` only previews unless you pass `--yes` on the command line, which an MCP client cannot do. Setting `GOOGLE_WORKSPACE_MCP_READ_ONLY` to exactly `1` also hides the MCP server's tools that change Google or your tenant registry and refuses every non-GET API call; tools that write only the local learn store stay.
 Q: Will this hit Google's API quotas?
 A: The cross-client commands query Google live, so they count against the Admin SDK quota of the Google Cloud project that owns each client's service account. `--concurrency` caps how many clients run in parallel, `--max-scan-pages` caps paging, and a client whose calls fail or hit the page cap is listed in `fetch_failures` rather than silently dropped.
 Q: What does it cost?

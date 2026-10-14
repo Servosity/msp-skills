@@ -63,7 +63,12 @@ var learnInitOnce sync.Once
 // same behavior an opt-out CLI sees.
 func runLearnInitOnce(ctx context.Context) {
 	learnInitOnce.Do(func() {
-		dbPath := defaultDBPath("google-workspace-cli")
+		// Hand-fix (handfixes.json local-read-needs-a-tenant): seed only
+		// the selected, unquarantined tenant's store.
+		dbPath, err := learnDBPath("")
+		if err != nil {
+			return
+		}
 		s, err := store.OpenWithContext(ctx, dbPath)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "warning: google-workspace-cli: learn init: open store: %v\n", err)

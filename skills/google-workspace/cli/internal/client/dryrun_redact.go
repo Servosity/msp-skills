@@ -48,7 +48,7 @@ func redactSecretFields(v any) any {
 
 func secretFieldName(k string) bool {
 	k = strings.ToLower(k)
-	for _, s := range []string{"password", "secret", "privatekey", "private_key", "apikey", "api_key"} {
+	for _, s := range []string{"password", "secret", "privatekey", "private_key", "private-key", "apikey", "api_key", "api-key"} {
 		if strings.Contains(k, s) {
 			return true
 		}
@@ -132,9 +132,13 @@ func secretValueSpan(s string, urlStart, i int) (int, int) {
 }
 
 // jsonStructureFollows reports whether s, the text after a closing " ,
-// continues JSON: the end, } or ], or a comma then a key, object or array.
+// continues JSON: closing } or ] then the end or a comma, and a comma then a
+// key, object or array. "}SECRET is not structure.
 func jsonStructureFollows(s string) bool {
-	if s == "" || s[0] == '}' || s[0] == ']' {
+	for s != "" && (s[0] == '}' || s[0] == ']') {
+		s = strings.TrimLeft(s[1:], " \t\r\n")
+	}
+	if s == "" {
 		return true
 	}
 	if s[0] != ',' {

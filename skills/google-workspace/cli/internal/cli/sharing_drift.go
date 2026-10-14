@@ -215,8 +215,9 @@ func newNovelSharingDriftCmd(flags *rootFlags) *cobra.Command {
 			"Drive audit data needs Business Standard or higher; for tenants without it the Drive\n" +
 			"queries fail and the tenant lands in fetch_failures, so run those with --settings-only.\n" +
 			"Use this command for changes to external sharing in a recent window: who changed a Drive or\n" +
-			"Calendar setting, and which files newly went external or public. Do NOT use this\n" +
-			"command for a tenant's current sharing setting; use 'posture' instead.",
+			"Calendar setting, and how many files newly went external or public (up to 5 sample\n" +
+			"names per user). Do NOT use this command for a tenant's current sharing setting;\n" +
+			"use 'posture' instead.",
 		Example: "  google-workspace-cli sharing-drift --all-tenants --since 7d\n" +
 			"  google-workspace-cli sharing-drift --all-tenants --settings-only --agent --select results.tenant,results.setting,results.from,results.to,results.actor",
 		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "live"},

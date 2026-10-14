@@ -36,7 +36,7 @@
     "google_workspace_mcp_read_only": {
       "type": "string",
       "title": "Read-only mode",
-      "description": "Set to exactly 1 to expose only read-only tools: offboard, sync, export and tenants remove are hidden (import is never exposed over MCP), and every non-GET API call is refused. Any other value, including true or yes, leaves every tool enabled. Backup-code reads (verification-codes list) are GET calls and stay available. Leave blank for the full tool set.",
+      "description": "Set to exactly 1 to hide offboard, sync, export, tenants test, tenants remove, workflow archive, learnings forget and learnings reject (import is never exposed over MCP) and refuse every non-GET API call; tools that write only the local learn store (teach, playbook amend, learnings confirm) stay. Any other value, including true or yes, leaves every tool enabled. Backup-code reads (verification-codes list) are GET calls and stay available. Leave blank for the full tool set.",
       "required": false
     },
     "google_workspace_token": {

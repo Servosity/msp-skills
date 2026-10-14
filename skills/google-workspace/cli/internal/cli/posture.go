@@ -102,20 +102,24 @@ type policyColumn struct {
 	setting string   // Policy API setting type
 	keys    []string // value keys to read (camelCase and snake_case forms)
 	present bool     // report "enforced" when the key is present, not its value
+	def     string   // the value when the winning policy omits the field (Google's documented default)
 }
 
 var postureColumns = []policyColumn{
-	{setting: "security.two_step_verification_enforcement", keys: []string{"enforcedFrom", "enforced_from"}, present: true},
-	{setting: "drive_and_docs.external_sharing", keys: []string{"externalSharingMode", "external_sharing_mode"}},
-	{setting: "gmail.auto_forwarding", keys: []string{"enableAutoForwarding", "enable_auto_forwarding"}},
+	{setting: "security.two_step_verification_enforcement", keys: []string{"enforcedFrom", "enforced_from"}, present: true, def: "not_enforced"},
+	{setting: "drive_and_docs.external_sharing", keys: []string{"externalSharingMode", "external_sharing_mode"}, def: "ALLOWED"},
+	{setting: "gmail.auto_forwarding", keys: []string{"enableAutoForwarding", "enable_auto_forwarding"}, def: "true"},
 }
 
 // summarizePolicyValues collapses policies into one cell, applying Google's
-// reduction: within one applicability scope (org unit, group, or query) the
-// policy with the greatest sortOrder wins, so a system default overridden by
-// an admin policy for the same users is not a difference. The cell is the
-// single winning value, "mixed:a,b" when scopes resolve differently, or
-// "default" when no policy is set.
+// Max reduction (all three columns use it): within one applicability scope
+// the policy with the greatest sortOrder wins, and a field it omits takes
+// Google's documented default, so a system default overridden by an admin
+// policy for the same users is not a difference. The scope is the policy's
+// CEL query (org unit, group and licence conditions), or its orgUnit/group
+// when the query is absent. The cell is the single winning value,
+// "mixed:a,b" when scopes resolve differently, or "default" when no policy
+// is set.
 // ponytail: scopes are not resolved against the OU tree, so mixed means the
 // scopes differ; read orgunits and walk inheritance if that ever matters.
 func summarizePolicyValues(col policyColumn, policies []map[string]any, now time.Time) string {
@@ -127,7 +131,7 @@ func summarizePolicyValues(col policyColumn, policies []map[string]any, now time
 	for _, p := range policies {
 		setting, _ := p["setting"].(map[string]any)
 		value, _ := setting["value"].(map[string]any)
-		v := ""
+		v := col.def
 		for _, k := range col.keys {
 			if raw, ok := value[k]; ok {
 				if col.present {
@@ -138,20 +142,12 @@ func summarizePolicyValues(col policyColumn, policies []map[string]any, now time
 				break
 			}
 		}
-		if v == "" && col.present {
-			v = "not_enforced"
-		}
-		// A policy without the field does not win it.
-		if v == "" {
-			continue
-		}
 		q, _ := p["policyQuery"].(map[string]any)
-		ou, _ := q["orgUnit"].(string)
-		group, _ := q["group"].(string)
-		scope := ou + "|" + group
-		if ou == "" && group == "" {
-			query, _ := q["query"].(string)
-			scope = "query|" + query
+		scope, _ := q["query"].(string)
+		if scope == "" {
+			ou, _ := q["orgUnit"].(string)
+			group, _ := q["group"].(string)
+			scope = ou + "|" + group
 		}
 		order, _ := q["sortOrder"].(float64)
 		if w, ok := winners[scope]; ok && w.order >= order {

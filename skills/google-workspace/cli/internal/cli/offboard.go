@@ -88,6 +88,9 @@ func newNovelOffboardCmd(flags *rootFlags) *cobra.Command {
 			if len(args) == 0 && cmd.Flags().NFlag() == 0 {
 				return cmd.Help()
 			}
+			if len(splitTenantCSV(o.products)) == 0 {
+				return usageErr(fmt.Errorf("--products names no licence product"))
+			}
 			if dryRunOK(flags) {
 				if len(args) != 1 {
 					return writeDryRun(cmd.OutOrStdout(), flags, "offboard a user")

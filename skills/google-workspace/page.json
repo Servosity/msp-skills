@@ -1,5 +1,5 @@
 {
-  "outcome_intro": "Google gives MSPs no cross-client admin console: every client is its own Admin console login. Register each client once (a service account with domain-wide delegation), then ask your AI \"who still has no 2-Step Verification across all my clients,\" \"which paid licenses can I reclaim,\" or \"were last month's leavers fully offboarded,\" and get one ranked answer across every tenant, read live and in parallel.",
+  "outcome_intro": "Google gives MSPs no cross-client admin console: every client is its own Admin console login. Register each client once (a service account with domain-wide delegation), then ask your AI \"who still has no 2-Step Verification across all my clients,\" \"which paid licenses can I reclaim,\" or \"were our suspended leavers fully offboarded,\" and get one ranked answer across every tenant, read live and in parallel.",
   "instead_of_say": [
     {
       "instead": "Logging into each client's Admin console, filtering Users by 2-Step Verification enrollment, and copying the unenrolled admins into a spreadsheet, one client at a time",
@@ -40,7 +40,7 @@
       "command": "google-workspace-cli posture --all-tenants --agent"
     },
     {
-      "question": "Who changed Drive or Calendar settings, and which files went external or public, in the last week?",
+      "question": "Who changed Drive or Calendar settings, and how many files went external or public (with sample names), in the last week?",
       "command": "google-workspace-cli sharing-drift --all-tenants --since 7d --agent"
     },
     {
@@ -81,7 +81,7 @@
     },
     {
       "q": "Does an agent get write access to my clients?",
-      "a": "Only what you authorize per client. The default `read` scope profile covers the reports, but Google has no read-only scope for OAuth tokens or app passwords, and none for license assignments, so that profile can still revoke tokens, sign users out, read backup codes, turn off 2SV, and change licenses: keep those commands human-in-the-loop. Offboarding writes need the `full` profile, and `offboard` only previews unless you pass `--yes` on the command line, which an MCP client cannot do. Setting `GOOGLE_WORKSPACE_MCP_READ_ONLY` to exactly `1` also hides the MCP server's write tools."
+      "a": "Only what you authorize per client. The default `read` scope profile covers the reports, but Google has no read-only scope for OAuth tokens or app passwords, and none for license assignments, so that profile can still revoke tokens, sign users out, read backup codes, turn off 2SV, and change licenses: keep those commands human-in-the-loop. Offboarding writes need the `full` profile, and `offboard` only previews unless you pass `--yes` on the command line, which an MCP client cannot do. Setting `GOOGLE_WORKSPACE_MCP_READ_ONLY` to exactly `1` also hides the MCP server's tools that change Google or your tenant registry and refuses every non-GET API call; tools that write only the local learn store stay."
     },
     {
       "q": "Will this hit Google's API quotas?",
@@ -101,22 +101,22 @@
     },
     {
       "tier": "Write (routine)",
-      "examples": "users insert/patch, users aliases insert, groups insert/patch, members insert, orgunits insert/patch, resources calendars insert, tenants add and tenants test (local config only; a tenant whose key resolves to another organization is quarantined and its local mirror moved aside)",
+      "examples": "users insert/patch, users aliases insert, groups insert/patch, members insert, orgunits insert/patch, resources calendars insert, users undelete, domains insert, tenants add and tenants test (local config only; a tenant whose key resolves to another organization is quarantined and its local mirror moved aside)",
       "policy": "Preview with --dry-run, then a reviewed write"
     },
     {
       "tier": "Credential / security",
-      "examples": "verification-codes list (returns a user's live backup codes), verification-codes generate/invalidate, two-step-verification (turns 2SV off), tokens delete, asps delete, users sign-out, users make-admin, role-assignments insert, roles insert/patch/update",
+      "examples": "verification-codes list (returns a user's live backup codes), verification-codes generate/invalidate, two-step-verification (turns 2SV off), tokens delete, asps delete, users sign-out, users make-admin, users patch/update with --password, role-assignments insert, roles insert/patch/update/delete",
       "policy": "Human-in-the-loop only"
     },
     {
       "tier": "Data egress",
-      "examples": "activities watch, users watch, users aliases watch: Google pushes a client's audit events or user changes to the --address URL you supply, and they work under the default read profile",
+      "examples": "activities watch, users watch, users aliases watch: Google pushes a client's audit events or user changes to the --address URL you supply, and they work under the default read profile; also resellernotify register and any report run with --deliver webhook:<url>",
       "policy": "Human-in-the-loop only"
     },
     {
       "tier": "Destructive / billing",
-      "examples": "offboard --yes, users delete, groups delete, domains delete, transfers insert (moves Drive and Calendar ownership), license-assignments insert/update/delete, subscriptions insert/change-plan/change-seats/change-renewal-settings/start-paid-service/activate/suspend/delete, reseller-customers insert, mobiledevices action (device wipe), chromeosdevices action, customer devices-chromeos issue-command/batch-change-status",
+      "examples": "offboard --yes, users delete, groups delete, domains delete, transfers insert (moves Drive and Calendar ownership), license-assignments insert/update/patch/delete, subscriptions insert/change-plan/change-seats/change-renewal-settings/start-paid-service/activate/suspend/delete, reseller-customers insert, mobiledevices action (device wipe), chromeosdevices action, customer devices-chromeos issue-command/batch-change-status",
       "policy": "Human-in-the-loop only, explicit confirmation"
     }
   ],
