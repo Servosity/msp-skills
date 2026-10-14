@@ -1153,8 +1153,68 @@ func TestDeliverWebhookLabelsAndRedirects(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "redirect") || strings.Contains(err.Error(), "SECRET") {
 		t.Fatalf("a redirect must be refused without echoing the URL: %v", err)
 	}
-	if err := postFeedback("http://203.0.113.9/fb?token=F-SECRET", FeedbackEntry{}); err == nil || strings.Contains(err.Error(), "SECRET") {
-		t.Fatalf("plain-http feedback to a remote host must be refused: %v", err)
+	for _, ep := range []string{"http://203.0.113.9/fb?token=F-SECRET", "HTTP://user:F-SECRET@203.0.113.9/fb"} {
+		if err := postFeedback(ep, FeedbackEntry{}); err == nil || strings.Contains(err.Error(), "SECRET") {
+			t.Fatalf("plain-http feedback to a remote host must be refused (%s): %v", ep, err)
+		}
+	}
+	// A 302 after the POST (Apps Script web apps) drops the body and is
+	// followed on https or loopback; the delivery succeeds.
+	var gets int
+	final := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			gets++
+			return
+		}
+		http.Redirect(w, r, "/echo", http.StatusFound)
+	}))
+	defer final.Close()
+	if err := deliverWebhook(final.URL+"/macros/s/ID/exec", []byte(`{}`), false); err != nil || gets != 1 {
+		t.Fatalf("a 302 to a GET must be followed: %v (gets=%d)", err, gets)
+	}
+}
+
+// Hand-fix (handfixes.json tenants-test-checks-domain): quarantine deletes
+// the tenant's mirror, so lifting it later starts from an empty store.
+func TestDiscardTenantMirror(t *testing.T) {
+	restore, err := cliutil.SetHomeOverride(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer restore()
+	tn := gwsTenant{Name: "acme", Domain: "example.com"}
+	dir, err := cliutil.DataDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	base := filepath.Join(dir, "data-"+hashDefaultDBScope(tenantStoreIdentity(&tn))+".db")
+	for _, f := range []string{base, base + "-wal"} {
+		if err := os.WriteFile(f, []byte("x"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := discardTenantMirror(tn); err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range []string{base, base + "-wal"} {
+		if _, err := os.Stat(f); !os.IsNotExist(err) {
+			t.Fatalf("%s must be deleted: %v", f, err)
+		}
+	}
+}
+
+func TestEmptyTenantsSelectorRefused(t *testing.T) {
+	restore, err := cliutil.SetHomeOverride(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer restore()
+	ff := fanoutFlags{tenants: ",,"}
+	if _, err := ff.targets(""); err == nil || !strings.Contains(err.Error(), "names no tenant") {
+		t.Fatalf("--tenants ',,' must be refused: %v", err)
 	}
 }
 

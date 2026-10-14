@@ -374,6 +374,7 @@ func newTenantsTestCmd(flags *rootFlags) *cobra.Command {
 			for _, e := range errs {
 				out = append(out, tenantTestResult{Tenant: e.Source, Error: e.Err.Error()})
 			}
+			quarantined := []gwsTenant{}
 			if len(verified) > 0 {
 				// Re-read under the lock and touch only tenants that still
 				// exist, so a concurrent remove is never undone.
@@ -386,6 +387,7 @@ func newTenantsTestCmd(flags *rootFlags) *cobra.Command {
 						if v.wrongCustomer {
 							// Keep what the operator recorded; refuse the tenant.
 							reg.Tenants[i].OwnershipMismatch = v.Error
+							quarantined = append(quarantined, reg.Tenants[i])
 							continue
 						}
 						reg.Tenants[i].CustomerID = v.CustomerID
@@ -396,6 +398,14 @@ func newTenantsTestCmd(flags *rootFlags) *cobra.Command {
 				})
 				if err != nil {
 					return registryErr(err)
+				}
+			}
+			// Hand-fix (handfixes.json tenants-test-checks-domain): the mirror
+			// may hold the other organization's rows, and sync never prunes
+			// them, so lifting the quarantine later must start from empty.
+			for _, t := range quarantined {
+				if err := discardTenantMirror(t); err != nil {
+					fmt.Fprintf(cmd.ErrOrStderr(), "warning: tenant %s: deleting its local mirror: %v\n", t.Name, err)
 				}
 			}
 			failed := 0
@@ -512,7 +522,7 @@ func tenantDomains(t gwsTenant, raw []byte) ([]string, error) {
 		}
 	}
 	if !owned {
-		return nil, fmt.Errorf("%w: domain %s is not one of this organization's domains (%s); the tenant is quarantined (every command refuses it) until 'tenants add %s --yes' re-registers it with the right --domain, --admin and --key and tenants test passes", errWrongCustomer, want, strings.Join(out, ", "), t.Name)
+		return nil, fmt.Errorf("%w: domain %s is not one of this organization's domains (%s); the tenant is quarantined (every command refuses it) and its local mirror deleted. Re-register it with 'tenants add %s --yes' and the right --domain, --admin and --key, then run tenants test", errWrongCustomer, want, strings.Join(out, ", "), t.Name)
 	}
 	return out, nil
 }
@@ -537,6 +547,22 @@ func printTenantTest(cmd *cobra.Command, flags *rootFlags, out []tenantTestResul
 		}
 		if r.Error != "" {
 			fmt.Fprintf(w, "  error: %s\n", r.Error)
+		}
+	}
+	return nil
+}
+
+// discardTenantMirror deletes a tenant's local mirror and its SQLite
+// sidecars (the learn tables live in the same file).
+func discardTenantMirror(t gwsTenant) error {
+	dir, err := cliutil.DataDir()
+	if err != nil {
+		return err
+	}
+	base := filepath.Join(dir, "data-"+hashDefaultDBScope(tenantStoreIdentity(&t))+".db")
+	for _, suffix := range []string{"", "-wal", "-shm", "-journal"} {
+		if err := os.Remove(base + suffix); err != nil && !os.IsNotExist(err) {
+			return err
 		}
 	}
 	return nil

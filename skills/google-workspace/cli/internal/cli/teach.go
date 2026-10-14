@@ -396,6 +396,13 @@ Disabling: pass --no-learn or set ` + noLearnEnvVar + `=true.`,
 				fmt.Fprintf(cmd.ErrOrStderr(),
 					"warning: teach query matches the %s PII rule; teach structural queries with identifiers stripped (recorded anyway)\n", rule)
 			}
+			// Hand-fix (handfixes.json no-ambient-token-with-tenants): the
+			// default learn store is the selected tenant's mirror.
+			if dbPath == "" {
+				if err := localStoreTenantErr(); err != nil {
+					return err
+				}
+			}
 			dbPath = learnDBPath(dbPath)
 			s, err := store.OpenWithContext(cmd.Context(), dbPath)
 			if err != nil {
@@ -668,6 +675,13 @@ when learnings exist.`,
 				}
 				return emitRecall(cmd, flags, envelope)
 			}
+			// Hand-fix (handfixes.json no-ambient-token-with-tenants): the
+			// default learn store is the selected tenant's mirror.
+			if dbPath == "" {
+				if err := localStoreTenantErr(); err != nil {
+					return err
+				}
+			}
 			dbPath = learnDBPath(dbPath)
 			s, err := store.OpenWithContext(cmd.Context(), dbPath)
 			if err != nil {
@@ -905,6 +919,13 @@ func newLearningsListCmd(flags *rootFlags) *cobra.Command {
 				return nil
 			}
 
+			// Hand-fix (handfixes.json no-ambient-token-with-tenants): the
+			// default learn store is the selected tenant's mirror.
+			if dbPath == "" {
+				if err := localStoreTenantErr(); err != nil {
+					return err
+				}
+			}
 			dbPath = learnDBPath(dbPath)
 			s, err := store.OpenWithContext(cmd.Context(), dbPath)
 			if err != nil {
@@ -987,6 +1008,13 @@ Requires at least one of --resource, --action, or --all.`,
 				return writeDryRun(cmd.OutOrStdout(), flags, "learnings forget")
 			}
 			query := strings.Join(args, " ")
+			// Hand-fix (handfixes.json no-ambient-token-with-tenants): the
+			// default learn store is the selected tenant's mirror.
+			if dbPath == "" {
+				if err := localStoreTenantErr(); err != nil {
+					return err
+				}
+			}
 			dbPath = learnDBPath(dbPath)
 			s, err := store.OpenWithContext(cmd.Context(), dbPath)
 			if err != nil {
@@ -1101,6 +1129,13 @@ a whole family.`,
 			if strategy == "" {
 				strategy = patterns.StrategySubstitute
 			}
+			// Hand-fix (handfixes.json no-ambient-token-with-tenants): the
+			// default learn store is the selected tenant's mirror.
+			if dbPath == "" {
+				if err := localStoreTenantErr(); err != nil {
+					return err
+				}
+			}
 			dbPath = learnDBPath(dbPath)
 			s, err := store.OpenWithContext(cmd.Context(), dbPath)
 			if err != nil {
@@ -1185,6 +1220,13 @@ cannot be taught — they are derived from the canonical input.`,
 			}
 			if lookups.IsComputedKind(kind) {
 				return usageErr(fmt.Errorf("--kind %q is a computed kind and cannot be taught", kind))
+			}
+			// Hand-fix (handfixes.json no-ambient-token-with-tenants): the
+			// default learn store is the selected tenant's mirror.
+			if dbPath == "" {
+				if err := localStoreTenantErr(); err != nil {
+					return err
+				}
 			}
 			dbPath = learnDBPath(dbPath)
 			s, err := store.OpenWithContext(cmd.Context(), dbPath)

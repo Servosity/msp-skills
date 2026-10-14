@@ -909,7 +909,7 @@
   {
    "id": "dry-run-redacts-secrets",
    "summary": "Secret-named query parameters are masked everywhere the client masks credential text (error URLs, dry-run lines, bodies), and --dry-run body previews redact every non-empty, non-boolean secret-named field (password, secret, private key, API key, *token except page/sync tokens)",
-   "why": "The generated dry-run printer wrote the request body verbatim to stderr, so previewing 'users patch <email> --password ...' put the password into the terminal and into agent transcripts. Found by the onboard Codex review (round 5, P1); receipt: the real binary's dry-run of users patch --password prints \"password\": \"[redacted]\" and the value appears nowhere in stdout or stderr. Round 6 (Codex): query parameters were still printed verbatim (subscriptions insert --customer-auth-token showed the transfer token; P1, also fleet-wide generated code), and the body rule hid the changePasswordAtNextLogin boolean (P2). Receipt: the dry-run now prints ?customerAuthToken=[redacted]. Round 7 (Codex, P1, fleet): a failed request's error message carried the full URL, so MCP execute of subscriptions.insert returned customerAuthToken verbatim; redactSecretQueryParams now runs inside maskCredentialText, which every error, URL and body passes through (receipt: the MCP error reads ?customerAuthToken=[redacted]). The adversarial reviewer also noted string-only body redaction let a numeric password or a 'Secrets' custom-schema object through; only booleans stay visible now. Round 8 (Codex, P1, fleet): the dry-run body bypassed maskCredentialText, so users watch --address 'https://hooks.example/?token=...' printed the webhook secret; the body text now goes through the mask (HTML escaping off so & stays literal), printing ?token=[redacted]. Round 11 (Codex, P1): the value pattern stopped at a quote, so ?token='SECRET' (and a JSON-escaped \\\"SECRET\\\") slipped through, and \\u0026 / &amp; separators were not recognised; the pattern now allows an opening (escaped) quote and those separators, and RedactURLSecrets also masks a userinfo password (https://user:pass@host). Round 12 (adversarial P2s): an empty value followed by its closing quote is left alone (the dry-run JSON stays valid); userinfo is split like net/url (password runs to the last @ before / ? #, quotes and @ allowed); sig= and code= are secret names (SAS and Azure Functions webhook signatures). TestRedactSecretQueryParams covers each case and the non-secret texts that must stay unchanged. Round 13 (Codex P1s): the empty-quoted-value exception applies only when the whole value is separators, so ?token=';SECRET' is masked; names containing 'signature' (X-Amz-Signature, X-Goog-Signature) are secret; and the client's request-build error (a URL that fails to parse, e.g. a base URL with user:pass@ and a bad escape) goes through maskCredentialText. TestRequestBuildErrorMasksURLSecrets fails without it. Round 14 (Codex P1s): the value is now found by a scanner instead of a regex: the URL's enclosing quote (nearest quote before the URL with no whitespace between) closes an empty value, another opening quote runs to its match, and an unquoted value may contain an apostrophe (?token=O'Hara-SECRET was half-printed); bare key= is a secret name (Google API keys); doctor's base_url and feedback --send errors are masked. TestRedactSecretQueryParams covers each case, including JSON arrays with an empty secret value. Round 15 (adversarial P1 + P2s): the enclosing quote is the character before the URL's scheme, looked up within a 2 KiB window, so an earlier apostrophe in the URL no longer acts as the enclosing quote (?name=O'Hara&token=... leaked), a quote-led secret right after the URL's own quote is masked, an empty value at the end of a JSON string with text before the URL keeps the JSON valid, and a megabyte of parameters stays linear.",
+   "why": "The generated dry-run printer wrote the request body verbatim to stderr, so previewing 'users patch <email> --password ...' put the password into the terminal and into agent transcripts. Found by the onboard Codex review (round 5, P1); receipt: the real binary's dry-run of users patch --password prints \"password\": \"[redacted]\" and the value appears nowhere in stdout or stderr. Round 6 (Codex): query parameters were still printed verbatim (subscriptions insert --customer-auth-token showed the transfer token; P1, also fleet-wide generated code), and the body rule hid the changePasswordAtNextLogin boolean (P2). Receipt: the dry-run now prints ?customerAuthToken=[redacted]. Round 7 (Codex, P1, fleet): a failed request's error message carried the full URL, so MCP execute of subscriptions.insert returned customerAuthToken verbatim; redactSecretQueryParams now runs inside maskCredentialText, which every error, URL and body passes through (receipt: the MCP error reads ?customerAuthToken=[redacted]). The adversarial reviewer also noted string-only body redaction let a numeric password or a 'Secrets' custom-schema object through; only booleans stay visible now. Round 8 (Codex, P1, fleet): the dry-run body bypassed maskCredentialText, so users watch --address 'https://hooks.example/?token=...' printed the webhook secret; the body text now goes through the mask (HTML escaping off so & stays literal), printing ?token=[redacted]. Round 11 (Codex, P1): the value pattern stopped at a quote, so ?token='SECRET' (and a JSON-escaped \\\"SECRET\\\") slipped through, and \\u0026 / &amp; separators were not recognised; the pattern now allows an opening (escaped) quote and those separators, and RedactURLSecrets also masks a userinfo password (https://user:pass@host). Round 12 (adversarial P2s): an empty value followed by its closing quote is left alone (the dry-run JSON stays valid); userinfo is split like net/url (password runs to the last @ before / ? #, quotes and @ allowed); sig= and code= are secret names (SAS and Azure Functions webhook signatures). TestRedactSecretQueryParams covers each case and the non-secret texts that must stay unchanged. Round 13 (Codex P1s): the empty-quoted-value exception applies only when the whole value is separators, so ?token=';SECRET' is masked; names containing 'signature' (X-Amz-Signature, X-Goog-Signature) are secret; and the client's request-build error (a URL that fails to parse, e.g. a base URL with user:pass@ and a bad escape) goes through maskCredentialText. TestRequestBuildErrorMasksURLSecrets fails without it. Round 14 (Codex P1s): the value is now found by a scanner instead of a regex: the URL's enclosing quote (nearest quote before the URL with no whitespace between) closes an empty value, another opening quote runs to its match, and an unquoted value may contain an apostrophe (?token=O'Hara-SECRET was half-printed); bare key= is a secret name (Google API keys); doctor's base_url and feedback --send errors are masked. TestRedactSecretQueryParams covers each case, including JSON arrays with an empty secret value. Round 15 (adversarial P1 + P2s): the enclosing quote is the character before the URL's scheme, looked up within a 2 KiB window, so an earlier apostrophe in the URL no longer acts as the enclosing quote (?name=O'Hara&token=... leaked), a quote-led secret right after the URL's own quote is masked, an empty value at the end of a JSON string with text before the URL keeps the JSON valid, and a megabyte of parameters stays linear. Round 16 (adversarial P2s): a quoted value runs to its closing quote across spaces and & (it stops at a line break, a bare \" or 2 KiB, so it never crosses JSON structure).",
    "status": "active",
    "spec_encode_followup": "Press-side: redact secret-named fields in the generated dry-run body printer fleet-wide.",
    "asserts": [
@@ -1029,6 +1029,36 @@
     {
      "file": "cli/internal/client/dryrun_redact_test.go",
      "contains": "func TestRedactSecretQueryParamsIsLinear(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/dryrun_redact.go",
+     "contains": "func quotedEnd(s, q string) (int, bool)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/dryrun_redact.go",
+     "contains": "for j > 0 && (isSchemeByte(s[j-1])) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/dryrun_redact.go",
+     "contains": "if k < 0 || strings.ContainsAny(s[lo+k:urlStart], \" \\t\\r\\n\") {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "fmt.Errorf(\"building feedback request for %s: %s\", webhookLabel(url), client.RedactURLSecrets(transportErr(err).Error()))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/dryrun_redact_test.go",
+     "contains": "func TestRedactKeepsJSONValid(",
      "min_count": 1,
      "code_only": true
     }
@@ -1215,7 +1245,7 @@
   {
    "id": "watch-response-hides-channel-token",
    "summary": "A successful watch response (kind api#channel) has its echoed token replaced with [redacted] before it is printed, returned over MCP, or written to the local store; a secret query parameter in the echoed address (?token=...) is masked too",
-   "why": "activities watch, users watch and users aliases watch register a push channel whose token is the webhook's verification secret; Google echoes it back in the response, which the generated client returned unchanged to CLI output, MCP results and the mutation write-through store. Found by the onboard Codex review (round 9, P1; the generated success path is fleet-wide). TestWatchResponseHidesChannelToken fails with the redaction removed. Round 10 (Codex, P1): the echoed address can carry its own webhook secret, so redactChannelToken also runs redactSecretQueryParams over it. Round 12 (Codex P1 + adversarial P2): the echoed address is masked with RedactURLSecrets, so a user:pass@ password is hidden too.",
+   "why": "activities watch, users watch and users aliases watch register a push channel whose token is the webhook's verification secret; Google echoes it back in the response, which the generated client returned unchanged to CLI output, MCP results and the mutation write-through store. Found by the onboard Codex review (round 9, P1; the generated success path is fleet-wide). TestWatchResponseHidesChannelToken fails with the redaction removed. Round 10 (Codex, P1): the echoed address can carry its own webhook secret, so redactChannelToken also runs redactSecretQueryParams over it. Round 12 (Codex P1 + adversarial P2): the echoed address is masked with RedactURLSecrets, so a user:pass@ password is hidden too. Round 16 (Codex P1 + P2): the echoed address keeps only scheme and host (Slack-style webhooks carry their secret in the path), and the token assignment itself is pinned.",
    "status": "active",
    "spec_encode_followup": "Press-side (fleet): mask echoed channel tokens in generated clients for APIs with push channels.",
    "asserts": [
@@ -1239,7 +1269,25 @@
     },
     {
      "file": "cli/internal/client/dryrun_redact.go",
-     "contains": "masked := RedactURLSecrets(address)",
+     "contains": "masked := maskWebhookAddress(address)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/dryrun_redact.go",
+     "contains": "ch[\"token\"] = json.RawMessage(`\"[redacted]\"`)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/dryrun_redact.go",
+     "contains": "return u.Scheme + \"://\" + u.Host + \"/[redacted]\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/dryrun_redact_test.go",
+     "contains": "func TestWatchResponseMasksAddressPath(",
      "min_count": 1,
      "code_only": true
     }
@@ -1317,13 +1365,25 @@
      "contains": "func TestDeliverWebhookLabelsAndRedirects(",
      "min_count": 1,
      "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "return webhookLabel(sink.Target)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "if errors.As(err, &ue) {\n\t\treturn ue.Err\n\t}",
+     "min_count": 1,
+     "code_only": false
     }
    ]
   },
   {
    "id": "no-ambient-token-with-tenants",
    "summary": "With client tenants registered and none selected, every API client (CLI and MCP, via the client hook) and every local-mirror read refuses and asks for --tenant, instead of falling back to GOOGLE_WORKSPACE_TOKEN or a saved token",
-   "why": "selectedTenant returns nil when two or more tenants are registered and none is chosen, and the client then used the ambient bearer token: a token saved earlier with auth set-token let 'users delete' or MCP google-workspace_execute act on that token's organization, not a client the operator picked. Previous rounds only documented the foot-gun ('unset the token'). Found by the onboard Codex review (round 12, P1). TestTenantStoreNeverClaimsUnscopedDBAndLocalReadNeedsTenant now asserts both the local read and ApplyClientHooks refuse with a token set. gws_tenants.go is a NOVEL file carried from the factory's novel/ directory. Round 13 (Codex P2 + adversarial P2): 'workflow status' on the default store refuses too, and auth status / auth setup say tenants are in use instead of advising the token; manifest.json and mcp-install.md describe the refusal.",
+   "why": "selectedTenant returns nil when two or more tenants are registered and none is chosen, and the client then used the ambient bearer token: a token saved earlier with auth set-token let 'users delete' or MCP google-workspace_execute act on that token's organization, not a client the operator picked. Previous rounds only documented the foot-gun ('unset the token'). Found by the onboard Codex review (round 12, P1). TestTenantStoreNeverClaimsUnscopedDBAndLocalReadNeedsTenant now asserts both the local read and ApplyClientHooks refuse with a token set. gws_tenants.go is a NOVEL file carried from the factory's novel/ directory. Round 13 (Codex P2 + adversarial P2): 'workflow status' on the default store refuses too, and auth status / auth setup say tenants are in use instead of advising the token; manifest.json and mcp-install.md describe the refusal. Round 16 (Codex + adversarial P2): recall, teach and learnings open the same tenant store and are guarded too.",
    "status": "active",
    "spec_encode_followup": "Factory-side: port noTenantSelectedErr into ~/Documents/Dev/cli-factory/google-workspace/novel/gws_tenants.go.",
    "asserts": [
@@ -1362,13 +1422,19 @@
      "contains": "\"authenticated\": true, \"verified\": false, \"source\": \"tenant registry\",",
      "min_count": 1,
      "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "if err := localStoreTenantErr(); err != nil {",
+     "min_count": 6,
+     "code_only": true
     }
    ]
   },
   {
    "id": "tenants-test-checks-domain",
    "summary": "tenants test fails a tenant whose configured --domain is not one of the domains (or aliases) Google returns for the customer its admin and key resolve to, and quarantines it (ownership_mismatch in tenants.toml): every command refuses the tenant until it is re-registered or passes tenants test again; the operator's recorded customer ID and domains are kept",
-   "why": "Registering domain A with domain B's delegated admin and key passed tenants test, which pre-accepted the configured domain, so every report labelled B's data as A and stored it in A's mirror. Found by the onboard Codex review (round 12, P1). tenantDomains is the decode-and-check; TestTenantDomainsRequiresConfiguredDomain fails without the ownership check. gws_tenants_cmd.go is a NOVEL file. Round 13 (adversarial P2s): a failed domain check now clears the tenant's recorded customer ID and domains (errWrongCustomer), so offboard stops routing that organization's emails to it, and tenants add trims --domain so a padded value cannot drop the primary domain from the recorded list. Round 14 (Codex P1 + adversarial P2): clearing the record left the wrong credentials selectable, and with the customer ID gone the reports fell back to my_customer, the wrong organization, labelled as this tenant. Now applyTenantClient refuses a tenant with OwnershipMismatch set (CLI, MCP and every fan-out), tenants test re-tests it with its own credentials and lifts the flag on success, and nothing the operator recorded is cleared. TestQuarantinedTenantRefused fails without the refusal. Round 15 (Codex P1 + adversarial P2s): local reads (search, sql, analytics, MCP) also refuse a quarantined tenant, whose mirror may already hold the other organization's data; tenants list shows the quarantine; and the lines that persist and lift it are pinned.",
+   "why": "Registering domain A with domain B's delegated admin and key passed tenants test, which pre-accepted the configured domain, so every report labelled B's data as A and stored it in A's mirror. Found by the onboard Codex review (round 12, P1). tenantDomains is the decode-and-check; TestTenantDomainsRequiresConfiguredDomain fails without the ownership check. gws_tenants_cmd.go is a NOVEL file. Round 13 (adversarial P2s): a failed domain check now clears the tenant's recorded customer ID and domains (errWrongCustomer), so offboard stops routing that organization's emails to it, and tenants add trims --domain so a padded value cannot drop the primary domain from the recorded list. Round 14 (Codex P1 + adversarial P2): clearing the record left the wrong credentials selectable, and with the customer ID gone the reports fell back to my_customer, the wrong organization, labelled as this tenant. Now applyTenantClient refuses a tenant with OwnershipMismatch set (CLI, MCP and every fan-out), tenants test re-tests it with its own credentials and lifts the flag on success, and nothing the operator recorded is cleared. TestQuarantinedTenantRefused fails without the refusal. Round 15 (Codex P1 + adversarial P2s): local reads (search, sql, analytics, MCP) also refuse a quarantined tenant, whose mirror may already hold the other organization's data; tenants list shows the quarantine; and the lines that persist and lift it are pinned. Round 16 (adversarial P1 + Codex P1): lifting the quarantine reopened the same mirror with the other organization's rows still in it (sync never prunes), so quarantining now deletes the tenant's mirror and SQLite sidecars (discardTenantMirror; the learn tables share the file). TestDiscardTenantMirror.",
    "status": "active",
    "spec_encode_followup": "Factory-side: port tenantDomains into ~/Documents/Dev/cli-factory/google-workspace/novel/gws_tenants_cmd.go.",
    "asserts": [
@@ -1459,6 +1525,36 @@
     {
      "file": "cli/internal/cli/gws_novel_test.go",
      "contains": "func TestQuarantinedTenantLocalReadRefused(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants_cmd.go",
+     "contains": "func discardTenantMirror(t gwsTenant) error",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants_cmd.go",
+     "contains": "if err := discardTenantMirror(t); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants_cmd.go",
+     "contains": "quarantined = append(quarantined, reg.Tenants[i])",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants_cmd.go",
+     "contains": "kind += \" (QUARANTINED: run tenants test \" + r.Name + \")\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_novel_test.go",
+     "contains": "func TestDiscardTenantMirror(",
      "min_count": 1,
      "code_only": true
     }
@@ -1991,22 +2087,22 @@
      "contains": "(fl.Name == \"deliver\" && strings.HasPrefix(fl.Value.String(), \"webhook:\"))",
      "min_count": 1,
      "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "pass them on each invocation instead",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   },
   {
    "id": "deliver-webhook-https-only",
    "summary": "--deliver webhook:http:// and a plain-http GOOGLE_WORKSPACE_FEEDBACK_ENDPOINT are refused unless the host is localhost or a loopback IP, and neither client follows redirects",
-   "why": "The deliver path uses its own HTTP client, without the API client's plaintext-credential guard, so 'webhook:http://user:SECRET@remote-host/path' sent the password, and every report's client data, in clear text. Found by the onboard Codex review (round 14, P1). TestDeliverWebhookHTTPSOnly covers remote http (refused), https and loopback http (allowed). Round 15 (Codex P1 + adversarial P2): an accepted https webhook could answer 307/308 to http://...?token= and the default client replayed the body there, so both clients refuse redirects (refuseRedirect); feedback --send had the same plain-http gap and its success JSON printed the full endpoint (now webhookLabel).",
+   "why": "The deliver path uses its own HTTP client, without the API client's plaintext-credential guard, so 'webhook:http://user:SECRET@remote-host/path' sent the password, and every report's client data, in clear text. Found by the onboard Codex review (round 14, P1). TestDeliverWebhookHTTPSOnly covers remote http (refused), https and loopback http (allowed). Round 15 (Codex P1 + adversarial P2): an accepted https webhook could answer 307/308 to http://...?token= and the default client replayed the body there, so both clients refuse redirects (refuseRedirect); feedback --send had the same plain-http gap and its success JSON printed the full endpoint (now webhookLabel). Round 16 (Codex P1 + adversarial P2s): the scheme is read through net/url, so HTTP:// cannot slip past a lowercase prefix check; redirects are refused only when they would resend the body (307/308) or move to plain http, so an Apps Script-style 302 after a delivered POST is followed and reported as success.",
    "status": "active",
    "spec_encode_followup": "Press-side (fleet): require https for non-loopback --deliver webhooks.",
    "asserts": [
-    {
-     "file": "cli/internal/cli/deliver.go",
-     "contains": "if strings.HasPrefix(target, \"http://\") && !loopbackURL(target) {",
-     "min_count": 1,
-     "code_only": true
-    },
     {
      "file": "cli/internal/cli/deliver.go",
      "contains": "func loopbackURL(raw string) bool",
@@ -2033,13 +2129,37 @@
     },
     {
      "file": "cli/internal/cli/feedback.go",
-     "contains": "if strings.HasPrefix(url, \"http://\") && !loopbackURL(url) {",
+     "contains": "upstreamResult[\"endpoint\"] = webhookLabel(endpoint)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "func webhookTransportAllowed(raw string) bool",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "if !webhookTransportAllowed(target) {",
      "min_count": 1,
      "code_only": true
     },
     {
      "file": "cli/internal/cli/feedback.go",
-     "contains": "upstreamResult[\"endpoint\"] = webhookLabel(endpoint)",
+     "contains": "if !webhookTransportAllowed(url) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "if req.Method != http.MethodGet && req.Method != http.MethodHead {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "if !webhookTransportAllowed(req.URL.String()) {",
      "min_count": 1,
      "code_only": true
     }
@@ -2103,6 +2223,42 @@
      "contains": "No effect for this connector; pick a client with --tenant",
      "min_count": 1,
      "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "or an app's sharing settings in the Admin console",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/which.go",
+     "contains": "or an app's sharing settings in the Admin console",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "or an app's sharing settings in the Admin console",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "or an app's sharing settings in the Admin console",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "guide.md",
+     "contains": "or an app's sharing settings in the Admin console",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "guide.md",
+     "contains": "Only Admin console setting changes (any Drive or Calendar setting, plus app sharing settings)",
+     "min_count": 1,
+     "code_only": false
     }
    ]
   },
@@ -2122,6 +2278,33 @@
     {
      "file": "cli/internal/mcp/cobratree/shellout_test.go",
      "contains": "func TestCliArgsFromMCPForwardsExplicitFalse(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "novel-review-round16-small",
+   "summary": "oauth-apps leaves archived (non-suspended) accounts out of the --max-users count; a fan-out --tenants value that names no tenant (',,') is refused instead of scanning nothing and reporting no findings",
+   "why": "Found by the onboard Codex review (round 16, P2s). Archived users cannot use apps but were listed by isSuspended=false, so 900 active plus 200 archived accounts failed the default cap as 1100 active users. '--tenants ,,' parsed into zero targets and printed 'No findings'. TestEmptyTenantsSelectorRefused. oauth_apps.go and gws_fanout.go are NOVEL files.",
+   "status": "active",
+   "spec_encode_followup": "Factory-side: port into novel/oauth_apps.go and novel/gws_fanout.go.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/oauth_apps.go",
+     "contains": "if !u.Archived {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_fanout.go",
+     "contains": "return nil, usageErr(fmt.Errorf(\"--tenants %q names no tenant\", ff.tenants))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_novel_test.go",
+     "contains": "func TestEmptyTenantsSelectorRefused(",
      "min_count": 1,
      "code_only": true
     }

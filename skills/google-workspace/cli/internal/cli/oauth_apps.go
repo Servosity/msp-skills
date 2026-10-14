@@ -160,6 +160,15 @@ func inventoryGrants(ctx context.Context, c *client.Client, t gwsTenant, maxUser
 	if err != nil {
 		return nil, err
 	}
+	// Archived accounts are not suspended but cannot use apps; they must
+	// not count toward --max-users.
+	active := users[:0]
+	for _, u := range users {
+		if !u.Archived {
+			active = append(active, u)
+		}
+	}
+	users = active
 	if len(users) > maxUsers {
 		return nil, fmt.Errorf("%w: %d active users exceeds --max-users %d (raise it, or use --since for the token audit log)", errScanCapped, len(users), maxUsers)
 	}

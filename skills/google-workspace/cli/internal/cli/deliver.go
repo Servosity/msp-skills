@@ -57,7 +57,7 @@ func ParseDeliverSink(spec string) (DeliverSink, error) {
 		// Hand-fix (handfixes.json deliver-webhook-https-only): the output is
 		// client data and the URL can carry a password or token, so plain
 		// http is only allowed to this machine.
-		if strings.HasPrefix(target, "http://") && !loopbackURL(target) {
+		if !webhookTransportAllowed(target) {
 			return DeliverSink{}, fmt.Errorf("--deliver webhook:<url> must use https:// (plain http is only allowed to localhost or a loopback IP), got %s", webhookLabel(target))
 		}
 	default:
@@ -209,6 +209,34 @@ func transportErr(err error) error {
 	return err
 }
 
-func refuseRedirect(*http.Request, []*http.Request) error {
-	return errors.New("the endpoint answered with a redirect; refusing to follow it")
+// webhookTransportAllowed accepts https, or plain http to this machine. The
+// scheme is compared the way net/url reads it (case-insensitive).
+func webhookTransportAllowed(raw string) bool {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return false
+	}
+	switch strings.ToLower(u.Scheme) {
+	case "https":
+		return true
+	case "http":
+		return loopbackURL(raw)
+	}
+	return false
+}
+
+// refuseRedirect follows a redirect only when it drops the body (Go re-sends
+// 301/302/303 as a GET) and stays on https or loopback; a 307/308 would replay
+// the report body to the new location.
+func refuseRedirect(req *http.Request, via []*http.Request) error {
+	if len(via) >= 10 {
+		return errors.New("too many redirects")
+	}
+	if req.Method != http.MethodGet && req.Method != http.MethodHead {
+		return errors.New("the endpoint answered with a redirect that would resend the body; refusing to follow it")
+	}
+	if !webhookTransportAllowed(req.URL.String()) {
+		return errors.New("the endpoint redirected to plain http; refusing to follow it")
+	}
+	return nil
 }

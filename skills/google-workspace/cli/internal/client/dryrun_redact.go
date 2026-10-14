@@ -120,11 +120,10 @@ func secretValueSpan(s string, urlStart, i int) (int, int) {
 			return i, i
 		}
 		start := i + len(q)
-		end := start + valueEnd(after, "")
-		if k := strings.Index(s[start:end+min(len(q), len(s)-end)], q); k >= 0 {
-			end = start + k
+		if k, ok := quotedEnd(after, q); ok {
+			return start, start + k
 		}
-		return start, end
+		return start, start + valueEnd(after, "")
 	}
 	return i, i + valueEnd(rest, enclosing)
 }
@@ -152,6 +151,28 @@ func enclosingQuote(s string, urlStart int) string {
 
 func isSchemeByte(c byte) bool {
 	return c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '+' || c == '-' || c == '.'
+}
+
+// quotedEnd finds the closing quote q of a quoted value (spaces and & may
+// sit inside it). It gives up at a line break, past 2 KiB, or at a bare "
+// (or, for a ' quote, a backslash), so it never runs across JSON structure.
+func quotedEnd(s, q string) (int, bool) {
+	for k := 0; k < len(s) && k < 2048; k++ {
+		if strings.HasPrefix(s[k:], q) {
+			return k, true
+		}
+		switch s[k] {
+		case '\n', '\r':
+			return 0, false
+		case '"':
+			return 0, false
+		case '\\':
+			if q == "'" {
+				return 0, false
+			}
+		}
+	}
+	return 0, false
 }
 
 // valueEnd is the length of an unquoted query value at the start of s.
@@ -195,7 +216,7 @@ func redactChannelToken(body []byte) []byte {
 	_ = json.Unmarshal(ch["kind"], &kind)
 	_ = json.Unmarshal(ch["token"], &token)
 	_ = json.Unmarshal(ch["address"], &address)
-	masked := RedactURLSecrets(address)
+	masked := maskWebhookAddress(address)
 	if kind != "api#channel" || (token == "" && masked == address) {
 		return body
 	}
@@ -211,4 +232,18 @@ func redactChannelToken(body []byte) []byte {
 		return body
 	}
 	return out
+}
+
+// maskWebhookAddress keeps a webhook's scheme and host and masks the rest:
+// Slack-style webhooks carry their secret in the path. Hand-fix
+// (handfixes.json watch-response-hides-channel-token).
+func maskWebhookAddress(address string) string {
+	u, err := url.Parse(address)
+	if err != nil || u.Host == "" {
+		return RedactURLSecrets(address)
+	}
+	if u.User == nil && (u.Path == "" || u.Path == "/") && u.RawQuery == "" && u.Fragment == "" {
+		return address
+	}
+	return u.Scheme + "://" + u.Host + "/[redacted]"
 }

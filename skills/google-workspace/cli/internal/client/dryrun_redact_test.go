@@ -72,6 +72,8 @@ func TestRedactSecretQueryParams(t *testing.T) {
 		`'https://hooks.example/cb?token='lead-SECRET`,
 		`{"description":"https://hooks.example/cb?note=it's&token='q-SECRET'"}`,
 		`https://hooks.example/cb?token=';HOOK-SECRET'`,
+		`https://x/?token="a b SPACED-SECRET"`,
+		`{"d":"https://x/?token=\"a b ESC-SECRET\" more","e":"f"}`,
 	} {
 		if got := RedactURLSecrets(tc); strings.Contains(got, "SECRET") {
 			t.Errorf("secret survived: %s -> %s", tc, got)
@@ -144,5 +146,28 @@ func TestRedactSecretQueryParamsIsLinear(t *testing.T) {
 	}
 	if d := time.Since(start); d > 5*time.Second {
 		t.Fatalf("1 MB took %s", d)
+	}
+}
+
+// Hand-fix (handfixes.json watch-response-hides-channel-token): an echoed
+// webhook address keeps only its scheme and host.
+func TestWatchResponseMasksAddressPath(t *testing.T) {
+	out := string(redactChannelToken([]byte(`{"kind":"api#channel","id":"c1","address":"https://hooks.slack.example/services/T0/B0/PATH-SECRET"}`)))
+	if strings.Contains(out, "SECRET") || !strings.Contains(out, "https://hooks.slack.example/[redacted]") {
+		t.Fatalf("address path must be masked: %s", out)
+	}
+}
+
+// Masking a quoted value never breaks the JSON around it.
+func TestRedactKeepsJSONValid(t *testing.T) {
+	for _, in := range []string{
+		`{"a":"https://x/?token='abc-SECRET","b":"it's"}`,
+		`{"d":"https://x/?token=\"a b SECRET\" more","e":"f"}`,
+		`["https://x/?token=",1]`,
+	} {
+		out := RedactURLSecrets(in)
+		if !json.Valid([]byte(out)) || strings.Contains(out, "SECRET") {
+			t.Errorf("%s -> %s", in, out)
+		}
 	}
 }

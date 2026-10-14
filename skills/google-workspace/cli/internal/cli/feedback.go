@@ -77,7 +77,7 @@ func postFeedback(url string, entry FeedbackEntry) error {
 	// Hand-fix (handfixes.json deliver-webhook-https-only): same rules as a
 	// --deliver webhook (https off this machine, no redirects, host-only
 	// labels in errors).
-	if strings.HasPrefix(url, "http://") && !loopbackURL(url) {
+	if !webhookTransportAllowed(url) {
 		return fmt.Errorf("feedback endpoint %s must use https:// (plain http is only allowed to localhost or a loopback IP)", webhookLabel(url))
 	}
 	body, err := json.Marshal(entry)
