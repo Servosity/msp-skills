@@ -8,6 +8,7 @@ package store
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"regexp"
 	"strconv"
 	"strings"
@@ -80,6 +81,11 @@ func redactMerakiValue(v any) (any, bool) {
 			if merakiSecretKey(k, tv) || ((k == "oldValue" || k == "newValue") && merakiSecretLabel(label)) {
 				if s, ok := child.(string); ok && s != "" {
 					tv[k] = RedactedSecret
+				} else if next, ok := redactMerakiValue(child); ok {
+					// An object under a secret-named key holds the secret one
+					// level down (md5AuthenticationKey.passphrase,
+					// parsedToken.hashedToken).
+					tv[k] = next
 				}
 				changed = true
 				continue
@@ -227,11 +233,15 @@ func merakiHasDuplicateKey(data []byte) bool {
 		expectKey bool
 	}
 	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.UseNumber() // a float64-overflowing number (1e400) must not end the walk
 	var stack []*frame
 	for {
 		tok, err := dec.Token()
-		if err != nil {
+		if err == io.EOF {
 			return false
+		}
+		if err != nil {
+			return true // fail closed: re-encode
 		}
 		if d, ok := tok.(json.Delim); ok && (d == '}' || d == ']') {
 			stack = stack[:len(stack)-1]

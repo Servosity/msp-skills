@@ -21,7 +21,9 @@ All notable changes to this skill are documented here. Format follows
 - Meraki `Link`-header pagination for `sync`, `--all` and every fleet command; array
   query parameters sent in Meraki's `name[]=value` form so filters are honored.
 - `sync` mirrors org-level data into local SQLite for offline `search`, `fleet find`
-  and `fleet changes --data-source local`.
+  and `fleet changes --data-source local`. `search` reads the mirror by default:
+  Meraki's only search endpoint is per organization, so the generated live lookup
+  failed every time; `fleet find` is the live lookup.
 - MCP recipe tool `locate_a_mac_from_a_soc_alert` refuses flag-like values, so a tool
   call cannot smuggle a root flag such as `--deliver` into the CLI.
 - MCP `cisco-meraki_execute` reports `has_more` when Meraki has another page, with the
@@ -63,10 +65,10 @@ All notable changes to this skill are documented here. Format follows
   `0.0.0-dev`).
 - `fleet changes --data-source local` no longer says the mirror was never synced
   right after a sync.
-- The local mirror redacts credentials by field name and change-log label. Reads and
-  writes write their response through to the mirror, and a routine SSID update used
-  to store the PSK and RADIUS secret it echoes, where `search`, `analytics` and the MCP `sql` tool could return
-  them. Every credential field (`psk`, `passphrase`, `password`, `secret`,
+- The local mirror redacts credentials by field name and change-log label. Synced
+  rows, and the few reads that write their response through to the mirror, can carry
+  credentials (the configuration change log records an API change's request body),
+  where `search`, `analytics` and the MCP `sql` tool could return them. Every credential field (`psk`, `passphrase`, `password`, `secret`,
   `sharedSecret`, SNMP community strings and v3 passwords, API keys and tokens) is now
   stored as `[redacted]`, and a credential is never used as a row ID (a newly generated
   API key used to become one). Change-log old and new values, which carry an API

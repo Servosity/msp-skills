@@ -113,6 +113,9 @@ func TestChangeLogValuesNeverCarrySecrets(t *testing.T) {
 		`{"ldap":{"credentials":{"password":"` + merakiSentinel + `"}},"ldap":null}`,
 		`[{"a":{"psk":"` + merakiSentinel + `"},"a":{}}]`,
 		`{"name":"Lobby"}{"psk":"` + merakiSentinel + `"}`,
+		`{"md5AuthenticationKey":{"id":1234,"passphrase":"` + merakiSentinel + `"}}`,
+		`{"parsedToken":{"orgName":"Acme","hashedToken":"` + merakiSentinel + `"}}`,
+		`{"n":1e400,"radiusServers":[{"secret":"` + merakiSentinel + `"}],"radiusServers":[]}`,
 	} {
 		if got := RedactMerakiChangeValue("PUT /api/v1/networks/N_1/wireless/ssids/0", body); strings.Contains(got, merakiSentinel) {
 			t.Fatalf("change-log body leaked a secret: %s -> %s", body, got)

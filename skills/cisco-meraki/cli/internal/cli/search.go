@@ -82,19 +82,17 @@ func newSearchCmd(flags *rootFlags) *cobra.Command {
 	var resourceType string
 	var limit int
 	var dbPath string
-	searchResponsePaths := []string{}
 
 	cmd := &cobra.Command{
 		Use:   "search <query>",
-		Short: "Full-text search across synced data or live API",
-		Long: `Search data using FTS5 full-text search on locally synced data,
-or hit the API's search endpoint when available.
+		Short: "Full-text search across the locally synced mirror",
+		Long: `Search data using FTS5 full-text search on locally synced data.
 
-In auto mode (default): uses the API search endpoint if the API has one,
-otherwise searches local data. Falls back to local on network failure.
-In live mode: uses the API search endpoint only.
-In local mode: searches locally synced data only.`,
-		Example: `  # Search (uses API endpoint if available, local FTS otherwise)
+Meraki has no account-wide search endpoint (client search is per
+organization), so auto (default) and local mode both search the local
+mirror written by 'sync'. For a live lookup of a MAC, IP, serial or name
+across every org, use 'fleet find'.`,
+		Example: `  # Search the local mirror
   cisco-meraki-cli search "error timeout"
 
   # Force local search only
@@ -109,27 +107,13 @@ In local mode: searches locally synced data only.`,
 				return cmd.Help()
 			}
 			query := args[0]
-			// This API has a search endpoint: GET /organizations/{organizationId}/clients/search
-			if flags.dataSource != "local" {
-				c, err := flags.newClient()
-				if err != nil {
-					return err
-				}
-				data, getErr := c.Get(cmd.Context(), "/organizations/{organizationId}/clients/search", map[string]string{
-					"q": query,
-				})
-				if getErr == nil {
-					// Live search succeeded
-					results := extractSearchResults(data, searchResponsePaths...)
-					prov := DataProvenance{Source: "live"}
-					return outputSearchResults(cmd, flags, results, limit, prov)
-				}
-				// Check if it's a network error for auto-mode fallback
-				if flags.dataSource == "live" || !isNetworkError(getErr) {
-					return classifyAPIError(cmd.OutOrStdout(), getErr, flags)
-				}
-				// auto mode + network error: fall through to local FTS
-				fmt.Fprintf(cmd.ErrOrStderr(), "API unreachable, falling back to local search.\n")
+			// ponytail: the only search endpoint is per organization
+			// (/organizations/{organizationId}/clients/search), so the
+			// generated live branch could never resolve; live mode errors and
+			// auto mode searches the mirror. Pinned by handfixes.json
+			// "meraki-search-auto-is-local".
+			if flags.dataSource == "live" {
+				return usageErr(fmt.Errorf("search has no live mode for Meraki (client search is per organization); use 'fleet find' for a live lookup, or --data-source local"))
 			}
 
 			// Local FTS search
@@ -223,7 +207,7 @@ In local mode: searches locally synced data only.`,
 
 			reason := "user_requested"
 			if flags.dataSource == "auto" {
-				reason = "api_unreachable"
+				reason = "no_live_search" // Meraki search is per organization
 			}
 			prov := localProvenance(db, "search", reason)
 

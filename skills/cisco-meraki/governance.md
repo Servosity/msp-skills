@@ -105,9 +105,10 @@ each command (`agent-context` lists it per command as `pp:method`): 555 GET, 202
 - **The local mirror keeps license keys and redacts credentials.** `sync` stores the
   organization list and the org-level resources under it in a local SQLite file under
   your user account. Of the credential reads above, only the configuration change log
-  is synced, and its old and new values are redacted before they are stored. Reads
-  and writes run with the default `--data-source auto` also write their response
-  through to the mirror, so before any row is stored the CLI replaces every credential
+  is synced, and its old and new values are redacted before they are stored. A few
+  reads run with the default `--data-source auto` (organization, network and device
+  lookups and the `administered` identity and licensing-subscription reads) also write their response through
+  to the mirror; writes never do. Before any row is stored the CLI replaces every credential
   field (`psk`, `passphrase`, `password`, `secret`, `sharedSecret`, SNMP community
   strings and v3 passwords, API keys and tokens) with `[redacted]`. The redaction
   works by field name and change-log label, so treat the mirror as sensitive anyway. License keys are kept on
