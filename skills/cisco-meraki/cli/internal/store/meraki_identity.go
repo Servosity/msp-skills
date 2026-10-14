@@ -71,3 +71,35 @@ func merakiIdentityFallback(obj map[string]any, requireDevice bool) string {
 	}
 	return CanonicalResourceID(joinCompositeResourceID(parts))
 }
+
+// merakiNullableCompositeKeys is hand-wired (handfixes.json:
+// meraki-nullable-composite-key). The generated composite key needs every
+// part, but Meraki leaves some null: a change made by Meraki support or an
+// automated process has no adminId, an org-level change has no networkId, and
+// policy is not required on intrusion rules. The composite then failed and a
+// generic fallback picked a colliding key (a timestamp without page or label;
+// the Snort gid shared by nearly every rule). These keys keep a missing part as
+// an empty slot, so the key stays positional. The first field is required.
+var merakiNullableCompositeKeys = map[string][]string{
+	"configuration_changes":                            {"ts", "networkId", "ssidNumber", "adminId", "page", "label"},
+	"organizations_appliance_security_intrusion_rules": {"ruleId", "policy.id"},
+}
+
+func merakiNullableCompositeID(resourceType string, obj map[string]any) string {
+	fields, ok := merakiNullableCompositeKeys[resourceType]
+	if !ok {
+		return ""
+	}
+	values := make([]string, len(fields))
+	for i, field := range fields {
+		if v, ok := lookupRawFieldValue(obj, field); ok {
+			if s := strings.TrimSpace(ResourceIDString(v)); s != "<nil>" {
+				values[i] = s
+			}
+		}
+	}
+	if values[0] == "" {
+		return ""
+	}
+	return CanonicalResourceID(joinCompositeResourceID(values))
+}

@@ -64,6 +64,11 @@ func TestSyncKeepsMerakiRecordObject(t *testing.T) {
 	if len(items) != 1 || !strings.Contains(string(items[0]), `"mode":"active-active"`) {
 		t.Fatalf("got %d items %s, want the whole network object as one record", len(items), items)
 	}
+	// Warm spare disabled: designations is empty, and the network is still a record.
+	disabled := json.RawMessage(`{"networkId":"L_12345","enabled":false,"mode":"disabled","designations":[]}`)
+	if items, _, _ := extractPageItemsWithPagination(disabled, "startingAfter", ""); len(items) != 1 {
+		t.Fatalf("a disabled warm-spare network must be stored as one record, got %d", len(items))
+	}
 	envelope := json.RawMessage(`{"clientId":"k1","records":[{"id":"a"},{"id":"b"}]}`)
 	if items, _, _ := extractPageItemsWithPagination(envelope, "startingAfter", ""); len(items) != 2 {
 		t.Fatalf("a records envelope must still page its records, got %d", len(items))

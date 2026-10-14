@@ -41,8 +41,9 @@ reported as `reachable: false` by `fleet health`, not silently skipped.
 - **`fleet push` previews by default.** It reads each target network's current
   settings and shows a per-network diff; nothing is sent unless you add `--apply`.
   Untargeted pushes are refused - you must name `--org`, `--network`, `--network-tag`,
-  `--product-type`, or pass `--all-networks`. With `--apply` it exits 6 when any
-  action batch is rejected, fails, or is still pending after `--wait`.
+  `--product-type`, or pass `--all-networks`. With `--apply` it exits 6 when a target
+  network's change did not land (batch rejected, failed or still pending after
+  `--wait`, or its current settings unreadable) and names each one.
 - **`fleet fanout` is GET-only.** It runs one org-scoped read against every org and
   cannot send a write.
 - **Read commands change nothing in the Dashboard** - with the secret-bearing

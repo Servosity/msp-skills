@@ -9518,6 +9518,7 @@ var resourceIDFieldOverrides = map[string]string{
 	"inventory":             "serial",
 	"licenses":              "id",
 	"organizations":         "id",
+	"organizations_appliance_devices_interfaces_l3":                                    "network.id+interfaceId",
 	"organizations_appliance_devices_interfaces_ports_profiles_assignments":            "device.serial+port.interface.name",
 	"organizations_appliance_security_intrusion_policies":                              "policyId",
 	"organizations_appliance_security_intrusion_rule_groups":                           "policy.id+groupId",
@@ -10018,6 +10019,9 @@ var resourceParentKeyColumns = map[string][]string{
 // Callers that need to gate best-effort writes can use this to avoid passing
 // non-entity envelopes into the batch path.
 func ExtractResourceID(resourceType string, obj map[string]any) string {
+	if s := merakiNullableCompositeID(resourceType, obj); s != "" { // pp:handfix meraki-nullable-composite-key
+		return s
+	}
 	if override, ok := resourceIDFieldOverrides[resourceType]; ok && override != "" {
 		if s := canonicalIDFromOverride(obj, override); s != "" {
 			return s

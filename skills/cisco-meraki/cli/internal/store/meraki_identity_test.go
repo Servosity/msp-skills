@@ -118,3 +118,35 @@ func TestMerakiRowKeysAreOwnIdentity(t *testing.T) {
 		}
 	}
 }
+
+// TestMerakiNullableCompositeKey guards meraki-nullable-composite-key: a
+// configuration change with a null adminId (Meraki support or automation) or
+// no networkId keeps page and label in its key, and an intrusion rule without
+// a policy is keyed on its own ruleId, never on the shared Snort gid.
+func TestMerakiNullableCompositeKey(t *testing.T) {
+	id := func(resource, js string) string {
+		var m map[string]any
+		if err := json.Unmarshal([]byte(js), &m); err != nil {
+			t.Fatal(err)
+		}
+		return ExtractResourceID(resource, m)
+	}
+	l3 := id("configuration_changes", `{"ts":"2026-10-12T01:40:29.090210Z","networkId":"N_1","adminId":null,"page":"Firewall","label":"L3 rules"}`)
+	l7 := id("configuration_changes", `{"ts":"2026-10-12T01:40:29.090210Z","networkId":"N_1","adminId":null,"page":"Firewall","label":"L7 rules"}`)
+	other := id("configuration_changes", `{"ts":"2026-10-12T01:40:29.090210Z","networkId":"N_2","adminId":null,"page":"Firewall","label":"L3 rules"}`)
+	if l3 == "" || l3 == l7 || l3 == other {
+		t.Fatalf("null-admin changes collapsed: %q %q %q", l3, l7, other)
+	}
+	a := id("organizations_appliance_security_intrusion_rules", `{"ruleId":"r-A","gid":1}`)
+	b := id("organizations_appliance_security_intrusion_rules", `{"ruleId":"r-B","gid":1}`)
+	if a == "" || a == b {
+		t.Fatalf("policy-less rules collapsed onto the gid: %q %q", a, b)
+	}
+	// The L3-interface key stays network.id+interfaceId: moving the interface
+	// to another port must not leave a second row behind.
+	p1 := id("organizations_appliance_devices_interfaces_l3", `{"interfaceId":"1234","network":{"id":"L_1"},"port":{"interface":{"name":"Gi0/0/1"}}}`)
+	p2 := id("organizations_appliance_devices_interfaces_l3", `{"interfaceId":"1234","network":{"id":"L_1"},"port":{"interface":{"name":"Gi0/0/2"}}}`)
+	if p1 == "" || p1 != p2 {
+		t.Fatalf("an L3 interface that moved ports got a new key: %q -> %q", p1, p2)
+	}
+}

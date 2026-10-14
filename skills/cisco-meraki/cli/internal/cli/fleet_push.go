@@ -343,10 +343,11 @@ Do NOT use this command to read data across orgs; use 'fleet fanout' instead.`),
 				return err
 			}
 			if apply {
-				if n := pushNotCompleted(rows); n > 0 {
-					// Exit 6 so automation and the MCP tool never read a
-					// rejected, failed or still-pending batch as success.
-					return partialFailureErr(fmt.Errorf("%d of %d network change(s) did not complete; see batch_status (a pending batch may still finish in the Dashboard)", n, updates))
+				if failed := pushNotCompleted(rows); len(failed) > 0 {
+					// Exit 6 so automation and the MCP tool never read a change
+					// that did not land as success. The MCP tool returns only
+					// stderr on a non-zero exit, so the error names each network.
+					return partialFailureErr(fmt.Errorf("%d target network(s) did not complete (a pending batch may still finish in the Dashboard): %s", len(failed), strings.Join(failed, "; ")))
 				}
 			}
 			return nil
@@ -364,15 +365,27 @@ Do NOT use this command to read data across orgs; use 'fleet fanout' instead.`),
 	return cmd
 }
 
-// pushNotCompleted counts the updates whose action batch did not report
-// completed: rejected at submit, failed, still pending after --wait, or
-// unknown because its status could not be read.
-func pushNotCompleted(rows []pushRow) int {
-	n := 0
+// pushNotCompleted names each target network whose change did not land: an
+// update whose action batch was rejected, failed, is still pending after
+// --wait or could not be read, and a network whose current settings could not
+// be read, so no change was planned for it. At most 20 are named.
+func pushNotCompleted(rows []pushRow) []string {
+	var out []string
 	for _, r := range rows {
-		if r.Action == "update" && r.BatchStatus != "completed" {
-			n++
+		var why string
+		switch {
+		case r.Action == "update" && r.BatchStatus != "completed":
+			why = r.BatchStatus
+		case r.Action == "error":
+			why = r.Error
+		default:
+			continue
 		}
+		if len(out) == 20 {
+			out = append(out, "...")
+			break
+		}
+		out = append(out, fmt.Sprintf("%s / %s: %s", r.OrganizationName, r.NetworkName, why))
 	}
-	return n
+	return out
 }
