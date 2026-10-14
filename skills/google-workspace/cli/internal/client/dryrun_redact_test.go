@@ -3,7 +3,10 @@
 package client
 
 import (
+	"context"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -56,5 +59,26 @@ func TestRedactSecretQueryParams(t *testing.T) {
 	b, _ := json.Marshal(v)
 	if strings.Contains(string(b), "12345") || strings.Contains(string(b), "doorCode") {
 		t.Fatalf("non-string secret-named values must be redacted too: %s", b)
+	}
+}
+
+func TestWatchResponseHidesChannelToken(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"kind":"api#channel","id":"chan-1","resourceId":"r1","token":"hook-verify-SECRET","expiration":"1"}`))
+	}))
+	defer srv.Close()
+	c := New(&config.Config{BaseURL: srv.URL}, time.Second, 0)
+	c.NoCache = true
+	data, _, err := c.Post(context.Background(), "/admin/directory/v1/users/watch", map[string]any{"id": "chan-1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "hook-verify-SECRET") || !strings.Contains(string(data), `"id":"chan-1"`) {
+		t.Fatalf("watch response must keep the channel but hide its token: %s", data)
+	}
+	other := []byte(`{"kind":"admin#directory#user","token":"not-a-channel"}`)
+	if string(redactChannelToken(other)) != string(other) {
+		t.Fatal("only api#channel responses are rewritten")
 	}
 }

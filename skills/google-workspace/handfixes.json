@@ -1110,6 +1110,33 @@
      "not_contains": "returns 404 at the"
     }
    ]
+  },
+  {
+   "id": "watch-response-hides-channel-token",
+   "summary": "A successful watch response (kind api#channel) has its echoed token replaced with [redacted] before it is printed, returned over MCP, or written to the local store",
+   "why": "activities watch, users watch and users aliases watch register a push channel whose token is the webhook's verification secret; Google echoes it back in the response, which the generated client returned unchanged to CLI output, MCP results and the mutation write-through store. Found by the onboard Codex review (round 9, P1; the generated success path is fleet-wide). TestWatchResponseHidesChannelToken fails with the redaction removed.",
+   "status": "active",
+   "spec_encode_followup": "Press-side (fleet): mask echoed channel tokens in generated clients for APIs with push channels.",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "json.RawMessage(redactChannelToken(sanitizeJSONResponse(respBody)))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/dryrun_redact.go",
+     "contains": "func redactChannelToken(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/dryrun_redact_test.go",
+     "contains": "func TestWatchResponseHidesChannelToken(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
   }
  ]
 }
