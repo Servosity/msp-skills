@@ -36,6 +36,7 @@ type pushRow struct {
 	NetworkName      string         `json:"network_name"`
 	Resource         string         `json:"resource"` // scrubbed for output
 	path             string         // what the batch targets
+	write            bool           // the real diff found a change (the shown one may be forced)
 	Action           string         `json:"action"` // update | no-change | error
 	ChangedKeys      []string       `json:"changed_keys"`
 	Current          map[string]any `json:"current,omitempty"`
@@ -185,6 +186,7 @@ func planOrgPush(ctx context.Context, c *client.Client, o fleetOrg, path string,
 			continue
 		}
 		changed, cur := diffSettings(current, body)
+		row.write = len(changed) > 0
 		store.RedactMerakiObject(cur, path) // a preview never prints a live PSK or RADIUS secret
 		// Whether a secret matches is itself a secret: a key whose value
 		// redaction touched always reports as changed, so the preview cannot
@@ -388,6 +390,15 @@ Do NOT use this command to read data across orgs; use 'fleet fanout' instead.`),
 			rows := make([]pushRow, 0)
 			for _, oc := range outcomes {
 				rows = append(rows, oc.Value...)
+			}
+			if apply {
+				// --apply writes only real changes, so a matching secret is not
+				// re-sent; the forced "update" stays in the Read-tier preview.
+				for i := range rows {
+					if rows[i].Action == "update" && !rows[i].write {
+						rows[i].Action, rows[i].ChangedKeys = "no-change", []string{}
+					}
+				}
 			}
 			updates := 0
 			for _, r := range rows {

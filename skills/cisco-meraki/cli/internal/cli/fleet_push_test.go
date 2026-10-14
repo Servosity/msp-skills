@@ -436,4 +436,16 @@ func TestFleetPushPreviewIsNotASecretOracle(t *testing.T) {
 			t.Fatalf("preview %s: want %s:\n%s", body, want, out.String())
 		}
 	}
+	// --apply writes only real changes: a matching PSK sends no batch (Codex round 22).
+	cmd := RootCmd()
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	cmd.SetArgs([]string{"fleet", "push", "--path", "/networks/{networkId}/wireless/ssids/0", "--body", `{"psk":"SAME-XXXXXXXX"}`, "--all-networks", "--apply", "--json"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("apply: %v\n%s", err, out.String())
+	}
+	if !strings.Contains(out.String(), `"no-change"`) {
+		t.Fatalf("--apply re-sent a matching PSK:\n%s", out.String())
+	}
 }
