@@ -56,6 +56,13 @@ func newTicketsListCmd(flags *rootFlags) *cobra.Command {
 		Annotations: map[string]string{"pp:endpoint": "tickets.list", "pp:method": "GET", "pp:path": "/api/platform/v1/service/ticketing/tickets", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/api/platform/v1/service/ticketing/tickets"
+			// Hand-wired (handfixes.json: tickets-paging-together): Asio ignores
+			// a lone pageSize or pageNum, so never send one without the other.
+			if fs := cmd.Flags(); fs.Changed("page-size") && !fs.Changed("page-num") {
+				_ = fs.Set("page-num", "1")
+			} else if fs.Changed("page-num") && !fs.Changed("page-size") {
+				return usageErr(fmt.Errorf("--page-num needs --page-size: Asio ignores one paging key sent alone"))
+			}
 			c, err := flags.newClient()
 			if err != nil {
 				return err

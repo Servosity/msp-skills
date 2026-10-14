@@ -333,13 +333,7 @@
       "first_party": false,
       "category": "Security",
       "display_name": "CIPP + Microsoft 365",
-      "covers": [
-        "Entra ID",
-        "Intune",
-        "Exchange Online",
-        "Defender",
-        "GDAP"
-      ],
+      "covers": ["Entra ID", "Intune", "Exchange Online", "Defender", "GDAP"],
       "tagline": "MCP server for CIPP and the Microsoft 365 it runs - Entra ID, Intune, Exchange Online, Defender and GDAP - across every client tenant at once.",
       "cli_hash": "sha256:aa0dc021cdb156c7c5bd704dc240c05f666bcc65074ff04bc8a5b76852f20f19",
       "template_version": 3,
@@ -462,7 +456,7 @@
       "category": "RMM",
       "display_name": "ConnectWise RMM",
       "tagline": "Ask your ConnectWise RMM fleet which endpoints are stale, unpatched or failing scripts, across every company at once.",
-      "cli_hash": "sha256:5cd2bba6c58f1b28821ca6d0c5c36de4151cd15cf8ad9d86ed402b4e0aacf385",
+      "cli_hash": "sha256:095e985919c57472f787456ef8962365eb78c6cd416891a87c80dc257bad4a74",
       "template_version": 3,
       "version": "0.1.0",
       "cli_hash_at_release": null,

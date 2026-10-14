@@ -103,5 +103,6 @@
       "examples": "endpoints create-agent-install-token (alias endpoints create), import of endpoint records (each line mints an install token), auth login, auth set-token",
       "policy": "Human-in-the-loop only"
     }
-  ]
+  ],
+  "credentials_note": "Credentials stay on your machine, but not only in your environment: after the first token mint the client ID, client secret and access token are cached in the CLI's credentials.toml (mode 0600), so removing the environment variables does not revoke access - run `connectwise-rmm-cli auth logout` or rotate the client secret in ConnectWise"
 }

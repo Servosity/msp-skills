@@ -78,7 +78,7 @@
         },
         {
           "name": "PRINTING_PRESS_CLIENT_PROFILE",
-          "description": "Only for tenant-gated multi-client deployments: binds the MCP server to an existing client profile. Leave blank for a single-tenant install.",
+          "description": "Leave blank. This connector registers no tenant-gated profile source, so the value is read but changes nothing; one MCP server serves the one API key it is given.",
           "isRequired": false,
           "isSecret": true
         }

@@ -62,7 +62,7 @@ func RegisterCodeOrchestrationTools(s *server.MCPServer) {
 		mcplib.NewTool("connectwise-rmm_execute",
 			mcplib.WithDescription("Execute one connectwise-rmm API endpoint by its endpoint_id (from connectwise-rmm_search). Params are passed as a JSON object; path placeholders and query strings are resolved automatically."),
 			mcplib.WithString("endpoint_id", mcplib.Required(), mcplib.Description("Endpoint identifier returned by connectwise-rmm_search (e.g., \"users.list\").")),
-			mcplib.WithObject("params", mcplib.Description("Parameters for the endpoint. Path placeholders match by name; remaining entries become query string on GET/DELETE or JSON body on POST/PUT/PATCH.")),
+			mcplib.WithObject("params", mcplib.Description("Parameters for the endpoint. Path placeholders match by name; remaining entries become query string on GET or JSON body on DELETE/POST/PUT/PATCH.")),
 		),
 		handleCodeOrchExecute,
 	)
@@ -1125,11 +1125,14 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 		hdrs = nil
 	}
 
-	// Route params to their runtime slots. GET/DELETE params are query
-	// strings; write methods split spec-declared query params from the
-	// remaining params used as the request body below.
+	// Route params to their runtime slots. GET params are query strings;
+	// DELETE and the write methods split spec-declared query params from the
+	// remaining params used as the request body below. Hand-wired
+	// (handfixes.json: code-orch-delete-body): Asio's DELETE (endpoints
+	// uninstall) takes a JSON body, which the generated query-only routing
+	// dropped.
 	query := map[string]string{}
-	if ep.Method == "GET" || ep.Method == "DELETE" {
+	if ep.Method == "GET" {
 		for k, v := range params {
 			query[codeOrchWireQueryName(ep.QueryParams, k)] = formatMCPParamValue(v)
 		}
@@ -1171,10 +1174,14 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 			}
 		}
 	case "DELETE":
+		var body any
+		if len(params) > 0 {
+			body = writeBody()
+		}
 		if len(hdrs) > 0 {
-			data, _, err = c.DeleteWithParamsAndHeaders(ctx, path, query, hdrs)
+			data, _, err = c.DeleteWithBodyAndHeaders(ctx, path, body, hdrs)
 		} else {
-			data, _, err = c.DeleteWithParams(ctx, path, query)
+			data, _, err = c.DeleteWithBody(ctx, path, body)
 		}
 	case "POST":
 		body := writeBody()

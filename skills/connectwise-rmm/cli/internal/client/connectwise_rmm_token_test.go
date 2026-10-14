@@ -7,8 +7,12 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
+
+	"connectwise-rmm-pp-cli/internal/config"
 )
 
 func TestNewAsioTokenRequestSendsJSONCredentials(t *testing.T) {
@@ -72,5 +76,26 @@ func TestApplyAsioRequestHeaders(t *testing.T) {
 	ApplyAsioRequestHeaders(req)
 	if req.Header.Get("X-Request-ID") != "caller" {
 		t.Error("an existing X-Request-ID must win")
+	}
+}
+
+// TestDryRunNeverMintsAToken pins handfixes.json dry-run-never-mints: a
+// --dry-run preview with client credentials and no cached token must not POST
+// the client secret to the token URL.
+func TestDryRunNeverMintsAToken(t *testing.T) {
+	t.Setenv("CONNECTWISE_RMM_HOME", t.TempDir())
+	hits := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		_, _ = io.WriteString(w, `{"access_token":"t","expires_in":3600}`)
+	}))
+	defer srv.Close()
+	c := New(&config.Config{BaseURL: srv.URL, TokenURL: srv.URL + "/token", ConnectwiseRmmClientId: "id-1234567", ConnectwiseRmmClientSecret: "secret-1234567"}, 5*time.Second, 0)
+	c.DryRun = true
+	if _, err := c.Get(context.Background(), "/api/platform/v1/company/companies", nil); err != nil {
+		t.Fatalf("dry-run Get: %v", err)
+	}
+	if hits != 0 {
+		t.Fatalf("dry-run sent %d request(s); a preview must stay offline", hits)
 	}
 }

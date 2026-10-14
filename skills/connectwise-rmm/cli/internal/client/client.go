@@ -1645,7 +1645,10 @@ func (c *Client) authHeader(ctx context.Context) (string, error) {
 	}
 	// 60s window avoids in-flight requests racing the expiry boundary.
 	// Double-checked lock so only one goroutine mints under contention.
-	if c.needsClientCredentialsMint() {
+	// Hand-wired (handfixes.json: dry-run-never-mints): --dry-run previews
+	// with cached material only; minting would POST the client secret to the
+	// token URL and persist it, which a preview must never do.
+	if !c.DryRun && c.needsClientCredentialsMint() {
 		if c.ccMu == nil {
 			c.ccMu = &sync.Mutex{}
 		}
