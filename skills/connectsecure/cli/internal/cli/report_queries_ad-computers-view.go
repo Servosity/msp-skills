@@ -31,7 +31,7 @@ func newReportQueriesAdComputersViewCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "report_queries", path, retainCLIQueryParams(cmd, map[string]string{
+			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "report_queries-ad-computers-view", path, retainCLIQueryParams(cmd, map[string]string{
 				"condition": formatCLIParamValue(flagCondition),
 				"skip":      formatCLIParamValue(flagSkip),
 				"limit":     formatCLIParamValue(flagLimit),

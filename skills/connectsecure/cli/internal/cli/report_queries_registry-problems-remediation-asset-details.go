@@ -52,7 +52,7 @@ func newReportQueriesRegistryProblemsRemediationAssetDetailsCmd(flags *rootFlags
 			if err != nil {
 				return err
 			}
-			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "report_queries-registry-problems-remediation-asset-details", path, retainCLIQueryParams(cmd, map[string]string{
+			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "report_queries", path, retainCLIQueryParams(cmd, map[string]string{
 				"asset_id":  formatCLIParamValue(flagAssetId),
 				"condition": formatCLIParamValue(flagCondition),
 				"skip":      formatCLIParamValue(flagSkip),

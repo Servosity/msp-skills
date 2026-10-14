@@ -5261,7 +5261,10 @@ func syncDependentResources(ctx context.Context, c interface {
 	}
 	var results []syncResult
 	for _, dep := range dependentResourceDefs() {
-		if len(allow) > 0 && !allow[dep.ParentTable] && !allow[dep.Name] {
+		// Hand-fix (handfixes.json: curated-default-sync): a bare sync is the
+		// curated default set, so a dependent (one request per parent row) runs
+		// only when it or its parent is named.
+		if len(allow) == 0 || (!allow[dep.ParentTable] && !allow[dep.Name]) {
 			continue
 		}
 		res := syncDependentResource(ctx, c, db, dep, sinceTS, full, maxPages, latestOnly, prune, userParams, syncEvents, concurrency)

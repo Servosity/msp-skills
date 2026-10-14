@@ -22,8 +22,8 @@
   {
    "id": "curated-default-sync",
    "status": "active",
-   "summary": "defaultSyncResources() delegates to connectsecureDefaultSyncResources() (the curated core set).",
-   "why": "The generated default synced all 137 listable resources on a bare sync, including credential and integration-secret endpoints. The generated `sync --help` example also labelled a bare sync '# Sync all resources'; it now says it syncs the curated default set (adversarial round 15).",
+   "summary": "defaultSyncResources() delegates to connectsecureDefaultSyncResources() (the curated core set). A bare sync runs no dependent; the per-asset registry dependent runs only when it or assets is named.",
+   "why": "The generated default synced all 137 listable resources on a bare sync, including credential and integration-secret endpoints. The generated `sync --help` example also labelled a bare sync '# Sync all resources'; it now says it syncs the curated default set (adversarial round 15). Adversarial round 16: parentFilter is empty on a bare sync, so dependents inherited 'sync everything' and the registry dependent fired one request per synced asset on every bare sync, contrary to the README's curated-set promise. TestBareSyncSkipsPerAssetDependent fails with the guard removed.",
    "asserts": [
     {
      "file": "cli/internal/cli/sync.go",
@@ -32,6 +32,15 @@
     {
      "file": "cli/internal/cli/sync.go",
      "contains": "# Sync the curated default resources (name others with --resources)"
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "if len(allow) == 0 || (!allow[dep.ParentTable] && !allow[dep.Name]) {"
+    },
+    {
+     "file": "cli/internal/cli/connectsecure_report_partition_test.go",
+     "contains": "func TestBareSyncSkipsPerAssetDependent(",
+     "code_only": true
     }
    ]
   },
@@ -1285,8 +1294,8 @@
   {
    "id": "report-queries-own-partition",
    "status": "active",
-   "summary": "Every generated report-queries <report> command caches into and reads locally from its own report's partition (report_queries-<report>, the one sync writes), not the shared report_queries bucket. ad-computers-view keeps report_queries, where sync stores its rows.",
-   "why": "Adversarial round 15 (2026-10-14): all 162 report-queries commands passed resourceType \"report_queries\" to resolvePaginatedReadWithStrategy, so live write-through keyed every report's rows by name in one bucket. One client's 'Workstations' OU overwrote another's, and with the default --data-source auto an unreachable pod served other reports' rows (GPOs, ports, tags) as the OU report with exit 0. The per-client keys of per-client-report-keys reached only sync. TestReportQueriesCommandsUseOwnPartition scans every report_queries_*.go and TestReportQueriesLocalReadReturnsOnlyThatReport drives ad-ous-view + ad-gpos-view through a stub pod and reads ad-ous-view back locally; both fail with the 161 files reverted.",
+   "summary": "Every generated report-queries <report> command caches into and reads locally from the partition sync writes for that report (report_queries-<report>), not the shared report_queries bucket. registry-problems-remediation-asset-details uses report_queries, where sync's per-asset dependent of that name stores its rows. ad-computers-view, which sync never fetches, gets its own partition keyed by object_guid.",
+   "why": "Adversarial round 15 (2026-10-14): all 162 report-queries commands passed resourceType \"report_queries\" to resolvePaginatedReadWithStrategy, so live write-through keyed every report's rows by name in one bucket. One client's 'Workstations' OU overwrote another's, and with the default --data-source auto an unreachable pod served other reports' rows (GPOs, ports, tags) as the OU report with exit 0. The per-client keys of per-client-report-keys reached only sync. TestReportQueriesCommandsUseOwnPartition scans every report_queries_*.go and TestReportQueriesLocalReadReturnsOnlyThatReport drives ad-ous-view + ad-gpos-view through a stub pod and reads ad-ous-view back locally; both fail with the 161 files reverted. Adversarial round 16 + Codex round 16: the first cut left ad-computers-view on report_queries on the false premise that sync stores its rows there. flatSyncResources drops the flat report_queries resource because a dependent shares the name, so that partition holds only the registry dependent's per-asset rows, and local ad-computers-view served them as AD computers. The ad-computers-view rows also keyed by name, collapsing two clients' RECEPTION into one. Reverting store.go's report_queries_ad_computers_view override, or either command file, fails TestReportQueriesLocalReadReturnsOnlyThatReport / TestReportQueriesCommandsUseOwnPartition.",
    "spec_encode_followup": "Press retro: generated report commands under a shared tag should pass their own sync resource name, not the tag.",
    "asserts": [
     {
@@ -1310,6 +1319,18 @@
      "file": "cli/internal/cli/connectsecure_report_partition_test.go",
      "contains": "func TestReportQueriesLocalReadReturnsOnlyThatReport(",
      "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/report_queries_ad-computers-view.go",
+     "contains": "\"auto\", \"report_queries-ad-computers-view\", path"
+    },
+    {
+     "file": "cli/internal/cli/report_queries_registry-problems-remediation-asset-details.go",
+     "contains": "\"auto\", \"report_queries\", path"
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\"report_queries_ad_computers_view\":                                             \"object_guid\", // Hand-fix (handfixes.json: report-queries-own-partition)"
     }
    ]
   },

@@ -10275,6 +10275,7 @@ var resourceIDFieldOverrides = map[string]string{
 	"report_builder-get-standard-report-settings":                                  "id",
 	"report_jobs_view":                                                             "id",
 	"report_queries":                                                               "id",
+	"report_queries_ad_computers_view":                                             "object_guid", // Hand-fix (handfixes.json: report-queries-own-partition)
 	"report_queries-ad-gpos-details":                                               "id",
 	"report_queries-ad-gpos-view":                                                  "object_guid", // Hand-fix (handfixes.json: per-client-report-keys)
 	"report_queries-ad-group-computers":                                            "object_guid", // Hand-fix (handfixes.json: per-client-report-keys)
