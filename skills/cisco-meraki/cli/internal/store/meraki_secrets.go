@@ -9,7 +9,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
-	"regexp"
 	"strconv"
 	"strings"
 )
@@ -26,10 +25,12 @@ const RedactedSecret = "[redacted]"
 // friends.
 var merakiSecretKeys = map[string]bool{
 	"apikey":               true,
+	"bodyfile":             true, // base64 webhook body template (can carry a token)
 	"claimkey":             true,
 	"communitystring":      true,
 	"contenttoken":         true,
 	"hashedtoken":          true,
+	"headersfile":          true, // base64 webhook headers (Authorization)
 	"md5authenticationkey": true,
 	"parsedtoken":          true,
 	"token":                true,
@@ -175,11 +176,15 @@ func redactMerakiValue(v any) (any, bool) {
 // RedactMerakiSecrets returns data with every credential value replaced by
 // RedactedSecret. JSON with no secret field and no repeated key is returned
 // unchanged byte for byte; JSON with a secret field is re-encoded (keys
-// sorted) even when nothing under it was a string. Text that is not valid
-// JSON is scrubbed textually.
+// sorted) even when nothing under it was a string. Data that is not valid
+// JSON is withheld whole (sync stores items of a parsed array, so this is a
+// fail-closed backstop, not a path real rows take).
 func RedactMerakiSecrets(data json.RawMessage) json.RawMessage {
+	if len(bytes.TrimSpace(data)) == 0 {
+		return data
+	}
 	if !json.Valid(data) {
-		return json.RawMessage(merakiScrubText(string(data)))
+		return json.RawMessage(strconv.Quote(RedactedCutOff))
 	}
 	// UseNumber keeps large numeric IDs exact across the re-encode.
 	dec := json.NewDecoder(bytes.NewReader(data))
@@ -257,48 +262,6 @@ func merakiSecretLabel(label string) bool {
 	return true
 }
 
-var merakiASCIIEscRe = regexp.MustCompile(`\\u[0-9a-fA-F]{4}`)
-
-// merakiSecretPairRe matches a "secret-key": "value" pair in text that looks
-// like JSON but does not parse (a truncated change-log body); the value may
-// run to the end of the text.
-var merakiSecretPairRe = regexp.MustCompile(`(?i)("(?:[a-z0-9_]*(?:password|passphrase|secret|psk)|apikey|claimkey|communitystring|v2communitystring|v3authpass|v3privpass|md5authenticationkey|token|contenttoken|parsedtoken|vppservicetoken|hashedtoken|key)"\s*:\s*")((?:[^"\\]|\\.|\\$)*)("|$)`)
-
-// merakiNameRe and merakiPairValueRe find name/value pairs in text that does
-// not parse ({"name":"Authorization","template":"Basic ...); either may run
-// to the end of the text.
-var (
-	merakiNameRe      = regexp.MustCompile(`(?i)"name"\s*:\s*"((?:[^"\\]|\\.)*)`)
-	merakiPairValueRe = regexp.MustCompile(`(?i)("(?:value|template)"\s*:\s*")((?:[^"\\]|\\.|\\$)*)("|$)`)
-)
-
-// merakiScrubText scrubs secret-named pairs from text that looks like JSON
-// but does not parse (a truncated change-log body), after decoding \uXXXX
-// escapes so "\u0070sk" cannot hide a key name. When any "name" in the text
-// is a credential name, every "value" and "template" string is scrubbed too
-// (fail closed: the pairing cannot be parsed). Text with nothing to scrub is
-// returned unchanged.
-func merakiScrubText(s string) string {
-	u := merakiASCIIEscRe.ReplaceAllStringFunc(s, func(m string) string {
-		n, err := strconv.ParseUint(m[2:], 16, 32)
-		if err != nil || n < 0x20 || n >= 0x7f || n == '"' || n == '\\' {
-			return m
-		}
-		return string(rune(n))
-	})
-	r := merakiSecretPairRe.ReplaceAllString(u, "${1}"+RedactedSecret+"${3}")
-	for _, m := range merakiNameRe.FindAllStringSubmatch(u, -1) {
-		if merakiSecretName(m[1]) {
-			r = merakiPairValueRe.ReplaceAllString(r, "${1}"+RedactedSecret+"${3}")
-			break
-		}
-	}
-	if r != u {
-		return r
-	}
-	return s
-}
-
 // merakiHasDuplicateKey reports whether any object in valid JSON data repeats
 // a key.
 func merakiHasDuplicateKey(data []byte) bool {
@@ -343,15 +306,25 @@ func merakiHasDuplicateKey(data []byte) bool {
 	}
 }
 
+// RedactedCutOff replaces a JSON-looking string that does not parse, such as
+// a change-log request body Meraki cut off. Its pairs cannot be told apart
+// reliably (escaped nested bodies, a key cut mid-name), so the whole value is
+// withheld: fail closed. The raw change log (Credential tier) still has it.
+const RedactedCutOff = "[redacted: cut-off JSON]"
+
 // RedactMerakiJSONString redacts credentials inside a string that holds JSON
-// (a change-log oldValue/newValue). Any other string is returned unchanged.
+// (a change-log oldValue/newValue). A JSON-looking string that does not parse
+// becomes RedactedCutOff. Any other string is returned unchanged.
 func RedactMerakiJSONString(s string) string {
 	t := strings.TrimSpace(s)
 	if t == "" || (t[0] != '{' && t[0] != '[') {
 		return s
 	}
 	if !json.Valid([]byte(t)) {
-		return merakiScrubText(s)
+		if strings.Contains(t, `"`) {
+			return RedactedCutOff
+		}
+		return s // "[Default] Guest" is a label, not JSON
 	}
 	if out := RedactMerakiSecrets(json.RawMessage(t)); string(out) != t {
 		return string(out)

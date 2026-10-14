@@ -68,13 +68,17 @@ All notable changes to this skill are documented here. Format follows
 - Write commands no longer store their response in the local mirror. A routine SSID
   update stored the PSK and RADIUS secret it echoes, a webhook payload template its
   `Authorization` header, and an SSID or VLAN from two networks merged into one row
-  keyed on its name or number. A write now reaches the mirror at the next `sync`.
+  keyed on its name or number. Organization-level data a write changes is refreshed
+  by the next `sync`; network and device settings such as SSIDs and VLANs are not in
+  the mirror at all.
 - The local mirror redacts credentials by field name and change-log label. The
   synced configuration change log records an API change's request body, and `search`,
   `analytics` and the MCP `sql` tool could return it. Every credential field (`psk`, `passphrase`, `password`, `secret`,
   `sharedSecret`, SNMP community strings and v3 passwords, API keys and tokens, and the
   value of a header pair named like a credential, such as `Authorization` or
-  `x-functions-key`) is now stored as `[redacted]`, and a credential is never used as a row ID (a newly generated
+  `x-functions-key`, and the base64 webhook `headersFile` and `bodyFile`) is now
+  stored as `[redacted]`, a change-log value that is cut-off JSON is withheld whole
+  as `[redacted: cut-off JSON]`, and a credential is never used as a row ID (a newly generated
   API key used to become one). Change-log old and new values, which carry an API
   change's whole request body, are redacted in the mirror and in `fleet changes` and
   `fleet blame` output. License keys are kept.

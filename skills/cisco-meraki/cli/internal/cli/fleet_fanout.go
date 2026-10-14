@@ -71,15 +71,16 @@ every organization the API key can see, under the shared rate limiter. Every
 Link-header page is followed unless --max-pages stops it, and each org's result
 carries observed_at, pages_fetched, items_returned, complete and, when cut
 short, next_cursor and limit_reason. An org that errors keeps its row with the
-error instead of disappearing. Array query parameters take Meraki's bracket
+error instead of disappearing. Use --json for these fields: --agent compacts
+away next_cursor, limit_reason and error. Array query parameters take Meraki's bracket
 form, e.g. --param 'productTypes[]=wireless'. Read-only: only GET is sent.
 
 Use this command to run one org-scoped GET across every organization the key can see, with completeness metadata per org.
 Do NOT use this command for writes; use 'fleet push' instead.`),
 		Example: strings.Trim(`
-  cisco-meraki-cli fleet fanout organizations/{organizationId}/firmware/upgrades --agent
+  cisco-meraki-cli fleet fanout organizations/{organizationId}/firmware/upgrades --json
   cisco-meraki-cli fleet fanout organizations/{organizationId}/appliance/security/events --param timespan=86400 --json
-  cisco-meraki-cli fleet fanout organizations/{organizationId}/devices --param 'productTypes[]=wireless' --max-pages 2 --agent`, "\n"),
+  cisco-meraki-cli fleet fanout organizations/{organizationId}/devices --param 'productTypes[]=wireless' --max-pages 2 --json`, "\n"),
 		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "live", "pp:happy-args": "path=organizations/{organizationId}/networks"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 && cmd.Flags().NFlag() == 0 {

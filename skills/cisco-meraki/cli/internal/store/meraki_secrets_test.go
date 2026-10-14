@@ -6,6 +6,7 @@
 package store
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"path/filepath"
 	"strconv"
@@ -122,6 +123,8 @@ func TestChangeLogValuesNeverCarrySecrets(t *testing.T) {
 		`{"label":"RADIUS secret","oldValue":["` + merakiSentinel + `"]}`,
 		`{"headers":[{"name":"Authorization","template":"Basic ` + merakiSentinel + `"}],"body":"{\"text\":\"aaaa`,
 		`{"headers":[{"template":"Basic ` + merakiSentinel + `","name":"Authorization"},`,
+		`{"name":"Pushover","body":"{\"token\":\"` + merakiSentinel + `\",\"user\":\"u1\",\"message\":\"{{alertType}}`,
+		`{"headers":[{"template":"` + merakiSentinel + `","name":"X-Api-Ke`,
 		`{"headers":[{"name":"x-functions-key","template":"` + merakiSentinel + `"},{"name":"Ocp-Apim-Subscription-Key","value":"` + merakiSentinel + `"},{"name":"X-Auth-Key","template":"` + merakiSentinel + `"}]}`,
 	} {
 		if got := RedactMerakiChangeValue("PUT /api/v1/networks/N_1/wireless/ssids/0", body); strings.Contains(got, merakiSentinel) {
@@ -143,8 +146,16 @@ func TestChangeLogValuesNeverCarrySecrets(t *testing.T) {
 	if got := RedactMerakiChangeValue("PUT /api/v1/networks/N_1/wireless/ssids/0", `{"psk":"`+merakiSentinel+`\`); strings.Contains(got, merakiSentinel) {
 		t.Fatalf("truncated body ending in a backslash leaked: %s", got)
 	}
-	if got := RedactMerakiChangeValue("PUT /api/v1/networks/N_1/wireless/ssids/0", `{"name":"Lobby","psk":"`+merakiSentinel); strings.Contains(got, merakiSentinel) || !strings.Contains(got, "Lobby") {
-		t.Fatalf("truncated JSON body leaked or lost its non-secret text: %s", got)
+	if got := RedactMerakiChangeValue("PUT /api/v1/networks/N_1/wireless/ssids/0", `{"name":"Lobby","psk":"`+merakiSentinel); got != RedactedCutOff {
+		t.Fatalf("cut-off JSON body not withheld whole: %s", got)
+	}
+	if got := RedactMerakiChangeValue("SSID name", "[Default] Guest"); got != "[Default] Guest" {
+		t.Fatalf("bracketed label treated as JSON: %s", got)
+	}
+	// headersFile/bodyFile are base64; the secret never appears in clear.
+	headers := base64.StdEncoding.EncodeToString([]byte(`{"Authorization":"Bearer ` + merakiSentinel + `"}`))
+	if got := RedactMerakiChangeValue("PUT /api/v1/networks/N_1/webhooks/payloadTemplates/wpt_1", `{"name":"Ticketing","headersFile":"`+headers+`","bodyFile":"`+headers+`"}`); strings.Contains(got, headers) {
+		t.Fatalf("base64 webhook headers kept: %s", got)
 	}
 }
 
@@ -163,10 +174,6 @@ func TestRedactKeepsCleanJSONByteForByte(t *testing.T) {
 		if got := string(RedactMerakiSecrets(json.RawMessage(body))); got != body {
 			t.Fatalf("clean JSON rewritten: %s -> %s", body, got)
 		}
-	}
-	clean := `{"headers":[{"name":"Content-Type","template":"application/json"}],"body":"{\"text\":\"aaaa`
-	if got := RedactMerakiJSONString(clean); got != clean {
-		t.Fatalf("clean truncated body rewritten: %s -> %s", clean, got)
 	}
 	if !merakiHasDuplicateKey([]byte(`[{"a":{"b":1,"b":2}}]`)) {
 		t.Fatal("nested duplicate key not detected")
