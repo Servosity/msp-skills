@@ -2359,7 +2359,9 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 		return mcplib.NewToolResultError(fmt.Sprintf("unsupported method %q", ep.Method)), nil
 	}
 	if err != nil {
-		return mcplib.NewToolResultError(err.Error()), nil
+		// Hand-fix (handfixes.json auth-hints-name-the-tenant): the CLI's
+		// tenant-aware hint, for 401/403 here too.
+		return mcplib.NewToolResultError(err.Error() + cli.AuthErrorHint(err)), nil
 	}
 	text := bound.EndpointResponse(ep.Method, data)
 	if platformSession != nil {

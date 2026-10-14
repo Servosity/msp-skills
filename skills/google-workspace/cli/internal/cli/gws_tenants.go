@@ -288,8 +288,15 @@ var (
 // this at the start of each tool call, so a tenant added from a terminal
 // ends the single-tenant auto-selection it resolved earlier.
 func RefreshTenantSelection() {
+	mcpTenantMu.Lock()
+	defer mcpTenantMu.Unlock()
 	resetTenantSelection()
 }
+
+// mcpTenantMu serializes MCP calls' refresh-to-store-path sequence: the tenant
+// selection and store scope are process-wide, and the HTTP transport serves
+// calls concurrently.
+var mcpTenantMu sync.Mutex
 
 // tenantStoreIdentity keys a tenant's local store to its name and domain, so
 // re-registering a name for a different client never reopens the previous
@@ -385,6 +392,18 @@ func localStoreTenantErr() error {
 		return nil
 	}
 	return usageErr(fmt.Errorf("%d tenants are registered and none is selected, so there is no client mirror to read: pass --tenant <name> (MCP server: set GOOGLE_WORKSPACE_TENANT in its env)", len(reg.Tenants)))
+}
+
+// AuthErrorHint is authSetupHint for a 401 or 403 error, for the MCP execute
+// tool, which reports raw client errors.
+func AuthErrorHint(err error) string {
+	if err == nil {
+		return ""
+	}
+	if msg := err.Error(); !strings.Contains(msg, "HTTP 401") && !strings.Contains(msg, "HTTP 403") {
+		return ""
+	}
+	return "\nhint:" + strings.TrimPrefix(authSetupHint(), "\n     ")
 }
 
 // authSetupHint is the credential line of the 400/401/403 hints. With client
@@ -518,7 +537,24 @@ func applyTenantClient(ctx context.Context, c *client.Client, t gwsTenant) error
 		return err
 	}
 	bindTenantToken(c.Config, t, tok)
+	// Long runs (tail, a large sync) outlive the hour-long token; the cached
+	// token source re-mints once it expires.
+	if ts, err := tenantTokenSource(t, t.Scopes); err == nil {
+		c.Config.AuthHeaderSource = refreshingAuthHeader(ts)
+	}
 	return nil
+}
+
+// refreshingAuthHeader returns the current bearer from an auto-refreshing
+// token source, or "" (the bound token then applies) if it cannot refresh.
+func refreshingAuthHeader(ts oauth2.TokenSource) func() string {
+	return func() string {
+		tok, err := ts.Token()
+		if err != nil || tok.AccessToken == "" {
+			return ""
+		}
+		return "Bearer " + tok.AccessToken
+	}
 }
 
 // bindTenantToken makes the tenant's minted bearer authoritative. The

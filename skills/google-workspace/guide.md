@@ -673,7 +673,7 @@ If you use agentcookie to sync secrets across machines, this CLI auto-adopts age
 ## Troubleshooting
 **Authentication errors (exit code 4)**
 - Run `google-workspace-cli doctor` to check credentials
-- Verify the environment variable is set: `echo $GOOGLE_WORKSPACE_TOKEN`
+- Verify the environment variable is set without printing it: `[ -n "$GOOGLE_WORKSPACE_TOKEN" ] && echo set || echo unset`
 **Not found errors (exit code 3)**
 - Check the resource ID is correct
 - Run the `list` command to see available items

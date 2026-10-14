@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -19,6 +20,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"golang.org/x/oauth2"
 	"google-workspace-pp-cli/internal/client"
 	"google-workspace-pp-cli/internal/cliutil"
 	"google-workspace-pp-cli/internal/config"
@@ -925,5 +927,61 @@ func TestAuthSetupHintNamesTheTenant(t *testing.T) {
 	resetTenantSelection()
 	if h := authSetupHint(); !strings.Contains(h, "tenants test acme") {
 		t.Fatalf("a selected tenant: point at its delegation: %q", h)
+	}
+}
+
+type seqTokenSource struct{ n int }
+
+func (s *seqTokenSource) Token() (*oauth2.Token, error) {
+	s.n++
+	return &oauth2.Token{AccessToken: fmt.Sprintf("minted-%d", s.n)}, nil
+}
+
+// TestTenantTokenRefreshesPerRequest: a long run must send the token
+// source's current token, not the one minted when the client was built.
+func TestTenantTokenRefreshesPerRequest(t *testing.T) {
+	var seen []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seen = append(seen, r.Header.Get("Authorization"))
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer srv.Close()
+	cfg := &config.Config{BaseURL: srv.URL}
+	bindTenantToken(cfg, gwsTenant{Name: "acme"}, "minted-at-build")
+	cfg.AuthHeaderSource = refreshingAuthHeader(&seqTokenSource{})
+	c := client.New(cfg, 5*time.Second, 0)
+	c.NoCache = true
+	for i := 0; i < 2; i++ {
+		if _, err := c.Get(context.Background(), "/admin/directory/v1/users", nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if len(seen) != 2 || seen[0] == "Bearer minted-at-build" || seen[0] == seen[1] {
+		t.Fatalf("each request must carry the token source's current token: %v", seen)
+	}
+}
+
+func TestAuthErrorHintForMCPExecute(t *testing.T) {
+	restore, err := cliutil.SetHomeOverride(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer restore()
+	tenantFlag = ""
+	resetTenantSelection()
+	defer resetTenantSelection()
+	if err := updateTenantRegistry(func(reg *tenantRegistry) error {
+		reg.Tenants = append(reg.Tenants, gwsTenant{Name: "acme", Domain: "example.com", KeyFile: "k.json"}, gwsTenant{Name: "beta", Domain: "example.org", KeyFile: "k2.json"})
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	resetTenantSelection()
+	if h := AuthErrorHint(errors.New("GET /admin/directory/v1/users returned HTTP 401: {}")); !strings.Contains(h, "--tenant") {
+		t.Fatalf("a 401 with tenants registered and none selected must name --tenant: %q", h)
+	}
+	if h := AuthErrorHint(errors.New("returned HTTP 404")); h != "" {
+		t.Fatalf("only auth errors get the hint: %q", h)
 	}
 }

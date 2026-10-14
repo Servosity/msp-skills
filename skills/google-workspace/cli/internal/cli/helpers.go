@@ -4691,8 +4691,12 @@ func defaultDBPathInDir(dir string) string {
 // sql must open this path; a hard-coded data.db is empty on a fresh install
 // that never wrote the unscoped file.
 func MCPStorePath() (string, error) {
-	// Hand-fix (handfixes.json tenant-selection-follows-registry).
-	RefreshTenantSelection()
+	// Hand-fix (handfixes.json tenant-selection-follows-registry): re-read
+	// the registry and hold the process-wide scope steady until the path is
+	// computed, so a concurrent call cannot swap the tenant in between.
+	mcpTenantMu.Lock()
+	defer mcpTenantMu.Unlock()
+	resetTenantSelection()
 	configureDefaultDBScope("")
 	// Hand-fix (handfixes.json local-read-needs-a-tenant): sql and search
 	// take no tenant argument; refuse rather than answer from no client.

@@ -42,6 +42,11 @@ type Config struct {
 	envOverrides         map[string]bool `toml:"-"`
 	fileConfig           *Config         `toml:"-"`
 	GoogleWorkspaceToken string          `toml:"workspace_token"`
+
+	// AuthHeaderSource, when set, supplies a fresh Authorization value for
+	// each call (hand-fix handfixes.json tenant-token-refreshes): a tenant's
+	// minted token expires after an hour, and long runs must re-mint.
+	AuthHeaderSource func() string `toml:"-"`
 }
 
 func Load(configPath string) (*Config, error) {
@@ -298,6 +303,11 @@ func (c *Config) CredentialRefusalError() error {
 }
 
 func (c *Config) AuthHeader() string {
+	if c.AuthHeaderSource != nil {
+		if v := c.AuthHeaderSource(); v != "" {
+			return v
+		}
+	}
 	if c.AuthHeaderVal != "" {
 		return c.AuthHeaderVal
 	}

@@ -1036,20 +1036,28 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 		"learn_protocol": learn.RecallFirstProtocol,
 		"auth": map[string]any{
 			"type": "bearer_token",
+			"note": "Client tenants (registered with the CLI's tenants add) are the normal credential: tools that take a tenant argument act as that tenant, and the rest use GOOGLE_WORKSPACE_TENANT or the only registered tenant. The bearer tokens below are for a single organization with no tenants registered; leave them unset once tenants exist.",
 			"env_vars": []map[string]any{
+				{
+					"name":        "GOOGLE_WORKSPACE_TENANT",
+					"kind":        "per_call",
+					"required":    false,
+					"sensitive":   false,
+					"description": "Default client tenant for tools with no tenant argument (sql, search, context and the raw execute tool). Required when more than one tenant is registered.",
+				},
 				{
 					"name":        "GOOGLE_WORKSPACE_TOKEN",
 					"kind":        "per_call",
 					"required":    false,
 					"sensitive":   true,
-					"description": "Set to your API credential.",
+					"description": "Single-organization bearer token, only when no client tenants are registered.",
 				},
 				{
 					"name":        "ADMIN_ACCESS_TOKEN",
 					"kind":        "per_call",
 					"required":    false,
 					"sensitive":   true,
-					"description": "Set to your API credential.",
+					"description": "Single-organization bearer token, only when no client tenants are registered.",
 				},
 			},
 		},
@@ -1278,7 +1286,7 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 			},
 		},
 		"query_tips": []string{
-			"Lists page with pageToken: pass the previous response's nextPageToken as pageToken, and size pages with maxResults (each method has its own cap).",
+			"Lists page with pageToken: pass the previous response's nextPageToken as pageToken, and size pages with maxResults (each method has its own cap). If a response carries _pp_truncated, the page was cut to fit: re-request the same page with maxResults no larger than _pp_returned_count before following nextPageToken, or records are skipped.",
 			"Use the sql tool for ad-hoc analysis on synced data. Run sync first to populate the local database.",
 			"Use the search tool for full-text search across the selected tenant's synced resources. Faster than iterating list endpoints.",
 			"Prefer sql/search over repeated API calls when the data is already synced.",

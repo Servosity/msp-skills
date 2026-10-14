@@ -1576,8 +1576,9 @@ func (c *Client) dryRun(method, targetURL, path string, params map[string]string
 	}
 	_ = queryPrinted
 	if body != nil {
-		var pretty json.RawMessage
-		if json.Unmarshal(body, &pretty) == nil {
+		// Hand-fix (handfixes.json dry-run-redacts-secrets): a preview of
+		// users patch --password must not print the password.
+		if pretty, ok := redactDryRunBody(body); ok {
 			enc := json.NewEncoder(os.Stderr)
 			enc.SetIndent("  ", "  ")
 			fmt.Fprintf(os.Stderr, "  Body:\n")
