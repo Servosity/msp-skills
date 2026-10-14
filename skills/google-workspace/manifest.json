@@ -42,7 +42,7 @@
     "google_workspace_token": {
       "type": "string",
       "title": "Single-organization access token",
-      "description": "Optional. An OAuth access token with Admin SDK scopes for ONE organization, for use instead of registering client tenants. Leave blank once you manage clients through google-workspace-cli tenants add: with two or more tenants registered and none selected, API calls fall back to this token and act on its organization.",
+      "description": "Optional. An OAuth access token with Admin SDK scopes for ONE organization, for use instead of registering client tenants. Leave blank once you manage clients through google-workspace-cli tenants add: the token is not used once tenants are registered, and a call with none selected is refused.",
       "sensitive": true,
       "required": false
     },

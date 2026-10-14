@@ -15,10 +15,10 @@ import (
 func newCustomersChromePrintersDeleteCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:   "delete <name> <customersId> <printersId>",
+		Use:   "delete <name>",
 		Short: "Deletes a `Printer`.",
 		Args: func(cmd *cobra.Command, args []string) error {
-			return endpointPositionalArgs(cmd, flags, args, cobra.MaximumNArgs(3))
+			return endpointPositionalArgs(cmd, flags, args, cobra.MaximumNArgs(1))
 		},
 		Annotations: map[string]string{"pp:endpoint": "chrome-printers.delete", "pp:method": "DELETE", "pp:path": "/admin/directory/v1/customers/{customersId}/chrome/printers/{printersId}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -30,28 +30,26 @@ func newCustomersChromePrintersDeleteCmd(flags *rootFlags) *cobra.Command {
 				if flags.asJSON {
 					if printErr := printJSONFiltered(cmd.OutOrStdout(), map[string]any{
 						"error": "missing required argument",
-						"usage": fmt.Sprintf("%s%s", cmd.CommandPath(), " <name> <customersId> <printersId>"),
+						"usage": fmt.Sprintf("%s%s", cmd.CommandPath(), " <name>"),
 					}, flags); printErr != nil {
 						return printErr
 					}
 				}
-				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <name> <customersId> <printersId>"))
+				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <name>"))
 			}
 			path := "/admin/directory/v1/customers/{customersId}/chrome/printers/{printersId}"
-			if len(args) < 2 || args[1] == "" {
-				return usageErr(fmt.Errorf("customersId is required\nUsage: %s <%s>", cmd.CommandPath(), "customersId"))
+			// Hand-fix (handfixes.json chrome-printer-name-is-the-selector): the
+			// Google name is the one selector; the print also took separate ID
+			// positionals that alone chose the target and sent name as a query.
+			var perr error
+			if path, perr = bindResourceName(path, "customers/{customersId}/chrome/printers/{printersId}", args[0]); perr != nil {
+				return perr
 			}
-			path = replacePathParam(path, "customersId", args[1])
-			if len(args) < 3 || args[2] == "" {
-				return usageErr(fmt.Errorf("printersId is required\nUsage: %s <%s>", cmd.CommandPath(), "printersId"))
-			}
-			path = replacePathParam(path, "printersId", args[2])
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
 			params := map[string]string{}
-			params["name"] = args[0]
 			data, statusCode, err := c.DeleteWithParams(cmd.Context(), path, params)
 			if err != nil {
 				return classifyDeleteError(cmd.OutOrStdout(), err, flags)

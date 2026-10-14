@@ -36,9 +36,9 @@ least-privilege scopes), then:
 
 - **`google-workspace-cli mfa-gaps --all-tenants`** - every account without 2SV across
   every client, ranked with unenrolled admins first.
-- **`google-workspace-cli stale-licenses --all-tenants`** - Workspace edition licenses on
+- **`google-workspace-cli stale-licenses --all-tenants`** - Workspace and paid Education licenses on
   suspended, never-signed-in, or idle accounts, per client, ready to reclaim
-  (`--products` replaces the default `Google-Apps`, so list it too: `--products Google-Apps,Google-Vault`).
+  (`--products` replaces the default `Google-Apps,101031`, so list them too: `--products Google-Apps,101031,Google-Vault`).
 - **`google-workspace-cli leavers --all-tenants`** - suspended accounts still holding a
   license, groups, an admin role, OAuth tokens, or an unfinished Drive transfer.
 - **`google-workspace-cli offboard "jane@example.com" --successor "manager@example.com"`**

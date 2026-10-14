@@ -55,7 +55,7 @@ func secretFieldName(k string) bool {
 	}
 	// Webhook signatures (SAS sig=, Azure Functions code=) carried as query
 	// parameters in --deliver and watch addresses.
-	if k == "sig" || k == "code" {
+	if k == "sig" || k == "code" || strings.Contains(k, "signature") {
 		return true
 	}
 	// Paging cursors are not credentials.
@@ -83,8 +83,9 @@ func redactSecretQueryParams(text string) string {
 			return m
 		}
 		// An empty value followed by its closing quote ("...?token=",) is
-		// not a quoted value: leave the surrounding JSON intact.
-		if parts[3] != "" && strings.ContainsRune(",;:)}]", rune(parts[4][0])) {
+		// not a quoted value: leave the surrounding JSON intact. A real
+		// value only of these separators is not a secret worth the break.
+		if parts[3] != "" && strings.Trim(parts[4], ",;:)}]") == "" {
 			return m
 		}
 		return parts[1] + parts[2] + "=" + parts[3] + "[redacted]"

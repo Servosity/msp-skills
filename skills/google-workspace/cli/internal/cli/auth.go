@@ -40,6 +40,9 @@ func newAuthSetupCmd(_ *rootFlags) *cobra.Command {
 		Example: "  google-workspace-cli auth setup\n  google-workspace-cli auth setup --launch",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			w := cmd.OutOrStdout()
+			// Hand-fix (handfixes.json no-ambient-token-with-tenants).
+			fmt.Fprintln(w, "Client tenants: register each client with 'google-workspace-cli tenants add' (see 'tenants add --help'). The token below is only for a single organization with no tenants registered.")
+			fmt.Fprintln(w, "")
 			fmt.Fprintln(w, "No setup URL is configured for this CLI; check the API's docs.")
 			fmt.Fprintln(w, "  echo \"$TOKEN\" | google-workspace-cli auth set-token")
 			fmt.Fprintln(w, "")
@@ -110,6 +113,13 @@ func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
 					fmt.Fprintf(w, "  %s\n", refusal)
 				}
 				return authErr(cfg.CredentialRefusalError())
+			}
+			// Hand-fix (handfixes.json no-ambient-token-with-tenants): with
+			// client tenants registered the bearer token is not used.
+			if n := registeredTenantCount(); n > 0 {
+				fmt.Fprintf(w, "%d client tenant(s) registered: each command authenticates as the selected tenant (--tenant <name>, or --all-tenants); GOOGLE_WORKSPACE_TOKEN is not used.\n", n)
+				fmt.Fprintln(w, "  Check delegation with: google-workspace-cli tenants test --all-tenants")
+				return nil
 			}
 			if !authed {
 				fmt.Fprintln(w, red("Not authenticated"))

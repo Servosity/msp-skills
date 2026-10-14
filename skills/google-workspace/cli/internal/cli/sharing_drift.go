@@ -72,6 +72,10 @@ type sharingFinding struct {
 	Files   []string `json:"files,omitempty"`
 }
 
+// settingChangeEvents are the admin audit events settingChanges reads (shared
+// by sharing-drift and posture).
+var settingChangeEvents = []string{"CHANGE_DOCS_SETTING", "CHANGE_CALENDAR_SETTING", "CHANGE_APPLICATION_SETTING", "CREATE_APPLICATION_SETTING", "DELETE_APPLICATION_SETTING"}
+
 // sharingSettingRe keeps CHANGE_APPLICATION_SETTING rows that touch sharing.
 var sharingSettingRe = regexp.MustCompile(`(?i)shar|external|outside|publish|visib`)
 
@@ -231,7 +235,7 @@ func newNovelSharingDriftCmd(flags *rootFlags) *cobra.Command {
 				// settingChanges handles CREATE_/DELETE_APPLICATION_SETTING too,
 				// but they were never fetched, so a new or removed sharing policy
 				// read as "no findings".
-				for _, ev := range []string{"CHANGE_DOCS_SETTING", "CHANGE_CALENDAR_SETTING", "CHANGE_APPLICATION_SETTING", "CREATE_APPLICATION_SETTING", "DELETE_APPLICATION_SETTING"} {
+				for _, ev := range settingChangeEvents {
 					acts, err := listActivities(ctx, c, "admin", ev, "", start, maxEvents)
 					if err != nil {
 						return nil, fmt.Errorf("admin audit %s: %w", ev, err)

@@ -84,19 +84,22 @@ func listLicenses(ctx context.Context, c *client.Client, customerID, productID s
 // Hand-fix (handfixes.json licence-products-include-education).
 const defaultLicenceProducts = "Google-Apps,101031"
 
-// listProductLicenses reads every product in the comma-separated list. With
-// the default list, a 400/403/404 on any product after the first is skipped
-// (a customer without Education has no 101031 subscription); the first
-// product, and every product of an operator-chosen list, still fails loudly,
-// so a missing apps.licensing scope is never read as "no licences".
+// educationProduct is the paid Education editions' licence product.
+const educationProduct = "101031"
+
+// listProductLicenses reads every product in the comma-separated list. A
+// customer with no Education subscription gets a 400/403/404 for 101031, so
+// that product is skipped when it is not the first one listed; a quota 403
+// and any other product's failure still fail loudly, and the first product
+// (Google-Apps by default) proves the apps.licensing scope works.
 func listProductLicenses(ctx context.Context, c *client.Client, customerID, products string) ([]licenseAssignment, error) {
-	lenient := products == defaultLicenceProducts
 	var out []licenseAssignment
 	for i, p := range splitTenantCSV(products) {
 		ls, err := listLicenses(ctx, c, customerID, p)
 		if err != nil {
 			var apiErr *client.APIError
-			if lenient && i > 0 && errors.As(err, &apiErr) && (apiErr.StatusCode == 400 || apiErr.StatusCode == 403 || apiErr.StatusCode == 404) {
+			if i > 0 && p == educationProduct && errors.As(err, &apiErr) && !googleQuotaExceeded(err.Error()) &&
+				(apiErr.StatusCode == 400 || apiErr.StatusCode == 403 || apiErr.StatusCode == 404) {
 				continue
 			}
 			return nil, fmt.Errorf("licences for %s: %w", p, err)

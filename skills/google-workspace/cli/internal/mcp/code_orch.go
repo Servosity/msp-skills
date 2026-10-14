@@ -397,7 +397,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Method:         "POST",
 		Path:           "/admin/directory/v1/customers/{customersId}/chrome/printServers:batchCreatePrintServers",
 		Summary:        "Creates multiple print servers.",
-		Positional:     []string{"parent", "customersId"},
+		Positional:     []string{"parent"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
@@ -409,7 +409,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Method:         "POST",
 		Path:           "/admin/directory/v1/customers/{customersId}/chrome/printServers:batchDeletePrintServers",
 		Summary:        "Deletes multiple print servers.",
-		Positional:     []string{"parent", "customersId"},
+		Positional:     []string{"parent"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
@@ -421,7 +421,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Method:         "POST",
 		Path:           "/admin/directory/v1/customers/{customersId}/chrome/printServers",
 		Summary:        "Creates a print server.",
-		Positional:     []string{"parent", "customersId"},
+		Positional:     []string{"parent"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
@@ -433,7 +433,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Method:         "DELETE",
 		Path:           "/admin/directory/v1/customers/{customersId}/chrome/printServers/{printServersId}",
 		Summary:        "Deletes a print server.",
-		Positional:     []string{"name", "customersId", "printServersId"},
+		Positional:     []string{"name"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
@@ -445,7 +445,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Method:         "GET",
 		Path:           "/admin/directory/v1/customers/{customersId}/chrome/printServers/{printServersId}",
 		Summary:        "Returns a print server's configuration.",
-		Positional:     []string{"name", "customersId", "printServersId"},
+		Positional:     []string{"name"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
@@ -457,7 +457,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Method:         "GET",
 		Path:           "/admin/directory/v1/customers/{customersId}/chrome/printServers",
 		Summary:        "Lists print server configurations.",
-		Positional:     []string{"parent", "customersId"},
+		Positional:     []string{"parent"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "filter", WireName: "filter"}, {PublicName: "orderBy", WireName: "orderBy"}, {PublicName: "orgUnitId", WireName: "orgUnitId"}, {PublicName: "pageSize", WireName: "pageSize"}, {PublicName: "pageToken", WireName: "pageToken"}},
 		HeaderParams:   []codeOrchParamBinding{},
@@ -469,7 +469,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Method:         "PATCH",
 		Path:           "/admin/directory/v1/customers/{customersId}/chrome/printServers/{printServersId}",
 		Summary:        "Updates a print server's configuration.",
-		Positional:     []string{"name", "customersId", "printServersId"},
+		Positional:     []string{"name"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "updateMask", WireName: "updateMask"}},
 		HeaderParams:   []codeOrchParamBinding{},
@@ -481,7 +481,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Method:         "POST",
 		Path:           "/admin/directory/v1/customers/{customersId}/chrome/printers:batchCreatePrinters",
 		Summary:        "Creates printers under given Organization Unit.",
-		Positional:     []string{"parent", "customersId"},
+		Positional:     []string{"parent"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
@@ -493,7 +493,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Method:         "POST",
 		Path:           "/admin/directory/v1/customers/{customersId}/chrome/printers:batchDeletePrinters",
 		Summary:        "Deletes printers in batch.",
-		Positional:     []string{"parent", "customersId"},
+		Positional:     []string{"parent"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
@@ -505,7 +505,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Method:         "POST",
 		Path:           "/admin/directory/v1/customers/{customersId}/chrome/printers",
 		Summary:        "Creates a printer under given Organization Unit.",
-		Positional:     []string{"parent", "customersId"},
+		Positional:     []string{"parent"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
@@ -517,7 +517,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Method:         "DELETE",
 		Path:           "/admin/directory/v1/customers/{customersId}/chrome/printers/{printersId}",
 		Summary:        "Deletes a `Printer`.",
-		Positional:     []string{"name", "customersId", "printersId"},
+		Positional:     []string{"name"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
@@ -529,7 +529,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Method:         "GET",
 		Path:           "/admin/directory/v1/customers/{customersId}/chrome/printers/{printersId}",
 		Summary:        "Returns a `Printer` resource (printer's config).",
-		Positional:     []string{"name", "customersId", "printersId"},
+		Positional:     []string{"name"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
@@ -541,7 +541,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Method:         "GET",
 		Path:           "/admin/directory/v1/customers/{customersId}/chrome/printers",
 		Summary:        "List printers configs.",
-		Positional:     []string{"parent", "customersId"},
+		Positional:     []string{"parent"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "filter", WireName: "filter"}, {PublicName: "orderBy", WireName: "orderBy"}, {PublicName: "orgUnitId", WireName: "orgUnitId"}, {PublicName: "pageSize", WireName: "pageSize"}, {PublicName: "pageToken", WireName: "pageToken"}},
 		HeaderParams:   []codeOrchParamBinding{},
@@ -553,7 +553,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Method:         "GET",
 		Path:           "/admin/directory/v1/customers/{customersId}/chrome/printers:listPrinterModels",
 		Summary:        "Lists the supported printer models.",
-		Positional:     []string{"parent", "customersId"},
+		Positional:     []string{"parent"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "filter", WireName: "filter"}, {PublicName: "pageSize", WireName: "pageSize"}, {PublicName: "pageToken", WireName: "pageToken"}},
 		HeaderParams:   []codeOrchParamBinding{},
@@ -565,7 +565,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Method:         "PATCH",
 		Path:           "/admin/directory/v1/customers/{customersId}/chrome/printers/{printersId}",
 		Summary:        "Updates a `Printer` resource.",
-		Positional:     []string{"name", "customersId", "printersId"},
+		Positional:     []string{"name"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "clearMask", WireName: "clearMask"}, {PublicName: "updateMask", WireName: "updateMask"}},
 		HeaderParams:   []codeOrchParamBinding{},
@@ -2218,6 +2218,27 @@ func codeOrchBlockedByMCPReadOnly(method string) bool {
 	return cliutil.IsMCPReadOnlyEnv() && method != "GET"
 }
 
+// codeOrchResourceNames maps endpoints whose Google selector is one resource
+// name ({+name} / {+parent}) to that param and the shape it must match.
+// Hand-fix (handfixes.json chrome-printer-name-is-the-selector).
+var codeOrchResourceNames = map[string][2]string{
+	"customers.chrome-printServers.batchCreatePrintServers": {"parent", "customers/{customersId}"},
+	"customers.chrome-printServers.batchDeletePrintServers": {"parent", "customers/{customersId}"},
+	"customers.chrome-printServers.create":                  {"parent", "customers/{customersId}"},
+	"customers.chrome-printServers.delete":                  {"name", "customers/{customersId}/chrome/printServers/{printServersId}"},
+	"customers.chrome-printServers.get":                     {"name", "customers/{customersId}/chrome/printServers/{printServersId}"},
+	"customers.chrome-printServers.list":                    {"parent", "customers/{customersId}"},
+	"customers.chrome-printServers.patch":                   {"name", "customers/{customersId}/chrome/printServers/{printServersId}"},
+	"customers.chrome-printers.batchCreatePrinters":         {"parent", "customers/{customersId}"},
+	"customers.chrome-printers.batchDeletePrinters":         {"parent", "customers/{customersId}"},
+	"customers.chrome-printers.create":                      {"parent", "customers/{customersId}"},
+	"customers.chrome-printers.delete":                      {"name", "customers/{customersId}/chrome/printers/{printersId}"},
+	"customers.chrome-printers.get":                         {"name", "customers/{customersId}/chrome/printers/{printersId}"},
+	"customers.chrome-printers.list":                        {"parent", "customers/{customersId}"},
+	"customers.chrome-printers.listPrinterModels":           {"parent", "customers/{customersId}"},
+	"customers.chrome-printers.patch":                       {"name", "customers/{customersId}/chrome/printers/{printersId}"},
+}
+
 func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
 	args := req.GetArguments()
 	id, ok := args["endpoint_id"].(string)
@@ -2251,12 +2272,27 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 	}
 
 	path := ep.Path
+	if rn, ok := codeOrchResourceNames[ep.ID]; ok {
+		v, ok := params[rn[0]]
+		if !ok {
+			return mcplib.NewToolResultError(fmt.Sprintf("%s is required (a resource name of the form %s)", rn[0], rn[1])), nil
+		}
+		bound, err := cliutil.BindResourceName(path, rn[1], formatMCPParamValue(v))
+		if err != nil {
+			return mcplib.NewToolResultError(err.Error()), nil
+		}
+		path = bound
+		delete(params, rn[0])
+	}
 	for _, p := range ep.Positional {
 		if v, ok := params[p]; ok && strings.Contains(path, "{"+p+"}") {
 			pv := mcpPathValue(v)
 			if p == "orgUnitPath" {
 				// Hand-fix (handfixes.json orgunits-path-is-the-ou): an OU
 				// path keeps its slashes ({orgUnitPath=**}).
+				if err := cliutil.CheckReservedPathValue(p, formatMCPParamValue(v)); err != nil {
+					return mcplib.NewToolResultError(err.Error()), nil
+				}
 				pv = cliutil.EscapeReservedPathParam(formatMCPParamValue(v))
 			}
 			path = strings.ReplaceAll(path, "{"+p+"}", pv)

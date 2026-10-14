@@ -5,6 +5,7 @@
 package cliutil
 
 import (
+	"fmt"
 	"html"
 	"net/url"
 	"regexp"
@@ -49,14 +50,57 @@ func EscapePathParam(value string) string {
 
 // EscapeReservedPathParam escapes a multi-segment path value ({name=**},
 // e.g. a Google OU path "Sales/West"): a leading slash is dropped, each
-// segment is escaped like EscapePathParam, and the separating slashes stay.
+// segment is escaped like EscapePathParam (plus '+' as %2B, which Google
+// would otherwise read as a space), and the separating slashes stay.
 // Hand-fix (handfixes.json orgunits-path-is-the-ou).
 func EscapeReservedPathParam(value string) string {
 	segs := strings.Split(strings.TrimPrefix(value, "/"), "/")
 	for i, seg := range segs {
-		segs[i] = EscapePathParam(seg)
+		segs[i] = strings.ReplaceAll(EscapePathParam(seg), "+", "%2B")
 	}
 	return strings.Join(segs, "/")
+}
+
+// CheckReservedPathValue rejects a multi-segment path value that is empty
+// or has an empty, "." or ".." segment, so it can only name a resource
+// below its endpoint, never the collection or a sibling path.
+func CheckReservedPathValue(name, value string) error {
+	v := strings.TrimPrefix(value, "/")
+	if v == "" {
+		return fmt.Errorf("%s must not be empty", name)
+	}
+	for _, seg := range strings.Split(v, "/") {
+		if seg == "" || seg == "." || seg == ".." {
+			return fmt.Errorf("%s %q has an empty, '.' or '..' segment", name, value)
+		}
+	}
+	return nil
+}
+
+// BindResourceName fills path from a Google resource name that must match
+// tmpl segment for segment (e.g. "customers/{customersId}/chrome/printers/{printersId}"):
+// literal segments must match exactly and each {var} takes one non-empty
+// segment, escaped into path's {var}. Hand-fix (handfixes.json
+// chrome-printer-name-is-the-selector).
+func BindResourceName(path, tmpl, name string) (string, error) {
+	t := strings.Split(tmpl, "/")
+	n := strings.Split(strings.Trim(name, "/"), "/")
+	if len(n) != len(t) {
+		return "", fmt.Errorf("%q is not a resource name of the form %s", name, tmpl)
+	}
+	for i, seg := range t {
+		if !strings.HasPrefix(seg, "{") {
+			if n[i] != seg {
+				return "", fmt.Errorf("%q is not a resource name of the form %s", name, tmpl)
+			}
+			continue
+		}
+		if n[i] == "" || n[i] == "." || n[i] == ".." {
+			return "", fmt.Errorf("%q is not a resource name of the form %s", name, tmpl)
+		}
+		path = strings.ReplaceAll(path, seg, EscapePathParam(n[i]))
+	}
+	return path, nil
 }
 
 // ParseStoredTime parses timestamps read back from SQLite-backed generated

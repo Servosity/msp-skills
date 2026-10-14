@@ -87,7 +87,7 @@ func rollupPosture(t gwsTenant, users []dirUser, licenses []licenseAssignment, s
 	}
 	warn(p.ActiveUsers > 0 && p.TwoSVEnrolledPct < minPct, fmt.Sprintf("2SV coverage %.1f%% < %.0f%%", p.TwoSVEnrolledPct, minPct))
 	warn(p.StaleLicenses > 0, fmt.Sprintf("%d stale licence(s)", p.StaleLicenses))
-	warn(settingEdits > 0, fmt.Sprintf("%d Drive/Calendar setting change(s)", settingEdits))
+	warn(settingEdits > 0, fmt.Sprintf("%d setting change(s) (Drive, Calendar, app sharing)", settingEdits))
 	return p
 }
 
@@ -205,7 +205,7 @@ func newNovelPostureCmd(flags *rootFlags) *cobra.Command {
 		Short: "One row per client tenant: 2SV coverage, admins without 2SV, stale licences, Drive and Calendar setting changes",
 		Long: "The cross-client security and licence summary for QBRs and weekly review.\n" +
 			"Each tenant is graded critical (an admin without 2SV), warn (2SV coverage below\n" +
-			"--min-2sv-pct, any stale licence, or any Drive or Calendar setting change in --since), or ok;\n" +
+			"--min-2sv-pct, any stale licence, or any Drive, Calendar or sharing setting change in --since), or ok;\n" +
 			"a tenant that could not be read is an explicit error row, never a zeroed one.\n" +
 			"Tenants registered with the 'policy' scope profile also report the current 2SV\n" +
 			"enforcement, Drive external sharing mode and Gmail auto-forwarding policy\n" +
@@ -241,7 +241,10 @@ func newNovelPostureCmd(flags *rootFlags) *cobra.Command {
 					return nil, err
 				}
 				edits := 0
-				for _, ev := range []string{"CHANGE_DOCS_SETTING", "CHANGE_CALENDAR_SETTING"} {
+				// Hand-fix (handfixes.json sharing-drift-reads-created-deleted-settings):
+				// the same events sharing-drift reads, so a sharing change it
+				// reports is never missing here.
+				for _, ev := range settingChangeEvents {
 					acts, err := listActivities(ctx, c, "admin", ev, "", start, maxEvents)
 					if err != nil {
 						return nil, fmt.Errorf("admin audit %s: %w", ev, err)
@@ -281,7 +284,7 @@ func newNovelPostureCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().BoolVar(&ff.all, "all-tenants", false, allTenantsUsage)
 	ff.bind(cmd)
 	cmd.Flags().StringVar(&since, "since", "30d", "Window for Drive and Calendar setting changes, e.g. 7d, 30d")
-	cmd.Flags().IntVar(&maxEvents, "max-events", 1000, "Cap Drive and Calendar setting-change audit events read per query per tenant")
+	cmd.Flags().IntVar(&maxEvents, "max-events", 1000, "Cap setting-change audit events read per query per tenant")
 	cmd.Flags().IntVar(&inactiveDays, "inactive-days", 60, "Licence counts as stale after this many days without sign-in")
 	cmd.Flags().IntVar(&graceDays, "grace-days", 14, "Skip accounts created within this many days")
 	cmd.Flags().Float64Var(&minPct, "min-2sv-pct", 95, "Warn when 2SV enrollment is below this percentage")

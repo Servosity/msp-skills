@@ -20,10 +20,10 @@ func newCustomersChromePrintersListCmd(flags *rootFlags) *cobra.Command {
 	var flagPageToken string
 
 	cmd := &cobra.Command{
-		Use:   "list <parent> <customersId>",
+		Use:   "list <parent>",
 		Short: "List printers configs.",
 		Args: func(cmd *cobra.Command, args []string) error {
-			return endpointPositionalArgs(cmd, flags, args, cobra.MaximumNArgs(2))
+			return endpointPositionalArgs(cmd, flags, args, cobra.MaximumNArgs(1))
 		},
 		Annotations: map[string]string{"pp:endpoint": "chrome-printers.list", "pp:method": "GET", "pp:path": "/admin/directory/v1/customers/{customersId}/chrome/printers", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -35,24 +35,26 @@ func newCustomersChromePrintersListCmd(flags *rootFlags) *cobra.Command {
 				if flags.asJSON {
 					if printErr := printJSONFiltered(cmd.OutOrStdout(), map[string]any{
 						"error": "missing required argument",
-						"usage": fmt.Sprintf("%s%s", cmd.CommandPath(), " <parent> <customersId>"),
+						"usage": fmt.Sprintf("%s%s", cmd.CommandPath(), " <parent>"),
 					}, flags); printErr != nil {
 						return printErr
 					}
 				}
-				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <parent> <customersId>"))
+				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <parent>"))
 			}
 			path := "/admin/directory/v1/customers/{customersId}/chrome/printers"
-			if len(args) < 2 || args[1] == "" {
-				return usageErr(fmt.Errorf("customersId is required\nUsage: %s <%s>", cmd.CommandPath(), "customersId"))
+			// Hand-fix (handfixes.json chrome-printer-name-is-the-selector): the
+			// Google parent is the one selector; the print also took separate ID
+			// positionals that alone chose the target and sent parent as a query.
+			var perr error
+			if path, perr = bindResourceName(path, "customers/{customersId}", args[0]); perr != nil {
+				return perr
 			}
-			path = replacePathParam(path, "customersId", args[1])
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
 			params := map[string]string{}
-			params["parent"] = args[0]
 			if cmd.Flags().Changed("filter") || flagFilter != "" {
 				params["filter"] = formatCLIParamValue(flagFilter)
 			}

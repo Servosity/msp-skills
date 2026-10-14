@@ -88,7 +88,7 @@ func newTenantsAddCmd(flags *rootFlags) *cobra.Command {
 			if !tenantNamePattern.MatchString(name) {
 				return usageErr(fmt.Errorf("tenant name %q must be lowercase letters, digits, '.', '_' or '-'", name))
 			}
-			if domain == "" || admin == "" || key == "" {
+			if strings.TrimSpace(domain) == "" || admin == "" || key == "" {
 				return usageErr(fmt.Errorf("--domain, --admin and --key are required"))
 			}
 			if !strings.Contains(admin, "@") {
@@ -108,7 +108,7 @@ func newTenantsAddCmd(flags *rootFlags) *cobra.Command {
 			}
 			keyDest := filepath.Join(dir, "keys", name+".json")
 			t := gwsTenant{
-				Name: name, Domain: strings.ToLower(domain), Domains: splitTenantCSV(strings.ToLower(extraDomains)),
+				Name: name, Domain: strings.ToLower(strings.TrimSpace(domain)), Domains: splitTenantCSV(strings.ToLower(extraDomains)),
 				Admin: admin, KeyFile: keyDest, CustomerID: customerID, Scopes: resolved, Reseller: reseller,
 			}
 			err = updateTenantRegistry(func(reg *tenantRegistry) error {
@@ -307,6 +307,10 @@ type tenantTestResult struct {
 	Scopes     []scopeCheck `json:"scopes"`
 	Error      string       `json:"error,omitempty"`
 	tested     gwsTenant    // the registry entry this result was produced from
+	// wrongCustomer: the admin and key resolve to an organization that does
+	// not own the configured domain; its recorded customer and domains are
+	// cleared (handfixes.json tenants-test-checks-domain).
+	wrongCustomer bool
 }
 
 // sameTenantConfig reports whether a registry entry is still the one that
@@ -356,7 +360,7 @@ func newTenantsTestCmd(flags *rootFlags) *cobra.Command {
 			verified := map[string]tenantTestResult{}
 			for _, r := range results {
 				out = append(out, r.Value)
-				if r.Value.OK {
+				if r.Value.OK || r.Value.wrongCustomer {
 					verified[r.Value.Tenant] = r.Value
 				}
 			}
@@ -448,11 +452,14 @@ func testTenant(ctx context.Context, flags *rootFlags, t gwsTenant) tenantTestRe
 	domains, err := tenantDomains(t, raw)
 	if err != nil {
 		res.OK, res.Error, res.CustomerID = false, err.Error(), ""
+		res.wrongCustomer = errors.Is(err, errWrongCustomer)
 		return res
 	}
 	res.Domains = domains
 	return res
 }
+
+var errWrongCustomer = errors.New("the admin or service-account key belongs to a different Google Workspace customer")
 
 // tenantDomains decodes a domains.list response into the tenant's secondary
 // domains and aliases (offboard resolves tenants by any of them). Hand-fix
@@ -488,7 +495,7 @@ func tenantDomains(t gwsTenant, raw []byte) ([]string, error) {
 		}
 	}
 	if !owned {
-		return nil, fmt.Errorf("domain %s is not one of this organization's domains (%s): the admin or service-account key belongs to a different Google Workspace customer; re-register with 'tenants add %s --yes' and the right --domain, --admin and --key", want, strings.Join(out, ", "), t.Name)
+		return nil, fmt.Errorf("%w: domain %s is not one of this organization's domains (%s); its recorded customer and domains are cleared. Re-register with 'tenants add %s --yes' and the right --domain, --admin and --key", errWrongCustomer, want, strings.Join(out, ", "), t.Name)
 	}
 	return out, nil
 }

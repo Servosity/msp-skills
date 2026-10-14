@@ -62,6 +62,8 @@ func TestRedactSecretQueryParams(t *testing.T) {
 		`https://user:pa'ss-SECRET@hooks.example/cb`,
 		`https://x/invoke?sp=%2Ftriggers&sig=sas-SECRET`,
 		`https://x/api/hook?code=azfn-SECRET`,
+		`https://hooks.example/cb?token=';HOOK-SECRET'`,
+		`https://b.s3.example/o?X-Amz-Signature=s3-SECRET&X-Amz-Date=1`,
 	} {
 		if got := RedactURLSecrets(tc); strings.Contains(got, "SECRET") {
 			t.Errorf("secret survived: %s -> %s", tc, got)
@@ -108,5 +110,16 @@ func TestWatchResponseHidesChannelToken(t *testing.T) {
 	other := []byte(`{"kind":"admin#directory#user","token":"not-a-channel"}`)
 	if string(redactChannelToken(other)) != string(other) {
 		t.Fatal("only api#channel responses are rewritten")
+	}
+}
+
+// Hand-fix (handfixes.json dry-run-redacts-secrets): a URL that fails to
+// parse must not come back verbatim in the request error.
+func TestRequestBuildErrorMasksURLSecrets(t *testing.T) {
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	c := New(&config.Config{BaseURL: "https://user:SECRET@host.example/%zz"}, time.Second, 0)
+	_, err := c.Get(context.Background(), "/x?token=SECRET", nil)
+	if err == nil || strings.Contains(err.Error(), "SECRET") {
+		t.Fatalf("request error leaked a secret: %v", err)
 	}
 }

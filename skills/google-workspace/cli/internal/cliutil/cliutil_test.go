@@ -1098,9 +1098,39 @@ func TestEscapeReservedPathParam(t *testing.T) {
 		"/Sales/West Coast": "Sales/West%20Coast",
 		"id:03ph8a2z1":      "id:03ph8a2z1",
 		"a/../b?x":          "a/%2E%2E/b%3Fx",
+		"R+D":               "R%2BD",
 	} {
 		if got := EscapeReservedPathParam(in); got != want {
 			t.Errorf("%q -> %q, want %q", in, got, want)
+		}
+	}
+}
+
+// Hand-fix (handfixes.json orgunits-path-is-the-ou).
+func TestCheckReservedPathValue(t *testing.T) {
+	for _, bad := range []string{"", "/", "a//b", "a/../b", "./a", "a/"} {
+		if CheckReservedPathValue("orgUnitPath", bad) == nil {
+			t.Errorf("%q must be refused", bad)
+		}
+	}
+	for _, ok := range []string{"Sales", "/Sales/West", "id:03ph8a2z1"} {
+		if err := CheckReservedPathValue("orgUnitPath", ok); err != nil {
+			t.Errorf("%q: %v", ok, err)
+		}
+	}
+}
+
+// Hand-fix (handfixes.json chrome-printer-name-is-the-selector).
+func TestBindResourceName(t *testing.T) {
+	const path = "/admin/directory/v1/customers/{customersId}/chrome/printers/{printersId}"
+	const tmpl = "customers/{customersId}/chrome/printers/{printersId}"
+	got, err := BindResourceName(path, tmpl, "customers/C01/chrome/printers/p 1")
+	if err != nil || got != "/admin/directory/v1/customers/C01/chrome/printers/p%201" {
+		t.Fatalf("%q %v", got, err)
+	}
+	for _, bad := range []string{"users/ceo@example.com", "customers/C01/chrome/printServers/p1", "customers/C01/chrome/printers/..", "customers//chrome/printers/p1", "p1"} {
+		if _, err := BindResourceName(path, tmpl, bad); err == nil {
+			t.Errorf("%q must be refused", bad)
 		}
 	}
 }

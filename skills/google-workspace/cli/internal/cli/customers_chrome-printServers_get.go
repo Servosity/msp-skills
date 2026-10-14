@@ -15,10 +15,10 @@ import (
 func newCustomersChromePrintServersGetCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:   "get <name> <customersId> <printServersId>",
+		Use:   "get <name>",
 		Short: "Returns a print server's configuration.",
 		Args: func(cmd *cobra.Command, args []string) error {
-			return endpointPositionalArgs(cmd, flags, args, cobra.MaximumNArgs(3))
+			return endpointPositionalArgs(cmd, flags, args, cobra.MaximumNArgs(1))
 		},
 		Annotations: map[string]string{"pp:endpoint": "chrome-printServers.get", "pp:method": "GET", "pp:path": "/admin/directory/v1/customers/{customersId}/chrome/printServers/{printServersId}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -30,28 +30,26 @@ func newCustomersChromePrintServersGetCmd(flags *rootFlags) *cobra.Command {
 				if flags.asJSON {
 					if printErr := printJSONFiltered(cmd.OutOrStdout(), map[string]any{
 						"error": "missing required argument",
-						"usage": fmt.Sprintf("%s%s", cmd.CommandPath(), " <name> <customersId> <printServersId>"),
+						"usage": fmt.Sprintf("%s%s", cmd.CommandPath(), " <name>"),
 					}, flags); printErr != nil {
 						return printErr
 					}
 				}
-				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <name> <customersId> <printServersId>"))
+				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <name>"))
 			}
 			path := "/admin/directory/v1/customers/{customersId}/chrome/printServers/{printServersId}"
-			if len(args) < 2 || args[1] == "" {
-				return usageErr(fmt.Errorf("customersId is required\nUsage: %s <%s>", cmd.CommandPath(), "customersId"))
+			// Hand-fix (handfixes.json chrome-printer-name-is-the-selector): the
+			// Google name is the one selector; the print also took separate ID
+			// positionals that alone chose the target and sent name as a query.
+			var perr error
+			if path, perr = bindResourceName(path, "customers/{customersId}/chrome/printServers/{printServersId}", args[0]); perr != nil {
+				return perr
 			}
-			path = replacePathParam(path, "customersId", args[1])
-			if len(args) < 3 || args[2] == "" {
-				return usageErr(fmt.Errorf("printServersId is required\nUsage: %s <%s>", cmd.CommandPath(), "printServersId"))
-			}
-			path = replacePathParam(path, "printServersId", args[2])
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
 			params := map[string]string{}
-			params["name"] = args[0]
 			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "chrome-printServers", false, path, params, nil, "", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)

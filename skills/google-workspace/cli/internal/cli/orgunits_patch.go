@@ -55,7 +55,10 @@ func newOrgunitsPatchCmd(flags *rootFlags) *cobra.Command {
 			// Hand-fix (handfixes.json orgunits-path-is-the-ou): Google's
 			// {orgUnitPath=**} is the one OU selector. The print split it into
 			// a query param plus a second positional that alone chose the OU.
-			path = replaceReservedPathParam(path, "orgUnitPath", args[0])
+			var perr error
+			if path, perr = replaceReservedPathParam(path, "orgUnitPath", args[0]); perr != nil {
+				return perr
+			}
 			c, err := flags.newClient()
 			if err != nil {
 				return err

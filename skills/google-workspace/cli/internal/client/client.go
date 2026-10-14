@@ -1297,7 +1297,9 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 
 		req, err := http.NewRequestWithContext(ctx, method, targetURL, bodyReader)
 		if err != nil {
-			return nil, 0, fmt.Errorf("creating request: %w", err)
+			// Hand-fix (handfixes.json dry-run-redacts-secrets): the parse
+			// error quotes the whole URL, userinfo and query included.
+			return nil, 0, fmt.Errorf("creating request: %s", c.maskCredentialText(err.Error()))
 		}
 		if bodyBytes != nil {
 			req.Header.Set("Content-Type", "application/json")

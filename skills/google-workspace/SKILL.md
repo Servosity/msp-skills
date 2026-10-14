@@ -185,21 +185,21 @@ Every command below is listed with its required positional arguments. Run `googl
 
 **customers**
 
-- `google-workspace-cli customers chrome-print-servers batch-create-print-servers <parent> <customersId>` - Creates multiple print servers.
-- `google-workspace-cli customers chrome-print-servers batch-delete-print-servers <parent> <customersId>` - Deletes multiple print servers.
-- `google-workspace-cli customers chrome-print-servers create <parent> <customersId>` - Creates a print server.
-- `google-workspace-cli customers chrome-print-servers delete <name> <customersId> <printServersId>` - Deletes a print server.
-- `google-workspace-cli customers chrome-print-servers get <name> <customersId> <printServersId>` - Returns a print server's configuration.
-- `google-workspace-cli customers chrome-print-servers list <parent> <customersId>` - Lists print server configurations.
-- `google-workspace-cli customers chrome-print-servers patch <name> <customersId> <printServersId>` - Updates a print server's configuration.
-- `google-workspace-cli customers chrome-printers batch-create-printers <parent> <customersId>` - Creates printers under given Organization Unit.
-- `google-workspace-cli customers chrome-printers batch-delete-printers <parent> <customersId>` - Deletes printers in batch.
-- `google-workspace-cli customers chrome-printers create <parent> <customersId>` - Creates a printer under given Organization Unit.
-- `google-workspace-cli customers chrome-printers delete <name> <customersId> <printersId>` - Deletes a `Printer`.
-- `google-workspace-cli customers chrome-printers get <name> <customersId> <printersId>` - Returns a `Printer` resource (printer's config).
-- `google-workspace-cli customers chrome-printers list <parent> <customersId>` - List printers configs.
-- `google-workspace-cli customers chrome-printers list-printer-models <parent> <customersId>` - Lists the supported printer models.
-- `google-workspace-cli customers chrome-printers patch <name> <customersId> <printersId>` - Updates a `Printer` resource.
+- `google-workspace-cli customers chrome-print-servers batch-create-print-servers <parent>` - Creates multiple print servers.
+- `google-workspace-cli customers chrome-print-servers batch-delete-print-servers <parent>` - Deletes multiple print servers.
+- `google-workspace-cli customers chrome-print-servers create <parent>` - Creates a print server.
+- `google-workspace-cli customers chrome-print-servers delete <name>` - Deletes a print server.
+- `google-workspace-cli customers chrome-print-servers get <name>` - Returns a print server's configuration.
+- `google-workspace-cli customers chrome-print-servers list <parent>` - Lists print server configurations.
+- `google-workspace-cli customers chrome-print-servers patch <name>` - Updates a print server's configuration.
+- `google-workspace-cli customers chrome-printers batch-create-printers <parent>` - Creates printers under given Organization Unit.
+- `google-workspace-cli customers chrome-printers batch-delete-printers <parent>` - Deletes printers in batch.
+- `google-workspace-cli customers chrome-printers create <parent>` - Creates a printer under given Organization Unit.
+- `google-workspace-cli customers chrome-printers delete <name>` - Deletes a `Printer`.
+- `google-workspace-cli customers chrome-printers get <name>` - Returns a `Printer` resource (printer's config).
+- `google-workspace-cli customers chrome-printers list <parent>` - List printers configs.
+- `google-workspace-cli customers chrome-printers list-printer-models <parent>` - Lists the supported printer models.
+- `google-workspace-cli customers chrome-printers patch <name>` - Updates a `Printer` resource.
 - `google-workspace-cli customers get` - Retrieves a customer.
 - `google-workspace-cli customers patch` - Patches a customer.
 - `google-workspace-cli customers update` - Updates a customer.

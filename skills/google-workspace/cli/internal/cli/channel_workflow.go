@@ -191,6 +191,11 @@ func newWorkflowStatusCmd(flags *rootFlags) *cobra.Command {
   google-workspace-cli workflow status --json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dbPath == "" {
+				// Hand-fix (handfixes.json no-ambient-token-with-tenants): the
+				// default store is a tenant's; refuse when none is selected.
+				if err := localStoreTenantErr(); err != nil {
+					return err
+				}
 				dbPath = defaultDBPath("google-workspace-cli")
 			}
 

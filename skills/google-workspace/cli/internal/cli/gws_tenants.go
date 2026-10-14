@@ -387,6 +387,16 @@ func localStoreTenantErr() error {
 	return noTenantSelectedErr()
 }
 
+// registeredTenantCount is the number of registered tenants (0 when the
+// registry cannot be read).
+func registeredTenantCount() int {
+	reg, err := loadTenantRegistry()
+	if err != nil {
+		return 0
+	}
+	return len(reg.Tenants)
+}
+
 // noTenantSelectedErr refuses an API call or local read while client tenants
 // are registered and none is selected, instead of falling back to an ambient
 // GOOGLE_WORKSPACE_TOKEN (or a saved token): that token's organization is not

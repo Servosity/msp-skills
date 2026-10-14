@@ -1006,10 +1006,11 @@ func TestAuthErrorHintForMCPExecute(t *testing.T) {
 }
 
 // Hand-fix (handfixes.json licence-products-include-education): paid
-// Education seats live under product 101031; a customer without Education
-// must not fail the default list, but an operator-chosen product must.
+// Education seats live under product 101031. A customer without Education
+// must not fail when 101031 follows another product; a quota 403, 101031
+// listed alone, or any other product's failure must fail loudly.
 func TestLicenceProductsIncludeEducation(t *testing.T) {
-	eduStatus := 0
+	eduStatus, eduBody := 0, ""
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case strings.HasSuffix(r.URL.Path, "/product/Google-Apps/users"):
@@ -1017,10 +1018,13 @@ func TestLicenceProductsIncludeEducation(t *testing.T) {
 		case strings.HasSuffix(r.URL.Path, "/product/101031/users"):
 			if eduStatus != 0 {
 				w.WriteHeader(eduStatus)
-				_, _ = io.WriteString(w, `{"error":{"code":400,"message":"Invalid productId"}}`)
+				_, _ = io.WriteString(w, eduBody)
 				return
 			}
 			_, _ = io.WriteString(w, `{"items":[{"userId":"b@example.com","productId":"101031","skuId":"1010310008","skuName":"Education Plus"}]}`)
+		case strings.HasSuffix(r.URL.Path, "/product/Google-Vault/users"):
+			w.WriteHeader(http.StatusForbidden)
+			_, _ = io.WriteString(w, `{"error":{"code":403,"message":"Not Authorized"}}`)
 		default:
 			t.Errorf("unexpected path %s", r.URL.Path)
 		}
@@ -1031,12 +1035,36 @@ func TestLicenceProductsIncludeEducation(t *testing.T) {
 	if ls, err := listProductLicenses(ctx, c, "C1", defaultLicenceProducts); err != nil || len(ls) != 2 {
 		t.Fatalf("default products must include paid Education seats: %v %v", ls, err)
 	}
-	eduStatus = http.StatusBadRequest
+	eduStatus, eduBody = http.StatusBadRequest, `{"error":{"code":400,"message":"Invalid productId"}}`
 	if ls, err := listProductLicenses(ctx, c, "C2", defaultLicenceProducts); err != nil || len(ls) != 1 {
 		t.Fatalf("a customer without Education must not fail the default list: %v %v", ls, err)
 	}
-	if _, err := listProductLicenses(ctx, c, "C3", "Google-Apps,101031"+","); err == nil {
-		t.Fatal("an operator-chosen product list must fail loudly")
+	if _, err := listProductLicenses(ctx, c, "C3", "101031"); err == nil {
+		t.Fatal("101031 listed alone must fail loudly")
+	}
+	if _, err := listProductLicenses(ctx, c, "C4", "Google-Apps,Google-Vault"); err == nil {
+		t.Fatal("a product other than 101031 must fail loudly")
+	}
+	eduStatus, eduBody = http.StatusForbidden, `{"error":{"code":403,"errors":[{"reason":"quotaExceeded"}]}}`
+	if _, err := listProductLicenses(ctx, c, "C5", defaultLicenceProducts); err == nil {
+		t.Fatal("a quota 403 on 101031 must not be read as no Education seats")
+	}
+}
+
+// Hand-fix (handfixes.json profiles-never-store-url-secrets).
+func TestProfileSaveRefusesURLSecrets(t *testing.T) {
+	restore, err := cliutil.SetHomeOverride(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer restore()
+	root := RootCmd()
+	var out bytes.Buffer
+	root.SetOut(&out)
+	root.SetErr(&out)
+	root.SetArgs([]string{"profile", "save", "p", "--deliver", "webhook:https://hooks.example/cb?token=SECRET"})
+	if err := root.Execute(); err == nil || !strings.Contains(err.Error(), "deliver") || strings.Contains(err.Error()+out.String(), "SECRET") {
+		t.Fatalf("a --deliver URL with a secret must not be saved: %v %s", err, out.String())
 	}
 }
 
@@ -1050,7 +1078,7 @@ func TestTenantDomainsRequiresConfiguredDomain(t *testing.T) {
 	if _, err := tenantDomains(gwsTenant{Name: "acme", Domain: "acme.net"}, raw); err != nil {
 		t.Fatalf("a domain alias belongs to the customer: %v", err)
 	}
-	if _, err := tenantDomains(gwsTenant{Name: "acme", Domain: "other.com"}, raw); err == nil || !strings.Contains(err.Error(), "different Google Workspace customer") {
+	if _, err := tenantDomains(gwsTenant{Name: "acme", Domain: "other.com"}, raw); !errors.Is(err, errWrongCustomer) {
 		t.Fatalf("another customer's credentials must fail verification: %v", err)
 	}
 }

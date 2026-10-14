@@ -7,6 +7,7 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
+	"google-workspace-pp-cli/internal/client"
 	"os"
 	"path/filepath"
 	"sort"
@@ -217,8 +218,17 @@ captured: they control profile/config resolution and would never apply).`,
 			// would store values that never take effect.
 			skip := map[string]bool{"profile": true, "client-profile": true, "config": true, "home": true, "help": true, "description": true}
 			credentialFlags := []string{}
+			visited := map[string]bool{}
 			visit := func(fl *pflag.Flag) {
-				if fl.Changed && credentialLikeRunProfileFlag(fl.Name) {
+				// A persistent flag shows up in both flag sets; report it once.
+				if visited[fl.Name] {
+					return
+				}
+				visited[fl.Name] = true
+				// Hand-fix (handfixes.json profiles-never-store-url-secrets): a
+				// value carrying a URL secret (--deliver webhook:...?token=) is
+				// a credential whatever the flag is called.
+				if fl.Changed && (credentialLikeRunProfileFlag(fl.Name) || client.RedactURLSecrets(fl.Value.String()) != fl.Value.String()) {
 					credentialFlags = append(credentialFlags, fl.Name)
 					return
 				}
