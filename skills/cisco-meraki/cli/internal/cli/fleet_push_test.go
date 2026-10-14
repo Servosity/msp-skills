@@ -311,3 +311,53 @@ func TestFleetPushDesiredRedactedButAppliedWhole(t *testing.T) {
 		t.Fatalf("--apply did not send the real PSK: %s", batch.String())
 	}
 }
+
+// TestFleetPushResourceScrubbedButTargetedWhole: a webhook HTTP server ID in
+// --path is the base64 of the receiver URL, so the printed resource is
+// scrubbed while --apply still targets the real path (Codex round 19).
+func TestFleetPushResourceScrubbedButTargetedWhole(t *testing.T) {
+	testenv.Isolate(t)
+	const id = "aHR0cHM6Ly9ob29rcy5zbGFjay5jb20vc2VydmljZXMvWFhYWA=="
+	var batch bytes.Buffer
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/organizations":
+			_, _ = w.Write([]byte(`[{"id":"1","name":"Acme","api":{"enabled":true}}]`))
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/organizations/1/networks":
+			_, _ = w.Write([]byte(`[{"id":"N_1","name":"HQ","organizationId":"1","productTypes":["appliance"],"tags":[]}]`))
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/networks/N_1/webhooks/httpServers/"+id:
+			_, _ = w.Write([]byte(`{"name":"Before"}`))
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/organizations/1/actionBatches":
+			_, _ = batch.ReadFrom(r.Body)
+			_, _ = w.Write([]byte(`{"id":"B1","status":{"completed":true,"failed":false,"errors":[]}}`))
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/organizations/1/actionBatches/B1":
+			_, _ = w.Write([]byte(`{"id":"B1","status":{"completed":true,"failed":false,"errors":[]}}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+	t.Setenv("CISCO_MERAKI_BASE_URL", srv.URL+"/api/v1")
+	t.Setenv("MERAKI_DASHBOARD_API_KEY", "test-key")
+	for _, apply := range []bool{false, true} {
+		cmd := RootCmd()
+		var out bytes.Buffer
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		args := []string{"fleet", "push", "--path", "/networks/{networkId}/webhooks/httpServers/" + id, "--body", `{"name":"After"}`, "--all-networks", "--json"}
+		if apply {
+			args = append(args, "--apply")
+		}
+		cmd.SetArgs(args)
+		if err := cmd.Execute(); err != nil {
+			t.Fatalf("fleet push (apply=%v): %v\n%s", apply, err, out.String())
+		}
+		if strings.Contains(out.String(), id) || !strings.Contains(out.String(), "httpServers/[redacted:") {
+			t.Fatalf("output printed the HTTP server ID (apply=%v):\n%s", apply, out.String())
+		}
+	}
+	if !strings.Contains(batch.String(), `"resource":"/networks/N_1/webhooks/httpServers/`+id+`"`) {
+		t.Fatalf("--apply did not target the real path: %s", batch.String())
+	}
+}

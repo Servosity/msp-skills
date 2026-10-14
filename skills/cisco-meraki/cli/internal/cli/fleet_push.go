@@ -32,7 +32,8 @@ type pushRow struct {
 	OrganizationName string         `json:"organization_name"`
 	NetworkID        string         `json:"network_id"`
 	NetworkName      string         `json:"network_name"`
-	Resource         string         `json:"resource"`
+	Resource         string         `json:"resource"` // scrubbed for output
+	path             string         // what the batch targets
 	Action           string         `json:"action"` // update | no-change | error
 	ChangedKeys      []string       `json:"changed_keys"`
 	Current          map[string]any `json:"current,omitempty"`
@@ -168,10 +169,11 @@ func planOrgPush(ctx context.Context, c *client.Client, o fleetOrg, path string,
 			continue
 		}
 		resource := strings.ReplaceAll(path, "{networkId}", url.PathEscape(n.ID))
-		row := pushRow{OrganizationID: o.ID, OrganizationName: o.Name, NetworkID: n.ID, NetworkName: n.Name, Resource: resource, Desired: desired, body: body, ChangedKeys: []string{}}
+		row := pushRow{OrganizationID: o.ID, OrganizationName: o.Name, NetworkID: n.ID, NetworkName: n.Name, Resource: store.ScrubMerakiURLSecrets(resource), path: resource, Desired: desired, body: body, ChangedKeys: []string{}}
 		data, err := c.GetNoCache(ctx, resource, nil)
 		if err != nil {
-			row.Action, row.Error = "error", "reading current settings: "+err.Error()
+			// A webhook HTTP server ID in the path is the receiver URL.
+			row.Action, row.Error = "error", store.ScrubMerakiURLSecrets("reading current settings: "+err.Error())
 			rows = append(rows, row)
 			continue
 		}
@@ -202,13 +204,13 @@ func applyOrgPush(ctx context.Context, c *client.Client, orgID string, rows []*p
 		chunk := rows[start:end]
 		actions := make([]map[string]any, 0, len(chunk))
 		for _, r := range chunk {
-			actions = append(actions, map[string]any{"resource": r.Resource, "operation": "update", "body": r.body})
+			actions = append(actions, map[string]any{"resource": r.path, "operation": "update", "body": r.body})
 		}
 		batchPath := orgPath("/organizations/{organizationId}/actionBatches", orgID)
 		data, _, err := c.Post(ctx, batchPath, map[string]any{"confirmed": true, "synchronous": false, "actions": actions})
 		if err != nil {
 			for _, r := range chunk {
-				r.BatchStatus = "rejected: " + err.Error()
+				r.BatchStatus = store.ScrubMerakiURLSecrets("rejected: " + err.Error())
 			}
 			continue
 		}
@@ -218,7 +220,7 @@ func applyOrgPush(ctx context.Context, c *client.Client, orgID string, rows []*p
 		_ = json.Unmarshal(data, &batch)
 		status := pollActionBatch(ctx, c, batchPath+"/"+url.PathEscape(batch.ID), wait)
 		for _, r := range chunk {
-			r.BatchID, r.BatchStatus = batch.ID, status
+			r.BatchID, r.BatchStatus = batch.ID, store.ScrubMerakiURLSecrets(status)
 		}
 	}
 }
