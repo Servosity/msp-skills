@@ -429,8 +429,9 @@ Resource scoping:
 			}
 			if successCount == 0 {
 				// pp:handfix meraki-sync-partial-exit: a dependent whose dormant-org
-				// parents 404 is "warned" even after storing the other orgs' rows.
-				if warnCount > 0 && errCount == 0 && totalSynced == 0 {
+				// parents 404 is "warned" even after storing the other orgs' rows;
+				// --strict still treats any warned resource as a failure.
+				if warnCount > 0 && errCount == 0 && (totalSynced == 0 || strict) {
 					return fmt.Errorf("%d resource(s) completed with warnings but no successful syncs", warnCount)
 				}
 				if errCount > 0 {
@@ -3052,6 +3053,9 @@ func extractPageItemsWithPagination(data json.RawMessage, cursorParam, nextCurso
 	}
 
 	if items, ok := extractSingleObjectArraySibling(envelope); ok {
+		if merakiRecordObject(envelope) { // pp:handfix meraki-sync-record-object
+			items = []json.RawMessage{data}
+		}
 		nextCursor, hasMore := extractPaginationFromEnvelope(envelope, cursorParam, nextCursorPath)
 		return items, nextCursor, hasMore
 	}
@@ -5546,9 +5550,10 @@ var resourceIDFieldOverrides = map[string]string{
 	"inventory":             "serial",
 	"licenses":              "id",
 	"organizations":         "id",
+	"organizations_appliance_devices_interfaces_ports_profiles_assignments":            "device.serial+port.interface.name",
 	"organizations_appliance_security_intrusion_policies":                              "policyId",
 	"organizations_appliance_security_intrusion_rule_groups":                           "policy.id+groupId",
-	"organizations_appliance_security_intrusion_rules":                                 "ruleId",
+	"organizations_appliance_security_intrusion_rules":                                 "policy.id+ruleId",
 	"organizations_appliance_traffic_shaping_vpn_exclusions_by_network":                "networkId",
 	"organizations_appliance_uplink_statuses":                                          "serial",
 	"organizations_assurance_alerts":                                                   "id",
@@ -5557,8 +5562,8 @@ var resourceIDFieldOverrides = map[string]string{
 	"organizations_campus_gateway_clusters":                                            "clusterId",
 	"organizations_campus_gateway_clusters_failover_targets":                           "clusterId",
 	"organizations_campus_gateway_clusters_failover_targets_by_cluster":                "clusterId",
-	"organizations_campus_gateway_clusters_networks_overviews":                         "networkId",
-	"organizations_campus_gateway_clusters_ssids":                                      "ssidId",
+	"organizations_campus_gateway_clusters_networks_overviews":                         "networkId+cluster.id",
+	"organizations_campus_gateway_clusters_ssids":                                      "ssidId+cluster.id",
 	"organizations_campus_gateway_connections":                                         "serial",
 	"organizations_campus_gateway_devices_system_cpu_load":                             "serial",
 	"organizations_devices":                                                            "serial",
@@ -5589,7 +5594,7 @@ var resourceIDFieldOverrides = map[string]string{
 	"organizations_policy_objects_groups":                                              "id",
 	"organizations_sase_networks_eligible":                                             "networkId",
 	"organizations_sase_sites":                                                         "siteId",
-	"organizations_sensor_gateways_connections_latest":                                 "network.id+sensor.serial+gateway.serial",
+	"organizations_sensor_gateways_connections_latest":                                 "sensor.mac+gateway.mac",
 	"organizations_sm_admins_roles":                                                    "roleId",
 	"organizations_switch_ports_by_switch":                                             "serial",
 	"organizations_switch_ports_clients_overview_by_device":                            "serial",

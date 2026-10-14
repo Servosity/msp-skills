@@ -114,7 +114,7 @@ large datasets as it has no memory pressure.`,
 				}
 				params := map[string]string(nil)
 				if !singleItem && config.paginationType != "" {
-					params = resourcePageParams(config, cursor, page, remaining)
+					params = merakiExportPerPageFloor(resourcePageParams(config, cursor, page, remaining)) // pp:handfix meraki-export-link-pagination
 				}
 				linkCtx, linkPage := withLinkSink(cmd.Context()) // pp:handfix meraki-export-link-pagination
 				data, err := c.Get(linkCtx, path, params)

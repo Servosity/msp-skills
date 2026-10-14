@@ -339,7 +339,17 @@ Do NOT use this command to read data across orgs; use 'fleet fanout' instead.`),
 			} else if !apply && updates > 0 {
 				fmt.Fprintf(cmd.ErrOrStderr(), "preview only: %d network(s) would change; rerun with --apply to send action batches\n", updates)
 			}
-			return printFleetRows(cmd, flags, rows, []string{"organization_name", "network_name", "action", "changed_keys", "batch_status", "error"}, "No networks match the targets.")
+			if err := printFleetRows(cmd, flags, rows, []string{"organization_name", "network_name", "action", "changed_keys", "batch_status", "error"}, "No networks match the targets."); err != nil {
+				return err
+			}
+			if apply {
+				if n := pushNotCompleted(rows); n > 0 {
+					// Exit 6 so automation and the MCP tool never read a
+					// rejected, failed or still-pending batch as success.
+					return partialFailureErr(fmt.Errorf("%d of %d network change(s) did not complete; see batch_status (a pending batch may still finish in the Dashboard)", n, updates))
+				}
+			}
+			return nil
 		},
 	}
 	cmd.Flags().StringVar(&path, "path", "", "Network settings path with {networkId}, e.g. /networks/{networkId}/syslogServers")
@@ -352,4 +362,17 @@ Do NOT use this command to read data across orgs; use 'fleet fanout' instead.`),
 	cmd.Flags().BoolVar(&apply, "apply", false, "Send the action batches; without it the command only previews")
 	cmd.Flags().StringVar(&waitFlag, "wait", "2m", "How long to wait for each action batch to finish, e.g. 30s, 2m")
 	return cmd
+}
+
+// pushNotCompleted counts the updates whose action batch did not report
+// completed: rejected at submit, failed, still pending after --wait, or
+// unknown because its status could not be read.
+func pushNotCompleted(rows []pushRow) int {
+	n := 0
+	for _, r := range rows {
+		if r.Action == "update" && r.BatchStatus != "completed" {
+			n++
+		}
+	}
+	return n
 }

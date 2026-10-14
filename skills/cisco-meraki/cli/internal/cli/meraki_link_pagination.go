@@ -19,6 +19,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -496,6 +497,32 @@ func merakiResultTruncation(obj map[string]any) (total, returned int, cut bool) 
 		return -1, -1, true
 	}
 	return -1, -1, false
+}
+
+// merakiRecordObject is hand-wired (handfixes.json: meraki-sync-record-object).
+// MX warm-spare settings by network are documented as one object per network
+// that holds a single array of sub-objects (designations). The generic
+// extractor took that array for the page's records and dropped the rest of
+// the object. An object that names its own network or device is a record.
+func merakiRecordObject(obj map[string]json.RawMessage) bool {
+	for _, k := range []string{"networkId", "serial"} {
+		var s string
+		if json.Unmarshal(obj[k], &s) == nil && s != "" {
+			return true
+		}
+	}
+	return false
+}
+
+// merakiExportPerPageFloor is hand-wired (handfixes.json:
+// meraki-export-link-pagination): export shrinks perPage to the rows left
+// under --limit, but Meraki rejects perPage below 3 with HTTP 400. The loop
+// already stops at --limit, so asking for 3 and keeping fewer is safe.
+func merakiExportPerPageFloor(params map[string]string) map[string]string {
+	if n, err := strconv.Atoi(params["perPage"]); err == nil && n > 0 && n < 3 {
+		params["perPage"] = "3"
+	}
+	return params
 }
 
 // merakiLinkReadConfig is hand-wired (handfixes.json:

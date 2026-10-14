@@ -37,15 +37,20 @@ All notable changes to this skill are documented here. Format follows
   keys as dates. Before, each such resource dropped every row and `sync` exited 1.
 - Local-mirror rows are keyed on serials and real IDs, not display names, so two
   switches both called "Core Switch", or "Data" VLANs in several networks, stay
-  separate rows instead of silently merging. Intrusion rules are keyed on their rule
-  ID (not the Snort generator ID shared by nearly every rule), group-policy
-  assignments on the assignment ID (not the policy they point at), and a renamed
-  network or access point keeps its row instead of leaving a stale copy behind.
+  separate rows instead of silently merging. Intrusion rules are keyed on policy plus
+  rule ID (not the Snort generator ID shared by nearly every rule), group-policy
+  assignments on the assignment ID (not the policy they point at), MX port profile
+  assignments on device plus port, and a renamed network or access point keeps its
+  row instead of leaving a stale copy behind. MX warm-spare settings by network are
+  stored whole, not just their list of designated appliances.
 - `export organizations` follows the `Link` header, so a key with more than 100
   organizations exports every one once (it used to re-request page one), and the
   MCP `cisco-meraki_execute` count for `[{items, meta}]` pages is the number of records.
 - A `sync` of only dependent resources exits 0 when it stored rows, even if one
-  organization has API access disabled.
+  organization has API access disabled; each failed organization is still reported,
+  and `--strict` still exits non-zero.
+- `fleet push --apply` exits 6 when any action batch is rejected, fails, or is still
+  pending after `--wait`, so a change that did not land never reads as success.
 - `fleet changes --data-source local` no longer says the mirror was never synced
   right after a sync.
 - `doctor` reports a 404 from its health check as a warning that names

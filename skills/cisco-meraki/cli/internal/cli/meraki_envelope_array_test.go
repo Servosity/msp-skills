@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -51,5 +52,20 @@ func TestMerakiGetAllCountsEnvelopeRecords(t *testing.T) {
 	}
 	if res.ItemsReturned != 3 || len(res.Items) != 3 {
 		t.Fatalf("items_returned = %d (%d items), want the 3 records inside the envelope", res.ItemsReturned, len(res.Items))
+	}
+}
+
+// TestSyncKeepsMerakiRecordObject guards meraki-sync-record-object: MX
+// warm-spare settings by network are documented as one object holding a
+// single array (designations); that object is the record, not an envelope.
+func TestSyncKeepsMerakiRecordObject(t *testing.T) {
+	page := json.RawMessage(`{"networkId":"L_12345","name":"HQ","enabled":true,"mode":"active-active","designations":[{"serial":"Q234-ABCD-5678","priority":1}],"uplink":{"mode":"virtual"}}`)
+	items, _, _ := extractPageItemsWithPagination(page, "startingAfter", "")
+	if len(items) != 1 || !strings.Contains(string(items[0]), `"mode":"active-active"`) {
+		t.Fatalf("got %d items %s, want the whole network object as one record", len(items), items)
+	}
+	envelope := json.RawMessage(`{"clientId":"k1","records":[{"id":"a"},{"id":"b"}]}`)
+	if items, _, _ := extractPageItemsWithPagination(envelope, "startingAfter", ""); len(items) != 2 {
+		t.Fatalf("a records envelope must still page its records, got %d", len(items))
 	}
 }

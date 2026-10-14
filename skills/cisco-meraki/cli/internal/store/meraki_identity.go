@@ -22,7 +22,7 @@ var merakiIdentityGroups = [][]string{
 	merakiDeviceIdentity,
 	{"gateway.serial", "controller.serial"},
 	{"client.id", "client.mac"},
-	{"port.interface"},
+	{"port.interface.name", "port.interface"}, // interface is an object on MX port rows
 	{"interfaceId", "ruleGroupId", "policyId"},
 	{"adminId"},
 	{"method"},
