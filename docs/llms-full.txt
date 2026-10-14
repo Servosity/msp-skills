@@ -989,7 +989,7 @@ Outcomes (question -> command your AI agent runs):
 
 FAQ:
 Q: Does this work with ChatGPT?
-A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS. google-workspace-mcp speaks HTTP natively: run it with `--transport http` and a `GOOGLE_WORKSPACE_MCP_HTTP_TOKEN`, then put its /mcp endpoint behind an HTTPS tunnel or your own reverse proxy. Step-by-step in the install guide.
+A: Yes, on paid ChatGPT plans, with some hosting work. ChatGPT connects to remote MCP servers over HTTPS and signs in with OAuth or no authentication, while google-workspace-mcp's HTTP mode (`--transport http`) requires a fixed `GOOGLE_WORKSPACE_MCP_HTTP_TOKEN` bearer token. Put an OAuth-capable gateway in front of its /mcp endpoint that adds that token. Details in the install guide.
 Q: Do I need to know how to code?
 A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You register each client once with `tenants add`.
 Q: Is my Google Workspace data safe?

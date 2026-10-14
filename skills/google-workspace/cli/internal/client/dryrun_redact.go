@@ -76,8 +76,9 @@ func redactSecretQueryParams(text string) string {
 }
 
 // redactChannelToken masks the token Google echoes back in a watch response
-// (kind api#channel). That token is the webhook's verification secret, and
-// the response is printed, returned over MCP and written to the local store.
+// (kind api#channel), and any secret query parameter in its echoed address.
+// Both are webhook secrets, and the response is printed, returned over MCP
+// and written to the local store.
 func redactChannelToken(body []byte) []byte {
 	if !bytes.Contains(body, []byte(`api#channel`)) {
 		return body
@@ -86,13 +87,21 @@ func redactChannelToken(body []byte) []byte {
 	if json.Unmarshal(body, &ch) != nil {
 		return body
 	}
-	var kind, token string
+	var kind, token, address string
 	_ = json.Unmarshal(ch["kind"], &kind)
 	_ = json.Unmarshal(ch["token"], &token)
-	if kind != "api#channel" || token == "" {
+	_ = json.Unmarshal(ch["address"], &address)
+	masked := redactSecretQueryParams(address)
+	if kind != "api#channel" || (token == "" && masked == address) {
 		return body
 	}
-	ch["token"] = json.RawMessage(`"[redacted]"`)
+	if token != "" {
+		ch["token"] = json.RawMessage(`"[redacted]"`)
+	}
+	if masked != address {
+		// A webhook address can carry its own secret (?token=...).
+		ch["address"], _ = json.Marshal(masked)
+	}
 	out, err := json.Marshal(ch)
 	if err != nil {
 		return body

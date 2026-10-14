@@ -1095,8 +1095,8 @@
   },
   {
    "id": "mcp-install-tunnel-host-header",
-   "summary": "mcp-install.md's remote-agent section tells the tunnel to rewrite the Host header to localhost (with the cloudflared flag) and no longer claims the server returns 404 at the bare root",
-   "why": "The generated text sent users to expose the loopback HTTP server through Cloudflare Tunnel or ngrok without a Host rewrite, but mcp-go v0.57's StreamableHTTPServer rejects a loopback request whose Host is not localhost with 403 (DNS-rebinding protection), so the documented setup could never handshake. It also claimed a 404 at the root, while main.go installs the handler for every path. Found by the onboard Codex review (round 8, P1 and P2). mcp-install.md is a generated template file (fleet-wide text), re-rendered by onboard.",
+   "summary": "mcp-install.md's remote-agent section tells the tunnel to rewrite the Host header to localhost (with the cloudflared flag) and no longer claims the server returns 404 at the bare root; the ChatGPT section says a connector cannot send the server's fixed bearer token and needs an OAuth-capable gateway in front",
+   "why": "The generated text sent users to expose the loopback HTTP server through Cloudflare Tunnel or ngrok without a Host rewrite, but mcp-go v0.57's StreamableHTTPServer rejects a loopback request whose Host is not localhost with 403 (DNS-rebinding protection), so the documented setup could never handshake. It also claimed a 404 at the root, while main.go installs the handler for every path. Found by the onboard Codex review (round 8, P1 and P2). mcp-install.md is a generated template file (fleet-wide text), re-rendered by onboard. Round 10 (Codex, P1): ChatGPT connectors authenticate with OAuth or no authentication, so the documented tunnel-only ChatGPT setup always failed 401 against the bearer-gated HTTP mode; mcp-install.md, README and the page.json FAQ now say so (fleet-wide template text).",
    "status": "active",
    "spec_encode_followup": "Template-side (msp-skills-publish mcp-install template, fleet): add the Host-rewrite step and drop the root-404 claim.",
    "asserts": [
@@ -1108,13 +1108,18 @@
     {
      "file": "mcp-install.md",
      "not_contains": "returns 404 at the"
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "cannot send the fixed `Authorization: Bearer` token",
+     "min_count": 1
     }
    ]
   },
   {
    "id": "watch-response-hides-channel-token",
-   "summary": "A successful watch response (kind api#channel) has its echoed token replaced with [redacted] before it is printed, returned over MCP, or written to the local store",
-   "why": "activities watch, users watch and users aliases watch register a push channel whose token is the webhook's verification secret; Google echoes it back in the response, which the generated client returned unchanged to CLI output, MCP results and the mutation write-through store. Found by the onboard Codex review (round 9, P1; the generated success path is fleet-wide). TestWatchResponseHidesChannelToken fails with the redaction removed.",
+   "summary": "A successful watch response (kind api#channel) has its echoed token replaced with [redacted] before it is printed, returned over MCP, or written to the local store; a secret query parameter in the echoed address (?token=...) is masked too",
+   "why": "activities watch, users watch and users aliases watch register a push channel whose token is the webhook's verification secret; Google echoes it back in the response, which the generated client returned unchanged to CLI output, MCP results and the mutation write-through store. Found by the onboard Codex review (round 9, P1; the generated success path is fleet-wide). TestWatchResponseHidesChannelToken fails with the redaction removed. Round 10 (Codex, P1): the echoed address can carry its own webhook secret, so redactChannelToken also runs redactSecretQueryParams over it.",
    "status": "active",
    "spec_encode_followup": "Press-side (fleet): mask echoed channel tokens in generated clients for APIs with push channels.",
    "asserts": [
@@ -1133,6 +1138,12 @@
     {
      "file": "cli/internal/client/dryrun_redact_test.go",
      "contains": "func TestWatchResponseHidesChannelToken(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/dryrun_redact.go",
+     "contains": "masked := redactSecretQueryParams(address)",
      "min_count": 1,
      "code_only": true
     }

@@ -65,7 +65,7 @@ func TestRedactSecretQueryParams(t *testing.T) {
 func TestWatchResponseHidesChannelToken(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"kind":"api#channel","id":"chan-1","resourceId":"r1","token":"hook-verify-SECRET","expiration":"1"}`))
+		_, _ = w.Write([]byte(`{"kind":"api#channel","id":"chan-1","resourceId":"r1","token":"hook-verify-SECRET","address":"https://hooks.example/notify?a=1&token=addr-SECRET","expiration":"1"}`))
 	}))
 	defer srv.Close()
 	c := New(&config.Config{BaseURL: srv.URL}, time.Second, 0)
@@ -74,7 +74,7 @@ func TestWatchResponseHidesChannelToken(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(string(data), "hook-verify-SECRET") || !strings.Contains(string(data), `"id":"chan-1"`) {
+	if strings.Contains(string(data), "hook-verify-SECRET") || strings.Contains(string(data), "addr-SECRET") || !strings.Contains(string(data), `"id":"chan-1"`) {
 		t.Fatalf("watch response must keep the channel but hide its token: %s", data)
 	}
 	other := []byte(`{"kind":"admin#directory#user","token":"not-a-channel"}`)

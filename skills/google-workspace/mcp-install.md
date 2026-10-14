@@ -163,7 +163,14 @@ internet; gate it behind SSO / Cloudflare Access for team use.
 
 In ChatGPT (Pro, Plus, Team, Business, Enterprise, or Education - **not** Free):
 Settings > Apps > Advanced > **Developer mode**, then create a custom connector
-pointing at your tunnel's HTTPS URL.
+pointing at your HTTPS URL.
+
+**Honest heads-up:** ChatGPT connectors authenticate with OAuth or with no
+authentication, and cannot send the fixed `Authorization: Bearer` token this
+server's HTTP mode requires, so pointing a connector straight at the tunnel fails
+with 401. You need an OAuth-capable gateway in front of the server that signs
+ChatGPT in and adds `Authorization: Bearer <GOOGLE_WORKSPACE_MCP_HTTP_TOKEN>` on the
+way through. That is a build-and-host task, not a self-serve install.
 
 Official OpenAI guidance (beta, plan-dependent): https://help.openai.com/en/articles/12584461-developer-mode-and-mcp-apps-in-chatgpt-beta
 
