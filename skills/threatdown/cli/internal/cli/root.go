@@ -304,8 +304,8 @@ func isCobraUsageError(err error) bool {
 func newRootCmd(flags *rootFlags) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "threatdown-cli",
-		Short: `Threatdown CLI — Every ThreatDown OneView API, plus fleet-wide stale-endpoint, health and seat reports across all your sites, and…`,
-		Long: `Threatdown CLI — Every ThreatDown OneView API, plus fleet-wide stale-endpoint, health and seat reports across all your sites, and guarded isolate/scan/restore jobs.
+		Short: `ThreatDown OneView CLI — Every ThreatDown OneView API, plus fleet-wide stale-endpoint, health and seat reports across all your sites, and…`,
+		Long: `ThreatDown OneView CLI — Every ThreatDown OneView API, plus fleet-wide stale-endpoint, health and seat reports across all your sites, and guarded isolate/scan/restore jobs.
 
 Highlights (not in the official API docs):
   • fleet stale   Every endpoint not seen in N hours across all your sites, with site name and exact hours since last seen.

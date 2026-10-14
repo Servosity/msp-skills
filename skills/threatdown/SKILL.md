@@ -1,6 +1,6 @@
 ---
 name: threatdown
-description: "Every ThreatDown OneView API, plus fleet-wide stale-endpoint, health and seat reports across all your sites, and guarded isolate/scan/restore jobs. Trigger phrases: `which endpoints haven't checked in`, `isolate this machine in threatdown`, `threatdown fleet health`, `malwarebytes oneview detections`, `use threatdown`, `run threatdown`."
+description: "Use when the user asks to find ThreatDown (Malwarebytes) OneView endpoints that stopped checking in across customer sites, rank sites by what needs attention, reconcile seats before billing, triage detections and threats spreading across customers, profile one customer site, isolate, scan, reboot, update or release endpoints with a preview first, or find response jobs that never ran. Trigger phrases: `which endpoints haven't checked in`, `isolate this machine in threatdown`, `threatdown fleet health`, `malwarebytes oneview detections`, `use threatdown`, `run threatdown`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "ThreatDown"
@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/threatdown/install.ps1
 ---
 
-# ThreatDown OneView  -  Printing Press CLI
+# ThreatDown OneView Claude Code Skill
 
 ## Prerequisites: Install the CLI
 
@@ -763,7 +763,7 @@ Shows timed-out, expired and failed jobs plus jobs still waiting after --min-age
 
 ## Auth Setup
 
-OneView uses OAuth2 client credentials. Create an API client in OneView (Integrate), then set THREATDOWN_CLIENT_ID and THREATDOWN_CLIENT_SECRET. The CLI exchanges them at https://api.threatdown.com/oneview/oauth2/token with HTTP Basic client authentication and caches the bearer token. It requests the read, write and execute scopes by default; set THREATDOWN_OAUTH_SCOPE (for example 'read write') to request fewer. The respond commands need the execute scope. The token is cached, so after changing THREATDOWN_OAUTH_SCOPE run 'threatdown-cli auth login' to mint a new one. A 403 means either the OAuth scope or the creating user's OneView permission is missing.
+OneView uses OAuth2 client credentials. Create an API client in OneView (Integrate), then set THREATDOWN_CLIENT_ID and THREATDOWN_CLIENT_SECRET. The CLI exchanges them at https://api.threatdown.com/oneview/oauth2/token with HTTP Basic client authentication and caches the bearer token. It requests the read, write and execute scopes by default; set THREATDOWN_OAUTH_SCOPE (for example 'read write') to request fewer. The respond commands need the execute scope. The token is cached, so after changing THREATDOWN_OAUTH_SCOPE run 'threatdown-cli auth login' to mint a new one. A 403 means either the OAuth scope or the creating user's OneView permission is missing. For a reporting-only MCP server, set THREATDOWN_MCP_READ_ONLY=1: it drops the write tools and refuses every non-GET call through threatdown_execute.
 
 Run `threatdown-cli doctor` to verify setup.
 
