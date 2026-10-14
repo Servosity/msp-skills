@@ -44,8 +44,9 @@ environment variables until you run `threatdown-cli auth logout`. The cached
 token is reused only by a process with the same client ID, scope and token URL; a
 process configured with a different OAuth client or `THREATDOWN_OAUTH_SCOPE` requests
 its own token, and one that has no client secret to do that stops with an error rather
-than borrow the cached token. `auth set-token` clears any saved client ID and secret, and its token is used only
-while no client ID or secret is configured. Run `threatdown-cli auth logout` to clear the
+than borrow the cached token. `auth set-token` clears any saved client ID and secret, and its token (like an
+`auth_header` written into the config by hand) is used only while no client ID or secret
+is configured; a `[headers]` Authorization entry is never sent. Run `threatdown-cli auth logout` to clear the
 cache, or delete the OAuth client in OneView to revoke access outright. The local
 SQLite mirror is shared by every process run as the same OS user, whichever OAuth client
 synced it, so give an agent that must not see that data its own OS user or its own

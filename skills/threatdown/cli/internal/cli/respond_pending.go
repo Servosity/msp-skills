@@ -225,13 +225,15 @@ them, and keeps waiting jobs only once they are older than --min-age.`,
 			if mode != "local" {
 				var jobs []jobRow
 				var sites []fleet.Site
-				jobs, sites, view.Truncated, liveErr = pendingLive(ctx, flags, siteFilter, now.Add(-window), maxPages)
+				var unreadable int
+				jobs, sites, view.Truncated, unreadable, liveErr = pendingLive(ctx, flags, siteFilter, now.Add(-window), maxPages)
 				if liveErr == nil {
 					view.Source = "live"
 					view.Jobs = selectPending(jobs, fleet.SiteIndex(sites), now, now.Add(-window), age, commandFilter)
 					if siteFilter != "" {
 						view.Note = accountlessNote(filterSitesByName(sites, siteFilter))
 					}
+					view.Note = joinNotes(view.Note, unreadableJobsNote(unreadable))
 				} else if mode == "live" || stopFallback(liveErr) {
 					return classifyAPIErrorOnly(liveErr)
 				} else {
@@ -280,7 +282,8 @@ them, and keeps waiting jobs only once they are older than --min-age.`,
 					for _, a := range fleet.AccountIDs(inScope, "") {
 						keep[a] = true
 					}
-					jobs := parseJobs(raws)
+					jobs, unreadable := parseJobs(raws)
+					view.Note = joinNotes(view.Note, unreadableJobsNote(unreadable))
 					scoped := jobs[:0:0]
 					for _, j := range jobs {
 						if siteFilter == "" || keep[j.AccountID] {
@@ -330,28 +333,29 @@ them, and keeps waiting jobs only once they are older than --min-age.`,
 	return cmd
 }
 
-func pendingLive(ctx context.Context, flags *rootFlags, siteFilter string, since time.Time, maxPages int) ([]jobRow, []fleet.Site, bool, error) {
+func pendingLive(ctx context.Context, flags *rootFlags, siteFilter string, since time.Time, maxPages int) ([]jobRow, []fleet.Site, bool, int, error) {
 	c, err := flags.newClient()
 	if err != nil {
-		return nil, nil, false, err
+		return nil, nil, false, 0, err
 	}
 	sites, err := fetchSites(ctx, c)
 	if err != nil {
-		return nil, nil, false, err
+		return nil, nil, false, 0, err
 	}
 	scoped, err := scopeSites(sites, siteFilter)
 	if err != nil {
-		return nil, nil, false, err
+		return nil, nil, false, 0, err
 	}
 	accounts := fleet.AccountIDs(scoped, "")
 	if len(accounts) == 0 {
-		return nil, sites, false, nil
+		return nil, sites, false, 0, nil
 	}
 	body := map[string]any{"account_ids": accounts, "status": fleet.JobStatusNotRan, "issued_at_after": since.UTC().Format("2006-01-02T15:04:05.000Z"), "populate": map[string]any{"online": true}}
 	raws, info, err := searchPages(ctx, c, "/v1/jobs/search", body, "jobs", maxPages)
 	if err != nil {
-		return nil, sites, false, err
+		return nil, sites, false, 0, err
 	}
 	// An all-clear needs the server to end the cursor chain, not just a cap.
-	return parseJobs(raws), sites, info.Truncated || !info.Complete, nil
+	jobs, unreadable := parseJobs(raws)
+	return jobs, sites, info.Truncated || !info.Complete, unreadable, nil
 }

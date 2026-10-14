@@ -54,7 +54,13 @@ func newEndpointsDiagLogCmd(flags *rootFlags) *cobra.Command {
 			// hand-fix (handfixes.json diag-log-is-endpoint-action): this GET
 			// makes the endpoint generate a log, so send it like a write - never
 			// served from the response cache, never retried - as the MCP does.
+			if err := validateDataSourceStrategy(flags, "live"); err != nil {
+				return classifyAPIError(cmd.OutOrStdout(), err, flags)
+			}
 			data, err := c.GetMutating(cmd.Context(), path, params)
+			if err == nil && !isDryRunResponse(c.IsDryRun(), data) {
+				err = assertLiveJSONBody(data)
+			}
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

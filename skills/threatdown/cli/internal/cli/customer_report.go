@@ -30,16 +30,42 @@ type jobRow struct {
 	Data        json.RawMessage `json:"data,omitempty"`   // job settings; OneView sends a JSON string
 }
 
-func parseJobs(raws []json.RawMessage) []jobRow {
+// parseJobs decodes job rows. hand-fix (handfixes.json
+// respond-pending-truncated-warning): a row whose online/data field has an
+// unexpected type is kept without it, and a row that still cannot be read is
+// counted, never silently dropped, so no caller prints an all-clear over it.
+func parseJobs(raws []json.RawMessage) ([]jobRow, int) {
 	out := make([]jobRow, 0, len(raws))
+	unreadable := 0
 	for _, r := range raws {
 		var j jobRow
-		if json.Unmarshal(r, &j) == nil && j.ID != "" {
-			j.StatusName = fleet.DecodeJobStatus(j.Status)
-			out = append(out, j)
+		if json.Unmarshal(r, &j) != nil {
+			j = jobRow{}
+			var m map[string]json.RawMessage
+			if json.Unmarshal(r, &m) == nil {
+				delete(m, "online")
+				delete(m, "data")
+				b, _ := json.Marshal(m)
+				if json.Unmarshal(b, &j) != nil {
+					j = jobRow{}
+				}
+			}
 		}
+		if j.ID == "" {
+			unreadable++
+			continue
+		}
+		j.StatusName = fleet.DecodeJobStatus(j.Status)
+		out = append(out, j)
 	}
-	return out
+	return out, unreadable
+}
+
+func unreadableJobsNote(n int) string {
+	if n == 0 {
+		return ""
+	}
+	return fmt.Sprintf("%d job rows could not be read, so jobs may be missing from this result", n)
 }
 
 type customerReportView struct {
@@ -219,7 +245,9 @@ empty profile.`,
 					view.Isolated = append(view.Isolated, e)
 				}
 			}
-			for _, j := range parseJobs(jobRaw) {
+			jobs, unreadable := parseJobs(jobRaw)
+			view.Note = joinNotes(view.Note, unreadableJobsNote(unreadable))
+			for _, j := range jobs {
 				t, ok := fleet.ParseTime(j.IssuedAt)
 				if j.AccountID == site.AccountID && j.Status&fleet.JobStatusNotRan != 0 && (!ok || !t.Before(now.Add(-window))) {
 					view.JobsNotRan = append(view.JobsNotRan, j)

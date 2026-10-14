@@ -55,6 +55,10 @@ const maxErrorBodyBytes = 4096
 var ErrPlaceholderCredential = errors.New("auth placeholder credential")
 
 // ErrTokenBoundElsewhere: hand-fix (handfixes.json token-bound-to-client).
+// ErrTokenMintRejected: the token endpoint answered the client credentials
+// with a non-2xx status (wrong secret, revoked client). Hand-fix for doctor.
+var ErrTokenMintRejected = errors.New("OAuth client_credentials mint")
+
 var ErrTokenBoundElsewhere = errors.New("the cached OneView token was issued for a different OAuth client, scope or token URL")
 
 type Client struct {
@@ -1341,6 +1345,11 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 		}
 		if c.Config != nil {
 			for k, v := range c.Config.Headers {
+				// hand-fix (token-bound-to-client): auth comes only from the
+				// bound token path, never from a [headers] override.
+				if strings.EqualFold(k, "Authorization") {
+					continue
+				}
 				req.Header.Set(k, v)
 			}
 		}
@@ -1729,15 +1738,9 @@ func looksLikeCredentialPlaceholder(value string) bool {
 	case "<your-token>", "<your-key>", "<paste-your-key>", "YOUR_TOKEN_HERE", "your-token-here":
 		return true
 	}
-	if len(value) < 3 || value[0] != '<' || value[len(value)-1] != '>' {
-		return false
-	}
-	for _, r := range value[1 : len(value)-1] {
-		if r != '_' && (r < 'A' || r > 'Z') {
-			return false
-		}
-	}
-	return true
+	// hand-fix (auth-status-tracks-binding): any <...> value is a doc
+	// placeholder (<client-id>, <your-client-secret>, <value>), not a credential.
+	return len(value) >= 3 && value[0] == '<' && value[len(value)-1] == '>'
 }
 
 func authPlaceholderCredentialError(cfg *config.Config) error {
@@ -1773,11 +1776,13 @@ func AuthState(cfg *config.Config) (canMint, boundElsewhere bool) {
 
 func (c *Client) tokenBoundElsewhere() bool {
 	cfg := c.Config
-	if cfg == nil || cfg.AccessToken == "" {
+	if cfg == nil || (cfg.AccessToken == "" && cfg.AuthHeaderVal == "") {
 		return false
 	}
 	id, secret := resolveClientCredentials(cfg)
-	if cfg.TokenBinding == "" {
+	// A set-token token, or a hand-written auth_header (which AuthHeader()
+	// sends ahead of any minted token), is unbound: it yields to a client.
+	if cfg.TokenBinding == "" || cfg.AuthHeaderVal != "" {
 		return id != "" || secret != ""
 	}
 	return cfg.TokenBinding != config.TokenBindingFor(id, resolveClientCredentialsScopes(), effectiveTokenURL(cfg))
@@ -1785,10 +1790,7 @@ func (c *Client) tokenBoundElsewhere() bool {
 
 func (c *Client) needsClientCredentialsMint() bool {
 	cfg := c.Config
-	if cfg.AccessToken == "" {
-		return true
-	}
-	if c.tokenBoundElsewhere() {
+	if cfg.AccessToken == "" || c.tokenBoundElsewhere() {
 		return true
 	}
 	if cfg.TokenExpiry.IsZero() {
@@ -1863,7 +1865,7 @@ func (c *Client) mintClientCredentials(ctx context.Context, clientID, clientSecr
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode >= 400 {
-		return fmt.Errorf("OAuth client_credentials mint: HTTP %d: %s", resp.StatusCode, cliutil.SanitizeErrorBody(string(body)))
+		return fmt.Errorf("%w: HTTP %d: %s", ErrTokenMintRejected, resp.StatusCode, cliutil.SanitizeErrorBody(string(body)))
 	}
 	var tokenResp struct {
 		AccessToken string `json:"access_token"`
@@ -2489,4 +2491,10 @@ func resolveClientCredentialsScopes() []string {
 	}
 	scopes := []string{"execute", "read", "write"}
 	return scopes
+}
+
+// LooksLikePlaceholderAuth reports whether an Authorization value is a doc
+// placeholder rather than a credential.
+func LooksLikePlaceholderAuth(header string) bool {
+	return authHeaderLooksLikePlaceholderCredential(header)
 }

@@ -75,3 +75,12 @@ func TestTeachPlaybookRefusesNotesFile(t *testing.T) {
 		t.Fatalf("want a refusal naming notes-file and the path never forwarded, got %q", text)
 	}
 }
+
+// import needs --input, which MCP refuses, so it is not an MCP tool.
+func TestImportIsNotAnMCPTool(t *testing.T) {
+	s := server.NewMCPServer("threatdown", "test")
+	RegisterTools(s)
+	if s.GetTool("import") != nil {
+		t.Fatal("import is registered but can never succeed over MCP")
+	}
+}

@@ -122,6 +122,8 @@ func TestAuthStatusAndDoctorAgreeOnEnvPairs(t *testing.T) {
 	}{
 		{"your-token-here", "your-token-here", false},
 		{"${user_config.client_id}", "${user_config.client_secret}", false},
+		{"<client-id>", "<client-secret>", false},
+		{"<your-client-id>", "<value>", false},
 		{"admin", "adminsec", true},
 	} {
 		t.Setenv("THREATDOWN_HOME", t.TempDir())
@@ -164,5 +166,28 @@ func TestSetTokenDoesNotInheritOldExpiry(t *testing.T) {
 	}
 	if !cfg.TokenExpiry.IsZero() {
 		t.Fatalf("set-token kept the replaced token's expiry %v", cfg.TokenExpiry)
+	}
+}
+
+// A wrong secret is a credentials error in doctor, not "API unreachable".
+func TestDoctorReportsRejectedMintAsCredentials(t *testing.T) {
+	testenv.Isolate(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(`{"error":"invalid_client"}`))
+	}))
+	defer srv.Close()
+	t.Setenv("THREATDOWN_HOME", t.TempDir())
+	t.Setenv("THREATDOWN_BASE_URL", srv.URL+"/oneview")
+	t.Setenv("THREATDOWN_TOKEN_URL", srv.URL+"/oneview/oauth2/token")
+	t.Setenv("THREATDOWN_CLIENT_ID", "admin")
+	t.Setenv("THREATDOWN_CLIENT_SECRET", "wrong")
+	out, _ := runAuthCmd(t, "", "doctor", "--json")
+	var doc map[string]any
+	_ = json.Unmarshal([]byte(out[strings.Index(out, "{"):strings.LastIndex(out, "}")+1]), &doc)
+	creds, _ := doc["credentials"].(string)
+	api, _ := doc["api"].(string)
+	if !strings.HasPrefix(creds, "ERROR") || strings.Contains(api, "unreachable") {
+		t.Fatalf("doctor api=%q credentials=%q, want a credentials ERROR", api, creds)
 	}
 }

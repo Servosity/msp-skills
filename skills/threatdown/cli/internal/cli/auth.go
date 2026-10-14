@@ -73,10 +73,10 @@ Credentials default to THREATDOWN_CLIENT_ID (Client ID) and THREATDOWN_CLIENT_SE
 			clientIDFromFlag := clientID != ""
 			clientSecretFromFlag := clientSecret != ""
 			if clientID == "" {
-				clientID = strings.TrimSpace(os.Getenv("THREATDOWN_CLIENT_ID"))
+				clientID = strings.TrimSpace(cliutil.EnvOverride("THREATDOWN_CLIENT_ID"))
 			}
 			if clientSecret == "" {
-				clientSecret = strings.TrimSpace(os.Getenv("THREATDOWN_CLIENT_SECRET"))
+				clientSecret = strings.TrimSpace(cliutil.EnvOverride("THREATDOWN_CLIENT_SECRET"))
 			}
 			if clientID == "" || clientSecret == "" {
 				return authErr(fmt.Errorf("client ID and secret required (set --client-id/--client-secret or THREATDOWN_CLIENT_ID/THREATDOWN_CLIENT_SECRET)"))
@@ -201,7 +201,7 @@ func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
 			// hand-fix (auth-status-tracks-binding): report what THIS process
 			// can authenticate with, like doctor - not just "a token is cached".
 			canMint, boundElsewhere := client.AuthState(cfg)
-			authed := canMint || (header != "" && !boundElsewhere)
+			authed := canMint || (header != "" && !boundElsewhere && !client.LooksLikePlaceholderAuth(header))
 			refusals := cfg.CredentialRefusalSummaries()
 			credentialRefused := len(refusals) > 0
 			// JSON envelope: {authenticated, verified, source, config}. When not
