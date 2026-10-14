@@ -53,24 +53,32 @@ type customerReportView struct {
 	Note       string            `json:"note,omitempty"`
 }
 
-// matchSite resolves a site by exact id/account_id/name, then by a unique
-// case-insensitive substring of the name.
+// matchSite resolves a site by exact id/account_id, then by a unique exact
+// name, then by a unique case-insensitive substring of the name. Two sites
+// with the same name are ambiguous, never a silent first pick.
 func matchSite(sites []fleet.Site, query string) (fleet.Site, []string, bool) {
 	q := strings.ToLower(strings.TrimSpace(query))
 	for _, s := range sites {
-		if strings.EqualFold(s.ID, q) || strings.EqualFold(s.AccountID, q) || strings.ToLower(s.Name) == q {
+		if strings.EqualFold(s.ID, q) || strings.EqualFold(s.AccountID, q) {
 			return s, nil, true
 		}
 	}
 	var hits []fleet.Site
 	for _, s := range sites {
-		if strings.Contains(strings.ToLower(s.Name), q) {
+		if strings.ToLower(s.Name) == q {
 			hits = append(hits, s)
+		}
+	}
+	if len(hits) == 0 {
+		for _, s := range sites {
+			if strings.Contains(strings.ToLower(s.Name), q) {
+				hits = append(hits, s)
+			}
 		}
 	}
 	names := make([]string, 0, len(hits))
 	for _, h := range hits {
-		names = append(names, h.Name)
+		names = append(names, h.Name+" ("+h.ID+")")
 	}
 	sort.Strings(names)
 	if len(hits) == 1 {
@@ -124,9 +132,9 @@ empty profile.`,
 			}
 			defer db.Close()
 			if !hintIfUnsynced(cmd, db, tdResSites) {
-				hintIfStale(cmd, db, tdResSites, 24*time.Hour)
+				hintIfStale(cmd, db, tdResSites, tdMaxAge(cmd))
 			}
-			fleetHint(cmd, db, tdResEndpoints, 24*time.Hour)
+			fleetHint(cmd, db, tdResEndpoints, tdMaxAge(cmd))
 			var unsynced []string
 			for _, res := range []string{tdResEndpoints, tdResDetections, tdResJobs} {
 				if state, err := readSyncHintState(db, res); err == nil && !state.hasState {

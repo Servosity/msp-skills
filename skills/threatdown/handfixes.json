@@ -326,7 +326,7 @@
   },
   {
    "id": "token-bound-to-client",
-   "summary": "A client-credentials token is saved with token_binding, a fingerprint of the client ID, scope and token URL it was minted for (config.TokenBindingFor). tokenBoundElsewhere is true when the current process's client ID, THREATDOWN_OAUTH_SCOPE or token URL give a different fingerprint, or the token is unbound (auth set-token) while client credentials are configured; then the client mints its own token, and when it has no secret to mint with, authHeader returns an error instead of the cached token. validateCachedRequestAuth resolves the token first so a response cached under another client's token is never served. resolveClientCredentials trims like auth login. auth login records the binding, auth set-token clears it.",
+   "summary": "A client-credentials token is saved with token_binding, a fingerprint of the client ID, scope and token URL it was minted for (config.TokenBindingFor). tokenBoundElsewhere is true when the current process's client ID, THREATDOWN_OAUTH_SCOPE or token URL give a different fingerprint, or the token is unbound (auth set-token) while client credentials are configured; then the client mints its own token, and when it has no secret to mint with, authHeader returns an error instead of the cached token. validateCachedRequestAuth resolves the token first so a response cached under another client's token is never served. resolveClientCredentials trims like auth login. auth login records the binding, auth set-token clears it. Round 6 (2026-10-14): the refusal is the typed client.ErrTokenBoundElsewhere, which exits with the auth code 4 and which doctor reports as a credentials error (the API is not probed); an unbound token yields to a client ID or a secret (either one); and config.Load never pairs an environment client ID with the secret saved for a different client in credentials.toml.",
    "why": "Found by the round-4 adversarial review and the Codex branch review (2026-10-14). Every process run as the same OS user shares one credentials.toml, and the generated needsClientCredentialsMint checked only token presence and expiry. So an MCP server configured with a separate read-only OAuth client (and THREATDOWN_OAUTH_SCOPE=read) reused the admin's cached execute token and issued an isolation job through threatdown_execute, with no token request of its own; the README's 'the CLI can only do what that client is permitted to do' was false. A reprint regenerates client.go, config.go, credentials.go and auth.go and silently reverts this while go build and go test stay green. Round 5 (adversarial + Codex, 2026-10-14) found the first version failed open: a process with a client ID but no secret, or only THREATDOWN_OAUTH_SCOPE set, still used the admin token; a GET cache hit (keyed on the cached token) served the other client's data before authHeader ran; and an unbound token outranked configured credentials. internal/client/token_binding_test.go (both tests) fails with any of these guards removed.",
    "status": "active",
    "spec_encode_followup": "Generator defect: the press's client-credentials cache should key the token on the client ID and scope.",
@@ -372,7 +372,7 @@
     },
     {
      "file": "cli/internal/client/client.go",
-     "contains": "\tif c.tokenBoundElsewhere() {\n\t\treturn \"\", fmt.Errorf(\"the cached OneView token was issued for a different OAuth client",
+     "contains": "\tif c.tokenBoundElsewhere() {\n\t\treturn \"\", fmt.Errorf(\"%w; set THREATDOWN_CLIENT_ID and THREATDOWN_CLIENT_SECRET for this process, or run threatdown-cli auth login\", ErrTokenBoundElsewhere)",
      "code_only": true
     },
     {
@@ -393,6 +393,41 @@
     {
      "file": "governance.md",
      "contains": "stops with an error rather\nthan borrow the cached token"
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "var ErrTokenBoundElsewhere = errors.New(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "\tif cfg.TokenBinding == \"\" {\n\t\treturn id != \"\" || secret != \"\"\n\t}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "errors.Is(err, client.ErrTokenBoundElsewhere):\n\t\treturn authErr(err)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "case errors.Is(reachErr, client.ErrTokenBoundElsewhere):",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "strings.TrimSpace(cfg.ClientID) != strings.TrimSpace(cfg.fileConfig.ClientID) {\n\t\tcfg.ClientSecret = \"\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/env_client_secret_test.go",
+     "contains": "func TestEnvClientIDNeverPairsWithSavedSecret(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/token_binding_test.go",
+     "contains": "func TestSetTokenYieldsToAnyClientCredential(",
+     "code_only": true
     }
    ]
   },
@@ -479,8 +514,8 @@
   },
   {
    "id": "respond-pending-truncated-warning",
-   "summary": "respond pending treats a job search the server did not end with an empty next_cursor (page cap reached, or no cursor confirmation) as incomplete: human output warns and drops the all-clear, and the all-clear itself names what it checked (waiting, timed out, expired, failed; cancelled jobs are not listed).",
-   "why": "Found by the Codex branch review (2026-10-14): view.Truncated reached the JSON output but the table path ignored it, so a scan that hit the page cap could print an all-clear while older failed jobs went unchecked. respond_pending.go is a hand-written novel file; this entry pins the guard against a refactor. Codex round 2 added: a missing next_cursor ended the scan without marking it incomplete, and the old all-clear ('Every job ... completed') counted cancelled jobs as completed.",
+   "summary": "respond pending treats a job search the server did not end with an empty next_cursor (page cap reached, or no cursor confirmation) as incomplete: human output warns and drops the all-clear, and the all-clear itself names what it checked (waiting, timed out, expired, failed; cancelled jobs are not listed). fleet stale applies the same unconfirmed-end rule to its stale and --twins searches, and the respond pending all-clear names any --command / --site filter.",
+   "why": "Found by the Codex branch review (2026-10-14): view.Truncated reached the JSON output but the table path ignored it, so a scan that hit the page cap could print an all-clear while older failed jobs went unchecked. respond_pending.go is a hand-written novel file; this entry pins the guard against a refactor. Codex round 2 added: a missing next_cursor ended the scan without marking it incomplete, and the old all-clear ('Every job ... completed') counted cancelled jobs as completed. Round 6 found the fleet stale twin (it printed 'No endpoints unseen' after an unconfirmed end) and the filtered all-clear reading as fleet-wide.",
    "status": "active",
    "asserts": [
     {
@@ -496,6 +531,66 @@
     {
      "file": "cli/internal/cli/respond_pending.go",
      "not_contains": "Every job in the last %s completed"
+    },
+    {
+     "file": "cli/internal/cli/fleet_stale.go",
+     "contains": "more := info.Truncated || !info.Complete",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_stale.go",
+     "contains": "more = more || liveInfo.Truncated || !liveInfo.Complete",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/respond_pending.go",
+     "contains": "scope += fmt.Sprintf(\" for --command %s\", commandFilter)",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "fleet-report-hints-honor-max-age",
+   "summary": "The fleet reports (fleet stale, fleet health, customer report, respond pending, threats spread) pass tdMaxAge(cmd) to their local-copy staleness hints: an explicit global --max-age (0 disables) wins, else 24h.",
+   "why": "Found by the Codex branch review round 3 (2026-10-14): the hints hard-coded 24h while printing 'older than --max-age=24h0m0s', so --max-age 1m never warned and --max-age 0 never disabled them. These are hand-written novel files; internal/cli/td_max_age_test.go pins the flag handling.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/threatdown_fleet.go",
+     "contains": "func tdMaxAge(cmd *cobra.Command) time.Duration {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_stale.go",
+     "contains": "fleetHint(cmd, db, tdResEndpoints, tdMaxAge(cmd))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_stale.go",
+     "not_contains": "tdResEndpoints, 24*time.Hour)"
+    },
+    {
+     "file": "cli/internal/cli/td_max_age_test.go",
+     "contains": "func TestTDMaxAgeHonorsExplicitFlag(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "customer-report-site-ambiguity",
+   "summary": "customer report resolves its site argument by exact id or account_id first, then by name; two sites with the same exact name are ambiguous (listed with their ids) instead of a silent first pick, and a site named like another site's id never shadows it.",
+   "why": "Found by the Codex branch review round 3 (2026-10-14): matchSite returned the first exact name match, so duplicate customer names (common across MSP sub-accounts) silently reported on the wrong customer. TestMatchSite in threatdown_fleet_test.go fails on the old resolver.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/customer_report.go",
+     "contains": "names = append(names, h.Name+\" (\"+h.ID+\")\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/threatdown_fleet_test.go",
+     "contains": "duplicate exact names should be ambiguous",
+     "code_only": true
     }
    ]
   }

@@ -239,9 +239,9 @@ func fleetHealthLocal(cmd *cobra.Command, siteFilter string, staleHours, scanDay
 	}
 	defer db.Close()
 	if !hintIfUnsynced(cmd, db, tdResSites) {
-		hintIfStale(cmd, db, tdResSites, 24*time.Hour)
+		hintIfStale(cmd, db, tdResSites, tdMaxAge(cmd))
 	}
-	fleetHint(cmd, db, tdResEndpoints, 24*time.Hour)
+	fleetHint(cmd, db, tdResEndpoints, tdMaxAge(cmd))
 	if state, err := readSyncHintState(db, tdResEndpoints); err == nil && !state.hasState {
 		view.Note = "no endpoints synced yet; run " + tdFleetSyncCommand
 	}

@@ -186,6 +186,14 @@ func Load(configPath string) (*Config, error) {
 		cfg.AuthSource = "env:THREATDOWN_CLIENT_SECRET"
 		cfg.CredentialSource = "env:THREATDOWN_CLIENT_SECRET"
 	}
+	// hand-fix (handfixes.json token-bound-to-client): a different client ID
+	// from the environment never pairs with the secret saved for the file's
+	// client. Marked as an override so a later save keeps the file's secret.
+	if cfg.envOverrides["ClientID"] && !cfg.envOverrides["ClientSecret"] && cfg.fileConfig != nil &&
+		strings.TrimSpace(cfg.ClientID) != strings.TrimSpace(cfg.fileConfig.ClientID) {
+		cfg.ClientSecret = ""
+		cfg.markEnvOverride("ClientSecret")
+	}
 	// Label config-file-derived credentials so doctor can distinguish
 	// "credentials persisted on disk" from "no credentials at all" — without
 	// this, users who saved via set-token without an env var see a blank

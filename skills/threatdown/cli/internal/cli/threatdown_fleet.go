@@ -294,6 +294,18 @@ func openFleetStore(cmd *cobra.Command, dbPath string) (*store.Store, bool, erro
 
 // fleetHint mirrors hintIfUnsynced/hintIfStale for resources only `fleet sync`
 // fills (the generic sync command cannot page POST searches across sites).
+// tdMaxAge is the staleness threshold for the fleet reports' local-copy
+// hints: an explicit global --max-age (0 disables), else 24h, because
+// fleet sync is a heavier pull than the 30m generic default assumes.
+func tdMaxAge(cmd *cobra.Command) time.Duration {
+	if f := cmd.Flag("max-age"); f != nil && f.Changed {
+		if d, err := time.ParseDuration(f.Value.String()); err == nil {
+			return d
+		}
+	}
+	return 24 * time.Hour
+}
+
 func fleetHint(cmd *cobra.Command, db *store.Store, resource string, maxAge time.Duration) {
 	state, err := readSyncHintState(db, resource)
 	if err != nil {

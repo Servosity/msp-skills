@@ -19,8 +19,8 @@ short-lived bearer token (OAuth2 client credentials) at
 Optional settings:
 
 - `THREATDOWN_OAUTH_SCOPE` - the scopes to request, space-separated (default
-  `execute read write`). Set it to `read` for a reporting-only setup. Run
-  `threatdown-cli auth login` after changing it so the next token carries the new scopes.
+  `execute read write`). Set it to `read` for a reporting-only setup. Changing it makes
+  the CLI request a new token with the new scopes on its next call.
 - `THREATDOWN_BASE_URL` / `THREATDOWN_TOKEN_URL` - override the API and token hosts.
 - `THREATDOWN_USER_AGENT` - override the User-Agent header.
 
@@ -44,10 +44,11 @@ token is reused only by a process with the same client ID, scope and token URL; 
 process configured with a different OAuth client or `THREATDOWN_OAUTH_SCOPE` requests
 its own token, and one that has no client secret to do that stops with an error rather
 than borrow the cached token. A token saved with `auth set-token` is used only while no
-client ID and secret are configured. Run `threatdown-cli auth logout` to clear the
+client ID or secret is configured. Run `threatdown-cli auth logout` to clear the
 cache, or delete the OAuth client in OneView to revoke access outright. The local
 SQLite mirror is shared by every process run as the same OS user, whichever OAuth client
-synced it, so give an agent that must not see that data its own OS user or `--home`. Credentials are never sent anywhere except the ThreatDown token
+synced it, so give an agent that must not see that data its own OS user or its own
+`THREATDOWN_HOME` (the CLI's `--home`), which also gives it its own credentials file. Credentials are never sent anywhere except the ThreatDown token
 and API endpoints.
 
 ## Default-safe behavior

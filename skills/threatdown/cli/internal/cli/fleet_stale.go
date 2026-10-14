@@ -154,7 +154,9 @@ func fleetStaleLive(ctx context.Context, flags *rootFlags, opts fleet.StaleOptio
 	}
 	cutoff := isoAgo(now, time.Duration(opts.Hours)*time.Hour)
 	raws, info, err := searchPages(ctx, c, "/v1/endpoints", map[string]any{"account_ids": accounts, "last_day_seen_before": cutoff}, "endpoints", maxPages)
-	more := info.Truncated
+	// hand-fix (handfixes.json respond-pending-truncated-warning): an end the
+	// server did not confirm (no empty next_cursor) is not a complete scan.
+	more := info.Truncated || !info.Complete
 	if err != nil {
 		return view, err
 	}
@@ -167,12 +169,12 @@ func fleetStaleLive(ctx context.Context, flags *rootFlags, opts fleet.StaleOptio
 		liveEps, liveBad := parseEndpoints(live)
 		all = append(all, liveEps...)
 		bad += liveBad
-		more = more || liveInfo.Truncated
+		more = more || liveInfo.Truncated || !liveInfo.Complete
 	}
 	view.Scanned = len(all)
 	view.Truncated = more
 	if more {
-		view.Note = joinNotes(view.Note, "scan stopped at --max-scan-pages; raise it to cover the whole fleet")
+		view.Note = joinNotes(view.Note, "scan did not finish (it reached --max-scan-pages or the server did not confirm the last page); raise --max-scan-pages to cover the whole fleet")
 	}
 	if bad > 0 {
 		view.Note = joinNotes(view.Note, fmt.Sprintf("%d endpoint record(s) could not be read and are not listed", bad))
@@ -190,9 +192,9 @@ func fleetStaleLocal(cmd *cobra.Command, opts fleet.StaleOptions, siteFilter, db
 	}
 	defer db.Close()
 	if !hintIfUnsynced(cmd, db, tdResSites) {
-		hintIfStale(cmd, db, tdResSites, 24*time.Hour)
+		hintIfStale(cmd, db, tdResSites, tdMaxAge(cmd))
 	}
-	fleetHint(cmd, db, tdResEndpoints, 24*time.Hour)
+	fleetHint(cmd, db, tdResEndpoints, tdMaxAge(cmd))
 	if state, err := readSyncHintState(db, tdResEndpoints); err == nil && !state.hasState {
 		view.Note = "no endpoints synced yet; run " + tdFleetSyncCommand
 	}

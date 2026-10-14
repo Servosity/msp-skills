@@ -68,9 +68,9 @@ func loadThreatData(cmd *cobra.Command, dbPath string, needEndpoints bool, since
 	}
 	defer db.Close()
 	if !hintIfUnsynced(cmd, db, tdResSites) {
-		hintIfStale(cmd, db, tdResSites, 24*time.Hour)
+		hintIfStale(cmd, db, tdResSites, tdMaxAge(cmd))
 	}
-	fleetHint(cmd, db, tdResDetections, 24*time.Hour)
+	fleetHint(cmd, db, tdResDetections, tdMaxAge(cmd))
 	if state, err := readSyncHintState(db, tdResDetections); err == nil {
 		out.synced = state.hasState
 	}
@@ -85,7 +85,7 @@ func loadThreatData(cmd *cobra.Command, dbPath string, needEndpoints bool, since
 	}
 	out.detections = parseDetections(raws)
 	if needEndpoints {
-		fleetHint(cmd, db, tdResEndpoints, 24*time.Hour)
+		fleetHint(cmd, db, tdResEndpoints, tdMaxAge(cmd))
 		det, derr := readSyncHintState(db, tdResDetections)
 		epWrite, eerr := latestRowSync(ctx, db, tdResEndpoints)
 		// ponytail: second-resolution stamps, so an endpoints-only refresh in the

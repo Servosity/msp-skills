@@ -311,6 +311,9 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 						} else {
 							report["api"] = fmt.Sprintf("reachable (HTTP %d at /)", status)
 						}
+					case errors.Is(reachErr, client.ErrTokenBoundElsewhere):
+						// hand-fix (token-bound-to-client): refused locally, nothing was sent.
+						report["api"] = "not probed (credentials error below)"
 					default:
 						// Network-level failure: DNS, connection refused, TLS,
 						// transport init, etc. The transport itself didn't
@@ -322,6 +325,8 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 					authHeader := cfg.AuthHeader()
 					if authHeader == "" {
 						// No auth configured — skip credential validation
+					} else if errors.Is(reachErr, client.ErrTokenBoundElsewhere) {
+						report["credentials"] = fmt.Sprintf("ERROR %s", reachErr)
 					} else if reachErr != nil && !errors.As(reachErr, &reachAPIErr) {
 						report["credentials"] = "skipped (API unreachable)"
 					} else {

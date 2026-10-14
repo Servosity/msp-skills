@@ -1054,7 +1054,7 @@ func classifyAPIErrorOnly(err error) error {
 	switch {
 	case strings.Contains(msg, "HTTP 409"):
 		return apiErr(err)
-	case errors.Is(err, client.ErrPlaceholderCredential):
+	case errors.Is(err, client.ErrPlaceholderCredential), errors.Is(err, client.ErrTokenBoundElsewhere):
 		return authErr(err)
 	case strings.Contains(msg, "HTTP 400") && cliutil.LooksLikeAuthError(msg):
 		return authErr(fmt.Errorf("%w\nhint: the API rejected the request — this usually means auth is missing or invalid."+

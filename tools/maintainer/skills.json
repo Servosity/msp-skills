@@ -1631,7 +1631,7 @@
       "display_name": "ThreatDown",
       "tagline": "Find stale endpoints, rank site health and isolate infected machines across every ThreatDown OneView site by asking.",
       "has_video": true,
-      "cli_hash": "sha256:ae20639045bccd7bb7dd11044f788f4c5e31d07536a3d38704b0b965537533b6",
+      "cli_hash": "sha256:644bc22f6adc892300c1649bb08dae12b1f4cd3a8426862bc63b1aa24f7f66ae",
       "template_version": 3,
       "version": "0.1.0",
       "cli_hash_at_release": null,

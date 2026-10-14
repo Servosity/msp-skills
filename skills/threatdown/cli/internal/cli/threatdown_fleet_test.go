@@ -133,6 +133,15 @@ func TestMatchSite(t *testing.T) {
 	if _, cands, ok := matchSite(sites, "initech"); ok || len(cands) != 0 {
 		t.Fatal("no match should report nothing")
 	}
+	// Two sites with one name are ambiguous, and a site whose name equals
+	// another site's ID never shadows that ID.
+	dup := append(sites, fleet.Site{ID: "s4", AccountID: "a4", Name: "Globex"}, fleet.Site{ID: "s5", AccountID: "a5", Name: "s1"})
+	if _, cands, ok := matchSite(dup, "globex"); ok || len(cands) != 2 {
+		t.Fatalf("duplicate exact names should be ambiguous, got %v", cands)
+	}
+	if s, _, ok := matchSite(dup, "s1"); !ok || s.ID != "s1" {
+		t.Fatalf("an ID must win over a same-named site, got %+v", s)
+	}
 }
 
 // fakeOneView serves just enough of OneView for the respond write path and

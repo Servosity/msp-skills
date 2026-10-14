@@ -4,6 +4,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -74,5 +75,17 @@ func TestCachedTokenBindingFailsClosed(t *testing.T) {
 	}
 	if h, err := cached("", "", "").authHeader(ctx); err != nil || h != "Bearer cached-execute-token" {
 		t.Fatalf("auth set-token token unusable with no client credentials: %q %v", h, err)
+	}
+}
+
+// An auth set-token token is used only while no client ID or secret is set,
+// and the refusal is the typed auth-class error.
+func TestSetTokenYieldsToAnyClientCredential(t *testing.T) {
+	t.Setenv("THREATDOWN_OAUTH_SCOPE", "read")
+	t.Setenv("THREATDOWN_CLIENT_ID", "")
+	t.Setenv("THREATDOWN_CLIENT_SECRET", "")
+	c := &Client{Config: &config.Config{AccessToken: "pasted-token", TokenExpiry: time.Now().Add(time.Hour), ClientID: "reporting-client"}}
+	if _, err := c.authHeader(context.Background()); !errors.Is(err, ErrTokenBoundElsewhere) {
+		t.Fatalf("set-token token rode a client ID with no secret: %v", err)
 	}
 }

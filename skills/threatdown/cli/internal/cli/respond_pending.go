@@ -253,9 +253,9 @@ them, and keeps waiting jobs only once they are older than --min-age.`,
 				if ok {
 					defer db.Close()
 					if !hintIfUnsynced(cmd, db, tdResSites) {
-						hintIfStale(cmd, db, tdResSites, 24*time.Hour)
+						hintIfStale(cmd, db, tdResSites, tdMaxAge(cmd))
 					}
-					fleetHint(cmd, db, tdResJobs, 24*time.Hour)
+					fleetHint(cmd, db, tdResJobs, tdMaxAge(cmd))
 					if state, err := readSyncHintState(db, tdResJobs); err == nil && !state.hasState {
 						view.Note = "no jobs synced yet; run " + tdFleetSyncCommand
 					} else if n := coverageNote(ctx, db, tdResJobs, now.Add(-window)); n != "" {
@@ -303,7 +303,14 @@ them, and keeps waiting jobs only once they are older than --min-age.`,
 			}
 			if view.Count == 0 {
 				if view.Note == "" && !view.Truncated {
-					fmt.Fprintf(cmd.OutOrStdout(), "No job in the last %s is still waiting, timed out, expired or failed (cancelled jobs are not listed; waiting jobs younger than --min-age %s are skipped).\n", since, minAge)
+					scope := ""
+					if commandFilter != "" {
+						scope += fmt.Sprintf(" for --command %s", commandFilter)
+					}
+					if siteFilter != "" {
+						scope += fmt.Sprintf(" in sites matching %q", siteFilter)
+					}
+					fmt.Fprintf(cmd.OutOrStdout(), "No job%s in the last %s is still waiting, timed out, expired or failed (cancelled jobs are not listed; waiting jobs younger than --min-age %s are skipped).\n", scope, since, minAge)
 				}
 				return nil
 			}

@@ -202,7 +202,7 @@ OneView, the multi-site console ThreatDown (Malwarebytes) gives MSPs. It talks t
 
 ### What credentials do I need?
 
-An OAuth client ID and secret from OneView: open **Integrate** in the left menu, click **Add**, name the app and tick the scopes. ThreatDown says a Global or Site Administrator has to create it, and the secret is shown only once. `read` covers every report; the `respond` commands (isolate, restore, scan, reboot, update) also need `execute`, and other changes need `write`. Set `THREATDOWN_CLIENT_ID` and `THREATDOWN_CLIENT_SECRET`, then run `threatdown-cli doctor`. To request fewer scopes than the default `execute read write`, set `THREATDOWN_OAUTH_SCOPE` (for example `read`) and run `threatdown-cli auth login`.
+An OAuth client ID and secret from OneView: open **Integrate** in the left menu, click **Add**, name the app and tick the scopes. ThreatDown says a Global or Site Administrator has to create it, and the secret is shown only once. `read` covers every report; the `respond` commands (isolate, restore, scan, reboot, update) also need `execute`, and other changes need `write`. Set `THREATDOWN_CLIENT_ID` and `THREATDOWN_CLIENT_SECRET`, then run `threatdown-cli doctor`. To request fewer scopes than the default `execute read write`, set `THREATDOWN_OAUTH_SCOPE` (for example `read`); the CLI requests a token with those scopes on its next call.
 
 ### Can my AI isolate or scan client machines?
 

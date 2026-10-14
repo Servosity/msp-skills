@@ -54,6 +54,9 @@ const maxErrorBodyBytes = 4096
 
 var ErrPlaceholderCredential = errors.New("auth placeholder credential")
 
+// ErrTokenBoundElsewhere: hand-fix (handfixes.json token-bound-to-client).
+var ErrTokenBoundElsewhere = errors.New("the cached OneView token was issued for a different OAuth client, scope or token URL")
+
 type Client struct {
 	BaseURL    string
 	Config     *config.Config
@@ -1680,7 +1683,7 @@ func (c *Client) authHeader(ctx context.Context) (string, error) {
 	// No mint ran (no client secret here): never fall back to a token that
 	// belongs to another client configuration.
 	if c.tokenBoundElsewhere() {
-		return "", fmt.Errorf("the cached OneView token was issued for a different OAuth client, scope or token URL; set THREATDOWN_CLIENT_ID and THREATDOWN_CLIENT_SECRET for this process, or run threatdown-cli auth login")
+		return "", fmt.Errorf("%w; set THREATDOWN_CLIENT_ID and THREATDOWN_CLIENT_SECRET for this process, or run threatdown-cli auth login", ErrTokenBoundElsewhere)
 	}
 	authHeader := c.Config.AuthHeader()
 	if authHeader == "" && c.Config.HasCredentialRefusals() {
@@ -1752,7 +1755,7 @@ func authPlaceholderCredentialErrorWithSetup(cfg *config.Config, setup string) e
 // tokenBoundElsewhere reports whether the cached access token must not be used
 // by this process (hand-fix, handfixes.json token-bound-to-client): it was
 // minted for a different OAuth client, scope or token URL, or it is unbound
-// (auth set-token) while this process has client credentials of its own.
+// (auth set-token) while this process has a client ID or secret of its own.
 // Every process run as the same OS user shares one credentials file.
 func (c *Client) tokenBoundElsewhere() bool {
 	cfg := c.Config
@@ -1761,7 +1764,7 @@ func (c *Client) tokenBoundElsewhere() bool {
 	}
 	id, secret := resolveClientCredentials(cfg)
 	if cfg.TokenBinding == "" {
-		return id != "" && secret != ""
+		return id != "" || secret != ""
 	}
 	return cfg.TokenBinding != config.TokenBindingFor(id, resolveClientCredentialsScopes(), effectiveTokenURL(cfg))
 }
