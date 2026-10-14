@@ -69,7 +69,7 @@
     "threatdown_mcp_read_only": {
       "type": "string",
       "title": "Read-only MCP server",
-      "description": "Set to exactly 1 to drop the MCP server's write tools (including the respond job verbs) and refuse every non-GET call through threatdown_execute. Leave blank for the full tool set.",
+      "description": "Set to exactly 1 to drop the MCP server's write tools (including the respond job verbs) and refuse every non-GET call, and endpoints diag-log, through threatdown_execute. Leave blank for the full tool set.",
       "required": false
     },
     "threatdown_mcp_http_token": {
@@ -82,7 +82,7 @@
     "printing_press_client_profile": {
       "type": "string",
       "title": "Client profile",
-      "description": "Binds this MCP server to one tenant-gated client profile, so every call answers for that customer. Leave blank to use the profile configured as default_client_profile.",
+      "description": "Not enforced by this connector: ThreatDown has no tenant-gated client profiles, so a value here does not limit which customer sites a call can reach. Leave blank. To limit what an agent can do, give it a read-only OAuth client.",
       "required": false
     }
   },

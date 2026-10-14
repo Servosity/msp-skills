@@ -5,6 +5,8 @@
 package config
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"net/url"
 	"os"
@@ -38,6 +40,12 @@ type Config struct {
 	TokenExpiry      time.Time `toml:"token_expiry"`
 	ClientID         string    `toml:"client_id"`
 	ClientSecret     string    `toml:"client_secret"`
+	// TokenBinding fingerprints the OAuth client, scope and token URL the
+	// cached AccessToken was minted for (hand-fix, handfixes.json
+	// token-bound-to-client). Every process run as the same OS user shares
+	// one credentials file, so without it a process configured as a
+	// read-only client reused another client's execute token.
+	TokenBinding string `toml:"token_binding,omitempty"`
 	// TokenURL overrides the spec-baked OAuth2 token endpoint. Same fallback
 	// pattern as AuthorizationURL.
 	TokenURL     string          `toml:"token_url,omitempty"`
@@ -487,6 +495,7 @@ func (c *Config) clearCredentialFields() {
 	c.TokenExpiry = time.Time{}
 	c.ClientID = ""
 	c.ClientSecret = ""
+	c.TokenBinding = ""
 }
 
 func (c *Config) credentials() *cliutil.Credentials {
@@ -497,6 +506,7 @@ func (c *Config) credentials() *cliutil.Credentials {
 		TokenExpiry:   c.TokenExpiry,
 		ClientID:      c.ClientID,
 		ClientSecret:  c.ClientSecret,
+		TokenBinding:  c.TokenBinding,
 	}
 }
 
@@ -522,6 +532,17 @@ func (c *Config) applyCredentials(creds *cliutil.Credentials) {
 	if c.ClientSecret == "" {
 		c.ClientSecret = creds.ClientSecret
 	}
+	if c.TokenBinding == "" {
+		c.TokenBinding = creds.TokenBinding
+	}
+}
+
+// TokenBindingFor returns the fingerprint SaveTokens records next to a
+// client-credentials token: a cached token is reused only by a process whose
+// client ID, scope and token URL produce the same value.
+func TokenBindingFor(clientID string, scopes []string, tokenURL string) string {
+	sum := sha256.Sum256([]byte(clientID + "\x00" + strings.Join(scopes, " ") + "\x00" + tokenURL))
+	return hex.EncodeToString(sum[:12])
 }
 
 func (c *Config) saveCredentialsFirst() error {
@@ -669,6 +690,7 @@ func (c *Config) SaveTokens(clientID, clientSecret, accessToken, refreshToken st
 	c.updateFileConfigField("AccessToken")
 	c.updateFileConfigField("RefreshToken")
 	c.updateFileConfigField("TokenExpiry")
+	c.updateFileConfigField("TokenBinding")
 	return c.saveCredentialsThenConfig()
 }
 
@@ -685,6 +707,7 @@ func (c *Config) ClearTokens() error {
 	c.TokenExpiry = time.Time{}
 	c.ClientID = ""
 	c.ClientSecret = ""
+	c.TokenBinding = ""
 	delete(c.envOverrides, "AuthHeaderVal")
 	delete(c.envOverrides, "AccessToken")
 	delete(c.envOverrides, "RefreshToken")
@@ -697,6 +720,7 @@ func (c *Config) ClearTokens() error {
 	c.updateFileConfigField("TokenExpiry")
 	c.updateFileConfigField("ClientID")
 	c.updateFileConfigField("ClientSecret")
+	c.updateFileConfigField("TokenBinding")
 	if c.AgentcookieManagedByExternalStore() {
 		c.markAgentcookieManaged()
 		// save() persists the full config (credential fields included) for
@@ -784,6 +808,8 @@ func (c *Config) updateFileConfigField(field string) {
 		c.fileConfig.ClientID = c.ClientID
 	case "ClientSecret":
 		c.fileConfig.ClientSecret = c.ClientSecret
+	case "TokenBinding":
+		c.fileConfig.TokenBinding = c.TokenBinding
 	}
 }
 

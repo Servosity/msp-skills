@@ -23,10 +23,13 @@ func newTailCmd(flags *rootFlags) *cobra.Command {
 	var follow bool
 
 	cmd := &cobra.Command{
-		Use:         "tail [resource]",
-		Short:       "Stream live changes by polling the API at regular intervals",
-		Args:        cobra.RangeArgs(0, 1),
-		Annotations: map[string]string{"mcp:read-only": "true", "pp:no-error-path-probe": "true"},
+		Use:   "tail [resource]",
+		Short: "Stream live changes by polling the API at regular intervals",
+		Args:  cobra.RangeArgs(0, 1),
+		// hand-fix (handfixes.json tail-redacts-secrets): a poll loop that never
+		// returns is not an MCP tool (follow:false is dropped by the MCP argv
+		// builder, so every MCP call hung).
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:no-error-path-probe": "true", "mcp:hidden": "true"},
 		Long: `Tail streams live data changes by polling the API at configurable intervals.
 Changes are emitted as NDJSON to stdout for piping to other tools.
 Gracefully shuts down on SIGTERM/SIGINT.
@@ -152,6 +155,10 @@ func fetchAndEmit(ctx context.Context, c interface {
 	if err != nil {
 		return err
 	}
+	// hand-fix (handfixes.json tail-redacts-secrets): policies and
+	// notifications rows carry uninstall passwords, signing keys and outbound
+	// auth headers; tail is a read-only MCP tool, so it never streams them.
+	data, _ = cliutil.RedactSecretFields(data)
 
 	items, _, _ := extractResourcePage(data, config)
 	if items == nil {

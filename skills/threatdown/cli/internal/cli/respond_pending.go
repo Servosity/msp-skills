@@ -298,8 +298,11 @@ them, and keeps waiting jobs only once they are older than --min-age.`,
 			if view.Note != "" {
 				fmt.Fprintf(cmd.OutOrStdout(), "note: %s\n", view.Note)
 			}
+			if view.Truncated {
+				fmt.Fprintf(cmd.OutOrStdout(), "warning: stopped after --max-scan-pages %d; older jobs in the window were not checked. Raise --max-scan-pages or narrow --since.\n", maxPages)
+			}
 			if view.Count == 0 {
-				if view.Note == "" {
+				if view.Note == "" && !view.Truncated {
 					fmt.Fprintf(cmd.OutOrStdout(), "Every job in the last %s completed (or is still inside --min-age %s).\n", since, minAge)
 				}
 				return nil

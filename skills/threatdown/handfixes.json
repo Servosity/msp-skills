@@ -139,7 +139,7 @@
     },
     {
      "file": "cli/internal/cliutil/secretfields.go",
-     "contains": "return strings.HasSuffix(strings.TrimRight(path, \"/\"), \"/installers\")",
+     "contains": "return strings.HasSuffix(p, \"/installers\") || strings.HasSuffix(p, \"/diag-log\")",
      "code_only": true
     },
     {
@@ -305,6 +305,148 @@
     {
      "file": "page.json",
      "contains": "endpoint-jobs parent-children-reissue, the endpoint-jobs cancels"
+    }
+   ]
+  },
+  {
+   "id": "token-bound-to-client",
+   "summary": "A client-credentials token is saved with token_binding, a fingerprint of the client ID, scope and token URL it was minted for (config.TokenBindingFor). needsClientCredentialsMint requests a new token when the current process's client ID, THREATDOWN_OAUTH_SCOPE or token URL produce a different fingerprint; auth login records it, auth set-token clears it.",
+   "why": "Found by the round-4 adversarial review and the Codex branch review (2026-10-14). Every process run as the same OS user shares one credentials.toml, and the generated needsClientCredentialsMint checked only token presence and expiry. So an MCP server configured with a separate read-only OAuth client (and THREATDOWN_OAUTH_SCOPE=read) reused the admin's cached execute token and issued an isolation job through threatdown_execute, with no token request of its own; the README's 'the CLI can only do what that client is permitted to do' was false. A reprint regenerates client.go, config.go, credentials.go and auth.go and silently reverts this while go build and go test stay green. internal/client/token_binding_test.go fails with the check removed.",
+   "status": "active",
+   "spec_encode_followup": "Generator defect: the press's client-credentials cache should key the token on the client ID and scope.",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "cfg.TokenBinding != config.TokenBindingFor(id, resolveClientCredentialsScopes(), effectiveTokenURL(cfg))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.Config.TokenBinding = config.TokenBindingFor(clientID, resolveClientCredentialsScopes(), tokenURL)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "func TokenBindingFor(clientID string, scopes []string, tokenURL string) string",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "TokenBinding:  c.TokenBinding,",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credentials.go",
+     "contains": "TokenBinding string `toml:\"token_binding,omitempty\"`",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "cfg.TokenBinding = config.TokenBindingFor(clientID, resolveClientCredentialsScopes(), tokenURL)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/token_binding_test.go",
+     "contains": "func TestCachedTokenBoundToClientAndScope(",
+     "code_only": true
+    },
+    {
+     "file": "governance.md",
+     "contains": "The cached\ntoken is reused only by a process with the same client ID, scope and token URL"
+    }
+   ]
+  },
+  {
+   "id": "diag-log-is-endpoint-action",
+   "summary": "endpoints diag-log (a GET that makes the endpoint generate a diagnostic log) is marked Mutating in the MCP code-orchestration table, so THREATDOWN_MCP_READ_ONLY=1 refuses it through threatdown_execute; the CLI command no longer carries mcp:read-only; and its signed download URL is never written to the HTTP response cache (IsSecretBearingPath), so every call reaches the endpoint.",
+   "why": "Found by the round-4 adversarial review and the Codex branch review (2026-10-14). The generated read-only gate allowed every GET, so a 'reporting agent' MCP server could make client endpoints generate logs, which governance.md tiers as an Endpoint action. The response is a signed S3 URL that was cached at rest and served on a repeat call without asking the endpoint again. code_orch.go, endpoints_diag-log.go and secretfields' caller are regenerated on a reprint; TestCodeOrchExecuteReadOnlyRefusesNonGET in code_orch_writebody_test.go fails if diag-log stops being refused.",
+   "status": "active",
+   "spec_encode_followup": "Needs a spec extension the press honors for side-effecting GETs (mark the operation mutating) so the gate, cache bypass and MCP hint follow by construction.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "Path:           \"/v1/accounts/{account_id}/endpoints/{id}/diag-log\",\n\t\tSummary:        \"Generate a diagnostic log for an endpoint using its ID.\",\n\t\tPositional:     []string{\"id\", \"account_id\"},\n\t\tTemplateParams: []codeOrchParamBinding{},\n\t\tQueryParams:    []codeOrchParamBinding{},\n\t\tHeaderParams:   []codeOrchParamBinding{},\n\t\tMutating:       true,",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "return cliutil.IsMCPReadOnlyEnv() && (method != \"GET\" || mutating)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch_writebody_test.go",
+     "contains": "ep.ID == \"endpoints.diag-log\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/secretfields.go",
+     "contains": "strings.HasSuffix(p, \"/diag-log\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/endpoints_diag-log.go",
+     "not_contains": "\"mcp:read-only\": \"true\""
+    }
+   ]
+  },
+  {
+   "id": "tail-redacts-secrets",
+   "summary": "tail strips the secret fields (as_uninstall_password, secret_token, custom_headers and the rest of secretFieldKeys) from every polled response before streaming it, and is hidden from the MCP server (mcp:hidden).",
+   "why": "Found by the round-4 adversarial review and the Codex branch review (2026-10-14). tail policies and tail notifications streamed every policy's uninstall password and every subscription's signing key and auth headers, while the MCP tail tool advertised readOnlyHint=true and stayed enabled under THREATDOWN_MCP_READ_ONLY=1: the twin of the round-2 export finding. As an MCP tool tail also never returned (the MCP argv builder drops follow:false, so the poll loop ran forever). A reprint regenerates tail.go; internal/cli/tail_secrets_test.go fails with the redaction removed.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/tail.go",
+     "contains": "data, _ = cliutil.RedactSecretFields(data)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/tail.go",
+     "contains": "\"mcp:hidden\": \"true\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/tail_secrets_test.go",
+     "contains": "func TestTailNeverStreamsSecretFields(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "client-profile-not-enforced",
+   "summary": "manifest.json, server.json and the --client-profile flag help say PRINTING_PRESS_CLIENT_PROFILE is not enforced by this connector and does not limit which sites a call reaches, instead of promising a tenant-bound MCP server.",
+   "why": "Found by the round-4 adversarial review and the Codex branch review (2026-10-14). No ThreatDown platform adapter is registered (registerPlatformSource is never called), so BindMCPServerProfile and VerifyMCPInvocation return without gating and a profile set for customer isolation silently reached every site. The variable stays declared because the binary reads it (check_env_schema). Wiring a real tenant gate is a per-vendor design task; the honest fix is the wording. manifest.json and server.json are re-vendored on every onboard --resume and root.go on a reprint.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "manifest.json",
+     "contains": "Not enforced by this connector: ThreatDown has no tenant-gated client profiles"
+    },
+    {
+     "file": "server.json",
+     "contains": "Not enforced by this connector (no tenant-gated profiles)"
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "Not enforced by this connector: ThreatDown has no tenant-gated client profiles",
+     "code_only": true
+    },
+    {
+     "file": "manifest.json",
+     "not_contains": "so every call answers for that customer"
+    }
+   ]
+  },
+  {
+   "id": "respond-pending-truncated-warning",
+   "summary": "respond pending's human output prints a warning when the job search stopped at --max-scan-pages and suppresses the 'Every job ... completed' all-clear in that case.",
+   "why": "Found by the Codex branch review (2026-10-14): view.Truncated reached the JSON output but the table path ignored it, so a scan that hit the page cap could print an all-clear while older failed jobs went unchecked. respond_pending.go is a hand-written novel file; this entry pins the guard against a refactor.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/respond_pending.go",
+     "contains": "if view.Note == \"\" && !view.Truncated {",
+     "code_only": true
     }
    ]
   }

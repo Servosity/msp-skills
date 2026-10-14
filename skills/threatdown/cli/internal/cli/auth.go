@@ -104,6 +104,7 @@ Credentials default to THREATDOWN_CLIENT_ID (Client ID) and THREATDOWN_CLIENT_SE
 				expiry = time.Now().Add(time.Duration(tok.ExpiresIn) * time.Second)
 			}
 			cfg.MarkCredentialsExplicit(clientIDFromFlag, clientSecretFromFlag)
+			cfg.TokenBinding = config.TokenBindingFor(clientID, resolveClientCredentialsScopes(), tokenURL)
 			if err := cfg.SaveTokens(clientID, clientSecret, tok.AccessToken, "", expiry); err != nil {
 				return configErr(fmt.Errorf("saving token: %w", err))
 			}
@@ -266,6 +267,7 @@ func newAuthSetTokenCmd(flags *rootFlags) *cobra.Command {
 				return configErr(err)
 			}
 			cfg.AuthHeaderVal = ""
+			cfg.TokenBinding = ""
 			if err := cfg.SaveTokens("", "", token, "", cfg.TokenExpiry); err != nil {
 				return configErr(fmt.Errorf("saving token: %w", err))
 			}

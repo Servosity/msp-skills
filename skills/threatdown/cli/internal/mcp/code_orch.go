@@ -2061,7 +2061,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
-		Mutating:       false,
+		Mutating:       true, // hand-fix (handfixes.json diag-log-is-endpoint-action): makes the endpoint generate a log
 		keywords:       codeOrchKeywords("endpoints", "diag-log", "Generate a diagnostic log for an endpoint using its ID.", "/v1/accounts/{account_id}/endpoints/{id}/diag-log"),
 	},
 	{
@@ -5280,8 +5280,10 @@ func handleCodeOrchGet(ctx context.Context, req mcplib.CallToolRequest) (*mcplib
 	return mcplib.NewToolResultText(text), nil
 }
 
-func codeOrchBlockedByMCPReadOnly(method string) bool {
-	return cliutil.IsMCPReadOnlyEnv() && method != "GET"
+// hand-fix (handfixes.json diag-log-is-endpoint-action): a GET with a side
+// effect on the endpoint (Mutating) is refused in read-only mode too.
+func codeOrchBlockedByMCPReadOnly(method string, mutating bool) bool {
+	return cliutil.IsMCPReadOnlyEnv() && (method != "GET" || mutating)
 }
 
 func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
@@ -5295,7 +5297,7 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 	if ep == nil {
 		return mcplib.NewToolResultError(fmt.Sprintf("unknown endpoint_id %q — call threatdown_search to discover valid ids", id)), nil
 	}
-	if codeOrchBlockedByMCPReadOnly(ep.Method) {
+	if codeOrchBlockedByMCPReadOnly(ep.Method, ep.Mutating) {
 		return mcplib.NewToolResultError(fmt.Sprintf("refusing %s %s while %s=1", ep.Method, id, cliutil.MCPReadOnlyEnvVar)), nil
 	}
 

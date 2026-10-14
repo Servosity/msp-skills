@@ -31,6 +31,8 @@ type Credentials struct {
 	TokenExpiry   time.Time `toml:"token_expiry"`
 	ClientID      string    `toml:"client_id"`
 	ClientSecret  string    `toml:"client_secret"`
+	// TokenBinding: see config.TokenBindingFor (handfixes.json token-bound-to-client).
+	TokenBinding string `toml:"token_binding,omitempty"`
 }
 
 // CredentialsPermissionError means the credentials bytes were published but

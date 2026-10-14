@@ -78,7 +78,7 @@
         },
         {
           "name": "PRINTING_PRESS_CLIENT_PROFILE",
-          "description": "Optional: bind the MCP server to one tenant-gated client profile; leave unset to use default_client_profile.",
+          "description": "Not enforced by this connector (no tenant-gated profiles); leave unset. It does not limit which sites a call can reach.",
           "isRequired": false,
           "isSecret": false
         }

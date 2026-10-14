@@ -30,9 +30,12 @@ var secretFieldKeys = map[string]bool{
 
 // IsSecretBearingPath reports whether a GET path returns credentials in
 // fields whose names are not secret-shaped: the installers response carries
-// account-specific download links and signed URLs that can enroll an agent.
+// account-specific download links and signed URLs that can enroll an agent,
+// and diag-log returns a signed download URL for a log the endpoint was just
+// asked to generate (a cached copy would also skip the request).
 func IsSecretBearingPath(path string) bool {
-	return strings.HasSuffix(strings.TrimRight(path, "/"), "/installers")
+	p := strings.TrimRight(path, "/")
+	return strings.HasSuffix(p, "/installers") || strings.HasSuffix(p, "/diag-log")
 }
 
 // IsSecretFieldKey reports whether a JSON key names a credential value.

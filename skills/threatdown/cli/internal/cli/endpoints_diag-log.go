@@ -20,7 +20,7 @@ func newEndpointsDiagLogCmd(flags *rootFlags) *cobra.Command {
 		Args: func(cmd *cobra.Command, args []string) error {
 			return endpointPositionalArgs(cmd, flags, args, cobra.MaximumNArgs(2))
 		},
-		Annotations: map[string]string{"pp:endpoint": "endpoints.diag-log", "pp:method": "GET", "pp:path": "/v1/accounts/{account_id}/endpoints/{id}/diag-log", "mcp:read-only": "true"},
+		Annotations: map[string]string{"pp:endpoint": "endpoints.diag-log", "pp:method": "GET", "pp:path": "/v1/accounts/{account_id}/endpoints/{id}/diag-log"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				// A missing required positional is a usage error in every output

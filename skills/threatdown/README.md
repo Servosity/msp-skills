@@ -206,7 +206,7 @@ An OAuth client ID and secret from OneView: open **Integrate** in the left menu,
 
 ### Can my AI isolate or scan client machines?
 
-Only through commands you allow. The `respond` commands preview by default: they list the machines that would get the job and send nothing until you add `--confirm` (or the global `--yes`), and they refuse more than 25 endpoints unless you raise `--max-targets`. Other paths send immediately: `endpoint-jobs issue`, `endpoint-jobs bulk-issue`, `grid jobs-bulk`, `import endpoint_jobs`, and the MCP server's generic `threatdown_execute` tool. For a reporting agent, create the OAuth client with `read` only, or set `THREATDOWN_MCP_READ_ONLY=1` so the MCP server drops its write tools and refuses every non-GET call through `threatdown_execute`.
+Only through commands you allow. The `respond` commands preview by default: they list the machines that would get the job and send nothing until you add `--confirm` (or the global `--yes`), and they refuse more than 25 endpoints unless you raise `--max-targets`. Other paths send immediately: `endpoint-jobs issue`, `endpoint-jobs bulk-issue`, `grid jobs-bulk`, `import endpoint_jobs`, and the MCP server's generic `threatdown_execute` tool. For a reporting agent, create the OAuth client with `read` only, or set `THREATDOWN_MCP_READ_ONLY=1` so the MCP server drops its write tools and refuses every non-GET call, and `endpoints diag-log`, through `threatdown_execute`.
 
 ### Has it been tested against a live OneView tenant?
 
@@ -225,7 +225,7 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | `fleet stale`, `fleet health`, `seats reconcile`, `respond pending`, `threats spread`, `threats queue`, `customer report`, `fleet sync`, `search`, the `respond` commands without `--confirm`, every list / get / search / export command except the credential reads in the last row and `endpoints diag-log` | Allow |
+| Read | `fleet stale`, `fleet health`, `seats reconcile`, `respond pending`, `threats spread`, `threats queue`, `customer report`, `fleet sync`, `search`, `tail` (it strips the secret fields), the `respond` commands without `--confirm`, every list / get / search / export command except the credential reads in the last row and `endpoints diag-log` | Allow |
 | Endpoint actions | `respond isolate` / `restore` / `scan` / `reboot` / `update` with `--confirm`, `endpoint-jobs issue`, `endpoint-jobs bulk-issue`, `endpoint-jobs quarantine-bulk`, `endpoint-jobs parent-reissue`, `endpoint-jobs parent-children-reissue`, the `endpoint-jobs` cancels, `grid jobs-bulk`, `endpoints sa-remediate`, `suspicious-activity remediate`, `endpoints diag-log`, `import endpoint_jobs`, the MCP `threatdown_execute` tool on a jobs endpoint | Human-in-the-loop, explicit confirmation |
 | Security config | `exclusions create` / `update`, `policies create` / `update` / `promote` and the other policy writes, `groups assign-endpoints`, firewall, content-filtering, device-control, app-block and AIDR rules, `schedules`, `webhooks` and `notifications` create / update, `syslog` and `email-protection` settings, and every other write not in the rows around it | Preview with `--dry-run`, then a human-approved write |
 | Destructive | `endpoints delete` / `delete-bulk`, `grid endpoints-delete`, `sites delete`, `policies delete`, `exclusions delete`, `users delete`, `webhooks delete`, `notifications delete`, and every other `delete` command | Human-in-the-loop only, explicit confirmation |

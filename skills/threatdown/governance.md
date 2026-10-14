@@ -27,16 +27,24 @@ Optional settings:
 **Credentials from OneView are never stored.** `sync` and the HTTP response cache drop
 the secret fields OneView returns inside ordinary rows (`as_uninstall_password`,
 `secret`, `secret_hash`, `secret_token`, `custom_headers`, `password`, `token`) before anything reaches
-the local SQLite mirror, and a response that carries one is never cached. The live
-command output still shows them, which is why those reads sit in the Credential tier.
+the local SQLite mirror, and a response that carries one is never cached; `tail` strips
+them from what it streams. The `installers` and `endpoints diag-log` responses (signed
+download links) are never cached or stored either. Other live command output still shows
+the secret fields, which is why those reads sit in the Credential tier. Webhook and
+notification delivery URLs are stored; if your receiver URL carries its own token (a
+Power Automate or Logic Apps `sig=` link), treat the CLI's data directory as holding it.
 
 **What is stored on disk.** After a successful token request the CLI caches the bearer
 token and its expiry in a private `credentials.toml` (file mode 0600) under the CLI's
-data directory. The client ID and secret are not written there; they are read from the
-environment each time a new token is needed. A cached token keeps working until it
-expires even after you remove the environment variables, so run
-`threatdown-cli auth logout` to clear it, or delete the OAuth client in OneView to
-revoke access outright. Credentials are never sent anywhere except the ThreatDown token
+data directory. A client ID and secret taken from the environment are not written there;
+they are read again each time a new token is needed. `auth login --client-id ...
+--client-secret ...` does save both in that file, so later runs can request new tokens
+with no environment variables until you run `threatdown-cli auth logout`. The cached
+token is reused only by a process with the same client ID, scope and token URL; a
+process configured with a different OAuth client or `THREATDOWN_OAUTH_SCOPE` requests
+its own token. A process with no client credentials at all keeps using the cached token
+until it expires, so run `threatdown-cli auth logout` to clear it, or delete the OAuth
+client in OneView to revoke access outright. Credentials are never sent anywhere except the ThreatDown token
 and API endpoints.
 
 ## Default-safe behavior
@@ -74,7 +82,7 @@ human for anything below the line.
 
 | Tier | What it does | Examples | Recommended agent policy |
 | --- | --- | --- | --- |
-| **Read** | Reports, triage, search, lookups. No change in OneView. | `fleet stale`, `fleet health`, `seats reconcile`, `respond pending`, `threats spread`, `threats queue`, `customer report`, `fleet sync`, `sync`, `search`, `analytics`, the `respond` commands without `--confirm`, every `list` / `get` / `search` / `search-groupby` / `export` command (many are POST queries, as are the `flight-recorder`, `vulnerability-assessment`, `usage` and `email-protection` stats and usage reads) except the credential reads in the last row and `endpoints diag-log` | Allow |
+| **Read** | Reports, triage, search, lookups. No change in OneView. | `fleet stale`, `fleet health`, `seats reconcile`, `respond pending`, `threats spread`, `threats queue`, `customer report`, `fleet sync`, `sync`, `search`, `analytics`, `tail` (it strips the secret fields), the `respond` commands without `--confirm`, every `list` / `get` / `search` / `search-groupby` / `export` command (many are POST queries, as are the `flight-recorder`, `vulnerability-assessment`, `usage` and `email-protection` stats and usage reads) except the credential reads in the last row and `endpoints diag-log` | Allow |
 | **Endpoint actions** | Sends or cancels a job that runs on real client machines: isolate, release, scan and quarantine, reboot, update, remediate, collect logs. | `respond isolate` / `restore` / `scan` / `reboot` / `update` with `--confirm`, `endpoint-jobs issue`, `endpoint-jobs bulk-issue`, `endpoint-jobs quarantine-bulk`, `endpoint-jobs parent-reissue`, `endpoint-jobs parent-children-reissue`, the job cancels (`endpoint-jobs bulk-cancel`, `parent-cancel`, `parent-children-cancel`), `grid jobs-bulk`, `endpoints sa-remediate`, `suspicious-activity remediate`, `endpoints diag-log` (a GET that has the endpoint generate a diagnostic log), `import endpoint_jobs` (each line issues a job; preview it with `--dry-run`) | Human-in-the-loop, explicit confirmation |
 | **Security config** | Changes what the agent protects against, which policy an endpoint gets, or where alerts and logs go. An exclusion lets software run that would otherwise be blocked; a changed webhook, notification or syslog target can silence alerting. | `exclusions create` / `update`; `policies create` / `update` / `promote` / `clone` / `set-default` and their `-v2` forms, `policies auto-isolation-set`, `expire-endpoints-set` / `expire-endpoints-disable`, `isolation-image-add` / `isolation-image-delete`; `groups create` / `update` / `assign-endpoints` and `grid groups-assign-endpoints`; every other write under `firewall`, `content-filtering`, `device-control`, `app-block`, `aidr` and `asset-ignore-rules`; `schedules create` / `update` / `groups`; `endpoints set-tags` / `sa-close` / `sa-open`, `suspicious-activity close` / `open`, `detections submit-fp`, `cve ignore` / `bulk`, the `cases` writes; `webhooks create` / `update`, `notifications create` / `update` / `bulk-update` / `change-owner` / `remove-email`, the `preferences` updates, `syslog create` / `update` / `machine-enable` / `machines-assign`; every other `email-protection` write (`disable`, `integrations-disable`, `auto-sync-enable` / `auto-sync-disable`, `incidents-classify`, allow-list, settings and mailbox updates); `reports create` / `update` / `generate` / `change-owner`; `sites mdr-set`; `import` of exclusions, policies, notifications, device_control, content_filtering, cve or cases | Preview with `--dry-run`, then a human-approved write |
 | **Destructive** | Removes endpoints, sites, policies, rules, alert routes or users; not undoable from the CLI. | `endpoints delete`, `endpoints delete-bulk`, `grid endpoints-delete`, `sites delete`, `policies delete` / `delete-v2`, `exclusions delete`, `groups delete`, `users delete`, `subscriptions delete`, `webhooks delete`, `notifications delete` / `bulk-delete` / `delete-by-owner`, `schedules delete`, every delete under `firewall`, `content-filtering`, `device-control`, `app-block`, `aidr` and `asset-ignore-rules`, `reports delete` / `delete-bulk`, the `email-protection` allow-list, 911-mailbox and integration-domain deletes | Human-in-the-loop only, explicit confirmation |
@@ -88,9 +96,10 @@ operation, including `jobs/bulk` (isolate, scan, reboot) and endpoint deletes, w
 preview step. An allowlist keyed on CLI command names does not cover it. Set
 `THREATDOWN_MCP_READ_ONLY=1` in the MCP server's environment and it drops its write tools
 (among them the five `respond` job verbs, `sync`, `import` and `export`) and refuses
-every non-GET call through `threatdown_execute`. Because OneView searches are POSTs,
+every non-GET call through `threatdown_execute`, plus `endpoints diag-log`, a GET that
+makes the endpoint generate a log. Because OneView searches are POSTs,
 read-only mode also blocks raw searches through `threatdown_execute`; the fleet and
-triage tools keep working. Read-only mode still allows GET calls, including the
+triage tools keep working. Read-only mode still allows other GET calls, including the
 tamper-protection password reads (`GET /v1/policies/{id}/secret`,
 `GET /v1/sites/{id}/secret`), so do not hand a read-only MCP server to an agent you
 would not trust with those passwords.
@@ -100,8 +109,8 @@ would not trust with those passwords.
 - **Scope the OAuth client** to only what your workflow needs. A reporting workflow
   needs `read` only. Tick `execute` only if a human-approved workflow sends response
   jobs, and `write` only if it changes policies, exclusions, sites or users.
-- **Request fewer scopes from the CLI** with `THREATDOWN_OAUTH_SCOPE=read`, then run
-  `threatdown-cli auth login`. A token already cached keeps its old scopes until you do.
+- **Request fewer scopes from the CLI** with `THREATDOWN_OAUTH_SCOPE=read`. The CLI
+  requests a new token whenever the scope differs from the one the cached token has.
 - **Run the MCP server read-only for reporting agents:** `THREATDOWN_MCP_READ_ONLY=1`.
 - **Keep autonomous agents to Read + previewed writes.** Have a human approve the actual
   write for the Endpoint actions tier and above - the gate lives in your agent's policy,

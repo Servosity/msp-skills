@@ -1741,6 +1741,13 @@ func (c *Client) needsClientCredentialsMint() bool {
 	if cfg.AccessToken == "" {
 		return true
 	}
+	// hand-fix (handfixes.json token-bound-to-client): a token minted for a
+	// different OAuth client, scope or token URL is never reused.
+	if cfg.TokenBinding != "" {
+		if id, _ := resolveClientCredentials(cfg); id != "" && cfg.TokenBinding != config.TokenBindingFor(id, resolveClientCredentialsScopes(), effectiveTokenURL(cfg)) {
+			return true
+		}
+	}
 	if cfg.TokenExpiry.IsZero() {
 		// A stored token with no recorded expiry can be long-dead. Mint once
 		// per process instead of trusting it forever: one extra POST beats
@@ -1791,9 +1798,6 @@ func (c *Client) mintClientCredentials(ctx context.Context, clientID, clientSecr
 	if tokenURL == "" {
 		tokenURL = "https://api.threatdown.com/oneview/oauth2/token"
 	}
-	if tokenURL == "" {
-		return nil
-	}
 	form := url.Values{
 		"grant_type": {"client_credentials"},
 	}
@@ -1834,6 +1838,7 @@ func (c *Client) mintClientCredentials(ctx context.Context, clientID, clientSecr
 		expiry = time.Now().Add(time.Duration(tokenResp.ExpiresIn) * time.Second)
 	}
 	c.Config.AuthHeaderVal = "" // force AuthHeader() to use the new AccessToken path
+	c.Config.TokenBinding = config.TokenBindingFor(clientID, resolveClientCredentialsScopes(), tokenURL)
 	if err := c.Config.SaveTokens(clientID, clientSecret, tokenResp.AccessToken, "", expiry); err != nil {
 		return fmt.Errorf("saving minted token: %w", err)
 	}
@@ -2426,6 +2431,13 @@ func isPermanentDNSError(err error) bool {
 
 // hand-fix: scopes as a list so press dogfood's scope-coverage scan sees
 // each scope (it reads "execute read write" as one scope). Same wire value.
+func effectiveTokenURL(cfg *config.Config) string {
+	if cfg != nil && cfg.TokenURL != "" {
+		return cfg.TokenURL
+	}
+	return "https://api.threatdown.com/oneview/oauth2/token"
+}
+
 func resolveClientCredentialsScopes() []string {
 	if scope := cliutil.EnvOverride("THREATDOWN_OAUTH_SCOPE"); scope != "" {
 		return strings.Fields(scope)

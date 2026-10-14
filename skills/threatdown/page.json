@@ -86,7 +86,7 @@
     },
     {
       "q": "Can my AI isolate or scan client machines?",
-      "a": "Only through commands you allow. The respond commands preview by default: they list the machines that would get the job and send nothing until you add --confirm (or the global --yes), and they refuse more than 25 endpoints unless you raise --max-targets. Other paths send immediately: endpoint-jobs issue, endpoint-jobs bulk-issue, grid jobs-bulk, import endpoint_jobs, and the MCP server's generic threatdown_execute tool. For a reporting agent, create the OAuth client with read only, or set THREATDOWN_MCP_READ_ONLY=1 so the MCP server drops its write tools and refuses every non-GET call through threatdown_execute."
+      "a": "Only through commands you allow. The respond commands preview by default: they list the machines that would get the job and send nothing until you add --confirm (or the global --yes), and they refuse more than 25 endpoints unless you raise --max-targets. Other paths send immediately: endpoint-jobs issue, endpoint-jobs bulk-issue, grid jobs-bulk, import endpoint_jobs, and the MCP server's generic threatdown_execute tool. For a reporting agent, create the OAuth client with read only, or set THREATDOWN_MCP_READ_ONLY=1 so the MCP server drops its write tools and refuses every non-GET call, and endpoints diag-log, through threatdown_execute."
     },
     {
       "q": "Has it been tested against a live OneView tenant?",
@@ -101,7 +101,7 @@
   "safety_tiers": [
     {
       "tier": "Read",
-      "examples": "fleet stale, fleet health, seats reconcile, respond pending, threats spread, threats queue, customer report, fleet sync, sync, search, analytics, the respond commands without --confirm (preview only), and every list / get / search / export command except the credential reads under Credential and admin and endpoints diag-log",
+      "examples": "fleet stale, fleet health, seats reconcile, respond pending, threats spread, threats queue, customer report, fleet sync, sync, search, analytics, tail (it strips the secret fields), the respond commands without --confirm (preview only), and every list / get / search / export command except the credential reads under Credential and admin and endpoints diag-log",
       "policy": "Allow"
     },
     {
