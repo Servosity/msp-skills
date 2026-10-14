@@ -186,7 +186,10 @@ func TestUpsertBatch_GenericFallbackList(t *testing.T) {
 	}
 	defer s.Close()
 
-	for _, key := range []string{"id", "ID", "_id", "id_", "gid", "sid", "uid", "uuid", "guid", "api_id", "name", "slug", "key", "code"} {
+	// pp:handfix meraki-mirror-redacts-secrets: a bare string "key" (no
+	// license siblings) is a Dashboard/Umbrella/Secure Access API key in
+	// Meraki and must never become a row id; meraki_secrets_test.go pins that.
+	for _, key := range []string{"id", "ID", "_id", "id_", "gid", "sid", "uid", "uuid", "guid", "api_id", "name", "slug", "code"} {
 		t.Run(key, func(t *testing.T) {
 			rt := "fallback_" + key
 			items := []json.RawMessage{

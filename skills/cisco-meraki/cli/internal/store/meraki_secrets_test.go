@@ -36,7 +36,9 @@ func TestMirrorNeverStoresMerakiSecrets(t *testing.T) {
 	if _, _, err := db.UpsertBatch("licenses", []json.RawMessage{json.RawMessage(`{"key":"Z2LICENSEKEEP","mode":"addDevices","counts":[]}`)}); err != nil {
 		t.Fatal(err)
 	}
-	rows, err := db.DB().Query(`SELECT data FROM resources`)
+	// A generated API key has no other identity; it must never become the row id.
+	_, _, _ = db.UpsertBatch("administered", []json.RawMessage{json.RawMessage(`{"key":"` + merakiSentinel + `"}`)})
+	rows, err := db.DB().Query(`SELECT id || resource_type || data FROM resources`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,9 +51,11 @@ func TestMirrorNeverStoresMerakiSecrets(t *testing.T) {
 		}
 		all.WriteString(d)
 	}
-	var typed string
+	var typed, ids string
 	_ = db.DB().QueryRow(`SELECT data FROM devices`).Scan(&typed)
 	all.WriteString(typed)
+	_ = db.DB().QueryRow(`SELECT group_concat(id) FROM resources_fts`).Scan(&ids)
+	all.WriteString(ids)
 	got := all.String()
 	if strings.Contains(got, merakiSentinel) {
 		t.Fatalf("mirror stored a credential: %s", got)

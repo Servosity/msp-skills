@@ -117,3 +117,30 @@ func RedactMerakiSecrets(data json.RawMessage) json.RawMessage {
 	}
 	return bytes.TrimRight(buf.Bytes(), "\n")
 }
+
+// merakiIDCarriesSecret reports whether id contains any credential value in
+// obj, so the storage-ID resolvers never key a row on a secret.
+func merakiIDCarriesSecret(id string, obj map[string]any) bool {
+	var walk func(v any) bool
+	walk = func(v any) bool {
+		switch tv := v.(type) {
+		case map[string]any:
+			for k, child := range tv {
+				if s, ok := child.(string); ok && s != "" && s != RedactedSecret && merakiSecretKey(k, tv) && strings.Contains(id, s) {
+					return true
+				}
+				if walk(child) {
+					return true
+				}
+			}
+		case []any:
+			for _, child := range tv {
+				if walk(child) {
+					return true
+				}
+			}
+		}
+		return false
+	}
+	return walk(obj)
+}

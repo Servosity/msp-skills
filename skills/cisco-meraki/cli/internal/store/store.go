@@ -10026,6 +10026,16 @@ var resourceParentKeyColumns = map[string][]string{
 // Callers that need to gate best-effort writes can use this to avoid passing
 // non-entity envelopes into the batch path.
 func ExtractResourceID(resourceType string, obj map[string]any) string {
+	// pp:handfix meraki-mirror-redacts-secrets: a credential is never an
+	// identity. {"key": "<new API key>"} would otherwise key its row on the
+	// key itself, past the data redaction.
+	if s := extractResourceIDUnguarded(resourceType, obj); s != "" && !merakiIDCarriesSecret(s, obj) {
+		return s
+	}
+	return ""
+}
+
+func extractResourceIDUnguarded(resourceType string, obj map[string]any) string {
 	if s := merakiNullableCompositeID(resourceType, obj); s != "" { // pp:handfix meraki-nullable-composite-key
 		return s
 	}

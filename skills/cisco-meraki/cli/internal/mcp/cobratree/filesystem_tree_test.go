@@ -46,10 +46,10 @@ func TestFleetPushBodyIsInlineOnlyOverMCP(t *testing.T) {
 		}
 		return res.Content[0].(mcplib.TextContent).Text
 	}
-	if got := call("/etc/hosts"); !strings.Contains(got, "inline JSON object over MCP") {
+	if got := call("/etc/hosts"); !strings.Contains(got, "must be a JSON object encoded as a string") {
 		t.Fatalf("file path for --body was not refused: %s", got)
 	}
-	if got := call(`{"access":"none"}`); strings.Contains(got, "inline JSON object over MCP") {
+	if got := call(`{"access":"none"}`); strings.Contains(got, "must be a JSON object encoded as a string") {
 		t.Fatalf("inline JSON body was refused: %s", got)
 	}
 }

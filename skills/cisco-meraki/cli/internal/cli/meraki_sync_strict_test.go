@@ -33,7 +33,7 @@ func TestSyncStrictFailsOnWarnedResource(t *testing.T) {
 		testenv.Isolate(t)
 		t.Setenv("CISCO_MERAKI_BASE_URL", srv.URL+"/api/v1")
 		t.Setenv("MERAKI_DASHBOARD_API_KEY", "test-key")
-		args := []string{"sync", "--resources", "organizations", "--json"}
+		args := []string{"sync", "--resources", "organizations", "--rate-limit", "0", "--json"}
 		if strict {
 			args = append(args, "--strict")
 		}
@@ -53,5 +53,46 @@ func TestSyncStrictFailsOnWarnedResource(t *testing.T) {
 	}
 	if err := run(true); err == nil {
 		t.Fatal("sync --strict with a 403 (warned) resource exited 0")
+	}
+}
+
+// TestSyncStrictFailsOnMaxPagesTruncation: a --max-pages cap that leaves a
+// next page unread is a warning, so --strict exits non-zero while a plain
+// sync still exits 0 with the rows it stored.
+func TestSyncStrictFailsOnMaxPagesTruncation(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path != "/api/v1/organizations" {
+			_, _ = w.Write([]byte(`[]`))
+			return
+		}
+		if r.URL.Query().Get("startingAfter") == "" {
+			w.Header().Set("Link", "<http://"+r.Host+"/api/v1/organizations?startingAfter=2>; rel=next")
+			_, _ = w.Write([]byte(`[{"id":"1","name":"Acme","api":{"enabled":true}},{"id":"2","name":"Bayside","api":{"enabled":true}}]`))
+			return
+		}
+		_, _ = w.Write([]byte(`[{"id":"3","name":"Cedar","api":{"enabled":true}}]`))
+	}))
+	defer srv.Close()
+	run := func(strict bool) error {
+		testenv.Isolate(t)
+		t.Setenv("CISCO_MERAKI_BASE_URL", srv.URL+"/api/v1")
+		t.Setenv("MERAKI_DASHBOARD_API_KEY", "test-key")
+		args := []string{"sync", "--resources", "organizations", "--max-pages", "1", "--rate-limit", "0", "--json"}
+		if strict {
+			args = append(args, "--strict")
+		}
+		cmd := RootCmd()
+		var out bytes.Buffer
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		cmd.SetArgs(args)
+		return cmd.Execute()
+	}
+	if err := run(false); err != nil {
+		t.Fatalf("plain sync truncated by --max-pages should exit 0: %v", err)
+	}
+	if err := run(true); err == nil || !strings.Contains(err.Error(), "completed with warnings") {
+		t.Fatalf("sync --strict truncated by --max-pages: err=%v, want the warnings failure", err)
 	}
 }

@@ -104,7 +104,7 @@
   "safety_tiers": [
     {
       "tier": "Read",
-      "examples": "fleet health, fleet down, fleet renewals, fleet changes, fleet find, fleet fanout (GET-only; not at a credential-tier path), fleet admins, fleet flaps, fleet blame, fleet push without --apply (preview; see the credential tier), sync, search, and every GET command except the secret-bearing ones below; search, analytics and MCP sql read a mirror that holds license keys, so allow them only if that is acceptable",
+      "examples": "fleet health, fleet down, fleet renewals, fleet changes, fleet find, fleet fanout (GET-only; not at a credential-tier path), fleet admins, fleet flaps, fleet blame, fleet push without --apply (preview; see the credential tier), sync, search, and every GET command except the secret-bearing ones below; search, analytics and MCP sql read a mirror that holds license keys but never credentials (they are stored as [redacted]), so allow them only if license keys are acceptable",
       "policy": "Allow"
     },
     {
@@ -114,17 +114,17 @@
     },
     {
       "tier": "Write (routine)",
-      "examples": "networks update, networks wireless update-network-ssid, networks appliance update-network-vlan, devices update, networks snmp update-network, networks webhooks create-network-http-server, import (any POST ending in an action such as /bind, /move, /moves, /remove, /detach, /renewSeats or /assignSeats is not routine)",
+      "examples": "networks update, networks wireless update-network-ssid, networks appliance update-network-vlan, devices update, networks snmp update-network, networks webhooks create-network-http-server, import (any POST ending in an action such as /bind, /move, /moves, /remove, /detach, /renewSeats, /assignSeats, /batchDelete or /claim/vmx is not routine)",
       "policy": "Preview with --dry-run, then a reviewed write"
     },
     {
       "tier": "Bulk and device-disrupting",
-      "examples": "fleet push --apply (one change to many networks across orgs), devices reboot device, devices switch cycle-device-ports, devices live-tools create-device-ports-cycle, devices live-tools create-device-cable-test, networks sm reboot-network-devices, networks sm shutdown-network-devices, networks appliance swap-network-warm-spare, networks firmware-upgrades update-network, networks firmware-upgrades create-network-rollback, networks sm lock-network-devices, networks sm uninstall-network-device-apps, networks appliance create-network-devices-redundancy-swap; any POST ending in an action such as /reboot, /cycle, /swap, /lock or /rollbacks",
+      "examples": "fleet push --apply (one change to many networks across orgs), organizations action-batches create-organization-action-batch and update-organization-action-batch (a raw action batch can change many networks in one call), networks devices vmx-network-claim (consumes a vMX license), devices reboot device, devices switch cycle-device-ports, devices live-tools create-device-ports-cycle, devices live-tools create-device-cable-test, networks sm reboot-network-devices, networks sm shutdown-network-devices, networks appliance swap-network-warm-spare, networks firmware-upgrades update-network, networks firmware-upgrades create-network-rollback, networks sm lock-network-devices, networks sm uninstall-network-device-apps, networks appliance create-network-devices-redundancy-swap; any POST ending in an action such as /reboot, /cycle, /swap, /lock or /rollbacks",
       "policy": "Human-in-the-loop only - these take effect on live client networks at once"
     },
     {
       "tier": "Destructive",
-      "examples": "every delete command (organizations delete, networks delete, networks appliance delete-network-vlan, ...), networks devices remove-network, organizations inventory release-from-organization, networks unbind network, networks split network, organizations networks combine-organization, networks sm wipe-network-devices, networks sm unenroll-network-device, organizations licenses move-organization, organizations licenses move-organization-seats, organizations licensing move-organization-coterm-licenses, networks switch remove-network-stack, every .../bulkDelete POST, networks bind network, networks pii create-network-request, organizations networks create-move, organizations devices create-organization-migration, organizations sase detach-organization-sites, organizations integrations disable-organization-xdr-networks",
+      "examples": "every delete command (organizations delete, networks delete, networks appliance delete-network-vlan, ...), networks devices remove-network, organizations inventory release-from-organization, networks unbind network, networks split network, organizations networks combine-organization, networks sm wipe-network-devices, networks sm unenroll-network-device, organizations licenses move-organization, organizations licenses move-organization-seats, organizations licensing move-organization-coterm-licenses, networks switch remove-network-stack, every .../bulkDelete and .../batchDelete POST, networks bind network, networks pii create-network-request, organizations networks create-move, organizations devices create-organization-migration, organizations sase detach-organization-sites, organizations integrations disable-organization-xdr-networks",
       "policy": "Human-in-the-loop only, explicit confirmation"
     }
   ]

@@ -1176,6 +1176,9 @@ func syncResource(ctx context.Context, c interface {
 	if reconcileErr != nil {
 		return syncResult{Resource: resource, Count: cachedCount, Warn: reconcileErr, Duration: time.Since(started)}
 	}
+	if capExitHit { // pp:handfix meraki-sync-partial-exit: a truncated resource is a warning, so --strict fails on it
+		return syncResult{Resource: resource, Count: cachedCount, Warn: fmt.Errorf("reached --max-pages cap of %d; data may be truncated", maxPages), Duration: time.Since(started)}
+	}
 	return syncResult{Resource: resource, Count: cachedCount, Duration: time.Since(started)}
 }
 

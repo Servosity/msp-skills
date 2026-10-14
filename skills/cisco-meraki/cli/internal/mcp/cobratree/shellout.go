@@ -279,7 +279,7 @@ func guardInlineOnlyFlags(cmd *cobra.Command, next server.ToolHandlerFunc) serve
 				continue
 			}
 			if s, _ := v.(string); !strings.HasPrefix(strings.TrimSpace(s), "{") {
-				return boundedToolResultError(fmt.Sprintf("--%s takes an inline JSON object over MCP; file paths and stdin are not available to MCP tools", name)), nil
+				return boundedToolResultError(fmt.Sprintf("--%s must be a JSON object encoded as a string (for example \"{\\\"access\\\":\\\"none\\\"}\") over MCP; file paths and stdin are not available to MCP tools", name)), nil
 			}
 		}
 		return next(ctx, req)

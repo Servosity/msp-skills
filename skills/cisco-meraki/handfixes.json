@@ -543,7 +543,7 @@
   {
    "id": "meraki-sync-partial-exit",
    "summary": "sync exits 0 when the only non-success results are warnings and rows were stored ('completed with warnings but no successful syncs' fires only when nothing was stored); --strict exits non-zero on any warned or errored resource",
-   "why": "A dependent resource whose parent list includes an org with API access disabled (a normal MSP case) is counted 'warned', never 'success', even after storing every other org's rows, so `sync --resources <dependent>` exited 1 with 'no successful syncs' - contradicting the sync help ('Exit 0 when at least one resource synced'). Found by the round-6 adversarial review (2026-10-14). Receipt: against the factory fake (Dormant Org 600003), `sync --resources organizations_devices_statuses` stored 7 rows and exited 1 before, exits 0 after; a warn-only run that stored nothing still exits 1. The edit in generated sync.go is re-applied by the factory's tools/apply_handfixes.py. Round 7 (2026-10-14): the first version also let --strict exit 0 on a warned dependent whose parents returned 500, contradicting --strict's help; --strict now fails any warned resource. Round 8 (2026-10-14): the round-7 '|| strict' sat inside the successCount == 0 branch, so a normal `sync --strict` with a warned dependent still exited 0; --strict is now its own check beside the generated errCount one. Round 9 (2026-10-14): the sync help and --strict flag text still said access-denied resources never fail the run, and no test drove --strict + warning; both fixed. TestSyncStrictFailsOnWarnedResource (a 403 on every organizations dependent: plain sync exits 0, --strict exits non-zero for the warnings) fails with the strict-warn check removed (proven).",
+   "why": "A dependent resource whose parent list includes an org with API access disabled (a normal MSP case) is counted 'warned', never 'success', even after storing every other org's rows, so `sync --resources <dependent>` exited 1 with 'no successful syncs' - contradicting the sync help ('Exit 0 when at least one resource synced'). Found by the round-6 adversarial review (2026-10-14). Receipt: against the factory fake (Dormant Org 600003), `sync --resources organizations_devices_statuses` stored 7 rows and exited 1 before, exits 0 after; a warn-only run that stored nothing still exits 1. The edit in generated sync.go is re-applied by the factory's tools/apply_handfixes.py. Round 7 (2026-10-14): the first version also let --strict exit 0 on a warned dependent whose parents returned 500, contradicting --strict's help; --strict now fails any warned resource. Round 8 (2026-10-14): the round-7 '|| strict' sat inside the successCount == 0 branch, so a normal `sync --strict` with a warned dependent still exited 0; --strict is now its own check beside the generated errCount one. Round 9 (2026-10-14): the sync help and --strict flag text still said access-denied resources never fail the run, and no test drove --strict + warning; both fixed. TestSyncStrictFailsOnWarnedResource (a 403 on every organizations dependent: plain sync exits 0, --strict exits non-zero for the warnings) fails with the strict-warn check removed (proven). Codex round 4 (2026-10-14): a flat resource cut short by --max-pages emitted max_pages_cap_hit but returned success, so --strict exited 0; it now returns a warning. TestSyncStrictFailsOnMaxPagesTruncation fails without it (proven).",
    "status": "active",
    "spec_encode_followup": "Not spec-encodable; press retro: count a warned resource that stored rows toward the exit-0 rule.",
    "asserts": [
@@ -568,6 +568,18 @@
     {
      "file": "cli/internal/cli/meraki_sync_strict_test.go",
      "contains": "func TestSyncStrictFailsOnWarnedResource(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "Warn: fmt.Errorf(\"reached --max-pages cap of %d; data may be truncated\", maxPages)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/meraki_sync_strict_test.go",
+     "contains": "func TestSyncStrictFailsOnMaxPagesTruncation(",
      "min_count": 1,
      "code_only": true
     }
@@ -762,8 +774,8 @@
   },
   {
    "id": "meraki-mirror-redacts-secrets",
-   "summary": "Every local-mirror write (sync, read write-through, mutation write-through; generic, typed and batch upserts) passes through mergeIncomingResourceData, which now replaces credential values (psk, passphrase, password, secret, sharedSecret, SNMP community strings and v3 passwords, API keys, tokens, by key name and suffix) with [redacted] before storing. License keys are kept on purpose.",
-   "why": "Adversarial round 9 (2026-10-14): a routine `networks wireless update-network-ssid` stored the PSK and RADIUS secret its response echoes, and `search`, `analytics` and MCP sql (Allow tier, available in MCP read-only mode) returned them, contradicting governance ('credentials are only ever read live'). A default --data-source auto GET of a secret-bearing path wrote through the same way. The redaction sits at the one funnel every upsert uses, so the typed upsert<X>Tx writers cannot bypass it (the connectsecure lesson). Key set derived from a scan of every property name in the vendor spec. TestMirrorNeverStoresMerakiSecrets drives batch, generic and typed upserts with a sentinel and fails with the wrapper removed (proven).",
+   "summary": "Every local-mirror write (sync, read write-through, mutation write-through; generic, typed and batch upserts) passes through mergeIncomingResourceData, which now replaces credential values (psk, passphrase, password, secret, sharedSecret, SNMP community strings and v3 passwords, API keys, tokens, by key name and suffix) with [redacted] before storing. License keys are kept on purpose. ExtractResourceID also refuses an identity that contains a credential value.",
+   "why": "Adversarial round 9 (2026-10-14): a routine `networks wireless update-network-ssid` stored the PSK and RADIUS secret its response echoes, and `search`, `analytics` and MCP sql (Allow tier, available in MCP read-only mode) returned them, contradicting governance ('credentials are only ever read live'). A default --data-source auto GET of a secret-bearing path wrote through the same way. The redaction sits at the one funnel every upsert uses, so the typed upsert<X>Tx writers cannot bypass it (the connectsecure lesson). Key set derived from a scan of every property name in the vendor spec. TestMirrorNeverStoresMerakiSecrets drives batch, generic and typed upserts with a sentinel and fails with the wrapper removed (proven). Round 10 + Codex round 4 (2026-10-14): ID resolution ran on the unredacted object before the funnel, so `administered generate-identities-me-api-keys` ({\"key\": \"<new API key>\"}, no other identity) stored the key itself as resources.id and resources_fts.id, readable by MCP sql. ExtractResourceID now returns \"\" for an id carrying a secret value (merakiIDCarriesSecret); the test asserts ids and FTS ids too and fails without the guard (proven). The generated TestUpsertBatch_GenericFallbackList asserted that a bare {\"key\": \"value\"} resolves as an id; for Meraki that shape is an API key, so \"key\" is dropped from its loop (a regeneration restores the old list and the test then fails, which is the signal).",
    "status": "active",
    "spec_encode_followup": "Not spec-encodable; press retro: generated stores should redact x-sensitive response fields.",
    "asserts": [
@@ -784,13 +796,25 @@
      "contains": "func TestMirrorNeverStoresMerakiSecrets(",
      "min_count": 1,
      "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "if s := extractResourceIDUnguarded(resourceType, obj); s != \"\" && !merakiIDCarriesSecret(s, obj) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/upsert_batch_test.go",
+     "contains": "\"guid\", \"api_id\", \"name\", \"slug\", \"code\"}",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   },
   {
    "id": "meraki-response-path-keeps-object",
-   "summary": "applyResponsePath unwraps a response path only when the object holds nothing but that field and a meta block ({items, meta}); otherwise the whole object is printed",
-   "why": "Adversarial round 9 (2026-10-14): the generator inferred a response path from an object's only array field on ~59 typed GET commands, so `organizations action-batches get-organization-action-batch` printed only actions (dropping status.failed / errors, which fleet push tells the user to check), `organizations snmp get-organization` only peerIps, and `networks snmp get-network` only users, all exit 0, while the MCP execute twin returned the full object. The Dashboard API has no list envelope besides {items, meta}. TestApplyResponsePathKeepsMerakiObjects fails without the check (proven).",
+   "summary": "applyResponsePath unwraps a response path only when the object holds nothing but that field and a meta block ({items, meta}); otherwise the whole object is printed; paged list reads (paginatedGetWithResponsePath, no --all) always unwrap their array",
+   "why": "Adversarial round 9 (2026-10-14): the generator inferred a response path from an object's only array field on ~59 typed GET commands, so `organizations action-batches get-organization-action-batch` printed only actions (dropping status.failed / errors, which fleet push tells the user to check), `organizations snmp get-organization` only peerIps, and `networks snmp get-network` only users, all exit 0, while the MCP execute twin returned the full object. The Dashboard API has no list envelope besides {items, meta}. TestApplyResponsePathKeepsMerakiObjects fails without the check (proven). Round 10 (2026-10-14): the first version also ran on paged list reads, where the response-path pager adds an internal __printing_press_response_path_items key, so ~100 paged list commands without --all printed the envelope (internal key included) instead of the list. Paged reads now always unwrap (unwrapResponsePath), and the sibling check ignores the internal key. TestPagedResponsePathStillUnwrapsTheList fails on the round-9 code (proven).",
    "status": "active",
    "spec_encode_followup": "Spec-encodable later: drop the inferred response path on object-shaped GET responses in the overlay.",
    "asserts": [
@@ -809,6 +833,18 @@
     {
      "file": "cli/internal/cli/meraki_response_path_test.go",
      "contains": "func TestApplyResponsePathKeepsMerakiObjects(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "return unwrapResponsePath(data, responsePath), nil",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/meraki_response_path_test.go",
+     "contains": "func TestPagedResponsePathStillUnwrapsTheList(",
      "min_count": 1,
      "code_only": true
     }

@@ -357,7 +357,7 @@ Do NOT use this command to read data across orgs; use 'fleet fanout' instead.`),
 		},
 	}
 	cmd.Flags().StringVar(&path, "path", "", "Network settings path with {networkId}, e.g. /networks/{networkId}/syslogServers")
-	cmd.Flags().StringVar(&bodySrc, "body", "", "Desired settings: a JSON file path, '-' for stdin, or inline JSON")
+	cmd.Flags().StringVar(&bodySrc, "body", "", "Desired settings: inline JSON, a JSON file path, or '-' for stdin (MCP accepts inline JSON only, as a string)")
 	addOrgFlag(cmd, &orgFilter)
 	cmd.Flags().StringSliceVar(&networkFilter, "network", nil, "Limit to networks by ID or exact name (repeatable or comma-separated)")
 	cmd.Flags().StringVar(&tag, "network-tag", "", "Only networks carrying this tag")

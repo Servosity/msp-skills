@@ -1219,7 +1219,10 @@ func paginatedGetWithResponsePath(ctx context.Context, c interface {
 	if err != nil || fetchAll {
 		return data, err
 	}
-	return applyResponsePath(data, responsePath), nil
+	// A paged list's array is the list even when the page object carries
+	// pagination fields beside it (events pageStartAt, clients/search
+	// clientId), so the paged path always unwraps.
+	return unwrapResponsePath(data, responsePath), nil
 }
 
 // Generated commands stringify every flag, so an unset default and an
@@ -2241,6 +2244,10 @@ func applyResponsePath(data json.RawMessage, responsePath string) json.RawMessag
 	if merakiResponseHasSiblingFields(data, responsePath) {
 		return data
 	}
+	return unwrapResponsePath(data, responsePath)
+}
+
+func unwrapResponsePath(data json.RawMessage, responsePath string) json.RawMessage {
 	if pathData, ok := responsePayloadAtPath(data, responsePath); ok {
 		return pathData
 	}
@@ -2264,7 +2271,7 @@ func merakiResponseHasSiblingFields(data json.RawMessage, responsePath string) b
 	}
 	field := strings.SplitN(path, ".", 2)[0]
 	for k := range root {
-		if k != field && k != "meta" {
+		if k != field && k != "meta" && k != responsePathItemsKey {
 			return true
 		}
 	}
