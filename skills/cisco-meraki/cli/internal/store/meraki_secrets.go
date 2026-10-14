@@ -9,8 +9,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"regexp"
 	"strconv"
 	"strings"
+	"unicode"
 )
 
 // RedactedSecret replaces a credential value before it reaches the local
@@ -54,6 +56,9 @@ var merakiLicenseSiblings = []string{"mode", "editions", "counts", "licenseType"
 var merakiKeyNameNormalizer = strings.NewReplacer("-", "", "_", "", " ", "")
 
 func merakiSecretKey(name string, obj map[string]any) bool {
+	if strings.HasPrefix(name, "_pp_") {
+		return false // the store's own synthesized fields (_pp_map_key)
+	}
 	lower := merakiKeyNameNormalizer.Replace(strings.ToLower(name))
 	if merakiSecretKeys[lower] {
 		return true
@@ -88,7 +93,8 @@ func merakiSecretField(k string, obj map[string]any) bool {
 	switch k {
 	case "oldValue", "newValue":
 		label, _ := obj["label"].(string)
-		return merakiSecretLabel(label)
+		v, _ := obj[k].(string)
+		return merakiSecretChange(label, v)
 	case "value", "template":
 		name, _ := obj["name"].(string)
 		return merakiSecretName(name)
@@ -156,7 +162,7 @@ func redactMerakiValue(v any) (any, bool) {
 			}
 			if s, ok := child.(string); ok && s != "" && s != RedactedSecret {
 				// Change-log rows carry an API request body as a JSON string.
-				if next := RedactMerakiJSONString(s); next != s {
+				if next := redactMerakiString(s); next != s {
 					tv[k] = next
 					changed = true
 					continue
@@ -172,7 +178,7 @@ func redactMerakiValue(v any) (any, bool) {
 		changed := false
 		for i, child := range tv {
 			if s, ok := child.(string); ok {
-				if next := RedactMerakiJSONString(s); next != s {
+				if next := redactMerakiString(s); next != s {
 					tv[i] = next
 					changed = true
 				}
@@ -232,6 +238,11 @@ func merakiIDCarriesSecret(id string, obj map[string]any) bool {
 		switch tv := v.(type) {
 		case map[string]any:
 			for k, child := range tv {
+				// Change-log values are never part of an ID, and a short one
+				// ("0", "1") is a substring of nearly every composite.
+				if k == "oldValue" || k == "newValue" {
+					continue
+				}
 				if s, ok := child.(string); ok && s != "" && s != RedactedSecret && merakiSecretField(k, tv) && strings.Contains(id, s) {
 					return true
 				}
@@ -339,10 +350,11 @@ func RedactMerakiJSONString(s string) string {
 		return s
 	}
 	if !json.Valid([]byte(t)) {
-		// JSON-looking means a key or string comes first ({", [", [{): a
-		// name such as `[Cedar] "Clinic"` or "[Default] Guest" is kept.
+		// JSON-looking means it holds a string and the bracket is not
+		// followed by a word: `[Cedar] "Clinic"` and "[Default] Guest" are
+		// names, while `[1,{"psk":` is a cut-off body.
 		rest := strings.TrimLeft(t[1:], " \t\r\n")
-		if rest != "" && (rest[0] == '"' || ((rest[0] == '{' || rest[0] == '[') && strings.Contains(rest, `"`))) {
+		if rest != "" && !unicode.IsLetter(rune(rest[0])) && strings.Contains(rest, `"`) {
 			return RedactedCutOff
 		}
 		return s
@@ -356,8 +368,50 @@ func RedactMerakiJSONString(s string) string {
 // RedactMerakiChangeValue is the change-log output twin of the mirror
 // redaction: fleet changes and fleet blame print oldValue/newValue live.
 func RedactMerakiChangeValue(label, v string) string {
-	if v != "" && merakiSecretLabel(label) {
+	if v != "" && merakiSecretChange(label, v) {
 		return RedactedSecret
 	}
-	return RedactMerakiJSONString(v)
+	return redactMerakiString(v)
+}
+
+// merakiSecretChange reports a change-log value that is withheld whole: one
+// under a credential label, or one that touches a webhook (an action batch
+// whose action targets /webhooks/ carries receiver URLs and free-form
+// payload templates, whatever the label says).
+func merakiSecretChange(label, v string) bool {
+	if merakiSecretLabel(label) || strings.Contains(strings.ToLower(v), "webhook") {
+		return true
+	}
+	var x any // a \u-escaped "webhook" inside valid JSON
+	if json.Unmarshal([]byte(v), &x) == nil {
+		b, _ := json.Marshal(x)
+		return strings.Contains(strings.ToLower(string(b)), "webhook")
+	}
+	return false
+}
+
+// merakiHTTPServerIDPattern matches a webhook HTTP server ID in a path: the ID
+// is the base64 of the receiver URL (a Slack, Teams or PagerDuty URL is a
+// credential), and change-log labels and API request paths carry it.
+var merakiHTTPServerIDPattern = regexp.MustCompile(`(?i)(/webhooks/httpServers/)[^/?#&"\s]+`)
+
+// merakiURLParamPattern matches a url= query parameter: the webhook logs
+// filter puts the receiver URL in API request query strings.
+var merakiURLParamPattern = regexp.MustCompile(`(?i)(^|[?&])(url=)[^&#"\s]+`)
+
+// ScrubMerakiURLSecrets replaces webhook HTTP server IDs and url= query values
+// in s with RedactedSecret. fleet changes and fleet blame apply it to labels.
+func ScrubMerakiURLSecrets(s string) string {
+	s = merakiHTTPServerIDPattern.ReplaceAllString(s, "${1}"+RedactedSecret)
+	return merakiURLParamPattern.ReplaceAllString(s, "${1}${2}"+RedactedSecret)
+}
+
+func redactMerakiString(s string) string {
+	return ScrubMerakiURLSecrets(RedactMerakiJSONString(s))
+}
+
+// RedactMerakiObject redacts credentials in m in place (fleet push prints the
+// current settings it diffs against).
+func RedactMerakiObject(m map[string]any) {
+	redactMerakiValue(m)
 }

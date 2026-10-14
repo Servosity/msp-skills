@@ -10028,8 +10028,9 @@ var resourceParentKeyColumns = map[string][]string{
 func ExtractResourceID(resourceType string, obj map[string]any) string {
 	// pp:handfix meraki-mirror-redacts-secrets: a credential is never an
 	// identity. {"key": "<new API key>"} would otherwise key its row on the
-	// key itself, past the data redaction.
-	if s := extractResourceIDUnguarded(resourceType, obj); s != "" && !merakiIDCarriesSecret(s, obj) {
+	// key itself, past the data redaction, and a change-log label or API
+	// request path would key it on a webhook HTTP server ID.
+	if s := ScrubMerakiURLSecrets(extractResourceIDUnguarded(resourceType, obj)); s != "" && !merakiIDCarriesSecret(s, obj) {
 		return s
 	}
 	return ""

@@ -195,3 +195,36 @@ func TestFleetPushRefusesBlankTargets(t *testing.T) {
 		t.Fatalf("a blank target sent %d action batch(es)", batches)
 	}
 }
+
+// TestFleetPushPreviewRedactsCurrentSecrets: a preview of an SSID PSK change
+// printed the live PSK under current (Codex round 12).
+func TestFleetPushPreviewRedactsCurrentSecrets(t *testing.T) {
+	testenv.Isolate(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/v1/organizations":
+			_, _ = w.Write([]byte(`[{"id":"1","name":"Acme","api":{"enabled":true}}]`))
+		case "/api/v1/organizations/1/networks":
+			_, _ = w.Write([]byte(`[{"id":"N_1","name":"HQ","organizationId":"1","productTypes":["wireless"],"tags":[]}]`))
+		case "/api/v1/networks/N_1/wireless/ssids/0":
+			_, _ = w.Write([]byte(`{"number":0,"name":"Staff","psk":"LIVE-PSK-7731","radiusServers":[{"host":"10.0.0.1","secret":"LIVE-RADIUS-7731"}]}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+	t.Setenv("CISCO_MERAKI_BASE_URL", srv.URL+"/api/v1")
+	t.Setenv("MERAKI_DASHBOARD_API_KEY", "test-key")
+	cmd := RootCmd()
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	cmd.SetArgs([]string{"fleet", "push", "--path", "/networks/{networkId}/wireless/ssids/0", "--body", `{"psk":"new-psk","radiusServers":[]}`, "--all-networks", "--json"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("preview: %v\n%s", err, out.String())
+	}
+	if strings.Contains(out.String(), "LIVE-") || !strings.Contains(out.String(), `"update"`) {
+		t.Fatalf("preview leaked a live secret or did not diff:\n%s", out.String())
+	}
+}

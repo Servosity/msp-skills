@@ -190,3 +190,73 @@ func TestRedactKeepsCleanJSONByteForByte(t *testing.T) {
 		t.Fatal("nested duplicate key not detected")
 	}
 }
+
+// TestWebhookReceiverNeverReachesMirrorOrIDs: an HTTP server ID is the base64
+// of the receiver URL. Change-log labels and API request paths carry it, and a
+// webhook logs url= filter puts the URL in the query string (round 20, Codex
+// round 12).
+func TestWebhookReceiverNeverReachesMirrorOrIDs(t *testing.T) {
+	b64 := base64.StdEncoding.EncodeToString([]byte("https://hooks.slack.com/services/" + merakiSentinel))
+	change := `{"ts":"2026-10-14T10:00:00.123Z","networkId":"N_1","page":"via API","label":"PUT /api/v1/networks/N_1/webhooks/httpServers/` + b64 + `","oldValue":"","newValue":""}`
+	request := `{"ts":"2026-10-14T10:00:00Z","adminId":"A1","method":"GET","path":"/api/v1/networks/N_1/webhooks/httpServers/` + b64 + `","queryString":"url=https%3A%2F%2Fhooks.slack.com%2F` + merakiSentinel + `&perPage=10"}`
+	for typ, body := range map[string]string{"configuration_changes": change, "api_requests": request} {
+		if got := string(RedactMerakiSecrets(json.RawMessage(body))); strings.Contains(got, b64) || strings.Contains(got, merakiSentinel) {
+			t.Fatalf("%s data kept the receiver: %s", typ, got)
+		}
+		var obj map[string]any
+		if err := json.Unmarshal([]byte(body), &obj); err != nil {
+			t.Fatal(err)
+		}
+		if id := ExtractResourceID(typ, obj); id == "" || strings.Contains(id, b64) || strings.Contains(id, merakiSentinel) {
+			t.Fatalf("%s row ID carries the receiver or is empty: %q", typ, id)
+		}
+	}
+	if got := ScrubMerakiURLSecrets("PUT /api/v1/networks/N_1/webhooks/httpServers/" + b64); strings.Contains(got, b64) {
+		t.Fatalf("label kept the HTTP server ID: %s", got)
+	}
+	// An action batch body that targets /webhooks/ is withheld whatever the label.
+	for _, v := range []string{
+		`{"actions":[{"resource":"/networks/N_1/webhooks/httpServers","operation":"create","body":{"url":"https://hooks.slack.com/` + merakiSentinel + `"}}]}`,
+		`{"actions":[{"resource":"/networks/N_1/\u0077ebhooks/payloadTemplates","body":{"body":"token=` + merakiSentinel + `"}}]}`,
+		"resource=/networks/N_1/webhooks/httpServers url=https://hooks.slack.com/" + merakiSentinel,
+	} {
+		if got := RedactMerakiChangeValue("POST /api/v1/organizations/1/actionBatches", v); got != RedactedSecret {
+			t.Fatalf("webhook action batch value not withheld: %s", got)
+		}
+		obj := map[string]any{"label": "POST /api/v1/organizations/1/actionBatches", "newValue": v}
+		if got := string(RedactMerakiSecrets(mustJSON(t, obj))); strings.Contains(got, merakiSentinel) {
+			t.Fatalf("mirror kept a webhook action batch value: %s", got)
+		}
+	}
+	// A cut-off array whose first element is a scalar is still cut-off JSON.
+	if got := RedactMerakiChangeValue("SSID", `[1,{"psk":"`+merakiSentinel+`"`); got != RedactedCutOff {
+		t.Fatalf("cut-off scalar-first array not withheld: %s", got)
+	}
+}
+
+// TestShortChangeValueDoesNotBreakIdentity: a "0"/"1" value under a credential
+// label is a substring of nearly every composite ID, which made the row unkeyable.
+func TestShortChangeValueDoesNotBreakIdentity(t *testing.T) {
+	obj := map[string]any{"ts": "2026-10-14T10:00:00.123Z", "networkId": "N_100", "page": "Alerts", "label": "Webhook alerts", "oldValue": "0", "newValue": "1"}
+	if id := ExtractResourceID("configuration_changes", obj); !strings.Contains(id, "Webhook alerts") {
+		t.Fatalf("composite ID lost: %q", id)
+	}
+}
+
+// TestStoreSynthesizedKeysAreNotSecrets: the "key" suffix rule must not hit the
+// store's own _pp_map_key.
+func TestStoreSynthesizedKeysAreNotSecrets(t *testing.T) {
+	body := `{"_pp_map_key":"1000000001","name":"grpA"}`
+	if got := string(RedactMerakiSecrets(json.RawMessage(body))); got != body {
+		t.Fatalf("_pp_map_key redacted: %s", got)
+	}
+}
+
+func mustJSON(t *testing.T, v any) json.RawMessage {
+	t.Helper()
+	b, err := json.Marshal(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
+}

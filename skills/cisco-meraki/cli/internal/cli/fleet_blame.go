@@ -74,7 +74,7 @@ func correlateOutages(orgID string, history []availabilityChange, changesByNet m
 				continue
 			}
 			o.Suspects = append(o.Suspects, blameSuspect{TS: p.ch.TS, MinutesBefore: int64(at.Sub(p.t) / time.Minute),
-				AdminName: p.ch.AdminName, AdminEmail: p.ch.AdminEmail, Page: p.ch.Page, Label: p.ch.Label,
+				AdminName: p.ch.AdminName, AdminEmail: p.ch.AdminEmail, Page: p.ch.Page, Label: store.ScrubMerakiURLSecrets(p.ch.Label),
 				SSIDName: p.ch.SSIDName, OldValue: store.RedactMerakiChangeValue(p.ch.Label, p.ch.OldValue), NewValue: store.RedactMerakiChangeValue(p.ch.Label, p.ch.NewValue)})
 		}
 		sort.Slice(o.Suspects, func(i, j int) bool { return o.Suspects[i].MinutesBefore < o.Suspects[j].MinutesBefore })

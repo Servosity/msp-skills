@@ -81,11 +81,17 @@ All notable changes to this skill are documented here. Format follows
   ending in `token` or `key` counts (`api_key`, `access_token`, a PagerDuty
   `routing_key`), except `licenseKey`. A change-log value that is cut-off JSON is
   withheld whole as `[redacted: cut-off JSON]`, a webhook change's old and new values
-  (free-form payload templates, HTTP server URLs) are withheld whole, `sync` no longer
-  mirrors webhook delivery logs (each row carries the receiver URL), and a credential is never used as a row ID (a newly generated
+  (free-form payload templates, HTTP server URLs) are withheld whole, as is any change
+  value that mentions a webhook, webhook HTTP server IDs (the base64 of the receiver
+  URL) and `url=` query values in change-log labels and API request paths are replaced
+  with `[redacted]` in the mirror, in row IDs and in `fleet changes` and `fleet blame`
+  output, `sync` no longer mirrors webhook delivery logs (each row carries the receiver
+  URL), and a credential is never used as a row ID (a newly generated
   API key used to become one). Change-log old and new values, which carry an API
   change's whole request body, are redacted in the mirror and in `fleet changes` and
   `fleet blame` output. License keys are kept.
+- A `fleet push` preview prints current credential fields (`psk`, a RADIUS `secret`,
+  `communityString`) as `[redacted]` instead of the live value.
 - An MCP call can switch a default-on flag off: an explicit `false` is passed as
   `--flag=false` (the MCP `fleet_renewals` tool's `include-expired` used to ignore it).
 - The MCP server refuses local-file flags (`--notes-file`, `--playbook-file`,

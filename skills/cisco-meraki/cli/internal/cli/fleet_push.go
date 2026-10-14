@@ -20,6 +20,7 @@ import (
 
 	"cisco-meraki-pp-cli/internal/client"
 	"cisco-meraki-pp-cli/internal/cliutil"
+	"cisco-meraki-pp-cli/internal/store"
 )
 
 // actionBatchLimit is the Dashboard's per-batch action cap for asynchronous
@@ -174,6 +175,7 @@ func planOrgPush(ctx context.Context, c *client.Client, o fleetOrg, path string,
 			continue
 		}
 		changed, cur := diffSettings(current, body)
+		store.RedactMerakiObject(cur) // a preview never prints a live PSK or RADIUS secret
 		row.Current = cur
 		if len(changed) == 0 {
 			row.Action = "no-change"
