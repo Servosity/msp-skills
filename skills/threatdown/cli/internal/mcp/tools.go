@@ -731,13 +731,13 @@ func openMCPReadOnlyStore(path string) (*store.Store, *mcplib.CallToolResult) {
 	}
 	db, err := store.OpenReadOnly(path)
 	if err != nil {
-		return nil, mcplib.NewToolResultError(fmt.Sprintf("opening local data store %s: %v. Run threatdown-cli sync to refresh the store, or use live endpoint MCP tools for unsynced data.", path, err))
+		return nil, mcplib.NewToolResultError(fmt.Sprintf("opening local data store %s: %v. Run threatdown-cli fleet sync (endpoints, detections, jobs) and threatdown-cli sync (other resources) to refresh the store, or use live endpoint MCP tools for unsynced data.", path, err))
 	}
 	return db, nil
 }
 
 func mcpMissingStoreMessage(path string) string {
-	return fmt.Sprintf("No local data store found at %s. Run threatdown-cli sync before using MCP search/sql, or use live endpoint MCP tools for unsynced data.", path)
+	return fmt.Sprintf("No local data store found at %s. Run threatdown-cli fleet sync (endpoints, detections, jobs) and threatdown-cli sync (other resources) before using MCP search/sql, or use live endpoint MCP tools for unsynced data.", path)
 }
 
 func mcpStoreStatus(db *store.Store) (mcpStoreStatusKind, error) {
@@ -835,7 +835,7 @@ func mcpSearchEnvelope(results []json.RawMessage, storeStatus mcpStoreStatusKind
 		if storeStatus == mcpStoreStatusEmpty {
 			out["next_step"] = mcpEmptyStoreNextStep()
 		} else {
-			out["next_step"] = "No local search matches. Try a broader query, a lower-specificity FTS expression, or sync again if data may be stale."
+			out["next_step"] = "No local search matches. Try a broader query, a lower-specificity FTS expression, or run threatdown-cli fleet sync (endpoints, detections, jobs) and threatdown-cli sync (other resources) again if data may be stale."
 		}
 	}
 	return out
@@ -1095,7 +1095,7 @@ func mcpSQLEnvelope(rows []map[string]any, columns []string, storeStatus mcpStor
 		if storeStatus == mcpStoreStatusEmpty {
 			out["next_step"] = mcpEmptyStoreNextStep()
 		} else {
-			out["next_step"] = "The read-only SQL query returned no rows. Check resource_type filters, json_extract paths, or run sync again if data may be stale."
+			out["next_step"] = "The read-only SQL query returned no rows. Check resource_type filters, json_extract paths, or run threatdown-cli fleet sync (endpoints, detections, jobs) and threatdown-cli sync (other resources) again if data may be stale."
 		}
 	}
 	return out
@@ -1475,7 +1475,7 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 			"Pagination uses cursor-based paging. Pass cursor parameter for subsequent pages.",
 			"Control page size with the page_size parameter (default 100).",
 			"Use since for incremental fetches (filter by modification time).",
-			"Use the sql tool for ad-hoc analysis on synced data. Run sync first to populate the local database.",
+			"Use the sql tool for ad-hoc analysis on synced data. Run fleet_sync (endpoints, detections, jobs) and sync (other resources) first to populate the local database.",
 			"Use the search tool for full-text search across all synced resources. Faster than iterating list endpoints.",
 			"Prefer sql/search over repeated API calls when the data is already synced.",
 		},

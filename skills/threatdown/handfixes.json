@@ -689,8 +689,8 @@
     },
     {
      "file": "cli/internal/fleet/fleet.go",
-     "contains": "and an unresolved one still queues the machine.",
-     "code_only": false
+     "contains": "\t\t\th.count++\n\t\t\tif !d.Resolved() {\n\t\t\t\th.unresolved++\n\t\t\t\tif h.openName == \"\" {",
+     "code_only": true
     }
    ]
   },
@@ -930,8 +930,8 @@
   },
   {
    "id": "generic-sync-no-endpoints",
-   "summary": "The generic `sync` command no longer offers an `endpoints` resource. In the spec it was one endpoint's quarantine list (GET /v1/accounts/{account_id}/endpoints/{id}/quarantine) stored under resource_type `endpoints`, the table fleet sync keeps the endpoint mirror in. `sync --resources endpoints` now fails and points at `fleet sync`; the help example names sites,users. `sync --resources` naming endpoints, detections or jobs (endpoint_jobs) is refused as a usage error before --full resets any sync state. `jobs` (fleet sync's own name for endpoint_jobs) is refused too. The MCP context tool no longer marks endpoints syncable, and the MCP store next_step and doctor's cache hints name fleet sync for endpoints, detections and jobs.",
-   "why": "Adversarial review round 11 (2026-10-14), P2: `sync --resources endpoints --full --path-context account_id=a1 --path-context id=m01` reconciled away every real endpoint, stored a quarantine row in their place and re-stamped the copy complete, so fleet stale --data-source local listed the quarantine row as an endpoint. sync.go is generated (DO NOT EDIT); a reprint re-emits the resource from the spec unless x-resource handling drops it. TestGenericSyncLeavesTheEndpointMirrorAlone. Review round 12 (2026-10-14), P2: the --full reset loop zero-stamped the fleet-owned sync_state rows before the name was rejected, clearing the incomplete marker, and the pointer only showed with --human-friendly. Review round 13 + Codex round 10 (2026-10-14), P2: MCP next_step sent agents to generic sync, which can never complete a fleet-owned resource; context advertised endpoints as syncable; `sync --resources jobs --full` wrote a junk sync_state row.",
+   "summary": "The generic `sync` command no longer offers an `endpoints` resource. In the spec it was one endpoint's quarantine list (GET /v1/accounts/{account_id}/endpoints/{id}/quarantine) stored under resource_type `endpoints`, the table fleet sync keeps the endpoint mirror in. `sync --resources endpoints` now fails and points at `fleet sync`; the help example names sites,users. `sync --resources` naming endpoints, detections or jobs (endpoint_jobs) is refused as a usage error before --full resets any sync state. `jobs` (fleet sync's own name for endpoint_jobs) is refused too. The MCP context tool no longer marks endpoints syncable, and the MCP store next_step and doctor's cache hints name fleet sync for endpoints, detections and jobs. The missing-store, open-error and no-rows MCP messages and the context guidance name fleet sync too.",
+   "why": "Adversarial review round 11 (2026-10-14), P2: `sync --resources endpoints --full --path-context account_id=a1 --path-context id=m01` reconciled away every real endpoint, stored a quarantine row in their place and re-stamped the copy complete, so fleet stale --data-source local listed the quarantine row as an endpoint. sync.go is generated (DO NOT EDIT); a reprint re-emits the resource from the spec unless x-resource handling drops it. TestGenericSyncLeavesTheEndpointMirrorAlone. Review round 12 (2026-10-14), P2: the --full reset loop zero-stamped the fleet-owned sync_state rows before the name was rejected, clearing the incomplete marker, and the pointer only showed with --human-friendly. Review round 13 + Codex round 10 (2026-10-14), P2: MCP next_step sent agents to generic sync, which can never complete a fleet-owned resource; context advertised endpoints as syncable; `sync --resources jobs --full` wrote a junk sync_state row. Review round 14 + Codex round 11: those messages still sent agents to generic sync only, and four of the new strings were not pinned. TestStoreHintsNameFleetSync.",
    "status": "active",
    "spec_encode_followup": "Drop the quarantine path from the spec's sync resources (or give it its own resource name) so a reprint does not re-emit it under `endpoints`.",
    "asserts": [
@@ -966,6 +966,51 @@
     {
      "file": "cli/internal/cli/doctor.go",
      "contains": "Some resources are older than stale_after; run 'threatdown-cli fleet sync' (endpoints, detections, jobs) or 'threatdown-cli sync' (other resources) to refresh.",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "Run threatdown-cli fleet sync (endpoints, detections, jobs) and threatdown-cli sync (other resources) to refresh the store",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "No local data store found at %s. Run threatdown-cli fleet sync (endpoints, detections, jobs) and threatdown-cli sync (other resources) before using MCP search/sql",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "a lower-specificity FTS expression, or run threatdown-cli fleet sync (endpoints, detections, jobs) and threatdown-cli sync (other resources) again",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "json_extract paths, or run threatdown-cli fleet sync (endpoints, detections, jobs) and threatdown-cli sync (other resources) again",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "Run fleet_sync (endpoints, detections, jobs) and sync (other resources) first",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "return \"Run threatdown-cli fleet sync (endpoints, detections, jobs) and threatdown-cli sync (other resources) to populate the local SQLite store",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "Database not created yet; run 'threatdown-cli fleet sync' (endpoints, detections, jobs) or 'threatdown-cli sync' (other resources) to hydrate.",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "No sync state recorded; run 'threatdown-cli fleet sync' (endpoints, detections, jobs) or 'threatdown-cli sync' (other resources) to populate.",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "No sync recorded; run 'threatdown-cli fleet sync' (endpoints, detections, jobs) or 'threatdown-cli sync' (other resources) to hydrate API-backed resources.",
      "code_only": true
     }
    ]
