@@ -1,0 +1,46 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Servosity/cisco-meraki-mcp",
+  "title": "Cisco Meraki MCP",
+  "description": "Every Meraki Dashboard operation, plus cross-org fleet views, complete pagination, and a local",
+  "version": "0.1.0",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/cisco-meraki/cisco-meraki-512x512.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/servosity/msp-skills",
+    "source": "github",
+    "subfolder": "skills/cisco-meraki"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/cisco-meraki-v0.1.0/cisco-meraki-mcp.mcpb",
+      "version": "0.1.0",
+      "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "MERAKI_DASHBOARD_API_KEY",
+          "description": "Set the MERAKI_DASHBOARD_API_KEY credential for the Cisco Meraki MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "CISCO_MERAKI_BASE_URL",
+          "description": "Set the CISCO_MERAKI_BASE_URL credential for the Cisco Meraki MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}

@@ -36,7 +36,7 @@ body:
         - betterstack
         - blumira
         - cipp
-        - connectsecure
+        - cisco-meraki
         - connectwise-automate
         - connectwise-control
         - connectwise-manage
@@ -48,7 +48,6 @@ body:
         - datto-bcdr
         - datto-rmm
         - domotz
-        - google-workspace
         - gradient
         - halopsa
         - hubspot
@@ -86,7 +85,6 @@ body:
         - superops
         - syncro
         - tactical-rmm
-        - threatdown
         - threatlocker
         - unifi-network
         - veeam

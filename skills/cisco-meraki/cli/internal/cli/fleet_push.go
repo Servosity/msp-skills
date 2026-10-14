@@ -1,0 +1,355 @@
+// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// pp:data-source live
+
+package cli
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"net/url"
+	"os"
+	"sort"
+	"strings"
+	"time"
+
+	"github.com/spf13/cobra"
+
+	"cisco-meraki-pp-cli/internal/client"
+	"cisco-meraki-pp-cli/internal/cliutil"
+)
+
+// actionBatchLimit is the Dashboard's per-batch action cap for asynchronous
+// action batches.
+const actionBatchLimit = 100
+
+type pushRow struct {
+	OrganizationID   string         `json:"organization_id"`
+	OrganizationName string         `json:"organization_name"`
+	NetworkID        string         `json:"network_id"`
+	NetworkName      string         `json:"network_name"`
+	Resource         string         `json:"resource"`
+	Action           string         `json:"action"` // update | no-change | error
+	ChangedKeys      []string       `json:"changed_keys"`
+	Current          map[string]any `json:"current,omitempty"`
+	Desired          map[string]any `json:"desired,omitempty"`
+	Error            string         `json:"error,omitempty"`
+	BatchID          string         `json:"batch_id,omitempty"`
+	BatchStatus      string         `json:"batch_status,omitempty"`
+}
+
+type pushTargetFilter struct {
+	networks    []string
+	tag         string
+	productType string
+}
+
+func (f pushTargetFilter) keep(id, name string, tags, productTypes []string) bool {
+	if len(f.networks) > 0 && !containsFold(f.networks, id) && !containsFold(f.networks, name) {
+		return false
+	}
+	if f.tag != "" && !containsFold(tags, f.tag) {
+		return false
+	}
+	if f.productType != "" && !containsFold(productTypes, f.productType) {
+		return false
+	}
+	return true
+}
+
+func containsFold(list []string, v string) bool {
+	for _, s := range list {
+		if strings.EqualFold(strings.TrimSpace(s), v) {
+			return true
+		}
+	}
+	return false
+}
+
+// diffSettings compares each top-level key of the desired body with the
+// current settings. Values are compared as canonical JSON.
+func diffSettings(current, desired map[string]any) (changed []string, cur map[string]any) {
+	cur = map[string]any{}
+	keys := make([]string, 0, len(desired))
+	for k := range desired {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		a, _ := json.Marshal(current[k])
+		b, _ := json.Marshal(desired[k])
+		cur[k] = current[k]
+		if !bytes.Equal(a, b) {
+			changed = append(changed, k)
+		}
+	}
+	return changed, cur
+}
+
+func validatePushPath(p string) (string, error) {
+	p = "/" + strings.TrimPrefix(strings.TrimPrefix(strings.TrimSpace(p), "/"), "api/v1/")
+	if !strings.HasPrefix(p, "/networks/{networkId}/") {
+		return "", fmt.Errorf("--path must be a network settings path like /networks/{networkId}/syslogServers")
+	}
+	if strings.Contains(strings.TrimPrefix(p, "/networks/{networkId}"), "{") || strings.ContainsAny(p, "?#") {
+		return "", fmt.Errorf("--path may only contain the {networkId} placeholder and no query string")
+	}
+	return p, nil
+}
+
+func readPushBody(src string, stdin io.Reader) (map[string]any, error) {
+	var data []byte
+	var err error
+	switch {
+	case src == "-":
+		data, err = io.ReadAll(stdin)
+	case strings.HasPrefix(strings.TrimSpace(src), "{"):
+		data = []byte(src)
+	default:
+		// --body names a local JSON file the caller chose to send; reading it is
+		// the flag's purpose, and its content must parse as a JSON object.
+		data, err = os.ReadFile(src) // #nosec G304 -- caller-chosen --body file, same class as import/export paths
+	}
+	if err != nil {
+		return nil, fmt.Errorf("reading --body: %w", err)
+	}
+	var body map[string]any
+	if err := json.Unmarshal(data, &body); err != nil {
+		return nil, fmt.Errorf("--body must be a JSON object: %w", err)
+	}
+	if len(body) == 0 {
+		return nil, fmt.Errorf("--body is empty; nothing to change")
+	}
+	return body, nil
+}
+
+func planOrgPush(ctx context.Context, c *client.Client, o fleetOrg, path string, body map[string]any, f pushTargetFilter) ([]pushRow, error) {
+	if !o.APIEnabled {
+		return nil, errOrgAPIDisabled
+	}
+	res, err := merakiGetAll(ctx, c, orgPath("/organizations/{organizationId}/networks", o.ID), nil, 0)
+	if err != nil {
+		return nil, fmt.Errorf("networks: %w", err)
+	}
+	rows := make([]pushRow, 0)
+	for _, raw := range res.Items {
+		var n struct {
+			ID           string   `json:"id"`
+			Name         string   `json:"name"`
+			Tags         []string `json:"tags"`
+			ProductTypes []string `json:"productTypes"`
+		}
+		if json.Unmarshal(raw, &n) != nil || !f.keep(n.ID, n.Name, n.Tags, n.ProductTypes) {
+			continue
+		}
+		resource := strings.ReplaceAll(path, "{networkId}", url.PathEscape(n.ID))
+		row := pushRow{OrganizationID: o.ID, OrganizationName: o.Name, NetworkID: n.ID, NetworkName: n.Name, Resource: resource, Desired: body, ChangedKeys: []string{}}
+		data, err := c.GetNoCache(ctx, resource, nil)
+		if err != nil {
+			row.Action, row.Error = "error", "reading current settings: "+err.Error()
+			rows = append(rows, row)
+			continue
+		}
+		var current map[string]any
+		if err := json.Unmarshal(data, &current); err != nil {
+			row.Action, row.Error = "error", "current settings are not a JSON object; this path cannot be diffed"
+			rows = append(rows, row)
+			continue
+		}
+		changed, cur := diffSettings(current, body)
+		row.Current = cur
+		if len(changed) == 0 {
+			row.Action = "no-change"
+		} else {
+			row.Action, row.ChangedKeys = "update", changed
+		}
+		rows = append(rows, row)
+	}
+	return rows, nil
+}
+
+// applyOrgPush sends one asynchronous action batch per actionBatchLimit
+// updates and polls each until it completes, fails, or wait runs out.
+func applyOrgPush(ctx context.Context, c *client.Client, orgID string, rows []*pushRow, wait time.Duration) {
+	for start := 0; start < len(rows); start += actionBatchLimit {
+		end := min(start+actionBatchLimit, len(rows))
+		chunk := rows[start:end]
+		actions := make([]map[string]any, 0, len(chunk))
+		for _, r := range chunk {
+			actions = append(actions, map[string]any{"resource": r.Resource, "operation": "update", "body": r.Desired})
+		}
+		batchPath := orgPath("/organizations/{organizationId}/actionBatches", orgID)
+		data, _, err := c.Post(ctx, batchPath, map[string]any{"confirmed": true, "synchronous": false, "actions": actions})
+		if err != nil {
+			for _, r := range chunk {
+				r.BatchStatus = "rejected: " + err.Error()
+			}
+			continue
+		}
+		var batch struct {
+			ID string `json:"id"`
+		}
+		_ = json.Unmarshal(data, &batch)
+		status := pollActionBatch(ctx, c, batchPath+"/"+url.PathEscape(batch.ID), wait)
+		for _, r := range chunk {
+			r.BatchID, r.BatchStatus = batch.ID, status
+		}
+	}
+}
+
+func pollActionBatch(ctx context.Context, c *client.Client, path string, wait time.Duration) string {
+	deadline := time.Now().Add(wait)
+	var lastErr error
+	for {
+		data, err := c.GetNoCache(ctx, path, nil)
+		if err != nil {
+			lastErr = err
+			// The batch was accepted; a 4xx on its status read will not heal.
+			var apiErr *client.APIError
+			if errors.As(err, &apiErr) && apiErr.StatusCode >= 400 && apiErr.StatusCode < 500 && apiErr.StatusCode != 429 {
+				return "unknown: status read failed: " + err.Error()
+			}
+		}
+		if err == nil {
+			var b struct {
+				Status struct {
+					Completed bool     `json:"completed"`
+					Failed    bool     `json:"failed"`
+					Errors    []string `json:"errors"`
+				} `json:"status"`
+			}
+			if derr := json.Unmarshal(data, &b); derr != nil {
+				lastErr = fmt.Errorf("decoding batch status: %w", derr)
+			} else {
+				switch {
+				case b.Status.Failed:
+					return "failed: " + strings.Join(b.Status.Errors, "; ")
+				case b.Status.Completed:
+					return "completed"
+				}
+			}
+		}
+		if time.Now().After(deadline) {
+			if lastErr != nil {
+				return "pending (last status read failed: " + lastErr.Error() + ")"
+			}
+			return "pending (check: organizations action-batches get)"
+		}
+		select {
+		case <-ctx.Done():
+			return "pending: " + ctx.Err().Error()
+		case <-time.After(2 * time.Second):
+		}
+	}
+}
+
+func newNovelFleetPushCmd(flags *rootFlags) *cobra.Command {
+	var orgFilter, networkFilter []string
+	var path, bodySrc, tag, productType, waitFlag string
+	var apply, allNetworks bool
+	cmd := &cobra.Command{
+		Use:   "push",
+		Short: "Apply one network settings change to many networks across orgs via action batches; previews a per-network diff, sends only with --apply",
+		Long: strings.TrimSpace(`
+Applies one network settings change (a PUT body such as syslog servers, SNMP,
+alert settings or an SSID field) to every matching network across the orgs the
+API key can see. Without --apply it only previews: for each target network it
+reads the current settings and shows which top-level keys would change, and
+networks already matching are reported as no-change. With --apply it sends one
+asynchronous action batch per org (up to 100 actions each) for the networks
+that differ and waits for each batch to finish. Target networks with --org,
+--network, --network-tag and --product-type, or pass --all-networks.
+
+Use this command to apply one settings change to many networks across orgs through action batches, with a per-network diff before anything is sent.
+Do NOT use this command to read data across orgs; use 'fleet fanout' instead.`),
+		Example: strings.Trim(`
+  cisco-meraki-cli fleet push --path /networks/{networkId}/syslogServers --body syslog.json --network-tag managed
+  cisco-meraki-cli fleet push --path /networks/{networkId}/snmp --body '{"access":"none"}' --org "Acme Dental" --json
+  cisco-meraki-cli fleet push --path /networks/{networkId}/syslogServers --body syslog.json --network-tag managed --apply`, "\n"),
+		Annotations: map[string]string{
+			"pp:data-source":             "live",
+			"mcp:read-only-unless-flags": "apply",
+			"pp:preview-happy-path":      "true",
+			"pp:happy-args":              `--path=/networks/{networkId}/syslogServers;--body={"servers":[]};--network-tag=managed`,
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) == 0 && cmd.Flags().NFlag() == 0 {
+				return cmd.Help()
+			}
+			if dryRunOK(flags) {
+				return writeDryRun(cmd.OutOrStdout(), flags, "fleet push")
+			}
+			p, err := validatePushPath(path)
+			if err != nil {
+				_ = cmd.Usage()
+				return usageErr(err)
+			}
+			if bodySrc == "" {
+				return usageErr(fmt.Errorf("--body is required: a JSON file, '-' for stdin, or inline JSON"))
+			}
+			targeted := len(orgFilter) > 0 || len(networkFilter) > 0 || tag != "" || productType != ""
+			if !targeted && !allNetworks {
+				return usageErr(fmt.Errorf("choose targets with --org, --network, --network-tag or --product-type, or pass --all-networks"))
+			}
+			wait, err := parseWindow("wait", waitFlag)
+			if err != nil {
+				return err
+			}
+			if apply && cliutil.IsAnyHarness() {
+				return writeHarnessRefusal(cmd.OutOrStdout(), flags, "send action batches")
+			}
+			body, err := readPushBody(bodySrc, cmd.InOrStdin())
+			if err != nil {
+				return usageErr(err)
+			}
+			ctx, cancel := boundCtx(cmd.Context(), flags)
+			defer cancel()
+			c, orgs, err := fleetClientOrgs(ctx, cmd, flags, orgFilter)
+			if err != nil {
+				return err
+			}
+			filter := pushTargetFilter{networks: networkFilter, tag: tag, productType: productType}
+			outcomes := fanOrgs(ctx, orgs, func(ctx context.Context, o fleetOrg) ([]pushRow, error) {
+				return planOrgPush(ctx, c, o, p, body, filter)
+			})
+			reportFleetFailures(cmd.ErrOrStderr(), outcomes)
+			rows := make([]pushRow, 0)
+			for _, oc := range outcomes {
+				rows = append(rows, oc.Value...)
+			}
+			updates := 0
+			for _, r := range rows {
+				if r.Action == "update" {
+					updates++
+				}
+			}
+			if apply && updates > 0 {
+				byOrg := map[string][]*pushRow{}
+				for i := range rows {
+					if rows[i].Action == "update" {
+						byOrg[rows[i].OrganizationID] = append(byOrg[rows[i].OrganizationID], &rows[i])
+					}
+				}
+				for orgID, orgRows := range byOrg {
+					applyOrgPush(ctx, c, orgID, orgRows, wait)
+				}
+			} else if !apply && updates > 0 {
+				fmt.Fprintf(cmd.ErrOrStderr(), "preview only: %d network(s) would change; rerun with --apply to send action batches\n", updates)
+			}
+			return printFleetRows(cmd, flags, rows, []string{"organization_name", "network_name", "action", "changed_keys", "batch_status", "error"}, "No networks match the targets.")
+		},
+	}
+	cmd.Flags().StringVar(&path, "path", "", "Network settings path with {networkId}, e.g. /networks/{networkId}/syslogServers")
+	cmd.Flags().StringVar(&bodySrc, "body", "", "Desired settings: a JSON file path, '-' for stdin, or inline JSON")
+	addOrgFlag(cmd, &orgFilter)
+	cmd.Flags().StringSliceVar(&networkFilter, "network", nil, "Limit to networks by ID or exact name (repeatable or comma-separated)")
+	cmd.Flags().StringVar(&tag, "network-tag", "", "Only networks carrying this tag")
+	cmd.Flags().StringVar(&productType, "product-type", "", "Only networks with this product type (appliance, switch, wireless, ...)")
+	cmd.Flags().BoolVar(&allNetworks, "all-networks", false, "Target every network in every visible org (no other filter)")
+	cmd.Flags().BoolVar(&apply, "apply", false, "Send the action batches; without it the command only previews")
+	cmd.Flags().StringVar(&waitFlag, "wait", "2m", "How long to wait for each action batch to finish, e.g. 30s, 2m")
+	return cmd
+}

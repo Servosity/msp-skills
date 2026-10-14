@@ -333,7 +333,13 @@
       "first_party": false,
       "category": "Security",
       "display_name": "CIPP + Microsoft 365",
-      "covers": ["Entra ID", "Intune", "Exchange Online", "Defender", "GDAP"],
+      "covers": [
+        "Entra ID",
+        "Intune",
+        "Exchange Online",
+        "Defender",
+        "GDAP"
+      ],
       "tagline": "MCP server for CIPP and the Microsoft 365 it runs - Entra ID, Intune, Exchange Online, Defender and GDAP - across every client tenant at once.",
       "cli_hash": "sha256:aa0dc021cdb156c7c5bd704dc240c05f666bcc65074ff04bc8a5b76852f20f19",
       "template_version": 3,
@@ -347,6 +353,29 @@
         "evidence": "Reported in the Compounding Teams Community Discussion (https://compoundingteams.com/): Abhi Saini (Bearium Networks) ran cipp-cli against a live CIPP tenant on 2026-08-13 - tenant enumeration returned the fleet and posture fan-out ('fanout --endpoint <x> --all-tenants --save') pulled good data.",
         "verified_by": "Abhi Saini, Bearium Networks (MSP)",
         "issue_url": "https://compoundingteams.com/"
+      }
+    },
+    "cisco-meraki": {
+      "system": "Cisco Meraki Dashboard cloud-managed networking (MX security appliances, MS switches, MR access points, MV cameras) across every client organization",
+      "status": "beta",
+      "cli_binary": "cisco-meraki-cli",
+      "mcp_binary": "cisco-meraki-mcp",
+      "vendor": "Cisco Meraki",
+      "vendor_trademark_owner": "Cisco Systems, Inc",
+      "first_party": false,
+      "category": "Network Monitoring",
+      "display_name": "Cisco Meraki",
+      "tagline": "See every client Meraki org at once: devices down, failed uplinks, renewals, and config changes from your terminal.",
+      "cli_hash": "sha256:1ea24a1532fc27b45c9347a8aee75d05187a8b979179ba0cd305ce34606e0f13",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
       }
     },
     "connect-tool": {

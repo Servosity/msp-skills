@@ -1,0 +1,54 @@
+{
+  "manifest_version": "0.3",
+  "name": "cisco-meraki-mcp",
+  "display_name": "Cisco Meraki",
+  "version": "0.1.0",
+  "description": "Every Meraki Dashboard operation, plus cross-org fleet views, complete pagination, and a local mirror built for MSPs running many client orgs.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/cisco-meraki-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/cisco-meraki-mcp",
+      "args": [],
+      "env": {
+        "MERAKI_DASHBOARD_API_KEY": "${user_config.meraki_dashboard_api_key}",
+        "CISCO_MERAKI_BASE_URL": "${user_config.cisco_meraki_base_url}"
+      }
+    }
+  },
+  "user_config": {
+    "meraki_dashboard_api_key": {
+      "type": "string",
+      "title": "MERAKI_DASHBOARD_API_KEY",
+      "description": "Meraki Dashboard API key (Dashboard > My profile > API access). It can reach every organization the generating admin can see.",
+      "sensitive": true,
+      "required": true
+    },
+    "cisco_meraki_base_url": {
+      "type": "string",
+      "title": "CISCO_MERAKI_BASE_URL",
+      "description": "Dashboard API base URL. Leave the default unless your orgs live in a regional dashboard: https://api.meraki.ca/api/v1 (Canada), https://api.meraki.cn/api/v1 (China), https://api.meraki.in/api/v1 (India), https://api.gov-meraki.com/api/v1 (FedRAMP).",
+      "default": "https://api.meraki.com/api/v1",
+      "required": false
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  },
+  "printing_press_version": "4.33.5",
+  "press_provenance": {
+    "printing_press_version": "4.33.5",
+    "generated_at": "2026-10-14T00:54:20.486525Z",
+    "spec_checksum": "sha256:f41af876594639cb3a7d71972e111f25c292af295b4110c2b31b1835213c8423",
+    "spec_format": "openapi3"
+  }
+}
