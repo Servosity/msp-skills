@@ -125,6 +125,13 @@
     "current_hash": "sha256:d10c02e059f94ad63982f73b105395d4876b96e7fd5b09b4fd47dff8b73a07b0",
     "released_hash": "sha256:b05893974652584c7c987365f9e6639a421fa0bb5451e443533080fba7a38f2b"
   },
+  "connectwise-rmm": {
+    "state": "never-released",
+    "version": "0.1.0",
+    "latest_tag": null,
+    "current_hash": "sha256:3e7ce5ef31df94a51a7a28989b3df7afc3ad89ec7211b6b6ca19082a056c3807",
+    "released_hash": null
+  },
   "cork": {
     "state": "binary-pending",
     "version": "0.1.4",
