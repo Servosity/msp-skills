@@ -6,6 +6,9 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"time"
+
+	"google-workspace-pp-cli/internal/config"
 )
 
 func TestRedactDryRunBody(t *testing.T) {
@@ -33,5 +36,25 @@ func TestRedactDryRunBody(t *testing.T) {
 	}
 	if _, ok := redactDryRunBody([]byte("not json")); ok {
 		t.Fatal("a non-JSON body is not printed")
+	}
+}
+
+func TestRedactSecretQueryParams(t *testing.T) {
+	in := `POST https://reseller.googleapis.com/apps/reseller/v1/customers/C0x/subscriptions?customerAuthToken=xfer-SECRET&pageToken=p2&customer=my_customer returned HTTP 400`
+	out := redactSecretQueryParams(in)
+	if strings.Contains(out, "xfer-SECRET") || !strings.Contains(out, "customerAuthToken=[redacted]") {
+		t.Fatalf("secret query parameter not masked: %s", out)
+	}
+	if !strings.Contains(out, "pageToken=p2") || !strings.Contains(out, "customer=my_customer") {
+		t.Fatalf("non-secret parameters must stay: %s", out)
+	}
+	c := New(&config.Config{BaseURL: "https://example.invalid"}, time.Second, 0)
+	if got := c.maskCredentialText(in); strings.Contains(got, "xfer-SECRET") {
+		t.Fatalf("maskCredentialText must mask secret query parameters: %s", got)
+	}
+	v, _ := redactDryRunBody([]byte(`{"password":12345,"customSchemas":{"Secrets":{"doorCode":"1"}}}`))
+	b, _ := json.Marshal(v)
+	if strings.Contains(string(b), "12345") || strings.Contains(string(b), "doorCode") {
+		t.Fatalf("non-string secret-named values must be redacted too: %s", b)
 	}
 }

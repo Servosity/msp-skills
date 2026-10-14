@@ -71,7 +71,8 @@ those commands. Keep them in the human-in-the-loop tier below.
 - **The MCP server has a read-only switch.** Set `GOOGLE_WORKSPACE_MCP_READ_ONLY` to
   exactly `1` (the "Read-only mode" field in Claude Desktop; `true` or `yes` are ignored and
   leave every tool enabled) and the server hides `offboard`, `sync`,
-  `import`, `export`, and `tenants remove`, and refuses every non-GET API call. Backup
+  `export`, and `tenants remove`, and refuses every non-GET API call (`import` is
+  never exposed over MCP, because it reads a local file). Backup
   codes are still readable in that mode (`verification-codes list` is a GET), so the
   Credential / security tier below still applies.
 - **Agent mode is explicit.** `--agent` produces JSON for scripting but does not add any

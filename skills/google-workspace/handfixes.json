@@ -908,8 +908,8 @@
   },
   {
    "id": "dry-run-redacts-secrets",
-   "summary": "--dry-run previews redact secret-named query parameters and non-empty string body fields (password, secret, private key, API key, *token except page/sync tokens); booleans such as changePasswordAtNextLogin and paging cursors stay visible",
-   "why": "The generated dry-run printer wrote the request body verbatim to stderr, so previewing 'users patch <email> --password ...' put the password into the terminal and into agent transcripts. Found by the onboard Codex review (round 5, P1); receipt: the real binary's dry-run of users patch --password prints \"password\": \"[redacted]\" and the value appears nowhere in stdout or stderr. Round 6 (Codex): query parameters were still printed verbatim (subscriptions insert --customer-auth-token showed the transfer token; P1, also fleet-wide generated code), and the body rule hid the changePasswordAtNextLogin boolean (P2). Receipt: the dry-run now prints ?customerAuthToken=[redacted].",
+   "summary": "Secret-named query parameters are masked everywhere the client masks credential text (error URLs, dry-run lines, bodies), and --dry-run body previews redact every non-empty, non-boolean secret-named field (password, secret, private key, API key, *token except page/sync tokens)",
+   "why": "The generated dry-run printer wrote the request body verbatim to stderr, so previewing 'users patch <email> --password ...' put the password into the terminal and into agent transcripts. Found by the onboard Codex review (round 5, P1); receipt: the real binary's dry-run of users patch --password prints \"password\": \"[redacted]\" and the value appears nowhere in stdout or stderr. Round 6 (Codex): query parameters were still printed verbatim (subscriptions insert --customer-auth-token showed the transfer token; P1, also fleet-wide generated code), and the body rule hid the changePasswordAtNextLogin boolean (P2). Receipt: the dry-run now prints ?customerAuthToken=[redacted]. Round 7 (Codex, P1, fleet): a failed request's error message carried the full URL, so MCP execute of subscriptions.insert returned customerAuthToken verbatim; redactSecretQueryParams now runs inside maskCredentialText, which every error, URL and body passes through (receipt: the MCP error reads ?customerAuthToken=[redacted]). The adversarial reviewer also noted string-only body redaction let a numeric password or a 'Secrets' custom-schema object through; only booleans stay visible now.",
    "status": "active",
    "spec_encode_followup": "Press-side: redact secret-named fields in the generated dry-run body printer fleet-wide.",
    "asserts": [
@@ -941,6 +941,24 @@
      "file": "cli/internal/client/dryrun_redact_test.go",
      "contains": "\"changePasswordAtNextLogin\":true",
      "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "text = redactSecretQueryParams(text)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/dryrun_redact.go",
+     "contains": "func redactSecretQueryParams(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/dryrun_redact_test.go",
+     "contains": "func TestRedactSecretQueryParams(",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   },
@@ -983,8 +1001,8 @@
   },
   {
    "id": "mcp-blocks-local-file-reads",
-   "summary": "MCP tool calls cannot set flags that READ a local file (--input, --notes-file, --playbook-file, --playbook-notes-file); they are blocked like the write-destination flags",
-   "why": "teach --notes-file / --playbook-file, teach-playbook and import --input read any file the MCP server account can reach. Over MCP a caller (or a prompt-injected agent) could copy another tenant's service-account key from keys/<tenant>.json into the local learn store and read it back with playbook list or recall, even in read-only mode, because teach is a local-write tool. Found by the onboard Codex review (round 6, P1; the generated cobratree code is fleet-wide). Receipt: tools/list on the real MCP binary exposes none of the four flags across its 39 tools; TestLocalFileReadFlagsBlockedOverMCP fails with the entries removed.",
+   "summary": "MCP tool calls cannot set flags that READ a local file (--input, --notes-file, --playbook-file, --playbook-notes-file); they are blocked like the write-destination flags; import, which needs --input, is CLI-only (mcp:hidden)",
+   "why": "teach --notes-file / --playbook-file, teach-playbook and import --input read any file the MCP server account can reach. Over MCP a caller (or a prompt-injected agent) could copy another tenant's service-account key from keys/<tenant>.json into the local learn store and read it back with playbook list or recall, even in read-only mode, because teach is a local-write tool. Found by the onboard Codex review (round 6, P1; the generated cobratree code is fleet-wide). Receipt: tools/list on the real MCP binary exposes none of the four flags across its 39 tools; TestLocalFileReadFlagsBlockedOverMCP fails with the entries removed. Round 7 (adversarial and Codex, P2): with --input blocked the advertised MCP import tool could only fail, so it is hidden from MCP and mcp-install.md/governance.md say import is CLI-only.",
    "status": "active",
    "spec_encode_followup": "Press-side (fleet): treat local file-read flags as blocked MCP arguments in cobratree, alongside blockedDestinationFlags.",
    "asserts": [
@@ -1015,6 +1033,12 @@
     {
      "file": "cli/internal/mcp/cobratree/read_source_flags_test.go",
      "contains": "func TestLocalFileReadFlagsBlockedOverMCP(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/import.go",
+     "contains": "Annotations: map[string]string{\"mcp:hidden\": \"true\"},",
      "min_count": 1,
      "code_only": true
     }

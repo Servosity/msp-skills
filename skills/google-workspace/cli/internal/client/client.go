@@ -1946,6 +1946,10 @@ func (c *Client) maskCredentialText(text string, extraCredentials ...string) str
 	if text == "" {
 		return text
 	}
+	// Hand-fix (handfixes.json dry-run-redacts-secrets): a secret query
+	// parameter (customerAuthToken) is not a configured credential, so mask
+	// it by name wherever a URL appears in output or errors.
+	text = redactSecretQueryParams(text)
 	type credentialMask struct {
 		needle      string
 		replacement string
