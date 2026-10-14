@@ -124,5 +124,6 @@
       "examples": "every policies read (list, get, search, system-default, the -v2 forms, secret-get / secret-get-v2), sites secret, installation-tokens search, installers (download links may embed the site's enrollment credential), webhooks list / get, notifications list / get, and export of policies or notifications (their output carries uninstall passwords, enrollment tokens or webhook signing keys), installation-tokens create / send / revoke, policies secret-set (tamper-protection password), users create / update, sites create / update, import of users or sites, subscriptions create / update, the email-protection register, migrate and authorize commands, auth login, auth set-token",
       "policy": "Human-in-the-loop only"
     }
-  ]
+  ],
+  "credentials_note": "Credentials stay on your machine, but not only in your environment: each token the CLI mints is cached in its credentials.toml (mode 0600), and `auth login` given `--client-id` or `--client-secret` also saves that client ID and secret there, so removing the environment variables does not revoke access - run `threatdown-cli auth logout` or delete the OAuth client in OneView"
 }

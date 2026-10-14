@@ -246,7 +246,7 @@ empty profile.`,
 				}
 			}
 			jobs, unreadable := parseJobs(jobRaw)
-			view.Note = joinNotes(view.Note, unreadableJobsNote(unreadable))
+			view.Note = joinNotes(view.Note, unreadableJobsNote(unreadable), incompleteSyncNote(db, tdResJobs))
 			for _, j := range jobs {
 				t, ok := fleet.ParseTime(j.IssuedAt)
 				if j.AccountID == site.AccountID && j.Status&fleet.JobStatusNotRan != 0 && (!ok || !t.Before(now.Add(-window))) {

@@ -573,8 +573,8 @@
   },
   {
    "id": "respond-pending-truncated-warning",
-   "summary": "respond pending treats a job search the server did not end with an empty next_cursor (page cap reached, or no cursor confirmation) as incomplete: human output warns and drops the all-clear, and the all-clear itself names what it checked (waiting, timed out, expired, failed; cancelled jobs are not listed). fleet stale applies the same unconfirmed-end rule to its stale and --twins searches, and the respond pending all-clear names any --command / --site filter. parseJobs keeps a job row whose online/data field has an unexpected type and counts any row it still cannot read; respond pending (live and local) and customer report then carry a note instead of an all-clear.",
-   "why": "Found by the Codex branch review (2026-10-14): view.Truncated reached the JSON output but the table path ignored it, so a scan that hit the page cap could print an all-clear while older failed jobs went unchecked. respond_pending.go is a hand-written novel file; this entry pins the guard against a refactor. Codex round 2 added: a missing next_cursor ended the scan without marking it incomplete, and the old all-clear ('Every job ... completed') counted cancelled jobs as completed. Round 6 found the fleet stale twin (it printed 'No endpoints unseen' after an unconfirmed end) and the filtered all-clear reading as fleet-wide. Codex review round 6 (2026-10-14), P2: a failed job with \"online\":\"true\" failed the whole row's decode and vanished, so respond pending printed an all-clear with truncated:false. TestParseJobsNeverDropsSilently.",
+   "summary": "respond pending treats a job search the server did not end with an empty next_cursor (page cap reached, or no cursor confirmation) as incomplete: human output warns and drops the all-clear, and the all-clear itself names what it checked (waiting, timed out, expired, failed; cancelled jobs are not listed). fleet stale applies the same unconfirmed-end rule to its stale and --twins searches, and the respond pending all-clear names any --command / --site filter. parseJobs keeps a job row whose online/data field has an unexpected type and counts any row it still cannot read; respond pending (live and local) and customer report then carry a note instead of an all-clear. fleet sync stores every job row parseJobs can read, and a full sync that could not read or confirm every record marks that resource's last attempt incomplete; fleetHint, respond pending (local) and customer report then name it instead of trusting the older freshness stamp.",
+   "why": "Found by the Codex branch review (2026-10-14): view.Truncated reached the JSON output but the table path ignored it, so a scan that hit the page cap could print an all-clear while older failed jobs went unchecked. respond_pending.go is a hand-written novel file; this entry pins the guard against a refactor. Codex round 2 added: a missing next_cursor ended the scan without marking it incomplete, and the old all-clear ('Every job ... completed') counted cancelled jobs as completed. Round 6 found the fleet stale twin (it printed 'No endpoints unseen' after an unconfirmed end) and the filtered all-clear reading as fleet-wide. Codex review round 6 (2026-10-14), P2: a failed job with \"online\":\"true\" failed the whole row's decode and vanished, so respond pending printed an all-clear with truncated:false. TestParseJobsNeverDropsSilently. Codex review round 7 (2026-10-14), P2: fleet sync's validJobs still strict-decoded, so the same odd row was dropped at sync time and the earlier freshness stamp let local respond pending print an all-clear. TestFleetSyncNeverLeavesASilentGap.",
    "status": "active",
    "asserts": [
     {
@@ -616,6 +616,31 @@
      "file": "cli/internal/cli/diag_log_once_test.go",
      "contains": "func TestParseJobsNeverDropsSilently(",
      "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/fleet_sync.go",
+     "contains": "if jobs, _ := parseJobs([]json.RawMessage{r}); len(jobs) == 1 && jobs[0].AccountID != \"\" {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_sync.go",
+     "contains": "markSyncIncomplete(db, res.Resource)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/respond_pending.go",
+     "contains": "incompleteSyncNote(db, tdResJobs)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/customer_report.go",
+     "contains": "incompleteSyncNote(db, tdResJobs)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/threatdown_fleet.go",
+     "contains": "if n := incompleteSyncNote(db, resource); n != \"\" {",
+     "code_only": true
     }
    ]
   },

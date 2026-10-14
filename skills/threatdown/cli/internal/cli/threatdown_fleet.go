@@ -306,10 +306,29 @@ func tdMaxAge(cmd *cobra.Command) time.Duration {
 	return 24 * time.Hour
 }
 
+// markSyncIncomplete flags a resource whose latest full fleet sync did not
+// finish cleanly; the next complete sync (SaveSyncState) clears it.
+func markSyncIncomplete(db *store.Store, resource string) {
+	_, _ = db.DB().Exec(`UPDATE sync_state SET last_attempt_complete = 0 WHERE resource_type = ?`, resource)
+}
+
+// incompleteSyncNote is non-empty when the latest full fleet sync of resource
+// could not read or confirm every record, so local results may miss rows.
+func incompleteSyncNote(db *store.Store, resource string) string {
+	var complete sql.NullInt64
+	if err := db.DB().QueryRow(`SELECT last_attempt_complete FROM sync_state WHERE resource_type = ? AND last_synced_at IS NOT NULL`, resource).Scan(&complete); err != nil || !complete.Valid || complete.Int64 != 0 {
+		return ""
+	}
+	return fmt.Sprintf("the latest %s did not get a complete copy of %s (see its note), so local results may be missing rows; run it again", tdFleetSyncCommand, resource)
+}
+
 func fleetHint(cmd *cobra.Command, db *store.Store, resource string, maxAge time.Duration) {
 	state, err := readSyncHintState(db, resource)
 	if err != nil {
 		return
+	}
+	if n := incompleteSyncNote(db, resource); n != "" {
+		fmt.Fprintf(cmd.ErrOrStderr(), "hint: %s.\n", n)
 	}
 	if !state.hasState {
 		fmt.Fprintf(cmd.ErrOrStderr(), "hint: no local %s yet. Run '%s' before trusting local results.\n", resource, tdFleetSyncCommand)

@@ -249,14 +249,36 @@ func requireDecodable[T any](ok func(T) bool) func([]json.RawMessage) ([]json.Ra
 
 var (
 	validDetections = requireDecodable(func(d fleet.Detection) bool { return d.ID != "" && d.AccountID != "" })
-	validJobs       = requireDecodable(func(j jobRow) bool { return j.ID != "" && j.AccountID != "" })
 )
+
+// validJobs keeps every row parseJobs (the local readers) can read, so a job
+// whose online/data field has an odd type is stored, not counted unreadable.
+func validJobs(raws []json.RawMessage) ([]json.RawMessage, int) {
+	out := make([]json.RawMessage, 0, len(raws))
+	bad := 0
+	for _, r := range raws {
+		if jobs, _ := parseJobs([]json.RawMessage{r}); len(jobs) == 1 && jobs[0].AccountID != "" {
+			out = append(out, r)
+			continue
+		}
+		bad++
+	}
+	return out, bad
+}
 
 // recordFreshness stamps sync state only for a complete, unscoped pull that
 // stored and reconciled cleanly; anything partial says why it did not.
 // coverage is the start of the detection/job window this pull covered, kept in
 // the sync cursor so local reports can warn about older, unsynced history.
 func recordFreshness(db *store.Store, res *fleetSyncResult, more, fullScope, certain bool, coverage string) {
+	saved := false
+	defer func() {
+		// The older freshness stamp stays, but local readers must not take it
+		// as proof the copy is whole: a row this pull saw may be missing.
+		if fullScope && !saved {
+			markSyncIncomplete(db, res.Resource)
+		}
+	}()
 	switch {
 	case res.Error != "":
 	case !certain:
@@ -268,6 +290,8 @@ func recordFreshness(db *store.Store, res *fleetSyncResult, more, fullScope, cer
 	default:
 		if err := db.SaveSyncState(res.Resource, coverage, res.Stored); err != nil {
 			res.Error = "saving sync state: " + err.Error()
+		} else {
+			saved = true
 		}
 	}
 }

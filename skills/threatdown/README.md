@@ -137,10 +137,12 @@ OpenClaw isn't generally available yet; the frontmatter wiring is pre-shipped an
 Set the credentials the CLI needs (from your ThreatDown portal):
 
 ```bash
-THREATDOWN_CLIENT_ID=<value> THREATDOWN_CLIENT_SECRET=<value> threatdown-cli doctor
+export THREATDOWN_CLIENT_ID=<value>
+export THREATDOWN_CLIENT_SECRET=<value>
+threatdown-cli doctor
 ```
 
-On a fresh install run `threatdown-cli auth login` first: it exchanges the client ID and secret for a token, and a wrong secret fails right there with HTTP 401. After that, `doctor` shows `Auth: configured` and probes the credential with an authenticated call to OneView's account endpoint (its `Credentials` row); before a token is cached it reads `Auth: not configured` and skips that probe.
+Keep both variables set for every process that runs the CLI or the MCP server (the MCP install puts them in your client's env block). `doctor` exchanges them for a token and probes it with an authenticated call to OneView's account endpoint (its `Credentials` row), so a wrong secret shows there as a credentials error with HTTP 401. Only the minted token is cached, in the CLI's `credentials.toml`, and a process without the variables does not reuse it. To store the pair instead, run `threatdown-cli auth login --client-id <id> --client-secret <secret>`, which saves both in that file until `threatdown-cli auth logout`.
 
 
 ## What this skill does

@@ -283,7 +283,7 @@ them, and keeps waiting jobs only once they are older than --min-age.`,
 						keep[a] = true
 					}
 					jobs, unreadable := parseJobs(raws)
-					view.Note = joinNotes(view.Note, unreadableJobsNote(unreadable))
+					view.Note = joinNotes(view.Note, unreadableJobsNote(unreadable), incompleteSyncNote(db, tdResJobs))
 					scoped := jobs[:0:0]
 					for _, j := range jobs {
 						if siteFilter == "" || keep[j.AccountID] {
