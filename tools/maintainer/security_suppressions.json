@@ -545,6 +545,51 @@
       "file": "skills/threatdown/cli/cmd/threatdown-mcp/main.go",
       "rule": "G101",
       "reason": "threatdown (generated, printing-press 4.33.5). gosec G101 false-positive on the constant NAME 'httpTokenEnvVar' (the 'Token' substring), emitted by the press template main_mcp.go.tmpl for every connector. Its value is the NAME of an environment variable, \"THREATDOWN_MCP_HTTP_TOKEN\", not a credential; the actual token is read from the environment at runtime. Same entry as datagate, zammad, huntress, datto-bcdr, wordpress, sentinelone and connectwise-rmm."
+    },
+    {
+      "file": "skills/cisco-meraki/cli/cmd/cisco-meraki-mcp/main.go",
+      "rule": "G101",
+      "reason": "cisco-meraki (press 4.33.5). httpTokenEnvVar = \"CISCO_MERAKI_MCP_HTTP_TOKEN\" is the NAME of the env var the --transport http listener reads its bearer token from, not a credential value. Same pattern as the datagate/zammad/huntress/datto-bcdr/wordpress/sentinelone MCP main.go entries."
+    },
+    {
+      "file": "skills/cisco-meraki/cli/internal/store/store.go",
+      "rule": "G202",
+      "reason": "cisco-meraki (press 4.33.5). loadParentKeyLegacyBatch / parentKeyBareIDsExist / parentKeyLegacyIndexSQL concatenate bareWhere, built by parentKeyLegacyBareWhere from the compile-time resourceParentKeyColumns map keys (sorted, each single-quoted with '' escaping). No user or API input reaches the SQL text; the cursor values are bound ? parameters."
+    },
+    {
+      "file": "skills/cisco-meraki/cli/internal/cli/helpers.go",
+      "rule": "G304",
+      "reason": "cisco-meraki (press 4.33.5). claimLegacyUnscopedDB reads <data dir>/data.db.owner, a marker the CLI itself publishes next to its own legacy store under the user's data dir (path = the CLI's resolved store path + a fixed suffix). Not attacker-supplied; same class as the fleet cli/internal/store/store.go G304 entry."
+    },
+    {
+      "file": "skills/cisco-meraki/cli/internal/cli/store_adopt_darwin.go",
+      "rule": "G304",
+      "reason": "cisco-meraki (generated, press 4.33.5 template; the other 4.33.5 prints carry the byte-identical file, but the builtin pattern scanner matches repo-relative paths only, so each connector lists its own). claimClosedStore os.Opens only legacyStoreAdoptPaths(legacy): the CLI's own legacy data.db plus fixed sidecar suffixes (-wal, -shm, ...) under the user's data dir."
+    },
+    {
+      "file": "skills/cisco-meraki/cli/internal/cli/store_adopt_darwin.go",
+      "rule": "unsafe-import",
+      "reason": "cisco-meraki (generated, press 4.33.5 template). darwin-only store-adoption check: unsafe is used solely to pass fixed-size, Go-allocated buffers to the read-only libproc proc_info syscall (list PIDs, list fds, vnode path of an fd) so the CLI can confirm no other process holds its legacy store open before adopting it. No pointer arithmetic on external data, no writes through the syscall. A scan that cannot read its own fds fails closed (store left shared)."
+    },
+    {
+      "file": "skills/cisco-meraki/cli/internal/cli/store_adopt_darwin.go",
+      "rule": "msp-unsafe-import",
+      "reason": "cisco-meraki (generated, press 4.33.5 template). Same file and vetting as the unsafe-import entry: unsafe passes Go-allocated buffers to read-only proc_info syscalls; fails closed."
+    },
+    {
+      "file": "skills/cisco-meraki/cli/internal/cli/store_adopt_darwin.go",
+      "rule": "G115",
+      "reason": "cisco-meraki (generated, press 4.33.5 template; byte-identical to the cisco-duo and fortinet store_adopt_darwin.go, verified by diff with the slug normalized). The int32 conversions are kernel-returned PIDs, file-descriptor numbers (non-negative) and a stat st_dev compared against the same field of this process's own fstat; they only compare identifiers and never size an allocation or index memory."
+    },
+    {
+      "file": "skills/cisco-meraki/cli/internal/cli/store_adopt_linux.go",
+      "rule": "G304",
+      "reason": "cisco-meraki only (generated, printing-press 4.33.5). Linux twin of the store_adopt_darwin.go G304 entry above: gosec sees this file only when the gate runs with GOOS=linux, as CI does. store_adopt_linux.go is byte-identical in the cisco-meraki, cisco-duo, connectwise-rmm, fortinet, google-workspace and threatdown trees (verified by checksum). Both flagged opens are in pinClosedStoreFile, which claimClosedStore calls for each path from legacyStoreAdoptPaths(legacy): the CLI's own legacy store data-<legacyHash>.db in its resolved data directory (legacyHash is the first 12 hex characters of a SHA-256 the CLI computes) plus whichever of the fixed SQLite sidecars -wal, -shm and -journal exist. os.OpenFile uses os.O_RDWR with no O_CREATE or O_TRUNC, so it cannot create or truncate a file; the writable descriptor exists only to take an F_SETLEASE write lease, which the kernel refuses while any other descriptor has the file open. The os.Open fallback is read-only and runs only when no writable descriptor is available, to compare inode/device against /proc/<pid>/fd entries. Nothing is read from or written through either descriptor, and both are closed on release. The directory is the user's own data directory, which they can relocate with --home or the CLI's data-directory environment variables; no API, MCP, tool-call or tenant input reaches the path. The file's other reads (os.ReadDir of /proc and /proc/<pid>/fd, os.ReadFile of /proc/<pid>/status) use fixed /proc paths with a PID that strconv.Atoi parsed from the /proc listing."
+    },
+    {
+      "file": "skills/cisco-meraki/cli/internal/cli/fleet_push.go",
+      "rule": "G304",
+      "reason": "cisco-meraki only (hand-written novel command, not generated). readPushBody os.ReadFiles the --body value when it is neither '-' (stdin) nor inline JSON: a local JSON file the operator named on the command line, which is the flag's documented purpose (same class as import --input). Over MCP the path form is refused before the CLI runs: fleet push carries the mcp:inline-only-flags annotation and guardInlineOnlyFlags rejects any --body that is not an inline JSON object (pinned by TestFleetPushBodyIsInlineOnlyOverMCP, hand-fix mcp-filesystem-source-gate), so no MCP, tool-call or tenant input reaches the path. The file must parse as a JSON object or the command exits without echoing it."
     }
   ]
 }
