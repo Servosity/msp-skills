@@ -581,3 +581,15 @@ func TestCodexRound21NestedEscapes(t *testing.T) {
 		t.Fatalf("backstop withheld a string with no receiver: %s", got)
 	}
 }
+
+// TestLabelScrubDoesNotUnclassifyValues: the label is url=-scrubbed in the
+// mirror walk, and map order is random, so values must be judged against the
+// label as it arrived (adversarial round 25).
+func TestLabelScrubDoesNotUnclassifyValues(t *testing.T) {
+	for range 40 {
+		row := map[string]any{"label": "Alert filter url=https://x.example/psk", "oldValue": merakiSentinel, "newValue": merakiSentinel, "page": "Alerts", "ts": "2026-10-14T10:00:00Z"}
+		if got := string(RedactMerakiSecrets(mustJSON(t, row))); strings.Contains(got, merakiSentinel) {
+			t.Fatalf("mirror kept values whose label named a PSK: %s", got)
+		}
+	}
+}

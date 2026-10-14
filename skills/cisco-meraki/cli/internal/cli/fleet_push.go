@@ -12,6 +12,8 @@ import (
 	"io"
 	"net/url"
 	"os"
+	"reflect"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -184,6 +186,15 @@ func planOrgPush(ctx context.Context, c *client.Client, o fleetOrg, path string,
 		}
 		changed, cur := diffSettings(current, body)
 		store.RedactMerakiObject(cur, path) // a preview never prints a live PSK or RADIUS secret
+		// Whether a secret matches is itself a secret: a key whose value
+		// redaction touched always reports as changed, so the preview cannot
+		// confirm a guessed PSK.
+		for k := range body {
+			if !reflect.DeepEqual(desired[k], body[k]) && !slices.Contains(changed, k) {
+				changed = append(changed, k)
+			}
+		}
+		sort.Strings(changed)
 		row.Current = cur
 		if len(changed) == 0 {
 			row.Action = "no-change"

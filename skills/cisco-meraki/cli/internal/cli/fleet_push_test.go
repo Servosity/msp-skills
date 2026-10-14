@@ -401,3 +401,39 @@ func TestFleetPushWebhookErrorsWithheld(t *testing.T) {
 		t.Fatalf("webhook batch status kept its details: %s", got)
 	}
 }
+
+// TestFleetPushPreviewIsNotASecretOracle: a guess that matches the live PSK
+// must not show "no-change", or a Read-tier preview confirms it (adversarial
+// round 25); a matching non-secret setting still does.
+func TestFleetPushPreviewIsNotASecretOracle(t *testing.T) {
+	testenv.Isolate(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/v1/organizations":
+			_, _ = w.Write([]byte(`[{"id":"1","name":"Acme","api":{"enabled":true}}]`))
+		case "/api/v1/organizations/1/networks":
+			_, _ = w.Write([]byte(`[{"id":"N_1","name":"HQ","organizationId":"1","productTypes":["wireless"],"tags":[]}]`))
+		case "/api/v1/networks/N_1/wireless/ssids/0":
+			_, _ = w.Write([]byte(`{"number":0,"name":"Staff","psk":"SAME-XXXXXXXX"}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+	t.Setenv("CISCO_MERAKI_BASE_URL", srv.URL+"/api/v1")
+	t.Setenv("MERAKI_DASHBOARD_API_KEY", "test-key")
+	for body, want := range map[string]string{`{"psk":"SAME-XXXXXXXX"}`: `"update"`, `{"name":"Staff"}`: `"no-change"`} {
+		cmd := RootCmd()
+		var out bytes.Buffer
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		cmd.SetArgs([]string{"fleet", "push", "--path", "/networks/{networkId}/wireless/ssids/0", "--body", body, "--all-networks", "--json"})
+		if err := cmd.Execute(); err != nil {
+			t.Fatalf("preview %s: %v\n%s", body, err, out.String())
+		}
+		if !strings.Contains(out.String(), want) {
+			t.Fatalf("preview %s: want %s:\n%s", body, want, out.String())
+		}
+	}
+}

@@ -152,6 +152,12 @@ func redactMerakiValue(v any) (any, bool) {
 	switch tv := v.(type) {
 	case map[string]any:
 		changed := false
+		// Classify every key before rewriting any: map order is random, and a
+		// scrubbed label must not change how its oldValue/newValue are judged.
+		secret := make(map[string]bool, len(tv))
+		for k := range tv {
+			secret[k] = merakiSecretField(k, tv)
+		}
 		for k, child := range tv {
 			// A secret field always forces a re-encode, even when its
 			// decoded value is empty or not a string: the decoder keeps only
@@ -159,7 +165,7 @@ func redactMerakiValue(v any) (any, bool) {
 			// an earlier secret ({"psk":"x","psk":""}). A container under a
 			// secret field (md5AuthenticationKey.passphrase,
 			// parsedToken.hashedToken) has every string redacted: fail closed.
-			if merakiSecretField(k, tv) {
+			if secret[k] {
 				tv[k], _ = redactAllStrings(child)
 				changed = true
 				continue
