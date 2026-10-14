@@ -68,25 +68,79 @@ func merakiSecretKey(name string, obj map[string]any) bool {
 	return false
 }
 
+// merakiSecretField reports whether obj[k] holds a credential: a secret-named
+// key, a change-log old/new value under a secret label, or the value of a
+// name/value pair whose name is a credential (a webhook template header
+// {"name":"Authorization","template":"Basic ..."}).
+func merakiSecretField(k string, obj map[string]any) bool {
+	if merakiSecretKey(k, obj) {
+		return true
+	}
+	switch k {
+	case "oldValue", "newValue":
+		label, _ := obj["label"].(string)
+		return merakiSecretLabel(label)
+	case "value", "template":
+		name, _ := obj["name"].(string)
+		return merakiSecretName(name)
+	}
+	return false
+}
+
+// merakiSecretName reports a credential header or parameter name
+// ("Authorization", "X-Api-Key", "Cookie", "client_secret").
+func merakiSecretName(name string) bool {
+	l := strings.NewReplacer("-", "", "_", "", " ", "").Replace(strings.ToLower(name))
+	for _, w := range []string{"authorization", "cookie", "apikey", "token", "secret", "password", "passphrase", "psk", "community"} {
+		if strings.Contains(l, w) {
+			return true
+		}
+	}
+	return l == "key" || merakiSecretKeys[l]
+}
+
+// redactAllStrings replaces every non-empty string in v with RedactedSecret.
+func redactAllStrings(v any) (any, bool) {
+	switch tv := v.(type) {
+	case string:
+		if tv != "" && tv != RedactedSecret {
+			return RedactedSecret, true
+		}
+	case map[string]any:
+		changed := false
+		for k, child := range tv {
+			if next, ok := redactAllStrings(child); ok {
+				tv[k] = next
+				changed = true
+			}
+		}
+		return tv, changed
+	case []any:
+		changed := false
+		for i, child := range tv {
+			if next, ok := redactAllStrings(child); ok {
+				tv[i] = next
+				changed = true
+			}
+		}
+		return tv, changed
+	}
+	return v, false
+}
+
 func redactMerakiValue(v any) (any, bool) {
 	switch tv := v.(type) {
 	case map[string]any:
 		changed := false
-		label, _ := tv["label"].(string)
 		for k, child := range tv {
-			// A secret-named key always forces a re-encode, even when its
+			// A secret field always forces a re-encode, even when its
 			// decoded value is empty or not a string: the decoder keeps only
 			// the LAST duplicate key, so the original bytes could still hold
-			// an earlier secret ({"psk":"x","psk":""}).
-			if merakiSecretKey(k, tv) || ((k == "oldValue" || k == "newValue") && merakiSecretLabel(label)) {
-				if s, ok := child.(string); ok && s != "" {
-					tv[k] = RedactedSecret
-				} else if next, ok := redactMerakiValue(child); ok {
-					// An object under a secret-named key holds the secret one
-					// level down (md5AuthenticationKey.passphrase,
-					// parsedToken.hashedToken).
-					tv[k] = next
-				}
+			// an earlier secret ({"psk":"x","psk":""}). A container under a
+			// secret field (md5AuthenticationKey.passphrase,
+			// parsedToken.hashedToken) has every string redacted: fail closed.
+			if merakiSecretField(k, tv) {
+				tv[k], _ = redactAllStrings(child)
 				changed = true
 				continue
 			}
@@ -155,7 +209,7 @@ func merakiIDCarriesSecret(id string, obj map[string]any) bool {
 		switch tv := v.(type) {
 		case map[string]any:
 			for k, child := range tv {
-				if s, ok := child.(string); ok && s != "" && s != RedactedSecret && merakiSecretKey(k, tv) && strings.Contains(id, s) {
+				if s, ok := child.(string); ok && s != "" && s != RedactedSecret && merakiSecretField(k, tv) && strings.Contains(id, s) {
 					return true
 				}
 				if walk(child) {

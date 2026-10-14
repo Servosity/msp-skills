@@ -105,21 +105,23 @@ each command (`agent-context` lists it per command as `pp:method`): 555 GET, 202
 - **The local mirror keeps license keys and redacts credentials.** `sync` stores the
   organization list and the org-level resources under it in a local SQLite file under
   your user account. Of the credential reads above, only the configuration change log
-  is synced, and its old and new values are redacted before they are stored. A few
-  reads run with the default `--data-source auto` (organization, network and device
-  lookups and the `administered` identity and licensing-subscription reads) also write their response through
-  to the mirror; writes never do. Before any row is stored the CLI replaces every credential
+  is synced, and its old and new values are redacted before they are stored. Every
+  write command that succeeds also stores the response it gets back, and a few reads
+  run with the default `--data-source auto` (organization, network and device
+  lookups and the `administered` identity and licensing-subscription reads) write
+  theirs through too. Before any row is stored the CLI replaces every credential
   field (`psk`, `passphrase`, `password`, `secret`, `sharedSecret`, SNMP community
   strings and v3 passwords, API keys and tokens) with `[redacted]`. The redaction
   works by field name and change-log label, so treat the mirror as sensitive anyway. License keys are kept on
   purpose - the org's licenses and its co-term licenses - so `search`, `analytics` and
   the MCP `sql` tool can return them from the mirror. Keep the mirror under your
   account and out of shared folders.
-- **The CLI's response cache can hold a credential read for 5 minutes.** A repeat GET
-  within 5 minutes is answered from an on-disk cache (files readable only by your
-  account) and still reports `"source": "live"`, so right after a key rotation it can
-  return the old secret. Pass `--no-cache` on credential reads. The MCP server does
-  not use this cache.
+- **The CLI's response cache keeps credential reads on disk.** A repeat GET within 5
+  minutes is answered from an on-disk cache (files readable only by your account) and
+  still reports `"source": "live"`, so right after a key rotation it can return the
+  old secret. The cached file stays on disk after the 5 minutes, until the same GET
+  overwrites it or a write clears the cache. Pass `--no-cache` on credential reads so
+  nothing is cached. The MCP server does not use this cache.
 - **Never let an agent run Bulk, Destructive, or Credential tier commands
   unattended.** Treat them like a production database drop: human, reviewed, logged.
 - **Rotate the key if it is ever exposed** (for example after bridging the MCP server

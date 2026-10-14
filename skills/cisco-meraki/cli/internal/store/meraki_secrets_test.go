@@ -116,6 +116,10 @@ func TestChangeLogValuesNeverCarrySecrets(t *testing.T) {
 		`{"md5AuthenticationKey":{"id":1234,"passphrase":"` + merakiSentinel + `"}}`,
 		`{"parsedToken":{"orgName":"Acme","hashedToken":"` + merakiSentinel + `"}}`,
 		`{"n":1e400,"radiusServers":[{"secret":"` + merakiSentinel + `"}],"radiusServers":[]}`,
+		`{"name":"ServiceNow","headers":[{"name":"Authorization","template":"Basic ` + merakiSentinel + `"}]}`,
+		`{"psk":["` + merakiSentinel + `"]}`,
+		`{"token":{"value":{"deeper":"` + merakiSentinel + `"}}}`,
+		`{"label":"RADIUS secret","oldValue":["` + merakiSentinel + `"]}`,
 	} {
 		if got := RedactMerakiChangeValue("PUT /api/v1/networks/N_1/wireless/ssids/0", body); strings.Contains(got, merakiSentinel) {
 			t.Fatalf("change-log body leaked a secret: %s -> %s", body, got)
@@ -148,6 +152,8 @@ func TestRedactKeepsCleanJSONByteForByte(t *testing.T) {
 		`{"z":1,"a":{"a":[{"a":2},{"a":3}]},"b":[]}`,
 		`[{"name":"x"},{"name":"y"}]`,
 		`{"id":12345678901234567890,"tags":["a","a"]}`,
+		`{"headers":[{"name":"Content-Type","template":"application/json"}],"details":[{"name":"Model","value":"MX68"}]}`,
+		`{"key":{"created":true},"n":1e400}`,
 	} {
 		if got := string(RedactMerakiSecrets(json.RawMessage(body))); got != body {
 			t.Fatalf("clean JSON rewritten: %s -> %s", body, got)

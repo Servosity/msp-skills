@@ -126,7 +126,8 @@ across every org, use 'fleet find'.`,
 				return fmt.Errorf("opening local database: %w\nRun 'cisco-meraki-cli sync' first to populate the local database.", err)
 			}
 			defer db.Close()
-			maybeEmitSyncHints(cmd, db, resourceType, flags.maxAge)
+			// Dependent resources record sync state per parent, so any sync counts.
+			maybeEmitSyncHints(cmd, db, "", flags.maxAge)
 
 			var results []json.RawMessage
 			switch resourceType {
