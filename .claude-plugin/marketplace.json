@@ -1139,6 +1139,21 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "connectsecure",
+      "source": "./skills/connectsecure",
+      "description": "Every ConnectSecure API operation, plus a local store that answers vulnerability x asset x client questions across your whole client base in one command.",
+      "version": "0.1.0",
+      "category": "security",
+      "tags": [
+        "connectsecure",
+        "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }

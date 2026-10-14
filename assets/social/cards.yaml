@@ -69,6 +69,10 @@ connect-tool:
   vendor: "connect-tool"  # matches docs/skills/connect-tool.md
   example_command: "Connect my Pax8 account and prove it works"
 
+connectsecure:
+  vendor: "ConnectSecure"
+  example_command: "Which of our clients does this CVE hit?"
+
 connectwise-automate:
   vendor: "ConnectWise"
   example_command: "Which clients are behind on patches?"

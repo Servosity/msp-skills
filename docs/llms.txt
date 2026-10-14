@@ -50,6 +50,9 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cipp/install.sh)
 - connect-tool (Meta) - Connect any tool to your agent through your own logged-in Chrome, and prove it works. Windows and macOS.
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/connect-tool/
+- ConnectSecure (Security) - ask "Which open vulnerabilities across every client are most likely to be exploited?" - See which vulnerabilities hit which assets at which clients, across your whole client base, in one command.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/connectsecure/
+  Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/connectsecure/install.sh)
 - ConnectWise Automate (RMM) - ask "Which agents haven't checked in for 30+ days, by client?" - 
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/connectwise-automate/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/connectwise-automate/install.sh)

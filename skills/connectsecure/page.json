@@ -1,0 +1,123 @@
+{
+  "outcome_intro": "Ask your AI which open vulnerabilities across every client are most likely to be exploited, and get one ranked list naming the client and the machine behind every finding. It also tells you which clients a new CVE hits and what fixes exist, whose scan data you cannot trust, which suppressions are quietly hiding risk, and what goes in a client's QBR risk slide.",
+  "instead_of_say": [
+    {
+      "instead": "Export each client's vulnerability report from the ConnectSecure portal and merge them in a spreadsheet to find the worst exposures across the book",
+      "say": "Which critical and high vulnerabilities across all our clients are most likely to be exploited?",
+      "cli": "connectsecure-cli exposure --min-epss 0.5 --severity Critical,High"
+    },
+    {
+      "instead": "Open a CVE in the portal, then click through every affected asset to work out which client it belongs to and whether a fix exists",
+      "say": "A new CVE just dropped. Which of our clients does it hit, and is there a fix?",
+      "cli": "connectsecure-cli cve-impact \"CVE-2024-3400\""
+    },
+    {
+      "instead": "Build each QBR risk slide by hand from the company dashboard, the remediation report and last quarter's export",
+      "say": "Pull together Acme Dental's QBR risk slide, including what we fixed in the last 90 days.",
+      "cli": "connectsecure-cli qbr \"Acme Dental\" --since 90d"
+    }
+  ],
+  "pain_points": [
+    "Vulnerability scans rarely come back clean, so an MSP is staring at thousands of findings across dozens of clients (ChannelPro, \"Too many vulnerabilities, not enough time\"). ConnectSecure's per-client vulnerability report lists affected assets only by ID, so ranking findings across every client by machine means matching those IDs to the asset list yourself.",
+    "\"Which of our clients does this CVE hit?\" takes two reports - the CVE report for fixes and the assets-by-problem report for affected machines - and a manual grouping of assets by client, on the morning an advisory lands.",
+    "A clean result on an asset that has not been discovered in weeks, was scanned without credentials, or whose agent went silent is not clean, it is unknown. So is a vulnerability suppression that expired but was never lifted, or was approved by the same person who asked for it."
+  ],
+  "outcomes": [
+    {
+      "question": "Which open vulnerabilities across every client are most likely to be exploited?",
+      "command": "connectsecure-cli exposure --min-epss 0.5 --severity Critical,High"
+    },
+    {
+      "question": "What on the CISA Known Exploited list showed up this week?",
+      "command": "connectsecure-cli exposure --kev --new-since 7d"
+    },
+    {
+      "question": "Which clients carry the most risk, side by side?",
+      "command": "connectsecure-cli portfolio --sort max-epss"
+    },
+    {
+      "question": "A CVE just made the news. Which clients and assets does it hit, and is there a fix?",
+      "command": "connectsecure-cli cve-impact \"CVE-2024-3400\""
+    },
+    {
+      "question": "Which assets have scan data we cannot trust?",
+      "command": "connectsecure-cli blind-spots --stale 14d --agent-stale 48h"
+    },
+    {
+      "question": "Which suppressions expired, never expire, or were approved by the person who asked for them?",
+      "command": "connectsecure-cli suppression-audit --within 14d"
+    },
+    {
+      "question": "Which clients have risky Active Directory accounts or weak password policies?",
+      "command": "connectsecure-cli ad-hygiene --stale-logon 90d --min-length 12"
+    },
+    {
+      "question": "What goes in this client's QBR risk slide?",
+      "command": "connectsecure-cli qbr \"Acme Dental\" --since 90d"
+    },
+    {
+      "question": "Is my auth and connectivity actually working?",
+      "command": "connectsecure-cli doctor"
+    }
+  ],
+  "different_vs_wrappers": "A stateless wrapper over the ConnectSecure API answers one endpoint at a time. The questions an MSP asks are cross-client: rank every open finding at asset level, flag untrustworthy scans, audit every suppression. This skill syncs a curated set of ConnectSecure reports into a local SQLite mirror and answers those as one local join, and it never writes credential records, integration secrets, scheduled-job passwords, attack-surface creds and hashes or the agent uninstall secret to that mirror.",
+  "different_vs_vendor": "The ConnectSecure portal is where you scan, remediate and produce branded client reports, and this skill does not replace it. It puts the cross-client questions - exposure ranking, CVE blast radius, blind spots, suppression hygiene, AD hygiene - one sentence away in the AI you already use, and returns the rows behind each answer.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS. Start the server with `CONNECTSECURE_MCP_HTTP_TOKEN=<token> connectsecure-mcp --transport http` (it serves http://127.0.0.1:7777/mcp and requires that bearer token on every call) and put it behind an HTTPS tunnel or your own reverse proxy. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your pod URL, tenant name, client ID and client secret once."
+    },
+    {
+      "q": "Is my ConnectSecure data safe?",
+      "a": "Your data stays on your machine. The CLI, MCP server, the local mirror and a cache of API responses are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills. Credential records, integration secrets, scheduled-job passwords, attack-surface creds and hashes, custom-domain certificate details and the agent uninstall secret are never written to the local mirror or the response cache, even if you ask sync for them."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    },
+    {
+      "q": "Where do I find my pod URL and API credentials?",
+      "a": "In the ConnectSecure portal: Settings > Users > (user) > API Key gives you the client ID and client secret, and Profile > API Documentation shows your pod URL (https://pod<N>.myconnectsecure.com). The tenant name is the one you type on the portal login screen. The CLI exchanges those for a short-lived token on first use."
+    },
+    {
+      "q": "Will this hit my ConnectSecure API rate limits?",
+      "a": "Lightly. `sync` reads a curated set of reports once and stores them locally, and exposure, portfolio, blind-spots, suppression-audit and ad-hygiene then answer from that mirror without calling the API. qbr and cve-impact call the live API, with GET responses cached on disk for 5 minutes (--no-cache forces a fresh call); cve-impact reads at most --max-pages pages of 100 affected assets. By default the CLI paces itself to the server's rate-limit headers."
+    },
+    {
+      "q": "Will this replace the ConnectSecure portal?",
+      "a": "No. Scanning, remediation, agent deployment and branded client reports stay in the portal. This skill answers the cross-client questions the portal makes you click through, from your AI."
+    }
+  ],
+  "governance_summary": "Read commands - the seven analysis commands, sync, search, and every list or get except credential reads - change nothing and are safe for an agent. Credential reads, patching and patch schedules, scans, agent moves, suppressions and deletes are human-in-the-loop only. Set CONNECTSECURE_MCP_READ_ONLY=1 to make the MCP server refuse every write to ConnectSecure; it still allows credential reads, so scope the API user too.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "exposure, portfolio, blind-spots, suppression-audit, ad-hygiene, qbr, cve-impact, sync, search, every list / get except the credential reads",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Write (routine)",
+      "examples": "tags create, tag-rules update, companies update, custom-profile create, report-builder create-job, report-builder update-cover-page / update-standard-report-settings / upload-template, every other create / update not named below",
+      "policy": "Preview with --dry-run, then a reviewed write"
+    },
+    {
+      "tier": "Credential / security",
+      "examples": "credentials list / get / create / update, integration-credentials list / get / create / update, integration-rules list / get / create / update, attack-surface-results list / get, agents uninstall-secret, scheduler list / get / create / update, custom-domains list / get / create, agent-credentials-mapping create / update, company-mappings create / update, export credentials / integration_credentials / integration_rules / scheduler / attack_surface_results / custom_domains, tail on any of these, session, auth set-token",
+      "policy": "Human-in-the-loop only"
+    },
+    {
+      "tier": "Endpoint-affecting / posture",
+      "examples": "patching patch-now (alias patching create), scheduler create / update / update-schedule, companies scan, companies external-scan, agents reset (alias agents create), suppress-vulnerability create / update, discovery-settings / application-baseline-rules / pii-scan-settings / agent-discoverysettings-mapping / attack-surface-domain create / update",
+      "policy": "Human-in-the-loop only, explicit confirmation"
+    },
+    {
+      "tier": "Destructive",
+      "examples": "every delete (companies, assets, credentials and 19 more), assets bulk-deprecate, scheduler remove-schedule, import",
+      "policy": "Human-in-the-loop only, explicit confirmation"
+    }
+  ]
+}

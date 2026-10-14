@@ -370,6 +370,29 @@
         "issue_url": null
       }
     },
+    "connectsecure": {
+      "system": "ConnectSecure (formerly CyberCNS) vulnerability, asset and compliance management platform for MSPs",
+      "status": "beta",
+      "cli_binary": "connectsecure-cli",
+      "mcp_binary": "connectsecure-mcp",
+      "vendor": "ConnectSecure",
+      "vendor_trademark_owner": "ConnectSecure",
+      "first_party": false,
+      "category": "Security",
+      "display_name": "ConnectSecure",
+      "tagline": "See which vulnerabilities hit which assets at which clients, across your whole client base, in one command.",
+      "cli_hash": "sha256:bb21a61f71b51a2e9fe9b23722d8030510fa2d9b8edf31a0e689e4e838f027b1",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "connectwise-automate": {
       "system": "ConnectWise Automate (LabTech) RMM: device management, patching, scripting, monitors and alerts for MSPs",
       "status": "beta",

