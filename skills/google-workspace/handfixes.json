@@ -511,7 +511,7 @@
   {
    "id": "novel-help-text-accuracy",
    "summary": "Novel-command help text says what the code does: offboard's order is 'safe' (not API-required) and its Example uses --json; posture and sharing-drift count every Drive/Calendar setting change, not only sharing; tenants add's mode 0600 applies on macOS/Linux",
-   "why": "The adversarial review (round 2, P2) and Codex (round 2, P1, Windows key ACLs) found help text that overclaimed: Google does not require offboard's order (backup-code invalidation failing on a suspended account is why suspend runs last), --agent's compact output drops each offboard step's detail, settingChanges keeps every CHANGE_DOCS_SETTING and CHANGE_CALENDAR_SETTING event, and on Windows the copied key inherits the config folder's ACL. These are NOVEL files carried from the factory's novel/ directory, so a re-onboard from that source brings the old text back. Round 3 (adversarial, P2) found the same 'sharing settings' text on the generated surfaces that carry the novel-feature list (root --help, which's curated index, the MCP context tool) and in posture's table column and JSON key, now SETTING_CHANGES and drive_calendar_setting_changes.",
+   "why": "The adversarial review (round 2, P2) and Codex (round 2, P1, Windows key ACLs) found help text that overclaimed: Google does not require offboard's order (backup-code invalidation failing on a suspended account is why suspend runs last), --agent's compact output drops each offboard step's detail, settingChanges keeps every CHANGE_DOCS_SETTING and CHANGE_CALENDAR_SETTING event, and on Windows the copied key inherits the config folder's ACL. These are NOVEL files carried from the factory's novel/ directory, so a re-onboard from that source brings the old text back. Round 3 (adversarial, P2) found the same 'sharing settings' text on the generated surfaces that carry the novel-feature list (root --help, which's curated index, the MCP context tool) and in posture's table column and JSON key, now SETTING_CHANGES and drive_calendar_setting_changes. Round 4 (adversarial and Codex, P2): the offboard 'in the order Google's API requires' text also survived on root --help, which and the MCP context tool.",
    "status": "active",
    "spec_encode_followup": "Factory-side: port the same wording into ~/Documents/Dev/cli-factory/google-workspace/novel/ (offboard.go, posture.go, sharing_drift.go, gws_tenants_cmd.go).",
    "asserts": [
@@ -574,27 +574,49 @@
     {
      "file": "cli/internal/cli/posture.go",
      "not_contains": "SHARING_CHANGES"
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "in the order Google's API requires"
+    },
+    {
+     "file": "cli/internal/cli/which.go",
+     "not_contains": "in the order Google's API requires"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "in the order Google's API requires"
     }
    ]
   },
   {
    "id": "tenant-selection-follows-registry",
-   "summary": "selectedTenant re-resolves whenever tenants.toml changes, so a long-running MCP server stops auto-selecting the only tenant once a second one is registered",
-   "why": "selectedTenant cached its first answer for the life of the process. The MCP server is long-lived (Claude Desktop, --transport http), and tenants are added from a terminal because tenants add is not exposed over MCP. A server that had auto-selected the only tenant kept serving it after a second was registered: sql returned the first client's rows, search returned a clean-looking zero for the second client, and the raw execute tool kept minting the first client's token. The cache is now keyed to the registry file's mtime and size. Found by the onboard adversarial review (round 3, P1); TestTenantSelectionFollowsRegistryChanges runs without resetTenantSelection, the way production does, and fails with the stamp check removed.",
+   "summary": "Each MCP tool call re-reads the tenant registry (RefreshTenantSelection in MCPStorePath and newMCPClient), so a long-running server stops auto-selecting the only tenant once a second one is registered; a CLI command still resolves its tenant once",
+   "why": "selectedTenant cached its first answer for the life of the process. The MCP server is long-lived (Claude Desktop, --transport http), and tenants are added from a terminal because tenants add is not exposed over MCP. A server that had auto-selected the only tenant kept serving it after a second was registered: sql returned the first client's rows, search returned a clean-looking zero for the second client, and the raw execute tool kept minting the first client's token (adversarial review round 3, P1). The first fix re-resolved whenever tenants.toml changed, but that let one CLI command open one client's store in its pre-run and then authenticate as another client if the registry changed mid-run (Codex round 4, P1). Selection is now stable for a process and refreshed explicitly at each MCP tool call's entry, so every CLI command and every MCP call sees one tenant throughout. TestTenantSelectionFollowsRegistryChanges checks both halves and fails with the MCPStorePath refresh removed.",
    "status": "active",
-   "spec_encode_followup": "Factory-side: carry tenantRegistryStamp into ~/Documents/Dev/cli-factory/google-workspace/novel/gws_tenants.go.",
+   "spec_encode_followup": "Factory-side: carry RefreshTenantSelection into ~/Documents/Dev/cli-factory/google-workspace/novel/gws_tenants.go; the two call sites are generated-file edits a reprint drops.",
    "asserts": [
     {
      "file": "cli/internal/cli/gws_tenants.go",
-     "contains": "if tenantState.resolved && tenantState.stamp == stamp {",
+     "contains": "func RefreshTenantSelection() {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "RefreshTenantSelection()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "cli.RefreshTenantSelection()",
      "min_count": 1,
      "code_only": true
     },
     {
      "file": "cli/internal/cli/gws_tenants.go",
-     "contains": "func tenantRegistryStamp() string",
-     "min_count": 1,
-     "code_only": true
+     "not_contains": "tenantRegistryStamp"
     },
     {
      "file": "cli/internal/cli/gws_novel_test.go",
@@ -648,7 +670,7 @@
   {
    "id": "export-google-list-paging",
    "summary": "export and tail read Google lists properly: the read configs carry each list's items key and pageToken/nextPageToken paging, an item-less Google envelope is an empty page, and both send the list's spec defaults (customer=my_customer for users and groups)",
-   "why": "The Discovery print left resourceReadConfigs empty, so export wrote the first Google envelope as one record and never followed nextPageToken (Codex round 3, P1: incomplete backups that exit 0), wrote a {kind, etag} envelope for an empty list, and sent no customer parameter, which Google requires for users.list and groups.list. Receipts against a two-page stub: export users wrote 1 line before and 130 after, export transfers on an empty list writes nothing, and both requests now carry customer=my_customer.",
+   "why": "The Discovery print left resourceReadConfigs empty, so export wrote the first Google envelope as one record and never followed nextPageToken (Codex round 3, P1: incomplete backups that exit 0), wrote a {kind, etag} envelope for an empty list, and sent no customer parameter, which Google requires for users.list and groups.list. Receipts against a two-page stub: export users wrote 1 line before and 130 after, export transfers on an empty list writes nothing, and both requests now carry customer=my_customer. Round 4 (Codex, P1): tail still read only the first page per poll; fetchAndEmit now follows nextPageToken through fetchAndEmitPage (receipt: 130 events over two stub pages).",
    "status": "active",
    "spec_encode_followup": "Press-side: the googlediscovery profiler should fill resourceReadConfigs (responsePath, cursor paging) and export/tail should seed the same spec defaults sync does.",
    "asserts": [
@@ -687,19 +709,107 @@
      "contains": "func withSyncParamDefaults(",
      "min_count": 1,
      "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/tail.go",
+     "contains": "func fetchAndEmitPage(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/tail.go",
+     "contains": "pageParams = resourcePageParams(config, cursor, page, 0)",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   },
   {
    "id": "mcp-sql-search-describe-tenant-scope",
-   "summary": "The MCP sql and search tool descriptions say they read one client tenant's mirror (GOOGLE_WORKSPACE_TENANT or the only registered tenant) and refuse when several are registered and none is set",
-   "why": "The generated descriptions said 'across all synced data', but in this multi-tenant CLI they read exactly one tenant's store and take no tenant argument, which an MCP-only agent (Claude Desktop, ChatGPT) cannot learn from human docs. Found by the onboard adversarial review (round 3, P2). The generated prefixes are kept because tools_test.go pins them.",
+   "summary": "The MCP sql and search tool descriptions say they read one client tenant's mirror (GOOGLE_WORKSPACE_TENANT or the only registered tenant) and refuse when several are registered and none is set; the MCP context tool's tips describe Google's pageToken/maxResults paging and drop the generic message/channel playbook entries",
+   "why": "The generated descriptions said 'across all synced data', but in this multi-tenant CLI they read exactly one tenant's store and take no tenant argument, which an MCP-only agent (Claude Desktop, ChatGPT) cannot learn from human docs. Found by the onboard adversarial review (round 3, P2). The generated prefixes are kept because tools_test.go pins them. Round 4 (adversarial, P2): the context tool, which agents are told to call first, still carried generic archetype tips (an 'after' cursor and a pageSize parameter no command takes, and message/channel playbooks for data this connector never syncs).",
    "status": "active",
    "asserts": [
     {
      "file": "cli/internal/mcp/tools.go",
      "contains": "of one client tenant: the GOOGLE_WORKSPACE_TENANT tenant, or the only registered one",
      "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "Pass after parameter"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "\"Message search\""
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "Lists page with pageToken",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "tenant-token-cache-follows-key",
+   "summary": "The per-tenant token-source cache is keyed to the service-account key's content as well as tenant, admin and scopes",
+   "why": "Keyed to name, admin and scopes only, a long-running MCP server kept refreshing tokens through a source built from the old key after the operator rotated it with tenants add --yes, until restart; once the old key is revoked every call fails. The key file is read on each lookup (a few KB) and its SHA-256 prefix joins the cache key. Found by the onboard Codex review (round 4, P1); TestTokenSourceFollowsKeyRotation fails with the hash removed.",
+   "status": "active",
+   "spec_encode_followup": "Factory-side: carry the key-content cache key into the factory's novel/gws_tenants.go.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/gws_tenants.go",
+     "contains": "strings.Join(scopes, \" \") + \"|\" + hex.EncodeToString(keySum[:8])",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_novel_test.go",
+     "contains": "func TestTokenSourceFollowsKeyRotation(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "auth-hints-name-the-tenant",
+   "summary": "The 400/401/403 auth hints name --tenant / GOOGLE_WORKSPACE_TENANT (or the selected tenant's delegation and scopes) when client tenants are registered, and the bearer-token line only when none are",
+   "why": "The generated hints always said to export GOOGLE_WORKSPACE_TOKEN, while the docs say to unset it once tenants are registered. With several tenants and none selected, a generated command goes out with no credential and the hint pointed the user, or an MCP agent, at the wrong fix. Found by the onboard adversarial review (round 4, P2).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "authSetupHint()+",
+     "min_count": 3,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants.go",
+     "contains": "func authSetupHint() string",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_novel_test.go",
+     "contains": "func TestAuthSetupHintNamesTheTenant(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "groups-list-userkey-drops-default-customer",
+   "summary": "groups list sends its default customer=my_customer only when no --user-key is given",
+   "why": "Google's groups.list rejects customer together with userKey, and the generated command always sent the flag's my_customer default, so 'groups list --user-key <email>' (a user's group memberships) failed. An explicitly set --customer is still sent. Found by the onboard Codex review (round 4, P2); receipt: the stub now sees ?userKey=... alone, and ?customer=my_customer without --user-key.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: Discovery marks customer/domain/userKey as alternatives; the generator should not default one when another is supplied.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/groups_list.go",
+     "contains": "if cmd.Flags().Changed(\"customer\") || (flagCustomer != \"\" && flagUserKey == \"\") {",
+     "min_count": 1,
      "code_only": true
     }
    ]

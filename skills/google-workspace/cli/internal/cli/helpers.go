@@ -1011,17 +1011,17 @@ func classifyAPIErrorOnly(err error) error {
 		return authErr(err)
 	case strings.Contains(msg, "HTTP 400") && cliutil.LooksLikeAuthError(msg):
 		return authErr(fmt.Errorf("%w\nhint: the API rejected the request — this usually means auth is missing or invalid."+
-			"\n      Set one of: export GOOGLE_WORKSPACE_TOKEN=\"your-token-here\" or export ADMIN_ACCESS_TOKEN=\"your-token-here\""+
+			authSetupHint()+ // Hand-fix (handfixes.json auth-hints-name-the-tenant)
 			"\n      Run 'google-workspace-cli doctor' to check auth status."+
 			"\n      Response: "+cliutil.SanitizeErrorBody(msg), err))
 	case strings.Contains(msg, "HTTP 401"):
 		return authErr(fmt.Errorf("%w\nhint: check your token."+
-			"\n      Set one of: export GOOGLE_WORKSPACE_TOKEN=\"your-token-here\" or export ADMIN_ACCESS_TOKEN=\"your-token-here\""+
+			authSetupHint()+ // Hand-fix (handfixes.json auth-hints-name-the-tenant)
 			"\n      Run 'google-workspace-cli doctor' to check auth status.", err))
 	case strings.Contains(msg, "HTTP 403"):
 		return authErr(fmt.Errorf("%w\nhint: permission denied. Your credentials are valid but lack access to this resource."+
 			"\n      Check that your credentials have the required permissions and match the API's expected auth scheme."+
-			"\n      Set one of: export GOOGLE_WORKSPACE_TOKEN=\"your-token-here\" or export ADMIN_ACCESS_TOKEN=\"your-token-here\""+
+			authSetupHint()+ // Hand-fix (handfixes.json auth-hints-name-the-tenant)
 			"\n      Run 'google-workspace-cli doctor' to check auth status.", err))
 	case strings.Contains(msg, "HTTP 404"):
 		return notFoundErr(fmt.Errorf("%w\nhint: resource not found. Run the 'list' command to see available items", err))
@@ -4691,6 +4691,8 @@ func defaultDBPathInDir(dir string) string {
 // sql must open this path; a hard-coded data.db is empty on a fresh install
 // that never wrote the unscoped file.
 func MCPStorePath() (string, error) {
+	// Hand-fix (handfixes.json tenant-selection-follows-registry).
+	RefreshTenantSelection()
 	configureDefaultDBScope("")
 	// Hand-fix (handfixes.json local-read-needs-a-tenant): sql and search
 	// take no tenant argument; refuse rather than answer from no client.

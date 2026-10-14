@@ -310,7 +310,7 @@ func newRootCmd(flags *rootFlags) *cobra.Command {
 Highlights (not in the official API docs):
   • mfa-gaps   Every account without 2-Step Verification across all your client tenants, ranked with unenrolled admins first.
   • stale-licenses   Paid licences held by suspended, never-signed-in, or idle accounts, per client, ready to reclaim.
-  • offboard   Offboard a leaver in the order Google's API requires, with a read-only preview, dry-run, and a receipt per step.
+  • offboard   Offboard a leaver with suspension last (backup-code invalidation fails on a suspended account), with a read-only preview, dry-run, and a receipt per step.
   • leavers   Suspended accounts that still hold a paid licence, groups, an admin role, OAuth tokens, or have no completed Drive transfer.
   • sharing-drift   Who changed Drive or Calendar settings in the Admin console (any setting, not only sharing), and which files newly went external or public, across clients.
   • posture   One row per client: 2SV coverage, admins without 2SV, stale licences and Drive or Calendar setting changes, plus current sharing and 2SV policy for tenants registered with the policy scope profile.

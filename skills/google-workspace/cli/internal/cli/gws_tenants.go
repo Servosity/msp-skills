@@ -15,6 +15,8 @@ package cli
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -275,25 +277,18 @@ var (
 	tenantState struct {
 		sync.Mutex
 		resolved bool
-		stamp    string
 		tenant   *gwsTenant
 		err      error
 	}
 )
 
-// tenantRegistryStamp changes whenever tenants.toml is written. The MCP
-// server is long-lived, so a tenant added from a terminal must end the
-// single-tenant auto-selection it resolved earlier.
-func tenantRegistryStamp() string {
-	path, err := tenantRegistryPath()
-	if err != nil {
-		return ""
-	}
-	fi, err := os.Stat(path)
-	if err != nil {
-		return "absent"
-	}
-	return fmt.Sprintf("%d/%d", fi.ModTime().UnixNano(), fi.Size())
+// RefreshTenantSelection re-reads the tenant registry on the next selection.
+// A CLI command resolves its tenant once, so its store and its credential
+// always belong to the same client. The MCP server is long-lived and calls
+// this at the start of each tool call, so a tenant added from a terminal
+// ends the single-tenant auto-selection it resolved earlier.
+func RefreshTenantSelection() {
+	resetTenantSelection()
 }
 
 // tenantStoreIdentity keys a tenant's local store to its name and domain, so
@@ -307,13 +302,12 @@ func tenantStoreIdentity(t *gwsTenant) string {
 // registered client tenant. Returns nil (no error) when no tenant applies, in
 // which case the raw bearer token env var / auth set-token path is used.
 func selectedTenant() (*gwsTenant, error) {
-	stamp := tenantRegistryStamp()
 	tenantState.Lock()
 	defer tenantState.Unlock()
-	if tenantState.resolved && tenantState.stamp == stamp {
+	if tenantState.resolved {
 		return tenantState.tenant, tenantState.err
 	}
-	tenantState.resolved, tenantState.stamp, tenantState.tenant, tenantState.err = true, stamp, nil, nil
+	tenantState.resolved, tenantState.tenant, tenantState.err = true, nil, nil
 	name := strings.TrimSpace(tenantFlag)
 	if name == "" {
 		name = getenvTenant()
@@ -393,10 +387,25 @@ func localStoreTenantErr() error {
 	return usageErr(fmt.Errorf("%d tenants are registered and none is selected, so there is no client mirror to read: pass --tenant <name> (MCP server: set GOOGLE_WORKSPACE_TENANT in its env)", len(reg.Tenants)))
 }
 
+// authSetupHint is the credential line of the 400/401/403 hints. With client
+// tenants registered the fix is a tenant or its delegation, not a bearer
+// token (the docs say to unset that once tenants exist).
+func authSetupHint() string {
+	reg, err := loadTenantRegistry()
+	if err != nil || len(reg.Tenants) == 0 {
+		return "\n      Set one of: export GOOGLE_WORKSPACE_TOKEN=\"your-token-here\" or export ADMIN_ACCESS_TOKEN=\"your-token-here\""
+	}
+	t, err := selectedTenant()
+	if err != nil || t == nil {
+		return fmt.Sprintf("\n      %d tenants are registered and none is selected, so this call used no tenant credential: pass --tenant <name> (or set GOOGLE_WORKSPACE_TENANT); cross-client reports take --all-tenants.", len(reg.Tenants))
+	}
+	return fmt.Sprintf("\n      Tenant %s: check its domain-wide delegation with 'google-workspace-cli tenants test %s' and its scopes with 'google-workspace-cli tenants scopes %s' (writes need the full profile).", t.Name, t.Name, t.Name)
+}
+
 // resetTenantSelection is for tests.
 func resetTenantSelection() {
 	tenantState.Lock()
-	tenantState.resolved, tenantState.stamp, tenantState.tenant, tenantState.err = false, "", nil, nil
+	tenantState.resolved, tenantState.tenant, tenantState.err = false, nil, nil
 	tenantState.Unlock()
 }
 
@@ -407,15 +416,18 @@ var tokenSources sync.Map // key: tenant name + scopes -> oauth2.TokenSource
 // tenantTokenSource returns a cached, auto-refreshing token source that signs
 // a JWT with the tenant's service-account key and impersonates its admin.
 func tenantTokenSource(t gwsTenant, scopes []string) (oauth2.TokenSource, error) {
-	cacheKey := t.Name + "|" + t.Admin + "|" + strings.Join(scopes, " ")
-	if ts, ok := tokenSources.Load(cacheKey); ok {
-		return ts.(oauth2.TokenSource), nil
-	}
 	keyPath := expandTenantPath(t.KeyFile)
 	// #nosec G304 -- the operator-registered service-account key path for this tenant
 	keyJSON, err := os.ReadFile(keyPath)
 	if err != nil {
 		return nil, configErr(fmt.Errorf("tenant %s: reading service-account key: %w", t.Name, err))
+	}
+	// Keyed to the key's content too: a rotated key must not keep refreshing
+	// through a token source built from the old one in a long-running server.
+	keySum := sha256.Sum256(keyJSON)
+	cacheKey := t.Name + "|" + t.Admin + "|" + strings.Join(scopes, " ") + "|" + hex.EncodeToString(keySum[:8])
+	if ts, ok := tokenSources.Load(cacheKey); ok {
+		return ts.(oauth2.TokenSource), nil
 	}
 	var key struct {
 		ClientEmail  string `json:"client_email"`

@@ -148,20 +148,52 @@ func fetchAndEmit(ctx context.Context, c interface {
 	Get(context.Context, string, map[string]string) (json.RawMessage, error)
 }, path string, params map[string]string, config resourceReadConfig, enc *json.Encoder) error {
 	// Hand-fix (handfixes.json export-google-list-paging): params carries the
-	// list's spec defaults (customer=my_customer for users and groups).
+	// list's spec defaults (customer=my_customer for users and groups), and
+	// each poll follows nextPageToken to the last page.
+	cursor := ""
+	for page := 0; ; page++ {
+		pageParams := params
+		if config.paginationType != "" {
+			pageParams = resourcePageParams(config, cursor, page, 0)
+			for k, v := range params {
+				if _, set := pageParams[k]; !set {
+					pageParams[k] = v
+				}
+			}
+		}
+		next, more, err := fetchAndEmitPage(ctx, c, path, pageParams, config, enc)
+		if err != nil || config.paginationType == "" || !more {
+			return err
+		}
+		var stop bool
+		cursor, stop, err = resourceNextCursor(config, cursor, next, false)
+		if err != nil || stop {
+			return err
+		}
+		if page >= 10000 {
+			return fmt.Errorf("tail pagination exceeded 10000 pages")
+		}
+	}
+}
+
+// fetchAndEmitPage emits one page and reports its next cursor and whether
+// the page had items to continue from.
+func fetchAndEmitPage(ctx context.Context, c interface {
+	Get(context.Context, string, map[string]string) (json.RawMessage, error)
+}, path string, params map[string]string, config resourceReadConfig, enc *json.Encoder) (string, bool, error) {
 	data, err := c.Get(ctx, path, params)
 	if err != nil {
-		return err
+		return "", false, err
 	}
 
-	items, _, _ := extractResourcePage(data, config)
+	items, next, _ := extractResourcePage(data, config)
 	if items == nil {
 		event := map[string]any{
 			"event":     "data",
 			"timestamp": time.Now().UTC().Format(time.RFC3339),
 			"data":      json.RawMessage(data),
 		}
-		return enc.Encode(event)
+		return "", false, enc.Encode(event)
 	}
 
 	for _, item := range items {
@@ -171,8 +203,8 @@ func fetchAndEmit(ctx context.Context, c interface {
 			"data":      item,
 		}
 		if err := enc.Encode(event); err != nil {
-			return err
+			return "", false, err
 		}
 	}
-	return nil
+	return next, len(items) > 0, nil
 }

@@ -61,7 +61,10 @@ func newGroupsListCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 			params := map[string]string{}
-			if cmd.Flags().Changed("customer") || flagCustomer != "" {
+			// Hand-fix (handfixes.json groups-list-userkey-drops-default-customer):
+			// Google rejects customer together with userKey, so the default
+			// customer is sent only when no --user-key is given.
+			if cmd.Flags().Changed("customer") || (flagCustomer != "" && flagUserKey == "") {
 				params["customer"] = formatCLIParamValue(flagCustomer)
 			}
 			if cmd.Flags().Changed("domain") || flagDomain != "" {

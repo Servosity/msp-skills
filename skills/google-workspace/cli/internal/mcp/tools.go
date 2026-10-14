@@ -527,6 +527,9 @@ func mcpToolPageResultTextWithPlatform(method string, data json.RawMessage, page
 }
 
 func newMCPClient(ctx context.Context) (*client.Client, *platform.Session, error) {
+	// Hand-fix (handfixes.json tenant-selection-follows-registry): each tool
+	// call re-reads the tenant registry.
+	cli.RefreshTenantSelection()
 	cfg, err := newMCPConfig()
 	if err != nil {
 		return nil, nil, err
@@ -1275,10 +1278,9 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 			},
 		},
 		"query_tips": []string{
-			"Pagination uses cursor-based paging. Pass after parameter for subsequent pages.",
-			"Control page size with the pageSize parameter (default 100).",
+			"Lists page with pageToken: pass the previous response's nextPageToken as pageToken, and size pages with maxResults (each method has its own cap).",
 			"Use the sql tool for ad-hoc analysis on synced data. Run sync first to populate the local database.",
-			"Use the search tool for full-text search across all synced resources. Faster than iterating list endpoints.",
+			"Use the search tool for full-text search across the selected tenant's synced resources. Faster than iterating list endpoints.",
 			"Prefer sql/search over repeated API calls when the data is already synced.",
 		},
 		// Command-mirror capabilities are exposed through MCP by shelling out
@@ -1286,7 +1288,7 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 		"command_mirror_capabilities": registeredCommandMirrorCapabilities(s, []map[string]string{
 			{"name": "Cross-tenant 2SV sweep", "command": "mfa-gaps", "cli_command": "mfa-gaps", "description": "Every account without 2-Step Verification across all your client tenants, ranked with unenrolled admins first.", "rationale": "Needs the same Directory query fanned out across every client's own service account", "via": "mcp-command-mirror"},
 			{"name": "Licence waste per client", "command": "stale-licenses", "cli_command": "stale-licenses", "description": "Paid licences held by suspended, never-signed-in, or idle accounts, per client, ready to reclaim.", "rationale": "Joins Enterprise License Manager assignments to Directory sign-in state for each tenant; neither API answers it alone.", "via": "mcp-command-mirror"},
-			{"name": "Ordered offboarding", "command": "offboard", "cli_command": "offboard", "description": "Offboard a leaver in the order Google's API requires, with a read-only preview, dry-run, and a receipt per step.", "rationale": "Sequences about ten Directory, Data Transfer and Licensing calls (revoke before suspend, transfer by user ID", "via": "mcp-command-mirror"},
+			{"name": "Ordered offboarding", "command": "offboard", "cli_command": "offboard", "description": "Offboard a leaver with suspension last (backup-code invalidation fails on a suspended account), with a read-only preview, dry-run, and a receipt per step.", "rationale": "Sequences about ten Directory, Data Transfer and Licensing calls (revoke before suspend, transfer by user ID", "via": "mcp-command-mirror"},
 			{"name": "Incomplete-offboarding sweep", "command": "leavers", "cli_command": "leavers", "description": "Suspended accounts that still hold a paid licence, groups, an admin role, OAuth tokens", "rationale": "Joins suspended users to licences, group memberships, role assignments, tokens and transfers per tenant.", "via": "mcp-command-mirror"},
 			{"name": "External-sharing drift", "command": "sharing-drift", "cli_command": "sharing-drift", "description": "Who changed Drive or Calendar settings in the Admin console (any setting, not only sharing), and which files newly went external or public, across clients.", "rationale": "Merges admin setting-change events with Drive external-share and public-link audit events per tenant", "via": "mcp-command-mirror"},
 			{"name": "One-row-per-client posture", "command": "posture", "cli_command": "posture", "description": "One row per client: 2SV coverage, admins without 2SV, stale licences and Drive or Calendar setting changes", "rationale": "Rolls up Directory, Licensing, Reports and (when granted)", "via": "mcp-command-mirror"},
@@ -1302,8 +1304,6 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 			{"topic": "One-row-per-client posture", "insight": "Rolls up Directory, Licensing, Reports and (when granted) Cloud Identity Policy data per tenant into a single graded row."},
 			{"topic": "Cross-tenant OAuth app inventory", "insight": "Aggregates per-user OAuth grants by client ID across tenants with a curated scope-risk tier; --since reads token-log authorizations instead."},
 			{"topic": "Risky sign-in sweep", "insight": "Polls the login audit events Google raises for compromise across every tenant and groups them by user and severity."},
-			{"topic": "Message search", "insight": "Use the search tool on synced data rather than paginating through message history. Message APIs often have aggressive rate limits."},
-			{"topic": "Channel health", "insight": "When analyzing channel activity, use sql aggregation on synced messages. Don't iterate individual messages via API."},
 		},
 	}
 	return toolResultJSON(ctx)

@@ -806,8 +806,9 @@ func TestTenantStoreNeverClaimsUnscopedDBAndLocalReadNeedsTenant(t *testing.T) {
 	}
 }
 
-// TestTenantSelectionFollowsRegistryChanges runs the way a long-lived MCP
-// server does: no resetTenantSelection between phases.
+// TestTenantSelectionFollowsRegistryChanges: a CLI command keeps one tenant
+// for its whole run, while each MCP call (MCPStorePath, newMCPClient) re-reads
+// the registry. No resetTenantSelection between phases, as in production.
 func TestTenantSelectionFollowsRegistryChanges(t *testing.T) {
 	restore, err := cliutil.SetHomeOverride(t.TempDir())
 	if err != nil {
@@ -834,12 +835,14 @@ func TestTenantSelectionFollowsRegistryChanges(t *testing.T) {
 		t.Fatalf("the only tenant auto-selects: %v %v", got, err)
 	}
 	add(gwsTenant{Name: "beta", Domain: "example.org", KeyFile: "k2.json"})
-	if got, err := selectedTenant(); err != nil || got != nil {
-		t.Fatalf("a second registered tenant must end auto-selection without a restart: %v %v", got, err)
+	if got, err := selectedTenant(); err != nil || got == nil || got.Name != "acme" {
+		t.Fatalf("within one command the tenant must not change under it: %v %v", got, err)
 	}
-	configureDefaultDBScope("")
-	if err := localStoreTenantErr(); err == nil {
-		t.Fatal("after a second tenant is added, an unscoped local read must refuse")
+	if _, err := MCPStorePath(); err == nil || !strings.Contains(err.Error(), "none is selected") {
+		t.Fatalf("an MCP call after a second tenant is added must re-read the registry and refuse: %v", err)
+	}
+	if got, err := selectedTenant(); err != nil || got != nil {
+		t.Fatalf("after the refresh no tenant is auto-selected: %v %v", got, err)
 	}
 
 	// Same name, different client: a different store.
@@ -862,5 +865,65 @@ func TestTenantSelectionFollowsRegistryChanges(t *testing.T) {
 	}
 	if err := localStoreTenantErr(); err != nil {
 		t.Fatalf("the tenant's own store stays readable: %v", err)
+	}
+}
+
+func TestTokenSourceFollowsKeyRotation(t *testing.T) {
+	dir := t.TempDir()
+	keyPath := filepath.Join(dir, "k.json")
+	write := func(id string) {
+		t.Helper()
+		key := `{"client_email":"sa@example.iam.gserviceaccount.com","private_key":"-----BEGIN PRIVATE KEY-----\nAA==\n-----END PRIVATE KEY-----\n","private_key_id":"` + id + `"}`
+		if err := os.WriteFile(keyPath, []byte(key), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	tn := gwsTenant{Name: "rotate-test", Domain: "example.com", Admin: "admin@example.com", KeyFile: keyPath}
+	scopes := []string{"https://www.googleapis.com/auth/admin.directory.user.readonly"}
+	write("old")
+	first, err := tenantTokenSource(tn, scopes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	again, _ := tenantTokenSource(tn, scopes)
+	if first != again {
+		t.Fatal("an unchanged key must reuse its token source")
+	}
+	write("new")
+	rotated, err := tenantTokenSource(tn, scopes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rotated == first {
+		t.Fatal("a rotated key must not reuse the old key's token source")
+	}
+}
+
+func TestAuthSetupHintNamesTheTenant(t *testing.T) {
+	restore, err := cliutil.SetHomeOverride(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer restore()
+	tenantFlag = ""
+	resetTenantSelection()
+	defer func() { tenantFlag = ""; resetTenantSelection() }()
+	if h := authSetupHint(); !strings.Contains(h, "GOOGLE_WORKSPACE_TOKEN") {
+		t.Fatalf("no tenants: the bearer token is the fix: %q", h)
+	}
+	if err := updateTenantRegistry(func(reg *tenantRegistry) error {
+		reg.Tenants = append(reg.Tenants, gwsTenant{Name: "acme", Domain: "example.com", KeyFile: "k.json"}, gwsTenant{Name: "beta", Domain: "example.org", KeyFile: "k2.json"})
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	resetTenantSelection()
+	if h := authSetupHint(); !strings.Contains(h, "--tenant") || strings.Contains(h, "export GOOGLE_WORKSPACE_TOKEN") {
+		t.Fatalf("tenants registered, none selected: name --tenant, not a bearer token: %q", h)
+	}
+	tenantFlag = "acme"
+	resetTenantSelection()
+	if h := authSetupHint(); !strings.Contains(h, "tenants test acme") {
+		t.Fatalf("a selected tenant: point at its delegation: %q", h)
 	}
 }
