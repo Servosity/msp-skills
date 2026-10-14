@@ -8,6 +8,7 @@ package store
 import (
 	"bytes"
 	"encoding/json"
+	"regexp"
 	"strings"
 )
 
@@ -161,16 +162,23 @@ func merakiIDCarriesSecret(id string, obj map[string]any) bool {
 }
 
 // merakiSecretLabel reports a change-log label that names a credential
-// ("Pre-shared key", "RADIUS secret", "SNMP community string").
+// ("Pre-shared key", "RADIUS secret", "SNMP community string"). It matches
+// the label's ending, so "Password expiration" or "Secret SSID setting"
+// keep their audit values.
 func merakiSecretLabel(label string) bool {
-	l := strings.ToLower(label)
-	for _, w := range []string{"psk", "pre-shared", "preshared", "password", "passphrase", "secret", "community string", "api key"} {
-		if strings.Contains(l, w) {
+	l := strings.ToLower(strings.TrimSpace(label))
+	for _, w := range []string{"password", "passphrase", "secret", "psk", "pre-shared key", "preshared key", "shared key", "community string", "api key"} {
+		if strings.HasSuffix(l, w) {
 			return true
 		}
 	}
 	return false
 }
+
+// merakiSecretPairRe matches a "secret-key": "value" pair in text that looks
+// like JSON but does not parse (a truncated change-log body); the value may
+// run to the end of the text.
+var merakiSecretPairRe = regexp.MustCompile(`(?i)("(?:[a-z0-9_]*(?:password|passphrase|secret|psk)|apikey|claimkey|communitystring|v2communitystring|v3authpass|v3privpass|md5authenticationkey|token|contenttoken|parsedtoken|vppservicetoken|hashedtoken|key)"\s*:\s*")((?:[^"\\]|\\.)*)("|$)`)
 
 // RedactMerakiJSONString redacts credentials inside a string that holds JSON
 // (a change-log oldValue/newValue). Any other string is returned unchanged.
@@ -178,6 +186,10 @@ func RedactMerakiJSONString(s string) string {
 	t := strings.TrimSpace(s)
 	if t == "" || (t[0] != '{' && t[0] != '[') {
 		return s
+	}
+	if !json.Valid([]byte(t)) {
+		// Truncated or broken JSON: scrub secret-named pairs textually.
+		return merakiSecretPairRe.ReplaceAllString(s, "${1}"+RedactedSecret+"${3}")
 	}
 	if out := RedactMerakiSecrets(json.RawMessage(t)); string(out) != t {
 		return string(out)

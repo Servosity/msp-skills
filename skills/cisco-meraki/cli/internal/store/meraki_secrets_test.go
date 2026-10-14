@@ -97,4 +97,10 @@ func TestChangeLogValuesNeverCarrySecrets(t *testing.T) {
 	if got := RedactMerakiChangeValue("Name", "HQ"); got != "HQ" {
 		t.Fatalf("plain value changed: %s", got)
 	}
+	if got := RedactMerakiChangeValue("Password expiration", "90 days"); got != "90 days" {
+		t.Fatalf("non-secret label blanked: %s", got)
+	}
+	if got := RedactMerakiChangeValue("PUT /api/v1/networks/N_1/wireless/ssids/0", `{"name":"Lobby","psk":"`+merakiSentinel); strings.Contains(got, merakiSentinel) || !strings.Contains(got, "Lobby") {
+		t.Fatalf("truncated JSON body leaked or lost its non-secret text: %s", got)
+	}
 }
