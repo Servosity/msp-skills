@@ -427,30 +427,61 @@ func WithMerakiLinkNext(ctx context.Context) (context.Context, func() string) {
 	return linkCtx, s.next
 }
 
-// AnnotateMerakiNextPage marks an MCP execute result as one page of several
-// when the Link header named a next page, so an agent sees has_more instead of
-// a count that silently stops at page one. The Link cursor points past the END
-// of the upstream page, so it is only offered when the whole page fit in the
-// MCP result; when the result was cut to fit (truncated), following it would
-// skip the items that were cut, so the agent is told to shrink perPage instead.
+// AnnotateMerakiNextPage marks an MCP execute GET result as one page of
+// several when the Link header named a next page, so an agent sees has_more
+// instead of a count that silently stops at page one. The Link cursor points
+// past the END of the upstream page, so it is offered only when the whole page
+// fit in the MCP result. When the result was cut to fit - a bare array
+// ("truncated") or an object envelope ("_pp_truncated") - following it would
+// skip the items that were cut, so the agent is told to re-request the page
+// with a smaller perPage instead, whether or not a next page exists.
 func AnnotateMerakiNextPage(result, next string) string {
-	if next == "" {
-		return result
-	}
 	var obj map[string]any
 	if json.Unmarshal([]byte(result), &obj) != nil || obj == nil {
+		if next == "" {
+			return result
+		}
 		obj = map[string]any{"result": result}
 	}
-	obj["has_more"] = true
-	if truncated, _ := obj["truncated"].(bool); truncated {
-		obj["pagination_note"] = fmt.Sprintf("This upstream page held %v items but only %v fit in one MCP result, so its Link cursor would skip the rest. Re-request this page with params.perPage set to %v or fewer, then follow next_starting_after from that response.", obj["count"], obj["returned_count"], obj["returned_count"])
-	} else {
+	total, returned, cut := merakiResultTruncation(obj)
+	if next == "" && !cut {
+		return result
+	}
+	if next != "" {
+		obj["has_more"] = true
+	}
+	switch {
+	case cut && returned >= 1:
+		obj["pagination_note"] = fmt.Sprintf("This upstream page held %d items but only %d fit in one MCP result, so do not page from it: its Link cursor would skip the items that were cut. Re-request it with params.perPage set to %d or fewer (and at or above the endpoint's minimum), then follow next_starting_after from that response.", total, returned, returned)
+	case cut:
+		obj["pagination_note"] = "This upstream page was too large for one MCP result, so do not page from it: its Link cursor would skip the items that were cut. Re-request it with a smaller params.perPage (at or above the endpoint's minimum) or narrower filters, then follow next_starting_after from that response."
+	default:
 		obj["next_starting_after"] = next
-		obj["pagination_note"] = "This is one page; Meraki has more (Link rel=next). Call again with params.startingAfter set to next_starting_after to read the next page. Keep params.perPage at 50 or below so every page fits in one MCP result."
+		obj["pagination_note"] = "This is one page; Meraki has more (Link rel=next). Call again with params.startingAfter set to next_starting_after to read the next page."
 	}
 	b, err := json.Marshal(obj)
 	if err != nil {
 		return result
 	}
 	return string(b)
+}
+
+// merakiResultTruncation reads the two shapes bound uses to say it cut a
+// result: a bare-array list envelope (truncated / count / returned_count) and
+// an object whose array was cut in place (_pp_truncated / _pp_total_count /
+// _pp_returned_count). returned is -1 when the cut result does not say.
+func merakiResultTruncation(obj map[string]any) (total, returned int, cut bool) {
+	num := func(v any) int {
+		if f, ok := v.(float64); ok {
+			return int(f)
+		}
+		return -1
+	}
+	if t, _ := obj["_pp_truncated"].(bool); t {
+		return num(obj["_pp_total_count"]), num(obj["_pp_returned_count"]), true
+	}
+	if t, _ := obj["truncated"].(bool); t {
+		return num(obj["count"]), num(obj["returned_count"]), true
+	}
+	return -1, -1, false
 }

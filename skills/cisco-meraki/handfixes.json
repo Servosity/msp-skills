@@ -12,13 +12,45 @@
    "asserts": [
     {
      "file": "cli/internal/cli/sync.go",
-     "contains": "pp:handfix meraki-link-pagination",
-     "min_count": 11
+     "contains": "merakiLinkPagination(determinePaginationDefaults(",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "linkCtx, linkPage := withLinkSink(ctx)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "nextCursor, hasMore = linkAdvance(linkPage, pageSize, nextCursor, hasMore)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "!linkProvenEnd(linkPage, pageSize)",
+     "min_count": 5,
+     "code_only": true
     },
     {
      "file": "cli/internal/cli/helpers.go",
-     "contains": "pp:handfix meraki-link-pagination",
-     "min_count": 3
+     "contains": "linkCtx, linkPage := withLinkSink(ctx)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "paginatedGetPage(linkCtx, c, path, clean, headers)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "paginatedGetLinkNext(ctx, linkPage, clean, seenCursorTokens)",
+     "min_count": 2,
+     "code_only": true
     },
     {
      "file": "cli/internal/cli/meraki_link_pagination.go",
@@ -132,15 +164,16 @@
   },
   {
    "id": "meraki-mcp-execute-link-next",
-   "summary": "The MCP cisco-meraki_execute tool marks a GET result has_more when the response's Link header names another page: with next_starting_after when the whole upstream page fit in the (50-item) MCP result, and, when the result was truncated to fit, a note to re-request with a smaller perPage instead of a cursor that would skip the cut items",
-   "why": "Every non-fleet operation reaches MCP agents through cisco-meraki_execute, which sends one GET and dropped the Link header, so an agent asking for network clients (default perPage 10 on many endpoints) silently got page one - the failure meraki-link-pagination fixed for sync, --all and fleet but not this twin path. Found by the fresh-context adversarial review (2026-10-13). The result is already capped at 50 items per MCP call, so the fix reports the cursor rather than walking every page. Helpers live in the hand-authored internal/cli/meraki_link_pagination.go (WithMerakiLinkNext, AnnotateMerakiNextPage); the three call-site lines in generated code_orch.go are re-applied by the factory's tools/apply_handfixes.py. TestCodeOrchExecuteReportsMerakiNextPage fails with the annotation removed (proven 2026-10-13). Round-2 adversarial review (2026-10-13) caught that the first version offered the Link cursor even when bound truncated a large page to 50 items, so following it skipped items 51..perPage; TestCodeOrchExecuteTruncatedPageWithholdsCursor fails on that version (proven) and a 1,200-item walk through the real MCP binary following the tool's own instructions returned all 1,200 with no gaps.",
+   "summary": "The MCP cisco-meraki_execute tool marks a GET result has_more when the response's Link header names another page: with next_starting_after when the whole upstream page fit in the (50-item) MCP result, and, when the result was truncated to fit (a bare array marked truncated, or an object envelope marked _pp_truncated, including a truncated last page), a note to re-request with a smaller perPage instead of a cursor that would skip the cut items",
+   "why": "Every non-fleet operation reaches MCP agents through cisco-meraki_execute, which sends one GET and dropped the Link header, so an agent asking for network clients (default perPage 10 on many endpoints) silently got page one - the failure meraki-link-pagination fixed for sync, --all and fleet but not this twin path. Found by the fresh-context adversarial review (2026-10-13). The result is already capped at 50 items per MCP call, so the fix reports the cursor rather than walking every page. Helpers live in the hand-authored internal/cli/meraki_link_pagination.go (WithMerakiLinkNext, AnnotateMerakiNextPage); the three call-site lines in generated code_orch.go are re-applied by the factory's tools/apply_handfixes.py. TestCodeOrchExecuteReportsMerakiNextPage fails with the annotation removed (proven 2026-10-13). Round-2 adversarial review (2026-10-13) caught that the first version offered the Link cursor even when bound truncated a large page to 50 items, so following it skipped items 51..perPage; TestCodeOrchExecuteTruncatedPageWithholdsCursor fails on that version (proven) and a 1,200-item walk through the real MCP binary following the tool's own instructions returned all 1,200 with no gaps. Round 3 (2026-10-13) caught the object-envelope twin ({items:[...]} cut in place with _pp_truncated, e.g. switch port statuses by switch) and a truncated last page; TestCodeOrchExecuteTruncatedEnvelopeWithholdsCursor fails on the round-2 version (proven), and a 60-switch envelope walk following only the tool's notes returned all 60.",
    "status": "active",
    "spec_encode_followup": "Not spec-encodable; press retro: execute should surface response-header pagination.",
    "asserts": [
     {
      "file": "cli/internal/mcp/code_orch.go",
-     "contains": "pp:handfix meraki-mcp-execute-link-next",
-     "min_count": 3
+     "contains": "ctx, linkNext = cli.WithMerakiLinkNext(ctx)",
+     "min_count": 1,
+     "code_only": true
     },
     {
      "file": "cli/internal/mcp/code_orch.go",
@@ -151,6 +184,18 @@
     {
      "file": "cli/internal/cli/meraki_link_pagination.go",
      "contains": "func AnnotateMerakiNextPage(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/meraki_link_pagination.go",
+     "contains": "if t, _ := obj[\"_pp_truncated\"].(bool); t {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/meraki_link_pagination.go",
+     "contains": "if t, _ := obj[\"truncated\"].(bool); t {",
      "min_count": 1,
      "code_only": true
     },
@@ -167,8 +212,8 @@
      "code_only": true
     },
     {
-     "file": "cli/internal/cli/meraki_link_pagination.go",
-     "contains": "if truncated, _ := obj[\"truncated\"].(bool); truncated {",
+     "file": "cli/internal/mcp/meraki_execute_link_test.go",
+     "contains": "func TestCodeOrchExecuteTruncatedEnvelopeWithholdsCursor(",
      "min_count": 1,
      "code_only": true
     }
@@ -192,12 +237,38 @@
     },
     {
      "file": "cli/internal/cli/doctor.go",
-     "contains": "pp:handfix meraki-doctor-truth",
-     "min_count": 1
+     "not_contains": "reachable (HTTP %d at /)"
     },
     {
      "file": "cli/internal/cli/doctor.go",
-     "not_contains": "reachable (HTTP %d at /)"
+     "contains": "} else if status == http.StatusNotFound {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "meraki-store-iso-date-class",
+   "summary": "internal/store isoDatePattern escapes the '-' in its timestamp character class ([0-9:.+\\-Zz]), so composite IDs such as '<ts>+<SERIAL>' are no longer rejected as dates",
+   "why": "The generated pattern wrote [0-9:.+-Zz]; in a character class '+-Z' is a RANGE (0x2B-0x5A) that covers every uppercase letter. The spec overlay keys organizations_devices_availabilities_change_history on 'ts+device.serial', and a Meraki serial is uppercase alphanumeric, so every change-history row failed ID extraction (all_items_failed_id_extraction), the resource counted as a critical failure, and `sync` (and `sync --resources organizations`, and MCP sync) exited 1 for any org with a device status change in the last day. Found by the round-3 adversarial review (2026-10-13). TestMerakiCompositeTimestampIDIsUsable fails on the unescaped class (proven); after the fix, sync against the factory fake exits 0 with no extraction failures. The same pattern ships in every connector's store.go (66 of 66); it is only reachable where an x-resource-id puts a timestamp first and an all-caps value after it - fleet follow-up.",
+   "status": "active",
+   "spec_encode_followup": "Press retro: escape '-' in isoDatePattern's class. Not spec-encodable (it is template code).",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "var isoDatePattern = regexp.MustCompile(`^\\d{4}-\\d{2}-\\d{2}(?:[T ][0-9:.+\\-Zz]+)?$`)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "[0-9:.+-Zz]"
+    },
+    {
+     "file": "cli/internal/store/meraki_resource_id_test.go",
+     "contains": "func TestMerakiCompositeTimestampIDIsUsable(",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   }

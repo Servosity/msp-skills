@@ -119,8 +119,8 @@ web** is remote-only - see the remote section below.)
 # Remote agents (expose the binary over HTTPS first)
 
 All remote agents need `cisco-meraki-mcp` reachable as a public **HTTPS** endpoint. Run it
-in HTTP mode with your credentials in the environment (it listens on 127.0.0.1:7777 by
-default; press 4.32+ refuses a non-loopback bind without TLS, so do not pass `--addr :7777`):
+in HTTP mode with your credentials in the environment (it serves `http://127.0.0.1:7777/mcp`
+by default; press 4.32+ refuses a non-loopback bind without TLS, so do not pass `--addr :7777`):
 
 ```bash
 MERAKI_DASHBOARD_API_KEY=<value> CISCO_MERAKI_MCP_HTTP_TOKEN=<long-random-string> cisco-meraki-mcp --transport http

@@ -103,3 +103,60 @@ func TestCodeOrchExecuteTruncatedPageWithholdsCursor(t *testing.T) {
 		t.Fatalf("note must tell the agent to shrink perPage, got %q", note)
 	}
 }
+
+// TestCodeOrchExecuteTruncatedEnvelopeWithholdsCursor covers the object-envelope
+// twin ({"items":[...]} over the MCP byte budget, cut in place and marked
+// _pp_truncated) and a truncated LAST page (no Link header): neither may offer
+// a cursor, and both must tell the agent to shrink perPage.
+func TestCodeOrchExecuteTruncatedEnvelopeWithholdsCursor(t *testing.T) {
+	resetMCPPathEnv(t)
+	pad := strings.Repeat("x", 2000)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Query().Get("last") == "" {
+			w.Header().Set("Link", "<http://"+r.Host+"/api/v1/organizations?startingAfter=Q2SW-0060>; rel=next")
+		}
+		items := make([]string, 0, 60)
+		for i := 1; i <= 60; i++ {
+			items = append(items, fmt.Sprintf(`{"serial":"Q2SW-%04d","pad":%q}`, i, pad))
+		}
+		if r.URL.Query().Get("shape") == "envelope" {
+			_, _ = w.Write([]byte(`{"items":[` + strings.Join(items, ",") + `],"meta":{"counts":{"items":{"total":60}}}}`))
+			return
+		}
+		_, _ = w.Write([]byte("[" + strings.Join(items, ",") + "]"))
+	}))
+	defer srv.Close()
+	t.Setenv("CISCO_MERAKI_BASE_URL", srv.URL+"/api/v1")
+	t.Setenv("MERAKI_DASHBOARD_API_KEY", "test-key")
+
+	for _, tc := range []struct {
+		name     string
+		params   map[string]any
+		wantMore bool
+	}{
+		{"envelope with next page", map[string]any{"shape": "envelope"}, true},
+		{"envelope, last page", map[string]any{"shape": "envelope", "last": "1"}, false},
+		{"array, last page", map[string]any{"last": "1"}, false},
+	} {
+		res, err := handleCodeOrchExecute(context.Background(), mcplib.CallToolRequest{Params: mcplib.CallToolParams{
+			Arguments: map[string]any{"endpoint_id": "organizations.get", "params": tc.params},
+		}})
+		if err != nil || res == nil || res.IsError {
+			t.Fatalf("%s: execute failed: err=%v result=%+v", tc.name, err, res)
+		}
+		var out map[string]any
+		if err := json.Unmarshal([]byte(res.Content[0].(mcplib.TextContent).Text), &out); err != nil {
+			t.Fatalf("%s: result is not a JSON object: %v", tc.name, err)
+		}
+		if _, ok := out["next_starting_after"]; ok {
+			t.Fatalf("%s: a truncated page must not offer the Link cursor: %v", tc.name, out["next_starting_after"])
+		}
+		if (out["has_more"] == true) != tc.wantMore {
+			t.Fatalf("%s: has_more = %v, want %v", tc.name, out["has_more"], tc.wantMore)
+		}
+		if note, _ := out["pagination_note"].(string); !strings.Contains(note, "perPage") {
+			t.Fatalf("%s: note must tell the agent to shrink perPage, got %q", tc.name, note)
+		}
+	}
+}

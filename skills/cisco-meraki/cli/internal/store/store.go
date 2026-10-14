@@ -31,7 +31,7 @@ import (
 )
 
 var uuidPattern = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
-var isoDatePattern = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}(?:[T ][0-9:.+-Zz]+)?$`)
+var isoDatePattern = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}(?:[T ][0-9:.+\-Zz]+)?$`) // pp:handfix meraki-store-iso-date-class: "-" escaped; "+-Z" was a range over A-Z, so "<ts>+<SERIAL>" IDs read as dates
 var ftsQueryTokenRE = regexp.MustCompile(`[\pL\pN_]+`)
 
 var sqliteDriverInit struct {
