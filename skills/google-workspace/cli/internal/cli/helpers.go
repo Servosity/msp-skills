@@ -1103,6 +1103,13 @@ func replacePathParam(path, name, value string) string {
 	return strings.ReplaceAll(path, "{"+name+"}", cliutil.EscapePathParam(value))
 }
 
+// replaceReservedPathParam fills a multi-segment {name=**} path variable:
+// each segment is escaped and the slashes stay literal, as Google's own
+// clients expand it. Hand-fix (handfixes.json orgunits-path-is-the-ou).
+func replaceReservedPathParam(path, name, value string) string {
+	return strings.ReplaceAll(path, "{"+name+"}", cliutil.EscapeReservedPathParam(value))
+}
+
 func replaceURLIDPathParam(path, name, value string) string {
 	return replacePathParam(path, name, pathParamSegmentValue(value))
 }

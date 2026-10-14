@@ -384,14 +384,20 @@ func localStoreTenantErr() error {
 		}
 		return nil
 	}
-	if hash != "" {
-		return nil
-	}
+	return noTenantSelectedErr()
+}
+
+// noTenantSelectedErr refuses an API call or local read while client tenants
+// are registered and none is selected, instead of falling back to an ambient
+// GOOGLE_WORKSPACE_TOKEN (or a saved token): that token's organization is not
+// a client the operator picked for this call. Hand-fix (handfixes.json
+// no-ambient-token-with-tenants).
+func noTenantSelectedErr() error {
 	reg, err := loadTenantRegistry()
 	if err != nil || len(reg.Tenants) == 0 {
 		return nil
 	}
-	return usageErr(fmt.Errorf("%d tenants are registered and none is selected, so there is no client mirror to read: pass --tenant <name> (MCP server: set GOOGLE_WORKSPACE_TENANT in its env)", len(reg.Tenants)))
+	return usageErr(fmt.Errorf("%d tenants are registered and none is selected: pass --tenant <name> (MCP server: set GOOGLE_WORKSPACE_TENANT in its env); cross-client reports take --all-tenants. GOOGLE_WORKSPACE_TOKEN is not used once tenants are registered", len(reg.Tenants)))
 }
 
 // AuthErrorHint is authSetupHint for a 401 or 403 error, for the MCP execute
@@ -620,8 +626,11 @@ func init() {
 			return nil
 		}
 		t, err := selectedTenant()
-		if err != nil || t == nil {
+		if err != nil {
 			return err
+		}
+		if t == nil {
+			return noTenantSelectedErr()
 		}
 		return applyTenantClient(context.Background(), c, *t)
 	})

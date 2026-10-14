@@ -9,6 +9,7 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 	"sort"
@@ -73,6 +74,34 @@ func listLicenses(ctx context.Context, c *client.Client, customerID, productID s
 			return nil, fmt.Errorf("decoding licence: %w", err)
 		}
 		out = append(out, a)
+	}
+	return out, nil
+}
+
+// defaultLicenceProducts are the licence products the reports and offboard
+// read unless --products says otherwise: Workspace editions (Google-Apps) and
+// the paid Education editions (101031: Education Standard and Plus).
+// Hand-fix (handfixes.json licence-products-include-education).
+const defaultLicenceProducts = "Google-Apps,101031"
+
+// listProductLicenses reads every product in the comma-separated list. With
+// the default list, a 400/403/404 on any product after the first is skipped
+// (a customer without Education has no 101031 subscription); the first
+// product, and every product of an operator-chosen list, still fails loudly,
+// so a missing apps.licensing scope is never read as "no licences".
+func listProductLicenses(ctx context.Context, c *client.Client, customerID, products string) ([]licenseAssignment, error) {
+	lenient := products == defaultLicenceProducts
+	var out []licenseAssignment
+	for i, p := range splitTenantCSV(products) {
+		ls, err := listLicenses(ctx, c, customerID, p)
+		if err != nil {
+			var apiErr *client.APIError
+			if lenient && i > 0 && errors.As(err, &apiErr) && (apiErr.StatusCode == 400 || apiErr.StatusCode == 403 || apiErr.StatusCode == 404) {
+				continue
+			}
+			return nil, fmt.Errorf("licences for %s: %w", p, err)
+		}
+		out = append(out, ls...)
 	}
 	return out, nil
 }
@@ -167,13 +196,9 @@ func newNovelStaleLicensesCmd(flags *rootFlags) *cobra.Command {
 				if err != nil {
 					return nil, err
 				}
-				var licenses []licenseAssignment
-				for _, p := range splitTenantCSV(products) {
-					ls, err := listLicenses(ctx, c, custID, p)
-					if err != nil {
-						return nil, fmt.Errorf("licences for %s: %w", p, err)
-					}
-					licenses = append(licenses, ls...)
+				licenses, err := listProductLicenses(ctx, c, custID, products)
+				if err != nil {
+					return nil, err
 				}
 				users, err := listUsers(ctx, c, t, "")
 				if err != nil {
@@ -204,6 +229,6 @@ func newNovelStaleLicensesCmd(flags *rootFlags) *cobra.Command {
 	ff.bind(cmd)
 	cmd.Flags().IntVar(&inactiveDays, "inactive-days", 60, "Flag accounts with no sign-in for this many days")
 	cmd.Flags().IntVar(&graceDays, "grace-days", 14, "Skip accounts created within this many days")
-	cmd.Flags().StringVar(&products, "products", "Google-Apps", "Licensing product IDs, comma-separated (Google-Apps covers Workspace editions)")
+	cmd.Flags().StringVar(&products, "products", defaultLicenceProducts, "Licensing product IDs, comma-separated (Google-Apps covers Workspace editions, 101031 paid Education editions)")
 	return cmd
 }

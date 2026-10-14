@@ -53,6 +53,11 @@ func secretFieldName(k string) bool {
 			return true
 		}
 	}
+	// Webhook signatures (SAS sig=, Azure Functions code=) carried as query
+	// parameters in --deliver and watch addresses.
+	if k == "sig" || k == "code" {
+		return true
+	}
 	// Paging cursors are not credentials.
 	return strings.HasSuffix(k, "token") && !strings.HasSuffix(k, "pagetoken") && !strings.HasSuffix(k, "synctoken")
 }
@@ -61,7 +66,9 @@ func secretFieldName(k string) bool {
 // (\u0026, &amp;); the value may open with a quote or an escaped quote.
 var queryParamPattern = regexp.MustCompile(`(&amp;|\\u0026|[?&])([A-Za-z0-9_.%-]+)=(\\?["']?)([^&\s"'#\\]*)`)
 
-var userinfoPasswordPattern = regexp.MustCompile(`(://[^/\s:@'"]+:)[^@\s/'"]+@`)
+// userinfoPasswordPattern splits userinfo the way net/url does: the
+// authority ends at the first / ? or #, and the password runs to its last @.
+var userinfoPasswordPattern = regexp.MustCompile(`(://[^/?#\s:"]*:)[^/?#\s"]*@`)
 
 // redactSecretQueryParams masks the value of every secret-named query
 // parameter in text (URLs inside error messages, dry-run lines, bodies).
@@ -73,6 +80,11 @@ func redactSecretQueryParams(text string) string {
 		parts := queryParamPattern.FindStringSubmatch(m)
 		name, err := url.QueryUnescape(parts[2])
 		if err != nil || parts[4] == "" || !secretFieldName(name) {
+			return m
+		}
+		// An empty value followed by its closing quote ("...?token=",) is
+		// not a quoted value: leave the surrounding JSON intact.
+		if parts[3] != "" && strings.ContainsRune(",;:)}]", rune(parts[4][0])) {
 			return m
 		}
 		return parts[1] + parts[2] + "=" + parts[3] + "[redacted]"
@@ -101,7 +113,7 @@ func redactChannelToken(body []byte) []byte {
 	_ = json.Unmarshal(ch["kind"], &kind)
 	_ = json.Unmarshal(ch["token"], &token)
 	_ = json.Unmarshal(ch["address"], &address)
-	masked := redactSecretQueryParams(address)
+	masked := RedactURLSecrets(address)
 	if kind != "api#channel" || (token == "" && masked == address) {
 		return body
 	}
@@ -109,7 +121,7 @@ func redactChannelToken(body []byte) []byte {
 		ch["token"] = json.RawMessage(`"[redacted]"`)
 	}
 	if masked != address {
-		// A webhook address can carry its own secret (?token=...).
+		// A webhook address can carry its own secret (?token=..., user:pass@).
 		ch["address"], _ = json.Marshal(masked)
 	}
 	out, err := json.Marshal(ch)

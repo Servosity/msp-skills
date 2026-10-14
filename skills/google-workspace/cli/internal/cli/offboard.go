@@ -156,7 +156,7 @@ func newNovelOffboardCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().BoolVar(&o.keepPassword, "keep-password", false, "Do not scramble the password")
 	cmd.Flags().BoolVar(&o.noSuspend, "no-suspend", false, "Leave the account active (e.g. mailbox kept for delegation)")
 	cmd.Flags().BoolVar(&o.releaseLicense, "release-license", false, "Release the user's licences once no Drive/Calendar transfer from them is pending")
-	cmd.Flags().StringVar(&o.products, "products", "Google-Apps", "Licensing product IDs to release, comma-separated")
+	cmd.Flags().StringVar(&o.products, "products", defaultLicenceProducts, "Licensing product IDs to release, comma-separated (Google-Apps covers Workspace editions, 101031 paid Education editions)")
 	return cmd
 }
 
@@ -502,22 +502,20 @@ func releaseLicenses(ctx context.Context, c *client.Client, t gwsTenant, email, 
 	if err != nil {
 		return 0, "", err
 	}
+	ls, err := listProductLicenses(ctx, c, custID, products)
+	if err != nil {
+		return 0, "", err
+	}
 	var released []string
-	for _, p := range splitTenantCSV(products) {
-		ls, err := listLicenses(ctx, c, custID, p)
-		if err != nil {
-			return len(released), strings.Join(released, ","), err
+	for _, l := range ls {
+		if !strings.EqualFold(l.UserID, email) {
+			continue
 		}
-		for _, l := range ls {
-			if !strings.EqualFold(l.UserID, email) {
-				continue
-			}
-			released = append(released, l.SkuName)
-			if execute {
-				path := licensingBase + "/product/" + url.PathEscape(l.ProductID) + "/sku/" + url.PathEscape(l.SkuID) + "/user/" + url.PathEscape(email)
-				if _, _, err := c.Delete(ctx, path); err != nil {
-					return len(released) - 1, strings.Join(released, ","), err
-				}
+		released = append(released, l.SkuName)
+		if execute {
+			path := licensingBase + "/product/" + url.PathEscape(l.ProductID) + "/sku/" + url.PathEscape(l.SkuID) + "/user/" + url.PathEscape(email)
+			if _, _, err := c.Delete(ctx, path); err != nil {
+				return len(released) - 1, strings.Join(released, ","), err
 			}
 		}
 	}
@@ -563,20 +561,18 @@ func licenseReleaseHints(ctx context.Context, c *client.Client, t gwsTenant, ema
 	if err != nil {
 		return fallback
 	}
+	ls, err := listProductLicenses(ctx, c, custID, products)
+	if err != nil {
+		return fallback
+	}
 	var out []string
-	for _, p := range splitTenantCSV(products) {
-		ls, err := listLicenses(ctx, c, custID, p)
-		if err != nil {
-			return fallback
-		}
-		for _, l := range ls {
-			if strings.EqualFold(l.UserID, email) {
-				out = append(out, pre+tenantArg(t)+"'), release "+l.SkuName+": license-assignments delete "+l.SkuID+" "+email+" --product-id "+l.ProductID+tenantArg(t))
-			}
+	for _, l := range ls {
+		if strings.EqualFold(l.UserID, email) {
+			out = append(out, pre+tenantArg(t)+"'), release "+l.SkuName+": license-assignments delete "+l.SkuID+" "+email+" --product-id "+l.ProductID+tenantArg(t))
 		}
 	}
 	if len(out) == 0 {
-		return []string{"no " + products + " licence is assigned to " + email + "; nothing to release"}
+		return []string{"no licence in products " + products + " is assigned to " + email + "; nothing to release"}
 	}
 	return out
 }

@@ -198,7 +198,7 @@ func tenantPolicies(ctx context.Context, c *client.Client, t gwsTenant, p *tenan
 func newNovelPostureCmd(flags *rootFlags) *cobra.Command {
 	var ff fanoutFlags
 	var since string
-	var inactiveDays, graceDays int
+	var inactiveDays, graceDays, maxEvents int
 	var minPct float64
 	cmd := &cobra.Command{
 		Use:   "posture",
@@ -236,13 +236,13 @@ func newNovelPostureCmd(flags *rootFlags) *cobra.Command {
 				if err != nil {
 					return nil, err
 				}
-				licenses, err := listLicenses(ctx, c, custID, "Google-Apps")
+				licenses, err := listProductLicenses(ctx, c, custID, defaultLicenceProducts)
 				if err != nil {
-					return nil, fmt.Errorf("licences: %w", err)
+					return nil, err
 				}
 				edits := 0
 				for _, ev := range []string{"CHANGE_DOCS_SETTING", "CHANGE_CALENDAR_SETTING"} {
-					acts, err := listActivities(ctx, c, "admin", ev, "", start, 1000)
+					acts, err := listActivities(ctx, c, "admin", ev, "", start, maxEvents)
 					if err != nil {
 						return nil, fmt.Errorf("admin audit %s: %w", ev, err)
 					}
@@ -281,6 +281,7 @@ func newNovelPostureCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().BoolVar(&ff.all, "all-tenants", false, allTenantsUsage)
 	ff.bind(cmd)
 	cmd.Flags().StringVar(&since, "since", "30d", "Window for Drive and Calendar setting changes, e.g. 7d, 30d")
+	cmd.Flags().IntVar(&maxEvents, "max-events", 1000, "Cap Drive and Calendar setting-change audit events read per query per tenant")
 	cmd.Flags().IntVar(&inactiveDays, "inactive-days", 60, "Licence counts as stale after this many days without sign-in")
 	cmd.Flags().IntVar(&graceDays, "grace-days", 14, "Skip accounts created within this many days")
 	cmd.Flags().Float64Var(&minPct, "min-2sv-pct", 95, "Warn when 2SV enrollment is below this percentage")

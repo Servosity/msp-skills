@@ -52,7 +52,7 @@ func ParseDeliverSink(spec string) (DeliverSink, error) {
 			return DeliverSink{}, fmt.Errorf("--deliver webhook:<url> requires an http:// or https:// URL, got %q", client.RedactURLSecrets(target))
 		}
 	default:
-		return DeliverSink{}, fmt.Errorf("unknown --deliver scheme %q (supported: stdout, file, webhook)", scheme)
+		return DeliverSink{}, fmt.Errorf("unknown --deliver scheme %q (supported: stdout, file, webhook)", client.RedactURLSecrets(scheme))
 	}
 	return DeliverSink{Scheme: scheme, Target: target}, nil
 }
@@ -132,7 +132,8 @@ func deliverWebhook(url string, body []byte, compact bool) error {
 	contentType := "application/json"
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
-		return fmt.Errorf("building webhook request: %w", err)
+		// Hand-fix (handfixes.json deliver-errors-mask-url-secrets).
+		return fmt.Errorf("building webhook request: %s", client.RedactURLSecrets(err.Error()))
 	}
 	req.Header.Set("Content-Type", contentType)
 	if ua := cliutil.EnvOverride("GOOGLE_WORKSPACE_USER_AGENT"); ua != "" {

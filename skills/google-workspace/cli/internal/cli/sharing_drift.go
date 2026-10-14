@@ -202,7 +202,8 @@ func newNovelSharingDriftCmd(flags *rootFlags) *cobra.Command {
 		Long: "Reads each tenant's audit log for the --since window and reports three kinds of drift:\n" +
 			"  setting_change  any Drive (Docs) or Calendar setting changed in the Admin console\n" +
 			"                  (CHANGE_DOCS_SETTING, CHANGE_CALENDAR_SETTING, and sharing-related\n" +
-			"                  CHANGE_APPLICATION_SETTING events), with old -> new and who changed it\n" +
+			"                  CHANGE_, CREATE_ and DELETE_APPLICATION_SETTING events), with old ->\n" +
+			"                  new and who changed it\n" +
 			"  external_share  files that newly became visible outside the domain (Google's\n" +
 			"                  visibility_change=external), per user with target domains; extra grants on\n" +
 			"                  a file that was already external are not counted\n" +
@@ -226,7 +227,11 @@ func newNovelSharingDriftCmd(flags *rootFlags) *cobra.Command {
 			}
 			res, err := fanout(cmd, flags, &ff, func(ctx context.Context, t gwsTenant, c *client.Client) ([]sharingFinding, error) {
 				var out []sharingFinding
-				for _, ev := range []string{"CHANGE_DOCS_SETTING", "CHANGE_CALENDAR_SETTING", "CHANGE_APPLICATION_SETTING"} {
+				// Hand-fix (handfixes.json sharing-drift-reads-created-deleted-settings):
+				// settingChanges handles CREATE_/DELETE_APPLICATION_SETTING too,
+				// but they were never fetched, so a new or removed sharing policy
+				// read as "no findings".
+				for _, ev := range []string{"CHANGE_DOCS_SETTING", "CHANGE_CALENDAR_SETTING", "CHANGE_APPLICATION_SETTING", "CREATE_APPLICATION_SETTING", "DELETE_APPLICATION_SETTING"} {
 					acts, err := listActivities(ctx, c, "admin", ev, "", start, maxEvents)
 					if err != nil {
 						return nil, fmt.Errorf("admin audit %s: %w", ev, err)

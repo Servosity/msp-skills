@@ -57,10 +57,27 @@ func TestRedactSecretQueryParams(t *testing.T) {
 		`https://x/cb?a=1\u0026token=json-SECRET`,
 		`https://x/cb?a=1&amp;token=html-SECRET`,
 		`https://user:pass-SECRET@hooks.example/cb`,
+		`https://bob@corp.example:pw-SECRET@127.0.0.1:9/cb`,
+		`https://user:p@ss-SECRET@hooks.example/cb`,
+		`https://user:pa'ss-SECRET@hooks.example/cb`,
+		`https://x/invoke?sp=%2Ftriggers&sig=sas-SECRET`,
+		`https://x/api/hook?code=azfn-SECRET`,
 	} {
 		if got := RedactURLSecrets(tc); strings.Contains(got, "SECRET") {
 			t.Errorf("secret survived: %s -> %s", tc, got)
 		}
+	}
+	for _, keep := range []string{
+		`{"a":"https://x/?token=","b":"c"}`,
+		`https://host:443?login_hint=bob@example.com`,
+		`https://x/?pageToken=p2&customer=my_customer`,
+	} {
+		if got := RedactURLSecrets(keep); got != keep {
+			t.Errorf("non-secret text changed: %s -> %s", keep, got)
+		}
+	}
+	if got := string(redactChannelToken([]byte(`{"kind":"api#channel","id":"c1","address":"https://user:pw-SECRET@hooks.example/cb"}`))); strings.Contains(got, "SECRET") {
+		t.Errorf("a watch response must mask a userinfo password in its address: %s", got)
 	}
 	c := New(&config.Config{BaseURL: "https://example.invalid"}, time.Second, 0)
 	if got := c.maskCredentialText(in); strings.Contains(got, "xfer-SECRET") {

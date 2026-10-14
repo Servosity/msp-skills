@@ -1090,3 +1090,17 @@ func TestBackoff_NegativeAttemptClampsToZero(t *testing.T) {
 		t.Errorf("Backoff(-3) = %v, want 1s (clamped to 0)", got)
 	}
 }
+
+// Hand-fix (handfixes.json orgunits-path-is-the-ou).
+func TestEscapeReservedPathParam(t *testing.T) {
+	for in, want := range map[string]string{
+		"Sales":             "Sales",
+		"/Sales/West Coast": "Sales/West%20Coast",
+		"id:03ph8a2z1":      "id:03ph8a2z1",
+		"a/../b?x":          "a/%2E%2E/b%3Fx",
+	} {
+		if got := EscapeReservedPathParam(in); got != want {
+			t.Errorf("%q -> %q, want %q", in, got, want)
+		}
+	}
+}

@@ -445,6 +445,21 @@ func testTenant(ctx context.Context, flags *rootFlags, t gwsTenant) tenantTestRe
 		res.OK, res.Error = false, "listing domains: "+err.Error()
 		return res
 	}
+	domains, err := tenantDomains(t, raw)
+	if err != nil {
+		res.OK, res.Error, res.CustomerID = false, err.Error(), ""
+		return res
+	}
+	res.Domains = domains
+	return res
+}
+
+// tenantDomains decodes a domains.list response into the tenant's secondary
+// domains and aliases (offboard resolves tenants by any of them). Hand-fix
+// (handfixes.json tenants-test-checks-domain): it fails when the configured
+// domain is not among them, because then the admin and key resolve to another
+// organization, whose data would be reported (and stored) as this tenant's.
+func tenantDomains(t gwsTenant, raw []byte) ([]string, error) {
 	var doms struct {
 		Domains []struct {
 			DomainName    string `json:"domainName"`
@@ -454,17 +469,16 @@ func testTenant(ctx context.Context, flags *rootFlags, t gwsTenant) tenantTestRe
 		} `json:"domains"`
 	}
 	if err := json.Unmarshal(raw, &doms); err != nil {
-		res.OK, res.Error = false, "decoding domains: "+err.Error()
-		return res
+		return nil, fmt.Errorf("decoding domains: %w", err)
 	}
-	// Secondary domains and their aliases: offboard resolves the tenant from
-	// any of them.
-	seen := map[string]bool{strings.ToLower(t.Domain): true}
-	res.Domains = []string{}
+	want := strings.ToLower(strings.TrimSpace(t.Domain))
+	owned, seen, out := false, map[string]bool{want: true}, []string{}
 	add := func(d string) {
-		if d = strings.ToLower(strings.TrimSpace(d)); d != "" && !seen[d] {
+		d = strings.ToLower(strings.TrimSpace(d))
+		owned = owned || d == want
+		if d != "" && !seen[d] {
 			seen[d] = true
-			res.Domains = append(res.Domains, d)
+			out = append(out, d)
 		}
 	}
 	for _, d := range doms.Domains {
@@ -473,7 +487,10 @@ func testTenant(ctx context.Context, flags *rootFlags, t gwsTenant) tenantTestRe
 			add(a.Name)
 		}
 	}
-	return res
+	if !owned {
+		return nil, fmt.Errorf("domain %s is not one of this organization's domains (%s): the admin or service-account key belongs to a different Google Workspace customer; re-register with 'tenants add %s --yes' and the right --domain, --admin and --key", want, strings.Join(out, ", "), t.Name)
+	}
+	return out, nil
 }
 
 func printTenantTest(cmd *cobra.Command, flags *rootFlags, out []tenantTestResult) error {

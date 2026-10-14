@@ -207,9 +207,9 @@ func newNovelLeaversCmd(flags *rootFlags) *cobra.Command {
 				if err != nil {
 					return nil, err
 				}
-				licenses, err := listLicenses(ctx, c, custID, "Google-Apps")
+				licenses, err := listProductLicenses(ctx, c, custID, defaultLicenceProducts)
 				if err != nil {
-					return nil, fmt.Errorf("licences: %w", err)
+					return nil, err
 				}
 				paid := map[string][]string{}
 				for _, l := range licenses {

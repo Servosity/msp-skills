@@ -23,7 +23,8 @@ import (
 // pp:novel-static-reference
 // scopeRiskTier is a curated mapping from OAuth scope to risk. high = can read
 // or send all mail, read/write all Drive, or act as an admin; moderate =
-// read-only access to mail/Drive or full access to calendar/contacts/docs;
+// read-only access to mail/Drive, any access to every calendar's events, or
+// full access to contacts/docs;
 // everything else (sign-in, per-file Drive) is low.
 func scopeRiskTier(scope string) int {
 	if riskHigh[scope] || strings.HasPrefix(scope, "https://www.googleapis.com/auth/admin.") || strings.HasPrefix(scope, "https://www.googleapis.com/auth/apps.") ||
@@ -47,16 +48,19 @@ var riskHigh = map[string]bool{
 }
 
 var riskModerate = map[string]bool{
-	"https://www.googleapis.com/auth/gmail.readonly":          true,
-	"https://www.googleapis.com/auth/gmail.metadata":          true,
-	"https://www.googleapis.com/auth/drive.readonly":          true,
-	"https://www.googleapis.com/auth/drive.metadata":          true,
-	"https://www.googleapis.com/auth/drive.metadata.readonly": true,
-	"https://www.googleapis.com/auth/calendar":                true,
-	"https://www.googleapis.com/auth/contacts":                true,
-	"https://www.googleapis.com/auth/spreadsheets":            true,
-	"https://www.googleapis.com/auth/documents":               true,
-	"https://www.googleapis.com/auth/presentations":           true,
+	"https://www.googleapis.com/auth/gmail.readonly":           true,
+	"https://www.googleapis.com/auth/gmail.metadata":           true,
+	"https://www.googleapis.com/auth/drive.readonly":           true,
+	"https://www.googleapis.com/auth/drive.metadata":           true,
+	"https://www.googleapis.com/auth/drive.metadata.readonly":  true,
+	"https://www.googleapis.com/auth/calendar":                 true,
+	"https://www.googleapis.com/auth/calendar.events":          true,
+	"https://www.googleapis.com/auth/calendar.readonly":        true,
+	"https://www.googleapis.com/auth/calendar.events.readonly": true,
+	"https://www.googleapis.com/auth/contacts":                 true,
+	"https://www.googleapis.com/auth/spreadsheets":             true,
+	"https://www.googleapis.com/auth/documents":                true,
+	"https://www.googleapis.com/auth/presentations":            true,
 }
 
 var (
@@ -236,8 +240,8 @@ func newNovelOauthAppsCmd(flags *rootFlags) *cobra.Command {
 			"bounded by --max-users) and aggregates them by app client ID across tenants. --since 7d\n" +
 			"instead reads the token audit log for apps newly authorized in that window, which is\n" +
 			"cheap on large tenants. Risk tiers are a curated scope table: high = all mail, all\n" +
-			"Drive, admin or cloud-platform access; moderate = read-only mail/Drive or full\n" +
-			"calendar/contacts/docs; low = sign-in and per-file access.\n" +
+			"Drive, admin or cloud-platform access; moderate = read-only mail/Drive, any calendar\n" +
+			"or event access, or full contacts/docs; low = sign-in and per-file access.\n" +
 			"Use this command to inventory third-party OAuth apps across every user and client, ranked\n" +
 			"by risk. Do NOT use this command to list or revoke one user's tokens; use 'tokens list'\n" +
 			"or 'offboard' instead.",

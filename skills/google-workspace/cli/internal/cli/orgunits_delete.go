@@ -16,12 +16,12 @@ func newOrgunitsDeleteCmd(flags *rootFlags) *cobra.Command {
 	var flagCustomerId string
 
 	cmd := &cobra.Command{
-		Use:   "delete <orgUnitPath> <orgunitsId>",
+		Use:   "delete <orgUnitPath>",
 		Short: "Removes an organizational unit.",
 		Args: func(cmd *cobra.Command, args []string) error {
-			return endpointPositionalArgs(cmd, flags, args, cobra.MaximumNArgs(2))
+			return endpointPositionalArgs(cmd, flags, args, cobra.MaximumNArgs(1))
 		},
-		Annotations: map[string]string{"pp:endpoint": "orgunits.delete", "pp:method": "DELETE", "pp:path": "/admin/directory/v1/customer/{customerId}/orgunits/{orgunitsId}"},
+		Annotations: map[string]string{"pp:endpoint": "orgunits.delete", "pp:method": "DELETE", "pp:path": "/admin/directory/v1/customer/{customerId}/orgunits/{orgUnitPath}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				// A missing required positional is a usage error in every output
@@ -31,25 +31,24 @@ func newOrgunitsDeleteCmd(flags *rootFlags) *cobra.Command {
 				if flags.asJSON {
 					if printErr := printJSONFiltered(cmd.OutOrStdout(), map[string]any{
 						"error": "missing required argument",
-						"usage": fmt.Sprintf("%s%s", cmd.CommandPath(), " <orgUnitPath> <orgunitsId>"),
+						"usage": fmt.Sprintf("%s%s", cmd.CommandPath(), " <orgUnitPath>"),
 					}, flags); printErr != nil {
 						return printErr
 					}
 				}
-				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <orgUnitPath> <orgunitsId>"))
+				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <orgUnitPath>"))
 			}
-			path := "/admin/directory/v1/customer/{customerId}/orgunits/{orgunitsId}"
-			if len(args) < 2 || args[1] == "" {
-				return usageErr(fmt.Errorf("orgunitsId is required\nUsage: %s <%s>", cmd.CommandPath(), "orgunitsId"))
-			}
-			path = replacePathParam(path, "orgunitsId", args[1])
+			path := "/admin/directory/v1/customer/{customerId}/orgunits/{orgUnitPath}"
+			// Hand-fix (handfixes.json orgunits-path-is-the-ou): Google's
+			// {orgUnitPath=**} is the one OU selector. The print split it into
+			// a query param plus a second positional that alone chose the OU.
+			path = replaceReservedPathParam(path, "orgUnitPath", args[0])
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
 			path = replacePathParam(path, "customerId", formatCLIParamValue(flagCustomerId))
 			params := map[string]string{}
-			params["orgUnitPath"] = args[0]
 			data, statusCode, err := c.DeleteWithParams(cmd.Context(), path, params)
 			if err != nil {
 				return classifyDeleteError(cmd.OutOrStdout(), err, flags)

@@ -21,11 +21,11 @@ two ways to authenticate:
 - **A single organization.** `GOOGLE_WORKSPACE_TOKEN` (or `ADMIN_ACCESS_TOKEN`, or a token
   saved with `auth set-token`) is used as a bearer token when no client tenant is
   registered; the cross-client reports then run against that one organization as the
-  tenant `default`. Its power is whatever scopes the token carries. Unset it once you
-  register tenants: with two or more registered and none selected, any generated API
-  command (including `users delete` and the MCP raw-execute tool) falls back to this
-  token and acts on its organization, not a client's. The cross-client reports never
-  fall back.
+  tenant `default`. Its power is whatever scopes the token carries. Once tenants are
+  registered the token is no longer used: with two or more registered and none selected,
+  every API command (including `users delete` and the MCP raw-execute tool) and every
+  local-mirror read refuses and asks for `--tenant` instead of acting on the token's
+  organization.
 
 The service-account key is the most sensitive thing this skill holds. Anyone with the key
 file and a client's delegation can act as that client's super admin within the authorized

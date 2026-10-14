@@ -1007,26 +1007,26 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 	{
 		ID:             "orgunits.delete",
 		Method:         "DELETE",
-		Path:           "/admin/directory/v1/customer/{customerId}/orgunits/{orgunitsId}",
+		Path:           "/admin/directory/v1/customer/{customerId}/orgunits/{orgUnitPath}",
 		Summary:        "Removes an organizational unit.",
-		Positional:     []string{"orgUnitPath", "orgunitsId"},
+		Positional:     []string{"orgUnitPath"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
 		Mutating:       false,
-		keywords:       codeOrchKeywords("orgunits", "delete", "Removes an organizational unit.", "/admin/directory/v1/customer/{customerId}/orgunits/{orgunitsId}"),
+		keywords:       codeOrchKeywords("orgunits", "delete", "Removes an organizational unit.", "/admin/directory/v1/customer/{customerId}/orgunits/{orgUnitPath}"),
 	},
 	{
 		ID:             "orgunits.get",
 		Method:         "GET",
-		Path:           "/admin/directory/v1/customer/{customerId}/orgunits/{orgunitsId}",
+		Path:           "/admin/directory/v1/customer/{customerId}/orgunits/{orgUnitPath}",
 		Summary:        "Retrieves an organizational unit.",
-		Positional:     []string{"orgUnitPath", "orgunitsId"},
+		Positional:     []string{"orgUnitPath"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
 		Mutating:       false,
-		keywords:       codeOrchKeywords("orgunits", "get", "Retrieves an organizational unit.", "/admin/directory/v1/customer/{customerId}/orgunits/{orgunitsId}"),
+		keywords:       codeOrchKeywords("orgunits", "get", "Retrieves an organizational unit.", "/admin/directory/v1/customer/{customerId}/orgunits/{orgUnitPath}"),
 	},
 	{
 		ID:             "orgunits.insert",
@@ -1055,26 +1055,26 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 	{
 		ID:             "orgunits.patch",
 		Method:         "PATCH",
-		Path:           "/admin/directory/v1/customer/{customerId}/orgunits/{orgunitsId}",
+		Path:           "/admin/directory/v1/customer/{customerId}/orgunits/{orgUnitPath}",
 		Summary:        "Updates an organizational unit. This method supports [patch semantics](https://developers.google.",
-		Positional:     []string{"orgUnitPath", "orgunitsId"},
+		Positional:     []string{"orgUnitPath"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
 		Mutating:       false,
-		keywords:       codeOrchKeywords("orgunits", "patch", "Updates an organizational unit. This method supports [patch semantics](https://developers.google.", "/admin/directory/v1/customer/{customerId}/orgunits/{orgunitsId}"),
+		keywords:       codeOrchKeywords("orgunits", "patch", "Updates an organizational unit. This method supports [patch semantics](https://developers.google.", "/admin/directory/v1/customer/{customerId}/orgunits/{orgUnitPath}"),
 	},
 	{
 		ID:             "orgunits.update",
 		Method:         "PUT",
-		Path:           "/admin/directory/v1/customer/{customerId}/orgunits/{orgunitsId}",
+		Path:           "/admin/directory/v1/customer/{customerId}/orgunits/{orgUnitPath}",
 		Summary:        "Updates an organizational unit.",
-		Positional:     []string{"orgUnitPath", "orgunitsId"},
+		Positional:     []string{"orgUnitPath"},
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
 		Mutating:       false,
-		keywords:       codeOrchKeywords("orgunits", "update", "Updates an organizational unit.", "/admin/directory/v1/customer/{customerId}/orgunits/{orgunitsId}"),
+		keywords:       codeOrchKeywords("orgunits", "update", "Updates an organizational unit.", "/admin/directory/v1/customer/{customerId}/orgunits/{orgUnitPath}"),
 	},
 	{
 		ID:             "privileges.list",
@@ -2253,7 +2253,13 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 	path := ep.Path
 	for _, p := range ep.Positional {
 		if v, ok := params[p]; ok && strings.Contains(path, "{"+p+"}") {
-			path = strings.ReplaceAll(path, "{"+p+"}", mcpPathValue(v))
+			pv := mcpPathValue(v)
+			if p == "orgUnitPath" {
+				// Hand-fix (handfixes.json orgunits-path-is-the-ou): an OU
+				// path keeps its slashes ({orgUnitPath=**}).
+				pv = cliutil.EscapeReservedPathParam(formatMCPParamValue(v))
+			}
+			path = strings.ReplaceAll(path, "{"+p+"}", pv)
 			delete(params, p)
 		}
 	}

@@ -800,11 +800,17 @@ func TestTenantStoreNeverClaimsUnscopedDBAndLocalReadNeedsTenant(t *testing.T) {
 		t.Fatal("MCP sql/search must refuse too")
 	}
 
-	t.Setenv("GOOGLE_WORKSPACE_TOKEN", "own-org-token")
+	// An ambient token is not a tenant choice: with tenants registered and
+	// none selected, local reads and API clients both refuse.
+	t.Setenv("GOOGLE_WORKSPACE_TOKEN", "old-org-token")
 	resetTenantSelection()
 	configureDefaultDBScope("")
-	if err := localStoreTenantErr(); err != nil {
-		t.Fatalf("a bearer token keys the store to its own organization: %v", err)
+	if err := localStoreTenantErr(); err == nil || !strings.Contains(err.Error(), "none is selected") {
+		t.Fatalf("a bearer token must not stand in for a tenant once tenants are registered: %v", err)
+	}
+	c := client.New(&config.Config{BaseURL: "https://example.invalid", GoogleWorkspaceToken: "old-org-token"}, time.Second, 0)
+	if err := ApplyClientHooks(c); err == nil || !strings.Contains(err.Error(), "none is selected") {
+		t.Fatalf("an API client must refuse rather than act on the ambient token's organization: %v", err)
 	}
 }
 
@@ -996,5 +1002,69 @@ func TestAuthErrorHintForMCPExecute(t *testing.T) {
 	resetTenantSelection()
 	if h := AuthErrorHint(errors.New("returned HTTP 403: PERMISSION_DENIED")); !strings.Contains(h, "permission denied") || strings.Contains(h, "GOOGLE_WORKSPACE_TOKEN") {
 		t.Fatalf("a bearer-mode 403 must not tell the user to set the token they already sent: %q", h)
+	}
+}
+
+// Hand-fix (handfixes.json licence-products-include-education): paid
+// Education seats live under product 101031; a customer without Education
+// must not fail the default list, but an operator-chosen product must.
+func TestLicenceProductsIncludeEducation(t *testing.T) {
+	eduStatus := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/product/Google-Apps/users"):
+			_, _ = io.WriteString(w, `{"items":[{"userId":"a@example.com","productId":"Google-Apps","skuId":"1010020028","skuName":"Business Standard"}]}`)
+		case strings.HasSuffix(r.URL.Path, "/product/101031/users"):
+			if eduStatus != 0 {
+				w.WriteHeader(eduStatus)
+				_, _ = io.WriteString(w, `{"error":{"code":400,"message":"Invalid productId"}}`)
+				return
+			}
+			_, _ = io.WriteString(w, `{"items":[{"userId":"b@example.com","productId":"101031","skuId":"1010310008","skuName":"Education Plus"}]}`)
+		default:
+			t.Errorf("unexpected path %s", r.URL.Path)
+		}
+	}))
+	defer srv.Close()
+	c := testClient(t, srv.URL)
+	ctx := context.Background()
+	if ls, err := listProductLicenses(ctx, c, "C1", defaultLicenceProducts); err != nil || len(ls) != 2 {
+		t.Fatalf("default products must include paid Education seats: %v %v", ls, err)
+	}
+	eduStatus = http.StatusBadRequest
+	if ls, err := listProductLicenses(ctx, c, "C2", defaultLicenceProducts); err != nil || len(ls) != 1 {
+		t.Fatalf("a customer without Education must not fail the default list: %v %v", ls, err)
+	}
+	if _, err := listProductLicenses(ctx, c, "C3", "Google-Apps,101031"+","); err == nil {
+		t.Fatal("an operator-chosen product list must fail loudly")
+	}
+}
+
+// Hand-fix (handfixes.json tenants-test-checks-domain).
+func TestTenantDomainsRequiresConfiguredDomain(t *testing.T) {
+	raw := []byte(`{"domains":[{"domainName":"Acme.com","domainAliases":[{"domainAliasName":"acme.net"}]},{"domainName":"acme.org"}]}`)
+	got, err := tenantDomains(gwsTenant{Name: "acme", Domain: "acme.com"}, raw)
+	if err != nil || strings.Join(got, ",") != "acme.net,acme.org" {
+		t.Fatalf("primary domain: %v %v", got, err)
+	}
+	if _, err := tenantDomains(gwsTenant{Name: "acme", Domain: "acme.net"}, raw); err != nil {
+		t.Fatalf("a domain alias belongs to the customer: %v", err)
+	}
+	if _, err := tenantDomains(gwsTenant{Name: "acme", Domain: "other.com"}, raw); err == nil || !strings.Contains(err.Error(), "different Google Workspace customer") {
+		t.Fatalf("another customer's credentials must fail verification: %v", err)
+	}
+}
+
+// Hand-fix (handfixes.json deliver-errors-mask-url-secrets).
+func TestDeliverErrorsMaskURLSecrets(t *testing.T) {
+	for _, spec := range []string{"x?token=SECRETA&t=12:00", "webhook:ftp://h/?token=SECRETB", "webhook:https://h/?sig=SECRETF:x"} {
+		if _, err := ParseDeliverSink(spec); err != nil && strings.Contains(err.Error(), "SECRET") {
+			t.Errorf("%s: %v", spec, err)
+		}
+	}
+	for _, u := range []string{"https://h.example/%zz?token=SECRETC", "https://user:SECRETD@127.0.0.1:9/cb?token=SECRETE"} {
+		if err := deliverWebhook(u, nil, false); err == nil || strings.Contains(err.Error(), "SECRET") {
+			t.Errorf("%s: %v", u, err)
+		}
 	}
 }

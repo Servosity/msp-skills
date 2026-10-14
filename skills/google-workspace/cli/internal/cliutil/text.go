@@ -47,6 +47,18 @@ func EscapePathParam(value string) string {
 	return url.PathEscape(value)
 }
 
+// EscapeReservedPathParam escapes a multi-segment path value ({name=**},
+// e.g. a Google OU path "Sales/West"): a leading slash is dropped, each
+// segment is escaped like EscapePathParam, and the separating slashes stay.
+// Hand-fix (handfixes.json orgunits-path-is-the-ou).
+func EscapeReservedPathParam(value string) string {
+	segs := strings.Split(strings.TrimPrefix(value, "/"), "/")
+	for i, seg := range segs {
+		segs[i] = EscapePathParam(seg)
+	}
+	return strings.Join(segs, "/")
+}
+
 // ParseStoredTime parses timestamps read back from SQLite-backed generated
 // stores. modernc.org/sqlite can serialize time.Time using Go's native
 // time.String format, while hand-written sync code often stores RFC3339.

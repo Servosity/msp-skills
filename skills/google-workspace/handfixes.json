@@ -909,7 +909,7 @@
   {
    "id": "dry-run-redacts-secrets",
    "summary": "Secret-named query parameters are masked everywhere the client masks credential text (error URLs, dry-run lines, bodies), and --dry-run body previews redact every non-empty, non-boolean secret-named field (password, secret, private key, API key, *token except page/sync tokens)",
-   "why": "The generated dry-run printer wrote the request body verbatim to stderr, so previewing 'users patch <email> --password ...' put the password into the terminal and into agent transcripts. Found by the onboard Codex review (round 5, P1); receipt: the real binary's dry-run of users patch --password prints \"password\": \"[redacted]\" and the value appears nowhere in stdout or stderr. Round 6 (Codex): query parameters were still printed verbatim (subscriptions insert --customer-auth-token showed the transfer token; P1, also fleet-wide generated code), and the body rule hid the changePasswordAtNextLogin boolean (P2). Receipt: the dry-run now prints ?customerAuthToken=[redacted]. Round 7 (Codex, P1, fleet): a failed request's error message carried the full URL, so MCP execute of subscriptions.insert returned customerAuthToken verbatim; redactSecretQueryParams now runs inside maskCredentialText, which every error, URL and body passes through (receipt: the MCP error reads ?customerAuthToken=[redacted]). The adversarial reviewer also noted string-only body redaction let a numeric password or a 'Secrets' custom-schema object through; only booleans stay visible now. Round 8 (Codex, P1, fleet): the dry-run body bypassed maskCredentialText, so users watch --address 'https://hooks.example/?token=...' printed the webhook secret; the body text now goes through the mask (HTML escaping off so & stays literal), printing ?token=[redacted]. Round 11 (Codex, P1): the value pattern stopped at a quote, so ?token='SECRET' (and a JSON-escaped \\\"SECRET\\\") slipped through, and \\u0026 / &amp; separators were not recognised; the pattern now allows an opening (escaped) quote and those separators, and RedactURLSecrets also masks a userinfo password (https://user:pass@host).",
+   "why": "The generated dry-run printer wrote the request body verbatim to stderr, so previewing 'users patch <email> --password ...' put the password into the terminal and into agent transcripts. Found by the onboard Codex review (round 5, P1); receipt: the real binary's dry-run of users patch --password prints \"password\": \"[redacted]\" and the value appears nowhere in stdout or stderr. Round 6 (Codex): query parameters were still printed verbatim (subscriptions insert --customer-auth-token showed the transfer token; P1, also fleet-wide generated code), and the body rule hid the changePasswordAtNextLogin boolean (P2). Receipt: the dry-run now prints ?customerAuthToken=[redacted]. Round 7 (Codex, P1, fleet): a failed request's error message carried the full URL, so MCP execute of subscriptions.insert returned customerAuthToken verbatim; redactSecretQueryParams now runs inside maskCredentialText, which every error, URL and body passes through (receipt: the MCP error reads ?customerAuthToken=[redacted]). The adversarial reviewer also noted string-only body redaction let a numeric password or a 'Secrets' custom-schema object through; only booleans stay visible now. Round 8 (Codex, P1, fleet): the dry-run body bypassed maskCredentialText, so users watch --address 'https://hooks.example/?token=...' printed the webhook secret; the body text now goes through the mask (HTML escaping off so & stays literal), printing ?token=[redacted]. Round 11 (Codex, P1): the value pattern stopped at a quote, so ?token='SECRET' (and a JSON-escaped \\\"SECRET\\\") slipped through, and \\u0026 / &amp; separators were not recognised; the pattern now allows an opening (escaped) quote and those separators, and RedactURLSecrets also masks a userinfo password (https://user:pass@host). Round 12 (adversarial P2s): an empty value followed by its closing quote is left alone (the dry-run JSON stays valid); userinfo is split like net/url (password runs to the last @ before / ? #, quotes and @ allowed); sig= and code= are secret names (SAS and Azure Functions webhook signatures). TestRedactSecretQueryParams covers each case and the non-secret texts that must stay unchanged.",
    "status": "active",
    "spec_encode_followup": "Press-side: redact secret-named fields in the generated dry-run body printer fleet-wide.",
    "asserts": [
@@ -969,6 +969,18 @@
     {
      "file": "cli/internal/client/dryrun_redact.go",
      "contains": "func RedactURLSecrets(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/dryrun_redact.go",
+     "contains": "if k == \"sig\" || k == \"code\" {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/dryrun_redact.go",
+     "contains": "strings.ContainsRune(\",;:)}]\", rune(parts[4][0]))",
      "min_count": 1,
      "code_only": true
     }
@@ -1063,7 +1075,7 @@
   {
    "id": "free-license-skus-not-waste",
    "summary": "stale-licenses, posture and leavers skip the free Google-Apps SKUs (Google Workspace for Nonprofits, Education Fundamentals, Education Gmail Only) when reporting paid-licence waste",
-   "why": "The novel commands treated every Google-Apps assignment as a paid seat, so a nonprofit or school client's suspended accounts were reported as billing waste and posture graded them warn. The free SKU IDs come from Google's Licensing API 'Products and SKUs' table (Google-Apps-For-Nonprofits, Google-Apps-For-Education, 1010070001, 1010070004); the paid Nonprofit editions reuse the general SKU IDs and stay counted. Found by the onboard Codex review (round 8, P1); TestFreeSKUsAreNotWaste fails with the filter removed. stale_licenses.go and leavers.go are NOVEL files carried from the factory's novel/ directory.",
+   "why": "The novel commands treated every Google-Apps assignment as a paid seat, so a nonprofit or school client's suspended accounts were reported as billing waste and posture graded them warn. The free SKU IDs come from Google's Licensing API 'Products and SKUs' table (Google-Apps-For-Nonprofits, Google-Apps-For-Education, 1010070001, 1010070004); the paid Nonprofit editions reuse the general SKU IDs and stay counted. Found by the onboard Codex review (round 8, P1); TestFreeSKUsAreNotWaste fails with the filter removed. stale_licenses.go and leavers.go are NOVEL files carried from the factory's novel/ directory. Round 12 (Codex P2): the free Education SKUs are pinned too, not just Nonprofits.",
    "status": "active",
    "spec_encode_followup": "Factory-side: port freeLicenseSKUs into ~/Documents/Dev/cli-factory/google-workspace/novel/ (stale_licenses.go, leavers.go).",
    "asserts": [
@@ -1096,6 +1108,24 @@
      "contains": "func TestFreeSKUsAreNotWaste(",
      "min_count": 1,
      "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/stale_licenses.go",
+     "contains": "\"Google-Apps-For-Education\":  true,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/stale_licenses.go",
+     "contains": "\"1010070001\":                 true,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/stale_licenses.go",
+     "contains": "\"1010070004\":                 true,",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   },
@@ -1125,7 +1155,7 @@
   {
    "id": "watch-response-hides-channel-token",
    "summary": "A successful watch response (kind api#channel) has its echoed token replaced with [redacted] before it is printed, returned over MCP, or written to the local store; a secret query parameter in the echoed address (?token=...) is masked too",
-   "why": "activities watch, users watch and users aliases watch register a push channel whose token is the webhook's verification secret; Google echoes it back in the response, which the generated client returned unchanged to CLI output, MCP results and the mutation write-through store. Found by the onboard Codex review (round 9, P1; the generated success path is fleet-wide). TestWatchResponseHidesChannelToken fails with the redaction removed. Round 10 (Codex, P1): the echoed address can carry its own webhook secret, so redactChannelToken also runs redactSecretQueryParams over it.",
+   "why": "activities watch, users watch and users aliases watch register a push channel whose token is the webhook's verification secret; Google echoes it back in the response, which the generated client returned unchanged to CLI output, MCP results and the mutation write-through store. Found by the onboard Codex review (round 9, P1; the generated success path is fleet-wide). TestWatchResponseHidesChannelToken fails with the redaction removed. Round 10 (Codex, P1): the echoed address can carry its own webhook secret, so redactChannelToken also runs redactSecretQueryParams over it. Round 12 (Codex P1 + adversarial P2): the echoed address is masked with RedactURLSecrets, so a user:pass@ password is hidden too.",
    "status": "active",
    "spec_encode_followup": "Press-side (fleet): mask echoed channel tokens in generated clients for APIs with push channels.",
    "asserts": [
@@ -1149,7 +1179,7 @@
     },
     {
      "file": "cli/internal/client/dryrun_redact.go",
-     "contains": "masked := redactSecretQueryParams(address)",
+     "contains": "masked := RedactURLSecrets(address)",
      "min_count": 1,
      "code_only": true
     }
@@ -1158,7 +1188,7 @@
   {
    "id": "deliver-errors-mask-url-secrets",
    "summary": "--deliver errors (bad sink spec, non-http target, failed webhook POST, and the root warning) print the target through client.RedactURLSecrets",
-   "why": "The generated deliver path echoed the full webhook URL, including a ?token= query secret or a user:pass@ password, in its warning and error text on any failure, even before a request was made. --deliver is already blocked over MCP, so this is the CLI user's own terminal and logs. Found by the onboard Codex review (round 11, P1; fleet-wide generated code). Receipt: a failed delivery to webhook:https://user:pw@127.0.0.1:9/cb?token=... prints user:[redacted]@ and ?token=[redacted], 0 secret hits.",
+   "why": "The generated deliver path echoed the full webhook URL, including a ?token= query secret or a user:pass@ password, in its warning and error text on any failure, even before a request was made. --deliver is already blocked over MCP, so this is the CLI user's own terminal and logs. Found by the onboard Codex review (round 11, P1; fleet-wide generated code). Receipt: a failed delivery to webhook:https://user:pw@127.0.0.1:9/cb?token=... prints user:[redacted]@ and ?token=[redacted], 0 secret hits. Round 12 (adversarial P2s): the unknown-scheme branch and the webhook request-build error (url.Parse) are masked at the source too, and the asserts now pin both root.go derr sites and the spec site. TestDeliverErrorsMaskURLSecrets fails if any of them is reverted.",
    "status": "active",
    "spec_encode_followup": "Press-side (fleet): mask URL secrets in the generated deliver error paths.",
    "asserts": [
@@ -1177,6 +1207,248 @@
     {
      "file": "cli/internal/cli/deliver.go",
      "contains": "client.RedactURLSecrets(target)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "client.RedactURLSecrets(derr.Error())",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "client.RedactURLSecrets(spec)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "client.RedactURLSecrets(scheme)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "fmt.Errorf(\"building webhook request: %s\", client.RedactURLSecrets(err.Error()))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_novel_test.go",
+     "contains": "func TestDeliverErrorsMaskURLSecrets(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "no-ambient-token-with-tenants",
+   "summary": "With client tenants registered and none selected, every API client (CLI and MCP, via the client hook) and every local-mirror read refuses and asks for --tenant, instead of falling back to GOOGLE_WORKSPACE_TOKEN or a saved token",
+   "why": "selectedTenant returns nil when two or more tenants are registered and none is chosen, and the client then used the ambient bearer token: a token saved earlier with auth set-token let 'users delete' or MCP google-workspace_execute act on that token's organization, not a client the operator picked. Previous rounds only documented the foot-gun ('unset the token'). Found by the onboard Codex review (round 12, P1). TestTenantStoreNeverClaimsUnscopedDBAndLocalReadNeedsTenant now asserts both the local read and ApplyClientHooks refuse with a token set. gws_tenants.go is a NOVEL file carried from the factory's novel/ directory.",
+   "status": "active",
+   "spec_encode_followup": "Factory-side: port noTenantSelectedErr into ~/Documents/Dev/cli-factory/google-workspace/novel/gws_tenants.go.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/gws_tenants.go",
+     "contains": "func noTenantSelectedErr() error",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants.go",
+     "contains": "return noTenantSelectedErr()",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_novel_test.go",
+     "contains": "if err := ApplyClientHooks(c); err == nil || !strings.Contains(err.Error(), \"none is selected\") {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "tenants-test-checks-domain",
+   "summary": "tenants test fails a tenant whose configured --domain is not one of the domains (or aliases) Google returns for the customer its admin and key resolve to",
+   "why": "Registering domain A with domain B's delegated admin and key passed tenants test, which pre-accepted the configured domain, so every report labelled B's data as A and stored it in A's mirror. Found by the onboard Codex review (round 12, P1). tenantDomains is the decode-and-check; TestTenantDomainsRequiresConfiguredDomain fails without the ownership check. gws_tenants_cmd.go is a NOVEL file.",
+   "status": "active",
+   "spec_encode_followup": "Factory-side: port tenantDomains into ~/Documents/Dev/cli-factory/google-workspace/novel/gws_tenants_cmd.go.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/gws_tenants_cmd.go",
+     "contains": "func tenantDomains(t gwsTenant, raw []byte) ([]string, error)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants_cmd.go",
+     "contains": "domains, err := tenantDomains(t, raw)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_novel_test.go",
+     "contains": "func TestTenantDomainsRequiresConfiguredDomain(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "orgunits-path-is-the-ou",
+   "summary": "orgunits get/patch/update/delete take one <orgUnitPath> that fills Google's {orgUnitPath=**} path segment by segment (slashes literal); the generated second positional <orgunitsId> and the orgUnitPath query parameter are gone, in the CLI and in the MCP execute endpoints",
+   "why": "The Discovery print split Google's single multi-segment path parameter into a query parameter (orgUnitPath) plus a path positional (orgunitsId), so 'orgunits delete Finance HR' deleted HR while the advertised orgUnitPath=Finance rode along in the query string; MCP execute had the same two-identifier shape. Found by the onboard Codex review (round 12, P1). The value is escaped per segment (cliutil.EscapeReservedPathParam), matching how Google's own clients expand {+orgUnitPath}. TestEscapeReservedPathParam covers the escaping.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: map Discovery {+param} / {param=**} path templates to one reserved-expansion path positional instead of a synthetic {<resource>Id} plus a query param.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/orgunits_get.go",
+     "contains": "path = replaceReservedPathParam(path, \"orgUnitPath\", args[0])",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/orgunits_delete.go",
+     "contains": "path = replaceReservedPathParam(path, \"orgUnitPath\", args[0])",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/orgunits_patch.go",
+     "contains": "path = replaceReservedPathParam(path, \"orgUnitPath\", args[0])",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/orgunits_update.go",
+     "contains": "path = replaceReservedPathParam(path, \"orgUnitPath\", args[0])",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/orgunits_delete.go",
+     "not_contains": "orgunitsId"
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "not_contains": "orgunitsId"
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "pv = cliutil.EscapeReservedPathParam(formatMCPParamValue(v))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/text.go",
+     "contains": "func EscapeReservedPathParam(value string) string",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "func replaceReservedPathParam(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "licence-products-include-education",
+   "summary": "leavers, posture, stale-licenses and offboard read licence products Google-Apps AND 101031 (paid Education Standard and Plus) by default; with the default list a 400/403/404 on 101031 (no Education subscription) is skipped, while Google-Apps and any operator-chosen --products list still fail loudly",
+   "why": "The reports queried only product Google-Apps, so a suspended account keeping a paid Education seat (product 101031 in Google's Licensing API 'Products and SKUs' table) read as clean, and offboard never released it. Found by the onboard Codex review (round 12, P1). TestLicenceProductsIncludeEducation drives a stub: both products counted, a 400 on 101031 skipped under the default list, and a custom list failing on it. stale_licenses.go, leavers.go, posture.go and offboard.go are NOVEL files.",
+   "status": "active",
+   "spec_encode_followup": "Factory-side: port defaultLicenceProducts/listProductLicenses into the novel/ sources.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/stale_licenses.go",
+     "contains": "const defaultLicenceProducts = \"Google-Apps,101031\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/stale_licenses.go",
+     "contains": "func listProductLicenses(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/leavers.go",
+     "contains": "listProductLicenses(ctx, c, custID, defaultLicenceProducts)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/posture.go",
+     "contains": "listProductLicenses(ctx, c, custID, defaultLicenceProducts)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/offboard.go",
+     "contains": "listProductLicenses(ctx, c, custID, products)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/offboard.go",
+     "contains": "\"products\", defaultLicenceProducts,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_novel_test.go",
+     "contains": "func TestLicenceProductsIncludeEducation(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "sharing-drift-reads-created-deleted-settings",
+   "summary": "sharing-drift fetches CREATE_APPLICATION_SETTING and DELETE_APPLICATION_SETTING admin audit events as well as CHANGE_*; posture takes --max-events, the flag its scan-cap error names",
+   "why": "settingChanges already parsed created and deleted sharing settings, but sharing-drift never asked the Reports API for those event names, so a new or removed sharing policy produced 'no findings' even with --settings-only. Posture capped its setting-change reads at 1000 and, on overflow, told the operator to raise --max-events, a flag it did not have. Found by the onboard Codex review (round 12, P1 and P2). sharing_drift.go and posture.go are NOVEL files.",
+   "status": "active",
+   "spec_encode_followup": "Factory-side: port both into novel/sharing_drift.go and novel/posture.go.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sharing_drift.go",
+     "contains": "\"CHANGE_APPLICATION_SETTING\", \"CREATE_APPLICATION_SETTING\", \"DELETE_APPLICATION_SETTING\"} {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/posture.go",
+     "contains": "cmd.Flags().IntVar(&maxEvents, \"max-events\", 1000,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/posture.go",
+     "contains": "listActivities(ctx, c, \"admin\", ev, \"\", start, maxEvents)",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "oauth-apps-calendar-scopes-moderate",
+   "summary": "oauth-apps rates calendar.events, calendar.readonly and calendar.events.readonly as moderate risk, alongside full calendar",
+   "why": "An app granted calendar.events (view and edit events on every calendar) fell through to low and vanished under --min-risk moderate, contradicting the documented tiers. Found by the onboard Codex review (round 12, P2). oauth_apps.go is a NOVEL file.",
+   "status": "active",
+   "spec_encode_followup": "Factory-side: port the scope rows into novel/oauth_apps.go.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/oauth_apps.go",
+     "contains": "\"https://www.googleapis.com/auth/calendar.events\":",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/oauth_apps.go",
+     "contains": "\"https://www.googleapis.com/auth/calendar.readonly\":",
      "min_count": 1,
      "code_only": true
     }

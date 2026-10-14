@@ -150,7 +150,7 @@ Each client is a **tenant**: a Google Cloud service account with domain-wide del
 
 The default `read` scope profile covers every report. Profiles combine with commas, and only `full` includes `read`: use `--scopes full` for offboarding writes (it also authorizes every user write, including deleting users and granting super admin), `--scopes read,policy` (or `full,policy`) to add the current 2SV, Drive sharing, and Gmail forwarding policy to `posture`, and register your own reseller domain with `--reseller --scopes reseller` (it is excluded from `--all-tenants`). `--scopes policy` on its own replaces `read` and leaves the reports nothing to read. Pick a client per command with `--tenant <name>` (or `GOOGLE_WORKSPACE_TENANT`), or fan out with `--all-tenants`.
 
-Managing a single organization? Set `GOOGLE_WORKSPACE_TOKEN` to an OAuth access token that carries the Admin SDK scopes instead of registering tenants; the reports then run against that one organization. Do not leave it set once tenants are registered: any API command run without `--tenant` falls back to that token and acts on its organization, not a client's.
+Managing a single organization? Set `GOOGLE_WORKSPACE_TOKEN` to an OAuth access token that carries the Admin SDK scopes instead of registering tenants; the reports then run against that one organization. Once tenants are registered the token is no longer used: a command run without `--tenant` (when more than one tenant is registered) refuses instead of acting on the token's organization.
 
 `google-workspace-cli tenants test --all-tenants` is the real credential check: it mints a token per scope for every registered client, reads each client's customer record and domains, and exits non-zero when any delegation is missing. It cannot tell you whether the License Manager or Cloud Identity APIs are enabled (the first report that needs them will), and with no tenants registered it has nothing to check. `doctor` probes one real read endpoint with the selected tenant's token (`--tenant <name>`, or the only registered tenant) or the single-org token and reports a rejected or wrong-host credential as `ERROR`, but it exits 0 unless you pass `--fail-on error`.
 
@@ -184,7 +184,7 @@ On r/msp's ["Google Workspace Management"](https://www.reddit.com/r/msp/comments
 This skill closes that gap:
 
 - **`google-workspace-cli mfa-gaps --all-tenants`** - every account without 2SV across every client, unenrolled admins first.
-- **`google-workspace-cli stale-licenses --all-tenants`** - Workspace edition seats on suspended, never-signed-in, or idle accounts, ready to reclaim (`--products` replaces the default `Google-Apps`, so list it too: `--products Google-Apps,Google-Vault`).
+- **`google-workspace-cli stale-licenses --all-tenants`** - Workspace and paid Education edition seats on suspended, never-signed-in, or idle accounts, ready to reclaim (`--products` replaces the default `Google-Apps,101031`, so list them too: `--products Google-Apps,101031,Google-Vault`).
 - **`google-workspace-cli leavers --all-tenants`** - suspended accounts still holding a license, groups, an admin role, OAuth tokens, or an unfinished Drive transfer.
 - **`google-workspace-cli offboard "jane@example.com" --successor "manager@example.com"`** - the offboarding runbook, previewed with live reads before anything changes, with suspend last because backup-code cleanup fails on a suspended account.
 - **`google-workspace-cli posture --all-tenants`** - one row per client for the QBR.
