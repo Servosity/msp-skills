@@ -175,7 +175,7 @@ func planOrgPush(ctx context.Context, c *client.Client, o fleetOrg, path string,
 			continue
 		}
 		changed, cur := diffSettings(current, body)
-		store.RedactMerakiObject(cur) // a preview never prints a live PSK or RADIUS secret
+		store.RedactMerakiObject(cur, path) // a preview never prints a live PSK or RADIUS secret
 		row.Current = cur
 		if len(changed) == 0 {
 			row.Action = "no-change"

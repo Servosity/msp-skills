@@ -260,3 +260,48 @@ func mustJSON(t *testing.T, v any) json.RawMessage {
 	}
 	return b
 }
+
+// TestRound21ReceiverLeaks: an HTTP server ID with "/" in its base64, an
+// action batch callback on a non-webhook resource, scalar-first cut-off
+// arrays, and two webhook API requests that differ only by time (round 21,
+// Codex round 13).
+func TestRound21ReceiverLeaks(t *testing.T) {
+	url := "https://f.azurewebsites.net/api/hxx?code=" + merakiSentinel
+	b64 := base64.StdEncoding.EncodeToString([]byte(url))
+	if !strings.Contains(b64, "/") {
+		t.Fatalf("fixture must carry a slash: %s", b64)
+	}
+	tail := b64[strings.Index(b64, "/")+1:]
+	label := "PUT /api/v1/networks/N_1/webhooks/httpServers/" + b64
+	if got := ScrubMerakiURLSecrets(label); strings.Contains(got, tail) || !strings.Contains(got, "/webhooks/httpServers/[redacted:") {
+		t.Fatalf("slash-bearing ID not scrubbed whole: %s", got)
+	}
+	if again := ScrubMerakiURLSecrets(ScrubMerakiURLSecrets(label)); again != ScrubMerakiURLSecrets(label) {
+		t.Fatalf("scrub is not idempotent: %s", again)
+	}
+	cb := `{"actions":[{"resource":"/networks/N_1/syslogServers","operation":"update","body":{"servers":[]}}],"callback":{"url":"https://hooks.slack.com/services/` + merakiSentinel + `","httpServer":{"id":"` + b64 + `"}}}`
+	obj := map[string]any{"label": "POST /api/v1/organizations/1/actionBatches", "newValue": cb}
+	if got := string(RedactMerakiSecrets(mustJSON(t, obj))); strings.Contains(got, merakiSentinel) || strings.Contains(got, tail) {
+		t.Fatalf("mirror kept an action batch callback: %s", got)
+	}
+	if got := RedactMerakiChangeValue("POST /api/v1/organizations/1/actionBatches", cb); strings.Contains(got, merakiSentinel) || strings.Contains(got, tail) {
+		t.Fatalf("fleet changes printed an action batch callback: %s", got)
+	}
+	for _, v := range []string{`[null,{"psk":"` + merakiSentinel + `"`, `[true,{"psk":"` + merakiSentinel + `"`, `[[1],{"psk":"` + merakiSentinel + `"`} {
+		if got := RedactMerakiChangeValue("SSID", v); got != RedactedCutOff {
+			t.Fatalf("cut-off array not withheld: %s -> %s", v, got)
+		}
+	}
+	ids := map[string]bool{}
+	for _, ts := range []string{"2026-10-14T10:00:00Z", "2026-10-14T11:00:00Z"} {
+		row := map[string]any{"ts": ts, "adminId": "A1", "method": "PUT", "path": "/api/v1/networks/N_1/webhooks/httpServers/" + b64}
+		id := ExtractResourceID("api_requests", row)
+		if id == "" || strings.Contains(id, tail) {
+			t.Fatalf("api_requests ID empty or carries the receiver: %q", id)
+		}
+		ids[id] = true
+	}
+	if len(ids) != 2 {
+		t.Fatalf("two webhook API requests collapsed into one row ID: %v", ids)
+	}
+}

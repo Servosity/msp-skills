@@ -7,12 +7,13 @@ package store
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"io"
 	"regexp"
 	"strconv"
 	"strings"
-	"unicode"
 )
 
 // RedactedSecret replaces a credential value before it reaches the local
@@ -33,6 +34,7 @@ var merakiSecretKeys = map[string]bool{
 	"communitystring":      true,
 	"contenttoken":         true,
 	"hashedtoken":          true,
+	"callback":             true, // an action batch or live-tool callback: receiver URL + HTTP server
 	"httpserverid":         true, // a webhook HTTP server ID is the base64 of its URL
 	"httpserverids":        true,
 	"headersfile":          true, // base64 webhook headers (Authorization)
@@ -350,11 +352,9 @@ func RedactMerakiJSONString(s string) string {
 		return s
 	}
 	if !json.Valid([]byte(t)) {
-		// JSON-looking means it holds a string and the bracket is not
-		// followed by a word: `[Cedar] "Clinic"` and "[Default] Guest" are
-		// names, while `[1,{"psk":` is a cut-off body.
-		rest := strings.TrimLeft(t[1:], " \t\r\n")
-		if rest != "" && !unicode.IsLetter(rune(rest[0])) && strings.Contains(rest, `"`) {
+		// A value that holds a string is cut-off JSON unless it opens with a
+		// bracketed tag: `[Cedar] "Clinic"` is a name, `[null,{"psk":` is not.
+		if strings.Contains(t, `"`) && !merakiBracketTag(t) {
 			return RedactedCutOff
 		}
 		return s
@@ -390,20 +390,33 @@ func merakiSecretChange(label, v string) bool {
 	return false
 }
 
-// merakiHTTPServerIDPattern matches a webhook HTTP server ID in a path: the ID
-// is the base64 of the receiver URL (a Slack, Teams or PagerDuty URL is a
-// credential), and change-log labels and API request paths carry it.
-var merakiHTTPServerIDPattern = regexp.MustCompile(`(?i)(/webhooks/httpServers/)[^/?#&"\s]+`)
+// merakiBracketTag reports a value that opens with a bracketed name tag
+// ("[Default] Guest"): a "]" that closes before any JSON punctuation.
+func merakiBracketTag(t string) bool {
+	end := strings.IndexByte(t, ']')
+	return t[0] == '[' && end > 1 && !strings.ContainsAny(t[1:end], `[{",:`)
+}
 
-// merakiURLParamPattern matches a url= query parameter: the webhook logs
-// filter puts the receiver URL in API request query strings.
-var merakiURLParamPattern = regexp.MustCompile(`(?i)(^|[?&])(url=)[^&#"\s]+`)
+// merakiURLSecretPattern matches a webhook HTTP server ID in a path (the ID is
+// the base64 of the receiver URL, "/" and "+" included; a Slack, Teams or
+// PagerDuty URL is a credential), as change-log labels and API request paths
+// carry it, and a url= query value (the webhook logs filter puts the receiver
+// URL in API request query strings), up to the end of the string.
+var merakiURLSecretPattern = regexp.MustCompile(`(?i)(/webhooks/httpServers/|(?:^|[?&"])url=)([^?#"\s]+)`)
 
 // ScrubMerakiURLSecrets replaces webhook HTTP server IDs and url= query values
-// in s with RedactedSecret. fleet changes and fleet blame apply it to labels.
+// in s with "[redacted:<hash>]". The short hash keeps two receivers (and two
+// row IDs built from them) distinct without revealing either; an already
+// scrubbed value is left alone. fleet changes and fleet blame apply it to labels.
 func ScrubMerakiURLSecrets(s string) string {
-	s = merakiHTTPServerIDPattern.ReplaceAllString(s, "${1}"+RedactedSecret)
-	return merakiURLParamPattern.ReplaceAllString(s, "${1}${2}"+RedactedSecret)
+	return merakiURLSecretPattern.ReplaceAllStringFunc(s, func(m string) string {
+		parts := merakiURLSecretPattern.FindStringSubmatch(m)
+		if strings.HasPrefix(parts[2], "[redacted") {
+			return m
+		}
+		sum := sha256.Sum256([]byte(parts[2]))
+		return parts[1] + "[redacted:" + hex.EncodeToString(sum[:4]) + "]"
+	})
 }
 
 func redactMerakiString(s string) string {
@@ -411,7 +424,12 @@ func redactMerakiString(s string) string {
 }
 
 // RedactMerakiObject redacts credentials in m in place (fleet push prints the
-// current settings it diffs against).
-func RedactMerakiObject(m map[string]any) {
+// current settings it diffs against). Under a webhook path every string is
+// redacted: an HTTP server's plain "url" is its credential.
+func RedactMerakiObject(m map[string]any, path string) {
+	if strings.Contains(strings.ToLower(path), "webhook") {
+		redactAllStrings(m)
+		return
+	}
 	redactMerakiValue(m)
 }

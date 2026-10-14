@@ -228,3 +228,36 @@ func TestFleetPushPreviewRedactsCurrentSecrets(t *testing.T) {
 		t.Fatalf("preview leaked a live secret or did not diff:\n%s", out.String())
 	}
 }
+
+// TestFleetPushPreviewRedactsWebhookURL: an HTTP server's credential is its
+// plain "url" field, which no key-name rule catches (Codex round 13).
+func TestFleetPushPreviewRedactsWebhookURL(t *testing.T) {
+	testenv.Isolate(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/v1/organizations":
+			_, _ = w.Write([]byte(`[{"id":"1","name":"Acme","api":{"enabled":true}}]`))
+		case "/api/v1/organizations/1/networks":
+			_, _ = w.Write([]byte(`[{"id":"N_1","name":"HQ","organizationId":"1","productTypes":["appliance"],"tags":[]}]`))
+		case "/api/v1/networks/N_1/webhooks/httpServers/aHR0cHM6Ly9ob29rcw==":
+			_, _ = w.Write([]byte(`{"id":"aHR0cHM6Ly9ob29rcw==","name":"Slack","url":"https://hooks.slack.com/services/LIVE-HOOK-7731"}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+	t.Setenv("CISCO_MERAKI_BASE_URL", srv.URL+"/api/v1")
+	t.Setenv("MERAKI_DASHBOARD_API_KEY", "test-key")
+	cmd := RootCmd()
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	cmd.SetArgs([]string{"fleet", "push", "--path", "/networks/{networkId}/webhooks/httpServers/aHR0cHM6Ly9ob29rcw==", "--body", `{"url":"https://hooks.slack.com/services/new"}`, "--all-networks", "--json"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("preview: %v\n%s", err, out.String())
+	}
+	if strings.Contains(out.String(), "LIVE-HOOK") || !strings.Contains(out.String(), `"update"`) {
+		t.Fatalf("preview leaked the receiver URL or did not diff:\n%s", out.String())
+	}
+}
