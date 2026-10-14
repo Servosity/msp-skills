@@ -214,7 +214,7 @@ Not yet. Every command was built from ThreatDown's published OneView API specifi
 
 ### Will this replace the OneView console?
 
-No. OneView stays where you set policies, manage subscriptions and deploy agents. This skill answers cross-site reporting and triage questions from your AI agent or terminal, and sends response jobs you have previewed.
+No. OneView stays where you set policies, manage subscriptions and deploy agents. This skill answers cross-site reporting and triage questions from your AI agent or terminal, and sends response jobs: the `respond` commands preview first, while the raw job commands send immediately.
 
 
 ### What does it cost?
@@ -229,7 +229,7 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 | Endpoint actions | `respond isolate` / `restore` / `scan` / `reboot` / `update` with `--confirm`, `endpoint-jobs issue`, `endpoint-jobs bulk-issue`, `grid jobs-bulk`, `endpoints sa-remediate`, `import endpoint_jobs`, the MCP `threatdown_execute` tool on a jobs endpoint | Human-in-the-loop, explicit confirmation |
 | Security config | `exclusions create` / `update`, `policies update`, `policies auto-isolation-set`, firewall, content-filtering, device-control and app-block rules | Preview with `--dry-run`, then a human-approved write |
 | Destructive | `endpoints delete` / `delete-bulk`, `grid endpoints-delete`, `sites delete`, `policies delete`, `exclusions delete`, `users delete` | Human-in-the-loop only, explicit confirmation |
-| Credential and admin | `policies secret-get`, `sites secret`, `installation-tokens search`, `policies list` / `get`, `webhooks list` / `get` and `notifications list` / `get` (their output carries tamper-protection passwords, enrollment tokens or webhook signing keys; the local mirror never stores them), `installation-tokens create` / `send` / `revoke`, `policies secret-set`, `users create` / `update`, `sites create`, `subscriptions create` / `update` | Human-in-the-loop only |
+| Credential and admin | Every `policies` read (including `secret-get` / `secret-get-v2`), `sites secret`, `installation-tokens search`, `installers`, `webhooks list` / `get`, `notifications list` / `get`, and `export` of policies, webhooks or notifications (their output can carry tamper-protection passwords, enrollment credentials or webhook signing keys; the local mirror never stores those fields), `installation-tokens create` / `send` / `revoke`, `policies secret-set`, `users create` / `update`, `sites create`, `subscriptions create` / `update` | Human-in-the-loop only |
 
 
 The strongest control is the **scope you tick on the OneView OAuth client** (`read`, `write`, `execute`) - the CLI can only do what that client is permitted to do. Set `THREATDOWN_MCP_READ_ONLY=1` to run the MCP server read-only. Full details, including how to lock it down, are in [governance.md](./governance.md).

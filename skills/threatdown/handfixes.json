@@ -141,25 +141,33 @@
   },
   {
    "id": "secret-reads-credential-tier",
-   "summary": "governance.md, README.md and page.json put every read whose output carries a credential in the Credential tier, not Read: policies secret-get / secret-get-v2, sites secret, installation-tokens search, and policies, webhooks and notifications list / get (uninstall passwords, signing keys, custom auth headers). governance.md also names the MCP read-only mode's GET gap.",
-   "why": "The generated governance tiers by verb, so 'every list / get / search' was Read and an agent policy keyed on it would let an agent read every customer's tamper-protection password. Applied at msp-skills onboarding (2026-10-14); these files are preserved across onboard --resume but a fleet re-mint or a hand rewrite can drop the carve-out.",
+   "summary": "governance.md, README.md and page.json put every read whose output carries a credential in the Credential tier, not Read: every policies read (list/get/search/system-default/-v2/secret-get), sites secret, installation-tokens search, installers, webhooks and notifications list / get, and export of policies, webhooks or notifications. governance.md also names the MCP read-only mode's GET gap. `export` is not listed as a blanket Read command.",
+   "why": "The generated governance tiers by verb, so 'every list / get / search' was Read and an agent policy keyed on it would let an agent read every customer's tamper-protection password. Applied at msp-skills onboarding (2026-10-14); these files are preserved across onboard --resume but a fleet re-mint or a hand rewrite can drop the carve-out. Round-2 review (2026-10-14) found `export policies` / `export notifications` dumping uninstall passwords and signing keys while `export` was named in the Read row.",
    "status": "active",
    "asserts": [
     {
      "file": "governance.md",
-     "contains": "`policies secret-get` / `secret-get-v2`, `sites secret`, `installation-tokens search`, `policies list` / `get`, `webhooks list` / `get`, `notifications list` / `get`"
+     "contains": "and `export` of policies, webhooks or notifications (their live output carries those secrets)"
+    },
+    {
+     "file": "governance.md",
+     "not_contains": "`analytics`, `export`, the `respond` commands"
     },
     {
      "file": "README.md",
-     "contains": "`policies list` / `get`, `webhooks list` / `get` and `notifications list` / `get`"
+     "contains": "and `export` of policies, webhooks or notifications"
     },
     {
      "file": "page.json",
-     "contains": "policies list / get, webhooks list / get and notifications list / get"
+     "contains": "and export of policies, webhooks or notifications"
     },
     {
      "file": "page.json",
      "not_contains": "previews every response job"
+    },
+    {
+     "file": "README.md",
+     "not_contains": "sends response jobs you have previewed"
     }
    ]
   },

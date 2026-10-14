@@ -57,11 +57,12 @@ and API endpoints.
   search, and every list, get, search and export command); they cannot change anything
   in OneView. Some reads return credentials, though: `policies secret-get`,
   `policies secret-get-v2` and `sites secret` return tamper-protection passwords,
-  `installation-tokens search` returns agent enrollment tokens, `policies list` / `get`
-  include each policy's uninstall password (`as_uninstall_password`), and `notifications`
-  and `webhooks` list / get include the HMAC signing key (`secret_token`) and any custom
-  auth headers (`custom_headers`). Treat those as
-  the Credential tier below. Many OneView reads are POST searches, which is why the tiers below are
+  `installation-tokens search` returns agent enrollment tokens, the other `policies` reads
+  include each policy's uninstall password (`as_uninstall_password`) or its hash
+  (`secret_hash`), `notifications` and `webhooks` list / get include the HMAC signing key
+  (`secret_token`) and any custom auth headers (`custom_headers`), `export` of those
+  resources carries the same fields, and `installers` download links may embed the site's
+  enrollment credential. Treat those as the Credential tier below. Many OneView reads are POST searches, which is why the tiers below are
   based on what a command does, not its HTTP method.
 - **Agent mode is explicit.** `--agent` produces JSON for scripting but does not add any
   write gating - the preview-then-approve policy above still applies. See AGENTS.md.
@@ -73,11 +74,11 @@ human for anything below the line.
 
 | Tier | What it does | Examples | Recommended agent policy |
 | --- | --- | --- | --- |
-| **Read** | Reports, triage, search, lookups. No change in OneView. | `fleet stale`, `fleet health`, `seats reconcile`, `respond pending`, `threats spread`, `threats queue`, `customer report`, `fleet sync`, `sync`, `search`, `analytics`, `export`, the `respond` commands without `--confirm`, every `list` / `get` / `search` / `export` command except the credential reads in the last row | Allow |
+| **Read** | Reports, triage, search, lookups. No change in OneView. | `fleet stale`, `fleet health`, `seats reconcile`, `respond pending`, `threats spread`, `threats queue`, `customer report`, `fleet sync`, `sync`, `search`, `analytics`, the `respond` commands without `--confirm`, every `list` / `get` / `search` / `export` command except the credential reads in the last row | Allow |
 | **Endpoint actions** | Sends a job that runs on real client machines: isolate, release, scan and quarantine, reboot, update, remediate. | `respond isolate` / `restore` / `scan` / `reboot` / `update` with `--confirm`, `endpoint-jobs issue`, `endpoint-jobs bulk-issue`, `endpoint-jobs quarantine-bulk`, `endpoint-jobs parent-reissue`, `endpoint-jobs parent-children-reissue`, `grid jobs-bulk`, `endpoints sa-remediate`, `suspicious-activity remediate`, `import endpoint_jobs` (each line issues a job, with no preview) | Human-in-the-loop, explicit confirmation |
 | **Security config** | Changes what the agent protects against or how. An exclusion lets software run that would otherwise be blocked. | `exclusions create` / `update`, `policies create` / `update` / `promote`, `policies auto-isolation-set`, `firewall rules-create` / `rules-update`, `content-filtering create` / `update` / `enable`, `device-control exclusions-create`, `app-block rules-create`, `schedules create` / `update`, `webhooks create`, `notifications create`, `syslog create` | Preview with `--dry-run`, then a human-approved write |
 | **Destructive** | Removes endpoints, sites, policies or users; not undoable from the CLI. | `endpoints delete`, `endpoints delete-bulk`, `grid endpoints-delete`, `sites delete`, `policies delete`, `exclusions delete`, `groups delete`, `users delete`, `subscriptions delete`, `reports delete-bulk`, `notifications delete-by-owner` | Human-in-the-loop only, explicit confirmation |
-| **Credential and admin** | Reads or sets tamper-protection passwords and webhook signing keys, issues and lists enrollment tokens, manages users, sites and billing. | `policies secret-get` / `secret-get-v2`, `sites secret`, `installation-tokens search`, `policies list` / `get`, `webhooks list` / `get`, `notifications list` / `get` (their live output carries those secrets), `installation-tokens create` / `send` / `revoke`, `policies secret-set` / `secret-set-v2`, `users create` / `update` / `resend-invite`, `sites create` / `update`, `subscriptions create` / `update` / `extend`, `email-protection migrate`, `auth login`, `auth set-token` | Human-in-the-loop only |
+| **Credential and admin** | Reads or sets tamper-protection passwords and webhook signing keys, issues and lists enrollment tokens, manages users, sites and billing. | every `policies` read (`list`, `get`, `search`, `system-default`, the `-v2` forms, `secret-get` / `secret-get-v2`), `sites secret`, `installation-tokens search`, `installers` (its download links may embed the site's enrollment credential), `webhooks list` / `get`, `notifications list` / `get`, and `export` of policies, webhooks or notifications (their live output carries those secrets), `installation-tokens create` / `send` / `revoke`, `policies secret-set` / `secret-set-v2`, `users create` / `update` / `resend-invite`, `sites create` / `update`, `subscriptions create` / `update` / `extend`, `email-protection migrate`, `auth login`, `auth set-token` | Human-in-the-loop only |
 
 **The MCP server.** Besides one tool per fleet, triage and `respond` command, the MCP
 server exposes a generic `threatdown_execute` tool that can call any OneView API
@@ -115,5 +116,5 @@ would not trust with those passwords.
 The full source of the CLI and MCP server is in this repository under
 [`cli/`](./cli) (Apache-2.0). You supply the OAuth client, the binary uses it against
 the ThreatDown OneView API, and you can read every line of how it does so. The skill is
-read-first, previews response jobs by default, and is limited to the scopes your OAuth
+read-first, its `respond` commands preview response jobs by default, and it is limited to the scopes your OAuth
 client was granted.
