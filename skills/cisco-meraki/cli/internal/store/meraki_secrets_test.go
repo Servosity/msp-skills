@@ -317,7 +317,7 @@ func TestCodexRound14ReceiverScrub(t *testing.T) {
 	for _, ts := range []string{"2026-10-11T01:32:13Z", "2026-10-11T14:42:34Z"} {
 		row := map[string]any{"ts": ts, "adminId": "A1", "method": "PUT", "path": "/api/v1/networks/N_1/webhooks/httpServers/" + b64}
 		id := ExtractResourceID("api_requests", row)
-		if strings.Contains(id, b64) || !strings.HasSuffix(id, "+"+ts) {
+		if strings.Contains(id, b64) || !strings.HasPrefix(id, ts+"+") {
 			t.Fatalf("api_requests ID lost its timestamp or kept the receiver: %q", id)
 		}
 		ids[id] = true
@@ -333,9 +333,9 @@ func TestCodexRound14ReceiverScrub(t *testing.T) {
 		"perPage=10&url=https://f.azurewebsites.net/api/test#" + merakiSentinel:                                     "perPage=10&url=",
 		"url=https%3A%2F%2Ff.azurewebsites.net%2Fapi%3Fcode%3D" + merakiSentinel + "&perPage=10&startingAfter=ABCD": "&perPage=10&startingAfter=ABCD",
 		`{"queryString":"url=https://x/` + merakiSentinel + `"}`:                                                    `"}`,
-		// Round 22: "?" escaped, "&" and "=" raw (Go url.PathEscape); the receiver's own &code= follows.
-		"url=https:%2F%2Ff.azurewebsites.net%2Fapi%2Fhook%3Fa=1&code=" + merakiSentinel + "&perPage=5":                "&perPage=5",
-		"url=https://x/h?sig=" + merakiSentinel + "&perPage=1&code=" + merakiSentinel + "&perPage=10&startingAfter=A": "&perPage=10&startingAfter=A",
+		// Round 22: "?" escaped, "&" and "=" raw (Go url.PathEscape): ambiguous, so the whole tail is withheld (round 15).
+		"url=https:%2F%2Ff.azurewebsites.net%2Fapi%2Fhook%3Fa=1&code=" + merakiSentinel + "&perPage=5":                "",
+		"url=https://x/h?sig=" + merakiSentinel + "&perPage=1&code=" + merakiSentinel + "&perPage=10&startingAfter=A": "",
 		"url=[redacted:00000000000000000000000000000000]&code=" + merakiSentinel:                                      "",
 	} {
 		got := ScrubMerakiURLSecrets(in)
@@ -357,5 +357,52 @@ func TestPushPreviewDecodesWebhookPath(t *testing.T) {
 		if cur["url"] != RedactedSecret {
 			t.Fatalf("preview under %s kept the receiver: %v", path, cur)
 		}
+	}
+}
+
+// TestCodexRound15ReceiverScrub: a receiver's own parameter can share a webhook
+// logs name (&t0=), names and paths can be percent-encoded, the scrub must not
+// run over serialized JSON, and two API requests that differ only by query
+// string are two rows (Codex round 15).
+func TestCodexRound15ReceiverScrub(t *testing.T) {
+	encodedID := base64.StdEncoding.EncodeToString([]byte("https://x/" + merakiSentinel))
+	for _, in := range []string{
+		"url=https://receiver.example/hook?a=1&t0=" + merakiSentinel + "&perPage=5",
+		"perPage=5&%75rl=https%3A%2F%2Fx%2F" + merakiSentinel,
+		"url=https://x/a&b/" + merakiSentinel + "&perPage=10",
+		"PUT /networks/N_1/web%68ooks/http%53ervers/" + encodedID,
+	} {
+		if got := ScrubMerakiURLSecrets(in); strings.Contains(got, merakiSentinel) || strings.Contains(got, encodedID) || !strings.Contains(got, "[redacted:") {
+			t.Fatalf("scrub kept the receiver: %q -> %q", in, got)
+		}
+	}
+	b64 := base64.StdEncoding.EncodeToString([]byte("https://hooks.slack.com/services/" + merakiSentinel))
+	label := "PUT /networks/N_1/web%68ooks/httpServers/" + b64
+	if got := RedactMerakiChangeValue(label, `{"url":"https://hooks.slack.com/services/`+merakiSentinel+`"}`); got != RedactedSecret {
+		t.Fatalf("encoded webhook label: value printed: %s", got)
+	}
+	if got := ScrubMerakiURLSecrets(label); strings.Contains(got, b64) {
+		t.Fatalf("encoded webhook label kept the HTTP server ID: %s", got)
+	}
+	nested := `{"name":"Branch","notes":"{\"queryString\":\"url=https://r/h?code=` + merakiSentinel + `\",\"mode\":\"keep\"}"}`
+	got := RedactMerakiChangeValue("Device", nested)
+	var obj map[string]any
+	if err := json.Unmarshal([]byte(got), &obj); err != nil || strings.Contains(got, merakiSentinel) || obj["name"] != "Branch" || !strings.Contains(obj["notes"].(string), `"mode":"keep"`) {
+		t.Fatalf("nested JSON value corrupted or leaked: %s (%v)", got, err)
+	}
+	if again := RedactMerakiChangeValue("Device", got); again != got {
+		t.Fatalf("change value redaction is not idempotent: %s -> %s", got, again)
+	}
+	row := map[string]any{"label": "Device", "newValue": nested}
+	if stored := string(RedactMerakiSecrets(mustJSON(t, row))); strings.Contains(stored, merakiSentinel) || strings.Contains(stored, RedactedCutOff) {
+		t.Fatalf("mirror leaked or withheld a valid nested value: %s", stored)
+	}
+	ids := map[string]bool{}
+	for _, q := range []string{"perPage=5", "perPage=10"} {
+		req := map[string]any{"ts": "2026-10-14T10:00:00.000000Z", "adminId": "A1", "method": "GET", "path": "/api/v1/organizations/1/networks", "queryString": q}
+		ids[ExtractResourceID("api_requests", req)] = true
+	}
+	if len(ids) != 2 {
+		t.Fatalf("two API requests that differ by query string collapsed: %v", ids)
 	}
 }

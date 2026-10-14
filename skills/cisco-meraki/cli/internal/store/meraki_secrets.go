@@ -271,7 +271,7 @@ func merakiIDCarriesSecret(id string, obj map[string]any) bool {
 // word is "password" is skipped when it is about a password policy
 // ("Password expiration", "Minimum password length").
 func merakiSecretLabel(label string) bool {
-	l := strings.ToLower(label)
+	l := strings.ToLower(merakiPercentDecoded(label)) // "web%68ooks" is "webhooks"
 	// "webhook": payload-template bodies and headers are free-form templates
 	// (a PagerDuty routing_key, a form-encoded token), and an HTTP server's
 	// URL and ID are credentials, so webhook change values are withheld whole.
@@ -380,7 +380,7 @@ func RedactMerakiChangeValue(label, v string) string {
 // whose action targets /webhooks/ carries receiver URLs and free-form
 // payload templates, whatever the label says).
 func merakiSecretChange(label, v string) bool {
-	if merakiSecretLabel(label) || strings.Contains(strings.ToLower(v), "webhook") {
+	if merakiSecretLabel(label) || strings.Contains(strings.ToLower(merakiPercentDecoded(v)), "webhook") {
 		return true
 	}
 	var x any // a \u-escaped "webhook" inside valid JSON
@@ -398,30 +398,74 @@ func merakiBracketTag(t string) bool {
 	return t[0] == '[' && end > 1 && !strings.ContainsAny(t[1:end], `[{",:`)
 }
 
+// merakiLoose matches lit with any character percent-encoded ("web%68ooks").
+// Use under (?i).
+func merakiLoose(lit string) string {
+	var b strings.Builder
+	for _, c := range []byte(lit) {
+		b.WriteString("(?:" + regexp.QuoteMeta(string(c)) + "|%" + strconv.FormatInt(int64(c), 16) + ")")
+	}
+	return b.String()
+}
+
 // merakiHTTPServerIDPattern matches a webhook HTTP server ID in a path: the ID
 // is the base64 of the receiver URL ("/" and "+" included, percent-encoded in
 // a path; a Slack, Teams or PagerDuty URL is a credential), and change-log
 // labels and API request paths carry it. An already scrubbed "[redacted:...]"
 // is outside the class and never matches.
-var merakiHTTPServerIDPattern = regexp.MustCompile(`(?i)(/webhooks/httpServers/)([A-Za-z0-9+/=_%.~-]+)`)
+var merakiHTTPServerIDPattern = regexp.MustCompile(`(?i)(` + merakiLoose("/webhooks/httpServers/") + `)([A-Za-z0-9+/=_%.~-]+)`)
 
-// merakiURLParamPattern matches the start of a url= query parameter: the
-// webhook logs filter puts the receiver URL in API request query strings.
-var merakiURLParamPattern = regexp.MustCompile(`(?i)(?:^|[?&"])url=`)
+// merakiURLParamPattern matches the start of a url= query parameter, its name
+// possibly percent-encoded: the webhook logs filter puts the receiver URL in
+// API request query strings.
+var merakiURLParamPattern = regexp.MustCompile(`(?i)(?:^|[?&"])` + merakiLoose("url="))
 
 // merakiWebhookLogParams are the other query parameters of the one endpoint
 // that takes url= (GET /organizations/{organizationId}/webhooks/logs).
 var merakiWebhookLogParams = map[string]bool{"t0": true, "t1": true, "timespan": true, "perpage": true, "startingafter": true, "endingbefore": true, "url": true}
 
+// merakiPercentDecodePattern is one %XX escape.
+var merakiPercentDecodePattern = regexp.MustCompile(`%[0-9A-Fa-f]{2}`)
+
+// merakiPercentDecoded decodes %XX escapes until none are left (double
+// encoding included); a malformed "%" is kept as is.
+func merakiPercentDecoded(s string) string {
+	for i := 0; i < 4 && strings.Contains(s, "%"); i++ {
+		next := merakiPercentDecodePattern.ReplaceAllStringFunc(s, func(m string) string {
+			c, _ := strconv.ParseUint(m[1:], 16, 8)
+			return string([]byte{byte(c)})
+		})
+		if next == s {
+			break
+		}
+		s = next
+	}
+	return s
+}
+
+// merakiURLValueBounded reports whether the first raw "&" after a url= value
+// v certainly starts the outer query: the receiver URL has no query of its
+// own, or its encoder escaped query syntax (no raw "?", "#" or "=" in v).
+// Otherwise a later "&name=" may be the receiver's own (?sig=, &code=, even
+// &t0=), and the caller withholds the rest of the string.
+func merakiURLValueBounded(v string) bool {
+	d := merakiPercentDecoded(v)
+	if !strings.ContainsAny(d, "?#") {
+		return true
+	}
+	return !strings.ContainsAny(v, "?#=") && strings.ContainsAny(d, "=&")
+}
+
 // ScrubMerakiURLSecrets replaces webhook HTTP server IDs and url= query values
 // in s with "[redacted:<hash>]". The 128-bit hash keeps two receivers (and two
 // row IDs built from them) distinct without revealing either; an already
-// scrubbed value is left alone. fleet changes and fleet blame apply it to labels.
+// scrubbed value is left alone. fleet changes and fleet blame apply it to
+// labels; the mirror applies it to every decoded string, never to serialized
+// JSON.
 //
-// A url= value runs to the end of the string, minus a trailing run of the
-// webhook logs endpoint's own parameters: a receiver URL can be sent
-// unencoded, or with "?" escaped and "&" raw, so any other "&name=" after it
-// may be the receiver's (?sig=, &code=) and is withheld with it.
+// A url= value ends at the next "&" only when that boundary is certain (see
+// merakiURLValueBounded) and a webhook logs parameter follows; otherwise it
+// runs to the end of the string.
 func ScrubMerakiURLSecrets(s string) string {
 	s = merakiHTTPServerIDPattern.ReplaceAllStringFunc(s, func(m string) string {
 		parts := merakiHTTPServerIDPattern.FindStringSubmatch(m)
@@ -438,12 +482,11 @@ func ScrubMerakiURLSecrets(s string) string {
 		if end < 0 {
 			end = len(rest)
 		}
-		for cut := strings.LastIndexByte(rest[:end], '&'); cut >= 0; cut = strings.LastIndexByte(rest[:end], '&') {
-			key, _, _ := strings.Cut(rest[cut+1:end], "=")
-			if !merakiWebhookLogParams[strings.ToLower(key)] {
-				break
+		if amp := strings.IndexByte(rest[:end], '&'); amp >= 0 && merakiURLValueBounded(rest[:amp]) {
+			key, _, _ := strings.Cut(rest[amp+1:end], "=")
+			if merakiWebhookLogParams[strings.ToLower(merakiPercentDecoded(key))] {
+				end = amp
 			}
-			end = cut
 		}
 		b.WriteString(s[:loc[1]])
 		b.WriteString(merakiRedactedHash(rest[:end]))
@@ -465,6 +508,9 @@ func merakiRedactedHash(v string) string {
 }
 
 func redactMerakiString(s string) string {
+	if t := strings.TrimSpace(s); t != "" && (t[0] == '{' || t[0] == '[') && json.Valid([]byte(t)) {
+		return RedactMerakiJSONString(s) // its string leaves were scrubbed decoded
+	}
 	return ScrubMerakiURLSecrets(RedactMerakiJSONString(s))
 }
 
@@ -473,8 +519,8 @@ func redactMerakiString(s string) string {
 // redacted: an HTTP server's plain "url" is its credential.
 func RedactMerakiObject(m map[string]any, path string) {
 	// Decoded first: "web%68ooks" reaches the same endpoint.
-	decoded, err := url.PathUnescape(path)
-	if err != nil || strings.Contains(strings.ToLower(decoded), "webhook") {
+	// A malformed escape fails closed.
+	if _, err := url.PathUnescape(path); err != nil || strings.Contains(strings.ToLower(merakiPercentDecoded(path)), "webhook") {
 		redactAllStrings(m)
 		return
 	}

@@ -85,6 +85,9 @@ func merakiIdentityFallback(obj map[string]any, requireDevice bool) string {
 var merakiNullableCompositeKeys = map[string][]string{
 	"configuration_changes":                            {"ts", "networkId", "ssidNumber", "adminId", "page", "label"},
 	"organizations_appliance_security_intrusion_rules": {"ruleId", "policy.id"},
+	// An API request log row is an immutable record: every request field is
+	// its identity (two requests in the same second differ by query string).
+	"api_requests": {"ts", "adminId", "method", "host", "path", "queryString", "sourceIp", "userAgent", "responseCode", "client.id", "operationId"},
 }
 
 func merakiNullableCompositeID(resourceType string, obj map[string]any) string {

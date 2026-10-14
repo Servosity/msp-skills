@@ -129,7 +129,9 @@ each command (`agent-context` lists it per command as `pp:method`): 555 GET, 202
   (the base64 of the receiver URL) in change-log labels and API request paths, and
   `url=` query values, are replaced with `[redacted:<short hash>]` (so two receivers
   stay distinct without revealing either) in the mirror, in row IDs and in
-  `fleet changes` and `fleet blame` output. `sync` skips the webhook delivery logs,
+  `fleet changes` and `fleet blame` output; these match percent-encoded too, and when
+  a receiver URL carries its own unencoded query, the rest of that query string is
+  withheld with it. `sync` skips the webhook delivery logs,
   whose rows carry receiver URLs. The redaction works by field name, change-log label
   and these patterns, and other receiver URLs (Location Scanning) are kept, so treat
   the mirror as sensitive anyway. License keys are kept on
