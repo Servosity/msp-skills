@@ -1250,8 +1250,17 @@ func pbsAttribution(ctx context.Context, t fleetTarget, refs map[string]pbsStora
 		// PBS: the same namespace name on another datastore can be another
 		// client's backups.
 		tied := map[string]pbsStorageRef{}
+		var unlisted []string
 		for _, ref := range refs {
-			if !strings.EqualFold(ref.server, host) || !known[ref.datastore] {
+			if !strings.EqualFold(ref.server, host) {
+				continue
+			}
+			if !known[ref.datastore] {
+				// PBS lists only the datastores a token may audit: older points
+				// below pbs_namespace there are read by nothing else.
+				if !slices.Contains(unlisted, ref.datastore) {
+					unlisted = append(unlisted, ref.datastore)
+				}
 				continue
 			}
 			if owners := t.sharedOwners(ref, ns); len(owners) > 0 {
@@ -1263,12 +1272,16 @@ func pbsAttribution(ctx context.Context, t fleetTarget, refs map[string]pbsStora
 		// pbs_namespace names the client's namespace and every one below it: a
 		// storage moved from acme/old to acme leaves its older points in acme/old.
 		var listErr error
+		if len(unlisted) > 0 {
+			sort.Strings(unlisted)
+			listErr = fmt.Errorf("PBS datastore %s, which this cluster's storages write to, is not in the datastore list the PBS token sees (it lists only datastores the token may audit), so restore points below pbs_namespace %q there were not read", strings.Join(unlisted, ", "), ns)
+		}
 		for _, store := range sortedKeys(tied) {
 			nss, err := pbsNamespaces(ctx, t.C, store)
 			if err != nil {
-				listErr = fmt.Errorf("PBS %s: the namespaces below %q could not be listed, so restore points there were not read: %w", store, ns, err)
+				listErr = errors.Join(listErr, fmt.Errorf("PBS %s: the namespaces below %q could not be listed, so restore points there were not read: %w", store, ns, err))
 			} else if gap := namespacesHidden(ctx, t.C, store, ns); gap != "" {
-				listErr = fmt.Errorf("PBS %s: %s; restore points there were not read", store, gap)
+				listErr = errors.Join(listErr, fmt.Errorf("PBS %s: %s; restore points there were not read", store, gap))
 			}
 			for _, n := range nss {
 				if !inNamespace(n, ns) {

@@ -160,3 +160,26 @@ pbs_namespace = "prod"
 		t.Errorf("beta writes prod on datastore other, not main:\n%s", out)
 	}
 }
+
+// Codex round 7: a datastore this cluster's storages write to that the PBS
+// token's (privilege-filtered) datastore list omits is unread evidence below
+// pbs_namespace, never proof of no backups.
+func TestUnlistedDatastoreIsUnreadEvidence(t *testing.T) {
+	f := newFixture(t)
+	setAcmeTokens(t)
+	f.pbsNS = "acme"
+	f.pveRoutes["/nodes/pve1/storage/pbs1/content"] = []any{}
+	f.pveRoutes["/nodes/pve1/storage/local/content"] = []any{}
+	f.pbsRoutes["/admin/datastore"] = []map[string]any{{"store": "other"}}
+	writeClustersFile(t, acmeClusters(f, f.pbs.URL, `pbs_namespace = "acme"`))
+	rep, rows := postureByVMID(t)
+	if r := rows[100]; r.Verdict == "never" {
+		t.Errorf("acme/100 is never while datastore main was not listed: %q %+v", r.Reason, rep.FetchFailures)
+	}
+	out, _, _ := runCLI(t, "restore-points", "100", "--json")
+	for _, g := range decodeJSON[restorePointsReport](t, out).Guests {
+		if g.Evidence == "full" {
+			t.Errorf("restore-points claims full evidence with datastore main unlisted:\n%s", out)
+		}
+	}
+}
