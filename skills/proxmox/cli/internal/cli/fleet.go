@@ -52,12 +52,12 @@ type pbsOwnership struct {
 	writers map[string]map[string]string // namespace key (see keys) -> PVE id -> cluster name
 	peers   []peerScope
 	svc     pbsServices
-	// Network backup storages (an NFS export, an SMB share): net maps a
-	// storage identity (netStorageID) to PVE id -> cluster name, netOf a PVE id
-	// to its storages' identities, for every cluster whose storage config was
-	// read; netUnread names the PVE clusters whose config was not, in full.
+	// Network backup storages (an NFS export, an SMB share): net maps a share
+	// token (netStorageID) to PVE id -> cluster name, netOf a PVE id to its
+	// storages' tokens, for every cluster whose storage config was read;
+	// netUnread names the PVE clusters whose config was not, in full.
 	net       map[string]map[string]string
-	netOf     map[string]map[string]string
+	netOf     map[string]map[string][]string
 	netUnread []string
 }
 
@@ -301,7 +301,7 @@ func (f fetchFailure) String() string {
 var (
 	postureKeep  = []string{"rows", "clients", "warnings", "fetch_failures", "red", "amber", "clusters", "tenant", "cluster", "vmid", "asset_name", "asset_id", "verdict", "severity", "reason", "covered_by_job", "age_hours", "last_success_at", "verify_state", "last_verified_ok_at", "last_attempt_status", "last_attempt_at", "offsite_last_success_at", "guests", "stale", "never", "uncovered", "verify_failed", "unverified", "last_attempt_failed", "attempt_unknown", "archives_incomplete", "unproven", "clusters_unreachable"}
 	coverageKeep = []string{"rows", "fetch_failures", "uncovered_guests", "guests_checked", "cluster", "vmid", "name", "disk", "reason", "detail", "disabled_jobs", "disagrees_with_upstream"}
-	verifyKeep   = []string{"stores", "groups", "skipped_clusters", "fetch_failures", "cluster", "store", "namespace", "group", "status", "snapshots", "failed", "never_verified", "outdated", "first_failure_at", "newest_verified_ok_at", "newest_is_bad", "failing_groups", "failed_snapshots", "never_verified_snapshots", "gc_still_bad_chunks", "namespaces_without_verify_job", "attribution"}
+	verifyKeep   = []string{"stores", "groups", "skipped_clusters", "fetch_failures", "cluster", "store", "namespace", "group", "status", "snapshots", "failed", "never_verified", "outdated", "first_failure_at", "newest_verified_ok_at", "newest_is_bad", "failing_groups", "failed_snapshots", "never_verified_snapshots", "gc_still_bad_chunks", "namespaces_without_verify_job", "attribution", "snapshots_incomplete", "verify_jobs_unknown", "gc_unknown"}
 	failuresKeep = []string{"rows", "fetch_failures", "scanned_tasks", "logs_read", "log_cap_hit", "note", "cluster", "product", "type", "target", "vmid", "guest_name", "result", "reason", "upid", "started_at", "attribution"}
 	capacityKeep = []string{"rows", "fetch_failures", "cluster", "kind", "name", "node", "used_pct", "days_to_full", "estimated_full_at", "gc_last_state", "gc_pending_bytes", "flags", "attribution"}
 	restoreKeep  = []string{"query", "guests", "fetch_failures", "cluster", "vmid", "name", "covered_by_jobs", "count", "newest_at", "newest_verified_ok_at", "restore_points", "backup_time", "source", "verify_state", "protected", "encrypted", "evidence", "not_read"}
@@ -1212,7 +1212,7 @@ func markSharedPBS(ctx context.Context, flags *rootFlags, targets []fleetTarget)
 	}
 	type seen struct {
 		refs   map[string]pbsStorageRef
-		net    map[string]string
+		net    map[string][]string
 		hidden bool
 	}
 	// Read every configured cluster in parallel (bounded), so a hung client
@@ -1236,7 +1236,7 @@ func markSharedPBS(ctx context.Context, flags *rootFlags, targets []fleetTarget)
 		byName[t.Name] = t
 	}
 	own := &pbsOwnership{writers: map[string]map[string]string{}, svc: pbsServices{},
-		net: map[string]map[string]string{}, netOf: map[string]map[string]string{}}
+		net: map[string]map[string]string{}, netOf: map[string]map[string][]string{}}
 	// Every spelling of a PBS service first: each entry's pbs_host with its
 	// pins, and each PVE storage's server with its fingerprint.
 	for _, t := range all {
@@ -1295,14 +1295,13 @@ func markSharedPBS(ctx context.Context, flags *rootFlags, targets []fleetTarget)
 			own.netUnread = append(own.netUnread, t.Name)
 		}
 		own.netOf[id] = r.Value.net
-		for _, ident := range r.Value.net {
-			if ident == "" {
-				continue // cluster-local (see netStorageID)
+		for _, toks := range r.Value.net {
+			for _, tok := range toks {
+				if own.net[tok] == nil {
+					own.net[tok] = map[string]string{}
+				}
+				own.net[tok][id] = t.Name
 			}
-			if own.net[ident] == nil {
-				own.net[ident] = map[string]string{}
-			}
-			own.net[ident][id] = t.Name
 		}
 		// A declared pbs_namespace owns its subtree, including namespaces a
 		// storage wrote to before it moved.
@@ -1354,17 +1353,19 @@ func (t fleetTarget) netSharers(s storageInfo) []string {
 	if !read {
 		return []string{"this cluster's storage config could not be read"}
 	}
-	ident, listed := mine[s.Storage]
+	toks, listed := mine[s.Storage]
 	if !listed {
 		return []string{"its share is not in the storage config this token sees"}
 	}
-	if ident == "" {
+	if len(toks) == 0 {
 		return nil // cluster-local (see netStorageID)
 	}
 	var out []string
-	for pve, name := range t.own.net[ident] {
-		if pve != t.pveID && !slices.Contains(out, name) {
-			out = append(out, name)
+	for _, tok := range toks {
+		for pve, name := range t.own.net[tok] {
+			if pve != t.pveID && !slices.Contains(out, name) {
+				out = append(out, name)
+			}
 		}
 	}
 	for _, name := range t.own.netUnread {
@@ -1386,15 +1387,15 @@ func netStorageType(typ string) bool {
 	return false
 }
 
-// fetchNetStorageIDs reads the storage config for the identity of every
-// network storage (see netStorageID), keyed by storage ID; "" is
+// fetchNetStorageIDs reads the storage config for the share tokens of every
+// network storage (see netStorageID), keyed by storage ID; none is
 // cluster-local.
-func fetchNetStorageIDs(ctx context.Context, c *client.Client) (map[string]string, error) {
+func fetchNetStorageIDs(ctx context.Context, c *client.Client) (map[string][]string, error) {
 	var list []map[string]any
 	if err := getJSON(ctx, c, "/storage", nil, &list); err != nil {
 		return nil, fmt.Errorf("storage config: %w", err)
 	}
-	out := map[string]string{}
+	out := map[string][]string{}
 	for _, e := range list {
 		str := func(k string) string {
 			if v, ok := e[k]; ok && v != nil {
@@ -1403,38 +1404,45 @@ func fetchNetStorageIDs(ctx context.Context, c *client.Client) (map[string]strin
 			return ""
 		}
 		if netStorageType(str("type")) {
-			out[str("storage")] = netStorageID(str("type"), str("server"), str("export"), str("share"), str("subdir"), str("monhost"), str("fs-name"), str("volume"))
+			out[str("storage")] = netStorageID(str("type"), str("server"), str("server2"), str("export"), str("share"), str("subdir"), str("monhost"), str("fs-name"), str("volume"))
 		}
 	}
 	return out, nil
 }
 
-// netStorageID names the directory a network storage keeps its dump/ in, the
-// same for every cluster that mounts it: server (canonHost) plus export, or
-// SMB share and subdir (case-insensitive, as SMB is), or Ceph monitors plus
-// filesystem and subdir, or Gluster volume. "" when it is not a network
-// storage, or a CephFS on the cluster's own Ceph (no monhost).
-func netStorageID(typ, server, export, share, subdir, monhost, fsName, volume string) string {
+// netStorageID names the directory a network storage keeps its dump/ in as
+// one token per server that reaches it: two clusters share the directory when
+// any token is common (a Gluster volume served by g1 and g2, Ceph monitors
+// listed in any order or subset). NFS: server (canonHost) plus export. SMB:
+// server, share and subdir, case-insensitive as SMB is. CephFS: each monitor
+// plus filesystem and subdir; none when it has no monhost (the cluster's own
+// Ceph). Gluster: server and server2, each with the volume.
+func netStorageID(typ, server, server2, export, share, subdir, monhost, fsName, volume string) []string {
 	clean := func(p string) string { return strings.TrimSuffix(path.Clean("/"+p), "/") }
+	host := func(h string) string {
+		if hh, _, err := net.SplitHostPort(h); err == nil {
+			h = hh
+		}
+		return canonHost(h)
+	}
+	var out []string
 	switch typ {
 	case "nfs":
-		return "nfs://" + canonHost(server) + clean(export)
+		out = append(out, "nfs://"+canonHost(server)+clean(export))
 	case "cifs":
-		return "cifs://" + canonHost(server) + strings.ToLower(clean(share)+clean(subdir))
+		out = append(out, "cifs://"+canonHost(server)+strings.ToLower(clean(share)+clean(subdir)))
 	case "cephfs":
-		if monhost == "" {
-			return ""
-		}
-		var mons []string
 		for _, m := range strings.FieldsFunc(monhost, func(r rune) bool { return r == ' ' || r == ',' || r == ';' }) {
-			mons = append(mons, canonHost(m))
+			out = append(out, "cephfs://"+host(m)+"/"+fsName+clean(subdir))
 		}
-		sort.Strings(mons)
-		return "cephfs://" + strings.Join(mons, ",") + "/" + fsName + clean(subdir)
 	case "glusterfs":
-		return "glusterfs://" + canonHost(server) + clean(volume)
+		for _, h := range []string{server, server2} {
+			if h != "" {
+				out = append(out, "glusterfs://"+canonHost(h)+clean(volume))
+			}
+		}
 	}
-	return ""
+	return out
 }
 
 // canonHost is one spelling per host: lowercase, no trailing dot, no IPv6

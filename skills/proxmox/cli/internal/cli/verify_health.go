@@ -238,6 +238,7 @@ func collectVerifyHealth(ctx context.Context, t fleetTarget, onlyStore string, n
 	}
 	var stores []verifyStoreRow
 	var groups []verifyGroupRow
+	seen := map[string]string{} // ACL path -> why its verify jobs are hidden ("" = visible)
 	wanted, read := 0, 0
 	for _, store := range sortedKeys(nsByStore) {
 		if onlyStore != "" && store != onlyStore {
@@ -274,7 +275,14 @@ func collectVerifyHealth(ctx context.Context, t fleetTarget, onlyStore string, n
 					reaching = append(reaching, j)
 				}
 			}
-			if len(reaching) == 0 && jobsOK {
+			jobsKnown := jobsOK
+			if jobsOK {
+				if hidden := verifyJobsHidden(ctx, t.C, store, ns, seen); hidden != "" {
+					jobsKnown, sr.VerifyJobsUnknown = false, true
+					fails = append(fails, fetchFailure{Cluster: t.Name, Scope: pbsSourceLabel(store, ns) + " verify jobs", Error: hidden})
+				}
+			}
+			if len(reaching) == 0 && jobsKnown {
 				label := ns
 				if label == "" {
 					label = "(root)"
@@ -310,7 +318,7 @@ func collectVerifyHealth(ctx context.Context, t fleetTarget, onlyStore string, n
 				fails = append(fails, fetchFailure{Cluster: t.Name, Scope: pbsSourceLabel(store, ns), Error: fmt.Sprintf(
 					"%d snapshot(s) listed without a readable manifest (a backup still running, or a damaged snapshot); they are not in the group counts", noManifest)})
 			}
-			for _, g := range groupVerify(t, store, ns, complete, outdatedDays, jobsOK, now) {
+			for _, g := range groupVerify(t, store, ns, complete, outdatedDays, jobsKnown, now) {
 				sr.Groups++
 				sr.FailedSnapshots += g.Failed
 				sr.NeverVerified += g.NeverVerified
@@ -335,6 +343,40 @@ func collectVerifyHealth(ctx context.Context, t fleetTarget, onlyStore string, n
 	}
 	return stores, groups, fails, nil
 }
+
+// verifyJobsHidden explains why some verify job that may reach ns on store is
+// not in the token's list, or "". PBS lists a verify job only to a token with
+// Datastore.Audit or Datastore.Verify on the job's own path (its datastore,
+// and namespace), so a job rooted at the datastore or at any namespace above
+// ns is visible only when that holds at each of those paths.
+func verifyJobsHidden(ctx context.Context, c *client.Client, store, ns string, seen map[string]string) string {
+	paths := []string{nsACLPath(store, "")}
+	parts := strings.Split(ns, "/")
+	for i := range parts {
+		if ns != "" {
+			paths = append(paths, nsACLPath(store, strings.Join(parts[:i+1], "/")))
+		}
+	}
+	for _, p := range paths {
+		why, done := seen[p]
+		if !done {
+			privs, err := privsAt(ctx, c, true, p)
+			switch {
+			case err != nil:
+				why = "whether the token sees the verify jobs on " + p + " is unknown (" + err.Error() + ")"
+			case !hasKey(privs, client.PrivDatastoreAudit.String()) && !hasKey(privs, "Datastore.Verify"):
+				why = "PBS lists a verify job only to a token with Datastore.Audit or Datastore.Verify on its own datastore or namespace path, and this token has neither on " + p + ", so a verify job there (and its outdated-after) is hidden"
+			}
+			seen[p] = why
+		}
+		if why != "" {
+			return why + "; verification age is not judged"
+		}
+	}
+	return ""
+}
+
+func hasKey(m map[string]flexBool, k string) bool { _, ok := m[k]; return ok }
 
 // groupVerify aggregates snapshots per backup group. A verified-ok snapshot is
 // outdated when its verification (start time encoded in the verify UPID) is

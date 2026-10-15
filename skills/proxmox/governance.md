@@ -120,7 +120,14 @@ hosts before any request is built.
   `verify-health` keeps such a namespace's groups but marks them:
   `attribution` is `shared` on the store row and `shared: <clusters>` on each
   group row, whose tenant is left empty. `failures` marks a PBS task the same
-  way.
+  way. A Backup Server is matched by the host and port each storage and entry
+  names, or by a certificate fingerprint any of them pins. One server reached
+  under two names with no fingerprint on either side (a CA-signed certificate)
+  is not matched, so pin it (Proxmox VE already requires the fingerprint for
+  the Backup Server's default self-signed certificate). The reverse also
+  holds: two clients' separate servers that their clusters reach at the same
+  private address and port count as one server, which a per-client
+  `pbs_namespace` keeps apart.
 - **One backup export per client cluster** for NFS, SMB/CIFS, CephFS or
   GlusterFS backup storage. A vzdump archive carries only a VMID, so where two
   configured clusters mount the same export or share (or a configured cluster
