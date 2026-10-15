@@ -1,4 +1,4 @@
-// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 
 // Shared plumbing for the hand-written QuoteWerks commands (docs, items,
 // products, requote, mirror and the local analytics). Generated endpoint

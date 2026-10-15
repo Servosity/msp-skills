@@ -1,6 +1,6 @@
 ---
 name: quotewerks
-description: "Typed quote tools for QuoteWerks Web that use the real column names, preview typed writes before sending them, and add margin, win-rate and pipeline answers from a local mirror. Trigger phrases: `find the Acme quote in QuoteWerks`, `reprice the quote lines`, `which QuoteWerks quotes are stale`, `quotewerks margin by rep`, `re-quote an earlier order`, `use quotewerks`, `run quotewerks`."
+description: "Use when the user asks to find, read, build, audit or reprice QuoteWerks Web quotes, orders or invoices, add a product to a quote by part number, re-quote an earlier order with current prices, or answer margin, win-rate, open-pipeline and distributor cost-drift questions across QuoteWerks documents. Typed writes preview first and need --confirm. Trigger phrases: `find the Acme quote in QuoteWerks`, `reprice the quote lines`, `which QuoteWerks quotes are stale`, `quotewerks margin by rep`, `re-quote an earlier order`, `use quotewerks`, `run quotewerks`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "QuoteWerks"
@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/quotewerks/install.ps1
 ---
 
-# QuoteWerks Web  -  Printing Press CLI
+# QuoteWerks Web Claude Code Skill
 
 ## Prerequisites: Install the CLI
 
