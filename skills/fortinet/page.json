@@ -1,0 +1,125 @@
+{
+  "outcome_intro": "Ask your AI which client FortiGates are below the fixed firmware, which have SSL-VPN open to the internet, and which licenses lapse this quarter, and get one graded row per firewall. FortiOS answers one box at a time through its GUI or REST API. This reads every FortiGate in a devices file in one pass, read-only, and adds FortiManager and FortiGate Cloud inventory alongside.",
+  "instead_of_say": [
+    {
+      "instead": "Logging into every client's FortiGate after an SSL-VPN advisory to see whether SSL-VPN is on, which interface it listens on, and who can reach it",
+      "say": "Which client FortiGates have SSL-VPN open to any source on a WAN interface?",
+      "cli": "fortinet-cli audit sslvpn --fail-on fail"
+    },
+    {
+      "instead": "Checking each box's firmware against the fixed release for its branch, one GUI dashboard at a time",
+      "say": "Which FortiGates are below the fixed firmware for their branch?",
+      "cli": "fortinet-cli audit firmware --min-version 7.2.10,7.4.5"
+    },
+    {
+      "instead": "Keeping a spreadsheet of FortiGuard and FortiCare renewal dates per serial number",
+      "say": "What Fortinet licenses expire in the next 60 days across all my clients?",
+      "cli": "fortinet-cli audit licenses --within 60d"
+    }
+  ],
+  "pain_points": [
+    "FortiOS SSL-VPN flaws are exploited fast: CVE-2024-21762 was being exploited before most MSPs had read the advisory, and the advice was to patch or disable SSL-VPN on every box.",
+    "Firmware state lives on each FortiGate's dashboard. Knowing which clients are below the fixed build for their branch means logging into every one.",
+    "FortiManager can push and report across the fleet, but many MSPs manage small-business FortiGates without one.",
+    "FortiGuard and FortiCare expiry dates sit per device, so the renewal queue is a spreadsheet someone keeps by hand.",
+    "Admin accounts without trusted hosts, super_admin without two-factor, and HTTP or Telnet on a WAN interface are each a separate screen to check."
+  ],
+  "outcomes": [
+    {
+      "question": "Give me one posture verdict across every client FortiGate, showing only findings that are new since the last run.",
+      "command": "fortinet-cli fleet audit --new"
+    },
+    {
+      "question": "Which FortiGates are below my firmware floor, and how many patches behind their branch is each one?",
+      "command": "fortinet-cli audit firmware --min-version 7.2.10,7.4.5"
+    },
+    {
+      "question": "Where is SSL-VPN enabled on a WAN interface and open to any source address?",
+      "command": "fortinet-cli audit sslvpn"
+    },
+    {
+      "question": "Which admins have no trusted hosts or no two-factor, and which WAN interfaces allow HTTP or Telnet?",
+      "command": "fortinet-cli audit admins"
+    },
+    {
+      "question": "Which FortiGuard and FortiCare licenses expire in the next 60 days?",
+      "command": "fortinet-cli audit licenses --within 60d"
+    },
+    {
+      "question": "Which firewalls have HA out of sync, IPsec tunnels down, SD-WAN members down, or certificates expiring?",
+      "command": "fortinet-cli fleet health --cert-within 14d"
+    },
+    {
+      "question": "Which firewall policies are any-any accept, unused for 90 days, or not logging?",
+      "command": "fortinet-cli policies hygiene --unused-days 90"
+    },
+    {
+      "question": "What changed in each client's FortiGate configuration this week?",
+      "command": "fortinet-cli fleet changes --since 7d"
+    },
+    {
+      "question": "Which FortiManager-managed FortiGates are out of sync or have the management tunnel down?",
+      "command": "fortinet-cli fmg devices"
+    },
+    {
+      "question": "Which FortiGate Cloud devices have the management tunnel down or a contract ending?",
+      "command": "fortinet-cli cloud devices"
+    }
+  ],
+  "different_vs_wrappers": "[alpadalar/fortigate-mcp-server](https://github.com/alpadalar/fortigate-mcp-server) is a general-purpose FortiGate MCP server: a device registry, read tools, and create, update and delete tools for policies, VIPs and routes that stay off unless you enable writes. It answers about the device you ask about. This one is read-only by construction and built to grade the whole fleet in one pass: every FortiGate in a devices file is marked PASS, WARN, FAIL or UNKNOWN for firmware floors per branch, SSL-VPN exposure, admin accounts and license expiry, and a box it could not read is UNKNOWN, never PASS.",
+  "different_vs_vendor": "Fortinet's FortiAI-Assist runs inside FortiManager and FortiAnalyzer, and since FortiOS 8.0 on FortiGates with more than 2 GB of RAM and FortiCare Premium; it answers inside the console it runs in. This needs only a read-only REST API token per FortiGate, so it also covers the small boxes FortiAI-Assist does not, and it answers across every client's firewall at once.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, and fortinet-mcp speaks HTTP natively: run `fortinet-mcp --transport http` with FORTINET_MCP_HTTP_TOKEN set and put its /mcp endpoint behind an HTTPS tunnel or your own reverse proxy. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You create a read-only REST API admin on each FortiGate and enter its token once."
+    },
+    {
+      "q": "Can it change my FortiGates?",
+      "a": "No. Every FortiOS call is a read of configuration tables or monitor state, the FortiManager commands send only the JSON-RPC get method, and the FortiGate Cloud commands only list devices. Stored secrets stay out of the answers too: every FortiOS-encrypted value (RADIUS secrets, IPsec keys, password hashes) comes back as ENC (redacted), and a request for plain-text passwords is refused. Give each token a read-only admin profile and the FortiGate itself enforces the rest."
+    },
+    {
+      "q": "How do I check 40 client FortiGates, not just one?",
+      "a": "List them in a devices.toml file: one [[device]] entry per FortiGate with its URL, a token_file (a file holding that box's token; on macOS and Linux the CLI refuses it unless it is chmod 600) and an optional client name. `fortinet-cli fleet devices` shows which entries have a usable URL and token file, and every audit command then runs across the whole list. A devices file you name that is missing or lists no [[device]] entries is an error, never a silent fall-back to one box."
+    },
+    {
+      "q": "My FortiGate still uses its factory certificate. Will it connect?",
+      "a": "Not by default: certificate checks stay on. The secure fix is a trusted certificate on the FortiGate (FortiOS can get one from Let's Encrypt). Otherwise opt in per device with insecure = true in devices.toml, pass --insecure, or add FORTINET_SKIP_TLS_VERIFY=true to the MCP server's env block in a JSON config (it also covers FortiManager). The one-click .mcpb has no field for it on purpose, because one ticked box would turn off verification for every device. A devices.toml entry with insecure = true covers the fleet, audit and policies hygiene tools there; the single-device tools and the fmg tools still need a trusted certificate (or the JSON config)."
+    },
+    {
+      "q": "Is my Fortinet data safe?",
+      "a": "Your data stays on your machine. The CLI, MCP server and the local mirror are all local, and the MCP server runs over stdio unless you start it with --transport http. `fleet backup` writes full configuration files that contain encrypted secrets and private keys, so it creates them owner-only (chmod 600 on macOS and Linux) and you should keep that directory private. Everything else it returns has FortiOS-encrypted secrets redacted. Credentials are never bundled or transmitted by MSP Skills."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    }
+  ],
+  "governance_summary": "This connector is read-only against FortiOS, FortiManager and FortiGate Cloud: no command changes a firewall, and FortiOS-encrypted secrets are redacted from every read before an agent sees them. The strongest control is a REST API admin with a read-only admin profile and your IP as its only trusted host. The tiers that need a human move secrets or data: fleet backup writes full configurations including encrypted secrets, auth set-token stores a token locally, and a webhook delivery sends output off your machine.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "fleet audit, fleet health, fleet devices, fleet changes, audit firmware, audit sslvpn, audit admins, audit licenses, policies hygiene, fmg adoms/devices/status, cloud devices/device, every list/get, monitor and settings command (GET-only despite the name), sync, search, export. Every FortiOS-encrypted value comes back as ENC (redacted), and plain-text-password requests are refused. Local writes only: sync fills the local store, fleet audit records each run in its local history, and export --output overwrites the file you name",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Sensitive read",
+      "examples": "fleet backup (each FortiGate's full configuration, including encrypted secrets and private keys, kept unredacted on purpose and written to owner-only files on macOS and Linux); administrators, api-users, local-users and monitor fortitokens (account and token inventory, secret values redacted)",
+      "policy": "Human-in-the-loop - keep the output private"
+    },
+    {
+      "tier": "Credential",
+      "examples": "auth set-token (writes the token to the CLI's credentials file), auth logout",
+      "policy": "Human-in-the-loop only"
+    },
+    {
+      "tier": "Data egress",
+      "examples": "--deliver webhook:<url> on any command (POSTs that command's output to a URL you name), and feedback --send or FORTINET_FEEDBACK_AUTO_SEND=true, which POST only when FORTINET_FEEDBACK_ENDPOINT names a URL you set",
+      "policy": "Human-in-the-loop - a webhook sink moves client data off your machine"
+    }
+  ],
+  "auth_note": "Create a REST API admin on each FortiGate (System > Administrators > Create New > REST API Admin, read-only profile, your IP as a trusted host). Set FORTINET_BASE_URL and FORTINET_API_TOKEN for one box, or list every box in a devices.toml file, then run `fortinet-cli doctor`: it makes one authenticated read to confirm the token works."
+}

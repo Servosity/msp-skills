@@ -1,0 +1,1065 @@
+{
+ "slug": "fortinet",
+ "doc": "docs/reprint-survival.md",
+ "_comment": "Connector-specific edits a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and every banned anti-pattern still absent) and fails CI if a reprint dropped one. Schema and rationale: docs/reprint-survival.md. Regen steps: cli-factory/fortinet/regen.sh.",
+ "handfixes": [
+  {
+   "id": "standard-transport-not-chrome-h2",
+   "summary": "the CLI is generated with --transport standard (stdlib net/http, HTTP/1.1 + h2) instead of the community-spec default Chrome-mimicking HTTP/2-only transport",
+   "why": "A --spec-source community print defaults to the Chrome-fingerprint h2-only TLS transport (github.com/enetx/surf). FortiGates do not negotiate h2 on the admin HTTPS port, so every handshake fails and no command can reach a device. cli-factory/fortinet/regen.sh passes --transport standard; a reprint without it silently regenerates a CLI that cannot talk to any FortiGate while build, vet and unit tests stay green.",
+   "status": "active",
+   "spec_encode_followup": "Press trap filed in cli-factory/fortinet/NOTES.md (item 1): community specs should not default to the h2-only Chrome transport for self-hosted appliances.",
+   "asserts": [
+    {
+     "file": "cli/go.mod",
+     "not_contains": "github.com/enetx/surf"
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "tr := http.DefaultTransport.(*http.Transport).Clone()",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "insecure-flag-restored",
+   "summary": "--insecure / FORTINET_SKIP_TLS_VERIFY / per-device insecure = true opt into skipping TLS verification for factory self-signed FortiGate certificates, through the client-hook seam",
+   "why": "The standard transport has no --insecure or <API>_SKIP_TLS_VERIFY switch, and FortiGates ship a factory self-signed certificate. internal/cli/fortinet_tls.go re-adds the opt-in via registerClientHook; verification stays on by default. FORTINET_SKIP_TLS_VERIFY is deliberately not an install prompt (env_schema_internal.json waiver, unifi-network carve-out).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fortinet_tls.go",
+     "contains": "registerClientHook(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_tls.go",
+     "contains": "cliutil.EnvOverride(\"FORTINET_SKIP_TLS_VERIFY\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_tls.go",
+     "contains": "BoolVar(&insecureFlag, \"insecure\"",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "gomod-godebug-x509negativeserial",
+   "summary": "go.mod carries `godebug x509negativeserial=1` so FortiGate and FortiManager factory certificates with negative serial numbers still parse",
+   "why": "Go 1.23+ rejects certificates with a negative serial number, and FortiGate/FortiManager factory certificates can carry one, so TLS fails before --insecure is even consulted. go.mod is generated, so regen.sh re-applies the line after every regen; a reprint that skips it breaks every factory-cert device.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/go.mod",
+     "contains": "godebug x509negativeserial=1"
+    }
+   ]
+  },
+  {
+   "id": "manifest-base-url-user-config",
+   "summary": "manifest.json declares FORTINET_BASE_URL as a required, non-secret user_config prompt; promote/bundle drop it because config.go has a default literal",
+   "why": "The MCPB manifest generator omits <API>_BASE_URL whenever config.go carries any default, and fortinet's default (https://fortigate.example.com/api/v2) is a placeholder: every FortiGate is its own host. Without the prompt a Claude Desktop install has a token and no device to send it to. The optional FortiManager, FortiGate Cloud, devices-file and MCP-mode variables are declared alongside it on all three install channels (check_env_schema enforces their parity).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "manifest.json",
+     "contains": "\"FORTINET_BASE_URL\": \"${user_config.fortinet_base_url}\""
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"fortinet_base_url\": {"
+    }
+   ]
+  },
+  {
+   "id": "doctor-verdict-tracks-reality",
+   "summary": "doctor probes GET /monitor/system/status with the real token and names FORTINET_BASE_URL when it is still the shipped placeholder, instead of calling any response to GET / reachable and printing 'present, not verified'",
+   "why": "The 4.33.5 doctor called any HTTP response to `GET /` reachable and never probed the credential, so a base_url aimed at the FortiGate web UI (every API path 404s) and a revoked token both rendered healthy, and the placeholder branch never named the variable to set. monitor/system/status is readable by any REST API admin, so it is the probe. check_doctor_truth.py drives healthy / expired / wrong-base / placeholder against a stub server; it failed 5 assertions before this fix and passes after. See issue #282. Codex round 12: a 403 verdict now starts with WARN so doctor --fail-on warn trips on it.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorProbeCredentials(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "doctorProbePath = \"/monitor/system/status\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeCredentials(cmd.Context()",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "\"; set \" + doctorBaseURLEnv",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "present, not verified. Run `%s %s`"
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "WARN scope-limited (HTTP 403 from %s)",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "devices-token-env-rejected",
+   "summary": "a devices.toml entry authenticates with token_file only; token_env is parsed solely to reject it with a clear error",
+   "why": "token_env made the binary read an environment variable whose NAME came from the devices file at run time (os.Getenv(d.TokenEnv)). check_env_schema cannot resolve that to a variable, so it is indistinguishable from a hidden credential read, and no manifest can declare it, so under the Claude Desktop .mcpb (which passes only declared variables) it could never work anyway. token_file (refused unless chmod 600) works on every channel. TestFleetTokenEnvRejected fails on the old code (verified) and passes now.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fortinet_fleet.go",
+     "contains": "token_env is not supported",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_fleet.go",
+     "not_contains": "Getenv(d.TokenEnv)"
+    },
+    {
+     "file": "cli/internal/cli/fortinet_fleet.go",
+     "not_contains": "EnvOverride(d.TokenEnv)"
+    },
+    {
+     "file": "cli/internal/cli/fortinet_fleet_test.go",
+     "contains": "func TestFleetTokenEnvRejected(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "novel-env-reads-ignore-mcpb-placeholders",
+   "summary": "the hand-authored fleet, FortiManager, FortiGate Cloud and TLS code reads FORTINET_* through cliutil.EnvOverride, not os.Getenv",
+   "why": "An MCPB host that skips an optional user_config key leaves the literal `${user_config.<key>}` text in the environment. Read with os.Getenv, an unset optional FORTINET_DEVICES became a path to a file named '${user_config.fortinet_devices}' and broke every fleet command in the .mcpb; the same for the FMG and Cloud variables. cliutil.EnvOverride treats an unresolved placeholder as unset, matching the generated config.go reads.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fortinet_fleet.go",
+     "contains": "cliutil.EnvOverride(\"FORTINET_DEVICES\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_fmg.go",
+     "contains": "cliutil.EnvOverride(\"FORTINET_FMG_URL\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_cloud.go",
+     "contains": "cliutil.EnvOverride(\"FORTINET_CLOUD_API_USER\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_fmg.go",
+     "not_contains": "os.Getenv(\"FORTINET_"
+    },
+    {
+     "file": "cli/internal/cli/fortinet_cloud.go",
+     "not_contains": "os.Getenv(\"FORTINET_"
+    },
+    {
+     "file": "cli/internal/cli/fortinet_fleet.go",
+     "not_contains": "os.Getenv(\"FORTINET_"
+    }
+   ]
+  },
+  {
+   "id": "fortios-secrets-redacted",
+   "summary": "every FortiOS client (CLI, fleet, MCP) redacts JSON \"ENC ...\" secret values to \"ENC (redacted)\" and refuses plain-text-password requests, through the client-hook seam",
+   "why": "FortiOS cmdb reads return stored secrets in ENC form (RADIUS secrets, LDAP bind passwords, IPsec PSKs, the HA password, admin/local-user hashes, API-user keys), and some builds return them in clear text for ?plain-text-password=1. Without the guard those values reached the terminal, the response cache, the sync mirror (and MCP sql/search) and the generic fortinet_execute tool, which forwarded plain-text-password to the device. Found by the fresh-context adversarial review with stub receipts. secretGuard wraps the transport after the TLS hook; skipTLSVerify unwraps it so per-device insecure still works. The full-configuration backup path is exempt on purpose (fleet changes redacts it before diffing). TestSecretGuard covers redaction, the refusal and the backup exemption. Codex review round 1 found two bypasses, both fixed and both proven by TestSecretGuard failing on the old code: an Accept-Encoding header set in the config file's headers table turns off net/http's transparent decompression, so the guard scanned compressed bytes and the client inflated the secrets afterwards (the guard now drops the caller's Accept-Encoding so the transport negotiates gzip and inflates before the scan, and refuses any encoding still present); and the pattern stopped at a backslash, so a JSON-escaped value such as \"ENC abc\\/def\" survived (the pattern now consumes JSON escapes). Codex review round 2 found three more, fixed and proven by TestSecretGuardBypasses failing on the round-1 code: the backup exemption was a suffix match on the decoded path, so a cmdb object named x/monitor/system/config/backup (escaped or not) was returned unredacted (isBackup now requires the escaped path to be exactly /api/v2/monitor/system/config/backup after the API root); the plain-text-password refusal read the raw query, so ?%70lain-text-password=1 got through (asksPlainText also checks the decoded query); and an escaped \\\"ENC ...\\\" inside a comment was rewritten and truncated the comment (the pattern now only matches a quote in JSON value position). A 256 MiB decompression-bomb cap applies only to bodies the transport decompressed. Refusals (plain-text-password, an encoding the guard cannot inflate) are answered locally with a 400/415 JSON body so the client reports them once instead of retrying a transport error (adversarial review round 3). Codex round 3: a malformed escape elsewhere in the query made QueryUnescape fail and switched the decoded check off; asksPlainText now decodes leniently and repeatedly. A refused request is answered locally with a 400 instead of a transport error, so the client does not retry it three times. Codex round 4: a pattern can never see every JSON escaping of the prefix (\"\\u0045NC \", \"ENC\\u0020\"), so JSON bodies now go through redactENC, which walks the body with encoding/json's tokenizer, redacts every string whose DECODED value starts with \"ENC \", and splices only those byte spans (key order and formatting untouched); a body that is not valid JSON falls back to a broad literal pattern. Proven against a stub: the 650bc62ac binary printed both escaped secrets, this one prints ENC (redacted). Codex round 5: a UTF-8 BOM or JSONP/XSSI prefix (which the client strips before parsing) stopped the tokenizer before the secrets; redactENC now scans exactly the bytes the client parses, through internal/client/fortinet_sanitize.go (a hand-authored file exporting the client's own sanitizer, so the two cannot drift). PERSISTED STATE: the guard is transport-only, so the HTTP response cache and the local mirror hold exactly what it returned. 0.1.0 is this connector's first release, so every persisted byte in any install went through this guard. A later release that TIGHTENS the redaction must also invalidate what earlier releases persisted (purge the response cache, rebuild the mirror with sync) or the old bytes stay readable through cache hits, local reads and the MCP sql/search tools. Adversarial review round 3: wrapping the transport hid it from client.StreamingHTTPClient, which bounds binary downloads (fleet backup) only through the inner *http.Transport's ResponseHeaderTimeout, so with the default (non-explicit) --timeout a FortiGate that accepted the connection and never answered hung fleet backup and the MCP fleet_backup tool forever. guardSecrets now sets ResponseHeaderTimeout on the transport it wraps; TestGuardedStreamingClientTimesOutOnSilentDevice hangs on the old code and passes after. Codex round 7: a 502 is retried by the client as a server error, so the encoding refusal now uses 415. Adversarial round 4: after a JSON parse error the literal fallback missed an escaped prefix later in the body; the fallback now decodes each quoted literal (redactQuotedENC) and redacts it when the decoded value starts with \"ENC \". Adversarial round 5: that decode-each-literal fallback paired quotes from the start of the body, so one stray quote (an error page, a malformed name) hid an ENC value that the earlier literal pattern caught; the fallback is now encLiteral, a position-independent pattern for a quote followed by \"ENC \" in any JSON escaping. The f72ba5adf binary printed ENC LEAKED-SECRET-1 from a 400 body with a stray quote; this one prints ENC (redacted). Codex round 10: the pattern required a closing quote, so a body that ended inside the value (\"ENC LEAK at end of a 400 body) was printed; it now also ends at the end of the body (after an optional lone backslash). The pattern runs with (?s) so an escape followed by a raw newline in a malformed body does not end the match early (Codex round 11). Adversarial round 6: consuming the closing quote let a stray \"ENC x run swallow the opening quote of the next literal and hide it; the pattern now stops before the closing quote and the replacement leaves that quote in the body.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fortinet_secrets.go",
+     "contains": "func (g *secretGuard) RoundTrip(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_secrets.go",
+     "contains": "\"plain-text-password\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_tls.go",
+     "contains": "guardSecrets(c)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_tls.go",
+     "contains": "rt.(*secretGuard)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_secrets_test.go",
+     "contains": "func TestSecretGuard(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_secrets.go",
+     "contains": "r.Header.Del(\"Accept-Encoding\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_secrets.go",
+     "contains": "return i >= 0 && p[i:] == backupPath",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_secrets.go",
+     "contains": "if asksPlainText(r.URL.RawQuery) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_secrets.go",
+     "not_contains": "strings.HasSuffix(r.URL.Path, \"/monitor/system/config/backup\")"
+    },
+    {
+     "file": "cli/internal/cli/fortinet_secrets_test.go",
+     "contains": "func TestSecretGuardBypasses(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_secrets.go",
+     "contains": "lenientUnescape(q)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_secrets.go",
+     "contains": "body = redactENC(body)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_secrets.go",
+     "contains": "if v, ok := tok.(string); ok && strings.HasPrefix(v, \"ENC \") {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_secrets_test.go",
+     "contains": "func TestRedactENCEscapings(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/fortinet_sanitize.go",
+     "contains": "func SanitizeJSONResponse(body []byte) []byte { return sanitizeJSONResponse(body) }",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_secrets.go",
+     "contains": "clean := client.SanitizeJSONResponse(body)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_secrets.go",
+     "contains": "if tr, ok := next.(*http.Transport); ok && tr.ResponseHeaderTimeout == 0 {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_secrets_test.go",
+     "contains": "func TestGuardedStreamingClientTimesOutOnSilentDevice(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_secrets.go",
+     "contains": "regexp.MustCompile(`(?s)\"(?:E|\\\\u0045)(?:N|\\\\u004[eE])(?:C|\\\\u0043)(?: |\\\\u0020)(?:[^\"\\\\]|\\\\.)*\\\\?`)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_secrets.go",
+     "contains": "out = encLiteral.ReplaceAll(out, []byte(redactedENC[:len(redactedENC)-1]))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_secrets.go",
+     "not_contains": "func redactQuotedENC("
+    }
+   ]
+  },
+  {
+   "id": "named-devices-file-is-strict",
+   "summary": "a devices file named with --devices or FORTINET_DEVICES must exist and list [[device]] entries; neither case falls back to the single FORTINET_BASE_URL device",
+   "why": "loadFleet only treated --devices as explicit, so a mistyped FORTINET_DEVICES path silently audited one box and exited 0 under --fail-on fail, and an empty file or a [[devices]] typo produced an empty matrix that also passed. In the .mcpb FORTINET_BASE_URL is required, so the fall-back always had a box to audit while the MSP believed the fleet was checked. TestFleetNamedDevicesFileMustExistAndListDevices fails on the old code (verified) and also pins that an unset .mcpb placeholder reads as unset. An unedited \"<your-fortinet_devices>\" placeholder pasted from the mcp-install.md JSON templates reads as unset (devicesEnv), the same way an unresolved ${user_config...} does, so filling in only the base URL and token does not break every fleet tool (adversarial review round 2).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fortinet_fleet.go",
+     "contains": "explicit := path != \"\" || devicesEnv() != \"\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_fleet.go",
+     "contains": "lists no [[device]] entries",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_fleet_test.go",
+     "contains": "func TestFleetNamedDevicesFileMustExistAndListDevices(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_fleet.go",
+     "contains": "if strings.HasPrefix(v, \"<your-\") && strings.HasSuffix(v, \">\") {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "token-file-perms-skip-windows",
+   "summary": "the token_file group/world-permission refusal is skipped on Windows",
+   "why": "Go reports every Windows file as 0666 (0444 read-only), so the POSIX mode check refused every token_file there and no devices.toml entry could authenticate on Windows. The generated credential checks keep the same rule in //go:build !windows files; this hand-written check needed the runtime guard.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fortinet_fleet.go",
+     "contains": "runtime.GOOS != \"windows\" && info.Mode().Perm()&0o077 != 0",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "sslvpn-negate-and-ipv6-source",
+   "summary": "audit sslvpn treats source-address-negate as 'every source except these' and an explicit IPv6 source of all as open",
+   "why": "With source-address-negate enable the check graded WARN 'restricted to X' although the portal accepts everyone except X, and an IPv4-restricted portal whose source-address6 is all graded WARN. Both are internet-open SSL-VPN, the exact exposure the audit exists to catch. TestSSLVPN fails on the old code (verified).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/fortios/addrset.go",
+     "contains": "return !full && !more, (full && less) || (!full && more)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/fortios/checks.go",
+     "contains": "Names(settings, \"source-address6\")",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-help-only-parents-hidden",
+   "summary": "the help-only parents fleet, audit, cloud and fmg carry pp:parent-group so the MCP mirror does not register them as tools",
+   "why": "Without the annotation each parent was an MCP tool that returned Cobra help text with no error, which an agent reads as a successful call (the 4.30.3 no-op-tool class). Verified over stdio: the four parents are gone from tools/list and all 14 children remain.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fleet.go",
+     "contains": "\"pp:parent-group\": \"true\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/audit.go",
+     "contains": "\"pp:parent-group\": \"true\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_cloud.go",
+     "contains": "\"pp:parent-group\": \"true\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_fmg.go",
+     "contains": "\"pp:parent-group\": \"true\"",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "fgtcloud-loose-token-cache-ignored",
+   "summary": "the FortiGate Cloud access/refresh-token cache is ignored when it is not a plain file or (on Unix) is readable by group or others; the next save replaces it with a fresh 0600 file",
+   "why": "saveCache always wrote 0600 through a temp file, but loadCache trusted whatever sat at the cache path, so a cache restored from a backup or copied by hand at 0644 kept serving live FortiCloud credentials that other local users could read. Found by Codex review round 1. TestLooseCacheIsIgnored fails on the old code (a 0644 cache was reused with no login) and passes after. Windows reports 0666 for every file, so the mode check is Unix-only, matching token-file-perms-skip-windows.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/fgtcloud/client.go",
+     "contains": "info, err := os.Lstat(c.CachePath)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/fgtcloud/client.go",
+     "contains": "!info.Mode().IsRegular() || (runtime.GOOS != \"windows\" && info.Mode().Perm()&0o077 != 0)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/fgtcloud/client_test.go",
+     "contains": "func TestLooseCacheIsIgnored(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "sslvpn-zones-per-vdom",
+   "summary": "audit sslvpn (and fleet audit's SSL-VPN column) fetch cmdb system/zone once per VDOM, with that VDOM's vdom parameter",
+   "why": "Zones are VDOM-scoped. The check fetched them once without a VDOM and reused root's zones for every VDOM, so a guest VDOM whose zone of the same name holds a WAN port graded an internet-open SSL-VPN as PASS. Found by Codex review round 1. TestSSLVPNZonesResolvedPerVDOM fails on the old code (guest PASS) and passes after.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fortinet_audit_core.go",
+     "contains": "fortiGetList(ctx, c, \"/cmdb/system/zone\", vdomParams(vdom))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_audit_core.go",
+     "not_contains": "fortiGetList(ctx, c, \"/cmdb/system/zone\", nil)"
+    }
+   ]
+  },
+  {
+   "id": "dead-write-helpers-removed",
+   "summary": "seven write-path helpers the 4.33.5 helpers.go template emits unconditionally (classifyDeleteError, detectPartialFailure, hasChangedLocalFlags, partialFailureErr, requiredInputWaived, successfulNoop, writeNoop) are removed",
+   "why": "This connector has no write commands, so the helpers are dead code; printing-press polish removed them to satisfy the unused-code lint. A reprint re-emits them. Nothing breaks if they come back, but the divergence from the template is deliberate and recorded here so the next reprint removes them again instead of treating the removal as drift.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "not_contains": "func classifyDeleteError("
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "not_contains": "func detectPartialFailure("
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "not_contains": "func hasChangedLocalFlags("
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "not_contains": "func partialFailureErr("
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "not_contains": "func requiredInputWaived("
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "not_contains": "func successfulNoop("
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "not_contains": "func writeNoop("
+    }
+   ]
+  },
+  {
+   "id": "plain-http-refused-every-client",
+   "summary": "every FortiOS client (single-device CLI, fleet, MCP) refuses a plain http:// base URL except to a loopback test host, through the client-hook seam",
+   "why": "checkAPIURL guarded devices.toml entries only, so FORTINET_BASE_URL=http://<fortigate>/api/v2 on the single-device CLI path and the MCP server sent the REST API bearer token in clear text on every request with no opt-in. Found by Codex review round 2. The hook now runs checkAPIURL on c.BaseURL before anything else; loopback http stays allowed for stub servers (check_doctor_truth.py). TestClientHooksRefusePlainHTTP fails on the old code and passes after.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fortinet_tls.go",
+     "contains": "if _, err := checkAPIURL(c.BaseURL); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_secrets_test.go",
+     "contains": "func TestClientHooksRefusePlainHTTP(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "sslvpn-404-needs-confirmed-vdom",
+   "summary": "audit sslvpn grades a 404 from vpn.ssl/settings as 'no SSL-VPN on this build' (PASS) only when the same VDOM answers cmdb system/zone; otherwise UNKNOWN",
+   "why": "Any 404 graded PASS, including a mistyped --vdoms value, which made the headline check green for a VDOM that was never read. Found by the adversarial review round 2. TestSSLVPN404OnUnknownVDOMIsUnknown fails on the old code and passes after.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fortinet_audit_core.go",
+     "contains": "case err != nil && isHTTPStatus(err, 404) && zErr != nil:",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "fleet-timeout-is-per-request",
+   "summary": "fleet fan-out commands (fleet audit, fleet health, fleet backup, audit firmware/sslvpn/licenses, policies hygiene) run without a fleet-wide deadline; --timeout stays the client's per-request timeout",
+   "why": "The generated boundCtx turned --timeout (default 60s) into one deadline for the whole fan-out. With the default rate limiter and concurrency 4, a fleet ran out of time at about 45 devices, the rest graded UNKNOWN, and fleet audit's history write reused the expired context, so every later --new run reported every finding as new. Found by the adversarial review round 2 (50 stub devices). TestFleetTimeoutIsPerRequestNotPerFleet fails on the old code (devices cut off) and passes after.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fleet_audit.go",
+     "not_contains": "boundCtx(cmd.Context(), flags)"
+    },
+    {
+     "file": "cli/internal/cli/fleet_health.go",
+     "not_contains": "boundCtx(cmd.Context(), flags)"
+    },
+    {
+     "file": "cli/internal/cli/audit_firmware.go",
+     "not_contains": "boundCtx(cmd.Context(), flags)"
+    },
+    {
+     "file": "cli/internal/cli/audit_licenses.go",
+     "not_contains": "boundCtx(cmd.Context(), flags)"
+    },
+    {
+     "file": "cli/internal/cli/audit_sslvpn.go",
+     "not_contains": "boundCtx(cmd.Context(), flags)"
+    },
+    {
+     "file": "cli/internal/cli/policies_hygiene.go",
+     "not_contains": "boundCtx(cmd.Context(), flags)"
+    },
+    {
+     "file": "cli/internal/cli/fortinet_fleet.go",
+     "not_contains": "boundCtx(cmd.Context(), flags)"
+    },
+    {
+     "file": "cli/internal/cli/fortinet_fleet_test.go",
+     "contains": "func TestFleetTimeoutIsPerRequestNotPerFleet(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "ha-sync-needs-checksum-objects",
+   "summary": "fleet health grades HA config sync in-sync only when every member returns a checksum object with at least one non-empty value",
+   "why": "HAChecksumsInSync accepted any checksum key, so two members answering \"checksum\": null (or {}) compared equal and the row read in-sync / PASS with nothing compared. Found by Codex review round 4. TestHAChecksumsInSync fails on the old code and passes after. Adversarial round 4: an object whose values are all null or empty strings compared equal too; hasChecksumValue now requires a non-empty string.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/fortios/health.go",
+     "contains": "if !ok || !hasChecksumValue(c) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "sslvpn-named-sources-resolved",
+   "summary": "audit sslvpn resolves named SSL-VPN source addresses and groups (firewall address/addrgrp, address6/addrgrp6, per VDOM) to the set of addresses they admit: the union of every object (two /1 halves cover everything) minus addrgrp exclude-member; a list covering every address grades FAIL like 'all', a name it cannot resolve grades UNKNOWN on a WAN listener",
+   "why": "The check judged source-address by the literal name 'all', so a WAN portal restricted to an object named Internet-v4 = 0.0.0.0/0 graded WARN restricted-source and audit sslvpn --fail-on fail exited 0 on an internet-open SSL-VPN. Found by Codex review round 6. TestSSLVPNResolvesNamedSources covers objects, groups (including a self-referencing one), IPv6 and negate; the 6732198a6 binary graded the stub WARN, this one FAIL open-to-internet. Codex review round 7 then showed per-object checks were not enough: two objects 0.0.0.0/1 + 128.0.0.0/1 admit every address but graded WARN, and an addrgrp with exclude-member was treated as its members only. internal/fortios/addrset.go now computes range sets (union across the list and nested groups, minus exclusions) and tracks whether the real set may be larger or smaller when a name cannot be resolved, so an uncertain result is UNKNOWN rather than a guessed PASS/FAIL. The 8f38e8018 code failed six of the new TestSSLVPNResolvesNamedSources cases; this passes all. Adversarial round 4: when the address or group read fails (a 403 for a profile without Firewall read access) the UNKNOWN detail now names the failed read; Codex round 8: an iprange whose endpoints are different families is unresolved, not a range. Codex round 12: an unresolved exclusion in one group no longer masks another name that covers every address on its own (FAIL, not UNKNOWN).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/fortios/addrset.go",
+     "contains": "func NewAddressBook(addrs, groups []Obj) *AddressBook {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/fortios/addrset.go",
+     "contains": "return minus(in, out), more, less",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/fortios/addrset.go",
+     "contains": "for _, m := range Names(g, \"exclude-member\") {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/fortios/checks.go",
+     "contains": "any4, unsure4 := sourceAny(book4, p.src, p.neg, false)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_audit_core.go",
+     "contains": "book4, book6, bookErr = sslvpnSourceBooks(ctx, c, vdom, settings)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/fortios/checks_test.go",
+     "contains": "func TestSSLVPNResolvesNamedSources(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_audit_core.go",
+     "contains": "if f.Code == \"source-unresolved\" && bookErr != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/fortios/addrset.go",
+     "contains": "lo.Is6() != v6 || hi.Is6() != v6 || hi.Less(lo)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/fortios/addrset.go",
+     "contains": "if sure.isFull(v6) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "fleet-backup-whole-download-deadline",
+   "summary": "fleet backup bounds each device's backup download at five request timeouts with the default --timeout (5 minutes); with an explicit --timeout the client's whole-request timeout (one --timeout) already bounds it",
+   "why": "client.StreamingHTTPClient removes http.Client.Timeout for binary responses when --timeout is not explicit, so a large configuration can stream. With only a response-header timeout left, a FortiGate that sent the headers and then stalled hung fleet backup (CLI and the MCP fleet_backup tool, whose child CLI kept running after the server was killed) forever. Found by the adversarial review round 4. backupConfig now runs under context.WithTimeout(ctx, 5*c.ConfiguredTimeout()); TestBackupStalledBodyTimesOut hangs on the old code and passes after.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fortinet_fleet.go",
+     "contains": "ctx, cancel := context.WithTimeout(ctx, 5*c.ConfiguredTimeout())",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_fleet_test.go",
+     "contains": "func TestBackupStalledBodyTimesOut(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "vdoms-discovered-when-unset",
+   "summary": "with no --vdoms or per-device vdoms, audit sslvpn, fleet audit, fleet health and policies hygiene check every VDOM the device lists (cmdb system/vdom); an unreadable list falls back to root and is reported (UNKNOWN vdoms-unlisted, health unreadable, hygiene vdoms_unlisted)",
+   "why": "Adversarial round 8 P1: every per-VDOM read defaulted to vdom=root, so SSL-VPN open to the internet in a non-root or split-task VDOM graded PASS and --fail-on fail exited 0, while the docs promised every VDOM. TestSSLVPNChecksEveryListedVDOM fails without the fix. Codex round 15 P2: policies hygiene human output printed the clean line with the VDOM list unreadable; it now prints UNKNOWN lines on stdout. Codex round 16 P2 (twin): unreadable hit counters also no longer print the clean line.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fortinet_fleet.go",
+     "contains": "fortiGetList(ctx, c, \"/cmdb/system/vdom\", map[string]string{\"format\": \"name\"})",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_audit_core.go",
+     "contains": "f.Code = \"vdoms-unlisted\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_fleet_test.go",
+     "contains": "func TestSSLVPNChecksEveryListedVDOM("
+    },
+    {
+     "file": "cli/internal/cli/policies_hygiene.go",
+     "contains": "for _, v := range view.VDOMsUnlisted {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_fleet_test.go",
+     "contains": "func TestHygieneHumanOutputNamesUnreadableCounters("
+    }
+   ]
+  },
+  {
+   "id": "policies-any-any-per-family-negation",
+   "summary": "policies hygiene flags any-any-accept per address family (srcaddr/dstaddr and srcaddr6/dstaddr6) and never when the matching *-negate or service-negate is enable",
+   "why": "Codex round 13 P2: a negated all matches nothing yet was flagged any-any-accept. Adversarial round 8 P2: an IPv6-only consolidated any-any policy was never flagged.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/fortios/checks.go",
+     "contains": "anyFamily(\"srcaddr6\", \"dstaddr6\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/fortios/checks_test.go",
+     "contains": "func TestPoliciesNegatedAllIsNotAnyAny("
+    }
+   ]
+  },
+  {
+   "id": "confdiff-webhook-credentials-redacted",
+   "summary": "fleet changes redacts every attribute under an http-headers table and the automation-action uri and http-body, so a rotated webhook bearer token or Slack/Teams URL is never printed",
+   "why": "Adversarial round 8 P2: header values and webhook URIs are stored as plain strings, so the old and new secret were both printed although the docs say secrets are redacted before diffing. Adversarial round 9 P2: a webhook http-body can carry an integration key (PagerDuty routing_key).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/fortios/confdiff.go",
+     "contains": "strings.HasPrefix(prefix, \"http-headers.\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/fortios/confdiff_test.go",
+     "contains": "func TestParseConfigRedactsWebhookCredentials("
+    },
+    {
+     "file": "cli/internal/fortios/confdiff.go",
+     "contains": "\"system automation-action\": {\"uri\": true, \"http-body\": true}",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "sync-default-skips-keyless-monitor-tables",
+   "summary": "generated sync.go defaultSyncResources omits the seven keyless live-state monitor tables (current-admins, router ipv4, firmware upgrade-paths, ha-checksums, user firewall, user fortitoken, wifi managed_ap); workflow archive uses the same defaultSyncResources() instead of its own hard-coded list",
+   "why": "Adversarial round 8 P2: their rows carry no id, fail the store integrity check (a critical failure) and made sync exit 1 (MCP sync isError) on every real FortiGate. A reprint regenerates sync.go with them back in the default list. Adversarial round 9 P2: workflow archive (CLI and MCP) carried a second hard-coded copy of the list and died at the 13th resource. The sync.go asserts pin, in code, the six gaps the seven removals leave in the returned list (each adjacent pair exists only once the tables are gone, and not in knownSyncResourceNames), so deleting the fix while keeping its comment fails the gate (issue #252).",
+   "status": "active",
+   "spec_encode_followup": "Encode an x-resource-id (or a no-sync marker) for these paths in cli-factory/fortinet/spec.yaml once real-device row shapes confirm a stable key.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"local_users\",\n\t\t\"monitor-license-status\",",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"monitor-log-current-disk-usage\",\n\t\t\"monitor-switch-controller-managed-switch-status\",",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"monitor-system-firmware\",\n\t\t\"monitor-system-fortiguard-server-info\",",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"monitor-system-fortiguard-server-info\",\n\t\t\"monitor-system-ha-peer\",",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"monitor-system-status\",\n\t\t\"monitor-virtual-wan-health-check\",",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"monitor-vpn-ssl-stats\",\n\t\t\"policies\",",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_fleet_test.go",
+     "contains": "func TestDefaultSyncSkipsKeylessMonitorTables("
+    },
+    {
+     "file": "cli/internal/cli/channel_workflow.go",
+     "contains": "resources := defaultSyncResources()",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "sslvpn-authentication-rule-overrides",
+   "summary": "audit sslvpn grades the global vpn.ssl/settings and every authentication-rule entry as separate listening paths and reports the worst: a source-interface, source-address (or source-address6) and negate set on a rule replace the global value for that rule, unset ones inherit it, and the global interfaces stop listening once every rule names its own source-interface; rule-level source names also reach the address-book reader",
+   "why": "The check judged only the global source restriction. Fortinet documents that a parameter set under config authentication-rule takes precedence over the same global one (community tip 96303: a rule with source-address all opens a portal whose global source-address is geo-restricted) and that a rule-level source-interface replaces the global listener set (tip 99903). So a WAN listener with a restricted global list and a rule open to any source graded WARN restricted-source, and audit sslvpn --fail-on fail exited 0 on an internet-open SSL-VPN; a rule listening on a WAN port the global list omits graded PASS. Found by the pre-merge Codex review of PR #367. TestSSLVPNAuthenticationRules failed 12 of its cases on the old code (the Codex case graded WARN, the omitted-WAN-port case PASS) and TestSSLVPNAuthenticationRuleSourceResolved failed because firewall/address was never read for a rule-level name.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/fortios/checks.go",
+     "contains": "rules := Objs(settings[\"authentication-rule\"])",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/fortios/checks.go",
+     "contains": "for _, p := range sslvpnPaths(settings) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/fortios/checks.go",
+     "contains": "if n := Names(r, \"source-interface\"); len(n) > 0 {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_audit_core.go",
+     "contains": "names4, names6 := fortios.SSLVPNSourceNames(settings)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/fortios/checks_test.go",
+     "contains": "func TestSSLVPNAuthenticationRules(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_fleet_test.go",
+     "contains": "func TestSSLVPNAuthenticationRuleSourceResolved(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "admins-wan-secondary-ip-allowaccess",
+   "summary": "audit admins (and fleet audit's admin column) count each secondaryip entry's own allowaccess as management on its WAN-role interface, unless the interface has secondary-IP disabled",
+   "why": "cmdb system/interface secondaryip[].allowaccess is a separate management access list per secondary address. The check read only the primary allowaccess, so a WAN interface allowing ping on its primary address and https or http on a secondary IP graded an admin without trusted hosts as WARN instead of FAIL and missed plaintext WAN management. Twin of the SSL-VPN authentication-rule fix (a nested entry widening exposure past the top-level setting), found while checking twins for the PR #367 Codex review. TestAdminsWANSecondaryIPManagement fails on the old code.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/fortios/checks.go",
+     "contains": "for _, sec := range Objs(it[\"secondaryip\"]) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/fortios/checks_test.go",
+     "contains": "func TestAdminsWANSecondaryIPManagement(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "x-text-above-go-2026-5970",
+   "summary": "`golang.org/x/text` is pinned at v0.42.0, above the v0.41.0 fix for GO-2026-5970 and GO-2026-6629",
+   "why": "The press emits `golang.org/x/text v0.14.0` as an indirect dependency. Versions below v0.41.0 carry GO-2026-5970 (a norm.Iter infinite loop on invalid UTF-8) and GO-2026-6629, and because a new connector's go.mod counts as introducing every version in it, the security gate scores them P1 and blocks the merge. go.mod is generated, so a reprint from a press that still emits v0.14.0 reintroduces both advisories while build and tests stay green. Same repair and ledger entry as avanan.",
+   "status": "active",
+   "spec_encode_followup": "Raise the floor on golang.org/x/text in the press module template so generated go.mod files ship above the fix by construction (same retro item as avanan).",
+   "asserts": [
+    {
+     "file": "cli/go.mod",
+     "contains": "golang.org/x/text v0.42.0",
+     "code_only": true
+    },
+    {
+     "file": "cli/go.mod",
+     "not_contains": "golang.org/x/text v0.14.0"
+    }
+   ]
+  },
+  {
+   "id": "local-store-not-vdom-scoped",
+   "summary": "a read scoped to an explicit --vdom is never answered from the local store (explicit --data-source local or the auto-mode network fallback fails closed with 'local data could not apply vdom') and never written into it; offline detail reads unescape the path segment so names with spaces resolve; sync accepts only property-only parameters (datasource, skip, with_meta) through --param, --global-param and --resource-param, refusing vdom and every row-changing key, and its flag help says so",
+   "why": "sync reads every table without a vdom parameter and rows are keyed by name, but auto-mode write-through stored VDOM-scoped live results in the same unscoped store and resolveLocal ignored params on detail reads. So after 'addresses get shared --vdom client-a', 'addresses get shared --vdom client-b --data-source local' (or the same read while the API was unreachable) returned client A's object: cross-VDOM, and on MSP boxes cross-client, data served as the answer. Found by the merge-gate Codex review of PR #367 (round 1). The same review noted that the detail lookup used the URL-escaped segment, so 'addresses get \"HQ LAN\" --data-source local' looked up HQ%20LAN and never matched. TestVDOMScopedReadsBypassLocalStore fails on the old data_source.go (the scoped live read was cached, and HQ LAN was not found offline). Round 2 found the twin: sync --param vdom=client-a (or --global-param / --resource-param) wrote client A's rows into the same store, and a --full reconcile would prune the default VDOM's rows against client A's IDs; sync now fails with a usage error before any request (TestSyncRefusesVDOMScopedParams fails on the old sync.go: all three flags were accepted and three requests sent). Round 6 found the same prune hazard for row filters: 'sync --resources addresses --full --param filter=name==office' reconciled the whole cached table against the filtered rows and deleted every other address (verified); filter, key and pattern are now refused the same way (the test's filter cases fail with that branch removed). Round 8 showed a denylist cannot close this: --param count=1 (or start, format without the primary key, exclude-default-values, action) is also a partial pass. sync now accepts only the property-only keys datasource, skip and with_meta and refuses everything else; the count, start, format, exclude-default-values and action cases fail against the denylist version. The guard logic lives in the hand-written fortinet_local_store_guard.go; data_source.go and sync.go carry only the call sites asserted here.",
+   "status": "active",
+   "spec_encode_followup": "Press: a query parameter that scopes the dataset (FortiOS vdom) should either key the store or bypass it; and the local detail read should unescape the path segment it looks up (generator defect, applies to every connector on this press version).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "if err := localStoreRefused(resourceType, params); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "if localStoreWritable(resourceType, params) {",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "not_contains": "writeThroughCache(ctx, resourceType, data)\n\t\t\treturn data, attachFreshness(DataProvenance{Source: \"live\"}, flags), nil"
+    },
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "if raw, err := url.PathUnescape(id); err == nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_local_store_guard.go",
+     "contains": "return newLocalQueryUnsupportedError([]string{\"vdom\"})",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_local_store_guard_test.go",
+     "contains": "func TestVDOMScopedReadsBypassLocalStore(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "if err := syncScopeRefused(userParams); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_local_store_guard_test.go",
+     "contains": "func TestSyncRefusesVDOMScopedParams(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_local_store_guard.go",
+     "contains": "var syncPropertyOnlyParams = map[string]bool{\"datasource\": true, \"with_meta\": true, \"skip\": true}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_local_store_guard.go",
+     "contains": "case !syncPropertyOnlyParams[canon]:",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "Only datasource, skip and with_meta are accepted",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "fleet-device-identity-includes-url",
+   "summary": "fleet audit --new history scope and fleet backup directories bind each device to its normalized API URL, so two firewalls sharing an inventory name in different devices files never share audit history or a backup directory (<device>@<url hash>), and fleet changes only diffs a firewall's backups against its own; a device whose credential fails keeps the audit scope it has when it succeeds",
+   "why": "auditScope hashed only device names, VDOM selection and the check set. Two clients' devices files that both name a box hq (common) shared one history, so the second firewall's first fleet audit --new hid every finding the first one also had as already seen. Found by the merge-gate Codex review of PR #367 (round 2). TestAuditScopeSeparatesDevicesByURL fails on the old fleet_audit.go. Round 3 found the twin in backups: fleet backup keyed directories by name alone, so two clients' hq boxes wrote into one directory and fleet changes reported client B's configuration as changes to client A's. Backups now go to <device>@<12-hex hash of the API URL>/ (safeName never emits @), fleet changes reports device_id per directory and still matches --device by name, and a directory without an identity carries a note. TestFleetBackupSeparatesFirewallsSharingAName fails with the old directory naming.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fleet_audit.go",
+     "contains": "parts = append(parts, \"d:\"+t.Name+\"|\"+t.apiURL+\"|\"+strings.Join(t.vdomList(), \",\"))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_fleet.go",
+     "contains": "failures = append(failures, fetchFailure{ID: d.Name, Error: err.Error(), vdoms: d.VDOMs, url: api})",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_fleet_test.go",
+     "contains": "func TestAuditScopeSeparatesDevicesByURL(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_fleet.go",
+     "contains": "devDir := filepath.Join(dir, backupDeviceDir(t.Name, t.apiURL))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_changes.go",
+     "contains": "name, id, _ := strings.Cut(e.Name(), \"@\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_fleet_test.go",
+     "contains": "func TestFleetBackupSeparatesFirewallsSharingAName(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "local-store-shared-tables",
+   "summary": "the generated monitor commands (resource type monitor) and settings commands (resource type settings) are never answered from the local store and never written into it: an explicit --data-source local read, or the auto-mode network fallback, fails closed naming the shared table",
+   "why": "All 28 monitor commands read and write the single resource type monitor, and all 11 settings commands the single type settings, while sync stores those endpoints under their own names that the local read never consults. So after a live 'monitor certificates', 'monitor ha-checksums --data-source local' returned the certificate rows as HA checksums (and the network fallback did the same), and FortiAnalyzer settings were served as 'settings syslog'. Found by the merge-gate Codex review of PR #367 (round 3); settings is the twin found while checking. TestSharedLocalTablesNeverAnswerLocally fails with the table list emptied; TestSharedLocalTablesCoverEveryCommand scans every generated read command and fails when a resource type spans several endpoints without being listed, so a regenerated command cannot reopen this.",
+   "status": "active",
+   "spec_encode_followup": "Press: give each monitor and settings endpoint its own resource type (the names sync already uses), so the store can partition them by construction.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fortinet_local_store_guard.go",
+     "contains": "var sharedLocalTables = map[string]bool{\"monitor\": true, \"settings\": true}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "if err := localStoreRefused(resourceType, params); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "if localStoreWritable(resourceType, params) {",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_local_store_guard_test.go",
+     "contains": "func TestSharedLocalTablesNeverAnswerLocally(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_local_store_guard_test.go",
+     "contains": "func TestSharedLocalTablesCoverEveryCommand(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "local-store-per-device",
+   "summary": "the local store key is the normalized API origin plus the credential (config.StoreScopeIdentity hook), so the same token with a different FORTINET_BASE_URL never reads another FortiGate's rows, and a credential-only store is never adopted into a device's key",
+   "why": "The generated scope key hashed only the credential and used the base URL just as a label. After caching device A, pointing FORTINET_BASE_URL at device B with the same token made 'addresses get --data-source local' (and the network fallback while B was unreachable) answer with A's rows. Keying on origin alone was not enough: the generated code adopts (moves) a store named for the credential-only key into the new key, which would hand A's rows to B on first use, so helpers.go no longer passes a legacy credential (a store is a cache; the cost is a re-sync). Found by the merge-gate Codex review of PR #367 (round 4). TestLocalStoreIsPerDevice and TestStoreScopeKeysOnOriginAndNeverAdoptsCredentialOnlyStores fail with the hook unset and the old helpers.go line; the adoption assertion alone fails with only the helpers.go line reverted.",
+   "status": "active",
+   "spec_encode_followup": "Press: for per-instance APIs (a templated or user-set base URL) include the normalized base URL in the default store scope, and never adopt a store whose origin is unrecorded.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fortinet_local_store_guard.go",
+     "contains": "config.StoreScopeIdentity = storeScopeIdentity",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_local_store_guard.go",
+     "contains": "return \"origin=\" + storeOrigin(c.BaseURL) + \"\\n\" + cred",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "setDefaultDBScopeIdentity(cfg.StoreScopeCredential(), \"\", cfg.BaseURL)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "not_contains": "setDefaultDBScopeIdentity(cfg.StoreScopeCredential(), cfg.StoreScopeLegacyCredential(), cfg.BaseURL)"
+    },
+    {
+     "file": "cli/internal/cli/fortinet_local_store_guard_test.go",
+     "contains": "func TestLocalStoreIsPerDevice(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_local_store_guard_test.go",
+     "contains": "func TestStoreScopeKeysOnOriginAndNeverAdoptsCredentialOnlyStores(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "fleet-health-human-shows-not-evaluated",
+   "summary": "the human fleet health line appends 'not evaluated: ...' when a check was skipped, so a PASS row never reads 'ok' while cpu/memory, SD-WAN or HA checksums went unevaluated (the grade is unchanged: PASS covers only evaluated signals, as documented)",
+   "why": "not_evaluated was in the JSON but the human table printed only signals, so an unrecognized resource/usage payload on an otherwise clean box printed 'PASS ... ok'. Found by the merge-gate Codex review of PR #367 (round 4). TestFleetHealthHumanOutputNamesSkippedChecks fails on the old fleet_health.go (it printed exactly 'PASS ... ok'). Round 9: certificates whose valid_to is missing or not a Unix time were dropped silently by ExpiringCerts; the collector now lists them under not_evaluated (UndatedCerts), and the same test, which serves one such certificate, fails without that change.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fleet_health.go",
+     "contains": "sig += \"; not evaluated: \" + strings.Join(r.NotEvaluated, \", \")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_fleet_test.go",
+     "contains": "func TestFleetHealthHumanOutputNamesSkippedChecks(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_health.go",
+     "contains": "if undated := fortios.UndatedCerts(certs); len(undated) > 0 {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/fortios/health_test.go",
+     "contains": "func TestUndatedCertsAreReported(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "admins-unknown-role-management",
+   "summary": "audit admins grades UNKNOWN (never PASS) when an admin open to any address (per family) has management enabled on an interface with no role or FortiOS's default role undefined, and when http or telnet is enabled on such an interface; LAN and DMZ roles are unchanged",
+   "why": "The admin check considered only WAN-role interfaces and ignored undefined-role ones, while the SSL-VPN check grades the same condition UNKNOWN. An admin with restricted IPv4 trusted hosts, MFA, unrestricted IPv6 trusted hosts (the ::/0 default) and IPv6 HTTPS management on an undefined-role interface graded PASS, and audit admins --fail-on fail exited 0. Found by the merge-gate Codex review of PR #367 (round 5). TestAdminsManagementOnUnknownRoleInterface fails on the old code (the IPv6 and plaintext cases graded PASS).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/fortios/checks.go",
+     "contains": "wan4, wan6, unknown4, unknown6 := ManagementByExposure(interfaces)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/fortios/checks.go",
+     "contains": "add(Unknown, \"admin-anywhere-mgmt-unknown-role-ipv6\", name,",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/fortios/checks.go",
+     "contains": "add(Unknown, \"plaintext-mgmt-unknown-role\", name,",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/fortios/checks_test.go",
+     "contains": "func TestAdminsManagementOnUnknownRoleInterface(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "redirects-stay-on-origin",
+   "summary": "every FortiOS client (single-device, fleet, MCP) refuses a redirect off the request's origin (another scheme, host or port) through the client hook, and the generated guard refuses an https-to-http hop, so neither the bearer token nor a configured credential header (a gateway's X-API-Key) reaches another host or travels over plain http",
+   "why": "The merge-gate Codex review of PR #367 (round 8) reported that redirects could carry the token over http. On this code that is not reachable: the generated client installs a CheckRedirect that returns ErrRedirectProtocolDowngrade for an https-to-http hop and strips Authorization when a hop leaves the origin, and the streaming client copies it. TestRedirectNeverSendsTokenOverPlainHTTP serves a real https-to-http redirect and records what reaches the plain listener: nothing. With that guard removed, the token leaked on the list, backup and audit paths (verified), so the test is not vacuous. The guard is generated code, so it is pinned here against a press regression. Round 9 found the real gap next to it: Go strips Authorization on a cross-host redirect but copies every other header, and the generated policy follows an https redirect to another public host, so a configured X-API-Key would reach it. fortinet_tls.go now wraps the redirect policy to refuse any hop off the first request's origin (default ports normalized). TestRedirectOffOriginIsRefused drives the real CheckRedirect of the single-device and fleet clients with public names (httptest is loopback, which the generated client already blocks) and fails on the old code for both clients and both targets.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if err := redirectDestinationRefused(req.URL, via); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "return ErrRedirectProtocolDowngrade",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_hardening_test.go",
+     "contains": "func TestRedirectNeverSendsTokenOverPlainHTTP(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_tls.go",
+     "contains": "refuseOffOriginRedirects(c)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_tls.go",
+     "contains": "!sameOrigin(req.URL, via[0].URL)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fortinet_hardening_test.go",
+     "contains": "func TestRedirectOffOriginIsRefused(",
+     "code_only": true
+    }
+   ]
+  }
+ ]
+}

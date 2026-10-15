@@ -89,6 +89,9 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
 - Domotz (Network Monitoring) - ask "Is anything on fire across all my sites?" - Roll up Domotz fleet health, offline devices, and asset inventory across every monitored site from the terminal.
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/domotz/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/domotz/install.sh)
+- Fortinet (Security) - ask "Give me one posture verdict across every client FortiGate, showing only findings that are new since the last run." - Audit every client FortiGate for firmware, SSL-VPN exposure, admin accounts and license expiry in one command.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/fortinet/
+  Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/fortinet/install.sh)
 - Google Workspace (Security) - ask "Which accounts across all my clients lack 2-Step Verification, with unenrolled admins first?" - Find accounts without 2SV, reclaim wasted licenses, and offboard leavers safely across every client's Google Workspace.
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/google-workspace/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/google-workspace/install.sh)

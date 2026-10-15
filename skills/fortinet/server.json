@@ -1,0 +1,112 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Servosity/fortinet-mcp",
+  "title": "Fortinet MCP",
+  "description": "Audit every client FortiGate for firmware, SSL-VPN exposure, admin accounts and license expiry.",
+  "version": "0.1.0",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/fortinet/fortinet-512x512.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/servosity/msp-skills",
+    "source": "github",
+    "subfolder": "skills/fortinet"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/fortinet-v0.1.0/fortinet-mcp.mcpb",
+      "version": "0.1.0",
+      "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "FORTINET_BASE_URL",
+          "description": "Your FortiGate's REST API root, e.g. https://203.0.113.10:8443/api/v2.",
+          "isRequired": true,
+          "isSecret": false
+        },
+        {
+          "name": "FORTINET_API_TOKEN",
+          "description": "The FortiGate REST API admin token (System > Administrators > Create New > REST API Admin). Use a read-only admin profile.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "FORTINET_DEVICES",
+          "description": "Optional. Path to a devices.toml listing every FortiGate the fleet, audit and policies hygiene commands check, each with a token_file. Leave blank to check only the FortiGate above.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "FORTINET_FMG_URL",
+          "description": "Optional. https://<fortimanager> for the read-only fmg commands. Leave blank if you do not use FortiManager.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "FORTINET_FMG_API_KEY",
+          "description": "Optional. API key of a FortiManager REST API admin (FortiManager 7.2.2 or later) for the fmg commands.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "FORTINET_CLOUD_API_USER",
+          "description": "Optional. FortiCloud IAM API user (with FortiGate Cloud portal permission) for the read-only cloud commands.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "FORTINET_CLOUD_API_PASSWORD",
+          "description": "Optional. Password of the FortiCloud IAM API user. Repeated failed logins lock the FortiCloud account for 15-30 minutes.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "FORTINET_CLOUD_REGION",
+          "description": "Optional. global (default), us, eu or jp: the region your FortiGates were provisioned in.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "FORTINET_CLOUD_ACCOUNT_ID",
+          "description": "Optional. Required only when FortiCloud Organizations are enabled.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "FORTINET_MCP_READ_ONLY",
+          "description": "Optional. Set to 1 to expose only read-only mirrored tools and refuse any non-GET execute call.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "FORTINET_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment); callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport Claude Desktop uses.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "FORTINET_USER_AGENT",
+          "description": "Optional. Overrides the User-Agent the CLI sends to your FortiGates. Leave blank to use the built-in one.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Only used when the MCP server is bound to a tenant-gated client profile. This connector registers no tenant-gated source, so leave it blank.",
+          "isRequired": false,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}

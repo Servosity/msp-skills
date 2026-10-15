@@ -696,6 +696,29 @@
         "issue_url": null
       }
     },
+    "fortinet": {
+      "system": "FortiGate firewalls (FortiOS REST API), FortiManager and FortiGate Cloud",
+      "status": "beta",
+      "cli_binary": "fortinet-cli",
+      "mcp_binary": "fortinet-mcp",
+      "vendor": "Fortinet",
+      "vendor_trademark_owner": "Fortinet, Inc",
+      "first_party": false,
+      "category": "Security",
+      "display_name": "Fortinet",
+      "tagline": "Audit every client FortiGate for firmware, SSL-VPN exposure, admin accounts and license expiry in one command.",
+      "cli_hash": "sha256:25498852c84042ac4397c2c9100ec4d8394d1b1bf34939c76de2538bf6493ad6",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "google-workspace": {
       "system": "Google Workspace Admin (Directory, Reports, Reseller, Licensing, and Data Transfer APIs) across every client domain",
       "status": "beta",
