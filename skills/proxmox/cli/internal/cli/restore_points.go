@@ -80,7 +80,7 @@ func newNovelRestorePointsCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			markSharedPBS(ctx, targets)
+			markSharedPBS(ctx, flags, targets)
 			type result struct {
 				guests []guestRestorePoints
 				fails  []fetchFailure
@@ -192,6 +192,7 @@ func collectRestorePoints(ctx context.Context, t fleetTarget, query string, veri
 	}
 	var fails []fetchFailure
 	cov, err := fetchCoverage(ctx, t.C)
+	covOK := err == nil
 	if err != nil {
 		fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "backup jobs", Error: err.Error()})
 		cov = &coverage{EnabledFor: map[int64][]string{}, DisabledFor: map[int64][]string{}}
@@ -207,11 +208,19 @@ func collectRestorePoints(ctx context.Context, t fleetTarget, query string, veri
 		clusterUnread = append(clusterUnread, "node "+n+" (offline)")
 	}
 	fails = append(fails, offlineFailures(t.Name, offline)...)
-	storages, readers, sfails := backupStorages(ctx, t.C, nodes)
+	if !covOK {
+		// Unknown jobs mean unknown targets (a dumpdir is no storage).
+		clusterUnread = append(clusterUnread, "backup jobs (their targets are unknown)")
+	}
+	storages, readers, sfails, disabled := backupStorages(ctx, t.C, nodes)
 	for _, f := range sfails {
 		f.Cluster = t.Name
 		fails = append(fails, f)
 		clusterUnread = append(clusterUnread, f.Scope)
+	}
+	for _, key := range sortedKeys(disabled) {
+		fails = append(fails, disabledFailure(t.Name, key))
+		clusterUnread = append(clusterUnread, "storage "+key+" (disabled)")
 	}
 	if err := storageListHidden(ctx, t.C); err != nil {
 		fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "backup storage", Error: err.Error()})
@@ -222,6 +231,10 @@ func collectRestorePoints(ctx context.Context, t fleetTarget, query string, veri
 		fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "storage config", Error: err.Error()})
 	}
 	refs = t.withShared(refs)
+	if len(t.sharedUnknown) > 0 && len(refs) > 0 {
+		fails = append(fails, t.sharedUnknownFailure())
+		clusterUnread = append(clusterUnread, "pbs sharing with "+strings.Join(t.sharedUnknown, ", "))
+	}
 	targets := newJobTargets(ctx, t.C, cov)
 	var nsByStore map[string][]string
 	pbsHost := t.pbsEndpoint()
@@ -241,24 +254,34 @@ func collectRestorePoints(ctx context.Context, t fleetTarget, query string, veri
 			CoveredByJobs: append([]string{}, cov.EnabledFor[vmid]...), DisabledJobs: append([]string{}, cov.DisabledFor[vmid]...)}
 		var points []restorePoint
 		notRead := append([]string{}, clusterUnread...)
+		read := map[string]bool{}             // storages whose archives were read for this guest
+		standIn := map[string]pbsStorageRef{} // read through the PBS API instead
+		pbsUnread := map[string]bool{}
 		for _, key := range sortedKeys(storages) {
 			s, node := storages[key], readers[key]
 			covered := pbsCovers(refs, s.Storage, pbsHost, nsByStore)
 			rps, err := readStorageArchives(ctx, t.C, node, s, vmid, refs, covered)
-			if errors.Is(err, errCoveredByPBS) {
-				continue // the PBS API lists these below
-			}
-			if err != nil {
-				fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "storage " + key, Error: err.Error()})
-				if !covered {
-					notRead = append(notRead, "storage "+key)
+			if err != nil && covered {
+				standIn[key] = refs[s.Storage] // the PBS API lists these below
+				if !errors.Is(err, errCoveredByPBS) {
+					fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "storage " + key, Error: err.Error() + " (its datastore is read through the PBS API instead)"})
 				}
 				continue
 			}
+			if err != nil {
+				fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "storage " + key, Error: err.Error()})
+				notRead = append(notRead, "storage "+key)
+				continue
+			}
+			read[key] = true
 			if len(rps) == 0 {
 				continue
 			}
-			marks := pruneMarks(ctx, t, node, s.Storage, vmid, g.Type, jobRetention(cov, targets, vmid, g.Node, s.Storage), &fails)
+			retention := jobRetention(cov, targets, vmid, g.Node, s.Storage)
+			if !covOK {
+				retention = retentionSpec{why: "the backup jobs could not be read, so the job retention that overrides the storage's is unknown; points left unmarked"}
+			}
+			marks := pruneMarks(ctx, t, node, s.Storage, vmid, g.Type, retention, &fails)
 			for i := range rps {
 				rps[i].PruneMark = marks[fmt.Sprintf("%s@%d", rps[i].Volume, rps[i].Time)]
 			}
@@ -271,6 +294,7 @@ func collectRestorePoints(ctx context.Context, t fleetTarget, query string, veri
 				if err != nil {
 					fails = append(fails, fetchFailure{Cluster: t.Name, Scope: pbsSourceLabel(store, ns), Error: err.Error()})
 					notRead = append(notRead, pbsSourceLabel(store, ns))
+					pbsUnread[pbsSourceLabel(store, ns)] = true
 					continue
 				}
 				for _, s := range snaps {
@@ -279,6 +303,12 @@ func collectRestorePoints(ctx context.Context, t fleetTarget, query string, veri
 					}
 				}
 			}
+		}
+		// A covering job's target that was not read (a dumpdir, a hidden or
+		// failed storage, a failed PBS stand-in) may hold this guest's points.
+		pbsStandIns(standIn, pbsUnread, read)
+		for _, gap := range jobStorageGaps(cov, vmid, g.Node, read, targets) {
+			notRead = append(notRead, gap.String())
 		}
 		points = dedupeRestorePoints(points)
 		kept := make([]restorePoint, 0, len(points))

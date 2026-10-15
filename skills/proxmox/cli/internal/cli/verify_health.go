@@ -211,6 +211,9 @@ func collectVerifyHealth(ctx context.Context, t fleetTarget, onlyStore string, n
 			fails = append(fails, n)
 		}
 	}
+	if err := pbsDatastoreListHidden(ctx, t.C); err != nil {
+		fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "pbs datastores", Error: err.Error()})
+	}
 	attribution := ""
 	if untied {
 		attribution = "untied"

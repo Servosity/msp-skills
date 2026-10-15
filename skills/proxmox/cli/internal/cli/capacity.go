@@ -160,6 +160,11 @@ func collectCapacity(ctx context.Context, t fleetTarget, now time.Time, margin f
 	pbsHost := t.pbsEndpoint()
 	pbsRowFor := map[string]bool{} // datastores that got an authoritative PBS row
 	if t.C.PBSConfigured() {
+		// PBS reports usage only for the datastores the token may audit: a
+		// hidden one could be the one filling up.
+		if err := pbsDatastoreListHidden(ctx, t.C); err != nil {
+			fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "pbs datastores", Error: err.Error()})
+		}
 		var usage []struct {
 			Store     string   `json:"store"`
 			Total     flexInt  `json:"total"`
@@ -269,7 +274,7 @@ func collectCapacity(ctx context.Context, t fleetTarget, now time.Time, margin f
 		fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "pve nodes", Error: err.Error()})
 		return rows, fails, nil
 	}
-	storages, readers, sfails := backupStorages(ctx, t.C, nodes)
+	storages, readers, sfails, _ := backupStorages(ctx, t.C, nodes) // a disabled storage takes no backups
 	if len(storages) == 0 && len(sfails) > 0 && len(rows) == 0 {
 		return nil, nil, fmt.Errorf("no backup storage could be read on this cluster: %s", sfails[0].Error) // no capacity evidence at all
 	}

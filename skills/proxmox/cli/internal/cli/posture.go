@@ -150,7 +150,7 @@ func newNovelPostureCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			markSharedPBS(ctx, targets)
+			markSharedPBS(ctx, flags, targets)
 			results, failures := runFleet(ctx, targets, func(ctx context.Context, t fleetTarget) (clusterPosture, error) {
 				return collectPosture(ctx, t, opts)
 			})
@@ -258,13 +258,27 @@ func collectPosture(ctx context.Context, t fleetTarget, o postureOpts) (clusterP
 	points := map[int64][]restorePoint{}
 	// archivesIncomplete: some archive source was not read, so a newer (or
 	// failed) restore point may be unseen and "fresh" cannot be asserted.
-	storages, readers, sfails := backupStorages(ctx, t.C, nodes)
+	storages, readers, sfails, disabled := backupStorages(ctx, t.C, nodes)
 	archivesIncomplete := len(sfails) > 0 || len(offline) > 0
 	readStorage := map[string]bool{} // storage IDs whose archives were read
 	storageUnread := false           // a non-PBS storage that is no job's target here could not be read
 	for _, f := range sfails {
 		f.Cluster = t.Name
 		out.failures = append(out.failures, f)
+	}
+	for _, key := range sortedKeys(disabled) {
+		// It takes no new backups, but may hold older points (and a PBS one
+		// verify state).
+		out.failures = append(out.failures, disabledFailure(t.Name, key))
+		if disabled[key].Type == "pbs" {
+			archivesIncomplete = true
+		} else {
+			storageUnread = true
+		}
+	}
+	if len(t.sharedUnknown) > 0 && len(refs) > 0 {
+		archivesIncomplete = true
+		out.failures = append(out.failures, t.sharedUnknownFailure())
 	}
 	// Proxmox VE lists a storage only to a token that may see it: a hidden one
 	// may hold this cluster's archives (and verify state), so nothing is green.

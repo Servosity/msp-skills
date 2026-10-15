@@ -108,7 +108,9 @@ hosts before any request is built.
 - **One PBS namespace (or datastore) per client cluster** on a shared Backup
   Server. VMIDs repeat across clusters; where two configured clusters write
   the same namespace, the skill reports it and counts none of those restore
-  points for either.
+  points for either. The check covers every configured cluster, even when
+  `--cluster` or `--client` narrows the report; a cluster that cannot be read
+  is checked against the PBS host its clusters.toml entry names.
 - **One token per client cluster**, referenced by env var name in
   `clusters.toml`, so revoking one client never touches another.
 - **Pin every certificate** with its SHA-256 fingerprint.
