@@ -30,10 +30,12 @@
     mcp-tools-list
                   tools/list returns at least one tool.
     mcp-sibling-cli
-                  one tools/call to a tool that SHELLS OUT to the companion CLI
-                  (workflow_status, which every connector has and which works
-                  offline against an empty local store). It must not answer
-                  "companion CLI binary not found" or an exec failure. The
+                  one tools/call to workflow_status, a tool the server answers
+                  by SHELLING OUT to the companion CLI (`<cli> workflow
+                  status`, which every connector has and which works offline
+                  against an empty local store). It must succeed with output:
+                  any error - "companion CLI binary not found", an exec
+                  failure, access denied - fails the check. The
                   server is launched from a different working directory with its
                   own directory removed from PATH, so only the sibling-of-
                   executable lookup (the one that needs "<x>-cli.exe") can find
@@ -122,9 +124,13 @@ function Test-IsMap { param($Value) return ($Value -is [System.Collections.IDict
 
 # Works for a Hashtable (PowerShell 7), a generic Dictionary (5.1's
 # JavaScriptSerializer) and anything else: a missing key or a non-map is $null.
+# The leading comma matters: PowerShell unrolls an array on its way out of a
+# function, so a one-element array (an MCP reply's usual one-item `content`,
+# a one-tool tools/list) would otherwise come back as its single element and
+# stop looking like a list.
 function Get-Key {
   param($Map, [string]$Key)
-  if ((Test-IsMap $Map) -and ($Map.Keys -ccontains $Key)) { return $Map[$Key] }
+  if ((Test-IsMap $Map) -and ($Map.Keys -ccontains $Key)) { return , ($Map[$Key]) }
   return $null
 }
 
@@ -402,26 +408,17 @@ if ($serverCommand) {
     if (Test-IsList $tools) { $count = $tools.Count }
     Add-Result "mcp-tools-list" ($count -gt 0) ("{0} tool(s)" -f $count)
 
-    # Pick the shell-out tool. workflow_status mirrors `<cli> workflow status`,
-    # which every connector has and which answers offline from the local store.
-    # Without it, fall back to any read-only Cobra mirror (tools the server
-    # runs by shelling out carry the pp:tenant-gate "child-cli" meta) that takes
-    # no required argument.
+    # The shell-out tool. workflow_status mirrors `<cli> workflow status`,
+    # which every connector has and which answers offline from the local store,
+    # so it has exactly one healthy outcome: success with output. No fallback
+    # to some other tool: a tool that may legitimately error offline cannot
+    # tell "the CLI ran and said no" from "the CLI never started" (fail closed).
     $pick = $null
-    $strict = $false
     if ($count -gt 0) {
-      foreach ($t in $tools) { if ((Get-Key $t "name") -eq "workflow_status") { $pick = "workflow_status"; $strict = $true; break } }
-      if (-not $pick) {
-        foreach ($t in $tools) {
-          $meta = Get-Key $t "_meta"; $ann = Get-Key $t "annotations"
-          $req = Get-Key (Get-Key $t "inputSchema") "required"
-          $noReq = ($null -eq $req) -or ((Test-IsList $req) -and $req.Count -eq 0)
-          if ((Get-Key $meta "pp:tenant-gate") -eq "child-cli" -and (Get-Key $ann "readOnlyHint") -eq $true -and $noReq) { $pick = Get-Key $t "name"; break }
-        }
-      }
+      foreach ($t in $tools) { if ((Get-Key $t "name") -eq "workflow_status") { $pick = "workflow_status"; break } }
     }
     if (-not $pick) {
-      Add-Result "mcp-sibling-cli" $false "no read-only tool that shells out to the companion CLI is listed, so the sibling lookup cannot be exercised"
+      Add-Result "mcp-sibling-cli" $false "tools/list has no workflow_status tool, so the companion-CLI shell-out cannot be exercised"
     } else {
       $call = New-Message 3 ('{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"' + $pick + '","arguments":{}}}')
       $c = Invoke-McpSession -Server $serverCommand -ServerDir $serverDir -Messages @($initialize, $initialized, $call)
@@ -441,8 +438,10 @@ if ($serverCommand) {
         Add-Result "mcp-sibling-cli" $false ("tools/call $pick returned a protocol error: " + ($c.Log | Select-Object -Last 1))
       } elseif ($notFound) {
         Add-Result "mcp-sibling-cli" $false ("$pick could not run the companion CLI: $brief")
-      } elseif ($strict -and $isError) {
-        Add-Result "mcp-sibling-cli" $false ("$pick ran the companion CLI but it failed: $brief")
+      } elseif ($isError) {
+        Add-Result "mcp-sibling-cli" $false ("$pick answered an error: $brief")
+      } elseif (-not $body) {
+        Add-Result "mcp-sibling-cli" $false ("$pick returned no text; the companion CLI printed nothing")
       } else {
         Add-Result "mcp-sibling-cli" $true ("{0} shelled out to {1}.exe via the sibling lookup -> {2}" -f $pick, $CliName, $brief)
       }
