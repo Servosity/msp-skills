@@ -16,7 +16,7 @@ func newPbsNodesNetworkCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:     "network <node>",
-		Short:   "List all datastores. Required privilege: Sys.Audit on /system/network/interfaces",
+		Short:   "List network interfaces. Required privilege: Sys.Audit on /system/network/interfaces",
 		Example: "  proxmox-cli pbs-nodes network localhost",
 		Args: func(cmd *cobra.Command, args []string) error {
 			return endpointPositionalArgs(cmd, flags, args, cobra.MaximumNArgs(1))

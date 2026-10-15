@@ -16,7 +16,7 @@ func newPbsAccessTfaGetCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "tfa-get <userid>",
-		Short: "Add a TOTP secret to the user. Required privilege: Permissions.Modify on /access/users or the user named by {userid}",
+		Short: "List a user's TFA entries (types and descriptions; no secrets). Required privilege: Permissions.Modify on /access/users or the user named by {userid}",
 		Args: func(cmd *cobra.Command, args []string) error {
 			return endpointPositionalArgs(cmd, flags, args, cobra.MaximumNArgs(1))
 		},

@@ -91,6 +91,17 @@ func init() {
 	})
 }
 
+// clusterStoreScope keys the local store by the selected clusters.toml entry:
+// VMIDs collide across clusters, so one shared store would overwrite one
+// client's rows with another's and answer for an unreachable cluster with
+// another client's data.
+func clusterStoreScope() string {
+	if name := strings.TrimSpace(selectedCluster); name != "" {
+		return "proxmox-cluster:" + name
+	}
+	return ""
+}
+
 func clustersPath() (string, error) {
 	if p := strings.TrimSpace(cliutil.EnvOverride("PROXMOX_CLUSTERS_FILE")); p != "" {
 		return p, nil

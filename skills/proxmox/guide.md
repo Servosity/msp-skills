@@ -156,7 +156,7 @@ proxmox-cli backup coverage --cluster acme
 ### PBS health
 - **`verify-health`**  -  Per PBS datastore and backup group: failed, never-verified and outdated snapshots, first failure, newest verified-good point, and namespaces no verify job reaches. Needs the PBS API.
 
-  _Use when verify failures appear, to see how far they spread and which groups still have a good restore point. Needs PROXMOX_PBS_HOST and PROXMOX_PBS_API_TOKEN (or pbs_host in clusters.toml); empty groups with a non-empty skipped_clusters means nothing was checked, not that nothing failed._
+  _Use when verify failures appear, to see how far they spread and which groups still have a good restore point. Needs PROXMOX_PBS_HOST and PROXMOX_PBS_API_TOKEN (or pbs_host in clusters.toml); skipped_clusters lists clusters with no PBS host, which were not checked, and exit 5 means no cluster was checked at all; healthy groups are listed only with --all._
 
   ```bash
   proxmox-cli verify-health --agent
@@ -844,7 +844,7 @@ Required privilege: any authenticated user
 - **`proxmox-cli pbs-access tfa`** - List user TFA configuration.
 
 Required privilege: Returns all or just the logged-in user, depending on privileges.
-- **`proxmox-cli pbs-access tfa-get`** - Add a TOTP secret to the user.
+- **`proxmox-cli pbs-access tfa-get`** - List a user's TFA entries (types and descriptions; no secrets).
 
 Required privilege: Permissions.Modify on /access/users or the user named by {userid}
 - **`proxmox-cli pbs-access tfa-id-get`** - Get a single TFA entry.
@@ -873,7 +873,7 @@ Required privilege: Sys.Modify on /system/certificates
 - **`proxmox-cli pbs-config acme-account-get`** - Return existing ACME account information.
 
 Required privilege: Sys.Modify on /system/certificates
-- **`proxmox-cli pbs-config acme-challenge-schema`** - Get named known ACME directory endpoints.
+- **`proxmox-cli pbs-config acme-challenge-schema`** - Get the ACME challenge plugin schema.
 
 Required privilege: any authenticated user
 - **`proxmox-cli pbs-config acme-directories`** - Get named known ACME directory endpoints.
@@ -1052,7 +1052,7 @@ Required privilege: any authenticated user
 
 Required privilege: Sys.Audit on /system/log
 - **`proxmox-cli pbs-nodes list`** - List Nodes (only for compatibility)
-- **`proxmox-cli pbs-nodes network`** - List all datastores.
+- **`proxmox-cli pbs-nodes network`** - List network interfaces.
 
 Required privilege: Sys.Audit on /system/network/interfaces
 - **`proxmox-cli pbs-nodes network-get`** - Read a network interface configuration.
@@ -1533,7 +1533,7 @@ This CLI is designed for AI agent consumption:
 - **Offline-friendly** - sync/search commands can use the local SQLite store when available
 - **Agent-safe by default** - no colors or formatting unless `--human-friendly` is set
 
-Exit codes: `0` success, `1` gate tripped (`posture --fail-on-red`, `doctor --fail-on`, a failed `clusters check`), `2` usage error, `3` not found, `4` auth error, `5` API error, `7` rate limited, `10` config error.
+Exit codes: `0` success, `1` gate tripped (`posture --fail-on-red`, `doctor --fail-on`, a failed `clusters check`), `2` usage error, `3` not found, `4` auth error, `5` API error, `7` rate limited, `10` config error. The fleet commands (posture, backup coverage, verify-health, failures, capacity, restore-points, rpo) report a rejected token as that cluster's fetch failure and exit 5 when no cluster answered, never 4.
 
 ## Runtime Endpoint
 

@@ -4185,6 +4185,9 @@ func configureDefaultDBScope(configPath string) {
 		return
 	}
 	setDefaultDBScopeIdentity(cfg.StoreScopeCredential(), cfg.StoreScopeLegacyCredential(), cfg.BaseURL)
+	if scope := clusterStoreScope(); scope != "" { // proxmox hand-fix (per-cluster-store): one local store per clusters.toml entry
+		setDefaultDBScopeIdentity(scope, "", "")
+	}
 }
 
 func setDefaultDBScopeIdentity(credential, legacyCredential, baseURL string) {

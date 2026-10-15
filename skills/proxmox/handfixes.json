@@ -365,6 +365,66 @@
      "contains": "func redactSecretFields(body []byte) []byte {"
     }
    ]
+  },
+  {
+   "id": "mcp-read-only-hints",
+   "summary": "proxmox_execute and the posture recipe tool advertise readOnlyHint=true / destructiveHint=false (mcp-go defaults a tool to destructive)",
+   "why": "Every code-orchestration endpoint is a GET and execute refuses anything else (code-orch-get-only), but the generated tools carried mcp-go's default hints, so an MCP client gating on hints treated every Proxmox read as a destructive write. Found by adversarial round 7; internal/mcp/read_only_hints_test.go pins it.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "proxmox hand-fix (mcp-read-only-hints)"
+    },
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "contains": "proxmox hand-fix (mcp-read-only-hints)"
+    },
+    {
+     "file": "cli/internal/mcp/read_only_hints_test.go",
+     "contains": "func TestToolsAdvertiseReadOnly("
+    }
+   ]
+  },
+  {
+   "id": "upstream-description-slips",
+   "summary": "Three upstream apidoc summaries that name the wrong operation are corrected in the generated command, the MCP endpoint table, SKILL.md and guide.md",
+   "why": "proxmox-backup's doc comments put 'Add a TOTP secret to the user' over the GET that lists a user's TFA entries, 'List all datastores' over the network-interface list, and 'Get named known ACME directory endpoints' over the challenge-schema read. In a read-only connector the first reads as a secret-writing call. A reprint from the same apidoc brings them back.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/pbs_access_tfa-get.go",
+     "contains": "List a user's TFA entries (types and descriptions; no secrets)."
+    },
+    {
+     "file": "cli/internal/cli/pbs_nodes_network.go",
+     "contains": "List network interfaces. Required privilege"
+    },
+    {
+     "file": "cli/internal/cli/pbs_config_acme-challenge-schema.go",
+     "contains": "Get the ACME challenge plugin schema."
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "not_contains": "Add a TOTP secret to the user"
+    }
+   ]
+  },
+  {
+   "id": "per-cluster-store",
+   "summary": "configureDefaultDBScope keys the local store by the selected clusters.toml entry (--cluster / PROXMOX_CLUSTER), so each client cluster has its own data.db",
+   "why": "The generated store scope comes from the env/config credential, fixed before the selected cluster's token is applied, so every --cluster wrote into one store: colliding VMIDs overwrote another client's rows, and an unreachable cluster's read fell back to another client's data labelled source=local. Found by adversarial round 7; TestLocalStoreIsPerCluster pins it.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "proxmox hand-fix (per-cluster-store)"
+    },
+    {
+     "file": "cli/internal/cli/clusters.go",
+     "contains": "func clusterStoreScope() string {"
+    }
+   ]
   }
  ]
 }

@@ -37,6 +37,9 @@ func RegisterIntents(s *server.MCPServer) {
 		opts := []mcplib.ToolOption{
 			mcplib.WithDescription("One row per client with counts of fresh, stale, never and uncovered guests."),
 			mcplib.WithOpenWorldHintAnnotation(true),
+			// proxmox hand-fix (mcp-read-only-hints): posture only reads.
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
 		}
 		if !recipeDestinationBlocked(recipePath, "by-client") {
 			opts = append(opts, mcplib.WithBoolean("by_client", mcplib.Description("Override the recipe's --by-client value.")))

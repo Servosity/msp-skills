@@ -165,12 +165,12 @@ proxmox-cli clusters list
 
 | Question your MSP keeps asking | Command |
 | --- | --- |
-| Which client VMs don't have a good, recent, verified backup? | `proxmox-cli posture --only problems --agent` |
+| Which client VMs lack a good, recent backup (verified, where it is on PBS)? | `proxmox-cli posture --only problems --agent` |
 | Which VMs or disks are in no enabled backup job? | `proxmox-cli backup coverage --include-disks --agent` |
 | What failed or stopped part-way overnight, by guest, with the error line? | `proxmox-cli failures --since 24h --agent` |
 | How far has a PBS verify failure spread? | `proxmox-cli verify-health --agent` |
 | Which backup datastores fill up within 30 days? | `proxmox-cli capacity --within 30d --agent` |
-| Can we restore VM 104, and from which verified points? | `proxmox-cli restore-points "104" --verified-only --agent` |
+| Which PBS-verified restore points does VM 104 have? | `proxmox-cli restore-points "104" --verified-only --agent` |
 | Did every scheduled backup produce a restore point this month, per client? | `proxmox-cli rpo --days 30 --by-client --csv` |
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
@@ -179,7 +179,7 @@ Full command reference: [guide.md](./guide.md). For the AI-agent operating contr
 
 Most Proxmox MCP servers are built to operate one cluster: list VMs, start and stop them, take snapshots, with the dangerous actions behind a flag. Many MSPs will never hand an AI agent that token. This one sends Proxmox nothing but reads (HTTP GET), so there is no write command to misfire, and with backups on Proxmox Backup Server both tokens can be audit-only.
 
-The answer is the join. "Is this VM backed up?" needs four things Proxmox keeps in different places: whether an *enabled* job includes it, the newest real archive on any backup storage, whether Proxmox Backup Server verified that archive, and what the last vzdump task log said about that guest. `posture` and `backup coverage` do that join for every guest across every client cluster, `failures` and `rpo` for every guest a job touches, and all of them read live on every run. For inventory questions, `sync` keeps a **local SQLite mirror** with full-text search.
+The answer is the join. "Is this VM backed up?" needs four things Proxmox keeps in different places: whether an *enabled* job includes it, the newest real archive on any backup storage, whether Proxmox Backup Server verified that archive, and what the last vzdump task log said about that guest. `posture` does that join for every guest across every client cluster (`backup coverage` answers the first part: which guests and disks no enabled job includes), `failures` and `rpo` cover every guest a job touches, and all of them read live on every run. For inventory questions, `sync` keeps a **local SQLite mirror** with full-text search.
 
 ## The pain this closes
 
@@ -215,7 +215,7 @@ Your data stays on **your machine**. The CLI and MCP server are local binaries. 
 
 ### Can the AI stop, change or delete anything on my Proxmox hosts?
 
-No. The CLI and MCP server only contain read (GET) calls to Proxmox VE and Proxmox Backup Server; there is no command that starts, stops, migrates, restores, prunes or deletes anything. The only writes are local files: the cluster list, a saved token, the local mirror (which the per-endpoint read commands also update), the agent learning store, and a response cache of raw API answers (owner-only files; the backup commands never answer from it). One side effect to know: reading a storage's status lets Proxmox mount an enabled storage, which its own status daemon already does every 10 seconds.
+No. The CLI and MCP server only contain read (GET) calls to Proxmox VE and Proxmox Backup Server; there is no command that starts, stops, migrates, restores, prunes or deletes anything. The only writes are local files: the cluster list, a saved token, the local mirror (which the per-endpoint read commands also update), the agent learning store, and a response cache of raw API answers (owner-only files; posture, backup coverage, verify-health, failures, capacity, restore-points and rpo never answer from it, while the per-endpoint read commands may for up to 5 minutes unless you pass `--no-cache`). Secret-named fields, such as a third-party storage plugin's password in the storage config, are redacted before anything is cached, stored or shown, and each `--cluster` keeps its own local store. One side effect to know: reading a storage's status lets Proxmox mount an enabled storage, which its own status daemon already does every 10 seconds.
 
 ### What API token does it need?
 
@@ -227,7 +227,7 @@ No, and there is no option to. Pin the certificate's SHA-256 fingerprint (shown 
 
 ### How do I cover many client clusters?
 
-Add one entry per client with `proxmox-cli clusters add`: its PVE host, optional PBS host and namespace, certificate fingerprints, and the names of the environment variables that hold its tokens (never the tokens themselves). The fleet commands then run across every configured cluster; `--cluster` or `--client` narrows to one. For an MCP client, add those token variables to the MCP server's `env` block too. On a shared Backup Server, give each client cluster its own PBS namespace (or datastore) and declare it as that entry's `pbs_namespace`: VMIDs repeat across clusters, so where two clusters write the same namespace the CLI cannot tell whose `vm/100` a snapshot is, reports the overlap, and does not count those restore points. A cluster that cannot be read is assumed to write anywhere in its declared `pbs_namespace`, or anywhere on its PBS when it declares none, so declaring one keeps a client outage from hiding the others' backups.
+Add one entry per client with `proxmox-cli clusters add`: its PVE host, optional PBS host and namespace, certificate fingerprints, and the names of the environment variables that hold its tokens (never the tokens themselves). The fleet commands then run across every configured cluster; `--cluster` or `--client` narrows to one. For an MCP client, add those token variables to the MCP server's `env` block too. On a shared Backup Server, give each client cluster its own PBS namespace and declare it as that entry's `pbs_namespace` (a separate datastore per client is not enough on its own: only a declared namespace scopes a cluster that cannot be read): VMIDs repeat across clusters, so where two clusters write the same namespace the CLI cannot tell whose `vm/100` a snapshot is, reports the overlap, and does not count those restore points. A cluster that cannot be read is assumed to write anywhere in its declared `pbs_namespace`, or, when it declares none, anywhere on its PBS (on any PBS, if its entry names none), so declaring one keeps a client outage from hiding the others' backups.
 
 ### What does it cost?
 
