@@ -51,8 +51,8 @@ func newNovelCapacityCmd(flags *rootFlags) *cobra.Command {
 			"Do NOT use this command for verify failures or corrupt chunks; use 'verify-health' instead.\n\n" +
 			"Flags: gc-deadlock-risk (free space below --gc-margin while the last garbage collection failed or never ran: GC needs " +
 			"free space to run, so the datastore can no longer clean itself), unpruned (no prune job and no keep-* retention on " +
-			"the datastore), filling (estimated full within --within), no-forecast (a PVE storage: only PBS forecasts days to full, so " +
-			"PVE storage is always listed, --within included, and judged by used_pct), nearly-full (free space below --gc-margin). " +
+			"the datastore), filling (estimated full within --within), no-forecast (a PVE storage, or a PBS datastore with under a week " +
+			"of usage history: nothing forecasts its days to full, so it is always listed, --within included, and judged by used_pct), nearly-full (free space below --gc-margin). " +
 			"PBS forecasts come from its own linear regression over the last month.",
 		Example: strings.Trim(`
   proxmox-cli capacity --within 30d
@@ -209,6 +209,10 @@ func collectCapacity(ctx context.Context, t fleetTarget, now time.Time, margin f
 				d := math.Round(time.Unix(est, 0).Sub(now).Hours()/24*10) / 10
 				row.DaysToFull = &d
 				row.EstimatedFullAt = unixRFC3339(est)
+			} else if est == 0 {
+				// PBS has no estimate yet (under a week of samples): unknown, so
+				// --within must keep it.
+				row.Flags = append(row.Flags, "no-forecast")
 			}
 			for _, g := range gcs {
 				if g.Store == u.Store {

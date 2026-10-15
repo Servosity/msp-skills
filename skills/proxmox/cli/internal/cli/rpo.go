@@ -239,9 +239,19 @@ func collectRPO(ctx context.Context, t fleetTarget, start, now time.Time, onlyVM
 			fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "pbs attribution", Error: warning})
 		}
 	}
+	standIn := map[string]pbsStorageRef{} // storages the PBS API reads instead of their PVE list
+	pbsUnread := map[string]bool{}        // PBS sources (pbsSourceLabel) whose snapshot list failed
 	for _, key := range sortedKeys(storages) {
 		s := storages[key]
-		rps, err := readStorageArchives(ctx, t.C, readers[key], s, onlyVMID, refs, pbsCovers(refs, s.Storage, t.pbsEndpoint(), nsByStore))
+		covered := pbsCovers(refs, s.Storage, t.pbsEndpoint(), nsByStore)
+		rps, err := readStorageArchives(ctx, t.C, readers[key], s, onlyVMID, refs, covered)
+		if err != nil && covered {
+			standIn[key] = refs[s.Storage]
+			if !errors.Is(err, errCoveredByPBS) {
+				fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "storage " + key, Error: err.Error() + " (its datastore is read through the PBS API instead)"})
+			}
+			continue
+		}
 		if err != nil {
 			pointsIncomplete = true
 			fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "storage " + key, Error: err.Error()})
@@ -262,6 +272,7 @@ func collectRPO(ctx context.Context, t fleetTarget, start, now time.Time, onlyVM
 				snaps, err := pbsSnapshots(ctx, t.C, store, ns, params)
 				if err != nil {
 					pointsIncomplete = true
+					pbsUnread[pbsSourceLabel(store, ns)] = true
 					fails = append(fails, fetchFailure{Cluster: t.Name, Scope: pbsSourceLabel(store, ns), Error: err.Error()})
 					continue
 				}
@@ -289,6 +300,7 @@ func collectRPO(ctx context.Context, t fleetTarget, start, now time.Time, onlyVM
 		}
 		runsByJob[job.ID] = runs
 	}
+	pbsStandIns(standIn, pbsUnread, readStorage)
 	targets := newJobTargets(ctx, t.C, cov)
 	allGaps := map[storageGap]bool{}
 	var rows []rpoRow

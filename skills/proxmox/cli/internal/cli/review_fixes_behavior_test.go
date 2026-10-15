@@ -443,7 +443,26 @@ func TestPostureUnreadStorageIsNotGreen(t *testing.T) {
 	defer srv.Close()
 	t.Setenv("PROXMOX_BASE_URL", srv.URL+"/api2/json")
 	t.Setenv("PROXMOX_TLS_FINGERPRINT", client.CertFingerprint(srv.Certificate()))
+	// With the PBS API, pbs1's datastore is still read in full: 100 is fresh
+	// from it, and the failed PVE list of pbs1 is reported, not counted.
 	out, _, err := runCLI(t, "posture", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rep := decodeJSON[postureReport](t, out)
+	if e := failureByScope(rep.FetchFailures)["storage pbs1"]; !strings.Contains(e, "read through the PBS API instead") {
+		t.Errorf("the failed pbs1 PVE list must be reported as stood in for: %+v", rep.FetchFailures)
+	}
+	for _, r := range rep.Rows {
+		if r.VMID == 100 && r.Verdict != "fresh" {
+			t.Errorf("100 has a fresh point the PBS API read: %s %q", r.Verdict, r.Reason)
+		}
+	}
+	// Without it nothing was read, so nothing is fresh.
+	t.Setenv("PROXMOX_PBS_HOST", "")
+	t.Setenv("PROXMOX_PBS_API_TOKEN", "")
+	t.Setenv("PROXMOX_PBS_TLS_FINGERPRINT", "")
+	out, _, err = runCLI(t, "posture", "--json")
 	if err != nil {
 		t.Fatal(err)
 	}
