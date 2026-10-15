@@ -188,9 +188,9 @@ func newNovelVerifyHealthCmd(flags *rootFlags) *cobra.Command {
 				fmt.Fprintln(cmd.OutOrStdout())
 				grows := make([][]string, 0, len(rep.Groups))
 				for _, g := range rep.Groups {
-					grows = append(grows, []string{g.Store, g.Namespace, g.Group, g.Status, fmt.Sprint(g.Failed), fmt.Sprint(g.NeverVerified), g.NewestVerifiedOKAt})
+					grows = append(grows, []string{g.Store, g.Namespace, g.Group, g.Status, fmt.Sprint(g.Failed), fmt.Sprint(g.NeverVerified), g.NewestVerifiedOKAt, g.Attribution})
 				}
-				return flags.printTable(cmd, []string{"STORE", "NS", "GROUP", "STATUS", "FAILED", "NEVER", "NEWEST VERIFIED OK"}, grows)
+				return flags.printTable(cmd, []string{"STORE", "NS", "GROUP", "STATUS", "FAILED", "NEVER", "NEWEST VERIFIED OK", "ATTRIBUTION"}, grows)
 			}
 			return nil
 		},

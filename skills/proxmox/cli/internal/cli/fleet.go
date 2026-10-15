@@ -55,9 +55,9 @@ type pbsOwnership struct {
 
 type peerScope struct {
 	name, pve string
-	svcs      []string // the PBS services it uses (see pbsServices); none known for an unknown peer = any PBS
-	stores    []string // the datastores it writes to there; nil = any (unknown peers)
-	ns        string   // the subtree it owns; "" = any namespace (unknown peers only)
+	svcs      []string            // the PBS services it uses (see pbsServices); none known for an unknown peer = any PBS
+	stores    map[string][]string // per PBS service: the datastores it writes to there; nil = any (unknown peers)
+	ns        string              // the subtree it owns; "" = any namespace (unknown peers only)
 	unknown   bool
 }
 
@@ -66,8 +66,14 @@ func (o *pbsOwnership) covers(p peerScope, ref pbsStorageRef, ns string) bool {
 	if !p.anyPBS() && !overlaps(p.svcs, o.svc.of(ref.server, ref.fingerprint)) {
 		return false
 	}
-	if p.stores != nil && !slices.Contains(p.stores, ref.datastore) {
-		return false
+	if p.stores != nil {
+		hit := false
+		for _, g := range o.svc.of(ref.server, ref.fingerprint) {
+			hit = hit || slices.Contains(p.stores[g], ref.datastore)
+		}
+		if !hit {
+			return false
+		}
 	}
 	return p.ns == "" || inNamespace(ns, p.ns)
 }
@@ -276,7 +282,7 @@ var (
 	coverageKeep = []string{"rows", "fetch_failures", "uncovered_guests", "guests_checked", "cluster", "vmid", "name", "disk", "reason", "detail", "disabled_jobs", "disagrees_with_upstream"}
 	verifyKeep   = []string{"stores", "groups", "skipped_clusters", "fetch_failures", "cluster", "store", "namespace", "group", "status", "snapshots", "failed", "never_verified", "outdated", "first_failure_at", "newest_verified_ok_at", "newest_is_bad", "failing_groups", "failed_snapshots", "never_verified_snapshots", "gc_still_bad_chunks", "namespaces_without_verify_job", "attribution"}
 	failuresKeep = []string{"rows", "fetch_failures", "scanned_tasks", "logs_read", "log_cap_hit", "note", "cluster", "product", "type", "target", "vmid", "guest_name", "result", "reason", "upid", "started_at", "attribution"}
-	capacityKeep = []string{"rows", "fetch_failures", "cluster", "kind", "name", "node", "used_pct", "days_to_full", "estimated_full_at", "gc_last_state", "gc_pending_bytes", "prune_jobs", "flags"}
+	capacityKeep = []string{"rows", "fetch_failures", "cluster", "kind", "name", "node", "used_pct", "days_to_full", "estimated_full_at", "gc_last_state", "gc_pending_bytes", "prune_jobs", "flags", "attribution"}
 	restoreKeep  = []string{"query", "guests", "fetch_failures", "cluster", "vmid", "name", "covered_by_jobs", "count", "newest_at", "newest_verified_ok_at", "restore_points", "backup_time", "source", "verify_state", "protected", "encrypted", "prune_mark", "evidence", "not_read"}
 	rpoKeep      = []string{"rows", "clients", "fetch_failures", "days", "window_start", "tenant", "cluster", "vmid", "name", "missed_runs", "scheduled_runs", "missed_run_times", "largest_gap_hours", "verified_ok_days", "met_schedule", "window_capped", "note", "guests", "guests_met_schedule", "worst_gap_hours", "evidence", "points_unread", "guests_unproven", "missed_runs_unproven", "guests_without_restore_points", "clusters_unreachable"}
 )
@@ -720,10 +726,16 @@ func backupStorages(ctx context.Context, c *client.Client, nodes []string) (map[
 		Nodes   string   `json:"nodes"`
 	}
 	cfgOK := getJSON(ctx, c, "/storage", nil, &cfg) == nil
+	restricted := map[string][]string{} // storage -> its storage.cfg nodes, when this node is not one of them
 	elsewhere := func(storage, node string) bool {
 		for _, e := range cfg {
 			if e.Storage == storage {
-				return !bool(e.Disable) && e.Nodes != "" && !slices.Contains(strings.Split(e.Nodes, ","), node)
+				listed := strings.Split(e.Nodes, ",")
+				if !bool(e.Disable) && e.Nodes != "" && !slices.Contains(listed, node) {
+					restricted[storage] = listed
+					return true
+				}
+				return false
 			}
 		}
 		return false
@@ -763,6 +775,21 @@ func backupStorages(ctx context.Context, c *client.Client, nodes []string) (map[
 			reader[key] = node
 			infos[key] = s
 			delete(inactive, key)
+		}
+	}
+	// A storage restricted to other nodes is read there; when none of its
+	// listed nodes read it (offline, renamed or removed), its archives are
+	// unread, not absent.
+	for _, storage := range sortedKeys(restricted) {
+		read := false
+		for _, n := range restricted[storage] {
+			_, shared := reader[storage]
+			_, local := reader[storage+"@"+strings.TrimSpace(n)]
+			read = read || shared || local
+		}
+		if !read {
+			failures = append(failures, fetchFailure{Scope: "storage " + storage,
+				Error: "backup storage is restricted to node(s) " + strings.Join(restricted[storage], ", ") + ", and none of them read it (offline, renamed or removed from the cluster), so its archives could not be read"})
 		}
 	}
 	// An enabled backup storage that no node could activate holds unreadable
@@ -996,6 +1023,12 @@ func (t fleetTarget) sharedOwners(ref pbsStorageRef, ns string) []string {
 	return sortedKeys(names)
 }
 
+// pbsServiceID names this target's PBS service for task dedupe: the endpoint.
+// Not the pin: a cloned PBS keeps its node name and certificate, so it can
+// mint the same UPID under the same fingerprint, and merging it would drop a
+// task. Two spellings of one PBS list a task twice, which loses nothing.
+func (t fleetTarget) pbsServiceID() string { return "ep:" + strings.ToLower(t.pbsEndpoint()) }
+
 // samePBS reports whether ref's PBS is this target's configured PBS: the
 // same endpoint, or (with ownership known) the same PBS service by pin.
 func (t fleetTarget) samePBS(ref pbsStorageRef) bool {
@@ -1107,8 +1140,17 @@ func markSharedPBS(ctx context.Context, flags *rootFlags, targets []fleetTarget)
 					p.svcs = append(p.svcs, g)
 				}
 			}
-			if !unknown && !slices.Contains(p.stores, ref.datastore) {
-				p.stores = append(p.stores, ref.datastore)
+			if !unknown {
+				// Per service: beta writing other on PBS1 and main on PBS2 does not
+				// claim main on PBS1.
+				if p.stores == nil {
+					p.stores = map[string][]string{}
+				}
+				for _, g := range own.svc.of(ref.server, ref.fingerprint) {
+					if !slices.Contains(p.stores[g], ref.datastore) {
+						p.stores[g] = append(p.stores[g], ref.datastore)
+					}
+				}
 			}
 		}
 		return p

@@ -26,6 +26,8 @@ func TestNodeRestrictedStorageIsNotDisabled(t *testing.T) {
 	}{
 		"restricted to pve1": {map[string]any{"storage": "usb", "type": "dir", "content": "backup", "nodes": "pve1"}, false},
 		"disabled":           {map[string]any{"storage": "usb", "type": "dir", "content": "backup", "disable": 1}, true},
+		// Adversarial round 8: restricted to a node no longer in the cluster.
+		"restricted to a removed node": {map[string]any{"storage": "usb", "type": "dir", "content": "backup", "nodes": "pve9"}, true},
 	} {
 		t.Run(name, func(t *testing.T) {
 			f := newFixture(t)
@@ -58,7 +60,7 @@ func TestNodeRestrictedStorageIsNotDisabled(t *testing.T) {
 			rep, _ := postureByVMID(t)
 			disabled := false
 			for _, ff := range rep.FetchFailures {
-				disabled = disabled || (strings.HasPrefix(ff.Scope, "storage usb") && strings.Contains(ff.Error, "disabled"))
+				disabled = disabled || (strings.HasPrefix(ff.Scope, "storage usb") && (strings.Contains(ff.Error, "disabled") || strings.Contains(ff.Error, "none of them read it")))
 			}
 			if disabled != c.wantDisabled {
 				t.Errorf("usb reported disabled = %v, want %v: %+v", disabled, c.wantDisabled, rep.FetchFailures)

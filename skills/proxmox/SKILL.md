@@ -75,7 +75,7 @@ Do not use this CLI for:
   ```
 - **`failures`**  -  Failed and silently incomplete backup, verify, GC, sync and prune tasks in a time window, one row per failed guest or datastore with the reason line.
 
-  _Use for morning triage instead of reading backup emails; it names the guest and the error, not just the task. It reads at most --max-logs task logs per cluster (default 50); log_cap_hit says when that limit was reached. A PBS task names no PVE cluster, so on a PBS that another configured cluster also writes to its row has attribution `shared: <clusters>` and an empty tenant; do not credit it to one client. fetch_failures lists clusters or calls that did not answer; when no cluster answers it exits 5._
+  _Use for morning triage instead of reading backup emails; it names the guest and the error, not just the task. It reads at most --max-logs task logs per cluster (default 50); log_cap_hit says when that limit was reached. A PBS task names no PVE cluster, so on a PBS that another configured cluster also writes to its row has attribution `shared: <clusters>` and an empty tenant; do not credit it to one client. A task two profiles read through the same PBS host spelling is listed once. fetch_failures lists clusters or calls that did not answer; when no cluster answers it exits 5._
 
   ```bash
   proxmox-cli failures --since 24h --agent
@@ -983,6 +983,10 @@ proxmox-cli profile delete briefing --yes
 ```
 
 Explicit flags always win over profile values; profile values win over defaults. `agent-context` lists all available profiles under `available_profiles` so introspecting agents discover them at runtime.
+
+## Per-cluster local store and CSV
+
+Each `--cluster` (or `PROXMOX_CLUSTER`) keeps its own local store, so synced rows of one client never answer for another. The MCP `sql` and `search` tools take no cluster argument: they read the store of the `PROXMOX_CLUSTER` set in the MCP server's environment (the default store when unset), so set it there to query one client's mirror. `--csv` is a flat projection of rows: read `evidence`, `not_read` and `fetch_failures` from the JSON output when completeness matters.
 
 ## Exit Codes
 
