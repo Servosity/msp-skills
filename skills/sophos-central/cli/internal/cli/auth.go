@@ -90,6 +90,12 @@ Credentials default to SOPHOS_CENTRAL_CLIENT_ID (Client ID) and SOPHOS_CENTRAL_C
 			if tokenURL == "" {
 				tokenURL = "https://id.sophos.com/api/v2/oauth2/token"
 			}
+			// Hand-wired (handfixes.json: dry-run-never-mints): a preview never
+			// sends the secret or writes credentials.toml.
+			if flags.dryRun {
+				fmt.Fprintf(cmd.ErrOrStderr(), "POST %s\n(dry run - no request sent, nothing saved)\n", tokenURL)
+				return nil
+			}
 			tok, err := mintClientCredentialsToken(http.DefaultClient, tokenURL, clientID, clientSecret)
 			if err != nil {
 				return authErr(err)

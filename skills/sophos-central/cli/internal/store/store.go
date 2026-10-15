@@ -2526,6 +2526,8 @@ func (s *Store) mergeIncomingResourceData(tx *sql.Tx, resourceType, id string, i
 }
 
 func (s *Store) upsertGenericResourceTx(tx *sql.Tx, resourceType, id string, data json.RawMessage) error {
+	// Hand-wired (handfixes.json: secret-responses-never-persisted).
+	data = redactStoredSecrets(data)
 	_, err := tx.Exec(
 		`INSERT INTO resources (id, resource_type, data, synced_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?)
@@ -4676,6 +4678,9 @@ func (s *Store) UpsertLiveDiscover(data json.RawMessage) error {
 // and for committing the tx. Splitting this out lets UpsertBatch dispatch
 // domain inserts per item without opening a per-item transaction.
 func (s *Store) upsertMigrationsTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
+	// Hand-wired (handfixes.json: secret-responses-never-persisted): the
+	// migration token is a credential; neither the row nor the column keeps it.
+	data = redactStoredSecrets(data)
 	if _, err := tx.Exec(
 		`INSERT INTO "migrations" ("id", "data", "synced_at", "failed_at", "migrated_at", "new_id", "reason", "status", "created_at", "expires_at", "mode", "token", "enabled")
 		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -4691,7 +4696,7 @@ func (s *Store) upsertMigrationsTx(tx *sql.Tx, id string, obj map[string]any, da
 		lookupFieldValue(obj, "created_at"),
 		lookupFieldValue(obj, "expires_at"),
 		lookupFieldValue(obj, "mode"),
-		lookupFieldValue(obj, "token"),
+		nil, // token: never stored (secret-responses-never-persisted)
 		lookupFieldValue(obj, "enabled"),
 	); err != nil {
 		return fmt.Errorf("insert into migrations: %w", err)

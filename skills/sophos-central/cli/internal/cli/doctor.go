@@ -379,19 +379,9 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 					}
 
 					// Step 2: Validate credentials with an authenticated probe.
-					authHeader := cfg.AuthHeader()
-					if authHeader == "" {
-						// No auth configured — skip credential validation
-					} else if reachErr != nil && !errors.As(reachErr, &reachAPIErr) {
-						report["credentials"] = "skipped (API unreachable)"
-					} else {
-						suggestion := suggestReadCommand(cmd.Root())
-						if suggestion != "" {
-							report["credentials"] = fmt.Sprintf("present, not verified. Run `%s %s` to confirm the token works end-to-end.", "sophos-central-cli", suggestion)
-						} else {
-							report["credentials"] = "present, not verified. Run any read command to confirm the token works end-to-end."
-						}
-					}
+					// Hand-wired (handfixes.json: doctor-verdict-tracks-reality):
+					// probe an authenticated endpoint instead of "present, not verified".
+					doctorProbeCredentials(cmd.Context(), c, cfg, reachErr, report)
 				}
 			} else if cfg != nil && cfg.BaseURL == "" {
 				report["api"] = "not configured (set base_url in config file)"

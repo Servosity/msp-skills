@@ -842,6 +842,11 @@ func (c *Client) writeCache(path string, params map[string]string, data json.Raw
 }
 
 func (c *Client) writeCacheWithHeaders(path string, params map[string]string, headers map[string]string, data json.RawMessage) {
+	// Hand-wired (handfixes.json: secret-responses-never-persisted): a body
+	// carrying a tamper password or migration token never reaches disk.
+	if responseCarriesSecret(data) {
+		return
+	}
 	resourceDir := c.cacheResourceDir(path)
 	_ = os.MkdirAll(resourceDir, 0o700)
 	cacheFile := filepath.Join(resourceDir, c.cacheKeyFor(http.MethodGet, path, params, headers, nil)+".json")
@@ -1644,7 +1649,10 @@ func (c *Client) authHeader(ctx context.Context) (string, error) {
 	}
 	// 60s window avoids in-flight requests racing the expiry boundary.
 	// Double-checked lock so only one goroutine mints under contention.
-	if c.needsClientCredentialsMint() {
+	// Hand-wired (handfixes.json: dry-run-never-mints): --dry-run previews
+	// with cached material only; minting would POST the client secret to the
+	// token URL and persist it, which a preview must never do.
+	if !c.DryRun && c.needsClientCredentialsMint() {
 		if c.ccMu == nil {
 			c.ccMu = &sync.Mutex{}
 		}
@@ -1834,6 +1842,12 @@ func (c *Client) mintClientCredentials(ctx context.Context, clientID, clientSecr
 		expiry = time.Now().Add(time.Duration(tokenResp.ExpiresIn) * time.Second)
 	}
 	c.Config.AuthHeaderVal = "" // force AuthHeader() to use the new AccessToken path
+	// Hand-wired (handfixes.json: env-client-secret-not-persisted): a secret
+	// read from SOPHOS_CENTRAL_CLIENT_SECRET stays in the environment; only
+	// `auth login` writes one to credentials.toml.
+	if c.Config.ClientSecret == "" {
+		c.Config.MarkClientSecretFromEnv()
+	}
 	if err := c.Config.SaveTokens(clientID, clientSecret, tokenResp.AccessToken, "", expiry); err != nil {
 		return fmt.Errorf("saving minted token: %w", err)
 	}

@@ -785,6 +785,10 @@ func (c *Config) configForSave() Config {
 		if c.envOverrides["SophosCentralClientSecret"] {
 			out.SophosCentralClientSecret = c.fileConfig.SophosCentralClientSecret
 		}
+		// Hand-wired (handfixes.json: env-client-secret-not-persisted).
+		if c.envOverrides["ClientSecret"] {
+			out.ClientSecret = c.fileConfig.ClientSecret
+		}
 	}
 	out.envOverrides = nil
 	out.fileConfig = nil
