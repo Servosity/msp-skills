@@ -603,15 +603,19 @@ jobs:
             echo "No known Windows failures recorded for $SLUG."
             exit 0
           fi
-          go test -count=1 -v -run "$known" ./... > "$RUNNER_TEMP/known.log" 2>&1
+          # GitHub runs bash with -e: capture the expected failure explicitly.
+          status=0
+          go test -count=1 -v -run "$known" ./... > "$RUNNER_TEMP/known.log" 2>&1 || status=$?
           ran="$(grep -cE '^=== RUN +Test[^/]*$' "$RUNNER_TEMP/known.log" || true)"
           failed="$(grep -cE '^--- FAIL: ' "$RUNNER_TEMP/known.log" || true)"
-          if [ "$ran" -eq 0 ]; then
+          if [ "$ran" -eq 0 ] && [ "$status" -eq 0 ]; then
             echo "None of the recorded known Windows failures exist in $SLUG."
-          elif [ "$failed" -eq 0 ]; then
+          elif [ "$status" -eq 0 ]; then
+            # Exit 0 is the only proof they passed: a panic or a build failure
+            # can leave no `--- FAIL:` line behind.
             echo "::notice title=windows known failures::all $ran recorded known Windows failure(s) in $SLUG now PASS; remove them from tools/maintainer/windows_known_test_failures.json"
           else
-            echo "::warning title=windows known failures::$failed of $ran recorded known Windows failure(s) still fail in $SLUG (tracked in tools/maintainer/windows_known_test_failures.json, not gating)"
+            echo "::warning title=windows known failures::recorded known Windows failures still fail in $SLUG ($failed --- FAIL line(s) among $ran run, go test exit $status); tracked in tools/maintainer/windows_known_test_failures.json, not gating"
           fi
           grep -E -- '^--- FAIL: |^(ok|FAIL)[[:space:]]' "$RUNNER_TEMP/known.log" || true
           exit 0
