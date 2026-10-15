@@ -566,6 +566,8 @@ type backupJob struct {
 	// PruneBackups is the job's retention (object or property string).
 	PruneBackups json.RawMessage `json:"prune-backups"`
 	NextRun      flexInt         `json:"next-run"`
+	// Remove (default on) prunes after the run; remove=0 keeps everything.
+	Remove *flexBool `json:"remove"`
 }
 
 // excludes reports whether the job's exclude list names vmid.
@@ -580,6 +582,9 @@ func (j backupJob) excludes(vmid int64) bool {
 
 // enabled: Proxmox omits the key when the job is enabled (default 1).
 func (j backupJob) enabled() bool { return j.Enabled == nil || bool(*j.Enabled) }
+
+// prunes reports whether a run of the job prunes its target (vzdump remove).
+func (j backupJob) prunes() bool { return j.Remove == nil || bool(*j.Remove) }
 
 type includedVolumes struct {
 	Children []struct {
@@ -1044,6 +1049,77 @@ func (t fleetTarget) pbsServiceID() string { return "ep:" + strings.ToLower(t.pb
 func (t fleetTarget) samePBS(ref pbsStorageRef) bool {
 	ep := t.pbsEndpoint()
 	return ep != "" && strings.EqualFold(ref.server, ep)
+}
+
+// datastoreSharers is pbsServiceSharers for one datastore of a PBS service
+// (svcs): the configured clusters writing, or possibly writing, anywhere in
+// it when any of them is not this target's PVE cluster.
+func (t fleetTarget) datastoreSharers(svcs []string, store string) []string {
+	if t.own == nil || len(svcs) == 0 {
+		return nil
+	}
+	names := map[string]bool{}
+	ids := map[string]bool{}
+	for k, w := range t.own.writers {
+		parts := strings.SplitN(k, "|", 3)
+		if len(parts) != 3 || parts[1] != store || !slices.Contains(svcs, parts[0]) {
+			continue
+		}
+		for id, name := range w {
+			names[name], ids[id] = true, true
+		}
+	}
+	foreign := false
+	for id := range ids {
+		foreign = foreign || (t.pveID != "" && id != t.pveID)
+	}
+	if t.pveID == "" && len(ids) > 1 {
+		foreign = true
+	}
+	for _, p := range t.own.peers {
+		if p.name == t.Name || (p.pve != "" && p.pve == t.pveID) || !(p.anyPBS() || overlaps(p.svcs, svcs)) {
+			continue
+		}
+		if p.stores != nil {
+			hit := false
+			for _, g := range svcs {
+				hit = hit || slices.Contains(p.stores[g], store)
+			}
+			if !hit {
+				continue
+			}
+		}
+		name := p.name
+		if p.unknown {
+			name += " (could not be read)"
+		}
+		names[name], foreign = true, true
+	}
+	if !foreign {
+		return nil
+	}
+	return sortedKeys(names)
+}
+
+// ownSvcs names this target's configured PBS service(s).
+func (t fleetTarget) ownSvcs() []string {
+	if t.own == nil {
+		return nil
+	}
+	return t.own.svc.of(t.pbsEndpoint(), t.Profile.PBSFingerprint)
+}
+
+// hasPVE reports whether this target has a Proxmox VE host (a PBS-only entry,
+// or an env setup with only PROXMOX_PBS_HOST, has none).
+func (t fleetTarget) hasPVE() bool {
+	base := strings.TrimSpace(t.C.BaseURL)
+	if base == "" {
+		return false
+	}
+	if strings.Contains(base, "{host}") && strings.TrimSpace(t.C.Config.TemplateVars["host"]) == "" {
+		return false
+	}
+	return true
 }
 
 // pbsServiceSharers names the configured clusters that write, or may write,

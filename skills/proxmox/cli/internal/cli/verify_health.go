@@ -214,6 +214,10 @@ func collectVerifyHealth(ctx context.Context, t fleetTarget, onlyStore string, n
 			fails = append(fails, n)
 		}
 	}
+	if t.hasPVE() {
+		// A storage backing up to another PBS: its verify state was not read.
+		fails = append(fails, uncheckedPBS(ctx, t, "pbs verify", "its verify state was")...)
+	}
 	if err := pbsDatastoreListHidden(ctx, t.C); err != nil {
 		fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "pbs datastores", Error: err.Error()})
 	}
