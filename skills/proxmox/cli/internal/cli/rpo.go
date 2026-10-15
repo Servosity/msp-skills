@@ -112,7 +112,7 @@ func newNovelRpoCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			markSharedPBS(ctx, targets)
+			markSharedPBS(ctx, flags, targets)
 			now := time.Now()
 			start := now.Add(-time.Duration(days) * 24 * time.Hour)
 			type result struct {
@@ -213,14 +213,21 @@ func collectRPO(ctx context.Context, t fleetTarget, start, now time.Time, onlyVM
 	if refsErr != nil {
 		fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "storage config", Error: refsErr.Error()})
 	}
-	storages, readers, sfails := backupStorages(ctx, t.C, nodes)
+	storages, readers, sfails, disabled := backupStorages(ctx, t.C, nodes)
 	// A storage or snapshot list that could not be read may hold the "missed"
 	// runs, so a miss is then unproven, not a fact.
-	pointsIncomplete := len(sfails) > 0 || len(offline) > 0
+	pointsIncomplete := len(sfails) > 0 || len(offline) > 0 || len(disabled) > 0
 	readStorage := map[string]bool{}
 	for _, f := range sfails {
 		f.Cluster = t.Name
 		fails = append(fails, f)
+	}
+	for _, key := range sortedKeys(disabled) {
+		fails = append(fails, disabledFailure(t.Name, key))
+	}
+	if len(t.sharedUnknown) > 0 && len(refs) > 0 {
+		pointsIncomplete = true
+		fails = append(fails, t.sharedUnknownFailure())
 	}
 	if err := storageListHidden(ctx, t.C); err != nil {
 		pointsIncomplete = true

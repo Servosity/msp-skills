@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -193,5 +194,123 @@ func TestPruneMarksUseJobRetention(t *testing.T) {
 	}
 	if s := pruneSpec(json.RawMessage(`{"keep-daily":7,"keep-last":3}`)); s != "keep-daily=7,keep-last=3" {
 		t.Errorf("pruneSpec = %q", s)
+	}
+}
+
+// Codex round 2.
+
+// --cluster narrows the report, not the collision check; and a storage
+// without a PBS fingerprint still matches one that pins it at the same server.
+func TestSharedPBSDetectionSeesUnselectedClustersAndEitherIdentity(t *testing.T) {
+	f := newFixture(t)
+	setAcmeTokens(t)
+	// beta's PVE pins the PBS fingerprint on its storage; acme's does not.
+	other := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/api2/json/storage") {
+			hp := strings.Split(strings.TrimPrefix(f.pbs.URL, "https://"), ":")
+			port, _ := strconv.Atoi(hp[1])
+			writeData(w, []map[string]any{{"storage": "pbs1", "type": "pbs", "server": hp[0], "port": port, "datastore": "main", "namespace": "", "fingerprint": f.pbsFingerprint()}})
+			return
+		}
+		f.pve.Config.Handler.ServeHTTP(w, r)
+	}))
+	defer other.Close()
+	writeClustersFile(t, acmeClusters(f, f.pbs.URL, "")+`
+[clusters.beta]
+pve_base_url = "`+other.URL+`/api2/json"
+pve_token_env = "ACME_PVE"
+pve_fingerprint = "`+client.CertFingerprint(other.Certificate())+`"
+`)
+	out, _, err := runCLI(t, "--cluster", "acme", "posture", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "VMIDs collide") {
+		t.Errorf("--cluster acme must still see beta writing the same namespace:\n%s", out)
+	}
+	for _, r := range decodeJSON[postureReport](t, out).Rows {
+		if r.VMID == 100 && r.Verdict == "fresh" {
+			t.Errorf("acme/100 credited with a snapshot beta may own: %s", r.Reason)
+		}
+	}
+}
+
+// A guest whose ACL keeps VM.Audit but drops VM.Backup has its archives
+// filtered out of a fleet-wide listing: that storage is unread, not empty.
+func TestBackupListingNeedsVMBackupOnEveryGuest(t *testing.T) {
+	f := newFixture(t)
+	f.pveRoutes["/access/permissions"] = map[string]any{
+		"/":        map[string]any{"Sys.Audit": 1, "VM.Audit": 1, "Datastore.Audit": 1, "Datastore.AllocateSpace": 1, "VM.Backup": 1},
+		"/vms/105": map[string]any{"VM.Audit": 1},
+	}
+	t.Setenv("PROXMOX_PBS_HOST", "")
+	t.Setenv("PROXMOX_PBS_API_TOKEN", "")
+	t.Setenv("PROXMOX_PBS_TLS_FINGERPRINT", "")
+	rep, rows := postureByVMID(t)
+	if e := failureByScope(rep.FetchFailures)["storage pbs1"]; e == "" {
+		t.Errorf("pbs1's fleet listing is filtered for 105; want a fetch failure: %+v", rep.FetchFailures)
+	}
+	if r := rows[105]; r.Verdict == "never" {
+		t.Errorf("105 = never while its archives were filtered out: %q", r.Reason)
+	}
+}
+
+// PBS reports usage only for datastores the token may audit.
+func TestCapacityPBSDatastoreListCompleteness(t *testing.T) {
+	f := newFixture(t)
+	f.pbsRoutes["/access/permissions"] = map[string]any{"/": map[string]any{"Sys.Audit": true}, "/datastore/main": map[string]any{"Datastore.Audit": true}}
+	out, _, err := runCLI(t, "capacity", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if e := failureByScope(decodeJSON[capacityReport](t, out).FetchFailures)["pbs datastores"]; e == "" {
+		t.Errorf("a datastore list the token may not fully see must be flagged:\n%s", out)
+	}
+}
+
+// A disabled backup storage (a former target) cannot be listed: unread.
+func TestDisabledBackupStorageIsUnread(t *testing.T) {
+	f := newFixture(t)
+	st := f.pveRoutes["/nodes/pve1/storage"].([]map[string]any)
+	f.pveRoutes["/nodes/pve1/storage"] = append(st, map[string]any{"storage": "oldnfs", "type": "nfs", "shared": 1, "active": 0, "enabled": 0, "content": "backup"})
+	rep, rows := postureByVMID(t)
+	if e := failureByScope(rep.FetchFailures)["storage oldnfs"]; !strings.Contains(e, "disabled") {
+		t.Errorf("want the disabled storage reported: %+v", rep.FetchFailures)
+	}
+	if r := rows[105]; r.Verdict == "never" {
+		t.Errorf("105 = never while a disabled storage may hold its points: %q", r.Reason)
+	}
+}
+
+// restore-points: a dumpdir job target is never read, so evidence is partial;
+// unreadable jobs leave the points unmarked rather than storage-retention marked.
+func TestRestorePointsJobTargetGapsAndUnknownRetention(t *testing.T) {
+	f := newFixture(t)
+	jobs := f.pveRoutes["/cluster/backup"].([]map[string]any)
+	delete(jobs[0], "storage")
+	jobs[0]["dumpdir"] = "/mnt/backup"
+	out, _, err := runCLI(t, "restore-points", "105", "--json")
+	var ce *cliError
+	if !errors.As(err, &ce) || ce.code != 5 {
+		t.Errorf("105 has no readable point and an unread dumpdir target: want exit 5, got %v", err)
+	}
+	if g := decodeJSON[restorePointsReport](t, out).Guests[0]; g.Evidence != "partial" || !strings.Contains(strings.Join(g.NotRead, ";"), "dumpdir") {
+		t.Errorf("want the dumpdir target in not_read: %+v", g)
+	}
+
+	f = newFixture(t)
+	delete(f.pveRoutes, "/cluster/backup")
+	out, _, err = runCLI(t, "restore-points", "100", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rep := decodeJSON[restorePointsReport](t, out)
+	for _, rp := range rep.Guests[0].RestorePoints {
+		if rp.PruneMark != "" {
+			t.Errorf("with the jobs unreadable the retention is unknown; got prune_mark %q", rp.PruneMark)
+		}
+	}
+	if rep.Guests[0].Evidence != "partial" {
+		t.Errorf("unknown jobs mean unknown targets: %+v", rep.Guests[0])
 	}
 }
