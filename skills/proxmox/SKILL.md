@@ -98,7 +98,7 @@ Do not use this CLI for:
   ```
 
 ### Restore readiness
-- **`restore-points`**  -  Every restore point of one guest across all storages and PBS namespaces, with verify state, protection, encryption and, for points listed from PVE storage, whether the next prune removes it (pbs-prune when a PBS prune job or schedule decides instead).
+- **`restore-points`**  -  Every restore point of one guest across all storages and PBS namespaces, with verify state, protection and encryption (protected points are never pruned; the CLI does not predict what a future prune removes).
 
   _Use to answer 'can we restore server X from Tuesday?' with the exact restore points and whether each verified. Exit 3 means no reachable cluster has that guest; exit 5 means no cluster answered, or no match had a readable restore point while some source was not read (see not_read)._
 
@@ -602,7 +602,7 @@ Do not use this CLI for:
 **restore-points**
 
 
-- `proxmox-cli restore-points`  -  Every restore point of one guest across all storages and PBS namespaces, with verify state, protection, encryption and, for points listed from PVE storage, whether the next prune removes it (pbs-prune when a PBS prune job or schedule decides instead).
+- `proxmox-cli restore-points`  -  Every restore point of one guest across all storages and PBS namespaces, with verify state, protection and encryption (protected points are never pruned; the CLI does not predict what a future prune removes).
 
 
 **rpo**
@@ -661,7 +661,7 @@ Failed and never-verified snapshot counts per backup group on one datastore.
 proxmox-cli restore-points 104 --cluster acme
 ```
 
-Every restore point of guest 104 with verify state and prune marks.
+Every restore point of guest 104 with verify state and protection.
 
 ### Datastores filling within a month or carrying a risk flag
 

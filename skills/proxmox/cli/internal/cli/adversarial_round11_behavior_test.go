@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -15,28 +16,41 @@ import (
 
 // Adversarial round 11.
 
-// A PBS prune job prunes a PBS storage on its own schedule: PVE's preview
-// does not model it, so no "keep" is promised.
-func TestPBSPruneJobOverridesPVEPruneMarks(t *testing.T) {
+// Codex round 22 / adversarial round 12: restore-points predicts no prune
+// outcome. A prediction needs the whole of vzdump (backup before prune,
+// per-node storages across migrations, PBS-side prune jobs, storage aliases
+// of one datastore), and a wrong "keep" is a false green; protected is the
+// fact it reports instead.
+func TestRestorePointsPredictsNoPrune(t *testing.T) {
 	f := newFixture(t)
-	f.pbsRoutes["/admin/prune"] = []map[string]any{{"id": "p1", "store": "main", "ns": "", "keep-last": 1, "schedule": "daily"}}
+	f.pbsRoutes["/admin/prune"] = []map[string]any{{"id": "p1", "store": "main", "keep-last": 1, "schedule": "daily"}}
+	var previews atomic.Int64
+	pve := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/prunebackups") {
+			previews.Add(1)
+		}
+		f.pve.Config.Handler.ServeHTTP(w, r)
+	}))
+	t.Cleanup(pve.Close)
+	t.Setenv("PROXMOX_BASE_URL", pve.URL+"/api2/json")
+	t.Setenv("PROXMOX_TLS_FINGERPRINT", client.CertFingerprint(pve.Certificate()))
 	out, _, err := runCLI(t, "restore-points", "100", "--json")
 	if err != nil {
 		t.Fatal(err)
 	}
-	marked := 0
-	for _, g := range decodeJSON[restorePointsReport](t, out).Guests {
-		for _, rp := range g.RestorePoints {
-			if strings.HasPrefix(rp.Source, "pve-storage:pbs1") {
-				marked++
-				if rp.PruneMark != "pbs-prune" {
-					t.Errorf("point %s on a PBS-pruned datastore marked %q", rp.TimeRFC3339, rp.PruneMark)
-				}
-			}
+	if g := decodeJSON[restorePointsReport](t, out).Guests; len(g) == 0 || g[0].Count == 0 {
+		t.Fatalf("100 needs points for this test:\n%s", out)
+	}
+	if previews.Load() != 0 {
+		t.Errorf("restore-points asked for %d prune previews", previews.Load())
+	}
+	for _, w := range []string{"prune_mark", "pbs-prune"} {
+		if strings.Contains(out, w) {
+			t.Errorf("output still carries %q:\n%s", w, out)
 		}
 	}
-	if marked == 0 {
-		t.Fatalf("no pve-storage:pbs1 points:\n%s", out)
+	if !strings.Contains(out, `"protected"`) {
+		t.Errorf("protected is the reported fact:\n%s", out)
 	}
 }
 
@@ -75,25 +89,6 @@ func TestClustersCheckFailsWithNothingConfigured(t *testing.T) {
 	t.Setenv("PROXMOX_PBS_HOST", "")
 	if _, _, err := runCLI(t, "clusters", "check", "--json"); err == nil {
 		t.Error("clusters check passed with nothing configured")
-	}
-}
-
-// Codex round 20: a root-namespace PBS prune job prunes every namespace
-// below it (recursive by default).
-func TestRootPBSPruneJobCoversNamedNamespaces(t *testing.T) {
-	f := newFixture(t)
-	f.pbsNS = "acme"
-	f.pbsRoutes["/admin/prune"] = []map[string]any{{"id": "p1", "store": "main", "keep-last": 1, "schedule": "daily"}}
-	out, _, err := runCLI(t, "restore-points", "100", "--json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, g := range decodeJSON[restorePointsReport](t, out).Guests {
-		for _, rp := range g.RestorePoints {
-			if strings.HasPrefix(rp.Source, "pve-storage:pbs1") && rp.PruneMark != "pbs-prune" {
-				t.Errorf("point %s in acme under a root prune job marked %q", rp.TimeRFC3339, rp.PruneMark)
-			}
-		}
 	}
 }
 

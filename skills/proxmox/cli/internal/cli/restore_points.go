@@ -49,15 +49,13 @@ func newNovelRestorePointsCmd(flags *rootFlags) *cobra.Command {
 	var clientFilter string
 	cmd := &cobra.Command{
 		Use:   "restore-points [vmid-or-name]",
-		Short: "Every restore point of one guest across all storages and PBS namespaces, with verify state and prune marks",
+		Short: "Every restore point of one guest across all storages and PBS namespaces, with verify state and protection",
 		Long: "Use this command for every restore point of ONE guest (vmid or name) across all storages and PBS namespaces. " +
 			"Do NOT use this command for a fleet-wide verdict; use 'posture' instead. " +
 			"Do NOT use it for gaps between restore points over time; use 'rpo' instead.\n\n" +
 			"The guest is resolved by vmid or name (case-insensitive) on every configured cluster; a vmid that exists on several " +
-			"clusters is reported once per cluster. prune_mark is what the next prune would do (keep, remove, protected), from Proxmox's " +
-			"own prune preview with the covering job's effective retention; nothing is pruned. On a PBS storage it is pbs-prune when a PBS prune job " +
-			"or the datastore's prune-schedule also prunes there (its next run is not predicted), and unknown when that cannot be ruled out; " +
-			"points no enabled job writes are not marked (nothing is scheduled to prune them). evidence is partial, and " +
+			"clusters is reported once per cluster. protected marks a point Proxmox never prunes; the CLI does not predict what a future prune removes. " +
+			"evidence is partial, and " +
 			"not_read names the sources, when something that may hold the guest's restore points could not be read; then a count " +
 			"of 0 means none could be read, and the command exits 5 when no match has a readable point.",
 		Example: strings.Trim(`
@@ -130,7 +128,7 @@ func newNovelRestorePointsCmd(flags *rootFlags) *cobra.Command {
 				fmt.Fprintf(cmd.OutOrStdout(), "%s %d %s (%s on %s), jobs: %s\n", g.Cluster, g.VMID, g.Name, g.Type, g.Node, orDash(strings.Join(g.CoveredByJobs, ",")))
 				rows := make([][]string, 0, len(g.RestorePoints))
 				for _, rp := range g.RestorePoints {
-					rows = append(rows, []string{rp.TimeRFC3339, rp.Source, rp.VerifyState, strconv.FormatBool(rp.Protected), rp.PruneMark, rp.Notes})
+					rows = append(rows, []string{rp.TimeRFC3339, rp.Source, rp.VerifyState, strconv.FormatBool(rp.Protected), rp.Notes})
 				}
 				if len(rows) == 0 {
 					if g.Evidence == "partial" {
@@ -140,7 +138,7 @@ func newNovelRestorePointsCmd(flags *rootFlags) *cobra.Command {
 					}
 					continue
 				}
-				if err := flags.printTable(cmd, []string{"BACKUP TIME", "SOURCE", "VERIFY", "PROTECTED", "PRUNE", "NOTES"}, rows); err != nil {
+				if err := flags.printTable(cmd, []string{"BACKUP TIME", "SOURCE", "VERIFY", "PROTECTED", "NOTES"}, rows); err != nil {
 					return err
 				}
 				if g.Evidence == "partial" {
@@ -249,7 +247,6 @@ func collectRestorePoints(ctx context.Context, t fleetTarget, query string, veri
 	}
 	var out []guestRestorePoints
 	pveOnlyNoted := map[string]bool{}
-	pbsSide := &pbsPruneCheck{}
 	for _, g := range matches {
 		vmid := int64(g.VMID)
 		gr := guestRestorePoints{Tenant: t.Tenant, Cluster: t.Name, VMID: vmid, Name: g.Name, Type: g.Type, Node: g.Node,
@@ -288,25 +285,6 @@ func collectRestorePoints(ctx context.Context, t fleetTarget, query string, veri
 			}
 			if len(rps) == 0 {
 				continue
-			}
-			if s.Type == "pbs" {
-				// A PBS prune job or prune-schedule prunes the datastore on its
-				// own schedule, which PVE's preview does not model.
-				if mark := pbsSide.mark(ctx, t, refs[s.Storage]); mark != "" {
-					for i := range rps {
-						rps[i].PruneMark = mark
-					}
-					points = append(points, rps...)
-					continue
-				}
-			}
-			retention := jobRetention(cov, targets, vmid, g.Node, s.Storage)
-			if !covOK {
-				retention = retentionSpec{why: "the backup jobs could not be read, so the job retention that overrides the storage's is unknown; points left unmarked"}
-			}
-			marks := pruneMarks(ctx, t, node, s.Storage, vmid, g.Type, retention, &fails)
-			for i := range rps {
-				rps[i].PruneMark = marks[fmt.Sprintf("%s@%d", rps[i].Volume, rps[i].Time)]
 			}
 			points = append(points, rps...)
 		}
@@ -373,134 +351,8 @@ func collectRestorePoints(ctx context.Context, t fleetTarget, query string, veri
 	return out, fails, nil
 }
 
-// pruneMarks asks Proxmox what the next prune would do with each of the guest's
-// backups on one storage (a GET preview; nothing is removed). retention is the
-// covering job's prune-backups, which overrides the storage's; "" previews the
-// storage's own. ok=false (jobs that disagree) leaves the points unmarked.
-func pruneMarks(ctx context.Context, t fleetTarget, node, storage string, vmid int64, guestType string, retention retentionSpec, fails *[]fetchFailure) map[string]string {
-	if retention.skip {
-		return nil
-	}
-	if !retention.ok {
-		*fails = append(*fails, fetchFailure{Cluster: t.Name, Scope: "prune preview " + storage, Error: retention.why})
-		return nil
-	}
-	var preview []struct {
-		VolID string  `json:"volid"`
-		CTime flexInt `json:"ctime"`
-		Mark  string  `json:"mark"`
-	}
-	params := map[string]string{"vmid": strconv.FormatInt(vmid, 10), "type": guestType}
-	if retention.spec != "" {
-		params["prune-backups"] = retention.spec
-	}
-	if err := getJSON(ctx, t.C, pvePath("/nodes/%s/storage/%s/prunebackups", node, storage), params, &preview); err != nil {
-		*fails = append(*fails, fetchFailure{Cluster: t.Name, Scope: "prune preview " + storage, Error: err.Error()})
-		return nil
-	}
-	marks := make(map[string]string, len(preview))
-	for _, p := range preview {
-		marks[fmt.Sprintf("%s@%d", p.VolID, int64(p.CTime))] = p.Mark
-	}
-	return marks
-}
-
-type retentionSpec struct {
-	spec, why string
-	ok        bool
-	skip      bool // nothing is scheduled to prune: no marks, no failure
-}
-
-// pbsPruneCheck answers, once per datastore and namespace, whether the PBS
-// side prunes a PBS storage's points itself: "pbs-prune" when a PBS prune job
-// or the datastore's prune-schedule does, "unknown" when that cannot be
-// ruled out (no PBS API on that endpoint, or its config unreadable), "" when
-// only PVE's post-backup prune applies.
-type pbsPruneCheck struct {
-	jobs    []map[string]any
-	jobsErr error
-	read    bool
-	memo    map[string]string
-}
-
-func (p *pbsPruneCheck) mark(ctx context.Context, t fleetTarget, ref pbsStorageRef) string {
-	if ref.datastore == "" || !t.C.PBSConfigured() || !t.samePBS(ref) {
-		return "unknown"
-	}
-	key := ref.datastore + "\x00" + ref.namespace
-	if v, ok := p.memo[key]; ok {
-		return v
-	}
-	if p.memo == nil {
-		p.memo = map[string]string{}
-	}
-	if !p.read {
-		p.read = true
-		p.jobsErr = getJSON(ctx, t.C, pbsPath("/admin/prune"), nil, &p.jobs)
-	}
-	v := ""
-	var cfg map[string]any
-	switch {
-	case p.jobsErr != nil:
-		v = "unknown"
-	case getJSON(ctx, t.C, pbsPath("/config/datastore/%s", ref.datastore), nil, &cfg) != nil:
-		v = "unknown"
-	default:
-		opts := anyOpts(cfg)
-		if strings.TrimSpace(opts["prune-schedule"]) != "" && retentionPrunes(opts) {
-			v = "pbs-prune"
-		}
-		for _, j := range p.jobs {
-			// A job's ns reaches its subtree, the root namespace every one
-			// (max-depth ignored: conservative).
-			jns := strings.TrimSpace(strings.TrimPrefix(fmt.Sprint(j["ns"]), "<nil>"))
-			if fmt.Sprint(j["store"]) == ref.datastore && !truthy(j["disable"]) && retentionPrunes(anyOpts(j)) &&
-				(jns == "" || inNamespace(ref.namespace, jns)) {
-				v = "pbs-prune"
-			}
-		}
-	}
-	p.memo[key] = v
-	return v
-}
-
-// jobRetention is the retention the next prune of storage applies to vmid:
-// the prune-backups of the enabled jobs covering it that write there (a job's
-// own retention overrides the storage's), "" for the storage's own when none
-// sets one. Jobs that disagree make the next prune depend on which runs.
-func jobRetention(cov *coverage, targets *jobTargets, vmid int64, node, storage string) retentionSpec {
-	specs := map[string]bool{}
-	for _, id := range cov.EnabledFor[vmid] {
-		if targets.target(id, node) != storage {
-			continue
-		}
-		if on, known := targets.prunes(id, node, storage); !known {
-			return retentionSpec{why: "the vzdump defaults of node " + node + " could not be read, so whether job " + id + " prunes is unknown; points left unmarked"}
-		} else if !on {
-			specs["keep-all=1"] = true // remove=0: the run prunes nothing
-			continue
-		}
-		spec, err := targets.retention(id, node, storage)
-		if err != nil {
-			return retentionSpec{why: "the retention job " + id + " applies to " + storage + " could not be resolved (" + err.Error() + "); points left unmarked"}
-		}
-		specs[spec] = true
-	}
-	switch len(specs) {
-	case 0:
-		// No enabled job writes this guest there, and vzdump prunes only
-		// after a job run: nothing is scheduled to prune these points.
-		return retentionSpec{skip: true}
-	case 1:
-		for s := range specs {
-			return retentionSpec{spec: s, ok: true}
-		}
-	}
-	return retentionSpec{why: "the backup jobs writing this guest to " + storage + " keep different retention, so the next prune depends on which job runs; points left unmarked"}
-}
-
-// pruneSpec renders a job's prune-backups (object or property string) as the
-// property string the prune preview takes; "" when the job sets none.
+// pruneSpec renders a job's prune-backups (object or property string) as one
+// property string; "" when the job sets none.
 func pruneSpec(raw json.RawMessage) string {
 	if len(raw) == 0 || string(raw) == "null" {
 		return ""

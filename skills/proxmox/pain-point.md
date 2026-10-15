@@ -23,9 +23,8 @@ Three things make this hard to see from the Proxmox UI:
   guests, and the guest that failed or never started is named only inside the
   task log. A VM created after a job with a fixed VM list was set up is in no
   job at all.
-- **A recent backup is not a restorable backup.** Verify state, encryption,
-  protection and what the next prune will delete live on the PBS side, not next
-  to the VM.
+- **A recent backup is not a restorable backup.** Verify state, encryption
+  and protection live on the PBS side, not next to the VM.
 - **Every client is another login.** One cluster and often one PBS per client
   means the morning check is a tour of web consoles.
 

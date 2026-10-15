@@ -161,37 +161,9 @@ func TestByClientCountsFetchFailures(t *testing.T) {
 	}
 }
 
-// The prune preview uses the covering job's own retention, which overrides
-// the storage's; jobs that disagree leave the points unmarked.
-func TestPruneMarksUseJobRetention(t *testing.T) {
-	f := newFixture(t)
-	jobs := f.pveRoutes["/cluster/backup"].([]map[string]any)
-	jobs[0]["prune-backups"] = "keep-last=1"
-	got := ""
-	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasSuffix(r.URL.Path, "/prunebackups") {
-			got = r.URL.Query().Get("prune-backups")
-		}
-		f.pve.Config.Handler.ServeHTTP(w, r)
-	}))
-	defer srv.Close()
-	t.Setenv("PROXMOX_BASE_URL", srv.URL+"/api2/json")
-	t.Setenv("PROXMOX_TLS_FINGERPRINT", client.CertFingerprint(srv.Certificate()))
-	if _, stderr, err := runCLI(t, "restore-points", "100", "--json"); err != nil {
-		t.Fatalf("restore-points: %v\n%s", err, stderr)
-	}
-	if got != "keep-last=1" {
-		t.Errorf("prune preview sent prune-backups=%q, want the job's keep-last=1", got)
-	}
-
-	cov := &coverage{EnabledFor: map[int64][]string{100: {"a", "b"}}}
-	jt := &jobTargets{jobs: map[string]backupJob{
-		"a": {ID: "a", Storage: "s", PruneBackups: json.RawMessage(`"keep-last=2"`)},
-		"b": {ID: "b", Storage: "s", PruneBackups: json.RawMessage(`{"keep-last":3}`)},
-	}, defaults: map[string]string{}, nodeDefs: map[string]vzdumpDefaults{"n": {}}, retDefs: map[string]vzdumpDefaults{"n\x00s": {}}}
-	if r := jobRetention(cov, jt, 100, "n", "s"); r.ok {
-		t.Errorf("disagreeing jobs must leave the points unmarked: %+v", r)
-	}
+// pruneSpec renders a job's prune-backups (object or property string) as one
+// property string (capacity's retention read).
+func TestPruneSpec(t *testing.T) {
 	if s := pruneSpec(json.RawMessage(`{"keep-daily":7,"keep-last":3}`)); s != "keep-daily=7,keep-last=3" {
 		t.Errorf("pruneSpec = %q", s)
 	}
@@ -283,7 +255,7 @@ func TestDisabledBackupStorageIsUnread(t *testing.T) {
 }
 
 // restore-points: a dumpdir job target is never read, so evidence is partial;
-// unreadable jobs leave the points unmarked rather than storage-retention marked.
+// unreadable jobs mean unknown targets.
 func TestRestorePointsJobTargetGapsAndUnknownRetention(t *testing.T) {
 	f := newFixture(t)
 	jobs := f.pveRoutes["/cluster/backup"].([]map[string]any)
@@ -305,11 +277,6 @@ func TestRestorePointsJobTargetGapsAndUnknownRetention(t *testing.T) {
 		t.Fatal(err)
 	}
 	rep := decodeJSON[restorePointsReport](t, out)
-	for _, rp := range rep.Guests[0].RestorePoints {
-		if rp.PruneMark != "" {
-			t.Errorf("with the jobs unreadable the retention is unknown; got prune_mark %q", rp.PruneMark)
-		}
-	}
 	if rep.Guests[0].Evidence != "partial" {
 		t.Errorf("unknown jobs mean unknown targets: %+v", rep.Guests[0])
 	}

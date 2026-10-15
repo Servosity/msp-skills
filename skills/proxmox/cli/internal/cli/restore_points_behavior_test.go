@@ -19,8 +19,8 @@ func TestRestorePointsForOneGuest(t *testing.T) {
 	if g.Name != "web" || g.Count != 3 || len(g.RestorePoints) != 3 {
 		t.Fatalf("guest 100 = %+v", g)
 	}
-	if g.RestorePoints[0].PruneMark != "keep" || g.RestorePoints[1].PruneMark != "remove" {
-		t.Errorf("prune marks newest-first = %q, %q", g.RestorePoints[0].PruneMark, g.RestorePoints[1].PruneMark)
+	if g.RestorePoints[0].TimeRFC3339 <= g.RestorePoints[1].TimeRFC3339 {
+		t.Errorf("not newest-first: %s then %s", g.RestorePoints[0].TimeRFC3339, g.RestorePoints[1].TimeRFC3339)
 	}
 	if last := g.RestorePoints[2]; last.Source != "pbs:main" || last.VerifyState != "failed" {
 		t.Errorf("PBS-only point = %+v", last)
