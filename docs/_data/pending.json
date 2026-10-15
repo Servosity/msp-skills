@@ -195,6 +195,13 @@
     "current_hash": "sha256:56b9ecdc1888afb84c7874b23481beb245ed1e121f78257a859f572a757e52e6",
     "released_hash": "sha256:d0568cb31d893b0e44fc1791f7c5f297cd016c72a908f549120bb54b08cefebb"
   },
+  "fortinet": {
+    "state": "never-released",
+    "version": "0.1.0",
+    "latest_tag": null,
+    "current_hash": "sha256:25498852c84042ac4397c2c9100ec4d8394d1b1bf34939c76de2538bf6493ad6",
+    "released_hash": null
+  },
   "google-workspace": {
     "state": "never-released",
     "version": "0.1.0",
