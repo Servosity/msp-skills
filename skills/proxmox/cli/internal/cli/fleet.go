@@ -960,6 +960,14 @@ func readStorageArchives(ctx context.Context, c *client.Client, node string, s s
 	return fetchStorageArchives(ctx, c, node, s, vmid, refs)
 }
 
+// pveOnlyPBSNote: a PBS-type storage read only through Proxmox VE is listed
+// with the PBS credential saved in that storage, and PBS shows a user without
+// Datastore.Audit only the backup groups it owns (a rotated credential hides
+// the older ones). Its points are real; their absence proves nothing.
+func pveOnlyPBSNote(key string) string {
+	return "storage " + key + " is a Proxmox Backup Server storage read only through Proxmox VE, which lists it with the PBS credential saved in the storage; PBS shows that credential only the backup groups it owns or may audit, so older groups may be missing. Its restore points are real, but their absence proves nothing: set PROXMOX_PBS_HOST (or pbs_host) to read the datastore directly"
+}
+
 // pbsStandIns settles the storages whose archives the PBS API stood in for: a
 // storage counts as read only when the PBS snapshot list of its datastore and
 // namespace succeeded, so a failed PBS read leaves the job's target unread

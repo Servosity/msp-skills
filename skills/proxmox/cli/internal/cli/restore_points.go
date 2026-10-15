@@ -246,6 +246,7 @@ func collectRestorePoints(ctx context.Context, t fleetTarget, query string, veri
 		}
 	}
 	var out []guestRestorePoints
+	pveOnlyNoted := map[string]bool{}
 	for _, g := range matches {
 		vmid := int64(g.VMID)
 		gr := guestRestorePoints{Tenant: t.Tenant, Cluster: t.Name, VMID: vmid, Name: g.Name, Type: g.Type, Node: g.Node,
@@ -275,6 +276,13 @@ func collectRestorePoints(ctx context.Context, t fleetTarget, query string, veri
 				continue
 			}
 			read[key] = true
+			if s.Type == "pbs" && !covered {
+				notRead = append(notRead, "storage "+key+" (listed through its saved PBS credential, which may not see every backup group)")
+				if !pveOnlyNoted[key] {
+					pveOnlyNoted[key] = true
+					fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "storage " + key, Error: pveOnlyPBSNote(key)})
+				}
+			}
 			if len(rps) == 0 {
 				continue
 			}

@@ -275,6 +275,10 @@ func collectRPO(ctx context.Context, t fleetTarget, start, now time.Time, onlyVM
 			continue
 		}
 		readStorage[key] = true
+		if s.Type == "pbs" && !covered {
+			pointsIncomplete = true // its points are real; a miss there is unproven
+			fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "storage " + key, Error: pveOnlyPBSNote(key)})
+		}
 		for _, rp := range rps {
 			points[rp.VMID] = append(points[rp.VMID], rp)
 		}
