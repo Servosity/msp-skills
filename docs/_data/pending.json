@@ -468,6 +468,13 @@
     "current_hash": "sha256:289f4aba26db2811e6efe1fea65e5d8209b5c373de688053081caf267e2d1a58",
     "released_hash": "sha256:c13b6545a06e0eee503b5d22abe10e6690c9f67c0c14ec66d5c8ae8a8d117e4a"
   },
+  "sophos-central": {
+    "state": "never-released",
+    "version": "0.1.0",
+    "latest_tag": null,
+    "current_hash": "sha256:a3f408686c6b39b4ab1160bf0912835991552e004882eedd4680ec7fbea1790e",
+    "released_hash": null
+  },
   "superops": {
     "state": "up-to-date",
     "version": "0.1.9",
