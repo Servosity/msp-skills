@@ -1,5 +1,5 @@
 {
-  "count": 73,
+  "count": 74,
   "connectors": [
     {
       "slug": "abnormal",
@@ -572,6 +572,17 @@
       "source": "self",
       "issue_url": null,
       "url": "/skills/quickbooks/"
+    },
+    {
+      "slug": "quotewerks",
+      "display_name": "QuoteWerks",
+      "tagline": "Find, build and reprice QuoteWerks Web quotes, and see margin and win rate across every document, by asking.",
+      "category": "CRM",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "url": "/skills/quotewerks/"
     },
     {
       "slug": "resourceguru",

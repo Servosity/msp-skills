@@ -1101,6 +1101,26 @@
       "tagline": "Answer AR/AP aging, DSO, cash-forecast, and month-end close questions across QuickBooks Online by asking."
     },
     {
+      "name": "quotewerks",
+      "system": "QuoteWerks Web quoting: quotes, orders, invoices, line items, products, repricing",
+      "status": "beta",
+      "skill_path": "skills/quotewerks",
+      "cli_binary": "quotewerks-cli",
+      "mcp_binary": "quotewerks-mcp",
+      "version": "0.1.0",
+      "printing_press_version": "4.33.5",
+      "license": "Apache-2.0",
+      "vendor": "QuoteWerks",
+      "vendor_trademark_owner": "Aspire Technologies, Inc",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/quotewerks/install.sh)",
+      "install_mcp_doc": "skills/quotewerks/mcp-install.md",
+      "description": "Typed quote tools for QuoteWerks Web that use the real column names, preview typed writes before sending them, and add margin, win-rate and pipeline answers from a local mirror.",
+      "verification": "awaiting",
+      "category": "CRM",
+      "tagline": "Find, build and reprice QuoteWerks Web quotes, and see margin and win rate across every document, by asking."
+    },
+    {
       "name": "resourceguru",
       "system": "Resource Guru - resource scheduling, bookings, and per-day utilization",
       "status": "beta",
