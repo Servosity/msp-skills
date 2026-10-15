@@ -1,0 +1,430 @@
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// Hand-written: multi-cluster profiles. One entry per client cluster in
+// clusters.toml; `--cluster <name>` (or PROXMOX_CLUSTER) points every command
+// at that cluster, and fleet commands loop over all of them.
+
+// pp:data-source local
+
+package cli
+
+import (
+	"errors"
+	"fmt"
+	"net"
+	"net/url"
+	"os"
+	"path/filepath"
+	"regexp"
+	"sort"
+	"strings"
+
+	"github.com/pelletier/go-toml/v2"
+	"github.com/spf13/cobra"
+
+	"proxmox-pp-cli/internal/client"
+	"proxmox-pp-cli/internal/cliutil"
+)
+
+// clusterProfile holds no secrets: tokens are referenced by the NAME of the
+// environment variable that carries them.
+type clusterProfile struct {
+	Client         string `toml:"client,omitempty" json:"client,omitempty"`
+	PVEHost        string `toml:"pve_host,omitempty" json:"pve_host,omitempty"`
+	PVEBaseURL     string `toml:"pve_base_url,omitempty" json:"pve_base_url,omitempty"`
+	PVETokenEnv    string `toml:"pve_token_env,omitempty" json:"pve_token_env,omitempty"`
+	PVEFingerprint string `toml:"pve_fingerprint,omitempty" json:"pve_fingerprint,omitempty"`
+	PBSHost        string `toml:"pbs_host,omitempty" json:"pbs_host,omitempty"`
+	PBSTokenEnv    string `toml:"pbs_token_env,omitempty" json:"pbs_token_env,omitempty"`
+	PBSFingerprint string `toml:"pbs_fingerprint,omitempty" json:"pbs_fingerprint,omitempty"`
+	// PBSNamespace scopes this client's backups on a PBS shared by several
+	// clients (vmids collide across clusters, namespaces do not).
+	PBSNamespace string `toml:"pbs_namespace,omitempty" json:"pbs_namespace,omitempty"`
+}
+
+type clustersFile struct {
+	Clusters map[string]clusterProfile `toml:"clusters"`
+}
+
+var (
+	selectedCluster string
+	// buildingProfileClient: newClusterClient is building a client that
+	// applyClusterToClient will re-point, so the shell's routing is not checked.
+	buildingProfileClient bool
+	envNamePattern        = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+	clusterNameRe         = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
+)
+
+func init() {
+	registerNovelCommand(func(root *cobra.Command, flags *rootFlags) {
+		if root.PersistentFlags().Lookup("cluster") == nil {
+			root.PersistentFlags().StringVar(&selectedCluster, "cluster", os.Getenv("PROXMOX_CLUSTER"),
+				"Target the named cluster from clusters.toml (env: PROXMOX_CLUSTER)")
+		}
+		addNovelCommandIfAbsent(root, newClustersCmd(flags))
+	})
+	registerClientHook(func(c *client.Client) error {
+		name := strings.TrimSpace(selectedCluster)
+		if name == "" {
+			dropConfiguredAuthorization(c)
+			if buildingProfileClient {
+				return nil // applyClusterToClient sets and checks this profile's routing
+			}
+			// Env-configured target: per-service pins from the environment.
+			if err := c.SetServicePins(client.EnvPins("PROXMOX_TLS_FINGERPRINT"), client.EnvPins("PROXMOX_PBS_TLS_FINGERPRINT")); err != nil {
+				return err
+			}
+			return c.CheckServiceOrigins()
+		}
+		cl, err := clusterByName(name)
+		if err != nil {
+			return configErr(err)
+		}
+		return applyClusterToClient(c, cl)
+	})
+}
+
+func clustersPath() (string, error) {
+	if p := strings.TrimSpace(os.Getenv("PROXMOX_CLUSTERS_FILE")); p != "" {
+		return p, nil
+	}
+	dir, err := cliutil.ConfigDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "clusters.toml"), nil
+}
+
+// loadClusters returns an empty map (not an error) when no file exists yet.
+// Entries are not validated here: callers validate the profiles they use, so
+// one malformed entry never blocks the others.
+func loadClusters() (map[string]clusterProfile, string, error) {
+	path, err := clustersPath()
+	if err != nil {
+		return nil, "", err
+	}
+	// The file decides where tokens are sent, so it must not be editable by
+	// others; readClustersFile checks the same descriptor it reads.
+	data, err := readClustersFile(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return map[string]clusterProfile{}, path, nil
+	}
+	if err != nil {
+		return nil, path, err
+	}
+	var f clustersFile
+	if err := toml.Unmarshal(data, &f); err != nil {
+		return nil, path, fmt.Errorf("parsing %s: %w", path, err)
+	}
+	if f.Clusters == nil {
+		f.Clusters = map[string]clusterProfile{}
+	}
+	return f.Clusters, path, nil
+}
+
+func clusterByName(name string) (clusterProfile, error) {
+	all, path, err := loadClusters()
+	if err != nil {
+		return clusterProfile{}, err
+	}
+	cl, ok := all[name]
+	if !ok {
+		return clusterProfile{}, fmt.Errorf("cluster %q is not defined in %s (run 'proxmox-cli clusters list')", name, path)
+	}
+	if err := cl.validate(name); err != nil {
+		return clusterProfile{}, fmt.Errorf("%s: %w", path, err)
+	}
+	return cl, nil
+}
+
+func sortedClusterNames(all map[string]clusterProfile) []string {
+	names := make([]string, 0, len(all))
+	for n := range all {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	return names
+}
+
+func (cl clusterProfile) validate(name string) error {
+	if !clusterNameRe.MatchString(name) {
+		return fmt.Errorf("cluster name %q must be letters, digits, '.', '_' or '-'", name)
+	}
+	if cl.PVEHost == "" && cl.PVEBaseURL == "" && cl.PBSHost == "" {
+		return fmt.Errorf("cluster %q needs pve_host, pve_base_url, or pbs_host", name)
+	}
+	for field, pins := range map[string]string{"pve_fingerprint": cl.PVEFingerprint, "pbs_fingerprint": cl.PBSFingerprint} {
+		for _, p := range splitPins(pins) {
+			if !client.ValidFingerprint(p) {
+				return fmt.Errorf("cluster %q: %s %q is not a SHA-256 fingerprint (AB:CD:... 32 bytes)", name, field, p)
+			}
+		}
+	}
+	for _, env := range []string{cl.PVETokenEnv, cl.PBSTokenEnv} {
+		if env != "" && !envNamePattern.MatchString(env) {
+			return fmt.Errorf("cluster %q: %q is not an environment variable name (store the variable NAME, never the token)", name, env)
+		}
+	}
+	if cl.PVEBaseURL != "" {
+		u, err := url.Parse(cl.PVEBaseURL)
+		if err != nil || u.Scheme != "https" || u.Host == "" {
+			return fmt.Errorf("cluster %q: pve_base_url must be an https:// URL", name)
+		}
+		if u.User != nil || strings.ContainsAny(cl.PVEBaseURL, "?#") {
+			return fmt.Errorf("cluster %q: pve_base_url must not carry credentials, a query, or a fragment", name)
+		}
+	}
+	for field, host := range map[string]string{"pve_host": cl.PVEHost, "pbs_host": cl.PBSHost} {
+		if host == "" {
+			continue
+		}
+		raw := host
+		if !strings.Contains(raw, "://") {
+			raw = "https://" + raw
+		}
+		u, err := url.Parse(raw)
+		if err != nil || u.Hostname() == "" || u.User != nil || (u.Path != "" && u.Path != "/") || strings.ContainsAny(host, "?#") {
+			return fmt.Errorf("cluster %q: %s %q must be a host, host:port, or https://host:port", name, field, host)
+		}
+		if u.Scheme != "https" {
+			return fmt.Errorf("cluster %q: %s %q must use https", name, field, host)
+		}
+	}
+	return nil
+}
+
+// A profile without a PVE host gets an empty base URL: requests fail before any
+// network I/O (getJSON names the missing setting), so nothing can ever go to an
+// inherited PVE URL.
+
+// applyClusterToClient points a client at one cluster. Every field is reset,
+// so a value from the shell environment or an earlier cluster never leaks into
+// this one (a cluster without a PBS host gets no PBS host).
+func applyClusterToClient(c *client.Client, cl clusterProfile) error {
+	cfg := c.Config
+	if cfg.TemplateVars == nil {
+		cfg.TemplateVars = map[string]string{}
+	}
+	// Always set a concrete base: a profile must never inherit PROXMOX_BASE_URL
+	// or PROXMOX_HOST from the shell, or its token would go to that host.
+	switch {
+	case cl.PVEBaseURL != "":
+		c.BaseURL = strings.TrimRight(cl.PVEBaseURL, "/")
+	case cl.PVEHost != "":
+		host := strings.TrimPrefix(cl.PVEHost, "https://")
+		if _, _, err := net.SplitHostPort(host); err != nil {
+			host = net.JoinHostPort(strings.Trim(host, "[]"), "8006")
+		}
+		c.BaseURL = "https://" + host + "/api2/json"
+	default:
+		c.BaseURL = ""
+		cfg.ProxmoxApiToken = ""
+	}
+	cfg.BaseURL = c.BaseURL
+	cfg.TemplateVars["host"] = ""
+	cfg.TemplateVars["pbs_host"] = cl.PBSHost
+	if cl.PBSHost == "" {
+		cfg.TemplateVars["pbs_host"] = client.PBSHostNone
+	}
+	cfg.AuthHeaderVal = ""
+	cfg.ProxmoxApiToken = envValue(cl.PVETokenEnv)
+	cfg.ProxmoxPbsApiToken = envValue(cl.PBSTokenEnv)
+	dropConfiguredAuthorization(c)
+	if err := c.SetServicePins(splitPins(cl.PVEFingerprint), splitPins(cl.PBSFingerprint)); err != nil {
+		return err
+	}
+	return c.CheckServiceOrigins()
+}
+
+// dropConfiguredAuthorization removes an Authorization entry from the config
+// file's [headers]: generic headers are applied after the per-service token,
+// so one would override it and send one tenant's (or one service's)
+// credential everywhere.
+func dropConfiguredAuthorization(c *client.Client) {
+	if c.Config == nil {
+		return
+	}
+	for k := range c.Config.Headers {
+		if strings.EqualFold(strings.TrimSpace(k), "Authorization") {
+			delete(c.Config.Headers, k)
+			fmt.Fprintln(os.Stderr, "warning: ignoring Authorization in the config file's [headers]; tokens come from PROXMOX_API_TOKEN / PROXMOX_PBS_API_TOKEN or clusters.toml")
+		}
+	}
+}
+
+func envValue(name string) string {
+	if name == "" {
+		return ""
+	}
+	return strings.TrimSpace(os.Getenv(name))
+}
+
+// newClusterClient builds a client for one cluster without consulting
+// --cluster, for fleet commands that visit every cluster.
+func newClusterClient(flags *rootFlags, cl clusterProfile) (*client.Client, error) {
+	saved := selectedCluster
+	selectedCluster, buildingProfileClient = "", true
+	c, err := flags.newClient()
+	selectedCluster, buildingProfileClient = saved, false
+	if err != nil {
+		return nil, err
+	}
+	if err := applyClusterToClient(c, cl); err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
+type clusterRow struct {
+	Name           string `json:"name"`
+	Client         string `json:"client,omitempty"`
+	PVE            string `json:"pve,omitempty"`
+	PVETokenEnv    string `json:"pve_token_env,omitempty"`
+	PVETokenSet    bool   `json:"pve_token_set"`
+	PVEPinned      bool   `json:"pve_pinned"`
+	PBS            string `json:"pbs,omitempty"`
+	PBSTokenEnv    string `json:"pbs_token_env,omitempty"`
+	PBSTokenSet    bool   `json:"pbs_token_set"`
+	PBSPinned      bool   `json:"pbs_pinned"`
+	PBSNamespace   string `json:"pbs_namespace,omitempty"`
+	Invalid        string `json:"invalid,omitempty"`
+	ClustersSource string `json:"clusters_file"`
+}
+
+func newClustersCmd(flags *rootFlags) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "clusters",
+		Short: "Configure and list client clusters (one entry per PVE cluster + its PBS)",
+		Long: "Clusters are kept in clusters.toml (PROXMOX_CLUSTERS_FILE overrides the path). " +
+			"Each entry names a PVE host, an optional PBS host, TLS fingerprints, and the NAMES of the " +
+			"environment variables that hold the API tokens. Tokens are never written to the file.",
+	}
+	cmd.AddCommand(newClustersListCmd(flags), newClustersAddCmd(flags))
+	return cmd
+}
+
+func newClustersListCmd(flags *rootFlags) *cobra.Command {
+	return &cobra.Command{
+		Use:         "list",
+		Short:       "List configured clusters and whether each token env var is set (values never shown)",
+		Example:     "  proxmox-cli clusters list --json",
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "local"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if dryRunOK(flags) {
+				return writeDryRun(cmd.OutOrStdout(), flags, "list configured clusters")
+			}
+			all, path, err := loadClusters()
+			if err != nil {
+				return configErr(err)
+			}
+			rows := make([]clusterRow, 0, len(all))
+			for _, name := range sortedClusterNames(all) {
+				cl := all[name]
+				pve := cl.PVEBaseURL
+				if pve == "" {
+					pve = cl.PVEHost
+				}
+				rows = append(rows, clusterRow{
+					Name: name, Client: cl.Client, PVE: pve, PVETokenEnv: cl.PVETokenEnv,
+					PVETokenSet: envValue(cl.PVETokenEnv) != "", PVEPinned: cl.PVEFingerprint != "",
+					PBS: cl.PBSHost, PBSTokenEnv: cl.PBSTokenEnv, PBSTokenSet: envValue(cl.PBSTokenEnv) != "",
+					PBSPinned: cl.PBSFingerprint != "", PBSNamespace: cl.PBSNamespace, ClustersSource: path,
+				})
+				if err := cl.validate(name); err != nil {
+					rows[len(rows)-1].Invalid = err.Error()
+				}
+			}
+			if !wantsHumanTable(cmd.OutOrStdout(), flags) {
+				return printJSONFiltered(cmd.OutOrStdout(), rows, flags)
+			}
+			if len(rows) == 0 {
+				fmt.Fprintf(cmd.OutOrStdout(), "No clusters configured in %s.\nAdd one: proxmox-cli clusters add acme --pve-host pve1.acme.lan --pve-token-env ACME_PVE_TOKEN\n", path)
+				return nil
+			}
+			tableRows := make([][]string, 0, len(rows))
+			for _, r := range rows {
+				name := r.Name
+				if r.Invalid != "" {
+					name += " (INVALID: " + r.Invalid + ")"
+				}
+				tableRows = append(tableRows, []string{name, r.Client, r.PVE, tokenState(r.PVETokenEnv, r.PVETokenSet), r.PBS, tokenState(r.PBSTokenEnv, r.PBSTokenSet)})
+			}
+			return flags.printTable(cmd, []string{"NAME", "CLIENT", "PVE", "PVE TOKEN", "PBS", "PBS TOKEN"}, tableRows)
+		},
+	}
+}
+
+func tokenState(env string, set bool) string {
+	switch {
+	case env == "":
+		return "-"
+	case set:
+		return env + " (set)"
+	default:
+		return env + " (MISSING)"
+	}
+}
+
+func newClustersAddCmd(flags *rootFlags) *cobra.Command {
+	var cl clusterProfile
+	var force bool
+	cmd := &cobra.Command{
+		Use:   "add [name]",
+		Short: "Add or replace a cluster entry in clusters.toml (local file only; never touches Proxmox)",
+		Example: "  proxmox-cli clusters add acme --client \"Acme Dental\" --pve-host pve1.acme.lan --pve-token-env ACME_PVE_TOKEN \\\n" +
+			"    --pbs-host pbs.acme.lan --pbs-token-env ACME_PBS_TOKEN --pbs-fingerprint AB:CD:...",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) == 0 && cmd.Flags().NFlag() == 0 {
+				return cmd.Help()
+			}
+			if dryRunOK(flags) {
+				return writeDryRun(cmd.OutOrStdout(), flags, "add cluster to clusters.toml")
+			}
+			if len(args) != 1 {
+				_ = cmd.Usage()
+				return usageErr(errors.New("cluster name is required"))
+			}
+			name := args[0]
+			if err := cl.validate(name); err != nil {
+				return usageErr(err)
+			}
+			all, path, err := loadClusters()
+			if err != nil {
+				return configErr(err)
+			}
+			if _, exists := all[name]; exists && !force {
+				return usageErr(fmt.Errorf("cluster %q already exists in %s; pass --force to replace it", name, path))
+			}
+			all[name] = cl
+			data, err := toml.Marshal(clustersFile{Clusters: all})
+			if err != nil {
+				return err
+			}
+			if err := cliutil.AtomicWritePrivateFile(path, data, 0o600, 0o700); err != nil {
+				return err
+			}
+			return printJSONFiltered(cmd.OutOrStdout(), map[string]any{"cluster": name, "clusters_file": path, "saved": true}, flags)
+		},
+	}
+	f := cmd.Flags()
+	f.StringVar(&cl.Client, "client", "", "Client display name used in fleet reports")
+	f.StringVar(&cl.PVEHost, "pve-host", "", "PVE host or host:port (default port 8006)")
+	f.StringVar(&cl.PVEBaseURL, "pve-base-url", "", "Full PVE API base URL, e.g. https://pve1:8006/api2/json")
+	f.StringVar(&cl.PVETokenEnv, "pve-token-env", "", "NAME of the env var holding USER@REALM!TOKENID=SECRET")
+	f.StringVar(&cl.PVEFingerprint, "pve-fingerprint", "", "PVE TLS certificate SHA-256 fingerprint to pin")
+	f.StringVar(&cl.PBSHost, "pbs-host", "", "PBS host or host:port (default port 8007)")
+	f.StringVar(&cl.PBSTokenEnv, "pbs-token-env", "", "NAME of the env var holding USER@REALM!TOKENID:SECRET")
+	f.StringVar(&cl.PBSFingerprint, "pbs-fingerprint", "", "PBS TLS certificate SHA-256 fingerprint to pin")
+	f.StringVar(&cl.PBSNamespace, "pbs-namespace", "", "PBS namespace holding this client's backups on a shared PBS")
+	f.BoolVar(&force, "force", false, "Replace an existing entry with the same name")
+	return cmd
+}
+
+func splitPins(s string) []string {
+	var out []string
+	for _, p := range strings.Split(s, ",") {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
+}

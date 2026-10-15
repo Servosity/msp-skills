@@ -1,0 +1,206 @@
+{
+ "slug": "proxmox",
+ "doc": "docs/reprint-survival.md",
+ "_comment": "Connector-specific edits to GENERATED files that a cli-printing-press reprint must NOT clobber. Paths are relative to skills/proxmox/ once onboarded. Re-apply with the factory's handfix/apply_handfixes.py (~/Documents/Dev/cli-factory/proxmox/handfix/) (idempotent; exits non-zero if a hook site moved). A cross-spec regen (spec checksum changed) drops every client.go hook; a same-spec regen preserves them. internal/client/proxmox_routing_test.go fails if any hook is missing. tools-manifest.json (a library-only press artifact) is not vendored here, so its PBS-path fix is tracked only in the factory ledger.",
+ "handfixes": [
+  {
+   "id": "pbs-host-routing",
+   "summary": "PBS operations (generated with the placeholder origin https://localhost:8007) are routed to PROXMOX_PBS_HOST before the generated PROXMOX_BASE_URL rebase",
+   "why": "OpenAPI operation-level servers are not templated by the press, so every PBS command was baked to localhost:8007. Worse, the generated rebaseAbsoluteURLOntoOverride moves every absolute URL onto PROXMOX_BASE_URL, which would send PBS requests carrying the PBS token to the PVE host. Unconfigured PBS host errors instead; a loopback base stands in only under the Printing Press verify/dogfood harness.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/proxmox_routing.go",
+     "contains": "func pbsTargetURL("
+    },
+    {
+     "file": "cli/internal/client/proxmox_routing.go",
+     "contains": "cliutil.IsAnyHarness()"
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "pbsTargetURL(path, c.Config, c.BaseURL); isPBS {"
+    }
+   ]
+  },
+  {
+   "id": "pbs-token-scheme-prefix",
+   "summary": "The PBS per-operation Authorization header gets the PBSAPIToken= scheme prepended (bare USER@REALM!TOKENID:SECRET accepted)",
+   "why": "The press sends per-operation security-scheme headers raw and ignores x-auth-format on them, so a PBS request sent the bare token and got 401.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "req.Header.Set(\"Authorization\", pbsAuthValue(v))"
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "req.Header.Set(\"Authorization\", v)\n"
+    }
+   ]
+  },
+  {
+   "id": "tls-fingerprint-pinning",
+   "summary": "Self-signed Proxmox certificates are trusted by pinned SHA-256 fingerprint, bound per service: PROXMOX_TLS_FINGERPRINT pins only the PVE host and PROXMOX_PBS_TLS_FINGERPRINT only the PBS host (or per cluster in clusters.toml)",
+   "why": "Proxmox ships self-signed certificates and the generated client has no TLS option, so no command worked against a default install. Fingerprint pinning is Proxmox's own trust model (proxmox-backup-client uses PBS_FINGERPRINT). Pins are installed by a client hook (novel clusters.go via the generated registerClientHook) as a per-service transport, so a PVE pin can never vouch for the PBS host. There is deliberately no insecure mode.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/proxmox_routing.go",
+     "contains": "func (c *Client) SetServicePins("
+    },
+    {
+     "file": "cli/internal/client/proxmox_routing.go",
+     "contains": "type servicePinTransport struct"
+    },
+    {
+     "file": "cli/internal/cli/clusters.go",
+     "contains": "c.SetServicePins(client.EnvPins(\"PROXMOX_TLS_FINGERPRINT\"), client.EnvPins(\"PROXMOX_PBS_TLS_FINGERPRINT\"))"
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "proxmoxTLSConfig()"
+    }
+   ]
+  },
+  {
+   "id": "proxmox-envelope-sidecars",
+   "summary": "Responses shaped {data, total|digest|changes|active|success} are unwrapped like a bare {data} envelope",
+   "why": "The generated unwrapper only strips a one-key envelope (len == 1). Proxmox puts total next to data on task lists and logs and digest on config/job reads, so those responses reached commands and the store still wrapped.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "!isProxmoxEnvelope(envelope)"
+    },
+    {
+     "file": "cli/internal/client/proxmox_routing.go",
+     "contains": "func isProxmoxEnvelope("
+    }
+   ]
+  },
+  {
+   "id": "proxmox-auth-scheme",
+   "summary": "Every auth-scheme decision goes through proxmoxAuthScheme, which forces PbsApiToken for PBS paths and the PBS host",
+   "why": "With --auth-preference PveApiToken the generated operationAuthScheme falls back to the PVE token for any request it cannot match to a PBS operation (redirects, absolute PBS URLs from code orchestration), which would send the PVE token to the PBS host.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.proxmoxAuthScheme(",
+     "min_count": 5
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "c.operationAuthScheme("
+    }
+   ]
+  },
+  {
+   "id": "pbs-display-url",
+   "summary": "Error messages and --dry-run show the routed PBS host instead of the placeholder https://localhost:8007",
+   "why": "Users debugging a PBS failure were told the CLI called localhost:8007, which is not where the request went.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "pbsDisplayURL(rawURL, c.Config, c.BaseURL)"
+    }
+   ]
+  },
+  {
+   "id": "generated-docs-corrections",
+   "summary": "guide.md (the vendored CLI README), SKILL.md, AGENTS.md and manifest.json carry Proxmox-correct env tables, exit codes, read-only statement and optional PBS/TLS settings (factory handfix/docs_patch.py)",
+   "why": "The templates claim PROXMOX_PBS_HOST is required, omit the TLS fingerprint and PBS token variables, advertise --stdin write input on a read-only CLI, and show a mock-value example; the Phase 4.8/4.9 doc audit flagged each. The press-generated manifest also names the MCP binary proxmox-pp-mcp, marks the PBS host required, defaults PROXMOX_HOST to localhost and omits both TLS fingerprint fields; onboard copies it from the source, so a reprint restores every one of those.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "guide.md",
+     "contains": "PROXMOX_PBS_TLS_FINGERPRINT"
+    },
+    {
+     "file": "guide.md",
+     "not_contains": "ct list mock-value"
+    },
+    {
+     "file": "AGENTS.md",
+     "contains": "Every command is read-only against Proxmox"
+    },
+    {
+     "file": "manifest.json",
+     "contains": "proxmox_tls_fingerprint"
+    },
+    {
+     "file": "manifest.json",
+     "contains": "proxmox_pbs_tls_fingerprint"
+    },
+    {
+     "file": "manifest.json",
+     "not_contains": "proxmox-pp-mcp"
+    },
+    {
+     "file": "manifest.json",
+     "not_contains": "\"default\": \"localhost\""
+    }
+   ]
+  },
+  {
+   "id": "same-origin-redirect-auth",
+   "summary": "A same-origin redirect to a PVE path keeps the PVE Authorization header the generated redirect handler just stamped",
+   "why": "The generated CheckRedirect stamps the primary-scheme header, then a second block deletes Authorization for every destination that is not the secondary (PBS) scheme, so a same-origin PVE hop arrived unauthenticated.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "} else if destinationScheme != \"PveApiToken\" {"
+    }
+   ]
+  },
+  {
+   "id": "mcp-install-env-and-registry-card",
+   "summary": "mcp-install.md env blocks and server.json environmentVariables name the real Proxmox variables: PROXMOX_HOST, PROXMOX_API_TOKEN and PROXMOX_TLS_FINGERPRINT to fill in, the three PROXMOX_PBS_* values optional and blank",
+   "why": "onboard.py generates both from the manifest env keys as '<your-...>' placeholders marked required and secret. A copy-pasted '<your-proxmox_pbs_host>' is a bogus PBS host, the generated block omitted the TLS fingerprint a stock (self-signed) Proxmox needs, and the registry card marked the hostnames secret and the optional PBS values required. A fleet docs re-mint regenerates mcp-install.md and would bring all of that back.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "mcp-install.md",
+     "contains": "\"PROXMOX_TLS_FINGERPRINT\": \"<PVE certificate SHA-256>\""
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"PROXMOX_PBS_HOST\": \"\""
+    },
+    {
+     "file": "mcp-install.md",
+     "not_contains": "<your-proxmox_"
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"PROXMOX_TLS_FINGERPRINT\""
+    },
+    {
+     "file": "server.json",
+     "not_contains": "credential for the Proxmox MCP server"
+    }
+   ]
+  },
+  {
+   "id": "x-text-above-go-2026-6629",
+   "summary": "`golang.org/x/text` is pinned at v0.41.0, above the press-emitted v0.39.0 that osv-scanner flags for GO-2026-6629",
+   "why": "Press 4.33.5 emits `golang.org/x/text v0.39.0` as an indirect dependency (modernc.org/sqlite). osv-scanner flags GO-2026-6629 (panic parsing crafted input in x/text/secure/precis) against it. It is presence-only today, but the fleet rule since 2026-10-14 is to ship above it, and a reprint from a press that still emits v0.39.0 silently restores the old version. Mirrors avanan's x-text-above-go-2026-5970 entry.",
+   "status": "active",
+   "spec_encode_followup": "Raise the golang.org/x/text floor in the press module template (retro item against the generator).",
+   "asserts": [
+    {
+     "file": "cli/go.mod",
+     "contains": "golang.org/x/text v0.41.0",
+     "min_count": 1
+    },
+    {
+     "file": "cli/go.mod",
+     "not_contains": "golang.org/x/text v0.39.0"
+    }
+   ]
+  }
+ ]
+}

@@ -73,6 +73,7 @@ body:
         - pax8
         - pipedrive
         - proofpoint
+        - proxmox
         - quickbooks
         - quotewerks
         - resourceguru

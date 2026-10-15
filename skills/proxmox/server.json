@@ -1,0 +1,70 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Servosity/proxmox-mcp",
+  "title": "Proxmox MCP",
+  "description": "Read-only Proxmox VE and Backup Server: which client guests have a verified, recent restore point.",
+  "version": "0.1.0",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/proxmox/proxmox-512x512.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/servosity/msp-skills",
+    "source": "github",
+    "subfolder": "skills/proxmox"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/proxmox-v0.1.0/proxmox-mcp.mcpb",
+      "version": "0.1.0",
+      "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "PROXMOX_HOST",
+          "description": "Proxmox VE host name or IP (API on port 8006).",
+          "isRequired": true,
+          "isSecret": false
+        },
+        {
+          "name": "PROXMOX_API_TOKEN",
+          "description": "Proxmox VE API token USER@REALM!TOKENID=SECRET; an audit-only (PVEAuditor) token is enough.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "PROXMOX_TLS_FINGERPRINT",
+          "description": "SHA-256 fingerprint of the PVE certificate to pin (stock Proxmox certificates are self-signed).",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "PROXMOX_PBS_HOST",
+          "description": "Optional Proxmox Backup Server host, host:port, or https://host:port (default port 8007).",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "PROXMOX_PBS_API_TOKEN",
+          "description": "Optional Proxmox Backup Server API token USER@REALM!TOKENID:SECRET (colon before the secret).",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "PROXMOX_PBS_TLS_FINGERPRINT",
+          "description": "Optional SHA-256 fingerprint of the PBS certificate to pin.",
+          "isRequired": false,
+          "isSecret": false
+        }
+      ]
+    }
+  ]
+}

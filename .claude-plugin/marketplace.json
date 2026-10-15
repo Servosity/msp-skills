@@ -1262,6 +1262,21 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "proxmox",
+      "source": "./skills/proxmox",
+      "description": "Read-only Proxmox VE and Backup Server CLI that tells you, across every client cluster, which guests have a good, verified, recent restore point and which do not.",
+      "version": "0.1.0",
+      "category": "backup-dr",
+      "tags": [
+        "proxmox",
+        "backup-dr",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }
