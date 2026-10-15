@@ -14,6 +14,7 @@ import (
 	"net"
 	"net/url"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -35,6 +36,9 @@ type fleetTarget struct {
 	Profile clusterProfile
 	C       *client.Client
 	Err     error // client construction failed; reported as this cluster's failure
+	// sharedPBS: PBS namespaces (pbsStorageRef.sourceKey) this cluster shares
+	// with other configured clusters, mapped to every cluster writing there.
+	sharedPBS map[string][]string
 }
 
 // fleetTargets resolves the clusters to visit: --cluster narrows to one entry;
@@ -110,21 +114,27 @@ func runFleet[T any](ctx context.Context, targets []fleetTarget, fn func(context
 	return results, failures
 }
 
-// unreachableTenants counts, per client, the clusters runFleet could not read
-// at all (scope-less failures), so a per-client rollup shows that client
-// instead of silently dropping it from a forwarded CSV.
-func unreachableTenants(targets []fleetTarget, failures []fetchFailure) map[string]int {
+// tenantFailures counts, per client, the clusters runFleet could not read at
+// all (scope-less failures) and the scoped fetch failures on the rest, so a
+// per-client rollup carries its own incompleteness instead of silently
+// dropping a client, or the guests and storages that were not read.
+func tenantFailures(targets []fleetTarget, failures []fetchFailure) (unreachable, scoped map[string]int) {
 	tenant := map[string]string{}
 	for _, t := range targets {
 		tenant[t.Name] = t.Tenant
 	}
-	out := map[string]int{}
+	unreachable, scoped = map[string]int{}, map[string]int{}
 	for _, f := range failures {
-		if tn, ok := tenant[f.Cluster]; ok && f.Scope == "" {
-			out[tn]++
+		tn, ok := tenant[f.Cluster]
+		switch {
+		case !ok:
+		case f.Scope == "":
+			unreachable[tn]++
+		default:
+			scoped[tn]++
 		}
 	}
-	return out
+	return unreachable, scoped
 }
 
 type fetchFailure struct {
@@ -146,11 +156,11 @@ func (f fetchFailure) String() string {
 var (
 	postureKeep  = []string{"rows", "clients", "warnings", "fetch_failures", "red", "amber", "clusters", "tenant", "cluster", "vmid", "asset_name", "asset_id", "verdict", "severity", "reason", "covered_by_job", "age_hours", "last_success_at", "verify_state", "last_verified_ok_at", "last_attempt_status", "last_attempt_at", "offsite_last_success_at", "guests", "stale", "never", "uncovered", "verify_failed", "unverified", "last_attempt_failed", "attempt_unknown", "archives_incomplete", "unproven", "clusters_unreachable"}
 	coverageKeep = []string{"rows", "fetch_failures", "uncovered_guests", "guests_checked", "cluster", "vmid", "name", "disk", "reason", "detail", "disabled_jobs", "disagrees_with_upstream"}
-	verifyKeep   = []string{"stores", "groups", "skipped_clusters", "fetch_failures", "cluster", "store", "namespace", "group", "status", "snapshots", "failed", "never_verified", "outdated", "first_failure_at", "newest_verified_ok_at", "newest_is_bad", "failing_groups", "failed_snapshots", "never_verified_snapshots", "gc_still_bad_chunks", "namespaces_without_verify_job"}
+	verifyKeep   = []string{"stores", "groups", "skipped_clusters", "fetch_failures", "cluster", "store", "namespace", "group", "status", "snapshots", "failed", "never_verified", "outdated", "first_failure_at", "newest_verified_ok_at", "newest_is_bad", "failing_groups", "failed_snapshots", "never_verified_snapshots", "gc_still_bad_chunks", "namespaces_without_verify_job", "attribution"}
 	failuresKeep = []string{"rows", "fetch_failures", "scanned_tasks", "logs_read", "log_cap_hit", "note", "cluster", "product", "type", "target", "vmid", "guest_name", "result", "reason", "upid", "started_at"}
 	capacityKeep = []string{"rows", "fetch_failures", "cluster", "kind", "name", "node", "used_pct", "days_to_full", "estimated_full_at", "gc_last_state", "gc_pending_bytes", "prune_jobs", "flags"}
-	restoreKeep  = []string{"query", "guests", "fetch_failures", "cluster", "vmid", "name", "covered_by_jobs", "count", "newest_at", "newest_verified_ok_at", "restore_points", "backup_time", "source", "verify_state", "protected", "encrypted", "prune_mark"}
-	rpoKeep      = []string{"rows", "clients", "fetch_failures", "days", "window_start", "tenant", "cluster", "vmid", "name", "missed_runs", "scheduled_runs", "missed_run_times", "largest_gap_hours", "verified_ok_days", "met_schedule", "window_capped", "note", "guests", "guests_met_schedule", "worst_gap_hours", "evidence", "target_unread", "guests_unproven", "missed_runs_unproven", "guests_without_restore_points", "clusters_unreachable"}
+	restoreKeep  = []string{"query", "guests", "fetch_failures", "cluster", "vmid", "name", "covered_by_jobs", "count", "newest_at", "newest_verified_ok_at", "restore_points", "backup_time", "source", "verify_state", "protected", "encrypted", "prune_mark", "evidence", "not_read"}
+	rpoKeep      = []string{"rows", "clients", "fetch_failures", "days", "window_start", "tenant", "cluster", "vmid", "name", "missed_runs", "scheduled_runs", "missed_run_times", "largest_gap_hours", "verified_ok_days", "met_schedule", "window_capped", "note", "guests", "guests_met_schedule", "worst_gap_hours", "evidence", "points_unread", "guests_unproven", "missed_runs_unproven", "guests_without_restore_points", "clusters_unreachable"}
 )
 
 func printFetchFailures(w io.Writer, failures []fetchFailure) {
@@ -720,6 +730,9 @@ var errCoveredByPBS = errors.New("read through the PBS API instead of the PVE co
 // backups". When the PBS API reads the same archives (covered), a hidden PVE
 // list returns errCoveredByPBS instead.
 func readStorageArchives(ctx context.Context, c *client.Client, node string, s storageInfo, vmid int64, refs map[string]pbsStorageRef, covered bool) ([]restorePoint, error) {
+	if ref, ok := refs[s.Storage]; ok && len(ref.sharedWith) > 0 {
+		return nil, sharedPBSError(ref, ref.namespace, ref.sharedWith)
+	}
 	hidden, err := backupListingHidden(ctx, c, s.Storage, vmid)
 	if err != nil {
 		return nil, fmt.Errorf("cannot tell whether the token may list backup archives: %w", err)
@@ -730,7 +743,11 @@ func readStorageArchives(ctx context.Context, c *client.Client, node string, s s
 		}
 		hint := ""
 		if ref, ok := refs[s.Storage]; ok {
-			hint = fmt.Sprintf(" Its backups are on PBS %s: set PROXMOX_PBS_HOST (or pbs_host) to that server, spelled the same way, and the PBS API reads them with an audit-only token.", ref.server)
+			if !c.PBSConfigured() || !strings.EqualFold(pbsEndpointOf(c), ref.server) {
+				hint = fmt.Sprintf(" Its backups are on PBS %s: set PROXMOX_PBS_HOST (or pbs_host) to that server, spelled the same way, and the PBS API reads them with an audit-only token.", ref.server)
+			} else {
+				hint = fmt.Sprintf(" The PBS API did not read datastore %s namespace %q for this cluster either: see the pbs failure, or set pbs_namespace to that namespace or one above it.", ref.datastore, ref.namespace)
+			}
 		}
 		return nil, fmt.Errorf("Proxmox VE lists backup archives on storage %s only to a token with Datastore.Allocate on /storage/%s, or Datastore.AllocateSpace on it plus VM.Backup on the guest; this token has neither, so it would see an empty list and the archives were not read.%s", s.Storage, s.Storage, hint)
 	}
@@ -754,8 +771,90 @@ func pbsCanonical(server, store, ns, guestType string, vmid, t int64) string {
 }
 
 // pbsStorageRef is a PVE storage of type pbs: where on which PBS its backups
-// live. server is the normalized endpoint "host:port" (see pbsEndpoint).
-type pbsStorageRef struct{ server, datastore, namespace, pruneBackups string }
+// live. server is the normalized endpoint "host:port" (see pbsEndpoint);
+// sharedWith names every configured cluster writing to the same namespace.
+type pbsStorageRef struct {
+	server, datastore, namespace, pruneBackups, fingerprint string
+	sharedWith                                              []string
+}
+
+// sourceKey identifies one PBS namespace across clusters: by the PBS
+// certificate fingerprint the storage pins when it has one (two spellings of
+// a host are one server), else by endpoint.
+func (r pbsStorageRef) sourceKey(ns string) string {
+	id := r.server
+	if fp := strings.ToLower(strings.NewReplacer(":", "", " ", "").Replace(r.fingerprint)); fp != "" {
+		id = fp
+	}
+	return id + "|" + r.datastore + "|" + ns
+}
+
+// markSharedPBS finds PBS namespaces that two or more configured clusters
+// write to. VMIDs collide across clusters, so a snapshot of vm/100 there may
+// be either cluster's: each such cluster learns the shared keys.
+func markSharedPBS(ctx context.Context, targets []fleetTarget) {
+	if len(targets) < 2 {
+		return
+	}
+	owners := map[string][]string{}
+	pves := map[string]map[string]bool{} // key -> distinct PVE clusters writing there
+	keys := make([]map[string]bool, len(targets))
+	// ponytail: one /storage read per cluster, sequential; fine for tens of clusters.
+	for i, t := range targets {
+		if !t.usable() || strings.TrimSpace(t.C.BaseURL) == "" {
+			continue
+		}
+		refs, err := fetchPBSStorageRefs(ctx, t.C)
+		if err != nil {
+			continue // the command reports this cluster's storage-config failure itself
+		}
+		keys[i] = map[string]bool{}
+		for _, ref := range refs {
+			keys[i][ref.sourceKey(ref.namespace)] = true
+			if t.Profile.PBSNamespace != "" {
+				keys[i][ref.sourceKey(t.Profile.PBSNamespace)] = true
+			}
+		}
+		// Two entries for the same PVE cluster write the same guests, not
+		// colliding ones: a cluster is identified by its API base URL (not its
+		// certificate, which a wildcard can share across clients). One cluster
+		// reached through two node URLs is flagged, loudly, never missed.
+		id := strings.ToLower(strings.TrimRight(strings.TrimSpace(t.C.BaseURL), "/"))
+		for k := range keys[i] {
+			owners[k] = append(owners[k], t.Name)
+			if pves[k] == nil {
+				pves[k] = map[string]bool{}
+			}
+			pves[k][id] = true
+		}
+	}
+	for i := range targets {
+		for k := range keys[i] {
+			if len(pves[k]) > 1 {
+				if targets[i].sharedPBS == nil {
+					targets[i].sharedPBS = map[string][]string{}
+				}
+				targets[i].sharedPBS[k] = owners[k]
+			}
+		}
+	}
+}
+
+// withShared marks the refs whose namespace another configured cluster also
+// writes to (see markSharedPBS).
+func (t fleetTarget) withShared(refs map[string]pbsStorageRef) map[string]pbsStorageRef {
+	for id, ref := range refs {
+		if owners := t.sharedPBS[ref.sourceKey(ref.namespace)]; len(owners) > 0 {
+			ref.sharedWith = owners
+			refs[id] = ref
+		}
+	}
+	return refs
+}
+
+func sharedPBSError(ref pbsStorageRef, ns string, owners []string) error {
+	return fmt.Errorf("PBS datastore %s namespace %q is written by clusters %s: VMIDs collide in one namespace, so these restore points may be another cluster's and were not counted; give each cluster its own PBS namespace", ref.datastore, ns, strings.Join(owners, ", "))
+}
 
 // pbsEndpoint identifies a PBS service as lowercase "host:port" (default port
 // 8007): two PBS instances on one host are different services.
@@ -779,6 +878,7 @@ func fetchPBSStorageRefs(ctx context.Context, c *client.Client) (map[string]pbsS
 		Namespace string  `json:"namespace"`
 		Prune     string  `json:"prune-backups"`
 		Port      flexInt `json:"port"`
+		Print     string  `json:"fingerprint"`
 	}
 	if err := getJSON(ctx, c, "/storage", map[string]string{"type": "pbs"}, &list); err != nil {
 		return nil, fmt.Errorf("storage config: %w", err)
@@ -786,7 +886,7 @@ func fetchPBSStorageRefs(ctx context.Context, c *client.Client) (map[string]pbsS
 	refs := map[string]pbsStorageRef{}
 	for _, s := range list {
 		if s.Type == "pbs" {
-			refs[s.Storage] = pbsStorageRef{server: pbsEndpoint(s.Server, int64(s.Port)), datastore: s.Datastore, namespace: s.Namespace, pruneBackups: s.Prune}
+			refs[s.Storage] = pbsStorageRef{server: pbsEndpoint(s.Server, int64(s.Port)), datastore: s.Datastore, namespace: s.Namespace, pruneBackups: s.Prune, fingerprint: s.Print}
 		}
 	}
 	return refs, nil
@@ -794,8 +894,10 @@ func fetchPBSStorageRefs(ctx context.Context, c *client.Client) (map[string]pbsS
 
 // pbsEndpoint is the configured PBS service of this target as "host:port"
 // (comparable with pbsStorageRef.server), or "".
-func (t fleetTarget) pbsEndpoint() string {
-	host := strings.TrimSpace(t.C.Config.TemplateVars["pbs_host"])
+func (t fleetTarget) pbsEndpoint() string { return pbsEndpointOf(t.C) }
+
+func pbsEndpointOf(c *client.Client) string {
+	host := strings.TrimSpace(c.Config.TemplateVars["pbs_host"])
 	if host == "" || host == client.PBSHostNone || host == "pbs_host_placeholder" {
 		return ""
 	}
@@ -827,14 +929,29 @@ func pbsAttribution(ctx context.Context, t fleetTarget, refs map[string]pbsStora
 	for _, st := range stores {
 		known[st] = true
 	}
+	var shared []string
 	if t.Profile.PBSNamespace != "" {
 		// Only the datastores this cluster's own PVE storages write to on this
 		// PBS: the same namespace name on another datastore can be another
 		// client's backups.
 		for _, ref := range refs {
-			if strings.EqualFold(ref.server, host) && known[ref.datastore] {
+			if !strings.EqualFold(ref.server, host) || !known[ref.datastore] {
+				continue
+			}
+			if owners := t.sharedPBS[ref.sourceKey(t.Profile.PBSNamespace)]; len(owners) > 0 {
+				shared = append(shared, sharedPBSError(ref, t.Profile.PBSNamespace, owners).Error())
+				continue
+			}
+			if len(out[ref.datastore]) == 0 {
 				out[ref.datastore] = []string{t.Profile.PBSNamespace}
 			}
+			// A storage writing below the profile namespace is this client's too.
+			if ref.namespace != t.Profile.PBSNamespace && inNamespace(ref.namespace, t.Profile.PBSNamespace) && len(ref.sharedWith) == 0 && !slices.Contains(out[ref.datastore], ref.namespace) {
+				out[ref.datastore] = append(out[ref.datastore], ref.namespace)
+			}
+		}
+		if len(shared) > 0 {
+			return out, t.Name + ": " + strings.Join(shared, "; "), nil
 		}
 		if len(out) == 0 {
 			return out, fmt.Sprintf("%s: PBS snapshots not attributed to guests: no PVE storage on this cluster points at PBS host %q, so pbs_namespace %q is not tied to a datastore", t.Name, host, t.Profile.PBSNamespace), nil
@@ -846,16 +963,34 @@ func pbsAttribution(ctx context.Context, t fleetTarget, refs map[string]pbsStora
 		if !strings.EqualFold(ref.server, host) || !known[ref.datastore] {
 			continue
 		}
+		if len(ref.sharedWith) > 0 {
+			shared = append(shared, sharedPBSError(ref, ref.namespace, ref.sharedWith).Error())
+			continue
+		}
 		key := ref.datastore + "\x00" + ref.namespace
 		if !seen[key] {
 			seen[key] = true
 			out[ref.datastore] = append(out[ref.datastore], ref.namespace)
 		}
 	}
+	if len(shared) > 0 {
+		return out, t.Name + ": " + strings.Join(dedupeStrings(shared), "; "), nil
+	}
 	if len(out) == 0 {
 		return out, fmt.Sprintf("%s: PBS snapshots not attributed to guests: no PVE storage on this cluster points at PBS host %q and no pbs_namespace is set", t.Name, host), nil
 	}
 	return out, "", nil
+}
+
+func dedupeStrings(in []string) []string {
+	sort.Strings(in)
+	out := in[:0]
+	for i, s := range in {
+		if i == 0 || s != in[i-1] {
+			out = append(out, s)
+		}
+	}
+	return out
 }
 
 // --- PBS
@@ -971,70 +1106,107 @@ func (s pbsSnapshot) restorePoint(host, store, ns string) restorePoint {
 	return rp
 }
 
-// pbsNamespacesForCluster limits a shared PBS to this cluster's namespace on
-// the datastores its PVE storages write to when the profile names one;
-// otherwise every namespace on every datastore. notes name what was left out
-// or could not be tied, so nothing is dropped silently.
-func pbsNamespacesForCluster(ctx context.Context, t fleetTarget) (map[string][]string, []fetchFailure, error) {
+// inNamespace reports whether n is ns or a namespace below it (PBS nests them).
+func inNamespace(n, ns string) bool { return n == ns || strings.HasPrefix(n, ns+"/") }
+
+// pbsNamespacesForCluster limits a shared PBS to this cluster's namespace, and
+// the namespaces below it, on the datastores its PVE storages write to when the
+// profile names one; otherwise every namespace on every datastore. notes name
+// what was left out or could not be tied, so nothing is dropped silently.
+// untied: the datastores could not be tied (PVE unreachable), so every row read
+// may be another client's and must say so.
+func pbsNamespacesForCluster(ctx context.Context, t fleetTarget) (out map[string][]string, notes []fetchFailure, untied bool, err error) {
 	stores, err := pbsDatastores(ctx, t.C)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, false, err
 	}
-	out := map[string][]string{}
-	var notes []fetchFailure
+	out = map[string][]string{}
 	ns := t.Profile.PBSNamespace
-	var own map[string]bool
+	host := t.pbsEndpoint()
+	var refs map[string]pbsStorageRef
+	var own map[string]bool // nil: every datastore (PBS-only profile, or untied)
 	// A PBS-only profile (no PVE host) is scoped by the profile itself.
 	if ns != "" && strings.TrimSpace(t.C.BaseURL) != "" {
 		// The namespace is this client's only on the datastores this cluster's
 		// own PVE storages write to; the same name elsewhere can be another's.
-		refs, err := fetchPBSStorageRefs(ctx, t.C)
-		if err != nil {
-			// PVE down must not blank the PBS view: read every datastore and say so.
+		var rerr error
+		if refs, rerr = fetchPBSStorageRefs(ctx, t.C); rerr != nil {
+			// PVE down must not blank the PBS view: read the namespace wherever
+			// it exists, and mark every row as possibly another client's.
+			untied = true
 			notes = append(notes, fetchFailure{Cluster: t.Name, Scope: "pbs namespace", Error: fmt.Sprintf(
-				"could not tie pbs_namespace %q to this cluster's datastores (%v); namespace %q is listed on every datastore, so groups may include another client's", ns, err, ns)})
-			refs = nil
+				"could not tie pbs_namespace %q to this cluster's datastores (%v); it is read on every datastore that has it, and each row is marked untied: it may be another client's", ns, rerr)})
 		} else {
 			own = map[string]bool{}
-		}
-		host := t.pbsEndpoint()
-		for _, ref := range refs {
-			if strings.EqualFold(ref.server, host) {
-				own[ref.datastore] = true
+			for _, ref := range refs {
+				if strings.EqualFold(ref.server, host) {
+					own[ref.datastore] = true
+				}
 			}
-		}
-		if own != nil && len(own) == 0 {
-			return nil, nil, fmt.Errorf("no PVE storage on this cluster points at PBS host %q (spelled as in the storage's server field), so pbs_namespace %q is not tied to a datastore and nothing was read", host, ns)
+			if len(own) == 0 {
+				return nil, nil, false, fmt.Errorf("no PVE storage on this cluster points at PBS host %q (spelled as in the storage's server field), so pbs_namespace %q is not tied to a datastore and nothing was read", host, ns)
+			}
 		}
 	}
 	for _, store := range stores {
+		nss, lerr := pbsNamespaces(ctx, t.C, store)
 		if ns == "" {
-			nss, err := pbsNamespaces(ctx, t.C, store)
-			if err != nil {
-				return nil, nil, fmt.Errorf("PBS %s namespaces: %w", store, err)
+			if lerr != nil {
+				return nil, nil, false, fmt.Errorf("PBS %s namespaces: %w", store, lerr)
 			}
 			out[store] = nss
 			continue
 		}
-		if own == nil || own[store] {
+		if own != nil && !own[store] {
+			// Not this cluster's datastore: say so when it carries the namespace
+			// (a sync target, or another client's), rather than drop it silently.
+			if lerr != nil {
+				notes = append(notes, fetchFailure{Cluster: t.Name, Scope: "pbs " + store, Error: "namespaces not listed: " + lerr.Error()})
+				continue
+			}
+			for _, n := range nss {
+				if inNamespace(n, ns) {
+					notes = append(notes, fetchFailure{Cluster: t.Name, Scope: "pbs " + store, Error: fmt.Sprintf(
+						"datastore %s also has namespace %q, but no PVE storage on this cluster writes to it (a sync target, or another client's), so it was not read", store, n)})
+					break
+				}
+			}
+			continue
+		}
+		if lerr != nil {
+			// Read the namespace itself so a failure there still surfaces.
+			notes = append(notes, fetchFailure{Cluster: t.Name, Scope: "pbs " + store, Error: fmt.Sprintf(
+				"namespaces not listed (%v); only %q was read, not the namespaces below it", lerr, ns)})
 			out[store] = []string{ns}
 			continue
 		}
-		// Not this cluster's datastore: say so when it carries the namespace
-		// (a sync target, or another client's), rather than drop it silently.
-		nss, err := pbsNamespaces(ctx, t.C, store)
-		if err != nil {
-			notes = append(notes, fetchFailure{Cluster: t.Name, Scope: "pbs " + store, Error: "namespaces not listed: " + err.Error()})
-			continue
-		}
+		var mine []string
 		for _, n := range nss {
-			if n == ns {
-				notes = append(notes, fetchFailure{Cluster: t.Name, Scope: "pbs " + store, Error: fmt.Sprintf(
-					"datastore %s also has namespace %q, but no PVE storage on this cluster writes to it (a sync target, or another client's), so it was not read", store, ns)})
+			if inNamespace(n, ns) {
+				mine = append(mine, n)
+			}
+		}
+		switch {
+		case len(mine) > 0:
+			out[store] = mine
+		case own != nil:
+			notes = append(notes, fetchFailure{Cluster: t.Name, Scope: "pbs " + store, Error: fmt.Sprintf(
+				"namespace %q does not exist on datastore %s, which this cluster's PVE storage writes to; nothing there was read", ns, store)})
+		}
+	}
+	if ns != "" && own != nil {
+		for _, id := range sortedKeys(refs) {
+			ref := refs[id]
+			if strings.EqualFold(ref.server, host) && !inNamespace(ref.namespace, ns) {
+				notes = append(notes, fetchFailure{Cluster: t.Name, Scope: "storage " + id, Error: fmt.Sprintf(
+					"writes to datastore %s namespace %q, outside pbs_namespace %q, so its verify state was not read", ref.datastore, ref.namespace, ns)})
 			}
 		}
 	}
-	return out, notes, nil
+	if ns != "" && len(out) == 0 {
+		return nil, notes, untied, fmt.Errorf("pbs_namespace %q exists on no datastore this cluster may read, so nothing was read", ns)
+	}
+	return out, notes, untied, nil
 }
 
 // --- tasks and vzdump logs
@@ -1143,16 +1315,69 @@ func privsAt(ctx context.Context, c *client.Client, pbs bool, path string) (map[
 
 // guestListHidden explains an incomplete guest list: Proxmox VE lists only the
 // guests the token holds VM.Audit on, and answers with the rest silently left
-// out. Without VM.Audit on /vms a missing guest reads as no guest.
+// out, so a missing guest would read as no guest.
 func guestListHidden(ctx context.Context, c *client.Client) error {
-	privs, err := privsAt(ctx, c, false, "/vms")
+	return subtreeHidden(ctx, c, "/vms", "guests", client.PrivVMAudit)
+}
+
+// storageListHidden is guestListHidden for storages: Proxmox VE lists a
+// storage only to a token with Datastore.Audit or Datastore.AllocateSpace on it.
+func storageListHidden(ctx context.Context, c *client.Client) error {
+	return subtreeHidden(ctx, c, "/storage", "storages", client.PrivDatastoreAudit, client.PrivDatastoreAllocateSpace)
+}
+
+// subtreeHidden explains a Proxmox VE list filtered object by object: it is
+// complete only when one of privs is granted at root WITH the propagate flag
+// and no deeper ACL path the token holds privileges on drops it. One limit no
+// read can see past: an explicit NoAccess on a single object leaves no trace
+// in any API answer, so the docs tell operators never to put one on the
+// monitoring token.
+func subtreeHidden(ctx context.Context, c *client.Client, root, what string, privs ...client.Privilege) error {
+	names := make([]string, len(privs))
+	for i, p := range privs {
+		names[i] = p.String()
+	}
+	want := strings.Join(names, " or ")
+	at, err := privsAt(ctx, c, false, root)
 	if err != nil {
 		return err
 	}
-	if _, ok := privs[client.PrivVMAudit.String()]; ok {
-		return nil
+	propagates, held := false, false
+	for _, n := range names {
+		if v, ok := at[n]; ok {
+			held = true
+			propagates = propagates || bool(v)
+		}
 	}
-	return fmt.Errorf("the token lacks VM.Audit on /vms, so Proxmox VE lists only the guests it may audit; guests it cannot see are missing from this report, not absent")
+	switch {
+	case held && !propagates:
+		return fmt.Errorf("the token holds %s on %s without the propagate flag, so Proxmox VE lists only the %s granted one by one; the others are missing from this report, not absent", want, root, what)
+	case !held:
+		return fmt.Errorf("the token lacks %s on %s, so Proxmox VE lists only the %s it may see; the others are missing from this report, not absent", want, root, what)
+	}
+	dump, err := fetchPrivs(ctx, c, false)
+	if err != nil {
+		return err
+	}
+	var dropped []string
+	for path, p := range dump {
+		if !strings.HasPrefix(path, root+"/") {
+			continue
+		}
+		ok := false
+		for _, n := range names {
+			_, has := p[n]
+			ok = ok || has
+		}
+		if !ok {
+			dropped = append(dropped, path)
+		}
+	}
+	if len(dropped) > 0 {
+		sort.Strings(dropped)
+		return fmt.Errorf("an ACL on %s replaces the inherited %s, so those %s are missing from this report, not absent", strings.Join(dropped, ", "), want, what)
+	}
+	return nil
 }
 
 // anywhere reports whether priv is granted on any path.

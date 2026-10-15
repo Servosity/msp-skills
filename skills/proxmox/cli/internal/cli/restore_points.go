@@ -6,6 +6,7 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
@@ -17,15 +18,20 @@ import (
 )
 
 type guestRestorePoints struct {
-	Tenant             string         `json:"tenant"`
-	Cluster            string         `json:"cluster"`
-	VMID               int64          `json:"vmid"`
-	Name               string         `json:"name"`
-	Type               string         `json:"type"`
-	Node               string         `json:"node"`
-	CoveredByJobs      []string       `json:"covered_by_jobs"`
-	DisabledJobs       []string       `json:"disabled_jobs"`
-	Count              int            `json:"count"`
+	Tenant        string   `json:"tenant"`
+	Cluster       string   `json:"cluster"`
+	VMID          int64    `json:"vmid"`
+	Name          string   `json:"name"`
+	Type          string   `json:"type"`
+	Node          string   `json:"node"`
+	CoveredByJobs []string `json:"covered_by_jobs"`
+	DisabledJobs  []string `json:"disabled_jobs"`
+	Count         int      `json:"count"`
+	// Evidence is "full" when every source that may hold this guest's restore
+	// points was read, else "partial" and NotRead names what was not: a count
+	// of 0 then means none could be read, not that none exist.
+	Evidence           string         `json:"evidence"`
+	NotRead            []string       `json:"not_read,omitempty"`
 	NewestAt           string         `json:"newest_at,omitempty"`
 	NewestVerifiedOKAt string         `json:"newest_verified_ok_at,omitempty"`
 	RestorePoints      []restorePoint `json:"restore_points"`
@@ -48,8 +54,10 @@ func newNovelRestorePointsCmd(flags *rootFlags) *cobra.Command {
 			"Do NOT use this command for a fleet-wide verdict; use 'posture' instead. " +
 			"Do NOT use it for gaps between restore points over time; use 'rpo' instead.\n\n" +
 			"The guest is resolved by vmid or name (case-insensitive) on every configured cluster; a vmid that exists on several " +
-			"clusters is reported once per cluster. prune_mark is what the storage's next prune would do (keep, remove, protected), " +
-			"from Proxmox's own prune preview; nothing is pruned.",
+			"clusters is reported once per cluster. prune_mark is what the next prune would do (keep, remove, protected), from Proxmox's " +
+			"own prune preview with the covering job's retention (else the storage's); nothing is pruned. evidence is partial, and " +
+			"not_read names the sources, when something that may hold the guest's restore points could not be read; then a count " +
+			"of 0 means none could be read, and the command exits 5 when no match has a readable point.",
 		Example: strings.Trim(`
   proxmox-cli restore-points 104 --agent
   proxmox-cli restore-points files --cluster acme
@@ -72,6 +80,7 @@ func newNovelRestorePointsCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			markSharedPBS(ctx, targets)
 			type result struct {
 				guests []guestRestorePoints
 				fails  []fetchFailure
@@ -95,6 +104,17 @@ func newNovelRestorePointsCmd(flags *rootFlags) *cobra.Command {
 			if len(rep.Guests) == 0 {
 				return notFoundErr(fmt.Errorf("no guest matching %q on the reachable cluster(s) (%d visited)", query, len(targets)))
 			}
+			// Every match came back empty while something was not read: that is
+			// "could not be read", and must not exit like a clean "none".
+			var unreadErr error
+			if g := rep.Guests; len(g) > 0 {
+				unreadErr = apiErr(fmt.Errorf("no restore point of %q could be read and some sources were not (see not_read and the warnings)", query))
+				for _, gr := range g {
+					if gr.Count > 0 || gr.Evidence != "partial" {
+						unreadErr = nil
+					}
+				}
+			}
 			if !wantsHumanTable(cmd.OutOrStdout(), flags) {
 				var out any = rep
 				if flags.csv {
@@ -104,7 +124,10 @@ func newNovelRestorePointsCmd(flags *rootFlags) *cobra.Command {
 					}
 					out = flat
 				}
-				return printJSONFilteredKeep(cmd.OutOrStdout(), out, flags, restoreKeep...)
+				if err := printJSONFilteredKeep(cmd.OutOrStdout(), out, flags, restoreKeep...); err != nil {
+					return err
+				}
+				return unreadErr
 			}
 			for _, g := range rep.Guests {
 				fmt.Fprintf(cmd.OutOrStdout(), "%s %d %s (%s on %s), jobs: %s\n", g.Cluster, g.VMID, g.Name, g.Type, g.Node, orDash(strings.Join(g.CoveredByJobs, ",")))
@@ -113,14 +136,21 @@ func newNovelRestorePointsCmd(flags *rootFlags) *cobra.Command {
 					rows = append(rows, []string{rp.TimeRFC3339, rp.Source, rp.VerifyState, strconv.FormatBool(rp.Protected), rp.PruneMark, rp.Notes})
 				}
 				if len(rows) == 0 {
-					fmt.Fprintln(cmd.OutOrStdout(), "  no restore points")
+					if g.Evidence == "partial" {
+						fmt.Fprintf(cmd.OutOrStdout(), "  no restore point could be read; not read: %s\n", strings.Join(g.NotRead, "; "))
+					} else {
+						fmt.Fprintln(cmd.OutOrStdout(), "  no restore points")
+					}
 					continue
 				}
 				if err := flags.printTable(cmd, []string{"BACKUP TIME", "SOURCE", "VERIFY", "PROTECTED", "PRUNE", "NOTES"}, rows); err != nil {
 					return err
 				}
+				if g.Evidence == "partial" {
+					fmt.Fprintf(cmd.OutOrStdout(), "  partial: not read: %s\n", strings.Join(g.NotRead, "; "))
+				}
 			}
-			return nil
+			return unreadErr
 		},
 	}
 	f := cmd.Flags()
@@ -170,22 +200,36 @@ func collectRestorePoints(ctx context.Context, t fleetTarget, query string, veri
 	if err != nil {
 		return nil, nil, err
 	}
+	// clusterUnread: sources that may hold any guest's restore points but were
+	// not read; every guest's evidence is then partial.
+	var clusterUnread []string
+	for _, n := range offline {
+		clusterUnread = append(clusterUnread, "node "+n+" (offline)")
+	}
 	fails = append(fails, offlineFailures(t.Name, offline)...)
 	storages, readers, sfails := backupStorages(ctx, t.C, nodes)
 	for _, f := range sfails {
 		f.Cluster = t.Name
 		fails = append(fails, f)
+		clusterUnread = append(clusterUnread, f.Scope)
+	}
+	if err := storageListHidden(ctx, t.C); err != nil {
+		fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "backup storage", Error: err.Error()})
+		clusterUnread = append(clusterUnread, "storages hidden from the token")
 	}
 	refs, err := fetchPBSStorageRefs(ctx, t.C)
 	if err != nil {
 		fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "storage config", Error: err.Error()})
 	}
+	refs = t.withShared(refs)
+	targets := newJobTargets(ctx, t.C, cov)
 	var nsByStore map[string][]string
 	pbsHost := t.pbsEndpoint()
 	if t.C.PBSConfigured() {
 		var warning string
 		if nsByStore, warning, err = pbsAttribution(ctx, t, refs); err != nil {
 			fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "pbs", Error: err.Error()})
+			clusterUnread = append(clusterUnread, "pbs")
 		} else if warning != "" {
 			fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "pbs attribution", Error: warning})
 		}
@@ -196,20 +240,25 @@ func collectRestorePoints(ctx context.Context, t fleetTarget, query string, veri
 		gr := guestRestorePoints{Tenant: t.Tenant, Cluster: t.Name, VMID: vmid, Name: g.Name, Type: g.Type, Node: g.Node,
 			CoveredByJobs: append([]string{}, cov.EnabledFor[vmid]...), DisabledJobs: append([]string{}, cov.DisabledFor[vmid]...)}
 		var points []restorePoint
+		notRead := append([]string{}, clusterUnread...)
 		for _, key := range sortedKeys(storages) {
 			s, node := storages[key], readers[key]
-			rps, err := readStorageArchives(ctx, t.C, node, s, vmid, refs, pbsCovers(refs, s.Storage, pbsHost, nsByStore))
+			covered := pbsCovers(refs, s.Storage, pbsHost, nsByStore)
+			rps, err := readStorageArchives(ctx, t.C, node, s, vmid, refs, covered)
 			if errors.Is(err, errCoveredByPBS) {
 				continue // the PBS API lists these below
 			}
 			if err != nil {
 				fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "storage " + key, Error: err.Error()})
+				if !covered {
+					notRead = append(notRead, "storage "+key)
+				}
 				continue
 			}
 			if len(rps) == 0 {
 				continue
 			}
-			marks := pruneMarks(ctx, t, node, s.Storage, vmid, g.Type, &fails)
+			marks := pruneMarks(ctx, t, node, s.Storage, vmid, g.Type, jobRetention(cov, targets, vmid, g.Node, s.Storage), &fails)
 			for i := range rps {
 				rps[i].PruneMark = marks[fmt.Sprintf("%s@%d", rps[i].Volume, rps[i].Time)]
 			}
@@ -221,6 +270,7 @@ func collectRestorePoints(ctx context.Context, t fleetTarget, query string, veri
 				snaps, err := pbsSnapshots(ctx, t.C, store, ns, map[string]string{"backup-type": pbsType, "backup-id": strconv.FormatInt(vmid, 10)})
 				if err != nil {
 					fails = append(fails, fetchFailure{Cluster: t.Name, Scope: pbsSourceLabel(store, ns), Error: err.Error()})
+					notRead = append(notRead, pbsSourceLabel(store, ns))
 					continue
 				}
 				for _, s := range snaps {
@@ -252,6 +302,10 @@ func collectRestorePoints(ctx context.Context, t fleetTarget, query string, veri
 			gr.NewestAt = kept[0].TimeRFC3339
 		}
 		gr.Count = len(kept)
+		gr.Evidence = "full"
+		if len(notRead) > 0 {
+			gr.Evidence, gr.NotRead = "partial", notRead
+		}
 		if limit > 0 && len(kept) > limit {
 			kept = kept[:limit]
 		}
@@ -262,14 +316,23 @@ func collectRestorePoints(ctx context.Context, t fleetTarget, query string, veri
 }
 
 // pruneMarks asks Proxmox what the next prune would do with each of the guest's
-// backups on one storage (a GET preview; nothing is removed).
-func pruneMarks(ctx context.Context, t fleetTarget, node, storage string, vmid int64, guestType string, fails *[]fetchFailure) map[string]string {
+// backups on one storage (a GET preview; nothing is removed). retention is the
+// covering job's prune-backups, which overrides the storage's; "" previews the
+// storage's own. ok=false (jobs that disagree) leaves the points unmarked.
+func pruneMarks(ctx context.Context, t fleetTarget, node, storage string, vmid int64, guestType string, retention retentionSpec, fails *[]fetchFailure) map[string]string {
+	if !retention.ok {
+		*fails = append(*fails, fetchFailure{Cluster: t.Name, Scope: "prune preview " + storage, Error: retention.why})
+		return nil
+	}
 	var preview []struct {
 		VolID string  `json:"volid"`
 		CTime flexInt `json:"ctime"`
 		Mark  string  `json:"mark"`
 	}
 	params := map[string]string{"vmid": strconv.FormatInt(vmid, 10), "type": guestType}
+	if retention.spec != "" {
+		params["prune-backups"] = retention.spec
+	}
 	if err := getJSON(ctx, t.C, pvePath("/nodes/%s/storage/%s/prunebackups", node, storage), params, &preview); err != nil {
 		*fails = append(*fails, fetchFailure{Cluster: t.Name, Scope: "prune preview " + storage, Error: err.Error()})
 		return nil
@@ -279,6 +342,55 @@ func pruneMarks(ctx context.Context, t fleetTarget, node, storage string, vmid i
 		marks[fmt.Sprintf("%s@%d", p.VolID, int64(p.CTime))] = p.Mark
 	}
 	return marks
+}
+
+type retentionSpec struct {
+	spec, why string
+	ok        bool
+}
+
+// jobRetention is the retention the next prune of storage applies to vmid:
+// the prune-backups of the enabled jobs covering it that write there (a job's
+// own retention overrides the storage's), "" for the storage's own when none
+// sets one. Jobs that disagree make the next prune depend on which runs.
+func jobRetention(cov *coverage, targets *jobTargets, vmid int64, node, storage string) retentionSpec {
+	specs := map[string]bool{}
+	for _, id := range cov.EnabledFor[vmid] {
+		if targets.target(id, node) != storage {
+			continue
+		}
+		specs[pruneSpec(targets.jobs[id].PruneBackups)] = true
+	}
+	switch len(specs) {
+	case 0:
+		return retentionSpec{ok: true}
+	case 1:
+		for s := range specs {
+			return retentionSpec{spec: s, ok: true}
+		}
+	}
+	return retentionSpec{why: "the backup jobs writing this guest to " + storage + " keep different retention, so the next prune depends on which job runs; points left unmarked"}
+}
+
+// pruneSpec renders a job's prune-backups (object or property string) as the
+// property string the prune preview takes; "" when the job sets none.
+func pruneSpec(raw json.RawMessage) string {
+	if len(raw) == 0 || string(raw) == "null" {
+		return ""
+	}
+	var s string
+	if json.Unmarshal(raw, &s) == nil {
+		return s
+	}
+	var m map[string]any
+	if json.Unmarshal(raw, &m) != nil {
+		return ""
+	}
+	parts := make([]string, 0, len(m))
+	for _, k := range sortedKeys(m) {
+		parts = append(parts, fmt.Sprintf("%s=%v", k, m[k]))
+	}
+	return strings.Join(parts, ",")
 }
 
 func orDash(s string) string {

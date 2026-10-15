@@ -30,6 +30,9 @@ type verifyGroupRow struct {
 	NewestVerifiedOKAt string `json:"newest_verified_ok_at,omitempty"`
 	NewestIsBad        bool   `json:"newest_is_bad"`
 	Status             string `json:"status"` // failing | unverified | outdated | ok
+	// Attribution is "untied" when pbs_namespace could not be tied to this
+	// cluster's datastores (PVE unreachable): the row may be another client's.
+	Attribution string `json:"attribution,omitempty"`
 }
 
 type verifyStoreRow struct {
@@ -49,7 +52,8 @@ type verifyStoreRow struct {
 	GCUnknown         bool `json:"gc_unknown,omitempty"`
 	// SnapshotsIncomplete: at least one namespace's snapshot list could not be
 	// read, so the group counts cover only the namespaces that were.
-	SnapshotsIncomplete bool `json:"snapshots_incomplete,omitempty"`
+	SnapshotsIncomplete bool   `json:"snapshots_incomplete,omitempty"`
+	Attribution         string `json:"attribution,omitempty"` // see verifyGroupRow
 }
 
 type verifyReport struct {
@@ -197,11 +201,20 @@ func newNovelVerifyHealthCmd(flags *rootFlags) *cobra.Command {
 
 func collectVerifyHealth(ctx context.Context, t fleetTarget, onlyStore string, now time.Time) ([]verifyStoreRow, []verifyGroupRow, []fetchFailure, error) {
 	var fails []fetchFailure
-	nsByStore, notes, err := pbsNamespacesForCluster(ctx, t)
+	nsByStore, notes, untied, err := pbsNamespacesForCluster(ctx, t)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	fails = append(fails, notes...)
+	for _, n := range notes {
+		// --store narrows the notes about other datastores away too.
+		if onlyStore == "" || !strings.HasPrefix(n.Scope, "pbs ") || n.Scope == "pbs "+onlyStore || n.Scope == "pbs namespace" {
+			fails = append(fails, n)
+		}
+	}
+	attribution := ""
+	if untied {
+		attribution = "untied"
+	}
 	if len(nsByStore) == 0 {
 		if err := requireVisibility(ctx, t.C, true, client.PrivDatastoreAudit); err != nil {
 			return nil, nil, nil, err
@@ -273,9 +286,11 @@ func collectVerifyHealth(ctx context.Context, t fleetTarget, onlyStore string, n
 				if g.Status == "failing" {
 					sr.FailingGroups++
 				}
+				g.Attribution = attribution
 				groups = append(groups, g)
 			}
 		}
+		sr.Attribution = attribution
 		stores = append(stores, sr)
 	}
 	if wanted > 0 && read == 0 {

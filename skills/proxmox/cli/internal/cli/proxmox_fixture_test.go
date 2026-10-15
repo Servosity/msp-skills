@@ -25,6 +25,7 @@ import (
 type fixture struct {
 	now      time.Time
 	pve, pbs *httptest.Server
+	pbsNS    string // namespace the pbs1 storage writes to
 	// The route maps the fixture servers answer from; a test may change an
 	// entry before it runs a command.
 	pveRoutes, pbsRoutes map[string]any
@@ -238,7 +239,7 @@ func (f *fixture) handler(t *testing.T, routes map[string]any, authPrefix string
 		case pve && path == "/storage":
 			hp := strings.Split(strings.TrimPrefix(f.pbs.URL, "https://"), ":")
 			port, _ := strconv.Atoi(hp[1])
-			writeData(w, []map[string]any{{"storage": "pbs1", "type": "pbs", "server": hp[0], "port": port, "datastore": "main", "namespace": ""}})
+			writeData(w, []map[string]any{{"storage": "pbs1", "type": "pbs", "server": hp[0], "port": port, "datastore": "main", "namespace": f.pbsNS}})
 			return
 		case !pve && path == "/admin/sync":
 			if q.Get("sync-direction") != "all" && q.Get("sync-direction") != "push" {
@@ -256,6 +257,13 @@ func (f *fixture) handler(t *testing.T, routes map[string]any, authPrefix string
 					writeData(w, map[string]any{want: entry})
 					return
 				}
+			}
+		}
+		// A route keyed "<path>#<ns>" answers that namespace only, like PBS.
+		if ns := q.Get("ns"); ns != "" {
+			if data, ok := routes[path+"#"+ns]; ok {
+				writeData(w, data)
+				return
 			}
 		}
 		data, ok := routes[path]
