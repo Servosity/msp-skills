@@ -6,6 +6,7 @@
 package client
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
@@ -17,6 +18,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -139,6 +141,11 @@ func hostPortOf(u *url.URL) (string, bool) {
 	host := strings.ToLower(strings.TrimSuffix(u.Hostname(), "."))
 	if ip := net.ParseIP(host); ip != nil {
 		host = ip.String()
+	}
+	// Every loopback spelling (localhost, 127.x, ::1) dials this machine: one
+	// endpoint per port, so an alias cannot pass for a different service.
+	if ip := net.ParseIP(host); host == "localhost" || (ip != nil && ip.IsLoopback()) {
+		host = "loopback"
 	}
 	port := 443
 	if strings.EqualFold(u.Scheme, "http") {
@@ -282,6 +289,11 @@ func (c *Client) CheckServiceOrigins() error {
 	if ip := net.ParseIP(u.Hostname()); !strings.EqualFold(u.Scheme, "https") && !cliutil.IsAnyHarness() && (ip == nil || !ip.IsLoopback()) {
 		return fmt.Errorf("the Proxmox VE base URL %s must use https (the PVE API is HTTPS-only; the token is never sent in clear text)", resolved)
 	}
+	if so, serr := url.Parse(pbsSpecOrigin); serr == nil && sameEndpoint(u, so) {
+		// Generated PBS paths carry this placeholder origin, so routing would
+		// take a PVE redirect there for a PBS call and attach the PBS token.
+		return fmt.Errorf("the Proxmox VE base URL %s uses %s, the endpoint this CLI reserves for routing PBS requests; reach PVE on another local port (for example an SSH tunnel to 127.0.0.1:8006)", resolved, pbsSpecOrigin)
+	}
 	if o, oerr := url.Parse(origin); origin != "" && oerr == nil && sameEndpoint(u, o) { // any scheme: http://pbs1:8007 still dials PBS
 		return fmt.Errorf("the Proxmox VE base URL %s points at the configured Proxmox Backup Server; set PROXMOX_HOST / pve_host to the PVE host", resolved)
 	}
@@ -423,3 +435,55 @@ func isProxmoxEnvelope(envelope map[string]json.RawMessage) bool {
 
 // ValidFingerprint reports whether s is a SHA-256 certificate fingerprint.
 func ValidFingerprint(s string) bool { return normalizeFingerprint(s) != "" }
+
+// secretField names response fields that carry a credential. Proxmox core
+// keeps secrets out of its read APIs, but GET /storage returns a storage
+// plugin's storage.cfg entry verbatim, and third-party plugins keep passwords
+// and API keys there (freenas_password, truenas_secret, ...).
+var secretField = regexp.MustCompile(`(?i)(passw|secret|private[-_]?key|api[-_]?key|apikey|(^|[-_])token$|[-_]key$)`)
+
+const redactedValue = "[redacted]"
+
+// redactSecretFields replaces every non-empty string value of a secret-named
+// field, at any depth, before a response reaches the HTTP cache, the local
+// store, the search index or any output. Bodies with nothing to redact (or
+// that are not JSON) are returned unchanged.
+func redactSecretFields(body []byte) []byte {
+	if !secretField.Match(body) {
+		return body
+	}
+	dec := json.NewDecoder(bytes.NewReader(body))
+	dec.UseNumber()
+	var v any
+	if err := dec.Decode(&v); err != nil {
+		return body
+	}
+	if !redactValue(v) {
+		return body
+	}
+	out, err := json.Marshal(v)
+	if err != nil {
+		return body
+	}
+	return out
+}
+
+func redactValue(v any) bool {
+	changed := false
+	switch t := v.(type) {
+	case map[string]any:
+		for k, x := range t {
+			if s, ok := x.(string); ok && s != "" && s != redactedValue && secretField.MatchString(k) {
+				t[k] = redactedValue
+				changed = true
+				continue
+			}
+			changed = redactValue(x) || changed
+		}
+	case []any:
+		for _, x := range t {
+			changed = redactValue(x) || changed
+		}
+	}
+	return changed
+}
