@@ -1,5 +1,9 @@
 name: Windows smoke
 
+# A dispatcher that starts two runs at once finds its own by the nonce it
+# passed. (A workflow_call run is named by its caller; this is ignored there.)
+run-name: windows-smoke ${{ inputs.tag }} ${{ inputs.nonce }}
+
 # Runs one connector release's Windows binaries on a real Windows machine and
 # fails if they do not work. Most MSPs run these connectors on Windows, and
 # before this nothing ever EXECUTED a Windows binary: release.yml cross-
@@ -21,7 +25,7 @@ name: Windows smoke
 #                      one-liner on a clean Windows machine, then smoke the
 #                      binaries it installed and the published .mcpb bundle.
 #
-#   gh workflow run windows-smoke.yml -R Servosity/msp-skills -f tag=<slug>-v<x.y.z>
+#   gh workflow run windows-smoke.yml -R Servosity/msp-skills -f tag=<slug>-v<x.y.z> [-f nonce=<id>]
 #
 # Evidence: every run uploads the artifact `windows-smoke-transcript-<tag>`
 # (the tag in the name keeps a matrix of tags in one run from colliding).
@@ -56,6 +60,11 @@ on:
           - published
           - draft
         default: published
+      nonce:
+        description: Optional caller id, echoed into the run name so a dispatcher can find its own run
+        required: false
+        type: string
+        default: ""
 
 permissions:
   contents: read
