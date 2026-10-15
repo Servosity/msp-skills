@@ -128,7 +128,7 @@
   "connectwise-rmm": {
     "state": "never-released",
     "version": "0.1.0",
-    "latest_tag": null,
+    "latest_tag": "connectwise-rmm-v0.1.0",
     "current_hash": "sha256:3e7ce5ef31df94a51a7a28989b3df7afc3ad89ec7211b6b6ca19082a056c3807",
     "released_hash": null
   },
