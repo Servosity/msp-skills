@@ -321,7 +321,9 @@ Applies one network settings change (a PUT body such as syslog servers, SNMP,
 alert settings or an SSID field) to every matching network across the orgs the
 API key can see. Without --apply it only previews: for each target network it
 reads the current settings and shows which top-level keys would change, and
-networks already matching are reported as no-change. With --apply it sends one
+networks already matching are reported as no-change (except a credential such as a
+PSK or community string, which always shows as update so the preview cannot confirm
+a guess; --apply sends only real changes). With --apply it sends one
 asynchronous action batch per org (up to 100 actions each) for the networks
 that differ and waits for each batch to finish. Target networks with --org,
 --network, --network-tag and --product-type, or pass --all-networks.

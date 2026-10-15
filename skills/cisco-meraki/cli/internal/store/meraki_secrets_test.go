@@ -611,3 +611,31 @@ func TestCodexRound23SignedLinksAndTokenLabels(t *testing.T) {
 		t.Fatalf("token-labelled change printed: %s", got)
 	}
 }
+
+// TestRound26BackstopShapes: escape shapes the round-21 backstop missed
+// (adversarial round 26) and percent-encoded signed-URL parameter names
+// (Codex round 24); ordinary escaped strings are untouched.
+func TestRound26BackstopShapes(t *testing.T) {
+	id := base64.StdEncoding.EncodeToString([]byte("https://hooks.slack.com/services/T0/B0/" + merakiSentinel))
+	esc := "\\" + "u0063" // a JSON escape for "c", built so no tool decodes it
+	for _, in := range []string{
+		"/api/v1/networks/N_1/web%2568ooks/httpServers//" + id,
+		"/api/v1/networks/N_1/webhooks/httpServers/aHR0" + esc + id[5:],
+		"perPage=5&%2575rl%253D%255Bhttps://hooks.slack.com/services/T0/B0/" + merakiSentinel,
+		"https://img.test/floor?%74oken=" + merakiSentinel,
+	} {
+		got := ScrubMerakiURLSecrets(in)
+		if strings.Contains(merakiNormalized(got), strings.ToLower(merakiSentinel)) || strings.Contains(got, id[8:]) {
+			t.Fatalf("backstop missed: %q -> %q", in, got)
+		}
+		obj := map[string]any{"path": in}
+		if stored := string(RedactMerakiSecrets(mustJSON(t, obj))); strings.Contains(merakiNormalized(stored), strings.ToLower(merakiSentinel)) {
+			t.Fatalf("mirror kept: %s", stored)
+		}
+	}
+	for _, ok := range []string{"perPage=5&startingAfter=100%25", "name=Caf%C3%A9 HQ", "/networks/N_1/appliance/vlans%2F10", `C:\Users\it\notes.txt`} {
+		if got := ScrubMerakiURLSecrets(ok); got != ok {
+			t.Fatalf("backstop withheld an ordinary string: %q -> %q", ok, got)
+		}
+	}
+}

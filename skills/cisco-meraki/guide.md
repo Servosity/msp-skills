@@ -240,7 +240,7 @@ Export license and end-of-support deadlines due within 90 days, plus overdue one
 cisco-meraki-cli fleet push --path /networks/{networkId}/snmp --body snmp.json --network-tag managed
 ```
 
-Shows which networks would change and which already match; nothing is sent until you rerun the same command with --apply.
+Shows which networks would change and which already match (a credential such as the community string always shows as a change, so the preview cannot confirm it; --apply sends only real changes); nothing is sent until you rerun the same command with --apply.
 
 ## Usage
 

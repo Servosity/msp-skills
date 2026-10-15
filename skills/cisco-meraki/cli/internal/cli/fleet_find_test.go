@@ -33,3 +33,21 @@ func TestNovelFleetFindHelpWires(t *testing.T) {
 		}
 	}
 }
+
+// TestFleetFindMatchesIPAddressesNotText: one address, several spellings
+// (Codex round 24).
+func TestFleetFindMatchesIPAddressesNotText(t *testing.T) {
+	r := findRecord{LanIP: "192.0.2.1", Uplinks: []struct {
+		IP       string `json:"ip"`
+		PublicIP string `json:"publicIp"`
+	}{{PublicIP: "2001:DB8:0:0::1"}}}
+	for _, q := range []string{"::ffff:192.0.2.1", "192.0.2.1", "2001:db8::1"} {
+		kind, value := classifyIdentifier(q)
+		if kind != "ip" || !matchRecord(r, kind, value) {
+			t.Fatalf("%q (%s %q) did not match", q, kind, value)
+		}
+	}
+	if kind, value := classifyIdentifier("192.0.2.2"); matchRecord(r, kind, value) {
+		t.Fatal("a different address matched")
+	}
+}

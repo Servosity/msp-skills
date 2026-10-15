@@ -416,7 +416,7 @@ func merakiLoose(lit string) string {
 // a path; a Slack, Teams or PagerDuty URL is a credential), and change-log
 // labels and API request paths carry it. An already scrubbed "[redacted:...]"
 // is outside the class and never matches.
-var merakiHTTPServerIDPattern = regexp.MustCompile(`(?i)(` + merakiLoose("/webhooks/httpServers/") + `)([A-Za-z0-9+/=_%.~-]+)`)
+var merakiHTTPServerIDPattern = regexp.MustCompile(`(?i)(` + merakiLoose("/webhooks/httpServers/") + `)([A-Za-z0-9+/=_%.~\\-]+)`)
 
 // merakiURLParamPattern matches the start of a url= query parameter, its name
 // possibly percent-encoded: the webhook logs filter puts the receiver URL in
@@ -449,6 +449,12 @@ var merakiJSONEscapePattern = regexp.MustCompile(`\\u[0-9A-Fa-f]{4}`)
 // or mixed: "web%68\u006foks") and backslashes dropped, for the keyword checks
 // that withhold a webhook value. It fails closed: it only ever adds matches.
 func merakiNormalized(s string) string {
+	return strings.ToLower(merakiDecoded(s))
+}
+
+// merakiDecoded is merakiNormalized without the lowercasing (base64 is
+// case-sensitive).
+func merakiDecoded(s string) string {
 	for i := 0; i < 4; i++ {
 		next := merakiPercentDecoded(s)
 		next = merakiJSONEscapePattern.ReplaceAllStringFunc(next, func(m string) string {
@@ -461,7 +467,7 @@ func merakiNormalized(s string) string {
 		}
 		s = next
 	}
-	return strings.ToLower(s)
+	return s
 }
 
 // ScrubMerakiURLSecrets replaces webhook HTTP server IDs and url= query values
@@ -479,9 +485,9 @@ func ScrubMerakiURLSecrets(s string) string {
 	s = scrubMerakiHTTPServerIDs(s)
 	loc := merakiURLParamPattern.FindStringIndex(s)
 	if loc == nil {
-		return merakiWithholdIfLeft(s, merakiURLLeftPattern)
+		return merakiWithholdIfLeft(s, true)
 	}
-	return merakiWithholdIfLeft(s[:loc[1]]+merakiRedactedHash(s[loc[1]:]), merakiURLLeftPattern)
+	return merakiWithholdIfLeft(s[:loc[1]]+merakiRedactedHash(s[loc[1]:]), true)
 }
 
 // merakiSignedURLPattern is a URL whose query names a signature, token or key.
@@ -503,31 +509,54 @@ func scrubMerakiHTTPServerIDs(s string) string {
 	// link (a pre-signed floor-plan image, an upload URL): withheld.
 	s = merakiSignedURLPattern.ReplaceAllStringFunc(s, merakiRedactedHash)
 	s = merakiBase64TokenPattern.ReplaceAllStringFunc(s, func(m string) string {
-		for _, enc := range []*base64.Encoding{base64.StdEncoding, base64.URLEncoding, base64.RawStdEncoding, base64.RawURLEncoding} {
-			if b, err := enc.DecodeString(m); err == nil {
-				if l := strings.ToLower(string(b)); strings.HasPrefix(l, "http://") || strings.HasPrefix(l, "https://") {
-					return merakiRedactedHash(m)
-				}
-			}
+		if merakiBase64URL(m) {
+			return merakiRedactedHash(m)
 		}
 		return m
 	})
-	return merakiWithholdIfLeft(s, merakiHTTPServerIDLeftPattern)
+	return merakiWithholdIfLeft(s, false)
 }
 
-// merakiHTTPServerIDLeftPattern and merakiURLLeftPattern match, in a
-// normalized string, an HTTP server ID or url= value the raw-text scrub did
-// not reach (nested escapes: "web%2568ooks", "%2575rl=").
+// merakiBase64URL reports a base64 token that decodes to an http(s) URL.
+func merakiBase64URL(m string) bool {
+	for _, enc := range []*base64.Encoding{base64.StdEncoding, base64.URLEncoding, base64.RawStdEncoding, base64.RawURLEncoding} {
+		if b, err := enc.DecodeString(m); err == nil {
+			if l := strings.ToLower(string(b)); strings.HasPrefix(l, "http://") || strings.HasPrefix(l, "https://") {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// merakiScrubbedTokenPattern finds a value this scrub already produced; the
+// backstop masks those before it looks for anything left.
+var merakiScrubbedTokenPattern = regexp.MustCompile(`(?i)\[redacted(?::[0-9a-f]{32})?\]`)
+
+// merakiHTTPServerIDLeftPattern and merakiURLLeftPattern match, in a decoded
+// string with scrubbed values masked as NUL, an HTTP server ID or url= value
+// the raw-text scrub did not reach (nested escapes: "web%2568ooks",
+// "%2575rl=", "httpServers//<id>").
 var (
-	merakiHTTPServerIDLeftPattern = regexp.MustCompile(`/webhooks/httpservers/[^\[/?#&"\s]`)
-	merakiURLLeftPattern          = regexp.MustCompile(`(^|[?&;"\s])url=[^\[]`)
+	merakiHTTPServerIDLeftPattern = regexp.MustCompile(`(?i)/webhooks/httpservers/+[^\x00?#&"\s]`)
+	merakiURLLeftPattern          = regexp.MustCompile(`(?i)(^|[?&;"\s])url=[^\x00]`)
 )
 
-// merakiWithholdIfLeft withholds all of s when its escapes hide a receiver
-// the scrub could not locate: there is no raw span to redact, so it fails
-// closed.
-func merakiWithholdIfLeft(s string, left *regexp.Regexp) string {
-	if !strings.ContainsAny(s, `%\`) || !left.MatchString(merakiNormalized(s)) {
+// merakiWithholdIfLeft withholds all of s when its escapes (% or backslash)
+// hide a receiver or capability link the raw-text scrub could not locate:
+// an HTTP server ID, a signed URL, a base64 URL or (urlParam) a url= value
+// still present in the decoded form. There is no raw span to redact, so it
+// fails closed.
+func merakiWithholdIfLeft(s string, urlParam bool) string {
+	if !strings.ContainsAny(s, `%\`) {
+		return s
+	}
+	d := merakiScrubbedTokenPattern.ReplaceAllString(merakiDecoded(s), "\x00")
+	left := merakiHTTPServerIDLeftPattern.MatchString(d) || merakiSignedURLPattern.MatchString(d) || (urlParam && merakiURLLeftPattern.MatchString(d))
+	for _, m := range merakiBase64TokenPattern.FindAllString(d, -1) {
+		left = left || merakiBase64URL(m)
+	}
+	if !left {
 		return s
 	}
 	return merakiRedactedHash(s)

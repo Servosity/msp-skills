@@ -68,7 +68,7 @@ func classifyIdentifier(raw string) (kind, value string) {
 	case networkIDRe.MatchString(s):
 		return "network_id", s
 	case net.ParseIP(s) != nil:
-		return "ip", s
+		return "ip", net.ParseIP(s).String() // "::ffff:192.0.2.1" is 192.0.2.1
 	default:
 		return "name", s
 	}
@@ -97,11 +97,14 @@ func matchRecord(r findRecord, kind, value string) bool {
 	case "mac":
 		return strings.EqualFold(r.MAC, value)
 	case "ip":
-		if r.LanIP == value || r.PublicIP == value {
+		// Addresses, not text: one IPv6 address has many spellings.
+		want := net.ParseIP(value)
+		same := func(s string) bool { ip := net.ParseIP(s); return ip != nil && ip.Equal(want) }
+		if same(r.LanIP) || same(r.PublicIP) {
 			return true
 		}
 		for _, u := range r.Uplinks {
-			if u.IP == value || u.PublicIP == value {
+			if same(u.IP) || same(u.PublicIP) {
 				return true
 			}
 		}
