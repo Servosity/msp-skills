@@ -10349,7 +10349,8 @@ var resourceIDFieldOverrides = map[string]string{
 	"report_queries-compliance-check-company-count":                                "company_id+compliance_id+compliance_status?+platform?", // Hand-fix (handfixes.json: per-client-report-keys)
 	"report_queries-cron-jobs":                                                     "id",
 	"report_queries-distinct-software":                                             "id",
-	"report_queries-distinct-tags":                                                 "name+value", // Hand-fix (handfixes.json: per-client-report-keys)
+	"report_queries-distinct-tags":                                                 "name+value",   // Hand-fix (handfixes.json: per-client-report-keys)
+	"report_queries-external-asset-vulnerabilities":                                "asset_id+key", // Hand-fix (handfixes.json: per-client-report-keys)
 	"report_queries-external-asset-externalscan":                                   "id",
 	"report_queries-get-assets-by-problem":                                         "id",
 	"report_queries-get-computer-details":                                          "id",

@@ -38,6 +38,8 @@ func TestPerClientReportRowsKeepDistinctIDs(t *testing.T) {
 	}{
 		{"report_queries-application-vulnerabilities-patching-asset-details", row{"name": "Chrome", "agent_id": "a1", "version": "1", "host_name": "pc1", "ip": "10.0.0.1"}, row{"name": "Chrome", "agent_id": "a1", "version": "1", "host_name": "pc2", "ip": "10.0.0.2"}},
 		{"report_queries-compliance-check-company-count", row{"company_id": 1, "compliance_id": 7, "compliance_status": "pass"}, row{"company_id": 1, "compliance_id": 7, "compliance_status": "fail"}},
+		// Two assets carrying the same finding key (Codex round 22).
+		{"report_queries-external-asset-vulnerabilities", row{"asset_id": 1, "key": "CVE-1", "value": "open"}, row{"asset_id": 2, "key": "CVE-1", "value": "open"}},
 		// A string "0" is a real tag value, not a placeholder id (Codex round 20).
 		{"report_queries-distinct-tags", row{"name": "rack", "value": "0"}, row{"name": "rack", "value": "00"}},
 	}
