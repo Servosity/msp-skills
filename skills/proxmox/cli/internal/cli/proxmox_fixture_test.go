@@ -111,6 +111,7 @@ func newFixture(t *testing.T) *fixture {
 			pbsArchive(108, "qemu", 28, "ok"), pbsArchive(108, "qemu", 4, "ok"),
 		},
 		"/nodes/pve1/storage/local/content": []any{},
+		"/nodes/pve1/vzdump/defaults":       map[string]any{}, // no /etc/vzdump.conf overrides
 		"/nodes/pve1/storage/pbs1/prunebackups": []map[string]any{
 			{"volid": "pbs1:backup/qemu", "vmid": 100, "ctime": ago(n, 2), "mark": "keep", "type": "qemu"},
 			{"volid": "pbs1:backup/qemu", "vmid": 100, "ctime": ago(n, 26), "mark": "remove", "type": "qemu"},

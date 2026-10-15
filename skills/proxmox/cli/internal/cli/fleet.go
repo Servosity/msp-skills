@@ -468,6 +468,53 @@ type jobTargets struct {
 	c        *client.Client
 	jobs     map[string]backupJob
 	defaults map[string]string
+	nodeDefs map[string]vzdumpDefaults
+}
+
+// vzdumpDefaults is a node's /etc/vzdump.conf as the API reports it: what a
+// job inherits for every option it does not set.
+type vzdumpDefaults struct {
+	Storage      string          `json:"storage"`
+	Dumpdir      string          `json:"dumpdir"`
+	Remove       *flexBool       `json:"remove"`
+	PruneBackups json.RawMessage `json:"prune-backups"`
+	err          error
+}
+
+func (r *jobTargets) nodeDefaults(node string) vzdumpDefaults {
+	if r.nodeDefs == nil {
+		r.nodeDefs = map[string]vzdumpDefaults{}
+	}
+	if d, ok := r.nodeDefs[node]; ok {
+		return d
+	}
+	var d vzdumpDefaults
+	d.err = getJSON(r.ctx, r.c, pvePath("/nodes/%s/vzdump/defaults", node), nil, &d)
+	r.nodeDefs[node] = d
+	return d
+}
+
+// prunes reports whether a run of jobID on node prunes its target (vzdump
+// remove): the job's own setting, else the node's vzdump.conf default, else
+// on. known is false when the node's defaults could not be read.
+func (r *jobTargets) prunes(jobID, node string) (prunes, known bool) {
+	if j := r.jobs[jobID]; j.Remove != nil {
+		return bool(*j.Remove), true
+	}
+	d := r.nodeDefaults(node)
+	if d.err != nil {
+		return true, false
+	}
+	return d.Remove == nil || bool(*d.Remove), true
+}
+
+// retention is jobID's effective prune-backups on node: its own, else the
+// node's vzdump.conf default; "" leaves the storage's in force.
+func (r *jobTargets) retention(jobID, node string) string {
+	if s := pruneSpec(r.jobs[jobID].PruneBackups); s != "" {
+		return s
+	}
+	return pruneSpec(r.nodeDefaults(node).PruneBackups)
 }
 
 func newJobTargets(ctx context.Context, c *client.Client, cov *coverage) *jobTargets {
@@ -489,12 +536,9 @@ func (r *jobTargets) target(jobID, node string) string {
 	if v, ok := r.defaults[node]; ok {
 		return v
 	}
-	var d struct {
-		Storage string `json:"storage"`
-		Dumpdir string `json:"dumpdir"`
-	}
+	d := r.nodeDefaults(node)
 	v := "unresolved default on node " + node
-	if err := getJSON(r.ctx, r.c, pvePath("/nodes/%s/vzdump/defaults", node), nil, &d); err != nil {
+	if err := d.err; err != nil {
 		v += " (" + err.Error() + ")"
 	} else if d.Storage != "" {
 		v = d.Storage
@@ -582,9 +626,6 @@ func (j backupJob) excludes(vmid int64) bool {
 
 // enabled: Proxmox omits the key when the job is enabled (default 1).
 func (j backupJob) enabled() bool { return j.Enabled == nil || bool(*j.Enabled) }
-
-// prunes reports whether a run of the job prunes its target (vzdump remove).
-func (j backupJob) prunes() bool { return j.Remove == nil || bool(*j.Remove) }
 
 type includedVolumes struct {
 	Children []struct {

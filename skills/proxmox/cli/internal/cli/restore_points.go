@@ -403,7 +403,13 @@ func jobRetention(cov *coverage, targets *jobTargets, vmid int64, node, storage 
 		if targets.target(id, node) != storage {
 			continue
 		}
-		specs[pruneSpec(targets.jobs[id].PruneBackups)] = true
+		if on, known := targets.prunes(id, node); !known {
+			return retentionSpec{why: "the vzdump defaults of node " + node + " could not be read, so whether job " + id + " prunes is unknown; points left unmarked"}
+		} else if !on {
+			specs["keep-all=1"] = true // remove=0: the run prunes nothing
+			continue
+		}
+		specs[targets.retention(id, node)] = true
 	}
 	switch len(specs) {
 	case 0:
