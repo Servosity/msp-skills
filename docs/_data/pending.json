@@ -105,11 +105,11 @@
     "released_hash": null
   },
   "cisco-meraki": {
-    "state": "never-released",
+    "state": "up-to-date",
     "version": "0.1.0",
     "latest_tag": "cisco-meraki-v0.1.0",
     "current_hash": "sha256:e782ce6bc8586c0e3d09a20a081ca53ffcda12852aa08f985c58ac62e12eec76",
-    "released_hash": null
+    "released_hash": "sha256:e782ce6bc8586c0e3d09a20a081ca53ffcda12852aa08f985c58ac62e12eec76"
   },
   "connect-tool": {
     "state": "markdown-only",
@@ -119,11 +119,11 @@
     "released_hash": null
   },
   "connectsecure": {
-    "state": "never-released",
+    "state": "up-to-date",
     "version": "0.1.0",
     "latest_tag": "connectsecure-v0.1.0",
     "current_hash": "sha256:fbc4762b20379538ac19ba8696f86ab0931e9178ecc79040a2c464484ba06c8b",
-    "released_hash": null
+    "released_hash": "sha256:fbc4762b20379538ac19ba8696f86ab0931e9178ecc79040a2c464484ba06c8b"
   },
   "connectwise-automate": {
     "state": "binary-pending",
@@ -147,11 +147,11 @@
     "released_hash": "sha256:b05893974652584c7c987365f9e6639a421fa0bb5451e443533080fba7a38f2b"
   },
   "connectwise-rmm": {
-    "state": "never-released",
+    "state": "up-to-date",
     "version": "0.1.0",
     "latest_tag": "connectwise-rmm-v0.1.0",
     "current_hash": "sha256:3e7ce5ef31df94a51a7a28989b3df7afc3ad89ec7211b6b6ca19082a056c3807",
-    "released_hash": null
+    "released_hash": "sha256:3e7ce5ef31df94a51a7a28989b3df7afc3ad89ec7211b6b6ca19082a056c3807"
   },
   "cork": {
     "state": "binary-pending",
@@ -203,18 +203,18 @@
     "released_hash": "sha256:d0568cb31d893b0e44fc1791f7c5f297cd016c72a908f549120bb54b08cefebb"
   },
   "fortinet": {
-    "state": "never-released",
+    "state": "up-to-date",
     "version": "0.1.0",
     "latest_tag": "fortinet-v0.1.0",
     "current_hash": "sha256:25498852c84042ac4397c2c9100ec4d8394d1b1bf34939c76de2538bf6493ad6",
-    "released_hash": null
+    "released_hash": "sha256:25498852c84042ac4397c2c9100ec4d8394d1b1bf34939c76de2538bf6493ad6"
   },
   "google-workspace": {
-    "state": "never-released",
+    "state": "up-to-date",
     "version": "0.1.0",
     "latest_tag": "google-workspace-v0.1.0",
     "current_hash": "sha256:96bac9bf2133a55fd1b954ca997cd43804f950a90e2d1581c9f66b07dd723d3b",
-    "released_hash": null
+    "released_hash": "sha256:96bac9bf2133a55fd1b954ca997cd43804f950a90e2d1581c9f66b07dd723d3b"
   },
   "grab-cookie": {
     "state": "markdown-only",
@@ -392,11 +392,11 @@
     "released_hash": "sha256:a08317d5e88c898d3e1b54cff5f75645ae9eb3d6317209cea06732a1bb9572c4"
   },
   "quotewerks": {
-    "state": "never-released",
+    "state": "up-to-date",
     "version": "0.1.0",
     "latest_tag": "quotewerks-v0.1.0",
     "current_hash": "sha256:b0c7027ae8e44536a8ab06e737c97bb151f94604195bc10316ede77ab2e7bb34",
-    "released_hash": null
+    "released_hash": "sha256:b0c7027ae8e44536a8ab06e737c97bb151f94604195bc10316ede77ab2e7bb34"
   },
   "resourceguru": {
     "state": "binary-pending",
@@ -476,11 +476,11 @@
     "released_hash": "sha256:c13b6545a06e0eee503b5d22abe10e6690c9f67c0c14ec66d5c8ae8a8d117e4a"
   },
   "sophos-central": {
-    "state": "never-released",
+    "state": "up-to-date",
     "version": "0.1.0",
     "latest_tag": "sophos-central-v0.1.0",
     "current_hash": "sha256:a3f408686c6b39b4ab1160bf0912835991552e004882eedd4680ec7fbea1790e",
-    "released_hash": null
+    "released_hash": "sha256:a3f408686c6b39b4ab1160bf0912835991552e004882eedd4680ec7fbea1790e"
   },
   "superops": {
     "state": "up-to-date",
@@ -504,11 +504,11 @@
     "released_hash": "sha256:c2ec39e79968c572bbfc500bf309458387b0e4815227950718bf561ab6670be6"
   },
   "threatdown": {
-    "state": "never-released",
+    "state": "up-to-date",
     "version": "0.1.0",
     "latest_tag": "threatdown-v0.1.0",
     "current_hash": "sha256:f63d519c4ca09233b2257c8c46abc34596ee4579414c2b3f9761725eb60f0d1f",
-    "released_hash": null
+    "released_hash": "sha256:f63d519c4ca09233b2257c8c46abc34596ee4579414c2b3f9761725eb60f0d1f"
   },
   "threatlocker": {
     "state": "up-to-date",
