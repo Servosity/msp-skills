@@ -104,9 +104,11 @@ hosts before any request is built.
   or narrower ACL below it for this token: Proxmox VE silently leaves out of
   every list the guests and storages a token cannot see. The skill reports a
   missing, non-propagating or narrowed grant as a fetch failure, but an
-  explicit NoAccess on a single guest leaves no trace in any read. With an
-  audit-only role on both products, Proxmox itself would refuse a write even
-  if one were ever sent.
+  explicit NoAccess on a single guest leaves no trace in any read. The same
+  holds for a backup group whose owner file the Backup Server cannot read (a
+  damaged datastore): it drops the group from every list and only logs it on
+  the server. With an audit-only role on both products, Proxmox itself would
+  refuse a write even if one were ever sent.
 - **One PBS namespace per client cluster** on a shared Backup Server,
   declared as that entry's `pbs_namespace` (a datastore per client alone does
   not scope a cluster that cannot be read). VMIDs repeat across
