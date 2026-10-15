@@ -1177,7 +1177,7 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 			{"topic": "Verify-failure spread", "insight": "Aggregates snapshot verification state per group and namespace and compares verify-job reach against the namespace tree; PBS shows this one snapshot at a time."},
 			{"topic": "Failure triage", "insight": "Merges PVE and PBS task feeds across clusters and reads vzdump logs to attribute per-guest failures that only exist inside multi-guest task logs."},
 			{"topic": "Fleet datastore runway", "insight": "Joins PBS usage forecasts, GC and prune job state and PVE storage usage across all clusters into one ranking."},
-			{"topic": "Guest restore points", "insight": "Resolves a guest by id or name to its cluster, then unions per-storage archive listings, PBS snapshots and the prune preview; each lives on a different endpoint."},
+			{"topic": "Guest restore points", "insight": "Resolves a guest by id or name to its cluster, then unions per-storage archive listings and PBS snapshots; each lives on a different endpoint."},
 			{"topic": "RPO evidence", "insight": "Expands each job's past schedule on the server and aligns it with retained restore points; Proxmox keeps no backup-result history beyond task logs."},
 		},
 	}
