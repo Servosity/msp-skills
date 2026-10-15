@@ -33,6 +33,11 @@ type failureRow struct {
 	StartedAt string   `json:"started_at"`
 	EndedAt   string   `json:"ended_at,omitempty"`
 	LogTail   []string `json:"log_tail,omitempty"`
+	// Attribution is "shared: <clusters>" for a PBS task on a PBS that another
+	// configured cluster also writes to: a PBS task names no PVE cluster, so it
+	// belongs to no single client and tenant is left empty.
+	Attribution string `json:"attribution,omitempty"`
+	pbsKey      string // PBS service + UPID: the same task read by two profiles is one row
 }
 
 type failuresReport struct {
@@ -64,7 +69,8 @@ func newNovelFailuresCmd(flags *rootFlags) *cobra.Command {
 			"Do NOT use it to read one task's complete log; use 'tasks log' instead.\n\n" +
 			"A multi-guest vzdump task logs each guest's outcome only inside its task log, so the log is read and every guest is attributed: " +
 			"'ERROR: Backup of VM N failed - ...' is failed, and 'Starting Backup of VM N' with no finish and no error is incomplete " +
-			"(the silent mid-job stop). PBS tasks are read with errors=1.",
+			"(the silent mid-job stop). PBS tasks are read with errors=1. A PBS task names no PVE cluster: on a PBS that another configured cluster also writes to, " +
+			"its row carries attribution 'shared: <clusters>' and no tenant, and a task two profiles both read is listed once.",
 		Example: strings.Trim(`
   proxmox-cli failures --since 24h --agent
   proxmox-cli failures --since 7d --type vzdump,verify
@@ -102,6 +108,9 @@ func newNovelFailuresCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 			sinceT := time.Now().Add(-window)
+			if want["verify"] || want["gc"] || want["sync"] || want["prune"] {
+				markSharedPBS(ctx, flags, targets)
+			}
 			type result struct {
 				rows          []failureRow
 				scanned, logs int
@@ -118,8 +127,17 @@ func newNovelFailuresCmd(flags *rootFlags) *cobra.Command {
 			for _, t := range targets {
 				rep.Clusters = append(rep.Clusters, t.Name)
 			}
+			seenPBS := map[string]bool{}
 			for _, r := range results {
-				rep.Rows = append(rep.Rows, r.Value.rows...)
+				for _, row := range r.Value.rows {
+					if row.pbsKey != "" {
+						if seenPBS[row.pbsKey] {
+							continue
+						}
+						seenPBS[row.pbsKey] = true
+					}
+					rep.Rows = append(rep.Rows, row)
+				}
 				rep.ScannedTasks += r.Value.scanned
 				rep.LogsRead += r.Value.logs
 				rep.LogCapHit = rep.LogCapHit || r.Value.capHit
@@ -158,7 +176,11 @@ func newNovelFailuresCmd(flags *rootFlags) *cobra.Command {
 			}
 			rows := make([][]string, 0, len(rep.Rows))
 			for _, r := range rep.Rows {
-				rows = append(rows, []string{r.StartedAt, r.Cluster, r.Type, r.Target, r.GuestName, r.Result, r.Reason})
+				reason := r.Reason
+				if r.Attribution != "" {
+					reason = "[" + r.Attribution + "] " + reason
+				}
+				rows = append(rows, []string{r.StartedAt, r.Cluster, r.Type, r.Target, r.GuestName, r.Result, reason})
 			}
 			return flags.printTable(cmd, []string{"STARTED", "CLUSTER", "TYPE", "TARGET", "GUEST", "RESULT", "REASON"}, rows)
 		},
@@ -317,14 +339,19 @@ func collectFailures(ctx context.Context, t fleetTarget, since time.Time, want m
 			pbsErr = err
 			fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "pbs tasks", Error: err.Error()})
 		}
+		tenant, attribution := t.Tenant, ""
+		if sharers := t.pbsServiceSharers(); len(sharers) > 0 {
+			tenant, attribution = "", "shared: "+strings.Join(sharers, ", ")
+		}
 		for _, task := range tasks {
 			scanned++
 			kind := pbsWorkerKinds[task.kind()]
 			if kind == "" || !want[kind] || taskOK(task.Status) {
 				continue
 			}
-			r := failureRow{Tenant: t.Tenant, Cluster: t.Name, Product: "pbs", Type: kind, Target: task.target(), Result: "failed",
-				Reason: task.Status, UPID: task.UPID, Node: "localhost", StartedAt: unixRFC3339(int64(task.StartTime)), EndedAt: unixRFC3339(int64(task.EndTime))}
+			r := failureRow{Tenant: tenant, Cluster: t.Name, Product: "pbs", Type: kind, Target: task.target(), Result: "failed",
+				Reason: task.Status, UPID: task.UPID, Node: "localhost", StartedAt: unixRFC3339(int64(task.StartTime)), EndedAt: unixRFC3339(int64(task.EndTime)),
+				Attribution: attribution, pbsKey: t.pbsEndpoint() + "\x00" + task.UPID}
 			if tail > 0 && logs < maxLogs {
 				logs++
 				if lines, err := fetchTaskLog(ctx, t.C, true, "localhost", task.UPID); err == nil {

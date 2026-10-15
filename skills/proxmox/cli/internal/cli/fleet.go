@@ -197,7 +197,7 @@ var (
 	postureKeep  = []string{"rows", "clients", "warnings", "fetch_failures", "red", "amber", "clusters", "tenant", "cluster", "vmid", "asset_name", "asset_id", "verdict", "severity", "reason", "covered_by_job", "age_hours", "last_success_at", "verify_state", "last_verified_ok_at", "last_attempt_status", "last_attempt_at", "offsite_last_success_at", "guests", "stale", "never", "uncovered", "verify_failed", "unverified", "last_attempt_failed", "attempt_unknown", "archives_incomplete", "unproven", "clusters_unreachable"}
 	coverageKeep = []string{"rows", "fetch_failures", "uncovered_guests", "guests_checked", "cluster", "vmid", "name", "disk", "reason", "detail", "disabled_jobs", "disagrees_with_upstream"}
 	verifyKeep   = []string{"stores", "groups", "skipped_clusters", "fetch_failures", "cluster", "store", "namespace", "group", "status", "snapshots", "failed", "never_verified", "outdated", "first_failure_at", "newest_verified_ok_at", "newest_is_bad", "failing_groups", "failed_snapshots", "never_verified_snapshots", "gc_still_bad_chunks", "namespaces_without_verify_job", "attribution"}
-	failuresKeep = []string{"rows", "fetch_failures", "scanned_tasks", "logs_read", "log_cap_hit", "note", "cluster", "product", "type", "target", "vmid", "guest_name", "result", "reason", "upid", "started_at"}
+	failuresKeep = []string{"rows", "fetch_failures", "scanned_tasks", "logs_read", "log_cap_hit", "note", "cluster", "product", "type", "target", "vmid", "guest_name", "result", "reason", "upid", "started_at", "attribution"}
 	capacityKeep = []string{"rows", "fetch_failures", "cluster", "kind", "name", "node", "used_pct", "days_to_full", "estimated_full_at", "gc_last_state", "gc_pending_bytes", "prune_jobs", "flags"}
 	restoreKeep  = []string{"query", "guests", "fetch_failures", "cluster", "vmid", "name", "covered_by_jobs", "count", "newest_at", "newest_verified_ok_at", "restore_points", "backup_time", "source", "verify_state", "protected", "encrypted", "prune_mark", "evidence", "not_read"}
 	rpoKeep      = []string{"rows", "clients", "fetch_failures", "days", "window_start", "tenant", "cluster", "vmid", "name", "missed_runs", "scheduled_runs", "missed_run_times", "largest_gap_hours", "verified_ok_days", "met_schedule", "window_capped", "note", "guests", "guests_met_schedule", "worst_gap_hours", "evidence", "points_unread", "guests_unproven", "missed_runs_unproven", "guests_without_restore_points", "clusters_unreachable"}
@@ -761,7 +761,7 @@ func backupListingHidden(ctx context.Context, c *client.Client, storage string, 
 	if vmid == 0 {
 		// Every guest: VM.Backup must reach each one (propagating from /vms,
 		// no deeper ACL dropping it), or that guest's archives are filtered out.
-		gap, err := subtreeGap(ctx, c, false, "/vms", "guests", client.PrivVMBackup)
+		gap, err := subtreeGap(ctx, c, false, "/vms", "guests", true, client.PrivVMBackup)
 		return gap != "", err
 	}
 	vprivs, err := privsAt(ctx, c, false, "/vms/"+strconv.FormatInt(vmid, 10))
@@ -896,6 +896,67 @@ func (t fleetTarget) sharedOwners(ref pbsStorageRef, ns string) []string {
 	}
 	for _, p := range t.own.peers {
 		if p.pve == t.pveID || !p.covers(ref, ns) {
+			continue
+		}
+		name := p.name
+		if p.unknown {
+			name += " (could not be read)"
+		}
+		names[name], foreign = true, true
+	}
+	if !foreign {
+		return nil
+	}
+	return sortedKeys(names)
+}
+
+// pbsServiceSharers names the configured clusters that write, or may write,
+// anywhere on this target's PBS when any of them is not this target's PVE
+// cluster (the sharedOwners rule, for the whole PBS instead of one namespace).
+// A PBS task names a datastore at most, never a PVE cluster, so on such a PBS
+// it cannot be credited to one client.
+func (t fleetTarget) pbsServiceSharers() []string {
+	ep := t.pbsEndpoint()
+	if t.own == nil || ep == "" {
+		return nil
+	}
+	fps := map[string]bool{}
+	for _, f := range splitPins(t.Profile.PBSFingerprint) {
+		fps[normFingerprint(f)] = true
+	}
+	onThisPBS := func(endpoints, pins []string) bool {
+		for _, e := range endpoints {
+			if e != "" && strings.EqualFold(e, ep) {
+				return true
+			}
+		}
+		for _, f := range pins {
+			if fps[f] {
+				return true
+			}
+		}
+		return false
+	}
+	names := map[string]bool{}
+	ids := map[string]bool{}
+	for k, w := range t.own.writers {
+		head, _, _ := strings.Cut(k, "|")
+		if !onThisPBS([]string{strings.TrimPrefix(head, "ep:")}, []string{strings.TrimPrefix(head, "fp:")}) {
+			continue
+		}
+		for id, name := range w {
+			names[name], ids[id] = true, true
+		}
+	}
+	foreign := false
+	for id := range ids {
+		foreign = foreign || (t.pveID != "" && id != t.pveID)
+	}
+	if t.pveID == "" && len(ids) > 1 {
+		foreign = true
+	}
+	for _, p := range t.own.peers {
+		if p.pve == t.pveID || !onThisPBS(p.endpoints, p.fps) {
 			continue
 		}
 		name := p.name
@@ -1325,7 +1386,7 @@ func nsACLPath(store, ns string) string {
 // namespacesHidden: PBS lists only the namespaces a token may see, so a list
 // below ns is complete only when Datastore.Audit reaches all of it.
 func namespacesHidden(ctx context.Context, c *client.Client, store, ns string) string {
-	gap, err := subtreeGap(ctx, c, true, nsACLPath(store, ns), "namespaces", client.PrivDatastoreAudit)
+	gap, err := subtreeGap(ctx, c, true, nsACLPath(store, ns), "namespaces", false, client.PrivDatastoreAudit)
 	if err != nil {
 		return err.Error()
 	}
@@ -1548,19 +1609,19 @@ func privsAt(ctx context.Context, c *client.Client, pbs bool, path string) (map[
 // guests the token holds VM.Audit on, and answers with the rest silently left
 // out, so a missing guest would read as no guest.
 func guestListHidden(ctx context.Context, c *client.Client) error {
-	return subtreeHidden(ctx, c, false, "/vms", "guests", client.PrivVMAudit)
+	return subtreeHidden(ctx, c, false, "/vms", "guests", true, client.PrivVMAudit)
 }
 
 // pbsDatastoreListHidden: PBS lists (and reports usage for) only the
 // datastores a token may audit.
 func pbsDatastoreListHidden(ctx context.Context, c *client.Client) error {
-	return subtreeHidden(ctx, c, true, "/datastore", "datastores", client.PrivDatastoreAudit)
+	return subtreeHidden(ctx, c, true, "/datastore", "datastores", false, client.PrivDatastoreAudit)
 }
 
 // storageListHidden is guestListHidden for storages: Proxmox VE lists a
 // storage only to a token with Datastore.Audit or Datastore.AllocateSpace on it.
 func storageListHidden(ctx context.Context, c *client.Client) error {
-	return subtreeHidden(ctx, c, false, "/storage", "storages", client.PrivDatastoreAudit, client.PrivDatastoreAllocateSpace)
+	return subtreeHidden(ctx, c, false, "/storage", "storages", true, client.PrivDatastoreAudit, client.PrivDatastoreAllocateSpace)
 }
 
 // subtreeHidden explains a Proxmox VE list filtered object by object: it is
@@ -1569,8 +1630,8 @@ func storageListHidden(ctx context.Context, c *client.Client) error {
 // read can see past: an explicit NoAccess on a single object leaves no trace
 // in any API answer, so the docs tell operators never to put one on the
 // monitoring token.
-func subtreeHidden(ctx context.Context, c *client.Client, pbs bool, root, what string, privs ...client.Privilege) error {
-	gap, err := subtreeGap(ctx, c, pbs, root, what, privs...)
+func subtreeHidden(ctx context.Context, c *client.Client, pbs bool, root, what string, leaves bool, privs ...client.Privilege) error {
+	gap, err := subtreeGap(ctx, c, pbs, root, what, leaves, privs...)
 	if err != nil {
 		return err
 	}
@@ -1580,8 +1641,11 @@ func subtreeHidden(ctx context.Context, c *client.Client, pbs bool, root, what s
 	return nil
 }
 
-// subtreeGap is subtreeHidden's reason, "" when the list is complete.
-func subtreeGap(ctx context.Context, c *client.Client, pbs bool, root, what string, privs ...client.Privilege) (string, error) {
+// subtreeGap is subtreeHidden's reason, "" when the list is complete. leaves:
+// the objects one level below root have nothing below them (guests, storages),
+// so a deeper grant there need not propagate; under a PBS datastore or
+// namespace a non-propagating deeper grant hides everything below it.
+func subtreeGap(ctx context.Context, c *client.Client, pbs bool, root, what string, leaves bool, privs ...client.Privilege) (string, error) {
 	product := "Proxmox VE"
 	if pbs {
 		product = "Proxmox Backup Server"
@@ -1619,8 +1683,8 @@ func subtreeGap(ctx context.Context, c *client.Client, pbs bool, root, what stri
 		}
 		ok := false
 		for _, n := range names {
-			_, has := p[n]
-			ok = ok || has
+			v, has := p[n]
+			ok = ok || (has && (bool(v) || leaves))
 		}
 		if !ok {
 			dropped = append(dropped, path)
@@ -1628,7 +1692,7 @@ func subtreeGap(ctx context.Context, c *client.Client, pbs bool, root, what stri
 	}
 	if len(dropped) > 0 {
 		sort.Strings(dropped)
-		return fmt.Sprintf("an ACL on %s replaces the inherited %s, so those %s are missing from this report, not absent", strings.Join(dropped, ", "), want, what), nil
+		return fmt.Sprintf("an ACL on %s replaces the inherited %s (or holds it without the propagate flag), so those %s are missing from this report, not absent", strings.Join(dropped, ", "), want, what), nil
 	}
 	return "", nil
 }
