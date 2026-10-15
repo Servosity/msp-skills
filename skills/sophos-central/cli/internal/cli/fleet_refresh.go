@@ -57,7 +57,7 @@ func newNovelFleetRefreshCmd(flags *rootFlags) *cobra.Command {
 		Short: "Refresh tenants, endpoints, alerts, account health and licences for every customer tenant in one run",
 		Long: `Use this command to refresh the local store for every tenant the credential can see (tenants, endpoints, alerts, account health, licences), recording a per-tenant ok/forbidden/no_api_host/error status. Do NOT use this command to refresh one resource for the currently selected tenant; use 'sync' instead.
 
-Per-tenant 403s are expected for trial tenants and term customers without Partner Assistance; they are recorded in the ledger and the run continues. Calls share the CLI rate limiter (1.5 req/s by default; Sophos enforces 100/minute). Trial tenants are skipped unless --include-trial is set. A tenant credential syncs just its own tenant.`,
+Per-tenant 403s are expected for trial tenants and term customers without Partner Assistance; they are recorded in the ledger and the run continues. Calls share the CLI rate limiter (1.5 req/s by default; Sophos enforces 100/minute). Trial tenants are skipped unless --include-trial is set. A refresh without --tenant also removes the stored data of tenants outside its scope (offboarded tenants, and trial tenants when --include-trial is not set), so the local store always mirrors the last full refresh. A tenant credential syncs just its own tenant.`,
 		Example: strings.Trim(`
   sophos-central-cli fleet refresh --resources tenants,endpoints,alerts,health,licenses
   sophos-central-cli fleet refresh --plan
@@ -84,6 +84,9 @@ Per-tenant 403s are expected for trial tenants and term customers without Partne
 			if err != nil {
 				return err
 			}
+			// A refresh reads live: a cached tenant list could prune a tenant
+			// that was added (or refreshed with --tenant) a minute ago.
+			c.NoCache = true
 			filter, err := fleetTenantFilter()
 			if err != nil {
 				return err
@@ -100,9 +103,13 @@ Per-tenant 403s are expected for trial tenants and term customers without Partne
 			}
 			// A refresh over every tenant in scope also drops tenants that left
 			// it (offboarded, or trial tenants without --include-trial) so their
-			// stale rows cannot pin freshness or linger in triage.
-			fullScope := len(filter) == 0 && !cliutil.IsDogfoodEnv()
-			return runFleetSync(ctx, cmd, flags, c, tenants, resources, since, fleetDBPath(dbPath), fullScope)
+			// stale rows cannot pin freshness or linger in triage. keep is nil
+			// when nothing is pruned.
+			var keep []fleetTenant
+			if len(filter) == 0 && !cliutil.IsDogfoodEnv() {
+				keep = tenants
+			}
+			return runFleetSync(ctx, cmd, flags, c, tenants, resources, since, fleetDBPath(dbPath), keep)
 		},
 	}
 	cmd.Flags().StringVar(&flagResources, "resources", strings.Join(fleetSyncResources, ","), "Comma-separated resources to sync: tenants,endpoints,alerts,health,licenses")
@@ -189,7 +196,7 @@ func planFleetSync(tenants []fleetTenant, resources []string, idType string, rat
 	return p
 }
 
-func runFleetSync(ctx context.Context, cmd *cobra.Command, flags *rootFlags, c *client.Client, tenants []fleetTenant, resources []string, since time.Duration, dbPath string, fullScope bool) error {
+func runFleetSync(ctx context.Context, cmd *cobra.Command, flags *rootFlags, c *client.Client, tenants []fleetTenant, resources []string, since time.Duration, dbPath string, keep []fleetTenant) error {
 	started := time.Now().UTC()
 	db, err := store.OpenWithContext(ctx, dbPath)
 	if err != nil {
@@ -275,8 +282,8 @@ func runFleetSync(ctx context.Context, cmd *cobra.Command, flags *rootFlags, c *
 		_ = flags.printJSON(cmd, summary)
 		return apiErr(fmt.Errorf("fleet refresh: no tenant refreshed (%d errors); see tenants[].resources", summary.Errors))
 	}
-	if fullScope {
-		pruned, err := pruneOutOfScopeTenants(db, tenants)
+	if keep != nil {
+		pruned, err := pruneOutOfScopeTenants(db, keep)
 		if err != nil {
 			return fmt.Errorf("removing tenants no longer in scope: %w", err)
 		}
@@ -308,6 +315,9 @@ func runFleetSync(ctx context.Context, cmd *cobra.Command, flags *rootFlags, c *
 			rows = append(rows, map[string]any{"tenant": r.TenantName, "status": r.Status, "endpoints": r.Resources["endpoints"].Items, "alerts": r.Resources["alerts"].Items})
 		}
 		fmt.Fprintf(cmd.OutOrStdout(), "Synced %d tenants into %s: %d ok, %d partial, %d forbidden, %d no api host, %d error\n", summary.TenantsTotal, dbPath, summary.OK, summary.Partial, summary.Forbidden, summary.NoAPIHost, summary.Errors)
+		if len(summary.Pruned) > 0 {
+			fmt.Fprintf(cmd.OutOrStdout(), "Removed stored data for %d tenant(s) Sophos Central no longer lists: %s\n", len(summary.Pruned), strings.Join(summary.Pruned, ", "))
+		}
 		if err := printAutoTable(cmd.OutOrStdout(), rows); err != nil {
 			return err
 		}
@@ -539,8 +549,8 @@ func truncateErr(err error) string {
 }
 
 // pruneOutOfScopeTenants removes every stored trace of tenants that a full
-// listing no longer returns: their ledger row, health and licence documents,
-// and endpoint and alert rows. It returns the removed tenant IDs.
+// listing no longer returns: their tenant and ledger rows, health and licence
+// documents, and endpoint and alert rows. It returns the removed tenant IDs.
 func pruneOutOfScopeTenants(db *store.Store, tenants []fleetTenant) ([]string, error) {
 	scope := make(map[string]bool, len(tenants))
 	ids := make([]string, 0, len(tenants))
@@ -552,8 +562,19 @@ func pruneOutOfScopeTenants(db *store.Store, tenants []fleetTenant) ([]string, e
 	if err != nil {
 		return nil, err
 	}
-	gone := make([]string, 0)
+	stored := make(map[string]bool, len(ledger))
 	for id := range ledger {
+		stored[id] = true
+	}
+	// A tenants-only refresh stores tenant rows with no ledger row yet.
+	if err := db.ListScan("tenants", func(key string, _ json.RawMessage) bool {
+		stored[key] = true
+		return true
+	}); err != nil {
+		return nil, err
+	}
+	gone := make([]string, 0)
+	for id := range stored {
 		if !scope[id] {
 			gone = append(gone, id)
 		}
@@ -567,8 +588,9 @@ func pruneOutOfScopeTenants(db *store.Store, tenants []fleetTenant) ([]string, e
 			}
 		}
 	}
-	for _, rt := range []string{fleetLedgerType, fleetHealthType, fleetHealthPrevType, fleetLicensesType} {
-		if _, err := db.ReconcileAll(rt, ids, "", nil); err != nil {
+	for _, rt := range []string{"tenants", fleetLedgerType, fleetHealthType, fleetHealthPrevType, fleetLicensesType} {
+		typed, _ := store.TypedListTable(rt)
+		if _, err := db.ReconcileAll(rt, ids, typed, nil); err != nil {
 			return nil, err
 		}
 	}

@@ -59,7 +59,7 @@ Do not use this CLI for:
 ## Unique Capabilities
 
 ### Cross-tenant visibility
-- **`fleet refresh`**  -  Refresh tenants, endpoints, alerts, account health and licences for every non-trial customer tenant in one run, with a per-tenant ok/forbidden/error ledger (add --include-trial for trial tenants).
+- **`fleet refresh`**  -  Refresh tenants, endpoints, alerts, account health and licences for every non-trial customer tenant in one run, with a per-tenant ok/forbidden/error ledger (add --include-trial for trial tenants). A full refresh also removes stored data for tenants outside its scope.
 
   _Run it first: fleet triage, fleet health, fleet gaps and contain's hostname lookup answer from the store it fills; the other fleet commands call the API on each run._
 
@@ -474,7 +474,7 @@ Do not use this CLI for:
 **fleet**
 
 
-- `sophos-central-cli fleet refresh`  -  Refresh tenants, endpoints, alerts, account health and licences for every non-trial customer tenant in one run, with a per-tenant ok/forbidden/error ledger (add --include-trial for trial tenants).
+- `sophos-central-cli fleet refresh`  -  Refresh tenants, endpoints, alerts, account health and licences for every non-trial customer tenant in one run, with a per-tenant ok/forbidden/error ledger (add --include-trial for trial tenants). A full refresh also removes stored data for tenants outside its scope.
 
 - `sophos-central-cli fleet triage`  -  One ranked work queue across all customers: open high and medium alerts, bad or suspicious endpoints, tamper protection off, isolated or stale devices.
 

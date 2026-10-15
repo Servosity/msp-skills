@@ -124,7 +124,7 @@ sophos-central-cli fleet triage --severity high,medium --stale 14d
 ## Unique Features
 
 ### Cross-tenant visibility
-- **`fleet refresh`**  -  Refresh tenants, endpoints, alerts, account health and licences for every non-trial customer tenant in one run, with a per-tenant ok/forbidden/error ledger (add --include-trial for trial tenants).
+- **`fleet refresh`**  -  Refresh tenants, endpoints, alerts, account health and licences for every non-trial customer tenant in one run, with a per-tenant ok/forbidden/error ledger (add --include-trial for trial tenants). A full refresh also removes stored data for tenants outside its scope.
 
   _Run it first: fleet triage, fleet health, fleet gaps and contain's hostname lookup answer from the store it fills; the other fleet commands call the API on each run._
 
@@ -710,7 +710,7 @@ Manage xdr
 ### fleet
 
 
-- **`sophos-central-cli fleet refresh`** - Refresh tenants, endpoints, alerts, account health and licences for every non-trial customer tenant in one run, with a per-tenant ok/forbidden/error ledger (add --include-trial for trial tenants).
+- **`sophos-central-cli fleet refresh`** - Refresh tenants, endpoints, alerts, account health and licences for every non-trial customer tenant in one run, with a per-tenant ok/forbidden/error ledger (add --include-trial for trial tenants). A full refresh also removes stored data for tenants outside its scope.
 
 - **`sophos-central-cli fleet triage`** - One ranked work queue across all customers: open high and medium alerts, bad or suspicious endpoints, tamper protection off, isolated or stale devices.
 
@@ -814,7 +814,7 @@ If you use agentcookie to sync secrets across machines, this CLI auto-adopts age
 
 ### API-specific
 - **HTTP 400 tenantRequired on endpoints, alerts or policies commands**  -  Partner and organization credentials must pick a customer: add --tenant <tenant-id> or export SOPHOS_CENTRAL_TENANT_ID (IDs from 'tenants list', or 'org-tenants list' for an organization credential).
-- **A customer is missing from fleet output or listed as forbidden**  -  Trial tenants are skipped unless --include-trial is passed; a 403 means the customer has not enabled Partner Assistance in its console. Both are recorded, never fatal.
+- **A customer is missing from fleet output or listed as forbidden**  -  Trial tenants are skipped unless --include-trial is passed (and a full refresh without it removes their stored data); a 403 means the customer has not enabled Partner Assistance in its console. Both are recorded, never fatal.
 - **A fleet command printed results but exited non-zero**  -  Some tenant failed for a reason other than an expected 403 (server error, timeout, incomplete listing); check tenants_with_unexpected_errors and tenants[].resources, then rerun for that tenant with --tenant <tenant-id>.
 - **fleet triage, health or gaps return nothing**  -  They read the local store: run 'sophos-central-cli fleet refresh' first, and check SOPHOS_CENTRAL_TENANT_ID is unset so it does not narrow the fleet.
 - **HTTP 429 or slow fleet commands**  -  Sophos enforces 100 calls/minute per credential, account and IP; the CLI paces at 1.5 req/s by default. Lower it with --rate-limit 1 when other tools share the credential.

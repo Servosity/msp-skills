@@ -31,7 +31,7 @@ spreadsheet job.
   protection off, isolated or stale devices.
 - `sophos-central-cli fleet tamper` - every machine with tamper protection off,
   across customers, previewed first and switched back on only with `--yes`.
-- `sophos-central-cli contain "WS-FIN-07" --scan` - isolate a machine by hostname
+- `sophos-central-cli contain "WS-FIN-07" --scan --yes` - isolate a machine by hostname
   or IP mid-incident without first working out which tenant it lives in.
 - `sophos-central-cli fleet revenue` - each customer's monthly Sophos billing next
   to the endpoints actually deployed, for the month-end reconciliation.

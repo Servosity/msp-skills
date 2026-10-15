@@ -307,7 +307,7 @@ func buildGaps(db fleetReader, filter map[string]bool, opt gapOptions) (gapsView
 		return gapsView{}, fmt.Errorf("reading licences: %w", err)
 	}
 
-	view := gapsView{Items: make([]tenantGaps, 0, len(gaps)), ByType: map[string]int{}, BlindTenants: append(blindTenantsFrom(ledger, filter, gapsNeeded(opt.kind)...), unreadable.blind(names, filter)...)}
+	view := gapsView{Items: make([]tenantGaps, 0, len(gaps)), ByType: map[string]int{}, BlindTenants: append(append(blindTenantsFrom(ledger, filter, gapsNeeded(opt.kind)...), unreadable.blind(names, filter)...), unrefreshedTenants(db, ledger, filter)...)}
 	for tid, list := range gaps {
 		sort.SliceStable(list, func(i, j int) bool { return list[i].Type < list[j].Type })
 		view.Items = append(view.Items, tenantGaps{TenantID: tid, TenantName: names[tid], GapCount: len(list), Gaps: list})

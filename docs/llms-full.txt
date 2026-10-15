@@ -2438,7 +2438,7 @@ Outcomes (question -> command your AI agent runs):
 - Which customers have the worst Account Health Check scores, and who slipped since the last refresh? -> sophos-central-cli fleet health --limit 10
 - Where are the security and commercial gaps, customer by customer? -> sophos-central-cli fleet gaps --kind all
 - Which machines have tamper protection off across every customer? -> sophos-central-cli fleet tamper
-- Isolate this machine without looking up which tenant it is in -> sophos-central-cli contain "WS-FIN-07" --scan
+- Isolate this machine without looking up which tenant it is in -> sophos-central-cli contain "WS-FIN-07" --scan --yes
 - What did each customer bill last month, and does it match what is deployed? -> sophos-central-cli fleet revenue --month 2026-09
 - Feed every customer's SIEM events and alerts into my log pipeline -> sophos-central-cli fleet siem-collect --stream both
 - Refresh every customer tenant into the local store -> sophos-central-cli fleet refresh
@@ -2460,7 +2460,7 @@ A: Yes. whoami tells the CLI which kind of credential it holds. A partner or org
 Q: Will this hit Sophos Central API rate limits?
 A: Calls go through a shared throttle of 1.5 requests per second by default (--rate-limit), under Sophos's own limits. fleet refresh --plan prints the tenant count and estimated calls and time before you run it. After a refresh, fleet triage, fleet health and fleet gaps read the local store and make no API calls.
 Q: Why do some customers show as forbidden?
-A: Sophos returns 403 to a partner for trial tenants and for term customers without Partner Assistance. fleet refresh records those in its per-tenant ledger and carries on, and fleet triage lists them as blind tenants so you can see what was not read. Trial tenants are skipped unless you pass --include-trial.
+A: Sophos returns 403 to a partner for trial tenants and for term customers without Partner Assistance. fleet refresh records those in its per-tenant ledger and carries on, and fleet triage lists them as blind tenants so you can see what was not read. Trial tenants are skipped unless you pass --include-trial. A full refresh (no --tenant) also removes the stored data of tenants it no longer covers (offboarded tenants, and trial tenants when --include-trial is not set), so the local store always matches your last full refresh.
 Q: Can the AI isolate a machine or turn tamper protection back on by itself?
 A: Only if you let it. contain and fleet tamper print a plan and change nothing without --yes, and the MCP server never passes --yes, so those two only preview over MCP. But the MCP server's generic sophos-central_execute tool can call any Sophos Central endpoint except the six that return a password or token, including isolation, scans and policy changes, gated only by your AI app's approval prompt. If an agent should only read, set SOPHOS_CENTRAL_MCP_READ_ONLY=1 in the MCP server's environment: it refuses every non-GET call and hides the sync and export tools. Keep the approval prompt on, and give the API credential a read-only role.
 Q: Does it cover Sophos XDR or MDR Cases and Detections?

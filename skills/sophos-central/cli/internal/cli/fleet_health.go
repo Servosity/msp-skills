@@ -232,7 +232,7 @@ func buildHealth(db fleetReader, filter map[string]bool) (healthView, error) {
 		}
 		return rows[i].TenantName < rows[j].TenantName
 	})
-	return healthView{Items: rows, Total: len(rows), BlindTenants: append(blindTenantsFrom(ledger, filter, "health"), unreadable.blind(names, filter)...)}, nil
+	return healthView{Items: rows, Total: len(rows), BlindTenants: append(append(blindTenantsFrom(ledger, filter, "health"), unreadable.blind(names, filter)...), unrefreshedTenants(db, ledger, filter)...)}, nil
 }
 
 // minScore returns the lowest numeric value among the given paths, or nil.

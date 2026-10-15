@@ -333,9 +333,11 @@ func loadFleetMeta(db fleetReader) fleetSyncMeta {
 }
 
 // blindTenantsFrom lists tenants a fleet read cannot fully see: ledger
-// tenants whose last refresh was not ok, plus --tenant IDs the store has
+// tenants whose last refresh of a resource this view reads was not ok,
+// missing, or limited to a --since window, plus --tenant IDs the store has
 // never seen (status not_in_store), so a filtered read never drops a
-// requested tenant silently.
+// requested tenant silently. A failure in a resource the view does not read
+// does not make the tenant blind.
 func blindTenantsFrom(ledger map[string]fleetLedgerRow, filter map[string]bool, needed ...string) []blindTenant {
 	out := make([]blindTenant, 0)
 	for id, row := range ledger {
@@ -343,36 +345,40 @@ func blindTenantsFrom(ledger map[string]fleetLedgerRow, filter map[string]bool, 
 			continue
 		}
 		var unfetched, windowed []string
+		var failed *fleetOutcome
 		for _, rt := range needed {
 			o, ok := row.Resources[rt]
 			switch {
-			case !ok && len(row.Resources) > 0:
+			case !ok:
 				unfetched = append(unfetched, rt)
-			case ok && o.Status == "ok" && o.Window != "" && o.FullAt.IsZero():
+			case o.Status != "ok":
+				if failed == nil {
+					failed = &o
+				}
+			case o.Window != "" && o.FullAt.IsZero():
 				windowed = append(windowed, rt+" (only the last "+o.Window+")")
 			}
 		}
-		if row.Status == "ok" && len(unfetched) == 0 && len(windowed) == 0 {
-			continue
-		}
-		if row.Status == "ok" && len(unfetched) > 0 {
+		switch {
+		case failed != nil:
+			out = append(out, blindTenant{TenantID: id, TenantName: row.TenantName, Status: failed.Status, Error: failed.Error})
+		case len(unfetched) > 0 && row.Status != "ok":
+			// The refresh stopped before these resources (e.g. no API host).
+			b := blindTenant{TenantID: id, TenantName: row.TenantName, Status: row.Status}
+			for _, o := range row.Resources {
+				if o.Error != "" {
+					b.Error = o.Error
+					break
+				}
+			}
+			out = append(out, b)
+		case len(unfetched) > 0:
 			out = append(out, blindTenant{TenantID: id, TenantName: row.TenantName, Status: "not_refreshed",
 				Error: "fleet refresh has not fetched " + strings.Join(unfetched, ", ") + " for this tenant; run 'sophos-central-cli fleet refresh --resources " + strings.Join(unfetched, ",") + "'"})
-			continue
-		}
-		if row.Status == "ok" {
+		case len(windowed) > 0:
 			out = append(out, blindTenant{TenantID: id, TenantName: row.TenantName, Status: "partial_window",
 				Error: "fleet refresh has fetched " + strings.Join(windowed, ", ") + " for this tenant; run 'sophos-central-cli fleet refresh' without --since once for the full list"})
-			continue
 		}
-		b := blindTenant{TenantID: id, TenantName: row.TenantName, Status: row.Status}
-		for _, o := range row.Resources {
-			if o.Error != "" {
-				b.Error = o.Error
-				break
-			}
-		}
-		out = append(out, b)
 	}
 	for id := range filter {
 		if _, ok := ledger[id]; !ok {
@@ -415,7 +421,12 @@ func fleetFreshness(w io.Writer, meta fleetSyncMeta, ledger map[string]fleetLedg
 				continue
 			}
 			attempted[rt] = true
+			// A --since fetch on top of a full one does not refresh what lies
+			// outside its window, so the full fetch dates the view.
 			t := o.At
+			if !o.FullAt.IsZero() {
+				t = o.FullAt
+			}
 			if t.IsZero() && o.Status == "ok" {
 				t = row.SyncedAt
 			}
@@ -474,6 +485,29 @@ func tenantNames(db fleetReader, ledger map[string]fleetLedgerRow) map[string]st
 		}
 	}
 	return names
+}
+
+// unrefreshedTenants lists stored non-trial tenants that have no ledger row
+// (a tenants-only refresh, or a run cut off before reaching them), so an
+// unfiltered fleet read never presents a partial book as complete. Filtered
+// reads already report unknown --tenant IDs as not_in_store.
+func unrefreshedTenants(db fleetReader, ledger map[string]fleetLedgerRow, filter map[string]bool) []blindTenant {
+	out := make([]blindTenant, 0)
+	if filter != nil {
+		return out
+	}
+	_ = db.ListScan("tenants", func(_ string, data json.RawMessage) bool {
+		var t fleetTenant
+		if json.Unmarshal(data, &t) != nil || t.ID == "" || strings.EqualFold(t.BillingType, "trial") {
+			return true
+		}
+		if _, ok := ledger[t.ID]; !ok {
+			out = append(out, blindTenant{TenantID: t.ID, TenantName: t.Name, Status: "not_refreshed",
+				Error: "fleet refresh has not reached this tenant yet; run 'sophos-central-cli fleet refresh'"})
+		}
+		return true
+	})
+	return out
 }
 
 // openFleetStore opens the local store read-only for a fleet read and reports

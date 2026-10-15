@@ -897,8 +897,8 @@
   },
   {
    "id": "fleet-freshness-per-resource",
-   "summary": "fleet freshness is per tenant and per resource: each ledger outcome records when it was fetched (at, prev_at, full_at, window); triage, health and gaps report the oldest input among the tenants in scope, and list tenants never fetched or only fetched with --since as blind; a resource that failed for every tenant in scope is named in the note; a full-scope refresh prunes tenants that left the listing; gaps --kind reads only the resources that kind needs",
-   "why": "The build pane's known gap, confirmed by two Codex rounds: a single run-level fleet_meta timestamp (and then per-resource run maps) made a `--resources health` refresh, a `--tenant T1` refresh, or a first `--since 24h` alerts fetch look like a fresh complete view, so triage and gaps could present stale or partial data as current with no blind tenants. Each view names the resources it reads (triage: endpoints, alerts; health: health; gaps: health, endpoints, licenses). The triage 'new' flag compares against the tenant's own previous alerts fetch. gaps --include-server-gap also covers a fetched tenant with zero endpoints. TestFleetFreshnessIsOldestTenantInput, TestSinceOnlyAlertsTenantIsBlind and TestPartialRefreshNotFreshForTriage pin it. Codex round 3: a resource that errored for every tenant kept its last good fetch silently (now named), offboarded tenants lingered in triage and pinned freshness (now pruned on an unfiltered refresh), and gaps --kind commercial went blind on a missing health fetch (now per-kind). TestFailedResourceKeepsLastGoodFetchAndFlagsIt and TestFullRefreshPrunesTenantsThatLeftScope pin it.",
+   "summary": "fleet freshness is per tenant and per resource: each ledger outcome records when it was fetched (at, prev_at, full_at, window); triage, health and gaps report the oldest input among the tenants in scope, and list tenants never fetched or only fetched with --since as blind; a resource that failed for every tenant in scope is named in the note; a full-scope refresh prunes tenants that left the listing; gaps --kind reads only the resources that kind needs; the prune reads the tenant list live (fleet refresh sets NoCache), also prunes the tenants table and prints what it removed; a --since fetch on top of a full one is dated by the full fetch; only failures in resources a view reads blind a tenant; stored tenants with no ledger row are listed as not_refreshed",
+   "why": "The build pane's known gap, confirmed by two Codex rounds: a single run-level fleet_meta timestamp (and then per-resource run maps) made a `--resources health` refresh, a `--tenant T1` refresh, or a first `--since 24h` alerts fetch look like a fresh complete view, so triage and gaps could present stale or partial data as current with no blind tenants. Each view names the resources it reads (triage: endpoints, alerts; health: health; gaps: health, endpoints, licenses). The triage 'new' flag compares against the tenant's own previous alerts fetch. gaps --include-server-gap also covers a fetched tenant with zero endpoints. TestFleetFreshnessIsOldestTenantInput, TestSinceOnlyAlertsTenantIsBlind and TestPartialRefreshNotFreshForTriage pin it. Codex round 3: a resource that errored for every tenant kept its last good fetch silently (now named), offboarded tenants lingered in triage and pinned freshness (now pruned on an unfiltered refresh), and gaps --kind commercial went blind on a missing health fetch (now per-kind). TestFailedResourceKeepsLastGoodFetchAndFlagsIt and TestFullRefreshPrunesTenantsThatLeftScope pin it. Adversarial round 5: the prune read the tenant list through the 5-minute response cache, so a tenant just added and refreshed with --tenant was deleted by the next unfiltered refresh and vanished from triage with no blind entry (now live, pinned by TestFullRefreshPrunesFromTheLiveTenantList, which fails with NoCache removed); a --since fetch made resolved alerts outside its window look current (freshness now uses full_at); a health 403 blinded triage (blindness is now per needed resource); a tenants-only refresh hid tenants it had not reached (now not_refreshed). Trial tenants are pruned unless --include-trial is set, documented in the FAQ, SKILL.md and guide.md.",
    "status": "active",
    "asserts": [
     {
@@ -1005,7 +1005,7 @@
     },
     {
      "file": "cli/internal/cli/fleet_refresh.go",
-     "contains": "fullScope := len(filter) == 0 && !cliutil.IsDogfoodEnv()",
+     "contains": "if len(filter) == 0 && !cliutil.IsDogfoodEnv() {\n\t\t\t\tkeep = tenants",
      "min_count": 1,
      "code_only": false
     },
@@ -1018,6 +1018,78 @@
     {
      "file": "cli/internal/cli/sophos_fleet_freshness_test.go",
      "contains": "func TestFullRefreshPrunesTenantsThatLeftScope(",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_refresh.go",
+     "contains": "\t\t\tc.NoCache = true\n",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_refresh.go",
+     "contains": "for _, rt := range []string{\"tenants\", fleetLedgerType, fleetHealthType, fleetHealthPrevType, fleetLicensesType} {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_refresh.go",
+     "contains": "Removed stored data for %d tenant(s) Sophos Central no longer lists",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_fleet.go",
+     "contains": "func unrefreshedTenants(db fleetReader, ledger map[string]fleetLedgerRow, filter map[string]bool) []blindTenant {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_fleet.go",
+     "contains": "\t\t\tif !o.FullAt.IsZero() {\n\t\t\t\tt = o.FullAt\n\t\t\t}",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_fleet.go",
+     "contains": "\t\t\tout = append(out, blindTenant{TenantID: id, TenantName: row.TenantName, Status: failed.Status, Error: failed.Error})",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_triage.go",
+     "contains": "unrefreshedTenants(db, ledger, filter)...)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_health.go",
+     "contains": "unrefreshedTenants(db, ledger, filter)...)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_gaps.go",
+     "contains": "unrefreshedTenants(db, ledger, filter)...)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_fleet_prune_test.go",
+     "contains": "func TestFullRefreshPrunesFromTheLiveTenantList(",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_fleet_freshness_test.go",
+     "contains": "func TestSinceFetchOnTopOfFullOneIsDatedByTheFullFetch(",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_fleet_freshness_test.go",
+     "contains": "func TestUnreadResourceFailureDoesNotBlindTheView(",
      "min_count": 1,
      "code_only": false
     }
@@ -1038,8 +1110,8 @@
   },
   {
    "id": "revenue-variance-per-product",
-   "summary": "fleet revenue compares billed seats with deployed endpoints per product; the customer-level billable_minus_deployed uses the largest single product line",
-   "why": "Codex review: the customer variance subtracted deployed endpoints from billable seats summed across every product, so ten machines with ten protection and ten encryption seats showed a false ten-seat discrepancy. One machine can consume several products.",
+   "summary": "fleet revenue compares billed seats with deployed endpoints per product; the customer-level billable_minus_deployed uses the largest single product line; a refreshed tenant with no endpoints is deployed 0, so its billed seats show as variance",
+   "why": "Codex review: the customer variance subtracted deployed endpoints from billable seats summed across every product, so ten machines with ten protection and ten encryption seats showed a false ten-seat discrepancy. One machine can consume several products. Codex round 3: a tenant whose endpoints were fetched but which has none got null deployment and null variance, hiding unused billed seats; TestZeroEndpointTenantIsDeployedZero pins it.",
    "status": "active",
    "asserts": [
     {
@@ -1057,6 +1129,18 @@
     {
      "file": "cli/internal/cli/sophos_revenue_variance_test.go",
      "contains": "func TestRevenueVarianceNotSummedAcrossProducts(",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_revenue.go",
+     "contains": "if _, seen := deployed[tid]; !seen && row.Resources[\"endpoints\"].Status == \"ok\" {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_revenue_variance_test.go",
+     "contains": "func TestZeroEndpointTenantIsDeployedZero(",
      "min_count": 1,
      "code_only": false
     }
@@ -1173,6 +1257,32 @@
     {
      "file": "cli/internal/mcp/cobratree/shellout.go",
      "contains": "\"client-profile\":          true,",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "sync-dependents-own-type",
+   "summary": "generic sync no longer runs the two press-emitted dependents (tenant account amendments, user groups), which were named after their parent resources",
+   "why": "Codex round 3 (2026-10-15): the press named the dependents 'tenants' and 'users', the same resource types as their parents, so child rows would be stored as parent rows and walked as parents on the next sync. Receipt against a local stub: with the old definitions, `sync` and `sync --resources tenants` emitted no tenants sync at all and stored 0 tenant rows (the dependent shadowed the parent); with the fix `sync` stores the tenant list. Account amendments and user groups stay available live (tenants list-account-amendments, users list-tenant-groups-by-id). The live write-through path was checked too and does not cache those sub-collections (the commands read with the live strategy), so it was left unchanged. TestParentNamedDependentsAreNotSynced pins it; the parent-scoping tests now build the users dependent directly.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "// HAND-FIX(sync-dependents-own-type): the press named both dependents",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\treturn []dependentResourceDef{}\n}",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_review_fixes_test.go",
+     "contains": "func TestParentNamedDependentsAreNotSynced(",
      "min_count": 1,
      "code_only": false
     }

@@ -47,8 +47,9 @@ func fleetFixture() fakeFleetStore {
 	f := fakeFleetStore{}
 	f.put("tenants", "T1", fleetTenant{ID: "T1", Name: "Acme Dental"})
 	f.put("tenants", "T2", fleetTenant{ID: "T2", Name: "Birch Legal"})
-	f.put(fleetLedgerType, "T1", fleetLedgerRow{ID: "T1", TenantName: "Acme Dental", Status: "ok"})
-	f.put(fleetLedgerType, "T2", fleetLedgerRow{ID: "T2", TenantName: "Birch Legal", Status: "ok"})
+	fetched := map[string]fleetOutcome{"endpoints": {Status: "ok"}, "alerts": {Status: "ok"}, "health": {Status: "ok"}, "licenses": {Status: "ok"}}
+	f.put(fleetLedgerType, "T1", fleetLedgerRow{ID: "T1", TenantName: "Acme Dental", Status: "ok", Resources: fetched})
+	f.put(fleetLedgerType, "T2", fleetLedgerRow{ID: "T2", TenantName: "Birch Legal", Status: "ok", Resources: fetched})
 	f.put(fleetLedgerType, "T3", fleetLedgerRow{ID: "T3", TenantName: "Cedar Trial", Status: "forbidden",
 		Resources: map[string]fleetOutcome{"endpoints": {Status: "forbidden", Error: "HTTP 403"}}})
 	f.put(fleetMetaType, "sync", fleetSyncMeta{ID: "sync", PrevStartedAt: testNow.Add(-24 * time.Hour), FinishedAt: testNow.Add(-time.Hour)})

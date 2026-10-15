@@ -185,6 +185,13 @@ func billingJoinData(cmd *cobra.Command, dbPath string) (map[string]string, map[
 		}
 		return true
 	})
+	// A tenant whose endpoints were fetched but which has none deployed 0,
+	// so its billed seats still show as variance instead of null.
+	for tid, row := range ledger {
+		if _, seen := deployed[tid]; !seen && row.Resources["endpoints"].Status == "ok" {
+			deployed[tid] = 0
+		}
+	}
 	return names, deployed
 }
 

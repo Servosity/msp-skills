@@ -100,3 +100,32 @@ func TestFullRefreshPrunesTenantsThatLeftScope(t *testing.T) {
 		t.Fatal("T1 health must be kept")
 	}
 }
+
+func TestSinceFetchOnTopOfFullOneIsDatedByTheFullFetch(t *testing.T) {
+	now := time.Now().UTC()
+	full := now.Add(-2 * time.Hour)
+	ledger := map[string]fleetLedgerRow{
+		"T1": {ID: "T1", Status: "ok", Resources: map[string]fleetOutcome{
+			"endpoints": {Status: "ok", At: now, FullAt: now},
+			"alerts":    {Status: "ok", At: now, FullAt: full, Window: "24h0m0s"},
+		}},
+	}
+	at, note := fleetFreshness(io.Discard, fleetSyncMeta{FinishedAt: now}, ledger, nil, time.Hour, "endpoints", "alerts")
+	if at == nil || !at.Equal(full) || !strings.Contains(note, "older than") {
+		t.Fatalf("resolved alerts outside a --since window are as old as the last full fetch: at=%v note=%q", at, note)
+	}
+}
+
+func TestUnreadResourceFailureDoesNotBlindTheView(t *testing.T) {
+	ledger := map[string]fleetLedgerRow{
+		"T1": {ID: "T1", Status: "partial", Resources: map[string]fleetOutcome{
+			"endpoints": {Status: "ok"}, "alerts": {Status: "ok"}, "health": {Status: "forbidden", Error: "HTTP 403"},
+		}},
+	}
+	if blind := blindTenantsFrom(ledger, nil, "endpoints", "alerts"); len(blind) != 0 {
+		t.Fatalf("a health 403 must not blind triage: %+v", blind)
+	}
+	if blind := blindTenantsFrom(ledger, nil, "health"); len(blind) != 1 || blind[0].Status != "forbidden" {
+		t.Fatalf("a health 403 blinds the health view: %+v", blind)
+	}
+}

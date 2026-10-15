@@ -237,7 +237,7 @@ func buildTriage(db fleetReader, severities map[string]bool, stale time.Duration
 		}
 		return rows[i].AgeHours > rows[j].AgeHours
 	})
-	view := triageView{Items: rows, Total: len(rows), BlindTenants: append(blindTenantsFrom(ledger, filter, "endpoints", "alerts"), unreadable.blind(names, filter)...)}
+	view := triageView{Items: rows, Total: len(rows), BlindTenants: append(append(blindTenantsFrom(ledger, filter, "endpoints", "alerts"), unreadable.blind(names, filter)...), unrefreshedTenants(db, ledger, filter)...)}
 	if len(rows) == 0 && len(ledger) == 0 {
 		view.Note = "no fleet refresh has run yet; run 'sophos-central-cli fleet refresh' to fill the store"
 	}

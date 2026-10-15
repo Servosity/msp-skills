@@ -151,7 +151,7 @@ Create the credential in Sophos Central first: **Partner Dashboard > Settings & 
 | Which customers have the worst Account Health Check scores, and who slipped since the last refresh? | `sophos-central-cli fleet health --limit 10` |
 | Where are the security and commercial gaps, customer by customer? | `sophos-central-cli fleet gaps --kind all` |
 | Which machines have tamper protection off across every customer? | `sophos-central-cli fleet tamper` |
-| Isolate this machine without looking up which tenant it is in | `sophos-central-cli contain "WS-FIN-07" --scan` |
+| Isolate this machine without looking up which tenant it is in | `sophos-central-cli contain "WS-FIN-07" --scan --yes` |
 | What did each customer bill last month, and does it match what is deployed? | `sophos-central-cli fleet revenue --month 2026-09` |
 | Feed every customer's SIEM events and alerts into my log pipeline | `sophos-central-cli fleet siem-collect --stream both` |
 | Refresh every customer tenant into the local store | `sophos-central-cli fleet refresh` |
@@ -173,7 +173,7 @@ Sophos Central is tenant-by-tenant underneath. Sophos's own [partner getting-sta
 
 - `sophos-central-cli fleet triage` - one ranked morning work queue across every customer.
 - `sophos-central-cli fleet tamper` - every machine with tamper protection off, previewed first, switched back on only with `--yes`.
-- `sophos-central-cli contain "WS-FIN-07" --scan` - isolate a machine by hostname mid-incident without knowing its tenant.
+- `sophos-central-cli contain "WS-FIN-07" --scan` - find a machine by hostname mid-incident without knowing its tenant and preview isolating it; add `--yes` to isolate.
 - `sophos-central-cli fleet revenue` - monthly Sophos billing per customer next to what is actually deployed.
 
 See [pain-point.md](./pain-point.md) for the longer narrative.
@@ -210,7 +210,7 @@ Calls go through a shared throttle of 1.5 requests per second by default (`--rat
 
 ### Why do some customers show as forbidden?
 
-Sophos returns 403 to a partner for trial tenants and for term customers without Partner Assistance. `fleet refresh` records those in its per-tenant ledger and carries on, and `fleet triage` lists them as blind tenants so you can see what was not read. Trial tenants are skipped unless you pass `--include-trial`.
+Sophos returns 403 to a partner for trial tenants and for term customers without Partner Assistance. `fleet refresh` records those in its per-tenant ledger and carries on, and `fleet triage` lists them as blind tenants so you can see what was not read. Trial tenants are skipped unless you pass `--include-trial`. A full refresh (no `--tenant`) also removes the stored data of tenants it no longer covers (offboarded tenants, and trial tenants when `--include-trial` is not set), so the local store always matches your last full refresh.
 
 ### Can the AI isolate a machine or turn tamper protection back on by itself?
 

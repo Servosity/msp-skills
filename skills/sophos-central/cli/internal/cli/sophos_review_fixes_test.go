@@ -1047,12 +1047,7 @@ func TestDependentSyncParentsScopedToTenant(t *testing.T) {
 	if _, _, err := db.UpsertBatch("users", rows); err != nil {
 		t.Fatal(err)
 	}
-	var dep dependentResourceDef
-	for _, d := range dependentResourceDefs() {
-		if d.ParentTable == "users" {
-			dep = d
-		}
-	}
+	dep := usersGroupsDependent
 	parents := []map[string]string{{"id": "U1"}, {"id": "U2"}, {"id": "U3"}}
 	sophosTenantFlag = "T2"
 	t.Cleanup(func() { sophosTenantFlag = "" })
@@ -1082,12 +1077,7 @@ func TestTenantScopeFollowsConfiguredHeaderAndCredential(t *testing.T) {
 	if _, _, err := db.UpsertBatch("users", []json.RawMessage{json.RawMessage(`{"id": "U1", "tenant": {"id": "T1"}}`), json.RawMessage(`{"id": "U2", "tenant": {"id": "T2"}}`)}); err != nil {
 		t.Fatal(err)
 	}
-	var dep dependentResourceDef
-	for _, d := range dependentResourceDefs() {
-		if d.ParentTable == "users" {
-			dep = d
-		}
-	}
+	dep := usersGroupsDependent
 	if got, err := sophosScopeParentRows(db, dep, []map[string]string{{"id": "U1"}, {"id": "U2"}}); err != nil || len(got) != 1 || got[0]["id"] != "U2" {
 		t.Fatalf("configured header T2 must drop T1's user, got %v", got)
 	}
@@ -1104,12 +1094,7 @@ func TestTenantScopeFollowsConfiguredHeaderAndCredential(t *testing.T) {
 func TestUnknownTenantOverMixedParentsFails(t *testing.T) {
 	t.Cleanup(resetSophosClientScope)
 	resetSophosClientScope()
-	var dep dependentResourceDef
-	for _, d := range dependentResourceDefs() {
-		if d.ParentTable == "users" {
-			dep = d
-		}
-	}
+	dep := usersGroupsDependent
 	one := siemStore(t)
 	if _, _, err := one.UpsertBatch("users", []json.RawMessage{json.RawMessage(`{"id": "U1", "tenant": {"id": "T1"}}`)}); err != nil {
 		t.Fatal(err)
@@ -1198,38 +1183,6 @@ func TestStoreScopeFollowsEffectiveCredential(t *testing.T) {
 	}
 }
 
-func TestMixedTenantDependentRefusalFailsTheRun(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case r.URL.Path == "/token":
-			writeJSON(w, map[string]any{"access_token": "tok", "token_type": "bearer", "expires_in": 3600})
-		case r.URL.Path == "/whoami/v1":
-			writeJSON(w, map[string]any{"id": "P1", "idType": "partner"})
-		case r.URL.Path == "/common/v1/directory/users":
-			writeJSON(w, map[string]any{"items": []any{
-				map[string]any{"id": "U1", "name": "one", "tenant": map[string]any{"id": "T1"}},
-				map[string]any{"id": "U2", "name": "two", "tenant": map[string]any{"id": "T2"}}}, "pages": map[string]any{}})
-		default:
-			writeJSON(w, map[string]any{"items": []any{map[string]any{"id": "A1", "name": "admin"}}, "pages": map[string]any{}})
-		}
-	}))
-	t.Cleanup(srv.Close)
-	fleetEnv(t, srv)
-	dbPath := filepath.Join(t.TempDir(), "s.db")
-	db, err := store.OpenWithContext(context.Background(), dbPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, _, err := db.UpsertBatch("users", []json.RawMessage{json.RawMessage(`{"id": "U1", "name": "one", "tenant": {"id": "T1"}}`), json.RawMessage(`{"id": "U2", "name": "two", "tenant": {"id": "T2"}}`)}); err != nil {
-		t.Fatal(err)
-	}
-	db.Close()
-	out, errOut, err := runRootArgs(t, "sync", "--resources", "partner_admins,users", "--db", dbPath, "--json", "--rate-limit", "0")
-	if err == nil {
-		t.Fatalf("a refused mixed-tenant dependent sync must fail the run even when another resource succeeded:\n%s\n%s", out, errOut)
-	}
-}
-
 func TestClientPairPinsTheRequestCredential(t *testing.T) {
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
 	t.Cleanup(resetSophosClientScope)
@@ -1259,5 +1212,16 @@ func TestClientPairPinsTheRequestCredential(t *testing.T) {
 	}
 	if central("a").StoreScopeCredential() == central("b").StoreScopeCredential() {
 		t.Fatal("central_* fields must not pin two accounts' tokens to one store")
+	}
+}
+
+// usersGroupsDependent is the users -> groups dependent the press emitted; it
+// is no longer synced (sync-dependents-own-type) but the parent scoping it
+// exercised still guards any parent-keyed walk.
+var usersGroupsDependent = dependentResourceDef{Name: "users", ParentTable: "users", ParentIDParam: "userId", PathTemplate: "/common/v1/directory/users/{userId}/groups", ReconcileMode: "per_parent", GenericScopeJSONPath: "$.user", PathParams: []dependentPathParamDef{{Param: "userId", Field: "id"}}}
+
+func TestParentNamedDependentsAreNotSynced(t *testing.T) {
+	if len(dependentResourceDefs()) != 0 {
+		t.Fatal("parent-named dependents must not be synced into their parents' tables")
 	}
 }

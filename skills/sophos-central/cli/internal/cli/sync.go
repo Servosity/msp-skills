@@ -2990,14 +2990,14 @@ func urlIDFieldName(field string) bool {
 }
 
 func dependentResourceDefs() []dependentResourceDef {
-	return []dependentResourceDef{
-		{Name: "tenants", ParentTable: "tenants", ParentIDParam: "tenantId", PathTemplate: "/partner/v1/tenants/{tenantId}/account-amendments", KeyField: "", ReconcileMode: "per_parent", GenericScopeJSONPath: "$.tenant", PathParams: []dependentPathParamDef{
-			{Param: "tenantId", Field: "id"},
-		}},
-		{Name: "users", ParentTable: "users", ParentIDParam: "userId", PathTemplate: "/common/v1/directory/users/{userId}/groups", KeyField: "", ReconcileMode: "per_parent", GenericScopeJSONPath: "$.user", PathParams: []dependentPathParamDef{
-			{Param: "userId", Field: "id"},
-		}},
-	}
+	// HAND-FIX(sync-dependents-own-type): the press named both dependents
+	// after their parents, so sync stored a tenant's account amendments as
+	// "tenants" rows and a user's groups as "users" rows: later syncs walked
+	// those child IDs as parents, and fleet views counted amendments as
+	// tenants. Neither sub-collection is mirrored; tenants
+	// list-account-amendments and users list-tenant-groups-by-id read them
+	// live.
+	return []dependentResourceDef{}
 }
 
 // syncDependentResources iterates parent tables and syncs child resources per parent ID.

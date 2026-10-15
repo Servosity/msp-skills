@@ -9,12 +9,12 @@
     {
       "instead": "Clicking through each tenant's endpoint list to find the machines where tamper protection was switched off for a fix and never turned back on",
       "say": "Which machines across my customers have tamper protection off, and can you turn it back on?",
-      "cli": "sophos-central-cli fleet tamper"
+      "cli": "sophos-central-cli fleet tamper --yes"
     },
     {
       "instead": "Mid-incident, working out which customer tenant a hostname belongs to before you can even reach the isolate button",
       "say": "Isolate WS-FIN-07, start a scan and pull a forensic log",
-      "cli": "sophos-central-cli contain \"WS-FIN-07\" --scan --forensic-log"
+      "cli": "sophos-central-cli contain \"WS-FIN-07\" --scan --forensic-log --yes"
     }
   ],
   "pain_points": [
@@ -41,7 +41,7 @@
     },
     {
       "question": "Isolate this machine without looking up which tenant it is in",
-      "command": "sophos-central-cli contain \"WS-FIN-07\" --scan"
+      "command": "sophos-central-cli contain \"WS-FIN-07\" --scan --yes"
     },
     {
       "question": "What did each customer bill last month, and does it match what is deployed?",
@@ -93,7 +93,7 @@
     },
     {
       "q": "Why do some customers show as forbidden?",
-      "a": "Sophos returns 403 to a partner for trial tenants and for term customers without Partner Assistance. fleet refresh records those in its per-tenant ledger and carries on, and fleet triage lists them as blind tenants so you can see what was not read. Trial tenants are skipped unless you pass --include-trial."
+      "a": "Sophos returns 403 to a partner for trial tenants and for term customers without Partner Assistance. fleet refresh records those in its per-tenant ledger and carries on, and fleet triage lists them as blind tenants so you can see what was not read. Trial tenants are skipped unless you pass --include-trial. A full refresh (no --tenant) also removes the stored data of tenants it no longer covers (offboarded tenants, and trial tenants when --include-trial is not set), so the local store always matches your last full refresh."
     },
     {
       "q": "Can the AI isolate a machine or turn tamper protection back on by itself?",

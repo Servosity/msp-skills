@@ -5,7 +5,17 @@
 
 package cli
 
-import "testing"
+import (
+	"context"
+	"encoding/json"
+	"io"
+	"path/filepath"
+	"testing"
+
+	"github.com/spf13/cobra"
+
+	"sophos-central-pp-cli/internal/store"
+)
 
 // TestRevenueVarianceNotSummedAcrossProducts: ten machines with ten
 // protection and ten encryption seats is not a ten-seat discrepancy.
@@ -22,5 +32,24 @@ func TestRevenueVarianceNotSummedAcrossProducts(t *testing.T) {
 		if p.BillableMinusDeployed == nil || *p.BillableMinusDeployed != 0 {
 			t.Fatalf("product %s variance = %v, want 0", p.Product, p.BillableMinusDeployed)
 		}
+	}
+}
+
+func TestZeroEndpointTenantIsDeployedZero(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	db, err := store.OpenWithContext(context.Background(), dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	row, _ := json.Marshal(fleetLedgerRow{ID: "T9", Status: "ok", Resources: map[string]fleetOutcome{"endpoints": {Status: "ok"}}})
+	if _, _, err := db.UpsertBatch(fleetLedgerType, []json.RawMessage{row}); err != nil {
+		t.Fatal(err)
+	}
+	db.Close()
+	cmd := &cobra.Command{}
+	cmd.SetContext(context.Background())
+	cmd.SetErr(io.Discard)
+	if _, deployed := billingJoinData(cmd, dbPath); deployed["T9"] != 0 || len(deployed) != 1 {
+		t.Fatalf("a refreshed tenant with no endpoints is deployed 0, not missing: %v", deployed)
 	}
 }
