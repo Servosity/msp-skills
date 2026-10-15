@@ -284,18 +284,38 @@ func collectCapacity(ctx context.Context, t fleetTarget, now time.Time, margin f
 		}
 		fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "pve storage", Error: err.Error()})
 	}
+	// Every enabled job's target, including one inherited from the node's
+	// vzdump defaults: a target that cannot be measured is unknown capacity.
+	targets := &jobTargets{ctx: ctx, c: t.C, jobs: map[string]backupJob{}, defaults: map[string]string{}}
 	for _, j := range jobs {
-		if !j.enabled() || j.Storage == "" {
+		targets.jobs[j.ID] = j
+	}
+	unmeasured := map[string]string{}
+	for _, j := range jobs {
+		if !j.enabled() {
 			continue
 		}
-		seen := false
-		for key := range storages {
-			seen = seen || key == j.Storage || strings.HasPrefix(key, j.Storage+"@")
+		jobNodes := nodes
+		if j.Node != "" {
+			jobNodes = []string{j.Node}
 		}
-		if !seen {
-			fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "storage " + j.Storage,
-				Error: "backup job " + j.ID + " writes here, but the storage is not in this token's list (hidden, inactive, or without backup content); its capacity is unknown"})
+		for _, n := range jobNodes {
+			tgt := targets.target(j.ID, n)
+			if strings.HasPrefix(tgt, "dumpdir ") || strings.HasPrefix(tgt, "unresolved ") {
+				unmeasured["job "+j.ID] = "backup job " + j.ID + " writes to " + tgt + ", which is not a storage this command can measure; its capacity is unknown"
+				continue
+			}
+			seen := false
+			for key := range storages {
+				seen = seen || key == tgt || key == tgt+"@"+n || (j.Node == "" && strings.HasPrefix(key, tgt+"@"))
+			}
+			if !seen {
+				unmeasured["storage "+tgt] = "backup job " + j.ID + " writes here, but the storage is not in this token's list (hidden, inactive, or without backup content); its capacity is unknown"
+			}
 		}
+	}
+	for _, scope := range sortedKeys(unmeasured) {
+		fails = append(fails, fetchFailure{Cluster: t.Name, Scope: scope, Error: unmeasured[scope]})
 	}
 	for _, f := range sfails {
 		f.Cluster = t.Name

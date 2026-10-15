@@ -996,6 +996,16 @@ func (t fleetTarget) sharedOwners(ref pbsStorageRef, ns string) []string {
 	return sortedKeys(names)
 }
 
+// samePBS reports whether ref's PBS is this target's configured PBS: the
+// same endpoint, or (with ownership known) the same PBS service by pin.
+func (t fleetTarget) samePBS(ref pbsStorageRef) bool {
+	ep := t.pbsEndpoint()
+	if ep != "" && strings.EqualFold(ref.server, ep) {
+		return true
+	}
+	return t.own != nil && ep != "" && overlaps(t.own.svc.of(ref.server, ref.fingerprint), t.own.svc.of(ep, t.Profile.PBSFingerprint))
+}
+
 // pbsServiceSharers names the configured clusters that write, or may write,
 // anywhere on this target's PBS when any of them is not this target's PVE
 // cluster (the sharedOwners rule, for the whole PBS instead of one namespace).
