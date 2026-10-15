@@ -523,8 +523,9 @@
     },
     {
      "file": "cli/internal/cli/export.go",
-     "contains": "// header, so the walk would stop at page one; --no-cache is implied.\n\t\t\tc.NoCache = true",
-     "min_count": 1
+     "contains": "c.NoCache = true",
+     "min_count": 1,
+     "code_only": true
     },
     {
      "file": "cli/internal/cli/meraki_link_pagination.go",
