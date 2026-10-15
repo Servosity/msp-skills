@@ -104,6 +104,13 @@
     "current_hash": null,
     "released_hash": null
   },
+  "connectsecure": {
+    "state": "never-released",
+    "version": "0.1.0",
+    "latest_tag": null,
+    "current_hash": "sha256:fbc4762b20379538ac19ba8696f86ab0931e9178ecc79040a2c464484ba06c8b",
+    "released_hash": null
+  },
   "connectwise-automate": {
     "state": "binary-pending",
     "version": "0.1.3",
