@@ -188,7 +188,7 @@ func TestPruneMarksUseJobRetention(t *testing.T) {
 	jt := &jobTargets{jobs: map[string]backupJob{
 		"a": {ID: "a", Storage: "s", PruneBackups: json.RawMessage(`"keep-last=2"`)},
 		"b": {ID: "b", Storage: "s", PruneBackups: json.RawMessage(`{"keep-last":3}`)},
-	}, defaults: map[string]string{}, nodeDefs: map[string]vzdumpDefaults{"n": {}}}
+	}, defaults: map[string]string{}, nodeDefs: map[string]vzdumpDefaults{"n": {}}, retDefs: map[string]vzdumpDefaults{"n\x00s": {}}}
 	if r := jobRetention(cov, jt, 100, "n", "s"); r.ok {
 		t.Errorf("disagreeing jobs must leave the points unmarked: %+v", r)
 	}

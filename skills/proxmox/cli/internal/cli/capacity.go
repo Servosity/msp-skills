@@ -6,6 +6,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"sort"
@@ -151,7 +152,11 @@ func collectCapacity(ctx context.Context, t fleetTarget, now time.Time, margin f
 	var fails []fetchFailure
 	// The first PVE call doubles as the reachability check: when it fails, skip
 	// the rest of PVE instead of paying the retry budget on every call.
-	refs, pveErr := fetchPBSStorageRefs(ctx, t.C)
+	var refs map[string]pbsStorageRef
+	pveErr := errNoPVE
+	if t.hasPVE() {
+		refs, pveErr = fetchPBSStorageRefs(ctx, t.C)
+	}
 	var jobs []backupJob
 	// PVE retention (storage or job prune-backups) is known only when both reads succeeded.
 	pveRetentionKnown := pveErr == nil
@@ -166,27 +171,48 @@ func collectCapacity(ctx context.Context, t fleetTarget, now time.Time, margin f
 	for _, j := range jobs {
 		targets.jobs[j.ID] = j
 	}
-	var allNodes []string
 	nodesRead := false
 	// jobPrunes reports whether job j prunes storage: some node it runs on
 	// writes there with remove on and an effective retention (the job's
 	// prune-backups, else the storage's, else the node's vzdump.conf) that
 	// removes anything. Unreadable node defaults are
 	// reported and credited, like every other unknown retention source.
+	// vzdump prunes inside each guest's backup task, so a job prunes only on
+	// the nodes where it backs up some guest (an empty pool prunes nothing).
+	// Unknown selection is reported and credited, like unknown retention.
+	var jobGuestNodes map[string]map[string]bool
+	selectionKnown := true
 	jobPrunes := func(j backupJob, storage string) bool {
 		if !nodesRead {
-			allNodes, _, _ = fetchNodes(ctx, t.C)
 			nodesRead = true
+			cov, err := fetchCoverage(ctx, t.C)
+			var guests []pveGuest
+			if err == nil {
+				guests, err = fetchGuests(ctx, t.C)
+			}
+			if err != nil {
+				selectionKnown = false
+				fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "backup job guests", Error: "which guests the backup jobs select could not be read (" + err.Error() + "), so whether they prune is unknown; not flagged unpruned"})
+			} else {
+				jobGuestNodes = map[string]map[string]bool{}
+				for _, g := range guests {
+					for _, id := range cov.EnabledFor[int64(g.VMID)] {
+						if jobGuestNodes[id] == nil {
+							jobGuestNodes[id] = map[string]bool{}
+						}
+						jobGuestNodes[id][g.Node] = true
+					}
+				}
+			}
 		}
-		jobNodes := allNodes
-		if j.Node != "" {
-			jobNodes = []string{j.Node}
+		if !selectionKnown {
+			return true
 		}
-		for _, n := range jobNodes {
+		for _, n := range sortedKeys(jobGuestNodes[j.ID]) {
 			if targets.target(j.ID, n) != storage {
 				continue
 			}
-			on, known := targets.prunes(j.ID, n)
+			on, known := targets.prunes(j.ID, n, storage)
 			if !known {
 				fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "node " + n + " vzdump defaults", Error: "the node's vzdump defaults could not be read, so whether job " + j.ID + " prunes after its run is unknown; not flagged unpruned"})
 				return true
@@ -315,7 +341,9 @@ func collectCapacity(ctx context.Context, t fleetTarget, now time.Time, margin f
 		if len(rows) == 0 {
 			return nil, nil, err // nothing reachable on this cluster
 		}
-		fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "pve nodes", Error: err.Error()})
+		if !errors.Is(err, errNoPVE) { // a PBS-only profile has no PVE storage to report
+			fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "pve nodes", Error: err.Error()})
+		}
 		return rows, fails, nil
 	}
 	storages, readers, sfails, _ := backupStorages(ctx, t.C, nodes) // a disabled storage takes no backups
@@ -502,3 +530,6 @@ func shareOf(t fleetTarget, svcs []string, store string) (tenant, attribution st
 	}
 	return t.Tenant, ""
 }
+
+// errNoPVE: this target has no Proxmox VE host (a PBS-only profile).
+var errNoPVE = errors.New("this cluster has no Proxmox VE host configured")

@@ -165,3 +165,76 @@ func TestStorageRetentionBeatsNodeDefault(t *testing.T) {
 		t.Errorf("pbs1 keeps all, whatever vzdump.conf says: want unpruned, got %v", r.Flags)
 	}
 }
+
+// Adversarial round 10: asked for no storage, the vzdump defaults API
+// resolves 'local' and fails when local takes no backups (the recommended
+// setup). remove is read for the job's target instead: no spurious failure,
+// and unpruned still fires when nothing prunes.
+func TestRemoveIsReadForTheTargetStorage(t *testing.T) {
+	f := newFixture(t)
+	pve := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/vzdump/defaults") && r.URL.Query().Get("storage") == "" {
+			http.Error(w, `{"errors":"can't use storage 'local' for backups - wrong content type"}`, http.StatusInternalServerError)
+			return
+		}
+		f.pve.Config.Handler.ServeHTTP(w, r)
+	}))
+	t.Cleanup(pve.Close)
+	t.Setenv("PROXMOX_BASE_URL", pve.URL+"/api2/json")
+	t.Setenv("PROXMOX_TLS_FINGERPRINT", client.CertFingerprint(pve.Certificate()))
+	out, _, err := runCLI(t, "capacity", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rep := decodeJSON[capacityReport](t, out)
+	for _, ff := range rep.FetchFailures {
+		if strings.Contains(ff.Scope, "vzdump defaults") {
+			t.Errorf("spurious failure: %+v", ff)
+		}
+	}
+	if r := datastoreRow(t, out, "pbs-datastore", "main"); !strings.Contains(strings.Join(r.Flags, ","), "unpruned") {
+		t.Errorf("nothing prunes main: want unpruned, got %v", r.Flags)
+	}
+}
+
+// Codex round 17: vzdump prunes inside each guest's backup task; a job that
+// selects no guest prunes nothing.
+func TestJobWithoutGuestsPrunesNothing(t *testing.T) {
+	f := newFixture(t)
+	jobs := f.pveRoutes["/cluster/backup"].([]map[string]any)
+	jobs[0]["prune-backups"] = "keep-last=7"
+	delete(jobs[0], "all")
+	jobs[0]["pool"] = "empty"
+	f.pveRoutes["/cluster/backup/job1/included_volumes"] = map[string]any{"children": []map[string]any{}}
+	out, _, err := runCLI(t, "capacity", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r := datastoreRow(t, out, "pbs-datastore", "main"); !strings.Contains(strings.Join(r.Flags, ","), "unpruned") {
+		t.Errorf("a job backing up no guest prunes nothing: want unpruned, got %v", r.Flags)
+	}
+}
+
+// A PBS-only env setup: capacity reports no PVE failure, and clusters check
+// marks PVE not-configured instead of failing.
+func TestEnvPBSOnlyCapacityAndCheck(t *testing.T) {
+	newFixture(t)
+	t.Setenv("PROXMOX_BASE_URL", "")
+	t.Setenv("PROXMOX_HOST", "")
+	out, _, err := runCLI(t, "capacity", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if e := failureByScope(decodeJSON[capacityReport](t, out).FetchFailures)["pve nodes"]; e != "" {
+		t.Errorf("PBS-only setup reported a PVE failure: %q", e)
+	}
+	out, _, err = runCLI(t, "clusters", "check", "--json")
+	if err != nil {
+		t.Errorf("clusters check failed on a PBS-only setup: %v\n%s", err, out)
+	}
+	for _, r := range decodeJSON[[]clusterCheckRow](t, out) {
+		if r.Service == "pve" && r.Status != "not-configured" {
+			t.Errorf("pve row: %+v", r)
+		}
+	}
+}
