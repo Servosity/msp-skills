@@ -48,29 +48,103 @@ type fleetTarget struct {
 // configured clusters that could not be read completely (their writes are
 // unknown: their declared subtree, or anywhere on their PBS when none).
 type pbsOwnership struct {
-	writers map[string]map[string]string // source key -> PVE id -> cluster name
+	writers map[string]map[string]string // namespace key (see keys) -> PVE id -> cluster name
 	peers   []peerScope
+	svc     pbsServices
 }
 
 type peerScope struct {
-	name, pve      string
-	endpoints, fps []string // the PBS it uses: hosts and normalized certificate pins
-	ns             string   // the subtree it owns; "" = any namespace (unknown peers only)
-	unknown        bool
+	name, pve string
+	svcs      []string // the PBS services it uses (see pbsServices)
+	stores    []string // the datastores it writes to there; nil = any (unknown peers)
+	ns        string   // the subtree it owns; "" = any namespace (unknown peers only)
+	unknown   bool
 }
 
-// covers reports whether the peer owns, or may write to, ns on ref's PBS.
-func (p peerScope) covers(ref pbsStorageRef, ns string) bool {
-	same := false
-	for _, e := range p.endpoints {
-		same = same || (e != "" && strings.EqualFold(e, ref.server))
+// covers reports whether peer p owns, or may write to, ns on ref's datastore.
+func (o *pbsOwnership) covers(p peerScope, ref pbsStorageRef, ns string) bool {
+	if !overlaps(p.svcs, o.svc.of(ref.server, ref.fingerprint)) {
+		return false
 	}
-	if fp := normFingerprint(ref.fingerprint); fp != "" {
-		for _, f := range p.fps {
-			same = same || f == fp
+	if p.stores != nil && !slices.Contains(p.stores, ref.datastore) {
+		return false
+	}
+	return p.ns == "" || inNamespace(ns, p.ns)
+}
+
+// keys identify ns of ref's datastore across clusters by PBS service.
+func (o *pbsOwnership) keys(ref pbsStorageRef, ns string) []string {
+	var keys []string
+	for _, g := range o.svc.of(ref.server, ref.fingerprint) {
+		keys = append(keys, g+"|"+ref.datastore+"|"+ns)
+	}
+	return keys
+}
+
+// pbsServices groups the spellings of one PBS service. An endpoint and a
+// certificate fingerprint pinned for it (by a clusters.toml entry or a PVE
+// storage) name the same service, so two endpoints that share a pin are one
+// PBS. Linked once before a fleet run, only read during it.
+type pbsServices map[string]string // "ep:host:port" | "fp:<sha256>" -> parent token
+
+func (s pbsServices) find(x string) string {
+	for s[x] != x {
+		x = s[x]
+	}
+	return x
+}
+
+func (s pbsServices) link(ep string, pins ...string) {
+	toks := serviceTokens(ep, pins...)
+	for _, t := range toks {
+		if _, ok := s[t]; !ok {
+			s[t] = t
 		}
 	}
-	return same && (p.ns == "" || inNamespace(ns, p.ns))
+	for _, t := range toks {
+		if a, b := s.find(toks[0]), s.find(t); a != b {
+			s[b] = a
+		}
+	}
+}
+
+// of names the services ep and pins belong to; a spelling never linked is a
+// service of its own.
+func (s pbsServices) of(ep string, pins ...string) []string {
+	var out []string
+	for _, t := range serviceTokens(ep, pins...) {
+		if _, ok := s[t]; ok {
+			t = s.find(t)
+		}
+		if !slices.Contains(out, t) {
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
+func serviceTokens(ep string, pins ...string) []string {
+	var toks []string
+	if ep != "" {
+		toks = append(toks, "ep:"+strings.ToLower(ep))
+	}
+	for _, p := range pins {
+		for _, f := range splitPins(p) {
+			if f = normFingerprint(f); f != "" {
+				toks = append(toks, "fp:"+f)
+			}
+		}
+	}
+	return toks
+}
+
+func overlaps(a, b []string) bool {
+	for _, x := range a {
+		if slices.Contains(b, x) {
+			return true
+		}
+	}
+	return false
 }
 
 func normFingerprint(s string) string {
@@ -859,18 +933,6 @@ type pbsStorageRef struct {
 	sharedWith                                              []string
 }
 
-// sourceKeys identify one PBS namespace across clusters, by endpoint and, when
-// the storage pins one, by PBS certificate fingerprint: two storages name the
-// same namespace when they share either (two spellings of a host, or one
-// storage without a fingerprint).
-func (r pbsStorageRef) sourceKeys(ns string) []string {
-	keys := []string{"ep:" + r.server + "|" + r.datastore + "|" + ns}
-	if fp := normFingerprint(r.fingerprint); fp != "" {
-		keys = append(keys, "fp:"+fp+"|"+r.datastore+"|"+ns)
-	}
-	return keys
-}
-
 // sharedOwners names the configured clusters that write, or may write, to ns
 // of ref's datastore when any of them is not this target's PVE cluster: then
 // a snapshot of vm/100 there may be another cluster's. Empty when only this
@@ -882,7 +944,7 @@ func (t fleetTarget) sharedOwners(ref pbsStorageRef, ns string) []string {
 	}
 	names := map[string]bool{}
 	ids := map[string]bool{}
-	for _, k := range ref.sourceKeys(ns) {
+	for _, k := range t.own.keys(ref, ns) {
 		for id, name := range t.own.writers[k] {
 			names[name], ids[id] = true, true
 		}
@@ -895,7 +957,7 @@ func (t fleetTarget) sharedOwners(ref pbsStorageRef, ns string) []string {
 		foreign = true
 	}
 	for _, p := range t.own.peers {
-		if p.pve == t.pveID || !p.covers(ref, ns) {
+		if p.pve == t.pveID || !t.own.covers(p, ref, ns) {
 			continue
 		}
 		name := p.name
@@ -916,32 +978,14 @@ func (t fleetTarget) sharedOwners(ref pbsStorageRef, ns string) []string {
 // A PBS task names a datastore at most, never a PVE cluster, so on such a PBS
 // it cannot be credited to one client.
 func (t fleetTarget) pbsServiceSharers() []string {
-	ep := t.pbsEndpoint()
-	if t.own == nil || ep == "" {
+	if t.own == nil || t.pbsEndpoint() == "" {
 		return nil
 	}
-	fps := map[string]bool{}
-	for _, f := range splitPins(t.Profile.PBSFingerprint) {
-		fps[normFingerprint(f)] = true
-	}
-	onThisPBS := func(endpoints, pins []string) bool {
-		for _, e := range endpoints {
-			if e != "" && strings.EqualFold(e, ep) {
-				return true
-			}
-		}
-		for _, f := range pins {
-			if fps[f] {
-				return true
-			}
-		}
-		return false
-	}
+	mine := t.own.svc.of(t.pbsEndpoint(), t.Profile.PBSFingerprint)
 	names := map[string]bool{}
 	ids := map[string]bool{}
 	for k, w := range t.own.writers {
-		head, _, _ := strings.Cut(k, "|")
-		if !onThisPBS([]string{strings.TrimPrefix(head, "ep:")}, []string{strings.TrimPrefix(head, "fp:")}) {
+		if g, _, _ := strings.Cut(k, "|"); !slices.Contains(mine, g) {
 			continue
 		}
 		for id, name := range w {
@@ -956,7 +1000,7 @@ func (t fleetTarget) pbsServiceSharers() []string {
 		foreign = true
 	}
 	for _, p := range t.own.peers {
-		if p.pve == t.pveID || !onThisPBS(p.endpoints, p.fps) {
+		if p.pve == t.pveID || !overlaps(p.svcs, mine) {
 			continue
 		}
 		name := p.name
@@ -1004,20 +1048,33 @@ func markSharedPBS(ctx context.Context, flags *rootFlags, targets []fleetTarget)
 	for _, t := range all {
 		byName[t.Name] = t
 	}
-	own := &pbsOwnership{writers: map[string]map[string]string{}}
+	own := &pbsOwnership{writers: map[string]map[string]string{}, svc: pbsServices{}}
+	// Every spelling of a PBS service first: each entry's pbs_host with its
+	// pins, and each PVE storage's server with its fingerprint.
+	for _, t := range all {
+		own.svc.link(pbsEndpointFromHost(t.Profile.PBSHost), t.Profile.PBSFingerprint)
+	}
+	for _, r := range results {
+		for _, ref := range r.Value.refs {
+			own.svc.link(ref.server, ref.fingerprint)
+		}
+	}
+	// scope: an unknown peer may write to any datastore of its PBS; a read one
+	// to the datastores its storages name.
 	scope := func(t fleetTarget, refs map[string]pbsStorageRef, unknown bool) peerScope {
 		p := peerScope{name: t.Name, ns: t.Profile.PBSNamespace, unknown: unknown}
 		if t.C != nil {
 			p.pve = pveID(t.C.BaseURL)
 		}
-		p.endpoints = append(p.endpoints, pbsEndpointFromHost(t.Profile.PBSHost))
-		for _, f := range splitPins(t.Profile.PBSFingerprint) {
-			p.fps = append(p.fps, normFingerprint(f))
-		}
+		p.svcs = own.svc.of(pbsEndpointFromHost(t.Profile.PBSHost), t.Profile.PBSFingerprint)
 		for _, ref := range refs {
-			p.endpoints = append(p.endpoints, ref.server)
-			if fp := normFingerprint(ref.fingerprint); fp != "" {
-				p.fps = append(p.fps, fp)
+			for _, g := range own.svc.of(ref.server, ref.fingerprint) {
+				if !slices.Contains(p.svcs, g) {
+					p.svcs = append(p.svcs, g)
+				}
+			}
+			if !unknown && !slices.Contains(p.stores, ref.datastore) {
+				p.stores = append(p.stores, ref.datastore)
 			}
 		}
 		return p
@@ -1042,7 +1099,7 @@ func markSharedPBS(ctx context.Context, flags *rootFlags, targets []fleetTarget)
 			own.peers = append(own.peers, scope(t, r.Value.refs, false))
 		}
 		for _, ref := range r.Value.refs {
-			for _, k := range ref.sourceKeys(ref.namespace) {
+			for _, k := range own.keys(ref, ref.namespace) {
 				if own.writers[k] == nil {
 					own.writers[k] = map[string]string{}
 				}
@@ -1111,7 +1168,11 @@ func pbsEndpoint(host string, port int64) string {
 	if port > 0 {
 		p = port
 	}
-	return net.JoinHostPort(strings.ToLower(strings.Trim(strings.TrimSpace(host), "[]")), strconv.FormatInt(p, 10))
+	h := strings.TrimSuffix(strings.ToLower(strings.Trim(strings.TrimSpace(host), "[]")), ".")
+	if ip := net.ParseIP(h); ip != nil {
+		h = ip.String() // one spelling per address: fd00:0::10 is fd00::10
+	}
+	return net.JoinHostPort(h, strconv.FormatInt(p, 10))
 }
 
 const pbsDefaultPortNum int64 = 8007
@@ -1227,6 +1288,9 @@ func pbsAttribution(ctx context.Context, t fleetTarget, refs map[string]pbsStora
 		switch {
 		case len(shared) > 0:
 			warning = t.Name + ": " + strings.Join(dedupeStrings(shared), "; ")
+			// Nothing else reads those namespaces: points of this cluster there
+			// are unseen, so absence below pbs_namespace is unproven.
+			listErr = errors.Join(listErr, fmt.Errorf("PBS: part of pbs_namespace %q is, or may be, written by another configured cluster, so restore points there were not read", ns))
 		case len(out) == 0:
 			warning = fmt.Sprintf("%s: PBS snapshots not attributed to guests: no PVE storage on this cluster points at PBS host %q, so pbs_namespace %q is not tied to a datastore", t.Name, host, ns)
 		}
