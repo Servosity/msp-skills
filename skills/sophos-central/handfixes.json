@@ -709,24 +709,70 @@
      "contains": "func TestEnvCredentialWinsOverSavedToken(",
      "min_count": 1,
      "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "cfg.AdoptEnvClientCredential()",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "tenant-env-placeholder-is-unset",
+   "summary": "SOPHOS_CENTRAL_TENANT_ID and the client pair are read through cliutil.EnvOverride in the hand-written routing and fleet code, so an unresolved MCPB ${user_config...} placeholder reads as unset",
+   "why": "Round 2 adversarial review proved an MCPB host that skips the optional tenant prompt leaves the literal ${user_config.sophos_central_tenant_id} in the environment; os.Getenv sent it as X-Tenant-ID and every fleet command failed with 'tenant ... is not managed by this partner credential'. The generated config already uses EnvOverride for exactly this; the hand-written routing did not. TestTenantPlaceholderIsUnset fails when configuredSophosTenant goes back to os.Getenv.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sophos_routing.go",
+     "contains": "return strings.TrimSpace(cliutil.EnvOverride(sophosTenantEnv))",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_fleet.go",
+     "contains": "if env := cliutil.EnvOverride(sophosTenantEnv); env != \"\" {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_routing.go",
+     "contains": "id = cliutil.EnvOverride(\"SOPHOS_CENTRAL_CLIENT_ID\")",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_response_path_test.go",
+     "contains": "func TestTenantPlaceholderIsUnset(",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_routing.go",
+     "not_contains": "os.Getenv(sophosTenantEnv)"
+    },
+    {
+     "file": "cli/internal/cli/sophos_fleet.go",
+     "not_contains": "os.Getenv(sophosTenantEnv)"
     }
    ]
   },
   {
    "id": "single-read-keeps-the-object",
    "summary": "single-object GET commands return the whole object; a response path unwraps only a list wrapper (every other top-level key is paging metadata)",
-   "why": "The generator hands single-object GETs the first array property of the response schema as a response path. Round 1 adversarial review proved `alerts get` printed only allowedActions (the fleet triage next_command led nowhere), `tenants get` only products, and `endpoints get-tamper-protection` printed the INVALIDATED previous passwords under the key password while dropping the current password and enabled flag - a technician mid-incident would try a dead password. Also hit exploit-mitigation get-application-by-id, live-discover get-execution-summary, xdr get-query-run, web-control get-local-site-by-id and get-web-decryption-settings, software get-static-package and the three role get-by-id commands. applyEntityResponsePath is used only by the single-read resolver; paginated list walkers keep applyResponsePath.",
+   "why": "The generator hands single-object GETs the first array property of the response schema as a response path. Round 1 adversarial review proved `alerts get` printed only allowedActions (the fleet triage next_command led nowhere), `tenants get` only products, and `endpoints get-tamper-protection` printed the INVALIDATED previous passwords under the key password while dropping the current password and enabled flag - a technician mid-incident would try a dead password. Also hit exploit-mitigation get-application-by-id, live-discover get-execution-summary, xdr get-query-run, web-control get-local-site-by-id and get-web-decryption-settings, software get-static-package and the three role get-by-id commands. applyEntityResponsePath is used only by the single-read resolver and passes list commands (isList) straight to the generated unwrap, so `licenses list` keeps printing rows (round 2 caught that regression); paginated list walkers keep applyResponsePath.",
    "status": "active",
    "asserts": [
     {
      "file": "cli/internal/cli/sophos_response_path.go",
-     "contains": "func applyEntityResponsePath(data json.RawMessage, responsePath string) json.RawMessage {",
+     "contains": "func applyEntityResponsePath(data json.RawMessage, responsePath string, isList bool) json.RawMessage {",
      "min_count": 1,
      "code_only": false
     },
     {
      "file": "cli/internal/cli/data_source.go",
-     "contains": "data = applyEntityResponsePath(data, responsePath)",
+     "contains": "data = applyEntityResponsePath(data, responsePath, isList)",
      "min_count": 3,
      "code_only": true
     },

@@ -221,7 +221,7 @@ func resolveReadWithStrategyResponsePathAndJSONGuard(ctx context.Context, c *cli
 				return nil, DataProvenance{}, err
 			}
 		}
-		data = applyEntityResponsePath(data, responsePath) // HAND-FIX(single-read-keeps-the-object)
+		data = applyEntityResponsePath(data, responsePath, isList) // HAND-FIX(single-read-keeps-the-object)
 		return data, attachFreshness(DataProvenance{Source: "live"}, flags), nil
 	}
 	switch flags.dataSource {
@@ -242,7 +242,7 @@ func resolveReadWithStrategyResponsePathAndJSONGuard(ctx context.Context, c *cli
 				return nil, DataProvenance{}, err
 			}
 		}
-		data = applyEntityResponsePath(data, responsePath) // HAND-FIX(single-read-keeps-the-object)
+		data = applyEntityResponsePath(data, responsePath, isList) // HAND-FIX(single-read-keeps-the-object)
 		return data, attachFreshness(DataProvenance{Source: "live"}, flags), nil
 
 	default: // "auto"
@@ -256,7 +256,7 @@ func resolveReadWithStrategyResponsePathAndJSONGuard(ctx context.Context, c *cli
 					return nil, DataProvenance{}, err
 				}
 			}
-			data = applyEntityResponsePath(data, responsePath) // HAND-FIX(single-read-keeps-the-object)
+			data = applyEntityResponsePath(data, responsePath, isList) // HAND-FIX(single-read-keeps-the-object)
 			writeThroughCache(ctx, resourceType, data)
 			return data, attachFreshness(DataProvenance{Source: "live"}, flags), nil
 		}

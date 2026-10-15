@@ -214,7 +214,7 @@ Sophos returns 403 to a partner for trial tenants and for term customers without
 
 ### Can the AI isolate a machine or turn tamper protection back on by itself?
 
-Only with you in the loop. `contain` and `fleet tamper` print a plan and change nothing without `--yes`. In Claude Code or Codex the agent shows you the plan and reruns with `--yes` once you approve. The MCP server never passes `--yes`, so in Claude Desktop, ChatGPT or Copilot these two commands only preview.
+Only if you let it. `contain` and `fleet tamper` print a plan and change nothing without `--yes`, and the MCP server never passes `--yes`, so those two only preview over MCP. But the MCP server's generic `sophos-central_execute` tool can call any Sophos Central endpoint except the six that return a password or token, including isolation, scans and policy changes, gated only by your AI app's approval prompt. If an agent should only read, set `SOPHOS_CENTRAL_MCP_READ_ONLY=1` in the MCP server's environment: it refuses every non-GET call and hides the sync and export tools. Keep the approval prompt on, and give the API credential a read-only role.
 
 ### Does it cover Sophos XDR or MDR Cases and Detections?
 
@@ -235,13 +235,13 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 | --- | --- | --- |
 | Read | `fleet triage`, `fleet health`, `fleet gaps`, `fleet revenue`, `fleet refresh`, `whoami`, `tenants list`, `alerts list`, `endpoints list`, `search`; `contain` and `fleet tamper` without `--yes` only preview | Allow |
 | Endpoint response | `contain --yes`, `endpoints set-isolation`, `endpoints bulk-isolate`, `endpoints scan`, `endpoints collect-forensic-log`, `endpoints collect-memory-dump`, `live-discover run-query`, `fleet tamper --yes` | Human-in-the-loop, explicit confirmation - these reach real customer machines |
-| Protection and policy config | `exclusions add-scanning`, `allowed-items post-by-id`, `blocked-items post-by-id`, `policies update-policy`, `policies update-settings-of-policy`, `web-control update-web-decryption-excluded-sites` | Preview with `--dry-run`, then a human-approved write - an exclusion or allowed item can open a hole |
-| Write (routine) | `alerts act-on`, `endpoint-groups create-tenant`, `endpoint-tags`, `health-check post-snooze`, `xdr start-query-run` | Preview with `--dry-run`, then a reviewed write |
+| Protection and policy config | `exclusions add-scanning`, `allowed-items post-by-id`, `blocked-items post-by-id`, `policies update-policy`, `policies update-settings-of-policy`, `web-control update-web-decryption-excluded-sites`, `endpoint-groups add-multiple-endpoints-to-group` | Preview with `--dry-run`, then a human-approved write - an exclusion or allowed item can open a hole |
+| Write (routine) | `alerts act-on`, `endpoint-tags`, `users create-tenant`, `health-check post-snooze`, `xdr start-query-run` | Preview with `--dry-run`, then a reviewed write |
 | Credential and access | `endpoints get-tamper-protection`, `endpoints set-tamper-protection`, `migrations get-job` (return a tamper password or migration token; kept out of the MCP server), `auth login`, `partner-admins create`, `admins create-role-assignment` | Human-in-the-loop only |
 | Destructive and commercial | `endpoints delete`, `endpoints bulk-delete`, `policies delete-policy`, `users delete-tenant-by-id`, `migrations create-sending-job`, `tenants create`, `tenants post-account-amendment` | Human-in-the-loop only, explicit confirmation |
 
 
-The strongest control is the **scope you grant the Sophos Central credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
+Over MCP, the generic `sophos-central_execute` tool can reach every write in the table except the six credential reads; set `SOPHOS_CENTRAL_MCP_READ_ONLY=1` for an agent that should only read. The strongest control is the **scope you grant the Sophos Central credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
 
 ## Status
 

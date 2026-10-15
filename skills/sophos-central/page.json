@@ -97,7 +97,7 @@
     },
     {
       "q": "Can the AI isolate a machine or turn tamper protection back on by itself?",
-      "a": "Only with you in the loop. contain and fleet tamper print a plan and change nothing without --yes. In Claude Code or Codex the agent shows you the plan and reruns with --yes once you approve. The MCP server never passes --yes, so in Claude Desktop, ChatGPT or Copilot these two commands only preview."
+      "a": "Only if you let it. contain and fleet tamper print a plan and change nothing without --yes, and the MCP server never passes --yes, so those two only preview over MCP. But the MCP server's generic sophos-central_execute tool can call any Sophos Central endpoint except the six that return a password or token, including isolation, scans and policy changes, gated only by your AI app's approval prompt. If an agent should only read, set SOPHOS_CENTRAL_MCP_READ_ONLY=1 in the MCP server's environment: it refuses every non-GET call and hides the sync and export tools. Keep the approval prompt on, and give the API credential a read-only role."
     },
     {
       "q": "Does it cover Sophos XDR or MDR Cases and Detections?",
@@ -108,7 +108,7 @@
       "a": "No. The dashboard stays best for policy authoring, investigations and day-to-day console work. This skill answers the across-every-customer questions and runs scripted actions from your AI agent."
     }
   ],
-  "governance_summary": "The skill authenticates with a Sophos Central API credential you create, and its reach is exactly the role you give that credential. Every fleet report (triage, health, gaps, revenue) and every list or get, except the credential reads named below, is read-only and safe to let an agent run. Sophos Central is also an endpoint security console, so isolating machines, starting scans, collecting forensic logs and memory dumps, running Live Discover queries and changing tamper protection reach real customer machines; those, plus policy, exclusion and allow-list changes that can weaken protection, need a human to approve the exact command. Commands that return a tamper protection password or a migration token are credential reads, kept out of the MCP server and human-only. contain and fleet tamper preview by default and act only with --yes, which the MCP server never passes.",
+  "governance_summary": "The skill authenticates with a Sophos Central API credential you create, and its reach is exactly the role you give that credential. Every fleet report (triage, health, gaps, revenue) and every list or get, except the credential reads named below, is read-only and safe to let an agent run. Sophos Central is also an endpoint security console, so isolating machines, starting scans, collecting forensic logs and memory dumps, running Live Discover queries and changing tamper protection reach real customer machines; those, plus policy, exclusion and allow-list changes that can weaken protection, need a human to approve the exact command. Commands that return a tamper protection password or a migration token are credential reads, kept out of the MCP server and human-only. contain and fleet tamper preview by default and act only with --yes, which the MCP server never passes; the MCP server's generic execute tool can still call any write endpoint except the six credential reads, so set SOPHOS_CENTRAL_MCP_READ_ONLY=1 for an agent that should only read.",
   "safety_tiers": [
     {
       "tier": "Read",
@@ -122,12 +122,12 @@
     },
     {
       "tier": "Protection and policy config",
-      "examples": "exclusions add-scanning; exclusions delete-scanning-by-id; allowed-items post-by-id; blocked-items post-by-id; blocked-addresses post-blocked-address-sets; policies update-policy; policies update-settings-of-policy; web-control update-web-decryption-excluded-sites; exploit-mitigation add-application; event-journal update-settings",
+      "examples": "exclusions add-scanning; exclusions delete-scanning-by-id; allowed-items post-by-id; blocked-items post-by-id; blocked-addresses post-blocked-address-sets; policies update-policy; policies update-settings-of-policy; web-control update-web-decryption-excluded-sites; exploit-mitigation add-application; event-journal update-settings; endpoint-groups add-multiple-endpoints-to-group",
       "policy": "Preview with --dry-run, then a human-approved write. An exclusion or allowed item can open a hole."
     },
     {
       "tier": "Write (routine)",
-      "examples": "alerts act-on; endpoint-groups create-tenant; endpoint-tags; users create-tenant; health-check post-snooze; xdr start-query-run; enrichment-pivots create",
+      "examples": "alerts act-on; endpoint-tags; users create-tenant; health-check post-snooze; xdr start-query-run; enrichment-pivots create",
       "policy": "Preview with --dry-run, then a reviewed write"
     },
     {

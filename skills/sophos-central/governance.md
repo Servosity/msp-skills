@@ -58,6 +58,12 @@ server, so an agent cannot read a tamper password on its own.
   `--yes`, so over MCP (Claude Desktop, ChatGPT, Copilot) they only preview; the
   change itself is run from the CLI, by you or by an agent you approved in Claude
   Code or Codex.
+- **The MCP server can still write.** Its generic `sophos-central_execute` tool can
+  call any Sophos Central endpoint except the six credential reads named above,
+  including isolation, scans, exclusions and policy changes, gated only by your AI
+  app's per-tool approval prompt. For an agent that should only read, set
+  `SOPHOS_CENTRAL_MCP_READ_ONLY=1` in the MCP server's environment: it refuses every
+  non-GET call and hides the `sync` and `export` tools.
 - **Read commands are always safe to run** (the fleet reports, list, get, search);
   they cannot change anything in Sophos Central. `sync` and `fleet refresh` write
   only to your local store.
@@ -85,6 +91,8 @@ for an autonomous agent is **read only**; require a human for anything below Rea
 - **Scope the credential.** A reporting workflow needs only Service Principal
   Read-Only. Create a separate credential with write access for the rare runs that
   need it.
+- **Run the MCP server read-only unless an agent must act.** Set
+  `SOPHOS_CENTRAL_MCP_READ_ONLY=1` and keep your AI app's approval prompt on.
 - **Keep autonomous agents to Read.** Have a human approve every command below the
   Read tier - the gate lives in your agent's policy and in the credential's role,
   not in the binary's defaults (apart from `contain` and `fleet tamper`, which need

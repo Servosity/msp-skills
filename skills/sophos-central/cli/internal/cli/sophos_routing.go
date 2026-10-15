@@ -332,7 +332,7 @@ func configuredSophosTenant() string {
 	if v := strings.TrimSpace(sophosTenantFlag); v != "" {
 		return v
 	}
-	return strings.TrimSpace(os.Getenv(sophosTenantEnv))
+	return strings.TrimSpace(cliutil.EnvOverride(sophosTenantEnv))
 }
 
 func installSophosRouting(c *client.Client) error {
@@ -466,10 +466,10 @@ func sophosClientPair(cfg *config.Config) (string, string) {
 		id, secret = envID, ""
 	}
 	if id == "" {
-		id = os.Getenv("SOPHOS_CENTRAL_CLIENT_ID")
+		id = cliutil.EnvOverride("SOPHOS_CENTRAL_CLIENT_ID")
 	}
 	if secret == "" {
-		secret = os.Getenv("SOPHOS_CENTRAL_CLIENT_SECRET")
+		secret = cliutil.EnvOverride("SOPHOS_CENTRAL_CLIENT_SECRET")
 	}
 	return id, secret
 }

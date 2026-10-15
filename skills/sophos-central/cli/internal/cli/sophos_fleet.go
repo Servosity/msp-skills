@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"sophos-central-pp-cli/internal/client"
+	"sophos-central-pp-cli/internal/cliutil"
 	"sophos-central-pp-cli/internal/store"
 )
 
@@ -259,7 +260,7 @@ func fleetTenantFilter() (map[string]bool, error) {
 	if raw == "" {
 		// A blank flag is rejected at parse time; a blank-but-set env var
 		// is the same mistake and must not mean "all tenants" either.
-		if env := os.Getenv(sophosTenantEnv); env != "" {
+		if env := cliutil.EnvOverride(sophosTenantEnv); env != "" {
 			return nil, usageErr(fmt.Errorf("%s=%q names no tenant ID", sophosTenantEnv, env))
 		}
 		return nil, nil

@@ -9,7 +9,7 @@
 // previous passwords (dropping the current password and the enabled flag). The
 // path is only a list wrapper when every other top-level key is paging
 // metadata ({items, pages}, {has_more, items, next_cursor}); otherwise the
-// whole object is the answer.
+// whole object is the answer. List commands keep the generated unwrap.
 
 package cli
 
@@ -23,9 +23,11 @@ var responsePathPagingKeys = map[string]bool{
 	"next": true, "total": true, "totalCount": true, "page": true, "pageSize": true,
 }
 
-func applyEntityResponsePath(data json.RawMessage, responsePath string) json.RawMessage {
+func applyEntityResponsePath(data json.RawMessage, responsePath string, isList bool) json.RawMessage {
 	key := strings.TrimPrefix(strings.TrimSpace(responsePath), "$.")
-	if key == "" || strings.Contains(key, ".") {
+	// List commands (licenses list: {organization, tenant, licenses}) keep
+	// printing rows; only single-object reads keep the object.
+	if isList || key == "" || strings.Contains(key, ".") {
 		return applyResponsePath(data, responsePath)
 	}
 	var root map[string]json.RawMessage

@@ -7,7 +7,6 @@ package config
 
 import (
 	"strings"
-	"sync"
 	"time"
 
 	"sophos-central-pp-cli/internal/cliutil"
@@ -32,8 +31,9 @@ func (c *Config) KeepEnvSecretOffDisk(clientID string) {
 	c.markEnvOverride("ClientSecret")
 }
 
-// tokenInMemoryOnly marks configs whose minted token must not be saved.
-var tokenInMemoryOnly sync.Map
+// tokenInMemoryOnlyMarker is an envOverrides key no field uses; it marks a
+// Config whose minted token must not be saved and goes away with the Config.
+const tokenInMemoryOnlyMarker = "sophos:token-in-memory-only"
 
 // AdoptEnvClientCredential makes SOPHOS_CENTRAL_CLIENT_ID the credential this
 // process uses when it names a different API credential than the client ID
@@ -49,13 +49,13 @@ func (c *Config) AdoptEnvClientCredential() {
 	}
 	c.ClientID, c.ClientSecret = envID, ""
 	c.AccessToken, c.RefreshToken, c.TokenExpiry = "", "", time.Time{}
-	tokenInMemoryOnly.Store(c, true)
+	c.markEnvOverride(tokenInMemoryOnlyMarker)
 }
 
 // KeepMintedTokenInMemory stores a minted token on c without saving it and
 // reports true when c is running on an adopted environment credential.
 func (c *Config) KeepMintedTokenInMemory(accessToken string, expiry time.Time) bool {
-	if _, ok := tokenInMemoryOnly.Load(c); !ok {
+	if !c.envOverrides[tokenInMemoryOnlyMarker] {
 		return false
 	}
 	c.AccessToken, c.TokenExpiry = accessToken, expiry

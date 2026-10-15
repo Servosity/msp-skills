@@ -208,6 +208,9 @@ func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
 			}
 
 			w := cmd.OutOrStdout()
+			// Hand-wired (handfixes.json: env-credential-wins-over-saved): report
+			// the credential this process would send, not a different saved one.
+			cfg.AdoptEnvClientCredential()
 			header := cfg.AuthHeader()
 			authed := header != ""
 			refusals := cfg.CredentialRefusalSummaries()
