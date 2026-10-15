@@ -32,6 +32,8 @@ type verifyGroupRow struct {
 	Status             string `json:"status"` // failing | unverified | outdated | ok
 	// Attribution is "untied" when pbs_namespace could not be tied to this
 	// cluster's datastores (PVE unreachable): the row may be another client's.
+	// "shared: <clusters>" when another configured cluster writes, or may
+	// write, to the namespace: tenant is then empty.
 	Attribution string `json:"attribution,omitempty"`
 }
 
@@ -313,6 +315,9 @@ func collectVerifyHealth(ctx context.Context, t fleetTarget, onlyStore string, n
 					sr.FailingGroups++
 				}
 				g.Attribution = nsAttribution
+				if strings.HasPrefix(nsAttribution, "shared") {
+					g.Tenant = "" // another configured cluster writes (or may write) here: no single client's
+				}
 				groups = append(groups, g)
 			}
 		}

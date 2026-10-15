@@ -578,8 +578,8 @@ pve_fingerprint = "`+client.CertFingerprint(beta.Certificate())+`"
 		t.Fatalf("no groups:\n%s", out)
 	}
 	for _, g := range groups {
-		if !strings.HasPrefix(g.Attribution, "shared") {
-			t.Errorf("group %s in a shared namespace must say so: %+v", g.Group, g)
+		if !strings.HasPrefix(g.Attribution, "shared") || g.Tenant != "" {
+			t.Errorf("group %s in a shared namespace must say so and credit no tenant: %+v", g.Group, g)
 		}
 	}
 }

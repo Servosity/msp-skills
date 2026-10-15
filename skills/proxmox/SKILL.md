@@ -84,7 +84,7 @@ Do not use this CLI for:
 ### PBS health
 - **`verify-health`**  -  Per PBS datastore and backup group: failed, never-verified and outdated snapshots, first failure, newest verified-good point, and namespaces no verify job reaches. Needs the PBS API.
 
-  _Use when verify failures appear, to see how far they spread and which groups still have a good restore point. Needs PROXMOX_PBS_HOST and PROXMOX_PBS_API_TOKEN (or pbs_host in clusters.toml); empty groups with a non-empty skipped_clusters means nothing was checked, not that nothing failed._
+  _Use when verify failures appear, to see how far they spread and which groups still have a good restore point. Needs PROXMOX_PBS_HOST and PROXMOX_PBS_API_TOKEN (or pbs_host in clusters.toml); skipped_clusters lists clusters with no PBS host, which were not checked, and exit 5 means no cluster was checked at all; healthy groups are listed only with --all._
 
   ```bash
   proxmox-cli verify-health --agent
@@ -335,7 +335,7 @@ Do not use this CLI for:
 - `proxmox-cli pbs-access permissions`  -  List permissions of given or currently authenticated user / API token. Optionally limited to specific path.
 - `proxmox-cli pbs-access roles`  -  Role list. Required privilege: any authenticated user
 - `proxmox-cli pbs-access tfa`  -  List user TFA configuration. Required privilege: Returns all or just the logged-in user, depending on privileges.
-- `proxmox-cli pbs-access tfa-get`  -  Add a TOTP secret to the user. Required privilege: Permissions.Modify on /access/users or the user named by {userid}
+- `proxmox-cli pbs-access tfa-get`  -  List a user's TFA entries (types and descriptions; no secrets). Required privilege: Permissions.Modify on /access/users or the user named by {userid}
 - `proxmox-cli pbs-access tfa-id-get`  -  Get a single TFA entry. Required privilege: Permissions.Modify on /access/users or the user named by {userid}
 - `proxmox-cli pbs-access users`  -  List users. Required privilege: Returns all or just the logged-in user (/API token owner), depending on privileges.
 - `proxmox-cli pbs-access users-get`  -  Read user configuration data. Required privilege: Sys.Audit on /access/users or the user named by {userid}
@@ -346,7 +346,7 @@ Do not use this CLI for:
 
 - `proxmox-cli pbs-config acme-account`  -  List ACME accounts. Required privilege: Sys.Modify on /system/certificates
 - `proxmox-cli pbs-config acme-account-get`  -  Return existing ACME account information. Required privilege: Sys.Modify on /system/certificates
-- `proxmox-cli pbs-config acme-challenge-schema`  -  Get named known ACME directory endpoints. Required privilege: any authenticated user
+- `proxmox-cli pbs-config acme-challenge-schema`  -  Get the ACME challenge plugin schema. Required privilege: any authenticated user
 - `proxmox-cli pbs-config acme-directories`  -  Get named known ACME directory endpoints. Required privilege: any authenticated user
 - `proxmox-cli pbs-config admin-metrics`  -  List configured metric servers. Required privilege: Sys.Audit on /
 - `proxmox-cli pbs-config admin-traffic-control`  -  Show current traffic for all traffic control rules. Required privilege: Sys.Audit on /
@@ -413,7 +413,7 @@ Do not use this CLI for:
 - `proxmox-cli pbs-nodes identity`  -  Returns a unique server identity. The ID is derived from `/etc/machine-id`. Required privilege: any authenticated user
 - `proxmox-cli pbs-nodes journal`  -  Read syslog entries. Required privilege: Sys.Audit on /system/log
 - `proxmox-cli pbs-nodes list`  -  List Nodes (only for compatibility)
-- `proxmox-cli pbs-nodes network`  -  List all datastores. Required privilege: Sys.Audit on /system/network/interfaces
+- `proxmox-cli pbs-nodes network`  -  List network interfaces. Required privilege: Sys.Audit on /system/network/interfaces
 - `proxmox-cli pbs-nodes network-get`  -  Read a network interface configuration. Required privilege: Sys.Audit on /system/network/interfaces/{iface}
 - `proxmox-cli pbs-nodes ping`  -  Dummy method which replies with `{ 'pong': True }`.
 - `proxmox-cli pbs-nodes rrd`  -  Read node stats. Required privilege: Sys.Audit on /system/status
@@ -996,6 +996,8 @@ Explicit flags always win over profile values; profile values win over defaults.
 | 5 | API error (upstream issue) |
 | 7 | Rate limited (wait and retry) |
 | 10 | Config error |
+
+The fleet commands (posture, backup coverage, verify-health, failures, capacity, restore-points, rpo) report a rejected token as that cluster's fetch failure: they exit 5 when no cluster answered, never 4.
 
 ## Argument Parsing
 

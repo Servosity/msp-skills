@@ -16,7 +16,7 @@ func newPbsConfigAcmeChallengeSchemaCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "acme-challenge-schema",
-		Short:       "Get named known ACME directory endpoints. Required privilege: any authenticated user",
+		Short:       "Get the ACME challenge plugin schema. Required privilege: any authenticated user",
 		Example:     "  proxmox-cli pbs-config acme-challenge-schema",
 		Args:        cobra.NoArgs,
 		Annotations: map[string]string{"pp:endpoint": "pbs_config.acme-challenge-schema", "pp:method": "GET", "pp:path": "https://localhost:8007/api2/json/config/acme/challenge-schema", "mcp:read-only": "true"},

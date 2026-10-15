@@ -107,16 +107,20 @@ hosts before any request is built.
   explicit NoAccess on a single guest leaves no trace in any read. With an
   audit-only role on both products, Proxmox itself would refuse a write even
   if one were ever sent.
-- **One PBS namespace (or datastore) per client cluster** on a shared Backup
-  Server, declared as that entry's `pbs_namespace`. VMIDs repeat across
+- **One PBS namespace per client cluster** on a shared Backup Server,
+  declared as that entry's `pbs_namespace` (a datastore per client alone does
+  not scope a cluster that cannot be read). VMIDs repeat across
   clusters; where two configured clusters write the same namespace (or one
   writes inside another's declared namespace), the skill reports it and
   counts none of those restore points for either. The check covers every
   configured cluster, even when `--cluster` or `--client` narrows the report.
   A cluster that cannot be read is assumed to write anywhere in its declared
-  `pbs_namespace` on the PBS host (or certificate) its entry names, or
-  anywhere on that PBS when it declares none. `verify-health` keeps such a namespace's groups but marks each row
-  `attribution: shared`.
+  `pbs_namespace` on the PBS host (or certificate) its entry names (on any
+  PBS, if it names none), or anywhere on that PBS when it declares none.
+  `verify-health` keeps such a namespace's groups but marks them:
+  `attribution` is `shared` on the store row and `shared: <clusters>` on each
+  group row, whose tenant is left empty. `failures` marks a PBS task the same
+  way.
 - **One token per client cluster**, referenced by env var name in
   `clusters.toml`, so revoking one client never touches another.
 - **Pin every certificate** with its SHA-256 fingerprint.

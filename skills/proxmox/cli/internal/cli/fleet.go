@@ -1791,10 +1791,17 @@ func subtreeGap(ctx context.Context, c *client.Client, pbs bool, root, what stri
 		if !strings.HasPrefix(path, root+"/") {
 			continue
 		}
+		// Below a node, only its propagating grants replace the inherited ones
+		// (PBS AclTree::roles, PVE::AccessControl::roles): a node holding no
+		// propagating grant leaves its descendants the inherited privileges.
+		transparent := true
+		for _, v := range p {
+			transparent = transparent && !bool(v)
+		}
 		ok := false
 		for _, n := range names {
 			v, has := p[n]
-			ok = ok || (has && (bool(v) || leaves))
+			ok = ok || (has && (bool(v) || leaves || transparent))
 		}
 		if !ok {
 			dropped = append(dropped, path)

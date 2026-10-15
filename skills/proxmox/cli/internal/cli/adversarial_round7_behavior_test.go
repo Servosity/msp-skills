@@ -181,3 +181,38 @@ func TestNewerManifestlessSnapshotIsNotGreen(t *testing.T) {
 		t.Errorf("acme/100 green with a newer manifest-less snapshot: %s %q", r.Verdict, r.Reason)
 	}
 }
+
+// A deeper node holding only non-propagating grants hides nothing below it:
+// its descendants keep the inherited privileges.
+func TestNonPropagatingOnlyNodeIsTransparent(t *testing.T) {
+	f := newFixture(t)
+	setAcmeTokens(t)
+	f.pbsNS = "acme"
+	f.pbsRoutes["/admin/datastore/main/namespace"] = []map[string]any{{"ns": ""}, {"ns": "acme"}, {"ns": "acme/sub"}}
+	f.pbsRoutes["/admin/datastore/main/snapshots#acme"] = prodSnapshots(f)
+	f.pbsRoutes["/access/permissions"] = map[string]any{
+		"/":                        map[string]any{"Sys.Audit": true, "Datastore.Audit": true},
+		"/datastore/main/acme/sub": map[string]any{"Datastore.Audit": false},
+	}
+	writeClustersFile(t, acmeClusters(f, f.pbs.URL, `pbs_namespace = "acme"`))
+	rep, _ := postureByVMID(t)
+	if e := failureByScope(rep.FetchFailures)["pbs"]; strings.Contains(e, "propagate") {
+		t.Errorf("a node with only non-propagating grants hides nothing: %q", e)
+	}
+}
+
+// Each clusters.toml entry gets its own local store: colliding VMIDs never
+// overwrite another client's rows, and a fallback never answers with them.
+func TestLocalStoreIsPerCluster(t *testing.T) {
+	newFixture(t)
+	defer func() { selectedCluster = ""; configureDefaultDBScope("") }()
+	paths := map[string]string{}
+	for _, name := range []string{"acme", "beta", ""} {
+		selectedCluster = name
+		configureDefaultDBScope("")
+		paths[name] = defaultDBPath("proxmox-pp-cli")
+	}
+	if paths["acme"] == paths["beta"] || paths["acme"] == paths[""] || paths["beta"] == paths[""] {
+		t.Errorf("stores are shared across clusters: %v", paths)
+	}
+}
