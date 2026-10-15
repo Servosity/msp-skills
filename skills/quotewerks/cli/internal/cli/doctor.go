@@ -763,7 +763,7 @@ func collectCacheReport(ctx context.Context, staleAfterSpec string) map[string]a
 	if err != nil {
 		if os.IsNotExist(err) {
 			report["status"] = "unknown"
-			report["hint"] = "Database not created yet; run 'quotewerks-cli sync' to hydrate."
+			report["hint"] = "Database not created yet; run 'quotewerks-cli mirror' to copy quotes, lines and product databases for margin, winrate, pipeline, cost-drift and changes."
 			return report
 		}
 		report["status"] = "error"

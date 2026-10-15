@@ -48,7 +48,7 @@
         },
         {
           "name": "QUOTEWERKS_MCP_READ_ONLY",
-          "description": "Set to exactly 1 (no other value) to make the MCP server read-only: it drops every tool that writes or posts (sync, workflow archive, export, reports run, agent ask, agent report-draft, learnings forget and learnings reject) and refuses --confirm on docs create, items add, items reprice and requote, which can still preview. The raw tables insert, update and delete tools are never offered over MCP. Leave blank for the full tool set.",
+          "description": "Set to exactly 1 (no other value) for a read-only MCP server: it drops sync, workflow archive, export, reports run, agent ask, agent report-draft, learnings forget and learnings reject, and refuses --confirm on docs create, items add, items reprice and requote, which can still preview. Local-only tools such as mirror and teach stay. The raw tables insert, update and delete tools are never offered over MCP. Leave blank for the full tool set.",
           "isRequired": false,
           "isSecret": false
         },

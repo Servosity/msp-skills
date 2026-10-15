@@ -1390,8 +1390,7 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 			{
 				"name":        "cloud_settings",
 				"description": "Manage cloud settings",
-				"endpoints":   []string{"get", "list", "schema"},
-				"syncable":    true,
+				"endpoints":   []string{"get", "list", "schema"}, // hand-fix: never synced (tenant-rows-never-persisted)
 				"searchable":  true,
 			},
 			{
@@ -1409,18 +1408,17 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 			{
 				"name":        "tables",
 				"description": "Manage tables",
-				"endpoints":   []string{"delete", "insert", "list", "query", "row", "rows", "schema", "update", "values"},
-				"syncable":    true,
-				"searchable":  true,
-				"writable":    true,
+				// hand-fix: insert/update/delete are CLI-only (mcp-raw-table-writes-cli-only); sync stores table names only
+				"endpoints":  []string{"list", "query", "row", "rows", "schema", "values"},
+				"syncable":   true,
+				"searchable": true,
 			},
 		},
 		"query_tips": []string{
 			"Pagination uses cursor-based paging. Pass page[number] parameter for subsequent pages.",
 			"Control page size with the page[size] parameter (default 100).",
-			"Use the sql tool for ad-hoc analysis on synced data. Run sync first to populate the local database.",
-			"Use the search tool for full-text search across all synced resources. Faster than iterating list endpoints.",
-			"Prefer sql/search over repeated API calls when the data is already synced.",
+			"Run mirror first: it copies quotes, line items and product databases into the local database that margin, winrate, pipeline, cost-drift and changes read.",
+			"sync stores only the list of table names; tenant rows are read live and never cached.",
 		},
 		// Command-mirror capabilities are exposed through MCP by shelling out
 		// to the companion CLI binary.

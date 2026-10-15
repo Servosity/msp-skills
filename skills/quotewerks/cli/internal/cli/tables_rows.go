@@ -53,7 +53,7 @@ func newTablesRowsCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "tables", path, retainCLIQueryParams(cmd, map[string]string{
+			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "live", "tables", path, retainCLIQueryParams(cmd, map[string]string{
 				"page[number]":    formatCLIParamValue(flagPageNumber),
 				"page[size]":      formatCLIParamValue(flagPageSize),
 				"sort":            formatCLIParamValue(flagSort),

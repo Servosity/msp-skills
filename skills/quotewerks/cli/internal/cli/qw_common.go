@@ -367,11 +367,15 @@ func qwWrite(ctx context.Context, c *client.Client, method, table, id string, at
 		// A create that failed without a QuoteWerks rejection (a dropped
 		// connection, a timeout, a 5xx) may still have been committed, so the
 		// caller must check before retrying rather than create it again.
+		// The marker is added after classification, which may rebuild the
+		// error (HTML auth pages) and would otherwise drop it.
 		var rejected *client.APIError
-		if method == "POST" && !(errors.As(err, &rejected) && rejected.StatusCode >= 400 && rejected.StatusCode < 500) {
+		uncertain := method == "POST" && !(errors.As(err, &rejected) && rejected.StatusCode >= 400 && rejected.StatusCode < 500)
+		err = classifyAPIErrorOnly(err)
+		if uncertain {
 			err = fmt.Errorf("%w (%w: check QuoteWerks before retrying, a retried create can duplicate the row)", err, errWriteMayHaveCommitted)
 		}
-		return qw.Resource{}, classifyAPIErrorOnly(err)
+		return qw.Resource{}, err
 	}
 	p, err := qw.ParsePage(raw)
 	if err != nil || len(p.Data) == 0 || p.Data[0].ID == "" {

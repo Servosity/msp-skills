@@ -114,8 +114,8 @@
     },
     {
       "id": "tenant-rows-never-persisted",
-      "summary": "No tenant row reaches disk unless the user asks for it: the HTTP response cache is off (responseCacheEnabled returns false), live reads and write responses are never written through to the SQLite store, and sync / workflow archive refuse cloud_settings (CloudSystemSettings) at the syncResource boundary, so sync stores only the list of table names. The quote mirror (ApplyMirror) and export are unaffected.",
-      "why": "Codex round 1 (2 P1) and fresh-context adversarial review round 1 (P1), both 2026-10-14. The generic tables commands can read any tenant table (SecurityAccounts, UserSettings, CloudSystemSettings may hold passwords or API keys), and press 4.33.5 wrote every GET response to <cache>/http/resources/*.json and every live read and write response into data.db (readable over MCP sql, including in read-only mode), while a default `sync` copied CloudSystemSettings into data.db. Receipt: a stub serving SENTINEL-SECRET-7731 in SecurityAccounts.Password and CloudSystemSettings.SettingValue left it in a cache file and in data.db after `tables rows SecurityAccounts --select id`, `cloud-settings list` and `sync`. The tables are generic, so a per-field redaction list cannot be complete; the fix is never to persist them. TestResponsesNeverCached (client package) fails when responseCacheEnabled is restored; TestTenantRowsNeverPersisted (tables row/query/update against the in-process fake with a sentinel, then a walk of --home) fails when quotewerksNeverPersistLiveRows is false; TestSyncRefusesCloudSettings pins the sync boundary.",
+      "summary": "No tenant row reaches disk unless the user asks for it: the HTTP response cache is off (responseCacheEnabled returns false), live reads and write responses are never written through to the SQLite store, and sync / workflow archive refuse cloud_settings (CloudSystemSettings) at the syncResource boundary, so sync stores only the list of table names. The quote mirror (ApplyMirror) and export are unaffected. `tables rows` reads live only (as tables row/values/schema already do), so with the API down it errors instead of answering with the stored table-name list. The agent-facing guidance matches: the MCP context tool no longer marks cloud_settings syncable or lists the raw table writes, its query tips point at mirror, doctor's empty-store hint names mirror, and workflow archive's help says it syncs only table names.",
+      "why": "Codex round 1 (2 P1) and fresh-context adversarial review round 1 (P1), both 2026-10-14. The generic tables commands can read any tenant table (SecurityAccounts, UserSettings, CloudSystemSettings may hold passwords or API keys), and press 4.33.5 wrote every GET response to <cache>/http/resources/*.json and every live read and write response into data.db (readable over MCP sql, including in read-only mode), while a default `sync` copied CloudSystemSettings into data.db. Receipt: a stub serving SENTINEL-SECRET-7731 in SecurityAccounts.Password and CloudSystemSettings.SettingValue left it in a cache file and in data.db after `tables rows SecurityAccounts --select id`, `cloud-settings list` and `sync`. The tables are generic, so a per-field redaction list cannot be complete; the fix is never to persist them. TestResponsesNeverCached (client package) fails when responseCacheEnabled is restored; TestTenantRowsNeverPersisted (tables row/query/update against the in-process fake with a sentinel, then a walk of --home) fails when quotewerksNeverPersistLiveRows is false; TestSyncRefusesCloudSettings pins the sync boundary. Adversarial round 2 (P2): the generated auto strategy on tables rows fell back to the local 'tables' partition, which holds only table names, and returned them as the rows of whatever table was asked for. Adversarial round 2 (P2): the MCP context tool ('call this first') and doctor still told agents to sync for data that sync no longer stores.",
       "status": "active",
       "asserts": [
         {
@@ -157,6 +157,23 @@
           "file": "cli/internal/cli/tenant_rows_never_persisted_test.go",
           "contains": "func TestTenantRowsNeverPersisted(",
           "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/tables_rows.go",
+          "contains": "resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, \"live\", \"tables\", path,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "contains": "sync stores only the list of table names; tenant rows are read live and never cached."
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "run 'quotewerks-cli mirror' to copy quotes, lines and product databases"
+        },
+        {
+          "file": "cli/internal/cli/channel_workflow.go",
+          "contains": "In this CLI that is only the"
         }
       ]
     },

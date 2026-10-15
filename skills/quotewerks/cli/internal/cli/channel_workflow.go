@@ -37,10 +37,11 @@ func newWorkflowArchiveCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "archive",
-		Short: "Sync all resources to local store for offline access and search",
-		Long: `Archive fetches all syncable resources from the API and stores them in a
-local SQLite database. Supports incremental sync (only new data since last run)
-and full resync. After archiving, use 'search' for instant full-text search.`,
+		Short: "Sync the table list to the local store (quote data: use 'mirror')",
+		Long: `Archive runs sync for every syncable resource. In this CLI that is only the
+list of tenant table names: tenant rows are read live and never stored, and
+cloud settings are never synced. To copy quotes, line items and product
+databases for local analysis, run 'mirror'.`,
 		Example: `  # Archive all resources
   quotewerks-cli workflow archive
 

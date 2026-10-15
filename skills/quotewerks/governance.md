@@ -66,10 +66,10 @@ your QuoteWerks data; treat it like any other read that leaves your machine.
 - **Leave Allow write access off** unless the workflow needs writes. A read-only key
   covers every lookup, audit and report, and QuoteWerks answers any write with 403.
 - **Run the MCP server read-only** for agents that only answer questions: set
-  `QUOTEWERKS_MCP_READ_ONLY=1` (exactly `1`). It drops every tool that writes or posts
-  (sync, workflow archive, export, reports run, agent ask, agent report-draft, learnings
-  forget and learnings reject) and refuses `--confirm` on the typed writes, which can
-  still preview.
+  `QUOTEWERKS_MCP_READ_ONLY=1` (exactly `1`). It drops sync, workflow archive, export,
+  reports run, agent ask, agent report-draft, learnings forget and learnings reject, and
+  refuses `--confirm` on the typed writes, which can still preview. Local-only tools such
+  as `mirror` and `teach` stay.
 - **Use a separate key for the agent** so you can revoke it in Setup > Options >
   Zapier and API without touching other integrations.
 - **Keep autonomous agents to reads and previews.** Have a human approve every

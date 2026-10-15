@@ -68,24 +68,33 @@ func TestRequoteAmbiguousLineIsFlagged(t *testing.T) {
 	}
 }
 
-// TestCreateWithUnusableResponseMayHaveCommitted: a 201 whose body carries no
-// resource is still a create that may exist.
+// TestCreateWithUnusableResponseMayHaveCommitted: a create that got a success
+// status but no usable resource (a null body, an HTML page that error
+// classification rewrites as an auth failure) may exist, so the marker must
+// survive classification.
 func TestCreateWithUnusableResponseMayHaveCommitted(t *testing.T) {
 	testenv.Isolate(t)
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/vnd.api+json")
-		w.WriteHeader(201)
-		_, _ = io.WriteString(w, `{"data":null}`)
-	}))
-	t.Cleanup(srv.Close)
-	t.Setenv("QUOTEWERKS_BASE_URL", srv.URL)
-	t.Setenv("QUOTEWERKS_API_KEY", "qww_test_key")
-	flags := &rootFlags{timeout: 5e9}
-	c, err := flags.newClient()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := qwWrite(t.Context(), c, "POST", "DocumentItems", "", map[string]any{"Description": "x"}); !errors.Is(err, errWriteMayHaveCommitted) {
-		t.Fatalf("201 with no resource: err = %v, want errWriteMayHaveCommitted", err)
+	for _, tc := range []struct{ name, contentType, body string }{
+		{"null data", "application/vnd.api+json", `{"data":null}`},
+		{"html unauthorized", "text/html", `<html><head><title>Unauthorized</title></head><body>Please sign in</body></html>`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", tc.contentType)
+				w.WriteHeader(201)
+				_, _ = io.WriteString(w, tc.body)
+			}))
+			t.Cleanup(srv.Close)
+			t.Setenv("QUOTEWERKS_BASE_URL", srv.URL)
+			t.Setenv("QUOTEWERKS_API_KEY", "qww_test_key")
+			flags := &rootFlags{timeout: 5e9}
+			c, err := flags.newClient()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := qwWrite(t.Context(), c, "POST", "DocumentItems", "", map[string]any{"Description": "x"}); !errors.Is(err, errWriteMayHaveCommitted) {
+				t.Fatalf("err = %v, want errWriteMayHaveCommitted", err)
+			}
+		})
 	}
 }

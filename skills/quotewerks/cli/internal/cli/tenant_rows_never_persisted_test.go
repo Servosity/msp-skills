@@ -17,7 +17,7 @@ import (
 
 const tenantSentinel = "SENTINEL-SECRET-7731"
 
-// TestTenantRowsNeverPersisted reads and writes a secret-bearing table row
+// TestTenantRowsNeverPersisted writes, then reads, a secret-bearing table row
 // through the generic tables commands (without --no-cache, so the response
 // cache is exercised) and fails if the secret lands anywhere under the
 // sandboxed home: response cache, local store, receipts or journal.
@@ -52,15 +52,17 @@ func TestTenantRowsNeverPersisted(t *testing.T) {
 		_ = cmd.Execute()
 		return out.String() + errb.String()
 	}
+	// The write runs first: a successful mutation clears the response cache,
+	// so reads after it are what would leave cached rows behind.
+	if out := run(`{"data":{"type":"SecurityAccounts","id":"`+guid(501)+`","attributes":{"UserName":"Ann B"}}}`, "tables", "update", "SecurityAccounts", guid(501), "--stdin", "--json"); !strings.Contains(out, tenantSentinel) {
+		t.Fatalf("tables update did not return the patched row: %s", out)
+	}
 	for i := 0; i < 2; i++ { // a second read would be served from a cache if one were written
 		if out := run("", "tables", "row", "SecurityAccounts", guid(501), "--json"); !strings.Contains(out, tenantSentinel) {
 			t.Fatalf("tables row did not return the stub row: %s", out)
 		}
 	}
 	run("", "tables", "query", "SecurityAccounts", "--page-number", "1", "--page-size", "10", "--json")
-	if out := run(`{"data":{"type":"SecurityAccounts","id":"`+guid(501)+`","attributes":{"UserName":"Ann B"}}}`, "tables", "update", "SecurityAccounts", guid(501), "--stdin", "--json"); !strings.Contains(out, tenantSentinel) {
-		t.Fatalf("tables update did not return the patched row: %s", out)
-	}
 
 	err := filepath.WalkDir(home, func(path string, d os.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
