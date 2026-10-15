@@ -495,18 +495,35 @@ func (r *jobTargets) nodeDefaults(node string) vzdumpDefaults {
 	return d
 }
 
-// prunes reports whether a run of jobID on node prunes its target (vzdump
-// remove): the job's own setting, else the node's vzdump.conf default, else
-// on. known is false when the node's defaults could not be read.
-func (r *jobTargets) prunes(jobID, node string) (prunes, known bool) {
+// prunes reports whether a run of jobID on node prunes its target storage
+// (vzdump remove): the job's own setting, else the node's vzdump.conf, else
+// on. The defaults are asked for that storage: asked for none, PVE resolves
+// 'local' and fails when local takes no backups. known is false when they
+// could not be read.
+func (r *jobTargets) prunes(jobID, node, storage string) (prunes, known bool) {
 	if j := r.jobs[jobID]; j.Remove != nil {
 		return bool(*j.Remove), true
 	}
-	d := r.nodeDefaults(node)
+	d := r.targetDefaults(node, storage)
 	if d.err != nil {
 		return true, false
 	}
 	return d.Remove == nil || bool(*d.Remove), true
+}
+
+// targetDefaults is the node's vzdump defaults resolved for one target
+// storage (its retention overlaid on /etc/vzdump.conf).
+func (r *jobTargets) targetDefaults(node, storage string) vzdumpDefaults {
+	if r.retDefs == nil {
+		r.retDefs = map[string]vzdumpDefaults{}
+	}
+	key := node + "\x00" + storage
+	d, ok := r.retDefs[key]
+	if !ok {
+		d.err = getJSON(r.ctx, r.c, pvePath("/nodes/%s/vzdump/defaults", node), map[string]string{"storage": storage}, &d)
+		r.retDefs[key] = d
+	}
+	return d
 }
 
 // retention is jobID's effective prune-backups when it writes to storage on
@@ -517,15 +534,7 @@ func (r *jobTargets) retention(jobID, node, storage string) (string, error) {
 	if s := pruneSpec(r.jobs[jobID].PruneBackups); s != "" {
 		return s, nil
 	}
-	if r.retDefs == nil {
-		r.retDefs = map[string]vzdumpDefaults{}
-	}
-	key := node + "\x00" + storage
-	d, ok := r.retDefs[key]
-	if !ok {
-		d.err = getJSON(r.ctx, r.c, pvePath("/nodes/%s/vzdump/defaults", node), map[string]string{"storage": storage}, &d)
-		r.retDefs[key] = d
-	}
+	d := r.targetDefaults(node, storage)
 	return pruneSpec(d.PruneBackups), d.err
 }
 

@@ -103,7 +103,7 @@ func runClustersCheck(cmd *cobra.Command, flags *rootFlags) error {
 		var v struct {
 			Version string `json:"version"`
 		}
-		if strings.TrimSpace(t.C.BaseURL) == "" {
+		if !t.hasPVE() {
 			rows = append(rows, clusterCheckRow{Cluster: t.Name, Tenant: t.Tenant, Service: "pve", Status: "not-configured"})
 		} else {
 			// PVE answers /version only to an authenticated caller.
