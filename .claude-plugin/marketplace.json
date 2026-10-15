@@ -1124,6 +1124,21 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "threatdown",
+      "source": "./skills/threatdown",
+      "description": "Every ThreatDown OneView API, plus fleet-wide stale-endpoint, health and seat reports across all your sites, and guarded isolate/scan/restore jobs.",
+      "version": "0.1.0",
+      "category": "security",
+      "tags": [
+        "threatdown",
+        "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }

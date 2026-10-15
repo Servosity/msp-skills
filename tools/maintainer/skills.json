@@ -333,13 +333,7 @@
       "first_party": false,
       "category": "Security",
       "display_name": "CIPP + Microsoft 365",
-      "covers": [
-        "Entra ID",
-        "Intune",
-        "Exchange Online",
-        "Defender",
-        "GDAP"
-      ],
+      "covers": ["Entra ID", "Intune", "Exchange Online", "Defender", "GDAP"],
       "tagline": "MCP server for CIPP and the Microsoft 365 it runs - Entra ID, Intune, Exchange Online, Defender and GDAP - across every client tenant at once.",
       "cli_hash": "sha256:aa0dc021cdb156c7c5bd704dc240c05f666bcc65074ff04bc8a5b76852f20f19",
       "template_version": 3,
@@ -1623,6 +1617,29 @@
         "evidence": null,
         "verified_by": null,
         "issue_url": null
+      }
+    },
+    "threatdown": {
+      "system": "ThreatDown OneView: endpoint protection, detections, isolation and response jobs across every managed customer site",
+      "status": "beta",
+      "cli_binary": "threatdown-cli",
+      "mcp_binary": "threatdown-mcp",
+      "vendor": "ThreatDown",
+      "vendor_trademark_owner": "Malwarebytes Inc.",
+      "first_party": false,
+      "category": "Security",
+      "display_name": "ThreatDown",
+      "tagline": "Find stale endpoints, rank site health and isolate infected machines across every ThreatDown OneView site by asking.",
+      "has_video": true,
+      "cli_hash": "sha256:f63d519c4ca09233b2257c8c46abc34596ee4579414c2b3f9761725eb60f0d1f",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
       }
     },
     "threatlocker": {

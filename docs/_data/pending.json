@@ -128,7 +128,7 @@
   "connectwise-rmm": {
     "state": "never-released",
     "version": "0.1.0",
-    "latest_tag": "connectwise-rmm-v0.1.0",
+    "latest_tag": null,
     "current_hash": "sha256:3e7ce5ef31df94a51a7a28989b3df7afc3ad89ec7211b6b6ca19082a056c3807",
     "released_hash": null
   },
@@ -180,13 +180,6 @@
     "latest_tag": "domotz-v0.1.3",
     "current_hash": "sha256:56b9ecdc1888afb84c7874b23481beb245ed1e121f78257a859f572a757e52e6",
     "released_hash": "sha256:d0568cb31d893b0e44fc1791f7c5f297cd016c72a908f549120bb54b08cefebb"
-  },
-  "google-workspace": {
-    "state": "never-released",
-    "version": "0.1.0",
-    "latest_tag": "google-workspace-v0.1.0",
-    "current_hash": "sha256:96bac9bf2133a55fd1b954ca997cd43804f950a90e2d1581c9f66b07dd723d3b",
-    "released_hash": null
   },
   "grab-cookie": {
     "state": "markdown-only",

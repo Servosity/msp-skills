@@ -1,0 +1,88 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Servosity/threatdown-mcp",
+  "title": "ThreatDown MCP",
+  "description": "Every ThreatDown OneView API, plus fleet-wide stale-endpoint, health and seat reports across all",
+  "version": "0.1.0",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/threatdown/threatdown-512x512.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/servosity/msp-skills",
+    "source": "github",
+    "subfolder": "skills/threatdown"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/threatdown-v0.1.0/threatdown-mcp.mcpb",
+      "version": "0.1.0",
+      "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "THREATDOWN_CLIENT_ID",
+          "description": "Set the THREATDOWN_CLIENT_ID credential for the ThreatDown MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "THREATDOWN_CLIENT_SECRET",
+          "description": "Set the THREATDOWN_CLIENT_SECRET credential for the ThreatDown MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "THREATDOWN_OAUTH_SCOPE",
+          "description": "Optional: space-separated OAuth scopes to request; default `execute read write`.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "THREATDOWN_BASE_URL",
+          "description": "Optional: override the OneView API base URL (default https://api.threatdown.com/oneview).",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "THREATDOWN_TOKEN_URL",
+          "description": "Optional: override the OAuth2 token endpoint.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "THREATDOWN_USER_AGENT",
+          "description": "Optional: override the User-Agent the CLI sends on OneView requests.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "THREATDOWN_MCP_READ_ONLY",
+          "description": "Optional: set to 1 to run the MCP server read-only.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "THREATDOWN_MCP_HTTP_TOKEN",
+          "description": "Bearer token callers must present when the server runs with --transport http; not used by the stdio transport.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Not enforced by this connector (no tenant-gated profiles); leave unset. It does not limit which sites a call can reach.",
+          "isRequired": false,
+          "isSecret": false
+        }
+      ]
+    }
+  ]
+}
