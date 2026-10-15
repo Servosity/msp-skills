@@ -929,7 +929,7 @@
     },
     {
      "file": "cli/internal/store/meraki_secrets.go",
-     "contains": "\"shared key\", \"webhook\"}",
+     "contains": "\"shared key\", \"token\", \"webhook\"}",
      "min_count": 1,
      "code_only": true
     },
