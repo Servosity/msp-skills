@@ -96,7 +96,8 @@ func TestManifestlessSnapshotIsNotARestorePoint(t *testing.T) {
 	f.pbsRoutes["/admin/datastore/main/snapshots"] = append(f.pbsRoutes["/admin/datastore/main/snapshots"].([]any),
 		map[string]any{"backup-type": "vm", "backup-id": "101", "backup-time": recent, "files": []string{"index.json.blob"}, "owner": "root@pam"})
 	f.pveRoutes["/nodes/pve1/storage/pbs1/content"] = append(f.pveRoutes["/nodes/pve1/storage/pbs1/content"].([]any),
-		map[string]any{"volid": "pbs1:backup/vm/101/incomplete", "vmid": 101, "ctime": recent, "subtype": "qemu", "format": "pbs-vm"})
+		// What PVE's PBSPlugin really sends for it: size 1 ("$item->{size} // 1").
+		map[string]any{"volid": "pbs1:backup/vm/101/incomplete", "vmid": 101, "ctime": recent, "size": 1, "subtype": "qemu", "format": "pbs-vm"})
 
 	_, after := postureByVMID(t)
 	if r := after[101]; r.Verdict != "stale" || r.RestorePoints != before[101].RestorePoints {

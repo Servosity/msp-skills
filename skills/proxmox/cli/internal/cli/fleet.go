@@ -614,9 +614,15 @@ func fetchStorageArchives(ctx context.Context, c *client.Client, node string, s 
 	}
 	out := make([]restorePoint, 0, len(entries))
 	for _, e := range entries {
-		// No size: a PBS snapshot with no manifest (a backup still running, or
-		// left behind by a crash). It cannot be restored, so it is not a point.
-		if e.VMID == 0 || e.CTime == 0 || e.Size <= 0 {
+		// No size: an archive that cannot be restored is not a restore point.
+		// For a PBS storage, PVE's PBSPlugin reports a snapshot with no manifest
+		// (a backup still running, or crash debris) as size 1 ("$item->{size}
+		// // 1"), so 1 byte is that sentinel there; no real snapshot is 1 byte.
+		minSize := flexInt(0)
+		if s.Type == "pbs" {
+			minSize = 1
+		}
+		if e.VMID == 0 || e.CTime == 0 || e.Size <= minSize {
 			continue
 		}
 		rp := restorePoint{
@@ -648,16 +654,27 @@ func fetchStorageArchives(ctx context.Context, c *client.Client, node string, s 
 // Datastore.AllocateSpace on it plus VM.Backup on the owning guest. An
 // audit-only token (PVEAuditor) has neither and gets an empty list, not a 403.
 // vmid 0 means every guest, so VM.Backup must then cover /vms.
-func backupListingHidden(perms tokenPrivs, storage string, vmid int64) bool {
-	sp := "/storage/" + storage
-	if perms.has(client.PrivDatastoreAllocate.String(), sp) {
-		return false
+func backupListingHidden(ctx context.Context, c *client.Client, storage string, vmid int64) (bool, error) {
+	sp, err := privsAt(ctx, c, false, "/storage/"+storage)
+	if err != nil {
+		return true, err
+	}
+	if _, ok := sp[client.PrivDatastoreAllocate.String()]; ok {
+		return false, nil
+	}
+	if _, ok := sp[client.PrivDatastoreAllocateSpace.String()]; !ok {
+		return true, nil
 	}
 	vp := "/vms"
 	if vmid > 0 {
 		vp = "/vms/" + strconv.FormatInt(vmid, 10)
 	}
-	return !perms.has(client.PrivDatastoreAllocateSpace.String(), sp) || !perms.has(client.PrivVMBackup.String(), vp)
+	vprivs, err := privsAt(ctx, c, false, vp)
+	if err != nil {
+		return true, err
+	}
+	_, ok := vprivs[client.PrivVMBackup.String()]
+	return !ok, nil
 }
 
 // pbsCovers reports whether the PBS API reads the datastore and namespace that
@@ -680,15 +697,20 @@ func pbsCovers(refs map[string]pbsStorageRef, storage, endpoint string, nsByStor
 // content list the token cannot fully see is missing evidence, never "no
 // backups". When the PBS API reads the same archives (covered), a hidden PVE
 // list is skipped instead.
-func readStorageArchives(ctx context.Context, c *client.Client, perms tokenPrivs, permsErr error, node string, s storageInfo, vmid int64, refs map[string]pbsStorageRef, covered bool) ([]restorePoint, error) {
-	if permsErr != nil {
-		return nil, fmt.Errorf("cannot tell whether the token may list backup archives: %w", permsErr)
+func readStorageArchives(ctx context.Context, c *client.Client, node string, s storageInfo, vmid int64, refs map[string]pbsStorageRef, covered bool) ([]restorePoint, error) {
+	hidden, err := backupListingHidden(ctx, c, s.Storage, vmid)
+	if err != nil {
+		return nil, fmt.Errorf("cannot tell whether the token may list backup archives: %w", err)
 	}
-	if backupListingHidden(perms, s.Storage, vmid) {
+	if hidden {
 		if covered {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("Proxmox VE lists backup archives on storage %s only to a token with Datastore.Allocate on /storage/%s, or Datastore.AllocateSpace on it plus VM.Backup on the guest; this token has neither, so it would see an empty list and the archives were not read", s.Storage, s.Storage)
+		hint := ""
+		if ref, ok := refs[s.Storage]; ok {
+			hint = fmt.Sprintf(" Its backups are on PBS %s: set PROXMOX_PBS_HOST (or pbs_host) to that server, spelled the same way, and the PBS API reads them with an audit-only token.", ref.server)
+		}
+		return nil, fmt.Errorf("Proxmox VE lists backup archives on storage %s only to a token with Datastore.Allocate on /storage/%s, or Datastore.AllocateSpace on it plus VM.Backup on the guest; this token has neither, so it would see an empty list and the archives were not read.%s", s.Storage, s.Storage, hint)
 	}
 	return fetchStorageArchives(ctx, c, node, s, vmid, refs)
 }
@@ -766,16 +788,24 @@ func pbsAttribution(ctx context.Context, t fleetTarget, refs map[string]pbsStora
 		return nil, "", err
 	}
 	out := map[string][]string{}
-	if t.Profile.PBSNamespace != "" {
-		for _, store := range stores {
-			out[store] = []string{t.Profile.PBSNamespace}
-		}
-		return out, "", nil
-	}
 	host := t.pbsEndpoint()
 	known := map[string]bool{}
 	for _, st := range stores {
 		known[st] = true
+	}
+	if t.Profile.PBSNamespace != "" {
+		// Only the datastores this cluster's own PVE storages write to on this
+		// PBS: the same namespace name on another datastore can be another
+		// client's backups.
+		for _, ref := range refs {
+			if strings.EqualFold(ref.server, host) && known[ref.datastore] {
+				out[ref.datastore] = []string{t.Profile.PBSNamespace}
+			}
+		}
+		if len(out) == 0 {
+			return out, fmt.Sprintf("%s: PBS snapshots not attributed to guests: no PVE storage on this cluster points at PBS host %q, so pbs_namespace %q is not tied to a datastore", t.Name, host, t.Profile.PBSNamespace), nil
+		}
+		return out, "", nil
 	}
 	seen := map[string]bool{}
 	for _, ref := range refs {
@@ -852,6 +882,20 @@ func pbsSnapshots(ctx context.Context, c *client.Client, store, ns string, param
 	}
 	if ns != "" {
 		p["ns"] = ns
+	}
+	// PBS lists every group only with Datastore.Audit on the namespace's ACL
+	// path; with Datastore.Backup alone it silently lists just the groups the
+	// token owns, and a partial list must not read as a complete one.
+	acl := "/datastore/" + store
+	if ns != "" {
+		acl += "/" + ns
+	}
+	privs, err := privsAt(ctx, c, true, acl)
+	if err != nil {
+		return nil, err
+	}
+	if _, ok := privs[client.PrivDatastoreAudit.String()]; !ok {
+		return nil, fmt.Errorf("the PBS token lacks Datastore.Audit on %s, so PBS would list only the backup groups it owns; snapshots there were not read", acl)
 	}
 	var snaps []pbsSnapshot
 	if err := getJSON(ctx, c, pbsPath("/admin/datastore/%s/snapshots", store), p, &snaps); err != nil {
@@ -965,16 +1009,35 @@ func fetchPrivs(ctx context.Context, c *client.Client, pbs bool) (tokenPrivs, er
 	return perms, nil
 }
 
-// has reports whether priv applies at path: granted on the path itself, or on
-// an ancestor with the propagate bit.
+// has reports whether priv applies at path. /access/permissions lists the
+// effective privileges per ACL path, and a deeper ACL replaces what it would
+// inherit (PVE::AccessControl::roles), so the nearest listed path at or above
+// path decides alone: the path itself grants priv, or that ancestor grants it
+// with the propagate bit.
 func (p tokenPrivs) has(priv, path string) bool {
-	cur := "/" + strings.Trim(path, "/")
+	_, ok := p.at(path)[priv]
+	return ok
+}
+
+// at is the privilege set that applies at path by the nearest-listed rule.
+func (p tokenPrivs) at(path string) map[string]flexBool {
+	want := "/" + strings.Trim(path, "/")
+	cur := want
 	for {
-		if v, ok := p[cur][priv]; ok && (cur == "/"+strings.Trim(path, "/") || bool(v)) {
-			return true
+		if privs, listed := p[cur]; listed {
+			if cur == want {
+				return privs
+			}
+			out := map[string]flexBool{}
+			for k, v := range privs {
+				if bool(v) {
+					out[k] = v
+				}
+			}
+			return out
 		}
 		if cur == "/" {
-			return false
+			return nil
 		}
 		if i := strings.LastIndex(cur, "/"); i > 0 {
 			cur = cur[:i]
@@ -982,6 +1045,36 @@ func (p tokenPrivs) has(priv, path string) bool {
 			cur = "/"
 		}
 	}
+}
+
+// privsAt asks Proxmox for the token's effective privileges at exactly path
+// (/access/permissions?path=...), which applies every inherited, replaced and
+// pool-granted ACL the way Proxmox itself does. A server that ignores the
+// parameter is answered from its full dump by the nearest-listed rule.
+func privsAt(ctx context.Context, c *client.Client, pbs bool, path string) (map[string]flexBool, error) {
+	ep := "/access/permissions"
+	if pbs {
+		ep = client.PBSPath(ep)
+	}
+	var perms tokenPrivs
+	if err := getJSON(ctx, c, ep, map[string]string{"path": path}, &perms); err != nil {
+		return nil, fmt.Errorf("checking token privileges on %s: %w", path, err)
+	}
+	return perms.at(path), nil
+}
+
+// guestListHidden explains an incomplete guest list: Proxmox VE lists only the
+// guests the token holds VM.Audit on, and answers with the rest silently left
+// out. Without VM.Audit on /vms a missing guest reads as no guest.
+func guestListHidden(ctx context.Context, c *client.Client) error {
+	privs, err := privsAt(ctx, c, false, "/vms")
+	if err != nil {
+		return err
+	}
+	if _, ok := privs[client.PrivVMAudit.String()]; ok {
+		return nil
+	}
+	return fmt.Errorf("the token lacks VM.Audit on /vms, so Proxmox VE lists only the guests it may audit; guests it cannot see are missing from this report, not absent")
 }
 
 // anywhere reports whether priv is granted on any path.

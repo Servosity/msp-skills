@@ -184,6 +184,9 @@ func collectRPO(ctx context.Context, t fleetTarget, start, now time.Time, onlyVM
 			return nil, nil, err
 		}
 	}
+	if err := guestListHidden(ctx, t.C); err != nil {
+		fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "guests", Error: err.Error()})
+	}
 	cov, err := fetchCoverage(ctx, t.C)
 	if err != nil {
 		return nil, nil, err
@@ -228,10 +231,9 @@ func collectRPO(ctx context.Context, t fleetTarget, start, now time.Time, onlyVM
 			fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "pbs attribution", Error: warning})
 		}
 	}
-	perms, permsErr := fetchPrivs(ctx, t.C, false)
 	for _, key := range sortedKeys(storages) {
 		s := storages[key]
-		rps, err := readStorageArchives(ctx, t.C, perms, permsErr, readers[key], s, onlyVMID, refs, pbsCovers(refs, s.Storage, t.pbsEndpoint(), nsByStore))
+		rps, err := readStorageArchives(ctx, t.C, readers[key], s, onlyVMID, refs, pbsCovers(refs, s.Storage, t.pbsEndpoint(), nsByStore))
 		if err != nil {
 			pointsIncomplete = true
 			fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "storage " + key, Error: err.Error()})
@@ -308,13 +310,21 @@ func collectRPO(ctx context.Context, t fleetTarget, start, now time.Time, onlyVM
 		for _, g := range gaps {
 			allGaps[g] = true
 		}
-		if (pointsIncomplete || len(gaps) > 0) && row.MissedRuns > 0 {
-			row.MetSchedule, row.Evidence = false, "partial"
+		if pointsIncomplete || len(gaps) > 0 {
 			why := "some backup storage could not be read (see fetch_failures)"
 			if len(gaps) > 0 {
 				why = "the backup target of " + joinGaps(gaps) + " was not read"
 			}
-			row.Note = strings.TrimSpace(row.Note + " " + why + "; missed runs may be unread restore points")
+			// Evidence is partial either way. A met schedule stays met (each run
+			// has a readable restore point; unread storage can only add points),
+			// while missed runs become unproven.
+			row.Evidence = "partial"
+			if row.MissedRuns > 0 {
+				row.MetSchedule = false
+				row.Note = strings.TrimSpace(row.Note + " " + why + "; missed runs may be unread restore points")
+			} else {
+				row.Note = strings.TrimSpace(row.Note + " " + why + "; gaps and verified days may be understated")
+			}
 		}
 		row.Tenant, row.Cluster, row.VMID, row.Name = t.Tenant, t.Name, vmid, g.Name
 		row.Jobs = append([]string{}, cov.EnabledFor[vmid]...)

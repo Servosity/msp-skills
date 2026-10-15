@@ -223,6 +223,9 @@ func collectPosture(ctx context.Context, t fleetTarget, o postureOpts) (clusterP
 			return out, err
 		}
 	}
+	if err := guestListHidden(ctx, t.C); err != nil {
+		out.failures = append(out.failures, fetchFailure{Cluster: t.Name, Scope: "guests", Error: err.Error()})
+	}
 	cov, err := fetchCoverage(ctx, t.C)
 	if err != nil {
 		return out, err
@@ -275,10 +278,9 @@ func collectPosture(ctx context.Context, t fleetTarget, o postureOpts) (clusterP
 			out.warnings = append(out.warnings, warning)
 		}
 	}
-	perms, permsErr := fetchPrivs(ctx, t.C, false)
 	for _, key := range sortedKeys(storages) {
 		s := storages[key]
-		rps, err := readStorageArchives(ctx, t.C, perms, permsErr, readers[key], s, 0, refs, pbsCovers(refs, s.Storage, pbsHost, nsByStore))
+		rps, err := readStorageArchives(ctx, t.C, readers[key], s, 0, refs, pbsCovers(refs, s.Storage, pbsHost, nsByStore))
 		if err != nil {
 			archivesIncomplete = true
 			out.failures = append(out.failures, fetchFailure{Cluster: t.Name, Scope: "storage " + key, Error: err.Error()})

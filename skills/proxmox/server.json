@@ -78,7 +78,7 @@
         },
         {
           "name": "PROXMOX_CLUSTERS_FILE",
-          "description": "Path to the clusters.toml that lists client clusters. Leave blank for the default in the config directory. Each entry's token env vars must also be set for the MCP server.",
+          "description": "Path to the clusters.toml that lists client clusters. Leave blank for the default. Each cluster's token variables must also be in the server's environment.",
           "isRequired": false,
           "isSecret": false
         },

@@ -246,6 +246,16 @@ func (f *fixture) handler(t *testing.T, routes map[string]any, authPrefix string
 			writeExtra(w, []map[string]any{{"id": "offsite", "store": "main", "ns": "", "remote": "dr", "remote-store": "dr-main", "sync-direction": "push", "last-run-state": "OK", "last-run-endtime": ago(f.now, 6), "last-run-upid": "UPID:pbs:sync"}}, "digest", "d1")
 			return
 		}
+		// Like Proxmox, /access/permissions?path=X answers for exactly that path
+		// when the fixture lists it; otherwise the full dump stands in.
+		if want := q.Get("path"); path == "/access/permissions" && want != "" {
+			if m, ok := routes[path].(map[string]any); ok {
+				if entry, ok := m[want]; ok {
+					writeData(w, map[string]any{want: entry})
+					return
+				}
+			}
+		}
 		data, ok := routes[path]
 		if !ok {
 			t.Logf("fixture 404: %s %s", r.Method, r.URL.String())

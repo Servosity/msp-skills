@@ -311,7 +311,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 					if !strings.HasPrefix(healthPath, "/") {
 						healthPath = "/" + healthPath
 					}
-					reachBody, reachErr := c.GetWithHeaders(cmd.Context(), healthPath, nil, map[string]string{client.HTMLResponseHeader: "true"})
+					reachBody, reachErr := c.GetWithHeadersNoCache(cmd.Context(), healthPath, nil, map[string]string{client.HTMLResponseHeader: "true"}) // proxmox hand-fix (doctor-names-the-fix): a health check must never answer from the cache
 					var reachAPIErr *client.APIError
 					switch {
 					case reachErr == nil:

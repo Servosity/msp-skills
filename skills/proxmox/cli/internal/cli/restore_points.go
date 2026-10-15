@@ -153,6 +153,11 @@ func collectRestorePoints(ctx context.Context, t fleetTarget, query string, veri
 	}
 	matches := matchGuests(guests, query)
 	if len(matches) == 0 {
+		// A guest the token cannot audit is left out of the list, so "not found"
+		// is only true when the list is complete.
+		if err := guestListHidden(ctx, t.C); err != nil {
+			return nil, nil, err
+		}
 		return nil, nil, nil
 	}
 	var fails []fetchFailure
@@ -185,7 +190,6 @@ func collectRestorePoints(ctx context.Context, t fleetTarget, query string, veri
 			fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "pbs attribution", Error: warning})
 		}
 	}
-	perms, permsErr := fetchPrivs(ctx, t.C, false)
 	var out []guestRestorePoints
 	for _, g := range matches {
 		vmid := int64(g.VMID)
@@ -194,7 +198,7 @@ func collectRestorePoints(ctx context.Context, t fleetTarget, query string, veri
 		var points []restorePoint
 		for _, key := range sortedKeys(storages) {
 			s, node := storages[key], readers[key]
-			rps, err := readStorageArchives(ctx, t.C, perms, permsErr, node, s, vmid, refs, pbsCovers(refs, s.Storage, pbsHost, nsByStore))
+			rps, err := readStorageArchives(ctx, t.C, node, s, vmid, refs, pbsCovers(refs, s.Storage, pbsHost, nsByStore))
 			if err != nil {
 				fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "storage " + key, Error: err.Error()})
 				continue

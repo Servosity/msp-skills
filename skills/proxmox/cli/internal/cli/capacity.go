@@ -192,6 +192,12 @@ func collectCapacity(ctx context.Context, t fleetTarget, now time.Time, margin f
 				fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "pbs " + u.Store, Error: u.ErrorText})
 				continue
 			}
+			if u.Total <= 0 {
+				// PBS leaves total/used/avail out when it cannot measure the store or
+				// the token may not; 0 bytes is not 0% used.
+				fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "pbs " + u.Store, Error: "PBS returned no usage for this datastore (unmeasured, or the token lacks Datastore.Audit on it); its capacity is unknown"})
+				continue
+			}
 			row := capacityRow{Tenant: t.Tenant, Cluster: t.Name, Kind: "pbs-datastore", Name: u.Store,
 				TotalBytes: int64(u.Total), UsedBytes: int64(u.Used), AvailBytes: int64(u.Avail), Flags: []string{}}
 			row.UsedPct = pct(row.UsedBytes, row.TotalBytes)

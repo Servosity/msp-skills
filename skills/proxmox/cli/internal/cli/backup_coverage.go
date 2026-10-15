@@ -65,6 +65,7 @@ func newNovelBackupCoverageCmd(flags *rootFlags) *cobra.Command {
 			type result struct {
 				rows   []coverageRow
 				guests int
+				fails  []fetchFailure
 			}
 			results, failures := runFleet(ctx, targets, func(ctx context.Context, t fleetTarget) (result, error) {
 				guests, err := fetchGuests(ctx, t.C)
@@ -76,12 +77,16 @@ func newNovelBackupCoverageCmd(flags *rootFlags) *cobra.Command {
 						return result{}, err
 					}
 				}
+				var fails []fetchFailure
+				if err := guestListHidden(ctx, t.C); err != nil {
+					fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "guests", Error: err.Error()})
+				}
 				cov, err := fetchCoverage(ctx, t.C)
 				if err != nil {
 					return result{}, err
 				}
 				rows := coverageRows(t, guests, cov, includeDisks, includeTemplates, elsewhereTag)
-				return result{rows: rows, guests: len(guests)}, nil
+				return result{rows: rows, guests: len(guests), fails: fails}, nil
 			})
 			rep := coverageReport{Rows: make([]coverageRow, 0), FetchFailures: failures}
 			for _, t := range targets {
@@ -90,7 +95,9 @@ func newNovelBackupCoverageCmd(flags *rootFlags) *cobra.Command {
 			for _, r := range results {
 				rep.Rows = append(rep.Rows, r.Value.rows...)
 				rep.Guests += r.Value.guests
+				failures = append(failures, r.Value.fails...)
 			}
+			rep.FetchFailures = failures
 			for _, r := range rep.Rows {
 				if r.Disk == "" && r.Reason != "template" {
 					rep.Uncovered++
