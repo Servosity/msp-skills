@@ -86,7 +86,7 @@ overall is the lowest non-snoozed check score; protection_score is the lower of 
 			if err != nil {
 				return err
 			}
-			view.SyncedAt, view.Note = fleetFreshness(cmd.ErrOrStderr(), loadFleetMeta(db), flags.maxAge)
+			view.SyncedAt, view.Note = fleetFreshness(cmd.ErrOrStderr(), loadFleetMeta(db), flags.maxAge, "health")
 			if len(view.Items) > flagLimit {
 				view.Items = view.Items[:flagLimit]
 			}
@@ -232,7 +232,7 @@ func buildHealth(db fleetReader, filter map[string]bool) (healthView, error) {
 		}
 		return rows[i].TenantName < rows[j].TenantName
 	})
-	return healthView{Items: rows, Total: len(rows), BlindTenants: append(blindTenantsFrom(ledger, filter), unreadable.blind(names, filter)...)}, nil
+	return healthView{Items: rows, Total: len(rows), BlindTenants: append(blindTenantsFrom(ledger, filter, "health"), unreadable.blind(names, filter)...)}, nil
 }
 
 // minScore returns the lowest numeric value among the given paths, or nil.

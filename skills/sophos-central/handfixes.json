@@ -861,6 +861,131 @@
    ]
   },
   {
+   "id": "mcp-http-token-placeholder",
+   "summary": "the MCP server's --transport http bearer token is read through cliutil.EnvOverride, so an unresolved ${user_config.sophos_central_mcp_http_token} placeholder refuses to start instead of becoming the secret",
+   "why": "Codex review (2026-10-14) found the generated requireHTTPCallerToken read SOPHOS_CENTRAL_MCP_HTTP_TOKEN with os.Getenv. The variable is declared as an optional MCPB user_config value, and a host that skips an optional prompt leaves the literal placeholder text in the environment; that text is public (it is in manifest.json), so anyone could authenticate to an HTTP-mode server started that way. TestHTTPTokenPlaceholderRefused fails when the read goes back to os.Getenv.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/cmd/sophos-central-mcp/main.go",
+     "contains": "token := strings.TrimSpace(cliutil.EnvOverride(httpTokenEnvVar))",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/cmd/sophos-central-mcp/sophos_http_token_test.go",
+     "contains": "func TestHTTPTokenPlaceholderRefused(",
+     "min_count": 1,
+     "code_only": false
+    }
+   ],
+   "spec_encode_followup": "the press main_mcp.go.tmpl should read the HTTP token through cliutil.EnvOverride for every connector."
+  },
+  {
+   "id": "export-key-paging",
+   "summary": "export walks endpoints, alerts and audit events with pageFromKey / pages.nextKey, like sync and the list commands",
+   "why": "Codex review found resourceReadConfigs still declared these three key-paged Sophos resources as offset paging with no cursor parameter, so `export endpoints --limit 100` requested the same first page twice and an unlimited export repeated page one until the 100000-page guard. The sophos-key-paging hand-fix had covered sync and the list commands but not the export/tail resource table.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/resource_paths.go",
+     "contains": "paginationType: \"cursor\", cursorParam: \"pageFromKey\", limitParam: \"pageSize\", nextCursorPath: \"pages.nextKey\"",
+     "min_count": 3,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "fleet-freshness-per-resource",
+   "summary": "fleet refresh records when each resource was last refreshed; triage, health and gaps report synced_at and blind tenants from the resources they read",
+   "why": "The build pane's known gap, confirmed by Codex: one fleet_meta timestamp was stamped by any refresh, so `fleet refresh --resources health` made triage (endpoints, alerts) and gaps look freshly refreshed, and a tenant whose only refresh was health-only was not listed as blind. Each view now names the resources it depends on (triage: endpoints, alerts; health: health; gaps: health, endpoints, licenses); a missing resource gives synced_at null with a note and lists the tenant as not_refreshed. The triage 'new' flag uses the previous alerts refresh. TestPartialRefreshNotFreshForTriage fails when triage stops passing its resources.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sophos_fleet.go",
+     "contains": "func (m fleetSyncMeta) finishedFor(resources ...string) (time.Time, []string) {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_refresh.go",
+     "contains": "meta.ResourceStartedAt[rt], meta.ResourceFinishedAt[rt] = started, meta.FinishedAt",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_triage.go",
+     "contains": "flags.maxAge, \"endpoints\", \"alerts\")",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_triage.go",
+     "contains": "meta.prevStartedFor(\"alerts\")",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_health.go",
+     "contains": "flags.maxAge, \"health\")",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_gaps.go",
+     "contains": "flags.maxAge, \"health\", \"endpoints\", \"licenses\")",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_store_scope_test.go",
+     "contains": "func TestPartialRefreshNotFreshForTriage(",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "revenue-variance-per-product",
+   "summary": "fleet revenue compares billed seats with deployed endpoints per product; the customer-level billable_minus_deployed uses the largest single product line",
+   "why": "Codex review: the customer variance subtracted deployed endpoints from billable seats summed across every product, so ten machines with ten protection and ten encryption seats showed a false ten-seat discrepancy. One machine can consume several products.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fleet_revenue.go",
+     "contains": "p.BillableMinusDeployed = intPtr(p.Billable - n)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_revenue.go",
+     "contains": "cust.Variance = intPtr(largest - n)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_revenue_variance_test.go",
+     "contains": "func TestRevenueVarianceNotSummedAcrossProducts(",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "fleet-tamper-live-reads",
+   "summary": "fleet tamper bypasses the response cache so its plan reflects each tenant's current tamper protection setting",
+   "why": "Codex review: the global tamper setting came from the five-minute response cache, so turning tenant-wide tamper protection on in Sophos Central and rerunning `fleet tamper --yes` still reported global_off and skipped the tenant. The command's help already promised live reads.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fleet_tamper.go",
+     "contains": "c.NoCache = true",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
    "id": "doctor-verdict-tracks-reality",
    "summary": "doctor mints a token with the real credential and reports whether Sophos accepted it, instead of 'present, not verified'",
    "why": "doctor is the command every doc tells an operator to run first. The generated version printed 'present, not verified' and left the operator to guess (issue #282 fleet shape). doctorProbeCredentials makes the token request and names the failure (for example INVALID_CLIENT) with the API Credentials menu path.",
@@ -869,6 +994,12 @@
     {
      "file": "cli/internal/cli/doctor_verdict.go",
      "contains": "func doctorProbeCredentials(",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "doctorAuthConfiguredHook = func() (bool, string) {",
      "min_count": 1,
      "code_only": false
     },

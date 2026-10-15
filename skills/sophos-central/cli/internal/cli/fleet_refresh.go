@@ -278,7 +278,18 @@ func runFleetSync(ctx context.Context, cmd *cobra.Command, flags *rootFlags, c *
 			_ = db.SaveSyncState(rt, "", summary.Stored[rt])
 		}
 	}
-	meta := fleetSyncMeta{ID: "sync", StartedAt: started, FinishedAt: time.Now().UTC(), PrevStartedAt: prev.StartedAt, TenantsAttempts: attempted}
+	meta := fleetSyncMeta{ID: "sync", StartedAt: started, FinishedAt: time.Now().UTC(), PrevStartedAt: prev.StartedAt, TenantsAttempts: attempted,
+		ResourceStartedAt: map[string]time.Time{}, ResourceFinishedAt: map[string]time.Time{}, PrevResourceStartedAt: map[string]time.Time{}}
+	for rt, at := range prev.ResourceStartedAt {
+		meta.ResourceStartedAt[rt], meta.ResourceFinishedAt[rt], meta.PrevResourceStartedAt[rt] = at, prev.ResourceFinishedAt[rt], prev.PrevResourceStartedAt[rt]
+	}
+	for rt := range want {
+		meta.PrevResourceStartedAt[rt] = prev.ResourceStartedAt[rt]
+		if len(prev.ResourceStartedAt) == 0 {
+			meta.PrevResourceStartedAt[rt] = prev.StartedAt
+		}
+		meta.ResourceStartedAt[rt], meta.ResourceFinishedAt[rt] = started, meta.FinishedAt
+	}
 	if raw, err := json.Marshal(meta); err == nil {
 		_, _, _ = db.UpsertBatch(fleetMetaType, []json.RawMessage{raw})
 	}

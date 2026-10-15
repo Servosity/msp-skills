@@ -36,6 +36,9 @@ type billingProduct struct {
 	Billable int     `json:"billable"`
 	Revenue  float64 `json:"revenue"`
 	Currency string  `json:"currency"`
+	// One machine can consume several products (protection plus encryption),
+	// so billed seats are compared with deployed endpoints per product.
+	BillableMinusDeployed *int `json:"billable_minus_deployed,omitempty"`
 }
 
 // billingCustomer is one customer's monthly total.
@@ -73,7 +76,7 @@ func newNovelFleetRevenueCmd(flags *rootFlags) *cobra.Command {
 		Short: "Rank customers by monthly Sophos revenue for a billing month and compare billed quantities with deployed endpoints.",
 		Long: `Use this command to rank customers by monthly Sophos revenue for a billing month and compare billed quantities with deployed endpoints. Do NOT use this command to fetch the raw usage report line items; use 'billing' instead.
 
-Needs a partner credential. Reads every page of GET /partner/v1/billing/usage/{year}/{month}, totals billableQuantity x unitPrice per customer in each line's own currency (mixed currencies are reported separately, never summed), and joins each line's accountId to the tenants synced by 'fleet refresh' to compare billed seats with deployed endpoints. Lines whose accountId matches no synced tenant are listed under unmatched_account_ids rather than guessed by name.`,
+Needs a partner credential. Reads every page of GET /partner/v1/billing/usage/{year}/{month}, totals billableQuantity x unitPrice per customer in each line's own currency (mixed currencies are reported separately, never summed), and joins each line's accountId to the tenants synced by 'fleet refresh' to compare billed seats with deployed endpoints. Lines whose accountId matches no synced tenant are listed under unmatched_account_ids rather than guessed by name. One machine can consume several products (protection plus encryption), so billable_minus_deployed is reported per product, and the customer-level value compares the largest single product line (usually the endpoint licence) with deployed endpoints.`,
 		Example: strings.Trim(`
   sophos-central-cli fleet revenue --month 2026-09 --limit 20
   sophos-central-cli fleet revenue --agent --select items.tenant_name,items.revenue,items.billable_minus_deployed`, "\n"),
@@ -231,7 +234,17 @@ func buildBilling(month string, lines []billingLine, names map[string]string, de
 			cust.TenantName = name
 			if n, ok := deployed[key]; ok {
 				cust.DeployedEndpoints = intPtr(n)
-				cust.Variance = intPtr(cust.Billable - n)
+				// Compare the largest single product line (usually the endpoint
+				// licence) with deployed endpoints; summing seats across
+				// products would count one machine once per product.
+				largest := 0
+				for _, p := range products[key] {
+					p.BillableMinusDeployed = intPtr(p.Billable - n)
+					if p.Billable > largest {
+						largest = p.Billable
+					}
+				}
+				cust.Variance = intPtr(largest - n)
 			}
 		} else {
 			view.Unmatched = append(view.Unmatched, key)

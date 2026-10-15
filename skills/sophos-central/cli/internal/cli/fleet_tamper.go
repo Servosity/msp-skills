@@ -84,6 +84,9 @@ For each tenant it reads the tenant-wide tamper-protection setting and lists end
 			if err != nil {
 				return err
 			}
+			// The plan must reflect the tenant's current setting: a cached
+			// global_off would skip a tenant just switched on in Central.
+			c.NoCache = true
 			filter, err := fleetTenantFilter()
 			if err != nil {
 				return err

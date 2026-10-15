@@ -107,13 +107,13 @@ var resourceWritePaths = map[string]string{ // #nosec G101 -- endpoint paths, no
 
 var resourceReadConfigs = map[string]resourceReadConfig{
 	"admins":             {responsePath: "items", paginationType: "page", cursorParam: "page", limitParam: "pageSize", nextCursorPath: "", hasMoreField: "", pageSize: 50},
-	"alerts":             {responsePath: "items", paginationType: "offset", cursorParam: "", limitParam: "pageSize", nextCursorPath: "", hasMoreField: "", pageSize: 50},
+	"alerts":             {responsePath: "items", paginationType: "cursor", cursorParam: "pageFromKey", limitParam: "pageSize", nextCursorPath: "pages.nextKey", hasMoreField: "", pageSize: 100}, // HAND-FIX(sophos-key-paging): export walks pageFromKey/pages.nextKey
 	"allowed_items":      {responsePath: "items", paginationType: "page", cursorParam: "page", limitParam: "pageSize", nextCursorPath: "", hasMoreField: "", pageSize: 50},
-	"audit_events":       {responsePath: "items", paginationType: "offset", cursorParam: "", limitParam: "pageSize", nextCursorPath: "", hasMoreField: "", pageSize: 50},
+	"audit_events":       {responsePath: "items", paginationType: "cursor", cursorParam: "pageFromKey", limitParam: "pageSize", nextCursorPath: "pages.nextKey", hasMoreField: "", pageSize: 100}, // HAND-FIX(sophos-key-paging): export walks pageFromKey/pages.nextKey
 	"blocked_addresses":  {responsePath: "items", paginationType: "page", cursorParam: "page", limitParam: "pageSize", nextCursorPath: "", hasMoreField: "", pageSize: 50},
 	"blocked_items":      {responsePath: "items", paginationType: "page", cursorParam: "page", limitParam: "pageSize", nextCursorPath: "", hasMoreField: "", pageSize: 50},
 	"endpoint_groups":    {responsePath: "items", paginationType: "page", cursorParam: "page", limitParam: "pageSize", nextCursorPath: "", hasMoreField: "", pageSize: 50},
-	"endpoints":          {responsePath: "items", paginationType: "offset", cursorParam: "", limitParam: "pageSize", nextCursorPath: "", hasMoreField: "", pageSize: 50},
+	"endpoints":          {responsePath: "items", paginationType: "cursor", cursorParam: "pageFromKey", limitParam: "pageSize", nextCursorPath: "pages.nextKey", hasMoreField: "", pageSize: 100}, // HAND-FIX(sophos-key-paging): export walks pageFromKey/pages.nextKey
 	"enrichment_pivots":  {responsePath: "items", pageSize: 100},
 	"exclusions":         {responsePath: "items", paginationType: "page", cursorParam: "page", limitParam: "pageSize", nextCursorPath: "", hasMoreField: "", pageSize: 50},
 	"exploit_mitigation": {responsePath: "items", paginationType: "page", cursorParam: "page", limitParam: "pageSize", nextCursorPath: "", hasMoreField: "", pageSize: 50},

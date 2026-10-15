@@ -239,8 +239,10 @@ func TestBuildBillingPerCurrencyAndJoin(t *testing.T) {
 	if acme.Revenue["USD"] != 35 || acme.Revenue["EUR"] != 20 {
 		t.Fatalf("revenue must stay per currency, got %v", acme.Revenue)
 	}
-	if acme.Variance == nil || *acme.Variance != 4 {
-		t.Fatalf("billable 12 - deployed 8 = 4, got %v", acme.Variance)
+	// The largest single product line (Intercept X, 10 seats) against 8
+	// deployed endpoints; seats are not summed across products.
+	if acme.Variance == nil || *acme.Variance != 2 {
+		t.Fatalf("largest line 10 - deployed 8 = 2, got %v", acme.Variance)
 	}
 	if len(view.Unmatched) != 1 || view.Unmatched[0] != "X9" {
 		t.Fatalf("unmatched = %v, want [X9]", view.Unmatched)

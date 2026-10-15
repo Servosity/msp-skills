@@ -100,7 +100,7 @@ Reads the local store filled by 'fleet refresh'. Severity: alerts keep their own
 				return err
 			}
 			var freshNote string
-			view.SyncedAt, freshNote = fleetFreshness(cmd.ErrOrStderr(), loadFleetMeta(db), flags.maxAge)
+			view.SyncedAt, freshNote = fleetFreshness(cmd.ErrOrStderr(), loadFleetMeta(db), flags.maxAge, "endpoints", "alerts")
 			if view.Note == "" {
 				view.Note = freshNote
 			}
@@ -186,7 +186,7 @@ func buildTriage(db fleetReader, severities map[string]bool, stale time.Duration
 		add(triageRow{
 			TenantID: tenantID, TenantName: jsonString(a, "tenant", "name"), Kind: "alert",
 			Severity: strings.ToLower(jsonString(a, "severity")), Subject: subject, ID: jsonString(a, "id"), At: at,
-			New:         !meta.PrevStartedAt.IsZero() && at.After(meta.PrevStartedAt),
+			New:         !meta.prevStartedFor("alerts").IsZero() && at.After(meta.prevStartedFor("alerts")),
 			NextCommand: fmt.Sprintf("sophos-central-cli alerts get %s --tenant %s", jsonString(a, "id"), tenantID),
 		})
 		return true
@@ -237,7 +237,7 @@ func buildTriage(db fleetReader, severities map[string]bool, stale time.Duration
 		}
 		return rows[i].AgeHours > rows[j].AgeHours
 	})
-	view := triageView{Items: rows, Total: len(rows), BlindTenants: append(blindTenantsFrom(ledger, filter), unreadable.blind(names, filter)...)}
+	view := triageView{Items: rows, Total: len(rows), BlindTenants: append(blindTenantsFrom(ledger, filter, "endpoints", "alerts"), unreadable.blind(names, filter)...)}
 	if len(rows) == 0 && len(ledger) == 0 {
 		view.Note = "no fleet refresh has run yet; run 'sophos-central-cli fleet refresh' to fill the store"
 	}

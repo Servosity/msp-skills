@@ -35,10 +35,15 @@ Where the values live is your choice, and the CLI respects it:
   that same `credentials.toml`, because that is what logging in is for. Run
   `sophos-central-cli doctor` to see the resolved paths, and `auth logout` to clear them.
 
-`--dry-run` never mints a token or sends the secret. Credentials are never logged
-and nothing is sent anywhere except `id.sophos.com` and the Sophos Central API hosts
-(unless you point `SOPHOS_CENTRAL_BASE_URL` or `SOPHOS_CENTRAL_TOKEN_URL` elsewhere
-for that run; those overrides are never saved).
+`--dry-run` never mints a token or sends the secret. Credentials are never logged,
+and the client secret and tokens go only to the token URL and the API base URL: by
+default `id.sophos.com` and the Sophos Central API hosts. You can change those with
+`SOPHOS_CENTRAL_TOKEN_URL` / `SOPHOS_CENTRAL_BASE_URL` (for one run; never saved) or
+by editing `token_url` / `base_url` in `config.toml` (kept until you change it back).
+Two commands send data elsewhere only when you ask: `--deliver webhook:<url>` posts a
+command's output to that URL (the MCP server does not accept `--deliver`), and
+`feedback --send` (or `SOPHOS_CENTRAL_FEEDBACK_AUTO_SEND`) posts your feedback note to
+`SOPHOS_CENTRAL_FEEDBACK_ENDPOINT`, which is unset by default.
 The CLI also caches the caller identity from `whoami` and each tenant's regional API
 host, so it can route calls without asking again.
 

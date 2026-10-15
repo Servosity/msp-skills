@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	"sophos-central-pp-cli/internal/client"
+	"sophos-central-pp-cli/internal/cliutil"
 	"sophos-central-pp-cli/internal/config"
 )
 
@@ -69,5 +70,17 @@ func doctorProbeCredentials(ctx context.Context, c *client.Client, cfg *config.C
 		report["credentials"] = fmt.Sprintf("ERROR rejected: the token request failed (%s). Check the client ID and secret in Sophos Central API Credentials.", err)
 	default:
 		report["credentials"] = fmt.Sprintf("ERROR not verified: %s", err)
+	}
+}
+
+// A full client pair in the environment is a configured credential even before
+// the first token is minted; without this, doctor printed "FAIL Auth: not
+// configured" three lines above its own "OK Credentials: valid" on first run.
+func init() {
+	doctorAuthConfiguredHook = func() (bool, string) {
+		if strings.TrimSpace(cliutil.EnvOverride("SOPHOS_CENTRAL_CLIENT_ID")) != "" && strings.TrimSpace(cliutil.EnvOverride("SOPHOS_CENTRAL_CLIENT_SECRET")) != "" {
+			return true, "env:SOPHOS_CENTRAL_CLIENT_ID"
+		}
+		return false, ""
 	}
 }

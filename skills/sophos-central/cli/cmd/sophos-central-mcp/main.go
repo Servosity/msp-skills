@@ -16,6 +16,7 @@ import (
 
 	"github.com/mark3labs/mcp-go/server"
 	"sophos-central-pp-cli/internal/cli"
+	"sophos-central-pp-cli/internal/cliutil"
 	mcptools "sophos-central-pp-cli/internal/mcp"
 )
 
@@ -118,7 +119,10 @@ func defaultTransport() string {
 }
 
 func requireHTTPCallerToken() (string, error) {
-	token := strings.TrimSpace(os.Getenv(httpTokenEnvVar))
+	// HAND-FIX(mcp-http-token-placeholder): an MCPB host that skips the optional
+	// prompt leaves "${user_config...}" in the environment; that published
+	// string must never become the bearer secret.
+	token := strings.TrimSpace(cliutil.EnvOverride(httpTokenEnvVar))
 	if token == "" {
 		return "", fmt.Errorf("%s must be set to a non-empty bearer token before starting --transport http", httpTokenEnvVar)
 	}

@@ -293,6 +293,44 @@ type fleetSyncMeta struct {
 	FinishedAt      time.Time `json:"finished_at"`
 	PrevStartedAt   time.Time `json:"prev_started_at"`
 	TenantsAttempts int       `json:"tenants_attempted"`
+	// Per resource: a refresh limited to --resources health must not make
+	// triage (endpoints, alerts) look fresh. Legacy rows without these maps
+	// fall back to the run-level times.
+	ResourceStartedAt     map[string]time.Time `json:"resource_started_at,omitempty"`
+	ResourceFinishedAt    map[string]time.Time `json:"resource_finished_at,omitempty"`
+	PrevResourceStartedAt map[string]time.Time `json:"prev_resource_started_at,omitempty"`
+}
+
+// finishedFor returns when every named resource was last refreshed (the
+// oldest of them) and which were never refreshed.
+func (m fleetSyncMeta) finishedFor(resources ...string) (time.Time, []string) {
+	if len(m.ResourceFinishedAt) == 0 {
+		if m.FinishedAt.IsZero() {
+			return time.Time{}, resources
+		}
+		return m.FinishedAt, nil
+	}
+	var oldest time.Time
+	var missing []string
+	for _, rt := range resources {
+		at, ok := m.ResourceFinishedAt[rt]
+		if !ok || at.IsZero() {
+			missing = append(missing, rt)
+			continue
+		}
+		if oldest.IsZero() || at.Before(oldest) {
+			oldest = at
+		}
+	}
+	return oldest, missing
+}
+
+// prevStartedFor is when the refresh before the latest one that fetched rt began.
+func (m fleetSyncMeta) prevStartedFor(rt string) time.Time {
+	if len(m.ResourceStartedAt) == 0 {
+		return m.PrevStartedAt
+	}
+	return m.PrevResourceStartedAt[rt]
 }
 
 // blindTenant is a tenant a fleet read could not see on the last sync.
@@ -330,13 +368,24 @@ func loadFleetMeta(db fleetReader) fleetSyncMeta {
 // tenants whose last refresh was not ok, plus --tenant IDs the store has
 // never seen (status not_in_store), so a filtered read never drops a
 // requested tenant silently.
-func blindTenantsFrom(ledger map[string]fleetLedgerRow, filter map[string]bool) []blindTenant {
+func blindTenantsFrom(ledger map[string]fleetLedgerRow, filter map[string]bool, needed ...string) []blindTenant {
 	out := make([]blindTenant, 0)
 	for id, row := range ledger {
 		if filter != nil && !filter[id] {
 			continue
 		}
+		var unfetched []string
+		for _, rt := range needed {
+			if _, ok := row.Resources[rt]; !ok && len(row.Resources) > 0 {
+				unfetched = append(unfetched, rt)
+			}
+		}
+		if row.Status == "ok" && len(unfetched) == 0 {
+			continue
+		}
 		if row.Status == "ok" {
+			out = append(out, blindTenant{TenantID: id, TenantName: row.TenantName, Status: "not_refreshed",
+				Error: "fleet refresh has not fetched " + strings.Join(unfetched, ", ") + " for this tenant; run 'sophos-central-cli fleet refresh --resources " + strings.Join(unfetched, ",") + "'"})
 			continue
 		}
 		b := blindTenant{TenantID: id, TenantName: row.TenantName, Status: row.Status}
@@ -367,12 +416,17 @@ const fleetNeverRefreshedNote = "no fleet refresh has run yet; run 'sophos-centr
 // fleetFreshness returns when the last fleet refresh finished (nil if never)
 // and a note for empty or stale results. It also writes the hint to stderr,
 // naming 'fleet refresh': plain 'sync' does not fill the fleet tables.
-func fleetFreshness(w io.Writer, meta fleetSyncMeta, maxAge time.Duration) (*time.Time, string) {
+func fleetFreshness(w io.Writer, meta fleetSyncMeta, maxAge time.Duration, needed ...string) (*time.Time, string) {
 	if meta.FinishedAt.IsZero() {
 		fmt.Fprintln(w, "hint: "+fleetNeverRefreshedNote)
 		return nil, fleetNeverRefreshedNote
 	}
-	at := meta.FinishedAt
+	at, missing := meta.finishedFor(needed...)
+	if len(missing) > 0 {
+		note := "fleet refresh has not fetched " + strings.Join(missing, ", ") + " yet, so this view is incomplete; run 'sophos-central-cli fleet refresh --resources " + strings.Join(missing, ",") + "'"
+		fmt.Fprintln(w, "hint: "+note)
+		return nil, note
+	}
 	if maxAge > 0 && time.Since(at) > maxAge {
 		note := fmt.Sprintf("local fleet data is %s old (older than --max-age=%s); run 'sophos-central-cli fleet refresh' to update it", time.Since(at).Round(time.Minute), maxAge)
 		fmt.Fprintln(w, "hint: "+note)
