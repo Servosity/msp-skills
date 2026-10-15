@@ -1029,14 +1029,13 @@ func (t fleetTarget) sharedOwners(ref pbsStorageRef, ns string) []string {
 // task. Two spellings of one PBS list a task twice, which loses nothing.
 func (t fleetTarget) pbsServiceID() string { return "ep:" + strings.ToLower(t.pbsEndpoint()) }
 
-// samePBS reports whether ref's PBS is this target's configured PBS: the
-// same endpoint, or (with ownership known) the same PBS service by pin.
+// samePBS reports whether ref's PBS is the endpoint this target reads. Only
+// the endpoint: a cloned PBS keeps the certificate, so a matching pin does not
+// prove its tasks were read. Another spelling of the same PBS is reported as
+// unchecked, which loses nothing.
 func (t fleetTarget) samePBS(ref pbsStorageRef) bool {
 	ep := t.pbsEndpoint()
-	if ep != "" && strings.EqualFold(ref.server, ep) {
-		return true
-	}
-	return t.own != nil && ep != "" && overlaps(t.own.svc.of(ref.server, ref.fingerprint), t.own.svc.of(ep, t.Profile.PBSFingerprint))
+	return ep != "" && strings.EqualFold(ref.server, ep)
 }
 
 // pbsServiceSharers names the configured clusters that write, or may write,
