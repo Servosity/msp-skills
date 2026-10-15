@@ -302,6 +302,26 @@
       "tagline": "MCP server for CIPP and the Microsoft 365 it runs - Entra ID, Intune, Exchange Online, Defender and GDAP - across every client tenant at once."
     },
     {
+      "name": "cisco-duo",
+      "system": "Cisco Duo multi-factor authentication: users, phones, bypass codes, authentication logs, and MSP subaccounts through the Duo Admin API",
+      "status": "beta",
+      "skill_path": "skills/cisco-duo",
+      "cli_binary": "cisco-duo-cli",
+      "mcp_binary": "cisco-duo-mcp",
+      "version": "0.1.0",
+      "printing_press_version": "4.33.5",
+      "license": "Apache-2.0",
+      "vendor": "Cisco Duo",
+      "vendor_trademark_owner": "Cisco Systems, Inc.",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cisco-duo/install.sh)",
+      "install_mcp_doc": "skills/cisco-duo/mcp-install.md",
+      "description": "Fix Duo MFA lockouts in one command and see every MSP subaccount at once, with signed Admin API calls.",
+      "verification": "awaiting",
+      "category": "Security",
+      "tagline": "Fix Duo MFA lockouts in one command and see every MSP subaccount at once."
+    },
+    {
       "name": "cisco-meraki",
       "system": "Cisco Meraki Dashboard cloud-managed networking (MX security appliances, MS switches, MR access points, MV cameras) across every client organization",
       "status": "beta",
