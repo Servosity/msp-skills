@@ -233,11 +233,21 @@ func applyClusterToClient(c *client.Client, cl clusterProfile) error {
 	case cl.PVEBaseURL != "":
 		c.BaseURL = strings.TrimRight(cl.PVEBaseURL, "/")
 	case cl.PVEHost != "":
-		host := strings.TrimPrefix(cl.PVEHost, "https://")
-		if _, _, err := net.SplitHostPort(host); err != nil {
-			host = net.JoinHostPort(strings.Trim(host, "[]"), "8006")
+		// Parsed the way validate parses it (it accepts https://pve1/), never by
+		// string surgery.
+		raw := cl.PVEHost
+		if !strings.Contains(raw, "://") {
+			raw = "https://" + raw
 		}
-		c.BaseURL = "https://" + host + "/api2/json"
+		u, err := url.Parse(raw)
+		if err != nil || u.Hostname() == "" {
+			return fmt.Errorf("pve_host %q must be a host, host:port, or https://host:port", cl.PVEHost)
+		}
+		port := u.Port()
+		if port == "" {
+			port = "8006"
+		}
+		c.BaseURL = "https://" + net.JoinHostPort(u.Hostname(), port) + "/api2/json"
 	default:
 		c.BaseURL = ""
 		cfg.ProxmoxApiToken = ""

@@ -451,9 +451,11 @@ func (p *pbsPruneCheck) mark(ctx context.Context, t fleetTarget, ref pbsStorageR
 			v = "pbs-prune"
 		}
 		for _, j := range p.jobs {
-			// A job's ns reaches its subtree (max-depth ignored: conservative).
+			// A job's ns reaches its subtree, the root namespace every one
+			// (max-depth ignored: conservative).
+			jns := strings.TrimSpace(strings.TrimPrefix(fmt.Sprint(j["ns"]), "<nil>"))
 			if fmt.Sprint(j["store"]) == ref.datastore && !truthy(j["disable"]) && retentionPrunes(anyOpts(j)) &&
-				inNamespace(ref.namespace, strings.TrimSpace(strings.TrimPrefix(fmt.Sprint(j["ns"]), "<nil>"))) {
+				(jns == "" || inNamespace(ref.namespace, jns)) {
 				v = "pbs-prune"
 			}
 		}
