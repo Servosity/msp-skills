@@ -218,7 +218,8 @@
    "asserts": [
     {
      "file": "cli/internal/cli/sync.go",
-     "contains": "proxmox hand-fix (path-context-no-origin-override)"
+     "contains": "cannot change the Proxmox host: tokens and TLS pins are bound to the configured hosts",
+     "code_only": true
     },
     {
      "file": "cli/internal/cli/sync.go",
@@ -238,7 +239,8 @@
    "asserts": [
     {
      "file": "cli/internal/config/config.go",
-     "contains": "proxmox hand-fix (pve-host-no-localhost-default)"
+     "contains": "cfg.TemplateVars[\"host\"] = \"\"",
+     "code_only": true
     },
     {
      "file": "cli/internal/config/config.go",
@@ -310,7 +312,8 @@
    "asserts": [
     {
      "file": "cli/internal/mcp/code_orch.go",
-     "contains": "if ep.Method != \"GET\" { // proxmox hand-fix (code-orch-get-only)"
+     "contains": "this connector never writes to Proxmox\", ep.Method, id",
+     "code_only": true
     },
     {
      "file": "cli/internal/mcp/code_orch_get_only_test.go",
@@ -374,11 +377,15 @@
    "asserts": [
     {
      "file": "cli/internal/mcp/code_orch.go",
-     "contains": "proxmox hand-fix (mcp-read-only-hints)"
+     "contains": "mcplib.WithReadOnlyHintAnnotation(true)",
+     "min_count": 3,
+     "code_only": true
     },
     {
      "file": "cli/internal/mcp/intents.go",
-     "contains": "proxmox hand-fix (mcp-read-only-hints)"
+     "contains": "mcplib.WithReadOnlyHintAnnotation(true)",
+     "min_count": 1,
+     "code_only": true
     },
     {
      "file": "cli/internal/mcp/read_only_hints_test.go",
@@ -418,7 +425,8 @@
    "asserts": [
     {
      "file": "cli/internal/cli/helpers.go",
-     "contains": "proxmox hand-fix (per-cluster-store)"
+     "contains": "if scope := clusterStoreScope(); scope != \"\" {",
+     "code_only": true
     },
     {
      "file": "cli/internal/cli/clusters.go",
