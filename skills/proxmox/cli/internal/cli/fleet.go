@@ -14,6 +14,7 @@ import (
 	"net"
 	"net/url"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -42,31 +43,34 @@ type fleetTarget struct {
 }
 
 // pbsOwnership records, for every PBS namespace a configured cluster's PVE
-// storages write to, which PVE clusters write there, plus the configured
-// clusters that could not be read completely (their writes are unknown).
+// storages write to, which PVE clusters write there (exact namespaces), plus
+// peer scopes: the subtree each cluster declares as its pbs_namespace, and the
+// configured clusters that could not be read completely (their writes are
+// unknown: their declared subtree, or anywhere on their PBS when none).
 type pbsOwnership struct {
 	writers map[string]map[string]string // source key -> PVE id -> cluster name
-	unknown []unknownPeer
+	peers   []peerScope
 }
 
-type unknownPeer struct {
-	name, pve, endpoint string
-	fingerprints        []string // normalized pins from its clusters.toml entry
+type peerScope struct {
+	name, pve      string
+	endpoints, fps []string // the PBS it uses: hosts and normalized certificate pins
+	ns             string   // the subtree it owns; "" = any namespace (unknown peers only)
+	unknown        bool
 }
 
-// mayWrite reports whether an unreadable peer may write to ref's PBS: it names
-// the same PBS host, or pins the same PBS certificate, in clusters.toml.
-func (p unknownPeer) mayWrite(ref pbsStorageRef) bool {
-	if p.endpoint != "" && strings.EqualFold(p.endpoint, ref.server) {
-		return true
+// covers reports whether the peer owns, or may write to, ns on ref's PBS.
+func (p peerScope) covers(ref pbsStorageRef, ns string) bool {
+	same := false
+	for _, e := range p.endpoints {
+		same = same || (e != "" && strings.EqualFold(e, ref.server))
 	}
-	fp := normFingerprint(ref.fingerprint)
-	for _, f := range p.fingerprints {
-		if fp != "" && f == fp {
-			return true
+	if fp := normFingerprint(ref.fingerprint); fp != "" {
+		for _, f := range p.fps {
+			same = same || f == fp
 		}
 	}
-	return false
+	return same && (p.ns == "" || inNamespace(ns, p.ns))
 }
 
 func normFingerprint(s string) string {
@@ -629,12 +633,18 @@ func backupStorages(ctx context.Context, c *client.Client, nodes []string) (map[
 	disabled := map[string]storageInfo{}
 	var failures []fetchFailure
 	for _, node := range nodes {
+		// No content filter: with one, Proxmox VE leaves disabled storages out
+		// (PVE::Storage::storage_info), and a disabled former target may still
+		// hold archives. Backup content is filtered here instead.
 		var list []storageInfo
-		if err := getJSON(ctx, c, pvePath("/nodes/%s/storage", node), map[string]string{"content": "backup"}, &list); err != nil {
+		if err := getJSON(ctx, c, pvePath("/nodes/%s/storage", node), nil, &list); err != nil {
 			failures = append(failures, fetchFailure{Scope: "node " + node + " storage", Error: err.Error()})
 			continue
 		}
 		for _, s := range list {
+			if !slices.Contains(strings.Split(s.Content, ","), "backup") {
+				continue
+			}
 			key := s.Storage
 			if !s.Shared {
 				key = s.Storage + "@" + node
@@ -884,10 +894,15 @@ func (t fleetTarget) sharedOwners(ref pbsStorageRef, ns string) []string {
 	if t.pveID == "" && len(ids) > 1 {
 		foreign = true
 	}
-	for _, p := range t.own.unknown {
-		if p.pve != t.pveID && p.mayWrite(ref) {
-			names[p.name+" (could not be read)"], foreign = true, true
+	for _, p := range t.own.peers {
+		if p.pve == t.pveID || !p.covers(ref, ns) {
+			continue
 		}
+		name := p.name
+		if p.unknown {
+			name += " (could not be read)"
+		}
+		names[name], foreign = true, true
 	}
 	if !foreign {
 		return nil
@@ -908,47 +923,69 @@ func markSharedPBS(ctx context.Context, flags *rootFlags, targets []fleetTarget)
 	if err != nil || len(all) < 2 {
 		return
 	}
-	own := &pbsOwnership{writers: map[string]map[string]string{}}
-	// ponytail: one /storage read per cluster, sequential; fine for tens of clusters.
-	for _, t := range all {
-		var refs map[string]pbsStorageRef
-		var err error = t.Err
-		id := ""
-		if t.C != nil {
-			id = pveID(t.C.BaseURL)
+	type seen struct {
+		refs   map[string]pbsStorageRef
+		hidden bool
+	}
+	// Read every configured cluster in parallel (bounded), so a hung client
+	// site costs one timeout, not one per unselected cluster.
+	results, failures := runFleet(ctx, all, func(ctx context.Context, t fleetTarget) (seen, error) {
+		if pveID(t.C.BaseURL) == "" {
+			return seen{}, nil // PBS-only profile: it writes nothing through PVE
 		}
-		if err == nil && id == "" {
-			continue // PBS-only profile: it writes nothing through PVE
-		}
-		if err == nil {
-			refs, err = fetchPBSStorageRefs(ctx, t.C)
-		}
-		peer := unknownPeer{name: t.Name, pve: id, endpoint: pbsEndpointFromHost(t.Profile.PBSHost)}
-		for _, f := range splitPins(t.Profile.PBSFingerprint) {
-			peer.fingerprints = append(peer.fingerprints, normFingerprint(f))
-		}
+		refs, err := fetchPBSStorageRefs(ctx, t.C)
 		if err != nil {
-			own.unknown = append(own.unknown, peer)
-			continue
+			return seen{}, err
 		}
-		// A storage the token may not see is missing from the list, so an
-		// incomplete list cannot prove which namespaces this cluster uses: the
-		// visible ones still count, and the rest is unknown.
-		if storageListHidden(ctx, t.C) != nil {
-			own.unknown = append(own.unknown, peer)
+		return seen{refs: refs, hidden: storageListHidden(ctx, t.C) != nil}, nil
+	})
+	byName := map[string]fleetTarget{}
+	for _, t := range all {
+		byName[t.Name] = t
+	}
+	own := &pbsOwnership{writers: map[string]map[string]string{}}
+	scope := func(t fleetTarget, refs map[string]pbsStorageRef, unknown bool) peerScope {
+		p := peerScope{name: t.Name, ns: t.Profile.PBSNamespace, unknown: unknown}
+		if t.C != nil {
+			p.pve = pveID(t.C.BaseURL)
+		}
+		p.endpoints = append(p.endpoints, pbsEndpointFromHost(t.Profile.PBSHost))
+		for _, f := range splitPins(t.Profile.PBSFingerprint) {
+			p.fps = append(p.fps, normFingerprint(f))
 		}
 		for _, ref := range refs {
-			nss := []string{ref.namespace}
-			if t.Profile.PBSNamespace != "" {
-				nss = append(nss, t.Profile.PBSNamespace)
+			p.endpoints = append(p.endpoints, ref.server)
+			if fp := normFingerprint(ref.fingerprint); fp != "" {
+				p.fps = append(p.fps, fp)
 			}
-			for _, ns := range nss {
-				for _, k := range ref.sourceKeys(ns) {
-					if own.writers[k] == nil {
-						own.writers[k] = map[string]string{}
-					}
-					own.writers[k][id] = t.Name
+		}
+		return p
+	}
+	for _, f := range failures {
+		own.peers = append(own.peers, scope(byName[f.Cluster], nil, true))
+	}
+	for _, r := range results {
+		t := byName[r.Source]
+		id := pveID(t.C.BaseURL)
+		if id == "" {
+			continue
+		}
+		// A hidden storage is missing from the list, so the visible namespaces
+		// count and the rest is unknown.
+		if r.Value.hidden {
+			own.peers = append(own.peers, scope(t, r.Value.refs, true))
+		}
+		// A declared pbs_namespace owns its subtree, including namespaces a
+		// storage wrote to before it moved.
+		if t.Profile.PBSNamespace != "" {
+			own.peers = append(own.peers, scope(t, r.Value.refs, false))
+		}
+		for _, ref := range r.Value.refs {
+			for _, k := range ref.sourceKeys(ref.namespace) {
+				if own.writers[k] == nil {
+					own.writers[k] = map[string]string{}
 				}
+				own.writers[k][id] = t.Name
 			}
 		}
 	}
