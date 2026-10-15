@@ -60,11 +60,11 @@ This CLI ships an [MCPB](https://github.com/modelcontextprotocol/mcpb) bundle  -
 
 To install:
 
-1. Download the `.mcpb` for your platform from the [latest release](https://github.com/Servosity/msp-skills/releases?q=proxmox).
+1. Download `proxmox-mcp.mcpb` from the [latest release](https://github.com/Servosity/msp-skills/releases?q=proxmox). One bundle carries the binaries for every supported platform.
 2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
 3. Fill in the prompts: `PROXMOX_API_TOKEN` and `PROXMOX_HOST`, plus `PROXMOX_TLS_FINGERPRINT` for a self-signed certificate. The PBS host, token and fingerprint are optional.
 
-Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
+Requires Claude Desktop 1.0.0 or later.
 
 <details>
 <summary>Manual JSON config (advanced)</summary>
@@ -103,13 +103,16 @@ Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_
 
 ## Authentication
 
-Create a privilege-separated API token. PVE: PVEAuditor on /. Proxmox VE lists backup volumes only to a token that also holds Datastore.AllocateSpace and VM.Backup (an audit-only token sees an empty list, which this CLI reports as an unread storage, never as "no backups"), so when backups live on dir, NFS or CIFS storage, or PBS is not configured here, add a custom role with those two privileges on /; the CLI never sends a request that uses them. PBS: the Audit role on / (read-only; its Sys.Audit on /system/tasks is what lets failures see verify, GC, sync and prune tasks). When PROXMOX_PBS_HOST is set, PBS-backed archives are read straight from the PBS API and the PVE token can stay audit-only. Set PROXMOX_API_TOKEN to USER@REALM!TOKENID=SECRET and PROXMOX_HOST to the PVE host (or PROXMOX_BASE_URL for a full https://host:port/api2/json); for PBS set PROXMOX_PBS_API_TOKEN to USER@REALM!TOKENID:SECRET (colon) and PROXMOX_PBS_HOST. Proxmox ships self-signed certificates: pin them with PROXMOX_TLS_FINGERPRINT and PROXMOX_PBS_TLS_FINGERPRINT (the SHA-256 fingerprint shown under the node's Certificates); there is no insecure mode. For many clients, add one entry per cluster with 'clusters add' (clusters.toml in the config directory, or PROXMOX_CLUSTERS_FILE) and select one with --cluster or PROXMOX_CLUSTER. clusters.toml stores only the names of the env vars that hold tokens; 'auth set-token' is the only path that saves a token, to credentials.toml.
+Create a privilege-separated API token. PVE: PVEAuditor on /. Proxmox VE lists backup volumes only to a token that also holds Datastore.AllocateSpace and VM.Backup (an audit-only token sees an empty list, which this CLI reports as an unread storage and an unproven guest, never as "no backups"), so when backups live on dir, NFS or CIFS storage, or PBS is not configured here, add a custom role with those two privileges on /; the CLI never sends a request that uses them. PBS: the Audit role on / (read-only; its Sys.Audit on /system/tasks is what lets failures see verify, GC, sync and prune tasks). When PROXMOX_PBS_HOST is set (spelled as in the PVE storage's server field: the same IP or hostname), PBS-backed archives are read straight from the PBS API and the PVE token can stay audit-only. Set PROXMOX_API_TOKEN to USER@REALM!TOKENID=SECRET and PROXMOX_HOST to the PVE host (or PROXMOX_BASE_URL for a full https://host:port/api2/json); for PBS set PROXMOX_PBS_API_TOKEN to USER@REALM!TOKENID:SECRET (colon) and PROXMOX_PBS_HOST. Proxmox ships self-signed certificates: pin them with PROXMOX_TLS_FINGERPRINT and PROXMOX_PBS_TLS_FINGERPRINT (the SHA-256 fingerprint shown under the node's Certificates); there is no insecure mode. For many clients, add one entry per cluster with 'clusters add' (clusters.toml in the config directory, or PROXMOX_CLUSTERS_FILE) and select one with --cluster or PROXMOX_CLUSTER. clusters.toml stores only the names of the env vars that hold tokens; 'auth set-token' is the only path that saves a token, to credentials.toml.
 
 ## Quick Start
 
 ```bash
-# Health report: config, credentials, certificate pins and reachability for PVE and PBS
+# Health report for the PROXMOX_* environment: config, credentials and PVE reachability
 proxmox-cli doctor
+
+# Every configured cluster: PVE and PBS reachable, certificate pin and token accepted
+proxmox-cli clusters check
 
 # Register one client cluster; fingerprints are the SHA-256 values shown under each node's Certificates (stock Proxmox is self-signed); the file stores env var names, never tokens
 proxmox-cli clusters add --client "Acme Dental" --pve-host pve1.acme.lan --pve-token-env ACME_PVE_TOKEN --pve-fingerprint "$ACME_PVE_FP" --pbs-host pbs.acme.lan --pbs-token-env ACME_PBS_TOKEN --pbs-fingerprint "$ACME_PBS_FP" acme
@@ -158,7 +161,7 @@ proxmox-cli backup coverage --cluster acme
   ```bash
   proxmox-cli verify-health --agent
   ```
-- **`capacity`**  -  Every PBS datastore and PVE backup storage ranked by days until full, with garbage-collection and prune state and a GC-deadlock warning.
+- **`capacity`**  -  PBS datastores ranked by days until full, plus every PVE backup storage by percent used (only PBS forecasts), with garbage-collection and prune state and a GC-deadlock warning.
 
   _Use weekly to catch a datastore before it fills past the point where garbage collection can still run. fetch_failures lists clusters or calls that did not answer; when no cluster answers it exits 5._
 
@@ -167,7 +170,7 @@ proxmox-cli backup coverage --cluster acme
   ```
 
 ### Restore readiness
-- **`restore-points`**  -  Every restore point of one guest across all storages and PBS namespaces, with verify state, protection, encryption and whether the next prune removes it.
+- **`restore-points`**  -  Every restore point of one guest across all storages and PBS namespaces, with verify state, protection, encryption and, for points listed from PVE storage, whether the next prune removes it.
 
   _Use to answer 'can we restore server X from Tuesday?' with the exact restore points and whether each verified. Exit 3 means no reachable cluster has that guest; exit 5 means no cluster answered._
 
@@ -1448,7 +1451,7 @@ Required privilege: VM.Audit on /vms/{vmid}
 ### capacity
 
 
-- **`proxmox-cli capacity`** - Every PBS datastore and PVE backup storage ranked by days until full, with garbage-collection and prune state and a GC-deadlock warning.
+- **`proxmox-cli capacity`** - PBS datastores ranked by days until full, plus every PVE backup storage by percent used (only PBS forecasts), with garbage-collection and prune state and a GC-deadlock warning.
 
 
 ### failures
@@ -1466,7 +1469,7 @@ Required privilege: VM.Audit on /vms/{vmid}
 ### restore-points
 
 
-- **`proxmox-cli restore-points`** - Every restore point of one guest across all storages and PBS namespaces, with verify state, protection, encryption and whether the next prune removes it.
+- **`proxmox-cli restore-points`** - Every restore point of one guest across all storages and PBS namespaces, with verify state, protection, encryption and, for points listed from PVE storage, whether the next prune removes it.
 
 
 ### rpo
@@ -1530,7 +1533,7 @@ This CLI is designed for AI agent consumption:
 - **Offline-friendly** - sync/search commands can use the local SQLite store when available
 - **Agent-safe by default** - no colors or formatting unless `--human-friendly` is set
 
-Exit codes: `0` success, `1` gate tripped (`posture --fail-on-red`, `doctor --fail-on`), `2` usage error, `3` not found, `4` auth error, `5` API error, `7` rate limited, `10` config error.
+Exit codes: `0` success, `1` gate tripped (`posture --fail-on-red`, `doctor --fail-on`, a failed `clusters check`), `2` usage error, `3` not found, `4` auth error, `5` API error, `7` rate limited, `10` config error.
 
 ## Runtime Endpoint
 
@@ -1588,7 +1591,7 @@ If you use agentcookie to sync secrets across machines, this CLI auto-adopts age
 - **Proxmox Backup Server host not set**  -  export PROXMOX_PBS_HOST=pbs.example.lan (or set pbs_host for the cluster in clusters.toml)
 - **401 on PBS commands only**  -  PBS tokens use a colon: PROXMOX_PBS_API_TOKEN=user@pbs!tokenid:SECRET (PVE uses '=')
 - **posture shows a guest as uncovered though a job lists it**  -  The job is disabled; 'proxmox-cli backup coverage' prints reason disabled-job-only
-- **posture or failures exits 5 with 'No data: N of N cluster(s) unreachable'**  -  No cluster answered: check host, token and fingerprint with 'proxmox-cli doctor' (or --cluster <name> doctor)
+- **posture or failures exits 5 with 'No data: N of N cluster(s) unreachable'**  -  No cluster answered: check host, token and fingerprint for every cluster with 'proxmox-cli clusters check'
 
 ## Sources & Inspiration
 

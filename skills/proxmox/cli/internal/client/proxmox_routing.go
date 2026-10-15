@@ -197,7 +197,7 @@ func pbsAuthValue(v string) string {
 // entries are reported on stderr and ignored.
 func EnvPins(name string) []string {
 	var pins []string
-	for _, p := range strings.Split(cliutil.EnvOverride(name), ",") { // an unfilled .mcpb prompt is unset
+	for _, p := range strings.Split(cliutil.EffectiveEnv(os.Getenv(name)), ",") { // an unfilled .mcpb prompt is unset; os.Getenv(name) keeps check_env_schema seeing the read
 		if strings.TrimSpace(p) == "" {
 			continue
 		}

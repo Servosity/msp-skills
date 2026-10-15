@@ -293,6 +293,42 @@
      "contains": "func TestNoShellOutToolCanDirectAFilesystemPath("
     }
    ]
+  },
+  {
+   "id": "code-orch-get-only",
+   "summary": "proxmox_execute refuses any non-GET endpoint whether or not PROXMOX_MCP_READ_ONLY is set",
+   "why": "The connector is read-only toward Proxmox by design (an MSP owner: 'I dont let AI near my hypervisors'), but the generated execute handler keeps live POST/PUT/PATCH/DELETE branches and refuses them only under the opt-in read-only switch. Today every codeOrchEndpoints entry is a GET, so read-only rested on one generated table with no guard: a reprint that admitted one write endpoint would make it callable over MCP. The refusal sits in the handler, ahead of the switch check, so the generated codeOrchBlockedByMCPReadOnly test keeps its meaning. TestCodeOrchIsGetOnly asserts every table entry is GET and that an injected POST is refused; reverting the guard makes it fail.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "if ep.Method != \"GET\" { // proxmox hand-fix (code-orch-get-only)"
+    },
+    {
+     "file": "cli/internal/mcp/code_orch_get_only_test.go",
+     "contains": "func TestCodeOrchIsGetOnly("
+    }
+   ]
+  },
+  {
+   "id": "root-help-highlights-accurate",
+   "summary": "The root --help highlights say capacity forecasts only PBS datastores (PVE storage by percent used) and that restore-points marks next-prune only for points listed from PVE storage",
+   "why": "The press copies the research novel-feature descriptions into root.go. Two overclaimed: capacity has no forecast for PVE storage (only PBS computes estimated-full-date), and pruneMarks runs only on PVE storage listings, so PBS-API points carry no prune mark. Round-2 adversarial review (2026-10-15) flagged both as claims the binary does not deliver.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "PBS datastores ranked by days until full, plus every PVE backup storage by percent used (only PBS forecasts)"
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "for points listed from PVE storage, whether the next prune removes it."
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "Every PBS datastore and PVE backup storage ranked by days until full"
+    }
+   ]
   }
  ]
 }

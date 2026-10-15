@@ -135,6 +135,7 @@ func newFixture(t *testing.T) *fixture {
 		// VM.Backup). backup_visibility_behavior_test.go covers audit-only.
 		"/access/permissions": map[string]any{"/": map[string]any{"Sys.Audit": 1, "VM.Audit": 1, "Datastore.Audit": 1, "Datastore.AllocateSpace": 1, "VM.Backup": 1}},
 		"/storage":            "STORAGE", // computed in handler (needs the PBS server address)
+		"/version":            map[string]any{"version": "8.2.4", "release": "8.2"},
 	}
 	snap := func(typ, id string, h float64, state string, size int64) map[string]any {
 		s := map[string]any{"backup-type": typ, "backup-id": id, "backup-time": ago(n, h), "size": size, "files": []string{"index.json.blob"}, "owner": "root@pam"}
@@ -154,6 +155,7 @@ func newFixture(t *testing.T) *fixture {
 			snap("host", "nas", 10, "", 1<<20),
 		},
 		"/admin/sync":              "SYNC", // computed in handler: honours sync-direction like PBS
+		"/version":                 map[string]any{"version": "3.2", "release": "3"},
 		"/access/permissions":      map[string]any{"/": map[string]any{"Sys.Audit": true, "Datastore.Audit": true}, "/datastore": map[string]any{"Datastore.Audit": true}},
 		"/admin/verify":            []map[string]any{{"id": "v1", "store": "main", "ns": "", "max-depth": 7, "outdated-after": 30, "last-run-state": "OK", "last-run-endtime": ago(n, 8)}},
 		"/admin/datastore/main/gc": map[string]any{"store": "main", "last-run-state": "TASK ERROR: not enough space", "still-bad": 3, "removed-bad": 1, "pending-bytes": 5 << 30},

@@ -90,7 +90,7 @@
         },
         {
           "name": "PROXMOX_MCP_READ_ONLY",
-          "description": "Set to 1 to drop the MCP tools that write local files (sync, export, workflow archive, learnings forget/reject). Proxmox itself is never written either way. Leave blank for the full tool set.",
+          "description": "Set to 1 to drop the sync, export, workflow archive and learnings forget/reject MCP tools. The learning-store tools (teach, playbook) still write locally. Proxmox itself is never written either way. Leave blank for the full tool set.",
           "isRequired": false,
           "isSecret": false
         },
