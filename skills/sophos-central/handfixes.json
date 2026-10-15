@@ -1131,7 +1131,7 @@
     },
     {
      "file": "cli/internal/cli/fleet_refresh.go",
-     "contains": "\t// Plain sync also stores endpoints and alerts, for tenants that may have\n\t// no tenant or ledger row at all.",
+     "contains": "\t// A run cut off after storing a tenant's rows but before its ledger row.\n\tfor _, rt := range []string{fleetEndpointsType, fleetAlertsType} {",
      "min_count": 1,
      "code_only": false
     },
@@ -1392,8 +1392,8 @@
   },
   {
    "id": "local-provenance-per-tenant",
-   "summary": "a local read with one --tenant is dated by that tenant's own last fetch (fleet ledger full_at/at, then its sync checkpoint), never the fleet-wide stamp",
-   "why": "Codex round 4 (2026-10-15): localProvenance read the unscoped sync_state stamp, so `fleet refresh --tenant T2` made `endpoints list --tenant T1 --data-source local` report T1's stale rows with T2's fresh synced_at. sophosLocalSyncedAt reads the selected tenant's ledger row; several selected tenants get no single date. TestFullRefreshPrunesFromTheLiveTenantList checks localProvenance per tenant and fails with the data_source.go edit reverted. Adversarial round 7: the stderr freshness hints still read the fleet-wide stamp, so one command's synced_at and its hint disagreed; the local list path now calls emitScopedSyncHints with the same per-tenant date; adversarial round 8 showed analytics and search (which count every tenant's rows) must keep the fleet-wide hint, so readSyncHintState is left generated.",
+   "summary": "a local read with one --tenant is dated by that tenant's own last fetch (the later of its fleet ledger full_at/at and its sync checkpoint), never the fleet-wide stamp",
+   "why": "Codex round 4 (2026-10-15): localProvenance read the unscoped sync_state stamp, so `fleet refresh --tenant T2` made `endpoints list --tenant T1 --data-source local` report T1's stale rows with T2's fresh synced_at. sophosLocalSyncedAt reads the selected tenant's ledger row; several selected tenants get no single date. TestFullRefreshPrunesFromTheLiveTenantList checks localProvenance per tenant and fails with the data_source.go edit reverted. Adversarial round 7: the stderr freshness hints still read the fleet-wide stamp, so one command's synced_at and its hint disagreed; the local list path now calls emitScopedSyncHints with the same per-tenant date; adversarial round 8 showed analytics and search (which count every tenant's rows) must keep the fleet-wide hint, so readSyncHintState is left generated. Codex round 8: the ledger time always won, so a later full plain sync of the tenant still showed the older date; the later of the two is used now.",
    "status": "active",
    "asserts": [
     {
@@ -1463,15 +1463,9 @@
   {
    "id": "fleet-snapshots-replace",
    "summary": "fleet snapshot documents (ledger rows, fleet_meta, health, previous health, licences) are replaced on write, not merged by UpsertBatch's keep-richer policy",
-   "why": "Codex round 6 (2026-10-15): UpsertBatch keeps richer existing JSON, so an omitted key or an empty array keeps the old value. A refresh returning {\"licenses\":[]} kept the removed licences (fleet gaps reported them as current over-usage or expiry), and the same merge would keep a ledger outcome's old --since window or error after a clean full fetch, and an old trial_skipped list. replaceFleetDoc deletes the document before writing it. TestFleetSnapshotsReplaceInsteadOfMerging fails with the delete removed.",
+   "why": "Codex round 6 (2026-10-15): UpsertBatch keeps richer existing JSON, so an omitted key or an empty array keeps the old value. A refresh returning {\"licenses\":[]} kept the removed licences (fleet gaps reported them as current over-usage or expiry), and the same merge would keep a ledger outcome's old --since window or error after a clean full fetch, and an old trial_skipped list. replaceFleetDoc writes through store.ReplaceBatch (see fleet-rows-replace), one transaction with no merge. TestFleetSnapshotsReplaceInsteadOfMerging fails with the delete removed.",
    "status": "active",
    "asserts": [
-    {
-     "file": "cli/internal/cli/fleet_refresh.go",
-     "contains": "func replaceFleetDoc(db *store.Store, resourceType string, raw json.RawMessage) error {",
-     "min_count": 1,
-     "code_only": false
-    },
     {
      "file": "cli/internal/cli/fleet_refresh.go",
      "contains": "if err := replaceFleetDoc(db, fleetLedgerType, raw); err != nil {",
@@ -1501,30 +1495,110 @@
      "contains": "func TestFleetSnapshotsReplaceInsteadOfMerging(",
      "min_count": 1,
      "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_refresh.go",
+     "contains": "\tn, _, err := db.ReplaceBatch(resourceType, []json.RawMessage{raw})",
+     "min_count": 1,
+     "code_only": false
     }
    ]
   },
   {
    "id": "fleet-rows-replace",
-   "summary": "fleet refresh replaces each endpoint and alert row it fetched (view=full) instead of letting UpsertBatch's keep-richer merge keep cleared fields",
-   "why": "Codex round 7 (2026-10-15): an API response that cleared assignedProducts to [] kept the old entries through the keep-richer merge, so fleet gaps reported obsolete product and encryption gaps as freshly verified. storeTenantRows now deletes the stored rows for the fetched ids before upserting them; rows not fetched keep the existing reconcile. TestFleetRowsReplaceClearedFields fails with the delete removed.",
+   "summary": "fleet refresh writes each endpoint and alert row it fetched (view=full), and each fleet snapshot document, with store.ReplaceBatch: one transaction like UpsertBatch, but the item replaces the stored row instead of going through the keep-richer merge",
+   "why": "Codex round 7 (2026-10-15): an API response that cleared assignedProducts to [] kept the old entries through the keep-richer merge, so fleet gaps reported obsolete product and encryption gaps as freshly verified. storeTenantRows now deletes the stored rows for the fetched ids before upserting them; rows not fetched keep the existing reconcile. TestFleetRowsReplaceClearedFields fails with the delete removed. Adversarial round 9: the first version deleted rows in a separate autocommit before UpsertBatch, so a concurrent fleet revenue saw deployed 0 and a Ctrl+C or a failed upsert left the tenant's rows deleted (and the typed table out of step) while the ledger said ok. ReplaceBatch sets a per-Store flag that mergeIncomingResourceData honours inside UpsertBatch's own transaction. TestReplaceBatchReplacesAtomically proves a mid-batch failure keeps the old rows and that ordinary UpsertBatch keeps its merge.",
    "status": "active",
    "asserts": [
     {
      "file": "cli/internal/cli/fleet_refresh.go",
-     "contains": "\tif err := deleteResourceRows(db, resourceType, seen); err != nil {",
+     "contains": "\t\tn, extractFailures, err := db.ReplaceBatch(rt, valid)",
      "min_count": 1,
      "code_only": false
     },
     {
-     "file": "cli/internal/cli/fleet_refresh.go",
-     "contains": "func deleteResourceRows(db *store.Store, resourceType string, ids []string) error {",
+     "file": "cli/internal/store/store.go",
+     "contains": "\tif replacingWrites(s) { // HAND-FIX(fleet-rows-replace): ReplaceBatch stores items as given",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/store/sophos_replace.go",
+     "contains": "func (s *Store) ReplaceBatch(resourceType string, items []json.RawMessage) (int, int, error) {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/store/sophos_replace_test.go",
+     "contains": "func TestReplaceBatchReplacesAtomically(",
      "min_count": 1,
      "code_only": false
     },
     {
      "file": "cli/internal/cli/sophos_fleet_prune_test.go",
      "contains": "func TestFleetRowsReplaceClearedFields(",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "fleet-copies-own-type",
+   "summary": "fleet views (triage, gaps, revenue, the not_refreshed check and the prune) read fleet_endpoints / fleet_alerts, copies that only fleet refresh writes, instead of the shared endpoints / alerts mirror",
+   "why": "Codex rounds 3-8 and adversarial rounds 5-9 (2026-10-15) kept finding one class: a fleet answer changed by another writer into the shared endpoints/alerts tables. Plain sync, workflow archive, live-read write-through and write-command responses all write there with UpsertBatch's keep-richer merge, so a cleared assignedProducts or a partial page fed obsolete gaps, false revenue variance, false blind tenants and prune churn. fleet refresh now stores each fetched row in the mirror (for --data-source local reads) and in the fleet copy (ReplaceBatch + per-tenant reconcile); fleet views read only the copy, and the copies are kept out of the search index so local search does not return every endpoint twice. TestOtherWritersCannotChangeAFleetView fails when triage reads the mirror.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sophos_fleet.go",
+     "contains": "\tfleetEndpointsType  = \"fleet_endpoints\"",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_refresh.go",
+     "contains": "\tfor _, rt := range []string{resourceType, fleetCopyType(resourceType)} {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_triage.go",
+     "contains": "db.ListScan(fleetAlertsType, ",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_triage.go",
+     "contains": "db.ListScan(fleetEndpointsType, ",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_gaps.go",
+     "contains": "db.ListScan(fleetEndpointsType, ",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_revenue.go",
+     "contains": "db.ListScan(fleetEndpointsType, ",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\tif fleetCopyNotIndexed(resourceType) { // HAND-FIX(fleet-copies-own-type)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/store/sophos_replace.go",
+     "contains": "func fleetCopyNotIndexed(resourceType string) bool {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_fleet_prune_test.go",
+     "contains": "func TestOtherWritersCannotChangeAFleetView(",
      "min_count": 1,
      "code_only": false
     }

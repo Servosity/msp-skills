@@ -247,6 +247,11 @@ const (
 	fleetHealthType     = "fleet_health"      // one row per tenant: latest Account Health Check
 	fleetHealthPrevType = "fleet_health_prev" // the snapshot before the latest one
 	fleetLicensesType   = "fleet_licenses"    // one row per tenant: GET /licenses/v1/licenses
+	// Fleet views read only these copies, which only fleet refresh writes
+	// (replaced each run), so plain sync, live-read caching, write-command
+	// responses and workflow archive cannot change a fleet answer.
+	fleetEndpointsType  = "fleet_endpoints"
+	fleetAlertsType     = "fleet_alerts"
 	fleetMetaType       = "fleet_meta"        // id "sync": started/finished timestamps
 	fleetSiemCursorType = "fleet_siem_cursor" // id "<tenant>:<stream>"
 )
@@ -491,8 +496,8 @@ func tenantNames(db fleetReader, ledger map[string]fleetLedgerRow) map[string]st
 }
 
 // unrefreshedTenants lists stored non-trial tenants that have no ledger row
-// (a tenants-only refresh, a run cut off before reaching them, or endpoints
-// and alerts that plain sync stored), so an unfiltered fleet read never
+// (a tenants-only refresh, or a run cut off after storing a tenant's rows but
+// before its ledger row), so an unfiltered fleet read never
 // presents a partial book as complete. Filtered reads already report unknown
 // --tenant IDs as not_in_store.
 func unrefreshedTenants(db fleetReader, ledger map[string]fleetLedgerRow, filter map[string]bool) []blindTenant {
@@ -513,7 +518,7 @@ func unrefreshedTenants(db fleetReader, ledger map[string]fleetLedgerRow, filter
 		trial[t.ID] = strings.EqualFold(t.BillingType, "trial")
 		return true
 	})
-	for _, rt := range []string{"endpoints", "alerts"} {
+	for _, rt := range []string{fleetEndpointsType, fleetAlertsType} {
 		_ = db.ListScan(rt, func(_ string, data json.RawMessage) bool {
 			var row struct {
 				Tenant struct {
@@ -535,9 +540,9 @@ func unrefreshedTenants(db fleetReader, ledger map[string]fleetLedgerRow, filter
 		}
 		switch {
 		case trial[id] && hasRows[id]:
-			// Rows from a live read or plain sync: shown, but not refreshed.
+			// Rows an earlier --include-trial refresh stored.
 			out = append(out, blindTenant{TenantID: id, TenantName: names[id], Status: "trial_not_refreshed",
-				Error: "trial tenant: fleet refresh skips it unless --include-trial, so its rows here come from a live read or plain sync and may be stale"})
+				Error: "trial tenant: fleet refresh skips it unless --include-trial, so its rows here are from an earlier refresh and may be stale"})
 		case trial[id]:
 		default:
 			out = append(out, blindTenant{TenantID: id, TenantName: names[id], Status: "not_refreshed",
@@ -549,8 +554,9 @@ func unrefreshedTenants(db fleetReader, ledger map[string]fleetLedgerRow, filter
 }
 
 // sophosLocalSyncedAt dates a local read. With one tenant selected it is that
-// tenant's own last fetch of the resource (its fleet ledger row, then its sync
-// checkpoint), never the fleet-wide stamp another tenant's refresh could move.
+// tenant's own last fetch of the resource (the later of its fleet ledger row
+// and its sync checkpoint), never the fleet-wide stamp another tenant's
+// refresh could move.
 // Several selected tenants have no single date.
 func sophosLocalSyncedAt(db *store.Store, resourceType string) (time.Time, error) {
 	getState := func(key string) (time.Time, error) {
@@ -564,18 +570,24 @@ func sophosLocalSyncedAt(db *store.Store, resourceType string) (time.Time, error
 		}
 		return getState(resourceType)
 	}
-	if raw, err := db.Get(fleetLedgerType, t); err == nil && len(raw) > 0 {
+	// The tenant's own sync checkpoint, or its fleet ledger fetch when that
+	// is later (both are complete fetches of this tenant's rows).
+	at, err := getState(sophosSyncStateKey(resourceType))
+	if raw, gerr := db.Get(fleetLedgerType, t); gerr == nil && len(raw) > 0 {
 		var row fleetLedgerRow
 		if json.Unmarshal(raw, &row) == nil {
 			if o, ok := row.Resources[resourceType]; ok {
+				fetched := o.At
 				if !o.FullAt.IsZero() {
-					return o.FullAt, nil
+					fetched = o.FullAt
 				}
-				return o.At, nil
+				if fetched.After(at) {
+					return fetched, nil
+				}
 			}
 		}
 	}
-	return getState(sophosSyncStateKey(resourceType))
+	return at, err
 }
 
 // emitScopedSyncHints is emitSyncHints for a local list read: with one

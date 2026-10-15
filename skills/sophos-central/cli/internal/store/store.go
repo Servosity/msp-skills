@@ -2510,6 +2510,9 @@ func isSQLiteBusy(err error) bool {
 // write is incoming as-is. Callers apply the result to both the generic
 // resources blob and the typed-table projection.
 func (s *Store) mergeIncomingResourceData(tx *sql.Tx, resourceType, id string, incoming json.RawMessage) json.RawMessage {
+	if replacingWrites(s) { // HAND-FIX(fleet-rows-replace): ReplaceBatch stores items as given
+		return incoming
+	}
 	var existing string
 	err := tx.QueryRow(
 		`SELECT data FROM resources WHERE resource_type = ? AND id = ?`,
@@ -2536,6 +2539,9 @@ func (s *Store) upsertGenericResourceTx(tx *sql.Tx, resourceType, id string, dat
 	)
 	if err != nil {
 		return err
+	}
+	if fleetCopyNotIndexed(resourceType) { // HAND-FIX(fleet-copies-own-type): search shows the mirror row, not a duplicate
+		return nil
 	}
 
 	ftsRowid := ftsRowID(resourceType, id)

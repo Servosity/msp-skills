@@ -174,7 +174,7 @@ func billingJoinData(cmd *cobra.Command, dbPath string) (map[string]string, map[
 	defer db.Close()
 	ledger, _ := loadFleetLedger(db)
 	names = tenantNames(db, ledger)
-	_ = db.ListScan("endpoints", func(_ string, raw json.RawMessage) bool {
+	_ = db.ListScan(fleetEndpointsType, func(_ string, raw json.RawMessage) bool {
 		var e struct {
 			Tenant struct {
 				ID string `json:"id"`

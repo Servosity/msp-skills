@@ -171,7 +171,7 @@ func buildTriage(db fleetReader, severities map[string]bool, stale time.Duration
 		rows = append(rows, r)
 	}
 
-	err = db.ListScan("alerts", func(_ string, data json.RawMessage) bool {
+	err = db.ListScan(fleetAlertsType, func(_ string, data json.RawMessage) bool {
 		var a map[string]any
 		if json.Unmarshal(data, &a) != nil {
 			unreadable.add(data, "alerts")
@@ -195,7 +195,7 @@ func buildTriage(db fleetReader, severities map[string]bool, stale time.Duration
 		return triageView{}, fmt.Errorf("reading alerts: %w", err)
 	}
 
-	err = db.ListScan("endpoints", func(_ string, data json.RawMessage) bool {
+	err = db.ListScan(fleetEndpointsType, func(_ string, data json.RawMessage) bool {
 		var e map[string]any
 		if json.Unmarshal(data, &e) != nil {
 			unreadable.add(data, "endpoints")

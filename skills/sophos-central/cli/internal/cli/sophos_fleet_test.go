@@ -53,16 +53,16 @@ func fleetFixture() fakeFleetStore {
 	f.put(fleetLedgerType, "T3", fleetLedgerRow{ID: "T3", TenantName: "Cedar Trial", Status: "forbidden",
 		Resources: map[string]fleetOutcome{"endpoints": {Status: "forbidden", Error: "HTTP 403"}}})
 	f.put(fleetMetaType, "sync", fleetSyncMeta{ID: "sync", PrevStartedAt: testNow.Add(-24 * time.Hour), FinishedAt: testNow.Add(-time.Hour)})
-	f.put("alerts", "A1", map[string]any{"id": "A1", "severity": "high", "description": "Malware detected", "raisedAt": testNow.Add(-2 * time.Hour).Format(time.RFC3339),
+	f.put(fleetAlertsType, "A1", map[string]any{"id": "A1", "severity": "high", "description": "Malware detected", "raisedAt": testNow.Add(-2 * time.Hour).Format(time.RFC3339),
 		"tenant": map[string]any{"id": "T1", "name": "Acme Dental"}, "managedAgent": map[string]any{"id": "E1", "name": "WS-FIN-07"}, "allowedActions": []string{"acknowledge"}})
-	f.put("alerts", "A2", map[string]any{"id": "A2", "severity": "low", "description": "PUA", "raisedAt": testNow.Add(-72 * time.Hour).Format(time.RFC3339),
+	f.put(fleetAlertsType, "A2", map[string]any{"id": "A2", "severity": "low", "description": "PUA", "raisedAt": testNow.Add(-72 * time.Hour).Format(time.RFC3339),
 		"tenant": map[string]any{"id": "T2", "name": "Birch Legal"}})
-	f.put("endpoints", "E1", map[string]any{"id": "E1", "hostname": "WS-FIN-07", "tenant": map[string]any{"id": "T1"}, "health": map[string]any{"overall": "bad"},
+	f.put(fleetEndpointsType, "E1", map[string]any{"id": "E1", "hostname": "WS-FIN-07", "tenant": map[string]any{"id": "T1"}, "health": map[string]any{"overall": "bad"},
 		"tamperProtectionSupported": true, "tamperProtectionEnabled": false, "isolation": map[string]any{"status": "notIsolated"}, "lastSeenAt": testNow.Add(-time.Hour).Format(time.RFC3339),
 		"ipv4Addresses": []string{"10.20.4.17"}, "type": "computer",
 		"assignedProducts": []map[string]any{{"code": "deviceEncryption", "status": "installed"}}, "encryption": map[string]any{"overallStatus": "notEncrypted"},
 		"packages": map[string]any{"protection": map[string]any{"status": "unlicensed"}}})
-	f.put("endpoints", "E2", map[string]any{"id": "E2", "hostname": "SRV-DC01", "tenant": map[string]any{"id": "T2"}, "health": map[string]any{"overall": "good"},
+	f.put(fleetEndpointsType, "E2", map[string]any{"id": "E2", "hostname": "SRV-DC01", "tenant": map[string]any{"id": "T2"}, "health": map[string]any{"overall": "good"},
 		"tamperProtectionSupported": true, "tamperProtectionEnabled": true, "isolation": map[string]any{"status": "notIsolated"}, "lastSeenAt": testNow.Add(-30 * 24 * time.Hour).Format(time.RFC3339), "type": "server"})
 	return f
 }

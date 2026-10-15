@@ -515,27 +515,33 @@ func storeTenantRows(db *store.Store, resourceType, tenantID string, items []jso
 		seen = append(seen, store.ExtractResourceID(resourceType, obj))
 	}
 	// A fleet fetch returns whole objects (view=full), so each row replaces
-	// the stored one: UpsertBatch's keep-richer merge would keep a cleared
-	// field, e.g. assignedProducts emptied by the API.
-	if err := deleteResourceRows(db, resourceType, seen); err != nil {
-		return 0, fmt.Errorf("storing %s: %w", resourceType, err)
+	// the stored one in the same transaction: UpsertBatch's keep-richer merge
+	// would keep a cleared field, e.g. assignedProducts emptied by the API.
+	// The rows go to the local mirror (for --data-source local reads) and to
+	// the fleet copy the fleet views read.
+	for _, rt := range []string{resourceType, fleetCopyType(resourceType)} {
+		n, extractFailures, err := db.ReplaceBatch(rt, valid)
+		if err != nil {
+			return 0, fmt.Errorf("storing %s: %w", rt, err)
+		}
+		dropped := len(items) - len(valid)
+		if dropped > 0 || extractFailures > 0 || n != len(valid) {
+			return n, fmt.Errorf("storing %s for tenant %s: %d of %d rows had no usable id; skipped reconcile", resourceType, tenantID, dropped+extractFailures+len(valid)-n, len(items))
+		}
+		if !complete {
+			continue
+		}
+		typed, _ := store.TypedListTable(rt)
+		if _, err := db.ReconcilePartition(rt, "$.tenant.id", tenantID, seen, typed, nil); err != nil {
+			return n, fmt.Errorf("reconciling %s for tenant %s: %w", rt, tenantID, err)
+		}
 	}
-	n, extractFailures, err := db.UpsertBatch(resourceType, valid)
-	if err != nil {
-		return 0, fmt.Errorf("storing %s: %w", resourceType, err)
-	}
-	dropped := len(items) - len(valid)
-	if dropped > 0 || extractFailures > 0 || n != len(valid) {
-		return n, fmt.Errorf("storing %s for tenant %s: %d of %d rows had no usable id; skipped reconcile", resourceType, tenantID, dropped+extractFailures+len(valid)-n, len(items))
-	}
-	if !complete {
-		return n, nil
-	}
-	typed, _ := store.TypedListTable(resourceType)
-	if _, err := db.ReconcilePartition(resourceType, "$.tenant.id", tenantID, seen, typed, nil); err != nil {
-		return n, fmt.Errorf("reconciling %s for tenant %s: %w", resourceType, tenantID, err)
-	}
-	return n, nil
+	return len(valid), nil
+}
+
+// fleetCopyType names the fleet-owned copy of a mirrored resource.
+func fleetCopyType(resourceType string) string {
+	return map[string]string{"endpoints": fleetEndpointsType, "alerts": fleetAlertsType}[resourceType]
 }
 
 // storeTenantDoc stores a per-tenant document (health check, licences) keyed
@@ -562,13 +568,13 @@ func storeTenantDoc(db *store.Store, resourceType string, t fleetTenant, raw jso
 	return nil
 }
 
-// tenantsWrittenSince returns the tenants whose endpoint or alert rows were
-// written after t. updated_at is RFC3339 UTC with second precision, so a
+// tenantsWrittenSince returns the tenants whose fleet endpoint or alert rows
+// were written after t (only fleet refresh writes them). updated_at is RFC3339 UTC with second precision, so a
 // write in the same second as t is not counted.
 // ponytail: second precision; a concurrent write within that second can still be pruned.
 func tenantsWrittenSince(db *store.Store, t time.Time) (map[string]bool, error) {
 	rows, err := db.DB().Query(`SELECT DISTINCT json_extract(data, '$.tenant.id') FROM resources
-		WHERE resource_type IN ('endpoints', 'alerts') AND json_valid(data) AND updated_at > ?`, t.UTC().Truncate(time.Second).Format(time.RFC3339))
+		WHERE resource_type IN ('fleet_endpoints', 'fleet_alerts') AND json_valid(data) AND updated_at > ?`, t.UTC().Truncate(time.Second).Format(time.RFC3339))
 	if err != nil {
 		return nil, err
 	}
@@ -586,39 +592,16 @@ func tenantsWrittenSince(db *store.Store, t time.Time) (map[string]bool, error) 
 	return out, rows.Err()
 }
 
-// deleteResourceRows deletes the stored generic rows with these ids, so the
-// next UpsertBatch stores the incoming objects as they are.
-func deleteResourceRows(db *store.Store, resourceType string, ids []string) error {
-	for start := 0; start < len(ids); start += 500 {
-		chunk := ids[start:min(start+500, len(ids))]
-		args := make([]any, 0, len(chunk)+1)
-		args = append(args, resourceType)
-		for _, id := range chunk {
-			args = append(args, id)
-		}
-		q := `DELETE FROM resources WHERE resource_type = ? AND id IN (?` + strings.Repeat(", ?", len(chunk)-1) + `)`
-		if _, err := db.DB().Exec(q, args...); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// replaceFleetDoc stores a fleet snapshot exactly as given. UpsertBatch keeps
-// richer existing JSON (an omitted key or an empty array keeps the old
-// value), which suits API rows but not a snapshot: a refresh that returns no
-// licences, or a ledger outcome with no window or error, must replace.
+// replaceFleetDoc stores a fleet snapshot exactly as given, in one
+// transaction. UpsertBatch keeps richer existing JSON (an omitted key or an
+// empty array keeps the old value), which suits API rows but not a snapshot:
+// a refresh that returns no licences, or a ledger outcome with no window or
+// error, must replace.
 func replaceFleetDoc(db *store.Store, resourceType string, raw json.RawMessage) error {
-	var doc struct {
-		ID string `json:"id"`
+	n, _, err := db.ReplaceBatch(resourceType, []json.RawMessage{raw})
+	if err == nil && n != 1 {
+		err = fmt.Errorf("%s document has no id", resourceType)
 	}
-	if err := json.Unmarshal(raw, &doc); err != nil || doc.ID == "" {
-		return fmt.Errorf("%s document has no id", resourceType)
-	}
-	if _, err := db.DB().Exec(`DELETE FROM resources WHERE resource_type = ? AND id = ?`, resourceType, doc.ID); err != nil {
-		return err
-	}
-	_, _, err := db.UpsertBatch(resourceType, []json.RawMessage{raw})
 	return err
 }
 
@@ -661,9 +644,8 @@ func pruneOutOfScopeTenants(db *store.Store, tenants []fleetTenant, started time
 	}); err != nil {
 		return nil, err
 	}
-	// Plain sync also stores endpoints and alerts, for tenants that may have
-	// no tenant or ledger row at all.
-	for _, rt := range []string{"endpoints", "alerts"} {
+	// A run cut off after storing a tenant's rows but before its ledger row.
+	for _, rt := range []string{fleetEndpointsType, fleetAlertsType} {
 		if err := db.ListScan(rt, func(_ string, raw json.RawMessage) bool {
 			var row struct {
 				Tenant struct {
@@ -698,7 +680,7 @@ func pruneOutOfScopeTenants(db *store.Store, tenants []fleetTenant, started time
 	}
 	sort.Strings(gone)
 	for _, id := range gone {
-		for _, rt := range []string{"endpoints", "alerts"} {
+		for _, rt := range []string{"endpoints", "alerts", fleetEndpointsType, fleetAlertsType} {
 			typed, _ := store.TypedListTable(rt)
 			if _, err := db.ReconcilePartition(rt, "$.tenant.id", id, nil, typed, nil); err != nil {
 				return nil, err

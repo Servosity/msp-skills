@@ -149,12 +149,17 @@ func TestPruneCoversEndpointsOfUnrecordedTenants(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	// As plain `sync --tenant T9` leaves it: endpoint and alert rows, no
-	// tenant or ledger row.
-	for _, rt := range []string{"endpoints", "alerts"} {
-		if _, _, err := db.UpsertBatch(rt, []json.RawMessage{json.RawMessage(`{"id": "00000000-0000-0000-0000-00000000000` + map[string]string{"endpoints": "1", "alerts": "2"}[rt] + `", "tenant": {"id": "T9"}}`)}); err != nil {
+	// As a refresh cut off before T9's ledger row leaves it: endpoint and
+	// alert rows in the mirror and the fleet copy, no tenant or ledger row.
+	for _, rt := range []string{"endpoints", "alerts", fleetEndpointsType, fleetAlertsType} {
+		id := map[string]string{"endpoints": "1", "alerts": "2", fleetEndpointsType: "1", fleetAlertsType: "2"}[rt]
+		if _, _, err := db.UpsertBatch(rt, []json.RawMessage{json.RawMessage(`{"id": "00000000-0000-0000-0000-00000000000` + id + `", "tenant": {"id": "T9"}}`)}); err != nil {
 			t.Fatal(err)
 		}
+	}
+	// T7 exists only in the mirror (plain sync): not fleet data, kept.
+	if _, _, err := db.UpsertBatch("endpoints", []json.RawMessage{json.RawMessage(`{"id": "00000000-0000-0000-0000-000000000007", "tenant": {"id": "T7"}}`)}); err != nil {
+		t.Fatal(err)
 	}
 	if err := db.SaveSyncState("endpoints@T9", "", 1); err != nil {
 		t.Fatal(err)
@@ -176,15 +181,23 @@ func TestPruneCoversEndpointsOfUnrecordedTenants(t *testing.T) {
 	if ledger, _ := loadFleetLedger(db); ledger["T4"].ID != "T4" {
 		t.Fatal("a tenant refreshed after the listing must not be pruned")
 	}
-	for _, rt := range []string{"endpoints", "alerts"} {
+	for _, rt := range []string{"endpoints", "alerts", fleetEndpointsType, fleetAlertsType} {
 		n := 0
-		_ = db.ListScan(rt, func(string, json.RawMessage) bool { n++; return true })
+		_ = db.ListScan(rt, func(_ string, raw json.RawMessage) bool {
+			if rowTenantID(raw) == "T9" {
+				n++
+			}
+			return true
+		})
 		if n != 0 {
 			t.Fatalf("%s rows of an offboarded tenant survived the prune", rt)
 		}
 	}
+	if raw, _ := db.Get("endpoints", "00000000-0000-0000-0000-000000000007"); len(raw) == 0 {
+		t.Fatal("rows only plain sync stored are not fleet data and are not pruned")
+	}
 	// T8's endpoints were written after this run listed tenants.
-	if _, _, err := db.UpsertBatch("endpoints", []json.RawMessage{json.RawMessage(`{"id": "00000000-0000-0000-0000-000000000008", "tenant": {"id": "T8"}}`)}); err != nil {
+	if _, _, err := db.UpsertBatch(fleetEndpointsType, []json.RawMessage{json.RawMessage(`{"id": "00000000-0000-0000-0000-000000000008", "tenant": {"id": "T8"}}`)}); err != nil {
 		t.Fatal(err)
 	}
 	if pruned, err := pruneOutOfScopeTenants(db, []fleetTenant{{ID: "T1", Name: "Acme"}}, time.Now().Add(-5*time.Second)); err != nil || len(pruned) != 0 {
@@ -199,10 +212,10 @@ func TestNamelessTenantsRowIsNotATenant(t *testing.T) {
 	if got := unrefreshedTenants(f, map[string]fleetLedgerRow{}, nil); len(got) != 1 || got[0].TenantID != "T1" {
 		t.Fatalf("a cached amendment response is not a tenant: %+v", got)
 	}
-	f.put("endpoints", "E9", map[string]any{"id": "E9", "tenant": map[string]any{"id": "T9"}})
+	f.put(fleetEndpointsType, "E9", map[string]any{"id": "E9", "tenant": map[string]any{"id": "T9"}})
 	got := unrefreshedTenants(f, map[string]fleetLedgerRow{"T1": {ID: "T1"}}, nil)
 	if len(got) != 1 || got[0].TenantID != "T9" {
-		t.Fatalf("endpoints plain sync stored for a tenant fleet refresh never reached must be blind: %+v", got)
+		t.Fatalf("fleet rows of a tenant with no ledger row (a cut-off run) must be blind: %+v", got)
 	}
 	f.put(fleetMetaType, "sync", fleetSyncMeta{ID: "sync", TrialSkipped: []string{"T9"}})
 	if got := unrefreshedTenants(f, map[string]fleetLedgerRow{"T1": {ID: "T1"}}, nil); len(got) != 1 || got[0].Status != "trial_not_refreshed" {
@@ -287,5 +300,20 @@ func TestFleetRowsReplaceClearedFields(t *testing.T) {
 	raw, _ := db.Get("endpoints", id)
 	if strings.Contains(string(raw), "deviceEncryption") {
 		t.Fatalf("a field the API cleared must not survive a fleet refresh: %s", raw)
+	}
+}
+
+func TestOtherWritersCannotChangeAFleetView(t *testing.T) {
+	f := fleetFixture()
+	before, err := buildTriage(f, map[string]bool{"high": true, "medium": true, "low": true}, 14*24*time.Hour, false, testNow, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A plain sync or a live read rewrites the mirror; the fleet copy stays.
+	f.put("endpoints", "E9", map[string]any{"id": "E9", "hostname": "WS-NEW", "tenant": map[string]any{"id": "T1"}, "health": map[string]any{"overall": "bad"}})
+	f.put("alerts", "A9", map[string]any{"id": "A9", "severity": "high", "description": "x", "tenant": map[string]any{"id": "T1"}})
+	after, err := buildTriage(f, map[string]bool{"high": true, "medium": true, "low": true}, 14*24*time.Hour, false, testNow, nil)
+	if err != nil || len(after.Items) != len(before.Items) || len(after.BlindTenants) != len(before.BlindTenants) {
+		t.Fatalf("mirror writes changed the fleet view: before %d items, after %d (%v)", len(before.Items), len(after.Items), err)
 	}
 }

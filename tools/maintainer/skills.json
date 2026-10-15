@@ -1649,7 +1649,7 @@
       "display_name": "Sophos Central",
       "tagline": "Triage alerts, restore tamper protection and contain a machine by hostname across every Sophos Central tenant by asking.",
       "has_video": true,
-      "cli_hash": "sha256:438cfa7f6786d43dd2816230aab7516b388d2532dfe2502c12e99adfde8d0cd6",
+      "cli_hash": "sha256:bda1f029e12131b488afb1a0d7b3543723742ee876c8d495ae733b3420f7f17d",
       "template_version": 3,
       "version": "0.1.0",
       "cli_hash_at_release": null,

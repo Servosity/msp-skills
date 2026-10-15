@@ -198,7 +198,7 @@ func buildGaps(db fleetReader, filter map[string]bool, opt gapOptions) (gapsView
 
 	// Endpoints: encryption, licensing, product install state, servers.
 	tally := map[string]*endpointTally{}
-	err = db.ListScan("endpoints", func(_ string, raw json.RawMessage) bool {
+	err = db.ListScan(fleetEndpointsType, func(_ string, raw json.RawMessage) bool {
 		var e map[string]any
 		if json.Unmarshal(raw, &e) != nil {
 			unreadable.add(raw, "endpoints")
