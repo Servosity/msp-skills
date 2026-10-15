@@ -20,6 +20,12 @@ func TestRedactSecretFields(t *testing.T) {
 			t.Errorf("%s lost: %s", keep, got)
 		}
 	}
+	// Each secret shape alone in a body: the prefilter must not miss any.
+	for _, body := range []string{`{"storage":"x","access_token":"S1"}`, `{"token":"S1"}`, `{"api_key":"S1"}`, `{"ssh-private-key":"S1"}`, `{"freenas_password":"S1"}`, `[{"client_secret":"S1"}]`} {
+		if strings.Contains(string(redactSecretFields([]byte(body))), "S1") {
+			t.Errorf("secret survived in %s", body)
+		}
+	}
 	if plain := `{"storage":"local"}`; string(redactSecretFields([]byte(plain))) != plain {
 		t.Error("a body with nothing to redact must be returned unchanged")
 	}

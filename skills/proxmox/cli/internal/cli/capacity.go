@@ -51,7 +51,7 @@ func newNovelCapacityCmd(flags *rootFlags) *cobra.Command {
 			"Do NOT use this command for verify failures or corrupt chunks; use 'verify-health' instead.\n\n" +
 			"Flags: gc-deadlock-risk (free space below --gc-margin while the last garbage collection failed or never ran: GC needs " +
 			"free space to run, so the datastore can no longer clean itself), unpruned (nothing prunes the datastore: no PBS prune job, " +
-			"datastore keep-* or PVE prune-backups that removes anything; keep-all or all-zero keep counts prune nothing), filling (estimated full within --within), no-forecast (a PVE storage, or a PBS datastore with too few usage " +
+			"datastore keep-* on a prune-schedule, or PVE prune-backups on an enabled backup job writing there, that removes anything; keep-all or all-zero keep counts prune nothing), filling (estimated full within --within), no-forecast (a PVE storage, or a PBS datastore with too few usage " +
 			"samples for PBS to estimate: nothing forecasts its days to full, so it is always listed, --within included, and judged by used_pct), nearly-full (free space below --gc-margin). " +
 			"PBS forecasts come from its own linear regression over the last month.",
 		Example: strings.Trim(`
@@ -322,15 +322,17 @@ func collectCapacity(ctx context.Context, t fleetTarget, now time.Time, margin f
 	return rows, fails, nil
 }
 
-// datastoreHasRetention reports whether the datastore config itself carries
-// keep-* options (an alternative to prune jobs).
+// datastoreHasRetention reports whether the datastore config itself prunes:
+// keep-* options (the alternative to prune jobs) run only on the datastore's
+// own prune-schedule, so retention without a schedule removes nothing.
 func datastoreHasRetention(ctx context.Context, t fleetTarget, store string, fails *[]fetchFailure) bool {
 	var cfg map[string]any
 	if err := getJSON(ctx, t.C, pbsPath("/config/datastore/%s", store), nil, &cfg); err != nil {
 		*fails = append(*fails, fetchFailure{Cluster: t.Name, Scope: "pbs " + store + " config", Error: err.Error()})
 		return true // unknown: do not raise an unpruned flag on missing data
 	}
-	return retentionPrunes(anyOpts(cfg))
+	opts := anyOpts(cfg)
+	return strings.TrimSpace(opts["prune-schedule"]) != "" && retentionPrunes(opts)
 }
 
 func pct(used, total int64) float64 {
@@ -372,15 +374,13 @@ func pveRetentionFor(store, pbsHost string, refs map[string]pbsStorageRef, jobs 
 			continue
 		}
 		// A backup job's own prune-backups overrides the storage's for the
-		// backups it writes, and PVE prunes after each job run: the storage is
-		// pruned when some enabled job's effective retention removes anything.
-		// With no job writing there, only the storage's own setting applies.
-		jobsHere := 0
+		// backups it writes, and PVE prunes only after a job run: the storage
+		// is pruned when some enabled job's effective retention removes
+		// anything. With no enabled job writing there, nothing prunes it.
 		for _, j := range jobs {
 			if !j.enabled() || j.Storage != id {
 				continue
 			}
-			jobsHere++
 			eff := pruneSpec(j.PruneBackups)
 			if eff == "" {
 				eff = ref.pruneBackups
@@ -388,9 +388,6 @@ func pveRetentionFor(store, pbsHost string, refs map[string]pbsStorageRef, jobs 
 			if retentionPrunes(parseRetention(eff)) {
 				return true
 			}
-		}
-		if jobsHere == 0 && retentionPrunes(parseRetention(ref.pruneBackups)) {
-			return true
 		}
 	}
 	return false
