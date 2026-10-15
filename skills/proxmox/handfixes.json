@@ -312,8 +312,8 @@
   },
   {
    "id": "root-help-highlights-accurate",
-   "summary": "The root --help highlights say capacity forecasts only PBS datastores (PVE storage by percent used) and that restore-points marks next-prune only for points listed from PVE storage",
-   "why": "The press copies the research novel-feature descriptions into root.go. Two overclaimed: capacity has no forecast for PVE storage (only PBS computes estimated-full-date), and pruneMarks runs only on PVE storage listings, so PBS-API points carry no prune mark. Round-2 adversarial review (2026-10-15) flagged both as claims the binary does not deliver.",
+   "summary": "The root --help highlights and the which index say capacity forecasts only PBS datastores, restore-points marks next-prune only for points listed from PVE storage, and restore-points exit 5 also means no readable point while a source was unread",
+   "why": "The press copies the research novel-feature descriptions into root.go. Two overclaimed: capacity has no forecast for PVE storage (only PBS computes estimated-full-date), and pruneMarks runs only on PVE storage listings, so PBS-API points carry no prune mark. Round-2 adversarial review (2026-10-15) flagged both as claims the binary does not deliver. which.go carries the same novel-feature text (plus the restore-points exit-code note) and drifted the same way; adversarial round 5 caught the exit-5 contradiction against restore-points --help.",
    "status": "active",
    "asserts": [
     {
@@ -327,6 +327,18 @@
     {
      "file": "cli/internal/cli/root.go",
      "not_contains": "Every PBS datastore and PVE backup storage ranked by days until full"
+    },
+    {
+     "file": "cli/internal/cli/which.go",
+     "contains": "exit 5 means no cluster answered, or no match had a readable restore point while some source was not read"
+    },
+    {
+     "file": "cli/internal/cli/which.go",
+     "not_contains": "exit 5 means no cluster answered.\""
+    },
+    {
+     "file": "cli/internal/cli/which.go",
+     "contains": "PBS datastores ranked by days until full, plus every PVE backup storage by percent used (only PBS forecasts)"
     }
    ]
   }

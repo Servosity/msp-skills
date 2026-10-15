@@ -276,10 +276,7 @@ func collectPosture(ctx context.Context, t fleetTarget, o postureOpts) (clusterP
 			storageUnread = true
 		}
 	}
-	if len(t.sharedUnknown) > 0 && len(refs) > 0 {
-		archivesIncomplete = true
-		out.failures = append(out.failures, t.sharedUnknownFailure())
-	}
+
 	// Proxmox VE lists a storage only to a token that may see it: a hidden one
 	// may hold this cluster's archives (and verify state), so nothing is green.
 	if err := storageListHidden(ctx, t.C); err != nil {
@@ -384,9 +381,14 @@ func collectPosture(ctx context.Context, t fleetTarget, o postureOpts) (clusterP
 		row.CoveredByJob = len(row.Jobs) > 0
 		// Only this guest's type: a VMID reused by a guest of the other type
 		// (CT 100 replaced by VM 100) is a different backup group.
-		var rps []restorePoint
+		var rps, unreadable []restorePoint
 		for _, rp := range dedupeRestorePoints(points[vmid]) {
-			if rp.GuestType == "" || rp.GuestType == g.Type {
+			if rp.GuestType != "" && rp.GuestType != g.Type {
+				continue
+			}
+			if rp.unreadable {
+				unreadable = append(unreadable, rp)
+			} else {
 				rps = append(rps, rp)
 			}
 		}
@@ -421,6 +423,12 @@ func collectPosture(ctx context.Context, t fleetTarget, o postureOpts) (clusterP
 			row.LastAttemptStatus = "unknown"
 		}
 		classifyPosture(&row, g, cov, newest, o.elsewhereTag)
+		if len(unreadable) > 0 && row.CoveredByJob && (row.Verdict == "never" || row.Verdict == "stale") {
+			// A snapshot listed without a readable manifest may be a backup still
+			// running or a damaged one: no restore point proven, none ruled out.
+			row.Verdict = "unproven"
+			row.Reason = fmt.Sprintf("%d backup(s) of it are listed without a readable manifest (still running, or damaged) and the newest readable restore point is %s", len(unreadable), orNone(row.LastSuccessAt))
+		}
 		gaps := jobStorageGaps(cov, vmid, g.Node, readStorage, targets)
 		for _, g := range gaps {
 			allGaps[g] = true
@@ -684,6 +692,7 @@ func dedupeRestorePoints(in []restorePoint) []restorePoint {
 		for _, v := range views[1:] {
 			rp.Protected = rp.Protected || v.Protected
 			rp.Encrypted = rp.Encrypted || v.Encrypted
+			rp.unreadable = rp.unreadable && v.unreadable // one readable view is a manifest
 		}
 		rp.VerifyState, rp.VerifyUPID = reduceVerification(views)
 		out = append(out, rp)

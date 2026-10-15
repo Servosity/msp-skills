@@ -161,9 +161,9 @@ func newNovelRpoCmd(flags *rootFlags) *cobra.Command {
 			if byClient {
 				rows := make([][]string, 0, len(rep.Clients))
 				for _, c := range rep.Clients {
-					rows = append(rows, []string{c.Tenant, fmt.Sprint(c.Guests), fmt.Sprint(c.GuestsMet), fmt.Sprint(c.MissedRuns), fmt.Sprint(c.GuestsUnproven), fmt.Sprintf("%.1f", c.WorstGapHours), fmt.Sprint(c.ClustersUnreachable), fmt.Sprint(c.FetchFailures)})
+					rows = append(rows, []string{c.Tenant, fmt.Sprint(c.Guests), fmt.Sprint(c.GuestsMet), fmt.Sprint(c.MissedRuns), fmt.Sprint(c.GuestsUnproven), fmt.Sprint(c.MissedRunsUnproven), fmt.Sprintf("%.1f", c.WorstGapHours), fmt.Sprint(c.ClustersUnreachable), fmt.Sprint(c.FetchFailures)})
 				}
-				return flags.printTable(cmd, []string{"CLIENT", "GUESTS", "MET SCHEDULE", "MISSED RUNS", "UNPROVEN", "WORST GAP (H)", "UNREACHABLE", "NOT READ"}, rows)
+				return flags.printTable(cmd, []string{"CLIENT", "GUESTS", "MET SCHEDULE", "MISSED RUNS", "UNPROVEN", "MISSED (UNPROVEN)", "WORST GAP (H)", "UNREACHABLE", "NOT READ"}, rows)
 			}
 			if len(rep.Rows) == 0 {
 				fmt.Fprintln(cmd.OutOrStdout(), "No guests covered by an enabled backup job.")
@@ -225,10 +225,7 @@ func collectRPO(ctx context.Context, t fleetTarget, start, now time.Time, onlyVM
 	for _, key := range sortedKeys(disabled) {
 		fails = append(fails, disabledFailure(t.Name, key))
 	}
-	if len(t.sharedUnknown) > 0 && len(refs) > 0 {
-		pointsIncomplete = true
-		fails = append(fails, t.sharedUnknownFailure())
-	}
+
 	if err := storageListHidden(ctx, t.C); err != nil {
 		pointsIncomplete = true
 		fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "backup storage", Error: err.Error()})
@@ -330,6 +327,7 @@ func collectRPO(ctx context.Context, t fleetTarget, start, now time.Time, onlyVM
 				mine = append(mine, rp)
 			}
 		}
+		mine, unreadable := splitUnreadable(mine)
 		row := evaluateRPO(mine, runs, start, now)
 		if scheduleUnknown {
 			row.MetSchedule, row.Evidence = false, "partial"
@@ -339,10 +337,13 @@ func collectRPO(ctx context.Context, t fleetTarget, start, now time.Time, onlyVM
 		for _, g := range gaps {
 			allGaps[g] = true
 		}
-		if pointsIncomplete || len(gaps) > 0 {
+		if pointsIncomplete || len(gaps) > 0 || len(unreadable) > 0 {
 			why := "some backup storage could not be read (see fetch_failures)"
-			if len(gaps) > 0 {
+			switch {
+			case len(gaps) > 0:
 				why = "the backup target of " + joinGaps(gaps) + " was not read"
+			case len(unreadable) > 0 && !pointsIncomplete:
+				why = fmt.Sprintf("%d backup(s) are listed without a readable manifest (still running, or damaged)", len(unreadable))
 			}
 			// Evidence is partial either way. A met schedule stays met (each run
 			// has a readable restore point; unread storage can only add points),
@@ -502,10 +503,13 @@ func rollupRPO(rows []rpoRow, targets []fleetTarget, failures []fetchFailure) []
 		if r.Evidence == "partial" {
 			c.GuestsPartial++
 		}
-		if r.PointsUnread {
+		switch {
+		case r.MetSchedule:
+			// Every run has a readable point; unread storage can only add more.
+		case r.PointsUnread:
 			c.GuestsUnproven++
 			c.MissedRunsUnproven += r.MissedRuns
-		} else {
+		default:
 			if r.RestorePoints == 0 {
 				c.GuestsWithNoData++
 			}
