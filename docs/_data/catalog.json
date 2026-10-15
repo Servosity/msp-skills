@@ -805,6 +805,17 @@
       "url": "/skills/veeam/"
     },
     {
+      "slug": "watchguard",
+      "display_name": "WatchGuard Cloud",
+      "tagline": "Check Firebox, EPDR, ThreatSync and AuthPoint health across every WatchGuard Cloud customer by asking.",
+      "category": "Security",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "url": "/skills/watchguard/"
+    },
+    {
       "slug": "wordpress",
       "display_name": "WordPress",
       "tagline": "Publish and manage WordPress pages, posts, media",

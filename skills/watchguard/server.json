@@ -1,0 +1,106 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Servosity/watchguard-mcp",
+  "title": "WatchGuard MCP",
+  "description": "Every WatchGuard Cloud product API in one CLI and MCP server: Firebox, Endpoint Security",
+  "version": "0.1.0",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/watchguard/watchguard-512x512.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/servosity/msp-skills",
+    "source": "github",
+    "subfolder": "skills/watchguard"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/watchguard-v0.1.0/watchguard-mcp.mcpb",
+      "version": "0.1.0",
+      "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "WATCHGUARD_CLIENT_ID",
+          "description": "WatchGuard Cloud API Access ID (read-write or read-only).",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "WATCHGUARD_CLIENT_SECRET",
+          "description": "Password for that Access ID.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "WATCHGUARD_API_KEY",
+          "description": "WatchGuard Cloud API key (WatchGuard-API-Key header).",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "WATCHGUARD_ACCOUNT_ID",
+          "description": "Your WatchGuard Cloud account ID (ACC-... or WGC-...).",
+          "isRequired": true,
+          "isSecret": false
+        },
+        {
+          "name": "WATCHGUARD_BASE_URL",
+          "description": "Optional: region API base URL; default https://api.usa.cloud.watchguard.com (EMEA api.deu, APAC api.jpn).",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "WATCHGUARD_TOKEN_URL",
+          "description": "Optional: region OAuth token URL; default https://api.usa.cloud.watchguard.com/oauth/token.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "WATCHGUARD_AUDIENCE",
+          "description": "Optional: a managed account's audience value; scopes every request to that one customer.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "WATCHGUARD_OAUTH_SCOPE",
+          "description": "Optional: OAuth scope to request; default api-access.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "WATCHGUARD_USER_AGENT",
+          "description": "Optional: override the User-Agent the CLI sends.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "WATCHGUARD_MCP_READ_ONLY",
+          "description": "Optional: set to 1 to run the MCP server read-only.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "WATCHGUARD_MCP_HTTP_TOKEN",
+          "description": "Bearer token callers must present when the server runs with --transport http; not used by the stdio transport.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Not enforced by this connector (no tenant-gated profiles); leave unset. It does not limit which accounts a call can reach.",
+          "isRequired": false,
+          "isSecret": false
+        }
+      ]
+    }
+  ]
+}

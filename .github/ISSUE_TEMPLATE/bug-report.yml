@@ -94,6 +94,7 @@ body:
         - threatlocker
         - unifi-network
         - veeam
+        - watchguard
         - wordpress
         - xero
         - zammad

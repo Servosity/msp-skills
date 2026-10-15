@@ -289,6 +289,10 @@ veeam:
   vendor: "Veeam"
   example_command: "Which customers have failing backups?"
 
+watchguard:
+  vendor: "WatchGuard"
+  example_command: "Which customer needs attention first?"
+
 wordpress:
   vendor: "WordPress"
   example_command: "Which pages still mention last year's pricing?"

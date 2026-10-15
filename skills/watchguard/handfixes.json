@@ -1,0 +1,649 @@
+{
+  "slug": "watchguard",
+  "doc": "docs/reprint-survival.md",
+  "handfixes": [
+    {
+      "id": "dryrun-no-mint",
+      "summary": "--dry-run returns its request preview before authHeader() runs, using only the already-cached Authorization value, so a dry run never calls the OAuth token endpoint.",
+      "why": "The generated doInternal resolved auth (authHeader, which mints a client_credentials token on a cold cache) BEFORE the c.DryRun branch, so `--dry-run` sent the Access ID and password to the token URL and cached the minted token - a 'no request sent' preview that made a real login. Found by the build pane (cli-factory/watchguard NOTES.md) and reproduced at onboarding 2026-10-15: with WATCHGUARD_TOKEN_URL pointed at a recording server, `accounts list-managed --dry-run` hit POST /oauth/token before the fix and made zero requests after it (isolate --dry-run and accounts health --dry-run too). Press template client.go.tmpl; likely fleet-wide for client-credentials connectors. A reprint regenerates client.go and reverts it while go build and go test stay green.",
+      "status": "active",
+      "spec_encode_followup": "Press fix: client.go.tmpl should branch on DryRun before authHeader().",
+      "asserts": [
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "dryRunAuth = c.Config.AuthHeader()",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "return c.dryRun(method, targetURL, path, params, bodyBytes, headerOverrides, dryRunAuth)",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "secret-fields-never-persisted",
+      "summary": "Secret-named JSON keys (psk, psk_encrypted, pvt_key, password, passphrase, auth_token, activationKey and generic credential names, case-insensitive) are dropped at any depth before any row reaches the local store (generic blob, typed columns and FTS index, via the single mergeIncomingResourceData choke point), and an HTTP response that carries one is never written to the response cache. Endpoint Security installer responses (enrollment download links) are never cached and are stored as an empty object. Helper: internal/cliutil/secretfields.go.",
+      "why": "WatchGuard Firebox Management GETs return live secrets in ordinary rows: BOVPN tunnels carry psk/psk_encrypted, certificates carry pvt_key and password, networks carry PPPoE/Dynamic DNS passwords, Wi-Fi passphrases and DHCP auth tokens, users and content filtering carry passwords, and the activation API returns activationKey. Found at onboarding (2026-10-15) by scanning the spec's 2xx response schemas, then proven with a sentinel mock: a default `sync` plus list/get of each resource wrote every sentinel into data.db (typed psk column included) and 11 response-cache files. With the hooks: zero sentinels on disk while the rows still sync. internal/store/secret_fields_test.go fails (20 'secret persisted' findings) with the store hook reverted; internal/cliutil/secretfields_test.go covers the cache-side detection. A reprint regenerates store.go and client.go and silently drops both hooks while go build and go test stay green.",
+      "status": "active",
+      "spec_encode_followup": "Needs a press feature: an x-secret / writeOnly-aware store projection that never persists credential fields; no spec extension expresses it today.",
+      "asserts": [
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "redacted, _ := cliutil.RedactSecretFields(s.mergeIncomingResourceDataRaw(tx, resourceType, id, incoming))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "if resourceType == \"endpoint_installers\" {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "if cliutil.ContainsSecretField(data) || cliutil.IsSecretBearingPath(path) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/secretfields.go",
+          "contains": "\"psk_encrypted\":",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/secretfields.go",
+          "contains": "\"activationkey\":",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/secret_fields_test.go",
+          "contains": "func TestSecretFieldsNeverPersisted(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/secretfields_test.go",
+          "contains": "func TestSecretFieldDetection(",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "env-urls-never-persisted",
+      "summary": "An env-sourced WATCHGUARD_BASE_URL, WATCHGUARD_TOKEN_URL or WATCHGUARD_ACCOUNT_ID is marked as an env override in config.Load, and configForSave writes the file's own value back instead, so config.toml never captures the override and unsetting the variable restores the default.",
+      "why": "Reproduced at onboarding (2026-10-15): after one run with WATCHGUARD_BASE_URL/TOKEN_URL/ACCOUNT_ID set, config.toml held base_url, token_url and [template_vars] accountId. Unsetting the variables then had no effect: requests kept going to the old region host, every token mint sent the Access ID and password to the old token URL, and requests kept the old account ID. Same generator defect threatdown recorded. internal/config/env_urls_test.go fails with the restore lines removed. A reprint regenerates config.go and reverts it while go build and go test stay green.",
+      "status": "active",
+      "spec_encode_followup": "Generator defect: configForSave should restore every env-overridden field, not only credentials.",
+      "asserts": [
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "cfg.markEnvOverride(\"BaseURL\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "cfg.markEnvOverride(\"TokenURL\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "cfg.markEnvOverride(\"TemplateVars\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "out.BaseURL = c.fileConfig.BaseURL",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "out.TokenURL = c.fileConfig.TokenURL",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "out.TemplateVars = cloneStringMap(c.fileConfig.TemplateVars)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/env_urls_test.go",
+          "contains": "func TestEnvURLsNeverPersisted(",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "root-help-brand-casing",
+      "summary": "The root command's Short and Long help open with \"WatchGuard Cloud CLI\" instead of the generated \"Watchguard CLI\".",
+      "why": "The generator title-cases the slug and ignores x-display-name, so root help said 'Watchguard CLI'. The build pane's postgen.sh fixes it after every generate; a reprint without that script reverts it.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "WatchGuard Cloud CLI",
+          "min_count": 2
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "not_contains": "Watchguard CLI"
+        }
+      ]
+    },
+    {
+      "id": "manifest-clean-mcp-binary-name",
+      "summary": "manifest.json name/entry_point/command use the clean `watchguard-mcp`, not the press `watchguard-pp-mcp`.",
+      "why": "onboard.py copies the press manifest, whose name, entry_point and command kept the -pp- binary name; the .mcpb bundle ships bin/watchguard-mcp, so the press names would point at a file the bundle does not contain.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "manifest.json",
+          "contains": "\"name\": \"watchguard-mcp\""
+        },
+        {
+          "file": "manifest.json",
+          "not_contains": "watchguard-pp-mcp"
+        }
+      ]
+    },
+    {
+      "id": "install-env-declared-on-every-channel",
+      "summary": "Every variable the binaries read is declared on all three install channels: manifest.json (.mcpb user_config + server.mcp_config.env), server.json (MCP Registry) and the three mcp-install.md env blocks. Beyond the Access ID, password, API key and account ID these are the optional WATCHGUARD_BASE_URL, WATCHGUARD_TOKEN_URL (regions), WATCHGUARD_AUDIENCE, WATCHGUARD_OAUTH_SCOPE, WATCHGUARD_USER_AGENT, WATCHGUARD_MCP_READ_ONLY, WATCHGUARD_MCP_HTTP_TOKEN and PRINTING_PRESS_CLIENT_PROFILE, blank (not placeholders) in mcp-install.md. WATCHGUARD_ACCOUNT_ID is not marked secret on either channel.",
+      "why": "check_env_schema failed the onboard with 8 read-but-undeclared variables, so a Claude Desktop install could never select the EMEA or APAC region, pin one customer, or run read-only; server.json marked the account ID secret while the manifest did not. onboard.py --resume re-vendors manifest.json from the press source, which declares only the four required values, so a re-onboard drops the rest while the build stays green.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "manifest.json",
+          "contains": "\"WATCHGUARD_BASE_URL\": \"${user_config.watchguard_base_url}\""
+        },
+        {
+          "file": "manifest.json",
+          "contains": "\"WATCHGUARD_MCP_READ_ONLY\": \"${user_config.watchguard_mcp_read_only}\""
+        },
+        {
+          "file": "server.json",
+          "contains": "\"name\": \"WATCHGUARD_AUDIENCE\""
+        },
+        {
+          "file": "mcp-install.md",
+          "contains": "\"WATCHGUARD_TOKEN_URL\": \"\"",
+          "min_count": 3
+        }
+      ]
+    },
+    {
+      "id": "x-text-above-go-2026-6629",
+      "summary": "`golang.org/x/text` is pinned at v0.41.0, above the fixes for GO-2026-5970 and GO-2026-6629.",
+      "why": "Press 4.33.5 emitted v0.39.0; osv-scanner flagged GO-2026-6629 in the security gate. A reprint re-emits the old version.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/go.mod",
+          "contains": "golang.org/x/text v0.41.0"
+        }
+      ]
+    },
+    {
+      "id": "generated-doc-corrections",
+      "summary": "Generated SKILL.md, AGENTS.md and guide.md carry corrections for this CLI: the exit-code table documents firebox-transactions wait's 8 (failed) and 9 (still running), the env table names WATCHGUARD_ACCOUNT_ID (not WATCHGUARD_ACCOUNTID) plus the region and audience variables, AGENTS.md examples use real commands and a low-entropy device ID, and AGENTS.md says writes send without confirmation.",
+      "why": "The generated docs named a wrong env var (WATCHGUARD_ACCOUNTID), a wrong config path and `auth-status`, used <command> placeholders, and documented exit 8 only as 'async job not finished' - for firebox-transactions wait it means the deployment FAILED. The build pane's postgen_docs.py applies the doc fixes after every generate; onboard.py --resume re-vendors SKILL.md, AGENTS.md and guide.md from the source and would drop the msp-skills edits.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "SKILL.md",
+          "contains": "| 9 | `firebox-transactions wait` only"
+        },
+        {
+          "file": "guide.md",
+          "not_contains": "WATCHGUARD_ACCOUNTID"
+        },
+        {
+          "file": "guide.md",
+          "contains": "`WATCHGUARD_AUDIENCE`"
+        },
+        {
+          "file": "AGENTS.md",
+          "contains": "No write command asks for confirmation"
+        },
+        {
+          "file": "AGENTS.md",
+          "not_contains": "287324d8-194f-4f5a-a7ad-e2480d5ad1b2"
+        }
+      ]
+    },
+    {
+      "id": "token-bound-to-client",
+      "summary": "A client-credentials token is saved with token_binding, a fingerprint of the Access ID, scope and token URL it was minted for (config.TokenBindingFor). A process whose Access ID, WATCHGUARD_OAUTH_SCOPE or token URL gives a different fingerprint mints its own token, and when it has no password to mint with it fails with exit 4 instead of using the cached token. An environment Access ID never pairs with the password saved for a different one, repeated saves keep the saved pair and API key, and a [headers] Authorization entry is never sent. The WatchGuard-API-Key is not part of the binding.",
+      "why": "Reproduced at onboarding (2026-10-15): with a token cached for Access ID RW, a process with WATCHGUARD_CLIENT_ID=RO and its own password made no token request and sent RW's token; a process with only a different scope also rode it. WatchGuard issues separate read-write and read-only Access IDs, so a read-only setup silently ran with read-write rights. Ported from threatdown's token-bound-to-client (same press 4.33.5 template). Tests fail on revert: TestCachedTokenBoundToClientAndScope, TestCachedTokenBindingFailsClosed, TestReadOnlyAccessIDNeverRidesReadWriteToken (end to end), TestConfiguredHeadersNeverCarryAuthorization, TestEnvClientIDNeverPairsWithSavedSecret, TestRepeatedSavesKeepSavedClientPair, TestAuthLoginSavesThePairItUsed, TestBoundElsewhereReadExitsWithAuthCode, TestDoctorReportsTokenBoundElsewhere and more. A reprint regenerates client.go, config.go, credentials.go and auth.go and silently reverts it while go build and go test stay green.",
+      "status": "active",
+      "spec_encode_followup": "Generator defect: the press's client-credentials cache should key the token on the client ID and scope.",
+      "asserts": [
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "func TokenBindingFor(clientID string, scope string, tokenURL string) string",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "c.Config.TokenBinding = config.TokenBindingFor(clientID, resolveClientCredentialsScope(), tokenURL)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "return cfg.TokenBinding != config.TokenBindingFor(id, resolveClientCredentialsScope(), effectiveTokenURL(cfg))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/credentials.go",
+          "contains": "TokenBinding string `toml:\"token_binding,omitempty\"`",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "persisted.ClientID, persisted.ClientSecret, persisted.WatchguardApiKey = savedID, savedSecret, savedKey",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "if strings.EqualFold(k, \"Authorization\") {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "auth-status-tracks-binding",
+      "summary": "`auth status` and doctor share client.AuthState: a complete Access ID + password pair (env or saved) counts as authenticated, and a cached token bound to a different Access ID, scope or token URL with no password to mint a replacement reports authenticated:false, token_bound_elsewhere:true and exits 4. Any <...> value and any unresolved ${...} template is a placeholder, an env placeholder error names the variable (including WATCHGUARD_API_KEY), auth login refuses placeholders, and doctor reports a rejected token request as a credentials error.",
+      "why": "Before the fix a fresh home with a valid env pair printed authenticated:false, and a saved read-write login with a read-only env Access ID and no password printed authenticated:true while every call failed. Ported from threatdown. Tests fail on revert: TestAuthStatusTracksTokenBinding, TestAuthStatusAndDoctorAgreeOnEnvPairs, TestDoctorReportsRejectedMintAsCredentials, TestPlaceholderErrorNamesTheEnvVar, TestAnglePlaceholdersAreNotCredentials, TestAuthLoginRefusesPlaceholders.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "func AuthState(cfg *config.Config) (canMint, boundElsewhere bool) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth.go",
+          "contains": "authed := canMint || (header != \"\" && !boundElsewhere && !client.LooksLikePlaceholderAuth(header))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "return len(value) >= 3 && value[0] == '<' && value[len(value)-1] == '>'",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "for _, name := range []string{\"WATCHGUARD_CLIENT_ID\", \"WATCHGUARD_CLIENT_SECRET\", \"WATCHGUARD_API_KEY\"} {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "if canMint, _ := client.AuthState(cfg); canMint {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "var ErrTokenMintRejected = errors.New(",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "set-token-clears-saved-client",
+      "summary": "`auth set-token` calls cfg.MarkCredentialsExplicit(true, true) before SaveTokens(\"\", \"\", ...), so it clears the saved Access ID, password and binding even while WATCHGUARD_CLIENT_ID is exported, and it saves a zero expiry.",
+      "why": "Without it a pasted token was refused as bound to another client, or inherited the replaced token's expiry. Ported from threatdown. TestSetTokenClearsSavedClientUnderEnvID and TestSetTokenDoesNotInheritOldExpiry fail on revert.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/auth.go",
+          "contains": "cfg.MarkCredentialsExplicit(true, true)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth.go",
+          "contains": "cfg.SaveTokens(\"\", \"\", token, \"\", time.Time{})",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-local-file-sources-blocked",
+      "summary": "The MCP shell-out gate refuses local file SOURCE flags (--input, --notes-file, --playbook-file, --playbook-notes-file), and `import` is hidden from the MCP server.",
+      "why": "Reproduced at onboarding: the teach_playbook MCP tool forwarded --notes-file=<path>, so a tool call could make the CLI read any local file. Ported from threatdown. TestNoMCPToolTakesALocalFilePath, TestTeachPlaybookRefusesNotesFile and TestImportIsNotAnMCPTool fail on revert.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/cobratree/shellout.go",
+          "contains": "\"notes-file\":          true,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/shellout.go",
+          "contains": "\"input\":               true,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/import.go",
+          "contains": "Annotations: map[string]string{\"mcp:hidden\": \"true\"},",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "tail-redacts-secrets",
+      "summary": "tail strips the secret fields (psk, pvt_key, password, passphrase, activationKey and the rest of secretFieldKeys) from every polled response before streaming it, and is hidden from the MCP server (mcp:hidden).",
+      "why": "Reproduced at onboarding: `tail activations --follow=false` streamed activationKey; the MCP tail tool advertised readOnlyHint=true, stayed listed under WATCHGUARD_MCP_READ_ONLY=1 and never returned (follow:false was dropped). TestTailNeverStreamsSecretFields and TestTailIsNotAnMCPTool fail on revert.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/tail.go",
+          "contains": "data, _ = cliutil.RedactSecretFields(data)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/tail.go",
+          "contains": "\"pp:no-error-path-probe\": \"true\", \"mcp:hidden\": \"true\"",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-bool-false-default-true",
+      "summary": "An explicit false on an MCP tool call reaches a bool flag whose default is true, as a joined --flag=false.",
+      "why": "Reproduced at onboarding: teach with quiet:false produced argv with no --quiet=false. Ported from connectsecure. TestExplicitFalseReachesDefaultTrueFlag fails on revert.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/cobratree/shellout.go",
+          "contains": "keepExplicitFalse(cmd, req.GetArguments())",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/shellout.go",
+          "contains": "func keepExplicitFalse(",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "export-tail-honor-deliver",
+      "summary": "export (without --output), tail, agent-context and version write through cmd.OutOrStdout(), the writer --deliver captures.",
+      "why": "Reproduced at onboarding: `--deliver file:<path>` wrote 0 bytes and exited 0 for all four commands. Ported from connectsecure. TestCommandsDeliverTheirOutputToFile fails on revert of each.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/export.go",
+          "contains": "writer = bufio.NewWriter(cmd.OutOrStdout())",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/tail.go",
+          "contains": "enc := json.NewEncoder(cmd.OutOrStdout())",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/agent_context.go",
+          "contains": "enc := json.NewEncoder(cmd.OutOrStdout())",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/version.go",
+          "contains": "fmt.Fprintf(cmd.OutOrStdout(), \"%s %s\\n\", cmd.Root().Name(), version)",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "deliver-webhook-no-redirect",
+      "summary": "--deliver webhook:<url> never follows a redirect; any 3xx is an error.",
+      "why": "Reproduced at onboarding: a 307 replayed `firebox-bovpn-tunnels list` output (pre-shared keys, passwords, private keys) to a second origin and exited 0. Ported from connectsecure. TestWebhookDeliveryRefusesRedirect fails on revert.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/deliver.go",
+          "contains": "return http.ErrUseLastResponse",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/deliver.go",
+          "contains": "Hand-fix (handfixes.json: deliver-webhook-no-redirect)"
+        }
+      ]
+    },
+    {
+      "id": "journal-dash-value-not-a-flag",
+      "summary": "The learn journal's argv-shape parser gives a value-taking flag the next token even when it starts with '-', as pflag does.",
+      "why": "Reproduced at onboarding: `--psk -SENTINELpsk12` was written into state/learn/journal-*.jsonl as a flag name, so a secret flag value landed on disk. Ported from connectsecure. TestJournalDashValueIsNotAFlagName fails on revert.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/learn/journal.go",
+          "contains": "(isBoolFlag != nil || !strings.HasPrefix(args[i+1], \"-\"))",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "filtered-sync-no-prune",
+      "summary": "A sync whose walk is narrowed by --param/--global-param/--resource-param neither prunes local rows nor stamps the resource or a dependent complete.",
+      "why": "Reproduced at onboarding: a narrowed `sync --full` on firebox_devices deleted the other Firebox from the mirror and advanced the watermark, so firebox-devices changes would report it removed. Ported from connectsecure. TestFilteredFullSyncKeepsOtherRows and TestFilteredDependentSyncNotStampedComplete fail on revert.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "func (p *syncUserParams) narrows(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "filtered := userParams.narrows(resource, false)",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "filtered-sync-cursor-isolated",
+      "summary": "A --param-narrowed sync starts from offset zero and never writes its pagination cursor into the resource-wide sync_state.",
+      "why": "Reproduced at onboarding: a filtered run reset the resource's saved cursor. Ported from connectsecure. TestFilteredSyncKeepsTheResumeCursor fails on revert.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "stateCursor = func(string) string { return persistedCursor }",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "dependent-zero-parents-completes",
+      "summary": "A dependent resource whose parent table is empty records a completed zero-row sync, but only when the parent resource itself completed a sync.",
+      "why": "Reproduced at onboarding: after `sync --full` on an account with no managed accounts, all five accounts-parented dependents stayed 'never synced' and doctor reported the cache stale forever. Ported from connectsecure with a tighter parent check. TestDependentWithNoParentsCompletes fails both ways on revert.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "if _, parentSynced, _, perr := db.GetSyncState(dep.ParentTable); perr == nil && !parentSynced.IsZero() {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "error-body-redacts-secrets",
+      "summary": "An API error body (or a 2xx HTML page summary) that echoes any secret the request carried - body secret fields, the API key, the bearer token - in any encoding is withheld instead of printed; otherwise secret-named fields are masked. New files: internal/client/watchguard_redact.go, internal/cliutil/secret_echo.go.",
+      "why": "Reproduced at onboarding: a 400 echoing the request printed a BOVPN pre-shared key four times. Ported from connectsecure. TestErrorBodyWithheldWhenItEchoesASecret, TestErrorBodyKeptWhenNothingEchoes, TestHTMLSuccessSummaryWithheldWhenItEchoes, TestEchoDetectedInEveryEncoderShape and TestEchoDetectedInUTF16 fail on revert.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "bodyText := errorBody(respBody, bodyBytes, c.sentHeaders(headerOverrides), authHeader)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "summary = withheldBody",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/secret_echo.go",
+          "contains": "func EchoesSecret(text string, secrets []string) bool {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "transport-error-withholds-echoed-secret",
+      "summary": "The generic client's transport-error branch withholds an error whose text echoes a secret the request carried (for example a refused redirect's Location URL).",
+      "why": "Reproduced at onboarding: a refused redirect printed the pre-shared key through its Location URL. Ported from connectsecure. TestRefusedRedirectDoesNotEchoTheSubmittedSecret, TestRedirectEchoOfSecretContainingTheHostIsWithheld and TestTransportErrorKeptWhenOnlyOurURLMatches fail on revert.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "shownErr := transportError(err, req.URL.String(), bodyBytes, c.sentHeaders(headerOverrides), authHeader)",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "dry-run-redacts-secret-body",
+      "summary": "--dry-run masks secret-named body fields before printing the request preview.",
+      "why": "Reproduced at onboarding: `firebox-bovpn-tunnels create --stdin --dry-run` printed the pre-shared key. Ported from connectsecure. TestDryRunRedactsSecretBody fails on revert.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "body = redactBody(body)",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "redirect-refuses-cross-origin-body",
+      "summary": "CheckRedirect refuses to replay a write body to another origin, refuses a cross-origin redirect of any non-GET/HEAD request, and turns a same-origin 301/302 on a write (which Go replays as a bodiless GET) into an error; 303 is still followed.",
+      "why": "Reproduced at onboarding: 307/308 replayed a pre-shared-key body cross-origin; 301/302/303 delivered a POST as a GET with no error. Ported from connectsecure. TestWriteBodyNotReplayedCrossOrigin, TestWriteNotDowngradedCrossOrigin, TestWriteNotDowngradedSameOrigin and TestWriteRedirectChainChecksTheLastHop fail on revert.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "refusing to replay a %s request body to another origin",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "if m := via[len(via)-1].Method; m != http.MethodGet && m != http.MethodHead {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "redirect-strips-configured-headers",
+      "summary": "config.toml [headers] entries are dropped on a cross-origin redirect hop (the generated code already drops Authorization and WatchGuard-API-Key).",
+      "why": "Reproduced at onboarding: two configured header values reached a second origin through a redirect. The generic half of connectsecure's redirect-strips-client-auth-token. TestConfiguredHeaderDroppedOnCrossOriginRedirect fails on revert.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "Hand-wired (handfixes.json: redirect-strips-configured-headers)"
+        }
+      ]
+    },
+    {
+      "id": "doctor-verdict-tracks-reality",
+      "summary": "doctor verifies the credential with an authenticated GET - the account record /rest/platform/accounts/v2/accounts/{accountId} when WATCHGUARD_ACCOUNT_ID is set, otherwise /rest/platform/activation/v1/recentactivations - instead of 'present, not verified'; a 404 there turns the api row to ERROR and a 200 without a JSON answer is not reported valid. New file internal/cli/doctor_verdict.go.",
+      "why": "check_doctor_truth.py --slug watchguard failed with 4 findings before (every state printed 'present, not verified'; an HTML page at / read as reachable). Ported from connectsecure/threatdown. TestDoctorVerdictTracksReality fails on revert of each part. Unverified on a real tenant: whether every API key may call recentactivations; if not, doctor reports a scope-limited WARN, not OK.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/doctor_verdict.go",
+          "contains": "func doctorProbeCredentials(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "doctorProbeCredentials(cmd.Context(), c, cfg, report)",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "doctor-html-probe-uncached",
+      "summary": "doctor's HTML-accepting reachability probe (GET /) neither reads nor writes the response cache.",
+      "why": "Reproduced at onboarding: doctor wrote a bearer token echoed by an HTML page at / into cache/http/resources/root/*.json. Ported from connectsecure. TestDoctorWritesNoCache fails on revert.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "reachBody, reachErr := c.GetWithHeadersNoCache(cmd.Context(), \"/\", nil, map[string]string{client.HTMLResponseHeader: \"true\"})",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "auth-hint-reads-body-not-path",
+      "summary": "The HTTP 400 auth heuristic reads the API error body, not the full message, so a request path containing /authentication/ does not turn every 400 into an auth failure (exit 4).",
+      "why": "Reproduced at onboarding: the same validation 400 exited 4 'auth is missing or invalid' on firebox-users (path .../authentication/users) and 5 on firebox-aliases; 17 Firebox user/group and AuthPoint paths contain /authentication/. Ported from connectsecure. TestAuthenticationPathIsNotAnAuthSignal, TestValidationMessageIsNotAnAuthSignal and TestAuthMessageKeepsTheAuthHint fail on revert.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "cliutil.LooksLikeAuthError(authSignalText(err))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth_signal.go",
+          "contains": "func authSignalText(err error) string {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "client-profile-not-enforced",
+      "summary": "The --client-profile flag help, manifest.json, server.json and governance.md say PRINTING_PRESS_CLIENT_PROFILE is not enforced by this connector and does not limit which accounts a call reaches.",
+      "why": "registerPlatformSource is never called, so a nonexistent --client-profile is accepted and the call still reaches the account (reproduced at onboarding); the generated help promised a tenant gate. TestClientProfileFlagHelpIsHonest fails on revert.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "Not enforced by this connector: WatchGuard Cloud has no tenant-gated client profiles",
+          "code_only": true
+        },
+        {
+          "file": "manifest.json",
+          "contains": "Not enforced by this connector"
+        },
+        {
+          "file": "server.json",
+          "contains": "Not enforced by this connector"
+        }
+      ]
+    },
+    {
+      "id": "sync-full-refresh-guidance",
+      "summary": "Every refresh hint the binary gives (the stale-store hint and doctor's stale-cache hint) names `sync --full`, not a bare `sync`.",
+      "why": "No WatchGuard resource syncs incrementally, so a bare sync re-walks everything but never prunes, and a retired Firebox stays in the mirror (and in firebox-devices changes / firmware-lag). `sync --full` costs no extra requests. TestRefreshGuidanceNamesFullSync and TestDoctorStaleHintNamesFullSync fail on revert.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/sync_hint.go",
+          "contains": "const syncHintCommand = \"watchguard-cli sync --full\"",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "skill-md-agent-safety-section",
+      "summary": "SKILL.md carries a 'Safety for agents' section naming the credential reads, the endpoint-affecting and configuration writes, WATCHGUARD_MCP_READ_ONLY and the fan-out exit codes, its title is 'WatchGuard Cloud Claude Code Skill', and its description leads with 'Use when the user asks'.",
+      "why": "The generated SKILL.md never told an agent which reads print pre-shared keys and private keys or that every write sends without confirmation, and its title said 'Printing Press CLI'. onboard.py --resume re-vendors SKILL.md from the press source and drops all three.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "SKILL.md",
+          "contains": "## Safety for agents"
+        },
+        {
+          "file": "SKILL.md",
+          "contains": "description: \"Use when the user asks"
+        },
+        {
+          "file": "SKILL.md",
+          "contains": "# WatchGuard Cloud Claude Code Skill"
+        }
+      ]
+    }
+  ]
+}
