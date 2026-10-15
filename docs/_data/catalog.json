@@ -1,5 +1,5 @@
 {
-  "count": 71,
+  "count": 72,
   "connectors": [
     {
       "slug": "abnormal",
@@ -154,6 +154,17 @@
       "source": "circle",
       "issue_url": "https://compoundingteams.com/",
       "url": "/skills/cipp/"
+    },
+    {
+      "slug": "cisco-meraki",
+      "display_name": "Cisco Meraki",
+      "tagline": "See every client Meraki org at once: devices down, failed uplinks, renewals, and config changes from your terminal.",
+      "category": "Network Monitoring",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "url": "/skills/cisco-meraki/"
     },
     {
       "slug": "connectsecure",
