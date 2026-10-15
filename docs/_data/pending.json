@@ -100,7 +100,7 @@
   "cisco-meraki": {
     "state": "never-released",
     "version": "0.1.0",
-    "latest_tag": null,
+    "latest_tag": "cisco-meraki-v0.1.0",
     "current_hash": "sha256:e782ce6bc8586c0e3d09a20a081ca53ffcda12852aa08f985c58ac62e12eec76",
     "released_hash": null
   },
