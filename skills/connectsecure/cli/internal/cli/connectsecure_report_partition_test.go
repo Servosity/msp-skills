@@ -165,3 +165,50 @@ func TestBareSyncSkipsPerAssetDependent(t *testing.T) {
 		t.Fatalf("naming assets must still run the dependent: %d result(s), %d request(s)", len(res), calls)
 	}
 }
+
+// Hand-fix (handfixes.json: prune-hand-keyed-reports). A --full sync prunes
+// a finding the pod no longer returns from the per-asset reports whose rows
+// carry a stable id.
+func TestFullSyncPrunesExternalAssetFindings(t *testing.T) {
+	calls := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/r/report_queries/external_asset_vulnerabilities" {
+			_, _ = w.Write([]byte(`{"status":true,"data":[]}`))
+			return
+		}
+		calls++
+		if calls == 1 {
+			_, _ = w.Write([]byte(`{"status":true,"data":[{"asset_id":1,"key":"CVE-1","value":"open"},{"asset_id":2,"key":"CVE-1","value":"open"}]}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"status":true,"data":[{"asset_id":1,"key":"CVE-1","value":"open"}]}`))
+	}))
+	defer srv.Close()
+	testenv.Isolate(t)
+	t.Setenv("CONNECTSECURE_BASE_URL", srv.URL)
+	t.Setenv("CONNECTSECURE_ACCESS_TOKEN", "tok")
+	t.Setenv("CONNECTSECURE_USER_ID", "1")
+	run := func(args ...string) []byte {
+		cmd := RootCmd()
+		var out, errOut bytes.Buffer
+		cmd.SetOut(&out)
+		cmd.SetErr(&errOut)
+		cmd.SetArgs(args)
+		if err := cmd.Execute(); err != nil {
+			t.Fatalf("%v: %v\n%s", args, err, errOut.String())
+		}
+		return out.Bytes()
+	}
+	run("sync", "--full", "--resources", "report_queries-external-asset-vulnerabilities", "--json")
+	run("sync", "--full", "--resources", "report_queries-external-asset-vulnerabilities", "--json")
+	var got struct {
+		Results []map[string]any `json:"results"`
+	}
+	raw := run("--json", "--data-source", "local", "report-queries", "external-asset-vulnerabilities")
+	if err := json.Unmarshal(raw, &got); err != nil {
+		t.Fatalf("%v: %s", err, raw)
+	}
+	if len(got.Results) != 1 {
+		t.Fatalf("--full must prune asset 2's dropped finding, local has %s", raw)
+	}
+}

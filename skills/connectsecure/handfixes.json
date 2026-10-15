@@ -1350,6 +1350,19 @@
    ]
   },
   {
+   "id": "prune-hand-keyed-reports",
+   "status": "active",
+   "summary": "flatReconcileModes (sync.go) lists report_queries-event-tickets, report_queries-external-asset-vulnerabilities and report_queries-remediate-records-companies as flat_global, so a --full sync prunes rows the pod no longer returns, as it already did for report_queries-distinct-tags.",
+   "why": "Adversarial round 24 (2026-10-14): these three are the only report partitions outside the reconcile table that store rows at all (the other 57 fail sync with no extractable id or need required params), and the generator left them out. So every --full ended in reconcile_skipped and exited 0, while a remediated external finding stayed in the mirror for good and --data-source local returned it with a fresh synced_at. README and SKILL.md say a --full run prunes remediated findings. Each now has a stable id (asset_id+key from per-client-report-keys, ticket_id, company_id). TestFullSyncPrunesExternalAssetFindings fails with the entries removed (verified).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "// Hand-fix (handfixes.json: prune-hand-keyed-reports)",
+     "min_count": 3
+    }
+   ]
+  },
+  {
    "id": "local-group-guid-not-row-field",
    "status": "active",
    "summary": "loadLocalList (data_source.go) calls csRefuseParentScopedParams, which moves object_guid from an equality filter to a refused row-selecting param for report-queries ad-group-computers and ad-group-users, so a local read fails closed ('local data could not apply object_guid; use --data-source live') instead of returning an empty group.",

@@ -6457,6 +6457,9 @@ var flatReconcileModes = map[string]string{
 	"report_queries-cron-jobs":                                                     "flat_global",
 	"report_queries-distinct-software":                                             "flat_global",
 	"report_queries-distinct-tags":                                                 "flat_global",
+	"report_queries-event-tickets":                                                 "flat_global", // Hand-fix (handfixes.json: prune-hand-keyed-reports)
+	"report_queries-external-asset-vulnerabilities":                                "flat_global", // Hand-fix (handfixes.json: prune-hand-keyed-reports)
+	"report_queries-remediate-records-companies":                                   "flat_global", // Hand-fix (handfixes.json: prune-hand-keyed-reports)
 	"report_queries-external-asset-externalscan":                                   "flat_global",
 	"report_queries-get-assets-by-problem":                                         "flat_global",
 	"report_queries-get-computer-details":                                          "flat_global",
