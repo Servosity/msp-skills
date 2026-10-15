@@ -190,6 +190,11 @@ func collectCapacity(ctx context.Context, t fleetTarget, now time.Time, margin f
 			if err == nil {
 				guests, err = fetchGuests(ctx, t.C)
 			}
+			if err == nil {
+				// Guests (and included_volumes) are filtered by VM.Audit: a
+				// hidden guest's job selection is missing, not empty.
+				err = guestListHidden(ctx, t.C)
+			}
 			if err != nil {
 				selectionKnown = false
 				fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "backup job guests", Error: "which guests the backup jobs select could not be read (" + err.Error() + "), so whether they prune is unknown; not flagged unpruned"})

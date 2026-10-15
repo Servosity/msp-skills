@@ -7,6 +7,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -102,6 +103,10 @@ func runClustersCheck(cmd *cobra.Command, flags *rootFlags) error {
 		}
 		var v struct {
 			Version string `json:"version"`
+		}
+		if !t.hasPVE() && !t.C.PBSConfigured() {
+			add(t, "config", "", errors.New("neither a Proxmox VE nor a Backup Server host is configured (set PROXMOX_HOST and/or PROXMOX_PBS_HOST, or add a cluster)"))
+			continue
 		}
 		if !t.hasPVE() {
 			rows = append(rows, clusterCheckRow{Cluster: t.Name, Tenant: t.Tenant, Service: "pve", Status: "not-configured"})
