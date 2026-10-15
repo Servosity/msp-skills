@@ -98,8 +98,17 @@ hosts before any request is built.
   ```
 
   A privilege-separated token never has more than its user, so the user needs
-  the same roles. With an audit-only role on both products, Proxmox itself
-  would refuse a write even if one were ever sent.
+  the same roles. Keep the grant on `/` with propagation and add no NoAccess
+  or narrower ACL below it for this token: Proxmox VE silently leaves out of
+  every list the guests and storages a token cannot see. The skill reports a
+  missing, non-propagating or narrowed grant as a fetch failure, but an
+  explicit NoAccess on a single guest leaves no trace in any read. With an
+  audit-only role on both products, Proxmox itself would refuse a write even
+  if one were ever sent.
+- **One PBS namespace (or datastore) per client cluster** on a shared Backup
+  Server. VMIDs repeat across clusters; where two configured clusters write
+  the same namespace, the skill reports it and counts none of those restore
+  points for either.
 - **One token per client cluster**, referenced by env var name in
   `clusters.toml`, so revoking one client never touches another.
 - **Pin every certificate** with its SHA-256 fingerprint.

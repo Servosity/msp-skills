@@ -68,6 +68,9 @@ type postureClientRow struct {
 	ArchivesIncomplete int    `json:"archives_incomplete"`
 	ProtectedElsewhere int    `json:"protected_elsewhere"`
 	Unproven           int    `json:"unproven"`
+	// FetchFailures counts what was not read on this client's clusters (see
+	// fetch_failures): non-zero means every other count may be incomplete.
+	FetchFailures int `json:"fetch_failures"`
 	// ClustersUnreachable counts this client's clusters that could not be
 	// read at all: their guests are missing from every other column.
 	ClustersUnreachable int `json:"clusters_unreachable"`
@@ -111,8 +114,8 @@ func newNovelPostureCmd(flags *rootFlags) *cobra.Command {
 			"Do NOT use this command to explain why a guest or disk is uncovered; use 'backup coverage' instead. " +
 			"Do NOT use it to list one guest's individual restore points; use 'restore-points' instead. " +
 			"Do NOT use it for last night's failed tasks and log lines; use 'failures' instead.\n\n" +
-			"Verdicts: uncovered (no ENABLED job includes the guest), never (covered, no restore point exists), " +
-			"unproven (covered, but its job's backup target could not be read, so the newest restore point is unknown; see fetch_failures), " +
+			"Verdicts: uncovered (no ENABLED job includes the guest), never (covered, every backup storage was read, no restore point exists), " +
+			"unproven (covered, no readable restore point or only an old one, while a storage that may hold its restore points could not be read; see fetch_failures), " +
 			"stale (newest restore point older than --stale-after), verify-failed (newest PBS restore point failed verification) are red; " +
 			"unverified (newest PBS restore point not verified yet), last-attempt-failed (latest vzdump run failed but an older point is still fresh), " +
 			"attempt-unknown (fresh restore point, but the latest vzdump log could not be read; raise --max-logs or fix the reported fetch failure), " +
@@ -147,6 +150,7 @@ func newNovelPostureCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			markSharedPBS(ctx, targets)
 			results, failures := runFleet(ctx, targets, func(ctx context.Context, t fleetTarget) (clusterPosture, error) {
 				return collectPosture(ctx, t, opts)
 			})
@@ -171,7 +175,7 @@ func newNovelPostureCmd(flags *rootFlags) *cobra.Command {
 					report.Amber++
 				}
 			}
-			report.Clients = rollupByClient(report.Rows, unreachableTenants(targets, report.FetchFailures))
+			report.Clients = rollupByClient(report.Rows, targets, report.FetchFailures)
 			if only != "" {
 				report.Rows = filterSeverity(report.Rows, only)
 			}
@@ -249,6 +253,7 @@ func collectPosture(ctx context.Context, t fleetTarget, o postureOpts) (clusterP
 	if err != nil {
 		out.failures = append(out.failures, fetchFailure{Cluster: t.Name, Scope: "storage config", Error: err.Error()})
 	}
+	refs = t.withShared(refs)
 	// Restore points from every backup-content storage (PBS storages carry verification).
 	points := map[int64][]restorePoint{}
 	// archivesIncomplete: some archive source was not read, so a newer (or
@@ -261,11 +266,11 @@ func collectPosture(ctx context.Context, t fleetTarget, o postureOpts) (clusterP
 		f.Cluster = t.Name
 		out.failures = append(out.failures, f)
 	}
-	if len(storages) == 0 && len(sfails) < len(nodes) {
-		if err := requireVisibility(ctx, t.C, false, client.PrivDatastoreAudit); err != nil {
-			archivesIncomplete = true
-			out.failures = append(out.failures, fetchFailure{Cluster: t.Name, Scope: "backup storage", Error: err.Error()})
-		}
+	// Proxmox VE lists a storage only to a token that may see it: a hidden one
+	// may hold this cluster's archives (and verify state), so nothing is green.
+	if err := storageListHidden(ctx, t.C); err != nil {
+		archivesIncomplete = true
+		out.failures = append(out.failures, fetchFailure{Cluster: t.Name, Scope: "backup storage", Error: err.Error()})
 	}
 	// PBS API (when configured): snapshots this cluster provably owns, plus push
 	// sync jobs. Attributed first, so a PBS storage the PBS API reads directly
@@ -412,12 +417,13 @@ func collectPosture(ctx context.Context, t fleetTarget, o postureOpts) (clusterP
 				why = "the backup target of " + joinGaps(gaps) + " was not read (see fetch_failures)"
 			}
 			switch {
-			case len(gaps) > 0 && row.Verdict == "never":
-				// The job's own target was not read: no restore point was SEEN,
-				// which is not the same as none existing.
+			case row.Verdict == "never":
+				// Something that may hold its restore points (the job's target,
+				// a former target, a hidden storage) was not read: no restore
+				// point was SEEN, which is not the same as none existing.
 				row.Verdict = "unproven"
-				row.Reason = "covered by " + strings.Join(row.Jobs, ", ") + ", but " + why + "; its restore points could not be read"
-			case len(gaps) > 0 && row.Verdict == "stale":
+				row.Reason = "covered by " + strings.Join(row.Jobs, ", ") + ", but " + why + "; no restore point could be read, which does not mean none exists"
+			case row.Verdict == "stale":
 				row.Verdict = "unproven"
 				row.Reason = fmt.Sprintf("newest readable restore point is %.1fh old, but %s; a newer one may be there", row.AgeHours, why)
 			case row.Severity == "green" && (archivesIncomplete || len(gaps) > 0):
@@ -726,7 +732,8 @@ func filterSeverity(rows []postureRow, only string) []postureRow {
 	return out
 }
 
-func rollupByClient(rows []postureRow, unreachable map[string]int) []postureClientRow {
+func rollupByClient(rows []postureRow, targets []fleetTarget, failures []fetchFailure) []postureClientRow {
+	unreachable, scoped := tenantFailures(targets, failures)
 	byTenant := map[string]*postureClientRow{}
 	clusters := map[string]map[string]bool{}
 	for _, r := range rows {
@@ -775,6 +782,12 @@ func rollupByClient(rows []postureRow, unreachable map[string]int) []postureClie
 		}
 		byTenant[tenant].ClustersUnreachable = n
 	}
+	for tenant, n := range scoped {
+		if byTenant[tenant] == nil {
+			byTenant[tenant] = &postureClientRow{Tenant: tenant}
+		}
+		byTenant[tenant].FetchFailures = n
+	}
 	out := make([]postureClientRow, 0, len(byTenant))
 	for tenant, c := range byTenant {
 		c.Clusters = len(clusters[tenant]) + c.ClustersUnreachable
@@ -796,9 +809,9 @@ func printPostureTable(cmd *cobra.Command, flags *rootFlags, rep postureReport, 
 	if byClient {
 		rows := make([][]string, 0, len(rep.Clients))
 		for _, c := range rep.Clients {
-			rows = append(rows, []string{c.Tenant, fmt.Sprint(c.Guests), fmt.Sprint(c.Red), fmt.Sprint(c.Amber), fmt.Sprint(c.Uncovered), fmt.Sprint(c.Stale + c.Never), fmt.Sprint(c.Unproven), fmt.Sprint(c.VerifyFailed), fmt.Sprint(c.ClustersUnreachable)})
+			rows = append(rows, []string{c.Tenant, fmt.Sprint(c.Guests), fmt.Sprint(c.Red), fmt.Sprint(c.Amber), fmt.Sprint(c.Uncovered), fmt.Sprint(c.Stale + c.Never), fmt.Sprint(c.Unproven), fmt.Sprint(c.VerifyFailed), fmt.Sprint(c.ClustersUnreachable), fmt.Sprint(c.FetchFailures)})
 		}
-		return flags.printTable(cmd, []string{"CLIENT", "GUESTS", "RED", "AMBER", "UNCOVERED", "STALE/NEVER", "UNPROVEN", "VERIFY-FAILED", "UNREACHABLE"}, rows)
+		return flags.printTable(cmd, []string{"CLIENT", "GUESTS", "RED", "AMBER", "UNCOVERED", "STALE/NEVER", "UNPROVEN", "VERIFY-FAILED", "UNREACHABLE", "NOT READ"}, rows)
 	}
 	if len(rep.Rows) == 0 {
 		fmt.Fprintln(cmd.OutOrStdout(), "No guests found on the configured clusters.")

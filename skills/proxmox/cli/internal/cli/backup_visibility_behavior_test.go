@@ -43,7 +43,9 @@ func TestAuditOnlyTokenHiddenBackupsAreMissingEvidence(t *testing.T) {
 	if r := rows[100]; r.Verdict != "fresh" || r.RestorePoints == 0 {
 		t.Errorf("100 (fresh on PBS, dir storage unseen) = %s %q, %d points", r.Verdict, r.Reason, r.RestorePoints)
 	}
-	if r := rows[105]; r.Verdict != "never" || !strings.Contains(r.Reason, "could not be read") {
+	// 105 has no point on its job target, but the unread dir storage could
+	// hold one (a former target): unproven, not never.
+	if r := rows[105]; r.Verdict != "unproven" || !strings.Contains(r.Reason, "could not be read") {
 		t.Errorf("105 must say its storage could not be read, got %s %q", r.Verdict, r.Reason)
 	}
 

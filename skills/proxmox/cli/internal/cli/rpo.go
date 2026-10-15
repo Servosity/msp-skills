@@ -37,9 +37,10 @@ type rpoRow struct {
 	// Evidence is "full" when the whole window was checked; "partial" when
 	// retention or a failed schedule expansion leaves part of it unproven.
 	Evidence string `json:"evidence"`
-	// TargetUnread: a covering job's backup target could not be read, so the
-	// missed runs and the restore-point count are unproven, not measured.
-	TargetUnread bool   `json:"target_unread,omitempty"`
+	// PointsUnread: a storage that may hold this guest's restore points (its
+	// job's target, a former target, a hidden storage) could not be read, so
+	// the missed runs and the restore-point count are unproven, not measured.
+	PointsUnread bool   `json:"points_unread,omitempty"`
 	Note         string `json:"note,omitempty"`
 }
 
@@ -57,6 +58,7 @@ type rpoClientRow struct {
 	GuestsUnproven      int `json:"guests_unproven"`
 	MissedRunsUnproven  int `json:"missed_runs_unproven"`
 	ClustersUnreachable int `json:"clusters_unreachable"`
+	FetchFailures       int `json:"fetch_failures"`
 }
 
 type rpoReport struct {
@@ -110,6 +112,7 @@ func newNovelRpoCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			markSharedPBS(ctx, targets)
 			now := time.Now()
 			start := now.Add(-time.Duration(days) * 24 * time.Hour)
 			type result struct {
@@ -136,7 +139,7 @@ func newNovelRpoCmd(flags *rootFlags) *cobra.Command {
 				}
 				return rep.Rows[i].LargestGapHours > rep.Rows[j].LargestGapHours
 			})
-			rep.Clients = rollupRPO(rep.Rows, unreachableTenants(targets, rep.FetchFailures))
+			rep.Clients = rollupRPO(rep.Rows, targets, rep.FetchFailures)
 			printFetchFailures(cmd.ErrOrStderr(), rep.FetchFailures)
 			allFailed, outcomeErr := fleetOutcome(cmd.ErrOrStderr(), len(targets), rep.FetchFailures)
 			if !wantsHumanTable(cmd.OutOrStdout(), flags) {
@@ -158,9 +161,9 @@ func newNovelRpoCmd(flags *rootFlags) *cobra.Command {
 			if byClient {
 				rows := make([][]string, 0, len(rep.Clients))
 				for _, c := range rep.Clients {
-					rows = append(rows, []string{c.Tenant, fmt.Sprint(c.Guests), fmt.Sprint(c.GuestsMet), fmt.Sprint(c.MissedRuns), fmt.Sprint(c.GuestsUnproven), fmt.Sprintf("%.1f", c.WorstGapHours), fmt.Sprint(c.ClustersUnreachable)})
+					rows = append(rows, []string{c.Tenant, fmt.Sprint(c.Guests), fmt.Sprint(c.GuestsMet), fmt.Sprint(c.MissedRuns), fmt.Sprint(c.GuestsUnproven), fmt.Sprintf("%.1f", c.WorstGapHours), fmt.Sprint(c.ClustersUnreachable), fmt.Sprint(c.FetchFailures)})
 				}
-				return flags.printTable(cmd, []string{"CLIENT", "GUESTS", "MET SCHEDULE", "MISSED RUNS", "UNPROVEN", "WORST GAP (H)", "UNREACHABLE"}, rows)
+				return flags.printTable(cmd, []string{"CLIENT", "GUESTS", "MET SCHEDULE", "MISSED RUNS", "UNPROVEN", "WORST GAP (H)", "UNREACHABLE", "NOT READ"}, rows)
 			}
 			if len(rep.Rows) == 0 {
 				fmt.Fprintln(cmd.OutOrStdout(), "No guests covered by an enabled backup job.")
@@ -206,6 +209,7 @@ func collectRPO(ctx context.Context, t fleetTarget, start, now time.Time, onlyVM
 	fails = append(fails, offlineFailures(t.Name, offline)...)
 	points := map[int64][]restorePoint{}
 	refs, refsErr := fetchPBSStorageRefs(ctx, t.C)
+	refs = t.withShared(refs)
 	if refsErr != nil {
 		fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "storage config", Error: refsErr.Error()})
 	}
@@ -218,11 +222,9 @@ func collectRPO(ctx context.Context, t fleetTarget, start, now time.Time, onlyVM
 		f.Cluster = t.Name
 		fails = append(fails, f)
 	}
-	if len(storages) == 0 && len(sfails) < len(nodes) {
-		if err := requireVisibility(ctx, t.C, false, client.PrivDatastoreAudit); err != nil {
-			pointsIncomplete = true
-			fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "backup storage", Error: err.Error()})
-		}
+	if err := storageListHidden(ctx, t.C); err != nil {
+		pointsIncomplete = true
+		fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "backup storage", Error: err.Error()})
 	}
 	// PBS attribution first, so a PBS storage the PBS API reads directly does
 	// not depend on the PVE content list (which hides backups from audit-only
@@ -339,7 +341,7 @@ func collectRPO(ctx context.Context, t fleetTarget, start, now time.Time, onlyVM
 			// has a readable restore point; unread storage can only add points),
 			// while missed runs become unproven.
 			row.Evidence = "partial"
-			row.TargetUnread = len(gaps) > 0
+			row.PointsUnread = true
 			if row.MissedRuns > 0 {
 				row.MetSchedule = false
 				row.Note = strings.TrimSpace(row.Note + " " + why + "; missed runs may be unread restore points")
@@ -411,7 +413,9 @@ func evaluateRPO(points []restorePoint, runs []int64, start, now time.Time) rpoR
 	row.RestorePoints = len(inWindow)
 	row.VerifiedOKDays = len(okDays)
 	for i, run := range runs {
-		if run < effStart || now.Sub(time.Unix(run, 0)) < rpoInProgressGrace {
+		// Only the newest run can still be in progress: an older one's window
+		// closed when the next run was due, so it is judged whatever its age.
+		if run < effStart || (i == len(runs)-1 && now.Sub(time.Unix(run, 0)) < rpoInProgressGrace) {
 			continue
 		}
 		row.ScheduledRuns++
@@ -475,7 +479,8 @@ func dedupeRuns(runs []int64) []int64 {
 
 func round1(v float64) float64 { return math.Round(v*10) / 10 }
 
-func rollupRPO(rows []rpoRow, unreachable map[string]int) []rpoClientRow {
+func rollupRPO(rows []rpoRow, targets []fleetTarget, failures []fetchFailure) []rpoClientRow {
+	unreachable, scoped := tenantFailures(targets, failures)
 	by := map[string]*rpoClientRow{}
 	for _, r := range rows {
 		c := by[r.Tenant]
@@ -490,7 +495,7 @@ func rollupRPO(rows []rpoRow, unreachable map[string]int) []rpoClientRow {
 		if r.Evidence == "partial" {
 			c.GuestsPartial++
 		}
-		if r.TargetUnread {
+		if r.PointsUnread {
 			c.GuestsUnproven++
 			c.MissedRunsUnproven += r.MissedRuns
 		} else {
@@ -507,6 +512,12 @@ func rollupRPO(rows []rpoRow, unreachable map[string]int) []rpoClientRow {
 			by[tenant] = &rpoClientRow{Tenant: tenant}
 		}
 		by[tenant].ClustersUnreachable = n
+	}
+	for tenant, n := range scoped {
+		if by[tenant] == nil {
+			by[tenant] = &rpoClientRow{Tenant: tenant}
+		}
+		by[tenant].FetchFailures = n
 	}
 	out := make([]rpoClientRow, 0, len(by))
 	for _, k := range sortedKeys(by) {

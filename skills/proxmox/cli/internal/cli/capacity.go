@@ -51,8 +51,8 @@ func newNovelCapacityCmd(flags *rootFlags) *cobra.Command {
 			"Do NOT use this command for verify failures or corrupt chunks; use 'verify-health' instead.\n\n" +
 			"Flags: gc-deadlock-risk (free space below --gc-margin while the last garbage collection failed or never ran: GC needs " +
 			"free space to run, so the datastore can no longer clean itself), unpruned (no prune job and no keep-* retention on " +
-			"the datastore), filling (estimated full within --within), no-forecast (a PVE storage, or a PBS datastore with under a week " +
-			"of usage history: nothing forecasts its days to full, so it is always listed, --within included, and judged by used_pct), nearly-full (free space below --gc-margin). " +
+			"the datastore), filling (estimated full within --within), no-forecast (a PVE storage, or a PBS datastore with too few usage " +
+			"samples for PBS to estimate: nothing forecasts its days to full, so it is always listed, --within included, and judged by used_pct), nearly-full (free space below --gc-margin). " +
 			"PBS forecasts come from its own linear regression over the last month.",
 		Example: strings.Trim(`
   proxmox-cli capacity --within 30d
@@ -161,12 +161,12 @@ func collectCapacity(ctx context.Context, t fleetTarget, now time.Time, margin f
 	pbsRowFor := map[string]bool{} // datastores that got an authoritative PBS row
 	if t.C.PBSConfigured() {
 		var usage []struct {
-			Store     string  `json:"store"`
-			Total     flexInt `json:"total"`
-			Used      flexInt `json:"used"`
-			Avail     flexInt `json:"avail"`
-			FullDate  flexInt `json:"estimated-full-date"`
-			ErrorText string  `json:"error"`
+			Store     string   `json:"store"`
+			Total     flexInt  `json:"total"`
+			Used      flexInt  `json:"used"`
+			Avail     flexInt  `json:"avail"`
+			FullDate  *flexInt `json:"estimated-full-date"` // absent: too few samples; 0 or past: not filling
+			ErrorText string   `json:"error"`
 		}
 		if err := getJSON(ctx, t.C, pbsPath("/status/datastore-usage"), nil, &usage); err != nil {
 			fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "pbs datastore-usage", Error: err.Error()})
@@ -205,14 +205,14 @@ func collectCapacity(ctx context.Context, t fleetTarget, now time.Time, margin f
 			row.UsedPct = pct(row.UsedBytes, row.TotalBytes)
 			// PBS dates an estimate in the past when usage is flat or falling, so a
 			// full datastore is detected from free space, not from the forecast.
-			if est := int64(u.FullDate); est > now.Unix() {
+			if u.FullDate == nil {
+				// PBS has too few usage samples to estimate: unknown, so --within
+				// must keep it.
+				row.Flags = append(row.Flags, "no-forecast")
+			} else if est := int64(*u.FullDate); est > now.Unix() {
 				d := math.Round(time.Unix(est, 0).Sub(now).Hours()/24*10) / 10
 				row.DaysToFull = &d
 				row.EstimatedFullAt = unixRFC3339(est)
-			} else if est == 0 {
-				// PBS has no estimate yet (under a week of samples): unknown, so
-				// --within must keep it.
-				row.Flags = append(row.Flags, "no-forecast")
 			}
 			for _, g := range gcs {
 				if g.Store == u.Store {
@@ -273,13 +273,25 @@ func collectCapacity(ctx context.Context, t fleetTarget, now time.Time, margin f
 	if len(storages) == 0 && len(sfails) > 0 && len(rows) == 0 {
 		return nil, nil, fmt.Errorf("no backup storage could be read on this cluster: %s", sfails[0].Error) // no capacity evidence at all
 	}
-	if len(storages) == 0 && len(sfails) < len(nodes) {
-		// Storage lists are filtered by privilege, not refused: empty can mean "not allowed to see".
-		if err := requireVisibility(ctx, t.C, false, client.PrivDatastoreAudit); err != nil {
-			if len(rows) == 0 {
-				return nil, nil, err
-			}
-			fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "pve storage", Error: err.Error()})
+	// Storage lists are filtered by privilege, not refused: a storage the token
+	// may not see is missing, not empty, and could be the one filling up.
+	if err := storageListHidden(ctx, t.C); err != nil {
+		if len(storages) == 0 && len(rows) == 0 {
+			return nil, nil, err
+		}
+		fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "pve storage", Error: err.Error()})
+	}
+	for _, j := range jobs {
+		if !j.enabled() || j.Storage == "" {
+			continue
+		}
+		seen := false
+		for key := range storages {
+			seen = seen || key == j.Storage || strings.HasPrefix(key, j.Storage+"@")
+		}
+		if !seen {
+			fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "storage " + j.Storage,
+				Error: "backup job " + j.ID + " writes here, but the storage is not in this token's list (hidden, inactive, or without backup content); its capacity is unknown"})
 		}
 	}
 	for _, f := range sfails {

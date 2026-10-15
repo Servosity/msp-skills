@@ -91,6 +91,8 @@ func TestVerifyHealthNamespaceStaysOnOwnDatastores(t *testing.T) {
 	f := newFixture(t)
 	setAcmeTokens(t)
 	f.pbsRoutes["/admin/datastore"] = []map[string]any{{"store": "main"}, {"store": "other"}}
+	f.pbsRoutes["/admin/datastore/main/namespace"] = []map[string]any{{"ns": ""}, {"ns": "prod"}}
+	f.pbsRoutes["/admin/datastore/other/namespace"] = []map[string]any{{"ns": ""}, {"ns": "prod"}}
 	f.pbsRoutes["/admin/datastore/other/snapshots"] = []any{
 		map[string]any{"backup-type": "vm", "backup-id": "777", "backup-time": ago(f.now, 1), "size": 1 << 30, "owner": "root@pam", "verification": map[string]any{"state": "failed", "upid": "UPID:pbs:verify"}},
 	}
@@ -146,6 +148,7 @@ func TestVerifyHealthNamespaceNotesAndPVEOutage(t *testing.T) {
 	f := newFixture(t)
 	setAcmeTokens(t)
 	f.pbsRoutes["/admin/datastore"] = []map[string]any{{"store": "main"}, {"store": "archive"}}
+	f.pbsRoutes["/admin/datastore/main/namespace"] = []map[string]any{{"ns": ""}, {"ns": "prod"}}
 	f.pbsRoutes["/admin/datastore/archive/namespace"] = []map[string]any{{"ns": ""}, {"ns": "prod"}}
 	f.pbsRoutes["/admin/datastore/archive/snapshots"] = []any{
 		map[string]any{"backup-type": "vm", "backup-id": "100", "backup-time": ago(f.now, 1), "size": 1 << 30, "owner": "root@pam", "verification": map[string]any{"state": "failed", "upid": "UPID:pbs:verify"}},
@@ -175,6 +178,11 @@ pbs_namespace = "prod"
 	rep := decodeJSON[verifyReport](t, out)
 	if len(rep.Groups) == 0 || !strings.Contains(failureByScope(rep.FetchFailures)["pbs namespace"], "could not tie") {
 		t.Errorf("want PBS groups plus a could-not-tie note:\n%s", out)
+	}
+	for _, g := range rep.Groups {
+		if g.Attribution != "untied" {
+			t.Errorf("an untied row must say so: %+v", g)
+		}
 	}
 }
 
@@ -213,5 +221,61 @@ func TestClustersCheckDryRunAndVersionlessAnswer(t *testing.T) {
 	var ce *cliError
 	if !errors.As(err, &ce) || ce.code != 1 || !strings.Contains(out, "without a PVE version") {
 		t.Errorf("a versionless 200 must fail the check: err %v\n%s", err, out)
+	}
+}
+
+// pbs_namespace names a namespace and everything below it: a storage writing
+// to prod/web is read (and its failures shown) under pbs_namespace "prod".
+func TestVerifyHealthReadsNamespacesBelowProfile(t *testing.T) {
+	f := newFixture(t)
+	setAcmeTokens(t)
+	f.pbsNS = "prod/web"
+	f.pbsRoutes["/admin/datastore/main/namespace"] = []map[string]any{{"ns": ""}, {"ns": "prod"}, {"ns": "prod/web"}}
+	f.pbsRoutes["/admin/datastore/main/snapshots#prod"] = []any{}
+	f.pbsRoutes["/admin/datastore/main/snapshots#prod/web"] = []any{
+		map[string]any{"backup-type": "vm", "backup-id": "100", "backup-time": ago(f.now, 1), "size": 1 << 30, "owner": "root@pam", "verification": map[string]any{"state": "failed", "upid": "UPID:pbs:verify"}},
+	}
+	writeClustersFile(t, acmeClusters(f, f.pbs.URL, `pbs_namespace = "prod"`))
+	out, stderr, err := runCLI(t, "verify-health", "--json")
+	if err != nil {
+		t.Fatalf("verify-health: %v\n%s", err, stderr)
+	}
+	found := false
+	for _, g := range decodeJSON[verifyReport](t, out).Groups {
+		found = found || (g.Namespace == "prod/web" && g.Group == "vm/100" && g.Status == "failing")
+	}
+	if !found {
+		t.Errorf("the failing group in prod/web must be listed under pbs_namespace prod:\n%s", out)
+	}
+
+	// A storage writing outside the profile namespace is named, not dropped,
+	// and the hint for its hidden PVE list points at pbs_namespace.
+	f.pbsNS = ""
+	auditOnly(f)
+	out, _, err = runCLI(t, "verify-health", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if e := failureByScope(decodeJSON[verifyReport](t, out).FetchFailures)["storage pbs1"]; !strings.Contains(e, "outside pbs_namespace") {
+		t.Errorf("the storage outside pbs_namespace must be named:\n%s", out)
+	}
+	rep, _ := postureByVMID(t)
+	if e := failureByScope(rep.FetchFailures)["storage pbs1"]; !strings.Contains(e, "pbs_namespace") || strings.Contains(e, "set PROXMOX_PBS_HOST") {
+		t.Errorf("the hint must not send a correctly set PBS host back to PROXMOX_PBS_HOST: %q", e)
+	}
+}
+
+// PBS sends estimated-full-date 0 for flat usage: not filling, not unknown.
+func TestCapacityFlatPBSDatastoreIsNotNoForecast(t *testing.T) {
+	f := newFixture(t)
+	f.pbsRoutes["/status/datastore-usage"] = []map[string]any{{"store": "main", "total": 1000 << 30, "used": 100 << 30, "avail": 900 << 30, "estimated-full-date": 0}}
+	out, _, err := runCLI(t, "capacity", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range decodeJSON[capacityReport](t, out).Rows {
+		if r.Kind == "pbs-datastore" && strings.Contains(strings.Join(r.Flags, ","), "no-forecast") {
+			t.Errorf("flat usage is not unforecast: %+v", r)
+		}
 	}
 }
