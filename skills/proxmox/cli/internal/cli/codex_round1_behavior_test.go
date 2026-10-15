@@ -654,3 +654,82 @@ func TestRPOHumanShowsPartialEvidence(t *testing.T) {
 		t.Errorf("human rpo must flag partial evidence:\n%s", out)
 	}
 }
+
+// Adversarial round 6.
+
+func prodSnapshots(f *fixture) []any { return f.pbsRoutes["/admin/datastore/main/snapshots"].([]any) }
+
+// An unreadable peer that declares its own pbs_namespace may write only there:
+// one client offline must not blank every other client's PBS evidence. One
+// that declares none may write anywhere on that PBS.
+func TestUnreadablePeerIsScopedByItsDeclaredNamespace(t *testing.T) {
+	for name, c := range map[string]struct {
+		betaNS    string
+		wantFresh bool
+	}{"beta declares beta": {"beta", true}, "beta declares nothing": {"", false}} {
+		t.Run(name, func(t *testing.T) {
+			f := newFixture(t)
+			setAcmeTokens(t)
+			auditOnly(f)
+			f.pbsNS = "acme"
+			f.pbsRoutes["/admin/datastore/main/namespace"] = []map[string]any{{"ns": ""}, {"ns": "acme"}, {"ns": "beta"}}
+			f.pbsRoutes["/admin/datastore/main/snapshots#acme"] = prodSnapshots(f)
+			decl := ""
+			if c.betaNS != "" {
+				decl = `pbs_namespace = "` + c.betaNS + `"`
+			}
+			writeClustersFile(t, acmeClusters(f, f.pbs.URL, `pbs_namespace = "acme"`)+`
+[clusters.beta]
+pve_base_url = "https://127.0.0.1:9/api2/json"
+pve_token_env = "ACME_PVE"
+pve_fingerprint = "zz"
+pbs_host = "`+f.pbs.URL+`"
+`+decl+"\n")
+			out, _, err := runCLI(t, "--cluster", "acme", "posture", "--json")
+			if err != nil {
+				t.Fatal(err)
+			}
+			fresh := false
+			for _, r := range decodeJSON[postureReport](t, out).Rows {
+				fresh = fresh || (r.VMID == 100 && r.Verdict == "fresh")
+			}
+			if fresh != c.wantFresh {
+				t.Errorf("acme/100 fresh = %v, want %v:\n%s", fresh, c.wantFresh, out)
+			}
+		})
+	}
+}
+
+// A declared pbs_namespace owns its subtree: points beta left in msp/beta/old
+// are not acme's, even under acme's broader pbs_namespace "msp".
+func TestDeclaredNamespaceOwnsItsSubtree(t *testing.T) {
+	f := newFixture(t)
+	setAcmeTokens(t)
+	auditOnly(f)
+	f.pbsNS = "msp"
+	f.pbsRoutes["/admin/datastore/main/namespace"] = []map[string]any{{"ns": ""}, {"ns": "msp"}, {"ns": "msp/beta"}, {"ns": "msp/beta/old"}, {"ns": "msp/beta/x"}}
+	for _, ns := range []string{"msp", "msp/beta", "msp/beta/x"} {
+		f.pbsRoutes["/admin/datastore/main/snapshots#"+ns] = []any{}
+	}
+	f.pbsRoutes["/admin/datastore/main/snapshots#msp/beta/old"] = []any{
+		map[string]any{"backup-type": "vm", "backup-id": "105", "backup-time": ago(f.now, 3), "size": 1 << 30, "owner": "root@pam", "verification": map[string]any{"state": "ok", "upid": "UPID:pbs:verify"}},
+	}
+	beta := pbsOtherPVE(t, f, "msp/beta/x", "")
+	writeClustersFile(t, acmeClusters(f, f.pbs.URL, `pbs_namespace = "msp"`)+`
+[clusters.beta]
+pve_base_url = "`+beta.URL+`/api2/json"
+pve_token_env = "ACME_PVE"
+pve_fingerprint = "`+client.CertFingerprint(beta.Certificate())+`"
+pbs_host = "`+f.pbs.URL+`"
+pbs_namespace = "msp/beta"
+`)
+	out, _, err := runCLI(t, "--cluster", "acme", "posture", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range decodeJSON[postureReport](t, out).Rows {
+		if r.VMID == 105 && r.RestorePoints > 0 {
+			t.Errorf("acme/105 credited with beta's point in msp/beta/old: %s %q", r.Verdict, r.Reason)
+		}
+	}
+}

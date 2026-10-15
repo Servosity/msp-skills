@@ -114,8 +114,9 @@ func newNovelPostureCmd(flags *rootFlags) *cobra.Command {
 			"Do NOT use this command to explain why a guest or disk is uncovered; use 'backup coverage' instead. " +
 			"Do NOT use it to list one guest's individual restore points; use 'restore-points' instead. " +
 			"Do NOT use it for last night's failed tasks and log lines; use 'failures' instead.\n\n" +
-			"Verdicts: uncovered (no ENABLED job includes the guest), never (covered, every backup storage was read, no restore point exists), " +
-			"unproven (covered, no readable restore point or only an old one, while a storage that may hold its restore points could not be read; see fetch_failures), " +
+			"Verdicts: uncovered (no ENABLED job includes the guest), never (covered, every source that may hold its restore points was read, none exists), " +
+			"unproven (covered, no readable restore point or only an old one, while something that may hold one was not proven: a storage or PBS namespace " +
+			"not read, a backup listed without a readable manifest, or a PBS namespace another configured cluster writes to or may write to; see reason and fetch_failures), " +
 			"stale (newest restore point older than --stale-after), verify-failed (newest PBS restore point failed verification) are red; " +
 			"unverified (newest PBS restore point not verified yet), last-attempt-failed (latest vzdump run failed but an older point is still fresh), " +
 			"attempt-unknown (fresh restore point, but the latest vzdump log could not be read; raise --max-logs or fix the reported fetch failure), " +

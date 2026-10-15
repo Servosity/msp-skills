@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -260,6 +261,20 @@ func (f *fixture) handler(t *testing.T, routes map[string]any, authPrefix string
 					return
 				}
 			}
+		}
+		// Like PVE::Storage::storage_info: a content filter keeps only enabled
+		// storages carrying that content type.
+		if want := q.Get("content"); pve && want != "" && strings.HasPrefix(path, "/nodes/") && strings.HasSuffix(path, "/storage") {
+			var out []map[string]any
+			list, _ := routes[path].([]map[string]any)
+			for _, st := range list {
+				if fmt.Sprint(st["enabled"]) == "0" || !slices.Contains(strings.Split(fmt.Sprint(st["content"]), ","), want) {
+					continue
+				}
+				out = append(out, st)
+			}
+			writeData(w, out)
+			return
 		}
 		// A route keyed "<path>#<ns>" answers that namespace only, like PBS.
 		if ns := q.Get("ns"); ns != "" {
