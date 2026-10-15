@@ -260,6 +260,9 @@ func collectCapacity(ctx context.Context, t fleetTarget, now time.Time, margin f
 	}
 	if err != nil {
 		if len(rows) == 0 {
+			if errors.Is(err, errNoPVE) && len(fails) > 0 {
+				return nil, fails, nil // PBS-only: the PBS reads that failed are the cause, not the absent PVE host
+			}
 			return nil, nil, err // nothing reachable on this cluster
 		}
 		if !errors.Is(err, errNoPVE) { // a PBS-only profile has no PVE storage to report
