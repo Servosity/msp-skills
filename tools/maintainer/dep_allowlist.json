@@ -55,6 +55,7 @@
     "golang.org/x/crypto",
     "golang.org/x/exp",
     "golang.org/x/net",
+    "golang.org/x/oauth2",
     "golang.org/x/sys",
     "golang.org/x/text",
     "gopkg.in/yaml.v3",
