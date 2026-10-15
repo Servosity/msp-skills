@@ -384,6 +384,13 @@
     "current_hash": "sha256:a08317d5e88c898d3e1b54cff5f75645ae9eb3d6317209cea06732a1bb9572c4",
     "released_hash": "sha256:a08317d5e88c898d3e1b54cff5f75645ae9eb3d6317209cea06732a1bb9572c4"
   },
+  "quotewerks": {
+    "state": "never-released",
+    "version": "0.1.0",
+    "latest_tag": "quotewerks-v0.1.0",
+    "current_hash": "sha256:b0c7027ae8e44536a8ab06e737c97bb151f94604195bc10316ede77ab2e7bb34",
+    "released_hash": null
+  },
   "resourceguru": {
     "state": "binary-pending",
     "version": "0.1.3",
