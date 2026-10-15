@@ -243,8 +243,8 @@
   },
   {
    "id": "sophos-filtered-prune",
-   "summary": "a user --param that narrows the rows disables full-sync pruning",
-   "why": "sync --full prunes local rows the API no longer returns, but with a narrowing --param the API returns a subset by design, so pruning deleted every row outside the filter.",
+   "summary": "a user --param that narrows the rows disables full-sync pruning; such a walk also stamps no watermark",
+   "why": "sync --full prunes local rows the API no longer returns, but with a narrowing --param the API returns a subset by design, so pruning deleted every row outside the filter. Codex round 9 (2026-10-15): a --param walk still stamped last_synced_at, so a later unfiltered incremental sync skipped the rows it filtered out and a local --tenant read dated them as current. TestOnlyCompleteFetchesDateALocalRead pins it.",
    "status": "active",
    "asserts": [
     {
@@ -256,6 +256,12 @@
     {
      "file": "cli/internal/cli/sync.go",
      "contains": "!userParams.hasAny()",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\tcase userParams.hasAny():\n\t\t// HAND-FIX(sophos-filtered-prune): a --param walk saw a subset, so it",
      "min_count": 1,
      "code_only": false
     }
@@ -1393,7 +1399,7 @@
   {
    "id": "local-provenance-per-tenant",
    "summary": "a local read with one --tenant is dated by that tenant's own last fetch (the later of its fleet ledger full_at/at and its sync checkpoint), never the fleet-wide stamp",
-   "why": "Codex round 4 (2026-10-15): localProvenance read the unscoped sync_state stamp, so `fleet refresh --tenant T2` made `endpoints list --tenant T1 --data-source local` report T1's stale rows with T2's fresh synced_at. sophosLocalSyncedAt reads the selected tenant's ledger row; several selected tenants get no single date. TestFullRefreshPrunesFromTheLiveTenantList checks localProvenance per tenant and fails with the data_source.go edit reverted. Adversarial round 7: the stderr freshness hints still read the fleet-wide stamp, so one command's synced_at and its hint disagreed; the local list path now calls emitScopedSyncHints with the same per-tenant date; adversarial round 8 showed analytics and search (which count every tenant's rows) must keep the fleet-wide hint, so readSyncHintState is left generated. Codex round 8: the ledger time always won, so a later full plain sync of the tenant still showed the older date; the later of the two is used now.",
+   "why": "Codex round 4 (2026-10-15): localProvenance read the unscoped sync_state stamp, so `fleet refresh --tenant T2` made `endpoints list --tenant T1 --data-source local` report T1's stale rows with T2's fresh synced_at. sophosLocalSyncedAt reads the selected tenant's ledger row; several selected tenants get no single date. TestFullRefreshPrunesFromTheLiveTenantList checks localProvenance per tenant and fails with the data_source.go edit reverted. Adversarial round 7: the stderr freshness hints still read the fleet-wide stamp, so one command's synced_at and its hint disagreed; the local list path now calls emitScopedSyncHints with the same per-tenant date; adversarial round 8 showed analytics and search (which count every tenant's rows) must keep the fleet-wide hint, so readSyncHintState is left generated. Codex round 8: the ledger time always won, so a later full plain sync of the tenant still showed the older date; the later of the two is used now. Codex round 9: a --since fleet fetch's at time dated the tenant's alerts as current; only full_at counts now.",
    "status": "active",
    "asserts": [
     {
@@ -1429,6 +1435,18 @@
     {
      "file": "cli/internal/cli/sophos_fleet_prune_test.go",
      "contains": "func TestScopedSyncHintUsesTheTenantsOwnDate(",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_fleet.go",
+     "contains": "\t\t\tif o, ok := row.Resources[resourceType]; ok && o.FullAt.After(at) {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_fleet_prune_test.go",
+     "contains": "func TestOnlyCompleteFetchesDateALocalRead(",
      "min_count": 1,
      "code_only": false
     }

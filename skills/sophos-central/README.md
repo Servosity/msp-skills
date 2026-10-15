@@ -210,7 +210,7 @@ Calls go through a shared throttle of 1.5 requests per second by default (`--rat
 
 ### Why do some customers show as forbidden?
 
-Sophos returns 403 to a partner for trial tenants and for term customers without Partner Assistance. `fleet refresh` records those in its per-tenant ledger and carries on, and `fleet triage` lists them as blind tenants so you can see what was not read. Trial tenants are skipped unless you pass `--include-trial`. A full refresh (no `--tenant`) also removes the stored data of tenants it no longer covers (offboarded tenants, and trial tenants when `--include-trial` is not set), so the local store always matches your last full refresh.
+Sophos returns 403 to a partner for trial tenants and for term customers without Partner Assistance. `fleet refresh` records those in its per-tenant ledger and carries on, and `fleet triage` lists them as blind tenants so you can see what was not read. Trial tenants are skipped unless you pass `--include-trial`. A full refresh (no `--tenant`) also removes what earlier fleet refreshes stored for tenants it no longer covers (offboarded tenants, and trial tenants when `--include-trial` is not set), so fleet reports always match your last full refresh.
 
 ### Can the AI isolate a machine or turn tamper protection back on by itself?
 

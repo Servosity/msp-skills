@@ -58,7 +58,7 @@ func newNovelFleetRefreshCmd(flags *rootFlags) *cobra.Command {
 		Short: "Refresh tenants, endpoints, alerts, account health and licences for every customer tenant in one run",
 		Long: `Use this command to refresh the local store for every tenant the credential can see (tenants, endpoints, alerts, account health, licences), recording a per-tenant ok/forbidden/no_api_host/error status. Do NOT use this command to refresh one resource for the currently selected tenant; use 'sync' instead.
 
-Per-tenant 403s are expected for trial tenants and term customers without Partner Assistance; they are recorded in the ledger and the run continues. Calls share the CLI rate limiter (1.5 req/s by default; Sophos enforces 100/minute). Trial tenants are skipped unless --include-trial is set. A refresh without --tenant also removes the stored data of tenants outside its scope (offboarded tenants, and trial tenants when --include-trial is not set), so the local store always mirrors the last full refresh. A tenant credential syncs just its own tenant.`,
+Per-tenant 403s are expected for trial tenants and term customers without Partner Assistance; they are recorded in the ledger and the run continues. Calls share the CLI rate limiter (1.5 req/s by default; Sophos enforces 100/minute). Trial tenants are skipped unless --include-trial is set. A refresh without --tenant also removes what earlier fleet refreshes stored for tenants outside its scope (offboarded tenants, and trial tenants when --include-trial is not set), so fleet reports always match the last full refresh. Fleet reports read only what fleet refresh stores; rows that plain sync or a live read cached stay in the local store for --data-source local reads. A tenant credential syncs just its own tenant.`,
 		Example: strings.Trim(`
   sophos-central-cli fleet refresh --resources tenants,endpoints,alerts,health,licenses
   sophos-central-cli fleet refresh --plan
@@ -613,10 +613,12 @@ func truncateErr(err error) string {
 	return s
 }
 
-// pruneOutOfScopeTenants removes every stored trace of tenants that a full
-// listing no longer returns: their tenant and ledger rows, health and licence
-// documents, and endpoint and alert rows (including rows plain sync stored
-// for a tenant fleet refresh never recorded). It returns the removed tenant IDs.
+// pruneOutOfScopeTenants removes what fleet refresh stored for tenants a full
+// listing no longer covers: their tenant and ledger rows, health and licence
+// documents, fleet copies, and their endpoint and alert rows in the mirror.
+// Tenants are found from fleet-owned data only; rows that plain sync or a
+// live read cached for a tenant fleet refresh never recorded are left alone.
+// It returns the removed tenant IDs.
 func pruneOutOfScopeTenants(db *store.Store, tenants []fleetTenant, started time.Time) ([]string, error) {
 	scope := make(map[string]bool, len(tenants))
 	ids := make([]string, 0, len(tenants))

@@ -317,3 +317,31 @@ func TestOtherWritersCannotChangeAFleetView(t *testing.T) {
 		t.Fatalf("mirror writes changed the fleet view: before %d items, after %d (%v)", len(before.Items), len(after.Items), err)
 	}
 }
+
+func TestOnlyCompleteFetchesDateALocalRead(t *testing.T) {
+	srv, _ := fakeSophosAPI(t)
+	fleetEnv(t, srv)
+	dbPath := filepath.Join(t.TempDir(), "s.db")
+	// A --param walk sees a subset of the rows: no watermark.
+	if _, _, err := runRootArgs(t, "sync", "--resources", "endpoints", "--tenant", "T1", "--param", "healthStatus=bad", "--db", dbPath, "--json", "--rate-limit", "0"); err != nil {
+		t.Fatal(err)
+	}
+	db, err := store.OpenWithContext(context.Background(), dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if _, at, _, _ := db.GetSyncState("endpoints@T1"); !at.IsZero() {
+		t.Fatalf("a filtered sync must not stamp a watermark: %v", at)
+	}
+	// A --since fleet fetch dates nothing either.
+	row, _ := json.Marshal(fleetLedgerRow{ID: "T1", Status: "ok", Resources: map[string]fleetOutcome{"alerts": {Status: "ok", At: time.Now(), Window: "24h0m0s"}}})
+	if err := replaceFleetDoc(db, fleetLedgerType, row); err != nil {
+		t.Fatal(err)
+	}
+	sophosTenantFlag = "T1"
+	t.Cleanup(func() { sophosTenantFlag = "" })
+	if at, _ := sophosLocalSyncedAt(db, "alerts"); !at.IsZero() {
+		t.Fatalf("a --since window is not a full fetch of the tenant's alerts: %v", at)
+	}
+}

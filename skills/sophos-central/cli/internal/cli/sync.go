@@ -1102,9 +1102,14 @@ func syncResource(ctx context.Context, c interface {
 		return syncResult{Resource: resource, Count: 0, Err: err, IntegrityFailure: true, Duration: time.Since(started)}
 	}
 	watermark := time.Time{}
-	if outcome.complete {
+	switch {
+	case userParams.hasAny():
+		// HAND-FIX(sophos-filtered-prune): a --param walk saw a subset, so it
+		// is no watermark: a later sync would skip the rows it filtered out,
+		// and a local read would date them as current.
+	case outcome.complete:
 		watermark = requestedAt.Add(-syncWatermarkOverlap)
-	} else if capTruncated && sortEffective && timestampOrderSafe && timestampEvidence && !newestStoredAt.IsZero() {
+	case capTruncated && sortEffective && timestampOrderSafe && timestampEvidence && !newestStoredAt.IsZero():
 		watermark = newestStoredAt.Add(-syncWatermarkOverlap)
 	}
 	if !watermark.IsZero() {

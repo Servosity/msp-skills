@@ -576,14 +576,9 @@ func sophosLocalSyncedAt(db *store.Store, resourceType string) (time.Time, error
 	if raw, gerr := db.Get(fleetLedgerType, t); gerr == nil && len(raw) > 0 {
 		var row fleetLedgerRow
 		if json.Unmarshal(raw, &row) == nil {
-			if o, ok := row.Resources[resourceType]; ok {
-				fetched := o.At
-				if !o.FullAt.IsZero() {
-					fetched = o.FullAt
-				}
-				if fetched.After(at) {
-					return fetched, nil
-				}
+			// Only a full fetch dates the rows; a --since window does not.
+			if o, ok := row.Resources[resourceType]; ok && o.FullAt.After(at) {
+				return o.FullAt, nil
 			}
 		}
 	}
