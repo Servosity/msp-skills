@@ -62,6 +62,7 @@ pbs_fingerprint = "`+f.pbsFingerprint()+`"
 [clusters.down]
 pve_base_url = "https://127.0.0.1:1/api2/json"
 pve_token_env = "GOOD_PVE"
+pbs_namespace = "down"
 `)
 	if _, _, err := runCLI(t, "posture", "--json", "--fail-on-red", "--only", "green"); ExitCode(err) != 1 {
 		t.Errorf("--fail-on-red must trip when a cluster could not be read, got %v", err)

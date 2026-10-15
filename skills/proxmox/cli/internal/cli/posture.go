@@ -120,7 +120,7 @@ func newNovelPostureCmd(flags *rootFlags) *cobra.Command {
 			"stale (newest restore point older than --stale-after), verify-failed (newest PBS restore point failed verification) are red; " +
 			"unverified (newest PBS restore point not verified yet), last-attempt-failed (latest vzdump run failed but an older point is still fresh), " +
 			"attempt-unknown (fresh restore point, but the latest vzdump log could not be read; raise --max-logs or fix the reported fetch failure), " +
-			"and archives-incomplete (fresh restore point, but some backup storage could not be read) are amber; " +
+			"and archives-incomplete (fresh restore point, but some backup storage could not be read, or a newer backup is listed without a readable manifest) are amber; " +
 			"protected-elsewhere (uncovered but tagged with --protected-elsewhere-tag) and fresh are green. " +
 			"Freshness comes from real archives (PVE backup storages, including PBS storages, and the PBS API when configured), never from a job having run.",
 		Example: strings.Trim(`
@@ -432,6 +432,12 @@ func collectPosture(ctx context.Context, t fleetTarget, o postureOpts) (clusterP
 			// running or a damaged one: no restore point proven, none ruled out.
 			row.Verdict = "unproven"
 			row.Reason = fmt.Sprintf("%d backup(s) of it are listed without a readable manifest (still running, or damaged) and the newest readable restore point is %s", len(unreadable), orNone(row.LastSuccessAt))
+		}
+		if row.Severity == "green" && newerThan(unreadable, newest) {
+			// The newest backup cannot be read: it may be running, or it failed
+			// and left debris. The fresh point is real; the latest run is unproven.
+			row.Verdict, row.Severity = "archives-incomplete", "amber"
+			row.Reason = "newest readable restore point is fresh, but a newer backup is listed without a readable manifest (still running, or damaged)"
 		}
 		gaps := jobStorageGaps(cov, vmid, g.Node, readStorage, targets)
 		for _, g := range gaps {
@@ -863,4 +869,14 @@ func sortedKeys[V any](m map[string]V) []string {
 	}
 	sort.Strings(keys)
 	return keys
+}
+
+// newerThan reports whether any of rps is newer than newest (nil: any at all).
+func newerThan(rps []restorePoint, newest *restorePoint) bool {
+	for _, rp := range rps {
+		if newest == nil || rp.Time > newest.Time {
+			return true
+		}
+	}
+	return false
 }

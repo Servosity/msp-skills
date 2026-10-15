@@ -55,7 +55,7 @@ type pbsOwnership struct {
 
 type peerScope struct {
 	name, pve string
-	svcs      []string // the PBS services it uses (see pbsServices)
+	svcs      []string // the PBS services it uses (see pbsServices); none known for an unknown peer = any PBS
 	stores    []string // the datastores it writes to there; nil = any (unknown peers)
 	ns        string   // the subtree it owns; "" = any namespace (unknown peers only)
 	unknown   bool
@@ -63,7 +63,7 @@ type peerScope struct {
 
 // covers reports whether peer p owns, or may write to, ns on ref's datastore.
 func (o *pbsOwnership) covers(p peerScope, ref pbsStorageRef, ns string) bool {
-	if !overlaps(p.svcs, o.svc.of(ref.server, ref.fingerprint)) {
+	if !p.anyPBS() && !overlaps(p.svcs, o.svc.of(ref.server, ref.fingerprint)) {
 		return false
 	}
 	if p.stores != nil && !slices.Contains(p.stores, ref.datastore) {
@@ -71,6 +71,10 @@ func (o *pbsOwnership) covers(p peerScope, ref pbsStorageRef, ns string) bool {
 	}
 	return p.ns == "" || inNamespace(ns, p.ns)
 }
+
+// anyPBS: an unreadable entry that names no PBS (no pbs_host, no pin) may
+// still write to any PBS; its declared pbs_namespace scopes it.
+func (p peerScope) anyPBS() bool { return p.unknown && len(p.svcs) == 0 }
 
 // keys identify ns of ref's datastore across clusters by PBS service.
 func (o *pbsOwnership) keys(ref pbsStorageRef, ns string) []string {
@@ -706,6 +710,24 @@ func backupStorages(ctx context.Context, c *client.Client, nodes []string) (map[
 	inactive := map[string]string{} // enabled but unavailable; a shared one may be active on another node
 	disabled := map[string]storageInfo{}
 	var failures []fetchFailure
+	// A node listing says enabled=0 both for a storage disabled in the config
+	// and for one restricted to other nodes (PVE::Storage storage_check_node).
+	// The config tells them apart; without it, every enabled=0 counts as
+	// disabled (unread), never as absent.
+	var cfg []struct {
+		Storage string   `json:"storage"`
+		Disable flexBool `json:"disable"`
+		Nodes   string   `json:"nodes"`
+	}
+	cfgOK := getJSON(ctx, c, "/storage", nil, &cfg) == nil
+	elsewhere := func(storage, node string) bool {
+		for _, e := range cfg {
+			if e.Storage == storage {
+				return !bool(e.Disable) && e.Nodes != "" && !slices.Contains(strings.Split(e.Nodes, ","), node)
+			}
+		}
+		return false
+	}
 	for _, node := range nodes {
 		// No content filter: with one, Proxmox VE leaves disabled storages out
 		// (PVE::Storage::storage_info), and a disabled former target may still
@@ -724,7 +746,9 @@ func backupStorages(ctx context.Context, c *client.Client, nodes []string) (map[
 				key = s.Storage + "@" + node
 			}
 			if s.Enabled != nil && !bool(*s.Enabled) {
-				disabled[key] = s
+				if !(cfgOK && elsewhere(s.Storage, node)) {
+					disabled[key] = s
+				}
 				continue
 			}
 			if !s.active() {
@@ -1000,7 +1024,7 @@ func (t fleetTarget) pbsServiceSharers() []string {
 		foreign = true
 	}
 	for _, p := range t.own.peers {
-		if p.name == t.Name || (p.pve != "" && p.pve == t.pveID) || !overlaps(p.svcs, mine) {
+		if p.name == t.Name || (p.pve != "" && p.pve == t.pveID) || !(p.anyPBS() || overlaps(p.svcs, mine)) {
 			continue
 		}
 		name := p.name

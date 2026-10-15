@@ -247,21 +247,25 @@ func applyClusterToClient(c *client.Client, cl clusterProfile) error {
 	return c.CheckServiceOrigins()
 }
 
-// dropConfiguredAuthorization removes an Authorization entry from the config
-// file's [headers]: generic headers are applied after the per-service token,
-// so one would override it and send one tenant's (or one service's)
-// credential everywhere.
+// dropConfiguredAuthorization removes every credential-class entry from the
+// config file's [headers] (Authorization, cookies, CSRF tokens, anything
+// named like a token, key, secret or session): generic headers go to both
+// services and every clusters.toml tenant, and custom ones follow cross-host
+// redirects, so one would send one tenant's (or one service's) credential
+// everywhere.
 func dropConfiguredAuthorization(c *client.Client) {
 	if c.Config == nil {
 		return
 	}
 	for k := range c.Config.Headers {
-		if strings.EqualFold(strings.TrimSpace(k), "Authorization") {
+		if credentialHeader.MatchString(strings.TrimSpace(k)) {
 			delete(c.Config.Headers, k)
-			fmt.Fprintln(os.Stderr, "warning: ignoring Authorization in the config file's [headers]; tokens come from PROXMOX_API_TOKEN / PROXMOX_PBS_API_TOKEN or clusters.toml")
+			fmt.Fprintf(os.Stderr, "warning: ignoring %s in the config file's [headers]; tokens come from PROXMOX_API_TOKEN / PROXMOX_PBS_API_TOKEN or clusters.toml\n", strings.TrimSpace(k))
 		}
 	}
 }
+
+var credentialHeader = regexp.MustCompile(`(?i)auth|cookie|csrf|token|secret|key|session|ticket|passw`)
 
 func envValue(name string) string {
 	if name == "" {

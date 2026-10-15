@@ -349,6 +349,22 @@
      "contains": "PBS datastores ranked by days until full, plus every PVE backup storage by percent used (only PBS forecasts)"
     }
    ]
+  },
+  {
+   "id": "response-secret-redaction",
+   "summary": "Every successful JSON response passes through redactSecretFields before the generated client returns it, so secret-named fields never reach the HTTP cache, the local store, the search index, or any CLI or MCP output",
+   "why": "GET /storage returns a storage plugin's storage.cfg entry verbatim, and third-party plugins (freenas-proxmox and similar) keep passwords and API keys there. The generated client cached and stored the body as-is, and the MCP sql/search/execute tools returned it. Found by adversarial round 7 with a sentinel secret; TestStorageSecretsRedacted and client TestRedactSecretFields pin it.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "json.RawMessage(redactSecretFields(unwrapResponseEnvelope(sanitizeJSONResponse(respBody))))"
+    },
+    {
+     "file": "cli/internal/client/proxmox_routing.go",
+     "contains": "func redactSecretFields(body []byte) []byte {"
+    }
+   ]
   }
  ]
 }

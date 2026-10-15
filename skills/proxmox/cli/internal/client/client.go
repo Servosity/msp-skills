@@ -2095,7 +2095,7 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 					return nil, resp.StatusCode, fmt.Errorf("%s %s: expected JSON, API returned HTML instead of JSON: %s", method, c.displayURL(path, authHeader), summary)
 				}
 			}
-			return json.RawMessage(unwrapResponseEnvelope(sanitizeJSONResponse(respBody))), resp.StatusCode, nil
+			return json.RawMessage(redactSecretFields(unwrapResponseEnvelope(sanitizeJSONResponse(respBody)))), resp.StatusCode, nil // hand-fix: secrets never reach cache, store or output
 		}
 
 		if !binaryResponse {
