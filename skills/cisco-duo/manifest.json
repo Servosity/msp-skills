@@ -1,0 +1,104 @@
+{
+  "manifest_version": "0.3",
+  "name": "cisco-duo-mcp",
+  "display_name": "Cisco Duo",
+  "version": "0.1.0",
+  "description": "Fix Duo MFA lockouts in one command and see every MSP subaccount at once, with signed Admin API calls.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/cisco-duo-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/cisco-duo-mcp",
+      "args": [],
+      "env": {
+        "CISCO_DUO_API_HOST": "${user_config.cisco_duo_api_host}",
+        "CISCO_DUO_IKEY": "${user_config.cisco_duo_ikey}",
+        "CISCO_DUO_SKEY": "${user_config.cisco_duo_skey}",
+        "CISCO_DUO_ACCOUNT_ID": "${user_config.cisco_duo_account_id}",
+        "CISCO_DUO_MCP_READ_ONLY": "${user_config.cisco_duo_mcp_read_only}",
+        "CISCO_DUO_BASE_URL": "${user_config.cisco_duo_base_url}",
+        "CISCO_DUO_MCP_HTTP_TOKEN": "${user_config.cisco_duo_mcp_http_token}",
+        "CISCO_DUO_USER_AGENT": "${user_config.cisco_duo_user_agent}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
+      }
+    }
+  },
+  "user_config": {
+    "cisco_duo_api_host": {
+      "type": "string",
+      "title": "Duo API hostname",
+      "description": "Your Duo API hostname, e.g. api-XXXXXXXX.duosecurity.com (Duo Admin Panel > Applications > your Admin API application). For an MSP, use the parent account's hostname.",
+      "required": true
+    },
+    "cisco_duo_ikey": {
+      "type": "string",
+      "title": "Integration key",
+      "description": "Admin API integration key (ikey) from the same Admin API application.",
+      "sensitive": true,
+      "required": true
+    },
+    "cisco_duo_skey": {
+      "type": "string",
+      "title": "Secret key",
+      "description": "Admin API secret key (skey). Used only to sign each request; it is never sent to Duo.",
+      "sensitive": true,
+      "required": true
+    },
+    "cisco_duo_account_id": {
+      "type": "string",
+      "title": "MSP subaccount",
+      "description": "Default customer subaccount for every call (account ID, or exact name from accounts list); a tool call that names its own account-id overrides it. Leave blank to act on the account the keys belong to; the fleet tools always cover every subaccount.",
+      "required": false
+    },
+    "cisco_duo_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only mode",
+      "description": "Set to 1 for a read-only server: lockout fix, phone-swap, enrollment chase, sync, import and export are hidden, and the API execute tool refuses every non-GET call. Leave blank for the full tool set.",
+      "required": false
+    },
+    "cisco_duo_base_url": {
+      "type": "string",
+      "title": "API base URL override",
+      "description": "Overrides the full API root (for a test server). Leave blank; CISCO_DUO_API_HOST is the normal setting.",
+      "required": false
+    },
+    "cisco_duo_mcp_http_token": {
+      "type": "string",
+      "title": "HTTP transport bearer token",
+      "description": "Bearer token that cisco-duo-mcp --transport http requires from every HTTP client (Authorization: Bearer). Leave blank for the default stdio transport, which Claude Desktop uses and which never reads it.",
+      "sensitive": true,
+      "required": false
+    },
+    "cisco_duo_user_agent": {
+      "type": "string",
+      "title": "User-Agent header",
+      "description": "Overrides the User-Agent the CLI sends on Duo requests. Leave blank to use the CLI's own built-in User-Agent.",
+      "required": false
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile",
+      "description": "Binds this MCP server to one tenant-gated client profile. Leave blank unless you configured client profiles.",
+      "required": false
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  },
+  "printing_press_version": "4.33.5",
+  "press_provenance": {
+    "printing_press_version": "4.33.5",
+    "generated_at": "2026-10-13T23:09:23.507728Z",
+    "spec_checksum": "sha256:accd39a3ca10be4b961e4b5b16198e8ff62afdf89898302a39f1423afef0daef",
+    "spec_format": "openapi3"
+  }
+}

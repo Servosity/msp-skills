@@ -35,8 +35,7 @@ body:
         - betterstack
         - blumira
         - cipp
-        - cisco-meraki
-        - connectsecure
+        - cisco-duo
         - connectwise-automate
         - connectwise-control
         - connectwise-manage
@@ -48,8 +47,6 @@ body:
         - datto-bcdr
         - datto-rmm
         - domotz
-        - fortinet
-        - google-workspace
         - gradient
         - halopsa
         - hubspot
@@ -73,7 +70,6 @@ body:
         - pipedrive
         - proofpoint
         - quickbooks
-        - quotewerks
         - resourceguru
         - rewst
         - riverside-fm
@@ -85,11 +81,9 @@ body:
         - servosity
         - sherweb
         - skykick
-        - sophos-central
         - superops
         - syncro
         - tactical-rmm
-        - threatdown
         - threatlocker
         - unifi-network
         - veeam

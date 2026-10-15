@@ -1216,6 +1216,22 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "cisco-duo",
+      "source": "./skills/cisco-duo",
+      "description": "Fix Duo MFA lockouts in one command and see every MSP subaccount at once, with signed Admin API calls.",
+      "version": "0.1.0",
+      "category": "security",
+      "tags": [
+        "cisco-duo",
+        "cisco duo",
+        "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }
