@@ -375,7 +375,11 @@ func qwWrite(ctx context.Context, c *client.Client, method, table, id string, at
 	}
 	p, err := qw.ParsePage(raw)
 	if err != nil || len(p.Data) == 0 || p.Data[0].ID == "" {
-		return qw.Resource{}, apiErr(fmt.Errorf("%s %s returned success but no usable resource in the response; check QuoteWerks before retrying, a retried create can duplicate the row", method, table))
+		e := fmt.Errorf("%s %s returned success but no usable resource in the response", method, table)
+		if method == "POST" { // the create succeeded, so its row may exist
+			e = fmt.Errorf("%w (%w: check QuoteWerks before retrying, a retried create can duplicate the row)", e, errWriteMayHaveCommitted)
+		}
+		return qw.Resource{}, apiErr(e)
 	}
 	return p.Data[0], nil
 }

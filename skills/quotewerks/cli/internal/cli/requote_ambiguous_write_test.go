@@ -6,6 +6,7 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -49,7 +50,7 @@ func TestRequoteAmbiguousLineIsFlagged(t *testing.T) {
 	if err == nil {
 		t.Fatalf("requote with failed lines exited 0: %s", out.String())
 	}
-	if !strings.Contains(err.Error(), "items list --doc") {
+	if !strings.Contains(err.Error(), "docs get ") || strings.Contains(err.Error(), "items list --doc") {
 		t.Fatalf("partial-failure advice does not say to check first: %v", err)
 	}
 	var res struct {
@@ -64,5 +65,27 @@ func TestRequoteAmbiguousLineIsFlagged(t *testing.T) {
 	}
 	if len(got) != 2 || !got["X1"] || got["SVC-1"] {
 		t.Fatalf("may_have_been_written = %v, want X1 true (connection dropped after commit), SVC-1 false (400)", got)
+	}
+}
+
+// TestCreateWithUnusableResponseMayHaveCommitted: a 201 whose body carries no
+// resource is still a create that may exist.
+func TestCreateWithUnusableResponseMayHaveCommitted(t *testing.T) {
+	testenv.Isolate(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/vnd.api+json")
+		w.WriteHeader(201)
+		_, _ = io.WriteString(w, `{"data":null}`)
+	}))
+	t.Cleanup(srv.Close)
+	t.Setenv("QUOTEWERKS_BASE_URL", srv.URL)
+	t.Setenv("QUOTEWERKS_API_KEY", "qww_test_key")
+	flags := &rootFlags{timeout: 5e9}
+	c, err := flags.newClient()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := qwWrite(t.Context(), c, "POST", "DocumentItems", "", map[string]any{"Description": "x"}); !errors.Is(err, errWriteMayHaveCommitted) {
+		t.Fatalf("201 with no resource: err = %v, want errWriteMayHaveCommitted", err)
 	}
 }

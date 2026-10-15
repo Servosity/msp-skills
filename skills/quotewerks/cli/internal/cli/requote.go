@@ -253,7 +253,7 @@ quote; use 'items add' instead.`,
 				for _, f := range failures {
 					nums = append(nums, fmt.Sprintf("%d (%s)", f.Line, f.Part))
 				}
-				return partialFailureErr(fmt.Errorf("new quote %s (DocNo %s) was created but %d of %d lines failed: lines %s; do not re-run requote (it would create another quote); check which lines landed with 'items list --doc %s' (a line whose request failed without a QuoteWerks rejection may have been written) and add only the missing ones with 'items add %s'",
+				return partialFailureErr(fmt.Errorf("new quote %s (DocNo %s) was created but %d of %d lines failed: lines %s; do not re-run requote (it would create another quote); check which lines landed with 'docs get %s', which reads every line (a line whose request failed without a QuoteWerks rejection may have been written) and add only the missing ones with 'items add %s'",
 					created.ID, qw.Str(created.Attributes["DocNo"]), len(failures), len(lines), strings.Join(nums, ", "), created.ID, created.ID))
 			}
 			return nil
