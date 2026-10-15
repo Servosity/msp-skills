@@ -177,6 +177,7 @@ func newNovelPostureCmd(flags *rootFlags) *cobra.Command {
 				}
 			}
 			report.Clients = rollupByClient(report.Rows, targets, report.FetchFailures)
+			guestsSeen := len(report.Rows)
 			if only != "" {
 				report.Rows = filterSeverity(report.Rows, only)
 			}
@@ -196,7 +197,10 @@ func newNovelPostureCmd(flags *rootFlags) *cobra.Command {
 					return err
 				}
 			} else if !allFailed {
-				if err := printPostureTable(cmd, flags, report, byClient); err != nil {
+				if only != "" && !byClient && len(report.Rows) == 0 && guestsSeen > 0 {
+					// Filtered to nothing is not "no guests": say what was seen.
+					fmt.Fprintf(cmd.OutOrStdout(), "No %s guests: %d guest(s) across %d cluster(s), none matched --only %s.\n", only, guestsSeen, len(report.Clusters), only)
+				} else if err := printPostureTable(cmd, flags, report, byClient); err != nil {
 					return err
 				}
 			}
