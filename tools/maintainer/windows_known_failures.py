@@ -57,21 +57,36 @@ def load(path: Path = LEDGER) -> list[dict]:
         for field in ("why", "fix"):
             if not isinstance(e.get(field), str) or not e[field].strip():
                 raise LedgerError(f"{eid}: '{field}' must say something")
-        slugs = e.get("slugs")
-        if not isinstance(slugs, list) or not slugs or not all(
-                isinstance(s, str) and (s == "*" or SLUG.match(s)) for s in slugs):
-            raise LedgerError(f"{eid}: 'slugs' must be a non-empty list of slugs or '*'")
-        tests = e.get("tests")
-        if not isinstance(tests, list) or not tests or not all(
-                isinstance(t, str) and TEST_NAME.match(t) for t in tests):
-            raise LedgerError(f"{eid}: 'tests' must be a non-empty list of Go test names")
+        has_map, has_star = "failures" in e, "slugs" in e or "tests" in e
+        if has_map == has_star:
+            raise LedgerError(f"{eid}: give exactly one of 'failures' (per skill) or 'slugs': ['*'] + 'tests'")
+        if has_map:
+            fmap = e["failures"]
+            if not isinstance(fmap, dict) or not fmap:
+                raise LedgerError(f"{eid}: 'failures' must map skills to test lists")
+            for slug, tests in fmap.items():
+                if not SLUG.match(slug):
+                    raise LedgerError(f"{eid}: {slug!r} is not a skill slug")
+                _check_tests(eid, tests)
+        else:
+            if e.get("slugs") != ["*"]:
+                raise LedgerError(f"{eid}: 'slugs' may only be ['*']; list per-skill failures under 'failures'")
+            _check_tests(eid, e.get("tests"))
     return entries
+
+
+def _check_tests(eid: str, tests: object) -> None:
+    if not isinstance(tests, list) or not tests or not all(
+            isinstance(t, str) and TEST_NAME.match(t) for t in tests):
+        raise LedgerError(f"{eid}: tests must be a non-empty list of Go test names")
 
 
 def tests_for(slug: str, entries: list[dict]) -> list[str]:
     names: set[str] = set()
     for e in entries:
-        if "*" in e["slugs"] or slug in e["slugs"]:
+        if "failures" in e:
+            names.update(e["failures"].get(slug, []))
+        else:
             names.update(e["tests"])
     return sorted(names)
 
@@ -98,7 +113,8 @@ def _self_test() -> int:
 
     sample = [
         {"id": "A", "kind": "real-bug", "slugs": ["*"], "tests": ["TestEverywhere"], "why": "w", "fix": "f"},
-        {"id": "B", "kind": "unix-only-test", "slugs": ["alpha"], "tests": ["TestOnlyAlpha", "TestEverywhere"],
+        {"id": "B", "kind": "unix-only-test", "failures": {"alpha": ["TestOnlyAlpha", "TestEverywhere"],
+                                                           "delta": ["TestOnlyDelta"]},
          "why": "w", "fix": "f"},
     ]
     pat_alpha = pattern_for("alpha", sample)
@@ -106,6 +122,7 @@ def _self_test() -> int:
     expect(pat_alpha == "^(TestEverywhere|TestOnlyAlpha)$", "a listed slug gets its own and the '*' tests")
     expect(pat_beta == "^(TestEverywhere)$", "an unlisted slug gets only the '*' tests")
     expect(pattern_for("gamma", sample[1:]) == "", "a slug with nothing recorded gets no pattern (nothing skipped)")
+    expect("TestOnlyDelta" not in pat_alpha, "one skill's recorded failure is not exempted in another skill")
     rx = re.compile(pat_alpha)
     expect(bool(rx.match("TestOnlyAlpha")), "the pattern matches a listed test")
     expect(not rx.match("TestOnlyAlphaPlus") and not rx.match("XTestOnlyAlpha"),
@@ -119,7 +136,9 @@ def _self_test() -> int:
         "unknown kind": json.dumps({"entries": [dict(sample[0], kind="whatever")]}),
         "empty why": json.dumps({"entries": [dict(sample[0], why=" ")]}),
         "a test name that is a regex": json.dumps({"entries": [dict(sample[0], tests=["Test.*"])]}),
-        "a bad slug": json.dumps({"entries": [dict(sample[0], slugs=["Bad Slug"])]}),
+        "a per-skill list under slugs": json.dumps({"entries": [dict(sample[0], slugs=["alpha"])]}),
+        "both shapes at once": json.dumps({"entries": [dict(sample[0], failures={"alpha": ["TestX"]})]}),
+        "a bad slug in failures": json.dumps({"entries": [dict(sample[1], failures={"Bad Slug": ["TestX"]})]}),
     }
     with tempfile.TemporaryDirectory() as tmp:
         for label, text in bad_ledgers.items():
