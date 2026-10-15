@@ -215,8 +215,19 @@ function Test-Crashed {
 # One MCP stdio session. Sends each message in turn and, for a request (it has
 # an "id"), waits for the reply with that id before sending the next, so a
 # slow tool call is never cut off by stdin closing. Returns the replies by id.
+#
+# The BOM trap (measured on windows-latest, PowerShell 5.1.26100): .NET
+# Framework builds the child's stdin writer from Console.InputEncoding and
+# writes that encoding's preamble the moment the writer is created. On a UTF-8
+# console that is EF BB BF, so the server's first line arrives as BOM + JSON
+# and the server answers {"id":null,"error":{"code":-32700,"message":"Parse
+# error"}}. Claude Desktop sends no BOM. So: make the console input encoding
+# BOM-less where the host allows it, AND send one empty line first, which
+# absorbs a BOM if one was written anyway (its parse error carries id null and
+# is ignored below).
 function Invoke-McpSession {
   param([string]$Server, [object[]]$Messages, [string]$ServerDir)
+  try { [Console]::InputEncoding = New-Object System.Text.UTF8Encoding($false) } catch { }
   $psi = New-ChildStartInfo -FileName $Server -Arguments @() -StripFromPath $ServerDir
   $p = New-Object System.Diagnostics.Process
   $p.StartInfo = $psi
@@ -233,7 +244,10 @@ function Invoke-McpSession {
   $pending = $null
   $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSec)
   $broken = $false
+  $lf = $utf8.GetBytes("`n")
+  try { $stdin.Write($lf, 0, $lf.Length); $stdin.Flush() } catch { $broken = $true }
   foreach ($m in $Messages) {
+    if ($broken) { break }
     $json = $m.Json
     $bytes = $utf8.GetBytes($json + "`n")
     try { $stdin.Write($bytes, 0, $bytes.Length); $stdin.Flush() } catch { $broken = $true; break }
@@ -395,7 +409,7 @@ if ($serverCommand) {
     $info = Get-Key (Get-Key $init "result") "serverInfo"
     $ver = Get-Key $info "version"
     if ($null -eq $init) {
-      Add-Result "mcp-initialize" $false ("no reply to initialize within ${TimeoutSec}s; stderr: " + (((($s.Stderr + "").Trim()) -split "`n" | Select-Object -First 5) -join " | "))
+      Add-Result "mcp-initialize" $false ("no reply to initialize within ${TimeoutSec}s; last stdout line: " + ($s.Log | Select-Object -Last 1) + "; stderr: " + (((($s.Stderr + "").Trim()) -split "`n" | Select-Object -First 5) -join " | "))
     } elseif ($null -eq $info) {
       Add-Result "mcp-initialize" $false ("initialize reply has no serverInfo: " + ($s.Log | Select-Object -First 1))
     } elseif ($ExpectedVersion -and $ver -cne $ExpectedVersion) {
@@ -435,7 +449,7 @@ if ($serverCommand) {
       $notFound = $body -match "companion CLI binary not found|executable file not found|not a valid Win32 application|exec format error|The system cannot find the (file|path) specified"
       $brief = ($body -split "`n" | Select-Object -First 2) -join " | "
       if ($null -eq $reply) {
-        Add-Result "mcp-sibling-cli" $false ("no reply to tools/call $pick within ${TimeoutSec}s; stderr: " + (((($c.Stderr + "").Trim()) -split "`n" | Select-Object -First 5) -join " | "))
+        Add-Result "mcp-sibling-cli" $false ("no reply to tools/call $pick within ${TimeoutSec}s; last stdout line: " + ($c.Log | Select-Object -Last 1) + "; stderr: " + (((($c.Stderr + "").Trim()) -split "`n" | Select-Object -First 5) -join " | "))
       } elseif ($null -eq $result) {
         Add-Result "mcp-sibling-cli" $false ("tools/call $pick returned a protocol error: " + ($c.Log | Select-Object -Last 1))
       } elseif ($notFound) {
