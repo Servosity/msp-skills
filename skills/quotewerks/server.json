@@ -30,9 +30,39 @@
       "environmentVariables": [
         {
           "name": "QUOTEWERKS_API_KEY",
-          "description": "Set the QUOTEWERKS_API_KEY credential for the QuoteWerks MCP server.",
+          "description": "QuoteWerks Web API key, sent as the X-API-Key header. Create it in QuoteWerks Web under Setup > Options > Zapier and API (the API requires a user with MasterRights). Tick Allow write access only if the agent should create or change documents.",
           "isRequired": true,
           "isSecret": true
+        },
+        {
+          "name": "QUOTEWERKS_BASE_URL",
+          "description": "Overrides the API base URL. Leave blank for the default https://qwwapi.quotewerks.com.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "QUOTEWERKS_USER_AGENT",
+          "description": "Overrides the User-Agent the CLI sends to QuoteWerks Web. Leave blank to use the CLI's built-in User-Agent.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "QUOTEWERKS_MCP_READ_ONLY",
+          "description": "Set to exactly 1 to make the MCP server read-only: it drops the raw table write tools (tables insert, update, delete) and the QuoteWerks AI agent tools, and refuses --confirm on docs create, items add, items reprice and requote, which can still preview. Leave blank for the full tool set.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "QUOTEWERKS_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http (a remote or hosted deployment); callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Not used by this connector: QuoteWerks Web has no tenant-gated client profiles, so a value here limits nothing. Leave blank. To limit what an agent can do, give it a key without Allow write access.",
+          "isRequired": false,
+          "isSecret": false
         }
       ]
     }

@@ -12,7 +12,7 @@ faqs:
   - q: "Is the QuoteWerks MCP server safe for client data?"
     a: "Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Three paths can move data off the machine, all opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `QUOTEWERKS_FEEDBACK_AUTO_SEND=true` posts feedback you typed to the URL in `QUOTEWERKS_FEEDBACK_ENDPOINT` (with no endpoint set, `feedback` only writes a local file); `--transport http` opens a local MCP listener you then choose whether to expose. Your API key stays in your environment unless you save it with `quotewerks-cli auth set-token`, which writes it to the CLI's credentials file (mode 0600) until you run `quotewerks-cli auth logout`, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
-    a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, but quotewerks-mcp speaks HTTP natively: run `quotewerks-mcp --transport http` and put its /mcp endpoint (http://127.0.0.1:7777/mcp by default) behind an HTTPS tunnel or your own reverse proxy. Step-by-step in the install guide."
+    a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, but quotewerks-mcp speaks HTTP natively: set `QUOTEWERKS_MCP_HTTP_TOKEN` to a bearer token, run `quotewerks-mcp --transport http`, and put its /mcp endpoint (http://127.0.0.1:7777/mcp by default) behind an HTTPS tunnel or your own reverse proxy. Step-by-step in the install guide."
   - q: "Do I need to know how to code?"
     a: "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your API key once."
   - q: "Is my QuoteWerks data safe?"
@@ -38,7 +38,7 @@ howto:
 
 > Independent, open source, inspectable. Every line of code is on GitHub
 > under Apache-2.0 - built for the MSP community, vendor-neutral by design.
-> Not affiliated with, endorsed by, or sponsored by Aspire Technologies, Inc..
+> Not affiliated with, endorsed by, or sponsored by Aspire Technologies, Inc.
 
 **Passes all 4 mechanical gates** (build · command-surface · claims · install). Awaiting its first MSP receipt - [be the first, 60 seconds →](https://msp-skills.compoundingteams.com/verified/#receipt).
 
@@ -151,7 +151,7 @@ Yes, by design - and the exceptions are ones you switch on yourself. The CLI, th
 
 ### Does this work with ChatGPT?
 
-Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, but quotewerks-mcp speaks HTTP natively: run `quotewerks-mcp --transport http` and put its /mcp endpoint (http://127.0.0.1:7777/mcp by default) behind an HTTPS tunnel or your own reverse proxy. Step-by-step in the install guide.
+Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, but quotewerks-mcp speaks HTTP natively: set `QUOTEWERKS_MCP_HTTP_TOKEN` to a bearer token, run `quotewerks-mcp --transport http`, and put its /mcp endpoint (http://127.0.0.1:7777/mcp by default) behind an HTTPS tunnel or your own reverse proxy. Step-by-step in the install guide.
 
 ### Do I need to know how to code?
 

@@ -114,16 +114,18 @@ web** is remote-only - see the remote section below.)
 
 All remote agents need `quotewerks-mcp` reachable as a public **HTTPS** endpoint. Run it
 in HTTP mode with your credentials in the environment (it serves `http://127.0.0.1:7777/mcp` by
-default; press 4.32+ refuses a non-loopback bind without TLS, so do not pass `--addr :7777`):
+default and refuses a non-loopback bind without `--tls-cert`/`--tls-key`, so do not pass `--addr :7777`).
+Only `QUOTEWERKS_API_KEY` and `QUOTEWERKS_MCP_HTTP_TOKEN` are required - the server will not start in
+HTTP mode without the token; leave out any optional variable you are not setting:
 
 ```bash
 QUOTEWERKS_API_KEY=<value> QUOTEWERKS_BASE_URL=<value> QUOTEWERKS_USER_AGENT=<value> QUOTEWERKS_MCP_READ_ONLY=<value> QUOTEWERKS_MCP_HTTP_TOKEN=<value> PRINTING_PRESS_CLIENT_PROFILE=<value> quotewerks-mcp --transport http
 ```
 
 Then expose `http://localhost:7777/mcp` as a public HTTPS URL via a secure tunnel
-(Cloudflare Tunnel, ngrok) or your own reverse proxy. The path is part of the
-endpoint: the server answers Streamable HTTP at `/mcp` and returns 404 at the
-bare root, so a connector pointed at the root URL never handshakes. **Treat that
+(Cloudflare Tunnel, ngrok) or your own reverse proxy. The server answers
+Streamable HTTP at `/mcp`; use that URL, and send the token as
+`Authorization: Bearer <QUOTEWERKS_MCP_HTTP_TOKEN>` - requests without it get HTTP 401. **Treat that
 URL as sensitive** - it's a key to your MCP server. Never expose it bare on the
 internet; gate it behind SSO / Cloudflare Access for team use.
 

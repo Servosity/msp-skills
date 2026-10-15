@@ -27,7 +27,7 @@ The six agents MSP owners actually use (self-serve, works today):
 | **Claude Cowork** | Paste the install prompt below. |
 | **GitHub Copilot** (VS Code) | Run installer, add `quotewerks-mcp` to `mcp.json` under the `servers` key, then pick **Agent** mode. |
 
-For ChatGPT, run `quotewerks-mcp --transport http` and expose that behind HTTPS - no bridge package is needed. See [mcp-install.md](./mcp-install.md).
+For ChatGPT, set `QUOTEWERKS_MCP_HTTP_TOKEN`, run `quotewerks-mcp --transport http`, and expose that behind HTTPS - no bridge package is needed. See [mcp-install.md](./mcp-install.md).
 
 ### Also for the Microsoft and Google stacks
 
@@ -189,7 +189,7 @@ See [pain-point.md](./pain-point.md) for the longer narrative.
 
 ### Does this work with ChatGPT?
 
-Yes, on **Plus, Pro, Team, Business, Enterprise, and Education** plans (Free tier does not yet expose Developer Mode). ChatGPT connects to **remote** MCP servers over HTTPS, not local stdio binaries. The QuoteWerks MCP server runs locally, but it speaks HTTP natively: start it with `quotewerks-mcp --transport http` (it serves `http://127.0.0.1:7777/mcp` by default) and put that endpoint behind an HTTPS tunnel or your own reverse proxy. No bridge package is involved. Step-by-step in [mcp-install.md](./mcp-install.md).
+Yes, on **Plus, Pro, Team, Business, Enterprise, and Education** plans (Free tier does not yet expose Developer Mode). ChatGPT connects to **remote** MCP servers over HTTPS, not local stdio binaries. The QuoteWerks MCP server runs locally, but it speaks HTTP natively: set `QUOTEWERKS_MCP_HTTP_TOKEN` to a bearer token of your choosing, start it with `quotewerks-mcp --transport http` (it serves `http://127.0.0.1:7777/mcp` by default and refuses requests without that token), and put that endpoint behind an HTTPS tunnel or your own reverse proxy. No bridge package is involved. Step-by-step in [mcp-install.md](./mcp-install.md).
 
 ### Does this work with Codex, Cursor, Windsurf, Cline, Copilot, or Gemini?
 

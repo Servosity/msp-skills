@@ -60,11 +60,11 @@ This CLI ships an [MCPB](https://github.com/modelcontextprotocol/mcpb) bundle  -
 
 To install:
 
-1. Download the `.mcpb` for your platform from the [latest release](https://github.com/Servosity/msp-skills/releases?q=quotewerks).
+1. Download `quotewerks-mcp.mcpb` from the [latest release](https://github.com/Servosity/msp-skills/releases?q=quotewerks). One bundle covers every supported platform.
 2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
 3. Fill in `QUOTEWERKS_API_KEY` when Claude Desktop prompts you.
 
-Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
+Requires Claude Desktop 1.0.0 or later. If the bundle does not install on your machine, use the manual config below.
 
 <details>
 <summary>Manual JSON config (advanced)</summary>
