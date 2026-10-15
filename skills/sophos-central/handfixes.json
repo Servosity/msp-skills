@@ -715,6 +715,12 @@
      "contains": "cfg.AdoptEnvClientCredential()",
      "min_count": 1,
      "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "authed := header != \"\" || (strings.TrimSpace(cliutil.EnvOverride(\"SOPHOS_CENTRAL_CLIENT_ID\")) != \"\"",
+     "min_count": 1,
+     "code_only": false
     }
    ]
   },
@@ -829,6 +835,26 @@
     {
      "file": "mcp-install.md",
      "contains": "SOPHOS_CENTRAL_MCP_HTTP_TOKEN=<long-random-value> sophos-central-mcp --transport http",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "runtime-routing-not-persisted",
+   "summary": "config.toml keeps the base URL, token URL and headers the file had: --tenant / SOPHOS_CENTRAL_TENANT_ID (applied as an X-Tenant-ID header) and SOPHOS_CENTRAL_BASE_URL / _TOKEN_URL apply to the current run only",
+   "why": "Round 3 adversarial review proved that installSophosRouting's X-Tenant-ID header was saved into config.toml [headers] on the next token save, so one `--tenant T1` run silently pinned every later CLI and MCP call (including writes such as isolation and policy changes) to T1 and skipped the router's tenantRequired refusal; `auth logout` did not clear it. The generated Load also saved env-supplied base and token URLs, so a later run posted the real client secret to an old token URL. persisted() now takes BaseURL, TokenURL and Headers from the file snapshot; no CLI command edits these on purpose (they are hand-edited in config.toml). TestTenantSelectionNotPersisted fails when the configForSave line is removed.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "out.BaseURL, out.TokenURL, out.Headers = c.fileConfig.BaseURL, c.fileConfig.TokenURL, c.fileConfig.Headers",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_runtime_persist_test.go",
+     "contains": "func TestTenantSelectionNotPersisted(",
      "min_count": 1,
      "code_only": false
     }

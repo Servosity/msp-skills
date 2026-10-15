@@ -241,7 +241,7 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 | Destructive and commercial | `endpoints delete`, `endpoints bulk-delete`, `policies delete-policy`, `users delete-tenant-by-id`, `migrations create-sending-job`, `tenants create`, `tenants post-account-amendment` | Human-in-the-loop only, explicit confirmation |
 
 
-Over MCP, the generic `sophos-central_execute` tool can reach every write in the table except the six credential reads; set `SOPHOS_CENTRAL_MCP_READ_ONLY=1` for an agent that should only read. The strongest control is the **scope you grant the Sophos Central credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
+Over MCP, the generic `sophos-central_execute` tool can reach every write in the table except the six that return a password or token; set `SOPHOS_CENTRAL_MCP_READ_ONLY=1` for an agent that should only read. The strongest control is the **scope you grant the Sophos Central credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
 
 ## Status
 

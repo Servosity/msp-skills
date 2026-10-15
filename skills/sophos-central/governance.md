@@ -36,7 +36,9 @@ Where the values live is your choice, and the CLI respects it:
   `sophos-central-cli doctor` to see the resolved paths, and `auth logout` to clear them.
 
 `--dry-run` never mints a token or sends the secret. Credentials are never logged
-and nothing is sent anywhere except `id.sophos.com` and the Sophos Central API hosts.
+and nothing is sent anywhere except `id.sophos.com` and the Sophos Central API hosts
+(unless you point `SOPHOS_CENTRAL_BASE_URL` or `SOPHOS_CENTRAL_TOKEN_URL` elsewhere
+for that run; those overrides are never saved).
 The CLI also caches the caller identity from `whoami` and each tenant's regional API
 host, so it can route calls without asking again.
 
@@ -59,7 +61,7 @@ server, so an agent cannot read a tamper password on its own.
   change itself is run from the CLI, by you or by an agent you approved in Claude
   Code or Codex.
 - **The MCP server can still write.** Its generic `sophos-central_execute` tool can
-  call any Sophos Central endpoint except the six credential reads named above,
+  call any Sophos Central endpoint except the six that return a password or token (named above),
   including isolation, scans, exclusions and policy changes, gated only by your AI
   app's per-tool approval prompt. For an agent that should only read, set
   `SOPHOS_CENTRAL_MCP_READ_ONLY=1` in the MCP server's environment: it refuses every

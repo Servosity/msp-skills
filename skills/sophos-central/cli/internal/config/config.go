@@ -789,6 +789,11 @@ func (c *Config) configForSave() Config {
 		if c.envOverrides["ClientSecret"] {
 			out.ClientSecret = c.fileConfig.ClientSecret
 		}
+		// Hand-wired (handfixes.json: runtime-routing-not-persisted): config.toml
+		// keeps what the file said. --tenant / SOPHOS_CENTRAL_TENANT_ID become an
+		// X-Tenant-ID header and SOPHOS_CENTRAL_BASE_URL / _TOKEN_URL redirect
+		// this run only; saving them pinned every later run to that tenant/host.
+		out.BaseURL, out.TokenURL, out.Headers = c.fileConfig.BaseURL, c.fileConfig.TokenURL, c.fileConfig.Headers
 	}
 	out.envOverrides = nil
 	out.fileConfig = nil

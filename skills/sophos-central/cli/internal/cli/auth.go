@@ -212,7 +212,9 @@ func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
 			// the credential this process would send, not a different saved one.
 			cfg.AdoptEnvClientCredential()
 			header := cfg.AuthHeader()
-			authed := header != ""
+			// A full client pair in the environment is a credential this process
+			// will mint from, even before the first token exists.
+			authed := header != "" || (strings.TrimSpace(cliutil.EnvOverride("SOPHOS_CENTRAL_CLIENT_ID")) != "" && strings.TrimSpace(cliutil.EnvOverride("SOPHOS_CENTRAL_CLIENT_SECRET")) != "")
 			refusals := cfg.CredentialRefusalSummaries()
 			credentialRefused := len(refusals) > 0
 			// JSON envelope: {authenticated, verified, source, config}. When not
