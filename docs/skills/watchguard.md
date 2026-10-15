@@ -1,7 +1,7 @@
 ---
 layout: default
 title: "WatchGuard Cloud MCP Server - Free, Open Source, Runs Locally | MSP Skills"
-description: "Every WatchGuard Cloud product API in one CLI and MCP server: Firebox, Endpoint Security, ThreatSync, AuthPoint, NDR and the MSP account platform."
+description: "WatchGuard Cloud's Firebox, FireCloud, Endpoint Security, ThreatSync, NDR, AuthPoint and account platform APIs in one CLI and MCP server, with cross-customer reports for Service Providers."
 permalink: /skills/watchguard/
 skill_name: "WatchGuard Cloud MCP"
 image: /assets/social/watchguard/wide-1200x630.png
@@ -22,11 +22,11 @@ faqs:
   - q: "What credentials do I need?"
     a: "WatchGuard Cloud API access: as an Owner or Administrator, open Administration > Managed Access and click Enable API Access (a Service Provider does this from Subscriber view of its own account). You get a read-write Access ID, a read-only Access ID, the passwords you set for each, and an API key. Set WATCHGUARD_CLIENT_ID to an Access ID, WATCHGUARD_CLIENT_SECRET to its password, WATCHGUARD_API_KEY to the API key and WATCHGUARD_ACCOUNT_ID to your account ID (ACC-... or WGC-...), then run watchguard-cli doctor. For a reporting-only agent, use the read-only Access ID."
   - q: "Does it work across all my customers, or one account at a time?"
-    a: "Across all of them, with a Service Provider account. accounts health, endpoint-devices posture and endpoint-patches exposure list the accounts you manage, mint a separate token for each one and report every customer in one result, naming any account they could not reach. threatsync-incidents queue reads incidents for all your managed accounts in one ThreatSync call. To pin a session to one customer, set WATCHGUARD_AUDIENCE to that customer's audience value (watchguard-cli audiences --account-id <customer-account-id> returns it) and WATCHGUARD_ACCOUNT_ID to that customer's account ID."
+    a: "Across all of them, with a Service Provider account. accounts health, endpoint-devices posture and endpoint-patches exposure list the accounts you manage, mint a separate token for each one and report every customer in one result, naming any account they could not reach. threatsync-incidents queue reads incidents for all your managed accounts in one ThreatSync call. If any read fails, including a product a customer does not have, these commands exit 6 and say which account and product; accounts health lists that account first with complete: false instead of showing zeros. To work on one customer, set WATCHGUARD_AUDIENCE to that customer's audience value (watchguard-cli audiences --account-id <customer-account-id> returns it) and WATCHGUARD_ACCOUNT_ID to that customer's account ID. That is a convenience, not a security boundary: WatchGuard's audience token also works on your own account."
   - q: "My WatchGuard Cloud account is in Europe or Asia Pacific. Does it work?"
     a: "Yes. Set WATCHGUARD_BASE_URL and WATCHGUARD_TOKEN_URL to your region's gateway: https://api.deu.cloud.watchguard.com for EMEA or https://api.jpn.cloud.watchguard.com for APAC, with /oauth/token on the end for the token URL. The default is the North America gateway, api.usa.cloud.watchguard.com. Managed Access in WatchGuard Cloud shows the URLs for your account."
   - q: "Will this hit my WatchGuard API rate limits?"
-    a: "WatchGuard allows 500 requests per second and 200,000 requests per day per API key. The CLI paces itself to the server's rate-limit headers, the cross-customer commands fetch at most four accounts in parallel by default (--concurrency) and stop at --max-pages per account, and sync keeps a local copy so repeat questions do not call the API again."
+    a: "WatchGuard allows 500 requests per second and 200,000 requests per day per API key; a 429 means the day's quota is spent until 00:00 UTC. The cross-customer commands fetch at most four accounts in parallel by default (--concurrency) and stop at --max-pages per account, --rate-limit caps requests per second, and sync keeps a local copy so repeat questions do not call the API again."
   - q: "Can my AI isolate devices or change firewall policy?"
     a: "Only if you let it. Write commands such as endpoint-devices isolate, endpoint-devices uninstall, firebox-deployments and the delete commands send as soon as they run; there is no confirmation prompt. Preview any of them with --dry-run first. For a reporting agent, use the read-only Access ID, or set WATCHGUARD_MCP_READ_ONLY=1 so the MCP server drops its write tools and refuses every non-GET call through watchguard_execute."
   - q: "Has it been tested against a live WatchGuard Cloud account?"
@@ -50,7 +50,7 @@ howto:
 
 Yes - there is an MCP server for WatchGuard Cloud. It's free, open source, and runs on your own machine, so your client data stays local unless you route it somewhere yourself. It connects WatchGuard Cloud to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
-Ask your AI "which customer needs attention first?" and get one answer across Firebox, Endpoint Security, ThreatSync and license allocation for every account you manage in WatchGuard Cloud. WatchGuard's API reaches a managed account only with a token minted for that account, one product API at a time. This skill mints those tokens for you, fans out across your customers and ranks what needs you.
+Ask your AI "which customer needs attention first?" and get one answer across Firebox, Endpoint Security, ThreatSync and license allocation for every account you manage in WatchGuard Cloud. Each product is a separate WatchGuard API, and Endpoint Security answers for a customer only with a token minted for that customer. This skill mints those tokens for you, fans out across your customers and ranks what needs you.
 
 <sub>New to the term? An **MCP server** is the same thing ChatGPT calls an app or connector, Claude on the web calls a connector, and Claude Code calls a Skill. [One thing, many names →](/what-is-an-mcp-server/)</sub>
 
@@ -83,7 +83,7 @@ Ask your AI "which customer needs attention first?" and get one answer across Fi
 | --- | --- |
 | Which customer needs attention first across Firebox, endpoints, ThreatSync and licenses? | `watchguard-cli accounts health --agent` |
 | Which endpoints are unprotected, out of date, isolated or waiting on a reboot, across every customer? | `watchguard-cli endpoint-devices posture --agent` |
-| Which ThreatSync incidents has nobody touched yet? | `watchguard-cli threatsync-incidents queue --status new --agent` |
+| Which new ThreatSync incidents need triage first, and which has nobody touched? | `watchguard-cli threatsync-incidents queue --status new --agent` |
 | Which customers and computers are exposed to this CVE? | `watchguard-cli endpoint-patches exposure --cve CVE-2024-38063 --agent` |
 | Which Fireboxes and access points went offline, came back or changed firmware since the last sync? | `watchguard-cli firebox-devices changes --agent` |
 | Which Fireboxes are running older firmware than the rest of the same model in my fleet? | `watchguard-cli firebox-devices firmware-lag --agent` |
@@ -94,14 +94,14 @@ Full command reference at [github.com/servosity/msp-skills/blob/main/skills/watc
 
 ## What makes this one different
 
-The only other MCP server for WatchGuard Cloud we found on GitHub as of October 2026, [WYRE-AI/watchguard-cloud-mcp](https://github.com/WYRE-AI/watchguard-cloud-mcp), covers the platform's account, activation and operator APIs and lists Firebox and Endpoint Security as out of scope for now. This skill covers 208 operations across 13 WatchGuard APIs (Firebox Management, FireCloud, Endpoint Security, ThreatSync, NDR, AuthPoint, accounts, operators, activations and license allocation), mints a separate token for each managed account so one Service Provider credential reaches every customer, and keeps a local SQLite mirror so `firebox-devices changes` and `firmware-lag` can compare your fleet over time.
+The only other MCP server for WatchGuard Cloud we found on GitHub as of October 2026, [WYRE-AI/watchguard-cloud-mcp](https://github.com/WYRE-AI/watchguard-cloud-mcp), covers the platform's account, activation and operator APIs and lists Firebox and Endpoint Security as out of scope for now. This skill covers 208 operations from 13 of WatchGuard's published API specifications (Firebox Management and Reports, FireCloud, Endpoint Security, ThreatSync, NDR assets and Smart Alerts, AuthPoint authentication, and the platform's accounts, operators, activations, license allocation and authorization APIs), mints a separate token for each managed account where WatchGuard requires one, so one Service Provider credential reaches every customer, and keeps a local SQLite mirror so `firebox-devices changes` and `firmware-lag` can compare your fleet over time.
 
 WatchGuard Cloud stays where you configure Fireboxes, policies and endpoint security, and ThreatSync keeps doing its own correlation. This skill complements them by answering cross-customer, cross-product questions from the AI agent you already use, through WatchGuard's public API, in one command.
 
 ## The pain this closes
 
-- WatchGuard's API reaches a customer's Fireboxes, endpoints and incidents only with an access token minted for that customer's audience value, which you look up per account first (WatchGuard API docs, Authentication). A question about every customer is one token request and one call per product per customer before you see an answer.
-- Firebox Management, Endpoint Security, ThreatSync, NDR, AuthPoint and license allocation are separate APIs with their own paths, paging and status codes, so a customer review spans many screens or many scripts.
+- WatchGuard Endpoint Security answers for a managed customer only with an access token minted for that customer's audience value, which you look up per account first (WatchGuard API docs, Authentication). A device-level question about every customer is a token request and at least one call per customer.
+- Firebox Management, Endpoint Security, ThreatSync, NDR, AuthPoint and license allocation are separate APIs with their own paths, paging and status codes, so a customer review spans many screens or many scripts even where an API can list every customer at once.
 - Allocations and the Fireboxes that actually report in drift apart. A WatchGuard Community thread (May 2023, still open in September 2024) shows retired, unallocated Fireboxes staying in the inventory and inflating the device count, with a support case as the only way out.
 - A Firebox deployment or certificate install is asynchronous: the API hands back a transaction ID and you poll it to learn whether the change landed or failed.
 
@@ -139,9 +139,9 @@ After install, authenticate once with your WatchGuard Cloud credentials, then ve
 | --- | --- | --- |
 | Read | accounts health, endpoint-devices posture, threatsync-incidents queue, endpoint-patches exposure, allocations reconcile, firebox-devices changes and firmware-lag, firebox-transactions wait, sync, search, analytics, and every list / get command except the credential reads under Credential and admin | Allow |
 | Endpoint and incident actions | endpoint-devices isolate / stop-isolation / scan / action / uninstall, endpoint-configurations assign, threatsync-actions perform, threatsync-incident-actions perform, threatsync-transactions, threatsync-incidents set-status, ndr-smart-alerts close, authpoint push | Human-in-the-loop, explicit confirmation |
-| Firewall config and deployment | firebox-deployments, firebox-policies create / update / set-enabled, the Firebox and FireCloud exception creates and updates, firebox-exceptions enable-global / disable-global, firebox-templates subscribe, firebox-bovpn-p1-settings create / update, firebox-transactions update, endpoint-risks update-config, ndr-assets create / update, threatsync-comments, allocations allocate / update-hardware / update-software, accounts create / update | Preview with --dry-run, then a human-approved write |
-| Destructive | accounts delete (it targets --account-id, which defaults to your own WATCHGUARD_ACCOUNT_ID), operators delete, allocations deallocate, firebox-transactions cancel, ndr-assets delete, firebox-policies delete, and every other delete command | Human-in-the-loop only, explicit confirmation |
-| Credential and admin | firebox-bovpn-tunnels list / get and their writes (pre-shared keys), firebox-certificates list / get / create / install (private keys and passwords), firebox-networks, firebox-users and firebox-content-filtering list / get (PPPoE, Dynamic DNS, Wi-Fi and override passwords), activations list-recent / status and activate (activation keys), endpoint-installers (enrollment download links), operators create / update, audiences, authpoint check-policy / password / otp / qrcode / forgot-token, auth login, auth set-token | Human-in-the-loop only |
+| Firewall config and deployment | firebox-deployments, firebox-policies create / update / set-enabled, the Firebox and FireCloud exception creates and updates, firebox-exceptions enable-global / disable-global, firebox-templates subscribe, firebox-bovpn-p1-settings create / update, firebox-transactions update, endpoint-risks update-config, ndr-assets create / update, threatsync-comments create / update, allocations allocate / update-hardware / update-software, accounts create / update, import | Preview with --dry-run, then a human-approved write |
+| Destructive | accounts delete (it targets --account-id, which defaults to your own WATCHGUARD_ACCOUNT_ID), operators delete, allocations deallocate, firebox-transactions cancel, ndr-assets delete, firebox-policies delete, threatsync-comments delete, and every other delete command | Human-in-the-loop only, explicit confirmation |
+| Credential and admin | firebox-bovpn-tunnels list / get and their writes (pre-shared keys), firebox-certificates list / get / create / install (private keys and passwords), firebox-networks, firebox-users and firebox-content-filtering list / get (PPPoE, Dynamic DNS, Wi-Fi and override passwords), activations list-recent / status and activate (activation keys), endpoint-installers (enrollment download links), operators create / update, audiences, authpoint check-policy / password / otp / qrcode / forgot-token / transaction-status, auth login, auth set-token | Human-in-the-loop only |
 
 The skill is read-first: the cross-customer reports, sync, search and nearly every list and get command only read. The exceptions are the reads whose output carries a secret (BOVPN tunnels, Firebox certificates, networks, users, content filtering and the activation keys from activations), which belong with the credential commands; the local mirror and response cache never store those fields. Every write sends immediately with no confirmation prompt, so preview with --dry-run and keep endpoint actions, deployments and deletes human-in-the-loop. The read-only Access ID is the outer limit for a reporting agent. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/watchguard/governance.md).
 
@@ -177,7 +177,7 @@ WatchGuard Cloud API access: as an Owner or Administrator, open Administration >
 
 ### Does it work across all my customers, or one account at a time?
 
-Across all of them, with a Service Provider account. accounts health, endpoint-devices posture and endpoint-patches exposure list the accounts you manage, mint a separate token for each one and report every customer in one result, naming any account they could not reach. threatsync-incidents queue reads incidents for all your managed accounts in one ThreatSync call. To pin a session to one customer, set WATCHGUARD_AUDIENCE to that customer's audience value (watchguard-cli audiences --account-id <customer-account-id> returns it) and WATCHGUARD_ACCOUNT_ID to that customer's account ID.
+Across all of them, with a Service Provider account. accounts health, endpoint-devices posture and endpoint-patches exposure list the accounts you manage, mint a separate token for each one and report every customer in one result, naming any account they could not reach. threatsync-incidents queue reads incidents for all your managed accounts in one ThreatSync call. If any read fails, including a product a customer does not have, these commands exit 6 and say which account and product; accounts health lists that account first with complete: false instead of showing zeros. To work on one customer, set WATCHGUARD_AUDIENCE to that customer's audience value (watchguard-cli audiences --account-id <customer-account-id> returns it) and WATCHGUARD_ACCOUNT_ID to that customer's account ID. That is a convenience, not a security boundary: WatchGuard's audience token also works on your own account.
 
 ### My WatchGuard Cloud account is in Europe or Asia Pacific. Does it work?
 
@@ -185,7 +185,7 @@ Yes. Set WATCHGUARD_BASE_URL and WATCHGUARD_TOKEN_URL to your region's gateway: 
 
 ### Will this hit my WatchGuard API rate limits?
 
-WatchGuard allows 500 requests per second and 200,000 requests per day per API key. The CLI paces itself to the server's rate-limit headers, the cross-customer commands fetch at most four accounts in parallel by default (--concurrency) and stop at --max-pages per account, and sync keeps a local copy so repeat questions do not call the API again.
+WatchGuard allows 500 requests per second and 200,000 requests per day per API key; a 429 means the day's quota is spent until 00:00 UTC. The cross-customer commands fetch at most four accounts in parallel by default (--concurrency) and stop at --max-pages per account, --rate-limit caps requests per second, and sync keeps a local copy so repeat questions do not call the API again.
 
 ### Can my AI isolate devices or change firewall policy?
 

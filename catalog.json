@@ -1531,10 +1531,10 @@
       "first_party": false,
       "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/watchguard/install.sh)",
       "install_mcp_doc": "skills/watchguard/mcp-install.md",
-      "description": "Every WatchGuard Cloud product API in one CLI and MCP server: Firebox, Endpoint Security, ThreatSync, AuthPoint, NDR and the MSP account platform.",
+      "description": "WatchGuard Cloud's Firebox, FireCloud, Endpoint Security, ThreatSync, NDR, AuthPoint and account platform APIs in one CLI and MCP server, with cross-customer reports for Service Providers.",
       "verification": "awaiting",
       "category": "Security",
-      "tagline": "Check Firebox, EPDR, ThreatSync and AuthPoint health across every WatchGuard Cloud customer by asking."
+      "tagline": "Check Firebox, endpoint, ThreatSync and license health across every WatchGuard Cloud customer by asking."
     },
     {
       "name": "wordpress",

@@ -87,9 +87,9 @@ func TestAuthLoginErrorNeverEchoesCredentials(t *testing.T) {
 	defer srv.Close()
 	t.Setenv("WATCHGUARD_HOME", t.TempDir())
 	t.Setenv("WATCHGUARD_TOKEN_URL", srv.URL+"/oauth/token")
-	out, err := runAuthCmd(t, "", "auth", "login", "--client-id", "AccessID-7f3a91", "--client-secret", "ApiPw-SENTINEL-9z")
-	b64 := base64.StdEncoding.EncodeToString([]byte("AccessID-7f3a91:ApiPw-SENTINEL-9z"))
-	if err == nil || strings.Contains(out+err.Error(), b64) || strings.Contains(out+err.Error(), "ApiPw-SENTINEL") || !strings.Contains(err.Error(), "withheld") {
+	out, err := runAuthCmd(t, "", "auth", "login", "--client-id", "test-access-id", "--client-secret", "test-secret-pw")
+	b64 := base64.StdEncoding.EncodeToString([]byte("test-access-id:test-secret-pw"))
+	if err == nil || strings.Contains(out+err.Error(), b64) || strings.Contains(out+err.Error(), "test-secret-pw") || !strings.Contains(err.Error(), "withheld") {
 		t.Fatalf("auth login echoed credentials: err=%v out=%s", err, out)
 	}
 }

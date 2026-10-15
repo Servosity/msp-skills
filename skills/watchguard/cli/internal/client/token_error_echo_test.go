@@ -17,9 +17,9 @@ import (
 )
 
 const (
-	echoAccessID = "AccessID-7f3a91"
-	echoPassword = "ApiPw-SENTINEL-9z"
-	echoAPIKey   = "ApiKey-SENTINEL-55"
+	echoAccessID = "test-access-id"
+	echoPassword = "test-secret-pw"
+	echoAPIKey   = "test-api-key"
 )
 
 // echoingTokenServer answers token requests by echoing the credentials back:

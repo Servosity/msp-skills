@@ -807,7 +807,7 @@
     {
       "slug": "watchguard",
       "display_name": "WatchGuard Cloud",
-      "tagline": "Check Firebox, EPDR, ThreatSync and AuthPoint health across every WatchGuard Cloud customer by asking.",
+      "tagline": "Check Firebox, endpoint, ThreatSync and license health across every WatchGuard Cloud customer by asking.",
       "category": "Security",
       "verification": "awaiting",
       "verified_by": null,
