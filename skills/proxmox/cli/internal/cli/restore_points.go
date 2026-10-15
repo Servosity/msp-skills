@@ -186,6 +186,12 @@ func collectRestorePoints(ctx context.Context, t fleetTarget, query string, veri
 		return nil, nil, nil
 	}
 	var fails []fetchFailure
+	if _, isID := strconv.ParseInt(query, 10, 64); isID != nil {
+		// Names repeat: another guest with this name may be hidden.
+		if err := guestListHidden(ctx, t.C); err != nil {
+			fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "guests", Error: err.Error() + "; another guest named " + strconv.Quote(query) + " may be among them"})
+		}
+	}
 	cov, err := fetchCoverage(ctx, t.C)
 	covOK := err == nil
 	if err != nil {
