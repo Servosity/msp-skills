@@ -409,7 +409,11 @@ func jobRetention(cov *coverage, targets *jobTargets, vmid int64, node, storage 
 			specs["keep-all=1"] = true // remove=0: the run prunes nothing
 			continue
 		}
-		specs[targets.retention(id, node)] = true
+		spec, err := targets.retention(id, node, storage)
+		if err != nil {
+			return retentionSpec{why: "the retention job " + id + " applies to " + storage + " could not be resolved (" + err.Error() + "); points left unmarked"}
+		}
+		specs[spec] = true
 	}
 	switch len(specs) {
 	case 0:
