@@ -710,6 +710,56 @@
       "file": "skills/quotewerks/cli/cmd/quotewerks-mcp/main.go",
       "rule": "G101",
       "reason": "quotewerks (generated, printing-press 4.33.5). gosec G101 false-positive on the constant NAME 'httpTokenEnvVar' (the 'Token' substring), emitted by the press template main_mcp.go.tmpl for every connector. Its value is the NAME of an environment variable, \"QUOTEWERKS_MCP_HTTP_TOKEN\", not a credential; the actual token is read from the environment at runtime. Same entry as datagate, zammad, huntress, datto-bcdr, wordpress and sentinelone."
+    },
+    {
+      "file": "skills/proxmox/cli/internal/cli/store_adopt_darwin.go",
+      "rule": "unsafe-import",
+      "reason": "proxmox only (generated, printing-press 4.33.5 - same template output as the cisco-duo, google-workspace and threatdown entries; the file differs from theirs only in the copyright header line). store_adopt_darwin.go decides whether a legacy local SQLite store can be renamed onto the new per-account store name: it calls the read-only macOS proc_info syscall (unix.Syscall6 SYS_PROC_INFO: list PIDs, list a PID's file descriptors, read a descriptor's vnode inode/dev) to confirm no other process holds the store file open, and fails closed on any error. unsafe is needed only to pass Go buffers to that syscall; nothing is written through the pointers but kernel-filled proc_info structs."
+    },
+    {
+      "file": "skills/proxmox/cli/internal/cli/store_adopt_darwin.go",
+      "rule": "msp-unsafe-import",
+      "reason": "Same file and import as the unsafe-import entry above (semgrep flags the identical `import \"unsafe\"`). proxmox only (generated, printing-press 4.33.5 - same template output as the cisco-duo, google-workspace and threatdown entries; the file differs from theirs only in the copyright header line). store_adopt_darwin.go decides whether a legacy local SQLite store can be renamed onto the new per-account store name: it calls the read-only macOS proc_info syscall (unix.Syscall6 SYS_PROC_INFO: list PIDs, list a PID's file descriptors, read a descriptor's vnode inode/dev) to confirm no other process holds the store file open, and fails closed on any error. unsafe is needed only to pass Go buffers to that syscall; nothing is written through the pointers but kernel-filled proc_info structs."
+    },
+    {
+      "file": "skills/proxmox/cli/internal/cli/store_adopt_darwin.go",
+      "rule": "G115",
+      "reason": "proxmox only (generated, printing-press 4.33.5 - same template output as the cisco-duo, google-workspace and threatdown entries; the file differs from theirs only in the copyright header line). The three int32 conversions are kernel-returned PIDs, file-descriptor numbers (non-negative) and a stat st_dev compared against the same field of this process's own fstat; they only ever compare identifiers and never size an allocation or index memory. store_adopt_darwin.go decides whether a legacy local SQLite store can be renamed onto the new per-account store name: it calls the read-only macOS proc_info syscall (unix.Syscall6 SYS_PROC_INFO: list PIDs, list a PID's file descriptors, read a descriptor's vnode inode/dev) to confirm no other process holds the store file open, and fails closed on any error. unsafe is needed only to pass Go buffers to that syscall; nothing is written through the pointers but kernel-filled proc_info structs."
+    },
+    {
+      "file": "skills/proxmox/cli/internal/cli/store_adopt_darwin.go",
+      "rule": "G304",
+      "reason": "proxmox only (generated, printing-press 4.33.5 - same template output as the cisco-duo, google-workspace and threatdown entries; the file differs from theirs only in the copyright header line). os.Open reads the legacy store paths from legacyStoreAdoptPaths: the CLI's own data-dir store file plus fixed SQLite sidecar suffixes (-wal, -shm, -journal). No user-supplied path reaches it."
+    },
+    {
+      "file": "skills/proxmox/cli/internal/cli/store_adopt_linux.go",
+      "rule": "G304",
+      "reason": "proxmox only (generated, printing-press 4.33.5 - same template output as the cisco-duo, google-workspace and threatdown entries; the file differs from theirs only in the copyright header line). Linux twin of the store_adopt_darwin.go G304 entry: gosec sees this file only when the gate runs with GOOS=linux, as CI does. Both flagged opens are in pinClosedStoreFile, which claimClosedStore calls for each path from legacyStoreAdoptPaths(legacy): the CLI's own legacy store in its resolved data directory plus whichever of the fixed SQLite sidecars -wal, -shm and -journal exist. os.OpenFile uses os.O_RDWR with no O_CREATE or O_TRUNC, so it cannot create or truncate a file; the writable descriptor exists only to take an F_SETLEASE write lease. The os.Open fallback is read-only. Nothing is read from or written through either descriptor, and both are closed on release. No API, MCP, tool-call or tenant input reaches the path."
+    },
+    {
+      "file": "skills/proxmox/cli/internal/cli/helpers.go",
+      "rule": "G304",
+      "reason": "proxmox only (generated, printing-press 4.33.5 - same template output as the cisco-duo, google-workspace and threatdown entries; the file differs from theirs only in the copyright header line). Both flagged reads are in claimLegacyUnscopedDB, which reads the `<data.db>.owner` marker file next to the CLI's own store in its resolved data directory (and a temp file it just created there) to decide which credential scope adopts a legacy data.db. The path is derived from the CLI's data dir, never from user or API input."
+    },
+    {
+      "file": "skills/proxmox/cli/internal/store/store.go",
+      "rule": "G202",
+      "reason": "proxmox only (generated, printing-press 4.33.5 - same template output as the cisco-duo, google-workspace and threatdown entries; the file differs from theirs only in the copyright header line). loadParentKeyLegacyBatch concatenates bareWhere, which parentKeyLegacyBareWhere builds solely from the generated constant map resourceParentKeyColumns (sorted, each name single-quote-escaped); the cursor values afterType/afterID are passed as bound ? parameters. No user or API input reaches the SQL text."
+    },
+    {
+      "file": "skills/proxmox/cli/cmd/proxmox-mcp/main.go",
+      "rule": "G101",
+      "reason": "proxmox (generated, printing-press 4.33.5). gosec G101 false-positive on the constant NAME 'httpTokenEnvVar' (the 'Token' substring), emitted by the press template main_mcp.go.tmpl for every connector. Its value is the NAME of an environment variable, \"PROXMOX_MCP_HTTP_TOKEN\", not a credential; the actual token is read from the environment at runtime. Same entry as datagate, zammad, huntress, datto-bcdr, wordpress, sentinelone, connectwise-rmm and threatdown."
+    },
+    {
+      "file": "skills/proxmox/cli/internal/client/proxmox_routing.go",
+      "rule": "disabled-tls-verify",
+      "reason": "proxmox only (HAND-WRITTEN, recorded in skills/proxmox/handfixes.json as tls-fingerprint-pinning). This is certificate PINNING, which is stricter than chain verification, not a disabled check. strictPinConfig returns nil (normal Go chain and hostname verification) unless the operator configured at least one well-formed SHA-256 fingerprint (PROXMOX_TLS_FINGERPRINT / PROXMOX_PBS_TLS_FINGERPRINT or the per-cluster pins in clusters.toml). Only then does it set InsecureSkipVerify, and in the same tls.Config installs VerifyConnection, which Go runs on every handshake including resumed sessions: it rejects a connection with no peer certificate and accepts only a leaf whose SHA-256 over the raw DER equals one of that service's pins. Proxmox VE and Backup Server ship self-signed certificates and Proxmox's own tooling trusts them the same way (proxmox-backup-client PBS_FINGERPRINT). Pins are bound per service by servicePinTransport, so a PVE pin never vouches for the PBS host. There is no flag or env var that skips verification without a pin. Covered by internal/client/proxmox_routing_test.go."
+    },
+    {
+      "file": "skills/proxmox/cli/internal/client/proxmox_routing.go",
+      "rule": "msp-insecure-skip-verify",
+      "reason": "Same line as the disabled-tls-verify entry above (semgrep flags the identical InsecureSkipVerify: true). proxmox only (HAND-WRITTEN, recorded in skills/proxmox/handfixes.json as tls-fingerprint-pinning). Set only when at least one well-formed SHA-256 pin is configured, together with a VerifyConnection callback that accepts only a pinned leaf certificate on every handshake; with no pin the transport keeps Go's normal chain and hostname verification. There is no unpinned skip-verify path."
     }
   ]
 }
