@@ -498,7 +498,9 @@ func unrefreshedTenants(db fleetReader, ledger map[string]fleetLedgerRow, filter
 	}
 	_ = db.ListScan("tenants", func(_ string, data json.RawMessage) bool {
 		var t fleetTenant
-		if json.Unmarshal(data, &t) != nil || t.ID == "" || strings.EqualFold(t.BillingType, "trial") {
+		// Rows without a name are not tenants (a mutation response cached
+		// under the tenants group).
+		if json.Unmarshal(data, &t) != nil || t.ID == "" || t.Name == "" || strings.EqualFold(t.BillingType, "trial") {
 			return true
 		}
 		if _, ok := ledger[t.ID]; !ok {
@@ -508,6 +510,36 @@ func unrefreshedTenants(db fleetReader, ledger map[string]fleetLedgerRow, filter
 		return true
 	})
 	return out
+}
+
+// sophosLocalSyncedAt dates a local read. With one tenant selected it is that
+// tenant's own last fetch of the resource (its fleet ledger row, then its sync
+// checkpoint), never the fleet-wide stamp another tenant's refresh could move.
+// Several selected tenants have no single date.
+func sophosLocalSyncedAt(db *store.Store, resourceType string) (time.Time, error) {
+	getState := func(key string) (time.Time, error) {
+		_, at, _, err := db.GetSyncState(key)
+		return at, err
+	}
+	t := sophosExplicitTenant()
+	if t == "" {
+		if strings.Contains(configuredSophosTenant(), ",") {
+			return time.Time{}, nil
+		}
+		return getState(resourceType)
+	}
+	if raw, err := db.Get(fleetLedgerType, t); err == nil && len(raw) > 0 {
+		var row fleetLedgerRow
+		if json.Unmarshal(raw, &row) == nil {
+			if o, ok := row.Resources[resourceType]; ok {
+				if !o.FullAt.IsZero() {
+					return o.FullAt, nil
+				}
+				return o.At, nil
+			}
+		}
+	}
+	return getState(sophosSyncStateKey(resourceType))
 }
 
 // openFleetStore opens the local store read-only for a fleet read and reports

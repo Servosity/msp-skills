@@ -103,13 +103,10 @@ Per-tenant 403s are expected for trial tenants and term customers without Partne
 			}
 			// A refresh over every tenant in scope also drops tenants that left
 			// it (offboarded, or trial tenants without --include-trial) so their
-			// stale rows cannot pin freshness or linger in triage. keep is nil
-			// when nothing is pruned.
-			var keep []fleetTenant
-			if len(filter) == 0 && !cliutil.IsDogfoodEnv() {
-				keep = tenants
-			}
-			return runFleetSync(ctx, cmd, flags, c, tenants, resources, since, fleetDBPath(dbPath), keep)
+			// stale rows cannot pin freshness or linger in triage. Only such a
+			// refresh moves the fleet-wide sync stamps.
+			fullScope := len(filter) == 0 && !cliutil.IsDogfoodEnv()
+			return runFleetSync(ctx, cmd, flags, c, tenants, resources, since, fleetDBPath(dbPath), fullScope)
 		},
 	}
 	cmd.Flags().StringVar(&flagResources, "resources", strings.Join(fleetSyncResources, ","), "Comma-separated resources to sync: tenants,endpoints,alerts,health,licenses")
@@ -196,7 +193,7 @@ func planFleetSync(tenants []fleetTenant, resources []string, idType string, rat
 	return p
 }
 
-func runFleetSync(ctx context.Context, cmd *cobra.Command, flags *rootFlags, c *client.Client, tenants []fleetTenant, resources []string, since time.Duration, dbPath string, keep []fleetTenant) error {
+func runFleetSync(ctx context.Context, cmd *cobra.Command, flags *rootFlags, c *client.Client, tenants []fleetTenant, resources []string, since time.Duration, dbPath string, fullScope bool) error {
 	started := time.Now().UTC()
 	db, err := store.OpenWithContext(ctx, dbPath)
 	if err != nil {
@@ -282,19 +279,19 @@ func runFleetSync(ctx context.Context, cmd *cobra.Command, flags *rootFlags, c *
 		_ = flags.printJSON(cmd, summary)
 		return apiErr(fmt.Errorf("fleet refresh: no tenant refreshed (%d errors); see tenants[].resources", summary.Errors))
 	}
-	if keep != nil {
-		pruned, err := pruneOutOfScopeTenants(db, keep)
+	if fullScope {
+		// An empty listing is an answer too: every stored tenant left.
+		pruned, err := pruneOutOfScopeTenants(db, tenants)
 		if err != nil {
 			return fmt.Errorf("removing tenants no longer in scope: %w", err)
 		}
 		summary.Pruned = pruned
-	}
-	if want["tenants"] {
-		_ = db.SaveSyncState("tenants", "", summary.Stored["tenants"])
-	}
-	for _, rt := range []string{"endpoints", "alerts"} {
-		if want[rt] {
-			_ = db.SaveSyncState(rt, "", summary.Stored[rt])
+		// A --tenant refresh must not date other tenants' local rows; local
+		// reads with --tenant use that tenant's ledger row instead.
+		for _, rt := range []string{"tenants", "endpoints", "alerts"} {
+			if want[rt] {
+				_ = db.SaveSyncState(rt, "", summary.Stored[rt])
+			}
 		}
 	}
 	meta := fleetSyncMeta{ID: "sync", StartedAt: started, FinishedAt: time.Now().UTC(), PrevStartedAt: prev.StartedAt, TenantsAttempts: attempted}
@@ -316,7 +313,7 @@ func runFleetSync(ctx context.Context, cmd *cobra.Command, flags *rootFlags, c *
 		}
 		fmt.Fprintf(cmd.OutOrStdout(), "Synced %d tenants into %s: %d ok, %d partial, %d forbidden, %d no api host, %d error\n", summary.TenantsTotal, dbPath, summary.OK, summary.Partial, summary.Forbidden, summary.NoAPIHost, summary.Errors)
 		if len(summary.Pruned) > 0 {
-			fmt.Fprintf(cmd.OutOrStdout(), "Removed stored data for %d tenant(s) Sophos Central no longer lists: %s\n", len(summary.Pruned), strings.Join(summary.Pruned, ", "))
+			fmt.Fprintf(cmd.OutOrStdout(), "Removed stored data for %d tenant(s) outside this refresh's scope (offboarded, or trial without --include-trial): %s\n", len(summary.Pruned), strings.Join(summary.Pruned, ", "))
 		}
 		if err := printAutoTable(cmd.OutOrStdout(), rows); err != nil {
 			return err
@@ -567,8 +564,13 @@ func pruneOutOfScopeTenants(db *store.Store, tenants []fleetTenant) ([]string, e
 		stored[id] = true
 	}
 	// A tenants-only refresh stores tenant rows with no ledger row yet.
-	if err := db.ListScan("tenants", func(key string, _ json.RawMessage) bool {
-		stored[key] = true
+	// Rows without a name are not tenants (a mutation response cached under
+	// the tenants group); the reconcile below still clears them.
+	if err := db.ListScan("tenants", func(key string, raw json.RawMessage) bool {
+		var t fleetTenant
+		if json.Unmarshal(raw, &t) == nil && t.ID != "" && t.Name != "" {
+			stored[t.ID] = true
+		}
 		return true
 	}); err != nil {
 		return nil, err

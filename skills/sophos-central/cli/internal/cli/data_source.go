@@ -155,7 +155,8 @@ func localProvenance(db *store.Store, resourceType, reason string) DataProvenanc
 		Reason:       reason,
 		ResourceType: resourceType,
 	}
-	_, lastSynced, _, err := db.GetSyncState(resourceType)
+	// HAND-FIX(local-provenance-per-tenant): a --tenant read is dated by that tenant's own fetch.
+	lastSynced, err := sophosLocalSyncedAt(db, resourceType)
 	if err == nil && !lastSynced.IsZero() {
 		prov.SyncedAt = &lastSynced
 	}

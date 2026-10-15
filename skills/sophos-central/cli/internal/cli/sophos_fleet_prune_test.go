@@ -6,6 +6,7 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -16,6 +17,7 @@ import (
 	"testing"
 
 	"sophos-central-pp-cli/internal/cliutil/testenv"
+	"sophos-central-pp-cli/internal/store"
 )
 
 // TestFullRefreshPrunesFromTheLiveTenantList: the tenant list that decides
@@ -73,8 +75,9 @@ func TestFullRefreshPrunesFromTheLiveTenantList(t *testing.T) {
 	mu.Lock()
 	listed = []string{"T1", "T4"} // onboarded upstream after the first refresh
 	mu.Unlock()
-	sophosTenantFlag = "T4"
-	refresh()
+	if s := refresh("--tenant", "T4"); s.TenantsTotal != 1 {
+		t.Fatalf("--tenant T4 refreshes just T4: %+v", s)
+	}
 	sophosTenantFlag = ""
 	if s := refresh(); len(s.Pruned) != 0 || s.TenantsTotal != 2 {
 		t.Fatalf("a full refresh must list tenants live and keep T4: %+v", s)
@@ -99,5 +102,50 @@ func TestFullRefreshPrunesFromTheLiveTenantList(t *testing.T) {
 	v := triage()
 	if len(v.BlindTenants) != 1 || v.BlindTenants[0].TenantID != "T5" || v.BlindTenants[0].Status != "not_refreshed" {
 		t.Fatalf("a stored tenant with no refresh yet must be blind: %+v", v.BlindTenants)
+	}
+
+	// A --tenant refresh leaves the fleet-wide stamp alone, and a local
+	// --tenant read is dated by that tenant's own fetch.
+	refresh()
+	st, err := store.OpenWithContext(context.Background(), db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _, before, _ := st.GetSyncState("endpoints")
+	st.Close()
+	refresh("--tenant", "T5")
+	st, _ = store.OpenWithContext(context.Background(), db)
+	_, _, after, _ := st.GetSyncState("endpoints")
+	at5, _ := sophosLocalSyncedAt(st, "endpoints")
+	sophosTenantFlag = "T1"
+	at1, _ := sophosLocalSyncedAt(st, "endpoints")
+	prov := localProvenance(st, "endpoints", "")
+	sophosTenantFlag = ""
+	st.Close()
+	if before != 4 || after != before {
+		t.Fatalf("a --tenant refresh rewrote the fleet-wide endpoints stamp: count %d -> %d", before, after)
+	}
+	if !at5.After(at1) || prov.SyncedAt == nil || !prov.SyncedAt.Equal(at1) {
+		t.Fatalf("local reads must be dated per tenant: T5 %v, T1 %v, T1 provenance %v", at5, at1, prov.SyncedAt)
+	}
+	sophosTenantFlag = ""
+
+	mu.Lock()
+	listed = nil // every customer left
+	mu.Unlock()
+	if s := refresh(); len(s.Pruned) != 2 {
+		t.Fatalf("an empty listing must prune every stored tenant: %+v", s)
+	}
+	if v := triage(); len(v.Items) != 0 || len(v.BlindTenants) != 0 {
+		t.Fatalf("nothing may remain after every tenant left: %+v", v)
+	}
+}
+
+func TestNamelessTenantsRowIsNotATenant(t *testing.T) {
+	f := fakeFleetStore{}
+	f.put("tenants", "T1", fleetTenant{ID: "T1", Name: "Acme"})
+	f.put("tenants", "amend-1", map[string]any{"id": "amend-1", "type": "billingTypeChange"})
+	if got := unrefreshedTenants(f, map[string]fleetLedgerRow{}, nil); len(got) != 1 || got[0].TenantID != "T1" {
+		t.Fatalf("a cached amendment response is not a tenant: %+v", got)
 	}
 }

@@ -206,7 +206,7 @@
   {
    "id": "sophos-tenant-sync-state",
    "summary": "sync checkpoints and since-watermarks are keyed per tenant for tenant-scoped resources",
-   "why": "One local store holds every customer tenant (fleet refresh). A single checkpoint per resource meant tenant B resumed from tenant A's cursor and silently skipped rows; sophosSyncStateKey scopes each tenant-scoped resource's checkpoint to the active tenant.",
+   "why": "One local store holds every customer tenant (fleet refresh). A single checkpoint per resource meant tenant B resumed from tenant A's cursor and silently skipped rows; sophosSyncStateKey scopes each tenant-scoped resource's checkpoint to the active tenant. Codex round 4: `workflow archive --full` cleared the unscoped key while syncResource reads the tenant-scoped one, so a capped walk resumed mid-way and was marked complete; it now clears sophosSyncStateKey(resource), like sync --full.",
    "status": "active",
    "asserts": [
     {
@@ -230,6 +230,12 @@
     {
      "file": "cli/internal/cli/sync.go",
      "contains": "db.SaveSyncStateAt(sophosSyncStateKey(resource), \"\", 0, time.Time{})",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/channel_workflow.go",
+     "contains": "if err := s.SaveSyncStateAt(sophosSyncStateKey(resource), \"\", 0, time.Time{}); err != nil {",
      "min_count": 1,
      "code_only": false
     }
@@ -897,8 +903,8 @@
   },
   {
    "id": "fleet-freshness-per-resource",
-   "summary": "fleet freshness is per tenant and per resource: each ledger outcome records when it was fetched (at, prev_at, full_at, window); triage, health and gaps report the oldest input among the tenants in scope, and list tenants never fetched or only fetched with --since as blind; a resource that failed for every tenant in scope is named in the note; a full-scope refresh prunes tenants that left the listing; gaps --kind reads only the resources that kind needs; the prune reads the tenant list live (fleet refresh sets NoCache), also prunes the tenants table and prints what it removed; a --since fetch on top of a full one is dated by the full fetch; only failures in resources a view reads blind a tenant; stored tenants with no ledger row are listed as not_refreshed",
-   "why": "The build pane's known gap, confirmed by two Codex rounds: a single run-level fleet_meta timestamp (and then per-resource run maps) made a `--resources health` refresh, a `--tenant T1` refresh, or a first `--since 24h` alerts fetch look like a fresh complete view, so triage and gaps could present stale or partial data as current with no blind tenants. Each view names the resources it reads (triage: endpoints, alerts; health: health; gaps: health, endpoints, licenses). The triage 'new' flag compares against the tenant's own previous alerts fetch. gaps --include-server-gap also covers a fetched tenant with zero endpoints. TestFleetFreshnessIsOldestTenantInput, TestSinceOnlyAlertsTenantIsBlind and TestPartialRefreshNotFreshForTriage pin it. Codex round 3: a resource that errored for every tenant kept its last good fetch silently (now named), offboarded tenants lingered in triage and pinned freshness (now pruned on an unfiltered refresh), and gaps --kind commercial went blind on a missing health fetch (now per-kind). TestFailedResourceKeepsLastGoodFetchAndFlagsIt and TestFullRefreshPrunesTenantsThatLeftScope pin it. Adversarial round 5: the prune read the tenant list through the 5-minute response cache, so a tenant just added and refreshed with --tenant was deleted by the next unfiltered refresh and vanished from triage with no blind entry (now live, pinned by TestFullRefreshPrunesFromTheLiveTenantList, which fails with NoCache removed); a --since fetch made resolved alerts outside its window look current (freshness now uses full_at); a health 403 blinded triage (blindness is now per needed resource); a tenants-only refresh hid tenants it had not reached (now not_refreshed). Trial tenants are pruned unless --include-trial is set, documented in the FAQ, SKILL.md and guide.md.",
+   "summary": "fleet freshness is per tenant and per resource: each ledger outcome records when it was fetched (at, prev_at, full_at, window); triage, health and gaps report the oldest input among the tenants in scope, and list tenants never fetched or only fetched with --since as blind; a resource that failed for every tenant in scope is named in the note; a full-scope refresh prunes tenants that left the listing; gaps --kind reads only the resources that kind needs; the prune reads the tenant list live (fleet refresh sets NoCache), also prunes the tenants table and prints what it removed; a --since fetch on top of a full one is dated by the full fetch; only failures in resources a view reads blind a tenant; stored tenants with no ledger row are listed as not_refreshed; an empty listing prunes every stored tenant; only a full-scope refresh moves the fleet-wide sync stamps; nameless rows in the tenants table are not tenants",
+   "why": "The build pane's known gap, confirmed by two Codex rounds: a single run-level fleet_meta timestamp (and then per-resource run maps) made a `--resources health` refresh, a `--tenant T1` refresh, or a first `--since 24h` alerts fetch look like a fresh complete view, so triage and gaps could present stale or partial data as current with no blind tenants. Each view names the resources it reads (triage: endpoints, alerts; health: health; gaps: health, endpoints, licenses). The triage 'new' flag compares against the tenant's own previous alerts fetch. gaps --include-server-gap also covers a fetched tenant with zero endpoints. TestFleetFreshnessIsOldestTenantInput, TestSinceOnlyAlertsTenantIsBlind and TestPartialRefreshNotFreshForTriage pin it. Codex round 3: a resource that errored for every tenant kept its last good fetch silently (now named), offboarded tenants lingered in triage and pinned freshness (now pruned on an unfiltered refresh), and gaps --kind commercial went blind on a missing health fetch (now per-kind). TestFailedResourceKeepsLastGoodFetchAndFlagsIt and TestFullRefreshPrunesTenantsThatLeftScope pin it. Adversarial round 5: the prune read the tenant list through the 5-minute response cache, so a tenant just added and refreshed with --tenant was deleted by the next unfiltered refresh and vanished from triage with no blind entry (now live, pinned by TestFullRefreshPrunesFromTheLiveTenantList, which fails with NoCache removed); a --since fetch made resolved alerts outside its window look current (freshness now uses full_at); a health 403 blinded triage (blindness is now per needed resource); a tenants-only refresh hid tenants it had not reached (now not_refreshed). Trial tenants are pruned unless --include-trial is set, documented in the FAQ, SKILL.md and guide.md. Codex round 4 + adversarial round 6: an empty listing left keep nil and skipped the prune (now a fullScope bool); a --tenant refresh rewrote the global endpoints/alerts/tenants sync stamps that date local reads (now only a full refresh writes them); `tenants post-account-amendment` caches its response under the tenants type, which unrefreshedTenants and the prune counted as a tenant (rows without a name are skipped).",
    "status": "active",
    "asserts": [
     {
@@ -1005,7 +1011,7 @@
     },
     {
      "file": "cli/internal/cli/fleet_refresh.go",
-     "contains": "if len(filter) == 0 && !cliutil.IsDogfoodEnv() {\n\t\t\t\tkeep = tenants",
+     "contains": "fullScope := len(filter) == 0 && !cliutil.IsDogfoodEnv()",
      "min_count": 1,
      "code_only": false
     },
@@ -1035,7 +1041,7 @@
     },
     {
      "file": "cli/internal/cli/fleet_refresh.go",
-     "contains": "Removed stored data for %d tenant(s) Sophos Central no longer lists",
+     "contains": "Removed stored data for %d tenant(s) outside this refresh's scope (offboarded, or trial without --include-trial)",
      "min_count": 1,
      "code_only": false
     },
@@ -1090,6 +1096,36 @@
     {
      "file": "cli/internal/cli/sophos_fleet_freshness_test.go",
      "contains": "func TestUnreadResourceFailureDoesNotBlindTheView(",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_refresh.go",
+     "contains": "\t\t// An empty listing is an answer too: every stored tenant left.\n\t\tpruned, err := pruneOutOfScopeTenants(db, tenants)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_refresh.go",
+     "contains": "\t\tfor _, rt := range []string{\"tenants\", \"endpoints\", \"alerts\"} {\n\t\t\tif want[rt] {\n\t\t\t\t_ = db.SaveSyncState(rt, \"\", summary.Stored[rt])",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_refresh.go",
+     "contains": "if json.Unmarshal(raw, &t) == nil && t.ID != \"\" && t.Name != \"\" {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_fleet.go",
+     "contains": "if json.Unmarshal(data, &t) != nil || t.ID == \"\" || t.Name == \"\" || strings.EqualFold(t.BillingType, \"trial\") {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_fleet_prune_test.go",
+     "contains": "func TestNamelessTenantsRowIsNotATenant(",
      "min_count": 1,
      "code_only": false
     }
@@ -1283,6 +1319,32 @@
     {
      "file": "cli/internal/cli/sophos_review_fixes_test.go",
      "contains": "func TestParentNamedDependentsAreNotSynced(",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "local-provenance-per-tenant",
+   "summary": "a local read with one --tenant is dated by that tenant's own last fetch (fleet ledger full_at/at, then its sync checkpoint), never the fleet-wide stamp",
+   "why": "Codex round 4 (2026-10-15): localProvenance read the unscoped sync_state stamp, so `fleet refresh --tenant T2` made `endpoints list --tenant T1 --data-source local` report T1's stale rows with T2's fresh synced_at. sophosLocalSyncedAt reads the selected tenant's ledger row; several selected tenants get no single date. TestFullRefreshPrunesFromTheLiveTenantList checks localProvenance per tenant and fails with the data_source.go edit reverted.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "// HAND-FIX(local-provenance-per-tenant): a --tenant read is dated by that tenant's own fetch.",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "lastSynced, err := sophosLocalSyncedAt(db, resourceType)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_fleet.go",
+     "contains": "func sophosLocalSyncedAt(db *store.Store, resourceType string) (time.Time, error) {",
      "min_count": 1,
      "code_only": false
     }
