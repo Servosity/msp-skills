@@ -253,3 +253,27 @@ func TestPBSOnlyRetentionUnassessedIsReported(t *testing.T) {
 		t.Errorf("want unassessed retention reported:\n%s", out)
 	}
 }
+
+// Codex round 19: guests a token cannot audit leave job selection unknown,
+// not empty: nothing is flagged unpruned on that, and the gap is reported.
+func TestHiddenGuestsLeaveJobSelectionUnknown(t *testing.T) {
+	f := newFixture(t)
+	for _, j := range f.pveRoutes["/cluster/backup"].([]map[string]any) {
+		j["prune-backups"] = "keep-last=3"
+	}
+	f.pveRoutes["/access/permissions"] = map[string]any{
+		"/":    map[string]any{"Sys.Audit": 1, "Datastore.Audit": 1, "Datastore.AllocateSpace": 1, "VM.Backup": 1},
+		"/vms": map[string]any{"VM.Audit": 0},
+	}
+	out, _, err := runCLI(t, "capacity", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rep := decodeJSON[capacityReport](t, out)
+	if e := failureByScope(rep.FetchFailures)["backup job guests"]; e == "" {
+		t.Errorf("want unknown job selection reported: %+v", rep.FetchFailures)
+	}
+	if r := datastoreRow(t, out, "pbs-datastore", "main"); strings.Contains(strings.Join(r.Flags, ","), "unpruned") {
+		t.Errorf("unknown selection must not flag unpruned: %v", r.Flags)
+	}
+}

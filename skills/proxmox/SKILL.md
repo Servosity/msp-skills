@@ -98,7 +98,7 @@ Do not use this CLI for:
   ```
 
 ### Restore readiness
-- **`restore-points`**  -  Every restore point of one guest across all storages and PBS namespaces, with verify state, protection, encryption and, for points listed from PVE storage, whether the next prune removes it.
+- **`restore-points`**  -  Every restore point of one guest across all storages and PBS namespaces, with verify state, protection, encryption and, for points listed from PVE storage, whether the next prune removes it (pbs-prune when a PBS prune job or schedule decides instead).
 
   _Use to answer 'can we restore server X from Tuesday?' with the exact restore points and whether each verified. Exit 3 means no reachable cluster has that guest; exit 5 means no cluster answered, or no match had a readable restore point while some source was not read (see not_read)._
 
@@ -602,7 +602,7 @@ Do not use this CLI for:
 **restore-points**
 
 
-- `proxmox-cli restore-points`  -  Every restore point of one guest across all storages and PBS namespaces, with verify state, protection, encryption and, for points listed from PVE storage, whether the next prune removes it.
+- `proxmox-cli restore-points`  -  Every restore point of one guest across all storages and PBS namespaces, with verify state, protection, encryption and, for points listed from PVE storage, whether the next prune removes it (pbs-prune when a PBS prune job or schedule decides instead).
 
 
 **rpo**
