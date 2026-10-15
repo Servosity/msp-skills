@@ -161,8 +161,25 @@ func normFingerprint(s string) string {
 	return strings.ToLower(strings.NewReplacer(":", "", " ", "").Replace(strings.TrimSpace(s)))
 }
 
+// pveID identifies a cluster by its PVE API base. Only the case-insensitive
+// parts (scheme, host, default port) are folded; the path keeps its case, as
+// two bases that differ only there can be two clusters behind one gateway, and
+// merging them would hide one as the other's sharer.
 func pveID(baseURL string) string {
-	return strings.ToLower(strings.TrimRight(strings.TrimSpace(baseURL), "/"))
+	s := strings.TrimRight(strings.TrimSpace(baseURL), "/")
+	u, err := url.Parse(s)
+	if err != nil || u.Hostname() == "" {
+		return s
+	}
+	port := u.Port()
+	if port == "" {
+		port = map[string]string{"https": "443", "http": "80"}[strings.ToLower(u.Scheme)]
+	}
+	h := strings.TrimSuffix(strings.ToLower(u.Hostname()), ".")
+	if ip := net.ParseIP(h); ip != nil {
+		h = ip.String()
+	}
+	return strings.ToLower(u.Scheme) + "://" + net.JoinHostPort(h, port) + strings.TrimRight(u.EscapedPath(), "/")
 }
 
 // fleetTargets resolves the clusters to visit: --cluster narrows to one entry;
