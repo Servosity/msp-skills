@@ -286,12 +286,19 @@ def transitive_needs(job: str, jobs: dict[str, str]) -> set[str]:
 # --------------------------------------------------------------------------
 # The requirements.
 # --------------------------------------------------------------------------
+def _swallows(line: str) -> bool:
+    """A `continue-on-error:` that is not literally false. An expression such
+    as `${{ true }}` cannot be evaluated here, so it counts as swallowing."""
+    m = re.match(r"^\s*(?:-\s+)?continue-on-error:\s*(.*?)\s*$", line, re.IGNORECASE)
+    return bool(m) and m.group(1).strip("'\"").lower() != "false"
+
+
 def smoke_job_runs_on_windows(lines: list[str]) -> bool:
     """One job's code lines: a windows runner that invokes the smoke script,
     with no `continue-on-error: true` to turn a failure into a pass."""
     on_windows = any(re.match(r"^\s{4}runs-on:.*windows", ln, re.IGNORECASE) for ln in lines)
     invokes = any(_SMOKE_INVOCATION.search(ln) for ln in lines)
-    swallows = any(re.match(r"^\s*(?:-\s+)?continue-on-error:\s*true\b", ln, re.IGNORECASE) for ln in lines)
+    swallows = any(_swallows(ln) for ln in lines)
     return on_windows and invokes and not swallows
 
 
@@ -389,11 +396,17 @@ def evaluate(text: str, smoke_text: str | None = None) -> list[tuple[str, str]]:
     near_misses: list[str] = []
     for name in sorted(closure - {seal_job}):
         lines = code[name]
-        calls = any(re.match(r"^\s{4}uses:\s*\S*" + re.escape(WINDOWS_SMOKE_WORKFLOW) + r"\b", ln)
-                    for ln in lines)
+        calls = any(re.match(r"^\s{4}uses:\s*['\"]?\./" + re.escape(WINDOWS_SMOKE_WORKFLOW)
+                             + r"['\"]?\s*$", ln) for ln in lines)
+        remote = any(re.match(r"^\s{4}uses:\s*\S*" + re.escape(WINDOWS_SMOKE_WORKFLOW), ln)
+                     for ln in lines) and not calls
+        if remote:
+            near_misses.append(f"{name!r} calls a windows-smoke.yml that is not this commit's "
+                               f"./{WINDOWS_SMOKE_WORKFLOW}, so what it runs cannot be checked here")
+            continue
         if calls:
             draft = any(re.match(r"^\s{6}source:\s*['\"]?draft['\"]?\s*$", ln) for ln in lines)
-            swallows = any(re.match(r"^\s*(?:-\s+)?continue-on-error:\s*true\b", ln, re.IGNORECASE)
+            swallows = any(_swallows(ln)
                            for ln in lines)
             if not draft:
                 near_misses.append(f"{name!r} calls {WINDOWS_SMOKE_WORKFLOW} without `source: draft`, "
@@ -795,6 +808,28 @@ jobs:
                  "    continue-on-error: true\n    uses: ./.github/workflows/windows-smoke.yml\n"),
          {"WINDOWS-SMOKE-BEFORE-SEAL"})
 
+    # FIRES when continue-on-error is an expression: it cannot be proved false.
+    case("a Windows smoke with an expression-valued continue-on-error is refused",
+         _mutate(_GOOD_SKELETON, "    uses: ./.github/workflows/windows-smoke.yml\n",
+                 "    continue-on-error: ${{ true }}\n    uses: ./.github/workflows/windows-smoke.yml\n"),
+         {"WINDOWS-SMOKE-BEFORE-SEAL"})
+    case("a called windows-smoke.yml whose job continue-on-error is an expression is refused",
+         _GOOD_SKELETON, {"WINDOWS-SMOKE-BEFORE-SEAL"},
+         smoke=_mutate(_GOOD_SMOKE, "    runs-on: windows-latest\n",
+                       "    runs-on: windows-latest\n    continue-on-error: ${{ inputs.lenient }}\n"))
+    # SILENT when continue-on-error is literally false.
+    case("continue-on-error: false does not count as swallowing",
+         _mutate(_GOOD_SKELETON, "    uses: ./.github/workflows/windows-smoke.yml\n",
+                 "    continue-on-error: false\n    uses: ./.github/workflows/windows-smoke.yml\n"),
+         set())
+
+    # FIRES when the call names someone else's (or an old revision's) workflow:
+    # the local file validated here is not what would run.
+    case("a remote windows-smoke.yml reference is refused",
+         _mutate(_GOOD_SKELETON, "    uses: ./.github/workflows/windows-smoke.yml\n",
+                 "    uses: someone/else/.github/workflows/windows-smoke.yml@v1\n"),
+         {"WINDOWS-SMOKE-BEFORE-SEAL"})
+
     # FIRES when the called workflow does not exist at this commit.
     case("a call to a windows-smoke.yml that does not exist is refused",
          _GOOD_SKELETON, {"WINDOWS-SMOKE-BEFORE-SEAL"}, smoke=None)
@@ -961,7 +996,7 @@ jobs:
             print(f"  - {f}", file=sys.stderr)
         return 1
     print("check_release_pipeline self-test passed (the repo's own release.yml is "
-          "endorsable and a clean tag is endorsable; twenty broken pipeline shapes, "
+          "endorsable and a clean tag is endorsable; twenty-three broken pipeline shapes, "
           "eleven bad tags and five malformed ledgers are refused).")
     return 0
 
