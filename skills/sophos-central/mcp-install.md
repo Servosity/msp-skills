@@ -38,7 +38,15 @@ Add (or merge with your existing `mcpServers` block):
       "command": "sophos-central-mcp",
       "env": {
         "SOPHOS_CENTRAL_CLIENT_ID": "<your-sophos_central_client_id>",
-        "SOPHOS_CENTRAL_CLIENT_SECRET": "<your-sophos_central_client_secret>"
+        "SOPHOS_CENTRAL_CLIENT_SECRET": "<your-sophos_central_client_secret>",
+        "SOPHOS_CENTRAL_TENANT_ID": "",
+        "SOPHOS_CENTRAL_BASE_URL": "",
+        "SOPHOS_CENTRAL_TOKEN_URL": "",
+        "SOPHOS_CENTRAL_OAUTH_SCOPE": "",
+        "SOPHOS_CENTRAL_MCP_READ_ONLY": "",
+        "SOPHOS_CENTRAL_MCP_HTTP_TOKEN": "",
+        "SOPHOS_CENTRAL_USER_AGENT": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
@@ -64,7 +72,15 @@ Configuration**) and add:
       "command": "sophos-central-mcp",
       "env": {
         "SOPHOS_CENTRAL_CLIENT_ID": "<your-sophos_central_client_id>",
-        "SOPHOS_CENTRAL_CLIENT_SECRET": "<your-sophos_central_client_secret>"
+        "SOPHOS_CENTRAL_CLIENT_SECRET": "<your-sophos_central_client_secret>",
+        "SOPHOS_CENTRAL_TENANT_ID": "",
+        "SOPHOS_CENTRAL_BASE_URL": "",
+        "SOPHOS_CENTRAL_TOKEN_URL": "",
+        "SOPHOS_CENTRAL_OAUTH_SCOPE": "",
+        "SOPHOS_CENTRAL_MCP_READ_ONLY": "",
+        "SOPHOS_CENTRAL_MCP_HTTP_TOKEN": "",
+        "SOPHOS_CENTRAL_USER_AGENT": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
@@ -86,7 +102,15 @@ Claude Desktop:
       "command": "sophos-central-mcp",
       "env": {
         "SOPHOS_CENTRAL_CLIENT_ID": "<your-sophos_central_client_id>",
-        "SOPHOS_CENTRAL_CLIENT_SECRET": "<your-sophos_central_client_secret>"
+        "SOPHOS_CENTRAL_CLIENT_SECRET": "<your-sophos_central_client_secret>",
+        "SOPHOS_CENTRAL_TENANT_ID": "",
+        "SOPHOS_CENTRAL_BASE_URL": "",
+        "SOPHOS_CENTRAL_TOKEN_URL": "",
+        "SOPHOS_CENTRAL_OAUTH_SCOPE": "",
+        "SOPHOS_CENTRAL_MCP_READ_ONLY": "",
+        "SOPHOS_CENTRAL_MCP_HTTP_TOKEN": "",
+        "SOPHOS_CENTRAL_USER_AGENT": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
@@ -101,12 +125,17 @@ web** is remote-only - see the remote section below.)
 # Remote agents (expose the binary over HTTPS first)
 
 All remote agents need `sophos-central-mcp` reachable as a public **HTTPS** endpoint. Run it
-in HTTP mode with your credentials in the environment (it listens on 127.0.0.1:7777 by
-default; press 4.32+ refuses a non-loopback bind without TLS, so do not pass `--addr :7777`):
+in HTTP mode with your credentials in the environment (it serves `http://127.0.0.1:7777/mcp`
+by default; press 4.32+ refuses a non-loopback bind without TLS, so do not pass `--addr :7777`):
 
 ```bash
-SOPHOS_CENTRAL_CLIENT_ID=<value> SOPHOS_CENTRAL_CLIENT_SECRET=<value> sophos-central-mcp --transport http
+SOPHOS_CENTRAL_CLIENT_ID=<value> SOPHOS_CENTRAL_CLIENT_SECRET=<value> SOPHOS_CENTRAL_MCP_HTTP_TOKEN=<long-random-value> sophos-central-mcp --transport http
 ```
+
+`SOPHOS_CENTRAL_MCP_HTTP_TOKEN` is required: the server refuses to start in HTTP mode
+without it, and rejects any request that does not carry `Authorization: Bearer <that value>`.
+If your remote client cannot send that header, have your reverse proxy add it to the
+requests it forwards, and put your own sign-in in front of the proxy.
 
 Then expose `http://localhost:7777/mcp` as a public HTTPS URL via a secure tunnel
 (Cloudflare Tunnel, ngrok) or your own reverse proxy. The path is part of the

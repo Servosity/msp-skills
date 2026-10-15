@@ -1,6 +1,6 @@
 ---
 name: sophos-central
-description: "The Sophos Central partner, organization and tenant APIs, routed to the right tenant and region automatically, plus a cross-tenant triage queue, fleet tamper remediation, a multi-tenant SIEM collector and hostname-based containment. Trigger phrases: `check sophos alerts across all customers`, `which sophos endpoints have tamper protection off`, `isolate this machine in sophos`, `sophos health check scores for my tenants`, `reconcile sophos partner billing`, `use sophos central`, `run sophos-central`."
+description: "Use when the user asks to check Sophos Central across every customer: a ranked triage queue of alerts and unhealthy machines, Account Health Check rankings, security and licence gaps, tamper protection off, partner billing against deployment, or to isolate a machine by hostname without knowing its tenant. Covers the Sophos Central partner, organization and tenant APIs with tenant and region routing handled for you. Trigger phrases: `check sophos alerts across all customers`, `which sophos endpoints have tamper protection off`, `isolate this machine in sophos`, `sophos health check scores for my tenants`, `reconcile sophos partner billing`, `use sophos central`, `run sophos-central`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "Sophos Central"

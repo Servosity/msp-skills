@@ -16,7 +16,15 @@
       "args": [],
       "env": {
         "SOPHOS_CENTRAL_CLIENT_ID": "${user_config.sophos_central_client_id}",
-        "SOPHOS_CENTRAL_CLIENT_SECRET": "${user_config.sophos_central_client_secret}"
+        "SOPHOS_CENTRAL_CLIENT_SECRET": "${user_config.sophos_central_client_secret}",
+        "SOPHOS_CENTRAL_TENANT_ID": "${user_config.sophos_central_tenant_id}",
+        "SOPHOS_CENTRAL_BASE_URL": "${user_config.sophos_central_base_url}",
+        "SOPHOS_CENTRAL_TOKEN_URL": "${user_config.sophos_central_token_url}",
+        "SOPHOS_CENTRAL_OAUTH_SCOPE": "${user_config.sophos_central_oauth_scope}",
+        "SOPHOS_CENTRAL_MCP_READ_ONLY": "${user_config.sophos_central_mcp_read_only}",
+        "SOPHOS_CENTRAL_MCP_HTTP_TOKEN": "${user_config.sophos_central_mcp_http_token}",
+        "SOPHOS_CENTRAL_USER_AGENT": "${user_config.sophos_central_user_agent}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
       }
     }
   },
@@ -24,16 +32,72 @@
     "sophos_central_client_id": {
       "type": "string",
       "title": "SOPHOS_CENTRAL_CLIENT_ID",
-      "description": "Sets SOPHOS_CENTRAL_CLIENT_ID for the Sophos Central MCP server. Get a credential from https://developer.sophos.com/getting-started/.",
+      "description": "Client ID of a Sophos Central API credential (Partner Dashboard > Settings & Policies > API Credentials, or Global Settings > API Credentials Management).",
       "sensitive": true,
       "required": true
     },
     "sophos_central_client_secret": {
       "type": "string",
       "title": "SOPHOS_CENTRAL_CLIENT_SECRET",
-      "description": "Sets SOPHOS_CENTRAL_CLIENT_SECRET for the Sophos Central MCP server. Get a credential from https://developer.sophos.com/getting-started/.",
+      "description": "Client secret of that API credential. Sophos shows it only once, when the credential is created.",
       "sensitive": true,
       "required": true
+    },
+    "sophos_central_tenant_id": {
+      "type": "string",
+      "title": "Customer tenant (optional)",
+      "description": "Optional. With a partner or organization credential, the customer tenant ID that tenant-scoped tools act on. Leave blank to let the fleet tools walk every customer; tools that take a tenant argument can still pick one per call.",
+      "required": false,
+      "sensitive": false
+    },
+    "sophos_central_base_url": {
+      "type": "string",
+      "title": "Sophos Central API base URL",
+      "description": "Optional. Leave blank: requests go to https://api.central.sophos.com and each tenant's regional host is found automatically.",
+      "required": false,
+      "sensitive": false
+    },
+    "sophos_central_token_url": {
+      "type": "string",
+      "title": "OAuth2 token URL",
+      "description": "Optional. Leave blank to use https://id.sophos.com/api/v2/oauth2/token.",
+      "required": false,
+      "sensitive": false
+    },
+    "sophos_central_oauth_scope": {
+      "type": "string",
+      "title": "OAuth2 scope",
+      "description": "Optional. Leave blank to use the scope Sophos Central documents (token).",
+      "required": false,
+      "sensitive": false
+    },
+    "sophos_central_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP mode",
+      "description": "Optional. Set to 1 to make the MCP server refuse every non-GET call and hide the sync and export tools. It does not replace giving the API credential a read-only role.",
+      "required": false,
+      "sensitive": false
+    },
+    "sophos_central_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http (a remote or hosted deployment); callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport Claude Desktop uses.",
+      "required": false,
+      "sensitive": true
+    },
+    "sophos_central_user_agent": {
+      "type": "string",
+      "title": "User-Agent header",
+      "description": "Optional. Overrides the User-Agent the CLI sends to Sophos Central. Leave blank to use the built-in one.",
+      "required": false,
+      "sensitive": false
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile (optional)",
+      "description": "Only used when the MCP server is bound to a tenant-gated client profile. This connector registers no tenant-gated source, so leave it blank.",
+      "required": false,
+      "sensitive": true
     }
   },
   "compatibility": {

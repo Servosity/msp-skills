@@ -65,7 +65,7 @@
   "faqs": [
     {
       "q": "Does this work with ChatGPT?",
-      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, and sophos-central-mcp speaks HTTP natively: run `sophos-central-mcp --transport http` (it listens on 127.0.0.1:7777) and put its /mcp endpoint behind an HTTPS tunnel or your own reverse proxy. Step-by-step in the install guide."
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, and sophos-central-mcp speaks HTTP natively: run `sophos-central-mcp --transport http` with SOPHOS_CENTRAL_MCP_HTTP_TOKEN set (it serves `http://127.0.0.1:7777/mcp` and requires that token as a bearer header) and put that endpoint behind an HTTPS tunnel or your own reverse proxy. Step-by-step in the install guide."
     },
     {
       "q": "Do I need to know how to code?",
