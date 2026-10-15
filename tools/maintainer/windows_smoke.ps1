@@ -349,7 +349,9 @@ if ($cliPath) {
   else {
     # doctor reports a missing credential as a finding; the exit code is not
     # the verdict here, a crash or unparseable output is.
-    try { $doctor = ConvertFrom-JsonText (($r.Stdout + "").Trim()) } catch { $why = "stdout is not JSON (exit $($r.ExitCode)): " + (((($r.Stdout + "").Trim()) -split "`n" | Select-Object -First 2) -join " | ") }
+    $docText = ($r.Stdout + "").Trim()
+    if (-not $docText.StartsWith("{")) { $why = "stdout is not a JSON object (exit $($r.ExitCode)): " + ((($docText -split "`n") | Select-Object -First 2) -join " | ") }
+    else { try { $doctor = ConvertFrom-JsonText $docText } catch { $why = "stdout is not JSON (exit $($r.ExitCode)): " + ((($docText -split "`n") | Select-Object -First 2) -join " | ") } }
     if (-not $why -and -not (Test-IsMap $doctor)) { $why = "stdout is JSON but not an object" }
   }
   if ($why) {

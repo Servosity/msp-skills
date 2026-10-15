@@ -113,13 +113,13 @@ jobs:
         #                       at all. A tag push runs release.yml FROM THE
         #                       TAGGED COMMIT, so tagging a pre-draft-pipeline
         #                       commit publishes an empty immutable release and
-        #                       spends that version number. Twenty broken
+        #                       spends that version number. Twenty-three broken
         #                       pipeline shapes are refused (publish-first, never
         #                       sealed, two sealers, an uploader outside the seal's
         #                       needs closure, no completeness gate, the gate after
         #                       the seal, no bundle in the contract, comments that
         #                       only QUOTE the commands, a file that is not a
-        #                       workflow, and eleven ways the Windows smoke can be
+        #                       workflow, and fourteen ways the Windows smoke can be
         #                       missing, outside the seal's closure, pointed at
         #                       the wrong source, a no-op, or allowed to fail). Critically it also asserts THIS repo's
         #                       own release.yml passes: that is what pins the
