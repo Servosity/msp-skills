@@ -31,9 +31,9 @@ func (c *Config) KeepEnvSecretOffDisk(clientID string) {
 	c.markEnvOverride("ClientSecret")
 }
 
-// tokenInMemoryOnlyMarker is an envOverrides key no field uses; it marks a
+// envAdoptedMarker is an envOverrides key no field uses; it marks a
 // Config whose minted token must not be saved and goes away with the Config.
-const tokenInMemoryOnlyMarker = "sophos:token-in-memory-only"
+const envAdoptedMarker = "sophos:env-credential-adopted"
 
 // AdoptEnvClientCredential makes SOPHOS_CENTRAL_CLIENT_ID the credential this
 // process uses when it names a different API credential than the client ID
@@ -49,13 +49,13 @@ func (c *Config) AdoptEnvClientCredential() {
 	}
 	c.ClientID, c.ClientSecret = envID, ""
 	c.AccessToken, c.RefreshToken, c.TokenExpiry = "", "", time.Time{}
-	c.markEnvOverride(tokenInMemoryOnlyMarker)
+	c.markEnvOverride(envAdoptedMarker)
 }
 
 // KeepMintedTokenInMemory stores a minted token on c without saving it and
 // reports true when c is running on an adopted environment credential.
 func (c *Config) KeepMintedTokenInMemory(accessToken string, expiry time.Time) bool {
-	if !c.envOverrides[tokenInMemoryOnlyMarker] {
+	if !c.envOverrides[envAdoptedMarker] {
 		return false
 	}
 	c.AccessToken, c.TokenExpiry = accessToken, expiry
