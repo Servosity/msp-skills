@@ -74,11 +74,11 @@
     },
     {
       "q": "Can the AI stop, change or delete anything on my Proxmox hosts?",
-      "a": "No. The CLI and MCP server only contain read (GET) calls to Proxmox VE and Proxmox Backup Server; there is no command that starts, stops, migrates, restores, prunes or deletes anything. The only writes are local files: the cluster list, a saved token, and the local mirror. One side effect to know: reading a storage's status lets Proxmox mount an enabled storage, which its own status daemon already does every 10 seconds."
+      "a": "No. The CLI and MCP server only contain read (GET) calls to Proxmox VE and Proxmox Backup Server; there is no command that starts, stops, migrates, restores, prunes or deletes anything. The only writes are local files: the cluster list, a saved token, the local mirror (which the per-endpoint read commands also update), the agent learning store, and a response cache of raw API answers (owner-only files; the backup commands never answer from it). One side effect to know: reading a storage's status lets Proxmox mount an enabled storage, which its own status daemon already does every 10 seconds."
     },
     {
       "q": "What API token does it need?",
-      "a": "A privilege-separated API token for each product. Proxmox Backup Server: the Audit role on / (read-only). Proxmox VE: PVEAuditor on /. One catch: Proxmox VE lists backup files only to a token that also holds Datastore.AllocateSpace and VM.Backup, so if your backups live on dir, NFS or CIFS storage, or you have not configured the Backup Server here, add a custom role with those two privileges. An audit-only token is reported as \"storage not read\", never as \"no backups\". If your backups are on Proxmox Backup Server and PROXMOX_PBS_HOST is set, the CLI reads them from the PBS API and the PVE token can stay audit-only. The PVE token is USER@REALM!TOKENID=SECRET; the PBS token uses a colon before the secret."
+      "a": "A privilege-separated API token for each product. Proxmox Backup Server: the Audit role on / (read-only). Proxmox VE: PVEAuditor on /. One catch: Proxmox VE lists backup files only to a token that also holds Datastore.AllocateSpace and VM.Backup, so if your backups live on dir, NFS or CIFS storage, or you have not configured the Backup Server here, add a custom role with those two privileges. An audit-only token is reported as \"storage not read\" and the guest as unproven, never as \"no backups\". If your backups are on Proxmox Backup Server and PROXMOX_PBS_HOST is set (spelled as in the PVE storage's server field: the same IP or hostname), the CLI reads them from the PBS API and the PVE token can stay audit-only. On a stock install the local storage also accepts backups: with an audit-only token it is listed under fetch failures (its guests keep their verdicts), and posture --fail-on-red exits 1 until you remove \"VZDump backup file\" from its content types or grant it the two privileges. The PVE token is USER@REALM!TOKENID=SECRET; the PBS token uses a colon before the secret."
     },
     {
       "q": "Proxmox uses a self-signed certificate. Do I have to turn off certificate checks?",
@@ -108,7 +108,7 @@
     },
     {
       "tier": "Data leaving the machine",
-      "examples": "--deliver webhook:<url> or --deliver file:<path> on any command, and the MCP server bridged to a public HTTPS endpoint",
+      "examples": "--deliver webhook:<url> or --deliver file:<path> on any command, feedback --send, and the MCP server bridged to a public HTTPS endpoint",
       "policy": "Human-in-the-loop only"
     },
     {

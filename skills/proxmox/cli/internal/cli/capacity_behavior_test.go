@@ -31,16 +31,16 @@ func TestCapacityRunway(t *testing.T) {
 		t.Errorf("used pct = %v", pbs.UsedPct)
 	}
 	local := rep.Rows[1]
-	if local.Kind != "pve-storage" || local.Name != "local" || local.DaysToFull != nil || len(local.Flags) != 0 {
+	if local.Kind != "pve-storage" || local.Name != "local" || local.DaysToFull != nil || !slices.Equal(local.Flags, []string{"no-forecast"}) {
 		t.Errorf("local storage row = %+v", local)
 	}
-	// --within keeps only flagged or filling rows.
+	// --within keeps filling rows, and PVE storage it cannot forecast.
 	out, _, err = runCLI(t, "capacity", "--within", "30d", "--json")
 	if err != nil {
 		t.Fatal(err)
 	}
 	rep = decodeJSON[capacityReport](t, out)
-	if len(rep.Rows) != 1 || !slices.Contains(rep.Rows[0].Flags, "filling") {
+	if len(rep.Rows) != 2 || !slices.Contains(rep.Rows[0].Flags, "filling") || !slices.Contains(rep.Rows[1].Flags, "no-forecast") {
 		t.Errorf("--within 30d = %+v", rep.Rows)
 	}
 	// A generous margin does not change GC semantics; a zero margin drops the deadlock flag.

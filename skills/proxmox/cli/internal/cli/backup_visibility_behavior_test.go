@@ -38,7 +38,9 @@ func TestAuditOnlyTokenHiddenBackupsAreMissingEvidence(t *testing.T) {
 	if e, ok := fails["storage pbs1"]; ok {
 		t.Errorf("pbs1 is read through the PBS API; its hidden PVE list must not fail: %s", e)
 	}
-	if r := rows[100]; r.Verdict != "archives-incomplete" || r.RestorePoints == 0 {
+	// The unseen dir storage is no job's target and carries no verify state:
+	// it can only add newer points, so 100's fresh PBS point stands.
+	if r := rows[100]; r.Verdict != "fresh" || r.RestorePoints == 0 {
 		t.Errorf("100 (fresh on PBS, dir storage unseen) = %s %q, %d points", r.Verdict, r.Reason, r.RestorePoints)
 	}
 	if r := rows[105]; r.Verdict != "never" || !strings.Contains(r.Reason, "could not be read") {
@@ -81,8 +83,27 @@ func TestAuditOnlyTokenWithoutPBSAPI(t *testing.T) {
 	if e := failureByScope(rep.FetchFailures)["storage pbs1"]; !strings.Contains(e, "Datastore.AllocateSpace") {
 		t.Errorf("hidden PBS storage must be a fetch failure, got %+v", rep.FetchFailures)
 	}
-	if r := rows[100]; r.Verdict != "never" || !strings.Contains(r.Reason, "see fetch_failures") {
-		t.Errorf("100 = %s %q, want never with the unreadable-storage reason", r.Verdict, r.Reason)
+	// pbs1 is job1's target and was not read: "no restore point" is unproven.
+	if r := rows[100]; r.Verdict != "unproven" || r.Severity != "red" || !strings.Contains(r.Reason, "see fetch_failures") {
+		t.Errorf("100 = %s %q, want unproven with the unreadable-storage reason", r.Verdict, r.Reason)
+	}
+	out, _, err := runCLI(t, "posture", "--by-client", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range decodeJSON[[]postureClientRow](t, out) {
+		if c.Never != 0 || c.Unproven == 0 {
+			t.Errorf("by-client must count unread-target guests as unproven, not never: %+v", c)
+		}
+	}
+	out, _, err = runCLI(t, "rpo", "--days", "30", "--by-client", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range decodeJSON[[]rpoClientRow](t, out) {
+		if c.GuestsWithNoData != 0 || c.MissedRuns != 0 || c.GuestsUnproven == 0 || c.MissedRunsUnproven == 0 {
+			t.Errorf("rpo by-client must move unread-target guests to the unproven columns: %+v", c)
+		}
 	}
 }
 

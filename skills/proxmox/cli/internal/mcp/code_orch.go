@@ -4881,6 +4881,9 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 	if ep == nil {
 		return mcplib.NewToolResultError(fmt.Sprintf("unknown endpoint_id %q — call proxmox_search to discover valid ids", id)), nil
 	}
+	if ep.Method != "GET" { // proxmox hand-fix (code-orch-get-only): read-only toward Proxmox, switch or not
+		return mcplib.NewToolResultError(fmt.Sprintf("refusing %s %s: this connector never writes to Proxmox", ep.Method, id)), nil
+	}
 	if codeOrchBlockedByMCPReadOnly(ep.Method) {
 		return mcplib.NewToolResultError(fmt.Sprintf("refusing %s %s while %s=1", ep.Method, id, cliutil.MCPReadOnlyEnvVar)), nil
 	}

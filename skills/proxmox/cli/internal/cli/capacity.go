@@ -46,12 +46,14 @@ func newNovelCapacityCmd(flags *rootFlags) *cobra.Command {
 	var within, gcMargin, clientFilter string
 	cmd := &cobra.Command{
 		Use:   "capacity",
-		Short: "Every PBS datastore and PVE backup storage ranked by days to full, with GC and prune state",
-		Long: "Use this command for days-to-full, GC and prune state ranked across every PBS datastore and PVE backup storage. " +
+		Short: "PBS datastores ranked by days to full, plus every PVE backup storage by percent used, with GC and prune state",
+		Long: "Use this command for days-to-full, GC and prune state across every PBS datastore, and percent used on every PVE backup storage. " +
 			"Do NOT use this command for verify failures or corrupt chunks; use 'verify-health' instead.\n\n" +
 			"Flags: gc-deadlock-risk (free space below --gc-margin while the last garbage collection failed or never ran: GC needs " +
 			"free space to run, so the datastore can no longer clean itself), unpruned (no prune job and no keep-* retention on " +
-			"the datastore), filling (estimated full within --within). PBS forecasts come from its own linear regression over the last month.",
+			"the datastore), filling (estimated full within --within), no-forecast (a PVE storage: only PBS forecasts days to full, so " +
+			"PVE storage is always listed, --within included, and judged by used_pct), nearly-full (free space below --gc-margin). " +
+			"PBS forecasts come from its own linear regression over the last month.",
 		Example: strings.Trim(`
   proxmox-cli capacity --within 30d
   proxmox-cli capacity --gc-margin 10% --agent
@@ -294,6 +296,8 @@ func collectCapacity(ctx context.Context, t fleetTarget, now time.Time, margin f
 		if row.TotalBytes > 0 && float64(row.AvailBytes)/float64(row.TotalBytes) < margin {
 			row.Flags = append(row.Flags, "nearly-full")
 		}
+		// No days-to-full here, so --within cannot rule it out: keep it listed.
+		row.Flags = append(row.Flags, "no-forecast")
 		rows = append(rows, row)
 	}
 	return rows, fails, nil

@@ -110,6 +110,23 @@ func runFleet[T any](ctx context.Context, targets []fleetTarget, fn func(context
 	return results, failures
 }
 
+// unreachableTenants counts, per client, the clusters runFleet could not read
+// at all (scope-less failures), so a per-client rollup shows that client
+// instead of silently dropping it from a forwarded CSV.
+func unreachableTenants(targets []fleetTarget, failures []fetchFailure) map[string]int {
+	tenant := map[string]string{}
+	for _, t := range targets {
+		tenant[t.Name] = t.Tenant
+	}
+	out := map[string]int{}
+	for _, f := range failures {
+		if tn, ok := tenant[f.Cluster]; ok && f.Scope == "" {
+			out[tn]++
+		}
+	}
+	return out
+}
+
 type fetchFailure struct {
 	Cluster string `json:"cluster"`
 	Scope   string `json:"scope,omitempty"`
@@ -127,13 +144,13 @@ func (f fetchFailure) String() string {
 // otherwise drops sparse keys (present in under 80% of rows), which are
 // exactly the answers (age, last attempt, failing disk, guest name).
 var (
-	postureKeep  = []string{"rows", "clients", "warnings", "fetch_failures", "red", "amber", "clusters", "tenant", "cluster", "vmid", "asset_name", "asset_id", "verdict", "severity", "reason", "covered_by_job", "age_hours", "last_success_at", "verify_state", "last_verified_ok_at", "last_attempt_status", "last_attempt_at", "offsite_last_success_at", "guests", "stale", "never", "uncovered", "verify_failed", "unverified", "last_attempt_failed", "attempt_unknown", "archives_incomplete"}
+	postureKeep  = []string{"rows", "clients", "warnings", "fetch_failures", "red", "amber", "clusters", "tenant", "cluster", "vmid", "asset_name", "asset_id", "verdict", "severity", "reason", "covered_by_job", "age_hours", "last_success_at", "verify_state", "last_verified_ok_at", "last_attempt_status", "last_attempt_at", "offsite_last_success_at", "guests", "stale", "never", "uncovered", "verify_failed", "unverified", "last_attempt_failed", "attempt_unknown", "archives_incomplete", "unproven", "clusters_unreachable"}
 	coverageKeep = []string{"rows", "fetch_failures", "uncovered_guests", "guests_checked", "cluster", "vmid", "name", "disk", "reason", "detail", "disabled_jobs", "disagrees_with_upstream"}
 	verifyKeep   = []string{"stores", "groups", "skipped_clusters", "fetch_failures", "cluster", "store", "namespace", "group", "status", "snapshots", "failed", "never_verified", "outdated", "first_failure_at", "newest_verified_ok_at", "newest_is_bad", "failing_groups", "failed_snapshots", "never_verified_snapshots", "gc_still_bad_chunks", "namespaces_without_verify_job"}
 	failuresKeep = []string{"rows", "fetch_failures", "scanned_tasks", "logs_read", "log_cap_hit", "note", "cluster", "product", "type", "target", "vmid", "guest_name", "result", "reason", "upid", "started_at"}
 	capacityKeep = []string{"rows", "fetch_failures", "cluster", "kind", "name", "node", "used_pct", "days_to_full", "estimated_full_at", "gc_last_state", "gc_pending_bytes", "prune_jobs", "flags"}
 	restoreKeep  = []string{"query", "guests", "fetch_failures", "cluster", "vmid", "name", "covered_by_jobs", "count", "newest_at", "newest_verified_ok_at", "restore_points", "backup_time", "source", "verify_state", "protected", "encrypted", "prune_mark"}
-	rpoKeep      = []string{"rows", "clients", "fetch_failures", "days", "window_start", "tenant", "cluster", "vmid", "name", "missed_runs", "scheduled_runs", "missed_run_times", "largest_gap_hours", "verified_ok_days", "met_schedule", "window_capped", "note", "guests", "guests_met_schedule", "worst_gap_hours"}
+	rpoKeep      = []string{"rows", "clients", "fetch_failures", "days", "window_start", "tenant", "cluster", "vmid", "name", "missed_runs", "scheduled_runs", "missed_run_times", "largest_gap_hours", "verified_ok_days", "met_schedule", "window_capped", "note", "guests", "guests_met_schedule", "worst_gap_hours", "evidence", "target_unread", "guests_unproven", "missed_runs_unproven", "guests_without_restore_points", "clusters_unreachable"}
 )
 
 func printFetchFailures(w io.Writer, failures []fetchFailure) {
@@ -937,17 +954,40 @@ func (s pbsSnapshot) restorePoint(host, store, ns string) restorePoint {
 	return rp
 }
 
-// pbsNamespacesForCluster limits a shared PBS to this cluster's namespace when
-// the profile names one; otherwise every namespace on every datastore.
+// pbsNamespacesForCluster limits a shared PBS to this cluster's namespace on
+// the datastores its PVE storages write to when the profile names one;
+// otherwise every namespace on every datastore.
 func pbsNamespacesForCluster(ctx context.Context, t fleetTarget) (map[string][]string, error) {
 	stores, err := pbsDatastores(ctx, t.C)
 	if err != nil {
 		return nil, err
 	}
 	out := map[string][]string{}
+	var own map[string]bool
+	// A PBS-only profile (no PVE host) is scoped by the profile itself.
+	if t.Profile.PBSNamespace != "" && strings.TrimSpace(t.C.BaseURL) != "" {
+		// The namespace is this client's only on the datastores this cluster's
+		// own PVE storages write to; the same name elsewhere can be another's.
+		refs, err := fetchPBSStorageRefs(ctx, t.C)
+		if err != nil {
+			return nil, fmt.Errorf("tying pbs_namespace %q to this cluster's datastores: %w", t.Profile.PBSNamespace, err)
+		}
+		own = map[string]bool{}
+		host := t.pbsEndpoint()
+		for _, ref := range refs {
+			if strings.EqualFold(ref.server, host) {
+				own[ref.datastore] = true
+			}
+		}
+		if len(own) == 0 {
+			return nil, fmt.Errorf("no PVE storage on this cluster points at PBS host %q (spelled as in the storage's server field), so pbs_namespace %q is not tied to a datastore and nothing was read", host, t.Profile.PBSNamespace)
+		}
+	}
 	for _, store := range stores {
 		if t.Profile.PBSNamespace != "" {
-			out[store] = []string{t.Profile.PBSNamespace}
+			if own == nil || own[store] {
+				out[store] = []string{t.Profile.PBSNamespace}
+			}
 			continue
 		}
 		nss, err := pbsNamespaces(ctx, t.C, store)

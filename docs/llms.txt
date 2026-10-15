@@ -168,7 +168,7 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
 - Proofpoint TAP (Security) - ask "What malicious clicks and messages got through overnight?" - Investigate Proofpoint TAP threats, VAPs, and top clickers from your terminal without burning the daily API quota.
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/proofpoint/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/proofpoint/install.sh)
-- Proxmox (Backup/DR) - ask "Which client VMs don't have a good, recent, verified backup?" - Prove every client's Proxmox VMs are backed up, verified and recoverable, read-only, from one prompt.
+- Proxmox (Backup/DR) - ask "Which client VMs don't have a good, recent, verified backup?" - Prove every client's Proxmox VMs are backed up and verified, read-only, from one prompt.
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/proxmox/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/proxmox/install.sh)
 - QuickBooks Online (Billing) - ask "Who owes us money, bucketed 0-30 / 31-60 / 61-90 / 90+?" - Answer AR/AP aging, DSO, cash-forecast, and month-end close questions across QuickBooks Online by asking.

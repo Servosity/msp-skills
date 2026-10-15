@@ -15,7 +15,10 @@ in Proxmox. That is a design choice, not a default you can flip: the write
 endpoints were never generated into the binary. A handful of read endpoints that
 return stored secrets (ACME DNS plugin credentials, SDN IPAM and DNS plugin
 tokens, webhook notification targets, the raw Ceph config, cloud-init user data)
-or that act inside a guest (guest-agent file read) are excluded too.
+or that read a file inside a guest (guest-agent file read) are excluded too.
+The other guest-agent reads (`vm agent-get-osinfo`, `agent-get-users`,
+`agent-network-get-interfaces` and the like) remain: each runs a read-only
+query inside the guest through the QEMU guest agent.
 
 ## What it authenticates as
 
@@ -75,12 +78,16 @@ hosts before any request is built.
   - **PVE:** `PVEAuditor` on `/`. Proxmox VE lists a backup file only to a
     token that also holds `Datastore.AllocateSpace` (on the storage) and
     `VM.Backup` (on the guest); an audit-only token gets an empty list, which
-    this skill reports as "storage not read", never as "no backups". If your
-    backups live on Proxmox Backup Server and `PROXMOX_PBS_HOST` is set, the
+    this skill reports as "storage not read" and the guest as `unproven`, never
+    as "no backups". If your backups live on Proxmox Backup Server and
+    `PROXMOX_PBS_HOST` is set (spelled as in the PVE storage's server field), the
     skill reads them from the PBS API and the PVE token can stay audit-only.
     If they live on dir, NFS or CIFS storage, grant those two privileges as
     well. They would let the token create or restore a backup through the
     API; this skill never sends such a request, and the trade-off is yours.
+    On a stock install the `local` storage also accepts backups; with an
+    audit-only token it stays a fetch failure (so `posture --fail-on-red`
+    exits 1) until you remove "VZDump backup file" from its content types.
 
   ```bash
   pveum user add monitor@pve

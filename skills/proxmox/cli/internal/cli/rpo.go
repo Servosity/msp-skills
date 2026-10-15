@@ -37,7 +37,10 @@ type rpoRow struct {
 	// Evidence is "full" when the whole window was checked; "partial" when
 	// retention or a failed schedule expansion leaves part of it unproven.
 	Evidence string `json:"evidence"`
-	Note     string `json:"note,omitempty"`
+	// TargetUnread: a covering job's backup target could not be read, so the
+	// missed runs and the restore-point count are unproven, not measured.
+	TargetUnread bool   `json:"target_unread,omitempty"`
+	Note         string `json:"note,omitempty"`
 }
 
 type rpoClientRow struct {
@@ -49,6 +52,11 @@ type rpoClientRow struct {
 	VerifiedOKDays   int     `json:"verified_ok_days"`
 	GuestsWithNoData int     `json:"guests_without_restore_points"`
 	GuestsPartial    int     `json:"guests_partial_evidence"`
+	// Guests whose job target was not read are counted here instead of in
+	// guests_without_restore_points / missed_runs: their points went unseen.
+	GuestsUnproven      int `json:"guests_unproven"`
+	MissedRunsUnproven  int `json:"missed_runs_unproven"`
+	ClustersUnreachable int `json:"clusters_unreachable"`
 }
 
 type rpoReport struct {
@@ -128,7 +136,7 @@ func newNovelRpoCmd(flags *rootFlags) *cobra.Command {
 				}
 				return rep.Rows[i].LargestGapHours > rep.Rows[j].LargestGapHours
 			})
-			rep.Clients = rollupRPO(rep.Rows)
+			rep.Clients = rollupRPO(rep.Rows, unreachableTenants(targets, rep.FetchFailures))
 			printFetchFailures(cmd.ErrOrStderr(), rep.FetchFailures)
 			allFailed, outcomeErr := fleetOutcome(cmd.ErrOrStderr(), len(targets), rep.FetchFailures)
 			if !wantsHumanTable(cmd.OutOrStdout(), flags) {
@@ -150,9 +158,9 @@ func newNovelRpoCmd(flags *rootFlags) *cobra.Command {
 			if byClient {
 				rows := make([][]string, 0, len(rep.Clients))
 				for _, c := range rep.Clients {
-					rows = append(rows, []string{c.Tenant, fmt.Sprint(c.Guests), fmt.Sprint(c.GuestsMet), fmt.Sprint(c.MissedRuns), fmt.Sprintf("%.1f", c.WorstGapHours)})
+					rows = append(rows, []string{c.Tenant, fmt.Sprint(c.Guests), fmt.Sprint(c.GuestsMet), fmt.Sprint(c.MissedRuns), fmt.Sprint(c.GuestsUnproven), fmt.Sprintf("%.1f", c.WorstGapHours), fmt.Sprint(c.ClustersUnreachable)})
 				}
-				return flags.printTable(cmd, []string{"CLIENT", "GUESTS", "MET SCHEDULE", "MISSED RUNS", "WORST GAP (H)"}, rows)
+				return flags.printTable(cmd, []string{"CLIENT", "GUESTS", "MET SCHEDULE", "MISSED RUNS", "UNPROVEN", "WORST GAP (H)", "UNREACHABLE"}, rows)
 			}
 			if len(rep.Rows) == 0 {
 				fmt.Fprintln(cmd.OutOrStdout(), "No guests covered by an enabled backup job.")
@@ -319,6 +327,7 @@ func collectRPO(ctx context.Context, t fleetTarget, start, now time.Time, onlyVM
 			// has a readable restore point; unread storage can only add points),
 			// while missed runs become unproven.
 			row.Evidence = "partial"
+			row.TargetUnread = len(gaps) > 0
 			if row.MissedRuns > 0 {
 				row.MetSchedule = false
 				row.Note = strings.TrimSpace(row.Note + " " + why + "; missed runs may be unread restore points")
@@ -454,7 +463,7 @@ func dedupeRuns(runs []int64) []int64 {
 
 func round1(v float64) float64 { return math.Round(v*10) / 10 }
 
-func rollupRPO(rows []rpoRow) []rpoClientRow {
+func rollupRPO(rows []rpoRow, unreachable map[string]int) []rpoClientRow {
 	by := map[string]*rpoClientRow{}
 	for _, r := range rows {
 		c := by[r.Tenant]
@@ -466,15 +475,26 @@ func rollupRPO(rows []rpoRow) []rpoClientRow {
 		if r.MetSchedule {
 			c.GuestsMet++
 		}
-		if r.RestorePoints == 0 {
-			c.GuestsWithNoData++
-		}
 		if r.Evidence == "partial" {
 			c.GuestsPartial++
 		}
-		c.MissedRuns += r.MissedRuns
+		if r.TargetUnread {
+			c.GuestsUnproven++
+			c.MissedRunsUnproven += r.MissedRuns
+		} else {
+			if r.RestorePoints == 0 {
+				c.GuestsWithNoData++
+			}
+			c.MissedRuns += r.MissedRuns
+		}
 		c.WorstGapHours = math.Max(c.WorstGapHours, r.LargestGapHours)
 		c.VerifiedOKDays += r.VerifiedOKDays
+	}
+	for tenant, n := range unreachable {
+		if by[tenant] == nil {
+			by[tenant] = &rpoClientRow{Tenant: tenant}
+		}
+		by[tenant].ClustersUnreachable = n
 	}
 	out := make([]rpoClientRow, 0, len(by))
 	for _, k := range sortedKeys(by) {

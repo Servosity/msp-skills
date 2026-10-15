@@ -300,7 +300,7 @@ func newClustersCmd(flags *rootFlags) *cobra.Command {
 			"Each entry names a PVE host, an optional PBS host, TLS fingerprints, and the NAMES of the " +
 			"environment variables that hold the API tokens. Tokens are never written to the file.",
 	}
-	cmd.AddCommand(newClustersListCmd(flags), newClustersAddCmd(flags))
+	cmd.AddCommand(newClustersListCmd(flags), newClustersAddCmd(flags), newClustersCheckCmd(flags))
 	return cmd
 }
 
