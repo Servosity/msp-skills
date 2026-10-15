@@ -98,6 +98,16 @@
         "var": "UNIFI_INSECURE_SKIP_VERIFY",
         "reason": "SECURITY CARVE-OUT: this disables TLS certificate verification. UniFi is self-hosted, so its audience is exactly the population most likely to tick a box labelled 'my controller has a self-signed cert' - surfacing a verification bypass as a first-run install prompt manufactures silent MITM exposure at fleet scale. It stays an expert-only environment variable, documented in the skill prose, never a prompt."
       }
+    ],
+    "fortinet": [
+      {
+        "var": "FORTINET_SKIP_TLS_VERIFY",
+        "reason": "SECURITY CARVE-OUT (unifi-network precedent): this disables TLS certificate verification for every FortiGate the CLI and MCP server talk to AND for the FortiManager client (newFMGClient honors it via insecureRequested()). FortiGates and FortiManager ship a factory self-signed certificate, so an install prompt reading 'skip certificate verification' would be ticked by default across an MSP's fleet and expose every bearer token and API key to an on-path attacker. It stays an expert-only variable (alongside the --insecure flag and per-device insecure = true in devices.toml), documented in the skill prose next to the secure fix: install a trusted certificate."
+      },
+      {
+        "var": "FORTINET_FMG_INSECURE",
+        "reason": "SECURITY CARVE-OUT, same reason as FORTINET_SKIP_TLS_VERIFY: disables TLS verification for the FortiManager JSON-RPC client only, exposing the FortiManager API key to an on-path attacker. Expert-only, documented in the skill prose, never an install prompt."
+      }
     ]
   }
 }
