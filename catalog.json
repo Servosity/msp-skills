@@ -541,6 +541,26 @@
       "tagline": "Roll up Domotz fleet health, offline devices, and asset inventory across every monitored site from the terminal."
     },
     {
+      "name": "google-workspace",
+      "system": "Google Workspace Admin (Directory, Reports, Reseller, Licensing, and Data Transfer APIs) across every client domain",
+      "status": "beta",
+      "skill_path": "skills/google-workspace",
+      "cli_binary": "google-workspace-cli",
+      "mcp_binary": "google-workspace-mcp",
+      "version": "0.1.0",
+      "printing_press_version": "4.33.5",
+      "license": "Apache-2.0",
+      "vendor": "Google Workspace",
+      "vendor_trademark_owner": "Google LLC",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/google-workspace/install.sh)",
+      "install_mcp_doc": "skills/google-workspace/mcp-install.md",
+      "description": "Cross-client Google Workspace admin: 2SV gaps, license waste, sharing drift, safe offboarding.",
+      "verification": "awaiting",
+      "category": "Security",
+      "tagline": "Find accounts without 2SV, reclaim wasted licenses, and offboard leavers safely across every client's Google Workspace."
+    },
+    {
       "name": "grab-cookie",
       "system": "Session-credential capture for sites with no API key or OAuth path: httpOnly cookies and opaque bearer tokens. Windows verified, macOS untested",
       "status": "beta",

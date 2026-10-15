@@ -47,6 +47,7 @@ body:
         - datto-bcdr
         - datto-rmm
         - domotz
+        - google-workspace
         - gradient
         - halopsa
         - hubspot

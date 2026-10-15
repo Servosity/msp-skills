@@ -109,6 +109,10 @@ domotz:
   vendor: "Domotz"
   example_command: "Which client sites have devices down?"
 
+google-workspace:
+  vendor: "Google Workspace"
+  example_command: "Who lacks 2SV across my clients?"
+
 grab-cookie:
   subtitle: "Claude Code Skill - no MCP server to install"
   vendor: "grab-cookie"  # matches docs/skills/grab-cookie.md

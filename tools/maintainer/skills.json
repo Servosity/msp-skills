@@ -333,7 +333,13 @@
       "first_party": false,
       "category": "Security",
       "display_name": "CIPP + Microsoft 365",
-      "covers": ["Entra ID", "Intune", "Exchange Online", "Defender", "GDAP"],
+      "covers": [
+        "Entra ID",
+        "Intune",
+        "Exchange Online",
+        "Defender",
+        "GDAP"
+      ],
       "tagline": "MCP server for CIPP and the Microsoft 365 it runs - Entra ID, Intune, Exchange Online, Defender and GDAP - across every client tenant at once.",
       "cli_hash": "sha256:aa0dc021cdb156c7c5bd704dc240c05f666bcc65074ff04bc8a5b76852f20f19",
       "template_version": 3,
@@ -641,6 +647,29 @@
         "evidence": null,
         "verified_by": null,
         "issue_url": null
+      }
+    },
+    "google-workspace": {
+      "system": "Google Workspace Admin (Directory, Reports, Reseller, Licensing, and Data Transfer APIs) across every client domain",
+      "status": "beta",
+      "cli_binary": "google-workspace-cli",
+      "mcp_binary": "google-workspace-mcp",
+      "vendor": "Google Workspace",
+      "vendor_trademark_owner": "Google LLC",
+      "first_party": false,
+      "category": "Security",
+      "display_name": "Google Workspace",
+      "tagline": "Find accounts without 2SV, reclaim wasted licenses, and offboard leavers safely across every client's Google Workspace.",
+      "cli_hash": "sha256:c85b9491aa2cb85b36b07ab723d02080643306076ad7ddfd7d6c829bd74e48e9",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
       }
     },
     "grab-cookie": {

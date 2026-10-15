@@ -1,0 +1,2806 @@
+{
+ "slug": "google-workspace",
+ "doc": "docs/reprint-survival.md",
+ "_comment": "Connector-specific edits to GENERATED files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and banned anti-patterns absent) and fails CI if a reprint dropped one. Both edits are applied by the factory's overlay.sh (~/Documents/Dev/cli-factory/google-workspace/overlay.sh) after every generate. The multi-client tenant layer (gws_tenants.go, gws_tenants_cmd.go, gws_fanout.go and the novel report commands) is NOVEL and wires in through the generator's own hook points (registerNovelCommand, registerClientHook, config.StoreScopeIdentity), so regen-merge keeps it without a ledger entry.",
+ "handfixes": [
+  {
+   "id": "dead-retain-query-param-helpers-removed",
+   "summary": "helpers.go no longer defines retainCLIQueryParams / retainExplicitQueryParams",
+   "why": "The press 4.33 template emits both helpers for paginated generated callers, but a Google Discovery-sourced spec produces no generated caller that uses them, so they ship as dead code and the press's dogfood dead-helper check FAILs the build. The factory's overlay.sh deletes both function bodies after generate; a reprint re-emits them and dogfood/shipcheck fail again. Only a comment in paginatedGet still names retainCLIQueryParams, which is why the asserts pin the func declarations, not the bare name.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: only emit retainCLIQueryParams/retainExplicitQueryParams when at least one generated command calls them (Discovery-spec prints never do). Filed in the google-workspace press retro notes (~/Documents/Dev/cli-factory/google-workspace/FACTORY.md).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "not_contains": "func retainCLIQueryParams("
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "not_contains": "func retainExplicitQueryParams("
+    }
+   ]
+  },
+  {
+   "id": "reseller-licensing-tool-paths-absolute",
+   "summary": "Reseller and Licensing MCP tool paths are absolute URLs (https://reseller.googleapis.com, https://licensing.googleapis.com), matching resource_paths.go and the MCP code-orchestration table",
+   "why": "This print merges five Google APIs on three hosts. The press's multi-host merge records Reseller and Licensing tools in tools-manifest.json HOST-RELATIVE (/apps/reseller/..., /apps/licensing/...) while resource_paths.go and internal/mcp/code_orch.go carry them absolute; a relative path resolves against the default admin.googleapis.com host, which serves neither API, and press verify's resource-path contract check flags tail/export/import as 3 critical. overlay.sh rewrites the tools-manifest.json paths to absolute, and `lock promote` reverted them once, so the fix has to be re-applied after every promote. tools-manifest.json itself is a library artifact that onboarding does not vendor into this directory, so the asserts below pin the vendored twins it must agree with: if a reprint ever makes the code-orch table or resource paths host-relative as well, the Reseller and Licensing MCP tools would call the wrong host. The code_orch.go asserts pin the executable Path fields themselves (17 Reseller, 7 Licensing endpoints); the same URLs also appear in search keywords, which an earlier, looser assert counted by mistake.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: the multi-host merge should record every non-default-host tool path absolute in tools-manifest.json, the same way resource_paths.go already does, and lock promote must not regenerate it host-relative.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "Path:           \"https://reseller.googleapis.com/apps/reseller/",
+     "min_count": 17
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "Path:           \"https://licensing.googleapis.com/apps/licensing/",
+     "min_count": 7
+    },
+    {
+     "file": "cli/internal/cli/resource_paths.go",
+     "contains": "\"https://reseller.googleapis.com/apps/reseller/v1/",
+     "min_count": 4
+    },
+    {
+     "file": "cli/internal/cli/resource_paths.go",
+     "contains": "\"https://licensing.googleapis.com/apps/licensing/v1/",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "group-key-example-not-secret-shaped",
+   "summary": "Group and member command Examples and pp:happy-args use the group email sales@example.com instead of the factory's invented group ID 03x8tuzt3hqdv5v",
+   "why": "The factory's curate-spec.sh feeds ID-form example hints into generation because the Discovery generator rejects '@' in example values; for groupKey it invented 03x8tuzt3hqdv5v. In 13 generated files that value sits in the pp:happy-args annotation as the value of the groupKey happy-arg, and gitleaks' default generic-api-key rule matches that pairing (a *Key= keyword followed by a high-entropy token), so the repo's CI secret scan fails the guards job on a fake ID. Google's groupKey accepts a group email, so the example now uses sales@example.com, which is a valid groupKey and does not match the rule. A reprint re-emits the invented ID.",
+   "status": "active",
+   "spec_encode_followup": "Factory-side: change the groupKey hint in ~/Documents/Dev/cli-factory/google-workspace/curate-spec.sh to a low-entropy value, or teach the press's descriptionExampleValue to accept email-shaped examples (the '@' rejection is already in the google-workspace press retro notes).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/groups_aliases_insert.go",
+     "not_contains": "03x8tuzt3hqdv5v"
+    },
+    {
+     "file": "cli/internal/cli/groups_aliases_insert.go",
+     "contains": "sales@example.com",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/groups_aliases_list.go",
+     "not_contains": "03x8tuzt3hqdv5v"
+    },
+    {
+     "file": "cli/internal/cli/groups_aliases_list.go",
+     "contains": "sales@example.com",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/groups_delete.go",
+     "not_contains": "03x8tuzt3hqdv5v"
+    },
+    {
+     "file": "cli/internal/cli/groups_delete.go",
+     "contains": "sales@example.com",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/groups_get.go",
+     "not_contains": "03x8tuzt3hqdv5v"
+    },
+    {
+     "file": "cli/internal/cli/groups_get.go",
+     "contains": "sales@example.com",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/groups_patch.go",
+     "not_contains": "03x8tuzt3hqdv5v"
+    },
+    {
+     "file": "cli/internal/cli/groups_patch.go",
+     "contains": "sales@example.com",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/groups_update.go",
+     "not_contains": "03x8tuzt3hqdv5v"
+    },
+    {
+     "file": "cli/internal/cli/groups_update.go",
+     "contains": "sales@example.com",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/members_delete.go",
+     "not_contains": "03x8tuzt3hqdv5v"
+    },
+    {
+     "file": "cli/internal/cli/members_delete.go",
+     "contains": "sales@example.com",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/members_get.go",
+     "not_contains": "03x8tuzt3hqdv5v"
+    },
+    {
+     "file": "cli/internal/cli/members_get.go",
+     "contains": "sales@example.com",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/members_hasMember.go",
+     "not_contains": "03x8tuzt3hqdv5v"
+    },
+    {
+     "file": "cli/internal/cli/members_hasMember.go",
+     "contains": "sales@example.com",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/members_insert.go",
+     "not_contains": "03x8tuzt3hqdv5v"
+    },
+    {
+     "file": "cli/internal/cli/members_insert.go",
+     "contains": "sales@example.com",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/members_list.go",
+     "not_contains": "03x8tuzt3hqdv5v"
+    },
+    {
+     "file": "cli/internal/cli/members_list.go",
+     "contains": "sales@example.com",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/members_patch.go",
+     "not_contains": "03x8tuzt3hqdv5v"
+    },
+    {
+     "file": "cli/internal/cli/members_patch.go",
+     "contains": "sales@example.com",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/members_update.go",
+     "not_contains": "03x8tuzt3hqdv5v"
+    },
+    {
+     "file": "cli/internal/cli/members_update.go",
+     "contains": "sales@example.com",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "tenant-env-honors-mcpb-placeholder",
+   "summary": "getenvTenant reads GOOGLE_WORKSPACE_TENANT through cliutil.EnvOverride, so an unset .mcpb field is no tenant rather than a tenant named ${user_config.google_workspace_tenant}",
+   "why": "manifest.json maps GOOGLE_WORKSPACE_TENANT to ${user_config.google_workspace_tenant}, and an MCPB host that skips an optional field leaves that template text in the environment (the binary's own cliutil.EnvOverride contract). The factory's tenant layer read it with raw os.Getenv, so a blank 'Default client tenant' made every tool call without an explicit tenant fail 'unknown tenant', including the raw-endpoint execute tool, which has no tenant argument. Found by the onboard adversarial review (round 1, P1). gws_tenants.go is a NOVEL file carried from the factory's novel/ directory, so a re-onboard from that source would bring the raw read back.",
+   "status": "active",
+   "spec_encode_followup": "Factory-side: apply the same one-line change to ~/Documents/Dev/cli-factory/google-workspace/novel/gws_tenants.go and the library copy so the next print carries it.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/gws_tenants.go",
+     "contains": "cliutil.EnvOverride(\"GOOGLE_WORKSPACE_TENANT\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants.go",
+     "not_contains": "os.Getenv(\"GOOGLE_WORKSPACE_TENANT\")"
+    },
+    {
+     "file": "cli/internal/cli/gws_novel_test.go",
+     "contains": "TestGetenvTenantIgnoresMCPBPlaceholder",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "offboard-followup-hints-runnable",
+   "summary": "offboard's follow-up hints name license-assignments delete per held licence and omit --tenant for the implicit single-org tenant",
+   "why": "When a Drive/Calendar transfer is pending, offboard skips licence release and prints a follow-up. The factory version printed 'offboard <email> --tenant <t> --release-license --keep-groups --yes', which (a) in single-org bearer mode named the implicit tenant 'default', which is not a registry entry, so it exited 2, and (b) re-ran the backup-code and token steps against the now-suspended account, where Google rejects them, so it ended exit 5 even after releasing the licence. The hint now lists one 'license-assignments delete <skuId> <email> --product-id <productId>' per held licence, and tenantArg() drops --tenant when the tenant has no key file. Found by the onboard adversarial review (round 1, P1).",
+   "status": "active",
+   "spec_encode_followup": "Factory-side: port licenseReleaseHints/tenantArg into ~/Documents/Dev/cli-factory/google-workspace/novel/ (offboard.go) and the library copy.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/offboard.go",
+     "contains": "func licenseReleaseHints(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/offboard.go",
+     "contains": "func tenantArg(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/offboard.go",
+     "not_contains": "--release-license --keep-groups --yes\")"
+    },
+    {
+     "file": "cli/internal/cli/gws_novel_test.go",
+     "contains": "TestOffboardFollowUpHintsAreRunnable",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "doctor-verdict-tracks-reality",
+   "summary": "doctor probes a real argument-free GET with the client's credential (the tenant-minted token or the single-org bearer) and reports a 404 as a wrong base_url, instead of 'present, not verified' and 'reachable (HTML body at /)'",
+   "why": "Same fleet defect as issue #282, gated by tools/maintainer/check_doctor_truth.py: as printed by press 4.33.5, doctor never probed the credential ('present, not verified') and called any answer at / reachable, so a working install, an expired credential and a wrong base_url produced the same report. Ported the fleet's doctor_verdict.go (doctorReadProbe, doctorProbeableLeaf, doctorProbeCredentials, doctorWrongBaseURL); 4.33.5 already emits doctorBaseURLIsPlaceholder and Client.ProbeGet natively, so those are not duplicated. The probe asks the CLIENT for its credential because a registered tenant's token is minted by the client hook into the client's config, never into the config doctor loads.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorProbeCredentials(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorWrongBaseURL(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeCredentials(cmd.Context(), c, cmd.Root(), \"google-workspace-cli\", report)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "present, not verified. Run `%s %s` to confirm the token works end-to-end."
+    }
+   ]
+  },
+  {
+   "id": "sync-google-page-token-pagination",
+   "summary": "sync pages every synced resource (applications, groups, subscriptions, transfers, users) with pageToken/nextPageToken instead of reading one page and recording the resource complete",
+   "why": "The Discovery-sourced print emitted empty determinePaginationDefaults/resourceSupportsPagination switches, so `sync` sent no maxResults/pageToken, stored the first page (100 users on Google's default), and reported success: a tenant with 150 users mirrored 100 with no truncation warning, and search/analytics then answered from an incomplete mirror. Measured against a two-page stub: 100 records before, 150 after. Found by the onboard Codex review (P1). Every synced list method declares pageToken and maxResults in Google's Discovery docs; 100 is within each method's maxResults cap (users 500, groups 200, data-transfer applications/transfers 500, reseller subscriptions 100).",
+   "status": "active",
+   "spec_encode_followup": "Press-side: the googlediscovery profiler should populate the pagination tables from Discovery's pageToken/maxResults parameters and the response schema's nextPageToken.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "cursorParam: \"pageToken\", cursorType: \"page_token\", nextCursorPath: \"nextPageToken\", limitParam: \"maxResults\", limit: 100",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "case \"applications\", \"groups\", \"subscriptions\", \"transfers\", \"users\":",
+     "min_count": 2,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-execute-binds-every-path-variable",
+   "summary": "The MCP google-workspace_execute tool substitutes every {name} left in an endpoint path from the call's params, not only the endpoint's positional arguments",
+   "why": "The Discovery print binds some path variables as CLI flags (customerKey, customer and similar), so they never appear in the code-orchestration table's Positional list, and execute only substituted Positional names: `customers.get` with params {customerKey: my_customer} failed 'unresolved path parameter {customerKey}' (Codex counted 77 such endpoints). codeOrchBindRemainingPathVars now binds any remaining {name} supplied in params (path-escaped) and removes it from params; an unsupplied variable still fails clearly in the client. Found by the onboard Codex review (P1); receipt: the call now reaches GET /admin/directory/v1/customers/my_customer. The call-site test (TestCodeOrchExecuteBindsFlagBoundPathVar) fails with the guard removed; the helper-only test does not.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: emit a TemplateParams/Positional binding for every path variable in the code-orchestration table, including ones the CLI exposes as flags with defaults.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "path = codeOrchBindRemainingPathVars(path, params)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "func codeOrchBindRemainingPathVars(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch_pathvars_test.go",
+     "contains": "TestCodeOrchBindRemainingPathVars",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/mcp/code_orch_pathvars_test.go",
+     "contains": "func TestCodeOrchExecuteBindsFlagBoundPathVar(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "tenant-store-never-adopts-bearer-store",
+   "summary": "When a registered tenant is selected, the local store never adopts the store file named for an ambient bearer token",
+   "why": "The store is keyed to 'tenant:<name>' when a tenant is selected, but configureDefaultDBScope still passed the config's bearer credential (GOOGLE_WORKSPACE_TOKEN, ADMIN_ACCESS_TOKEN or an auth set-token value, i.e. some other organization) as the 'legacy' identity, and defaultDBPathInDir renames a legacy-named store onto the current one. An MSP who synced their own org in bearer mode and later ran --tenant acme with the token still set would have their own org's records moved into acme's store and served by acme's search/sql. tenantPinnedStore() now suppresses the legacy identity whenever a tenant is selected. Found by the onboard Codex review (P1); TestTenantStoreNeverAdoptsBearerStore fails with the guard removed.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "if tenantPinnedStore() {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants.go",
+     "contains": "func tenantPinnedStore() bool",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_novel_test.go",
+     "contains": "TestTenantStoreNeverAdoptsBearerStore",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "no-credentials-over-plaintext-http",
+   "summary": "The client refuses to send an Authorization header over plain http to anything but a loopback host",
+   "why": "GOOGLE_WORKSPACE_BASE_URL (declared in the .mcpb for mock testing) can point at http://. The generated client attached the raw bearer or the tenant-minted token to the first request regardless of scheme; the redirect guards only cover later hops. A non-loopback http override therefore sent a super-admin-delegated token in cleartext. credentialWouldTravelInPlaintext now refuses before dialling, while http://127.0.0.1 and localhost mocks keep working. Found by the onboard Codex review (P1); receipt: http://192.0.2.10 is refused, the loopback stub still answers. The call-site test (TestClientRefusesCredentialOverPlaintext) fails with the guard removed; the helper-only test does not. Round 2 (Codex, P1): the first version also exempted *.localhost, but Go's environment proxy only exempts localhost and loopback IPs, so http://fixture.localhost with HTTP_PROXY set delivered the bearer header to the proxy. Only localhost and loopback IPs are exempt now. Round 3 (adversarial): the guard lower-cased the host, but Go's proxy match on localhost is case-exact, so http://LOCALHOST was exempt from the guard yet sent through HTTP_PROXY; the comparison is case-exact now.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: generated clients should refuse credential-bearing non-loopback plaintext requests fleet-wide.",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "credentialWouldTravelInPlaintext(req.URL)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "func credentialWouldTravelInPlaintext(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/plaintext_credential_test.go",
+     "contains": "TestCredentialWouldTravelInPlaintext",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/plaintext_credential_test.go",
+     "contains": "func TestClientRefusesCredentialOverPlaintext(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "strings.HasSuffix(h, \".localhost\")"
+    },
+    {
+     "file": "cli/internal/client/plaintext_credential_test.go",
+     "contains": "\"http://fixture.localhost:8080/x\": true",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "strings.ToLower(u.Hostname())"
+    },
+    {
+     "file": "cli/internal/client/plaintext_credential_test.go",
+     "contains": "\"http://LOCALHOST:8080/x\":",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "tenants-test-reports-worker-errors",
+   "summary": "tenants test reports a fan-out worker that was cancelled or panicked as a failed tenant",
+   "why": "FanoutRun returns worker errors separately from results, and tenants test discarded them, so a cancelled or panicked worker vanished from the report and could not count toward the failure exit. Each FanoutError now becomes a failed tenantTestResult. Found by the onboard Codex review (P2). gws_tenants_cmd.go is a NOVEL file carried from the factory's novel/ directory.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/gws_tenants_cmd.go",
+     "contains": "for _, e := range errs {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "sync-google-empty-list-page",
+   "summary": "sync treats a Google list page with no items array ({kind, etag}) as an empty page instead of storing the envelope as one record",
+   "why": "Google omits the items array when a list is empty. The generated sync loop falls through to 'single object response - store as-is' when it finds no items and isEmptyPageResponse does not recognise the envelope, so a tenant with no data transfers stored the {kind, etag} envelope as a transfer and reported total_records 1. All five synced resources are lists, so an item-less Google envelope is always an empty page. Found by the onboard Codex review (round 2, P1); receipt: a stub returning {kind, etag} for transfers stored 1 record before and 0 after. The helper lives in the hand-written gws_sync_envelope.go; the call site in sync.go is the generated-file edit.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: the googlediscovery profiler should populate responsePathForResource with each list method's items key, and the sync loop should never store a list resource's page as a single object.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "|| googleListPageIsEmpty(resource, data)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_sync_envelope.go",
+     "contains": "func googleListPageIsEmpty(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_sync_envelope_test.go",
+     "contains": "func TestGoogleListEnvelopeRules(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "sync-google-last-page-proven",
+   "summary": "pageMayHaveMore treats a Google list envelope without nextPageToken as the proven last page",
+   "why": "With pagination now declared (sync-google-page-token-pagination), a final page of exactly maxResults records and no nextPageToken hit the generic 'full page without a usable next cursor' rule: sync emitted a false truncation warning and left the resource's completion unproven while still reporting success. In Google's list contract a missing nextPageToken is the end. Found by the onboard Codex review (round 2, P2); receipt: a stub returning exactly 100 users with no token warned pagination_cursor_missing before and completes cleanly after.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: treat a page_token paginator's absent next-token as a proven end when the response is an object envelope.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "if googleListEnvelopeEnded(data) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_sync_envelope.go",
+     "contains": "func googleListEnvelopeEnded(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "tenant-store-never-claims-unscoped-db",
+   "summary": "A selected client tenant always uses its own data-<hash>.db and never claims the shared, unscoped data.db",
+   "why": "The press's legacy-store migration lets the first scoped identity to find an existing data.db claim it (claimLegacyUnscopedDB writes data.db.owner). In this multi-tenant CLI data.db is what a read with no tenant selected opens, so whichever client synced first had its mirror served to every unscoped sql/search call: the adversarial reviewer synced acme then beta and an MCP sql call with GOOGLE_WORKSPACE_TENANT unset returned acme's users. defaultDBPathInDir now returns the tenant's scoped file before the claim step. Found by the onboard adversarial review (round 2, P1); TestTenantStoreNeverClaimsUnscopedDBAndLocalReadNeedsTenant fails with the guard removed.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "if tenantPinnedStore() {",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_novel_test.go",
+     "contains": "func TestTenantStoreNeverClaimsUnscopedDBAndLocalReadNeedsTenant(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "local-read-needs-a-tenant",
+   "summary": "Local-store reads (MCP sql/search, CLI search/analytics, --data-source local) refuse when tenants are registered, none is selected, and no bearer token keys the store",
+   "why": "With no tenant selected and no bearer token the store scope is empty and reads open the shared data.db, which holds no client's mirror, so an empty result reads as a clean one (no users without 2SV, no stale licences). localStoreTenantErr (novel gws_tenants.go) returns a usage error naming --tenant / GOOGLE_WORKSPACE_TENANT; a bearer token keys the store to its own organization, the same one generated API commands act on, so that case is allowed. Found by the onboard adversarial review (round 2, P1, with tenant-store-never-claims-unscoped-db). Round 17 (Codex P2): playbook list/amend, teach-playbook and the learnings candidates/stats commands still opened the store unguarded, so the guard moved into learnDBPath itself (it now returns an error) and the compiler names every opener; TestQuarantinedTenantLocalReadRefused fails with the guard removed. Round 18 (Codex + adversarial P2): the learn and playbook seed shims in PersistentPreRunE opened defaultDBPath directly; they now resolve through learnDBPath and skip when no unquarantined tenant store is selected.",
+   "status": "active",
+   "spec_encode_followup": "Factory-side: carry localStoreTenantErr in ~/Documents/Dev/cli-factory/google-workspace/novel/gws_tenants.go; the four call sites are generated-file edits a reprint drops.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/gws_tenants.go",
+     "contains": "func localStoreTenantErr() error",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "if err := localStoreTenantErr(); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/search.go",
+     "contains": "if err := localStoreTenantErr(); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/analytics.go",
+     "contains": "if err := localStoreTenantErr(); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "if err := localStoreTenantErr(); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "func learnDBPath(explicit string) (string, error) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "if err := localStoreTenantErr(); err != nil {\n\t\treturn \"\", err\n\t}\n\treturn defaultDBPath(\"google-workspace-cli\"), nil",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "resolved, err := learnDBPath(dbPath)",
+     "min_count": 6,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach_playbook.go",
+     "contains": "resolved, err := learnDBPath(dbPath)",
+     "min_count": 3,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/learnings_candidates.go",
+     "contains": "path, err := learnDBPath(dbPath)",
+     "min_count": 4,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/learnings_stats.go",
+     "contains": "path, err := learnDBPath(dbPath)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "path, err := learnDBPath(\"\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_novel_test.go",
+     "contains": "if _, err := learnDBPath(\"\"); err == nil",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/learn_init.go",
+     "contains": "dbPath, err := learnDBPath(\"\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/playbook_init.go",
+     "contains": "dbPath, err := learnDBPath(\"\")",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "novel-help-text-accuracy",
+   "summary": "Novel-command help text says what the code does: offboard's order is 'safe' (not API-required) and its Example uses --json; posture and sharing-drift count every Drive/Calendar setting change, not only sharing; tenants add's mode 0600 applies on macOS/Linux",
+   "why": "The adversarial review (round 2, P2) and Codex (round 2, P1, Windows key ACLs) found help text that overclaimed: Google does not require offboard's order (backup-code invalidation failing on a suspended account is why suspend runs last), --agent's compact output drops each offboard step's detail, settingChanges keeps every CHANGE_DOCS_SETTING and CHANGE_CALENDAR_SETTING event, and on Windows the copied key inherits the config folder's ACL. These are NOVEL files carried from the factory's novel/ directory, so a re-onboard from that source brings the old text back. Round 3 (adversarial, P2) found the same 'sharing settings' text on the generated surfaces that carry the novel-feature list (root --help, which's curated index, the MCP context tool) and in posture's table column and JSON key, now SETTING_CHANGES and drive_calendar_setting_changes. Round 4 (adversarial and Codex, P2): the offboard 'in the order Google's API requires' text also survived on root --help, which and the MCP context tool.",
+   "status": "active",
+   "spec_encode_followup": "Factory-side: port the same wording into ~/Documents/Dev/cli-factory/google-workspace/novel/ (offboard.go, posture.go, sharing_drift.go, gws_tenants_cmd.go).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/offboard.go",
+     "contains": "in a safe order:",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/offboard.go",
+     "not_contains": "in the order the API requires"
+    },
+    {
+     "file": "cli/internal/cli/offboard.go",
+     "contains": "--ou /Departed --yes --json",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/posture.go",
+     "not_contains": "sharing setting change(s)"
+    },
+    {
+     "file": "cli/internal/cli/sharing_drift.go",
+     "contains": "any Drive (Docs) or Calendar setting changed in the Admin console",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants_cmd.go",
+     "contains": "mode 0600 on macOS/Linux",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "any setting, not only sharing",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/which.go",
+     "contains": "any setting, not only sharing",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "any setting, not only sharing",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/posture.go",
+     "contains": "`json:\"drive_calendar_setting_changes\"`",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/posture.go",
+     "not_contains": "SHARING_CHANGES"
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "in the order Google's API requires"
+    },
+    {
+     "file": "cli/internal/cli/which.go",
+     "not_contains": "in the order Google's API requires"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "in the order Google's API requires"
+    }
+   ]
+  },
+  {
+   "id": "tenant-selection-follows-registry",
+   "summary": "Each MCP tool call re-reads the tenant registry (RefreshTenantSelection in MCPStorePath and newMCPClient), so a long-running server stops auto-selecting the only tenant once a second one is registered; a CLI command still resolves its tenant once",
+   "why": "selectedTenant cached its first answer for the life of the process. The MCP server is long-lived (Claude Desktop, --transport http), and tenants are added from a terminal because tenants add is not exposed over MCP. A server that had auto-selected the only tenant kept serving it after a second was registered: sql returned the first client's rows, search returned a clean-looking zero for the second client, and the raw execute tool kept minting the first client's token (adversarial review round 3, P1). The first fix re-resolved whenever tenants.toml changed, but that let one CLI command open one client's store in its pre-run and then authenticate as another client if the registry changed mid-run (Codex round 4, P1). Selection is now stable for a process and refreshed explicitly at each MCP tool call's entry, so every CLI command and every MCP call sees one tenant throughout. TestTenantSelectionFollowsRegistryChanges checks both halves and fails with the MCPStorePath refresh removed. Round 5 (Codex, P1): with the HTTP transport serving calls concurrently, one call's refresh could land between another call's tenant guard and its store path; mcpTenantMu now serializes RefreshTenantSelection and the whole MCPStorePath sequence.",
+   "status": "active",
+   "spec_encode_followup": "Factory-side: carry RefreshTenantSelection into ~/Documents/Dev/cli-factory/google-workspace/novel/gws_tenants.go; the two call sites are generated-file edits a reprint drops.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/gws_tenants.go",
+     "contains": "func RefreshTenantSelection() {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "cli.RefreshTenantSelection()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants.go",
+     "not_contains": "tenantRegistryStamp"
+    },
+    {
+     "file": "cli/internal/cli/gws_novel_test.go",
+     "contains": "func TestTenantSelectionFollowsRegistryChanges(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "mcpTenantMu.Lock()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants.go",
+     "contains": "var mcpTenantMu sync.Mutex",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "tenant-store-identity-includes-domain",
+   "summary": "A tenant's local store is keyed to its name AND domain",
+   "why": "Keyed to the name alone, removing a tenant and registering the same name for a different client reopened the previous client's mirror and later syncs mixed both clients' records. A Google Workspace primary domain identifies the client, so it is part of the key; changing a tenant's scopes with tenants add --yes keeps the same store. Found by the onboard Codex review (round 3, P1).",
+   "status": "active",
+   "spec_encode_followup": "Factory-side: carry tenantStoreIdentity into the factory's novel/gws_tenants.go.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/gws_tenants.go",
+     "contains": "return tenantStoreIdentity(t)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants.go",
+     "contains": "return \"tenant:\" + t.Name + \"/\" + strings.ToLower(strings.TrimSpace(t.Domain))",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "tenant-store-survives-bad-config",
+   "summary": "When the config file fails to load, a selected tenant keeps its own store scope instead of falling back to the shared data.db; localStoreTenantErr also refuses if a selected tenant's scope is not the current one",
+   "why": "configureDefaultDBScope cleared the store scope on any config.Load error, which sends every store open to the unscoped data.db, possibly another organization's bearer-mode mirror, while localStoreTenantErr allowed the read because a tenant was selected. A tenant's store does not depend on the config file, so the scope is computed from an empty config (the tenant hook still applies), and the read guard checks that the active scope is the selected tenant's. Found by the onboard Codex review (round 3, P1); the malformed-config phase of TestTenantSelectionFollowsRegistryChanges fails with the old line.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "setDefaultDBScopeIdentity((&config.Config{}).StoreScopeCredential(), \"\", \"\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants.go",
+     "contains": "if hash != hashDefaultDBScope(tenantStoreIdentity(t)) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "export-google-list-paging",
+   "summary": "export and tail read Google lists properly: the read configs carry each list's items key and pageToken/nextPageToken paging, an item-less Google envelope is an empty page, and both send the list's spec defaults (customer=my_customer for users and groups)",
+   "why": "The Discovery print left resourceReadConfigs empty, so export wrote the first Google envelope as one record and never followed nextPageToken (Codex round 3, P1: incomplete backups that exit 0), wrote a {kind, etag} envelope for an empty list, and sent no customer parameter, which Google requires for users.list and groups.list. Receipts against a two-page stub: export users wrote 1 line before and 130 after, export transfers on an empty list writes nothing, and both requests now carry customer=my_customer. Round 4 (Codex, P1): tail still read only the first page per poll; fetchAndEmit now follows nextPageToken through fetchAndEmitPage (receipt: 130 events over two stub pages).",
+   "status": "active",
+   "spec_encode_followup": "Press-side: the googlediscovery profiler should fill resourceReadConfigs (responsePath, cursor paging) and export/tail should seed the same spec defaults sync does.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/resource_paths.go",
+     "contains": "responsePath: \"dataTransfers\", paginationType: \"cursor\", cursorParam: \"pageToken\", limitParam: \"maxResults\", nextCursorPath: \"nextPageToken\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/resource_paths.go",
+     "contains": "paginationType: \"cursor\", cursorParam: \"pageToken\"",
+     "min_count": 5,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/resource_paths.go",
+     "contains": "} else if _, google := envelope[\"kind\"]; google {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "params = withSyncParamDefaults(resource, params)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/tail.go",
+     "contains": "withSyncParamDefaults(resource, nil)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_sync_envelope.go",
+     "contains": "func withSyncParamDefaults(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/tail.go",
+     "contains": "func fetchAndEmitPage(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/tail.go",
+     "contains": "pageParams = resourcePageParams(config, cursor, page, 0)",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-sql-search-describe-tenant-scope",
+   "summary": "The MCP sql and search tool descriptions say they read one client tenant's mirror (GOOGLE_WORKSPACE_TENANT or the only registered tenant) and refuse when several are registered and none is set; the MCP context tool's tips describe Google's pageToken/maxResults paging and drop the generic message/channel playbook entries",
+   "why": "The generated descriptions said 'across all synced data', but in this multi-tenant CLI they read exactly one tenant's store and take no tenant argument, which an MCP-only agent (Claude Desktop, ChatGPT) cannot learn from human docs. Found by the onboard adversarial review (round 3, P2). The generated prefixes are kept because tools_test.go pins them. Round 4 (adversarial, P2): the context tool, which agents are told to call first, still carried generic archetype tips (an 'after' cursor and a pageSize parameter no command takes, and message/channel playbooks for data this connector never syncs). Round 5 (adversarial, P2): the paging tip now tells the agent to re-request a page that came back _pp_truncated (MCP execute cuts responses at 60 KB but keeps nextPageToken) with a smaller maxResults before moving on.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "of one client tenant: the GOOGLE_WORKSPACE_TENANT tenant, or the only registered one",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "Pass after parameter"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "\"Message search\""
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "Lists page with pageToken",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "If a response carries _pp_truncated, the page was cut to fit",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "tenant-token-cache-follows-key",
+   "summary": "The per-tenant token-source cache is keyed to the service-account key's content as well as tenant, admin and scopes",
+   "why": "Keyed to name, admin and scopes only, a long-running MCP server kept refreshing tokens through a source built from the old key after the operator rotated it with tenants add --yes, until restart; once the old key is revoked every call fails. The key file is read on each lookup (a few KB) and its SHA-256 prefix joins the cache key. Found by the onboard Codex review (round 4, P1); TestTokenSourceFollowsKeyRotation fails with the hash removed.",
+   "status": "active",
+   "spec_encode_followup": "Factory-side: carry the key-content cache key into the factory's novel/gws_tenants.go.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/gws_tenants.go",
+     "contains": "strings.Join(scopes, \" \") + \"|\" + hex.EncodeToString(keySum[:8])",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_novel_test.go",
+     "contains": "func TestTokenSourceFollowsKeyRotation(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "auth-hints-name-the-tenant",
+   "summary": "The 400/401/403 auth hints name --tenant / GOOGLE_WORKSPACE_TENANT (or the selected tenant's delegation and scopes) when client tenants are registered, and the bearer-token line only when none are; the MCP execute tool appends the same hint to 401/403 errors, and the MCP context tool's auth section names GOOGLE_WORKSPACE_TENANT and scopes the bearer tokens to single-organization use; a Google quota/rate 403 is classified as a rate limit, not a permission problem; agent-context .auth and guide.md's env table name GOOGLE_WORKSPACE_TENANT",
+   "why": "The generated hints always said to export GOOGLE_WORKSPACE_TOKEN, while the docs say to unset it once tenants are registered. With several tenants and none selected, a generated command goes out with no credential and the hint pointed the user, or an MCP agent, at the wrong fix. Found by the onboard adversarial review (round 4, P2). Round 5 (adversarial, P2): the in-process MCP execute tool returned the raw 401 and the context tool listed only the bearer tokens ('Set to your API credential'), so an MCP-only agent still had no path to the tenant fix. Round 6: the MCP execute 403 hint in single-organization mode told the agent to set the token it had already sent (adversarial, P2); a quota 403 (rateLimitExceeded and similar) got credential advice (Codex, P2); the CLI agent-context twin of the MCP context auth section still listed only the bearer tokens (adversarial, P2).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "authSetupHint()+",
+     "min_count": 3,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants.go",
+     "contains": "func authSetupHint() string",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_novel_test.go",
+     "contains": "func TestAuthSetupHintNamesTheTenant(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "cli.AuthErrorHint(err)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants.go",
+     "contains": "func AuthErrorHint(err error) string",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "\"name\":        \"GOOGLE_WORKSPACE_TENANT\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_novel_test.go",
+     "contains": "func TestAuthErrorHintForMCPExecute(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "case strings.Contains(msg, \"HTTP 403\") && googleQuotaExceeded(msg):",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants.go",
+     "contains": "func googleQuotaExceeded(msg string) bool",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/agent_context.go",
+     "contains": "Name:        \"GOOGLE_WORKSPACE_TENANT\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "guide.md",
+     "contains": "| `GOOGLE_WORKSPACE_TENANT` | per_call | No |",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "groups-list-userkey-drops-default-customer",
+   "summary": "groups list sends its default customer=my_customer only when no --user-key is given",
+   "why": "Google's groups.list rejects customer together with userKey, and the generated command always sent the flag's my_customer default, so 'groups list --user-key <email>' (a user's group memberships) failed. An explicitly set --customer is still sent. Found by the onboard Codex review (round 4, P2); receipt: the stub now sees ?userKey=... alone, and ?customer=my_customer without --user-key.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: Discovery marks customer/domain/userKey as alternatives; the generator should not default one when another is supplied.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/groups_list.go",
+     "contains": "if cmd.Flags().Changed(\"customer\") || (flagCustomer != \"\" && flagUserKey == \"\") {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "tenant-token-refreshes",
+   "summary": "A tenant-bound client asks the tenant's auto-refreshing token source for the Authorization value on every request (Config.AuthHeaderSource), instead of a token minted once at client build",
+   "why": "bindTenantToken stored the minted token as a static Authorization value, so any run longer than Google's one-hour token lifetime (tail --follow, a large sync) kept sending an expired token and every later call failed 401 while 'tenants test' passed. AuthHeaderSource is consulted first by Config.AuthHeader(), which the request path and the output credential masking both use, so a refreshed token is also masked. Found by the onboard adversarial review (round 5, P2: a 12-second-token stub showed tail re-using an expired token) and Codex (round 5, P1); TestTenantTokenRefreshesPerRequest fails with the AuthHeader() check removed. The field sits at the end of the generated Config struct so gofmt leaves the rest aligned.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: config.Config could offer a token-source hook for prints whose auth layer mints short-lived tokens.",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "AuthHeaderSource func() string",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "if c.AuthHeaderSource != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants.go",
+     "contains": "c.Config.AuthHeaderSource = refreshingAuthHeader(ts)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_novel_test.go",
+     "contains": "func TestTenantTokenRefreshesPerRequest(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "dry-run-redacts-secrets",
+   "summary": "Secret-named query parameters are masked everywhere the client masks credential text (error URLs, dry-run lines, bodies), and --dry-run body previews redact every non-empty, non-boolean secret-named field (password, secret, private key, API key, *token except page/sync tokens)",
+   "why": "The generated dry-run printer wrote the request body verbatim to stderr, so previewing 'users patch <email> --password ...' put the password into the terminal and into agent transcripts. Found by the onboard Codex review (round 5, P1); receipt: the real binary's dry-run of users patch --password prints \"password\": \"[redacted]\" and the value appears nowhere in stdout or stderr. Round 6 (Codex): query parameters were still printed verbatim (subscriptions insert --customer-auth-token showed the transfer token; P1, also fleet-wide generated code), and the body rule hid the changePasswordAtNextLogin boolean (P2). Receipt: the dry-run now prints ?customerAuthToken=[redacted]. Round 7 (Codex, P1, fleet): a failed request's error message carried the full URL, so MCP execute of subscriptions.insert returned customerAuthToken verbatim; redactSecretQueryParams now runs inside maskCredentialText, which every error, URL and body passes through (receipt: the MCP error reads ?customerAuthToken=[redacted]). The adversarial reviewer also noted string-only body redaction let a numeric password or a 'Secrets' custom-schema object through; only booleans stay visible now. Round 8 (Codex, P1, fleet): the dry-run body bypassed maskCredentialText, so users watch --address 'https://hooks.example/?token=...' printed the webhook secret; the body text now goes through the mask (HTML escaping off so & stays literal), printing ?token=[redacted]. Round 11 (Codex, P1): the value pattern stopped at a quote, so ?token='SECRET' (and a JSON-escaped \\\"SECRET\\\") slipped through, and \\u0026 / &amp; separators were not recognised; the pattern now allows an opening (escaped) quote and those separators, and RedactURLSecrets also masks a userinfo password (https://user:pass@host). Round 12 (adversarial P2s): an empty value followed by its closing quote is left alone (the dry-run JSON stays valid); userinfo is split like net/url (password runs to the last @ before / ? #, quotes and @ allowed); sig= and code= are secret names (SAS and Azure Functions webhook signatures). TestRedactSecretQueryParams covers each case and the non-secret texts that must stay unchanged. Round 13 (Codex P1s): the empty-quoted-value exception applies only when the whole value is separators, so ?token=';SECRET' is masked; names containing 'signature' (X-Amz-Signature, X-Goog-Signature) are secret; and the client's request-build error (a URL that fails to parse, e.g. a base URL with user:pass@ and a bad escape) goes through maskCredentialText. TestRequestBuildErrorMasksURLSecrets fails without it. Round 14 (Codex P1s): the value is now found by a scanner instead of a regex: the URL's enclosing quote (nearest quote before the URL with no whitespace between) closes an empty value, another opening quote runs to its match, and an unquoted value may contain an apostrophe (?token=O'Hara-SECRET was half-printed); bare key= is a secret name (Google API keys); doctor's base_url and feedback --send errors are masked. TestRedactSecretQueryParams covers each case, including JSON arrays with an empty secret value. Round 15 (adversarial P1 + P2s): the enclosing quote is the character before the URL's scheme, looked up within a 2 KiB window, so an earlier apostrophe in the URL no longer acts as the enclosing quote (?name=O'Hara&token=... leaked), a quote-led secret right after the URL's own quote is masked, an empty value at the end of a JSON string with text before the URL keeps the JSON valid, and a megabyte of parameters stays linear. Round 16 (adversarial P2s): a quoted value runs to its closing quote across spaces and & (it stops at a line break, a bare \" or 2 KiB, so it never crosses JSON structure). Round 17 (Codex P2): with no enclosing quote, a double quote after = followed by any punctuation counted as an empty value, so ?token=\";SECRET\" printed and profile save stored it; the quote now ends an empty value only when JSON structure follows (end, } or ], or a comma then a key, object or array). Round 18 (Codex + adversarial P2): a closing } or ] counts as JSON structure only when the end or a comma follows (so ?token=\"}SECRET is masked), and hyphenated names (x-api-key, private-key) are secret. Accepted: a value that itself begins \",\" followed by a quote, or \"\" then text, is read as empty; real URL secrets are percent-encoded tokens and API query values are percent-encoded by the client.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: redact secret-named fields in the generated dry-run body printer fleet-wide.",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if pretty, ok := redactDryRunBody(body); ok {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/dryrun_redact.go",
+     "contains": "func redactDryRunBody(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/dryrun_redact_test.go",
+     "contains": "func TestRedactDryRunBody(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if value != \"\" && secretFieldName(k) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/dryrun_redact_test.go",
+     "contains": "\"changePasswordAtNextLogin\":true",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "text = RedactURLSecrets(text)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/dryrun_redact.go",
+     "contains": "func redactSecretQueryParams(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/dryrun_redact_test.go",
+     "contains": "func TestRedactSecretQueryParams(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.maskCredentialText(buf.String(), authHeader)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/dryrun_redact.go",
+     "contains": "func RedactURLSecrets(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/dryrun_redact.go",
+     "contains": "if k == \"sig\" || k == \"code\" || k == \"key\" || strings.Contains(k, \"signature\") {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "fmt.Errorf(\"creating request: %s\", c.maskCredentialText(err.Error()))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/dryrun_redact_test.go",
+     "contains": "func TestRequestBuildErrorMasksURLSecrets(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/dryrun_redact.go",
+     "contains": "func secretValueSpan(s string, urlStart, i int) (int, int)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/dryrun_redact.go",
+     "contains": "start, end := secretValueSpan(text, m[0], m[1])",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"base_url\"] = client.RedactURLSecrets(cfg.BaseURL)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/dryrun_redact.go",
+     "contains": "func enclosingQuote(s string, urlStart int) string",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/dryrun_redact.go",
+     "contains": "lo := max(0, urlStart-2048)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "fmt.Errorf(\"posting feedback to %s: %s\", webhookLabel(url), client.RedactURLSecrets(transportErr(err).Error()))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/dryrun_redact_test.go",
+     "contains": "func TestRedactSecretQueryParamsIsLinear(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/dryrun_redact.go",
+     "contains": "func quotedEnd(s, q string) (int, bool)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/dryrun_redact.go",
+     "contains": "for j > 0 && (isSchemeByte(s[j-1])) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/dryrun_redact.go",
+     "contains": "if k < 0 || strings.ContainsAny(s[lo+k:urlStart], \" \\t\\r\\n\") {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "fmt.Errorf(\"building feedback request for %s: %s\", webhookLabel(url), client.RedactURLSecrets(transportErr(err).Error()))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/dryrun_redact_test.go",
+     "contains": "func TestRedactKeepsJSONValid(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/dryrun_redact.go",
+     "contains": "func jsonStructureFollows(s string) bool",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/dryrun_redact.go",
+     "contains": "if enclosing == \"\" && q == `\"` && jsonStructureFollows(after) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/dryrun_redact.go",
+     "not_contains": "closing := q == enclosing || (enclosing == \"\" && q != \"'\")"
+    },
+    {
+     "file": "cli/internal/client/dryrun_redact_test.go",
+     "contains": "`https://x/?token=\";PUNCT-SECRET\"`,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/dryrun_redact.go",
+     "contains": "for s != \"\" && (s[0] == '}' || s[0] == ']') {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/dryrun_redact.go",
+     "contains": "\"apikey\", \"api_key\", \"api-key\"}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/dryrun_redact_test.go",
+     "contains": "`https://x/?token=\"}BRACE-SECRET\"`,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/dryrun_redact_test.go",
+     "contains": "`https://x/?x-api-key=HYPHEN-SECRET`,",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "troubleshooting-never-prints-token",
+   "summary": "guide.md's troubleshooting step checks that GOOGLE_WORKSPACE_TOKEN is set without printing it",
+   "why": "The generated troubleshooting line was 'echo $GOOGLE_WORKSPACE_TOKEN', which prints the whole bearer credential into the terminal and any agent transcript. guide.md is re-vendored from the print on every onboard --resume, so the template line returns unless this guard catches it. Found by the onboard Codex review (round 5, P1).",
+   "status": "active",
+   "spec_encode_followup": "Press-side: the README/guide troubleshooting template should test the variable is non-empty instead of echoing it (fleet-wide).",
+   "asserts": [
+    {
+     "file": "guide.md",
+     "not_contains": "echo $GOOGLE_WORKSPACE_TOKEN"
+    },
+    {
+     "file": "guide.md",
+     "contains": "[ -n \"$GOOGLE_WORKSPACE_TOKEN\" ] && echo set || echo unset",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "import-users-uses-insert",
+   "summary": "import users posts each record to users.insert (/admin/directory/v1/users), not users:createGuest",
+   "why": "The generated resourceWritePaths mapped the users resource to users.createGuest, whose request schema is a guest invitation, so importing ordinary Directory user records failed. Found by the onboard Codex review (round 6, P1); receipt: import users --input sends POST /admin/directory/v1/users against a stub.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: pick a resource's insert method, not the last POST on the collection, as its import write path.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/resource_paths.go",
+     "contains": "\"users\":              \"/admin/directory/v1/users\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/resource_paths.go",
+     "not_contains": "\"/admin/directory/v1/users:createGuest\""
+    }
+   ]
+  },
+  {
+   "id": "mcp-blocks-local-file-reads",
+   "summary": "MCP tool calls cannot set flags that READ a local file (--input, --notes-file, --playbook-file, --playbook-notes-file); they are blocked like the write-destination flags; import, which needs --input, is CLI-only (mcp:hidden)",
+   "why": "teach --notes-file / --playbook-file, teach-playbook and import --input read any file the MCP server account can reach. Over MCP a caller (or a prompt-injected agent) could copy another tenant's service-account key from keys/<tenant>.json into the local learn store and read it back with playbook list or recall, even in read-only mode, because teach is a local-write tool. Found by the onboard Codex review (round 6, P1; the generated cobratree code is fleet-wide). Receipt: tools/list on the real MCP binary exposes none of the four flags across its 39 tools; TestLocalFileReadFlagsBlockedOverMCP fails with the entries removed. Round 7 (adversarial and Codex, P2): with --input blocked the advertised MCP import tool could only fail, so it is hidden from MCP and mcp-install.md/governance.md say import is CLI-only.",
+   "status": "active",
+   "spec_encode_followup": "Press-side (fleet): treat local file-read flags as blocked MCP arguments in cobratree, alongside blockedDestinationFlags.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "\"notes-file\":          true,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "\"playbook-file\":       true,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "\"playbook-notes-file\": true,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "\"input\":               true,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/read_source_flags_test.go",
+     "contains": "func TestLocalFileReadFlagsBlockedOverMCP(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/import.go",
+     "contains": "Annotations: map[string]string{\"mcp:hidden\": \"true\"},",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "manifest.json",
+     "not_contains": "offboard, sync, import, export"
+    }
+   ]
+  },
+  {
+   "id": "free-license-skus-not-waste",
+   "summary": "stale-licenses, posture and leavers skip the free Google-Apps SKUs (Google Workspace for Nonprofits, Education Fundamentals, Education Gmail Only) when reporting paid-licence waste; Archived User seats (product 101034) are never waste either",
+   "why": "The novel commands treated every Google-Apps assignment as a paid seat, so a nonprofit or school client's suspended accounts were reported as billing waste and posture graded them warn. The free SKU IDs come from Google's Licensing API 'Products and SKUs' table (Google-Apps-For-Nonprofits, Google-Apps-For-Education, 1010070001, 1010070004); the paid Nonprofit editions reuse the general SKU IDs and stay counted. Found by the onboard Codex review (round 8, P1); TestFreeSKUsAreNotWaste fails with the filter removed. stale_licenses.go and leavers.go are NOVEL files carried from the factory's novel/ directory. Round 12 (Codex P2): the free Education SKUs are pinned too, not just Nonprofits. Round 14 (Codex P1): an archived account's Archived User seat deliberately retains its data, so stale-licenses no longer recommends reclaiming it and posture no longer counts it. TestArchivedUserSeatIsNotWaste.",
+   "status": "active",
+   "spec_encode_followup": "Factory-side: port freeLicenseSKUs into ~/Documents/Dev/cli-factory/google-workspace/novel/ (stale_licenses.go, leavers.go).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/stale_licenses.go",
+     "contains": "func freeLicenseSKU(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/stale_licenses.go",
+     "contains": "\"Google-Apps-For-Nonprofits\": true,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/stale_licenses.go",
+     "contains": "if freeLicenseSKU(l) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/leavers.go",
+     "contains": "if freeLicenseSKU(l) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/stale_licenses_test.go",
+     "contains": "func TestFreeSKUsAreNotWaste(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/stale_licenses.go",
+     "contains": "\"Google-Apps-For-Education\":  true,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/stale_licenses.go",
+     "contains": "\"1010070001\":                 true,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/stale_licenses.go",
+     "contains": "\"1010070004\":                 true,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/stale_licenses.go",
+     "contains": "return freeLicenseSKUs[l.SkuID] || l.ProductID == archivedUserProduct",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_novel_test.go",
+     "contains": "func TestArchivedUserSeatIsNotWaste(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-install-tunnel-host-header",
+   "summary": "mcp-install.md's remote-agent section tells the tunnel to rewrite the Host header to localhost (with the cloudflared flag) and no longer claims the server returns 404 at the bare root; the ChatGPT section says a connector cannot send the server's fixed bearer token and needs an OAuth-capable gateway in front",
+   "why": "The generated text sent users to expose the loopback HTTP server through Cloudflare Tunnel or ngrok without a Host rewrite, but mcp-go v0.57's StreamableHTTPServer rejects a loopback request whose Host is not localhost with 403 (DNS-rebinding protection), so the documented setup could never handshake. It also claimed a 404 at the root, while main.go installs the handler for every path. Found by the onboard Codex review (round 8, P1 and P2). mcp-install.md is a generated template file (fleet-wide text), re-rendered by onboard. Round 10 (Codex, P1): ChatGPT connectors authenticate with OAuth or no authentication, so the documented tunnel-only ChatGPT setup always failed 401 against the bearer-gated HTTP mode; mcp-install.md, README and the page.json FAQ now say so (fleet-wide template text).",
+   "status": "active",
+   "spec_encode_followup": "Template-side (msp-skills-publish mcp-install template, fleet): add the Host-rewrite step and drop the root-404 claim.",
+   "asserts": [
+    {
+     "file": "mcp-install.md",
+     "contains": "--http-host-header localhost",
+     "min_count": 1
+    },
+    {
+     "file": "mcp-install.md",
+     "not_contains": "returns 404 at the"
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "cannot send the fixed `Authorization: Bearer` token",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "watch-response-hides-channel-token",
+   "summary": "A successful watch response (kind api#channel) has its echoed token replaced with [redacted] before it is printed, returned over MCP, or written to the local store; a secret query parameter in the echoed address (?token=...) is masked too",
+   "why": "activities watch, users watch and users aliases watch register a push channel whose token is the webhook's verification secret; Google echoes it back in the response, which the generated client returned unchanged to CLI output, MCP results and the mutation write-through store. Found by the onboard Codex review (round 9, P1; the generated success path is fleet-wide). TestWatchResponseHidesChannelToken fails with the redaction removed. Round 10 (Codex, P1): the echoed address can carry its own webhook secret, so redactChannelToken also runs redactSecretQueryParams over it. Round 12 (Codex P1 + adversarial P2): the echoed address is masked with RedactURLSecrets, so a user:pass@ password is hidden too. Round 16 (Codex P1 + P2): the echoed address keeps only scheme and host (Slack-style webhooks carry their secret in the path), and the token assignment itself is pinned. Round 17 (Codex P2): the assignment that writes the masked address back is pinned too.",
+   "status": "active",
+   "spec_encode_followup": "Press-side (fleet): mask echoed channel tokens in generated clients for APIs with push channels.",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "json.RawMessage(redactChannelToken(sanitizeJSONResponse(respBody)))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/dryrun_redact.go",
+     "contains": "func redactChannelToken(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/dryrun_redact_test.go",
+     "contains": "func TestWatchResponseHidesChannelToken(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/dryrun_redact.go",
+     "contains": "masked := maskWebhookAddress(address)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/dryrun_redact.go",
+     "contains": "ch[\"token\"] = json.RawMessage(`\"[redacted]\"`)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/dryrun_redact.go",
+     "contains": "return u.Scheme + \"://\" + u.Host + \"/[redacted]\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/dryrun_redact_test.go",
+     "contains": "func TestWatchResponseMasksAddressPath(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/dryrun_redact.go",
+     "contains": "ch[\"address\"], _ = json.Marshal(masked)",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "deliver-errors-mask-url-secrets",
+   "summary": "--deliver messages (bad sink spec, non-http or plain-http target, failed webhook request, and the root warnings) name a webhook by scheme and host only (webhookLabel) and drop the *url.Error wrapper that repeats the URL; query secrets that remain are masked by client.RedactURLSecrets",
+   "why": "The generated deliver path echoed the full webhook URL, including a ?token= query secret or a user:pass@ password, in its warning and error text on any failure, even before a request was made. --deliver is already blocked over MCP, so this is the CLI user's own terminal and logs. Found by the onboard Codex review (round 11, P1; fleet-wide generated code). Receipt: a failed delivery to webhook:https://user:pw@127.0.0.1:9/cb?token=... prints user:[redacted]@ and ?token=[redacted], 0 secret hits. Round 12 (adversarial P2s): the unknown-scheme branch and the webhook request-build error (url.Parse) are masked at the source too, and the asserts now pin both root.go derr sites and the spec site. TestDeliverErrorsMaskURLSecrets fails if any of them is reverted. Round 13 (Codex P2): the failed-POST branch is pinned on its own. Round 15 (Codex P1): Slack, Discord and Teams webhooks carry their secret in the URL path, which RedactURLSecrets cannot recognise, so a failed delivery printed it; every message now shows only scheme://host/... .",
+   "status": "active",
+   "spec_encode_followup": "Press-side (fleet): mask URL secrets in the generated deliver error paths.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "client.RedactURLSecrets(derr.Error())",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "client.RedactURLSecrets(spec)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "client.RedactURLSecrets(scheme)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_novel_test.go",
+     "contains": "func TestDeliverErrorsMaskURLSecrets(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "deliverTargetLabel(flags.deliverSink)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "func webhookLabel(raw string) string",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "return u.Scheme + \"://\" + u.Host + \"/...\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "fmt.Errorf(\"posting to webhook %s: %s\", webhookLabel(url), client.RedactURLSecrets(transportErr(err).Error()))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "fmt.Errorf(\"building webhook request for %s: %s\", webhookLabel(url), client.RedactURLSecrets(transportErr(err).Error()))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "got %s\", webhookLabel(target))",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_novel_test.go",
+     "contains": "func TestDeliverWebhookLabelsAndRedirects(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "return webhookLabel(sink.Target)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "if errors.As(err, &ue) {\n\t\treturn ue.Err\n\t}",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "no-ambient-token-with-tenants",
+   "summary": "With client tenants registered and none selected, every API client (CLI and MCP, via the client hook) and every local-mirror read refuses and asks for --tenant, instead of falling back to GOOGLE_WORKSPACE_TOKEN or a saved token",
+   "why": "selectedTenant returns nil when two or more tenants are registered and none is chosen, and the client then used the ambient bearer token: a token saved earlier with auth set-token let 'users delete' or MCP google-workspace_execute act on that token's organization, not a client the operator picked. Previous rounds only documented the foot-gun ('unset the token'). Found by the onboard Codex review (round 12, P1). TestTenantStoreNeverClaimsUnscopedDBAndLocalReadNeedsTenant now asserts both the local read and ApplyClientHooks refuse with a token set. gws_tenants.go is a NOVEL file carried from the factory's novel/ directory. Round 13 (Codex P2 + adversarial P2): 'workflow status' on the default store refuses too, and auth status / auth setup say tenants are in use instead of advising the token; manifest.json and mcp-install.md describe the refusal. Round 16 (Codex + adversarial P2): recall, teach and learnings open the same tenant store and are guarded too.",
+   "status": "active",
+   "spec_encode_followup": "Factory-side: port noTenantSelectedErr into ~/Documents/Dev/cli-factory/google-workspace/novel/gws_tenants.go.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/gws_tenants.go",
+     "contains": "func noTenantSelectedErr() error",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants.go",
+     "contains": "return noTenantSelectedErr()",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_novel_test.go",
+     "contains": "if err := ApplyClientHooks(c); err == nil || !strings.Contains(err.Error(), \"none is selected\") {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/channel_workflow.go",
+     "contains": "if err := localStoreTenantErr(); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "if n := registeredTenantCount(); n > 0 {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "\"authenticated\": true, \"verified\": false, \"source\": \"tenant registry\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/teach.go",
+     "contains": "if err := localStoreTenantErr(); err != nil {",
+     "min_count": 6,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "tenants-test-checks-domain",
+   "summary": "tenants test fails a tenant whose configured --domain is not one of the domains (or aliases) Google returns for the customer its admin and key resolve to, and quarantines it (ownership_mismatch in tenants.toml): every command refuses the tenant until it is re-registered or passes tenants test again; the operator's recorded customer ID and domains are kept A quarantined mirror is moved aside, never deleted, and tenants test is not an MCP read-only tool.",
+   "why": "Registering domain A with domain B's delegated admin and key passed tenants test, which pre-accepted the configured domain, so every report labelled B's data as A and stored it in A's mirror. Found by the onboard Codex review (round 12, P1). tenantDomains is the decode-and-check; TestTenantDomainsRequiresConfiguredDomain fails without the ownership check. gws_tenants_cmd.go is a NOVEL file. Round 13 (adversarial P2s): a failed domain check now clears the tenant's recorded customer ID and domains (errWrongCustomer), so offboard stops routing that organization's emails to it, and tenants add trims --domain so a padded value cannot drop the primary domain from the recorded list. Round 14 (Codex P1 + adversarial P2): clearing the record left the wrong credentials selectable, and with the customer ID gone the reports fell back to my_customer, the wrong organization, labelled as this tenant. Now applyTenantClient refuses a tenant with OwnershipMismatch set (CLI, MCP and every fan-out), tenants test re-tests it with its own credentials and lifts the flag on success, and nothing the operator recorded is cleared. TestQuarantinedTenantRefused fails without the refusal. Round 15 (Codex P1 + adversarial P2s): local reads (search, sql, analytics, MCP) also refuse a quarantined tenant, whose mirror may already hold the other organization's data; tenants list shows the quarantine; and the lines that persist and lift it are pinned. Round 16 (adversarial P1 + Codex P1): lifting the quarantine reopened the same mirror with the other organization's rows still in it (sync never prunes), so quarantining now deletes the tenant's mirror and SQLite sidecars (discardTenantMirror; the learn tables share the file). TestDiscardTenantMirror. Round 17 (Codex P1 x2): deletion erased the learn tables (playbooks) from a tool advertised as MCP read-only, and a failed delete only warned, so a later passing test lifted the quarantine over the old rows. The mirror is now moved aside (data-<hash>.db.quarantined-<unixnano>, sidecars paired); every path that lifts a quarantine (a passing tenants test, tenants add --yes over a quarantined tenant) moves it first and keeps the quarantine when the move fails; tenants test drops mcp:read-only, so read-only MCP mode hides it (verified with tools/list on the built server) and governance, README, page.json and mcp-install.md list it with tenants add. TestDiscardTenantMirror fails with os.Remove restored. Round 18 (Codex P1 + adversarial P2s): tenants remove of a quarantined tenant now moves its mirror aside first (a later add under the same name and domain reopened it); tenants add --yes over a quarantined tenant moves the old mirror before writing the key and carries the quarantine forward, so only a passing tenants test lifts it; a retry after a partial move pairs a leftover sidecar with the newest unpaired moved-aside mirror and never overwrites one; the lift is clearQuarantinedMirror, tested with a read-only data dir; TestTenantsTestIsNotMCPReadOnly guards the annotation in any key order. Round 19 (Codex P2): pairing is per file, so a leftover -shm joins its mirror even when an earlier retry already paired the -wal; TestTenantsTestIsNotMCPReadOnly requires the annotation to be absent (the classifier also reads 1 and yes as true).",
+   "status": "active",
+   "spec_encode_followup": "Factory-side: port tenantDomains into ~/Documents/Dev/cli-factory/google-workspace/novel/gws_tenants_cmd.go.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/gws_tenants_cmd.go",
+     "contains": "func tenantDomains(t gwsTenant, raw []byte) ([]string, error)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants_cmd.go",
+     "contains": "domains, err := tenantDomains(t, raw)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_novel_test.go",
+     "contains": "func TestTenantDomainsRequiresConfiguredDomain(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants_cmd.go",
+     "contains": "res.wrongCustomer = errors.Is(err, errWrongCustomer)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants_cmd.go",
+     "contains": "Domain: strings.ToLower(strings.TrimSpace(domain)),",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants.go",
+     "contains": "OwnershipMismatch string `toml:\"ownership_mismatch,omitempty\" json:\"ownership_mismatch,omitempty\"`",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants.go",
+     "contains": "if t.OwnershipMismatch != \"\" {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants_cmd.go",
+     "contains": "reg.Tenants[i].OwnershipMismatch = v.Error",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants_cmd.go",
+     "contains": "reg.Tenants[i].OwnershipMismatch = \"\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_novel_test.go",
+     "contains": "func TestQuarantinedTenantRefused(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants_cmd.go",
+     "contains": "if v.OK || v.wrongCustomer {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants_cmd.go",
+     "contains": "t.OwnershipMismatch = \"\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants.go",
+     "contains": "return configErr(fmt.Errorf(\"tenant %s is quarantined: %s\", t.Name, t.OwnershipMismatch))",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants_cmd.go",
+     "contains": "Quarantined string `json:\"ownership_mismatch,omitempty\"`",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_novel_test.go",
+     "contains": "func TestQuarantinedTenantLocalReadRefused(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants_cmd.go",
+     "contains": "func discardTenantMirror(t gwsTenant) error",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants_cmd.go",
+     "contains": "if err := discardTenantMirror(t); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants_cmd.go",
+     "contains": "quarantined = append(quarantined, reg.Tenants[i])",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants_cmd.go",
+     "contains": "kind += \" (QUARANTINED: run tenants test \" + r.Name + \")\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_novel_test.go",
+     "contains": "func TestDiscardTenantMirror(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants_cmd.go",
+     "contains": "if v.OK && v.tested.OwnershipMismatch != \"\" {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants_cmd.go",
+     "contains": "v.OK, v.Error = false, \"still quarantined: moving its local mirror aside failed: \"+err.Error()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants_cmd.go",
+     "contains": "if err := os.Rename(base+suffix, dst); err != nil && !os.IsNotExist(err) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants_cmd.go",
+     "not_contains": "os.Remove(base"
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants_cmd.go",
+     "not_contains": "\"mcp:read-only\": \"true\", \"pp:data-source\": \"live\""
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants_cmd.go",
+     "contains": "return configErr(fmt.Errorf(\"tenant %s is quarantined and its local mirror could not be moved aside: %w\", name, err))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_novel_test.go",
+     "contains": "aside, _ := filepath.Glob(base + \".quarantined-*\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "governance.md",
+     "contains": "`tenants add` and `tenants test` (local config only;",
+     "min_count": 1
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "`tenants test`, `tenants remove`, `workflow archive`, `learnings forget`, and `learnings reject`",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants_cmd.go",
+     "contains": "t.OwnershipMismatch = existing.OwnershipMismatch",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants_cmd.go",
+     "contains": "return configErr(fmt.Errorf(\"tenant %s is quarantined and its local mirror could not be moved aside: %w\", t.Name, err))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants_cmd.go",
+     "contains": "func clearQuarantinedMirror(v tenantTestResult) tenantTestResult {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants_cmd.go",
+     "contains": "v := clearQuarantinedMirror(r.Value)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants_cmd.go",
+     "contains": "if _, err := os.Stat(base); os.IsNotExist(err) {\n\t\tprev = latestQuarantinedMirror(base)\n\t}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_novel_test.go",
+     "contains": "func TestQuarantineReplaceAndRemoveMoveMirror(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_novel_test.go",
+     "contains": "func TestQuarantineLiftMovesMirrorFirst(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_novel_test.go",
+     "contains": "func TestTenantsTestIsNotMCPReadOnly(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_tenants_cmd.go",
+     "contains": "if _, err := os.Lstat(prev + suffix); prev != \"\" && os.IsNotExist(err) {\n\t\t\tdst = prev + suffix",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "orgunits-path-is-the-ou",
+   "summary": "orgunits get/patch/update/delete take one <orgUnitPath> that fills Google's {orgUnitPath=**} path segment by segment (slashes literal); the generated second positional <orgunitsId> and the orgUnitPath query parameter are gone, in the CLI and in the MCP execute endpoints",
+   "why": "The Discovery print split Google's single multi-segment path parameter into a query parameter (orgUnitPath) plus a path positional (orgunitsId), so 'orgunits delete Finance HR' deleted HR while the advertised orgUnitPath=Finance rode along in the query string; MCP execute had the same two-identifier shape. Found by the onboard Codex review (round 12, P1). The value is escaped per segment (cliutil.EscapeReservedPathParam), matching how Google's own clients expand {+orgUnitPath}. TestEscapeReservedPathParam covers the escaping. Round 13 (adversarial P2s): an empty, '/', or '.'/'..'/empty-segment path is refused (CLI and MCP) instead of reaching the collection URL, and '+' is sent as %2B, as GAM does, so Google cannot read it as a space.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: map Discovery {+param} / {param=**} path templates to one reserved-expansion path positional instead of a synthetic {<resource>Id} plus a query param.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/orgunits_delete.go",
+     "not_contains": "orgunitsId"
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "not_contains": "orgunitsId"
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "pv = cliutil.EscapeReservedPathParam(formatMCPParamValue(v))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/text.go",
+     "contains": "func EscapeReservedPathParam(value string) string",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "func replaceReservedPathParam(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/orgunits_get.go",
+     "contains": "if path, perr = replaceReservedPathParam(path, \"orgUnitPath\", args[0]); perr != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/orgunits_delete.go",
+     "contains": "if path, perr = replaceReservedPathParam(path, \"orgUnitPath\", args[0]); perr != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/orgunits_patch.go",
+     "contains": "if path, perr = replaceReservedPathParam(path, \"orgUnitPath\", args[0]); perr != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/orgunits_update.go",
+     "contains": "if path, perr = replaceReservedPathParam(path, \"orgUnitPath\", args[0]); perr != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/text.go",
+     "contains": "func CheckReservedPathValue(name, value string) error",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/text.go",
+     "contains": "strings.ReplaceAll(EscapePathParam(seg), \"+\", \"%2B\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "if err := cliutil.CheckReservedPathValue(p, formatMCPParamValue(v)); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/cliutil_test.go",
+     "contains": "func TestCheckReservedPathValue(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "licence-products-include-education",
+   "summary": "leavers, posture, stale-licenses and offboard read licence products Google-Apps AND 101031 (paid Education Standard and Plus) by default; when 101031 follows another product, a 400/403/404 on it (no Education subscription) is skipped, while a quota 403, 101031 listed alone, the first product (proving the apps.licensing scope) and every other product still fail loudly",
+   "why": "The reports queried only product Google-Apps, so a suspended account keeping a paid Education seat (product 101031 in Google's Licensing API 'Products and SKUs' table) read as clean, and offboard never released it. Found by the onboard Codex review (round 12, P1). TestLicenceProductsIncludeEducation drives a stub: both products counted, a 400 on 101031 skipped under the default list, and a custom list failing on it. stale_licenses.go, leavers.go, posture.go and offboard.go are NOVEL files. Round 13 (Codex P1 + adversarial P2s): the skip no longer swallows a quota 403 (googleQuotaExceeded) and no longer depends on the exact default string, so the README's '--products Google-Apps,101031,Google-Vault' keeps it; the i > 0 guard, the 101031-only scope and stale-licenses' own flag default are pinned.",
+   "status": "active",
+   "spec_encode_followup": "Factory-side: port defaultLicenceProducts/listProductLicenses into the novel/ sources.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/stale_licenses.go",
+     "contains": "const defaultLicenceProducts = \"Google-Apps,101031\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/stale_licenses.go",
+     "contains": "func listProductLicenses(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/leavers.go",
+     "contains": "listProductLicenses(ctx, c, custID, defaultLicenceProducts)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/posture.go",
+     "contains": "listProductLicenses(ctx, c, custID, defaultLicenceProducts)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/offboard.go",
+     "contains": "listProductLicenses(ctx, c, custID, products)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/offboard.go",
+     "contains": "\"products\", defaultLicenceProducts,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_novel_test.go",
+     "contains": "func TestLicenceProductsIncludeEducation(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/stale_licenses.go",
+     "contains": "if i > 0 && p == educationProduct && errors.As(err, &apiErr) && !googleQuotaExceeded(err.Error()) &&",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/stale_licenses.go",
+     "contains": "cmd.Flags().StringVar(&products, \"products\", defaultLicenceProducts,",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "sharing-drift-reads-created-deleted-settings",
+   "summary": "sharing-drift and posture read the same admin audit events (settingChangeEvents: CHANGE_DOCS/CALENDAR_SETTING plus CHANGE_, CREATE_ and DELETE_APPLICATION_SETTING); posture takes --max-events, the flag its scan-cap error names",
+   "why": "settingChanges already parsed created and deleted sharing settings, but sharing-drift never asked the Reports API for those event names, so a new or removed sharing policy produced 'no findings' even with --settings-only. Posture capped its setting-change reads at 1000 and, on overflow, told the operator to raise --max-events, a flag it did not have. Found by the onboard Codex review (round 12, P1 and P2). sharing_drift.go and posture.go are NOVEL files. Round 13 (Codex P1): posture still read only the Docs and Calendar events, so a sharing change sharing-drift reported (often logged as an application setting) left posture 'ok'; both now share settingChangeEvents.",
+   "status": "active",
+   "spec_encode_followup": "Factory-side: port both into novel/sharing_drift.go and novel/posture.go.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/posture.go",
+     "contains": "cmd.Flags().IntVar(&maxEvents, \"max-events\", 1000,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/posture.go",
+     "contains": "listActivities(ctx, c, \"admin\", ev, \"\", start, maxEvents)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sharing_drift.go",
+     "contains": "var settingChangeEvents = []string{\"CHANGE_DOCS_SETTING\", \"CHANGE_CALENDAR_SETTING\", \"CHANGE_APPLICATION_SETTING\", \"CREATE_APPLICATION_SETTING\", \"DELETE_APPLICATION_SETTING\"}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sharing_drift.go",
+     "contains": "for _, ev := range settingChangeEvents {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/posture.go",
+     "contains": "for _, ev := range settingChangeEvents {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "oauth-apps-calendar-scopes-moderate",
+   "summary": "oauth-apps rates calendar.events, calendar.readonly and calendar.events.readonly as moderate risk, alongside full calendar",
+   "why": "An app granted calendar.events (view and edit events on every calendar) fell through to low and vanished under --min-risk moderate, contradicting the documented tiers. Found by the onboard Codex review (round 12, P2). oauth_apps.go is a NOVEL file. Round 14 (Codex P2): TestScopeRiskAndAggregateApps now asserts all three scopes are tier 2, so flipping a map value to false fails it.",
+   "status": "active",
+   "spec_encode_followup": "Factory-side: port the scope rows into novel/oauth_apps.go.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/oauth_apps.go",
+     "contains": "\"https://www.googleapis.com/auth/calendar.events\":",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/oauth_apps.go",
+     "contains": "\"https://www.googleapis.com/auth/calendar.readonly\":",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/oauth_apps.go",
+     "contains": "\"https://www.googleapis.com/auth/calendar.events.readonly\":",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_novel_test.go",
+     "contains": "scopePrefix + \"calendar.events.readonly\": 2,",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "chrome-printer-name-is-the-selector",
+   "summary": "customers chrome-printers and chrome-print-servers commands (get, patch, delete, list, create, batch-*, list-printer-models) take one <name> or <parent> that must match customers/{customersId}/chrome/printers/{printersId} (or printServers, or customers/{customersId}) segment for segment and fills the fixed path template; the generated extra ID positionals and the name/parent query parameter are gone, in the CLI and MCP execute",
+   "why": "The Discovery print turned Google's {+name}/{+parent} into separate customersId/printersId path positionals plus a name/parent query parameter, so naming printer A while passing printer B's ID deleted B (same defect as orgunits). Found by the onboard Codex review (round 13, P1). Binding to the fixed template, not reserved expansion, matters: a free-form name like 'users/ceo@client.com' would otherwise turn 'chrome-printers delete' into DELETE /admin/directory/v1/users/ceo@client.com. TestBindResourceName covers the refusals. Round 14 (Codex + adversarial P2s): every one of the 15 command files and every MCP map entry is pinned, and the MCP summaries name the selector to pass.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: map Discovery {+name}/{+parent} to one resource-name positional validated against the name pattern.",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/text.go",
+     "contains": "func BindResourceName(path, tmpl, name string) (string, error)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "var codeOrchResourceNames = map[string][2]string{",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "bound, err := cliutil.BindResourceName(path, rn[1], formatMCPParamValue(v))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/cliutil_test.go",
+     "contains": "func TestBindResourceName(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printServers_batchCreatePrintServers.go",
+     "contains": "if path, perr = bindResourceName(path, \"customers/{customersId}\", args[0]); perr != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printServers_batchCreatePrintServers.go",
+     "not_contains": "args[1]"
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printServers_batchDeletePrintServers.go",
+     "contains": "if path, perr = bindResourceName(path, \"customers/{customersId}\", args[0]); perr != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printServers_batchDeletePrintServers.go",
+     "not_contains": "args[1]"
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printServers_create.go",
+     "contains": "if path, perr = bindResourceName(path, \"customers/{customersId}\", args[0]); perr != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printServers_create.go",
+     "not_contains": "args[1]"
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printServers_delete.go",
+     "contains": "if path, perr = bindResourceName(path, \"customers/{customersId}/chrome/printServers/{printServersId}\", args[0]); perr != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printServers_delete.go",
+     "not_contains": "args[1]"
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printServers_get.go",
+     "contains": "if path, perr = bindResourceName(path, \"customers/{customersId}/chrome/printServers/{printServersId}\", args[0]); perr != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printServers_get.go",
+     "not_contains": "args[1]"
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printServers_list.go",
+     "contains": "if path, perr = bindResourceName(path, \"customers/{customersId}\", args[0]); perr != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printServers_list.go",
+     "not_contains": "args[1]"
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printServers_patch.go",
+     "contains": "if path, perr = bindResourceName(path, \"customers/{customersId}/chrome/printServers/{printServersId}\", args[0]); perr != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printServers_patch.go",
+     "not_contains": "args[1]"
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printers_batchCreatePrinters.go",
+     "contains": "if path, perr = bindResourceName(path, \"customers/{customersId}\", args[0]); perr != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printers_batchCreatePrinters.go",
+     "not_contains": "args[1]"
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printers_batchDeletePrinters.go",
+     "contains": "if path, perr = bindResourceName(path, \"customers/{customersId}\", args[0]); perr != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printers_batchDeletePrinters.go",
+     "not_contains": "args[1]"
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printers_create.go",
+     "contains": "if path, perr = bindResourceName(path, \"customers/{customersId}\", args[0]); perr != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printers_create.go",
+     "not_contains": "args[1]"
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printers_delete.go",
+     "contains": "if path, perr = bindResourceName(path, \"customers/{customersId}/chrome/printers/{printersId}\", args[0]); perr != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printers_delete.go",
+     "not_contains": "args[1]"
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printers_get.go",
+     "contains": "if path, perr = bindResourceName(path, \"customers/{customersId}/chrome/printers/{printersId}\", args[0]); perr != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printers_get.go",
+     "not_contains": "args[1]"
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printers_list.go",
+     "contains": "if path, perr = bindResourceName(path, \"customers/{customersId}\", args[0]); perr != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printers_list.go",
+     "not_contains": "args[1]"
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printers_listPrinterModels.go",
+     "contains": "if path, perr = bindResourceName(path, \"customers/{customersId}\", args[0]); perr != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printers_listPrinterModels.go",
+     "not_contains": "args[1]"
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printers_patch.go",
+     "contains": "if path, perr = bindResourceName(path, \"customers/{customersId}/chrome/printers/{printersId}\", args[0]); perr != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/customers_chrome-printers_patch.go",
+     "not_contains": "args[1]"
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "\"customers.chrome-printServers.batchCreatePrintServers\":",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "\"customers.chrome-printServers.batchDeletePrintServers\":",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "\"customers.chrome-printServers.create\":",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "\"customers.chrome-printServers.delete\":",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "\"customers.chrome-printServers.get\":",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "\"customers.chrome-printServers.list\":",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "\"customers.chrome-printServers.patch\":",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "\"customers.chrome-printers.batchCreatePrinters\":",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "\"customers.chrome-printers.batchDeletePrinters\":",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "\"customers.chrome-printers.create\":",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "\"customers.chrome-printers.delete\":",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "\"customers.chrome-printers.get\":",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "\"customers.chrome-printers.list\":",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "\"customers.chrome-printers.listPrinterModels\":",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "\"customers.chrome-printers.patch\":",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "Pass name: customers/{customersId}/chrome/printers/{printersId}.",
+     "min_count": 3,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "Pass parent: customers/{customersId}.",
+     "min_count": 9,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "profiles-never-store-url-secrets",
+   "summary": "profile save refuses any flag whose value carries a URL secret (a secret-named query parameter or a user:pass@ password), e.g. --deliver webhook:https://hooks.example/?token=..., as credential-like; no --deliver webhook URL is saved at all (Slack, Teams and Discord carry their secret in the path)",
+   "why": "The run-profile credential check looked only at flag names, so 'profile save p --deliver webhook:...?token=SECRET' wrote the webhook secret to profiles.json in plain text and printed it, and profile show / use echoed it back. Found by the onboard Codex review (round 13, P1). TestProfileSaveRefusesURLSecrets fails without the value check.",
+   "status": "active",
+   "spec_encode_followup": "Press-side (fleet): treat URL-secret-bearing values as credential-like in generated run profiles.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "client.RedactURLSecrets(fl.Value.String()) != fl.Value.String()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_novel_test.go",
+     "contains": "func TestProfileSaveRefusesURLSecrets(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "(fl.Name == \"deliver\" && strings.HasPrefix(fl.Value.String(), \"webhook:\"))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/profile.go",
+     "contains": "pass them on each invocation instead",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "deliver-webhook-https-only",
+   "summary": "--deliver webhook:http:// and a plain-http GOOGLE_WORKSPACE_FEEDBACK_ENDPOINT are refused unless the host is localhost or a loopback IP, and neither client follows redirects",
+   "why": "The deliver path uses its own HTTP client, without the API client's plaintext-credential guard, so 'webhook:http://user:SECRET@remote-host/path' sent the password, and every report's client data, in clear text. Found by the onboard Codex review (round 14, P1). TestDeliverWebhookHTTPSOnly covers remote http (refused), https and loopback http (allowed). Round 15 (Codex P1 + adversarial P2): an accepted https webhook could answer 307/308 to http://...?token= and the default client replayed the body there, so both clients refuse redirects (refuseRedirect); feedback --send had the same plain-http gap and its success JSON printed the full endpoint (now webhookLabel). Round 16 (Codex P1 + adversarial P2s): the scheme is read through net/url, so HTTP:// cannot slip past a lowercase prefix check; redirects are refused only when they would resend the body (307/308) or move to plain http, so an Apps Script-style 302 after a delivered POST is followed and reported as success.",
+   "status": "active",
+   "spec_encode_followup": "Press-side (fleet): require https for non-loopback --deliver webhooks.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "func loopbackURL(raw string) bool",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_novel_test.go",
+     "contains": "func TestDeliverWebhookHTTPSOnly(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "httpClient := &http.Client{Timeout: 30 * time.Second, CheckRedirect: refuseRedirect}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "httpClient := &http.Client{Timeout: 15 * time.Second, CheckRedirect: refuseRedirect}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "upstreamResult[\"endpoint\"] = webhookLabel(endpoint)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "func webhookTransportAllowed(raw string) bool",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "if !webhookTransportAllowed(target) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/feedback.go",
+     "contains": "if !webhookTransportAllowed(url) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "if req.Method != http.MethodGet && req.Method != http.MethodHead {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/deliver.go",
+     "contains": "if !webhookTransportAllowed(req.URL.String()) {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "docs-surface-truth",
+   "summary": "Re-vendored doc surfaces (SKILL.md, guide.md, manifest.json, server.json, mcp-install.md) state the reviewed behavior: one <orgUnitPath> and one printer <name>/<parent>, no ambient-token fallback once tenants are registered, and PRINTING_PRESS_CLIENT_PROFILE has no effect",
+   "why": "onboard.py --resume re-vendors SKILL.md, guide.md and manifest.json from the factory source, which still carries the generated command signatures ('orgunits get <orgUnitPath> <orgunitsId>'), the token-fallback warning and the client-profile binding claim, all corrected during the onboard reviews (rounds 12-14). This entry makes a re-vendor that brings them back fail the gate. Round 18 (adversarial P2): manifest.json's read-only field lists every hidden tool; SKILL.md/guide.md say a single registered tenant is auto-selected and where tenant keys live; tier tables add license-assignments patch, users patch/update --password, roles delete, resellernotify register and --deliver webhook egress; sharing-drift says how many files plus sample names, not which files. Round 19 (adversarial P2 + Codex P2): the MCP context payload, which index and root help carry the sharing-drift wording; the leavers recipe tool is named for what it checks (no time window) and annotated read-only; server.json's read-only field matches the code; the auto-select note excludes a lone --reseller tenant.",
+   "status": "active",
+   "spec_encode_followup": "Factory-side: carry these doc edits into the source SKILL.md/guide.md/manifest.json.",
+   "asserts": [
+    {
+     "file": "SKILL.md",
+     "not_contains": "<orgunitsId>"
+    },
+    {
+     "file": "guide.md",
+     "not_contains": "<orgunitsId>"
+    },
+    {
+     "file": "SKILL.md",
+     "not_contains": "<customersId>"
+    },
+    {
+     "file": "guide.md",
+     "not_contains": "<customersId>"
+    },
+    {
+     "file": "manifest.json",
+     "not_contains": "fall back to this token"
+    },
+    {
+     "file": "mcp-install.md",
+     "not_contains": "untargeted API calls act on its organization"
+    },
+    {
+     "file": "manifest.json",
+     "contains": "Has no effect for this connector (it registers no client-profile source)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "server.json",
+     "contains": "Has no effect for this connector",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "GOOGLE_WORKSPACE_TOKEN is not used once tenants are registered",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "SKILL.md",
+     "not_contains": "Drive, Calendar and app-sharing setting changes (any setting, not only sharing)"
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "No effect for this connector; pick a client with --tenant",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "or an app's sharing settings in the Admin console",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/which.go",
+     "contains": "or an app's sharing settings in the Admin console",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "or an app's sharing settings in the Admin console",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "or an app's sharing settings in the Admin console",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "guide.md",
+     "contains": "or an app's sharing settings in the Admin console",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "guide.md",
+     "contains": "Only Admin console setting changes (any Drive or Calendar setting, plus app sharing settings)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "manifest.json",
+     "contains": "to hide offboard, sync, export, tenants test, tenants remove, workflow archive, learnings forget and learnings reject",
+     "min_count": 1
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "with two or more tenants registered and none selected (a single registered client tenant is selected automatically; a --reseller tenant never is)",
+     "min_count": 1
+    },
+    {
+     "file": "guide.md",
+     "contains": "with two or more tenants registered and none selected (a single registered client tenant is selected automatically; a --reseller tenant never is)",
+     "min_count": 1
+    },
+    {
+     "file": "governance.md",
+     "contains": "`license-assignments patch`",
+     "min_count": 1
+    },
+    {
+     "file": "governance.md",
+     "contains": "`resellernotify register`",
+     "min_count": 1
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "how many files newly went external or public (up to 5 sample names per user)",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "and how many files newly went external or public (up to 5 sample names per user), across clients.",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/which.go",
+     "contains": "and how many files newly went external or public (up to 5 sample names per user), across clients.",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "and how many files newly went external or public (up to 5 sample names per user), across clients.",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "contains": "s.AddTool(mcplib.NewTool(\"check_suspended_leavers_were_fully_closed\", opts...), handleCheckSuspendedLeaversWereFullyClosed)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "contains": "mcplib.WithReadOnlyHintAnnotation(true),\n\t\t\tmcplib.WithDestructiveHintAnnotation(false),",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "server.json",
+     "contains": "Set to exactly 1 to hide offboard, sync, export, tenants test, tenants remove, workflow archive, learnings forget and learnings reject, and refuse every non-GET API call",
+     "min_count": 1
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "a single registered client tenant is selected automatically; a --reseller tenant never is",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "mcp-bool-false-forwarded",
+   "summary": "The MCP shell-out layer forwards an explicit boolean false as --name=false instead of dropping it, so a default-true flag can be turned off from a tool call",
+   "why": "cliArgsFromMCP emitted only true booleans, so MCP tail with {\"follow\": false} kept the default --follow=true and polled until the call timed out instead of returning one poll. pflag accepts --flag=false for every bool flag, blocked flags are filtered before this point, and read-only mode refuses by flag presence (it never injects --dry-run), so forwarding the caller's explicit value is the faithful translation. Same fix as connectwise-rmm's mcp-bool-false-forwarded. Found by the onboard Codex review (round 15, P2; generated code on main). TestCliArgsFromMCPForwardsExplicitFalse.",
+   "status": "active",
+   "spec_encode_followup": "Press-side (fleet): forward explicit false booleans in cliArgsFromMCP.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "out = append(out, \"--\"+k+\"=false\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout_test.go",
+     "contains": "func TestCliArgsFromMCPForwardsExplicitFalse(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "novel-review-round16-small",
+   "summary": "oauth-apps leaves archived (non-suspended) accounts out of the --max-users count; a fan-out --tenants value that names no tenant (',,') is refused instead of scanning nothing and reporting no findings; likewise --products and --events values that name nothing (round 17); --tenants acme,acme queries a tenant once; sharing-drift counts distinct files (doc_id), not events; posture validates its thresholds like stale-licenses (round 20)",
+   "why": "Found by the onboard Codex review (round 16, P2s). Archived users cannot use apps but were listed by isSuspended=false, so 900 active plus 200 archived accounts failed the default cap as 1100 active users. '--tenants ,,' parsed into zero targets and printed 'No findings'. TestEmptyTenantsSelectorRefused. oauth_apps.go and gws_fanout.go are NOVEL files. Round 17 (Codex P2): stale-licenses/posture/offboard --products and login-alerts --events had the same empty-list success; listProductLicenses (shared by all three licence readers) and login-alerts refuse it. Round 18 (Codex + adversarial P1): the round-17 --events check tested want after the loop had deleted every valid name, so every valid list was refused; it now refuses only when the list names nothing, and TestLoginAlertsEventsSelector drives valid, empty and unknown lists. offboard refuses an empty --products before any step runs. Round 20 (Codex P2): duplicate --tenants names doubled counts; sharing-drift counted share events while the docs promise files, so re-sharing one file counted twice and repeated titles took sample slots; posture accepted --inactive-days -1 and a NaN --min-2sv-pct. Each fix fails its test when reverted. Round 21 (Codex P2 + adversarial P2): files are identified by doc_id (pinned, with a same-title test), the human table says file(s) not shares, and posture compares unrounded 2SV coverage (1,899 of 2,000 displays as 95.0 but is below a 95% threshold). Round 22 (adversarial P2 + Codex P2): the 2SV threshold is cross-multiplied (57 of 100 is not below 57%; float division made it 56.999...), --products Google-Apps,Google-Apps reads and releases once, and login alerts sort newest first by instant, not string.",
+   "status": "active",
+   "spec_encode_followup": "Factory-side: port into novel/oauth_apps.go and novel/gws_fanout.go.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/oauth_apps.go",
+     "contains": "if !u.Archived {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_fanout.go",
+     "contains": "return nil, usageErr(fmt.Errorf(\"--tenants %q names no tenant\", ff.tenants))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_novel_test.go",
+     "contains": "func TestEmptyTenantsSelectorRefused(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/stale_licenses.go",
+     "contains": "return nil, usageErr(fmt.Errorf(\"--products names no licence product\"))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/login_alerts.go",
+     "contains": "return usageErr(fmt.Errorf(\"--events names no event\"))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_novel_test.go",
+     "contains": "listProductLicenses(context.Background(), nil, \"C0\", \",,\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/login_alerts.go",
+     "contains": "if len(selected) == 0 && len(want) == 0 {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/login_alerts.go",
+     "not_contains": "if len(want) == 0 {"
+    },
+    {
+     "file": "cli/internal/cli/offboard.go",
+     "contains": "if len(splitTenantCSV(o.products)) == 0 {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_novel_test.go",
+     "contains": "func TestLoginAlertsEventsSelector(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_novel_test.go",
+     "contains": "func TestOffboardEmptyProductsRefusedUpFront(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_fanout.go",
+     "contains": "if seen[name] {\n\t\t\t\tcontinue\n\t\t\t}\n\t\t\tseen[name] = true",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sharing_drift.go",
+     "contains": "Count: len(g.docs), Targets: targets, Files: g.files})",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sharing_drift.go",
+     "contains": "title != \"\" && newDoc && len(g.files) < sample",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/posture.go",
+     "contains": "if inactiveDays < 1 || graceDays < 0 || !(minPct >= 0 && minPct <= 100) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_novel_test.go",
+     "contains": "func TestPostureThresholdsValidated(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sharing_drift.go",
+     "contains": "doc := a.param(i, \"doc_id\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sharing_drift.go",
+     "contains": "what = fmt.Sprintf(\"%d file(s) -> %s\", r.Count, strings.Join(r.Targets, \",\"))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/posture.go",
+     "contains": "warn(p.ActiveUsers > 0 && float64(enrolled)*100 < minPct*float64(p.ActiveUsers),",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_novel_test.go",
+     "contains": "again[1].Events[0].Parameters[1].Value = \"d2\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/stale_licenses.go",
+     "contains": "if seen[p] {\n\t\t\tcontinue\n\t\t}\n\t\tseen[p] = true",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/login_alerts.go",
+     "contains": "return laterTS(a.Last, b.Last)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/login_alerts.go",
+     "contains": "sortLoginAlerts(res.Results)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_novel_test.go",
+     "contains": "func TestDuplicateProductsAndAlertOrder(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "posture-policy-reduction",
+   "summary": "posture resolves Cloud Identity policies the way Google does (all three columns use the Max reducer): within one applicability scope (the policy CEL query, which carries org unit, group and licence conditions; orgUnit/group when the query is absent) the policy with the greatest sortOrder wins, and a field it omits takes Google's documented default (external_sharing_mode ALLOWED, enable_auto_forwarding true, enforced_from unset); mixed:... appears only when scopes resolve differently",
+   "why": "summarizePolicyValues collapsed every returned policy into a set of values, so a SYSTEM default (ALLOWED) overridden by an ADMIN policy (DISALLOWED) for the same users read mixed:ALLOWED,DISALLOWED, telling an MSP a client had differing sharing settings it does not have. Google documents the reduction (https://docs.cloud.google.com/identity/docs/concepts/policy-api-concepts): filter to the policies that apply, then the greatest sortOrder wins. Found by the onboard Codex review (round 17, P1). posture.go is a NOVEL file carried from the factory novel/ directory. Ceiling: scopes are not resolved against the OU tree, so mixed means the scopes differ. TestSummarizePolicyValues fails with the sortOrder comparison removed. Round 18 (Codex P1 x2): skipping a winning policy that omits the field kept a lower policy's value (Max takes the default instead), and keying on orgUnit/group merged licence-scoped policies for different users; the scope is now the query and each column carries its documented default. Both reverts fail TestSummarizePolicyValues.",
+   "status": "active",
+   "spec_encode_followup": "Factory-side: carry summarizePolicyValues in ~/Documents/Dev/cli-factory/google-workspace/novel/ (posture).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/posture.go",
+     "contains": "if w, ok := winners[scope]; ok && w.order >= order {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/posture.go",
+     "contains": "order, _ := q[\"sortOrder\"].(float64)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_novel_test.go",
+     "contains": "overridden := []map[string]any{",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/posture.go",
+     "contains": "v := col.def",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/posture.go",
+     "contains": "scope, _ := q[\"query\"].(string)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/posture.go",
+     "contains": "present: true, def: \"not_enforced\"},",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/posture.go",
+     "contains": "keys: []string{\"externalSharingMode\", \"external_sharing_mode\"}, def: \"ALLOWED\"},",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/posture.go",
+     "contains": "keys: []string{\"enableAutoForwarding\", \"enable_auto_forwarding\"}, def: \"true\"},",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_novel_test.go",
+     "contains": "bySKU := []map[string]any{",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "verification-codes-never-cached",
+   "summary": "verification-codes list bypasses the on-disk HTTP response cache, so a user's live backup codes are never written under the cache dir",
+   "why": "The generated read path caches every GET response as JSON under the cache dir (0600) until a later write clears it, so verification-codes list left a user's live 2SV backup codes on disk. The fleet template does the same for every connector (hudu, itglue cache passwords), so it is P2 under the fleet rule, but a one-line NoCache on this command removes the copy. Found by the onboard adversarial review (round 16, P2). TestVerificationCodesNeverCached serves a sentinel code from a stub and walks --home for it; it fails with the line removed.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: mark secret-returning GETs (verification codes, passwords) no-cache in the generator, e.g. from a spec extension.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/verificationCodes_list.go",
+     "contains": "c.NoCache = true",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/gws_novel_test.go",
+     "contains": "func TestVerificationCodesNeverCached(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  }
+ ]
+}

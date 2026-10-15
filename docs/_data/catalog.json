@@ -1,5 +1,5 @@
 {
-  "count": 68,
+  "count": 69,
   "connectors": [
     {
       "slug": "abnormal",
@@ -275,6 +275,17 @@
       "source": null,
       "issue_url": null,
       "url": "/skills/domotz/"
+    },
+    {
+      "slug": "google-workspace",
+      "display_name": "Google Workspace",
+      "tagline": "Find accounts without 2SV, reclaim wasted licenses, and offboard leavers safely across every client's Google Workspace.",
+      "category": "Security",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "url": "/skills/google-workspace/"
     },
     {
       "slug": "gradient",

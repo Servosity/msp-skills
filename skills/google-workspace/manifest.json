@@ -1,0 +1,97 @@
+{
+  "manifest_version": "0.3",
+  "name": "google-workspace-mcp",
+  "display_name": "Google Workspace Admin",
+  "version": "0.1.0",
+  "description": "Cross-client Google Workspace admin: 2SV gaps, license waste, sharing drift, safe offboarding.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/google-workspace-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/google-workspace-mcp",
+      "args": [],
+      "env": {
+        "GOOGLE_WORKSPACE_TENANT": "${user_config.google_workspace_tenant}",
+        "GOOGLE_WORKSPACE_MCP_READ_ONLY": "${user_config.google_workspace_mcp_read_only}",
+        "GOOGLE_WORKSPACE_TOKEN": "${user_config.google_workspace_token}",
+        "ADMIN_ACCESS_TOKEN": "${user_config.admin_access_token}",
+        "GOOGLE_WORKSPACE_MCP_HTTP_TOKEN": "${user_config.google_workspace_mcp_http_token}",
+        "GOOGLE_WORKSPACE_BASE_URL": "${user_config.google_workspace_base_url}",
+        "GOOGLE_WORKSPACE_USER_AGENT": "${user_config.google_workspace_user_agent}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
+      }
+    }
+  },
+  "user_config": {
+    "google_workspace_tenant": {
+      "type": "string",
+      "title": "Default client tenant",
+      "description": "Tenant name (from google-workspace-cli tenants list) used by tool calls that name no tenant: the raw API execute tool and the sql, search and context tools take no tenant argument, so set this when more than one tenant is registered (without it, sql and search refuse rather than answer from no client). Register client tenants first with google-workspace-cli tenants add. Leave blank to auto-select when exactly one tenant is registered.",
+      "required": false
+    },
+    "google_workspace_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only mode",
+      "description": "Set to exactly 1 to hide offboard, sync, export, tenants test, tenants remove, workflow archive, learnings forget and learnings reject (import is never exposed over MCP) and refuse every non-GET API call; tools that write only the local learn store (teach, playbook amend, learnings confirm) stay. Any other value, including true or yes, leaves every tool enabled. Backup-code reads (verification-codes list) are GET calls and stay available. Leave blank for the full tool set.",
+      "required": false
+    },
+    "google_workspace_token": {
+      "type": "string",
+      "title": "Single-organization access token",
+      "description": "Optional. An OAuth access token with Admin SDK scopes for ONE organization, for use instead of registering client tenants. Leave blank once you manage clients through google-workspace-cli tenants add: the token is not used once tenants are registered, and a call with none selected is refused.",
+      "sensitive": true,
+      "required": false
+    },
+    "admin_access_token": {
+      "type": "string",
+      "title": "ADMIN_ACCESS_TOKEN (alternate name)",
+      "description": "Optional alternate name for the single-organization access token above; when both are set, the single-organization token above wins. Leave blank.",
+      "sensitive": true,
+      "required": false
+    },
+    "google_workspace_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http (a remote or hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+      "sensitive": true,
+      "required": false
+    },
+    "google_workspace_base_url": {
+      "type": "string",
+      "title": "Admin API base URL override",
+      "description": "Overrides the https://admin.googleapis.com host, for testing against a mock server. Leave blank.",
+      "required": false
+    },
+    "google_workspace_user_agent": {
+      "type": "string",
+      "title": "User-Agent header",
+      "description": "Overrides the User-Agent the CLI sends on Google requests. Leave blank to use the CLI's own built-in User-Agent.",
+      "required": false
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile",
+      "description": "Has no effect for this connector (it registers no client-profile source). This is not a Google Workspace tenant; pick tenants with the default client tenant setting above. Leave blank.",
+      "required": false
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  },
+  "printing_press_version": "4.33.5",
+  "press_provenance": {
+    "printing_press_version": "4.33.5",
+    "generated_at": "2026-10-13T22:44:26.858556Z",
+    "spec_checksum": "sha256:7284e128477c332de66f776952ea3b97567b491385725afbe1389ca3b3103de7",
+    "spec_format": "internal"
+  }
+}
