@@ -483,7 +483,7 @@ func writeThroughCache(ctx context.Context, resourceType string, data json.RawMe
 					}
 				}
 				if !looksLikeListEnvelope {
-					_, _, _ = db.UpsertBatch(storedType, []json.RawMessage{data})
+					_, _, _ = db.UpsertBatch(storedType, sophosAttributableRows(storedType, []json.RawMessage{data})) // HAND-FIX(cached-rows-carry-tenant)
 					return
 				}
 			}
@@ -491,7 +491,7 @@ func writeThroughCache(ctx context.Context, resourceType string, data json.RawMe
 	}
 
 	if len(items) > 0 {
-		_, _, _ = db.UpsertBatch(storedType, items)
+		_, _, _ = db.UpsertBatch(storedType, sophosAttributableRows(storedType, items)) // HAND-FIX(cached-rows-carry-tenant)
 	}
 }
 
@@ -663,7 +663,7 @@ func writeMutationResponseToStore(ctx context.Context, resourceType string, data
 	if len(items) == 0 {
 		return
 	}
-	_, _, _ = db.UpsertBatch(storedType, items)
+	_, _, _ = db.UpsertBatch(storedType, sophosAttributableRows(storedType, items)) // HAND-FIX(cached-rows-carry-tenant)
 }
 
 // Partitions sync passes to UpsertBatch (profiler resource name and dependent

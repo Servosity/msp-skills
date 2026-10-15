@@ -299,6 +299,9 @@ type fleetSyncMeta struct {
 	FinishedAt      time.Time `json:"finished_at"`
 	PrevStartedAt   time.Time `json:"prev_started_at"`
 	TenantsAttempts int       `json:"tenants_attempted"`
+	// Trial tenants the last full refresh listed but skipped (no
+	// --include-trial): their stored rows are out of scope, not blind.
+	TrialSkipped []string `json:"trial_skipped,omitempty"`
 }
 
 // blindTenant is a tenant a fleet read could not see on the last sync.
@@ -522,6 +525,9 @@ func unrefreshedTenants(db fleetReader, ledger map[string]fleetLedgerRow, filter
 			}
 			return true
 		})
+	}
+	for _, id := range loadFleetMeta(db).TrialSkipped {
+		trial[id] = true
 	}
 	for id := range ids {
 		if _, ok := ledger[id]; ok || trial[id] {
@@ -750,6 +756,25 @@ func rowTenantID(raw json.RawMessage) string {
 		return ""
 	}
 	return row.Tenant.ID
+}
+
+// sophosAttributableRows drops rows that do not record their tenant before a
+// live read or a write command caches them in a tenant-scoped partition. A
+// scan, update-check or alert-action receipt (or a bulk-isolate item) would
+// otherwise sit among real endpoint and alert rows, overwrite them, and make
+// every scoped local read fail closed until the store is deleted.
+func sophosAttributableRows(resourceType string, items []json.RawMessage) []json.RawMessage {
+	path, err := syncResourcePath(resourceType)
+	if err != nil || !sophosTenantScopedPath(path) {
+		return items
+	}
+	kept := make([]json.RawMessage, 0, len(items))
+	for _, it := range items {
+		if rowTenantID(it) != "" {
+			kept = append(kept, it)
+		}
+	}
+	return kept
 }
 
 // sophosScopeLocalItems keeps only the selected tenant's rows for a

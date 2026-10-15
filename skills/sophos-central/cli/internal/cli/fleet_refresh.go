@@ -91,9 +91,22 @@ Per-tenant 403s are expected for trial tenants and term customers without Partne
 			if err != nil {
 				return err
 			}
-			tenants, idType, err := fleetTenantsFiltered(ctx, c, filter, flagIncludeTrial)
+			// An unfiltered refresh lists trial tenants too, to record the
+			// ones it skips (their stored rows are out of scope, not blind).
+			listed, idType, err := fleetTenantsFiltered(ctx, c, filter, flagIncludeTrial || len(filter) == 0)
 			if err != nil {
 				return classifyAPIErrorOnly(err)
+			}
+			tenants, trialSkipped := listed, []string(nil)
+			if !flagIncludeTrial && len(filter) == 0 {
+				tenants = make([]fleetTenant, 0, len(listed))
+				for _, t := range listed {
+					if strings.EqualFold(t.BillingType, "trial") {
+						trialSkipped = append(trialSkipped, t.ID)
+						continue
+					}
+					tenants = append(tenants, t)
+				}
 			}
 			if cliutil.IsDogfoodEnv() && len(tenants) > 2 {
 				tenants = tenants[:2] // live dogfood: stay inside the 30s matrix budget
@@ -106,7 +119,7 @@ Per-tenant 403s are expected for trial tenants and term customers without Partne
 			// stale rows cannot pin freshness or linger in triage. Only such a
 			// refresh moves the fleet-wide sync stamps.
 			fullScope := len(filter) == 0 && !cliutil.IsDogfoodEnv()
-			return runFleetSync(ctx, cmd, flags, c, tenants, resources, since, fleetDBPath(dbPath), fullScope)
+			return runFleetSync(ctx, cmd, flags, c, tenants, resources, since, fleetDBPath(dbPath), fullScope, trialSkipped)
 		},
 	}
 	cmd.Flags().StringVar(&flagResources, "resources", strings.Join(fleetSyncResources, ","), "Comma-separated resources to sync: tenants,endpoints,alerts,health,licenses")
@@ -193,7 +206,7 @@ func planFleetSync(tenants []fleetTenant, resources []string, idType string, rat
 	return p
 }
 
-func runFleetSync(ctx context.Context, cmd *cobra.Command, flags *rootFlags, c *client.Client, tenants []fleetTenant, resources []string, since time.Duration, dbPath string, fullScope bool) error {
+func runFleetSync(ctx context.Context, cmd *cobra.Command, flags *rootFlags, c *client.Client, tenants []fleetTenant, resources []string, since time.Duration, dbPath string, fullScope bool, trialSkipped []string) error {
 	started := time.Now().UTC()
 	db, err := store.OpenWithContext(ctx, dbPath)
 	if err != nil {
@@ -247,7 +260,7 @@ func runFleetSync(ctx context.Context, cmd *cobra.Command, flags *rootFlags, c *
 			}
 		}
 		raw, _ := json.Marshal(row)
-		if _, _, err := db.UpsertBatch(fleetLedgerType, []json.RawMessage{raw}); err != nil {
+		if err := replaceFleetDoc(db, fleetLedgerType, raw); err != nil {
 			return fmt.Errorf("storing fleet ledger for %s: %w", t.ID, err)
 		}
 		attempted++
@@ -281,7 +294,7 @@ func runFleetSync(ctx context.Context, cmd *cobra.Command, flags *rootFlags, c *
 	}
 	if fullScope {
 		// An empty listing is an answer too: every stored tenant left.
-		pruned, err := pruneOutOfScopeTenants(db, tenants)
+		pruned, err := pruneOutOfScopeTenants(db, tenants, started)
 		if err != nil {
 			return fmt.Errorf("removing tenants no longer in scope: %w", err)
 		}
@@ -294,9 +307,12 @@ func runFleetSync(ctx context.Context, cmd *cobra.Command, flags *rootFlags, c *
 			}
 		}
 	}
-	meta := fleetSyncMeta{ID: "sync", StartedAt: started, FinishedAt: time.Now().UTC(), PrevStartedAt: prev.StartedAt, TenantsAttempts: attempted}
+	meta := fleetSyncMeta{ID: "sync", StartedAt: started, FinishedAt: time.Now().UTC(), PrevStartedAt: prev.StartedAt, TenantsAttempts: attempted, TrialSkipped: trialSkipped}
+	if !fullScope {
+		meta.TrialSkipped = prev.TrialSkipped
+	}
 	if raw, err := json.Marshal(meta); err == nil {
-		_, _, _ = db.UpsertBatch(fleetMetaType, []json.RawMessage{raw})
+		_ = replaceFleetDoc(db, fleetMetaType, raw)
 	}
 
 	// Expected per-tenant outcomes (403, no apiHost) are recorded and do not
@@ -378,7 +394,7 @@ func syncOneTenant(ctx context.Context, c *client.Client, db *store.Store, t fle
 				return 0, err
 			}
 			if prevRaw, gerr := db.Get(fleetHealthType, t.ID); gerr == nil && len(prevRaw) > 0 {
-				_, _, _ = db.UpsertBatch(fleetHealthPrevType, []json.RawMessage{prevRaw})
+				_ = replaceFleetDoc(db, fleetHealthPrevType, prevRaw)
 			}
 			return 1, storeTenantDoc(db, fleetHealthType, t, raw)
 		}},
@@ -531,10 +547,28 @@ func storeTenantDoc(db *store.Store, resourceType string, t fleetTenant, raw jso
 	if err != nil {
 		return err
 	}
-	if _, _, err := db.UpsertBatch(resourceType, []json.RawMessage{b}); err != nil {
+	if err := replaceFleetDoc(db, resourceType, b); err != nil {
 		return fmt.Errorf("storing %s: %w", resourceType, err)
 	}
 	return nil
+}
+
+// replaceFleetDoc stores a fleet snapshot exactly as given. UpsertBatch keeps
+// richer existing JSON (an omitted key or an empty array keeps the old
+// value), which suits API rows but not a snapshot: a refresh that returns no
+// licences, or a ledger outcome with no window or error, must replace.
+func replaceFleetDoc(db *store.Store, resourceType string, raw json.RawMessage) error {
+	var doc struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(raw, &doc); err != nil || doc.ID == "" {
+		return fmt.Errorf("%s document has no id", resourceType)
+	}
+	if _, err := db.DB().Exec(`DELETE FROM resources WHERE resource_type = ? AND id = ?`, resourceType, doc.ID); err != nil {
+		return err
+	}
+	_, _, err := db.UpsertBatch(resourceType, []json.RawMessage{raw})
+	return err
 }
 
 func truncateErr(err error) string {
@@ -549,7 +583,7 @@ func truncateErr(err error) string {
 // listing no longer returns: their tenant and ledger rows, health and licence
 // documents, and endpoint and alert rows (including rows plain sync stored
 // for a tenant fleet refresh never recorded). It returns the removed tenant IDs.
-func pruneOutOfScopeTenants(db *store.Store, tenants []fleetTenant) ([]string, error) {
+func pruneOutOfScopeTenants(db *store.Store, tenants []fleetTenant, started time.Time) ([]string, error) {
 	scope := make(map[string]bool, len(tenants))
 	ids := make([]string, 0, len(tenants))
 	for _, t := range tenants {
@@ -593,11 +627,19 @@ func pruneOutOfScopeTenants(db *store.Store, tenants []fleetTenant) ([]string, e
 			return nil, err
 		}
 	}
+	keep := append([]string(nil), ids...)
 	gone := make([]string, 0)
 	for id := range stored {
-		if !scope[id] {
-			gone = append(gone, id)
+		if scope[id] {
+			continue
 		}
+		// A --tenant refresh that ran alongside this one (a customer
+		// onboarded mid-run) wrote its ledger row after this listing.
+		if ledger[id].SyncedAt.After(started) {
+			keep = append(keep, id)
+			continue
+		}
+		gone = append(gone, id)
 	}
 	sort.Strings(gone)
 	for _, id := range gone {
@@ -606,11 +648,16 @@ func pruneOutOfScopeTenants(db *store.Store, tenants []fleetTenant) ([]string, e
 			if _, err := db.ReconcilePartition(rt, "$.tenant.id", id, nil, typed, nil); err != nil {
 				return nil, err
 			}
+			// Its checkpoints go too, or a local read would date an empty
+			// list with the last plain sync of a tenant no longer stored.
+			if err := db.SaveSyncStateAt(rt+"@"+id, "", 0, time.Time{}); err != nil {
+				return nil, err
+			}
 		}
 	}
 	for _, rt := range []string{"tenants", fleetLedgerType, fleetHealthType, fleetHealthPrevType, fleetLicensesType} {
 		typed, _ := store.TypedListTable(rt)
-		if _, err := db.ReconcileAll(rt, ids, typed, nil); err != nil {
+		if _, err := db.ReconcileAll(rt, keep, typed, nil); err != nil {
 			return nil, err
 		}
 	}

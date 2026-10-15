@@ -85,7 +85,7 @@ func TestFullRefreshPrunesTenantsThatLeftScope(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	pruned, err := pruneOutOfScopeTenants(db, []fleetTenant{keep})
+	pruned, err := pruneOutOfScopeTenants(db, []fleetTenant{keep}, time.Now())
 	if err != nil || len(pruned) != 1 || pruned[0] != "T2" {
 		t.Fatalf("pruned=%v err=%v", pruned, err)
 	}

@@ -13,8 +13,10 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"sophos-central-pp-cli/internal/cliutil/testenv"
 	"sophos-central-pp-cli/internal/store"
@@ -154,9 +156,24 @@ func TestPruneCoversEndpointsOfUnrecordedTenants(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	pruned, err := pruneOutOfScopeTenants(db, []fleetTenant{{ID: "T1", Name: "Acme"}})
+	if err := db.SaveSyncState("endpoints@T9", "", 1); err != nil {
+		t.Fatal(err)
+	}
+	// T4 was written by a --tenant refresh that ran alongside this one.
+	started := time.Now().UTC()
+	row, _ := json.Marshal(fleetLedgerRow{ID: "T4", Status: "ok", SyncedAt: started.Add(time.Second)})
+	if _, _, err := db.UpsertBatch(fleetLedgerType, []json.RawMessage{row}); err != nil {
+		t.Fatal(err)
+	}
+	pruned, err := pruneOutOfScopeTenants(db, []fleetTenant{{ID: "T1", Name: "Acme"}}, started)
 	if err != nil || len(pruned) != 1 || pruned[0] != "T9" {
 		t.Fatalf("pruned=%v err=%v", pruned, err)
+	}
+	if _, at, _, _ := db.GetSyncState("endpoints@T9"); !at.IsZero() {
+		t.Fatalf("a pruned tenant's checkpoint must not date later local reads: %v", at)
+	}
+	if ledger, _ := loadFleetLedger(db); ledger["T4"].ID != "T4" {
+		t.Fatal("a tenant refreshed after the listing must not be pruned")
 	}
 	for _, rt := range []string{"endpoints", "alerts"} {
 		n := 0
@@ -178,5 +195,48 @@ func TestNamelessTenantsRowIsNotATenant(t *testing.T) {
 	got := unrefreshedTenants(f, map[string]fleetLedgerRow{"T1": {ID: "T1"}}, nil)
 	if len(got) != 1 || got[0].TenantID != "T9" {
 		t.Fatalf("endpoints plain sync stored for a tenant fleet refresh never reached must be blind: %+v", got)
+	}
+	f.put(fleetMetaType, "sync", fleetSyncMeta{ID: "sync", TrialSkipped: []string{"T9"}})
+	if got := unrefreshedTenants(f, map[string]fleetLedgerRow{"T1": {ID: "T1"}}, nil); len(got) != 0 {
+		t.Fatalf("a trial tenant the last refresh skipped is out of scope, not blind: %+v", got)
+	}
+}
+
+func TestReceiptsAreNotCachedAsEndpointRows(t *testing.T) {
+	rows := []json.RawMessage{json.RawMessage(`{"id": "scan-1", "status": "requested"}`), json.RawMessage(`{"id": "E1", "tenant": {"id": "T1"}}`)}
+	if got := sophosAttributableRows("endpoints", rows); len(got) != 1 || rowTenantID(got[0]) != "T1" {
+		t.Fatalf("a tenant-less receipt must not be cached among endpoints: %s", got)
+	}
+	if got := sophosAttributableRows("tenants", rows); len(got) != 2 {
+		t.Fatal("partner-level rows carry no tenant and are kept")
+	}
+}
+
+func TestFleetSnapshotsReplaceInsteadOfMerging(t *testing.T) {
+	db, err := store.OpenWithContext(context.Background(), filepath.Join(t.TempDir(), "data.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	ten := fleetTenant{ID: "T1", Name: "Acme"}
+	if err := storeTenantDoc(db, fleetLicensesType, ten, json.RawMessage(`{"licenses": [{"id": "L1", "quantity": 5}]}`)); err != nil {
+		t.Fatal(err)
+	}
+	if err := storeTenantDoc(db, fleetLicensesType, ten, json.RawMessage(`{"licenses": []}`)); err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := db.Get(fleetLicensesType, "T1")
+	if strings.Contains(string(raw), "L1") {
+		t.Fatalf("a refresh that returns no licences must not keep the old ones: %s", raw)
+	}
+	windowed, _ := json.Marshal(fleetLedgerRow{ID: "T1", Status: "ok", Resources: map[string]fleetOutcome{"alerts": {Status: "ok", Window: "24h0m0s"}}})
+	full, _ := json.Marshal(fleetLedgerRow{ID: "T1", Status: "ok", Resources: map[string]fleetOutcome{"alerts": {Status: "ok"}}})
+	for _, r := range []json.RawMessage{windowed, full} {
+		if err := replaceFleetDoc(db, fleetLedgerType, r); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if ledger, _ := loadFleetLedger(db); ledger["T1"].Resources["alerts"].Window != "" {
+		t.Fatal("a full fetch after a --since fetch must clear the window")
 	}
 }
