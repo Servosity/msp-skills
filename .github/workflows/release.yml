@@ -570,17 +570,49 @@ jobs:
           # partially-failed release idempotent.
           gh release upload "$TAG" "mcpb-build/${MCPB_ASSET}" --clobber
 
+  # Run the Windows binaries on a real Windows machine BEFORE the seal. Most
+  # MSPs run these connectors on Windows, and until this job nothing ever
+  # executed a Windows binary: the build job cross-compiles windows/amd64 on
+  # Linux, and its run-the-binary probe can only run the linux/amd64 row. A
+  # connector that compiles for Windows can still fail there on first run (a
+  # path built from $HOME, a companion-CLI lookup without ".exe", a store that
+  # cannot open), and before this job it would have been sealed that way.
+  #
+  # It reads the just-built windows-amd64 CLI and MCP server and the .mcpb
+  # from the DRAFT, then checks --version, --help, doctor, an MCP initialize +
+  # tools/list handshake, and one tools/call that shells out to the companion
+  # CLI .exe, in both the install.ps1 layout and the bundle's win32 layout.
+  # The same workflow smokes an already-published release on demand
+  # (source: published); see .github/workflows/windows-smoke.yml.
+  #
+  # Inside the seal's `needs:` closure on purpose: a failure here leaves the
+  # release a DRAFT, so it is fixed and re-run, never sealed broken.
+  # check_release_pipeline.py requires it (WINDOWS-SMOKE-BEFORE-SEAL).
+  windows_smoke:
+    needs: [prepare, create-release, build, mcpb]
+    if: needs.prepare.outputs.any == 'true' && needs.create-release.outputs.sealed == 'false'
+    permissions:
+      # Drafts are readable only with push access. The called workflow keeps
+      # this credential in its download job; the Windows job that executes the
+      # binaries holds contents: read.
+      contents: write
+    uses: ./.github/workflows/windows-smoke.yml
+    with:
+      tag: ${{ github.ref_name }}
+      source: draft
+
   # THE SEAL. Publishing is what makes a release immutable, so it is the last
   # thing this workflow does and it happens only after the asset set is proven
   # complete against the shared source of truth.
   #
   # `needs` is the safety property: if ANY of the six build targets failed, or
-  # the bundle failed to build or validate, this job never runs and the release
-  # stays a DRAFT - invisible to installers, invisible to the install one-liners,
-  # and still fixable by re-running the workflow. The failure mode this replaces
-  # was a published, permanently empty release.
+  # the bundle failed to build or validate, or the Windows binaries failed to
+  # run, this job never runs and the release stays a DRAFT - invisible to
+  # installers, invisible to the install one-liners, and still fixable by
+  # re-running the workflow. The failure mode this replaces was a published,
+  # permanently empty release.
   publish:
-    needs: [prepare, create-release, build, mcpb]
+    needs: [prepare, create-release, build, mcpb, windows_smoke]
     if: needs.prepare.outputs.any == 'true' && needs.create-release.outputs.sealed == 'false'
     runs-on: ubuntu-latest
     permissions:

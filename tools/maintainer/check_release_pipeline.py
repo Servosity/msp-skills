@@ -57,7 +57,7 @@ Two directions, both mechanical:
 
 What "contains the draft-then-seal pipeline" means, mechanically
 ----------------------------------------------------------------
-Five requirements, all read from the workflow at the target commit:
+Six requirements, all read from the workflow at the target commit:
 
   R1 CREATE-IS-DRAFT   every `gh release create` carries `--draft`, and there is
                        at least one. This is the requirement the old
@@ -75,6 +75,15 @@ Five requirements, all read from the workflow at the target commit:
                        on the registry-owned MCPB_ASSET variable or the .mcpb
                        extension, so the bundle is inside the sealing contract
                        rather than chasing a release that is already immutable.
+  R6 WINDOWS-SMOKE-BEFORE-SEAL
+                       a job in the sealing job's `needs:` closure runs the
+                       release's Windows binaries on a Windows runner - the
+                       reusable .github/workflows/windows-smoke.yml, or a
+                       windows runner job that runs windows_smoke.ps1 - so a
+                       connector that compiles for Windows but cannot run there
+                       is caught while the release is still a mutable draft.
+                       Most MSPs run these connectors on Windows; before this
+                       nothing executed a Windows binary before the seal.
 
 Reaching the HAND-TAGGING path, which is where the damage happens
 ----------------------------------------------------------------
@@ -171,6 +180,12 @@ GATE_FLAG = "--with-mcpb"
 # commit of this very branch did (it uploaded "mcpb-build/${slug}-mcp.mcpb"),
 # and refusing that would have been a false-RED.
 BUNDLE_MARKERS = ("MCPB_ASSET", ".mcpb")
+# The Windows smoke, either as the reusable workflow (matched on the `uses:`
+# line that calls it) or as an inline job that runs the script on a Windows
+# runner. The script alone is not enough: on a Linux runner it would execute
+# nothing Windows-shaped, so the inline form also needs a windows `runs-on`.
+WINDOWS_SMOKE_WORKFLOW = ".github/workflows/windows-smoke.yml"
+WINDOWS_SMOKE_SCRIPT = "windows_smoke.ps1"
 
 
 class ProbeError(Exception):
@@ -344,6 +359,25 @@ def evaluate(text: str) -> list[tuple[str, str]]:
             f"bundle (`{UPLOAD}` naming one of {list(BUNDLE_MARKERS)}); the "
             "bundle would have to be attached after the release is immutable, "
             "which cannot succeed",
+        ))
+
+    # R6 - the Windows binaries run on Windows before the release is sealed.
+    def runs_windows_smoke(lines: list[str]) -> bool:
+        if any(re.match(r"^\s{4}uses:\s*\S*" + re.escape(WINDOWS_SMOKE_WORKFLOW) + r"\b", ln)
+               for ln in lines):
+            return True
+        on_windows = any(re.match(r"^\s{4}runs-on:.*windows", ln, re.IGNORECASE) for ln in lines)
+        return on_windows and any(WINDOWS_SMOKE_SCRIPT in ln for ln in lines)
+
+    smokers = {n for n in closure - {seal_job} if runs_windows_smoke(code[n])}
+    if not smokers:
+        failures.append((
+            "WINDOWS-SMOKE-BEFORE-SEAL",
+            f"no job in the `needs:` closure of the sealing job {seal_job!r} runs the "
+            f"Windows binaries on Windows (`uses: ./{WINDOWS_SMOKE_WORKFLOW}`, or a "
+            f"windows `runs-on` job running {WINDOWS_SMOKE_SCRIPT}), so a connector "
+            "that compiles for Windows but cannot start there would be sealed that "
+            "way, permanently",
         ))
 
     return failures
@@ -569,8 +603,11 @@ jobs:
     needs: [prepare, create-release, build]
     steps:
       - run: gh release upload "$TAG" "mcpb-build/${MCPB_ASSET}" --clobber
+  windows_smoke:
+    needs: [build]
+    uses: ./.github/workflows/windows-smoke.yml
   publish:
-    needs: [prepare, create-release, build, mcpb]
+    needs: [prepare, create-release, build, mcpb, windows_smoke]
     steps:
       - run: |
           gh release view "$TAG" --json assets | python3 tools/maintainer/check_release_assets.py --tag "$TAG" --with-mcpb
@@ -645,8 +682,8 @@ jobs:
                        "  mcpb:\n    needs: [prepare, create-release, build]",
                        "  mcpb:\n    needs: [prepare]")
     detached = _mutate(detached,
-                       "    needs: [prepare, create-release, build, mcpb]",
-                       "    needs: [prepare, create-release, build]")
+                       "    needs: [prepare, create-release, build, mcpb, windows_smoke]",
+                       "    needs: [prepare, create-release, build, windows_smoke]")
     case("an uploader outside the seal's needs closure is refused",
          detached, {"SEAL-NEEDS-UPLOADS", "BUNDLE-IN-CONTRACT"})
 
@@ -668,6 +705,37 @@ jobs:
                  '      - run: gh release upload "$TAG" "mcpb-build/${MCPB_ASSET}" --clobber',
                  '      - run: echo "bundle handled elsewhere"'),
          {"BUNDLE-IN-CONTRACT"})
+
+    # FIRES when nothing runs the Windows binaries before the seal - the state
+    # of every release before this requirement existed.
+    no_smoke = _mutate(_GOOD_SKELETON,
+                       "  windows_smoke:\n    needs: [build]\n    uses: ./.github/workflows/windows-smoke.yml\n", "")
+    no_smoke = _mutate(no_smoke, "mcpb, windows_smoke]", "mcpb]")
+    case("a pipeline with no Windows smoke is refused", no_smoke, {"WINDOWS-SMOKE-BEFORE-SEAL"})
+
+    # FIRES when the smoke exists but the seal does not wait for it: the
+    # release could go immutable while (or before) Windows says no.
+    case("a Windows smoke outside the seal's needs closure is refused",
+         _mutate(_GOOD_SKELETON, "mcpb, windows_smoke]", "mcpb]"),
+         {"WINDOWS-SMOKE-BEFORE-SEAL"})
+
+    # FIRES when the smoke is only QUOTED in a comment.
+    case("a Windows smoke named only in a comment satisfies nothing",
+         _mutate(_GOOD_SKELETON, "    uses: ./.github/workflows/windows-smoke.yml\n",
+                 "    # uses: ./.github/workflows/windows-smoke.yml\n    runs-on: ubuntu-latest\n"),
+         {"WINDOWS-SMOKE-BEFORE-SEAL"})
+
+    # SILENT on the inline shape: a windows runner job running the script.
+    inline = ("    runs-on: windows-latest\n    steps:\n"
+              "      - run: powershell -File tools/maintainer/windows_smoke.ps1 -BinDir bin\n")
+    case("an inline windows-latest job running windows_smoke.ps1 passes",
+         _mutate(_GOOD_SKELETON, "    uses: ./.github/workflows/windows-smoke.yml\n", inline), set())
+
+    # FIRES when the script runs on a Linux runner: nothing Windows ran.
+    case("windows_smoke.ps1 on a Linux runner does not count",
+         _mutate(_GOOD_SKELETON, "    uses: ./.github/workflows/windows-smoke.yml\n",
+                 inline.replace("windows-latest", "ubuntu-latest")),
+         {"WINDOWS-SMOKE-BEFORE-SEAL"})
 
     # FIRES when a comment merely QUOTES the commands. Comments in release.yml
     # quote every one of these strings; a probe that counted them would pass a
@@ -800,7 +868,7 @@ jobs:
             print(f"  - {f}", file=sys.stderr)
         return 1
     print("check_release_pipeline self-test passed (the repo's own release.yml is "
-          "endorsable and a clean tag is endorsable; nine broken pipeline shapes, "
+          "endorsable and a clean tag is endorsable; thirteen broken pipeline shapes, "
           "eleven bad tags and five malformed ledgers are refused).")
     return 0
 
@@ -905,6 +973,16 @@ def main() -> int:
         print("  workflow, at THAT commit, not the one on main:", file=sys.stderr)
         for rid, why in failures:
             print(f"  - [{rid}] {why}", file=sys.stderr)
+        if {rid for rid, _ in failures} == {"WINDOWS-SMOKE-BEFORE-SEAL"}:
+            # The draft-then-seal mechanics are intact; only the Windows run is
+            # missing. The release would seal complete but never run on Windows.
+            print("  The release would seal with its asset set complete, but without its "
+                  "Windows", file=sys.stderr)
+            print("  binaries ever having run, and a sealed release cannot be repaired. "
+                  "Tag a later", file=sys.stderr)
+            print("  commit of main that carries the Windows smoke (the version stamp "
+                  "carries forward).", file=sys.stderr)
+            return 1
         print("  Under immutable releases the result is a permanently sealed, "
               "incomplete", file=sys.stderr)
         print("  release and a spent version number. Tag a commit that carries the "
