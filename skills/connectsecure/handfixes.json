@@ -1357,8 +1357,21 @@
    "asserts": [
     {
      "file": "cli/internal/cli/sync.go",
-     "contains": "// Hand-fix (handfixes.json: prune-hand-keyed-reports)",
-     "min_count": 3
+     "contains": "\"report_queries-event-tickets\":                                                 \"flat_global\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"report_queries-external-asset-vulnerabilities\":                                \"flat_global\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"report_queries-remediate-records-companies\":                                   \"flat_global\",",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   },
@@ -1419,7 +1432,9 @@
     },
     {
      "file": "cli/internal/store/store.go",
-     "contains": "// Hand-fix (handfixes.json: report-queries-own-partition)"
+     "contains": "\"report_queries_ad_computers_view\":                                             \"object_guid\",",
+     "min_count": 1,
+     "code_only": true
     }
    ]
   },
