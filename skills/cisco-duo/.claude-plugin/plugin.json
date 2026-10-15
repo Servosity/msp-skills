@@ -1,0 +1,21 @@
+{
+  "name": "cisco-duo",
+  "version": "0.1.0",
+  "description": "Fix Duo MFA lockouts in one command and see every MSP subaccount at once, with signed Admin API calls.",
+  "author": {
+    "name": "Servosity",
+    "url": "https://www.servosity.com"
+  },
+  "homepage": "https://github.com/servosity/msp-skills/tree/main/skills/cisco-duo",
+  "repository": "https://github.com/servosity/msp-skills",
+  "license": "Apache-2.0",
+  "keywords": [
+    "cisco-duo",
+    "cisco duo",
+    "security",
+    "msp",
+    "mcp",
+    "claude-code",
+    "claude-mcp"
+  ]
+}

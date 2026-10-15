@@ -1,0 +1,1314 @@
+{
+ "slug": "cisco-duo",
+ "doc": "docs/reprint-survival.md",
+ "_comment": "Connector-specific edits to GENERATED/authored files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and banned anti-patterns absent) and fails CI if a reprint dropped one. Not applicable on this print: mcp-recipe-argv-not-flag-like (press 4.33.5 emits no internal/mcp/intents.go for this connector); mcp-argv-value-joined, mcp-filesystem-destination-gate and mcp-tenant-gate-allows-ungated-invocation are emitted natively by press 4.33.5.",
+ "handfixes": [
+  {
+   "id": "duo-v5-hmac-signer-subaccount-routing",
+   "summary": "Hand-written Duo Admin API v5 HMAC-SHA512 request signer with MSP subaccount routing, installed on every CLI and MCP client",
+   "why": "Duo signs every Admin API request (https://duo.com/docs/adminapi#authentication); the generated client only knows a static Basic header, so without this transport every call answers 401 code 40101. internal/client/duo_signer.go replaces the generated 'Basic ikey:skey' header with a per-request v5 signature (the secret key never leaves the process) and routes a pinned subaccount to that subaccount's own api_hostname with account_id. Two security properties the factory's 11 Codex review rounds converged on: (1) only an exact cached account ID is answered from the subaccount cache - a name is always re-resolved against a freshly fetched /accounts/v1/account/list, so a newly created or newly duplicated name is never routed to a stale tenant; (2) an Authorization header the signer cannot parse is DROPPED, never forwarded unsigned (it may still carry the secret), and Duo answers 401 itself. internal/cli/duo_hooks.go installs the signer through registerClientHook on CLI and MCP clients, declares the root --account-id flag (env CISCO_DUO_ACCOUNT_ID), and keeps a separate local store per pinned subaccount (pinSubaccountDataDir) so one customer's mirror can never be adopted by another. Source of truth: ~/Documents/Dev/cli-factory/cisco-duo/handwritten/ (re-applied by tools/regen.sh). The factory HANDFIXES.md rows for internal/config/cisco_duo_config.go (StoreScopeIdentity) and the go.mod golang.org/x/net v0.60.0 pin are superseded in the published tree: store isolation moved to pinSubaccountDataDir, and x/net is no longer a dependency at all. Codex review 2026-10-13 (P1): a store keyed by a subaccount NAME (subaccounts/name-<slug>-<hash>) was never tied to an account, so after a customer rename or reassignment the name's mirror held the previous customer's data and a sync mixed both. The signer now reports every resolution through client.AccountResolvedHook, and duo_hooks.go bindNameStore writes the resolved account ID into an account-id marker on first use and refuses the store (HTTP 400 40002, naming the new ID) once the name resolves elsewhere; ID-keyed stores need no marker. Receipt: stub e2e, run 1 bound the name to DA..A, run 2 after the name moved to DB..B was refused, run 3 by ID succeeded. A local-only read sends no request, so it cannot notice the move before the next live call (documented: pin by ID). Codex review round 2: the binding skipped every ID-SHAPED pin, so a subaccount whose NAME looks like an account ID escaped it; it now skips only a pin that resolved to itself (the account's own ID). The marker is read through cliutil.ReadFileWithLegacyFallback, which keeps gosec G703 off the env-derived path, and written 0600 by claimStoreMarker (round 5). Codex review round 3: (a) ID pins are bound too (an account deleted and its ID string later used as another account's name would otherwise adopt the old mirror), so the only skip is a request for a subaccount other than the pin; (b) `sync --param/--global-param account_id=...` is refused (refuseSyncParams), because it fetched one subaccount into the current store; --account-id routes the sync and gives it its own store. Receipts: the old skip fails TestNameStoreBoundToResolvedAccount; stub e2e `sync --param account_id=...` exits 2 before any request. Codex round 4: `sync --resource-param <resource>:account_id=...` was a third route around the guard; it is refused too (TestRefuseSyncParams; e2e exit 2 for all forms). Codex round 5: (a) the sync-param guard now runs AFTER the generated pre-run, which applies a saved --profile's values, so a profile cannot carry account_id past it (e2e: profile-carried param exits 2 with zero requests; a benign profile still syncs); (b) the store marker is published by claimStoreMarker with a hard link, so two first runs racing on one store cannot both claim it (TestClaimStoreMarkerIsExclusive fails when the link is swapped for an overwriting rename). Codex round 6: (a) the generated response cache keys on the request as built, so any name-routed call (the billing commands' own local --account-id, an MCP execute account_id) could be served a reassigned name's response; the client hook now sets NoCache unconditionally (e2e: two identical reads reach the API twice; with the cache, once); (b) sync refuses every filter parameter except limit, because sync marks what it fetched as complete and the audits trust that (a filtered mirror reported a partial tenant as clean). Codex round 7: limit is refused too (limit=1 ends the paginator after one page, a partial mirror marked complete), so sync takes no --param/--global-param/--resource-param at all. Adversarial round 6 (pass; P2s fixed): on a filesystem without hard links (exFAT) the marker claim falls back to an O_EXCL create (e2e on an exFAT disk image: binds, re-runs, refuses a moved name); the three refused sync flags are hidden, so --help and the MCP sync tool schema no longer advertise them. Codex round 8 (P2) + round 9 (P1 on the first fix): the O_EXCL fallback creates the marker before writing it, so a concurrent first run could read it empty and report a false tenant mismatch. bindNameStore now waits up to 1s for a concurrent claimant to finish; a marker still empty after that is refused with an explicit 'empty account-id marker' error and is NEVER overwritten (round 9 showed a takeover lets a delayed claimant's account A be overwritten by B, which adopts A's store). TestEmptyStoreMarker fails against both the pre-fix code (false mismatch) and the takeover (overwrite). Adversarial round 7 (pass; P2 fixed): the empty-marker refusal advises deleting the store DIRECTORY, not just the marker, because a crash can leave the marker empty next to another tenant's synced rows, and deleting only the marker would let the next run adopt them. Codex merge review 2026-10-15 (P1, see request-account-must-match-pin): the hook now always receives the PIN and the account it resolved to, on every request routed while a pin is set, so a name-keyed store is checked even when the request itself names the same account by ID.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/duo_signer.go",
+     "contains": "func NewDuoSigner(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/duo_signer.go",
+     "contains": "unsigned.Header.Del(\"Authorization\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/duo_signer.go",
+     "contains": "if !loadedHere {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/duo_signer.go",
+     "contains": "const DuoAccountEnv = \"CISCO_DUO_ACCOUNT_ID\"",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/duo_signer_test.go",
+     "contains": "func TestDuoSignerNeverForwardsUnsignableCredentials(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/duo_signer_test.go",
+     "contains": "func TestDuoSignerNameAmbiguityNotHiddenByCache(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/duo_hooks.go",
+     "contains": "registerClientHook(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/duo_hooks.go",
+     "contains": "\"account-id\"",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/duo_hooks.go",
+     "contains": "func pinSubaccountDataDir(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/duo_signer.go",
+     "contains": "var AccountResolvedHook func(requested, accountID string) error",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/duo_signer.go",
+     "contains": "if err := hook(pinned, pinAcct.AccountID); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/duo_hooks.go",
+     "contains": "client.AccountResolvedHook = bindNameStore",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/duo_hooks.go",
+     "contains": "func bindNameStore(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/duo_novel_logic_test.go",
+     "contains": "func TestNameStoreBoundToResolvedAccount(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/duo_hooks.go",
+     "contains": "if name == \"\" || !strings.EqualFold(name, currentAccountID()) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/duo_hooks.go",
+     "contains": "func refuseSyncParams(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/duo_hooks.go",
+     "contains": "for _, name := range []string{\"param\", \"global-param\", \"resource-param\"} {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/duo_novel_logic_test.go",
+     "contains": "func TestRefuseSyncParams(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/duo_hooks.go",
+     "contains": "return refuseSyncParams(cmd)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/duo_hooks.go",
+     "contains": "func claimStoreMarker(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/duo_hooks.go",
+     "contains": "err = os.Link(tmp.Name(), marker)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/duo_novel_logic_test.go",
+     "contains": "func TestClaimStoreMarkerIsExclusive(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/duo_hooks.go",
+     "contains": "\t\tc.NoCache = true\n\t\treturn nil",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/duo_hooks.go",
+     "contains": "sync builds the complete local mirror the audits rely on",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/duo_hooks.go",
+     "contains": "os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/duo_hooks.go",
+     "contains": "_ = syncCmd.Flags().MarkHidden(name)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/duo_hooks.go",
+     "contains": "for i := 0; was == \"\" && i < 20; i++ {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/duo_novel_logic_test.go",
+     "contains": "func TestEmptyStoreMarker(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/duo_hooks.go",
+     "contains": "has an empty account-id marker (an interrupted first run)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/duo_hooks.go",
+     "contains": "delete that directory and re-run, or pass --account-id %s\", name, dir, accountID)",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "duo-novel-commands",
+   "summary": "The approved Duo transcendence commands: lockout triage/fix, phone-swap, fleet summary/risk/find-user, audit bypass/stale, enrollment chase, failures",
+   "why": "Hand-written whole files (never emitted by the generator), registered through registerNovelCommand. They are the reason this connector exists: every outcome row in page.json, README.md and the docs page names one of them, and check_cli_claims fails if they disappear, but a reprint that drops the files would also silently drop the safety properties they carry - lockout fix and phone-swap preview by default and change Duo only with --apply, lockout fix unlocks only a 'locked out' user and creates bypass codes with preserve_existing=true, phone-swap deletes an old phone only when no other user shares it. Source of truth: ~/Documents/Dev/cli-factory/cisco-duo/handwritten/internal/cli/. Codex review 2026-10-13 (P1): enrollment chase --apply emailed an enrollment link to active, unenrolled members of a Disabled group; selectChaseTargets now skips them (an enrollment link is a way through MFA), and the tier tables move enrollment chase --apply to MFA access. Codex round 4 (P1): the local audits (audit bypass, audit stale) read only sync_state.last_synced_at, so after a completed sync followed by an interrupted refresh (last_attempt_complete=0, unfetched pages possibly holding newly bypassed users) they reported complete=true. syncGaps now treats an interrupted (or unreadable) last attempt as incomplete with its own hint. Receipts: TestSyncGapsCountsAnInterruptedSync fails without it; e2e a completed sync records last_attempt_complete=1 and the audit still reports complete=true (no false-RED).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/duo_helpers.go",
+     "contains": "func ",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/audit.go",
+     "contains": "func newNovel",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/audit_bypass.go",
+     "contains": "func newNovel",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/audit_stale.go",
+     "contains": "func newNovel",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/enrollment.go",
+     "contains": "func newNovel",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/enrollment_chase.go",
+     "contains": "func newNovel",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/failures.go",
+     "contains": "func newNovel",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/fleet.go",
+     "contains": "func newNovel",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/fleet_find_user.go",
+     "contains": "func newNovel",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/fleet_risk.go",
+     "contains": "func newNovel",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/fleet_summary.go",
+     "contains": "func newNovel",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/lockout.go",
+     "contains": "func newNovel",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/lockout_fix.go",
+     "contains": "func newNovel",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/lockout_triage.go",
+     "contains": "func newNovel",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/phone_swap.go",
+     "contains": "func newNovel",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/lockout_fix.go",
+     "contains": "\"preserve_existing\": true",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/duo_novel_logic_test.go",
+     "contains": "func Test",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/enrollment_chase.go",
+     "contains": "u.HasPassword || disabledGroup(u) != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/audit_bypass.go",
+     "contains": "func lastSyncInterrupted(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/audit_bypass.go",
+     "contains": "case lastSyncInterrupted(db, r):",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/duo_novel_logic_test.go",
+     "contains": "func TestSyncGapsCountsAnInterruptedSync(",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "lockout-fix-held-user-gets-no-bypass",
+   "summary": "an administrator hold (disabled user, a Trust Monitor 'Admin disabled' lock, an 'Admin API disabled' lock) or a Disabled group blocks every access-granting step without --force: lockout fix issues no bypass code or reactivation, phone-swap adds no phone and sends no activation, and lockout triage suggests none of them",
+   "why": "Adversarial review 2026-10-13 (P1): only the unlock step honored the guard. `lockout fix <held user> --bypass --reactivate-phone --apply` still POSTed a bypass code and texted an activation link, then exited 5, and lockout triage recommended `lockout fix <id> --bypass --apply` for an 'Admin disabled' user. A Trust Monitor hold is exactly the case where the caller may be the attacker, so the docs' 'refuses a Trust Monitor hold without --force' was a false safety claim. planFix now blocks every access-granting step while the unlock is held; --force lifts all three together. Applied in the factory handwritten/ tree too (cli-factory commit 1b39e1f). Adversarial review round 2 (2026-10-13, 3 more P1s): (a) triage still suggested `--reactivate-phone` for a held user; (b) Duo's fourth lockout_reason 'Admin API disabled' (status set to locked out through the Admin API: an incident-response or automation hold, and the only hold the API can set on a directory-synced user) was treated like 'Failed Attempts', so it was unlocked and given a bypass code with no --force; (c) phone-swap --apply created, attached and activated a new phone for a held user, and its preview did not show the user's status. One helper, userHold() in duo_helpers.go, now names the hold for lockout fix, lockout triage and phone-swap; a Disabled group withholds the bypass code and activation too (the code would go live the moment the group changes); phone-swap gained --force and a status field. Each fix was reverted separately and the test failed. Mirrored to the factory handwritten/ tree (cli-factory commit de29365). Adversarial review round 3 (2026-10-13, 1 P1): triage still suggested a quarantine release (phones set-quarantine-status) for a held user with a quarantined phone and `users enroll` (returns the enrollment code to the caller) for a 'Not enrolled' user in a Disabled group; both are now behind the same held guard. P2s fixed with it: a user in the Trash ('pending deletion') is a hold too; the group suggestion is `users remove-group` after review, not `groups update --status Active` (which lifts a hold for every member); an enrolled user with no phone (token or WebAuthn) is healthy, not told to attach a phone; lockout fix --force help names everything it lifts. Adversarial review round 4 (2026-10-13) passed with P2s, fixed: triage no longer suggests reactivating a phone it cannot reactivate (quarantined or landline; it now asks pickReactivationPhone) and no longer offers a bypass code to a user whose effective status is already bypass.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/duo_helpers.go",
+     "contains": "func userHold(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/duo_helpers.go",
+     "contains": "case u.lockoutReason() == \"Admin API disabled\":",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/lockout_fix.go",
+     "contains": "held := !opt.force && (hold != \"\" || group != nil)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/lockout_fix.go",
+     "contains": "st.Status, st.Detail = \"blocked\", heldDetail",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/lockout_triage.go",
+     "contains": "held := userHold(u) != \"\" || disabledGroup(u) != nil",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/lockout_triage.go",
+     "contains": "case \"Admin disabled\", \"Admin API disabled\":",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/phone_swap.go",
+     "contains": "fixStep{Step: \"hold\", Status: \"blocked\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/phone_swap.go",
+     "contains": "cmd.Flags().BoolVar(&opt.force, \"force\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/duo_novel_logic_test.go",
+     "contains": "must get no bypass code or activation without --force",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/duo_novel_logic_test.go",
+     "contains": "phone-swap must refuse a held user",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/lockout_triage.go",
+     "contains": "if p.Quarantined && !held {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/lockout_triage.go",
+     "contains": "if u.Email != \"\" && !held {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/lockout_triage.go",
+     "not_contains": "--status Active\"+acctFlag"
+    },
+    {
+     "file": "cli/internal/cli/duo_helpers.go",
+     "contains": "return \"user is in the Trash pending deletion\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/lockout_triage.go",
+     "contains": "if phone, _ := pickReactivationPhone(u, \"\"); phone != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/lockout_triage.go",
+     "contains": "if !held && v.EffectiveStatus != \"bypass\" && (",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "account-pin-ignores-mcpb-placeholder",
+   "summary": "CISCO_DUO_ACCOUNT_ID is read through cliutil.EnvOverride, so an unresolved ${user_config.*} placeholder left by an MCPB host reads as unset",
+   "why": "Adversarial review 2026-10-13 (P1): the .mcpb manifest declares CISCO_DUO_ACCOUNT_ID as an optional field, and some MCPB hosts leave the literal '${user_config.cisco_duo_account_id}' in the environment when the field is blank. PinnedAccountID read it with raw os.Getenv, so a one-click install pinned every call to a subaccount literally named after the template and every non-fleet tool failed with 'subaccount not found'. Every generated env read already goes through EnvOverride for this reason.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/duo_signer.go",
+     "contains": "strings.TrimSpace(cliutil.EnvOverride(DuoAccountEnv))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/duo_signer_test.go",
+     "contains": "func TestPinnedAccountIDIgnoresUnresolvedPlaceholder(",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "doctor-verdict-tracks-reality",
+   "summary": "doctor probes a real signed GET with the real credential and names CISCO_DUO_API_HOST when the API root is still the {api_host} template, instead of reporting 'present, not verified' and calling any HTTP response reachable",
+   "why": "Issue #282 and tools/maintainer/check_doctor_truth.py. The press 4.33.5 doctor printed 'present, not verified' for the credential in every state and called an HTML page at / 'reachable', so a wrong API host and a rejected key produced the same report as a working install. doctor_verdict.go adds doctorProbeCredentials: ONE signed GET /admin/v1/users?limit=1 (needs only 'Grant resource - Read', the permission every user-management Admin API application has, so a correctly scoped key is never misread as scope-limited because the probe picked an admin-only endpoint), classified 200 valid / 401 rejected / 403 scope-limited / 404 wrong base URL (api row corrected too) / 5xx not verified. The placeholder branch names the remedy (CISCO_DUO_API_HOST, or CISCO_DUO_BASE_URL) instead of 'not configured'. Duo's API root is per customer (https://{api_host}), so the generic 'set BASE_URL' remedy would point operators at the wrong variable. Receipts 2026-10-13: a stub that recomputes Duo's v5 HMAC validated the probe's signature including the limit=1 query; a live fake-key run against a real api-*.duosecurity.com host reported 'ERROR rejected (HTTP 401 ...)'. A 403 verdict carries a WARN prefix so `doctor --fail-on warn` exits non-zero for a key that lacks Grant resource - Read (adversarial review 2026-10-13: it exited 0 under every --fail-on mode).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorProbeCredentials(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "doctorProbePath = \"/admin/v1/users?limit=1\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorReachIsRefusedRedirect(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeCredentials(cmd.Context()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorBaseURLRemedy",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "ERROR not verified: no credential is configured",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "present, not verified. Run `%s %s`"
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "\"WARN scope-limited (HTTP 403 from %s)",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "install-credentials-declared-on-every-channel",
+   "summary": "every operator-facing variable the binaries read is declared on all three install channels: manifest.json (.mcpb), server.json (MCP Registry) and mcp-install.md (manual install)",
+   "why": "Issue #282 / check_env_schema.py. The press manifest declared only API_HOST, IKEY and SKEY, so the .mcpb install never offered CISCO_DUO_ACCOUNT_ID (the MSP subaccount pin - without it a bundle install can only ever act on the parent account), CISCO_DUO_MCP_READ_ONLY (the operator kill switch that hides lockout fix / phone-swap / enrollment chase and refuses non-GET calls), CISCO_DUO_MCP_HTTP_TOKEN, CISCO_DUO_BASE_URL, CISCO_DUO_USER_AGENT or PRINTING_PRESS_CLIENT_PROFILE, and server.json masked API_HOST while the manifest printed it. manifest.json, server.json and mcp-install.md are all regenerated by /msp-skills-publish on an UPDATE, so without this ledger a regeneration silently drops the declarations. The parent-data-dir handoff variable is deliberately NOT declared: it is process-internal (the CLI sets it for the subprocesses the MCP server spawns), so it is named PP_CISCO_DUO_PARENT_DATA_DIR and the base-owned PP_ internal prefix in tools/maintainer/env_schema_internal.json classifies it. Its earlier name, CISCO_DUO_PARENT_DATA_DIR, failed check_env_schema as an undeclared operator variable, and a per-slug waiver is not self-grantable from a connector PR. Codex review 2026-10-13 (P1, both fleet-wide template text): the VS Code section told users to create `.mcp.json`, but VS Code reads `.vscode/mcp.json` (root key `servers`); and the ChatGPT section did not say that a ChatGPT connector authenticates with OAuth or not at all, so it cannot send the static bearer token the HTTP transport requires. Both fixed here; the onboard template still carries them for other connectors. Codex round 2: README.md and page.json's ChatGPT answer now say ChatGPT needs an OAuth-capable gateway in front of the endpoint, matching mcp-install.md.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "manifest.json",
+     "contains": "\"CISCO_DUO_API_HOST\": \"${user_config.cisco_duo_api_host}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"CISCO_DUO_IKEY\": \"${user_config.cisco_duo_ikey}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"CISCO_DUO_SKEY\": \"${user_config.cisco_duo_skey}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"CISCO_DUO_ACCOUNT_ID\": \"${user_config.cisco_duo_account_id}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"CISCO_DUO_MCP_READ_ONLY\": \"${user_config.cisco_duo_mcp_read_only}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"CISCO_DUO_BASE_URL\": \"${user_config.cisco_duo_base_url}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"CISCO_DUO_MCP_HTTP_TOKEN\": \"${user_config.cisco_duo_mcp_http_token}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"CISCO_DUO_USER_AGENT\": \"${user_config.cisco_duo_user_agent}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"PRINTING_PRESS_CLIENT_PROFILE\": \"${user_config.printing_press_client_profile}\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"CISCO_DUO_API_HOST\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"CISCO_DUO_IKEY\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"CISCO_DUO_SKEY\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"CISCO_DUO_ACCOUNT_ID\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"CISCO_DUO_MCP_READ_ONLY\"",
+     "min_count": 1
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"CISCO_DUO_ACCOUNT_ID\": \"\"",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "CISCO_DUO_ACCOUNT_ID=<value>",
+     "min_count": 1
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "without `CISCO_DUO_MCP_HTTP_TOKEN`",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/duo_hooks.go",
+     "contains": "const duoParentDataDirEnv = \"PP_CISCO_DUO_PARENT_DATA_DIR\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "Create `.vscode/mcp.json` in your workspace",
+     "min_count": 1
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "a ChatGPT connector authenticates with OAuth or not at",
+     "min_count": 1
+    },
+    {
+     "file": "page.json",
+     "contains": "so ChatGPT also needs an OAuth-capable gateway in front of the endpoint that adds it",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "manifest-clean-mcp-binary-name",
+   "summary": "manifest.json names the stripped MCP binary (cisco-duo-mcp), not the press cisco-duo-pp-mcp",
+   "why": "strip-pp-cli does not touch manifest.json, so the press name, entry_point and command all leaked cisco-duo-pp-mcp; the .mcpb bundle would then point at a file the archive does not contain. Same trap as rewrite/connectwise-control.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "manifest.json",
+     "contains": "\"entry_point\": \"bin/cisco-duo-mcp\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "not_contains": "cisco-duo-pp-mcp"
+    },
+    {
+     "file": "server.json",
+     "contains": "\"description\": \"Fix Duo MFA lockouts and see every MSP subaccount at once, from your AI agent.\"",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "mcp-http-auth-env-name-not-g101",
+   "summary": "the MCP HTTP-transport env-var NAME constant is called httpAuthEnvName, so gosec G101 no longer reads it as a hardcoded credential; the token is read through cliutil.EnvOverride, so an unresolved MCPB placeholder is not accepted as the bearer secret",
+   "why": "Press template main_mcp.go.tmpl emits `httpTokenEnvVar = \"CISCO_DUO_MCP_HTTP_TOKEN\"`; gosec G101 keys on the identifier ('Token') and flagged it P1. It is the name of an environment variable, not a secret. Renaming the identifier clears the gate in code instead of adding a per-slug suppression (hubspot precedent). Codex review 2026-10-13 (P1): requireHTTPCallerToken read the token with raw os.Getenv, so an MCPB host that leaves '${user_config.cisco_duo_mcp_http_token}' in the environment would start the HTTP transport with that publicly known string as its bearer secret. It now reads through cliutil.EnvOverride like every other env read; TestRequireHTTPCallerTokenRejectsUnresolvedPlaceholder fails without it.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/cmd/cisco-duo-mcp/main.go",
+     "contains": "httpAuthEnvName = \"CISCO_DUO_MCP_HTTP_TOKEN\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/cisco-duo-mcp/main.go",
+     "not_contains": "httpTokenEnvVar"
+    },
+    {
+     "file": "cli/cmd/cisco-duo-mcp/main.go",
+     "contains": "token := strings.TrimSpace(cliutil.EnvOverride(httpAuthEnvName))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/cisco-duo-mcp/http_auth_test.go",
+     "contains": "func TestRequireHTTPCallerTokenRejectsUnresolvedPlaceholder(",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "account-id-env-read-is-resolvable",
+   "summary": "duo_hooks.go reads the subaccount pin through client.PinnedAccountID() instead of os.Getenv(client.DuoAccountEnv)",
+   "why": "check_env_schema.py cannot resolve a cross-package constant inside os.Getenv, and an unresolvable read is indistinguishable from a hidden credential, so the gate failed. PinnedAccountID() reads the same CISCO_DUO_ACCOUNT_ID through a literal constant in its own package, and also trims it - identical behavior.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/duo_hooks.go",
+     "not_contains": "os.Getenv(client.DuoAccountEnv)"
+    },
+    {
+     "file": "cli/internal/cli/duo_hooks.go",
+     "contains": "client.PinnedAccountID()",
+     "min_count": 2,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "auth-hint-names-the-duo-keys",
+   "summary": "the auth hint names CISCO_DUO_API_HOST, IKEY and SKEY instead of the generic 'Set Basic credentials ... your-token-here'",
+   "why": "The press auth-hint template rendered 'Set Basic credentials with: export CISCO_DUO_IKEY=\"your-token-here\" CISCO_DUO_SKEY=\"your-token-here\"' at 11 emission sites (doctor, auth, helpers, MCP tools): Basic/token wording for an HMAC key pair, and no mention of CISCO_DUO_API_HOST, without which every request goes to the {api_host} template. Factory phase-4.95 lists it as a template retro candidate.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "Set Basic credentials with"
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "not_contains": "Set Basic credentials with"
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "not_contains": "Set Basic credentials with"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "Set Basic credentials with"
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "Set the Duo Admin API credentials with: export CISCO_DUO_API_HOST=",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "skill-md-trigger-and-safety",
+   "summary": "SKILL.md leads with a 'Use when the user asks to...' description, drops the 'Printing Press CLI' H1, and carries a 'Safety before any fix' section for the MFA-access commands",
+   "why": "SKILL.md is RE-VENDORED from the source on every onboard --resume, so these edits are clobbered by an UPDATE. The safety section is the agent-facing half of governance.md's MFA access tier: a caller who says 'I'm locked out' may be the attacker, so an agent must preview, verify identity out of band (users send-verification-push) and get human approval before issuing a bypass code, activation link or new phone.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "SKILL.md",
+     "contains": "description: \"Use when the user asks to fix a Cisco Duo MFA lockout",
+     "min_count": 1
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "## Safety before any fix",
+     "min_count": 1
+    },
+    {
+     "file": "SKILL.md",
+     "not_contains": "Printing Press CLI"
+    }
+   ]
+  },
+  {
+   "id": "governance-mfa-access-tier",
+   "summary": "governance.md tiers unlocks, bypass codes, activation links, phone attach and status/group changes as an MFA access tier (human-in-the-loop after identity verification), and lockout triage as Read",
+   "why": "gen_governance.py is keyword-driven: its draft put the read-only 'lockout triage' in the Write tier, had no tier for commands that grant a way through MFA, and named commands with spaces ('bypass codes delete') that do not exist. For an MFA product the access-granting commands are the highest-risk surface, not routine writes. Adversarial review round 2 (2026-10-13): `users enroll` (emails a single-use enrollment code to any address and Duo returns the code to the caller) and `phones update` (a new --number redirects SMS and phone-call factors) were in Write (routine); both moved to the MFA access tier on governance.md, README.md and page.json. Codex review round 2: `users bulk-create` (can create users with status bypass) and `groups delete` (deleting a Disabled group lifts its hold on every member) moved to the MFA access tier. Codex round 3: `directory-sync sync-user` (re-syncing can re-enable a user, attach phones and send enrollment) and `import <resource>` (can set status bypass) moved to the MFA access tier; every non-GET command in the binary was then mapped to a tier mechanically (none untiered).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "governance.md",
+     "contains": "**MFA access / credential**",
+     "min_count": 1
+    },
+    {
+     "file": "governance.md",
+     "contains": "CISCO_DUO_MCP_READ_ONLY=1",
+     "min_count": 1
+    },
+    {
+     "file": "page.json",
+     "contains": "\"tier\": \"MFA access / credential\"",
+     "min_count": 1
+    },
+    {
+     "file": "governance.md",
+     "contains": "`users enroll` (emails a single-use enrollment code",
+     "min_count": 1
+    },
+    {
+     "file": "page.json",
+     "contains": "phones update (a new number redirects SMS and phone-call factors)",
+     "min_count": 1
+    },
+    {
+     "file": "README.md",
+     "contains": "phones update (a new number redirects SMS and phone-call factors)",
+     "min_count": 1
+    },
+    {
+     "file": "governance.md",
+     "contains": "`enrollment chase --apply` (emails an enrollment link to each unenrolled user's address on file; skips users in a Disabled group)",
+     "min_count": 1
+    },
+    {
+     "file": "governance.md",
+     "contains": "`groups delete` (deleting a Disabled group lifts its hold on every member)",
+     "min_count": 1
+    },
+    {
+     "file": "page.json",
+     "contains": "users bulk-create (can create users with status bypass)",
+     "min_count": 1
+    },
+    {
+     "file": "governance.md",
+     "contains": "`directory-sync sync-user` (re-syncing a directory user can re-enable them",
+     "min_count": 1
+    },
+    {
+     "file": "page.json",
+     "contains": "import <resource> --input file.jsonl (an import can set any field a create can, status bypass included)",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "parent-credentials-survive-subaccount-pin",
+   "summary": "credentialsPath() resolves credentials.toml at the parent data dir (PP_CISCO_DUO_PARENT_DATA_DIR) while a subaccount is pinned, so keys saved with `auth set-credentials` are still found under --account-id / CISCO_DUO_ACCOUNT_ID",
+   "why": "Codex review 2026-10-13 (P1). The generated cliutil keeps credentials.toml in DataDir(), and the subaccount pin (duo_hooks.go pinSubaccountDataDir) points DataDir at <base>/subaccounts/<account> so each customer gets its own store. That moved the credentials lookup too: `auth set-credentials` then `auth status --account-id X` reported 'Not authenticated', so every pinned command failed for anyone who saved keys instead of exporting them. The pin already records the parent base in PP_CISCO_DUO_PARENT_DATA_DIR; credentialsPath now prefers it. Receipts: TestCredentialsPathStaysAtParentBaseWhenPinned fails with the override removed; e2e `auth status` reports 'Credentials present' under both --account-id and CISCO_DUO_ACCOUNT_ID.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/credentials.go",
+     "contains": "if base := strings.TrimSpace(os.Getenv(\"PP_CISCO_DUO_PARENT_DATA_DIR\")); base != \"\" {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/credentials_duo_test.go",
+     "contains": "func TestCredentialsPathStaysAtParentBaseWhenPinned(",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "shared-phone-not-activated-without-force",
+   "summary": "lockout fix --reactivate-phone and phone-swap refuse, without --force, to activate (or attach and activate) a phone that other users share or whose users Duo did not confirm",
+   "why": "Codex review 2026-10-13 round 2 (P1). Duo Mobile activation binds a phone record, and so every user on it, to whichever device completes the activation; --url hands that link to the caller. phone-swap reused the phone already registered for the requested number and lockout fix reactivated the user's phone without checking who else is on it, so a caller could be given an activation link that took over another user's MFA (Duo warns of this when adding an existing phone to a user). duoPhoneOwners fetches GET /admin/v1/phones/{id}; phoneShareBlock blocks when another user is attached or the lookup failed (fail closed). Receipts: tests fail with the guard disabled; stub e2e `phone-swap jdoe --number <shared> --url --apply` exits 5 after three GETs and zero POSTs. Adversarial round 5 (P2, fixed): for a held user the hold preview hid the sharing, so a --force approved for the hold silently approved activating a shared phone; the held detail and the forced plan now both name it. Codex round 6 (P2, fixed): phone-swap --force skipped the shared check, so the forced plan hid the sharing; the activate step now names it.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/duo_helpers.go",
+     "contains": "func phoneShareBlock(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/duo_helpers.go",
+     "contains": "func duoPhoneOwners(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/lockout_fix.go",
+     "contains": "} else if shared != \"\" && !opt.force {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/lockout_fix.go",
+     "contains": "opt.owners = duoPhoneOwners(ctx, c, phone.PhoneID)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/phone_swap.go",
+     "contains": "owners := duoPhoneOwners(ctx, c, ownerIDs...)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/duo_novel_logic_test.go",
+     "contains": "a shared or unconfirmed phone must block phone-swap without --force",
+     "min_count": 1
+    },
+    {
+     "file": "governance.md",
+     "contains": "**A shared phone is not activated.**",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/lockout_fix.go",
+     "contains": "st.Detail += \"; also: \" + shared",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/lockout_fix.go",
+     "contains": "shared = phoneShareBlock(phone.PhoneID, u.UserID, opt.owners)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/phone_swap.go",
+     "contains": "sharedNote = phoneShareBlock(targetID, u.UserID, owners)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/phone_swap.go",
+     "contains": "act.Detail += \" (--force overrides: \" + sharedNote + \")\"",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "happy-args-low-entropy-placeholders",
+   "summary": "eight generated commands whose positional or flag is named *key carry low-entropy placeholder Duo IDs (two-letter prefix + 18 X) in their pp:happy-args annotation instead of the Duo docs sample IDs",
+   "why": "The press copies the spec's parameter example into pp:happy-args as dakey=/integration_key=/compkey=/webauthnkey=<id>. The Duo docs sample IDs are 20 high-entropy characters right after the word key, so gitleaks generic-api-key flags all eight files and the guards job fails. They are example data, not credentials; the fix is an obviously fake placeholder that keeps the Duo ID shape (still matches ^D[A-Z0-9]{19}$ where the prefix is D), never an allowlist. A reprint from the unchanged spec regenerates the sample IDs.",
+   "status": "active",
+   "spec_encode_followup": "Change the example: values for dakey, integration_key, compkey and webauthnkey in cli-factory/cisco-duo/spec.yaml to these placeholders so a reprint emits them by construction.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/desktop_authenticators_get.go",
+     "contains": "\"pp:happy-args\": \"dakey=DAXXXXXXXXXXXXXXXXXX\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/desktop_authenticators_delete.go",
+     "contains": "\"pp:happy-args\": \"dakey=DAXXXXXXXXXXXXXXXXXX\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/integrations_get.go",
+     "contains": "\"pp:happy-args\": \"integration_key=DIXXXXXXXXXXXXXXXXXX\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/policies_calculate-policy.go",
+     "contains": "\"pp:happy-args\": \"--user-id=DU3RP9I2WOC59VZX672N;--integration-key=DIXXXXXXXXXXXXXXXXXX\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/registered_devices_block-device.go",
+     "contains": "\"pp:happy-args\": \"compkey=CMXXXXXXXXXXXXXXXXXX\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/registered_devices_unblock-device.go",
+     "contains": "\"pp:happy-args\": \"compkey=CMXXXXXXXXXXXXXXXXXX\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/webauthn_get.go",
+     "contains": "\"pp:happy-args\": \"webauthnkey=WAXXXXXXXXXXXXXXXXXX\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/webauthn_delete.go",
+     "contains": "\"pp:happy-args\": \"webauthnkey=WAXXXXXXXXXXXXXXXXXX\"",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "sync-group-members-own-resource-name",
+   "summary": "the group-membership dependent (GET /admin/v2/groups/{group_id}/users) is synced as admin_v2_groups_users, not as 'groups', and the flat groups resource is keyed by group_id again",
+   "why": "Codex merge review 2026-10-14 (P1). Press 4.33.5 named the membership dependent 'groups' (its x-pp-resource), the same name as the flat GET /admin/v1/groups resource: profiler.uniquifyDependentResourceNames only renames a name that collides with ANOTHER dependent, never one that collides with a flat resource. Consequences: flatSyncResources removed the top-level groups fetch, so a fresh sync never filled groups and the membership dependent then skipped on an empty parent table; and the flat groups resource inherited the membership's user_id ID override, users base override and parent_id composite key. The fix renames the dependent to admin_v2_groups_users (the press's own path-derived collision name, as for admin_v1_users_groups) in every registration map (dependentResourceDefs, pagination defaults, resourceSupportsPagination, both resourceIDFieldOverrides, resourceIDBaseOverrides, resourceParentKeyColumns, syncOwnedPartitions, learnResourceTypeFields) and restores group_id for groups. The spec cannot express this (press 4.33.5 has no extension that names a dependent; x-pp-syncable:false would drop membership sync, and changing x-pp-resource moves the 'groups list-members' command), so it is a recorded hand-fix until the press checks dependent names against flat names. Receipts: TestFreshSyncPopulatesGroupsAndMembers drives syncResource + syncDependentResources against a fake Duo client and fails on the old registration (groups dropped from the flat list), and also fails on a rename alone without moving the parent_id key (one user in two groups collapses to one membership row); TestNoDependentShadowsAFlatSyncResource fails on any dependent that reuses a flat resource name.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "{Name: \"admin_v2_groups_users\", ParentTable: \"groups\", ParentIDParam: \"group_id\", PathTemplate: \"/admin/v2/groups/{group_id}/users\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "{Name: \"groups\", ParentTable: \"groups\""
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "case \"groups/admin_v2_groups_users\":",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "case \"admin_v2_groups_users\":",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"admin_v2_groups_users\":                \"user_id\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"groups\":                               \"group_id\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "\"groups\":                               \"user_id\","
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\"admin_v2_groups_users\":                \"user_id\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\"admin_v2_groups_users\":                \"users\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\"admin_v2_groups_users\":                {\"parent_id\"},",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\"groups\":                               \"group_id\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "\"groups\":                               \"user_id\","
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "\"groups\":                               \"users\","
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "\"groups\":                               {\"parent_id\"},"
+    },
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "\"admin_v2_groups_users\":                {},",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/learn_init.go",
+     "contains": "\"admin_v2_groups_users\":                {\"user_id\", ",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/learn_init.go",
+     "contains": "\"groups\":                               {\"group_id\", ",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync_group_members_test.go",
+     "contains": "func TestFreshSyncPopulatesGroupsAndMembers(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync_group_members_test.go",
+     "contains": "func TestNoDependentShadowsAFlatSyncResource(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "mcp-failed-command-keeps-stdout-receipt",
+   "summary": "an MCP tool call whose CLI exits non-zero still returns the command's stdout receipt, in a second content block of the error result",
+   "why": "Codex merge review 2026-10-14 (P2). The generated shell-out handler returned only boundedToolResultError(err.Error()), and RunCLICommand quotes stderr in that error whenever there is any, so stdout was discarded on failure. lockout fix, phone swap and enrollment chase all print their receipt before returning the error of a later step, so an MCP caller lost the receipt, including a bypass code that had already been issued. internal/mcp/cobratree/shellout_receipt.go cliFailureToolResult keeps IsError and the error text first and appends stdout as its own block (skipped when the error text already quotes stdout because stderr was empty). shellOutToCLI is the only shell-out path, so this covers every mirrored write command. Receipt: TestShellOutKeepsReceiptWhenCommandFails fails against the generated handler.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "return cliFailureToolResult(out, err), nil",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout_receipt.go",
+     "contains": "func cliFailureToolResult(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout_receipt.go",
+     "contains": "result.Content = append(result.Content, mcplib.NewTextContent(bound.Text(out.Stdout)))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout_receipt_test.go",
+     "contains": "func TestShellOutKeepsReceiptWhenCommandFails(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "fleet-only-refuses-unmatched-selectors",
+   "summary": "fleet summary, fleet risk and fleet find-user refuse (exit 2) any --only selector that matches no subaccount, naming it",
+   "why": "Codex merge review 2026-10-14 (P2). duoSelectAccounts silently dropped --only values that matched no subaccount, so a misspelled customer produced a successful fleet report covering fewer customers than requested, and an entirely misspelled selector exited 0 with nothing. duoSelectAccounts now returns the unmatched selectors and fleetAccounts (shared by all three fleet commands) refuses them through selectFleetAccounts as a usage error before any per-account fetch. Receipt: TestSelectFleetAccountsRefusesUnmatchedSelectors fails against the old filter.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/duo_helpers.go",
+     "contains": "func duoSelectAccounts(accounts []client.DuoSubaccount, only string) ([]client.DuoSubaccount, []string) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_summary.go",
+     "contains": "accounts, err = selectFleetAccounts(accounts, only)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_summary.go",
+     "contains": "if len(unmatched) > 0 {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_only_selector_test.go",
+     "contains": "func TestSelectFleetAccountsRefusesUnmatchedSelectors(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "agent-receipt-keeps-step-results",
+   "summary": "under --agent/--compact the lockout fix and phone swap receipts keep every step's result, and enrollment chase keeps each failed target's error",
+   "why": "Found while fixing the Codex merge review 2026-10-14 MCP receipt finding (P2 twin path). --agent implies --compact, whose list rule keeps a row key only when 80% of rows carry it. A step's result exists only on the step that produced it, so a lockout fix that issued a bypass code and then failed activation (1 of 3 steps with a result) printed a receipt without the code: the code was issued and nobody received it. The same rule dropped phone swap's created phone_id or activation link and a failed enrollment target's error. writeFixView, writeSwapView and printChaseJSON now pass receiptKeepKeys (result, error) to printJSONFilteredKeep, which makes them a floor for compaction without changing the envelope. Receipts: TestAgentReceiptKeepsStepResults fails against printJSONFiltered for all three; stub e2e `lockout fix jdoe --bypass --reactivate-phone --apply --agent` with activation answering HTTP 500 carries the code (pre-fix binary: absent), including over MCP with agent:true.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/lockout_fix.go",
+     "contains": "var receiptKeepKeys = []string{\"result\", \"error\"}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/lockout_fix.go",
+     "contains": "return printJSONFilteredKeep(cmd.OutOrStdout(), v, flags, receiptKeepKeys...)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/phone_swap.go",
+     "contains": "return printJSONFilteredKeep(cmd.OutOrStdout(), v, flags, receiptKeepKeys...)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/enrollment_chase.go",
+     "contains": "return printJSONFilteredKeep(w, view, flags, receiptKeepKeys...)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/enrollment_chase.go",
+     "contains": "if err := printChaseJSON(cmd.OutOrStdout(), view, flags); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/receipt_compact_test.go",
+     "contains": "func TestAgentReceiptKeepsStepResults(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "scan-limits-and-row-markers-reach-the-agent",
+   "summary": "failures and enrollment chase refuse --max-scan-pages below 1, and fleet risk, fleet summary and failures keep sparse row markers (undecoded_rows, partial, flag) under --agent/--compact",
+   "why": "Codex merge review round 2 (2026-10-14, P2). (1) failures and enrollment chase accepted --max-scan-pages 0 or a negative value; their page loops then made no request and exited 0 with an empty, apparently clean result (fleet risk already refused it). Both now refuse it as a usage error before building a client. (2) --agent implies --compact, whose list rule keeps a row key only when 80% of rows carry it. fleet risk's undecoded_rows, fleet summary's partial and failures' flag exist only on the rows they describe, so an agent read a partially scanned or fraud-flagged row as clean. The three commands now print through printMarkedRowsJSON, which keeps rowMarkerKeepKeys as a compaction floor. Receipts: TestMaxScanPagesBelowOneIsRefused and TestAgentOutputKeepsSparseRowMarkers fail against the previous code.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/failures.go",
+     "contains": "if maxScanPages < 1 {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/enrollment_chase.go",
+     "contains": "if maxScanPages < 1 {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_summary.go",
+     "contains": "var rowMarkerKeepKeys = []string{\"undecoded_rows\", \"partial\", \"flag\"}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_summary.go",
+     "contains": "return printJSONFilteredKeep(w, view, flags, rowMarkerKeepKeys...)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_summary.go",
+     "contains": "if err := printMarkedRowsJSON(cmd.OutOrStdout(), view, flags); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_risk.go",
+     "contains": "if err := printMarkedRowsJSON(cmd.OutOrStdout(), view, flags); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/failures.go",
+     "contains": "return printMarkedRowsJSON(cmd.OutOrStdout(), view, flags)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/scan_completeness_test.go",
+     "contains": "func TestMaxScanPagesBelowOneIsRefused(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/scan_completeness_test.go",
+     "contains": "func TestAgentOutputKeepsSparseRowMarkers(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "request-account-must-match-pin",
+   "summary": "A request that names its own subaccount (a --stdin body, an import line, a billing --account-id, an MCP execute argument) may only name the pinned subaccount; unpinned CLI runs refuse it; billing --account-id pins the run; accounts create/delete refuse under a pin",
+   "why": "Codex merge review 2026-10-15 (P1): the signer honored a request's own account_id over the pin (--account-id / CISCO_DUO_ACCOUNT_ID), and the store binding skipped any request whose account differed from the pin, so `--account-id A users bulk-create --stdin` with account_id=B created B's users and wrote them into A's local mirror, where A's searches and audits then read them. Unpinned, the same body wrote B's users into the parent's mirror. The class is every path where a per-request account can differ from the account whose store the run uses, fixed at the one chokepoint every CLI and MCP request passes through (internal/client/duo_signer.go RoundTrip): (1) with a pin, a request naming another subaccount (query or JSON body, by ID or name) is refused with HTTP 400 code 40002 before anything is sent; naming the pin itself passes and is sent with the resolved ID; (2) unpinned, the client's UnpinnedAccountGuard (duo_hooks.go refuseUnpinnedRequestAccount) refuses a request-level subaccount while a CLI command runs (storeScopedRun, set in the root pre-run), because every CLI command may store live responses; the fleet fan-out, which never touches the store, lifts it in duoFleetPrep, and the MCP server's execute tool, which stores nothing and never runs the CLI pre-run, keeps per-request routing when unpinned; (3) a body account_id that is not a string, a non-object body under a pin, and a repeated query account_id are refused (each could slip past the comparison to the parent), and a body is always re-encoded with exactly one resolved account_id; (4) the billing commands declare their own --account-id (shadowing the root flag) and sent it as the request's account_id without pinning, so the response and the auto-strategy local fallback used the parent's or another pinned customer's store; pinRequestAccountFlags wraps every such flag so setting it also pins the run (TestEveryOwnAccountFlagPinsTheRun keeps new ones covered); (5) accounts create/delete always run as the MSP parent and stored the parent's subaccount row in the pinned customer's mirror; refuseParentWriteUnderPin makes that a usage error under a pin (accounts list stores nothing and stays allowed). Receipts: run against the pre-fix tree, TestPinnedStdinBodyCannotNameAnotherSubaccount found customer B's marker in subaccounts/DAAAAAAAAAAAAAAAAAAA/data-*.db and TestUnpinnedStdinBodyCannotNameASubaccount found it in the parent's data-*.db; the import, billing, accounts, signer and MCP execute tests failed too; TestPinnedStdinBodyNamingThePinIsStoredInItsOwnMirror (positive control) and TestFleetFanOutStillNamesEachSubaccount pass on both trees.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/duo_signer.go",
+     "contains": "if !strings.EqualFold(pinAcct.AccountID, acct.AccountID) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/duo_signer.go",
+     "contains": "if pinAcct, err = s.resolveAccount(out.Context(), out.URL, ikey, skey, pinned); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/duo_signer.go",
+     "contains": "var UnpinnedAccountGuard func(requested string) error",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/duo_signer.go",
+     "contains": "if fromRequest && pinned == \"\" {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/duo_signer.go",
+     "contains": "if guard := UnpinnedAccountGuard; guard != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/duo_signer.go",
+     "contains": "if vals := query[\"account_id\"]; len(vals) > 1 {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/duo_signer.go",
+     "contains": "msg: \"account_id in the request body must be a string (a subaccount ID or exact name)\"}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/duo_signer.go",
+     "contains": "cannot carry the pinned subaccount %q",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/duo_signer.go",
+     "not_contains": "hook(accountID, acct.AccountID)"
+    },
+    {
+     "file": "cli/internal/cli/duo_hooks.go",
+     "contains": "client.UnpinnedAccountGuard = refuseUnpinnedRequestAccount",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/duo_hooks.go",
+     "contains": "storeScopedRun.Store(true)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/duo_hooks.go",
+     "contains": "pinRequestAccountFlags(root)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/duo_hooks.go",
+     "contains": "f.Value = pinningAccountFlag{f.Value}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/duo_hooks.go",
+     "contains": "return accountEnvFlag{}.Set(v)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/duo_hooks.go",
+     "contains": "if err := refuseParentWriteUnderPin(cmd); err != nil {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/duo_helpers.go",
+     "contains": "storeScopedRun.Store(false)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/account_isolation_test.go",
+     "contains": "func TestPinnedStdinBodyCannotNameAnotherSubaccount(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/account_isolation_test.go",
+     "contains": "func TestUnpinnedStdinBodyCannotNameASubaccount(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/account_isolation_test.go",
+     "contains": "func TestPinnedImportRefusesLinesForAnotherSubaccount(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/cli/account_isolation_test.go",
+     "contains": "func TestEveryOwnAccountFlagPinsTheRun(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/client/duo_signer_test.go",
+     "contains": "func TestDuoSignerRequestAccountMustMatchPin(",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/mcp/account_isolation_test.go",
+     "contains": "func TestMCPExecuteRequestAccountMustMatchPin(",
+     "min_count": 1
+    }
+   ]
+  }
+ ]
+}

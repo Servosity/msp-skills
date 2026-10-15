@@ -568,6 +568,47 @@ A: No. CIPP stays your portal for deep single-tenant work. This skill adds the c
 
 Governance: The skill drives the cipp-cli and cipp-mcp binaries, authenticating to your self-hosted CIPP instance with a bearer token from CIPP_API_KEY (obtained via OAuth2 client credentials - 'auth login' performs and caches the exchange) read from the environment, never logged or sent anywhere except the CIPP API. CIPP is a read-write management API: read and rollup commands change nothing; bulk prints its plan and only writes with --execute; everything else (create/edit/offboard/delete, MFA and token actions) sends on run unless you pass --dry-run first. The real permission boundary is the scope you grant the API client in CIPP, so keep autonomous agents to reads plus previewed writes.
 
+### Cisco Duo (Security)
+
+Page: https://msp-skills.compoundingteams.com/skills/cisco-duo/
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/cisco-duo/install.sh)
+
+Ask your AI why a user is locked out of Duo and get the cause and the one fix that applies, then let it unlock them, issue a single-use bypass code, or move them to a new phone after you approve the plan. For an MSP it reads every customer subaccount at once: who can skip MFA, who never enrolled, and which customers are near their user limit.
+
+Outcomes (question -> command your AI agent runs):
+- Why can't this user get through Duo, and which fix applies? -> cisco-duo-cli lockout triage "jane@example.com" --account-id "Acme Corp"
+- Unlock them and give them a one-hour, single-use bypass code (preview first) -> cisco-duo-cli lockout fix "jane@example.com" --account-id "Acme Corp" --bypass
+- They got a new phone number. Move their Duo to it. -> cisco-duo-cli phone-swap "jane@example.com" --number +15551234567 --remove-old
+- Which customer is this person in? -> cisco-duo-cli fleet find-user "jdoe@example.com"
+- Which customers have users in bypass, locked out, or never enrolled? -> cisco-duo-cli fleet risk
+- Which customers are near their Duo user limit or low on telephony credits? -> cisco-duo-cli fleet summary
+- Who in this tenant can skip MFA, and who issued their bypass codes? -> cisco-duo-cli audit bypass --older-than 30d
+- Who is still unenrolled after a week? Re-send their enrollment emails. -> cisco-duo-cli enrollment chase --older-than 7d --limit 25
+- What failed or fraud-flagged logins happened this week, and for whom? -> cisco-duo-cli failures --since 7d
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS: set CISCO_DUO_MCP_HTTP_TOKEN, run cisco-duo-mcp --transport http, and put its /mcp endpoint behind an HTTPS tunnel or your own reverse proxy. ChatGPT connectors sign in with OAuth or not at all and cannot send that bearer token, so ChatGPT also needs an OAuth-capable gateway in front of the endpoint that adds it. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my Cisco Duo data safe?
+A: Your data stays on your machine. The CLI, MCP server and the local mirror are all local, and the Duo secret key is used only to sign each request; it is never sent to Duo or anywhere else. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: Do I need a Duo MSP (parent) account?
+A: No. With an Admin API application in a single Duo account, every command except the fleet commands works against that account. As an MSP, create the Admin API application in your parent account with subaccount permissions (at least Grant accounts - Read): --account-id (or CISCO_DUO_ACCOUNT_ID) then runs any command against one customer, and fleet summary, fleet risk and fleet find-user cover every customer at once.
+Q: Which Duo Admin API permissions does it need?
+A: Grant only what your workflow uses; the permission set is the strongest control you have. Read-only work (triage, audits, failures) needs Grant resource - Read, Grant read log and Grant read information. As an MSP, --account-id and the fleet commands also need Grant accounts - Read, because the CLI looks each customer up in your parent account's subaccount list, and the user-limit column of fleet summary needs Grant user limits - Read. Unlocking users, issuing bypass codes, swapping phones and re-sending enrollment emails add Grant resource - Write. Administrator commands need Grant administrators - Read or - Write, and billing set-user-limit needs Grant user limits - Write.
+Q: Is it safe to let an AI issue bypass codes?
+A: Only with a human in the loop, and the commands are built for that. lockout fix, phone-swap and enrollment chase print a plan and change nothing until you add --apply. A bypass code from lockout fix is single-use, expires in an hour by default and keeps any existing codes. Verify the caller through a channel other than the ticket first (users send-verification-push sends them a Duo Push). Set CISCO_DUO_MCP_READ_ONLY=1 and the MCP server hides lockout fix, phone-swap and enrollment chase, and its API tool refuses every non-GET call.
+Q: Will this hit my Duo API rate limits?
+A: Rarely. The client paces itself to Duo's rate-limit responses and backs off and retries when Duo answers 429. The fleet commands make a few calls per customer subaccount; fleet risk also pages users and bypass codes, caps that scan with --max-scan-pages, and flags any customer where the cap stopped it. Duo recommends polling authentication logs at most once a minute, so do not loop failures faster than that.
+Q: Will this replace the Duo Admin Panel?
+A: No, it complements it. Policies, applications and directory sync stay in the Admin Panel. This skill answers the help-desk and MSP questions the panel makes you click through - lockout diagnosis, phone swaps, cross-customer risk and capacity - from your AI.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+
+Governance: The skill reads Duo users, phones, groups, bypass codes, hardware tokens, admins, authentication logs and MSP subaccounts, and it can unlock users, issue bypass codes, attach and activate phones, send enrollment emails, delete users and factors, manage administrators, and create or delete customer subaccounts. Reads, sync and every preview are safe to allow. Anything that grants an authentication factor - an unlock, a bypass code, an activation link, a new phone - is human-in-the-loop only, after the caller's identity is verified. Deleting users or factors, administrator changes, billing changes and subaccount create or delete are operator-only. The strongest control is the Admin API application's permission set: an application without Grant resource - Write cannot unlock a user, issue a bypass code or touch a phone, and one without Grant administrators - Write or Grant accounts - Write cannot change administrators or customer accounts.
+
 ### Cisco Meraki (Network Monitoring)
 
 Page: https://msp-skills.compoundingteams.com/skills/cisco-meraki/

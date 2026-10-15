@@ -1,0 +1,88 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Servosity/cisco-duo-mcp",
+  "title": "Cisco Duo MCP",
+  "description": "Fix Duo MFA lockouts and see every MSP subaccount at once, from your AI agent.",
+  "version": "0.1.0",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/cisco-duo/cisco-duo-512x512.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/servosity/msp-skills",
+    "source": "github",
+    "subfolder": "skills/cisco-duo"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/cisco-duo-v0.1.0/cisco-duo-mcp.mcpb",
+      "version": "0.1.0",
+      "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "CISCO_DUO_API_HOST",
+          "description": "Your Duo API hostname, e.g. api-XXXXXXXX.duosecurity.com (Duo Admin Panel > Applications > your Admin API application). For an MSP, use the parent account's hostname.",
+          "isRequired": true,
+          "isSecret": false
+        },
+        {
+          "name": "CISCO_DUO_IKEY",
+          "description": "Admin API integration key (ikey) from the same Admin API application.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "CISCO_DUO_SKEY",
+          "description": "Admin API secret key (skey). Used only to sign each request; it is never sent to Duo.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "CISCO_DUO_ACCOUNT_ID",
+          "description": "Default customer subaccount for every call (account ID, or exact name from accounts list); a tool call that names its own account-id overrides it. Leave blank to act on the account the keys belong to; the fleet tools always cover every subaccount.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "CISCO_DUO_MCP_READ_ONLY",
+          "description": "Set to 1 for a read-only server: lockout fix, phone-swap, enrollment chase, sync, import and export are hidden, and the API execute tool refuses every non-GET call. Leave blank for the full tool set.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "CISCO_DUO_BASE_URL",
+          "description": "Overrides the full API root (for a test server). Leave blank; CISCO_DUO_API_HOST is the normal setting.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "CISCO_DUO_MCP_HTTP_TOKEN",
+          "description": "Bearer token that cisco-duo-mcp --transport http requires from every HTTP client (Authorization: Bearer). Leave blank for the default stdio transport, which Claude Desktop uses and which never reads it.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "CISCO_DUO_USER_AGENT",
+          "description": "Overrides the User-Agent the CLI sends on Duo requests. Leave blank to use the CLI's own built-in User-Agent.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Binds this MCP server to one tenant-gated client profile. Leave blank unless you configured client profiles.",
+          "isRequired": false,
+          "isSecret": false
+        }
+      ]
+    }
+  ]
+}
