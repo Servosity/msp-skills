@@ -182,7 +182,8 @@ all open quotes for distributor cost changes; use 'cost-drift' instead.`,
 					}
 					local, ok, err := lintLocal(ctx, cmd, flags, dbPath, ref, productDB, noProducts)
 					if err != nil || !ok {
-						return localFallbackError(liveErr, err)
+						// The offline copy is the mirror; 'sync' stores only table names.
+						return apiErr(fmt.Errorf("API unreachable and document %s is not in the local mirror; run '%s mirror' while the API is reachable to audit offline\n\nOriginal error: %w", ref, qwCLIName, liveErr))
 					}
 					fmt.Fprintf(cmd.ErrOrStderr(), "warning: live read failed (%v); auditing the local mirror copy\n", liveErr)
 					got = local
