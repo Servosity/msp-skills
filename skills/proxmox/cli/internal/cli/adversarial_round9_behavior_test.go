@@ -238,3 +238,18 @@ func TestEnvPBSOnlyCapacityAndCheck(t *testing.T) {
 		}
 	}
 }
+
+// Codex round 18: a PBS-only entry that finds no PBS-side pruning cannot see
+// the PVE jobs that may prune: retention unassessed is reported.
+func TestPBSOnlyRetentionUnassessedIsReported(t *testing.T) {
+	newFixture(t)
+	t.Setenv("PROXMOX_BASE_URL", "")
+	t.Setenv("PROXMOX_HOST", "")
+	out, _, err := runCLI(t, "capacity", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if e := failureByScope(decodeJSON[capacityReport](t, out).FetchFailures)["pbs main retention"]; !strings.Contains(e, "whether anything prunes it is unknown") {
+		t.Errorf("want unassessed retention reported:\n%s", out)
+	}
+}
