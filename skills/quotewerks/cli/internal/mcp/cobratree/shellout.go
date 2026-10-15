@@ -78,7 +78,15 @@ func shellOutToCLI(cliPath func() (string, error), commandPath []string, blocked
 		}
 		out, err := RunCLICommand(ctx, lookupPath, finalArgs)
 		if err != nil {
-			return boundedToolResultError(err.Error()), nil
+			// Hand-wired (handfixes.json: mcp-partial-failure-keeps-receipt): a
+			// non-zero exit can still print a structured receipt on stdout
+			// (requote / items reprice partial failures). RunCLICommand quotes
+			// stdout only when stderr is empty, so carry it here as well.
+			msg := err.Error()
+			if s := strings.TrimSpace(out.Stdout); s != "" && !strings.Contains(msg, "(output: ") {
+				msg += "\noutput: " + s
+			}
+			return boundedToolResultError(msg), nil
 		}
 		return ToolResultFromCLICommand(out), nil
 	}

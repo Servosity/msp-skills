@@ -1372,7 +1372,7 @@
       "display_name": "QuoteWerks",
       "tagline": "Find, build and reprice QuoteWerks Web quotes, and see margin and win rate across every document, by asking.",
       "has_video": true,
-      "cli_hash": "sha256:81fd3de76c52aa7000a2f73da13489792d93eb20d84aa9e1fe91291a8db0f535",
+      "cli_hash": "sha256:17c297666d248cddeaf50409e8930f41c4b7e6397b7dfe24f39373dda12ccc5c",
       "template_version": 3,
       "version": "0.1.0",
       "cli_hash_at_release": null,

@@ -967,7 +967,7 @@ func mcpEmptyStoreNextStep() string {
 }
 
 func mcpPartialStoreNextStep() string {
-	return "The latest sync attempt is incomplete. Resume or rerun quotewerks-cli sync before treating local search/sql results as a complete snapshot."
+	return "The latest mirror or sync run is incomplete. Rerun quotewerks-cli mirror (with a higher --max-pages if it was capped) before treating local search/sql results as a complete snapshot."
 }
 
 func handleSearch(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
