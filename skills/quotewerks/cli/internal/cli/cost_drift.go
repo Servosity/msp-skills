@@ -163,7 +163,7 @@ lint' instead. Do NOT use it to change prices; use 'items reprice' instead.`,
 				}
 				if q, ok := qw.EffectiveQty(l); ok {
 					qtyPtr = &q
-					if hasQuoted {
+					if hasQuoted && quoted != 0 { // a zero cost is a missing cost: no known change
 						v := qw.Round2((p.Cost - quoted) * q)
 						impact = &v
 					}
