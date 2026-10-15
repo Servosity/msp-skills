@@ -2000,6 +2000,42 @@ A: No. You need a QuickBooks Online company and an OAuth access token scoped to 
 
 Governance: The skill reads everything - aging, balances, DSO, cash forecast, reconciliation, search - and read commands cannot change anything. Writes are explicit create/update/delete commands on invoices, bills, payments, customers, vendors, accounts, items, and journal entries, and `--dry-run` is opt-in, so the recommended agent policy is: read freely, preview every write, and keep a human on deletes. Credentials are read from the environment only and are never written to disk or logged.
 
+### QuoteWerks (CRM)
+
+Page: https://msp-skills.compoundingteams.com/skills/quotewerks/
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/quotewerks/install.sh)
+
+Ask your AI where a quote stands, what is on it, and whether any line sells below cost, then have it build or reprice the quote for you to review before anything is written. quotewerks-cli works against QuoteWerks Web using the real column names, previews every typed write, and keeps a local copy of your documents so margin, win-rate, pipeline and cost-drift questions are one command each.
+
+Outcomes (question -> command your AI agent runs):
+- Where does the Acme quote stand? -> quotewerks-cli docs search --customer "Acme" --type QUOTE
+- What is on quote 1042, line by line, with margin per line? -> quotewerks-cli docs get "1042"
+- Is anything on this quote priced below cost or under 10% margin before it goes out? -> quotewerks-cli docs lint "1042" --min-margin 10
+- What does an 18% margin on these laptops do to the quote? Show me before you change it. -> quotewerks-cli items reprice "1042" --part 20UES0X100 --margin 18
+- Which open quotes are 30 days old or more, and who do I chase? -> quotewerks-cli pipeline --older-than 30d
+- What is our quote win rate by rep over the last 90 days? -> quotewerks-cli winrate --by rep --since 90d
+- Which open quotes carry a cost that no longer matches our product database? -> quotewerks-cli cost-drift --threshold 2
+- What moved in the quote pipeline this week? -> quotewerks-cli changes --since 7d
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, but quotewerks-mcp speaks HTTP natively: set `QUOTEWERKS_MCP_HTTP_TOKEN` to a bearer token, run `quotewerks-mcp --transport http`, and put its /mcp endpoint (http://127.0.0.1:7777/mcp by default) behind an HTTPS tunnel or your own reverse proxy. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your API key once.
+Q: Is my QuoteWerks data safe?
+A: Your data stays on your machine. The CLI, the MCP server and the local mirror all run locally, and the AI sees query results, not a bulk dump of your quotes. MSP Skills never bundles or transmits your API key.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: Does it work with QuoteWerks Desktop?
+A: It works with QuoteWerks Web through the QuoteWerks Web REST API at qwwapi.quotewerks.com, which QuoteWerks labels beta. It does not open a QuoteWerks Desktop database or use the desktop COM API.
+Q: What API key do I need, and can the AI change my quotes?
+A: Create a key in QuoteWerks Web under Setup > Options > Zapier and API; the API requires a user with MasterRights. A key without Allow write access can read but cannot change anything (QuoteWerks answers writes with 403). Even with a write-enabled key, `docs create`, `items add`, `items reprice` and `requote` only preview until you add `--confirm`. The raw `tables insert`, `tables update` and `tables delete` commands send immediately, so keep the key read-only unless you need writes.
+Q: Will this hammer the QuoteWerks API?
+A: No. margin, winrate, pipeline, cost-drift and changes read the local copy that `quotewerks-cli mirror` makes, so you can ask as many questions as you like without another API call. mirror reads 1,000 rows per request, and requests are paced to the server's rate-limit headers by default.
+
+Governance: The skill reads your QuoteWerks Web quotes, orders, invoices, line items, product databases and settings, and it can create and change documents. The typed writes (`docs create`, `items add`, `items reprice`, `requote`) only preview until you add `--confirm`. The raw table writes (`tables insert`, `tables update`) send immediately, so preview them with `--dry-run` first, and keep `tables delete` and the credential commands for a human.
+
 ### Resource Guru (Other)
 
 Page: https://msp-skills.compoundingteams.com/skills/resourceguru/

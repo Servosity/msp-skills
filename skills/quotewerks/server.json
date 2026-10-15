@@ -1,0 +1,70 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Servosity/quotewerks-mcp",
+  "title": "QuoteWerks MCP",
+  "description": "Find, build and reprice QuoteWerks Web quotes with previews, plus margin and win-rate reports.",
+  "version": "0.1.0",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/quotewerks/quotewerks-512x512.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/servosity/msp-skills",
+    "source": "github",
+    "subfolder": "skills/quotewerks"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/quotewerks-v0.1.0/quotewerks-mcp.mcpb",
+      "version": "0.1.0",
+      "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "QUOTEWERKS_API_KEY",
+          "description": "QuoteWerks Web API key, sent as the X-API-Key header. Create it in QuoteWerks Web under Setup > Options > Zapier and API (the API requires a user with MasterRights). Tick Allow write access only if the agent should create or change documents.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "QUOTEWERKS_BASE_URL",
+          "description": "Overrides the API base URL. Leave blank for the default https://qwwapi.quotewerks.com.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "QUOTEWERKS_USER_AGENT",
+          "description": "Overrides the User-Agent the CLI sends to QuoteWerks Web. Leave blank to use the CLI's built-in User-Agent.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "QUOTEWERKS_MCP_READ_ONLY",
+          "description": "Set to exactly 1 (no other value) for a read-only MCP server: it drops sync, workflow archive, export, reports run, agent ask, agent report-draft, learnings forget and learnings reject, and refuses --confirm on docs create, items add, items reprice and requote, which can still preview. Local-only tools such as mirror and teach stay. The raw tables insert, update and delete tools are never offered over MCP. Leave blank for the full tool set.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "QUOTEWERKS_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http (a remote or hosted deployment); callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Not used by this connector: QuoteWerks Web has no tenant-gated client profiles, so a value here limits nothing. Leave blank. To limit what an agent can do, give it a key without Allow write access.",
+          "isRequired": false,
+          "isSecret": false
+        }
+      ]
+    }
+  ]
+}

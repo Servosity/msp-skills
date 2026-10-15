@@ -172,7 +172,7 @@ You need a Salesbuildr account, a Public API key from your portal, and your tena
 
 ## More CRM connectors
 
-Run more than one CRM tool, or comparing options? These connectors work the same way: [HubSpot](/skills/hubspot/) · [Pipedrive](/skills/pipedrive/)
+Run more than one CRM tool, or comparing options? These connectors work the same way: [HubSpot](/skills/hubspot/) · [Pipedrive](/skills/pipedrive/) · [QuoteWerks](/skills/quotewerks/)
 
 ## Status
 

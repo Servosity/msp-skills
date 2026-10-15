@@ -232,6 +232,10 @@ quickbooks:
   vendor: "QuickBooks Online"
   example_command: "Which overdue invoices should I chase first?"
 
+quotewerks:
+  vendor: "QuoteWerks"
+  example_command: "Which open quotes went thin when our cost changed?"
+
 resourceguru:
   vendor: "Resource Guru"
   example_command: "Who's overbooked next week, across the team?"

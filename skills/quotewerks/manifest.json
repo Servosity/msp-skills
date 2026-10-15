@@ -1,0 +1,82 @@
+{
+  "manifest_version": "0.3",
+  "name": "quotewerks-mcp",
+  "display_name": "QuoteWerks Web",
+  "version": "0.1.0",
+  "description": "Typed quote tools for QuoteWerks Web that use the real column names, preview typed writes before sending them, and add margin, win-rate and pipeline answers from a local mirror.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/quotewerks-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/quotewerks-mcp",
+      "args": [],
+      "env": {
+        "QUOTEWERKS_API_KEY": "${user_config.quotewerks_api_key}",
+        "QUOTEWERKS_BASE_URL": "${user_config.quotewerks_base_url}",
+        "QUOTEWERKS_USER_AGENT": "${user_config.quotewerks_user_agent}",
+        "QUOTEWERKS_MCP_READ_ONLY": "${user_config.quotewerks_mcp_read_only}",
+        "QUOTEWERKS_MCP_HTTP_TOKEN": "${user_config.quotewerks_mcp_http_token}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
+      }
+    }
+  },
+  "user_config": {
+    "quotewerks_api_key": {
+      "type": "string",
+      "title": "QuoteWerks Web API key",
+      "description": "QuoteWerks Web API key, sent as the X-API-Key header. Create it in QuoteWerks Web under Setup > Options > Zapier and API (the API requires a user with MasterRights). Tick Allow write access only if the agent should create or change documents.",
+      "sensitive": true,
+      "required": true
+    },
+    "quotewerks_base_url": {
+      "type": "string",
+      "title": "QuoteWerks Web API base URL",
+      "description": "Overrides the API base URL. Leave blank for the default https://qwwapi.quotewerks.com.",
+      "required": false
+    },
+    "quotewerks_user_agent": {
+      "type": "string",
+      "title": "User-Agent header",
+      "description": "Overrides the User-Agent the CLI sends to QuoteWerks Web. Leave blank to use the CLI's built-in User-Agent.",
+      "required": false
+    },
+    "quotewerks_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP server",
+      "description": "Set to exactly 1 (no other value) for a read-only MCP server: it drops sync, workflow archive, export, reports run, agent ask, agent report-draft, learnings forget and learnings reject, and refuses --confirm on docs create, items add, items reprice and requote, which can still preview. Local-only tools such as mirror and teach stay. The raw tables insert, update and delete tools are never offered over MCP. Leave blank for the full tool set.",
+      "required": false
+    },
+    "quotewerks_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http (a remote or hosted deployment); callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+      "required": false,
+      "sensitive": true
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile",
+      "description": "Not used by this connector: QuoteWerks Web has no tenant-gated client profiles, so a value here limits nothing. Leave blank. To limit what an agent can do, give it a key without Allow write access.",
+      "required": false
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  },
+  "printing_press_version": "4.33.5",
+  "press_provenance": {
+    "printing_press_version": "4.33.5",
+    "generated_at": "2026-10-14T06:42:55.619267Z",
+    "spec_checksum": "sha256:e7426da74577617417d45b827da5384cb24ad1e0b9e21e12094432b3592547b0",
+    "spec_format": "openapi3"
+  }
+}

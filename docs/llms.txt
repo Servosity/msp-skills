@@ -168,6 +168,9 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
 - QuickBooks Online (Billing) - ask "Who owes us money, bucketed 0-30 / 31-60 / 61-90 / 90+?" - Answer AR/AP aging, DSO, cash-forecast, and month-end close questions across QuickBooks Online by asking.
   Verification: Live-verified by a real MSP (2026-06-15). Page: https://msp-skills.compoundingteams.com/skills/quickbooks/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/quickbooks/install.sh)
+- QuoteWerks (CRM) - ask "Where does the Acme quote stand?" - Find, build and reprice QuoteWerks Web quotes, and see margin and win rate across every document, by asking.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/quotewerks/
+  Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/quotewerks/install.sh)
 - Resource Guru (Other) - ask "Who is overbooked across the whole fleet this month?" - 
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/resourceguru/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/resourceguru/install.sh)
