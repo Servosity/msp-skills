@@ -213,8 +213,25 @@ func collectRPO(ctx context.Context, t fleetTarget, start, now time.Time, onlyVM
 			fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "backup storage", Error: err.Error()})
 		}
 	}
+	// PBS attribution first, so a PBS storage the PBS API reads directly does
+	// not depend on the PVE content list (which hides backups from audit-only
+	// tokens).
+	var nsByStore map[string][]string
+	if t.C.PBSConfigured() {
+		var warning string
+		var err error
+		nsByStore, warning, err = pbsAttribution(ctx, t, refs)
+		if err != nil {
+			pointsIncomplete = true
+			fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "pbs", Error: err.Error()})
+		} else if warning != "" {
+			fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "pbs attribution", Error: warning})
+		}
+	}
+	perms, permsErr := fetchPrivs(ctx, t.C, false)
 	for _, key := range sortedKeys(storages) {
-		rps, err := fetchStorageArchives(ctx, t.C, readers[key], storages[key], onlyVMID, refs)
+		s := storages[key]
+		rps, err := readStorageArchives(ctx, t.C, perms, permsErr, readers[key], s, onlyVMID, refs, pbsCovers(refs, s.Storage, t.pbsEndpoint(), nsByStore))
 		if err != nil {
 			pointsIncomplete = true
 			fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "storage " + key, Error: err.Error()})
@@ -226,13 +243,6 @@ func collectRPO(ctx context.Context, t fleetTarget, start, now time.Time, onlyVM
 		}
 	}
 	if t.C.PBSConfigured() {
-		nsByStore, warning, err := pbsAttribution(ctx, t, refs)
-		if err != nil {
-			pointsIncomplete = true
-			fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "pbs", Error: err.Error()})
-		} else if warning != "" {
-			fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "pbs attribution", Error: warning})
-		}
 		for _, store := range sortedKeys(nsByStore) {
 			for _, ns := range nsByStore[store] {
 				params := map[string]string(nil)

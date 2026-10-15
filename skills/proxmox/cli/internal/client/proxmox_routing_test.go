@@ -306,3 +306,23 @@ func TestServiceOriginSchemeAndPorts(t *testing.T) {
 		t.Error("an invalid port compared equal to itself")
 	}
 }
+
+// Plain http is allowed only to a loopback IP literal (a local stub never
+// leaves the machine). A loopback name, any other host, and a loopback base
+// that aliases the PBS endpoint stay refused.
+func TestPlainHTTPOnlyToLoopbackLiterals(t *testing.T) {
+	t.Setenv("PRINTING_PRESS_DOGFOOD", "")
+	t.Setenv("PRINTING_PRESS_VERIFY", "")
+	for base, ok := range map[string]bool{
+		"http://127.0.0.1:8006/api2/json": true,
+		"http://[::1]:8006/api2/json":     true,
+		"http://localhost:8006/api2/json": false,
+		"http://10.0.0.5:8006/api2/json":  false,
+		"http://127.0.0.1:8007/api2/json": false, // the PBS endpoint below
+	} {
+		c := New(&config.Config{BaseURL: base, TemplateVars: map[string]string{"pbs_host": "127.0.0.1:8007"}}, time.Second, 0)
+		if err := c.CheckServiceOrigins(); (err == nil) != ok {
+			t.Errorf("%s: err = %v, want accepted=%v", base, err, ok)
+		}
+	}
+}

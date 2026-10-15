@@ -138,6 +138,15 @@ Resource scoping:
 			if err != nil {
 				return usageErr(err)
 			}
+			// proxmox hand-fix (path-context-no-origin-override): host and
+			// pbs_host choose the token-bearing origin. Tokens, TLS pins and the
+			// origin checks are bound to the configured hosts when the client is
+			// built, so --path-context may never re-point them afterwards.
+			for k := range pathContext {
+				if endpointTemplateVarSet[k] {
+					return usageErr(fmt.Errorf("--path-context %s=... cannot change the Proxmox host: tokens and TLS pins are bound to the configured hosts; set PROXMOX_HOST or PROXMOX_PBS_HOST, or pick a cluster with --cluster", k))
+				}
+			}
 
 			c, err := flags.newClient()
 			if err != nil {

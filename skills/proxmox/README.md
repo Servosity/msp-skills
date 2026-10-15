@@ -31,7 +31,7 @@ The six agents MSP owners actually use (self-serve, works today):
 | **Claude Cowork** | Paste the install prompt below. |
 | **GitHub Copilot** (VS Code) | Run installer, add `proxmox-mcp` to `mcp.json` under the `servers` key, then pick **Agent** mode. |
 
-For ChatGPT, run `proxmox-mcp --transport http` and expose that behind HTTPS - no bridge package is needed. See [mcp-install.md](./mcp-install.md).
+For ChatGPT, set `PROXMOX_MCP_HTTP_TOKEN`, run `proxmox-mcp --transport http` and expose that behind HTTPS - no bridge package is needed. See [mcp-install.md](./mcp-install.md).
 
 ### Also for the Microsoft and Google stacks
 
@@ -138,7 +138,7 @@ OpenClaw isn't generally available yet; the frontmatter wiring is pre-shipped an
 
 ### Authenticate
 
-Create a privilege-separated API token with an audit-only role (PVE: `PVEAuditor` on `/`; PBS: `Audit`, or `DatastoreAudit` on `/datastore`), then:
+Create a privilege-separated API token for each product: PBS gets the `Audit` role on `/`; PVE gets `PVEAuditor` on `/`, plus `Datastore.AllocateSpace` and `VM.Backup` if your backups live on PVE storage (see [What API token does it need?](#what-api-token-does-it-need)). Then:
 
 ```bash
 export PROXMOX_HOST=pve1.example.lan
@@ -158,7 +158,7 @@ proxmox-cli clusters add acme --client "Acme Dental" --pve-host pve1.acme.lan --
 proxmox-cli clusters list
 ```
 
-`doctor` checks config, paths, and API reachability, and reports whether credentials are loaded - it does not validate them. Run a read command such as `proxmox-cli posture --agent` to confirm the token actually works end-to-end.
+`doctor` checks config, paths, API reachability and whether the PVE token authenticates. Run `proxmox-cli posture --agent` to confirm the token can also see guests, jobs and backups: anything it cannot read is listed under `fetch_failures`.
 
 
 ## What this skill does
@@ -177,9 +177,9 @@ Full command reference: [guide.md](./guide.md). For the AI-agent operating contr
 
 ## What makes this different
 
-Most Proxmox MCP servers are built to operate one cluster: list VMs, start and stop them, take snapshots, with the dangerous actions behind a flag. Many MSPs will never hand an AI agent that token. This one sends Proxmox nothing but reads (HTTP GET), so it runs on an auditor token, and there is no write command to misfire.
+Most Proxmox MCP servers are built to operate one cluster: list VMs, start and stop them, take snapshots, with the dangerous actions behind a flag. Many MSPs will never hand an AI agent that token. This one sends Proxmox nothing but reads (HTTP GET), so there is no write command to misfire, and with backups on Proxmox Backup Server both tokens can be audit-only.
 
-The answer is the join. "Is this VM backed up?" needs four things Proxmox keeps in different places: whether an *enabled* job includes it, the newest real archive on any backup storage, whether Proxmox Backup Server verified that archive, and what the last vzdump task log said about that guest. `posture`, `backup coverage`, `failures` and `rpo` do that join for every guest across every client cluster, and read live on every run. For inventory questions, `sync` keeps a **local SQLite mirror** with full-text search.
+The answer is the join. "Is this VM backed up?" needs four things Proxmox keeps in different places: whether an *enabled* job includes it, the newest real archive on any backup storage, whether Proxmox Backup Server verified that archive, and what the last vzdump task log said about that guest. `posture` and `backup coverage` do that join for every guest across every client cluster, `failures` and `rpo` for every guest a job touches, and all of them read live on every run. For inventory questions, `sync` keeps a **local SQLite mirror** with full-text search.
 
 ## The pain this closes
 
@@ -199,7 +199,7 @@ See [pain-point.md](./pain-point.md) for the longer narrative.
 
 ### Does this work with ChatGPT?
 
-Yes, on **Plus, Pro, Team, Business, Enterprise, and Education** plans (Free tier does not yet expose Developer Mode). ChatGPT connects to **remote** MCP servers over HTTPS, not local stdio binaries. The Proxmox MCP server runs locally, but it speaks HTTP natively: start it with `proxmox-mcp --transport http` (it serves `http://127.0.0.1:7777/mcp` by default) and put that endpoint behind an HTTPS tunnel or your own reverse proxy. No bridge package is involved. Step-by-step in [mcp-install.md](./mcp-install.md).
+Yes, on **Plus, Pro, Team, Business, Enterprise, and Education** plans (Free tier does not yet expose Developer Mode). ChatGPT connects to **remote** MCP servers over HTTPS, not local stdio binaries. The Proxmox MCP server runs locally, but it speaks HTTP natively: set `PROXMOX_MCP_HTTP_TOKEN` to a long random value, start it with `proxmox-mcp --transport http` (it serves `http://127.0.0.1:7777/mcp` by default and refuses to start without that token) and put that endpoint behind an HTTPS tunnel or your own reverse proxy. No bridge package is involved. Step-by-step in [mcp-install.md](./mcp-install.md).
 
 ### Does this work with Codex, Cursor, Windsurf, Cline, Copilot, or Gemini?
 
@@ -219,7 +219,7 @@ No. The CLI and MCP server only contain read (GET) calls to Proxmox VE and Proxm
 
 ### What API token does it need?
 
-A privilege-separated API token with an audit role: `PVEAuditor` on `/` for Proxmox VE, and the `Audit` role (or `DatastoreAudit` on `/datastore`) for Proxmox Backup Server. The PVE token is `USER@REALM!TOKENID=SECRET`; the PBS token uses a colon before the secret.
+A privilege-separated API token for each product. Proxmox Backup Server: the `Audit` role on `/` (read-only). Proxmox VE: `PVEAuditor` on `/`. One catch: Proxmox VE lists backup files only to a token that also holds `Datastore.AllocateSpace` and `VM.Backup`, so if your backups live on dir, NFS or CIFS storage, or you have not configured the Backup Server here, add a custom role with those two privileges. An audit-only token is reported as "storage not read", never as "no backups". If your backups are on Proxmox Backup Server and `PROXMOX_PBS_HOST` is set, the CLI reads them from the PBS API and the PVE token can stay audit-only. The PVE token is USER@REALM!TOKENID=SECRET; the PBS token uses a colon before the secret.
 
 ### Proxmox uses a self-signed certificate. Do I have to turn off certificate checks?
 
@@ -227,7 +227,7 @@ No, and there is no option to. Pin the certificate's SHA-256 fingerprint (shown 
 
 ### How do I cover many client clusters?
 
-Add one entry per client with `proxmox-cli clusters add`: its PVE host, optional PBS host and namespace, certificate fingerprints, and the names of the environment variables that hold its tokens (never the tokens themselves). The fleet commands then run across every configured cluster; `--cluster` or `--client` narrows to one.
+Add one entry per client with `proxmox-cli clusters add`: its PVE host, optional PBS host and namespace, certificate fingerprints, and the names of the environment variables that hold its tokens (never the tokens themselves). The fleet commands then run across every configured cluster; `--cluster` or `--client` narrows to one. For an MCP client, add those token variables to the MCP server's `env` block too.
 
 ### What does it cost?
 
@@ -240,12 +240,12 @@ Every request this skill sends to Proxmox is a read, so the tiers are about what
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
 | Read (Proxmox) | `posture`, `backup coverage`, `failures`, `verify-health`, `capacity`, `restore-points`, `rpo`, and every `vm`, `ct`, `nodes`, `storage`, `tasks`, `cluster` and `pbs-*` command | Allow |
-| Local writes | `clusters add`, `sync`, `workflow archive`, `profile save`, `teach` | Allow |
-| Credential (local) | `auth set-token`, `auth logout` | A human runs these |
+| Local writes | `sync`, `workflow archive`, `export`, `profile save`, `teach` | Allow |
+| Credential routing (local) | `clusters add` (where each client's tokens go and which certificate is trusted), `auth set-token`, `auth logout` | A human runs these; none is an MCP tool |
 | Data leaving the machine | `--deliver webhook:<url>` or `--deliver file:<path>` on any command, `feedback --send`, the MCP server bridged to a public HTTPS endpoint | Human-in-the-loop only |
 | Proxmox writes (start, stop, restore, prune, delete) | None - the skill has no such command | Not possible with this skill |
 
-The strongest control is still the **scope you grant the token**: with an audit-only role, Proxmox itself would refuse a write even if one were ever sent. Full details, including how to lock it down, are in [governance.md](./governance.md).
+The strongest control is still the **scope you grant the tokens**: with backups on Proxmox Backup Server both tokens can be audit-only, so Proxmox itself would refuse a write even if one were ever sent. Backups on PVE storage need two backup privileges before Proxmox VE will list them; governance.md explains the trade-off. Full details, including how to lock it down, are in [governance.md](./governance.md).
 
 ## Status
 

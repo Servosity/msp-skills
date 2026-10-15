@@ -614,7 +614,9 @@ func fetchStorageArchives(ctx context.Context, c *client.Client, node string, s 
 	}
 	out := make([]restorePoint, 0, len(entries))
 	for _, e := range entries {
-		if e.VMID == 0 || e.CTime == 0 {
+		// No size: a PBS snapshot with no manifest (a backup still running, or
+		// left behind by a crash). It cannot be restored, so it is not a point.
+		if e.VMID == 0 || e.CTime == 0 || e.Size <= 0 {
 			continue
 		}
 		rp := restorePoint{
@@ -638,6 +640,57 @@ func fetchStorageArchives(ctx context.Context, c *client.Client, node string, s 
 		out = append(out, rp)
 	}
 	return out, nil
+}
+
+// backupListingHidden reports whether Proxmox VE filters backup volumes out of
+// a storage's content list for this token. PVE::Storage::check_volume_access
+// shows a backup volume only with Datastore.Allocate on the storage, or
+// Datastore.AllocateSpace on it plus VM.Backup on the owning guest. An
+// audit-only token (PVEAuditor) has neither and gets an empty list, not a 403.
+// vmid 0 means every guest, so VM.Backup must then cover /vms.
+func backupListingHidden(perms tokenPrivs, storage string, vmid int64) bool {
+	sp := "/storage/" + storage
+	if perms.has(client.PrivDatastoreAllocate.String(), sp) {
+		return false
+	}
+	vp := "/vms"
+	if vmid > 0 {
+		vp = "/vms/" + strconv.FormatInt(vmid, 10)
+	}
+	return !perms.has(client.PrivDatastoreAllocateSpace.String(), sp) || !perms.has(client.PrivVMBackup.String(), vp)
+}
+
+// pbsCovers reports whether the PBS API reads the datastore and namespace that
+// a PVE storage of type pbs writes to, which makes its PVE content list
+// redundant. A failed PBS read is reported by the caller on its own.
+func pbsCovers(refs map[string]pbsStorageRef, storage, endpoint string, nsByStore map[string][]string) bool {
+	ref, ok := refs[storage]
+	if !ok || endpoint == "" || !strings.EqualFold(ref.server, endpoint) {
+		return false
+	}
+	for _, ns := range nsByStore[ref.datastore] {
+		if ns == ref.namespace {
+			return true
+		}
+	}
+	return false
+}
+
+// readStorageArchives is fetchStorageArchives behind the visibility rule: a
+// content list the token cannot fully see is missing evidence, never "no
+// backups". When the PBS API reads the same archives (covered), a hidden PVE
+// list is skipped instead.
+func readStorageArchives(ctx context.Context, c *client.Client, perms tokenPrivs, permsErr error, node string, s storageInfo, vmid int64, refs map[string]pbsStorageRef, covered bool) ([]restorePoint, error) {
+	if permsErr != nil {
+		return nil, fmt.Errorf("cannot tell whether the token may list backup archives: %w", permsErr)
+	}
+	if backupListingHidden(perms, s.Storage, vmid) {
+		if covered {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("Proxmox VE lists backup archives on storage %s only to a token with Datastore.Allocate on /storage/%s, or Datastore.AllocateSpace on it plus VM.Backup on the guest; this token has neither, so it would see an empty list and the archives were not read", s.Storage, s.Storage)
+	}
+	return fetchStorageArchives(ctx, c, node, s, vmid, refs)
 }
 
 func pbsCanonical(server, store, ns, guestType string, vmid, t int64) string {
@@ -804,7 +857,16 @@ func pbsSnapshots(ctx context.Context, c *client.Client, store, ns string, param
 	if err := getJSON(ctx, c, pbsPath("/admin/datastore/%s/snapshots", store), p, &snaps); err != nil {
 		return nil, err
 	}
-	return snaps, nil
+	// PBS lists a snapshot whose manifest is missing (a backup still running,
+	// or one a crash left behind) with no size. It cannot be restored or
+	// verified, so it is never a restore point.
+	complete := snaps[:0]
+	for _, s := range snaps {
+		if s.Size > 0 {
+			complete = append(complete, s)
+		}
+	}
+	return complete, nil
 }
 
 func pbsSourceLabel(store, ns string) string {

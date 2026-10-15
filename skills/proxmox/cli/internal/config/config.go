@@ -247,8 +247,13 @@ func Load(configPath string) (*Config, error) {
 	}
 	if v := strings.TrimSpace(cliutil.EnvOverride("PROXMOX_HOST")); v != "" {
 		cfg.TemplateVars["host"] = normalizeEndpointTemplateValue(v)
-	} else {
+	} else if verifyMode {
 		cfg.TemplateVars["host"] = "localhost"
+	} else {
+		// proxmox hand-fix (pve-host-no-localhost-default): an unset host stays
+		// unresolved, so requests fail with "export PROXMOX_HOST" and doctor
+		// reports a placeholder, instead of dialling localhost:8006.
+		cfg.TemplateVars["host"] = ""
 	}
 	return cfg, nil
 }

@@ -288,14 +288,20 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 				doctorBase = client.ResolvedBaseURL(cfg.BaseURL, cfg.TemplateVars)
 			}
 			if doctorBaseURLIsPlaceholder(doctorBase) {
-				report["api"] = "not configured (base_url is a placeholder)"
+				// proxmox hand-fix (doctor-names-the-fix): name the variables to set.
+				report["api"] = "not configured (base_url is a placeholder): set PROXMOX_HOST or PROXMOX_BASE_URL"
 				if _, set := report["credentials"]; !set {
-					report["credentials"] = "skipped (base_url is a placeholder)"
+					report["credentials"] = "skipped (base_url is a placeholder): set PROXMOX_HOST or PROXMOX_BASE_URL"
 				}
 			} else if cfg != nil && cfg.BaseURL != "" {
 				c, clientErr := flags.newClient()
 				if clientErr != nil {
 					report["api"] = fmt.Sprintf("client init error: %s", clientErr)
+					// proxmox hand-fix (doctor-names-the-fix): a client that cannot
+					// be built cannot verify the token either; say so.
+					if _, set := report["credentials"]; !set {
+						report["credentials"] = fmt.Sprintf("ERROR not verified: client init error: %s", clientErr)
+					}
 				} else {
 					// Step 1: Basic reachability via the configured transport.
 					// Health paths have no response_format field, so opt this
@@ -327,6 +333,11 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 						status := reachAPIErr.StatusCode
 						if vendor := looksLikeDoctorInterstitial([]byte(reachAPIErr.Body)); vendor != "" {
 							report["api"] = fmt.Sprintf("blocked by %s interstitial (HTTP %d) — the configured transport reached the wall.", vendor, status)
+						} else if status == 404 {
+							// proxmox hand-fix (doctor-names-the-fix): the host answered
+							// but the API path does not exist, so this is not the PVE API
+							// root. Reachable is the wrong verdict.
+							report["api"] = fmt.Sprintf("ERROR the host answered but %s is not there - this is not the Proxmox VE API root; set PROXMOX_HOST, or point PROXMOX_BASE_URL at https://<host>:8006/api2/json", healthPath)
 						} else {
 							report["api"] = fmt.Sprintf("reachable (HTTP %d at /)", status)
 						}

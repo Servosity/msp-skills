@@ -273,7 +273,9 @@ func (c *Client) CheckServiceOrigins() error {
 	if perr != nil || u.Hostname() == "" {
 		return fmt.Errorf("the Proxmox VE base URL %q is not a valid URL", c.BaseURL)
 	}
-	if !strings.EqualFold(u.Scheme, "https") && !cliutil.IsAnyHarness() {
+	// Plain http is refused except to a loopback IP literal, which never
+	// leaves this machine (a local stub or test server; real PVE is HTTPS).
+	if ip := net.ParseIP(u.Hostname()); !strings.EqualFold(u.Scheme, "https") && !cliutil.IsAnyHarness() && (ip == nil || !ip.IsLoopback()) {
 		return fmt.Errorf("the Proxmox VE base URL %s must use https (the PVE API is HTTPS-only; the token is never sent in clear text)", resolved)
 	}
 	if o, oerr := url.Parse(origin); origin != "" && oerr == nil && sameEndpoint(u, o) { // any scheme: http://pbs1:8007 still dials PBS
@@ -356,6 +358,13 @@ var (
 	PrivVMAudit        = Privilege{"VM", "Audit"}
 	PrivSysAudit       = Privilege{"Sys", "Audit"}
 	PrivDatastoreAudit = Privilege{"Datastore", "Audit"}
+	// Proxmox VE lists a backup volume only to a token holding
+	// Datastore.Allocate on the storage, or Datastore.AllocateSpace on it plus
+	// VM.Backup on the owning guest (PVE::Storage::check_volume_access). The
+	// CLI never uses them; it only checks whether a token holds them.
+	PrivDatastoreAllocate      = Privilege{"Datastore", "Allocate"}
+	PrivDatastoreAllocateSpace = Privilege{"Datastore", "AllocateSpace"}
+	PrivVMBackup               = Privilege{"VM", "Backup"}
 )
 
 // PBSPath turns a PBS API path ("/admin/datastore") into the routed form the

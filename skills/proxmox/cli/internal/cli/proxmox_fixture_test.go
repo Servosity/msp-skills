@@ -23,11 +23,14 @@ import (
 )
 
 type fixture struct {
-	now        time.Time
-	pve, pbs   *httptest.Server
-	pveHits    atomic.Int64
-	pbsHits    atomic.Int64
-	writeCalls atomic.Int64
+	now      time.Time
+	pve, pbs *httptest.Server
+	// The route maps the fixture servers answer from; a test may change an
+	// entry before it runs a command.
+	pveRoutes, pbsRoutes map[string]any
+	pveHits              atomic.Int64
+	pbsHits              atomic.Int64
+	writeCalls           atomic.Int64
 }
 
 // oldVerify marks a snapshot as verified 40 days ago (verify job outdated-after is 30).
@@ -127,8 +130,11 @@ func newFixture(t *testing.T) *fixture {
 			{"n": 2, "t": "INFO: Finished Backup of VM 105 (00:00:01)"},
 		},
 		"/cluster/jobs/schedule-analyze": "SCHEDULE", // computed in handler
-		"/access/permissions":            map[string]any{"/": map[string]any{"Sys.Audit": 1, "VM.Audit": 1, "Datastore.Audit": 1}},
-		"/storage":                       "STORAGE", // computed in handler (needs the PBS server address)
+		// The documented PVE token: PVEAuditor plus the two privileges PVE
+		// requires before it lists backup volumes (Datastore.AllocateSpace,
+		// VM.Backup). backup_visibility_behavior_test.go covers audit-only.
+		"/access/permissions": map[string]any{"/": map[string]any{"Sys.Audit": 1, "VM.Audit": 1, "Datastore.Audit": 1, "Datastore.AllocateSpace": 1, "VM.Backup": 1}},
+		"/storage":            "STORAGE", // computed in handler (needs the PBS server address)
 	}
 	snap := func(typ, id string, h float64, state string, size int64) map[string]any {
 		s := map[string]any{"backup-type": typ, "backup-id": id, "backup-time": ago(n, h), "size": size, "files": []string{"index.json.blob"}, "owner": "root@pam"}
@@ -166,6 +172,7 @@ func newFixture(t *testing.T) *fixture {
 		"/nodes/localhost/tasks/UPID:pbs:gc/log":     []map[string]any{{"n": 1, "t": "starting garbage collection on store main"}, {"n": 2, "t": "TASK ERROR: not enough space"}},
 		"/nodes/localhost/tasks/UPID:pbs:verify/log": []map[string]any{{"n": 1, "t": "verify main:vm/104/..."}, {"n": 2, "t": "verification failed - 1 snapshot(s) failed"}},
 	}
+	f.pveRoutes, f.pbsRoutes = pveRoutes, pbsRoutes
 	f.pve = httptest.NewTLSServer(f.handler(t, pveRoutes, "PVEAPIToken=", true))
 	f.pbs = httptest.NewTLSServer(f.handler(t, pbsRoutes, "PBSAPIToken=", false))
 	t.Cleanup(func() { f.pve.Close(); f.pbs.Close() })

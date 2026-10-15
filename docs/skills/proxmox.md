@@ -12,7 +12,7 @@ faqs:
   - q: "Is the Proxmox MCP server safe for client data?"
     a: "Yes, by design - and the exceptions are ones you switch on yourself. The CLI, the MCP server, and any local data mirror run on your own machine, and nothing is sent to MSP Skills or any third party unless you ask for it. Three paths can move data off the machine, all opt-in: `--deliver webhook:<url>` posts a command's output to a URL you name; `PROXMOX_FEEDBACK_AUTO_SEND=true` posts feedback you typed to the URL in `PROXMOX_FEEDBACK_ENDPOINT` (with no endpoint set, `feedback` only writes a local file); `--transport http` opens a local MCP listener you then choose whether to expose. Credentials stay in your environment, and every command is safety-tiered (read, write, destructive) so your agent only gets the permissions you grant. Full policy in the safety model on this page."
   - q: "Does this work with ChatGPT?"
-    a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, and proxmox-mcp speaks HTTP natively: run `proxmox-mcp --transport http` (it serves `http://127.0.0.1:7777/mcp`) and put that /mcp endpoint behind an HTTPS tunnel or your own reverse proxy. Step-by-step in the install guide."
+    a: "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, and proxmox-mcp speaks HTTP natively: set PROXMOX_MCP_HTTP_TOKEN to a long random value, run `proxmox-mcp --transport http` (it serves `http://127.0.0.1:7777/mcp` and refuses to start without that token), and put that /mcp endpoint behind an HTTPS tunnel or your own reverse proxy. Step-by-step in the install guide."
   - q: "Do I need to know how to code?"
     a: "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
   - q: "Is my Proxmox data safe?"
@@ -22,11 +22,11 @@ faqs:
   - q: "Can the AI stop, change or delete anything on my Proxmox hosts?"
     a: "No. The CLI and MCP server only contain read (GET) calls to Proxmox VE and Proxmox Backup Server; there is no command that starts, stops, migrates, restores, prunes or deletes anything. The only writes are local files: the cluster list, a saved token, and the local mirror. One side effect to know: reading a storage's status lets Proxmox mount an enabled storage, which its own status daemon already does every 10 seconds."
   - q: "What API token does it need?"
-    a: "A privilege-separated API token with an audit role: PVEAuditor on / for Proxmox VE, and the Audit role (or DatastoreAudit on /datastore) for Proxmox Backup Server. The PVE token is USER@REALM!TOKENID=SECRET; the PBS token uses a colon before the secret."
+    a: "A privilege-separated API token for each product. Proxmox Backup Server: the Audit role on / (read-only). Proxmox VE: PVEAuditor on /. One catch: Proxmox VE lists backup files only to a token that also holds Datastore.AllocateSpace and VM.Backup, so if your backups live on dir, NFS or CIFS storage, or you have not configured the Backup Server here, add a custom role with those two privileges. An audit-only token is reported as \"storage not read\", never as \"no backups\". If your backups are on Proxmox Backup Server and PROXMOX_PBS_HOST is set, the CLI reads them from the PBS API and the PVE token can stay audit-only. The PVE token is USER@REALM!TOKENID=SECRET; the PBS token uses a colon before the secret."
   - q: "Proxmox uses a self-signed certificate. Do I have to turn off certificate checks?"
     a: "No, and there is no option to. Pin the certificate's SHA-256 fingerprint (shown under the node's Certificates) with PROXMOX_TLS_FINGERPRINT and PROXMOX_PBS_TLS_FINGERPRINT, or per client cluster in clusters.toml. A PVE pin never vouches for the PBS host."
   - q: "How do I cover many client clusters?"
-    a: "Add one entry per client with `proxmox-cli clusters add`: its PVE host, optional PBS host and namespace, certificate fingerprints, and the names of the environment variables that hold its tokens (never the tokens themselves). The fleet commands then run across every configured cluster; `--cluster` or `--client` narrows to one."
+    a: "Add one entry per client with `proxmox-cli clusters add`: its PVE host, optional PBS host and namespace, certificate fingerprints, and the names of the environment variables that hold its tokens (never the tokens themselves). The fleet commands then run across every configured cluster; `--cluster` or `--client` narrows to one. For an MCP client, add those token variables to the MCP server's env block too."
 howto:
   - name: "Run the one-line installer"
     text: "macOS/Linux: bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/proxmox/install.sh) - Windows PowerShell: iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/proxmox/install.ps1 | iex"
@@ -46,7 +46,7 @@ howto:
 
 Yes - there is an MCP server for Proxmox. It's free, open source, and runs on your own machine, so your client data stays local unless you route it somewhere yourself. It connects Proxmox to Claude, ChatGPT, Copilot, or any MCP-capable agent, and installs in about 60 seconds.
 
-Ask your AI "which client VMs don't have a good, recent, verified backup right now?" and get one row per guest across every client's Proxmox cluster: is it in an enabled job, how old is its newest real restore point, did Proxmox Backup Server verify it. Every request this skill sends to Proxmox is a read, so an auditor token is all it needs.
+Ask your AI "which client VMs don't have a good, recent, verified backup right now?" and get one row per guest across every client's Proxmox cluster: is it in an enabled job, how old is its newest real restore point, did Proxmox Backup Server verify it. Every request this skill sends to Proxmox is a read; it never starts, stops, restores or deletes anything.
 
 <sub>New to the term? An **MCP server** is the same thing ChatGPT calls an app or connector, Claude on the web calls a connector, and Claude Code calls a Skill. [One thing, many names →](/what-is-an-mcp-server/)</sub>
 
@@ -135,11 +135,12 @@ After install, authenticate once with your Proxmox credentials, then verify with
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
 | Read (Proxmox) | posture, backup coverage, failures, verify-health, capacity, restore-points, rpo, and every vm, ct, nodes, storage, tasks, cluster and pbs-* command | Allow |
-| Local writes | clusters add, sync, workflow archive, profile save, teach, auth set-token, auth logout | Allow for clusters add, sync and profiles; a human runs auth set-token and auth logout |
+| Local writes | sync, workflow archive, export, profile save, teach | Allow |
+| Credential routing (local) | clusters add (where each client's tokens are sent and which certificate is trusted), auth set-token, auth logout | A human runs these; none is an MCP tool |
 | Data leaving the machine | --deliver webhook:<url> or --deliver file:<path> on any command, and the MCP server bridged to a public HTTPS endpoint | Human-in-the-loop only |
 | Proxmox writes (start, stop, restore, prune, delete) | None. The CLI has no such command. | Not possible with this skill |
 
-Every request this skill sends to Proxmox VE or Proxmox Backup Server is a read, so the whole Proxmox surface is safe to let an agent run with an auditor token. The only writes are local: the cluster list, a saved token, the local mirror and the agent learning store. The one thing to gate is where output goes: --deliver can send any command's output to a file or a webhook URL. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/proxmox/governance.md).
+Every request this skill sends to Proxmox VE or Proxmox Backup Server is a read, so no command it runs can change a cluster or a backup. The only writes are local: the cluster list, a saved token, the local mirror and the agent learning store, and the MCP server cannot edit the cluster list. Gate where output goes: --deliver can send any command's output to a file or a webhook URL. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/proxmox/governance.md).
 
 ## Frequently asked questions
 
@@ -153,7 +154,7 @@ Yes, by design - and the exceptions are ones you switch on yourself. The CLI, th
 
 ### Does this work with ChatGPT?
 
-Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, and proxmox-mcp speaks HTTP natively: run `proxmox-mcp --transport http` (it serves `http://127.0.0.1:7777/mcp`) and put that /mcp endpoint behind an HTTPS tunnel or your own reverse proxy. Step-by-step in the install guide.
+Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, and proxmox-mcp speaks HTTP natively: set PROXMOX_MCP_HTTP_TOKEN to a long random value, run `proxmox-mcp --transport http` (it serves `http://127.0.0.1:7777/mcp` and refuses to start without that token), and put that /mcp endpoint behind an HTTPS tunnel or your own reverse proxy. Step-by-step in the install guide.
 
 ### Do I need to know how to code?
 
@@ -173,7 +174,7 @@ No. The CLI and MCP server only contain read (GET) calls to Proxmox VE and Proxm
 
 ### What API token does it need?
 
-A privilege-separated API token with an audit role: PVEAuditor on / for Proxmox VE, and the Audit role (or DatastoreAudit on /datastore) for Proxmox Backup Server. The PVE token is USER@REALM!TOKENID=SECRET; the PBS token uses a colon before the secret.
+A privilege-separated API token for each product. Proxmox Backup Server: the Audit role on / (read-only). Proxmox VE: PVEAuditor on /. One catch: Proxmox VE lists backup files only to a token that also holds Datastore.AllocateSpace and VM.Backup, so if your backups live on dir, NFS or CIFS storage, or you have not configured the Backup Server here, add a custom role with those two privileges. An audit-only token is reported as "storage not read", never as "no backups". If your backups are on Proxmox Backup Server and PROXMOX_PBS_HOST is set, the CLI reads them from the PBS API and the PVE token can stay audit-only. The PVE token is USER@REALM!TOKENID=SECRET; the PBS token uses a colon before the secret.
 
 ### Proxmox uses a self-signed certificate. Do I have to turn off certificate checks?
 
@@ -181,7 +182,7 @@ No, and there is no option to. Pin the certificate's SHA-256 fingerprint (shown 
 
 ### How do I cover many client clusters?
 
-Add one entry per client with `proxmox-cli clusters add`: its PVE host, optional PBS host and namespace, certificate fingerprints, and the names of the environment variables that hold its tokens (never the tokens themselves). The fleet commands then run across every configured cluster; `--cluster` or `--client` narrows to one.
+Add one entry per client with `proxmox-cli clusters add`: its PVE host, optional PBS host and namespace, certificate fingerprints, and the names of the environment variables that hold its tokens (never the tokens themselves). The fleet commands then run across every configured cluster; `--cluster` or `--client` narrows to one. For an MCP client, add those token variables to the MCP server's env block too.
 
 
 ## More Backup/DR connectors
