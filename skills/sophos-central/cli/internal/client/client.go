@@ -1848,7 +1848,11 @@ func (c *Client) mintClientCredentials(ctx context.Context, clientID, clientSecr
 	if c.Config.ClientSecret == "" {
 		c.Config.MarkClientSecretFromEnv()
 	}
-	if err := c.Config.SaveTokens(clientID, clientSecret, tokenResp.AccessToken, "", expiry); err != nil {
+	// Hand-wired (handfixes.json: env-credential-wins-over-saved): a token for
+	// an environment credential that differs from the saved one stays in memory.
+	if c.Config.KeepMintedTokenInMemory(tokenResp.AccessToken, expiry) {
+		// not saved
+	} else if err := c.Config.SaveTokens(clientID, clientSecret, tokenResp.AccessToken, "", expiry); err != nil {
 		return fmt.Errorf("saving minted token: %w", err)
 	}
 	if c.ccMintedUnknownExpiry == nil {

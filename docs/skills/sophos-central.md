@@ -27,6 +27,8 @@ faqs:
     a: "Calls go through a shared throttle of 1.5 requests per second by default (--rate-limit), under Sophos's own limits. fleet refresh --plan prints the tenant count and estimated calls and time before you run it. After a refresh, fleet triage, fleet health and fleet gaps read the local store and make no API calls."
   - q: "Why do some customers show as forbidden?"
     a: "Sophos returns 403 to a partner for trial tenants and for term customers without Partner Assistance. fleet refresh records those in its per-tenant ledger and carries on, and fleet triage lists them as blind tenants so you can see what was not read. Trial tenants are skipped unless you pass --include-trial."
+  - q: "Can the AI isolate a machine or turn tamper protection back on by itself?"
+    a: "Only with you in the loop. contain and fleet tamper print a plan and change nothing without --yes. In Claude Code or Codex the agent shows you the plan and reruns with --yes once you approve. The MCP server never passes --yes, so in Claude Desktop, ChatGPT or Copilot these two commands only preview."
   - q: "Does it cover Sophos XDR or MDR Cases and Detections?"
     a: "Not in this version. It covers the REST APIs: alerts, endpoints, policies, exclusions, Live Discover, XDR Data Lake queries, SIEM events and alerts, Account Health Check, licences and partner billing. Cases and Detections are not included."
   - q: "Does it replace the Sophos Central Partner Dashboard?"
@@ -144,7 +146,7 @@ After install, authenticate once with your Sophos Central credentials, then veri
 | Credential and access | endpoints get-tamper-protection and endpoints set-tamper-protection (return the tamper password); migrations get-job, get-jobs, create-receiving-job (return the migration token); auth login; partner-admins create; admins create-role-assignment; roles create-tenant | Human-in-the-loop only |
 | Destructive and commercial | endpoints delete; endpoints bulk-delete; policies delete-policy; users delete-tenant-by-id; migrations create-sending-job; tenants create; tenants post-account-amendment; provisioning reset-default-products | Human-in-the-loop only, explicit confirmation |
 
-The skill authenticates with a Sophos Central API credential you create, and its reach is exactly the role you give that credential. Every fleet report (triage, health, gaps, revenue) and every list or get is read-only and safe to let an agent run. Sophos Central is also an endpoint security console, so isolating machines, starting scans, collecting forensic logs and memory dumps, running Live Discover queries and changing tamper protection reach real customer machines; those, plus policy, exclusion and allow-list changes that can weaken protection, need a human to approve the exact command. Commands that return a tamper protection password or a migration token are credential reads, kept out of the MCP server and human-only. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/sophos-central/governance.md).
+The skill authenticates with a Sophos Central API credential you create, and its reach is exactly the role you give that credential. Every fleet report (triage, health, gaps, revenue) and every list or get, except the credential reads named below, is read-only and safe to let an agent run. Sophos Central is also an endpoint security console, so isolating machines, starting scans, collecting forensic logs and memory dumps, running Live Discover queries and changing tamper protection reach real customer machines; those, plus policy, exclusion and allow-list changes that can weaken protection, need a human to approve the exact command. Commands that return a tamper protection password or a migration token are credential reads, kept out of the MCP server and human-only. contain and fleet tamper preview by default and act only with --yes, which the MCP server never passes. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/sophos-central/governance.md).
 
 ## Frequently asked questions
 
@@ -187,6 +189,10 @@ Calls go through a shared throttle of 1.5 requests per second by default (--rate
 ### Why do some customers show as forbidden?
 
 Sophos returns 403 to a partner for trial tenants and for term customers without Partner Assistance. fleet refresh records those in its per-tenant ledger and carries on, and fleet triage lists them as blind tenants so you can see what was not read. Trial tenants are skipped unless you pass --include-trial.
+
+### Can the AI isolate a machine or turn tamper protection back on by itself?
+
+Only with you in the loop. contain and fleet tamper print a plan and change nothing without --yes. In Claude Code or Codex the agent shows you the plan and reruns with --yes once you approve. The MCP server never passes --yes, so in Claude Desktop, ChatGPT or Copilot these two commands only preview.
 
 ### Does it cover Sophos XDR or MDR Cases and Detections?
 

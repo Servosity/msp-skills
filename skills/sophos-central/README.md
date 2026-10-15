@@ -212,6 +212,10 @@ Calls go through a shared throttle of 1.5 requests per second by default (`--rat
 
 Sophos returns 403 to a partner for trial tenants and for term customers without Partner Assistance. `fleet refresh` records those in its per-tenant ledger and carries on, and `fleet triage` lists them as blind tenants so you can see what was not read. Trial tenants are skipped unless you pass `--include-trial`.
 
+### Can the AI isolate a machine or turn tamper protection back on by itself?
+
+Only with you in the loop. `contain` and `fleet tamper` print a plan and change nothing without `--yes`. In Claude Code or Codex the agent shows you the plan and reruns with `--yes` once you approve. The MCP server never passes `--yes`, so in Claude Desktop, ChatGPT or Copilot these two commands only preview.
+
 ### Does it cover Sophos XDR or MDR Cases and Detections?
 
 Not in this version. It covers the REST APIs: alerts, endpoints, policies, exclusions, Live Discover, XDR Data Lake queries, SIEM events and alerts, Account Health Check, licences and partner billing. Cases and Detections are not included.

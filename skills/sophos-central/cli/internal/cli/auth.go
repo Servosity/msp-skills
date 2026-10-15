@@ -114,7 +114,7 @@ Credentials default to SOPHOS_CENTRAL_CLIENT_ID (Client ID) and SOPHOS_CENTRAL_C
 			// secret read from SOPHOS_CENTRAL_CLIENT_SECRET stays in the
 			// environment; only --client-secret is written to credentials.toml.
 			if !clientSecretFromFlag {
-				cfg.MarkClientSecretFromEnv()
+				cfg.KeepEnvSecretOffDisk(clientID)
 			}
 			if err := cfg.SaveTokens(clientID, clientSecret, tok.AccessToken, "", expiry); err != nil {
 				return configErr(fmt.Errorf("saving token: %w", err))

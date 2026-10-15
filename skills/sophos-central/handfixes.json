@@ -569,7 +569,7 @@
     },
     {
      "file": "cli/internal/cli/auth.go",
-     "contains": "cfg.MarkClientSecretFromEnv()",
+     "contains": "cfg.KeepEnvSecretOffDisk(clientID)",
      "min_count": 1,
      "code_only": false
     },
@@ -661,6 +661,132 @@
     }
    ],
    "spec_encode_followup": "cli-printing-press could mark response fields as x-sensitive in the spec and generate the cache, store, export/tail and MCP exclusions from that one declaration."
+  },
+  {
+   "id": "env-credential-wins-over-saved",
+   "summary": "a client ID in SOPHOS_CENTRAL_CLIENT_ID that differs from the saved one is the credential in use: the saved secret and the token minted for the saved credential are never sent, and the environment credential's token stays in memory",
+   "why": "Round 1 adversarial review (2026-10-14) proved the generated precedence (saved config first, then environment) sent credential A's cached bearer token on a run configured with credential B, including from the MCP server (the CLI and MCP share the default data dir). With A an admin credential from `auth login` and B the read-only credential the docs tell owners to give an agent, an agent's writes ran with admin rights; after the token expired the client minted with A's saved ID and B's secret and failed with a misleading 401. AdoptEnvClientCredential runs in the client hook for both CLI and MCP, sophosClientPair (store scope and identity cache) uses the same rule, and `auth login` drops a saved secret that belongs to the client ID being replaced. TestEnvCredentialWinsOverSavedToken fails when the adopt call is neutralised.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/config/sophos_env_secret.go",
+     "contains": "func (c *Config) AdoptEnvClientCredential() {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/config/sophos_env_secret.go",
+     "contains": "func (c *Config) KeepMintedTokenInMemory(accessToken string, expiry time.Time) bool {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/config/sophos_env_secret.go",
+     "contains": "func (c *Config) KeepEnvSecretOffDisk(clientID string) {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_routing.go",
+     "contains": "c.Config.AdoptEnvClientCredential()",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_routing.go",
+     "contains": "envID != \"\" && envID != id {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if c.Config.KeepMintedTokenInMemory(tokenResp.AccessToken, expiry) {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_env_credential_test.go",
+     "contains": "func TestEnvCredentialWinsOverSavedToken(",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "single-read-keeps-the-object",
+   "summary": "single-object GET commands return the whole object; a response path unwraps only a list wrapper (every other top-level key is paging metadata)",
+   "why": "The generator hands single-object GETs the first array property of the response schema as a response path. Round 1 adversarial review proved `alerts get` printed only allowedActions (the fleet triage next_command led nowhere), `tenants get` only products, and `endpoints get-tamper-protection` printed the INVALIDATED previous passwords under the key password while dropping the current password and enabled flag - a technician mid-incident would try a dead password. Also hit exploit-mitigation get-application-by-id, live-discover get-execution-summary, xdr get-query-run, web-control get-local-site-by-id and get-web-decryption-settings, software get-static-package and the three role get-by-id commands. applyEntityResponsePath is used only by the single-read resolver; paginated list walkers keep applyResponsePath.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sophos_response_path.go",
+     "contains": "func applyEntityResponsePath(data json.RawMessage, responsePath string) json.RawMessage {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "data = applyEntityResponsePath(data, responsePath)",
+     "min_count": 3,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sophos_response_path_test.go",
+     "contains": "func TestApplyEntityResponsePath(",
+     "min_count": 1,
+     "code_only": false
+    }
+   ],
+   "spec_encode_followup": "cli-printing-press should only emit a response path for a single-object GET when the schema is a list wrapper (items plus paging keys)."
+  },
+  {
+   "id": "install-credentials-declared-on-every-channel",
+   "summary": "every environment variable the binaries read is declared on all three install channels: manifest.json (.mcpb), server.json (MCP Registry) and mcp-install.md",
+   "why": "check_env_schema.py failed the first verify_all run: the generated manifest declared only the client ID and secret, while the binaries also read SOPHOS_CENTRAL_TENANT_ID, BASE_URL, TOKEN_URL, OAUTH_SCOPE, MCP_READ_ONLY, MCP_HTTP_TOKEN, USER_AGENT and PRINTING_PRESS_CLIENT_PROFILE. A Claude Desktop install has no other way to set them. manifest.json, server.json and mcp-install.md are regenerated by /msp-skills-publish on a re-onboard, so these asserts pin the declarations (issue #282 fleet shape). Optional values are blank in the copy-paste env blocks: a placeholder in an optional slot would be sent as a real value.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "manifest.json",
+     "contains": "\"SOPHOS_CENTRAL_TENANT_ID\": \"${user_config.sophos_central_tenant_id}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"SOPHOS_CENTRAL_MCP_READ_ONLY\": \"${user_config.sophos_central_mcp_read_only}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"SOPHOS_CENTRAL_MCP_HTTP_TOKEN\": \"${user_config.sophos_central_mcp_http_token}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"SOPHOS_CENTRAL_TOKEN_URL\": \"${user_config.sophos_central_token_url}\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"SOPHOS_CENTRAL_TENANT_ID\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"SOPHOS_CENTRAL_MCP_HTTP_TOKEN\"",
+     "min_count": 1
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"SOPHOS_CENTRAL_TENANT_ID\": \"\",",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "SOPHOS_CENTRAL_MCP_HTTP_TOKEN=<long-random-value> sophos-central-mcp --transport http",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
   },
   {
    "id": "doctor-verdict-tracks-reality",

@@ -339,6 +339,10 @@ func installSophosRouting(c *client.Client) error {
 	if c == nil || c.Config == nil || c.HTTPClient == nil {
 		return nil
 	}
+	// The environment's client ID is the credential in use; material saved
+	// for another client ID is never sent (handfixes.json:
+	// env-credential-wins-over-saved).
+	c.Config.AdoptEnvClientCredential()
 	// The response cache keys on the configured auth, not on a per-config
 	// Authorization header; with one present, caching could serve another
 	// credential's response, so disable it.
@@ -450,11 +454,17 @@ func sophosContextPath(c *client.Client) string {
 // in the generated client's precedence: an explicit auth header wins; then a
 // token minted from client ID + secret (only when both are set); then a
 // stored token (auth set-token). Empty when there is no credential.
-// sophosClientPair mirrors the client's resolveClientCredentials: saved
-// config first, then the environment. The provider-specific central_*
+// sophosClientPair resolves the pair the client mints with: the
+// environment's client ID when it differs from the saved one (the hook has
+// already adopted it), else saved config first, then the environment. The provider-specific central_*
 // fields are not used to mint, so they are not a credential here.
 func sophosClientPair(cfg *config.Config) (string, string) {
 	id, secret := cfg.ClientID, cfg.ClientSecret
+	// The environment's client ID wins over a different saved one, and the
+	// saved secret then belongs to another credential (env-credential-wins-over-saved).
+	if envID := strings.TrimSpace(cliutil.EnvOverride("SOPHOS_CENTRAL_CLIENT_ID")); envID != "" && envID != id {
+		id, secret = envID, ""
+	}
 	if id == "" {
 		id = os.Getenv("SOPHOS_CENTRAL_CLIENT_ID")
 	}
