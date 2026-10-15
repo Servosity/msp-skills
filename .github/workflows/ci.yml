@@ -113,13 +113,15 @@ jobs:
         #                       at all. A tag push runs release.yml FROM THE
         #                       TAGGED COMMIT, so tagging a pre-draft-pipeline
         #                       commit publishes an empty immutable release and
-        #                       spends that version number. Nine broken pipeline
-        #                       shapes are refused (publish-first, never sealed,
-        #                       two sealers, an uploader outside the seal's needs
-        #                       closure, no completeness gate, the gate after the
-        #                       seal, no bundle in the contract, comments that
-        #                       only QUOTE the commands, and a file that is not a
-        #                       workflow). Critically it also asserts THIS repo's
+        #                       spends that version number. Thirteen broken
+        #                       pipeline shapes are refused (publish-first, never
+        #                       sealed, two sealers, an uploader outside the seal's
+        #                       needs closure, no completeness gate, the gate after
+        #                       the seal, no bundle in the contract, no Windows
+        #                       smoke, a Windows smoke outside the seal's closure,
+        #                       quoted only in a comment, or run on a Linux runner,
+        #                       comments that only QUOTE the commands, and a file
+        #                       that is not a workflow). Critically it also asserts THIS repo's
         #                       own release.yml passes: that is what pins the
         #                       probe to the pipeline, so a pipeline change that
         #                       outgrows the probe goes red in the PR that made
@@ -494,3 +496,103 @@ jobs:
         # and the fixture config carries a literal auth_header.
         run: python3 tools/maintainer/check_doctor_truth.py --slug ${{ matrix.skill.name }}
 
+  # Windows is where most MSPs run these connectors, and until this job no
+  # test and no binary ever ran there: `build` cross-compiles windows/amd64 and
+  # windows/arm64 on Linux, which proves the code COMPILES for Windows and
+  # nothing else. This job runs on a real Windows machine, per changed skill
+  # (the same scoped matrix as `build`):
+  #   go vet ./...    native windows/amd64, test files included;
+  #   go test ./...   the connector's own tests: path joins, file locking, the
+  #                   SQLite store, rename/remove of open files, CRLF and the
+  #                   like behave differently on Windows, and only a Windows
+  #                   test run shows it. (No other job runs `go test`.);
+  #   windows_smoke.ps1
+  #                   the CLI and MCP server built natively and run the way an
+  #                   MSP runs them (no HOME, a Windows profile, the MCP server
+  #                   finding its companion CLI .exe) - the same script
+  #                   release.yml runs against the draft before every seal, so
+  #                   a Windows break shows up here, on the PR, rather than as
+  #                   a stranded draft at release time.
+  #
+  # Cost, deliberately bounded. Windows runners are the slow, expensive ones,
+  # so this job:
+  #   * skips pushes to main. The PR run already tested the same change-set
+  #     merged onto main, and a push re-run would double every matrix. The
+  #     weekly full sweep and workflow_dispatch still run it, which bounds what
+  #     a merge race could slip past;
+  #   * caps itself at 20 parallel rows, so a full-fleet run (a workflow or
+  #     machinery change) queues behind itself instead of pinning the org's
+  #     runner pool and starving release builds, the 2026-09-07 failure mode;
+  #   * checks out only this skill and tools/maintainer (sparse), since a full
+  #     Windows checkout of the repo is most of a minute on its own.
+  windows:
+    needs: prepare
+    if: needs.prepare.outputs.any == 'true' && github.event_name != 'push'
+    runs-on: windows-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      max-parallel: 20
+      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      MODULE: ${{ matrix.skill.module }}
+      CLI_CMD: ${{ matrix.skill.cli_cmd }}
+      MCP_CMD: ${{ matrix.skill.mcp_cmd }}
+      CLI_BIN: ${{ matrix.skill.cli_bin }}
+      MCP_BIN: ${{ matrix.skill.mcp_bin }}
+    steps:
+      - name: Check out with LF line endings
+        # The runner's git defaults to core.autocrlf=true, which would rewrite
+        # every embedded file and golden fixture to CRLF. Released binaries are
+        # built on Linux from LF sources, so a CRLF checkout would test files
+        # no user ever runs and red tests over line endings nobody ships.
+        run: git config --global core.autocrlf false
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            skills/${{ matrix.skill.name }}
+            tools/maintainer
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: ${{ matrix.skill.dir }}/go.mod
+          cache-dependency-path: ${{ matrix.skill.dir }}/go.sum
+
+      - name: Vet (windows/amd64, native)
+        working-directory: ${{ matrix.skill.dir }}
+        run: go vet ./...
+
+      - name: Test (windows/amd64, native)
+        working-directory: ${{ matrix.skill.dir }}
+        run: go test ./...
+
+      - name: Build the CLI and MCP server the way release.yml does
+        # Runs (and so does the smoke) even when a test failed: "a test is
+        # Unix-only" and "the binary cannot run on Windows" are different
+        # findings, and one run should report both.
+        if: ${{ !cancelled() }}
+        working-directory: ${{ matrix.skill.dir }}
+        # Same flags as the release build, so the smoke below also proves the
+        # version stamp lands in a Windows binary.
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/winbin"
+          mkdir -p "$out"
+          go build -trimpath -ldflags "-s -w -X ${MODULE}/internal/cli.version=0.0.0-windows-ci" -o "$out/${CLI_BIN}.exe" "$CLI_CMD"
+          go build -trimpath -ldflags "-s -w -X main.version=0.0.0-windows-ci" -o "$out/${MCP_BIN}.exe" "$MCP_CMD"
+
+      - name: Run them on Windows (Windows PowerShell 5.1)
+        if: ${{ !cancelled() }}
+        shell: powershell
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass -File tools\maintainer\windows_smoke.ps1 `
+            -BinDir (Join-Path $env:RUNNER_TEMP "winbin") -CliName $env:CLI_BIN -McpName $env:MCP_BIN `
+            -ExpectedVersion 0.0.0-windows-ci
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

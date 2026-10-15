@@ -1,0 +1,259 @@
+name: Windows smoke
+
+# Runs one connector release's Windows binaries on a real Windows machine and
+# fails if they do not work. Most MSPs run these connectors on Windows, and
+# before this nothing ever EXECUTED a Windows binary: release.yml cross-
+# compiles windows/amd64 on Linux, and the only binary it runs is the
+# linux/amd64 one. The checks themselves live in
+# tools/maintainer/windows_smoke.ps1 (read its header for what each proves).
+#
+# Two callers, two sources:
+#
+#   source: draft      release.yml calls this BEFORE it seals a release, inside
+#                      the seal's `needs:` closure. The binaries come from the
+#                      still-mutable DRAFT, so a failure leaves the draft
+#                      unpublished and the workflow re-runnable, never a sealed
+#                      release that cannot be repaired.
+#
+#   source: published  the user path, for an already-published release
+#                      (workflow_dispatch, or the verify-msp-skills skill):
+#                      run the README's exact `iwr ... install.ps1 | iex`
+#                      one-liner on a clean Windows machine, then smoke the
+#                      binaries it installed and the published .mcpb bundle.
+#
+#   gh workflow run windows-smoke.yml -R Servosity/msp-skills -f tag=<slug>-v<x.y.z>
+#
+# Evidence: every run uploads the artifact `windows-smoke-transcript`.
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: Release tag, <slug>-v<major>.<minor>.<patch>
+        required: true
+        type: string
+      source:
+        description: "draft (pre-seal, assets from the draft) or published (README install one-liner)"
+        required: false
+        type: string
+        default: draft
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to smoke-test, e.g. hudu-v0.2.4
+        required: true
+        type: string
+      source:
+        description: "published = the user path (README install.ps1 one-liner); draft = an unpublished draft's assets"
+        required: true
+        type: choice
+        options:
+          - published
+          - draft
+        default: published
+
+permissions:
+  contents: read
+
+jobs:
+  # Names come from the registry, never from string-building in a shell: the
+  # same release_matrix.py output release.yml builds and uploads from.
+  resolve:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      slug: ${{ steps.plan.outputs.slug }}
+      version: ${{ steps.plan.outputs.version }}
+      cli_bin: ${{ steps.plan.outputs.cli_bin }}
+      mcp_bin: ${{ steps.plan.outputs.mcp_bin }}
+      cli_asset: ${{ steps.plan.outputs.cli_asset }}
+      mcp_asset: ${{ steps.plan.outputs.mcp_asset }}
+      mcpb_asset: ${{ steps.plan.outputs.mcpb_asset }}
+      install_url: ${{ steps.plan.outputs.install_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Resolve the tag to registry names
+        id: plan
+        env:
+          TAG: ${{ inputs.tag }}
+          SOURCE: ${{ inputs.source }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          case "$SOURCE" in
+            draft|published) ;;
+            *) echo "::error::source must be 'draft' or 'published', got '$SOURCE'"; exit 1 ;;
+          esac
+          # argv, never program text: TAG is caller-supplied.
+          matrix="$(python3 tools/maintainer/release_matrix.py --tag "$TAG")"
+          python3 - "$TAG" "$matrix" >> "$GITHUB_OUTPUT" <<'PY'
+          import json, re, sys
+          tag, matrix = sys.argv[1], json.loads(sys.argv[2])
+          m = re.fullmatch(r"(?P<slug>[a-z0-9][a-z0-9.-]*)-v(?P<version>\d+\.\d+\.\d+)", tag)
+          skills = matrix.get("skill") or []
+          if not m or not skills:
+              print(f"::error::{tag!r} is not a release tag of a registered connector", file=sys.stderr)
+              sys.exit(1)
+          s = skills[0]
+          win = s["assets"]["windows-amd64"]
+          print(f"slug={s['name']}")
+          print(f"version={m['version']}")
+          print(f"cli_bin={s['cli_bin']}")
+          print(f"mcp_bin={s['mcp_bin']}")
+          print(f"cli_asset={win['cli']}")
+          print(f"mcp_asset={win['mcp']}")
+          print(f"mcpb_asset={s['mcpb_asset']}")
+          PY
+          slug="${TAG%-v*}"
+          if [ "$SOURCE" = published ]; then
+            # The user path installs the NEWEST published release of the skill,
+            # so smoking an older tag through it would test the wrong binaries.
+            newest="$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --paginate \
+              -q ".[] | select(.draft == false) | .tag_name" | grep -E "^${slug}-v[0-9]+\.[0-9]+\.[0-9]+$" | head -1 || true)"
+            if [ "$newest" != "$TAG" ]; then
+              echo "::error::the README one-liner installs the newest published ${slug} release ('${newest:-none}'), not $TAG; smoke the newest tag, or use source=draft for an unpublished one"
+              exit 1
+            fi
+            # The one-liner is run only if the skill's README carries it
+            # VERBATIM: this asserts the documented user path and keeps the
+            # command a constant built here, never text lifted from a file.
+            url="https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/main/skills/${slug}/install.ps1"
+            if ! grep -qixF "iwr -useb ${url} | iex" "skills/${slug}/README.md"; then
+              echo "::error::skills/${slug}/README.md does not carry the install one-liner 'iwr -useb ${url} | iex' on a line of its own"
+              exit 1
+            fi
+            echo "install_url=$url" >> "$GITHUB_OUTPUT"
+          fi
+
+  # Drafts are visible only to accounts with push access, so reading one needs
+  # contents: write. That credential stays in THIS job, which runs nothing it
+  # downloads; the Windows job that executes the binaries holds read only.
+  fetch-draft:
+    needs: resolve
+    if: inputs.source == 'draft'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TAG: ${{ inputs.tag }}
+      CLI_ASSET: ${{ needs.resolve.outputs.cli_asset }}
+      MCP_ASSET: ${{ needs.resolve.outputs.mcp_asset }}
+      MCPB_ASSET: ${{ needs.resolve.outputs.mcpb_asset }}
+    steps:
+      - name: Download the Windows binaries and the bundle from the draft
+        run: |
+          set -euo pipefail
+          mkdir -p assets
+          for f in "$CLI_ASSET" "$MCP_ASSET" "$CLI_ASSET.sha256" "$MCP_ASSET.sha256" "$MCPB_ASSET"; do
+            gh release download "$TAG" --pattern "$f" --dir assets
+          done
+          # The bytes the installer will download must match their sidecars.
+          (cd assets && shasum -a 256 -c "$CLI_ASSET.sha256" "$MCP_ASSET.sha256")
+          ls -la assets
+
+      - name: Hand them to the Windows job
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-smoke-draft-assets
+          path: assets/
+          retention-days: 3
+          if-no-files-found: error
+
+  smoke:
+    needs: [resolve, fetch-draft]
+    # fetch-draft is skipped for source=published; any other non-success of a
+    # dependency must leave this job skipped and the workflow red.
+    if: ${{ !cancelled() && needs.resolve.result == 'success' && (needs.fetch-draft.result == 'success' || (inputs.source == 'published' && needs.fetch-draft.result == 'skipped')) }}
+    runs-on: windows-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    defaults:
+      run:
+        # Windows PowerShell 5.1: what every supported Windows ships with and
+        # what an MSP's `iwr ... | iex` runs under.
+        shell: powershell
+    env:
+      SOURCE: ${{ inputs.source }}
+      TAG: ${{ inputs.tag }}
+      VERSION: ${{ needs.resolve.outputs.version }}
+      CLI_BIN: ${{ needs.resolve.outputs.cli_bin }}
+      MCP_BIN: ${{ needs.resolve.outputs.mcp_bin }}
+      CLI_ASSET: ${{ needs.resolve.outputs.cli_asset }}
+      MCP_ASSET: ${{ needs.resolve.outputs.mcp_asset }}
+      MCPB_ASSET: ${{ needs.resolve.outputs.mcpb_asset }}
+      INSTALL_URL: ${{ needs.resolve.outputs.install_url }}
+    steps:
+      - name: Checkout the smoke script only
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          sparse-checkout: tools/maintainer/windows_smoke.ps1
+          sparse-checkout-cone-mode: false
+
+      - name: Get the draft's assets
+        if: env.SOURCE == 'draft'
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-smoke-draft-assets
+          path: ${{ runner.temp }}\assets
+
+      - name: Lay the draft's binaries out the way install.ps1 does
+        if: env.SOURCE == 'draft'
+        run: |
+          $ErrorActionPreference = "Stop"
+          $bin = Join-Path $env:RUNNER_TEMP "msp-skills-bin"
+          New-Item -ItemType Directory -Force -Path $bin | Out-Null
+          Copy-Item -LiteralPath (Join-Path $env:RUNNER_TEMP "assets\$env:CLI_ASSET") -Destination (Join-Path $bin "$env:CLI_BIN.exe")
+          Copy-Item -LiteralPath (Join-Path $env:RUNNER_TEMP "assets\$env:MCP_ASSET") -Destination (Join-Path $bin "$env:MCP_BIN.exe")
+          Copy-Item -LiteralPath (Join-Path $env:RUNNER_TEMP "assets\$env:MCPB_ASSET") -Destination (Join-Path $env:RUNNER_TEMP "bundle.mcpb")
+          "BIN_DIR=$bin" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Install with the README one-liner (the user path)
+        if: env.SOURCE == 'published'
+        env:
+          # Lifts the 60/hour anonymous API limit shared by runner IPs;
+          # install.ps1 sends it to api.github.com only.
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          Write-Host "> iwr -useb $env:INSTALL_URL | iex"
+          iwr -useb $env:INSTALL_URL | iex
+          $bin = Join-Path $env:LOCALAPPDATA "Programs\msp-skills"
+          $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+          if (($userPath -split ";") -notcontains $bin) { throw "install.ps1 did not add $bin to the user PATH (user PATH: $userPath)" }
+          Write-Host "user PATH carries $bin"
+          "BIN_DIR=$bin" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          $mcpb = Join-Path $env:RUNNER_TEMP "bundle.mcpb"
+          Invoke-WebRequest -UseBasicParsing -Uri "https://github.com/$env:GITHUB_REPOSITORY/releases/download/$env:TAG/$env:MCPB_ASSET" -OutFile $mcpb
+
+      - name: Smoke the installed binaries
+        run: |
+          $t = Join-Path $env:RUNNER_TEMP "windows-smoke\transcript.txt"
+          powershell -NoProfile -ExecutionPolicy Bypass -File tools\maintainer\windows_smoke.ps1 `
+            -BinDir $env:BIN_DIR -CliName $env:CLI_BIN -McpName $env:MCP_BIN -ExpectedVersion $env:VERSION -Transcript $t
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Smoke the .mcpb bundle's Windows layout (what Claude Desktop launches)
+        if: ${{ !cancelled() }}
+        run: |
+          $t = Join-Path $env:RUNNER_TEMP "windows-smoke\transcript.txt"
+          Add-Content -LiteralPath $t -Value "`n--- .mcpb bundle: $env:MCPB_ASSET ---" -Encoding UTF8
+          powershell -NoProfile -ExecutionPolicy Bypass -File tools\maintainer\windows_smoke.ps1 `
+            -Mcpb (Join-Path $env:RUNNER_TEMP "bundle.mcpb") -CliName $env:CLI_BIN -McpName $env:MCP_BIN -ExpectedVersion $env:VERSION -Transcript $t
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Upload the transcript
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-smoke-transcript
+          path: ${{ runner.temp }}\windows-smoke\
+          if-no-files-found: warn
