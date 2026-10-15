@@ -417,6 +417,12 @@ var writeThroughNestedEnvelopeKeys = []string{"data", "Data", "result", "Result"
 // FTS search covers everything the user has looked up — not just explicit syncs.
 // Best-effort: failures are silently ignored (the live result already succeeded).
 func writeThroughCache(ctx context.Context, resourceType string, data json.RawMessage) {
+	// Hand-wired (handfixes.json: tenant-rows-never-persisted): live reads of
+	// generic tenant tables are never copied into the local store; the only
+	// local copy is the one 'mirror' makes of the quote tables on request.
+	if quotewerksNeverPersistLiveRows {
+		return
+	}
 	db, err := store.OpenWithContext(ctx, defaultDBPath("quotewerks-cli"))
 	if err != nil {
 		return
@@ -622,6 +628,10 @@ func extractWriteThroughSingleArraySibling(envelope map[string]json.RawMessage, 
 	return nil, false
 }
 
+// quotewerksNeverPersistLiveRows gates the generated write-through paths
+// (handfixes.json: tenant-rows-never-persisted).
+const quotewerksNeverPersistLiveRows = true
+
 func writeThroughArrayItemsAreObjects(items []json.RawMessage) bool {
 	if len(items) == 0 {
 		return true
@@ -651,6 +661,11 @@ func isRawJSONNull(raw json.RawMessage) bool {
 }
 
 func writeMutationResponseToStore(ctx context.Context, resourceType string, data json.RawMessage, responsePath string) {
+	// Hand-wired (handfixes.json: tenant-rows-never-persisted): a write's
+	// response row (UserSettings, CloudSystemSettings, ...) is not stored.
+	if quotewerksNeverPersistLiveRows {
+		return
+	}
 	db, err := store.OpenWithContext(ctx, defaultDBPath("quotewerks-cli"))
 	if err != nil {
 		return

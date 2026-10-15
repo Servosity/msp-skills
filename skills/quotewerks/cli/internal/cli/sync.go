@@ -49,6 +49,9 @@ type syncResult struct {
 
 const syncWatermarkOverlap = time.Second
 
+// errCloudSettingsNeverSynced (handfixes.json: tenant-rows-never-persisted).
+var errCloudSettingsNeverSynced = errors.New("cloud_settings is never synced to disk: CloudSystemSettings rows can hold integration secrets; read them live with 'quotewerks-cli cloud-settings list'")
+
 func newSyncCmd(flags *rootFlags) *cobra.Command {
 	var resources []string
 	var full bool
@@ -97,7 +100,7 @@ Resource scoping:
 		Example: `  # Sync all resources
   quotewerks-cli sync
   # Sync specific resources only
-  quotewerks-cli sync --resources cloud_settings,tables
+  quotewerks-cli sync --resources tables
 
   # Full resync (ignore previous checkpoint)
   quotewerks-cli sync --full
@@ -141,6 +144,12 @@ Resource scoping:
 			// If no specific resources, sync top-level resources
 			if len(resources) == 0 {
 				resources = defaultSyncResources()
+			}
+			// Hand-wired (handfixes.json: tenant-rows-never-persisted).
+			for _, r := range resources {
+				if r == "cloud_settings" || r == "cloud-settings" {
+					return usageErr(errCloudSettingsNeverSynced)
+				}
 			}
 
 			// Reject --resource-param keys that don't match a known resource.
@@ -407,6 +416,11 @@ func syncResource(ctx context.Context, c interface {
 	RateLimit() float64
 }, db *store.Store, resource, sinceTS string, full bool, maxPages int, latestOnly bool, prune bool, userParams *syncUserParams, syncEvents io.Writer) syncResult {
 	started := time.Now()
+	// Hand-wired (handfixes.json: tenant-rows-never-persisted): the boundary
+	// every sync caller (sync, workflow archive) passes through.
+	if resource == "cloud_settings" || resource == "cloud-settings" {
+		return syncResult{Resource: resource, Err: errCloudSettingsNeverSynced}
+	}
 	if syncEvents == nil {
 		syncEvents = io.Discard
 	}
@@ -2003,8 +2017,10 @@ func parseRestSyncTimestamp(value string) (time.Time, bool) {
 }
 
 func defaultSyncResources() []string {
+	// Hand-wired (handfixes.json: tenant-rows-never-persisted): cloud_settings
+	// (CloudSystemSettings rows, which can hold integration secrets) is read
+	// live with 'cloud-settings list' and never synced to disk.
 	return []string{
-		"cloud_settings",
 		"tables",
 	}
 }
@@ -2014,7 +2030,6 @@ func defaultSyncResources() []string {
 // validation to reject misspellings before they become silent no-ops.
 func knownSyncResourceNames() []string {
 	names := []string{
-		"cloud_settings",
 		"tables",
 	}
 	return names

@@ -47,7 +47,7 @@
     "quotewerks_mcp_read_only": {
       "type": "string",
       "title": "Read-only MCP server",
-      "description": "Set to exactly 1 to make the MCP server read-only: it drops the raw table write tools (tables insert, update, delete) and the QuoteWerks AI agent tools, and refuses --confirm on docs create, items add, items reprice and requote, which can still preview. Leave blank for the full tool set.",
+      "description": "Set to exactly 1 (no other value) to make the MCP server read-only: it drops every tool that writes or posts (sync, workflow archive, export, reports run, agent ask, agent report-draft, learnings forget and learnings reject) and refuses --confirm on docs create, items add, items reprice and requote, which can still preview. The raw tables insert, update and delete tools are never offered over MCP. Leave blank for the full tool set.",
       "required": false
     },
     "quotewerks_mcp_http_token": {

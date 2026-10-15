@@ -548,7 +548,12 @@ func (c *Client) GetWithHeadersNoCacheValues(ctx context.Context, path string, p
 }
 
 func (c *Client) responseCacheEnabled(binaryResponse bool) bool {
-	return !binaryResponse && !c.NoCache && !c.DryRun && c.cacheDir != ""
+	// Hand-wired (handfixes.json: tenant-rows-never-persisted): every
+	// QuoteWerks Web response is a tenant table row or table listing, and the
+	// generic tables commands can read SecurityAccounts, UserSettings or
+	// CloudSystemSettings rows that carry secrets. Never write them to the
+	// on-disk response cache.
+	return false
 }
 
 // The response cache stores text/JSON bodies as <hash>.json. Binary callers

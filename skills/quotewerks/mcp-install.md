@@ -49,6 +49,11 @@ Add (or merge with your existing `mcpServers` block):
 }
 ```
 
+Only `QUOTEWERKS_API_KEY` is required; delete the lines you are not setting. Set
+`QUOTEWERKS_MCP_READ_ONLY` to exactly `1` to make the server read-only (any other value,
+including `true`, leaves every tool available). The raw `tables insert`, `tables update`
+and `tables delete` commands are CLI-only and never offered as MCP tools.
+
 Quit Claude Desktop completely and reopen, then ask a question that needs the API.
 
 ## GitHub Copilot (VS Code)

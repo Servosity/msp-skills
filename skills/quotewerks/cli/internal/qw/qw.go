@@ -305,7 +305,9 @@ func TotalsContribution(attrs map[string]any) (counts, known bool) {
 
 // MarginPct is (price-cost)/price*100. ok is false when price is zero.
 func MarginPct(price, cost float64) (float64, bool) {
-	if price == 0 {
+	// A zero cost is how a missing cost is stored (docs lint reports it as
+	// zero-cost), so the margin is unknown, not 100%.
+	if price == 0 || cost == 0 {
 		return 0, false
 	}
 	m, ok := MarginRaw(price, cost)

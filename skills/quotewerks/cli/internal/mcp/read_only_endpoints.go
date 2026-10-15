@@ -9,6 +9,10 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 )
 
+// rawTableWriteTools are the generated tables insert/update/delete tools,
+// removed from MCP (handfixes.json: mcp-raw-table-writes-cli-only).
+var rawTableWriteTools = []string{"tables_insert", "tables_update", "tables_delete"}
+
 // dropNonReadOnlyTools removes every registered tool that is not annotated
 // read-only. The generated endpoint-mirror tools (tables_insert, tables_update,
 // tables_delete, agent_ask, ...) never consulted QUOTEWERKS_MCP_READ_ONLY, so

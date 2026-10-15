@@ -46,7 +46,7 @@ The QuoteWerks Web REST API is generic table access, so agents guess column name
 
 ## When to Use This CLI
 
-Use this CLI when an agent needs to look up, build, audit or reprice QuoteWerks Web quotes, orders or invoices, or answer margin, win-rate and pipeline questions across documents. Typed writes (docs create, items add, items reprice, requote) preview by default and write only with --confirm and a write-enabled key; --yes does not confirm them. The raw 'tables insert', 'tables update', 'tables delete' and 'import' commands write immediately, so run them with --dry-run first. margin, winrate, pipeline, cost-drift and changes read the local copy made by 'mirror' (not 'sync') and return empty results until it has run. Use --json rather than --agent for write previews, because --agent compacts away the request body.
+Use this CLI when an agent needs to look up, build, audit or reprice QuoteWerks Web quotes, orders or invoices, or answer margin, win-rate and pipeline questions across documents. Typed writes (docs create, items add, items reprice, requote) preview by default and write only with --confirm and a write-enabled key; --yes does not confirm them. The raw 'tables insert', 'tables update' and 'tables delete' commands write immediately, so run them with --dry-run first. margin, winrate, pipeline, cost-drift and changes read the local copy made by 'mirror' (not 'sync') and return empty results until it has run.
 
 ## Anti-triggers
 
@@ -321,10 +321,10 @@ Lists open-quote lines whose quoted cost moved at least 2% from the product data
 ### Audit an integration-built quote
 
 ```bash
-quotewerks-cli docs lint 1042 --min-margin 10 --json
+quotewerks-cli docs lint 1042 --min-margin 10 --strict --json
 ```
 
-Flags price-below-cost, zero-cost and low-margin lines and exits nonzero on errors.
+Flags price-below-cost, zero-cost and low-margin lines. Findings are data: without `--strict` the command exits 0 even when it reports errors; `--strict` exits 1 when any error-severity finding is reported, so a script can gate on it.
 
 ## Auth Setup
 
@@ -352,7 +352,7 @@ Global format flags share one contract on promoted, novel, sync, and `--deliver`
 - **Previewable**  -  `--dry-run` shows the HTTP request without sending on generated endpoint commands (`tables`, `cloud-settings`, `agent`, `reports`); on the typed commands it only confirms the command would run, and the typed write commands already preview by default
 - **Offline-friendly**  -  sync/search commands can use the local SQLite store when available
 - **Non-interactive**  -  never prompts, every input is a flag
-- **Explicit confirmation**  -  typed writes (`docs create`, `items add`, `items reprice`, `requote`) preview by default and write only with `--confirm` (needs an API key with write access); `--yes` does not confirm them. The raw `tables insert`, `tables update`, `tables delete` and `import` commands write immediately, so run them with `--dry-run` first
+- **Explicit confirmation**  -  typed writes (`docs create`, `items add`, `items reprice`, `requote`) preview by default and write only with `--confirm` (needs an API key with write access); `--yes` does not confirm them. The raw `tables insert`, `tables update` and `tables delete` commands write immediately, so run them with `--dry-run` first
 - **Explicit retries**  -  use `--idempotent` only when an already-existing create should count as success, and use `--ignore-missing` only when a missing delete target should count as success
 
 ### Response envelope
@@ -680,5 +680,4 @@ Parse `$ARGUMENTS`:
    ```bash
    quotewerks-cli docs search --customer "Acme" --type QUOTE --agent
    ```
-   For write previews use `--json` instead, because `--agent` compacts output.
 4. If ambiguous, drill into subcommand help, for example `quotewerks-cli items reprice --help`.

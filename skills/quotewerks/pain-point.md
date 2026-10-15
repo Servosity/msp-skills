@@ -54,8 +54,8 @@ until you confirm them, and a local mirror for the cross-document questions:
 Two of the guardrails the post asked for come with it. A key without Allow
 write access cannot change anything (QuoteWerks answers writes with 403), and
 with a write-enabled key the typed writes still only preview until `--confirm`.
-The raw `tables` writes and `import` send immediately, so keep the key
-read-only unless you need writes.
+The raw `tables` writes send immediately, so keep the key read-only unless
+you need writes.
 
 ## Status
 

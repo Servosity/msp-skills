@@ -22,7 +22,7 @@ faqs:
   - q: "Does it work with QuoteWerks Desktop?"
     a: "It works with QuoteWerks Web through the QuoteWerks Web REST API at qwwapi.quotewerks.com, which QuoteWerks labels beta. It does not open a QuoteWerks Desktop database or use the desktop COM API."
   - q: "What API key do I need, and can the AI change my quotes?"
-    a: "Create a key in QuoteWerks Web under Setup > Options > Zapier and API; the API requires a user with MasterRights. A key without Allow write access can read but cannot change anything (QuoteWerks answers writes with 403). Even with a write-enabled key, `docs create`, `items add`, `items reprice` and `requote` only preview until you add `--confirm`. The raw `tables insert`, `tables update`, `tables delete` and `import` commands send immediately, so keep the key read-only unless you need writes."
+    a: "Create a key in QuoteWerks Web under Setup > Options > Zapier and API; the API requires a user with MasterRights. A key without Allow write access can read but cannot change anything (QuoteWerks answers writes with 403). Even with a write-enabled key, `docs create`, `items add`, `items reprice` and `requote` only preview until you add `--confirm`. The raw `tables insert`, `tables update` and `tables delete` commands send immediately, so keep the key read-only unless you need writes."
   - q: "Will this hammer the QuoteWerks API?"
     a: "No. margin, winrate, pipeline, cost-drift and changes read the local copy that `quotewerks-cli mirror` makes, so you can ask as many questions as you like without another API call. mirror reads 1,000 rows per request, and requests are paced to the server's rate-limit headers by default."
 howto:
@@ -132,12 +132,12 @@ After install, authenticate once with your QuoteWerks credentials, then verify w
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | `docs search`, `docs get`, `docs lint`, `items list`, `products search`, the `tables` reads (`list`, `rows`, `row`, `query`, `schema`, `values`), the `cloud-settings` reads, `reports run`, `identity userinfo`, `agent ask`, and the mirror reports (`margin`, `pipeline`, `cost-drift`, `winrate`, `changes`); `mirror` and `sync` write only the local copy | Allow |
+| Read | `docs search`, `docs get`, `docs lint`, `items list`, `products search`, the `tables` reads (`list`, `rows`, `row`, `query`, `schema`, `values`), the `cloud-settings` reads, `reports run`, `identity userinfo`, `agent ask` (and `import agent`, CLI only, which sends a JSONL file of questions to the same AI agent), and the mirror reports (`margin`, `pipeline`, `cost-drift`, `winrate`, `changes`); `mirror` and `sync` write only the local copy | Allow |
 | Previewed writes | `docs create`, `items add`, `items reprice`, `requote`: each previews by default and writes only with `--confirm` and a write-enabled key | Let the agent preview; a human approves before it re-runs with --confirm |
-| Raw writes | `tables insert`, `tables update` and `import` (CLI only), which send immediately to any table your key can write | Preview with --dry-run, then a reviewed write |
-| Destructive / credential | `tables delete` (deletes a row in any table, documents included), `auth set-token`, `auth logout` | Human-in-the-loop only |
+| Raw writes | `tables insert` and `tables update` (CLI only, never an MCP tool), which send immediately to any table your key can write | Preview with --dry-run, then a reviewed write |
+| Destructive / credential | `tables delete` (CLI only; deletes a row in any table, documents included), `auth set-token`, `auth logout` | Human-in-the-loop only |
 
-The skill reads your QuoteWerks Web quotes, orders, invoices, line items, product databases and settings, and it can create and change documents. The typed writes (`docs create`, `items add`, `items reprice`, `requote`) only preview until you add `--confirm`. The raw table writes (`tables insert`, `tables update`, `import`) send immediately, so preview them with `--dry-run` first, and keep `tables delete` and the credential commands for a human. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/quotewerks/governance.md).
+The skill reads your QuoteWerks Web quotes, orders, invoices, line items, product databases and settings, and it can create and change documents. The typed writes (`docs create`, `items add`, `items reprice`, `requote`) only preview until you add `--confirm`. The raw table writes (`tables insert`, `tables update`) send immediately, so preview them with `--dry-run` first, and keep `tables delete` and the credential commands for a human. Full details in [governance.md](https://github.com/servosity/msp-skills/blob/main/skills/quotewerks/governance.md).
 
 ## Frequently asked questions
 
@@ -171,7 +171,7 @@ It works with QuoteWerks Web through the QuoteWerks Web REST API at qwwapi.quote
 
 ### What API key do I need, and can the AI change my quotes?
 
-Create a key in QuoteWerks Web under Setup > Options > Zapier and API; the API requires a user with MasterRights. A key without Allow write access can read but cannot change anything (QuoteWerks answers writes with 403). Even with a write-enabled key, `docs create`, `items add`, `items reprice` and `requote` only preview until you add `--confirm`. The raw `tables insert`, `tables update`, `tables delete` and `import` commands send immediately, so keep the key read-only unless you need writes.
+Create a key in QuoteWerks Web under Setup > Options > Zapier and API; the API requires a user with MasterRights. A key without Allow write access can read but cannot change anything (QuoteWerks answers writes with 403). Even with a write-enabled key, `docs create`, `items add`, `items reprice` and `requote` only preview until you add `--confirm`. The raw `tables insert`, `tables update` and `tables delete` commands send immediately, so keep the key read-only unless you need writes.
 
 ### Will this hammer the QuoteWerks API?
 

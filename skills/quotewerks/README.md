@@ -141,7 +141,7 @@ export QUOTEWERKS_API_KEY=<your-key>
 quotewerks-cli doctor
 ```
 
-`doctor` checks config, paths, and API reachability, and reports whether credentials are loaded - it does not validate them. Run a read command to confirm the credential actually works end-to-end.
+`doctor` checks config and paths and verifies the key with one read (`GET /api/v1/qw/tables`): a rejected key shows as `ERROR rejected`. It exits 0 by default either way; add `--fail-on error` to make a failed check exit non-zero in a script.
 
 
 ## What this skill does
@@ -165,7 +165,7 @@ Full command reference: [guide.md](./guide.md). For the AI-agent operating contr
 
 Most QuoteWerks integrations, the Zapier app included, make one live API call per record. That's fine for one record. It dies at scale, when you're asking "what was margin by rep across every order last quarter, and which open quotes went thin when the distributor raised cost?"
 
-This skill copies your QuoteWerks documents, line items and product databases into a **local SQLite mirror** (`quotewerks-cli mirror`). Aggregate questions become one local query: instant, offline, and the AI sees the answer, not the raw data. Commands like `cost-drift`, `winrate` and `margin --by manufacturer` join quote headers, quote lines and every product database - work a stateless API wrapper can't do. Compared with the raw REST API and the [Zapier QuoteWerks app](https://zapier.com/apps/quotewerks/integrations), which work one record at a time, it also adds typed quote commands that use the real QuoteWerks column names and preview every typed write before it is sent.
+This skill copies your QuoteWerks documents, line items and product databases into a **local SQLite mirror** (`quotewerks-cli mirror`). Aggregate questions become one local query: instant, offline, and the AI sees the answer, not the raw data. `cost-drift` joins every open-quote line with your product databases, and `margin --by manufacturer` and `winrate` roll up headers and lines across every mirrored document - work a stateless API wrapper can't do. Compared with the raw REST API and the [Zapier QuoteWerks app](https://zapier.com/apps/quotewerks/integrations), which work one record at a time, it also adds typed quote commands that use the real QuoteWerks column names and preview every typed write before it is sent.
 
 ## The pain this closes
 
@@ -209,7 +209,7 @@ It works with QuoteWerks Web through the QuoteWerks Web REST API at `qwwapi.quot
 
 ### What API key do I need, and can the AI change my quotes?
 
-Create a key in QuoteWerks Web under **Setup > Options > Zapier and API**; the API requires a user with MasterRights. A key without **Allow write access** can read but cannot change anything (QuoteWerks answers writes with 403). Even with a write-enabled key, `docs create`, `items add`, `items reprice` and `requote` only preview until you add `--confirm`. The raw `tables insert`, `tables update`, `tables delete` and `import` commands send immediately, so keep the key read-only unless you need writes.
+Create a key in QuoteWerks Web under **Setup > Options > Zapier and API**; the API requires a user with MasterRights. A key without **Allow write access** can read but cannot change anything (QuoteWerks answers writes with 403). Even with a write-enabled key, `docs create`, `items add`, `items reprice` and `requote` only preview until you add `--confirm`. The raw `tables insert`, `tables update` and `tables delete` commands send immediately, so keep the key read-only unless you need writes.
 
 ### Will this hammer the QuoteWerks API?
 
@@ -227,10 +227,10 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | `docs search`, `docs get`, `docs lint`, `items list`, `products search`, the `tables` reads (`list`, `rows`, `row`, `query`, `schema`, `values`), the `cloud-settings` reads, `reports run`, `identity userinfo`, `agent ask`, and the mirror reports (`margin`, `pipeline`, `cost-drift`, `winrate`, `changes`); `mirror` and `sync` write only the local copy | Allow |
+| Read | `docs search`, `docs get`, `docs lint`, `items list`, `products search`, the `tables` reads (`list`, `rows`, `row`, `query`, `schema`, `values`), the `cloud-settings` reads, `reports run`, `identity userinfo`, `agent ask` (and `import agent`, CLI only, which sends a JSONL file of questions to the same AI agent), and the mirror reports (`margin`, `pipeline`, `cost-drift`, `winrate`, `changes`); `mirror` and `sync` write only the local copy | Allow |
 | Previewed writes | `docs create`, `items add`, `items reprice`, `requote`: each previews by default and writes only with `--confirm` and a write-enabled key | Let the agent preview; a human approves before it re-runs with `--confirm` |
-| Raw writes | `tables insert`, `tables update` and `import` (CLI only), which send immediately to any table your key can write | Preview with `--dry-run`, then a reviewed write |
-| Destructive / credential | `tables delete` (deletes a row in any table, documents included), `auth set-token`, `auth logout` | Human-in-the-loop only |
+| Raw writes | `tables insert` and `tables update` (CLI only, never an MCP tool), which send immediately to any table your key can write | Preview with `--dry-run`, then a reviewed write |
+| Destructive / credential | `tables delete` (CLI only; deletes a row in any table, documents included), `auth set-token`, `auth logout` | Human-in-the-loop only |
 
 The strongest control is the **key you create**: leave **Allow write access** off and nothing the agent runs can change a quote. The CLI can only do what the key is permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
 

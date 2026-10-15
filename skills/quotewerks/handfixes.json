@@ -9,8 +9,15 @@
       "why": "The press title-cases the slug for the root help line, so every `quotewerks-cli --help` opened with \"Quotewerks CLI\", which is not the product's name. Made by the factory build pane (cli-factory/quotewerks); a regen from the unchanged spec emits \"Quotewerks CLI\" again while go build and go test stay green.",
       "status": "active",
       "asserts": [
-        {"file": "cli/internal/cli/root.go", "contains": "Short: `QuoteWerks CLI ", "code_only": true},
-        {"file": "cli/internal/cli/root.go", "not_contains": "Quotewerks CLI"}
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "Short: `QuoteWerks CLI ",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "not_contains": "Quotewerks CLI"
+        }
       ]
     },
     {
@@ -20,25 +27,137 @@
       "status": "active",
       "spec_encode_followup": "Press-side: the read-source names and the usage-text rule belong in the generator's blockedDestinationFlags.",
       "asserts": [
-        {"file": "cli/internal/mcp/cobratree/shellout.go", "contains": "\"notes-file\":          true,", "code_only": true},
-        {"file": "cli/internal/mcp/cobratree/shellout.go", "contains": "\"playbook-file\":       true,", "code_only": true},
-        {"file": "cli/internal/mcp/cobratree/shellout.go", "contains": "\"input\":               true,", "code_only": true},
-        {"file": "cli/internal/mcp/cobratree/shellout.go", "contains": "func isFilesystemPathFlag(flag *pflag.Flag) bool {", "code_only": true},
-        {"file": "cli/internal/mcp/cobratree/shellout.go", "contains": "func UnblockedFilesystemPathFlags(root *cobra.Command) []string {", "code_only": true},
-        {"file": "cli/internal/mcp/cobratree/filesystem_tree_test.go", "contains": "func TestNoShellOutToolCanDirectAFilesystemPath(", "code_only": true},
-        {"file": "cli/internal/cli/import.go", "contains": "Annotations: map[string]string{\"mcp:hidden\": \"true\"},", "code_only": true}
+        {
+          "file": "cli/internal/mcp/cobratree/shellout.go",
+          "contains": "\"notes-file\":          true,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/shellout.go",
+          "contains": "\"playbook-file\":       true,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/shellout.go",
+          "contains": "\"input\":               true,",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/shellout.go",
+          "contains": "func isFilesystemPathFlag(flag *pflag.Flag) bool {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/shellout.go",
+          "contains": "func UnblockedFilesystemPathFlags(root *cobra.Command) []string {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/filesystem_tree_test.go",
+          "contains": "func TestNoShellOutToolCanDirectAFilesystemPath(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/import.go",
+          "contains": "Annotations: map[string]string{\"mcp:hidden\": \"true\"},",
+          "code_only": true
+        }
       ]
     },
     {
       "id": "mcp-read-only-drops-endpoint-writes",
-      "summary": "QUOTEWERKS_MCP_READ_ONLY=1 removes every generated endpoint-mirror tool not annotated read-only (tables_insert, tables_update, tables_delete, and the agent_ask / agent_report-draft / reports_run POST tools) before the Cobra-tree mirror registers.",
-      "why": "Found while declaring the env var for the install channels (2026-10-14): the press 4.33.5 read-only kill switch is applied only by cobratree.RegisterAll, and this connector uses the endpoint-mirror MCP mode, so with QUOTEWERKS_MCP_READ_ONLY=1 the server still listed tables_delete and an MCP tools/call sent the DELETE to the API (reproduced against a local stub). The typed writes (docs_create, items_add, items_reprice, requote) stay listed in that mode on purpose: they preview, and the Cobra-tree gate refuses --confirm ('refusing quotewerks-cli docs create --confirm while QUOTEWERKS_MCP_READ_ONLY=1'). TestReadOnlyEnvDropsEndpointWrites fails when the dropNonReadOnlyTools call is removed and passes with it; TestFullModeKeepsEndpointWrites guards the other direction.",
+      "summary": "QUOTEWERKS_MCP_READ_ONLY=1 removes every generated endpoint-mirror tool not annotated read-only (agent_ask, agent_report-draft, reports_run) before the Cobra-tree mirror registers; the Cobra-tree mirror applies its own filter (sync, export, workflow archive, learnings forget/reject) and refuses --confirm on the typed writes.",
+      "why": "Found while declaring the env var for the install channels (2026-10-14): the press 4.33.5 read-only kill switch is applied only by cobratree.RegisterAll, and this connector uses the endpoint-mirror MCP mode, so with QUOTEWERKS_MCP_READ_ONLY=1 the server still listed tables_delete and an MCP tools/call sent the DELETE to the API (reproduced against a local stub). The raw table write tools are now removed in every mode (mcp-raw-table-writes-cli-only); this entry keeps the POST endpoint tools out of read-only mode. The typed writes (docs_create, items_add, items_reprice, requote) stay listed on purpose: they preview, and the Cobra-tree gate refuses --confirm ('refusing quotewerks-cli docs create --confirm while QUOTEWERKS_MCP_READ_ONLY=1'). TestReadOnlyEnvDropsEndpointWrites fails (agent_ask, agent_report-draft, reports_run still registered) when the dropNonReadOnlyTools call is removed and passes with it.",
       "status": "active",
       "spec_encode_followup": "Press-side: RegisterTools should consult IsMCPReadOnlyEnv for endpoint-mirror tools the way code_orch.go does for the execute tool.",
       "asserts": [
-        {"file": "cli/internal/mcp/tools.go", "contains": "dropNonReadOnlyTools(s)", "code_only": true},
-        {"file": "cli/internal/mcp/read_only_endpoints.go", "contains": "func dropNonReadOnlyTools(s *server.MCPServer) []string {", "code_only": true},
-        {"file": "cli/internal/mcp/read_only_endpoints_test.go", "contains": "func TestReadOnlyEnvDropsEndpointWrites(", "code_only": true}
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "contains": "dropNonReadOnlyTools(s)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/read_only_endpoints.go",
+          "contains": "func dropNonReadOnlyTools(s *server.MCPServer) []string {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/read_only_endpoints_test.go",
+          "contains": "func TestReadOnlyEnvDropsEndpointWrites(",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-raw-table-writes-cli-only",
+      "summary": "The generated tables_insert, tables_update and tables_delete MCP tools are removed in every mode; raw table writes are CLI-only (with --dry-run). Over MCP an agent changes quotes only through the previewed typed writes.",
+      "why": "Fresh-context adversarial review round 1 (2026-10-14, P2, receipts against a stub): the press emits tables_insert with only table_name and tables_update with only table_name/item_id, with no body parameter, so a schema-following MCP call POSTed an empty body (the stub logged 'POST /api/v1/qw/tables/DocumentHeaders {}' and returned 201). That creates an empty row and gives no way to preview. tables_delete needed no confirmation, while governance tiers it human-in-the-loop only. TestRawTableWritesAreCLIOnly fails listing all three tools when the DeleteTools line is removed and passes with it.",
+      "status": "active",
+      "spec_encode_followup": "Press-side: endpoint-mirror write tools for a request body should expose a body parameter (or a dry-run), or not be emitted.",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "contains": "s.DeleteTools(rawTableWriteTools...)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/read_only_endpoints.go",
+          "contains": "var rawTableWriteTools = []string{\"tables_insert\", \"tables_update\", \"tables_delete\"}",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/read_only_endpoints_test.go",
+          "contains": "func TestRawTableWritesAreCLIOnly(",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "tenant-rows-never-persisted",
+      "summary": "No tenant row reaches disk unless the user asks for it: the HTTP response cache is off (responseCacheEnabled returns false), live reads and write responses are never written through to the SQLite store, and sync / workflow archive refuse cloud_settings (CloudSystemSettings) at the syncResource boundary, so sync stores only the list of table names. The quote mirror (ApplyMirror) and export are unaffected.",
+      "why": "Codex round 1 (2 P1) and fresh-context adversarial review round 1 (P1), both 2026-10-14. The generic tables commands can read any tenant table (SecurityAccounts, UserSettings, CloudSystemSettings may hold passwords or API keys), and press 4.33.5 wrote every GET response to <cache>/http/resources/*.json and every live read and write response into data.db (readable over MCP sql, including in read-only mode), while a default `sync` copied CloudSystemSettings into data.db. Receipt: a stub serving SENTINEL-SECRET-7731 in SecurityAccounts.Password and CloudSystemSettings.SettingValue left it in a cache file and in data.db after `tables rows SecurityAccounts --select id`, `cloud-settings list` and `sync`. The tables are generic, so a per-field redaction list cannot be complete; the fix is never to persist them. TestResponsesNeverCached (client package) fails when responseCacheEnabled is restored; TestTenantRowsNeverPersisted (tables row/query/update against the in-process fake with a sentinel, then a walk of --home) fails when quotewerksNeverPersistLiveRows is false; TestSyncRefusesCloudSettings pins the sync boundary.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "Hand-wired (handfixes.json: tenant-rows-never-persisted)",
+          "code_only": false
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "not_contains": "return !binaryResponse && !c.NoCache && !c.DryRun && c.cacheDir != \"\""
+        },
+        {
+          "file": "cli/internal/cli/data_source.go",
+          "contains": "const quotewerksNeverPersistLiveRows = true",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/data_source.go",
+          "contains": "if quotewerksNeverPersistLiveRows {",
+          "min_count": 2,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "return syncResult{Resource: resource, Err: errCloudSettingsNeverSynced}",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/channel_workflow.go",
+          "contains": "resources := defaultSyncResources()",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/responses_never_cached_test.go",
+          "contains": "func TestResponsesNeverCached(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/tenant_rows_never_persisted_test.go",
+          "contains": "func TestTenantRowsNeverPersisted(",
+          "code_only": true
+        }
       ]
     },
     {
@@ -47,10 +166,25 @@
       "why": "Measured by tools/maintainer/check_doctor_truth.py (issue #282). The 4.33.5 doctor failed that gate on this connector with four findings: 'present, not verified' in the healthy state, an HTML 200 at / read as a healthy API in the wrong-base state, and an identical credentials verdict whether the key worked, was expired, or pointed at the wrong host. GET /api/v1/qw/tables needs only a valid key (no Allow write access) and is what `tables list` calls. After the fix the gate passes. Same shape as the fortinet and connectwise-rmm ports.",
       "status": "active",
       "asserts": [
-        {"file": "cli/internal/cli/doctor_verdict.go", "contains": "func doctorProbeCredentials(", "code_only": true},
-        {"file": "cli/internal/cli/doctor_verdict.go", "contains": "doctorProbePath = \"/api/v1/qw/tables\"", "code_only": true},
-        {"file": "cli/internal/cli/doctor.go", "contains": "doctorProbeCredentials(cmd.Context(), c, \"quotewerks-cli\", report)", "code_only": true},
-        {"file": "cli/internal/cli/doctor.go", "not_contains": "present, not verified. Run `%s %s`"}
+        {
+          "file": "cli/internal/cli/doctor_verdict.go",
+          "contains": "func doctorProbeCredentials(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor_verdict.go",
+          "contains": "doctorProbePath = \"/api/v1/qw/tables\"",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "doctorProbeCredentials(cmd.Context(), c, \"quotewerks-cli\", report)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "not_contains": "present, not verified. Run `%s %s`"
+        }
       ]
     },
     {
@@ -59,10 +193,23 @@
       "why": "registerPlatformSource has no caller in this tree, so the profile binds nothing; the press help text 'Select the tenant-gated client profile' promised a tenant limit that does not exist. The env var stays declared because check_env_schema.py fails a variable the binary reads but no install channel declares. Same truth fix as connectwise-rmm and threatdown (Codex P1 / adversarial P2 there).",
       "status": "active",
       "asserts": [
-        {"file": "cli/internal/cli/root.go", "contains": "Unused by this connector: no tenant-gated profile source is registered"},
-        {"file": "cli/internal/mcp/cobratree/shellout.go", "contains": "\"client-profile\":          true,", "code_only": true},
-        {"file": "manifest.json", "contains": "Not used by this connector: QuoteWerks Web has no tenant-gated client profiles"},
-        {"file": "server.json", "contains": "Not used by this connector: QuoteWerks Web has no tenant-gated client profiles"}
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "Unused by this connector: no tenant-gated profile source is registered"
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/shellout.go",
+          "contains": "\"client-profile\":          true,",
+          "code_only": true
+        },
+        {
+          "file": "manifest.json",
+          "contains": "Not used by this connector: QuoteWerks Web has no tenant-gated client profiles"
+        },
+        {
+          "file": "server.json",
+          "contains": "Not used by this connector: QuoteWerks Web has no tenant-gated client profiles"
+        }
       ]
     },
     {
@@ -71,15 +218,42 @@
       "why": "check_env_schema.py failed with 5 undeclared variables on the press manifest (issue #282: a variable the binary reads but the manifest never declares is one Claude Desktop never prompts for). The press manifest also named the MCP binary quotewerks-pp-mcp and carried the press version 4.33.5. manifest.json is re-vendored and mcp-install.md regenerated on every --resume (server.json keeps a hand-curated env list), so a re-onboard from a library source without these declarations silently drops them.",
       "status": "active",
       "asserts": [
-        {"file": "manifest.json", "contains": "\"QUOTEWERKS_API_KEY\": \"${user_config.quotewerks_api_key}\""},
-        {"file": "manifest.json", "contains": "\"QUOTEWERKS_MCP_HTTP_TOKEN\": \"${user_config.quotewerks_mcp_http_token}\""},
-        {"file": "manifest.json", "contains": "\"QUOTEWERKS_MCP_READ_ONLY\": \"${user_config.quotewerks_mcp_read_only}\""},
-        {"file": "manifest.json", "contains": "\"QUOTEWERKS_BASE_URL\": \"${user_config.quotewerks_base_url}\""},
-        {"file": "manifest.json", "contains": "\"name\": \"quotewerks-mcp\""},
-        {"file": "manifest.json", "not_contains": "-pp-mcp"},
-        {"file": "server.json", "contains": "\"name\": \"QUOTEWERKS_MCP_HTTP_TOKEN\""},
-        {"file": "server.json", "contains": "\"name\": \"QUOTEWERKS_MCP_READ_ONLY\""},
-        {"file": "mcp-install.md", "contains": "\"QUOTEWERKS_MCP_HTTP_TOKEN\""}
+        {
+          "file": "manifest.json",
+          "contains": "\"QUOTEWERKS_API_KEY\": \"${user_config.quotewerks_api_key}\""
+        },
+        {
+          "file": "manifest.json",
+          "contains": "\"QUOTEWERKS_MCP_HTTP_TOKEN\": \"${user_config.quotewerks_mcp_http_token}\""
+        },
+        {
+          "file": "manifest.json",
+          "contains": "\"QUOTEWERKS_MCP_READ_ONLY\": \"${user_config.quotewerks_mcp_read_only}\""
+        },
+        {
+          "file": "manifest.json",
+          "contains": "\"QUOTEWERKS_BASE_URL\": \"${user_config.quotewerks_base_url}\""
+        },
+        {
+          "file": "manifest.json",
+          "contains": "\"name\": \"quotewerks-mcp\""
+        },
+        {
+          "file": "manifest.json",
+          "not_contains": "-pp-mcp"
+        },
+        {
+          "file": "server.json",
+          "contains": "\"name\": \"QUOTEWERKS_MCP_HTTP_TOKEN\""
+        },
+        {
+          "file": "server.json",
+          "contains": "\"name\": \"QUOTEWERKS_MCP_READ_ONLY\""
+        },
+        {
+          "file": "mcp-install.md",
+          "contains": "\"QUOTEWERKS_MCP_HTTP_TOKEN\""
+        }
       ]
     },
     {
@@ -88,31 +262,106 @@
       "why": "The press emitted golang.org/x/text v0.39.0 (indirect, via modernc.org/sqlite); osv-scanner flags GO-2026-6629 (panic parsing crafted input in x/text/secure/precis) on it. Bumped with go get + go mod tidy; go build, go vet and go test ./... stay green. A reprint from a press that still emits v0.39.0 reintroduces the finding. Same pin as threatdown and avanan.",
       "status": "active",
       "asserts": [
-        {"file": "cli/go.mod", "contains": "golang.org/x/text v0.41.0"},
-        {"file": "cli/go.mod", "not_contains": "golang.org/x/text v0.39.0"}
+        {
+          "file": "cli/go.mod",
+          "contains": "golang.org/x/text v0.41.0"
+        },
+        {
+          "file": "cli/go.mod",
+          "not_contains": "golang.org/x/text v0.39.0"
+        }
       ]
     },
     {
       "id": "docs-surface-truth",
       "summary": "Re-vendored docs carry corrections the press text gets wrong for this connector: typed writes confirm with --confirm (not --yes); --dry-run only shows a request on generated endpoint commands; the 'not available in any other tool' claim is replaced by an accurate comparison with the raw REST API and the Zapier QuoteWerks app; SKILL.md H1 and description; AGENTS.md's TODO-free data-source paragraph; guide.md's one-bundle .mcpb text; mcp-install.md's HTTP-transport token and root-path wording; the manifest description no longer says every write is previewed.",
-      "why": "/msp-skills-publish re-copies SKILL.md, guide.md, AGENTS.md and mcp-install.md from the source on every --resume, so these edits are lost on a re-onboard while every build gate stays green. The README/SKILL/AGENTS corrections are re-applied to the library by ~/Documents/Dev/cli-factory/quotewerks/patch_docs.py after any regenerate; the rest were found during this publish: quotewerks-mcp --transport http refuses to start without QUOTEWERKS_MCP_HTTP_TOKEN and answers / like /mcp (401 without the token), so 'returns 404 at the bare root' and a bare `quotewerks-mcp --transport http` were both wrong; tools/maintainer/mcpb_bundle.py ships one bundle, not per-platform bundles; raw `tables` writes and `import` send immediately, so 'preview every write' was false; 'TODO stubs' fails check_no_todos.",
+      "why": "/msp-skills-publish re-copies SKILL.md, guide.md, AGENTS.md and mcp-install.md from the source on every --resume, so these edits are lost on a re-onboard while every build gate stays green. The README/SKILL/AGENTS corrections are re-applied to the library by ~/Documents/Dev/cli-factory/quotewerks/patch_docs.py after any regenerate; the rest were found during this publish: quotewerks-mcp --transport http refuses to start without QUOTEWERKS_MCP_HTTP_TOKEN and answers / like /mcp (401 without the token), so 'returns 404 at the bare root' and a bare `quotewerks-mcp --transport http` were both wrong; tools/maintainer/mcpb_bundle.py ships one bundle, not per-platform bundles; raw `tables` writes and `import` send immediately, so 'preview every write' was false; 'TODO stubs' fails check_no_todos. Adversarial round 1 added: the docs lint recipe promised a nonzero exit on errors without --strict (it exits 0); the SKILL advice to prefer --json over --agent for write previews was stale (write previews never compact); mcp-install.md never said QUOTEWERKS_MCP_READ_ONLY accepts only exactly 1.",
       "status": "active",
       "asserts": [
-        {"file": "SKILL.md", "contains": "# QuoteWerks Web Claude Code Skill"},
-        {"file": "SKILL.md", "contains": "description: \"Use when the user asks to find, read, build, audit or reprice QuoteWerks Web quotes"},
-        {"file": "SKILL.md", "contains": "`--yes` does not confirm them"},
-        {"file": "AGENTS.md", "contains": "`--yes` does not confirm them"},
-        {"file": "guide.md", "contains": "`--yes` does not confirm them"},
-        {"file": "SKILL.md", "not_contains": "aren't available in any other tool"},
-        {"file": "guide.md", "not_contains": "aren't available in any other tool"},
-        {"file": "SKILL.md", "contains": "Zapier QuoteWerks app"},
-        {"file": "AGENTS.md", "not_contains": "TODO stubs"},
-        {"file": "guide.md", "contains": "One bundle covers every supported platform."},
-        {"file": "guide.md", "not_contains": "Pre-built bundles ship for macOS Apple Silicon"},
-        {"file": "mcp-install.md", "contains": "requests without it get HTTP 401"},
-        {"file": "mcp-install.md", "not_contains": "returns 404 at the"},
-        {"file": "mcp-install.md", "not_contains": "press 4.32+"},
-        {"file": "manifest.json", "not_contains": "preview every write"}
+        {
+          "file": "SKILL.md",
+          "contains": "# QuoteWerks Web Claude Code Skill"
+        },
+        {
+          "file": "SKILL.md",
+          "contains": "description: \"Use when the user asks to find, read, build, audit or reprice QuoteWerks Web quotes"
+        },
+        {
+          "file": "SKILL.md",
+          "contains": "`--yes` does not confirm them"
+        },
+        {
+          "file": "AGENTS.md",
+          "contains": "`--yes` does not confirm them"
+        },
+        {
+          "file": "guide.md",
+          "contains": "`--yes` does not confirm them"
+        },
+        {
+          "file": "SKILL.md",
+          "not_contains": "aren't available in any other tool"
+        },
+        {
+          "file": "guide.md",
+          "not_contains": "aren't available in any other tool"
+        },
+        {
+          "file": "SKILL.md",
+          "contains": "Zapier QuoteWerks app"
+        },
+        {
+          "file": "AGENTS.md",
+          "not_contains": "TODO stubs"
+        },
+        {
+          "file": "guide.md",
+          "contains": "One bundle covers every supported platform."
+        },
+        {
+          "file": "guide.md",
+          "not_contains": "Pre-built bundles ship for macOS Apple Silicon"
+        },
+        {
+          "file": "mcp-install.md",
+          "contains": "requests without it get HTTP 401"
+        },
+        {
+          "file": "mcp-install.md",
+          "not_contains": "returns 404 at the"
+        },
+        {
+          "file": "mcp-install.md",
+          "not_contains": "press 4.32+"
+        },
+        {
+          "file": "manifest.json",
+          "not_contains": "preview every write"
+        },
+        {
+          "file": "SKILL.md",
+          "contains": "quotewerks-cli docs lint 1042 --min-margin 10 --strict --json"
+        },
+        {
+          "file": "guide.md",
+          "contains": "quotewerks-cli docs lint 1042 --min-margin 10 --strict --json"
+        },
+        {
+          "file": "SKILL.md",
+          "not_contains": "exits nonzero on errors"
+        },
+        {
+          "file": "guide.md",
+          "not_contains": "exits nonzero on errors"
+        },
+        {
+          "file": "SKILL.md",
+          "not_contains": "For write previews use `--json` instead"
+        },
+        {
+          "file": "mcp-install.md",
+          "contains": "`QUOTEWERKS_MCP_READ_ONLY` to exactly `1`"
+        }
       ]
     }
   ]

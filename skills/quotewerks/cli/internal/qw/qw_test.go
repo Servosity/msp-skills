@@ -121,6 +121,9 @@ func TestLineTypes(t *testing.T) {
 }
 
 func TestMarginMath(t *testing.T) {
+	if _, ok := MarginPct(100, 0); ok { // zero cost is a missing cost, not 100% margin
+		t.Fatal("MarginPct(100, 0) reported a margin")
+	}
 	if m, ok := MarginPct(100, 82); !ok || m != 18 {
 		t.Fatalf("margin = %v %v", m, ok)
 	}

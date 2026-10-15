@@ -319,6 +319,10 @@ func RegisterTools(s *server.MCPServer) {
 		handleContext(s),
 	)
 
+	// Hand-wired (handfixes.json: mcp-raw-table-writes-cli-only): the raw
+	// table write tools have no body parameter, so a schema-following call
+	// POSTs an empty row; they stay CLI-only (with --dry-run).
+	s.DeleteTools(rawTableWriteTools...)
 	// Hand-wired (handfixes.json: mcp-read-only-drops-endpoint-writes): the
 	// read-only kill switch must cover the endpoint tools above too.
 	if cliutil.IsMCPReadOnlyEnv() {

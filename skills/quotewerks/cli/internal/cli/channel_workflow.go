@@ -93,7 +93,7 @@ and full resync. After archiving, use 'search' for instant full-text search.`,
 			}
 			defer s.Close()
 
-			resources := []string{"cloud_settings", "tables"}
+			resources := defaultSyncResources() // hand-fix: tenant-rows-never-persisted
 			if cliutil.IsDogfoodEnv() {
 				if len(resources) > 3 {
 					resources = resources[:3]

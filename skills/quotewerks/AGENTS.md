@@ -31,7 +31,7 @@ quotewerks-cli tables delete --help
 quotewerks-cli tables delete DocumentHeaders 7C1E2B9A-0D4F-4A55-9E21-3B8F6A7D1C02 --dry-run --agent
 ```
 
-Typed writes (`docs create`, `items add`, `items reprice`, `requote`) preview by default and write only with `--confirm` (needs an API key with write access); `--yes` does not confirm them. The raw `tables insert`, `tables update`, `tables delete` and `import` commands write immediately, so run them with `--dry-run` first.
+Typed writes (`docs create`, `items add`, `items reprice`, `requote`) preview by default and write only with `--confirm` (needs an API key with write access); `--yes` does not confirm them. The raw `tables insert`, `tables update` and `tables delete` commands write immediately, so run them with `--dry-run` first.
 
 ## Novel Command Data Sources
 

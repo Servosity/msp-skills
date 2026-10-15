@@ -265,10 +265,10 @@ Lists open-quote lines whose quoted cost moved at least 2% from the product data
 ### Audit an integration-built quote
 
 ```bash
-quotewerks-cli docs lint 1042 --min-margin 10 --json
+quotewerks-cli docs lint 1042 --min-margin 10 --strict --json
 ```
 
-Flags price-below-cost, zero-cost and low-margin lines and exits nonzero on errors.
+Flags price-below-cost, zero-cost and low-margin lines. Findings are data: without `--strict` the command exits 0 even when it reports errors; `--strict` exits 1 when any error-severity finding is reported, so a script can gate on it.
 
 ## Usage
 
@@ -515,7 +515,7 @@ This CLI is designed for AI agent consumption:
 - **Filterable** - `--select <field>[,<field>...]` returns only fields you need
 - **Previewable** - `--dry-run` shows the HTTP request without sending on generated endpoint commands (`tables`, `cloud-settings`, `agent`, `reports`); on the typed commands it only confirms the command would run, and the typed write commands already preview by default
 - **Explicit retries** - add `--idempotent` to create retries and add `--ignore-missing` to delete retries when a no-op success is acceptable
-- **Explicit confirmation** - typed writes (`docs create`, `items add`, `items reprice`, `requote`) preview by default and write only with `--confirm` (needs an API key with write access); `--yes` does not confirm them. The raw `tables insert`, `tables update`, `tables delete` and `import` commands write immediately, so run them with `--dry-run` first
+- **Explicit confirmation** - typed writes (`docs create`, `items add`, `items reprice`, `requote`) preview by default and write only with `--confirm` (needs an API key with write access); `--yes` does not confirm them. The raw `tables insert`, `tables update` and `tables delete` commands write immediately, so run them with `--dry-run` first
 - **Piped input** - write commands can accept structured input when their help lists `--stdin`
 - **Offline-friendly** - sync/search commands can use the local SQLite store when available
 - **Agent-safe by default** - no colors or formatting unless `--human-friendly` is set
