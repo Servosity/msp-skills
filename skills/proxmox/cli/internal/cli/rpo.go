@@ -170,10 +170,18 @@ func newNovelRpoCmd(flags *rootFlags) *cobra.Command {
 				return nil
 			}
 			rows := make([][]string, 0, len(rep.Rows))
+			partial := 0
 			for _, r := range rep.Rows {
-				rows = append(rows, []string{r.Cluster, fmt.Sprint(r.VMID), r.Name, fmt.Sprint(r.ScheduledRuns), fmt.Sprint(r.MissedRuns), fmt.Sprintf("%.1f", r.LargestGapHours), fmt.Sprint(r.VerifiedOKDays), strconv.FormatBool(r.WindowCapped)})
+				if r.Evidence == "partial" {
+					partial++
+				}
+				rows = append(rows, []string{r.Cluster, fmt.Sprint(r.VMID), r.Name, fmt.Sprint(r.ScheduledRuns), fmt.Sprint(r.MissedRuns), fmt.Sprintf("%.1f", r.LargestGapHours), fmt.Sprint(r.VerifiedOKDays), strconv.FormatBool(r.WindowCapped), r.Evidence, r.Note})
 			}
-			return flags.printTable(cmd, []string{"CLUSTER", "VMID", "NAME", "RUNS", "MISSED", "LARGEST GAP (H)", "VERIFIED DAYS", "CAPPED"}, rows)
+			if partial > 0 {
+				// Misses on a partial row may be restore points that were not read.
+				fmt.Fprintf(cmd.OutOrStdout(), "%d guest(s) with partial evidence: their missed runs are unproven (see NOTE)\n", partial)
+			}
+			return flags.printTable(cmd, []string{"CLUSTER", "VMID", "NAME", "RUNS", "MISSED", "LARGEST GAP (H)", "VERIFIED DAYS", "CAPPED", "EVIDENCE", "NOTE"}, rows)
 		},
 	}
 	f := cmd.Flags()
@@ -251,6 +259,9 @@ func collectRPO(ctx context.Context, t fleetTarget, start, now time.Time, onlyVM
 		s := storages[key]
 		covered := pbsCovers(refs, s.Storage, t.pbsEndpoint(), nsByStore)
 		rps, err := readStorageArchives(ctx, t.C, readers[key], s, onlyVMID, refs, covered)
+		if merr := t.pbsRefMissing(s, refs); merr != nil {
+			rps, err = nil, merr
+		}
 		if err != nil && covered {
 			standIn[key] = refs[s.Storage]
 			if !errors.Is(err, errCoveredByPBS) {

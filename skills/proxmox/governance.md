@@ -112,7 +112,9 @@ hosts before any request is built.
   the same namespace, the skill reports it and counts none of those restore
   points for either. The check covers every configured cluster, even when
   `--cluster` or `--client` narrows the report; a cluster that cannot be read
-  is checked against the PBS host its clusters.toml entry names.
+  is checked against the PBS host (and certificate) its clusters.toml entry
+  names. `verify-health` keeps such a namespace's groups but marks each row
+  `attribution: shared`.
 - **One token per client cluster**, referenced by env var name in
   `clusters.toml`, so revoking one client never touches another.
 - **Pin every certificate** with its SHA-256 fingerprint.

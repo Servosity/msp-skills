@@ -371,13 +371,26 @@ func pveRetentionFor(store, pbsHost string, refs map[string]pbsStorageRef, jobs 
 		if ref.datastore != store || !strings.EqualFold(ref.server, pbsHost) {
 			continue
 		}
-		if retentionPrunes(parseRetention(ref.pruneBackups)) {
-			return true
-		}
+		// A backup job's own prune-backups overrides the storage's for the
+		// backups it writes, and PVE prunes after each job run: the storage is
+		// pruned when some enabled job's effective retention removes anything.
+		// With no job writing there, only the storage's own setting applies.
+		jobsHere := 0
 		for _, j := range jobs {
-			if j.enabled() && j.Storage == id && retentionPrunes(parseRetention(pruneSpec(j.PruneBackups))) {
+			if !j.enabled() || j.Storage != id {
+				continue
+			}
+			jobsHere++
+			eff := pruneSpec(j.PruneBackups)
+			if eff == "" {
+				eff = ref.pruneBackups
+			}
+			if retentionPrunes(parseRetention(eff)) {
 				return true
 			}
+		}
+		if jobsHere == 0 && retentionPrunes(parseRetention(ref.pruneBackups)) {
+			return true
 		}
 	}
 	return false
