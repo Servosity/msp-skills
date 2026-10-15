@@ -240,6 +240,18 @@ func (f *fixture) handler(t *testing.T, routes map[string]any, authPrefix string
 			}
 			writeData(w, out)
 			return
+		case pve && path == "/nodes/pve1/vzdump/defaults" && q.Get("storage") == "pbs1" && f.pbsPrune != "":
+			// The defaults API overlays the asked-for storage's own retention
+			// on /etc/vzdump.conf (PVE::API2::VZDump defaults).
+			d := map[string]any{}
+			if base, ok := routes[path].(map[string]any); ok {
+				for k, v := range base {
+					d[k] = v
+				}
+			}
+			d["prune-backups"] = f.pbsPrune
+			writeData(w, d)
+			return
 		case pve && path == "/storage":
 			hp := strings.Split(strings.TrimPrefix(f.pbs.URL, "https://"), ":")
 			port, _ := strconv.Atoi(hp[1])

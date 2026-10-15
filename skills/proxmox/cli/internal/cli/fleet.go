@@ -469,6 +469,7 @@ type jobTargets struct {
 	jobs     map[string]backupJob
 	defaults map[string]string
 	nodeDefs map[string]vzdumpDefaults
+	retDefs  map[string]vzdumpDefaults // node + "\x00" + storage -> defaults resolved for that target
 }
 
 // vzdumpDefaults is a node's /etc/vzdump.conf as the API reports it: what a
@@ -508,13 +509,24 @@ func (r *jobTargets) prunes(jobID, node string) (prunes, known bool) {
 	return d.Remove == nil || bool(*d.Remove), true
 }
 
-// retention is jobID's effective prune-backups on node: its own, else the
-// node's vzdump.conf default; "" leaves the storage's in force.
-func (r *jobTargets) retention(jobID, node string) string {
+// retention is jobID's effective prune-backups when it writes to storage on
+// node. vzdump takes the job's own, else the storage's, else /etc/vzdump.conf's
+// (PVE::VZDump::new); the defaults API resolves the last two for one target
+// storage when asked with storage=<id>.
+func (r *jobTargets) retention(jobID, node, storage string) (string, error) {
 	if s := pruneSpec(r.jobs[jobID].PruneBackups); s != "" {
-		return s
+		return s, nil
 	}
-	return pruneSpec(r.nodeDefaults(node).PruneBackups)
+	if r.retDefs == nil {
+		r.retDefs = map[string]vzdumpDefaults{}
+	}
+	key := node + "\x00" + storage
+	d, ok := r.retDefs[key]
+	if !ok {
+		d.err = getJSON(r.ctx, r.c, pvePath("/nodes/%s/vzdump/defaults", node), map[string]string{"storage": storage}, &d)
+		r.retDefs[key] = d
+	}
+	return pruneSpec(d.PruneBackups), d.err
 }
 
 func newJobTargets(ctx context.Context, c *client.Client, cov *coverage) *jobTargets {

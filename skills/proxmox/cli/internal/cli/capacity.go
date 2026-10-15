@@ -54,7 +54,7 @@ func newNovelCapacityCmd(flags *rootFlags) *cobra.Command {
 			"Do NOT use this command for verify failures or corrupt chunks; use 'verify-health' instead.\n\n" +
 			"Flags: gc-deadlock-risk (free space below --gc-margin while the last garbage collection failed or never ran: GC needs " +
 			"free space to run, so the datastore can no longer clean itself), unpruned (nothing prunes the datastore: no PBS prune job, " +
-			"datastore keep-* on a prune-schedule, or PVE prune-backups on an enabled backup job writing there with remove on (the job's own settings, else its node's vzdump.conf defaults), that removes anything; keep-all or all-zero keep counts prune nothing), filling (estimated full within --within), no-forecast (a PVE storage, or a PBS datastore with too few usage " +
+			"datastore keep-* on a prune-schedule, or PVE prune-backups on an enabled backup job writing there with remove on (remove: the job's, else its node's vzdump.conf; retention: the job's, else the storage's, else vzdump.conf's), that removes anything; keep-all or all-zero keep counts prune nothing), filling (estimated full within --within), no-forecast (a PVE storage, or a PBS datastore with too few usage " +
 			"samples for PBS to estimate: nothing forecasts its days to full, so it is always listed, --within included, and judged by used_pct), nearly-full (free space below --gc-margin). " +
 			"PBS forecasts come from its own linear regression over the last month. A datastore another configured cluster also writes to has attribution 'shared: <clusters>' and no tenant.",
 		Example: strings.Trim(`
@@ -170,10 +170,10 @@ func collectCapacity(ctx context.Context, t fleetTarget, now time.Time, margin f
 	nodesRead := false
 	// jobPrunes reports whether job j prunes storage: some node it runs on
 	// writes there with remove on and an effective retention (the job's
-	// prune-backups, else the node's vzdump.conf default, else the
-	// storage's) that removes anything. Unreadable node defaults are
+	// prune-backups, else the storage's, else the node's vzdump.conf) that
+	// removes anything. Unreadable node defaults are
 	// reported and credited, like every other unknown retention source.
-	jobPrunes := func(j backupJob, storage, storageRetention string) bool {
+	jobPrunes := func(j backupJob, storage string) bool {
 		if !nodesRead {
 			allNodes, _, _ = fetchNodes(ctx, t.C)
 			nodesRead = true
@@ -191,9 +191,10 @@ func collectCapacity(ctx context.Context, t fleetTarget, now time.Time, margin f
 				fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "node " + n + " vzdump defaults", Error: "the node's vzdump defaults could not be read, so whether job " + j.ID + " prunes after its run is unknown; not flagged unpruned"})
 				return true
 			}
-			eff := targets.retention(j.ID, n)
-			if eff == "" {
-				eff = storageRetention
+			eff, err := targets.retention(j.ID, n, storage)
+			if err != nil {
+				fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "node " + n + " vzdump defaults", Error: "the retention job " + j.ID + " applies to " + storage + " could not be resolved (" + err.Error() + "); not flagged unpruned"})
+				return true
 			}
 			if on && retentionPrunes(parseRetention(eff)) {
 				return true
@@ -432,7 +433,7 @@ func sortCapacity(rows []capacityRow) {
 
 // pveRetentionFor reports whether PVE prunes backups on a storage that points
 // at datastore store on this PBS host (storage or backup-job prune-backups).
-func pveRetentionFor(store, pbsHost string, refs map[string]pbsStorageRef, jobs []backupJob, prunes func(backupJob, string, string) bool) bool {
+func pveRetentionFor(store, pbsHost string, refs map[string]pbsStorageRef, jobs []backupJob, prunes func(backupJob, string) bool) bool {
 	for id, ref := range refs {
 		if ref.datastore != store || !strings.EqualFold(ref.server, pbsHost) {
 			continue
@@ -441,7 +442,7 @@ func pveRetentionFor(store, pbsHost string, refs map[string]pbsStorageRef, jobs 
 		// the storage is pruned when some enabled job writing there prunes
 		// (see jobPrunes). With no enabled job writing there, nothing does.
 		for _, j := range jobs {
-			if j.enabled() && prunes(j, id, ref.pruneBackups) {
+			if j.enabled() && prunes(j, id) {
 				return true
 			}
 		}

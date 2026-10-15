@@ -149,3 +149,19 @@ func TestJobsInheritNodeVzdumpDefaults(t *testing.T) {
 		t.Error("node default prune-backups keep-last=5 prunes after every job run")
 	}
 }
+
+// Codex round 16: retention precedence is the job's, else the target
+// storage's, else /etc/vzdump.conf's. A keep-all PBS storage is not pruned by
+// a keep-last node default.
+func TestStorageRetentionBeatsNodeDefault(t *testing.T) {
+	f := newFixture(t)
+	f.pbsPrune = "keep-all=1"
+	f.pveRoutes["/nodes/pve1/vzdump/defaults"] = map[string]any{"prune-backups": "keep-last=7"}
+	out, _, err := runCLI(t, "capacity", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r := datastoreRow(t, out, "pbs-datastore", "main"); !strings.Contains(strings.Join(r.Flags, ","), "unpruned") {
+		t.Errorf("pbs1 keeps all, whatever vzdump.conf says: want unpruned, got %v", r.Flags)
+	}
+}
