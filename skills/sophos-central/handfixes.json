@@ -1,0 +1,762 @@
+{
+ "slug": "sophos-central",
+ "doc": "docs/reprint-survival.md",
+ "_comment": "Connector-specific edits to GENERATED/authored files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and banned anti-patterns absent) and fails CI if a reprint dropped one. The press-side records live in ~/printing-press/library/sophos-central/.printing-press-patches/ (ids prefixed sophos-).",
+ "handfixes": [
+  {
+   "id": "sophos-token-form-auth",
+   "summary": "the Sophos token endpoint reads client_id and client_secret only from the form body, never HTTP Basic",
+   "why": "id.sophos.com/api/v2/oauth2/token rejects the generated client's SetBasicAuth client-credentials request; credentials must ride in the application/x-www-form-urlencoded body. Both mint paths (auth login and the client's automatic mint) carry the fix; without it every command fails INVALID_CLIENT.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "HAND-FIX(sophos-token-form-auth)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "\"client_secret\": {clientSecret},",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "HAND-FIX(sophos-token-form-auth)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "\"client_secret\": {clientSecret},",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "sophos-key-paging",
+   "summary": "key-based paging: pageFromKey cursor, next key read from pages.nextKey",
+   "why": "Sophos endpoint, alert, Live Discover result, audit-event and billing lists page with pageFromKey/pages.nextKey, not page numbers. The generated pager read the wrong cursor and either stopped after page one or repeated it. Sophos's partner getting-started guide: 'If the nextKey value is missing, you have reached the end of pages'.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/alerts_list.go",
+     "contains": "HAND-FIX(sophos-key-paging)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/alerts_list.go",
+     "contains": "\"pageFromKey\", \"cursor\", \"pageSize\"",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/endpoint_groups_list-tenant-endpoints-by-id.go",
+     "contains": "HAND-FIX(sophos-key-paging)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/endpoint_groups_list-tenant-endpoints-by-id.go",
+     "contains": "\"pageFromKey\", \"cursor\", \"pageSize\"",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/endpoints_list.go",
+     "contains": "HAND-FIX(sophos-key-paging)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/endpoints_list.go",
+     "contains": "\"pageFromKey\", \"cursor\", \"pageSize\"",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/live_discover_get-execution-results-by-id.go",
+     "contains": "HAND-FIX(sophos-key-paging)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/live_discover_get-execution-results-by-id.go",
+     "contains": "\"pageFromKey\", \"cursor\", \"pageSize\"",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/promoted_audit-events.go",
+     "contains": "HAND-FIX(sophos-key-paging)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/promoted_audit-events.go",
+     "contains": "\"pageFromKey\", \"cursor\", \"pageSize\"",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/promoted_billing.go",
+     "contains": "HAND-FIX(sophos-key-paging)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/promoted_billing.go",
+     "contains": "\"pageFromKey\", \"cursor\", \"pageSize\"",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "cursorParam:    \"pageFromKey\"",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "nextCursorPath: \"pages.nextKey\"",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "sophos-paging-errors",
+   "summary": "a repeated or stuck cursor is reported as an incomplete listing, never returned as complete",
+   "why": "When the API repeats a cursor the generated walker either looped or returned a partial list as if it were complete; the fix turns both into an explicit incomplete-listing error so a fleet answer never silently drops machines.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "HAND-FIX(sophos-paging-errors)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "--all: pagination repeated cursor %q; listing is incomplete",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "stopped at %d pages with more available",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "HAND-FIX(sophos-paging-errors)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "outcome.reason == \"stuck_page\" {",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "sophos-sync-safety",
+   "summary": "sync treats a revisited cursor as a cycle and rows with no usable key as a failed (not complete) walk",
+   "why": "A cycled or stuck cursor and undecodable or keyless items used to let sync record a complete walk, after which --full pruned live rows that were merely unread. The walk is now marked incomplete so reconcile never deletes on partial data.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "HAND-FIX(sophos-sync-safety)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "HAND-FIX(sophos-sync-safety)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "visitedCursors[nextCursor]",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "outcome.reason = \"extract_failures\"",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "pagination did not advance (repeated cursor)",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "sophos-tenant-sync-state",
+   "summary": "sync checkpoints and since-watermarks are keyed per tenant for tenant-scoped resources",
+   "why": "One local store holds every customer tenant (fleet refresh). A single checkpoint per resource meant tenant B resumed from tenant A's cursor and silently skipped rows; sophosSyncStateKey scopes each tenant-scoped resource's checkpoint to the active tenant.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "HAND-FIX(sophos-tenant-sync-state)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "stateKey := sophosSyncStateKey(resource)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "db.GetSyncState(stateKey)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "db.SaveSyncStateAt(sophosSyncStateKey(resource), \"\", 0, time.Time{})",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "sophos-filtered-prune",
+   "summary": "a user --param that narrows the rows disables full-sync pruning",
+   "why": "sync --full prunes local rows the API no longer returns, but with a narrowing --param the API returns a subset by design, so pruning deleted every row outside the filter.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "HAND-FIX(sophos-filtered-prune)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "!userParams.hasAny()",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "sophos-dependent-tenant",
+   "summary": "dependent (parent-keyed) sync drops parents stored for another tenant",
+   "why": "Parent-keyed sub-resources iterate the stored parent rows; with many tenants in one store, calling a parent ID under the wrong X-Tenant-ID returned 404s or, worse, another tenant's data.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "HAND-FIX(sophos-dependent-tenant)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "if parentRows, scopeErr = sophosScopeParentRows(db, dep, parentRows); scopeErr != nil {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "Err: scopeErr, IntegrityFailure: true",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "sophos-local-tenant",
+   "summary": "local reads scope stored rows to the active tenant before paging",
+   "why": "fleet refresh puts every tenant's rows in one table; a local `endpoints list --tenant X` returned other tenants' machines without this filter, and paging before scoping returned short pages.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "HAND-FIX(sophos-local-tenant)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "sophosScopeLocalItems(path, items)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "sophosCheckLocalItem(path, item)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "HAND-FIX(sophos-local-tenant-paging)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "sophosPage(items, pageOffset, pageLimit)",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "sophos-auth-hint",
+   "summary": "doctor, error hints and MCP tool text name the real Sophos credential setup (API Credentials menu, client ID + secret, --tenant)",
+   "why": "The generated hint pointed at a generic token flow; Sophos needs a service principal created under API Credentials, and a partner or organization credential must pick a tenant with --tenant.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "auth login' (reads SOPHOS_CENTRAL_CLIENT_ID and SOPHOS_CENTRAL_CLIENT_SECRET)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "auth login' (reads SOPHOS_CENTRAL_CLIENT_ID and SOPHOS_CENTRAL_CLIENT_SECRET)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "auth login' (reads SOPHOS_CENTRAL_CLIENT_ID and SOPHOS_CENTRAL_CLIENT_SECRET)",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "sophos-api-owned-whoami",
+   "summary": "platform tests accept that this spec owns the `whoami` command",
+   "why": "Sophos exposes GET /whoami/v1, so the API-generated `whoami` command replaces the framework one; the generated platform tests asserted the framework shape.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/platform_cli_test.go",
+     "contains": "HAND-FIX(sophos-api-owned-whoami)",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "sophos-docs",
+   "summary": "guide.md and SKILL.md document the tenant selector and leave the client secret as a placeholder",
+   "why": "The generated docs omitted SOPHOS_CENTRAL_TENANT_ID and showed a realistic-looking secret value in the env example; both are hand-fixed in the source docs that onboard re-vendors.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "guide.md",
+     "contains": "<your-client-secret>",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "guide.md",
+     "contains": "SOPHOS_CENTRAL_TENANT_ID` | selector",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "`state` contains `teach.log`",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "Create an API credential in Sophos Central",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "mcp-recipe-argv-not-flag-like",
+   "summary": "MCP recipe intents refuse a flag-like value (leading '-') for a positional or string flag, e.g. contain's slug",
+   "why": "Press 4.33.5 recipe intents append agent-supplied values to argv; a value like '--yes' or '--base-url=...' became a flag (argv smuggling, see the fleet-wide finding on PR #317). rejectFlagLikeRecipeValue refuses it and string flags are passed as --name=value. Same fix as skills/acronis 'mcp-recipe-argv-not-flag-like'.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "contains": "func rejectFlagLikeRecipeValue(",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "contains": "if err := rejectFlagLikeRecipeValue(\"slug\", input[\"slug\"]); err != nil {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "contains": "if s := recipeValueString(value); s != \"-\" && strings.HasPrefix(s, \"-\") {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "contains": "return append(args, \"--\"+name+\"=\"+selected), false",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/mcp/recipe_intents_test.go",
+     "contains": "func TestRecipeIntentContainACompromisedWorkstationRejectsFlagLikePositional(",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/mcp/recipe_intents_test.go",
+     "contains": "func TestRejectFlagLikeRecipeValueEdges(",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "sophos-whoami-apihost-routing",
+   "summary": "every request is routed by whoami: partner/organization calls go to the global host with X-Partner-ID / X-Organization-ID, tenant calls go to the tenant's regional apiHost with X-Tenant-ID, and the bearer token is only ever sent to a *.central.sophos.com host",
+   "why": "The generated client knows one base URL. Sophos Central splits its API across the global host (whoami, partner, organization) and a per-tenant regional host (endpoint, common, live-discover, xdr-query, account-health-check, siem) that each need a different ID header (developer.sophos.com/getting-started). sophos_routing.go installs a transport via the generated registerClientHook extension point, resolves the caller with GET /whoami/v1 (cached per credential), maps tenant -> apiHost, and rewrites host + headers. isSophosAPIHost refuses to send the token anywhere a cached or API-returned host would otherwise point. Novel file, so regen-merge keeps it; these asserts catch a reprint that drops the hook registration or the host guard.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sophos_routing.go",
+     "contains": "registerClientHook(installSophosRouting)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_routing.go",
+     "contains": "func (r *sophosRouter) route(req *http.Request) (*http.Request, error) {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_routing.go",
+     "contains": "func isSophosAPIHost(host string) bool {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_routing.go",
+     "contains": "out.Header.Set(headerTenantID, tenantID)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_routing.go",
+     "contains": "out.Header.Set(headerPartnerID, id.ID)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_routing.go",
+     "contains": "out.Header.Set(headerOrganizationID, id.ID)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "func registerClientHook(",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "sophos-per-credential-store-scope",
+   "summary": "the default local store and each tenant-scoped sync checkpoint are keyed per credential (base URL + client ID) and per tenant",
+   "why": "The generated store path keyed on the access token until one existed, so the first fleet refresh (no token yet) and every later command (token saved) used different database files, and two credentials could share one. sophosStoreScope pins the store to base URL + client ID; sophosSyncStateKey adds the tenant to each tenant-scoped checkpoint. Wired through the generated config.StoreScopeIdentity and resolveTenantID extension points.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sophos_routing.go",
+     "contains": "config.StoreScopeIdentity = sophosStoreScope",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_routing.go",
+     "contains": "resolveTenantID = sophosActiveTenant",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_routing.go",
+     "contains": "func sophosSyncStateKey(resource string) string {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_routing.go",
+     "contains": "func sophosStoreScope(c *config.Config) string {",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "dry-run-never-mints",
+   "summary": "--dry-run never mints a token: neither the client's automatic mint nor `auth login` sends the client secret or writes credentials.toml during a preview",
+   "why": "A dry run is the preview the governance doc tells agents to run before every write. The generated client minted a token on the first request even under --dry-run, POSTing the client secret to id.sophos.com and persisting the token; `auth login --dry-run` minted through its own path. A preview must have no side effects.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if !c.DryRun && c.needsClientCredentialsMint() {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "if flags.dryRun {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_dry_run_test.go",
+     "contains": "func TestAuthLoginDryRunSendsNothing(",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "env-client-secret-not-persisted",
+   "summary": "a client secret read from SOPHOS_CENTRAL_CLIENT_SECRET is never written to credentials.toml, by the automatic mint or by `auth login`; only --client-secret is saved",
+   "why": "The fleet's issue #266 shape. SaveTokens wrote whatever secret it was handed, so the first API call (automatic mint) or `auth login` with only environment variables copied the secret from a secret manager into a plaintext file. MarkClientSecretFromEnv records the env source so configForSave keeps the file's existing value. Proven both directions by TestAuthLoginKeepsEnvSecretOffDisk (env case fails when the auth.go call is removed).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/config/sophos_env_secret.go",
+     "contains": "func (c *Config) MarkClientSecretFromEnv() {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "if c.envOverrides[\"ClientSecret\"] {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.Config.MarkClientSecretFromEnv()",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "cfg.MarkClientSecretFromEnv()",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_dry_run_test.go",
+     "contains": "func TestAuthLoginKeepsEnvSecretOffDisk(",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "secret-responses-never-persisted",
+   "summary": "a response carrying a tamper protection password or a migration token is never cached, stored, exported or printed by tail, and the six operations that return one are not MCP-executable",
+   "why": "Sophos returns live credentials from exactly six operations (a scan of every 2xx response schema in the vendor spec for password/secret/token keys): GET and POST /endpoint/v1/endpoints/{id}/tamper-protection (password, previousPasswords) and GET/POST/PUT /endpoint/v1/migrations[/{id}] (token). The generated response cache wrote every GET body to disk, sync stored migration rows (resources table, FTS index and the typed migrations.token column), and the export and tail commands - both MCP tools - printed the token to any agent. Guards: the cache refuses a body with a secret key, every store write and the typed migrations writer drop secret keys, export and tail redact before printing (round 1 of this run caught `export migrations` leaking through MCP), and the MCP execute tool drops the six endpoint IDs. A human reads the tamper password with `endpoints get-tamper-protection` on the CLI.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if responseCarriesSecret(data) {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/client/sophos_secret_cache.go",
+     "contains": "func responseCarriesSecret(data []byte) bool {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "data = redactStoredSecrets(data)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "data = redactStoredSecrets(data)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "nil, // token: never stored (secret-responses-never-persisted)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/store/sophos_secret_redact.go",
+     "contains": "func redactStoredSecrets(data json.RawMessage) json.RawMessage {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "data = redactSecretOutput(data)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/tail.go",
+     "contains": "data = redactSecretOutput(data)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_secret_output.go",
+     "contains": "func redactSecretOutput(data json.RawMessage) json.RawMessage {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_secret_output_test.go",
+     "contains": "func TestExportAndTailDropMigrationToken(",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/mcp/sophos_secret_tools.go",
+     "contains": "\"endpoints.get-tamper-protection\": true,",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/mcp/sophos_secret_tools.go",
+     "contains": "\"migrations.get-jobs\":             true,",
+     "min_count": 1,
+     "code_only": false
+    }
+   ],
+   "spec_encode_followup": "cli-printing-press could mark response fields as x-sensitive in the spec and generate the cache, store, export/tail and MCP exclusions from that one declaration."
+  },
+  {
+   "id": "doctor-verdict-tracks-reality",
+   "summary": "doctor mints a token with the real credential and reports whether Sophos accepted it, instead of 'present, not verified'",
+   "why": "doctor is the command every doc tells an operator to run first. The generated version printed 'present, not verified' and left the operator to guess (issue #282 fleet shape). doctorProbeCredentials makes the token request and names the failure (for example INVALID_CLIENT) with the API Credentials menu path.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorProbeCredentials(",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeCredentials(cmd.Context()",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "present, not verified. Run `%s %s`"
+    }
+   ]
+  },
+  {
+   "id": "mcp-filesystem-destination-gate",
+   "summary": "MCP shell-out tools refuse local-file source and destination flags (--home, --input, --notes-file, --playbook-file, --playbook-notes-file plus the generated output/receipt flags), and import is CLI-only",
+   "why": "Forwarded from a tool call, a local-path flag lets an agent read any file this account can reach (credentials.toml included) into the store, where playbook_list and sql hand it back, or write a file anywhere. UnblockedFilesystemPathFlags walks the registered tool set by usage text so a newly generated local-path flag fails the test instead of shipping open. import needs --input, so it is hidden from MCP rather than a tool that always fails.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "\"playbook-notes-file\": true,",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "func UnblockedFilesystemPathFlags(root *cobra.Command) []string {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/import.go",
+     "contains": "Annotations: map[string]string{\"mcp:hidden\": \"true\"},",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/filesystem_tree_test.go",
+     "contains": "UnblockedFilesystemPathFlags(",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "mcp-bool-false-forwarded",
+   "summary": "an explicit false for a boolean MCP argument is forwarded as --name=false",
+   "why": "cliArgsFromMCP dropped false booleans, so a default-true flag (tail --follow) could never be turned off from a tool call and tail ran forever inside the MCP server.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "out = append(out, \"--\"+k+\"=false\")",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/bool_false_test.go",
+     "contains": "=false",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "client-profile-inert",
+   "summary": "--client-profile is documented as inert on this connector and kept out of MCP tool schemas",
+   "why": "No tenant-gated client profile source is registered for Sophos Central, so the flag changes nothing; the generated help promised tenant gating it does not provide, and an agent could believe it had scoped itself. The help now says so and the MCP schema no longer offers it.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "Unused by this connector: no tenant-gated profile source is registered",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "\"client-profile\":          true,",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  }
+ ]
+}

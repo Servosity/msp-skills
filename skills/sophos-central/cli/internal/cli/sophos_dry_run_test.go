@@ -47,3 +47,50 @@ func TestAuthLoginDryRunSendsNothing(t *testing.T) {
 		return nil
 	})
 }
+
+// TestAuthLoginKeepsEnvSecretOffDisk: a secret from the environment is used to
+// mint but never written; one passed with --client-secret is saved.
+func TestAuthLoginKeepsEnvSecretOffDisk(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, `{"access_token":"stub","expires_in":3600}`)
+	}))
+	defer srv.Close()
+	for _, tc := range []struct {
+		name, secret string
+		args         []string
+		wantOnDisk   bool
+	}{
+		{"env", "env-secret-sentinel", []string{"auth", "login"}, false},
+		{"flag", "flag-secret-sentinel", []string{"auth", "login", "--client-secret", "flag-secret-sentinel"}, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			home := t.TempDir()
+			t.Setenv("SOPHOS_CENTRAL_HOME", home)
+			t.Setenv("SOPHOS_CENTRAL_TOKEN_URL", srv.URL+"/token")
+			t.Setenv("SOPHOS_CENTRAL_CLIENT_ID", "stub-id-1234")
+			t.Setenv("SOPHOS_CENTRAL_CLIENT_SECRET", "")
+			if tc.name == "env" {
+				t.Setenv("SOPHOS_CENTRAL_CLIENT_SECRET", tc.secret)
+			}
+			cmd := RootCmd()
+			cmd.SetOut(io.Discard)
+			cmd.SetErr(io.Discard)
+			cmd.SetArgs(tc.args)
+			if err := cmd.Execute(); err != nil {
+				t.Fatalf("auth login: %v", err)
+			}
+			found := false
+			_ = filepath.WalkDir(home, func(path string, d os.DirEntry, err error) error {
+				if err == nil && !d.IsDir() {
+					if b, rerr := os.ReadFile(path); rerr == nil && strings.Contains(string(b), tc.secret) {
+						found = true
+					}
+				}
+				return nil
+			})
+			if found != tc.wantOnDisk {
+				t.Fatalf("secret on disk = %v, want %v", found, tc.wantOnDisk)
+			}
+		})
+	}
+}

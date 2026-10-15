@@ -1,6 +1,6 @@
 {
   "manifest_version": "0.3",
-  "name": "sophos-central-pp-mcp",
+  "name": "sophos-central-mcp",
   "display_name": "Sophos Central",
   "version": "0.1.0",
   "description": "The Sophos Central partner, organization and tenant APIs, routed to the right tenant and region automatically, plus a cross-tenant triage queue, fleet tamper remediation, a multi-tenant SIEM collector and hostname-based containment.",
@@ -10,9 +10,9 @@
   "license": "Apache-2.0",
   "server": {
     "type": "binary",
-    "entry_point": "bin/sophos-central-pp-mcp",
+    "entry_point": "bin/sophos-central-mcp",
     "mcp_config": {
-      "command": "${__dirname}/bin/sophos-central-pp-mcp",
+      "command": "${__dirname}/bin/sophos-central-mcp",
       "args": [],
       "env": {
         "SOPHOS_CENTRAL_CLIENT_ID": "${user_config.sophos_central_client_id}",

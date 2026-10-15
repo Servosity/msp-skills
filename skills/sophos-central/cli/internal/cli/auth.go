@@ -110,6 +110,12 @@ Credentials default to SOPHOS_CENTRAL_CLIENT_ID (Client ID) and SOPHOS_CENTRAL_C
 				expiry = time.Now().Add(time.Duration(tok.ExpiresIn) * time.Second)
 			}
 			cfg.MarkCredentialsExplicit(clientIDFromFlag, clientSecretFromFlag)
+			// Hand-wired (handfixes.json: env-client-secret-not-persisted): a
+			// secret read from SOPHOS_CENTRAL_CLIENT_SECRET stays in the
+			// environment; only --client-secret is written to credentials.toml.
+			if !clientSecretFromFlag {
+				cfg.MarkClientSecretFromEnv()
+			}
 			if err := cfg.SaveTokens(clientID, clientSecret, tok.AccessToken, "", expiry); err != nil {
 				return configErr(fmt.Errorf("saving token: %w", err))
 			}

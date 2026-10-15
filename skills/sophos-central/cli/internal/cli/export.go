@@ -179,6 +179,7 @@ large datasets as it has no memory pressure.`,
 				if err != nil {
 					return classifyAPIError(cmd.OutOrStdout(), err, flags)
 				}
+				data = redactSecretOutput(data) // Hand-wired (handfixes.json: secret-responses-never-persisted)
 				if singleItem {
 					count = 1
 					if format == "jsonl" {

@@ -66,3 +66,10 @@ func stripSecretKeys(v any) bool {
 	}
 	return removed
 }
+
+// RedactSecrets is redactStoredSecrets for callers outside the store: the
+// bulk export and tail commands print API bodies that can carry a migration
+// token, and an MCP caller reaches both.
+func RedactSecrets(data json.RawMessage) json.RawMessage {
+	return redactStoredSecrets(data)
+}

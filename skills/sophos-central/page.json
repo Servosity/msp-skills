@@ -1,38 +1,71 @@
 {
-  "outcome_intro": "TODO: <=70 words, MSP-owner language, leads with the outcome. What does Sophos Central + your AI answer in one sentence that the portal cannot?",
+  "outcome_intro": "Running Sophos Central for a book of customers? Ask your AI \"what needs attention across every customer today,\" \"which machines have tamper protection off,\" or \"isolate WS-FIN-07\" and get one answer instead of opening each tenant from the Partner Dashboard. One command refreshes every customer tenant into a local store, so triage, health ranking, gap checks and billing reconciliation run across the whole book at once.",
   "instead_of_say": [
     {
-      "instead": "TODO: the painful manual workflow (exporting reports, clicking through the portal)",
-      "say": "TODO: the natural-language question the MSP owner asks instead",
-      "cli": "sophos-central-cli TODO"
+      "instead": "Opening each customer from the Sophos Central Partner Dashboard every morning to work out which alerts, unhealthy machines and isolated or stale devices actually matter most",
+      "say": "What needs attention across all my Sophos customers today, worst first?",
+      "cli": "sophos-central-cli fleet triage --severity high,medium"
     },
     {
-      "instead": "TODO",
-      "say": "TODO",
-      "cli": "sophos-central-cli TODO"
+      "instead": "Clicking through each tenant's endpoint list to find the machines where tamper protection was switched off for a fix and never turned back on",
+      "say": "Which machines across my customers have tamper protection off, and can you turn it back on?",
+      "cli": "sophos-central-cli fleet tamper"
     },
     {
-      "instead": "TODO",
-      "say": "TODO",
-      "cli": "sophos-central-cli TODO"
+      "instead": "Mid-incident, working out which customer tenant a hostname belongs to before you can even reach the isolate button",
+      "say": "Isolate WS-FIN-07, start a scan and pull a forensic log",
+      "cli": "sophos-central-cli contain \"WS-FIN-07\" --scan --forensic-log"
     }
   ],
   "pain_points": [
-    "TODO: pain 1 in MSP-owner vocabulary, sourced from a real community thread",
-    "TODO: pain 2"
+    "Sophos Central is tenant-by-tenant underneath. A partner credential has to list its tenants, then call each tenant's own regional API host with an X-Tenant-ID header (Sophos's own partner getting-started guide walks through that loop). The Partner Dashboard rolls up alerts, but the questions behind them - which machines are unhealthy, whose tamper protection is off, whose health score slipped - still mean drilling into one customer at a time.",
+    "Home-grown scripts stop at one tenant. Community tooling is usually written for a single customer: the SophosCentral-Powershell module says outright \"There is currently no support for multiple tenants\", and multi-tenant support sits on its to-do list. Every MSP ends up rewriting the same tenant loop, region routing and paging.",
+    "Monthly billing and coverage reconciliation is manual. Matching the partner usage report to what is actually deployed per customer, spotting licences used beyond their quantity or about to expire, and finding devices that are unlicensed or unencrypted means exporting and stitching data by hand."
   ],
   "outcomes": [
     {
-      "question": "TODO: question an MSP keeps asking",
-      "command": "sophos-central-cli TODO"
+      "question": "What needs attention across all my customers today?",
+      "command": "sophos-central-cli fleet triage"
+    },
+    {
+      "question": "Which customers have the worst Account Health Check scores, and who slipped since the last refresh?",
+      "command": "sophos-central-cli fleet health --limit 10"
+    },
+    {
+      "question": "Where are the security and commercial gaps, customer by customer?",
+      "command": "sophos-central-cli fleet gaps --kind all"
+    },
+    {
+      "question": "Which machines have tamper protection off across every customer?",
+      "command": "sophos-central-cli fleet tamper"
+    },
+    {
+      "question": "Isolate this machine without looking up which tenant it is in",
+      "command": "sophos-central-cli contain \"WS-FIN-07\" --scan"
+    },
+    {
+      "question": "What did each customer bill last month, and does it match what is deployed?",
+      "command": "sophos-central-cli fleet revenue --month 2026-09"
+    },
+    {
+      "question": "Feed every customer's SIEM events and alerts into my log pipeline",
+      "command": "sophos-central-cli fleet siem-collect --stream both"
+    },
+    {
+      "question": "Refresh every customer tenant into the local store",
+      "command": "sophos-central-cli fleet refresh"
+    },
+    {
+      "question": "Which credential am I using, and is it a partner, organization or tenant?",
+      "command": "sophos-central-cli whoami"
     }
   ],
-  "different_vs_wrappers": "TODO: one or two sentences vs typical MCP wrappers (you may name specific projects if accurate, fair and verifiable; link them): most Sophos Central integrations proxy each question into a live API call ...",
-  "different_vs_vendor": "TODO: one sentence vs Sophos Central's own AI features (complements, not replaces). If the vendor has no AI integration, say what this adds that the portal cannot.",
+  "different_vs_wrappers": "Live MCP wrappers for Sophos Central, such as [rijul170/sophos-central-mcp](https://github.com/rijul170/sophos-central-mcp), take a tenant ID on each call and answer one tenant at a time. This connector also resolves the caller with whoami and routes every tenant call to that tenant's regional host for you, but its fleet commands first refresh every customer tenant into a local SQLite store with a per-tenant ok/forbidden/error ledger, so a book-wide question (triage, health ranking, gaps, billing against deployment) is one local query the agent reads as a finished answer, and the next refresh shows what changed.",
+  "different_vs_vendor": "It complements the Sophos Central Partner Dashboard rather than replacing it: the dashboard stays the place for policy authoring, investigations and Sophos's own consolidated alert view, while this skill brings cross-customer triage, health ranking, gap checks, tamper remediation and billing reconciliation to whichever AI agent you already use.",
   "faqs": [
     {
       "q": "Does this work with ChatGPT?",
-      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you expose the local Sophos Central MCP server via a secure bridge. Step-by-step in the install guide."
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, and sophos-central-mcp speaks HTTP natively: run `sophos-central-mcp --transport http` (it listens on 127.0.0.1:7777) and put its /mcp endpoint behind an HTTPS tunnel or your own reverse proxy. Step-by-step in the install guide."
     },
     {
       "q": "Do I need to know how to code?",
@@ -47,26 +80,61 @@
       "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
     },
     {
-      "q": "TODO: vendor-specific question MSP owners actually search (rate limits, partner requirements, replacing the Sophos Central portal)",
-      "a": "TODO"
+      "q": "What Sophos Central API credential do I need?",
+      "a": "An API credential (a service principal) created in Sophos Central: in the Partner Dashboard under Settings & Policies > API Credentials for a partner, or under Global Settings > API Credentials Management for an organization or a single customer. Set SOPHOS_CENTRAL_CLIENT_ID and SOPHOS_CENTRAL_CLIENT_SECRET. The role you give it is the real permission boundary: Service Principal Read-Only covers every report here but cannot run Live Discover queries; writes such as isolation, scans and tamper protection need a role that allows them."
+    },
+    {
+      "q": "Does it work with a partner, organization and single-tenant credential?",
+      "a": "Yes. whoami tells the CLI which kind of credential it holds. A partner or organization credential walks every customer tenant in the fleet commands, and picks one customer with --tenant (or SOPHOS_CENTRAL_TENANT_ID) for tenant-scoped commands such as endpoints or alerts. A single-tenant credential works on its own tenant."
+    },
+    {
+      "q": "Will this hit Sophos Central API rate limits?",
+      "a": "Calls go through a shared throttle of 1.5 requests per second by default (--rate-limit), under Sophos's own limits. fleet refresh --plan prints the tenant count and estimated calls and time before you run it. After a refresh, fleet triage, fleet health and fleet gaps read the local store and make no API calls."
+    },
+    {
+      "q": "Why do some customers show as forbidden?",
+      "a": "Sophos returns 403 to a partner for trial tenants and for term customers without Partner Assistance. fleet refresh records those in its per-tenant ledger and carries on, and fleet triage lists them as blind tenants so you can see what was not read. Trial tenants are skipped unless you pass --include-trial."
+    },
+    {
+      "q": "Does it cover Sophos XDR or MDR Cases and Detections?",
+      "a": "Not in this version. It covers the REST APIs: alerts, endpoints, policies, exclusions, Live Discover, XDR Data Lake queries, SIEM events and alerts, Account Health Check, licences and partner billing. Cases and Detections are not included."
+    },
+    {
+      "q": "Does it replace the Sophos Central Partner Dashboard?",
+      "a": "No. The dashboard stays best for policy authoring, investigations and day-to-day console work. This skill answers the across-every-customer questions and runs scripted actions from your AI agent."
     }
   ],
-  "governance_summary": "TODO: 2-3 plain-language sentences from governance.md - what the skill can read, what it can change, and the recommended agent policy per tier.",
+  "governance_summary": "The skill authenticates with a Sophos Central API credential you create, and its reach is exactly the role you give that credential. Every fleet report (triage, health, gaps, revenue) and every list or get is read-only and safe to let an agent run. Sophos Central is also an endpoint security console, so isolating machines, starting scans, collecting forensic logs and memory dumps, running Live Discover queries and changing tamper protection reach real customer machines; those, plus policy, exclusion and allow-list changes that can weaken protection, need a human to approve the exact command. Commands that return a tamper protection password or a migration token are credential reads, kept out of the MCP server and human-only.",
   "safety_tiers": [
     {
       "tier": "Read",
-      "examples": "TODO: read commands",
+      "examples": "sophos-central-cli fleet triage; fleet health; fleet gaps; fleet revenue; fleet refresh; whoami; tenants list; alerts list; endpoints list; health-check get; licenses list; siem events; search; sync; contain and fleet tamper without --yes (preview only)",
       "policy": "Allow"
     },
     {
+      "tier": "Endpoint response",
+      "examples": "contain --yes; endpoints set-isolation; endpoints bulk-isolate; endpoints scan; endpoints update-check; endpoints collect-forensic-log; endpoints collect-memory-dump; live-discover run-query; fleet tamper --yes",
+      "policy": "Human-in-the-loop, explicit confirmation. These reach real customer machines."
+    },
+    {
+      "tier": "Protection and policy config",
+      "examples": "exclusions add-scanning; exclusions delete-scanning-by-id; allowed-items post-by-id; blocked-items post-by-id; blocked-addresses post-blocked-address-sets; policies update-policy; policies update-settings-of-policy; web-control update-web-decryption-excluded-sites; exploit-mitigation add-application; event-journal update-settings",
+      "policy": "Preview with --dry-run, then a human-approved write. An exclusion or allowed item can open a hole."
+    },
+    {
       "tier": "Write (routine)",
-      "examples": "TODO",
+      "examples": "alerts act-on; endpoint-groups create-tenant; endpoint-tags; users create-tenant; health-check post-snooze; xdr start-query-run; enrichment-pivots create",
       "policy": "Preview with --dry-run, then a reviewed write"
     },
     {
-      "tier": "Destructive / config",
-      "examples": "TODO",
+      "tier": "Credential and access",
+      "examples": "endpoints get-tamper-protection and endpoints set-tamper-protection (return the tamper password); migrations get-job, get-jobs, create-receiving-job (return the migration token); auth login; partner-admins create; admins create-role-assignment; roles create-tenant",
       "policy": "Human-in-the-loop only"
+    },
+    {
+      "tier": "Destructive and commercial",
+      "examples": "endpoints delete; endpoints bulk-delete; policies delete-policy; users delete-tenant-by-id; migrations create-sending-job; tenants create; tenants post-account-amendment; provisioning reset-default-products",
+      "policy": "Human-in-the-loop only, explicit confirmation"
     }
   ]
 }

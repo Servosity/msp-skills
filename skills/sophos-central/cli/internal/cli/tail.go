@@ -178,6 +178,7 @@ func fetchAndEmit(ctx context.Context, c interface {
 	if err != nil {
 		return err
 	}
+	data = redactSecretOutput(data) // Hand-wired (handfixes.json: secret-responses-never-persisted)
 
 	items, _, _ := extractResourcePage(data, config)
 	if items == nil {

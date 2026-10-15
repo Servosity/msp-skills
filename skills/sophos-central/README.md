@@ -140,30 +140,41 @@ Set the credentials the CLI needs (from your Sophos Central portal):
 SOPHOS_CENTRAL_CLIENT_ID=<value> SOPHOS_CENTRAL_CLIENT_SECRET=<value> sophos-central-cli doctor
 ```
 
-`doctor` checks config, paths, and API reachability, and reports whether credentials are loaded - it does not validate them. Run a read command to confirm the credential actually works end-to-end.
+Create the credential in Sophos Central first: **Partner Dashboard > Settings & Policies > API Credentials** for a partner, or **Global Settings > API Credentials Management** for an organization or a single customer. `doctor` checks config, paths and API reachability, then mints a token with your credential and reports whether Sophos accepted it. A partner or organization credential picks one customer for tenant-scoped commands with `--tenant <tenant-id>` (or `SOPHOS_CENTRAL_TENANT_ID`); the `fleet` commands walk every customer on their own.
 
 
 ## What this skill does
 
-<!-- TODO: outcome-first table mapping the 5-8 questions an MSP would ask to the single command that answers each. Source-of-truth is SKILL.md "Unique Capabilities" / "Command Reference" - extract the highest-leverage ones. Format:
-
 | Question your MSP keeps asking | Command |
 | --- | --- |
-| ... | `sophos-central-cli ...` |
-
--->
+| What needs attention across all my customers today? | `sophos-central-cli fleet triage` |
+| Which customers have the worst Account Health Check scores, and who slipped since the last refresh? | `sophos-central-cli fleet health --limit 10` |
+| Where are the security and commercial gaps, customer by customer? | `sophos-central-cli fleet gaps --kind all` |
+| Which machines have tamper protection off across every customer? | `sophos-central-cli fleet tamper` |
+| Isolate this machine without looking up which tenant it is in | `sophos-central-cli contain "WS-FIN-07" --scan` |
+| What did each customer bill last month, and does it match what is deployed? | `sophos-central-cli fleet revenue --month 2026-09` |
+| Feed every customer's SIEM events and alerts into my log pipeline | `sophos-central-cli fleet siem-collect --stream both` |
+| Refresh every customer tenant into the local store | `sophos-central-cli fleet refresh` |
+| Which credential am I using, and is it a partner, organization or tenant? | `sophos-central-cli whoami` |
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
 
 ## What makes this different
 
-Most Sophos Central integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking <!-- TODO: vendor-specific QBR-time example: e.g. "how many backup-failure tickets across all 47 clients last quarter" -->.
+Most Sophos Central integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking "which of my 60 customers have machines with tamper protection off, and whose health score dropped since last week".
 
-This skill syncs Sophos Central into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like <!-- TODO: 2-3 highest-leverage compound commands from this skill --> join across <!-- TODO: which entities --> - work a stateless API wrapper can't do.
+This skill syncs Sophos Central into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like `fleet triage`, `fleet gaps` and `fleet revenue` join across tenants, endpoints, alerts, Account Health Check scores, licences and partner billing - work a stateless API wrapper can't do.
+
+Live wrappers such as [rijul170/sophos-central-mcp](https://github.com/rijul170/sophos-central-mcp) take a tenant ID on each call and answer one tenant at a time. This connector also resolves the caller with `whoami` and routes every tenant call to that tenant's regional host for you, but `fleet refresh` first pulls every customer tenant into the local store with a per-tenant ok/forbidden/error ledger, so a missing customer shows up instead of silently dropping out of the answer. It complements the Sophos Central Partner Dashboard rather than replacing it: the dashboard stays the place for policy authoring, investigations and Sophos's own consolidated alert view.
 
 ## The pain this closes
 
-<!-- TODO: fold pain-point.md content here. Cite a concrete community source (r/msp, MSPGeek, vendor survey). State the pain in MSP-owner vocabulary. Then list 3-5 of this skill's highest-leverage commands mapped to the pain. -->
+Sophos Central is tenant-by-tenant underneath. Sophos's own [partner getting-started guide](https://developer.sophos.com/getting-started/) spells out the loop every MSP script has to run: `whoami` for the partner ID, page through the tenant list, then call each tenant's own regional API host with an `X-Tenant-ID` header. Community tooling usually stops at one tenant - the [SophosCentral-Powershell](https://github.com/jd1100/SophosCentral-Powershell) module says "There is currently no support for multiple tenants" - so every MSP rewrites the same loop, and the questions behind the Partner Dashboard's alert roll-up still mean drilling into one customer at a time.
+
+- `sophos-central-cli fleet triage` - one ranked morning work queue across every customer.
+- `sophos-central-cli fleet tamper` - every machine with tamper protection off, previewed first, switched back on only with `--yes`.
+- `sophos-central-cli contain "WS-FIN-07" --scan` - isolate a machine by hostname mid-incident without knowing its tenant.
+- `sophos-central-cli fleet revenue` - monthly Sophos billing per customer next to what is actually deployed.
 
 See [pain-point.md](./pain-point.md) for the longer narrative.
 
@@ -185,12 +196,30 @@ No. The recommended install is to paste one sentence into Claude Code or Codex -
 
 Your data stays on **your machine**. The CLI and MCP server are local binaries. The SQLite mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Credentials are read from your environment or your agent's config; never bundled into this repo or transmitted anywhere by MSP Skills.
 
-<!-- TODO: 2-4 vendor-specific FAQ entries - answer real searches MSP owners type. Examples:
-- "How is this different from <vendor>'s built-in AI integration?" (if the vendor has one)
-- "Will this hit my <vendor> API rate limits?"
-- "Do I need to be a <vendor> partner/customer?"
-- "Will this replace my <vendor> portal/UI?"
--->
+### What Sophos Central API credential do I need?
+
+An API credential (a service principal) created in Sophos Central: **Partner Dashboard > Settings & Policies > API Credentials** for a partner, or **Global Settings > API Credentials Management** for an organization or a single customer. Set `SOPHOS_CENTRAL_CLIENT_ID` and `SOPHOS_CENTRAL_CLIENT_SECRET`. The role you give it is the real permission boundary: **Service Principal Read-Only** covers every report here but cannot run Live Discover queries; isolation, scans and tamper protection need a role that allows them.
+
+### Does it work with a partner, organization and single-tenant credential?
+
+Yes. `whoami` tells the CLI which kind of credential it holds. A partner or organization credential walks every customer tenant in the `fleet` commands and picks one customer with `--tenant` (or `SOPHOS_CENTRAL_TENANT_ID`) for tenant-scoped commands such as `endpoints` or `alerts`. A single-tenant credential works on its own tenant.
+
+### Will this hit Sophos Central API rate limits?
+
+Calls go through a shared throttle of 1.5 requests per second by default (`--rate-limit`), under Sophos's own limits. `fleet refresh --plan` prints the tenant count and estimated calls and time before you run it. After a refresh, `fleet triage`, `fleet health` and `fleet gaps` read the local store and make no API calls.
+
+### Why do some customers show as forbidden?
+
+Sophos returns 403 to a partner for trial tenants and for term customers without Partner Assistance. `fleet refresh` records those in its per-tenant ledger and carries on, and `fleet triage` lists them as blind tenants so you can see what was not read. Trial tenants are skipped unless you pass `--include-trial`.
+
+### Does it cover Sophos XDR or MDR Cases and Detections?
+
+Not in this version. It covers the REST APIs: alerts, endpoints, policies, exclusions, Live Discover, XDR Data Lake queries, SIEM events and alerts, Account Health Check, licences and partner billing. Cases and Detections are not included.
+
+### Does it replace the Sophos Central Partner Dashboard?
+
+No. The dashboard stays best for policy authoring, investigations and day-to-day console work. This skill answers the across-every-customer questions and runs scripted actions from your AI agent.
+
 
 ### What does it cost?
 
@@ -198,15 +227,15 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 ## Safety model
 
-<!-- TODO: tier table (Read / Write-routine / Destructive / etc.) from governance.md. Format:
-
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | ... | Allow |
-| Write (routine) | ... | Preview with `--dry-run`, then a reviewed write |
-| Destructive / config | ... | Human-in-the-loop only |
+| Read | `fleet triage`, `fleet health`, `fleet gaps`, `fleet revenue`, `fleet refresh`, `whoami`, `tenants list`, `alerts list`, `endpoints list`, `search`; `contain` and `fleet tamper` without `--yes` only preview | Allow |
+| Endpoint response | `contain --yes`, `endpoints set-isolation`, `endpoints bulk-isolate`, `endpoints scan`, `endpoints collect-forensic-log`, `endpoints collect-memory-dump`, `live-discover run-query`, `fleet tamper --yes` | Human-in-the-loop, explicit confirmation - these reach real customer machines |
+| Protection and policy config | `exclusions add-scanning`, `allowed-items post-by-id`, `blocked-items post-by-id`, `policies update-policy`, `policies update-settings-of-policy`, `web-control update-web-decryption-excluded-sites` | Preview with `--dry-run`, then a human-approved write - an exclusion or allowed item can open a hole |
+| Write (routine) | `alerts act-on`, `endpoint-groups create-tenant`, `endpoint-tags`, `health-check post-snooze`, `xdr start-query-run` | Preview with `--dry-run`, then a reviewed write |
+| Credential and access | `endpoints get-tamper-protection`, `endpoints set-tamper-protection`, `migrations get-job` (return a tamper password or migration token; kept out of the MCP server), `auth login`, `partner-admins create`, `admins create-role-assignment` | Human-in-the-loop only |
+| Destructive and commercial | `endpoints delete`, `endpoints bulk-delete`, `policies delete-policy`, `users delete-tenant-by-id`, `migrations create-sending-job`, `tenants create`, `tenants post-account-amendment` | Human-in-the-loop only, explicit confirmation |
 
--->
 
 The strongest control is the **scope you grant the Sophos Central credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
 
@@ -218,4 +247,4 @@ Beta. Validated against the Sophos Central API surface and being validated with 
 
 **Standards.** Conforms to the open [Agent Skills spec](https://agentskills.io) (Anthropic, Dec 2025; 40+ agents). MCP-compatible - works with any MCP-capable agent including [Hermes](https://hermes-agent.nousresearch.com). OpenClaw-ready (frontmatter pre-wired, awaiting OpenClaw launch).
 
-Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: <!-- TODO: YYYY-MM-DD -->._
+Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: 2026-10-14._
