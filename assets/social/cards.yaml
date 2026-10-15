@@ -64,6 +64,10 @@ cipp:
   vendor: "CIPP"
   example_command: "Which tenants lack MFA?"
 
+cisco-meraki:
+  vendor: "Cisco Meraki"
+  example_command: "What is down across all my Meraki clients?"
+
 connect-tool:
   subtitle: "Claude Code Skill - no MCP server to install"
   vendor: "connect-tool"  # matches docs/skills/connect-tool.md

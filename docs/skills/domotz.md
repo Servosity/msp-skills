@@ -167,7 +167,7 @@ No add-on is required - you generate an API Key from the Domotz Portal under Set
 
 ## More Network Monitoring connectors
 
-Run more than one Network Monitoring tool, or comparing options? These connectors work the same way: [UniFi Network](/skills/unifi-network/)
+Run more than one Network Monitoring tool, or comparing options? These connectors work the same way: [Cisco Meraki](/skills/cisco-meraki/) · [UniFi Network](/skills/unifi-network/)
 
 ## Status
 

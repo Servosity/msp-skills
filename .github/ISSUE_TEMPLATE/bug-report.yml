@@ -35,6 +35,7 @@ body:
         - betterstack
         - blumira
         - cipp
+        - cisco-meraki
         - connectsecure
         - connectwise-automate
         - connectwise-control

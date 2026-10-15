@@ -1,0 +1,131 @@
+{
+  "outcome_intro": "Cisco Meraki plus your AI answers the questions that span every client org at once: what is down right now and since when, which licenses and hardware hit their end date this quarter, who changed what across all orgs this week, and which change landed just before a site dropped. One API key, every org it can reach, every page of every org read by the fleet views, and an org that fails to answer is named instead of silently counted as zero.",
+  "instead_of_say": [
+    {
+      "instead": "Opening the MSP Portal, spotting an org with a red device count, then clicking into that org and its networks to find which device is offline and how long it has been down - once per client",
+      "say": "What is down across all my Meraki clients right now?",
+      "cli": "cisco-meraki-cli fleet down --agent"
+    },
+    {
+      "instead": "Checking each org's license page by hand, because the portal shows only one co-term date per org and nothing for per-device, subscription, or end-of-support hardware, before the renewal quotes are due",
+      "say": "Which Meraki licenses, subscriptions, and end-of-support dates hit in the next 90 days?",
+      "cli": "cisco-meraki-cli fleet renewals --within 90d --agent"
+    },
+    {
+      "instead": "Scrolling one org's change log against the outage time after a site goes down, trying to work out whether a tech's change caused it",
+      "say": "Did someone change something right before this switch went offline?",
+      "cli": "cisco-meraki-cli fleet blame \"Q2QN-9J8L-SLPD\" --window 2h --agent"
+    }
+  ],
+  "pain_points": [
+    "Meraki's MSP Portal lists each organization with device counts, license status, and one co-terminated license expiration date (Meraki documentation, 'Monitoring and Managing Multiple Organizations'). What it documents is per-org counts: no cross-org list of which devices are down, no cross-org change log, no admin management across orgs. Answering 'what is down for every client' still means clicking into each org.",
+    "Meraki's paginated list endpoints return a bare JSON array and page only through an RFC 5988 Link header (ten items per page by default on many of them), so a script that reads one response silently stops at page one. The Meraki Community Developers & APIs board has threads such as 'Using Powershell how to paginate thru pages' and 'Meraki API - Get Organization Clients Search - Only return 3 networks' working through exactly that.",
+    "Renewals follow three licensing models - co-termination, per-device, and subscription - plus end-of-sale and end-of-support dates on hardware, so one date-sorted list of what is due across all clients does not exist in the Dashboard."
+  ],
+  "outcomes": [
+    {
+      "question": "Which client org is in the worst shape right now?",
+      "command": "cisco-meraki-cli fleet health --agent"
+    },
+    {
+      "question": "What is offline or alerting across every org, and for how long?",
+      "command": "cisco-meraki-cli fleet down --agent"
+    },
+    {
+      "question": "Which MX WAN uplinks have failed?",
+      "command": "cisco-meraki-cli fleet down --kind uplink --json"
+    },
+    {
+      "question": "Which licenses, subscriptions, and end-of-support dates are due in 90 days?",
+      "command": "cisco-meraki-cli fleet renewals --within 90d --agent"
+    },
+    {
+      "question": "Who changed what across all orgs this week?",
+      "command": "cisco-meraki-cli fleet changes --since 7d --group-by admin --agent"
+    },
+    {
+      "question": "Which org and network owns this MAC, IP, or serial?",
+      "command": "cisco-meraki-cli fleet find \"00:18:0a:12:34:56\" --agent"
+    },
+    {
+      "question": "Which admins have two-factor off or have not signed in for 90 days?",
+      "command": "cisco-meraki-cli fleet admins --stale 90d --flagged --agent"
+    },
+    {
+      "question": "A tech left - which orgs still grant them access?",
+      "command": "cisco-meraki-cli fleet admins --email \"departed.tech@msp.example\" --json"
+    },
+    {
+      "question": "Which devices flapped or were down longest this week?",
+      "command": "cisco-meraki-cli fleet flaps --since 7d --agent"
+    },
+    {
+      "question": "Point every managed network at the new syslog server - show me the diff first",
+      "command": "cisco-meraki-cli fleet push --path /networks/{networkId}/syslogServers --body syslog.json --network-tag managed"
+    }
+  ],
+  "different_vs_wrappers": "Most Meraki integrations, including the many single-org Meraki MCP servers, proxy one question into one live API call against one organization, and often read only the first page of a list. This connector is built for the MSP case: the fleet commands run across every org the key can see under one rate limiter, follow every Link-header page, and never count an org that fails to answer as zero devices: fleet health keeps it as an unreachable row and the other fleet commands name it on stderr. It also wraps all 1,035 Dashboard operations as typed commands, and a single-endpoint read through MCP says when Meraki has more pages instead of passing page one off as the whole list.",
+  "different_vs_vendor": "The Meraki Dashboard and its MSP Portal stay the place you configure networks; the portal, as Meraki documents it, shows per-org device counts and one co-term date. This adds the cross-org answers on top: a single list of what is down with network names and downtime, renewals across all three licensing models plus end-of-support hardware, one change log for every org, admin two-factor and offboarding checks, and the config changes made just before an outage.",
+  "faqs": [
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, and cisco-meraki-mcp speaks HTTP natively: set CISCO_MERAKI_MCP_HTTP_TOKEN, run `cisco-meraki-mcp --transport http`, and put its /mcp endpoint behind an HTTPS tunnel or your own reverse proxy. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your Meraki API key once."
+    },
+    {
+      "q": "Is my Cisco Meraki data safe?",
+      "a": "Your data stays on your machine. The CLI, MCP server, and the optional local mirror all run locally and talk only to the Meraki Dashboard API. The AI sees query results, not raw bulk data, and your API key is never bundled or transmitted by MSP Skills."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    },
+    {
+      "q": "What can the API key reach?",
+      "a": "A Meraki API key carries the Dashboard permissions of the admin account that generated it, across every organization that admin can see. Generate it from an admin with read-only access if you only want reporting. Each org must also have Dashboard API access enabled (Organization > Settings); an org without it shows up in `fleet health` as reachable: false rather than disappearing."
+    },
+    {
+      "q": "Will this hit my Meraki API rate limit?",
+      "a": "Meraki allows about ten calls per second per organization. The CLI paces itself at 10 requests per second by default (change it with --rate-limit) and, when Meraki answers HTTP 429, waits for the Retry-After header before trying again. Fleet commands across many orgs take longer: each run has one overall --timeout (default 1m), so raise it (for example --timeout 10m) for a large fleet; an org that runs out of time is named on stderr as failed, not silently dropped."
+    },
+    {
+      "q": "Does it work with the Canada, China, India, or FedRAMP dashboards?",
+      "a": "Yes. Set CISCO_MERAKI_BASE_URL to your region's API host, for example https://api.meraki.ca/api/v1 (Canada), https://api.meraki.cn/api/v1 (China), https://api.meraki.in/api/v1 (India), or https://api.gov-meraki.com/api/v1 (FedRAMP). Leave it unset for the global dashboard."
+    },
+    {
+      "q": "Can an agent change my clients' networks by accident?",
+      "a": "Writes send immediately when called, with no confirmation prompt, so keep autonomous agents to reads and --dry-run previews. The bulk tool, fleet push, previews a per-network diff by default and sends nothing unless you add --apply. See the safety model for which commands to keep behind a human. Set CISCO_MERAKI_MCP_READ_ONLY=1 on the MCP server and it refuses every write outright."
+    }
+  ],
+  "governance_summary": "Reads - the fleet views, every GET, sync and search - change nothing in the Dashboard and are safe for an agent, with one exception: over thirty reads return live secrets or license keys (SSID pre-shared keys, identity PSK passphrases, SNMP community strings, site-to-site VPN peer secrets, BGP and OSPF passwords, Apple VPP tokens, license keys, webhook header templates and receiver URLs, the API request log, and the raw configuration change log and action batches, which record API request bodies) and the CLI does not redact them, so those belong behind a human. search, analytics and MCP sql read the local mirror, which keeps license keys and redacts credentials by field name and label - allow them only if that is acceptable. Routine config writes should be previewed with --dry-run and approved. Bulk pushes, reboots and port cycles, admin and SAML changes, API key generation, and deletes or unclaims should never run unattended. For an MCP agent that should never write, CISCO_MERAKI_MCP_READ_ONLY=1 makes the server refuse every non-GET call. The real ceiling is the API key: it can do whatever the Dashboard admin who generated it can do.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "fleet health, fleet down, fleet renewals, fleet changes, fleet find, fleet fanout (GET-only; not at a credential-tier path, including configurationChanges and apiRequests), fleet admins, fleet flaps, fleet blame, fleet push without --apply (preview; current credential fields print as [redacted]), sync, search, and every GET command except the secret-bearing ones below; search, analytics and MCP sql read a mirror that holds license keys and stores credentials as [redacted] (matched by field name and change-log label), so allow them only if license keys, and anything that matching could miss, are acceptable",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Credential (incl. secret-returning reads)",
+      "examples": "auth set-token, auth logout, administered generate-identities-me-api-keys, administered revoke-identities-me-api-keys, devices appliance create-device-vmx-authentication-token, networks sm create-network-bypass-activation-lock-attempt, every organizations admins, organizations saml and organizations saml-roles write, organizations login-security update-organization (login and API-key IP ranges and two-factor can lock every admin and key out), organizations update (api.enabled=false cuts every API key off), and the reads whose output carries a live secret (the CLI does not redact these): networks wireless get-network-ssid / get-network-ssids (Wi-Fi psk), networks wireless get-network-ssid-identity-psk / get-network-ssid-identity-psks (passphrase), networks camera get-network-wireless-profile / get-network-wireless-profiles, networks snmp get-network, organizations snmp get-organization (community strings), organizations appliance get-organization-vpn-third-party-vpnpeers (IPsec secret), networks appliance get-network-vpn-bgp, networks switch get-network-routing-ospf, devices cellular get-device-sims, organizations sm get-organization-vpp-accounts / get-organization-vpp-account (Apple VPP service token), organizations configuration-changes get-organization (the raw change log carries API request bodies, PSKs included; fleet changes is the redacted view), organizations action-batches get-organization / get-organization-action-batch (return each pushed action body), networks webhooks get-network-payload-template / get-network-payload-templates (header templates can carry an Authorization value), networks webhooks get-network-http-server / get-network-http-servers (a Slack or Teams incoming-webhook URL is itself a credential), organizations webhooks get-organization-logs, organizations webhooks get-organization-callbacks-status, devices live-tools get-device-ping / get-device-ping-device (callback.url), networks webhooks get-network-test, networks alerts get-network-settings, organizations alerts get-organization-profiles, networks sensor get-network-alerts-profile / get-network-alerts-profiles and organizations assurance get-organization-alerts-profiles (receiver URLs, or HTTP server IDs that are the base64 of the URL), organizations api-requests get-organization (request paths and query strings can carry those IDs and URLs), license-key reads (organizations licenses get-organization / get-organization-organizations, organizations licensing get-organization-coterm-licenses, networks sm get-network-device-softwares / get-network-user-softwares), the commands that return a time-limited link (organizations devices generate-organization-packet-capture-capture-download-url, devices camera generate-device-snapshot, devices camera clip-device, networks floor-plans get-network / get-network-networks, organizations branding-policies get-organization / get-organization-branding-policy, and the floor-plan, branding-policy and custom-analytics-artifact create/update writes that echo one), plus fleet fanout pointed at an org-scoped one of those paths",
+      "policy": "Human-in-the-loop only - never in a blanket allow-all-reads policy, and do not hand the raw output to a model"
+    },
+    {
+      "tier": "Write (routine)",
+      "examples": "networks update, networks wireless update-network-ssid, networks appliance update-network-vlan, devices update, networks snmp update-network, networks webhooks create-network-http-server, import (each record goes to its resource's own path; import administered POSTs to /claim). A write that removes anything, replaces a membership list, changes who can sign in or call the API, or affects power, firmware or connectivity is never routine, and neither is any POST ending in an action such as /bind, /move, /moves, /remove, /detach, /renewSeats, /assignSeats, /batchDelete, /claim or /claim/vmx",
+      "policy": "Preview with --dry-run, then a reviewed write"
+    },
+    {
+      "tier": "Bulk and device-disrupting",
+      "examples": "fleet push --apply (one change to many networks across orgs), organizations action-batches create-organization-action-batch and update-organization-action-batch (a raw action batch can change many networks in one call), networks devices vmx-network-claim (consumes a vMX license), devices reboot device, devices switch cycle-device-ports, devices live-tools create-device-ports-cycle, devices live-tools create-device-cable-test, networks sm reboot-network-devices, networks sm shutdown-network-devices, networks appliance swap-network-warm-spare, networks firmware-upgrades update-network, networks firmware-upgrades create-network-staged-event / update-network-staged-events / defer-network-staged-events / rollbacks-network-staged-events (staged switch upgrades reboot the switches), devices sensor create-device-command (cycles power to what an MT40 feeds), networks switch create-network-stack / add-network-stack (forming a stack reboots the switches), networks firmware-upgrades create-network-rollback, networks sm lock-network-devices, networks sm uninstall-network-device-apps, networks appliance create-network-devices-redundancy-swap; any POST ending in an action such as /reboot, /cycle, /swap, /lock or /rollbacks",
+      "policy": "Human-in-the-loop only - these take effect on live client networks at once"
+    },
+    {
+      "tier": "Destructive",
+      "examples": "every delete command (organizations delete, networks delete, networks appliance delete-network-vlan, ...), networks devices remove-network, organizations inventory release-from-organization, networks unbind network, networks split network, organizations networks combine-organization, networks sm wipe-network-devices, networks sm unenroll-network-device, networks switch update-network-stack (a members list replaces the whole stack), organizations wireless create-organization-zigbee-disenrollment (removes door locks from the Zigbee network), organizations licenses move-organization, organizations licenses move-organization-seats, organizations licensing move-organization-coterm-licenses, networks switch remove-network-stack, every .../bulkDelete and .../batchDelete POST, networks bind network, networks pii create-network-request, organizations networks create-move, organizations devices create-organization-migration, organizations sase detach-organization-sites, organizations integrations disable-organization-xdr-networks",
+      "policy": "Human-in-the-loop only, explicit confirmation"
+    }
+  ]
+}

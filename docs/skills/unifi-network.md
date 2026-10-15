@@ -179,7 +179,7 @@ Treat it as a local simulation, not a live trace. It walks the last synced firew
 
 ## More Network Monitoring connectors
 
-Run more than one Network Monitoring tool, or comparing options? These connectors work the same way: [Domotz](/skills/domotz/)
+Run more than one Network Monitoring tool, or comparing options? These connectors work the same way: [Cisco Meraki](/skills/cisco-meraki/) · [Domotz](/skills/domotz/)
 
 ## Status
 
