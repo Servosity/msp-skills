@@ -185,10 +185,17 @@ func billingJoinData(cmd *cobra.Command, dbPath string) (map[string]string, map[
 		}
 		return true
 	})
-	// A tenant whose endpoints were fetched but which has none deployed 0,
-	// so its billed seats still show as variance instead of null.
+	// Deployment is only known for tenants a fleet refresh walked in full;
+	// rows a single-page live read or a capped sync cached are not a count.
+	// A walked tenant with no endpoints is deployed 0, so its billed seats
+	// still show as variance instead of null.
+	for tid := range deployed {
+		if ledger[tid].Resources["endpoints"].FullAt.IsZero() {
+			delete(deployed, tid)
+		}
+	}
 	for tid, row := range ledger {
-		if _, seen := deployed[tid]; !seen && row.Resources["endpoints"].Status == "ok" {
+		if _, seen := deployed[tid]; !seen && !row.Resources["endpoints"].FullAt.IsZero() {
 			deployed[tid] = 0
 		}
 	}

@@ -84,12 +84,6 @@ func readSyncHintState(db *store.Store, resourceType string) (syncHintState, err
 	if db == nil {
 		return syncHintState{}, nil
 	}
-	// HAND-FIX(local-provenance-per-tenant): with one --tenant the hint uses the
-	// same per-tenant date as the read's synced_at.
-	if strings.TrimSpace(resourceType) != "" && sophosExplicitTenant() != "" {
-		at, err := sophosLocalSyncedAt(db, resourceType)
-		return syncHintState{hasState: !at.IsZero(), lastSynced: at}, err
-	}
 	query := `SELECT last_synced_at FROM sync_state`
 	args := []any{}
 	if strings.TrimSpace(resourceType) != "" {

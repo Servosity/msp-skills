@@ -169,8 +169,9 @@ func TestPruneCoversEndpointsOfUnrecordedTenants(t *testing.T) {
 	if err != nil || len(pruned) != 1 || pruned[0] != "T9" {
 		t.Fatalf("pruned=%v err=%v", pruned, err)
 	}
-	if _, at, _, _ := db.GetSyncState("endpoints@T9"); !at.IsZero() {
-		t.Fatalf("a pruned tenant's checkpoint must not date later local reads: %v", at)
+	var n int
+	if err := db.DB().QueryRow(`SELECT COUNT(*) FROM sync_state WHERE resource_type LIKE '%@T9'`).Scan(&n); err != nil || n != 0 {
+		t.Fatalf("a pruned tenant's checkpoints must be deleted, not zeroed (a zero row reads as never synced): %d %v", n, err)
 	}
 	if ledger, _ := loadFleetLedger(db); ledger["T4"].ID != "T4" {
 		t.Fatal("a tenant refreshed after the listing must not be pruned")
@@ -181,6 +182,13 @@ func TestPruneCoversEndpointsOfUnrecordedTenants(t *testing.T) {
 		if n != 0 {
 			t.Fatalf("%s rows of an offboarded tenant survived the prune", rt)
 		}
+	}
+	// T8's endpoints were written after this run listed tenants.
+	if _, _, err := db.UpsertBatch("endpoints", []json.RawMessage{json.RawMessage(`{"id": "00000000-0000-0000-0000-000000000008", "tenant": {"id": "T8"}}`)}); err != nil {
+		t.Fatal(err)
+	}
+	if pruned, err := pruneOutOfScopeTenants(db, []fleetTenant{{ID: "T1", Name: "Acme"}}, time.Now().Add(-5*time.Second)); err != nil || len(pruned) != 0 {
+		t.Fatalf("rows written after the listing belong to a concurrent refresh and are kept: pruned=%v err=%v", pruned, err)
 	}
 }
 
@@ -197,8 +205,8 @@ func TestNamelessTenantsRowIsNotATenant(t *testing.T) {
 		t.Fatalf("endpoints plain sync stored for a tenant fleet refresh never reached must be blind: %+v", got)
 	}
 	f.put(fleetMetaType, "sync", fleetSyncMeta{ID: "sync", TrialSkipped: []string{"T9"}})
-	if got := unrefreshedTenants(f, map[string]fleetLedgerRow{"T1": {ID: "T1"}}, nil); len(got) != 0 {
-		t.Fatalf("a trial tenant the last refresh skipped is out of scope, not blind: %+v", got)
+	if got := unrefreshedTenants(f, map[string]fleetLedgerRow{"T1": {ID: "T1"}}, nil); len(got) != 1 || got[0].Status != "trial_not_refreshed" {
+		t.Fatalf("a skipped trial tenant's rows are flagged as not refreshed by fleet refresh, not as unreached: %+v", got)
 	}
 }
 
@@ -238,5 +246,46 @@ func TestFleetSnapshotsReplaceInsteadOfMerging(t *testing.T) {
 	}
 	if ledger, _ := loadFleetLedger(db); ledger["T1"].Resources["alerts"].Window != "" {
 		t.Fatal("a full fetch after a --since fetch must clear the window")
+	}
+}
+
+func TestScopedSyncHintUsesTheTenantsOwnDate(t *testing.T) {
+	db, err := store.OpenWithContext(context.Background(), filepath.Join(t.TempDir(), "data.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	row, _ := json.Marshal(fleetLedgerRow{ID: "T1", Status: "ok", Resources: map[string]fleetOutcome{"endpoints": {Status: "ok", At: time.Now(), FullAt: time.Now()}}})
+	if err := replaceFleetDoc(db, fleetLedgerType, row); err != nil {
+		t.Fatal(err)
+	}
+	sophosTenantFlag = "T1"
+	t.Cleanup(func() { sophosTenantFlag = "" })
+	var fresh, stale strings.Builder
+	emitScopedSyncHints(&fresh, db, "endpoints", time.Hour)
+	emitScopedSyncHints(&stale, db, "endpoints", time.Nanosecond)
+	if fresh.Len() != 0 || !strings.Contains(stale.String(), "older than --max-age") {
+		t.Fatalf("hints must follow T1's own fetch: fresh=%q stale=%q", fresh.String(), stale.String())
+	}
+}
+
+func TestFleetRowsReplaceClearedFields(t *testing.T) {
+	db, err := store.OpenWithContext(context.Background(), filepath.Join(t.TempDir(), "data.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	id := "00000000-0000-0000-0000-000000000001"
+	for _, body := range []string{
+		`{"id": "` + id + `", "tenant": {"id": "T1"}, "assignedProducts": [{"code": "deviceEncryption", "status": "installed"}]}`,
+		`{"id": "` + id + `", "tenant": {"id": "T1"}, "assignedProducts": []}`,
+	} {
+		if _, err := storeTenantRows(db, "endpoints", "T1", []json.RawMessage{json.RawMessage(body)}, true); err != nil {
+			t.Fatal(err)
+		}
+	}
+	raw, _ := db.Get("endpoints", id)
+	if strings.Contains(string(raw), "deviceEncryption") {
+		t.Fatalf("a field the API cleared must not survive a fleet refresh: %s", raw)
 	}
 }

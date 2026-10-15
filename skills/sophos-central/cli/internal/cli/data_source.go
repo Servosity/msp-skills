@@ -874,7 +874,7 @@ func resolveLocal(ctx context.Context, flags *rootFlags, hintWriter io.Writer, r
 	}
 
 	if flags != nil {
-		emitSyncHints(hintWriter, db, storedType, flags.maxAge)
+		emitScopedSyncHints(hintWriter, db, storedType, flags.maxAge) // HAND-FIX(local-provenance-per-tenant)
 	}
 
 	prov := localProvenance(db, storedType, reason)

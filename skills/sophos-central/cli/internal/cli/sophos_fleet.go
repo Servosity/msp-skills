@@ -501,7 +501,7 @@ func unrefreshedTenants(db fleetReader, ledger map[string]fleetLedgerRow, filter
 		return out
 	}
 	names, trial := map[string]string{}, map[string]bool{}
-	ids := map[string]bool{}
+	ids, hasRows := map[string]bool{}, map[string]bool{}
 	_ = db.ListScan("tenants", func(_ string, data json.RawMessage) bool {
 		var t fleetTenant
 		// Rows without a name are not tenants (a mutation response cached
@@ -521,7 +521,7 @@ func unrefreshedTenants(db fleetReader, ledger map[string]fleetLedgerRow, filter
 				} `json:"tenant"`
 			}
 			if json.Unmarshal(data, &row) == nil && row.Tenant.ID != "" {
-				ids[row.Tenant.ID] = true
+				ids[row.Tenant.ID], hasRows[row.Tenant.ID] = true, true
 			}
 			return true
 		})
@@ -530,11 +530,19 @@ func unrefreshedTenants(db fleetReader, ledger map[string]fleetLedgerRow, filter
 		trial[id] = true
 	}
 	for id := range ids {
-		if _, ok := ledger[id]; ok || trial[id] {
+		if _, ok := ledger[id]; ok {
 			continue
 		}
-		out = append(out, blindTenant{TenantID: id, TenantName: names[id], Status: "not_refreshed",
-			Error: "fleet refresh has not reached this tenant yet; run 'sophos-central-cli fleet refresh'"})
+		switch {
+		case trial[id] && hasRows[id]:
+			// Rows from a live read or plain sync: shown, but not refreshed.
+			out = append(out, blindTenant{TenantID: id, TenantName: names[id], Status: "trial_not_refreshed",
+				Error: "trial tenant: fleet refresh skips it unless --include-trial, so its rows here come from a live read or plain sync and may be stale"})
+		case trial[id]:
+		default:
+			out = append(out, blindTenant{TenantID: id, TenantName: names[id], Status: "not_refreshed",
+				Error: "fleet refresh has not reached this tenant yet; run 'sophos-central-cli fleet refresh'"})
+		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].TenantID < out[j].TenantID })
 	return out
@@ -568,6 +576,25 @@ func sophosLocalSyncedAt(db *store.Store, resourceType string) (time.Time, error
 		}
 	}
 	return getState(sophosSyncStateKey(resourceType))
+}
+
+// emitScopedSyncHints is emitSyncHints for a local list read: with one
+// --tenant the hints use the same per-tenant date as the read's synced_at.
+// Analytics and search count every tenant's rows, so they keep the
+// fleet-wide hint.
+func emitScopedSyncHints(w io.Writer, db *store.Store, resourceType string, maxAge time.Duration) {
+	if w == nil || db == nil || sophosExplicitTenant() == "" {
+		emitSyncHints(w, db, resourceType, maxAge)
+		return
+	}
+	at, err := sophosLocalSyncedAt(db, resourceType)
+	switch {
+	case err != nil:
+	case at.IsZero():
+		fmt.Fprintf(w, "hint: local store has not been synced yet. Run '%s' before trusting local results.\n", syncHintCommand)
+	case maxAge > 0 && time.Since(at) > maxAge:
+		fmt.Fprintf(w, "hint: local store data is %s old, older than --max-age=%s. Run '%s' to refresh.\n", syncHintRoundAge(time.Since(at)), maxAge, syncHintCommand)
+	}
 }
 
 // openFleetStore opens the local store read-only for a fleet read and reports

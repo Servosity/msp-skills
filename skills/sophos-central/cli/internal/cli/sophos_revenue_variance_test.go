@@ -11,6 +11,7 @@ import (
 	"io"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -41,8 +42,12 @@ func TestZeroEndpointTenantIsDeployedZero(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	row, _ := json.Marshal(fleetLedgerRow{ID: "T9", Status: "ok", Resources: map[string]fleetOutcome{"endpoints": {Status: "ok"}}})
+	row, _ := json.Marshal(fleetLedgerRow{ID: "T9", Status: "ok", Resources: map[string]fleetOutcome{"endpoints": {Status: "ok", At: time.Now(), FullAt: time.Now()}}})
 	if _, _, err := db.UpsertBatch(fleetLedgerType, []json.RawMessage{row}); err != nil {
+		t.Fatal(err)
+	}
+	// T8's single endpoint came from a one-page live read, not a full walk.
+	if _, _, err := db.UpsertBatch("endpoints", []json.RawMessage{json.RawMessage(`{"id": "00000000-0000-0000-0000-000000000008", "tenant": {"id": "T8"}}`)}); err != nil {
 		t.Fatal(err)
 	}
 	db.Close()
@@ -50,6 +55,6 @@ func TestZeroEndpointTenantIsDeployedZero(t *testing.T) {
 	cmd.SetContext(context.Background())
 	cmd.SetErr(io.Discard)
 	if _, deployed := billingJoinData(cmd, dbPath); deployed["T9"] != 0 || len(deployed) != 1 {
-		t.Fatalf("a refreshed tenant with no endpoints is deployed 0, not missing: %v", deployed)
+		t.Fatalf("a refreshed tenant with no endpoints is deployed 0, and partially cached rows are no count: %v", deployed)
 	}
 }
