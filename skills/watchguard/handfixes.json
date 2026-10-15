@@ -419,7 +419,8 @@
         },
         {
           "file": "cli/internal/cli/deliver.go",
-          "contains": "Hand-fix (handfixes.json: deliver-webhook-no-redirect)"
+          "contains": "Hand-fix (handfixes.json: deliver-webhook-no-redirect)",
+          "code_only": false
         }
       ]
     },
@@ -565,7 +566,13 @@
       "asserts": [
         {
           "file": "cli/internal/client/client.go",
-          "contains": "Hand-wired (handfixes.json: redirect-strips-configured-headers)"
+          "contains": "for k := range c.Config.Headers {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "Hand-wired (handfixes.json: redirect-strips-configured-headers)",
+          "code_only": false
         }
       ]
     },
