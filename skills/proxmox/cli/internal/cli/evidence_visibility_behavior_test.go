@@ -87,7 +87,7 @@ pbs_fingerprint = "`+f.pbsFingerprint()+`"
 pbs_namespace = "prod"
 `)
 	_, rows := postureByVMID(t)
-	if r := rows[105]; r.Verdict != "never" {
+	if r := rows[105]; r.RestorePoints > 0 || r.Verdict == "fresh" {
 		t.Errorf("105 was credited with another datastore's snapshot: %s %q (%d points)", r.Verdict, r.Reason, r.RestorePoints)
 	}
 }

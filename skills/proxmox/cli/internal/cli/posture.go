@@ -263,6 +263,7 @@ func collectPosture(ctx context.Context, t fleetTarget, o postureOpts) (clusterP
 	archivesIncomplete := len(sfails) > 0 || len(offline) > 0
 	readStorage := map[string]bool{} // storage IDs whose archives were read
 	storageUnread := false           // a non-PBS storage that is no job's target here could not be read
+	pveOnlyPBS := false              // a PBS storage was read only through PVE (see pveOnlyPBSNote)
 	for _, f := range sfails {
 		f.Cluster = t.Name
 		out.failures = append(out.failures, f)
@@ -332,6 +333,10 @@ func collectPosture(ctx context.Context, t fleetTarget, o postureOpts) (clusterP
 			continue
 		}
 		readStorage[key] = true
+		if s.Type == "pbs" && !covered {
+			pveOnlyPBS = true
+			out.warnings = append(out.warnings, t.Name+": "+pveOnlyPBSNote(key))
+		}
 		for _, rp := range rps {
 			points[rp.VMID] = append(points[rp.VMID], rp)
 		}
@@ -443,8 +448,11 @@ func collectPosture(ctx context.Context, t fleetTarget, o postureOpts) (clusterP
 		for _, g := range gaps {
 			allGaps[g] = true
 		}
-		if (archivesIncomplete || storageUnread || len(gaps) > 0) && row.CoveredByJob {
+		if (archivesIncomplete || storageUnread || pveOnlyPBS || len(gaps) > 0) && row.CoveredByJob {
 			why := "some backup storage could not be read (see fetch_failures)"
+			if pveOnlyPBS && !archivesIncomplete && !storageUnread {
+				why = "a PBS storage was listed only through the PBS credential saved in it, which may not see every backup group (see warnings)"
+			}
 			if len(gaps) > 0 {
 				why = "the backup target of " + joinGaps(gaps) + " was not read (see fetch_failures)"
 			}
