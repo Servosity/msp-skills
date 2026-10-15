@@ -107,7 +107,7 @@ Security gaps: Account Health Check scores below --threshold, tamper protection 
 			if err != nil {
 				return err
 			}
-			view.SyncedAt, view.Note = fleetFreshness(cmd.ErrOrStderr(), loadFleetMeta(db), flags.maxAge, "health", "endpoints", "licenses")
+			view.SyncedAt, view.Note = fleetFreshness(cmd.ErrOrStderr(), loadFleetMeta(db), loadFleetLedgerQuiet(db), filter, flags.maxAge, "health", "endpoints", "licenses")
 			if len(view.Items) > flagLimit {
 				view.Items = view.Items[:flagLimit]
 			}
@@ -234,6 +234,13 @@ func buildGaps(db fleetReader, filter map[string]bool, opt gapOptions) (gapsView
 	})
 	if err != nil {
 		return gapsView{}, fmt.Errorf("reading endpoints: %w", err)
+	}
+	// A tenant whose endpoints were fetched but which has none still gets
+	// its server check (no endpoint rows means no tally entry otherwise).
+	for tid, row := range ledger {
+		if o, ok := row.Resources["endpoints"]; ok && o.Status == "ok" && tally[tid] == nil {
+			tally[tid] = &endpointTally{}
+		}
 	}
 	for tid, t := range tally {
 		if t.unencrypted > 0 {

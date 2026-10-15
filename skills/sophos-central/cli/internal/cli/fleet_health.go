@@ -86,7 +86,7 @@ overall is the lowest non-snoozed check score; protection_score is the lower of 
 			if err != nil {
 				return err
 			}
-			view.SyncedAt, view.Note = fleetFreshness(cmd.ErrOrStderr(), loadFleetMeta(db), flags.maxAge, "health")
+			view.SyncedAt, view.Note = fleetFreshness(cmd.ErrOrStderr(), loadFleetMeta(db), loadFleetLedgerQuiet(db), filter, flags.maxAge, "health")
 			if len(view.Items) > flagLimit {
 				view.Items = view.Items[:flagLimit]
 			}

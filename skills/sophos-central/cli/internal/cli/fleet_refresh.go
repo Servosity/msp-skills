@@ -278,18 +278,7 @@ func runFleetSync(ctx context.Context, cmd *cobra.Command, flags *rootFlags, c *
 			_ = db.SaveSyncState(rt, "", summary.Stored[rt])
 		}
 	}
-	meta := fleetSyncMeta{ID: "sync", StartedAt: started, FinishedAt: time.Now().UTC(), PrevStartedAt: prev.StartedAt, TenantsAttempts: attempted,
-		ResourceStartedAt: map[string]time.Time{}, ResourceFinishedAt: map[string]time.Time{}, PrevResourceStartedAt: map[string]time.Time{}}
-	for rt, at := range prev.ResourceStartedAt {
-		meta.ResourceStartedAt[rt], meta.ResourceFinishedAt[rt], meta.PrevResourceStartedAt[rt] = at, prev.ResourceFinishedAt[rt], prev.PrevResourceStartedAt[rt]
-	}
-	for rt := range want {
-		meta.PrevResourceStartedAt[rt] = prev.ResourceStartedAt[rt]
-		if len(prev.ResourceStartedAt) == 0 {
-			meta.PrevResourceStartedAt[rt] = prev.StartedAt
-		}
-		meta.ResourceStartedAt[rt], meta.ResourceFinishedAt[rt] = started, meta.FinishedAt
-	}
+	meta := fleetSyncMeta{ID: "sync", StartedAt: started, FinishedAt: time.Now().UTC(), PrevStartedAt: prev.StartedAt, TenantsAttempts: attempted}
 	if raw, err := json.Marshal(meta); err == nil {
 		_, _, _ = db.UpsertBatch(fleetMetaType, []json.RawMessage{raw})
 	}
@@ -409,7 +398,12 @@ func syncOneTenant(ctx context.Context, c *client.Client, db *store.Store, t fle
 			continue
 		}
 		stored[step.name] += n
-		row.Resources[step.name] = fleetOutcome{TenantID: t.ID, TenantName: t.Name, Status: "ok", Items: n}
+		now := time.Now().UTC()
+		o := fleetOutcome{TenantID: t.ID, TenantName: t.Name, Status: "ok", Items: n, At: now, FullAt: now}
+		if step.name == "alerts" && since > 0 {
+			o.Window, o.FullAt = since.String(), time.Time{} // added, not reconciled
+		}
+		row.Resources[step.name] = o
 	}
 	row.Status = ledgerStatus(row.Resources)
 	return row
@@ -447,6 +441,16 @@ func mergeLedgerRow(prev, cur fleetLedgerRow) fleetLedgerRow {
 		merged[k] = v
 	}
 	for k, v := range cur.Resources {
+		if p, ok := prev.Resources[k]; ok {
+			if v.Status == "ok" {
+				v.PrevAt = p.At
+				if v.FullAt.IsZero() {
+					v.FullAt = p.FullAt // a --since fetch on top of an earlier full one
+				}
+			} else {
+				v.At, v.PrevAt, v.FullAt = p.At, p.PrevAt, p.FullAt
+			}
+		}
 		merged[k] = v
 	}
 	cur.Resources = merged

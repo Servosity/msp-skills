@@ -46,6 +46,12 @@ type fleetOutcome struct {
 	Status     string `json:"status"` // ok | forbidden | no_api_host | error
 	Error      string `json:"error,omitempty"`
 	Items      int    `json:"items"`
+	// Freshness is per tenant and per resource: a --tenant or --resources
+	// refresh must not make another tenant's or resource's data look fresh.
+	At     time.Time `json:"at,omitempty"`      // this resource's last successful fetch
+	PrevAt time.Time `json:"prev_at,omitempty"` // the fetch before that ("new" alerts)
+	FullAt time.Time `json:"full_at,omitempty"` // last fetch not limited by --since
+	Window string    `json:"window,omitempty"`  // set when the last fetch used --since
 }
 
 // fleetTenants enumerates the tenants this credential can reach. tenantFilter
@@ -293,44 +299,6 @@ type fleetSyncMeta struct {
 	FinishedAt      time.Time `json:"finished_at"`
 	PrevStartedAt   time.Time `json:"prev_started_at"`
 	TenantsAttempts int       `json:"tenants_attempted"`
-	// Per resource: a refresh limited to --resources health must not make
-	// triage (endpoints, alerts) look fresh. Legacy rows without these maps
-	// fall back to the run-level times.
-	ResourceStartedAt     map[string]time.Time `json:"resource_started_at,omitempty"`
-	ResourceFinishedAt    map[string]time.Time `json:"resource_finished_at,omitempty"`
-	PrevResourceStartedAt map[string]time.Time `json:"prev_resource_started_at,omitempty"`
-}
-
-// finishedFor returns when every named resource was last refreshed (the
-// oldest of them) and which were never refreshed.
-func (m fleetSyncMeta) finishedFor(resources ...string) (time.Time, []string) {
-	if len(m.ResourceFinishedAt) == 0 {
-		if m.FinishedAt.IsZero() {
-			return time.Time{}, resources
-		}
-		return m.FinishedAt, nil
-	}
-	var oldest time.Time
-	var missing []string
-	for _, rt := range resources {
-		at, ok := m.ResourceFinishedAt[rt]
-		if !ok || at.IsZero() {
-			missing = append(missing, rt)
-			continue
-		}
-		if oldest.IsZero() || at.Before(oldest) {
-			oldest = at
-		}
-	}
-	return oldest, missing
-}
-
-// prevStartedFor is when the refresh before the latest one that fetched rt began.
-func (m fleetSyncMeta) prevStartedFor(rt string) time.Time {
-	if len(m.ResourceStartedAt) == 0 {
-		return m.PrevStartedAt
-	}
-	return m.PrevResourceStartedAt[rt]
 }
 
 // blindTenant is a tenant a fleet read could not see on the last sync.
@@ -374,18 +342,27 @@ func blindTenantsFrom(ledger map[string]fleetLedgerRow, filter map[string]bool, 
 		if filter != nil && !filter[id] {
 			continue
 		}
-		var unfetched []string
+		var unfetched, windowed []string
 		for _, rt := range needed {
-			if _, ok := row.Resources[rt]; !ok && len(row.Resources) > 0 {
+			o, ok := row.Resources[rt]
+			switch {
+			case !ok && len(row.Resources) > 0:
 				unfetched = append(unfetched, rt)
+			case ok && o.Status == "ok" && o.Window != "" && o.FullAt.IsZero():
+				windowed = append(windowed, rt+" (only the last "+o.Window+")")
 			}
 		}
-		if row.Status == "ok" && len(unfetched) == 0 {
+		if row.Status == "ok" && len(unfetched) == 0 && len(windowed) == 0 {
+			continue
+		}
+		if row.Status == "ok" && len(unfetched) > 0 {
+			out = append(out, blindTenant{TenantID: id, TenantName: row.TenantName, Status: "not_refreshed",
+				Error: "fleet refresh has not fetched " + strings.Join(unfetched, ", ") + " for this tenant; run 'sophos-central-cli fleet refresh --resources " + strings.Join(unfetched, ",") + "'"})
 			continue
 		}
 		if row.Status == "ok" {
-			out = append(out, blindTenant{TenantID: id, TenantName: row.TenantName, Status: "not_refreshed",
-				Error: "fleet refresh has not fetched " + strings.Join(unfetched, ", ") + " for this tenant; run 'sophos-central-cli fleet refresh --resources " + strings.Join(unfetched, ",") + "'"})
+			out = append(out, blindTenant{TenantID: id, TenantName: row.TenantName, Status: "partial_window",
+				Error: "fleet refresh has fetched " + strings.Join(windowed, ", ") + " for this tenant; run 'sophos-central-cli fleet refresh' without --since once for the full list"})
 			continue
 		}
 		b := blindTenant{TenantID: id, TenantName: row.TenantName, Status: row.Status}
@@ -416,12 +393,41 @@ const fleetNeverRefreshedNote = "no fleet refresh has run yet; run 'sophos-centr
 // fleetFreshness returns when the last fleet refresh finished (nil if never)
 // and a note for empty or stale results. It also writes the hint to stderr,
 // naming 'fleet refresh': plain 'sync' does not fill the fleet tables.
-func fleetFreshness(w io.Writer, meta fleetSyncMeta, maxAge time.Duration, needed ...string) (*time.Time, string) {
+func fleetFreshness(w io.Writer, meta fleetSyncMeta, ledger map[string]fleetLedgerRow, filter map[string]bool, maxAge time.Duration, needed ...string) (*time.Time, string) {
 	if meta.FinishedAt.IsZero() {
 		fmt.Fprintln(w, "hint: "+fleetNeverRefreshedNote)
 		return nil, fleetNeverRefreshedNote
 	}
-	at, missing := meta.finishedFor(needed...)
+	// The view is as fresh as its oldest input: the oldest successful fetch of
+	// a needed resource across the tenants in scope. Tenants that were never
+	// fetched are reported in blind_tenants.
+	var at time.Time
+	seen := map[string]bool{}
+	for id, row := range ledger {
+		if filter != nil && !filter[id] {
+			continue
+		}
+		for _, rt := range needed {
+			o, ok := row.Resources[rt]
+			if !ok || o.Status != "ok" {
+				continue
+			}
+			seen[rt] = true
+			t := o.At
+			if t.IsZero() {
+				t = row.SyncedAt
+			}
+			if at.IsZero() || t.Before(at) {
+				at = t
+			}
+		}
+	}
+	var missing []string
+	for _, rt := range needed {
+		if !seen[rt] {
+			missing = append(missing, rt)
+		}
+	}
 	if len(missing) > 0 {
 		note := "fleet refresh has not fetched " + strings.Join(missing, ", ") + " yet, so this view is incomplete; run 'sophos-central-cli fleet refresh --resources " + strings.Join(missing, ",") + "'"
 		fmt.Fprintln(w, "hint: "+note)
@@ -720,4 +726,20 @@ func sophosCheckLocalItem(path string, item json.RawMessage) error {
 		return notFoundErr(fmt.Errorf("%s is not stored for tenant %s", path, tenant))
 	}
 	return nil
+}
+
+// loadFleetLedgerQuiet is loadFleetLedger for freshness: a read error leaves
+// the view with no fresh inputs, which fleetFreshness reports.
+func loadFleetLedgerQuiet(db fleetReader) map[string]fleetLedgerRow {
+	ledger, _ := loadFleetLedger(db)
+	return ledger
+}
+
+// alertIsNew reports whether an alert was raised after the tenant's previous
+// alerts fetch; ledgers written before per-tenant times use the run-level start.
+func alertIsNew(ledger map[string]fleetLedgerRow, tenantID string, raised time.Time, meta fleetSyncMeta) bool {
+	if o, ok := ledger[tenantID].Resources["alerts"]; ok && !o.At.IsZero() {
+		return !o.PrevAt.IsZero() && raised.After(o.PrevAt)
+	}
+	return !meta.PrevStartedAt.IsZero() && raised.After(meta.PrevStartedAt)
 }

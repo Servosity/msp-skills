@@ -897,19 +897,43 @@
   },
   {
    "id": "fleet-freshness-per-resource",
-   "summary": "fleet refresh records when each resource was last refreshed; triage, health and gaps report synced_at and blind tenants from the resources they read",
-   "why": "The build pane's known gap, confirmed by Codex: one fleet_meta timestamp was stamped by any refresh, so `fleet refresh --resources health` made triage (endpoints, alerts) and gaps look freshly refreshed, and a tenant whose only refresh was health-only was not listed as blind. Each view now names the resources it depends on (triage: endpoints, alerts; health: health; gaps: health, endpoints, licenses); a missing resource gives synced_at null with a note and lists the tenant as not_refreshed. The triage 'new' flag uses the previous alerts refresh. TestPartialRefreshNotFreshForTriage fails when triage stops passing its resources.",
+   "summary": "fleet freshness is per tenant and per resource: each ledger outcome records when it was fetched (at, prev_at, full_at, window); triage, health and gaps report the oldest input among the tenants in scope, and list tenants never fetched or only fetched with --since as blind",
+   "why": "The build pane's known gap, confirmed by two Codex rounds: a single run-level fleet_meta timestamp (and then per-resource run maps) made a `--resources health` refresh, a `--tenant T1` refresh, or a first `--since 24h` alerts fetch look like a fresh complete view, so triage and gaps could present stale or partial data as current with no blind tenants. Each view names the resources it reads (triage: endpoints, alerts; health: health; gaps: health, endpoints, licenses). The triage 'new' flag compares against the tenant's own previous alerts fetch. gaps --include-server-gap also covers a fetched tenant with zero endpoints. TestFleetFreshnessIsOldestTenantInput, TestSinceOnlyAlertsTenantIsBlind and TestPartialRefreshNotFreshForTriage pin it.",
    "status": "active",
    "asserts": [
     {
      "file": "cli/internal/cli/sophos_fleet.go",
-     "contains": "func (m fleetSyncMeta) finishedFor(resources ...string) (time.Time, []string) {",
+     "contains": "FullAt time.Time `json:\"full_at,omitempty\"`",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_fleet.go",
+     "contains": "func fleetFreshness(w io.Writer, meta fleetSyncMeta, ledger map[string]fleetLedgerRow, filter map[string]bool, maxAge time.Duration, needed ...string) (*time.Time, string) {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_fleet.go",
+     "contains": "func alertIsNew(ledger map[string]fleetLedgerRow, tenantID string, raised time.Time, meta fleetSyncMeta) bool {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_fleet.go",
+     "contains": "Status: \"partial_window\"",
      "min_count": 1,
      "code_only": false
     },
     {
      "file": "cli/internal/cli/fleet_refresh.go",
-     "contains": "meta.ResourceStartedAt[rt], meta.ResourceFinishedAt[rt] = started, meta.FinishedAt",
+     "contains": "o.Window, o.FullAt = since.String(), time.Time{}",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_refresh.go",
+     "contains": "v.FullAt = p.FullAt",
      "min_count": 1,
      "code_only": false
     },
@@ -921,7 +945,7 @@
     },
     {
      "file": "cli/internal/cli/fleet_triage.go",
-     "contains": "meta.prevStartedFor(\"alerts\")",
+     "contains": "alertIsNew(ledger, tenantID, at, meta)",
      "min_count": 1,
      "code_only": false
     },
@@ -938,10 +962,41 @@
      "code_only": false
     },
     {
+     "file": "cli/internal/cli/fleet_gaps.go",
+     "contains": "o.Status == \"ok\" && tally[tid] == nil",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_fleet_freshness_test.go",
+     "contains": "func TestFleetFreshnessIsOldestTenantInput(",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_fleet_freshness_test.go",
+     "contains": "func TestSinceOnlyAlertsTenantIsBlind(",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
      "file": "cli/internal/cli/sophos_store_scope_test.go",
      "contains": "func TestPartialRefreshNotFreshForTriage(",
      "min_count": 1,
      "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "docs-credentials-note",
+   "summary": "the rendered docs page's safety FAQ says where Sophos credentials live (secret in the environment, minted token cached in credentials.toml) via page.json credentials_note",
+   "why": "Codex round 2: the generator's fleet-wide sentence 'Credentials stay in your environment' is false for this OAuth connector, which caches the minted bearer token on disk. tools/maintainer/render_docs_page.py now takes an optional page.json credentials_note (default text unchanged for every other connector); this asserts the override stays in page.json, which a re-onboard preserves.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "page.json",
+     "contains": "\"credentials_note\": \"The client secret stays in your environment",
+     "min_count": 1
     }
    ]
   },

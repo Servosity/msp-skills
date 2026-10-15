@@ -140,5 +140,6 @@
       "examples": "endpoints delete; endpoints bulk-delete; policies delete-policy; users delete-tenant-by-id; migrations create-sending-job; tenants create; tenants post-account-amendment; provisioning reset-default-products",
       "policy": "Human-in-the-loop only, explicit confirmation"
     }
-  ]
+  ],
+  "credentials_note": "The client secret stays in your environment (it is written to disk only if you pass auth login --client-secret), and the short-lived access token minted from it is cached in a permission-restricted credentials file on your machine until it expires or you run auth logout"
 }
