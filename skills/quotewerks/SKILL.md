@@ -353,7 +353,7 @@ Global format flags share one contract on promoted, novel, sync, and `--deliver`
 - **Offline-friendly**  -  sync/search commands can use the local SQLite store when available
 - **Non-interactive**  -  never prompts, every input is a flag
 - **Explicit confirmation**  -  typed writes (`docs create`, `items add`, `items reprice`, `requote`) preview by default and write only with `--confirm` (needs an API key with write access); `--yes` does not confirm them. The raw `tables insert`, `tables update` and `tables delete` commands write immediately, so run them with `--dry-run` first
-- **Explicit retries**  -  use `--idempotent` only when an already-existing create should count as success, and use `--ignore-missing` only when a missing delete target should count as success
+- **Retries**  -  never retry a create blindly: QuoteWerks assigns new keys, so `--idempotent` cannot make a create safe. When an error says the row may have been created, check with `docs get` first; `--ignore-missing` makes a delete retry a no-op
 
 ### Response envelope
 

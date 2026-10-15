@@ -1,5 +1,5 @@
 // Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
-// Hand-authored (handfixes.json: ambiguous-create-never-blind-retry).
+// Hand-authored test for requote.go and qw_common.go (hand-written files a reprint keeps).
 
 package cli
 
