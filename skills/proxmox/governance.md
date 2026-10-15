@@ -56,20 +56,43 @@ pin is bound to its own service. There is no option to skip certificate checks.
 | Tier | What it does | Examples | Recommended agent policy |
 | --- | --- | --- | --- |
 | **Read (Proxmox)** | Reports, rollups, inventory. No change in Proxmox. | `posture`, `backup coverage`, `failures`, `verify-health`, `capacity`, `restore-points`, `rpo`, and every `vm`, `ct`, `nodes`, `storage`, `tasks`, `cluster`, `access` and `pbs-*` command | Allow |
-| **Local writes** | Writes files on this machine only. | `clusters add`, `sync`, `workflow archive`, `profile save`/`delete`, `teach`, `feedback` (local file) | Allow |
-| **Credential (local)** | Saves or removes a stored token. | `auth set-token`, `auth logout` | Human runs these |
+| **Local writes** | Writes files on this machine only. | `sync`, `workflow archive`, `export`, `profile save`/`delete`, `teach`, `feedback` (local file) | Allow |
+| **Credential routing (local)** | Decides where a token is sent and which certificate is trusted, or saves a token. | `clusters add` (host, TLS pin and token env var per client), `auth set-token`, `auth logout` | Human runs these. None of them is an MCP tool, so an agent connected over MCP cannot point a token at a host of its choosing |
 | **Data egress** | Sends output off this machine to a destination you choose. | `--deliver webhook:<url>` or `--deliver file:<path>` on any command, `feedback --send`, bare `feedback` when `PROXMOX_FEEDBACK_ENDPOINT` is set and `PROXMOX_FEEDBACK_AUTO_SEND=true`, and the MCP server bridged to a public HTTPS endpoint | Human-in-the-loop. Read output is still your clients' data |
 | **Proxmox writes** | Start, stop, migrate, restore, prune, delete, reconfigure. | None. The skill has no such command. | Not possible with this skill |
 
 The MCP server refuses `--deliver` from an MCP client, so the webhook path is
-reachable only from the CLI.
+reachable only from the CLI. `sync --path-context` cannot change `host` or
+`pbs_host` either: tokens, pins and origin checks are bound to the configured
+hosts before any request is built.
 
 ## How to lock it down
 
-- **Use an audit-only, privilege-separated token.** PVE: a token with the
-  `PVEAuditor` role on `/`. PBS: a token with the `Audit` role (or
-  `DatastoreAudit` on `/datastore`). With those roles Proxmox itself would
-  refuse a write even if one were sent.
+- **Use privilege-separated tokens with the smallest role that works.**
+  - **PBS:** the `Audit` role on `/` (read-only). It includes `Sys.Audit` on
+    `/system/tasks`, which `failures` needs to see verify, GC, sync and prune
+    tasks.
+  - **PVE:** `PVEAuditor` on `/`. Proxmox VE lists a backup file only to a
+    token that also holds `Datastore.AllocateSpace` (on the storage) and
+    `VM.Backup` (on the guest); an audit-only token gets an empty list, which
+    this skill reports as "storage not read", never as "no backups". If your
+    backups live on Proxmox Backup Server and `PROXMOX_PBS_HOST` is set, the
+    skill reads them from the PBS API and the PVE token can stay audit-only.
+    If they live on dir, NFS or CIFS storage, grant those two privileges as
+    well. They would let the token create or restore a backup through the
+    API; this skill never sends such a request, and the trade-off is yours.
+
+  ```bash
+  pveum user add monitor@pve
+  pveum role add BackupReader --privs "Datastore.AllocateSpace VM.Backup"   # only for backups on PVE storage
+  pveum acl modify / --users monitor@pve --roles PVEAuditor,BackupReader
+  pveum user token add monitor@pve agent --privsep 1
+  pveum acl modify / --tokens 'monitor@pve!agent' --roles PVEAuditor,BackupReader
+  ```
+
+  A privilege-separated token never has more than its user, so the user needs
+  the same roles. With an audit-only role on both products, Proxmox itself
+  would refuse a write even if one were ever sent.
 - **One token per client cluster**, referenced by env var name in
   `clusters.toml`, so revoking one client never touches another.
 - **Pin every certificate** with its SHA-256 fingerprint.
@@ -80,5 +103,5 @@ reachable only from the CLI.
 ## Why an MSP owner can be comfortable
 
 The full source of the CLI and MCP server is in this repository under
-[`cli/`](./cli) (Apache-2.0). You supply an auditor token, the binary uses it only
-to read the Proxmox APIs, and you can read every line of how it does so.
+[`cli/`](./cli) (Apache-2.0). You supply the tokens, the binary uses them only to
+read the Proxmox APIs, and you can read every line of how it does so.

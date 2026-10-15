@@ -6,7 +6,7 @@
   {
    "id": "pbs-host-routing",
    "summary": "PBS operations (generated with the placeholder origin https://localhost:8007) are routed to PROXMOX_PBS_HOST before the generated PROXMOX_BASE_URL rebase",
-   "why": "OpenAPI operation-level servers are not templated by the press, so every PBS command was baked to localhost:8007. Worse, the generated rebaseAbsoluteURLOntoOverride moves every absolute URL onto PROXMOX_BASE_URL, which would send PBS requests carrying the PBS token to the PVE host. Unconfigured PBS host errors instead; a loopback base stands in only under the Printing Press verify/dogfood harness.",
+   "why": "OpenAPI operation-level servers are not templated by the press, so every PBS command was baked to localhost:8007. Worse, the generated rebaseAbsoluteURLOntoOverride moves every absolute URL onto PROXMOX_BASE_URL, which would send PBS requests carrying the PBS token to the PVE host. Unconfigured PBS host errors instead; a loopback base stands in only under the Printing Press verify/dogfood harness. PVE bases must be https, except a loopback IP literal (a local stub, which never leaves the machine); TestPlainHTTPOnlyToLoopbackLiterals pins that rule.",
    "status": "active",
    "asserts": [
     {
@@ -199,6 +199,62 @@
     {
      "file": "cli/go.mod",
      "not_contains": "golang.org/x/text v0.39.0"
+    }
+   ]
+  },
+  {
+   "id": "path-context-no-origin-override",
+   "summary": "sync refuses --path-context host=... and pbs_host=...: those keys choose the token-bearing origin, which the client already bound to its tokens, TLS pins and origin checks",
+   "why": "Generated sync.go writes --path-context values into Config.TemplateVars AFTER flags.newClient(), so CheckServiceOrigins and the per-service pins never saw the new host. `sync --path-context pbs_host=<attacker>` (also reachable as the MCP sync tool's path-context parameter) made the attacker the PBS host and sent it the PBS token; host= did the same for the PVE token. Only a pre-set pin stopped it. Found by the 2026-10-14 adversarial review with a live MCP repro. In this CLI the only path-context keys are those two origin vars, so the guard rejects every endpointTemplateVarSet key. internal/cli/credential_routing_behavior_test.go (TestPathContextCannotRepointTheHost) fails if the guard is removed.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "proxmox hand-fix (path-context-no-origin-override)"
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "cannot change the Proxmox host"
+    },
+    {
+     "file": "cli/internal/cli/credential_routing_behavior_test.go",
+     "contains": "func TestPathContextCannotRepointTheHost("
+    }
+   ]
+  },
+  {
+   "id": "pve-host-no-localhost-default",
+   "summary": "An unset PROXMOX_HOST leaves {host} unresolved (outside the Printing Press verify harness) instead of defaulting to localhost",
+   "why": "The spec's server-variable default made generated config.go fill {host} with localhost, so an operator who never set PROXMOX_HOST dialled https://localhost:8006 and got 'connection refused', and doctor could not tell the base URL was a placeholder (check_doctor_truth placeholder state). Unresolved, every request fails with 'PROXMOX_HOST not set; export PROXMOX_HOST=<value>' and doctor reports the placeholder with the fix. Verify mode keeps localhost so the press verifier still reaches Cobra.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "proxmox hand-fix (pve-host-no-localhost-default)"
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cfg.TemplateVars[\"host\"] = \"\""
+    }
+   ]
+  },
+  {
+   "id": "doctor-names-the-fix",
+   "summary": "doctor emits a negative credentials row when the client cannot be built, classifies a 404 at the health path as a wrong base URL, and names PROXMOX_HOST / PROXMOX_BASE_URL in the placeholder verdict",
+   "why": "check_doctor_truth (issue #282) failed proxmox in all four states: no credentials row on a client-init error, 'reachable (HTTP 404 at /)' against a host where the API path does not exist, and a placeholder verdict that never named the variable to set. Mirrors the doctor_verdict.go behaviour the fleet carries, applied as three narrow edits to the press 4.33.5 doctor.go, which already ships the placeholder check and client.ProbeGet.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "ERROR not verified: client init error: %s"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "is not there - this is not the Proxmox VE API root"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "not configured (base_url is a placeholder): set PROXMOX_HOST or PROXMOX_BASE_URL"
     }
    ]
   }

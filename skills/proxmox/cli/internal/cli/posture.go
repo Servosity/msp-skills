@@ -257,8 +257,28 @@ func collectPosture(ctx context.Context, t fleetTarget, o postureOpts) (clusterP
 			out.failures = append(out.failures, fetchFailure{Cluster: t.Name, Scope: "backup storage", Error: err.Error()})
 		}
 	}
+	// PBS API (when configured): snapshots this cluster provably owns, plus push
+	// sync jobs. Attributed first, so a PBS storage the PBS API reads directly
+	// does not depend on the PVE content list (which hides backups from
+	// audit-only tokens).
+	var syncJobs []pbsSyncJob
+	var nsByStore map[string][]string
+	pbsHost := t.pbsEndpoint()
+	if t.C.PBSConfigured() {
+		var warning string
+		nsByStore, warning, err = pbsAttribution(ctx, t, refs)
+		if err != nil {
+			archivesIncomplete = true
+			out.failures = append(out.failures, fetchFailure{Cluster: t.Name, Scope: "pbs", Error: err.Error()})
+		}
+		if warning != "" {
+			out.warnings = append(out.warnings, warning)
+		}
+	}
+	perms, permsErr := fetchPrivs(ctx, t.C, false)
 	for _, key := range sortedKeys(storages) {
-		rps, err := fetchStorageArchives(ctx, t.C, readers[key], storages[key], 0, refs)
+		s := storages[key]
+		rps, err := readStorageArchives(ctx, t.C, perms, permsErr, readers[key], s, 0, refs, pbsCovers(refs, s.Storage, pbsHost, nsByStore))
 		if err != nil {
 			archivesIncomplete = true
 			out.failures = append(out.failures, fetchFailure{Cluster: t.Name, Scope: "storage " + key, Error: err.Error()})
@@ -269,18 +289,7 @@ func collectPosture(ctx context.Context, t fleetTarget, o postureOpts) (clusterP
 			points[rp.VMID] = append(points[rp.VMID], rp)
 		}
 	}
-	// PBS API (when configured): snapshots this cluster provably owns, plus push sync jobs.
-	var syncJobs []pbsSyncJob
-	pbsHost := t.pbsEndpoint()
 	if t.C.PBSConfigured() {
-		nsByStore, warning, err := pbsAttribution(ctx, t, refs)
-		if err != nil {
-			archivesIncomplete = true
-			out.failures = append(out.failures, fetchFailure{Cluster: t.Name, Scope: "pbs", Error: err.Error()})
-		}
-		if warning != "" {
-			out.warnings = append(out.warnings, warning)
-		}
 		for _, store := range sortedKeys(nsByStore) {
 			for _, ns := range nsByStore[store] {
 				snaps, err := pbsSnapshots(ctx, t.C, store, ns, nil)

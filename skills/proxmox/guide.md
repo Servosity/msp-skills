@@ -2,7 +2,7 @@
 
 **Read-only Proxmox VE + Backup Server CLI: per-guest backup verdicts across every cluster, no write calls to Proxmox.**
 
-Every safe read endpoint of Proxmox VE and Proxmox Backup Server (a few unsafe GETs are excluded by design) as a typed command, with no write calls to Proxmox, so an agent can be handed an auditor token safely. On top: posture joins job coverage, real archive age and PBS verify state per guest across clusters; backup coverage, verify-health, failures, capacity, restore-points and rpo answer the questions MSPs ask every morning.
+Every safe read endpoint of Proxmox VE and Proxmox Backup Server (a few unsafe GETs are excluded by design) as a typed command, with no write calls to Proxmox, so nothing an agent runs can change a cluster or a backup. On top: posture joins job coverage, real archive age and PBS verify state per guest across clusters; backup coverage, verify-health, failures, capacity, restore-points and rpo answer the questions MSPs ask every morning.
 
 Learn more at [Proxmox VE + Backup Server](https://www.proxmox.com).
 
@@ -103,7 +103,7 @@ Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_
 
 ## Authentication
 
-Create a privilege-separated API token with an audit role (PVE: PVEAuditor on /; PBS: Audit or DatastoreAudit on /datastore). Set PROXMOX_API_TOKEN to USER@REALM!TOKENID=SECRET and PROXMOX_HOST to the PVE host (or PROXMOX_BASE_URL for a full https://host:port/api2/json); for PBS set PROXMOX_PBS_API_TOKEN to USER@REALM!TOKENID:SECRET (colon) and PROXMOX_PBS_HOST. Proxmox ships self-signed certificates: pin them with PROXMOX_TLS_FINGERPRINT and PROXMOX_PBS_TLS_FINGERPRINT (the SHA-256 fingerprint shown under the node's Certificates); there is no insecure mode. For many clients, add one entry per cluster with 'clusters add' (clusters.toml in the config directory, or PROXMOX_CLUSTERS_FILE) and select one with --cluster or PROXMOX_CLUSTER. clusters.toml stores only the names of the env vars that hold tokens; 'auth set-token' is the only path that saves a token, to credentials.toml.
+Create a privilege-separated API token. PVE: PVEAuditor on /. Proxmox VE lists backup volumes only to a token that also holds Datastore.AllocateSpace and VM.Backup (an audit-only token sees an empty list, which this CLI reports as an unread storage, never as "no backups"), so when backups live on dir, NFS or CIFS storage, or PBS is not configured here, add a custom role with those two privileges on /; the CLI never sends a request that uses them. PBS: the Audit role on / (read-only; its Sys.Audit on /system/tasks is what lets failures see verify, GC, sync and prune tasks). When PROXMOX_PBS_HOST is set, PBS-backed archives are read straight from the PBS API and the PVE token can stay audit-only. Set PROXMOX_API_TOKEN to USER@REALM!TOKENID=SECRET and PROXMOX_HOST to the PVE host (or PROXMOX_BASE_URL for a full https://host:port/api2/json); for PBS set PROXMOX_PBS_API_TOKEN to USER@REALM!TOKENID:SECRET (colon) and PROXMOX_PBS_HOST. Proxmox ships self-signed certificates: pin them with PROXMOX_TLS_FINGERPRINT and PROXMOX_PBS_TLS_FINGERPRINT (the SHA-256 fingerprint shown under the node's Certificates); there is no insecure mode. For many clients, add one entry per cluster with 'clusters add' (clusters.toml in the config directory, or PROXMOX_CLUSTERS_FILE) and select one with --cluster or PROXMOX_CLUSTER. clusters.toml stores only the names of the env vars that hold tokens; 'auth set-token' is the only path that saves a token, to credentials.toml.
 
 ## Quick Start
 

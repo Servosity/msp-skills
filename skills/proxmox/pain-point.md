@@ -39,9 +39,9 @@ not get connected.
 
 ## What this skill does about it
 
-It asks Proxmox only questions. Every request it sends is a read, so it runs on
-an auditor token, and the answers are joined per guest across every client
-cluster:
+It asks Proxmox only questions. Every request it sends is a read, so nothing it
+runs can change a cluster or a backup, and the answers are joined per guest
+across every client cluster:
 
 - `posture --only problems` - every guest that is uncovered, has no restore
   point, is stale, failed verification, or whose last attempt failed

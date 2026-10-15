@@ -24,7 +24,7 @@ Add `--agent` to command invocations for JSON, compact output, non-interactive d
 proxmox-cli <command> --agent
 ```
 
-Every command is read-only against Proxmox: it sends only GET requests (the only local writes are `clusters add`, `sync`, and the learning loop). Storage status and content reads let Proxmox activate (mount) an enabled storage, the same activation its pvestatd daemon performs every 10 seconds. Before running an unfamiliar command, inspect its help:
+Every command is read-only against Proxmox: it sends only GET requests. Its local writes are `clusters add`, `auth set-token`/`auth logout`, `sync`, `workflow archive`, `export`, `profile save`/`delete`, `feedback`, the learning loop, and the HTTP response cache (`clusters add` and `auth` are not MCP tools). Storage status and content reads let Proxmox activate (mount) an enabled storage, the same activation its pvestatd daemon performs every 10 seconds. Before running an unfamiliar command, inspect its help:
 
 ```bash
 proxmox-cli <command> --help

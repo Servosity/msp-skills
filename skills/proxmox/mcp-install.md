@@ -42,17 +42,27 @@ Add (or merge with your existing `mcpServers` block):
         "PROXMOX_TLS_FINGERPRINT": "<PVE certificate SHA-256>",
         "PROXMOX_PBS_HOST": "",
         "PROXMOX_PBS_API_TOKEN": "",
-        "PROXMOX_PBS_TLS_FINGERPRINT": ""
+        "PROXMOX_PBS_TLS_FINGERPRINT": "",
+        "PROXMOX_BASE_URL": "",
+        "PROXMOX_CLUSTER": "",
+        "PROXMOX_CLUSTERS_FILE": "",
+        "PROXMOX_USER_AGENT": "",
+        "PROXMOX_MCP_READ_ONLY": "",
+        "PROXMOX_MCP_HTTP_TOKEN": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
 }
 ```
 
-Replace the three `<...>` values. The three `PROXMOX_PBS_*` values are optional:
-leave them empty, or fill them in (`USER@REALM!TOKENID:SECRET`, colon before the
-secret) to add Proxmox Backup Server verify, datastore and sync data. Use an
-audit-only token; see [governance.md](./governance.md).
+Replace the three `<...>` values; every other value is optional and may stay empty.
+Fill the three `PROXMOX_PBS_*` values (`USER@REALM!TOKENID:SECRET`, colon before
+the secret) to add Proxmox Backup Server verify, datastore and sync data. For many
+clients, point `PROXMOX_CLUSTERS_FILE` at your clusters.toml and add each
+cluster's token variables (the names you gave `clusters add`) to this same `env`
+block, because the MCP server only sees the variables listed here. Which token
+roles to grant is in [governance.md](./governance.md).
 
 Quit Claude Desktop completely and reopen, then ask a question that needs the API.
 
@@ -77,7 +87,14 @@ Configuration**) and add:
         "PROXMOX_TLS_FINGERPRINT": "<PVE certificate SHA-256>",
         "PROXMOX_PBS_HOST": "",
         "PROXMOX_PBS_API_TOKEN": "",
-        "PROXMOX_PBS_TLS_FINGERPRINT": ""
+        "PROXMOX_PBS_TLS_FINGERPRINT": "",
+        "PROXMOX_BASE_URL": "",
+        "PROXMOX_CLUSTER": "",
+        "PROXMOX_CLUSTERS_FILE": "",
+        "PROXMOX_USER_AGENT": "",
+        "PROXMOX_MCP_READ_ONLY": "",
+        "PROXMOX_MCP_HTTP_TOKEN": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
@@ -103,7 +120,14 @@ Claude Desktop:
         "PROXMOX_TLS_FINGERPRINT": "<PVE certificate SHA-256>",
         "PROXMOX_PBS_HOST": "",
         "PROXMOX_PBS_API_TOKEN": "",
-        "PROXMOX_PBS_TLS_FINGERPRINT": ""
+        "PROXMOX_PBS_TLS_FINGERPRINT": "",
+        "PROXMOX_BASE_URL": "",
+        "PROXMOX_CLUSTER": "",
+        "PROXMOX_CLUSTERS_FILE": "",
+        "PROXMOX_USER_AGENT": "",
+        "PROXMOX_MCP_READ_ONLY": "",
+        "PROXMOX_MCP_HTTP_TOKEN": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
@@ -122,8 +146,13 @@ in HTTP mode with your credentials in the environment (it serves `http://127.0.0
 default; press 4.32+ refuses a non-loopback bind without TLS, so do not pass `--addr :7777`):
 
 ```bash
-PROXMOX_HOST=<pve-host> PROXMOX_API_TOKEN='<USER@REALM!TOKENID=SECRET>' PROXMOX_TLS_FINGERPRINT='<PVE certificate SHA-256>' proxmox-mcp --transport http
+PROXMOX_HOST=<pve-host> PROXMOX_API_TOKEN='<USER@REALM!TOKENID=SECRET>' PROXMOX_TLS_FINGERPRINT='<PVE certificate SHA-256>' PROXMOX_MCP_HTTP_TOKEN='<long random value>' proxmox-mcp --transport http
 ```
+
+`PROXMOX_MCP_HTTP_TOKEN` is required in HTTP mode: the server refuses to start without it, and
+every request must carry `Authorization: Bearer <PROXMOX_MCP_HTTP_TOKEN>` (requests without it
+get HTTP 401). Generate a long random value, for example `openssl rand -hex 32`. Add
+`PROXMOX_PBS_HOST`, `PROXMOX_PBS_API_TOKEN` and `PROXMOX_PBS_TLS_FINGERPRINT` to the same line for PBS data.
 
 Then expose `http://localhost:7777/mcp` as a public HTTPS URL via a secure tunnel
 (Cloudflare Tunnel, ngrok) or your own reverse proxy. The path is part of the

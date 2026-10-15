@@ -370,6 +370,10 @@ func newClustersAddCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add [name]",
 		Short: "Add or replace a cluster entry in clusters.toml (local file only; never touches Proxmox)",
+		// Never an MCP tool: an entry chooses where a token is sent, which TLS
+		// pin vouches for that host, and which env var is sent as the token.
+		// An agent able to write one could send any credential to its own host.
+		Annotations: map[string]string{"mcp:hidden": "true"},
 		Example: "  proxmox-cli clusters add acme --client \"Acme Dental\" --pve-host pve1.acme.lan --pve-token-env ACME_PVE_TOKEN \\\n" +
 			"    --pbs-host pbs.acme.lan --pbs-token-env ACME_PBS_TOKEN --pbs-fingerprint AB:CD:...",
 		RunE: func(cmd *cobra.Command, args []string) error {

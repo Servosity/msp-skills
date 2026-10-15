@@ -36,7 +36,7 @@
         },
         {
           "name": "PROXMOX_API_TOKEN",
-          "description": "Proxmox VE API token USER@REALM!TOKENID=SECRET; an audit-only (PVEAuditor) token is enough.",
+          "description": "Proxmox VE API token USER@REALM!TOKENID=SECRET; PVEAuditor, plus Datastore.AllocateSpace and VM.Backup if backups live on PVE storage.",
           "isRequired": true,
           "isSecret": true
         },
@@ -63,6 +63,48 @@
           "description": "Optional SHA-256 fingerprint of the PBS certificate to pin.",
           "isRequired": false,
           "isSecret": false
+        },
+        {
+          "name": "PROXMOX_BASE_URL",
+          "description": "Full PVE API base such as https://pve1:8006/api2/json; overrides PROXMOX_HOST. Leave blank to use PROXMOX_HOST.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "PROXMOX_CLUSTER",
+          "description": "Name of the clusters.toml entry to use by default (same as --cluster). Leave blank to run across every configured cluster.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "PROXMOX_CLUSTERS_FILE",
+          "description": "Path to the clusters.toml that lists client clusters. Leave blank for the default in the config directory. Each entry's token env vars must also be set for the MCP server.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "PROXMOX_USER_AGENT",
+          "description": "Overrides the User-Agent the CLI sends on Proxmox requests. Leave blank to use the CLI's own.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "PROXMOX_MCP_READ_ONLY",
+          "description": "Set to 1 to drop the MCP tools that write local files (sync, export, workflow archive, learnings forget/reject). Proxmox itself is never written either way. Leave blank for the full tool set.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "PROXMOX_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http (a remote or hosted deployment); the server refuses to start without it. Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Leave blank. This connector registers no tenant-gated profile source, so the value is read but changes nothing; select client clusters with PROXMOX_CLUSTER or clusters.toml instead.",
+          "isRequired": false,
+          "isSecret": true
         }
       ]
     }
