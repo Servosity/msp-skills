@@ -117,6 +117,10 @@ domotz:
   vendor: "Domotz"
   example_command: "Which client sites have devices down?"
 
+fortinet:
+  vendor: "Fortinet"
+  example_command: "Which client FortiGates expose SSL-VPN?"
+
 google-workspace:
   vendor: "Google Workspace"
   example_command: "Who lacks 2SV across my clients?"

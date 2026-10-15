@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-10-14",
+  "generated_at": "2026-10-15",
   "skills": [
     {
       "name": "msp-skills-concierge",
@@ -579,6 +579,26 @@
       "verification": "awaiting",
       "category": "Network Monitoring",
       "tagline": "Roll up Domotz fleet health, offline devices, and asset inventory across every monitored site from the terminal."
+    },
+    {
+      "name": "fortinet",
+      "system": "FortiGate firewalls (FortiOS REST API), FortiManager and FortiGate Cloud",
+      "status": "beta",
+      "skill_path": "skills/fortinet",
+      "cli_binary": "fortinet-cli",
+      "mcp_binary": "fortinet-mcp",
+      "version": "0.1.0",
+      "printing_press_version": "4.33.5",
+      "license": "Apache-2.0",
+      "vendor": "Fortinet",
+      "vendor_trademark_owner": "Fortinet, Inc",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/fortinet/install.sh)",
+      "install_mcp_doc": "skills/fortinet/mcp-install.md",
+      "description": "Read every FortiGate's configuration and live state, then audit the whole client fleet for firmware, SSL-VPN exposure, admin accounts and license expiry in one command.",
+      "verification": "awaiting",
+      "category": "Security",
+      "tagline": "Audit every client FortiGate for firmware, SSL-VPN exposure, admin accounts and license expiry in one command."
     },
     {
       "name": "google-workspace",

@@ -1,0 +1,142 @@
+{
+  "manifest_version": "0.3",
+  "name": "fortinet-mcp",
+  "display_name": "Fortinet",
+  "version": "0.1.0",
+  "description": "Read every FortiGate's configuration and live state, then audit the whole client fleet for firmware, SSL-VPN exposure, admin accounts and license expiry in one command.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/fortinet-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/fortinet-mcp",
+      "args": [],
+      "env": {
+        "FORTINET_BASE_URL": "${user_config.fortinet_base_url}",
+        "FORTINET_API_TOKEN": "${user_config.fortinet_api_token}",
+        "FORTINET_DEVICES": "${user_config.fortinet_devices}",
+        "FORTINET_FMG_URL": "${user_config.fortinet_fmg_url}",
+        "FORTINET_FMG_API_KEY": "${user_config.fortinet_fmg_api_key}",
+        "FORTINET_CLOUD_API_USER": "${user_config.fortinet_cloud_api_user}",
+        "FORTINET_CLOUD_API_PASSWORD": "${user_config.fortinet_cloud_api_password}",
+        "FORTINET_CLOUD_REGION": "${user_config.fortinet_cloud_region}",
+        "FORTINET_CLOUD_ACCOUNT_ID": "${user_config.fortinet_cloud_account_id}",
+        "FORTINET_MCP_READ_ONLY": "${user_config.fortinet_mcp_read_only}",
+        "FORTINET_MCP_HTTP_TOKEN": "${user_config.fortinet_mcp_http_token}",
+        "FORTINET_USER_AGENT": "${user_config.fortinet_user_agent}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
+      }
+    }
+  },
+  "user_config": {
+    "fortinet_base_url": {
+      "type": "string",
+      "title": "FortiGate API URL",
+      "description": "Sets FORTINET_BASE_URL, your FortiGate's REST API root, e.g. https://203.0.113.10:8443/api/v2.",
+      "sensitive": false,
+      "required": true
+    },
+    "fortinet_api_token": {
+      "type": "string",
+      "title": "FortiGate REST API token",
+      "description": "Sets FORTINET_API_TOKEN: the FortiGate REST API admin token (System > Administrators > Create New > REST API Admin). Use a read-only admin profile.",
+      "sensitive": true,
+      "required": true
+    },
+    "fortinet_devices": {
+      "type": "string",
+      "title": "Devices file (fleet commands)",
+      "description": "Optional. Path to a devices.toml listing every FortiGate the fleet, audit and policies hygiene commands check, each with a token_file. Leave blank to check only the FortiGate above.",
+      "required": false,
+      "sensitive": false
+    },
+    "fortinet_fmg_url": {
+      "type": "string",
+      "title": "FortiManager URL",
+      "description": "Optional. https://<fortimanager> for the read-only fmg commands. Leave blank if you do not use FortiManager.",
+      "required": false,
+      "sensitive": false
+    },
+    "fortinet_fmg_api_key": {
+      "type": "string",
+      "title": "FortiManager API key",
+      "description": "Optional. API key of a FortiManager REST API admin (FortiManager 7.2.2 or later) for the fmg commands.",
+      "required": false,
+      "sensitive": true
+    },
+    "fortinet_cloud_api_user": {
+      "type": "string",
+      "title": "FortiCloud IAM API user ID",
+      "description": "Optional. FortiCloud IAM API user (with FortiGate Cloud portal permission) for the read-only cloud commands.",
+      "required": false,
+      "sensitive": false
+    },
+    "fortinet_cloud_api_password": {
+      "type": "string",
+      "title": "FortiCloud IAM API user password",
+      "description": "Optional. Password of the FortiCloud IAM API user. Repeated failed logins lock the FortiCloud account for 15-30 minutes.",
+      "required": false,
+      "sensitive": true
+    },
+    "fortinet_cloud_region": {
+      "type": "string",
+      "title": "FortiGate Cloud region",
+      "description": "Optional. global (default), us, eu or jp: the region your FortiGates were provisioned in.",
+      "required": false,
+      "sensitive": false
+    },
+    "fortinet_cloud_account_id": {
+      "type": "string",
+      "title": "FortiCloud account ID",
+      "description": "Optional. Required only when FortiCloud Organizations are enabled.",
+      "required": false,
+      "sensitive": false
+    },
+    "fortinet_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP mode",
+      "description": "Optional. Set to 1 to expose only read-only mirrored tools and refuse any non-GET execute call.",
+      "required": false,
+      "sensitive": false
+    },
+    "fortinet_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment); callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport Claude Desktop uses.",
+      "required": false,
+      "sensitive": true
+    },
+    "fortinet_user_agent": {
+      "type": "string",
+      "title": "User-Agent header",
+      "description": "Optional. Overrides the User-Agent the CLI sends to your FortiGates. Leave blank to use the built-in one.",
+      "required": false,
+      "sensitive": false
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile (optional)",
+      "description": "Only used when the MCP server is bound to a tenant-gated client profile. This connector registers no tenant-gated source, so leave it blank.",
+      "required": false,
+      "sensitive": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  },
+  "printing_press_version": "4.33.5",
+  "press_provenance": {
+    "printing_press_version": "4.33.5",
+    "generated_at": "2026-10-13T22:49:07.112701Z",
+    "spec_checksum": "sha256:76b087a08473742ac26aa321bdf55956df7302b48ebf4188a2709003928f2c3f",
+    "spec_format": "openapi3"
+  }
+}

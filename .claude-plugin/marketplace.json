@@ -1110,6 +1110,21 @@
       ]
     },
     {
+      "name": "fortinet",
+      "source": "./skills/fortinet",
+      "description": "Read every FortiGate's configuration and live state, then audit the whole client fleet for firmware, SSL-VPN exposure, admin accounts and license expiry in one command.",
+      "version": "0.1.0",
+      "category": "security",
+      "tags": [
+        "fortinet",
+        "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
+    },
+    {
       "name": "google-workspace",
       "source": "./skills/google-workspace",
       "description": "Cross-client Google Workspace admin: 2SV gaps, license waste, sharing drift, safe offboarding.",

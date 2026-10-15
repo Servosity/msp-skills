@@ -1045,6 +1045,44 @@ A: No add-on is required - you generate an API Key from the Domotz Portal under 
 
 Governance: The skill reads your Domotz fleet - Collectors, devices, variables, alerts, and topology - and can also create and delete monitoring objects, control device power outlets, and change SNMP credentials. Reads are safe to run unattended with one exception: reading SNMP authentication returns community strings and keys, so treat it like a secret. Keep an autonomous agent to reads plus previewed writes, and require a human for anything that deletes, controls hardware, or touches credentials.
 
+### Fortinet (Security)
+
+Page: https://msp-skills.compoundingteams.com/skills/fortinet/
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/fortinet/install.sh)
+
+Ask your AI which client FortiGates are below the fixed firmware, which have SSL-VPN open to the internet, and which licenses lapse this quarter, and get one graded row per firewall. FortiOS answers one box at a time through its GUI or REST API. This reads every FortiGate in a devices file in one pass, read-only, and adds FortiManager and FortiGate Cloud inventory alongside.
+
+Outcomes (question -> command your AI agent runs):
+- Give me one posture verdict across every client FortiGate, showing only findings that are new since the last run. -> fortinet-cli fleet audit --new
+- Which FortiGates are below my firmware floor, and how many patches behind their branch is each one? -> fortinet-cli audit firmware --min-version 7.2.10,7.4.5
+- Where is SSL-VPN enabled on a WAN interface and open to any source address? -> fortinet-cli audit sslvpn
+- Which admins have no trusted hosts or no two-factor, and which WAN interfaces allow HTTP or Telnet? -> fortinet-cli audit admins
+- Which FortiGuard and FortiCare licenses expire in the next 60 days? -> fortinet-cli audit licenses --within 60d
+- Which firewalls have HA out of sync, IPsec tunnels down, SD-WAN members down, or certificates expiring? -> fortinet-cli fleet health --cert-within 14d
+- Which firewall policies are any-any accept, unused for 90 days, or not logging? -> fortinet-cli policies hygiene --unused-days 90
+- What changed in each client's FortiGate configuration this week? -> fortinet-cli fleet changes --since 7d
+- Which FortiManager-managed FortiGates are out of sync or have the management tunnel down? -> fortinet-cli fmg devices
+- Which FortiGate Cloud devices have the management tunnel down or a contract ending? -> fortinet-cli cloud devices
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, and fortinet-mcp speaks HTTP natively: run `fortinet-mcp --transport http` with FORTINET_MCP_HTTP_TOKEN set and put its /mcp endpoint behind an HTTPS tunnel or your own reverse proxy. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You create a read-only REST API admin on each FortiGate and enter its token once.
+Q: Can it change my FortiGates?
+A: No. Every FortiOS call is a read of configuration tables or monitor state, the FortiManager commands send only the JSON-RPC get method, and the FortiGate Cloud commands only list devices. Stored secrets stay out of the answers too: every FortiOS-encrypted value (RADIUS secrets, IPsec keys, password hashes) comes back as ENC (redacted), and a request for plain-text passwords is refused. Give each token a read-only admin profile and the FortiGate itself enforces the rest.
+Q: How do I check 40 client FortiGates, not just one?
+A: List them in a devices.toml file: one [[device]] entry per FortiGate with its URL, a token_file (a file holding that box's token; on macOS and Linux the CLI refuses it unless it is chmod 600) and an optional client name. `fortinet-cli fleet devices` shows which entries have a usable URL and token file, and every audit command then runs across the whole list. A devices file you name that is missing or lists no [[device]] entries is an error, never a silent fall-back to one box.
+Q: My FortiGate still uses its factory certificate. Will it connect?
+A: Not by default: certificate checks stay on. The secure fix is a trusted certificate on the FortiGate (FortiOS can get one from Let's Encrypt). Otherwise opt in per device with insecure = true in devices.toml, pass --insecure, or add FORTINET_SKIP_TLS_VERIFY=true to the MCP server's env block in a JSON config (it also covers FortiManager). The one-click .mcpb has no field for it on purpose, because one ticked box would turn off verification for every device. A devices.toml entry with insecure = true covers the fleet, audit and policies hygiene tools there; the single-device tools and the fmg tools still need a trusted certificate (or the JSON config).
+Q: Is my Fortinet data safe?
+A: Your data stays on your machine. The CLI, MCP server and the local mirror are all local, and the MCP server runs over stdio unless you start it with --transport http. `fleet backup` writes full configuration files that contain encrypted secrets and private keys, so it creates them owner-only (chmod 600 on macOS and Linux) and you should keep that directory private. Everything else it returns has FortiOS-encrypted secrets redacted. Credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+
+Governance: This connector is read-only against FortiOS, FortiManager and FortiGate Cloud: no command changes a firewall, and FortiOS-encrypted secrets are redacted from every read before an agent sees them. The strongest control is a REST API admin with a read-only admin profile and your IP as its only trusted host. The tiers that need a human move secrets or data: fleet backup writes full configurations including encrypted secrets, auth set-token stores a token locally, and a webhook delivery sends output off your machine.
+
 ### Google Workspace (Security)
 
 Page: https://msp-skills.compoundingteams.com/skills/google-workspace/

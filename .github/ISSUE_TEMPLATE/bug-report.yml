@@ -48,6 +48,7 @@ body:
         - datto-bcdr
         - datto-rmm
         - domotz
+        - fortinet
         - google-workspace
         - gradient
         - halopsa
