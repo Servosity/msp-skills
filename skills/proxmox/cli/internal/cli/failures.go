@@ -364,6 +364,21 @@ func collectFailures(ctx context.Context, t fleetTarget, since time.Time, want m
 			rows = append(rows, r)
 		}
 	}
+	if wantPBS && !t.C.PBSConfigured() && pveErr == nil {
+		// No PBS host here, but a storage of this cluster may back up to one:
+		// its verify, GC, sync and prune tasks were then not checked.
+		refs, err := fetchPBSStorageRefs(ctx, t.C)
+		switch {
+		case err != nil:
+			fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "pbs tasks", Error: "no PBS host is configured and the storage config could not be read (" + err.Error() + "), so whether a Proxmox Backup Server holds this cluster's backups, and whether its tasks failed, is unknown"})
+		case len(refs) > 0:
+			var servers []string
+			for _, id := range sortedKeys(refs) {
+				servers = append(servers, id+" -> "+refs[id].server)
+			}
+			fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "pbs tasks", Error: "storage " + strings.Join(servers, ", ") + " backs up to a Proxmox Backup Server, but no PBS host is configured for this cluster, so its verify, GC, sync and prune tasks were not checked; set PROXMOX_PBS_HOST (or pbs_host)"})
+		}
+	}
 	pbsAnswered := wantPBS && t.C.PBSConfigured() && pbsErr == nil
 	switch {
 	case pveErr != nil && !pbsAnswered:

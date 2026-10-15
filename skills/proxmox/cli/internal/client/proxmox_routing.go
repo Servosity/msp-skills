@@ -442,6 +442,10 @@ func ValidFingerprint(s string) bool { return normalizeFingerprint(s) != "" }
 // and API keys there (freenas_password, truenas_secret, ...).
 var secretField = regexp.MustCompile(`(?i)(passw|secret|private[-_]?key|api[-_]?key|apikey|(^|[-_])token$|[-_]key$)`)
 
+// secretHint is a cheap prefilter over the whole body: any word secretField
+// could match. secretField itself is anchored per key and cannot be.
+var secretHint = regexp.MustCompile(`(?i)passw|secret|key|token`)
+
 const redactedValue = "[redacted]"
 
 // redactSecretFields replaces every non-empty string value of a secret-named
@@ -449,7 +453,7 @@ const redactedValue = "[redacted]"
 // store, the search index or any output. Bodies with nothing to redact (or
 // that are not JSON) are returned unchanged.
 func redactSecretFields(body []byte) []byte {
-	if !secretField.Match(body) {
+	if !secretHint.Match(body) {
 		return body
 	}
 	dec := json.NewDecoder(bytes.NewReader(body))
