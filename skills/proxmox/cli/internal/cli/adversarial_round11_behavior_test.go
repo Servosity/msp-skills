@@ -7,8 +7,10 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"proxmox-pp-cli/internal/client"
+	"proxmox-pp-cli/internal/config"
 )
 
 // Adversarial round 11.
@@ -73,5 +75,50 @@ func TestClustersCheckFailsWithNothingConfigured(t *testing.T) {
 	t.Setenv("PROXMOX_PBS_HOST", "")
 	if _, _, err := runCLI(t, "clusters", "check", "--json"); err == nil {
 		t.Error("clusters check passed with nothing configured")
+	}
+}
+
+// Codex round 20: a root-namespace PBS prune job prunes every namespace
+// below it (recursive by default).
+func TestRootPBSPruneJobCoversNamedNamespaces(t *testing.T) {
+	f := newFixture(t)
+	f.pbsNS = "acme"
+	f.pbsRoutes["/admin/prune"] = []map[string]any{{"id": "p1", "store": "main", "keep-last": 1, "schedule": "daily"}}
+	out, _, err := runCLI(t, "restore-points", "100", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, g := range decodeJSON[restorePointsReport](t, out).Guests {
+		for _, rp := range g.RestorePoints {
+			if strings.HasPrefix(rp.Source, "pve-storage:pbs1") && rp.PruneMark != "pbs-prune" {
+				t.Errorf("point %s in acme under a root prune job marked %q", rp.TimeRFC3339, rp.PruneMark)
+			}
+		}
+	}
+}
+
+// Codex round 20: every pve_host spelling validate accepts builds the PVE API
+// base on port 8006 (https://pve1/ once built https://pve1/:8006/api2/json).
+func TestPVEHostSpellings(t *testing.T) {
+	for in, want := range map[string]string{
+		"pve1.example.com":               "https://pve1.example.com:8006/api2/json",
+		"https://pve1.example.com/":      "https://pve1.example.com:8006/api2/json",
+		"https://pve1.example.com":       "https://pve1.example.com:8006/api2/json",
+		"pve1.example.com:9006":          "https://pve1.example.com:9006/api2/json",
+		"https://pve1.example.com:9006/": "https://pve1.example.com:9006/api2/json",
+		"[2001:db8::1]":                  "https://[2001:db8::1]:8006/api2/json",
+		"https://[2001:db8::1]:9006/":    "https://[2001:db8::1]:9006/api2/json",
+	} {
+		cl := clusterProfile{PVEHost: in}
+		if err := cl.validate("acme"); err != nil {
+			t.Fatalf("%s: %v", in, err)
+		}
+		c := client.New(&config.Config{}, time.Second, 0)
+		if err := applyClusterToClient(c, cl); err != nil {
+			t.Fatalf("%s: %v", in, err)
+		}
+		if c.BaseURL != want {
+			t.Errorf("pve_host %q: base %q, want %q", in, c.BaseURL, want)
+		}
 	}
 }
