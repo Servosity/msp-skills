@@ -593,3 +593,21 @@ func TestLabelScrubDoesNotUnclassifyValues(t *testing.T) {
 		}
 	}
 }
+
+// TestCodexRound23SignedLinksAndTokenLabels: a pre-signed URL is a capability
+// link wherever it appears, including a fleet push preview's current value,
+// and a token-labelled scalar change is a secret (Codex round 23).
+func TestCodexRound23SignedLinksAndTokenLabels(t *testing.T) {
+	cur := map[string]any{"name": "Floor 1", "imageUrl": "https://s3.example/floor.png?X-Amz-Signature=" + merakiSentinel + "&X-Amz-Expires=900", "homepage": "https://example.com/a?lang=en"}
+	RedactMerakiObject(cur, "/networks/{networkId}/floorPlans/g_1")
+	if s, _ := cur["imageUrl"].(string); strings.Contains(s, merakiSentinel) || cur["homepage"] != "https://example.com/a?lang=en" || cur["name"] != "Floor 1" {
+		t.Fatalf("preview kept a signed link or lost an ordinary one: %v", cur)
+	}
+	row := map[string]any{"label": "Floor plan", "newValue": `{"imageUrl":"https://s3.example/f.png?sig=` + merakiSentinel + `"}`}
+	if got := string(RedactMerakiSecrets(mustJSON(t, row))); strings.Contains(got, merakiSentinel) {
+		t.Fatalf("mirror kept a signed link: %s", got)
+	}
+	if got := RedactMerakiChangeValue("VPP service token", "APPLE-"+merakiSentinel); got != RedactedSecret {
+		t.Fatalf("token-labelled change printed: %s", got)
+	}
+}

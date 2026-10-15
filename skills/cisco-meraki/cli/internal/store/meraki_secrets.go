@@ -286,7 +286,7 @@ func merakiSecretLabel(label string) bool {
 	// "webhook": payload-template bodies and headers are free-form templates
 	// (a PagerDuty routing_key, a form-encoded token), and an HTTP server's
 	// URL and ID are credentials, so webhook change values are withheld whole.
-	for _, w := range []string{"psk", "pre-shared", "preshared", "passphrase", "secret", "community", "api key", "authentication key", "shared key", "webhook"} {
+	for _, w := range []string{"psk", "pre-shared", "preshared", "passphrase", "secret", "community", "api key", "authentication key", "shared key", "token", "webhook"} {
 		if strings.Contains(l, w) {
 			return true
 		}
@@ -484,6 +484,9 @@ func ScrubMerakiURLSecrets(s string) string {
 	return merakiWithholdIfLeft(s[:loc[1]]+merakiRedactedHash(s[loc[1]:]), merakiURLLeftPattern)
 }
 
+// merakiSignedURLPattern is a URL whose query names a signature, token or key.
+var merakiSignedURLPattern = regexp.MustCompile(`(?i)https?://[^\s"'<>]*[?&](?:x-amz-signature|x-amz-credential|x-goog-signature|signature|sig|se|token|access_token|code|key|apikey|api_key|auth|secret)=[^\s"'<>]*`)
+
 // merakiBase64TokenPattern is a run long enough to be the base64 of a URL.
 var merakiBase64TokenPattern = regexp.MustCompile(`[A-Za-z0-9+/_-]{16,}={0,2}`)
 
@@ -496,6 +499,9 @@ func scrubMerakiHTTPServerIDs(s string) string {
 		parts := merakiHTTPServerIDPattern.FindStringSubmatch(m)
 		return parts[1] + merakiRedactedHash(parts[2])
 	})
+	// A URL whose query carries a signature or credential is a capability
+	// link (a pre-signed floor-plan image, an upload URL): withheld.
+	s = merakiSignedURLPattern.ReplaceAllStringFunc(s, merakiRedactedHash)
 	s = merakiBase64TokenPattern.ReplaceAllStringFunc(s, func(m string) string {
 		for _, enc := range []*base64.Encoding{base64.StdEncoding, base64.URLEncoding, base64.RawStdEncoding, base64.RawURLEncoding} {
 			if b, err := enc.DecodeString(m); err == nil {

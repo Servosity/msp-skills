@@ -132,7 +132,7 @@ each command (`agent-context` lists it per command as `pp:method`): 555 GET, 202
   `fleet changes` and `fleet blame` output; these match percent-encoded too. A `url=`
   value in an API request's query string or path, or in a change-log label, is withheld to the end of that string,
   pagination parameters after it included, because a receiver URL's own parameters
-  cannot be told apart from the request's. `sync` skips the webhook delivery logs,
+  cannot be told apart from the request's. A URL whose query carries a signature, token or key (a pre-signed image or upload link) is replaced the same way, there and in `fleet push` previews. `sync` skips the webhook delivery logs,
   whose rows carry receiver URLs. The redaction works by field name, change-log label
   and these patterns, and other receiver URLs (Location Scanning) are kept, so treat
   the mirror as sensitive anyway. License keys are kept on
