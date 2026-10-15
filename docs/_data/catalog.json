@@ -1,5 +1,5 @@
 {
-  "count": 72,
+  "count": 73,
   "connectors": [
     {
       "slug": "abnormal",
@@ -297,6 +297,17 @@
       "source": null,
       "issue_url": null,
       "url": "/skills/domotz/"
+    },
+    {
+      "slug": "fortinet",
+      "display_name": "Fortinet",
+      "tagline": "Audit every client FortiGate for firmware, SSL-VPN exposure, admin accounts and license expiry in one command.",
+      "category": "Security",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "url": "/skills/fortinet/"
     },
     {
       "slug": "google-workspace",
