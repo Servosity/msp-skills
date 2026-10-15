@@ -314,3 +314,141 @@ func TestRestorePointsJobTargetGapsAndUnknownRetention(t *testing.T) {
 		t.Errorf("unknown jobs mean unknown targets: %+v", rep.Guests[0])
 	}
 }
+
+// Codex round 3.
+
+// Unknown ownership counts as shared: a peer naming the same PBS whose client
+// cannot be built, or whose storage list the token may not fully see, keeps
+// acme from being credited (posture, and rpo's met schedule).
+func TestUnknownPBSOwnershipIsNotCredited(t *testing.T) {
+	for name, beta := range map[string]func(f *fixture) string{
+		"client cannot be built": func(f *fixture) string {
+			return `
+[clusters.beta]
+pve_base_url = "https://127.0.0.1:9/api2/json"
+pve_token_env = "ACME_PVE"
+pve_fingerprint = "zz"
+pbs_host = "` + f.pbs.URL + `"
+`
+		},
+		"storage list hidden": func(f *fixture) string {
+			other := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch {
+				case strings.HasSuffix(r.URL.Path, "/api2/json/storage"):
+					writeData(w, []any{})
+				case strings.HasSuffix(r.URL.Path, "/access/permissions"):
+					writeData(w, map[string]any{"/": map[string]any{"Sys.Audit": 1, "VM.Audit": 1}, "/storage": map[string]any{"Datastore.Audit": 0}})
+				default:
+					f.pve.Config.Handler.ServeHTTP(w, r)
+				}
+			}))
+			t.Cleanup(other.Close)
+			return `
+[clusters.beta]
+pve_base_url = "` + other.URL + `/api2/json"
+pve_token_env = "ACME_PVE"
+pve_fingerprint = "` + client.CertFingerprint(other.Certificate()) + `"
+pbs_host = "` + f.pbs.URL + `"
+`
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			f := newFixture(t)
+			setAcmeTokens(t)
+			writeClustersFile(t, acmeClusters(f, f.pbs.URL, "")+beta(f))
+			out, _, err := runCLI(t, "--cluster", "acme", "posture", "--json")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(out, "could not be read") {
+				t.Errorf("acme must report that beta's use of the PBS is unknown:\n%s", out)
+			}
+			for _, r := range decodeJSON[postureReport](t, out).Rows {
+				if r.VMID == 100 && r.Verdict == "fresh" {
+					t.Errorf("acme/100 credited while beta's ownership is unknown: %s", r.Reason)
+				}
+			}
+			out, _, err = runCLI(t, "--cluster", "acme", "rpo", "--days", "1", "--by-client", "--json")
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, c := range decodeJSON[[]rpoClientRow](t, out) {
+				if c.GuestsMet != 0 {
+					t.Errorf("met schedule proven from snapshots of unknown ownership: %+v", c)
+				}
+			}
+		})
+	}
+}
+
+// pbs_namespace covers the namespaces below it: points left in acme/old after
+// the storage moved to acme still count.
+func TestPBSNamespaceDescendantsAreAttributed(t *testing.T) {
+	f := newFixture(t)
+	setAcmeTokens(t)
+	auditOnly(f) // only the PBS API can show them
+	f.pbsNS = "acme"
+	f.pbsRoutes["/admin/datastore/main/namespace"] = []map[string]any{{"ns": ""}, {"ns": "acme"}, {"ns": "acme/old"}}
+	f.pbsRoutes["/admin/datastore/main/snapshots#acme"] = []any{}
+	f.pbsRoutes["/admin/datastore/main/snapshots#acme/old"] = []any{
+		map[string]any{"backup-type": "vm", "backup-id": "105", "backup-time": ago(f.now, 3), "size": 1 << 30, "owner": "root@pam", "verification": map[string]any{"state": "ok", "upid": "UPID:pbs:verify"}},
+	}
+	writeClustersFile(t, acmeClusters(f, f.pbs.URL, `pbs_namespace = "acme"`))
+	_, rows := postureByVMID(t)
+	if r := rows[105]; r.RestorePoints == 0 {
+		t.Errorf("105's point in acme/old was not counted: %s %q", r.Verdict, r.Reason)
+	}
+}
+
+// A snapshot listed without a readable manifest is uncertain: restore-points
+// says so, and verify-health reports it.
+func TestUnreadableManifestIsReported(t *testing.T) {
+	f := newFixture(t)
+	f.pbsRoutes["/admin/datastore/main/snapshots"] = append(f.pbsRoutes["/admin/datastore/main/snapshots"].([]any),
+		map[string]any{"backup-type": "vm", "backup-id": "105", "backup-time": ago(f.now, 1), "owner": "root@pam"})
+	out, _, _ := runCLI(t, "restore-points", "105", "--json")
+	if g := decodeJSON[restorePointsReport](t, out).Guests[0]; g.Evidence != "partial" || !strings.Contains(strings.Join(g.NotRead, ";"), "readable manifest") {
+		t.Errorf("restore-points must flag the manifest-less snapshot: %+v", g)
+	}
+	out, _, _ = runCLI(t, "verify-health", "--json")
+	if !strings.Contains(out, "readable manifest") {
+		t.Errorf("verify-health must report the manifest-less snapshot:\n%s", out)
+	}
+}
+
+// keep-all, or keep counts that are all zero, prune nothing.
+func TestRetentionThatKeepsEverythingIsUnpruned(t *testing.T) {
+	f := newFixture(t)
+	jobs := f.pveRoutes["/cluster/backup"].([]map[string]any)
+	jobs[0]["prune-backups"] = "keep-all=1"
+	f.pbsRoutes["/admin/prune"] = []map[string]any{{"id": "p1", "store": "main", "keep-last": 0}}
+	out, _, err := runCLI(t, "capacity", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range decodeJSON[capacityReport](t, out).Rows {
+		if r.Kind == "pbs-datastore" && !strings.Contains(strings.Join(r.Flags, ","), "unpruned") {
+			t.Errorf("keep-all and keep-last=0 prune nothing; want unpruned: %+v", r)
+		}
+	}
+	for opts, want := range map[string]bool{"keep-last=3": true, "keep-all=1,keep-last=3": false, "keep-daily=0": false, "": false} {
+		if got := retentionPrunes(parseRetention(opts)); got != want {
+			t.Errorf("retentionPrunes(%q) = %v, want %v", opts, got, want)
+		}
+	}
+}
+
+// A guest that met its schedule is met even while another storage is unread.
+func TestRPOMetGuestIsNotUnproven(t *testing.T) {
+	f := newFixture(t)
+	auditOnly(f) // local@pve1 unread
+	out, _, err := runCLI(t, "rpo", "--days", "1", "--by-client", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range decodeJSON[[]rpoClientRow](t, out) {
+		if c.GuestsMet == 0 || c.GuestsMet+c.GuestsUnproven > c.Guests {
+			t.Errorf("met guests must not also be unproven: %+v", c)
+		}
+	}
+}

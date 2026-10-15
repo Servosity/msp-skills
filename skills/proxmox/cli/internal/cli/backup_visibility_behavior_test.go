@@ -109,8 +109,9 @@ func TestAuditOnlyTokenWithoutPBSAPI(t *testing.T) {
 	}
 }
 
-// A snapshot with no manifest (a backup still running, or crash debris) has no
-// size and cannot be restored: it must never count as the newest point.
+// A snapshot with no manifest (a backup still running, crash debris, or one PBS
+// could not read) has no size: it never counts as a restore point, and it is
+// not proof of none either, so a stale guest is unproven, not stale.
 func TestManifestlessSnapshotIsNotARestorePoint(t *testing.T) {
 	f := newFixture(t)
 	_, before := postureByVMID(t)
@@ -123,8 +124,8 @@ func TestManifestlessSnapshotIsNotARestorePoint(t *testing.T) {
 		map[string]any{"volid": "pbs1:backup/vm/101/incomplete", "vmid": 101, "ctime": recent, "size": 1, "subtype": "qemu", "format": "pbs-vm"})
 
 	_, after := postureByVMID(t)
-	if r := after[101]; r.Verdict != "stale" || r.RestorePoints != before[101].RestorePoints {
-		t.Errorf("101 with a manifest-less snapshot = %s %q, %d points (before: %d); want stale and unchanged",
+	if r := after[101]; r.Verdict != "unproven" || r.RestorePoints != before[101].RestorePoints || !strings.Contains(r.Reason, "readable manifest") {
+		t.Errorf("101 with a manifest-less snapshot = %s %q, %d points (before: %d); want unproven, points unchanged",
 			r.Verdict, r.Reason, r.RestorePoints, before[101].RestorePoints)
 	}
 }

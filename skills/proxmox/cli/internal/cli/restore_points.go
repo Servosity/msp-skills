@@ -231,10 +231,7 @@ func collectRestorePoints(ctx context.Context, t fleetTarget, query string, veri
 		fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "storage config", Error: err.Error()})
 	}
 	refs = t.withShared(refs)
-	if len(t.sharedUnknown) > 0 && len(refs) > 0 {
-		fails = append(fails, t.sharedUnknownFailure())
-		clusterUnread = append(clusterUnread, "pbs sharing with "+strings.Join(t.sharedUnknown, ", "))
-	}
+
 	targets := newJobTargets(ctx, t.C, cov)
 	var nsByStore map[string][]string
 	pbsHost := t.pbsEndpoint()
@@ -310,7 +307,12 @@ func collectRestorePoints(ctx context.Context, t fleetTarget, query string, veri
 		for _, gap := range jobStorageGaps(cov, vmid, g.Node, read, targets) {
 			notRead = append(notRead, gap.String())
 		}
-		points = dedupeRestorePoints(points)
+		points, unreadable := splitUnreadable(dedupeRestorePoints(points))
+		for _, rp := range unreadable {
+			if rp.GuestType == "" || rp.GuestType == g.Type {
+				notRead = append(notRead, fmt.Sprintf("%s backup at %s (listed without a readable manifest: still running, or damaged)", rp.Source, rp.TimeRFC3339))
+			}
+		}
 		kept := make([]restorePoint, 0, len(points))
 		for _, rp := range points {
 			if rp.GuestType != "" && rp.GuestType != g.Type {
@@ -421,6 +423,13 @@ func pruneSpec(raw json.RawMessage) string {
 		parts = append(parts, fmt.Sprintf("%s=%v", k, m[k]))
 	}
 	return strings.Join(parts, ",")
+}
+
+func orNone(s string) string {
+	if s == "" {
+		return "none"
+	}
+	return s
 }
 
 func orDash(s string) string {

@@ -281,7 +281,22 @@ func collectVerifyHealth(ctx context.Context, t fleetTarget, onlyStore string, n
 				continue
 			}
 			read++
-			for _, g := range groupVerify(t, store, ns, snaps, outdatedDays, jobsOK, now) {
+			// A snapshot without a readable manifest (a backup still running, or
+			// a damaged one) cannot be verified: report it, verify the rest.
+			complete := snaps[:0]
+			noManifest := 0
+			for _, s := range snaps {
+				if s.Size > 0 {
+					complete = append(complete, s)
+				} else {
+					noManifest++
+				}
+			}
+			if noManifest > 0 {
+				fails = append(fails, fetchFailure{Cluster: t.Name, Scope: pbsSourceLabel(store, ns), Error: fmt.Sprintf(
+					"%d snapshot(s) listed without a readable manifest (a backup still running, or a damaged snapshot); they are not in the group counts", noManifest)})
+			}
+			for _, g := range groupVerify(t, store, ns, complete, outdatedDays, jobsOK, now) {
 				sr.Groups++
 				sr.FailedSnapshots += g.Failed
 				sr.NeverVerified += g.NeverVerified

@@ -172,7 +172,7 @@ proxmox-cli backup coverage --cluster acme
 ### Restore readiness
 - **`restore-points`**  -  Every restore point of one guest across all storages and PBS namespaces, with verify state, protection, encryption and, for points listed from PVE storage, whether the next prune removes it.
 
-  _Use to answer 'can we restore server X from Tuesday?' with the exact restore points and whether each verified. Exit 3 means no reachable cluster has that guest; exit 5 means no cluster answered._
+  _Use to answer 'can we restore server X from Tuesday?' with the exact restore points and whether each verified. Exit 3 means no reachable cluster has that guest; exit 5 means no cluster answered, or no match had a readable restore point while some source was not read (see not_read)._
 
   ```bash
   proxmox-cli restore-points 104 --agent

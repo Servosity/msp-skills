@@ -87,7 +87,9 @@ hosts before any request is built.
     API; this skill never sends such a request, and the trade-off is yours.
     On a stock install the `local` storage also accepts backups; with an
     audit-only token it stays a fetch failure (so `posture --fail-on-red`
-    exits 1) until you remove "VZDump backup file" from its content types.
+    exits 1, and a guest with no readable or only an old restore point is
+    unproven rather than never or stale) until you remove "VZDump backup
+    file" from its content types.
 
   ```bash
   pveum user add monitor@pve

@@ -50,8 +50,8 @@ func newNovelCapacityCmd(flags *rootFlags) *cobra.Command {
 		Long: "Use this command for days-to-full, GC and prune state across every PBS datastore, and percent used on every PVE backup storage. " +
 			"Do NOT use this command for verify failures or corrupt chunks; use 'verify-health' instead.\n\n" +
 			"Flags: gc-deadlock-risk (free space below --gc-margin while the last garbage collection failed or never ran: GC needs " +
-			"free space to run, so the datastore can no longer clean itself), unpruned (no prune job and no keep-* retention on " +
-			"the datastore), filling (estimated full within --within), no-forecast (a PVE storage, or a PBS datastore with too few usage " +
+			"free space to run, so the datastore can no longer clean itself), unpruned (nothing prunes the datastore: no PBS prune job, " +
+			"datastore keep-* or PVE prune-backups that removes anything; keep-all or all-zero keep counts prune nothing), filling (estimated full within --within), no-forecast (a PVE storage, or a PBS datastore with too few usage " +
 			"samples for PBS to estimate: nothing forecasts its days to full, so it is always listed, --within included, and judged by used_pct), nearly-full (free space below --gc-margin). " +
 			"PBS forecasts come from its own linear regression over the last month.",
 		Example: strings.Trim(`
@@ -185,10 +185,7 @@ func collectCapacity(ctx context.Context, t fleetTarget, now time.Time, margin f
 		if err := getJSON(ctx, t.C, pbsPath("/admin/gc"), nil, &gcs); err != nil {
 			fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "pbs gc", Error: err.Error()})
 		}
-		var prunes []struct {
-			Store   string   `json:"store"`
-			Disable flexBool `json:"disable"`
-		}
+		var prunes []map[string]any // store, disable, keep-*
 		pruneOK := true
 		if err := getJSON(ctx, t.C, pbsPath("/admin/prune"), nil, &prunes); err != nil {
 			pruneOK = false
@@ -225,7 +222,8 @@ func collectCapacity(ctx context.Context, t fleetTarget, now time.Time, margin f
 				}
 			}
 			for _, p := range prunes {
-				if p.Store == u.Store && !bool(p.Disable) {
+				// Only an enabled job that keeps a bounded number removes anything.
+				if fmt.Sprint(p["store"]) == u.Store && !truthy(p["disable"]) && retentionPrunes(anyOpts(p)) {
 					row.PruneJobs++
 				}
 			}
@@ -332,12 +330,7 @@ func datastoreHasRetention(ctx context.Context, t fleetTarget, store string, fai
 		*fails = append(*fails, fetchFailure{Cluster: t.Name, Scope: "pbs " + store + " config", Error: err.Error()})
 		return true // unknown: do not raise an unpruned flag on missing data
 	}
-	for k := range cfg {
-		if strings.HasPrefix(k, "keep-") {
-			return true
-		}
-	}
-	return false
+	return retentionPrunes(anyOpts(cfg))
 }
 
 func pct(used, total int64) float64 {
@@ -378,14 +371,58 @@ func pveRetentionFor(store, pbsHost string, refs map[string]pbsStorageRef, jobs 
 		if ref.datastore != store || !strings.EqualFold(ref.server, pbsHost) {
 			continue
 		}
-		if ref.pruneBackups != "" {
+		if retentionPrunes(parseRetention(ref.pruneBackups)) {
 			return true
 		}
 		for _, j := range jobs {
-			if j.enabled() && j.Storage == id && len(j.PruneBackups) > 0 && string(j.PruneBackups) != "null" && string(j.PruneBackups) != `""` {
+			if j.enabled() && j.Storage == id && retentionPrunes(parseRetention(pruneSpec(j.PruneBackups))) {
 				return true
 			}
 		}
+	}
+	return false
+}
+
+// retentionPrunes reports whether a retention policy removes anything: some
+// keep-<period> count above 0 and no keep-all. Proxmox keeps every backup when
+// no positive keep option is set, so keep-all=1 or all-zero counts prune nothing.
+func retentionPrunes(opts map[string]string) bool {
+	if truthy(opts["keep-all"]) {
+		return false
+	}
+	for k, v := range opts {
+		if strings.HasPrefix(k, "keep-") && k != "keep-all" {
+			if n, err := strconv.ParseFloat(strings.TrimSpace(v), 64); err == nil && n > 0 {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// parseRetention reads a prune-backups property string ("keep-last=3,keep-daily=7").
+func parseRetention(spec string) map[string]string {
+	out := map[string]string{}
+	for _, part := range strings.Split(spec, ",") {
+		if k, v, ok := strings.Cut(strings.TrimSpace(part), "="); ok {
+			out[strings.TrimSpace(k)] = strings.TrimSpace(v)
+		}
+	}
+	return out
+}
+
+func anyOpts(m map[string]any) map[string]string {
+	out := make(map[string]string, len(m))
+	for k, v := range m {
+		out[k] = fmt.Sprint(v)
+	}
+	return out
+}
+
+func truthy(v any) bool {
+	switch s := strings.ToLower(strings.TrimSpace(fmt.Sprint(v))); s {
+	case "1", "true", "yes", "on":
+		return true
 	}
 	return false
 }

@@ -14,7 +14,6 @@ import (
 	"net"
 	"net/url"
 	"regexp"
-	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -39,9 +38,6 @@ type fleetTarget struct {
 	// sharedPBS: PBS namespaces (pbsStorageRef.sourceKey) this cluster shares
 	// with other configured clusters, mapped to every cluster writing there.
 	sharedPBS map[string][]string
-	// sharedUnknown: configured clusters whose storage config could not be
-	// read but that may write to the same PBS as this one.
-	sharedUnknown []string
 }
 
 // fleetTargets resolves the clusters to visit: --cluster narrows to one entry;
@@ -557,6 +553,10 @@ type restorePoint struct {
 	Notes       string `json:"notes,omitempty"`
 	PBSBacked   bool   `json:"-"`
 	PruneMark   string `json:"prune_mark,omitempty"`
+	// unreadable: listed without a readable manifest (PBS omits the size, PVE's
+	// PBS plugin reports 1, a dir archive is 0 bytes): a backup still running,
+	// or a damaged one. Not a restore point, and not proof of none either.
+	unreadable bool
 	// canonical identifies the underlying archive across views (a PVE
 	// storage listing and the PBS API can both show the same PBS snapshot).
 	canonical   string
@@ -667,13 +667,14 @@ func fetchStorageArchives(ctx context.Context, c *client.Client, node string, s 
 		if s.Type == "pbs" {
 			minSize = 1
 		}
-		if e.VMID == 0 || e.CTime == 0 || e.Size <= minSize {
+		if e.VMID == 0 || e.CTime == 0 {
 			continue
 		}
 		rp := restorePoint{
 			VMID: int64(e.VMID), GuestType: e.Subtype, Time: int64(e.CTime), Source: "pve-storage:" + s.Storage,
 			Volume: e.VolID, Size: int64(e.Size), Protected: bool(e.Protected), Encrypted: e.Encrypted != "" && e.Encrypted != "0",
 			Notes: e.Notes, PBSBacked: s.Type == "pbs", VerifyState: "n/a", storageID: s.Storage, storageNode: node,
+			unreadable: e.Size <= minSize,
 		}
 		if rp.PBSBacked {
 			rp.VerifyState = "none"
@@ -744,6 +745,19 @@ func pbsCovers(refs map[string]pbsStorageRef, storage, endpoint string, nsByStor
 // the PBS API reads its datastore. The caller counts the storage as read only
 // once that PBS read succeeds (see pbsStandIns).
 var errCoveredByPBS = errors.New("read through the PBS API instead of the PVE content list")
+
+// splitUnreadable separates the restore points from the archives listed
+// without a readable manifest (see restorePoint.unreadable).
+func splitUnreadable(in []restorePoint) (points, unreadable []restorePoint) {
+	for _, rp := range in {
+		if rp.unreadable {
+			unreadable = append(unreadable, rp)
+		} else {
+			points = append(points, rp)
+		}
+	}
+	return points, unreadable
+}
 
 // readStorageArchives is fetchStorageArchives behind the visibility rule: a
 // content list the token cannot fully see is missing evidence, never "no
@@ -825,9 +839,11 @@ func (t fleetTarget) sharedOwners(ref pbsStorageRef, ns string) []string {
 // markSharedPBS finds PBS namespaces that two or more configured clusters
 // write to. VMIDs collide across clusters, so a snapshot of vm/100 there may
 // be either cluster's: each target learns the shared keys. It looks at EVERY
-// configured cluster, not only the ones --cluster/--client selected, and a
-// cluster whose storage config cannot be read makes sharing unknown for the
-// targets on the PBS its clusters.toml entry names.
+// configured cluster, not only the ones --cluster/--client selected. Unknown
+// ownership counts as shared: a cluster whose client cannot be built, whose
+// storage config cannot be read, or whose storage list the token may not
+// fully see is assumed to write to every namespace on the PBS host its
+// clusters.toml entry names.
 func markSharedPBS(ctx context.Context, flags *rootFlags, targets []fleetTarget) {
 	all, err := allClusterTargets(flags)
 	if err != nil || len(all) < 2 {
@@ -848,12 +864,14 @@ func markSharedPBS(ctx context.Context, flags *rootFlags, targets []fleetTarget)
 			refs, err = fetchPBSStorageRefs(ctx, t.C)
 		}
 		if err != nil {
-			ep := ""
-			if t.C != nil {
-				ep = t.pbsEndpoint()
-			}
-			unreadable[t.Name] = ep
+			unreadable[t.Name] = pbsEndpointFromHost(t.Profile.PBSHost)
 			continue
+		}
+		// A storage the token may not see is missing from the list, so an
+		// incomplete list cannot prove which namespaces this cluster uses: the
+		// visible ones still count, and the rest is unknown.
+		if storageListHidden(ctx, t.C) != nil {
+			unreadable[t.Name] = pbsEndpointFromHost(t.Profile.PBSHost)
 		}
 		keys[i] = map[string]bool{}
 		for _, ref := range refs {
@@ -906,20 +924,17 @@ func markSharedPBS(ctx context.Context, flags *rootFlags, targets []fleetTarget)
 			ep := unreadable[name]
 			for k := range keys[i] {
 				if ep != "" && strings.HasPrefix(k, "ep:"+ep+"|") {
-					targets[ti].sharedUnknown = append(targets[ti].sharedUnknown, name)
-					break
+					if targets[ti].sharedPBS == nil {
+						targets[ti].sharedPBS = map[string][]string{}
+					}
+					if len(targets[ti].sharedPBS[k]) == 0 {
+						targets[ti].sharedPBS[k] = []string{targets[ti].Name}
+					}
+					targets[ti].sharedPBS[k] = append(targets[ti].sharedPBS[k], name+" (could not be read)")
 				}
 			}
 		}
 	}
-}
-
-// sharedUnknownFailure explains why PBS evidence is incomplete when another
-// configured cluster could not be read: whether it writes to the same PBS
-// namespaces (VMIDs collide) is unknown.
-func (t fleetTarget) sharedUnknownFailure() fetchFailure {
-	return fetchFailure{Cluster: t.Name, Scope: "pbs sharing", Error: fmt.Sprintf(
-		"configured cluster(s) %s could not be read, so whether they also write to this cluster's PBS namespaces (where VMIDs would collide) is unknown; its PBS restore points are not proven to be its own", strings.Join(t.sharedUnknown, ", "))}
 }
 
 // allClusterTargets builds a client for every configured cluster, ignoring
@@ -955,7 +970,7 @@ func (t fleetTarget) withShared(refs map[string]pbsStorageRef) map[string]pbsSto
 }
 
 func sharedPBSError(ref pbsStorageRef, ns string, owners []string) error {
-	return fmt.Errorf("PBS datastore %s namespace %q is written by clusters %s: VMIDs collide in one namespace, so these restore points may be another cluster's and were not counted; give each cluster its own PBS namespace", ref.datastore, ns, strings.Join(owners, ", "))
+	return fmt.Errorf("PBS datastore %s namespace %q is, or may be, written by more than one configured cluster (%s): VMIDs collide in one namespace, so these restore points may be another cluster's and were not counted; give each cluster its own PBS namespace", ref.datastore, ns, strings.Join(owners, ", "))
 }
 
 // pbsEndpoint identifies a PBS service as lowercase "host:port" (default port
@@ -999,7 +1014,13 @@ func fetchPBSStorageRefs(ctx context.Context, c *client.Client) (map[string]pbsS
 func (t fleetTarget) pbsEndpoint() string { return pbsEndpointOf(t.C) }
 
 func pbsEndpointOf(c *client.Client) string {
-	host := strings.TrimSpace(c.Config.TemplateVars["pbs_host"])
+	return pbsEndpointFromHost(c.Config.TemplateVars["pbs_host"])
+}
+
+// pbsEndpointFromHost normalizes a PBS host setting (host, host:port or
+// https://host:port) to "host:port", or "".
+func pbsEndpointFromHost(host string) string {
+	host = strings.TrimSpace(host)
 	if host == "" || host == client.PBSHostNone || host == "pbs_host_placeholder" {
 		return ""
 	}
@@ -1032,33 +1053,51 @@ func pbsAttribution(ctx context.Context, t fleetTarget, refs map[string]pbsStora
 		known[st] = true
 	}
 	var shared []string
-	if t.Profile.PBSNamespace != "" {
+	if ns := t.Profile.PBSNamespace; ns != "" {
 		// Only the datastores this cluster's own PVE storages write to on this
 		// PBS: the same namespace name on another datastore can be another
 		// client's backups.
+		tied := map[string]pbsStorageRef{}
 		for _, ref := range refs {
 			if !strings.EqualFold(ref.server, host) || !known[ref.datastore] {
 				continue
 			}
-			if owners := t.sharedOwners(ref, t.Profile.PBSNamespace); len(owners) > 0 {
-				shared = append(shared, sharedPBSError(ref, t.Profile.PBSNamespace, owners).Error())
+			if owners := t.sharedOwners(ref, ns); len(owners) > 0 {
+				shared = append(shared, sharedPBSError(ref, ns, owners).Error())
 				continue
 			}
-			if len(out[ref.datastore]) == 0 {
-				out[ref.datastore] = []string{t.Profile.PBSNamespace}
+			tied[ref.datastore] = ref
+		}
+		// pbs_namespace names the client's namespace and every one below it: a
+		// storage moved from acme/old to acme leaves its older points in acme/old.
+		var listErr error
+		for _, store := range sortedKeys(tied) {
+			nss, err := pbsNamespaces(ctx, t.C, store)
+			if err != nil {
+				listErr = fmt.Errorf("PBS %s: the namespaces below %q could not be listed, so restore points there were not read: %w", store, ns, err)
 			}
-			// A storage writing below the profile namespace is this client's too.
-			if ref.namespace != t.Profile.PBSNamespace && inNamespace(ref.namespace, t.Profile.PBSNamespace) && len(ref.sharedWith) == 0 && !slices.Contains(out[ref.datastore], ref.namespace) {
-				out[ref.datastore] = append(out[ref.datastore], ref.namespace)
+			for _, n := range nss {
+				if !inNamespace(n, ns) {
+					continue
+				}
+				if owners := t.sharedOwners(tied[store], n); len(owners) > 0 {
+					shared = append(shared, sharedPBSError(tied[store], n, owners).Error())
+					continue
+				}
+				out[store] = append(out[store], n)
+			}
+			if len(out[store]) == 0 {
+				out[store] = []string{ns} // read it anyway, so a missing namespace fails loudly
 			}
 		}
-		if len(shared) > 0 {
-			return out, t.Name + ": " + strings.Join(shared, "; "), nil
+		warning := ""
+		switch {
+		case len(shared) > 0:
+			warning = t.Name + ": " + strings.Join(dedupeStrings(shared), "; ")
+		case len(out) == 0:
+			warning = fmt.Sprintf("%s: PBS snapshots not attributed to guests: no PVE storage on this cluster points at PBS host %q, so pbs_namespace %q is not tied to a datastore", t.Name, host, ns)
 		}
-		if len(out) == 0 {
-			return out, fmt.Sprintf("%s: PBS snapshots not attributed to guests: no PVE storage on this cluster points at PBS host %q, so pbs_namespace %q is not tied to a datastore", t.Name, host, t.Profile.PBSNamespace), nil
-		}
-		return out, "", nil
+		return out, warning, listErr
 	}
 	seen := map[string]bool{}
 	for _, ref := range refs {
@@ -1172,16 +1211,10 @@ func pbsSnapshots(ctx context.Context, c *client.Client, store, ns string, param
 	if err := getJSON(ctx, c, pbsPath("/admin/datastore/%s/snapshots", store), p, &snaps); err != nil {
 		return nil, err
 	}
-	// PBS lists a snapshot whose manifest is missing (a backup still running,
-	// or one a crash left behind) with no size. It cannot be restored or
-	// verified, so it is never a restore point.
-	complete := snaps[:0]
-	for _, s := range snaps {
-		if s.Size > 0 {
-			complete = append(complete, s)
-		}
-	}
-	return complete, nil
+	// A snapshot whose manifest PBS could not read (a backup still running, or
+	// a damaged one) comes back with no size: callers treat it as uncertain
+	// evidence (restorePoint.unreadable), never as a restore point.
+	return snaps, nil
 }
 
 func pbsSourceLabel(store, ns string) string {
@@ -1198,6 +1231,7 @@ func (s pbsSnapshot) restorePoint(host, store, ns string) restorePoint {
 		VMID: vmid, GuestType: gt, Time: int64(s.BackupTime), Source: pbsSourceLabel(store, ns),
 		Volume: fmt.Sprintf("%s/%s/%d", s.BackupType, s.BackupID, int64(s.BackupTime)), Size: int64(s.Size),
 		Protected: bool(s.Protected), Encrypted: s.Fingerprint != "", Notes: s.Comment, PBSBacked: true, VerifyState: "none",
+		unreadable: s.Size <= 0,
 	}
 	if s.Verification != nil && s.Verification.State != "" {
 		rp.VerifyState, rp.VerifyUPID = s.Verification.State, s.Verification.UPID
