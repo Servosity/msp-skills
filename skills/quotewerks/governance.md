@@ -1,53 +1,74 @@
 # quotewerks skill - governance and safety model
 
-> Unofficial. Community-built skill for the QuoteWerks API. Not affiliated with,
-> endorsed by, or sponsored by the vendor.
+> Unofficial. Community-built skill for the QuoteWerks Web REST API. Not affiliated
+> with, endorsed by, or sponsored by Aspire Technologies, Inc.
 > This page tells an MSP owner exactly what the quotewerks skill can touch and how to
 > scope it, so you can decide what to let an AI agent do.
 
 ## What it authenticates as
 
-The skill drives the `quotewerks-cli` binary (and `quotewerks-mcp`),
-authenticating with `QUOTEWERKS_API_KEY`. Credentials are read from the environment only -
-never written to disk, never logged, never sent anywhere except the QuoteWerks API.
+The skill drives the `quotewerks-cli` binary (and `quotewerks-mcp`), which sends a
+QuoteWerks Web API key as the `X-API-Key` header to `https://qwwapi.quotewerks.com`.
+You create the key in QuoteWerks Web under **Setup > Options > Zapier and API**; the
+API requires a user with MasterRights. The key is read from `QUOTEWERKS_API_KEY`.
+
+It is written to disk only if you choose to save it with
+`echo "$QUOTEWERKS_API_KEY" | quotewerks-cli auth set-token`, which stores it in the
+CLI's credentials file with mode 0600; `quotewerks-cli auth logout` removes it.
+`--dry-run` output masks the key. It is never sent anywhere except the QuoteWerks Web API.
+
+The local mirror (`quotewerks-cli mirror`) stores copies of your quotes, line items
+and product databases in a SQLite file under your user account. Delete the CLI's
+data directory to remove it.
 
 ## Default-safe behavior
 
-- **`--dry-run` is opt-in - use it.** Mutating commands send immediately unless you pass `--dry-run` first to preview the request without sending. Make your agent's policy: preview, show the exact command, get approval, then run the write.
-- **Read commands are always safe to run** (reports, rollups, search); they cannot
-  change anything.
-- **Agent mode is explicit.** `--agent` produces JSON for scripting but does not
-  add any write gating - the preview-then-approve policy above still applies. See
-  AGENTS.md.
+- **Typed writes preview by default.** `docs create`, `items add`, `items reprice` and
+  `requote` print the exact request (and, for repricing, old versus new cost, price and
+  margin per line) and write nothing until you add `--confirm`. `--yes` does not
+  confirm them.
+- **Raw writes send immediately.** `tables insert`, `tables update`, `tables delete`
+  and `import` are thin wrappers over the vendor's table endpoints. Run them with
+  `--dry-run` first to see the HTTP request without sending it.
+- **Read commands are always safe to run** (lookups, audits, reports); they cannot
+  change anything in QuoteWerks. `mirror` and `sync` write only the local copy.
+- **Agent mode is explicit.** `--agent` produces JSON for scripting but adds no write
+  gating and does not imply `--confirm`. See AGENTS.md.
+- **The MCP server cannot read local files you did not choose.** File-path flags
+  (`--db`, `--input`, `--notes-file`, `--playbook-file`, output paths) are refused
+  over MCP, and `import` is CLI-only.
 
 ## Permission tiers
 
-The safe default for an autonomous agent is **read plus planned (dry-run) writes**;
-require a human for anything below the line.
+The safe default for an autonomous agent is **reads plus previewed writes**; require a
+human for anything below the line.
 
 | Tier | What it does | Examples | Recommended agent policy |
 | --- | --- | --- | --- |
-| **Read** | Reports, rollups, search. No change. | the cross-entity views and any non-mutating command | Allow |
-| **Write (routine)** | Day-to-day mutations. | `cloud settings`, `cloud settings get`, `cloud settings list`, `cloud settings schema`, `docs create`, `tables update` | Preview with `--dry-run`, then an approved write (where a command documents its own confirm gate, use it too) |
-| **Credential / security** | Touches tokens, keys, MFA. | (none detected) | Human-in-the-loop only |
-| **Destructive** | Irreversible data or config loss. | `tables delete` | Human-in-the-loop only, explicit confirmation |
-| **Admin** | Back-office administration. | (none detected) | Operator-only, not for agents |
+| **Read** | Lookups, audits, reports. No change in QuoteWerks. | `docs search`, `docs get`, `docs lint`, `items list`, `products search`, the `tables` reads (`list`, `rows`, `row`, `query`, `schema`, `values`), the `cloud-settings` reads, `reports run`, `reports schedulability`, `identity userinfo`, `agent ask`, the `agent report-*` previews, and the mirror reports (`margin`, `pipeline`, `cost-drift`, `winrate`, `changes`), `search`, and `export` (reads from QuoteWerks into a local file); `mirror` and `sync` write only the local copy | Allow |
+| **Previewed writes** | Create or change quotes; preview unless `--confirm`. | `docs create`, `items add`, `items reprice`, `requote` | Let the agent preview; a human approves before it re-runs with `--confirm` |
+| **Raw writes** | Create or change any row the key can write, immediately. | `tables insert`, `tables update`, `import` (CLI only) | Preview with `--dry-run`, then an approved write |
+| **Destructive** | Irreversible data loss. | `tables delete` (any table, documents and line items included) | Human-in-the-loop only, explicit confirmation |
+| **Credential** | Stores or removes the API key on this machine. | `auth set-token`, `auth logout` | Human-in-the-loop only |
+
+`agent ask` sends your question to QuoteWerks Web's own AI agent, which answers from
+your QuoteWerks data; treat it like any other read that leaves your machine.
 
 ## How to lock it down
 
-- **Scope the credential** to only what your workflow needs. A read/report workflow
-  does not need a credential that can run the Destructive or Credential tiers.
-- **Keep autonomous agents to Read + previewed writes.** Have a human approve the
-  actual write for Write tier and above - the gate lives in your agent's policy,
-  not in the binary's defaults.
-- **Never let an agent run Credential, Destructive, or Admin tier commands
-  unattended.** Treat them like a production database drop: human, reviewed, logged.
-- **Rotate the credential if it is ever exposed** (for example after bridging the
-  MCP server to a public endpoint for ChatGPT - see mcp-install.md).
+- **Leave Allow write access off** unless the workflow needs writes. A read-only key
+  covers every lookup, audit and report, and QuoteWerks answers any write with 403.
+- **Use a separate key for the agent** so you can revoke it in Setup > Options >
+  Zapier and API without touching other integrations.
+- **Keep autonomous agents to reads and previews.** Have a human approve every
+  `--confirm`, every raw `tables` write, and every `import`.
+- **Never let an agent run the Destructive or Credential tiers unattended.**
+- **Rotate the key if it is ever exposed** (for example after bridging the MCP server
+  to a public endpoint for ChatGPT - see mcp-install.md).
 
 ## Why an MSP owner can be comfortable
 
 The full source of the CLI and MCP server is in this repository under
-[`cli/`](./cli) (Apache-2.0). You supply the credential, the binary uses it against
-the QuoteWerks API, and you can read every line of how it does so. The skill is
-read-first, plan-by-default, and scoped to your own account.
+[`cli/`](./cli) (Apache-2.0). You supply the key, the binary uses it against the
+QuoteWerks Web API, and you can read every line of how it does so. The skill is
+read-first, previews its typed writes, and can never do more than the key you create.

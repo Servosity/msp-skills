@@ -1,7 +1,7 @@
 # QuoteWerks + AI - for ChatGPT, Claude, GitHub Copilot, Microsoft 365 Copilot, Gemini, and any agent that speaks MCP
 
 > Unofficial. Community-built Claude Code Skill and MCP server for the QuoteWerks
-> API. Not affiliated with, endorsed by, or sponsored by Aspire Technologies, Inc..
+> API. Not affiliated with, endorsed by, or sponsored by Aspire Technologies, Inc.
 
 <!-- media:start -->
 <p align="center">
@@ -12,7 +12,7 @@
 <p align="center"><sub>▶ <a href="https://msp-skills.compoundingteams.com/skills/quotewerks/">Watch the 30-second demo</a> - demo data is simulated; every command shown exists in the real CLI.</sub></p>
 <!-- media:end -->
 
-Typed quote tools for QuoteWerks Web that use the real column names, preview every write, and add margin, win-rate and pipeline answers from a local mirror. Works with the AI you already use - **ChatGPT** (Plus/Pro+), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.
+Typed quote tools for QuoteWerks Web that use the real column names, preview typed writes before sending them, and add margin, win-rate and pipeline answers from a local mirror. Works with the AI you already use - **ChatGPT** (Plus/Pro+), **Claude Desktop**, **Codex**, **Claude Code**, **Claude Cowork**, and **GitHub Copilot** - plus **Microsoft 365 Copilot / Copilot Studio** and **Google Gemini** via the remote path. Free, open source, runs on your laptop. Built for MSP owners. No code required.
 
 ## Works with your agent
 
@@ -134,10 +134,11 @@ OpenClaw isn't generally available yet; the frontmatter wiring is pre-shipped an
 
 ### Authenticate
 
-Set the credentials the CLI needs (from your QuoteWerks portal):
+Create an API key in QuoteWerks Web under **Setup > Options > Zapier and API** (the API requires a user with MasterRights). Tick **Allow write access** on the key only if you want the agent to create or change documents; a read-only key is enough for every lookup and report. Then:
 
 ```bash
-QUOTEWERKS_API_KEY=<value> quotewerks-cli doctor
+export QUOTEWERKS_API_KEY=<your-key>
+quotewerks-cli doctor
 ```
 
 `doctor` checks config, paths, and API reachability, and reports whether credentials are loaded - it does not validate them. Run a read command to confirm the credential actually works end-to-end.
@@ -145,25 +146,42 @@ QUOTEWERKS_API_KEY=<value> quotewerks-cli doctor
 
 ## What this skill does
 
-<!-- TODO: outcome-first table mapping the 5-8 questions an MSP would ask to the single command that answers each. Source-of-truth is SKILL.md "Unique Capabilities" / "Command Reference" - extract the highest-leverage ones. Format:
-
 | Question your MSP keeps asking | Command |
 | --- | --- |
-| ... | `quotewerks-cli ...` |
+| Where does the Acme quote stand? | `quotewerks-cli docs search --customer "Acme" --type QUOTE` |
+| What is on quote 1042, line by line, with margin per line? | `quotewerks-cli docs get "1042"` |
+| Is anything on this quote below cost or under 10% margin before it goes out? | `quotewerks-cli docs lint "1042" --min-margin 10` |
+| What does an 18% margin on these laptops do to the quote? (preview, nothing written) | `quotewerks-cli items reprice "1042" --part 20UES0X100 --margin 18` |
+| Copy last March's order into a new quote with 12 laptops at today's prices (preview) | `quotewerks-cli requote "1042" --qty 20UES0X100=12` |
+| Which open quotes are 30+ days old, and who do I chase? | `quotewerks-cli pipeline --older-than 30d` |
+| What is our win rate by rep over the last 90 days? | `quotewerks-cli winrate --by rep --since 90d` |
+| Which open quotes carry a cost that no longer matches our product database? | `quotewerks-cli cost-drift --threshold 2` |
 
--->
+The pipeline, win-rate, margin, cost-drift and changes reports read a local copy: run `quotewerks-cli mirror` first, then again whenever you want fresh numbers. Writes (`docs create`, `items add`, `items reprice`, `requote`) only preview until you add `--confirm`.
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
 
 ## What makes this different
 
-Most QuoteWerks integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking <!-- TODO: vendor-specific QBR-time example: e.g. "how many backup-failure tickets across all 47 clients last quarter" -->.
+Most QuoteWerks integrations, the Zapier app included, make one live API call per record. That's fine for one record. It dies at scale, when you're asking "what was margin by rep across every order last quarter, and which open quotes went thin when the distributor raised cost?"
 
-This skill syncs QuoteWerks into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like <!-- TODO: 2-3 highest-leverage compound commands from this skill --> join across <!-- TODO: which entities --> - work a stateless API wrapper can't do.
+This skill copies your QuoteWerks documents, line items and product databases into a **local SQLite mirror** (`quotewerks-cli mirror`). Aggregate questions become one local query: instant, offline, and the AI sees the answer, not the raw data. Commands like `cost-drift`, `winrate` and `margin --by manufacturer` join quote headers, quote lines and every product database - work a stateless API wrapper can't do. Compared with the raw REST API and the [Zapier QuoteWerks app](https://zapier.com/apps/quotewerks/integrations), which work one record at a time, it also adds typed quote commands that use the real QuoteWerks column names and preview every typed write before it is sent.
 
 ## The pain this closes
 
-<!-- TODO: fold pain-point.md content here. Cite a concrete community source (r/msp, MSPGeek, vendor survey). State the pain in MSP-owner vocabulary. Then list 3-5 of this skill's highest-leverage commands mapped to the pain. -->
+An MSP account manager [asked QuoteWerks for an official MCP server](https://tickets.quotewerks.com/support/discussions/topics/9000064305) and listed the four jobs that eat the day:
+
+- **Quoting from an email.** "12 more laptops like the ones you sent in March, plus docks" means hunting down the March document and hand-keying every line into a new quote.
+- **Quote status.** "Where does the Acme quote stand?" means leaving what you are doing to run a Document Lookup.
+- **Repricing.** When distributor cost moves, someone opens each document and touches every line.
+- **QBR numbers.** Margin and win rate mean a script or a report per question.
+
+The same post names why the beta REST API alone does not fix it: it is generic table access, so an AI has to guess the schema, and a wrong guess quietly produces a bad quote. This skill answers each job with one command:
+
+- **`quotewerks-cli requote "1042" --qty 20UES0X100=12`** - the March order copied into a new quote with new quantities and today's product-database prices, previewed before anything is created.
+- **`quotewerks-cli docs search --customer "Acme" --type QUOTE`** - quote status from the window you are already in.
+- **`quotewerks-cli cost-drift --threshold 2`**, then **`items reprice`** - every open-quote line whose cost moved, with margin at the old and new cost, and an old-versus-new diff before any price changes.
+- **`quotewerks-cli margin --by rep --since 90d`** and **`winrate --by rep`** - QBR answers from the local mirror.
 
 See [pain-point.md](./pain-point.md) for the longer narrative.
 
@@ -183,14 +201,23 @@ No. The recommended install is to paste one sentence into Claude Code or Codex -
 
 ### Is my QuoteWerks data safe?
 
-Your data stays on **your machine**. The CLI and MCP server are local binaries. The SQLite mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Credentials are read from your environment or your agent's config; never bundled into this repo or transmitted anywhere by MSP Skills.
+Your data stays on **your machine**. The CLI and MCP server are local binaries. The SQLite mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Your API key is read from your environment or your agent's config, or from the CLI's credentials file (mode 0600) if you saved it with `quotewerks-cli auth set-token`; it is never bundled into this repo or transmitted anywhere by MSP Skills.
 
-<!-- TODO: 2-4 vendor-specific FAQ entries - answer real searches MSP owners type. Examples:
-- "How is this different from <vendor>'s built-in AI integration?" (if the vendor has one)
-- "Will this hit my <vendor> API rate limits?"
-- "Do I need to be a <vendor> partner/customer?"
-- "Will this replace my <vendor> portal/UI?"
--->
+### Does it work with QuoteWerks Desktop?
+
+It works with QuoteWerks Web through the QuoteWerks Web REST API at `qwwapi.quotewerks.com`, which QuoteWerks labels beta. It does not open a QuoteWerks Desktop database or use the desktop COM API.
+
+### What API key do I need, and can the AI change my quotes?
+
+Create a key in QuoteWerks Web under **Setup > Options > Zapier and API**; the API requires a user with MasterRights. A key without **Allow write access** can read but cannot change anything (QuoteWerks answers writes with 403). Even with a write-enabled key, `docs create`, `items add`, `items reprice` and `requote` only preview until you add `--confirm`. The raw `tables insert`, `tables update`, `tables delete` and `import` commands send immediately, so keep the key read-only unless you need writes.
+
+### Will this hammer the QuoteWerks API?
+
+No. `margin`, `winrate`, `pipeline`, `cost-drift` and `changes` read the local copy that `quotewerks-cli mirror` makes, so you can ask as many questions as you like without another API call. `mirror` reads 1,000 rows per request, and requests are paced to the server's rate-limit headers by default.
+
+### How is this different from QuoteWerks Web's own AI agent?
+
+QuoteWerks Web has its own AI agent, and this skill can ask it questions too (`quotewerks-cli agent ask`). What the skill adds is reach from the AI you already work in: previewed quote builds and repricing, a per-line audit before a quote goes out, and analysis across every mirrored document. It complements QuoteWerks Web; it does not replace it.
 
 ### What does it cost?
 
@@ -198,24 +225,21 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 ## Safety model
 
-<!-- TODO: tier table (Read / Write-routine / Destructive / etc.) from governance.md. Format:
-
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | ... | Allow |
-| Write (routine) | ... | Preview with `--dry-run`, then a reviewed write |
-| Destructive / config | ... | Human-in-the-loop only |
+| Read | `docs search`, `docs get`, `docs lint`, `items list`, `products search`, the `tables` reads (`list`, `rows`, `row`, `query`, `schema`, `values`), the `cloud-settings` reads, `reports run`, `identity userinfo`, `agent ask`, and the mirror reports (`margin`, `pipeline`, `cost-drift`, `winrate`, `changes`); `mirror` and `sync` write only the local copy | Allow |
+| Previewed writes | `docs create`, `items add`, `items reprice`, `requote`: each previews by default and writes only with `--confirm` and a write-enabled key | Let the agent preview; a human approves before it re-runs with `--confirm` |
+| Raw writes | `tables insert`, `tables update` and `import` (CLI only), which send immediately to any table your key can write | Preview with `--dry-run`, then a reviewed write |
+| Destructive / credential | `tables delete` (deletes a row in any table, documents included), `auth set-token`, `auth logout` | Human-in-the-loop only |
 
--->
-
-The strongest control is the **scope you grant the QuoteWerks credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
+The strongest control is the **key you create**: leave **Allow write access** off and nothing the agent runs can change a quote. The CLI can only do what the key is permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
 
 ## Status
 
-Beta. Validated against the QuoteWerks API surface and being validated with MSPs running it live against their own production tenant in our weekly Build Sessions. RSVP at [compoundingteams.com/build-sessions](https://compoundingteams.com/build-sessions).
+Beta, and so is the QuoteWerks Web REST API it calls. Built from the vendor's published API spec and documentation and tested against a local stand-in for the API; no live QuoteWerks Web tenant has run it yet. It is being validated with MSPs running it against their own production tenant in our weekly Build Sessions. RSVP at [compoundingteams.com/build-sessions](https://compoundingteams.com/build-sessions).
 
 ---
 
 **Standards.** Conforms to the open [Agent Skills spec](https://agentskills.io) (Anthropic, Dec 2025; 40+ agents). MCP-compatible - works with any MCP-capable agent including [Hermes](https://hermes-agent.nousresearch.com). OpenClaw-ready (frontmatter pre-wired, awaiting OpenClaw launch).
 
-Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: <!-- TODO: YYYY-MM-DD -->._
+Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: 2026-10-14._
