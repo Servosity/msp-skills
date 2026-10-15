@@ -1507,8 +1507,14 @@ func syncResourceParamDefaults(resource string) map[string]string {
 			"includeDelegatedAccounts": "false",
 		}
 	case "firebox_devices":
+		// Hand-fix (handfixes.json: firebox-devices-sync-includes-subscribers):
+		// the spec default (false) returns only the Service Provider's own
+		// devices, so a bare `sync --full` pruned every Subscriber Firebox from
+		// the mirror and `firebox-devices changes` reported the customer fleet
+		// removed. A base param, not a user param: --full still prunes, and
+		// --resource-param firebox_devices:include_hierarchy=false still wins.
 		return map[string]string{
-			"include_hierarchy": "false",
+			"include_hierarchy": "true",
 		}
 	case "firebox_reports":
 		return map[string]string{

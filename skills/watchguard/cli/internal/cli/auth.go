@@ -107,7 +107,12 @@ Credentials default to WATCHGUARD_CLIENT_ID (Client ID) and WATCHGUARD_CLIENT_SE
 			if tokenURL == "" {
 				tokenURL = "https://api.usa.cloud.watchguard.com/oauth/token"
 			}
-			tok, err := mintClientCredentialsToken(http.DefaultClient, tokenURL, clientID, clientSecret)
+			// hand-fix (handfixes.json dry-run-side-effect-free): a dry run
+			// sends no credentials and saves nothing.
+			if dryRunOK(flags) {
+				return writeDryRun(cmd.OutOrStdout(), flags, fmt.Sprintf("auth login: POST grant_type=client_credentials to %s as Access ID %s and save the token in %s", tokenURL, clientID, credentialSavePath(cfg)))
+			}
+			tok, err := mintClientCredentialsToken(http.DefaultClient, tokenURL, clientID, clientSecret, cfg.WatchguardApiKey)
 			if err != nil {
 				return authErr(err)
 			}
@@ -166,7 +171,7 @@ func resolveClientCredentialsUserAgent() string {
 
 // mintClientCredentialsToken POSTs grant_type=client_credentials to the
 // token endpoint and returns the parsed token response.
-func mintClientCredentialsToken(httpClient *http.Client, tokenURL, clientID, clientSecret string) (*tokenResponse, error) {
+func mintClientCredentialsToken(httpClient *http.Client, tokenURL, clientID, clientSecret, apiKey string) (*tokenResponse, error) {
 	form := url.Values{
 		"grant_type": {"client_credentials"},
 	}
@@ -183,13 +188,13 @@ func mintClientCredentialsToken(httpClient *http.Client, tokenURL, clientID, cli
 
 	resp, err := cliutil.OAuthTokenHTTPClient(httpClient).Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("calling token endpoint: %w", err)
+		return nil, fmt.Errorf("calling token endpoint: %w", client.SafeTokenEndpointError(err, tokenURL, clientID, clientSecret, apiKey))
 	}
 	defer resp.Body.Close()
 
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("token endpoint returned HTTP %d: %s", resp.StatusCode, cliutil.SanitizeErrorBody(string(body)))
+		return nil, fmt.Errorf("token endpoint returned HTTP %d: %s", resp.StatusCode, client.SafeTokenEndpointBody(body, clientID, clientSecret, apiKey))
 	}
 	var tok tokenResponse
 	if err := json.Unmarshal(body, &tok); err != nil {
@@ -310,6 +315,9 @@ func newAuthSetTokenCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return configErr(err)
 			}
+			if dryRunOK(flags) {
+				return writeDryRun(cmd.OutOrStdout(), flags, "auth set-token: save the token read from stdin in "+credentialSavePath(cfg))
+			}
 			cfg.AuthHeaderVal = ""
 			cfg.TokenBinding = ""
 			// hand-fix (set-token-clears-saved-client): the token replaces the
@@ -360,6 +368,9 @@ func newAuthLogoutCmd(flags *rootFlags) *cobra.Command {
 			cfg, err := config.Load(flags.configPath)
 			if err != nil {
 				return configErr(err)
+			}
+			if dryRunOK(flags) {
+				return writeDryRun(cmd.OutOrStdout(), flags, "auth logout: clear the stored token and client credentials in "+credentialSavePath(cfg))
 			}
 			if err := cfg.ClearTokens(); err != nil {
 				return configErr(fmt.Errorf("clearing tokens: %w", err))

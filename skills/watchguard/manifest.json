@@ -3,7 +3,7 @@
   "name": "watchguard-mcp",
   "display_name": "WatchGuard Cloud",
   "version": "0.1.0",
-  "description": "Every WatchGuard Cloud product API in one CLI and MCP server: Firebox, Endpoint Security, ThreatSync, AuthPoint, NDR and the MSP account platform.",
+  "description": "WatchGuard Cloud's Firebox, FireCloud, Endpoint Security, ThreatSync, NDR, AuthPoint and account platform APIs in one CLI and MCP server, with cross-customer reports for Service Providers.",
   "author": {
     "name": "Servosity Inc."
   },
@@ -73,7 +73,7 @@
     "watchguard_audience": {
       "type": "string",
       "title": "Pin one managed account",
-      "description": "Optional. A managed account's audience value (watchguard-cli audiences --account-id <id> returns it) scopes every request to that one customer. Leave blank to reach every account you manage.",
+      "description": "Optional convenience. A managed account's audience value (watchguard-cli audiences --account-id <id> returns it) sends every request with that customer's token. Not a security boundary: WatchGuard's audience token also works on your own account. Leave blank for the cross-customer commands.",
       "required": false
     },
     "watchguard_oauth_scope": {
@@ -91,7 +91,7 @@
     "watchguard_mcp_read_only": {
       "type": "string",
       "title": "Read-only MCP server",
-      "description": "Set to exactly 1 to drop the MCP server's write tools and refuse every non-GET call through watchguard_execute. Leave blank for the full tool set.",
+      "description": "Set to 1 (true, yes or on also work) to drop the MCP server's write tools and refuse every non-GET call through watchguard_execute. Leave blank for the full tool set.",
       "required": false
     },
     "watchguard_mcp_http_token": {

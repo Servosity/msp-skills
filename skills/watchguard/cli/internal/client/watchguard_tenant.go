@@ -67,6 +67,11 @@ func (c *Client) ScopedBearer(ctx context.Context, audience string) (string, tim
 	if audience == "" {
 		return "", time.Time{}, fmt.Errorf("audience is empty")
 	}
+	// hand-fix (handfixes.json dry-run-never-mints): no audience token request
+	// from a --dry-run process.
+	if c.DryRun {
+		return "", time.Time{}, ErrDryRunNoTokenRequest
+	}
 	key := c.scopedKey(audience)
 	scopedMu.Lock()
 	tok, ok := scopedTokens[key]
@@ -90,14 +95,18 @@ func (c *Client) ScopedBearer(ctx context.Context, audience string) (string, tim
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", resolveClientCredentialsUserAgent())
 	req.SetBasicAuth(clientID, clientSecret)
+	apiKey := ""
+	if c.Config != nil {
+		apiKey = c.Config.WatchguardApiKey
+	}
 	resp, err := cliutil.OAuthTokenHTTPClient(c.HTTPClient).Do(req)
 	if err != nil {
-		return "", time.Time{}, fmt.Errorf("calling token endpoint: %w", err)
+		return "", time.Time{}, fmt.Errorf("calling token endpoint: %w", SafeTokenEndpointError(err, c.tokenEndpoint(), clientID, clientSecret, apiKey))
 	}
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if resp.StatusCode >= 400 {
-		return "", time.Time{}, &APIError{Method: http.MethodPost, Path: "/oauth/token (audience)", StatusCode: resp.StatusCode, Body: cliutil.SanitizeErrorBody(string(body))}
+		return "", time.Time{}, &APIError{Method: http.MethodPost, Path: "/oauth/token (audience)", StatusCode: resp.StatusCode, Body: SafeTokenEndpointBody(body, clientID, clientSecret, apiKey)}
 	}
 	var tr struct {
 		AccessToken string `json:"access_token"`
@@ -134,6 +143,9 @@ func isScopedBearer(v string) bool {
 // caller's own token.
 func (c *Client) AudienceFor(ctx context.Context, accountID string) (string, error) {
 	accountID = strings.TrimSpace(accountID)
+	if c.DryRun {
+		return "", fmt.Errorf("looking up audience for %s: %w", accountID, ErrDryRunNoTokenRequest)
+	}
 	id, _ := resolveClientCredentials(c.Config)
 	key := id + "|" + c.BaseURL + "|" + accountID
 	scopedMu.Lock()

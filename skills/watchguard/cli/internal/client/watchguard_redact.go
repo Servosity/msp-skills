@@ -7,6 +7,7 @@ package client
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"net/url"
@@ -16,33 +17,12 @@ import (
 	"watchguard-pp-cli/internal/cliutil"
 )
 
-// secretBodyKeys name request and response body fields whose values are
-// secrets in WatchGuard Cloud: BOVPN pre-shared keys (psk, psk_encrypted),
-// certificate private keys and passwords (pvt_key, password, passphrase),
-// AuthPoint passwords, one-time passwords and token activation and
-// verification codes, product activation keys, and generic credential names.
-// Matched as substrings of the lower-cased key, except secretBodyExactKeys.
-var secretBodyKeys = []string{"password", "passphrase", "secret", "token", "psk", "pvt_key", "private_key", "privatekey", "privkey", "apikey", "api_key", "activationkey", "activation_key", "activationcode", "verificationcode"}
-
-// secretBodyExactKeys are too short to match as substrings ("otp" is inside
-// "footprint").
-var secretBodyExactKeys = map[string]bool{"otp": true}
-
 // withheldBody replaces an error body that echoed a request secret.
 const withheldBody = "[response body withheld: it contains a value from a sensitive field of your request, possibly by coincidence; preview the request with --dry-run]"
 
-func isSecretBodyKey(k string) bool {
-	k = strings.ToLower(k)
-	if secretBodyExactKeys[k] {
-		return true
-	}
-	for _, s := range secretBodyKeys {
-		if strings.Contains(k, s) {
-			return true
-		}
-	}
-	return false
-}
+// isSecretBodyKey is cliutil.IsSecretFieldKey: one list for the store, the
+// response cache, tail, row identity, --dry-run and error-body withholding.
+func isSecretBodyKey(k string) bool { return cliutil.IsSecretFieldKey(k) }
 
 // isFlagValue keeps booleans and nulls readable (pskEnabled: true): they
 // cannot carry a secret.
@@ -186,6 +166,13 @@ func authSecrets(authHeader string) []string {
 // built by the CLI (a DNS error names the host), so they are dropped before
 // matching; a server-supplied Location keeps its query.
 func transportError(err error, reqURL string, reqBody []byte, headers map[string]string, authHeader string) error {
+	return transportErrorFor(err, reqURL, append(requestSecrets(reqBody, headers), authSecrets(authHeader)...))
+}
+
+func transportErrorFor(err error, reqURL string, secrets []string) error {
+	if err == nil {
+		return nil
+	}
 	full := err.Error()
 	text := strings.ReplaceAll(full, reqURL, "")
 	host, hostname := "", ""
@@ -193,7 +180,6 @@ func transportError(err error, reqURL string, reqBody []byte, headers map[string
 		host, hostname = u.Host, u.Hostname()
 		text = strings.ReplaceAll(strings.ReplaceAll(text, host, ""), hostname, "")
 	}
-	secrets := append(requestSecrets(reqBody, headers), authSecrets(authHeader)...)
 	// Stripping the host would also cut it out of a secret that contains it,
 	// so such a secret is matched against the unstripped text.
 	var hostSecrets []string
@@ -218,4 +204,51 @@ func errorBody(respBody, reqBody []byte, headers map[string]string, authHeader s
 		return withheldBody
 	}
 	return shown
+}
+
+// tokenRequestSecrets is everything a token request carries (hand-fix,
+// handfixes.json token-error-withholds-credentials): the Access ID and API
+// password, the "id:password" pair HTTP Basic encodes, its base64 and the
+// whole Basic header value, the WatchGuard-API-Key and any extra values (a
+// refresh token). A proxy or a wrong WATCHGUARD_TOKEN_URL that echoes the
+// request must not put them in an error.
+func tokenRequestSecrets(clientID, clientSecret, apiKey string, extra ...string) []string {
+	var out []string
+	add := func(s string) {
+		if strings.TrimSpace(s) != "" {
+			out = append(out, s)
+		}
+	}
+	add(clientID)
+	add(clientSecret)
+	add(apiKey)
+	for _, s := range extra {
+		add(s)
+	}
+	if clientID != "" || clientSecret != "" {
+		pair := clientID + ":" + clientSecret
+		b64 := base64.StdEncoding.EncodeToString([]byte(pair))
+		add(pair)
+		add(b64)
+		add("Basic " + b64)
+	}
+	return out
+}
+
+// SafeTokenEndpointBody is the text a token-endpoint error may show: withheld
+// when the response echoes anything the request carried, in any encoding the
+// echo check decodes; otherwise sanitized with secret-named fields masked.
+func SafeTokenEndpointBody(body []byte, clientID, clientSecret, apiKey string, extra ...string) string {
+	secrets := tokenRequestSecrets(clientID, clientSecret, apiKey, extra...)
+	shown := cliutil.SanitizeErrorBody(truncateBody(redactBody(body)))
+	if cliutil.EchoesSecret(string(body), secrets) || cliutil.EchoesSecret(shown, secrets) {
+		return withheldBody
+	}
+	return shown
+}
+
+// SafeTokenEndpointError withholds a token-request transport error that
+// echoes a credential (a refused redirect names its Location).
+func SafeTokenEndpointError(err error, tokenURL, clientID, clientSecret, apiKey string, extra ...string) error {
+	return transportErrorFor(err, tokenURL, tokenRequestSecrets(clientID, clientSecret, apiKey, extra...))
 }

@@ -17,27 +17,56 @@ import (
 	"watchguard-pp-cli/internal/cliutil"
 )
 
+// healthRow counts are null when the read behind them failed (hand-fix,
+// handfixes.json fanout-partial-data-exit): a failed read is never shown as 0,
+// and complete is false whenever any count is missing.
 type healthRow struct {
 	AccountID        string         `json:"account_id"`
 	AccountName      string         `json:"account_name,omitempty"`
-	FireboxesTotal   int            `json:"fireboxes_total"`
-	FireboxesOffline int            `json:"fireboxes_offline"`
-	EndpointsTotal   int            `json:"endpoints_total"`
-	EndpointsAtRisk  int            `json:"endpoints_at_risk"`
+	FireboxesTotal   *int           `json:"fireboxes_total"`
+	FireboxesOffline *int           `json:"fireboxes_offline"`
+	EndpointsTotal   *int           `json:"endpoints_total"`
+	EndpointsAtRisk  *int           `json:"endpoints_at_risk"`
 	IncidentsOpen    map[string]int `json:"incidents_open"`
-	LicensesExpiring int            `json:"licenses_expiring"`
+	LicensesExpiring *int           `json:"licenses_expiring"`
+	Complete         bool           `json:"complete"`
 	Truncated        bool           `json:"truncated"`
 	Errors           []string       `json:"errors,omitempty"`
+}
+
+func intPtr(n int) *int { return &n }
+
+func derefInt(p *int) int {
+	if p == nil {
+		return 0
+	}
+	return *p
+}
+
+func showCount(p *int) string {
+	if p == nil {
+		return "?"
+	}
+	return fmt.Sprint(*p)
 }
 
 // score ranks rows for attention: offline Fireboxes, at-risk endpoints, expiring
 // licenses, and open incidents weighted by severity.
 func (r healthRow) score() int {
-	n := r.FireboxesOffline + r.EndpointsAtRisk + r.LicensesExpiring
+	n := derefInt(r.FireboxesOffline) + derefInt(r.EndpointsAtRisk) + derefInt(r.LicensesExpiring)
 	for sev, c := range r.IncidentsOpen {
 		n += c * (1 + sevRank(sev))
 	}
 	return n
+}
+
+// healthRowsLess sorts incomplete rows first - an account that could not be
+// fully read is never ranked as healthier than one that was - then by score.
+func healthRowsLess(a, b healthRow) bool {
+	if a.Complete != b.Complete {
+		return !a.Complete
+	}
+	return a.score() > b.score()
 }
 
 type healthView struct {
@@ -89,18 +118,20 @@ func accountHealth(ctx context.Context, c *client.Client, s subscriber, maxPages
 	if err != nil {
 		row.Errors = append(row.Errors, "firebox: "+err.Error())
 	} else {
-		row.FireboxesTotal, row.FireboxesOffline = fleetCounts(asMaps(devData, "data"))
+		total, offline := fleetCounts(asMaps(devData, "data"))
+		row.FireboxesTotal, row.FireboxesOffline = intPtr(total), intPtr(offline)
 	}
 	prot, trunc, err := pageOData(ctx, c, s.ID, "/rest/endpoint-security/management/api/v1/accounts/"+url.PathEscape(s.ID)+"/devicesprotectionstatus", maxPages)
 	if err != nil {
 		row.Errors = append(row.Errors, "endpoint: "+err.Error())
 	} else {
-		row.EndpointsTotal, row.Truncated = len(prot), trunc
+		atRisk := 0
 		for _, m := range prot {
 			if len(protectionIssues(m)) > 0 {
-				row.EndpointsAtRisk++
+				atRisk++
 			}
 		}
+		row.EndpointsTotal, row.EndpointsAtRisk, row.Truncated = intPtr(len(prot)), intPtr(atRisk), trunc
 	}
 	return row, nil
 }
@@ -118,8 +149,10 @@ func newNovelAccountsHealthCmd(flags *rootFlags) *cobra.Command {
 			"Built for a WatchGuard Service Provider account. Fireboxes (Access Points excluded) and endpoints are read per account with audience-scoped tokens; " +
 			"a product the account does not have shows in that row's errors. Incidents come from one ThreatSync call across tenants and license expiry from the " +
 			"Service Provider's allocation lists; failures of those two show at the top level (incidents_error, licenses_error). " +
-			"Rows are sorted by attention score: offline Fireboxes + at-risk endpoints + expiring licenses + open incidents weighted by severity.\n\n" +
-			"Exit codes: 0 all accounts reached, 5 none reached, 6 some could not be reached (--allow-partial-failure exits 0).",
+			"Rows are sorted by attention score: offline Fireboxes + at-risk endpoints + expiring licenses + open incidents weighted by severity; " +
+			"a row with a failed read (complete:false, the missing counts null) is listed first, never as healthier than a fully read row.\n\n" +
+			"WatchGuard documents no separate answer for a product an account does not have (403 means no permission), so a missing product counts as a failed read.\n\n" +
+			"Exit codes: 0 every read succeeded, 5 nothing about any requested account could be read, 6 some account, product, incident or license read failed (--allow-partial-failure exits 0).",
 		Example: strings.Trim(`
   watchguard-cli accounts health --agent
   watchguard-cli accounts health --expiring-within 60d --csv
@@ -150,10 +183,13 @@ func newNovelAccountsHealthCmd(flags *rootFlags) *cobra.Command {
 			view := healthView{Accounts: make([]healthRow, 0)}
 
 			incidents := map[string]map[string]int{}
+			okReads, failedReads := 0, 0
 			if items, trunc, err := fetchIncidents(ctx, c, own, dur, true, tf.pages()); err != nil {
 				view.IncidentsError = err.Error()
+				failedReads++
 			} else {
 				incidents, view.IncidentsTruncate = openIncidentsByAccount(items), trunc
+				okReads++
 			}
 			expiringBy := map[string]int{}
 			now := time.Now()
@@ -166,8 +202,10 @@ func newNovelAccountsHealthCmd(flags *rootFlags) *cobra.Command {
 					map[string]string{"accountType": "2"}, nil, "data", 100, tf.pages())
 				if err != nil {
 					licErrs = append(licErrs, rt+": "+err.Error())
+					failedReads++
 					continue
 				}
+				okReads++
 				view.LicensesTruncated = view.LicensesTruncated || trunc
 				for _, e := range expiringWithin(rt, rows, window, now) {
 					expiringBy[e.AccountID]++
@@ -180,20 +218,37 @@ func newNovelAccountsHealthCmd(flags *rootFlags) *cobra.Command {
 					return accountHealth(ctx, c, s, tf.pages())
 				}, cliutil.WithConcurrency(tf.workers()))
 			view.FetchFailures = fanoutFailures(errs)
+			failedReads += len(errs)
+			accountReadsOK := 0
 			for _, r := range results {
 				row := r.Value
 				if inc := incidents[row.AccountID]; inc != nil {
 					row.IncidentsOpen = inc
 				}
-				row.LicensesExpiring = expiringBy[row.AccountID]
+				if view.IncidentsError != "" {
+					row.IncidentsOpen = nil
+				}
+				if view.LicensesError == "" {
+					row.LicensesExpiring = intPtr(expiringBy[row.AccountID])
+				}
+				for _, p := range []*int{row.FireboxesTotal, row.EndpointsTotal} {
+					if p != nil {
+						accountReadsOK++
+					}
+				}
+				failedReads += len(row.Errors)
+				row.Complete = len(row.Errors) == 0 && row.IncidentsOpen != nil && row.LicensesExpiring != nil
 				view.Accounts = append(view.Accounts, row)
 			}
-			sort.SliceStable(view.Accounts, func(i, j int) bool { return view.Accounts[i].score() > view.Accounts[j].score() })
+			sort.SliceStable(view.Accounts, func(i, j int) bool { return healthRowsLess(view.Accounts[i], view.Accounts[j]) })
 			view.Note = accountsTruncatedNote(cmd.ErrOrStderr(), accTrunc)
 			if err := renderHealth(cmd, flags, view); err != nil {
 				return err
 			}
-			return fanoutVerdict(cmd.ErrOrStderr(), flags, len(errs), len(subs))
+			if len(subs) > 0 && accountReadsOK == 0 {
+				return apiErr(fmt.Errorf("no Firebox or endpoint data could be read for any of the %d account(s); see fetch_failures and errors", len(subs)))
+			}
+			return readVerdict(cmd.ErrOrStderr(), flags, okReads+accountReadsOK, failedReads, "account, product, incident or license reads")
 		},
 	}
 	tf.register(cmd.Flags())
@@ -206,10 +261,10 @@ func newNovelAccountsHealthCmd(flags *rootFlags) *cobra.Command {
 func renderHealth(cmd *cobra.Command, flags *rootFlags, view healthView) error {
 	w := cmd.ErrOrStderr()
 	if view.IncidentsError != "" {
-		fmt.Fprintln(w, "warning: incident counts unavailable (shown as 0): "+view.IncidentsError)
+		fmt.Fprintln(w, "warning: incident counts unavailable (shown as null / ?): "+view.IncidentsError)
 	}
 	if view.LicensesError != "" {
-		fmt.Fprintln(w, "warning: some license expiry counts unavailable: "+view.LicensesError)
+		fmt.Fprintln(w, "warning: license expiry counts unavailable (shown as null / ?): "+view.LicensesError)
 	}
 	if view.IncidentsTruncate || view.LicensesTruncated {
 		fmt.Fprintln(w, "warning: --max-pages cut incident or license lists short; counts may be low")
@@ -229,9 +284,12 @@ func renderHealth(cmd *cobra.Command, flags *rootFlags, view healthView) error {
 	tw := newTabWriter(cmd.OutOrStdout())
 	fmt.Fprintln(tw, "ACCOUNT\tFIREBOX OFF/TOTAL\tENDPOINT RISK/TOTAL\tINCIDENTS C/H/M/L\tEXPIRING\tERRORS")
 	for _, r := range view.Accounts {
-		i := r.IncidentsOpen
-		fmt.Fprintf(tw, "%s\t%d/%d\t%d/%d\t%d/%d/%d/%d\t%d\t%d\n", subscriber{ID: r.AccountID, Name: r.AccountName}.label(), r.FireboxesOffline, r.FireboxesTotal,
-			r.EndpointsAtRisk, r.EndpointsTotal, i["critical"], i["high"], i["medium"], i["low"], r.LicensesExpiring, len(r.Errors))
+		incidents := "?"
+		if i := r.IncidentsOpen; i != nil {
+			incidents = fmt.Sprintf("%d/%d/%d/%d", i["critical"], i["high"], i["medium"], i["low"])
+		}
+		fmt.Fprintf(tw, "%s\t%s/%s\t%s/%s\t%s\t%s\t%d\n", subscriber{ID: r.AccountID, Name: r.AccountName}.label(), showCount(r.FireboxesOffline), showCount(r.FireboxesTotal),
+			showCount(r.EndpointsAtRisk), showCount(r.EndpointsTotal), incidents, showCount(r.LicensesExpiring), len(r.Errors))
 	}
 	return tw.Flush()
 }

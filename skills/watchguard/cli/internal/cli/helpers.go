@@ -1037,7 +1037,7 @@ func classifyHTMLTransportError(err error) error {
 		return classified
 	}
 	if htmlLooksLikeAuthFailure(evidence) {
-		return authErr(fmt.Errorf("not authenticated or session expired; API returned HTML instead of JSON. " + "Run 'watchguard-cli auth setup' for credential setup steps."))
+		return authErr(fmt.Errorf("not authenticated or session expired; API returned HTML instead of JSON. " + "Set WATCHGUARD_CLIENT_ID, WATCHGUARD_CLIENT_SECRET and WATCHGUARD_API_KEY, then run 'watchguard-cli auth login' (check with 'watchguard-cli doctor')."))
 	}
 	return apiErr(fmt.Errorf("%w\nhint: the request may have reached a web page or the wrong endpoint", err))
 }
@@ -1065,20 +1065,20 @@ func classifyAPIErrorOnly(err error) error {
 		return authErr(err)
 	case strings.Contains(msg, "HTTP 400") && cliutil.LooksLikeAuthError(authSignalText(err)): // Hand-fix (handfixes.json: auth-hint-reads-body-not-path)
 		return authErr(fmt.Errorf("%w\nhint: the API rejected the request — this usually means auth is missing or invalid."+
-			"\n      Run 'watchguard-cli auth setup' for credential setup steps."+
-			"\n      See API docs: https://www.watchguard.com/wgrd-support/contact-support"+
+			"\n      Set WATCHGUARD_CLIENT_ID, WATCHGUARD_CLIENT_SECRET and WATCHGUARD_API_KEY, then run 'watchguard-cli auth login' (check with 'watchguard-cli doctor')."+
+			"\n      See API docs: https://www.watchguard.com/help/docs/API/"+
 			"\n      Run 'watchguard-cli doctor' to check auth status."+
 			"\n      Response: "+cliutil.SanitizeErrorBody(msg), err))
 	case strings.Contains(msg, "HTTP 401"):
 		return authErr(fmt.Errorf("%w\nhint: check your token."+
-			"\n      Run 'watchguard-cli auth setup' for credential setup steps."+
-			"\n      See API docs: https://www.watchguard.com/wgrd-support/contact-support"+
+			"\n      Set WATCHGUARD_CLIENT_ID, WATCHGUARD_CLIENT_SECRET and WATCHGUARD_API_KEY, then run 'watchguard-cli auth login' (check with 'watchguard-cli doctor')."+
+			"\n      See API docs: https://www.watchguard.com/help/docs/API/"+
 			"\n      Run 'watchguard-cli doctor' to check auth status.", err))
 	case strings.Contains(msg, "HTTP 403"):
 		return authErr(fmt.Errorf("%w\nhint: permission denied. Your credentials are valid but lack access to this resource."+
 			"\n      Check that your credentials have the required permissions and match the API's expected auth scheme."+
-			"\n      Run 'watchguard-cli auth setup' for credential setup steps."+
-			"\n      See API docs: https://www.watchguard.com/wgrd-support/contact-support"+
+			"\n      Set WATCHGUARD_CLIENT_ID, WATCHGUARD_CLIENT_SECRET and WATCHGUARD_API_KEY, then run 'watchguard-cli auth login' (check with 'watchguard-cli doctor')."+
+			"\n      See API docs: https://www.watchguard.com/help/docs/API/"+
 			"\n      Run 'watchguard-cli doctor' to check auth status.", err))
 	case strings.Contains(msg, "HTTP 404"):
 		return notFoundErr(fmt.Errorf("%w\nhint: resource not found. Run the 'list' command to see available items", err))
@@ -4338,7 +4338,7 @@ func nonJSONPayloadError(data json.RawMessage) error {
 	}
 	if len(trimmed) > 0 && trimmed[0] == '<' {
 		if htmlLooksLikeAuthFailure(trimmed) {
-			return authErr(fmt.Errorf("not authenticated or session expired; API returned HTML instead of JSON. " + "Run 'watchguard-cli auth setup' for credential setup steps."))
+			return authErr(fmt.Errorf("not authenticated or session expired; API returned HTML instead of JSON. " + "Set WATCHGUARD_CLIENT_ID, WATCHGUARD_CLIENT_SECRET and WATCHGUARD_API_KEY, then run 'watchguard-cli auth login' (check with 'watchguard-cli doctor')."))
 		}
 		return apiErr(fmt.Errorf("API returned HTML instead of JSON; the request may have reached a web page or the wrong endpoint"))
 	}

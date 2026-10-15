@@ -8,35 +8,35 @@ import (
 	"strings"
 )
 
-// hand-fix (handfixes.json secret-fields-never-persisted): WatchGuard Cloud
-// GET responses carry credentials inside otherwise ordinary rows. Firebox
-// Management returns BOVPN pre-shared keys (psk, psk_encrypted), certificate
-// private keys and their passwords (pvt_key, password), Firebox user and
-// WebBlocker override passwords, PPPoE / Dynamic DNS passwords, Wi-Fi
-// passphrases and DHCP auth tokens; the activation API returns product
-// activation keys. The local store drops these keys at any depth and the
-// response cache refuses bodies that contain them. The list is a superset:
-// generic credential names are included so a new endpoint is covered by name.
-var secretFieldKeys = map[string]bool{
-	"psk":            true,
-	"psk_encrypted":  true,
-	"pvt_key":        true,
-	"private_key":    true,
-	"privatekey":     true,
-	"password":       true,
-	"passphrase":     true,
-	"secret":         true,
-	"client_secret":  true,
-	"shared_secret":  true,
-	"token":          true,
-	"auth_token":     true,
-	"access_token":   true,
-	"refresh_token":  true,
-	"api_key":        true,
-	"apikey":         true,
-	"activationkey":  true,
-	"activation_key": true,
+// hand-fix (handfixes.json secret-fields-never-persisted, secret-field-list-unified):
+// WatchGuard Cloud bodies carry credentials inside otherwise ordinary rows.
+// Firebox Management returns and accepts BOVPN pre-shared keys (psk,
+// psk_encrypted), certificate private keys, PKCS#12 bundles and their
+// passwords (pvt_key, pfx, password), Firebox user and WebBlocker override
+// passwords, PPPoE / Dynamic DNS passwords, Wi-Fi passphrases and DHCP auth
+// tokens; the activation API carries product activation and license keys
+// (activationKey, initialServiceLicenseKey, parentLicenseKey); AuthPoint takes
+// passwords, one-time passwords and Forgot Token activation / verification
+// codes. This is the ONE list: the local store, the response cache, tail, row
+// identity, --dry-run previews and error-body echo withholding all use it.
+//
+// secretFieldExact names match the whole lower-cased key, secretFieldParts
+// match anywhere in it (adminPassword, psk_encrypted) and secretFieldSuffixes
+// match its end (auth_token, accessToken, but not a total_tokens count).
+var secretFieldExact = map[string]bool{
+	"otp": true,
+	"p12": true,
 }
+
+var secretFieldParts = []string{
+	"password", "passphrase", "secret",
+	"psk", "pvt_key", "private_key", "privatekey", "privkey", "pfx", "pkcs12",
+	"apikey", "api_key",
+	"activationkey", "activation_key", "licensekey", "license_key",
+	"activationcode", "activation_code", "verificationcode", "verification_code",
+}
+
+var secretFieldSuffixes = []string{"token"}
 
 // IsSecretBearingPath reports whether a GET path returns credentials in
 // fields whose names are not secret-shaped: the Endpoint Security installers
@@ -52,7 +52,34 @@ func IsSecretBearingPath(path string) bool {
 
 // IsSecretFieldKey reports whether a JSON key names a credential value.
 // Matching ignores case so psk, PSK and activationKey are all caught.
-func IsSecretFieldKey(key string) bool { return secretFieldKeys[strings.ToLower(key)] }
+func IsSecretFieldKey(key string) bool {
+	k := strings.ToLower(strings.TrimSpace(key))
+	if secretFieldExact[k] {
+		return true
+	}
+	for _, part := range secretFieldParts {
+		if strings.Contains(k, part) {
+			return true
+		}
+	}
+	for _, suffix := range secretFieldSuffixes {
+		if strings.HasSuffix(k, suffix) {
+			return true
+		}
+	}
+	return false
+}
+
+// SecretFieldValue reports whether a value under a secret-named key can
+// carry a secret: booleans and nulls (psk_set: true, isInForgotToken: false)
+// cannot, so they stay readable and never mark a body as secret-bearing.
+func SecretFieldValue(v any) bool {
+	switch v.(type) {
+	case bool, nil:
+		return false
+	}
+	return true
+}
 
 // RedactSecretFields returns raw with every secret-named key removed at any
 // depth, and whether anything was removed. Unchanged input is returned as-is;
@@ -85,7 +112,7 @@ func dropSecretKeys(v any) bool {
 	switch t := v.(type) {
 	case map[string]any:
 		for k, child := range t {
-			if IsSecretFieldKey(k) {
+			if IsSecretFieldKey(k) && SecretFieldValue(child) {
 				delete(t, k)
 				removed = true
 				continue

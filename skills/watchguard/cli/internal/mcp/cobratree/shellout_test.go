@@ -2118,19 +2118,28 @@ func TestMCPReadOnlySwitch(t *testing.T) {
 		}
 	})
 
+	// hand-fix (handfixes.json mcp-read-only-fails-closed): the switch is off
+	// only for "", "0", "false", "no" and "off" (trimmed, any case); any other
+	// value turns it on, so "true" or "1 " never silently leaves writes on.
 	t.Run("other values", func(t *testing.T) {
-		for _, value := range []string{"", "true", "yes", "0", "TRUE"} {
+		for _, value := range []string{"", "0", "false", "no", "off", " OFF ", "False", "${user_config.watchguard_mcp_read_only}"} {
 			t.Setenv(cliutil.MCPReadOnlyEnvVar, value)
 			if cliutil.IsMCPReadOnlyEnv() {
 				t.Fatalf("value %q enabled the read-only switch", value)
+			}
+		}
+		for _, value := range []string{"1", "1 ", "true", "TRUE", "yes", "on", "enabled"} {
+			t.Setenv(cliutil.MCPReadOnlyEnvVar, value)
+			if !cliutil.IsMCPReadOnlyEnv() {
+				t.Fatalf("value %q left the read-only switch off", value)
 			}
 		}
 		t.Setenv(cliutil.MCPReadOnlyEnvVar, "true")
 		root := mcpReadOnlyFixtureRoot()
 		s := server.NewMCPServer("test", "0.0.0")
 		RegisterAll(s, root, func() (string, error) { return "missing-binary", nil })
-		if s.ListTools()["purge"] == nil {
-			t.Fatal(`"true" skipped mutating tools`)
+		if s.ListTools()["purge"] != nil {
+			t.Fatal(`"true" still registered a mutating tool`)
 		}
 	})
 

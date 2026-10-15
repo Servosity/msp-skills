@@ -17,6 +17,7 @@ import (
 	"testing"
 	"time"
 
+	"watchguard-pp-cli/internal/cliutil"
 	"watchguard-pp-cli/internal/config"
 )
 
@@ -198,5 +199,21 @@ func TestDryRunRedactsSecretBody(t *testing.T) {
 	}
 	if !strings.Contains(string(out), `"t1"`) || !strings.Contains(string(out), "[redacted]") || !strings.Contains(string(out), "true") {
 		t.Fatalf("dry run lost the non-secret preview:\n%s", out)
+	}
+}
+
+// hand-fix (handfixes.json secret-field-list-unified): --dry-run and the
+// error-body echo check use the same list as the store, name for name.
+func TestDryRunAndStoreShareOneSecretList(t *testing.T) {
+	for _, k := range []string{"pfx", "otp", "initialServiceLicenseKey", "parentLicenseKey", "activationCode", "verificationCode", "pvt_key", "auth_token", "psk"} {
+		masked := string(redactBody([]byte(`{"` + k + `":"SENTINEL","name":"n"}`)))
+		if strings.Contains(masked, "SENTINEL") != !cliutil.IsSecretFieldKey(k) || strings.Contains(masked, "SENTINEL") {
+			t.Errorf("dry-run/store disagree on %q: %s", k, masked)
+		}
+	}
+	for _, k := range []string{"total_tokens", "serialOrLicense", "certificate"} {
+		if masked := string(redactBody([]byte(`{"` + k + `":"KEEP"}`))); !strings.Contains(masked, "KEEP") {
+			t.Errorf("dry-run masked non-secret %q: %s", k, masked)
+		}
 	}
 }

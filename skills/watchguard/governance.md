@@ -31,6 +31,11 @@ Where credentials live:
   than borrow the cached token when it has no password to mint with.
 - Per-customer tokens (one per managed account, minted with that account's audience)
   stay in memory and are never written to disk.
+- `WATCHGUARD_AUDIENCE` makes every request use one managed account's token. It is a
+  convenience for single-customer work, not a security boundary: WatchGuard's
+  documentation says an audience token works for that account "or your own account", so a
+  pinned process can still reach your Service Provider account. Do not rely on it to
+  contain an agent; use the read-only Access ID for that.
 - `WATCHGUARD_BASE_URL`, `WATCHGUARD_TOKEN_URL` and `WATCHGUARD_ACCOUNT_ID` set in the
   environment apply to that run only; they are never written into `config.toml`.
 
@@ -56,8 +61,10 @@ response that carries one, or any `endpoint-installers` response.
 ## Default-safe behavior
 
 - **Writes send immediately.** No write command asks for confirmation. Preview any
-  write with `--dry-run` first: it prints the request and sends nothing, and it does
-  not even request a login token.
+  write with `--dry-run` first: it prints the request and sends nothing, does not
+  request a login token, and changes nothing on disk (`auth login`, `auth logout` and
+  `feedback` print what they would do; `jobs prune`, `profile save` and `profile delete`
+  refuse `--dry-run`, as do `export --output` and `--deliver webhook:` with it).
 - **`accounts delete` with no flags targets your own account.** Its path takes
   `--account-id`, which defaults to `WATCHGUARD_ACCOUNT_ID`. Always pass the managed
   account's ID explicitly.
@@ -95,8 +102,6 @@ require a human for anything below the first row.
   run, including the credential reads above, so pair it with the read-only Access ID.
   `tail` and `import` are not MCP tools, and MCP tools never take a local file path
   for the CLI to read.
-- **Pin one customer when that is all the work needs.** `WATCHGUARD_AUDIENCE` scopes
-  every request the process makes to one managed account.
 - **Keep autonomous agents to Read plus previewed writes.** The gate lives in your
   agent's policy, not in the binary's defaults.
 - **Rotate the Access ID password and API key if they are ever exposed**, for example
@@ -105,8 +110,8 @@ require a human for anything below the first row.
 
 `PRINTING_PRESS_CLIENT_PROFILE` and `--client-profile` are not enforced by this
 connector: WatchGuard has no tenant-gated client profiles here, so a value does not
-limit which customer accounts a call can reach. Use the Access ID and
-`WATCHGUARD_AUDIENCE` for that.
+limit which customer accounts a call can reach. The Access ID you give it is the only
+hard limit.
 
 ## Why an MSP owner can be comfortable
 

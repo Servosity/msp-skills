@@ -2777,7 +2777,7 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 		return mcplib.NewToolResultError(fmt.Sprintf("unknown endpoint_id %q — call watchguard_search to discover valid ids", id)), nil
 	}
 	if codeOrchBlockedByMCPReadOnly(ep.Method) {
-		return mcplib.NewToolResultError(fmt.Sprintf("refusing %s %s while %s=1", ep.Method, id, cliutil.MCPReadOnlyEnvVar)), nil
+		return mcplib.NewToolResultError(fmt.Sprintf("refusing %s %s while %s is on", ep.Method, id, cliutil.MCPReadOnlyEnvVar)), nil
 	}
 
 	params, _ := args["params"].(map[string]any)

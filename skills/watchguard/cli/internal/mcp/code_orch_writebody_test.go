@@ -107,13 +107,19 @@ func TestCodeOrchExecuteReadOnlyRefusesNonGET(t *testing.T) {
 	if codeOrchBlockedByMCPReadOnly("POST") {
 		t.Fatal("unset switch blocked POST")
 	}
+	// hand-fix (handfixes.json mcp-read-only-fails-closed): any value other
+	// than "", "0", "false", "no" or "off" turns the switch on.
 	t.Setenv(cliutil.MCPReadOnlyEnvVar, "true")
-	if codeOrchBlockedByMCPReadOnly("DELETE") {
-		t.Fatal(`"true" enabled the read-only switch`)
+	if !codeOrchBlockedByMCPReadOnly("DELETE") {
+		t.Fatal(`"true" left DELETE allowed through watchguard_execute`)
 	}
 	t.Setenv(cliutil.MCPReadOnlyEnvVar, "yes")
-	if codeOrchBlockedByMCPReadOnly("PATCH") {
-		t.Fatal(`"yes" enabled the read-only switch`)
+	if !codeOrchBlockedByMCPReadOnly("PATCH") {
+		t.Fatal(`"yes" left PATCH allowed through watchguard_execute`)
+	}
+	t.Setenv(cliutil.MCPReadOnlyEnvVar, "off")
+	if codeOrchBlockedByMCPReadOnly("POST") {
+		t.Fatal(`"off" blocked POST`)
 	}
 	t.Setenv(cliutil.MCPReadOnlyEnvVar, "1")
 	if codeOrchBlockedByMCPReadOnly("GET") {

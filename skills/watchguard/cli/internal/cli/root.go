@@ -405,6 +405,9 @@ See README.md or the bundled SKILL.md for recipes.`,
 		// A saved profile can set dry-run after flag parse. Suppression has to
 		// see that value before any store path is resolved.
 		setLegacyDBClaimSuppressed(flags.dryRun)
+		if err := applyDryRunPolicy(cmd, flags); err != nil {
+			return err
+		}
 		// An incompatible --data-source has to fail before the platform
 		// identity probe. A failed probe would otherwise hide this error.
 		switch flags.dataSource {
@@ -459,7 +462,7 @@ See README.md or the bundled SKILL.md for recipes.`,
 		// --no-learn invocations so deterministic agent flows don't
 		// race a background seed, and for read-only commands so a GET
 		// never runs the one-way schema migration.
-		if !noLearnActive(flags) && !shouldSkipLearnHook(cmd.CommandPath()) && commandMayWriteStore(cmd) {
+		if !noLearnActive(flags) && !shouldSkipLearnHook(cmd.CommandPath()) && commandMayWriteStore(cmd) && !dryRunInvocation(flags) {
 			runLearnInitOnce(cmd.Context())
 			runPlaybookInitOnce(cmd.Context())
 		}
@@ -664,7 +667,7 @@ func journalInvocation(flags *rootFlags, rootCmd, executed *cobra.Command, err e
 	// The master --no-learn switch kills journaling too. On the
 	// parse-failure path the flag was never parsed into rootFlags, so
 	// the raw args are consulted as well.
-	if noLearnActive(flags) || argsDisableLearn(os.Args[1:]) {
+	if noLearnActive(flags) || argsDisableLearn(os.Args[1:]) || dryRunInvocation(flags) {
 		return
 	}
 	exitCode := 0
@@ -789,7 +792,7 @@ var learnFamilyCommands = map[string]struct{}{
 // appended may wait out the peer still holding the offset lock so that
 // line is not left unpaired when the process exits.
 func deriveFlagCorrections(flags *rootFlags, rootCmd, executed *cobra.Command) {
-	if noLearnActive(flags) || argsDisableLearn(os.Args[1:]) || learn.JournalCaptureDisabled() {
+	if noLearnActive(flags) || argsDisableLearn(os.Args[1:]) || learn.JournalCaptureDisabled() || dryRunInvocation(flags) {
 		return
 	}
 	chain := journalVerbChain(rootCmd, executed)

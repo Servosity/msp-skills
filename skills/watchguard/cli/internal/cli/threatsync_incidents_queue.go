@@ -150,12 +150,13 @@ func newNovelThreatsyncIncidentsQueueCmd(flags *rootFlags) *cobra.Command {
 			"Do NOT use this command for per-customer incident counts alongside other products; use 'accounts health' instead.\n\n" +
 			"Reads incidents for --account-id and, unless --own-only, every account it manages (ThreatSync tenants=true). " +
 			"An incident is untouched when its status is new and it has no comments and no performed action. " +
-			"recommended_not_performed lists entity recommendations (isolate, quarantineFile, ...) that no performed action covers.",
+			"recommended_not_performed lists entity recommendations (isolate, quarantineFile, ...) that no performed action covers.\n\n" +
+			"Exit codes: 0 every read succeeded, 6 the account-name lookup failed (account_names_error; --allow-partial-failure exits 0), 5 the incident read failed.",
 		Example: strings.Trim(`
   watchguard-cli threatsync-incidents queue --agent
   watchguard-cli threatsync-incidents queue --duration 7D --min-severity high --json
   watchguard-cli threatsync-incidents queue --status new --limit 20`, "\n"),
-		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "live"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "live", "pp:typed-exit-codes": "0,6"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dryRunOK(flags) {
 				return writeDryRun(cmd.OutOrStdout(), flags, "threatsync-incidents queue")
@@ -207,12 +208,22 @@ func newNovelThreatsyncIncidentsQueueCmd(flags *rootFlags) *cobra.Command {
 				view.Note = fmt.Sprintf("stopped after %d pages of 500 incidents; raise --max-pages or narrow --duration", pages)
 				fmt.Fprintln(cmd.ErrOrStderr(), "warning: "+view.Note)
 			}
+			// Hand-fix (handfixes.json fanout-partial-data-exit): a failed lookup
+			// exits 6 like every other fan-out.
+			namesFailed := 0
+			if view.NameLookupErr != "" {
+				namesFailed = 1
+			}
+			verdict := readVerdict(cmd.ErrOrStderr(), flags, 1, namesFailed, "incident and account-name reads")
 			if !wantsHumanTable(cmd.OutOrStdout(), flags) {
-				return printJSONFiltered(cmd.OutOrStdout(), view, flags)
+				if err := printJSONFiltered(cmd.OutOrStdout(), view, flags); err != nil {
+					return err
+				}
+				return verdict
 			}
 			if len(view.Queue) == 0 {
 				fmt.Fprintf(cmd.OutOrStdout(), "No matching incidents (%d scanned).\n", view.IncidentsScanned)
-				return nil
+				return verdict
 			}
 			tw := newTabWriter(cmd.OutOrStdout())
 			fmt.Fprintln(tw, "SEVERITY\tSCORE\tAGE(h)\tACCOUNT\tSTATUS\tUNTOUCHED\tTYPE\tRECOMMENDED")
@@ -220,7 +231,10 @@ func newNovelThreatsyncIncidentsQueueCmd(flags *rootFlags) *cobra.Command {
 				fmt.Fprintf(tw, "%s\t%d\t%d\t%s\t%s\t%t\t%s\t%s\n", r.Severity, r.ThreatScore, r.AgeHours, subscriber{ID: r.AccountID, Name: r.AccountName}.label(),
 					r.Status, r.Untouched, truncate(r.Type, 40), strings.Join(r.RecommendedNotPerformed, ","))
 			}
-			return tw.Flush()
+			if err := tw.Flush(); err != nil {
+				return err
+			}
+			return verdict
 		},
 	}
 	cmd.Flags().StringVar(&duration, "duration", "7D", "Days of incidents to read, a number followed by D (e.g. 7D, 30D)")

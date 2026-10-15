@@ -3,6 +3,7 @@
 package cli
 
 import (
+	"encoding/base64"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -72,5 +73,23 @@ func TestAuthLoginRefusesPlaceholders(t *testing.T) {
 	}
 	if n := hits.Load(); n != 0 {
 		t.Fatalf("placeholder credentials reached the token endpoint %d times", n)
+	}
+}
+
+// hand-fix (handfixes.json token-error-withholds-credentials): auth login's
+// own token request withholds an error that echoes the Basic credentials.
+func TestAuthLoginErrorNeverEchoesCredentials(t *testing.T) {
+	isolateAuthEnv(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(`{"error":"invalid_client","authorization":"` + r.Header.Get("Authorization") + `"}`))
+	}))
+	defer srv.Close()
+	t.Setenv("WATCHGUARD_HOME", t.TempDir())
+	t.Setenv("WATCHGUARD_TOKEN_URL", srv.URL+"/oauth/token")
+	out, err := runAuthCmd(t, "", "auth", "login", "--client-id", "AccessID-7f3a91", "--client-secret", "ApiPw-SENTINEL-9z")
+	b64 := base64.StdEncoding.EncodeToString([]byte("AccessID-7f3a91:ApiPw-SENTINEL-9z"))
+	if err == nil || strings.Contains(out+err.Error(), b64) || strings.Contains(out+err.Error(), "ApiPw-SENTINEL") || !strings.Contains(err.Error(), "withheld") {
+		t.Fatalf("auth login echoed credentials: err=%v out=%s", err, out)
 	}
 }

@@ -158,7 +158,7 @@ watchguard-cli threatsync-incidents queue --agent
   ```
 
 ### Change control
-- **`firebox-transactions wait`**  -  Block until a Firebox deployment or certificate-install transaction finishes: exit 0 on complete, 8 on failed, 9 if still running at --max-wait.
+- **`firebox-transactions wait`**  -  Block until a Firebox deployment or certificate-install transaction finishes: exit 0 on complete, 8 if it ended without completing (failed, timed out or canceled), 9 if still running at --max-wait.
 
   _Use this right after a deploy so a script or agent gets a pass or fail instead of polling._
 
@@ -833,7 +833,7 @@ Manage threatsync transactions
 
 ### firebox-transactions
 
-- **`watchguard-cli firebox-transactions wait`** - Block until a Firebox deployment or certificate-install transaction finishes: exit 0 on complete, 8 on failed, 9 if still running at --max-wait.
+- **`watchguard-cli firebox-transactions wait`** - Block until a Firebox deployment or certificate-install transaction finishes: exit 0 on complete, 8 if it ended without completing (failed, timed out or canceled), 9 if still running at --max-wait.
 
 ### threatsync-incidents
 
@@ -888,7 +888,7 @@ This CLI is designed for AI agent consumption:
 - **Offline-friendly** - sync/search commands can use the local SQLite store when available
 - **Agent-safe by default** - no colors or formatting unless `--human-friendly` is set
 
-Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `6` partial failure, `7` rate limited, `8` async job submitted but not finished (rerun the printed recovery command; do not resubmit), `10` config error.
+Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `6` partial failure, `7` rate limited, `8` async job submitted but not finished (rerun the printed recovery command; do not resubmit) - for `firebox-transactions wait`, the deployment ended without completing (failed, timed out or canceled), `9` `firebox-transactions wait` only: still running when `--max-wait` elapsed, `10` config error.
 
 ## Runtime Endpoint
 
@@ -923,7 +923,7 @@ Environment variables:
 | `WATCHGUARD_ACCOUNT_ID` | endpoint | Yes | Your account ID (ACC-... or WGC-...); `--account-id` overrides it. |
 | `WATCHGUARD_BASE_URL` | endpoint | No | Region API host; default https://api.usa.cloud.watchguard.com (EMEA: api.deu, APAC: api.jpn). |
 | `WATCHGUARD_TOKEN_URL` | endpoint | No | Region token URL; default https://api.usa.cloud.watchguard.com/oauth/token. |
-| `WATCHGUARD_AUDIENCE` | per_call | No | Scope every request to one managed account (value from `audiences --account-id`). |
+| `WATCHGUARD_AUDIENCE` | per_call | No | Send every request with one managed account's token (value from `audiences --account-id`). A convenience, not a security boundary: the audience token also works on your own account. |
 
 ### agentcookie (optional)
 

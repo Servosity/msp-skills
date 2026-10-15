@@ -100,7 +100,7 @@ func warnSkipped(cmd *cobra.Command, n int) {
 	}
 }
 
-const noMirrorNote = "no local mirror: run 'watchguard-cli sync --resources firebox_devices --resource-param firebox_devices:include_hierarchy=true --full' first"
+const noMirrorNote = "no local mirror: run 'watchguard-cli sync --resources firebox_devices --full' first"
 
 // openFleetStore returns (nil, false, nil) when the database file does not exist yet.
 func openFleetStore(cmd *cobra.Command, flags *rootFlags, dbPath string, readOnly bool) (*store.Store, bool, error) {
@@ -302,11 +302,11 @@ func newNovelFireboxDevicesChangesCmd(flags *rootFlags) *cobra.Command {
 		Short: "Show which synced Fireboxes, FireClusters and APs went offline, came back, appeared, disappeared or changed firmware since the last snapshot",
 		Long: "Use this command to see what changed in the Firebox/FireCluster/AP fleet since the last snapshot (went offline, came back, new or removed devices, firmware changed). " +
 			"Do NOT use this command to find devices running older firmware than their model peers; use 'firebox-devices firmware-lag' instead.\n\n" +
-			"Reads the locally synced device list, so sync first (add --resource-param firebox_devices:include_hierarchy=true for Subscriber devices, and --full so devices that disappeared are dropped and reported as removed). " +
+			"Reads the locally synced device list, so sync first (sync includes Subscriber devices by default; use --full so devices that disappeared are dropped and reported as removed). " +
 			"A snapshot is recorded whenever the synced fleet looks different from the last one; running the command again before the next sync repeats the same comparison. " +
 			"Change kinds: went_offline, removed, state_changed, firmware_changed, cloud_managed_changed, new, came_online. The first run records a baseline.",
 		Example: strings.Trim(`
-  watchguard-cli sync --resources firebox_devices --resource-param firebox_devices:include_hierarchy=true --full
+  watchguard-cli sync --resources firebox_devices --full
   watchguard-cli firebox-devices changes --agent
   watchguard-cli firebox-devices changes --no-record --json`, "\n"),
 		Annotations: map[string]string{"mcp:local-write": "true", "pp:data-source": "local"},

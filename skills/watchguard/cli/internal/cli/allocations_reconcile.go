@@ -153,12 +153,13 @@ func newNovelAllocationsReconcileCmd(flags *rootFlags) *cobra.Command {
 			"Needs a WatchGuard Service Provider account (allocation APIs). Hardware: allocated serials with no reporting Firebox, allocated Fireboxes offline " +
 			"longer than --offline-for, reporting Fireboxes still unallocated, and reporting Fireboxes with no allocation record; skipped with a reason if a " +
 			"lookup fails. Products: total, allocated and available quantity per software product in the Service Provider's inventory. " +
-			"Expiring: Firebox allocations and products that run out within --expiring-within (already-expired ones flagged expired).",
+			"Expiring: Firebox allocations and products that run out within --expiring-within (already-expired ones flagged expired).\n\n" +
+			"Exit codes: 0 every lookup succeeded, 6 some lookup failed (listed in fetch_failures; --allow-partial-failure exits 0), 5 the allocation lookup itself failed.",
 		Example: strings.Trim(`
   watchguard-cli allocations reconcile --agent
   watchguard-cli allocations reconcile --expiring-within 30d --json
   watchguard-cli allocations reconcile --types endPoint,authPoint --offline-for 14d`, "\n"),
-		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "live"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "live", "pp:typed-exit-codes": "0,6"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dryRunOK(flags) {
 				return writeDryRun(cmd.OutOrStdout(), flags, "allocations reconcile")
@@ -183,6 +184,7 @@ func newNovelAllocationsReconcileCmd(flags *rootFlags) *cobra.Command {
 			}
 			now := time.Now()
 			view := reconcileView{Hardware: emptyHardware(), Products: make([]productUsage, 0), Expiring: make([]expiringItem, 0), FetchFailures: make([]fetchFailure, 0)}
+			lookups := 0
 			fail := func(source string, err error) {
 				view.FetchFailures = append(view.FetchFailures, fetchFailure{Source: source, Error: err.Error()})
 			}
@@ -196,6 +198,7 @@ func newNovelAllocationsReconcileCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return classifyAPIErrorOnly(err)
 			}
+			lookups += 3 // allocated, unallocated, devices
 			trunc("firebox allocated summary", t1)
 			unallocated, t2, errU := allocationSummary(ctx, c, own, "firebox", "unallocated", pages)
 			if errU != nil {
@@ -220,6 +223,7 @@ func newNovelAllocationsReconcileCmd(flags *rootFlags) *cobra.Command {
 				if rt = strings.TrimSpace(rt); rt == "" {
 					continue
 				}
+				lookups++
 				rows, t, err := allocationSummary(ctx, c, own, rt, "", pages)
 				if err != nil {
 					fail(rt+" summary", err)
@@ -238,8 +242,14 @@ func newNovelAllocationsReconcileCmd(flags *rootFlags) *cobra.Command {
 			if len(view.Truncated) > 0 {
 				fmt.Fprintf(cmd.ErrOrStderr(), "warning: --max-pages cut %s short\n", strings.Join(view.Truncated, ", "))
 			}
+			// Hand-fix (handfixes.json fanout-partial-data-exit): a failed lookup
+			// exits 6 like every other fan-out, not 0 with a fetch_failures list.
+			verdict := readVerdict(cmd.ErrOrStderr(), flags, lookups-len(view.FetchFailures), len(view.FetchFailures), "allocation lookups")
 			if !wantsHumanTable(cmd.OutOrStdout(), flags) {
-				return printJSONFiltered(cmd.OutOrStdout(), view, flags)
+				if err := printJSONFiltered(cmd.OutOrStdout(), view, flags); err != nil {
+					return err
+				}
+				return verdict
 			}
 			h := view.Hardware
 			if h.Skipped != "" {
@@ -259,7 +269,7 @@ func newNovelAllocationsReconcileCmd(flags *rootFlags) *cobra.Command {
 			for _, e := range view.Expiring {
 				fmt.Fprintf(cmd.OutOrStdout(), "expires in %d day(s): %s %s %s %s\n", e.DaysLeft, e.ResourceType, e.Product, e.Serial, e.AccountName)
 			}
-			return nil
+			return verdict
 		},
 	}
 	cmd.Flags().StringVar(&types, "types", "endPoint,authPoint,threatSync,ndr,fireCloud", "Software resource types to summarize: endPoint, authPoint, threatSync, ndr, fireCloud, managedServices, fireboxRetention, cloudDR")

@@ -8,19 +8,23 @@ All notable changes to this skill are documented here. Format follows
 
 ### Added
 - Initial msp-skills release: `watchguard-cli` and `watchguard-mcp` for 208 operations
-  across 13 WatchGuard Cloud APIs - Firebox Management, FireCloud, WatchGuard Endpoint
-  Security, ThreatSync, NDR, AuthPoint, and the platform's accounts, operators,
-  activations and license allocation - built from WatchGuard's own published OpenAPI
-  specifications. Authenticates with a WatchGuard Cloud Access ID, its password and the
+  from 13 of WatchGuard's published OpenAPI specifications - Firebox Management and
+  Reports, FireCloud, WatchGuard Endpoint Security, ThreatSync, NDR assets and Smart
+  Alerts, AuthPoint authentication, and the platform's accounts, operators, activations,
+  license allocation and authorization APIs. Authenticates with a WatchGuard Cloud Access ID, its password and the
   API key, in the North America, EMEA or APAC region (`WATCHGUARD_BASE_URL`,
   `WATCHGUARD_TOKEN_URL`).
 - Service Provider fan-out: `accounts health` (one ranked row per customer across
-  Firebox, endpoints, ThreatSync and licenses), `endpoint-devices posture`,
-  `endpoint-patches exposure` and `allocations reconcile` mint a separate token for each
-  managed account, so one credential reaches every customer; `threatsync-incidents queue`
-  ranks open incidents across them. `WATCHGUARD_AUDIENCE` pins a process to one customer.
+  Firebox, endpoints, ThreatSync and licenses), `endpoint-devices posture` and
+  `endpoint-patches exposure` mint a separate token for each managed account where
+  WatchGuard requires one, so one credential reaches every customer;
+  `threatsync-incidents queue` ranks open incidents across them, and `allocations
+  reconcile` matches allocations to the Fireboxes that report in.
+  `WATCHGUARD_AUDIENCE` sends every request with one customer's token (a convenience, not
+  a security boundary).
 - Change control and fleet history: `firebox-transactions wait` exits 0 when a
-  deployment completes, 8 when it fails and 9 when it is still running at `--max-wait`;
+  deployment completes, 8 when it fails, times out or is canceled, and 9 when it is still
+  running at `--max-wait`;
   `firebox-devices changes` and `firmware-lag` compare synced snapshots of the Firebox
   and access point fleet.
 - Secret handling: BOVPN pre-shared keys, certificate private keys and passwords,

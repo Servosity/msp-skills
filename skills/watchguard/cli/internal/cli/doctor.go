@@ -281,15 +281,15 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 					configured, authSource := doctorAuthConfiguredState(cfg)
 					if !configured {
 						report["auth"] = "not configured"
-						report["auth_hint"] = "Run 'watchguard-cli auth setup' for credential setup steps."
-						report["auth_docs_url"] = "https://www.watchguard.com/wgrd-support/contact-support"
+						report["auth_hint"] = "Set WATCHGUARD_CLIENT_ID, WATCHGUARD_CLIENT_SECRET and WATCHGUARD_API_KEY, then run 'watchguard-cli auth login' (check with 'watchguard-cli doctor')."
+						report["auth_docs_url"] = "https://www.watchguard.com/help/docs/API/"
 					} else {
 						authConfigured = true
 						report["auth"] = "configured"
 						report["auth_source"] = authSource
 						if expiresAt, _, expired, ok := jwtCredentialExpiry(jwtExpirySource(cfg)); ok && expired {
 							report["auth"] = "ERROR token expired at " + expiresAt
-							report["auth_hint"] = "Run 'watchguard-cli auth setup' for credential setup steps."
+							report["auth_hint"] = "Set WATCHGUARD_CLIENT_ID, WATCHGUARD_CLIENT_SECRET and WATCHGUARD_API_KEY, then run 'watchguard-cli auth login' (check with 'watchguard-cli doctor')."
 						}
 					}
 				}

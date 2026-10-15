@@ -23,7 +23,7 @@
     },
     {
       "id": "secret-fields-never-persisted",
-      "summary": "Secret-named JSON keys (psk, psk_encrypted, pvt_key, password, passphrase, auth_token, activationKey and generic credential names, case-insensitive) are dropped at any depth before any row reaches the local store (generic blob, typed columns and FTS index, via the single mergeIncomingResourceData choke point), and an HTTP response that carries one is never written to the response cache. Endpoint Security installer responses (enrollment download links) are never cached and are stored as an empty object. Helper: internal/cliutil/secretfields.go.",
+      "summary": "Secret-named JSON keys (any key containing password, passphrase, secret, psk, pvt_key, private key, pfx/pkcs12, api key, activation/license key or activation/verification code, any key ending in token, and otp/p12; case-insensitive; booleans and nulls exempt) are dropped at any depth before any row reaches the local store (generic blob, typed columns and FTS index, via the single mergeIncomingResourceData choke point), and an HTTP response that carries one is never written to the response cache. Endpoint Security installer responses (enrollment download links) are never cached and are stored as an empty object. Helper: internal/cliutil/secretfields.go.",
       "why": "WatchGuard Firebox Management GETs return live secrets in ordinary rows: BOVPN tunnels carry psk/psk_encrypted, certificates carry pvt_key and password, networks carry PPPoE/Dynamic DNS passwords, Wi-Fi passphrases and DHCP auth tokens, users and content filtering carry passwords, and the activation API returns activationKey. Found at onboarding (2026-10-15) by scanning the spec's 2xx response schemas, then proven with a sentinel mock: a default `sync` plus list/get of each resource wrote every sentinel into data.db (typed psk column included) and 11 response-cache files. With the hooks: zero sentinels on disk while the rows still sync. internal/store/secret_fields_test.go fails (20 'secret persisted' findings) with the store hook reverted; internal/cliutil/secretfields_test.go covers the cache-side detection. A reprint regenerates store.go and client.go and silently drops both hooks while go build and go test stay green.",
       "status": "active",
       "spec_encode_followup": "Needs a press feature: an x-secret / writeOnly-aware store projection that never persists credential fields; no spec extension expresses it today.",
@@ -45,12 +45,12 @@
         },
         {
           "file": "cli/internal/cliutil/secretfields.go",
-          "contains": "\"psk_encrypted\":",
+          "contains": "\"psk\", \"pvt_key\", \"private_key\", \"privatekey\", \"privkey\", \"pfx\", \"pkcs12\",",
           "code_only": true
         },
         {
           "file": "cli/internal/cliutil/secretfields.go",
-          "contains": "\"activationkey\":",
+          "contains": "\"activationkey\", \"activation_key\", \"licensekey\", \"license_key\",",
           "code_only": true
         },
         {
@@ -642,6 +642,221 @@
         {
           "file": "SKILL.md",
           "contains": "# WatchGuard Cloud Claude Code Skill"
+        }
+      ]
+    },
+    {
+      "id": "secret-never-row-identity",
+      "summary": "No secret-named field can be used as, or folded into, a row identity on any id-resolution path (override, generic and <base>Key fallbacks, dotted paths, nested items, the parameter fingerprint): store.identityView strips them first. Rows with no id key on the vendor's own identity (activations: batchId / lineItemId; Endpoint Security lists: device_id and the per-device composite) via watchguardIDFields.",
+      "why": "Adversarial round 1 (2026-10-15): spec-shaped activation rows have no id field, so ExtractResourceID fell back to activationKey (firstLineItem.activationKey for list-recent) and wrote activation keys into resources.id, the typed table and FTS before the data blob was redacted; search, sql and analytics then returned them. The first secret test cheated by adding an id. TestNoSecretFieldEverKeysARow and TestActivationsSyncStoresNoKey fail with identityView removed; TestActivationRowsKeyOnVendorIDs covers the vendor keys.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "obj = identityView(obj)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/identity_secrets.go",
+          "contains": "func identityView(obj map[string]any) map[string]any {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/identity_secrets.go",
+          "contains": "\"activations\":      {\"batchId\", \"lineItemId\"},",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "secret-field-list-unified",
+      "summary": "One secret-field matcher (cliutil.IsSecretFieldKey: exact, substring and suffix rules) feeds the store, response cache, tail, row identity, --dry-run previews and error-body echo withholding; the client's body redaction delegates to it. The list covers every credential field in the spec's request and response schemas, including the certificate pfx bundle and license keys.",
+      "why": "Adversarial round 1: certificate responses carry pfx (a PKCS#12 bundle holding the private key), which the closed key list missed, so it was stored, FTS-indexed and cached, and printed in --dry-run previews because the client kept a second, separate list. TestSecretFieldListCoversSpecCredentials (spec-driven) fails with pfx removed.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cliutil/secretfields.go",
+          "contains": "\"activationcode\", \"activation_code\", \"verificationcode\", \"verification_code\",",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/watchguard_redact.go",
+          "contains": "func isSecretBodyKey(k string) bool { return cliutil.IsSecretFieldKey(k) }",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "dry-run-never-mints",
+      "summary": "No --dry-run path calls the token endpoint: validateCachedRequestAuth skips the re-mint when the cached token is bound elsewhere under --dry-run, and audience-scoped minting (ScopedBearer, used by WarmAuth / InstallScopeTransport / the fan-outs) returns ErrDryRunNoTokenRequest.",
+      "why": "Adversarial round 1: after switching Access ID or token URL (exactly when an MSP previews), a dry-run GET posted the Access ID and password to the token URL through the cache-auth path, before the dry-run branch. TestDryRunGETWithTokenBoundElsewherePreviews fails with the DryRun guard removed; TestDryRunClientNeverCallsTheTokenEndpoint covers fresh, bound-elsewhere, other token URL and audience cases.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "if c.tokenBoundElsewhere() && !c.DryRun {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "var ErrDryRunNoTokenRequest = errors.New(\"--dry-run never requests a token\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/watchguard_tenant.go",
+          "contains": "return \"\", time.Time{}, ErrDryRunNoTokenRequest",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "dry-run-side-effect-free",
+      "summary": "--dry-run makes every command side-effect free: auth login / logout / set-token and feedback print what they would do; every store open is read-only (store.SetReadOnlyProcess); jobs prune, profile save and profile delete refuse --dry-run with a usage error; --dry-run cannot combine with export --output or --deliver webhook:; and a dry run leaves no learn-journal entry.",
+      "why": "Adversarial round 1: `auth login --dry-run` posted Basic AccessID:password and saved the token, `auth logout --dry-run` deleted credentials.toml, and `feedback --dry-run` POSTed to WATCHGUARD_FEEDBACK_ENDPOINT. TestDryRunIsSideEffectFreeEverywhere sweeps every command; TestDryRunHonoredAndRefusedCommands covers the refusals.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/dryrun_policy.go",
+          "contains": "func applyDryRunPolicy(cmd *cobra.Command, flags *rootFlags) error {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "if err := applyDryRunPolicy(cmd, flags); err != nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth.go",
+          "contains": "if dryRunOK(flags) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/feedback.go",
+          "contains": "if dryRunOK(flags) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "token-error-withholds-credentials",
+      "summary": "Every token-endpoint error (client mint, refresh, auth login, audience-scoped mint) goes through SafeTokenEndpointBody / SafeTokenEndpointError: a body or transport error that echoes the Access ID, password, 'id:password', its base64, the Basic header, the API key or the refresh token is withheld; otherwise secret fields are masked.",
+      "why": "Adversarial round 1: a token endpoint, proxy or wrong WATCHGUARD_TOKEN_URL that echoed the Authorization header printed base64(AccessID:password) (and the decoded pair) to stderr, --json stdout, doctor, fan-out fetch_failures and MCP results. TestTokenEndpointErrorsNeverEchoCredentials fails with the client mint wrapper removed.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "ErrTokenMintRejected, resp.StatusCode, SafeTokenEndpointBody(body, clientID, clientSecret, c.Config.WatchguardApiKey))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/watchguard_tenant.go",
+          "contains": "Body: SafeTokenEndpointBody(body, clientID, clientSecret, apiKey)}",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth.go",
+          "contains": "client.SafeTokenEndpointBody(body, clientID, clientSecret, apiKey))",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "firebox-devices-sync-includes-subscribers",
+      "summary": "sync's built-in default for firebox_devices is include_hierarchy=true (a base param, not a user param, so --full still prunes and --resource-param firebox_devices:include_hierarchy=false still wins).",
+      "why": "Adversarial round 1: the spec default (false) returns only the Service Provider's own devices, so a bare `sync --full` (which the refresh hint recommends) pruned every Subscriber Firebox; firebox-devices changes then reported the customer fleet removed and firmware-lag gave a false all-clear. TestFireboxDevicesSyncIncludesSubscribers fails with the default set back to false.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "\"include_hierarchy\": \"true\",",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "fanout-partial-data-exit",
+      "summary": "Every fan-out (accounts health, endpoint-devices posture, endpoint-patches exposure, threatsync-incidents queue, allocations reconcile) reports a failed read as partial: exit 6 (5 when nothing could be read; --allow-partial-failure exits 0). accounts health shows a failed count as null with complete:false and sorts incomplete rows first; a product an account does not have counts as a failed read (WatchGuard documents no separate answer).",
+      "why": "Adversarial round 1: in accounts health an account whose Firebox and endpoint reads failed showed zeros, ranked last (healthiest) and exited 0, and an incidents or licenses lookup failure also exited 0 with counts shown as 0. TestAccountsHealthFailedReadsArePartial fails with the readVerdict call removed; TestReconcileAndQueueFailedLookupsArePartial covers the others.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/accounts_health.go",
+          "contains": "return readVerdict(cmd.ErrOrStderr(), flags, okReads+accountReadsOK, failedReads, \"account, product, incident or license reads\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/watchguard_fanout.go",
+          "contains": "func readVerdict(w io.Writer, flags *rootFlags, ok, failed int, what string) error {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/accounts_health.go",
+          "contains": "FireboxesTotal   *int           `json:\"fireboxes_total\"`",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "transactions-wait-terminal-statuses",
+      "summary": "firebox-transactions wait treats every documented end state as terminal: complete exits 0; failed, imaged / timed_out and canceled exit 8 with the status reported.",
+      "why": "Adversarial round 1: imaged (a deployment that timed out) and canceled were polled to --max-wait (up to 4h) and reported as still running (exit 9). TestTransactionsWaitEndsOnEveryTerminalStatus fails on revert.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/firebox_transactions_wait.go",
+          "contains": "var terminalTxStatus = map[string]bool{\"complete\": true, \"failed\": true, \"imaged\": true, \"timed_out\": true, \"canceled\": true}",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "endpoint-security-odata-paging",
+      "summary": "A client hook (InstallODataQueryTransport, registered in its own file) rewrites sync's plain count/top/skip query names to OData $top/$skip/$count on /rest/endpoint-security/ requests; Endpoint Security rows key on device_id (and the per-device composites) via watchguardIDFields.",
+      "why": "Adversarial round 1: sync sent count=100&skip=... for Endpoint Security resources; WatchGuard documents OData $top/$skip ($count is a boolean), so every Endpoint Security sync failed with HTTP 400 against the contract mock. TestODataTransportRewritesEndpointSecurityPaging and TestEndpointSecuritySyncUsesODataAndStoresRows fail on revert.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/watchguard_odata_hook.go",
+          "contains": "registerClientHook(client.InstallODataQueryTransport)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/watchguard_odata.go",
+          "contains": "move(\"skip\", \"$skip\")",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-read-only-fails-closed",
+      "summary": "WATCHGUARD_MCP_READ_ONLY is off only for '', 0, false, no and off (trimmed, any case) and for an unresolved .mcpb ${user_config...} template (an unset field); any other value turns read-only on.",
+      "why": "Adversarial round 1: only exactly '1' enabled it, so a .mcpb user typing true or yes silently got the full write tool set. The template case stays off so a blank optional Claude Desktop field does not silently strip write tools. The cobratree shellout test fails on revert.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cliutil/verifyenv.go",
+          "contains": "switch strings.ToLower(strings.TrimSpace(EffectiveEnv(os.Getenv(MCPReadOnlyEnvVar)))) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "auth-hints-name-real-commands",
+      "summary": "Auth error hints (helpers.go, doctor.go, mcp/tools.go) tell the user to set WATCHGUARD_CLIENT_ID / CLIENT_SECRET / API_KEY and run `auth login` or `doctor`, and link https://www.watchguard.com/help/docs/API/ as the API docs.",
+      "why": "Adversarial round 1: the generated hints said \"Run 'watchguard-cli auth setup'\", a command that does not exist, and labeled WatchGuard's support-contact page as API docs. TestHintsNameRealCommandsAndAPIDocs fails on revert.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "not_contains": "auth setup' for credential setup steps"
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "not_contains": "auth setup' for credential setup steps"
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "not_contains": "wgrd-support/contact-support"
         }
       ]
     }

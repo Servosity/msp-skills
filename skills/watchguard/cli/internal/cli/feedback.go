@@ -140,6 +140,15 @@ maintainer sees it.`,
 				AgentID:   os.Getenv("AGENT_ID"),
 				Timestamp: time.Now().UTC(),
 			}
+			// hand-fix (handfixes.json dry-run-side-effect-free): a dry run
+			// neither appends the local feedback log nor POSTs upstream.
+			if dryRunOK(flags) {
+				would := fmt.Sprintf("feedback: record %d chars in the local feedback log", len(text))
+				if endpoint := feedbackEndpoint(); endpoint != "" && (send || feedbackAutoSend()) {
+					would += " and POST it to " + endpoint
+				}
+				return writeDryRun(cmd.OutOrStdout(), flags, would)
+			}
 			if err := appendFeedback(entry); err != nil {
 				return err
 			}

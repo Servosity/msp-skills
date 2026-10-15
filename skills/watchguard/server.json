@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.Servosity/watchguard-mcp",
   "title": "WatchGuard MCP",
-  "description": "Every WatchGuard Cloud product API in one CLI and MCP server: Firebox, Endpoint Security",
+  "description": "WatchGuard Cloud Firebox, Endpoint Security, ThreatSync, NDR and AuthPoint APIs for every customer",
   "version": "0.1.0",
   "icons": [
     {
@@ -66,7 +66,7 @@
         },
         {
           "name": "WATCHGUARD_AUDIENCE",
-          "description": "Optional: a managed account's audience value; scopes every request to that one customer.",
+          "description": "Optional: a managed account's audience value; requests use that customer's token (not a security boundary).",
           "isRequired": false,
           "isSecret": false
         },

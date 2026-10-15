@@ -1847,7 +1847,7 @@
       "first_party": false,
       "category": "Security",
       "display_name": "WatchGuard Cloud",
-      "tagline": "Check Firebox, EPDR, ThreatSync and AuthPoint health across every WatchGuard Cloud customer by asking.",
+      "tagline": "Check Firebox, endpoint, ThreatSync and license health across every WatchGuard Cloud customer by asking.",
       "has_video": true,
       "cli_hash": "sha256:95b1111ecd5dca2b08da0d447bd2461afa1a6fd91b7493210920f9abde9ad4fa",
       "template_version": 3,

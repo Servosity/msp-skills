@@ -1,5 +1,5 @@
 {
-  "outcome_intro": "Ask your AI \"which customer needs attention first?\" and get one answer across Firebox, Endpoint Security, ThreatSync and license allocation for every account you manage in WatchGuard Cloud. WatchGuard's API reaches a managed account only with a token minted for that account, one product API at a time. This skill mints those tokens for you, fans out across your customers and ranks what needs you.",
+  "outcome_intro": "Ask your AI \"which customer needs attention first?\" and get one answer across Firebox, Endpoint Security, ThreatSync and license allocation for every account you manage in WatchGuard Cloud. Each product is a separate WatchGuard API, and Endpoint Security answers for a customer only with a token minted for that customer. This skill mints those tokens for you, fans out across your customers and ranks what needs you.",
   "instead_of_say": [
     {
       "instead": "Opening each customer in WatchGuard Cloud to check offline Fireboxes, unprotected endpoints, open ThreatSync incidents and expiring licenses, one product view at a time",
@@ -18,8 +18,8 @@
     }
   ],
   "pain_points": [
-    "WatchGuard's API reaches a customer's Fireboxes, endpoints and incidents only with an access token minted for that customer's audience value, which you look up per account first (WatchGuard API docs, Authentication). A question about every customer is one token request and one call per product per customer before you see an answer.",
-    "Firebox Management, Endpoint Security, ThreatSync, NDR, AuthPoint and license allocation are separate APIs with their own paths, paging and status codes, so a customer review spans many screens or many scripts.",
+    "WatchGuard Endpoint Security answers for a managed customer only with an access token minted for that customer's audience value, which you look up per account first (WatchGuard API docs, Authentication). A device-level question about every customer is a token request and at least one call per customer.",
+    "Firebox Management, Endpoint Security, ThreatSync, NDR, AuthPoint and license allocation are separate APIs with their own paths, paging and status codes, so a customer review spans many screens or many scripts even where an API can list every customer at once.",
     "Allocations and the Fireboxes that actually report in drift apart. A WatchGuard Community thread (May 2023, still open in September 2024) shows retired, unallocated Fireboxes staying in the inventory and inflating the device count, with a support case as the only way out.",
     "A Firebox deployment or certificate install is asynchronous: the API hands back a transaction ID and you poll it to learn whether the change landed or failed."
   ],
@@ -33,7 +33,7 @@
       "command": "watchguard-cli endpoint-devices posture --agent"
     },
     {
-      "question": "Which ThreatSync incidents has nobody touched yet?",
+      "question": "Which new ThreatSync incidents need triage first, and which has nobody touched?",
       "command": "watchguard-cli threatsync-incidents queue --status new --agent"
     },
     {
@@ -57,7 +57,7 @@
       "command": "watchguard-cli firebox-transactions wait --device FB-12345 --max-wait 10m"
     }
   ],
-  "different_vs_wrappers": "The only other MCP server for WatchGuard Cloud we found on GitHub as of October 2026, [WYRE-AI/watchguard-cloud-mcp](https://github.com/WYRE-AI/watchguard-cloud-mcp), covers the platform's account, activation and operator APIs and lists Firebox and Endpoint Security as out of scope for now. This skill covers 208 operations across 13 WatchGuard APIs (Firebox Management, FireCloud, Endpoint Security, ThreatSync, NDR, AuthPoint, accounts, operators, activations and license allocation), mints a separate token for each managed account so one Service Provider credential reaches every customer, and keeps a local SQLite mirror so `firebox-devices changes` and `firmware-lag` can compare your fleet over time.",
+  "different_vs_wrappers": "The only other MCP server for WatchGuard Cloud we found on GitHub as of October 2026, [WYRE-AI/watchguard-cloud-mcp](https://github.com/WYRE-AI/watchguard-cloud-mcp), covers the platform's account, activation and operator APIs and lists Firebox and Endpoint Security as out of scope for now. This skill covers 208 operations from 13 of WatchGuard's published API specifications (Firebox Management and Reports, FireCloud, Endpoint Security, ThreatSync, NDR assets and Smart Alerts, AuthPoint authentication, and the platform's accounts, operators, activations, license allocation and authorization APIs), mints a separate token for each managed account where WatchGuard requires one, so one Service Provider credential reaches every customer, and keeps a local SQLite mirror so `firebox-devices changes` and `firmware-lag` can compare your fleet over time.",
   "different_vs_vendor": "WatchGuard Cloud stays where you configure Fireboxes, policies and endpoint security, and ThreatSync keeps doing its own correlation. This skill complements them by answering cross-customer, cross-product questions from the AI agent you already use, through WatchGuard's public API, in one command.",
   "faqs": [
     {
@@ -82,7 +82,7 @@
     },
     {
       "q": "Does it work across all my customers, or one account at a time?",
-      "a": "Across all of them, with a Service Provider account. accounts health, endpoint-devices posture and endpoint-patches exposure list the accounts you manage, mint a separate token for each one and report every customer in one result, naming any account they could not reach. threatsync-incidents queue reads incidents for all your managed accounts in one ThreatSync call. To pin a session to one customer, set WATCHGUARD_AUDIENCE to that customer's audience value (watchguard-cli audiences --account-id <customer-account-id> returns it) and WATCHGUARD_ACCOUNT_ID to that customer's account ID."
+      "a": "Across all of them, with a Service Provider account. accounts health, endpoint-devices posture and endpoint-patches exposure list the accounts you manage, mint a separate token for each one and report every customer in one result, naming any account they could not reach. threatsync-incidents queue reads incidents for all your managed accounts in one ThreatSync call. If any read fails, including a product a customer does not have, these commands exit 6 and say which account and product; accounts health lists that account first with complete: false instead of showing zeros. To work on one customer, set WATCHGUARD_AUDIENCE to that customer's audience value (watchguard-cli audiences --account-id <customer-account-id> returns it) and WATCHGUARD_ACCOUNT_ID to that customer's account ID. That is a convenience, not a security boundary: WatchGuard's audience token also works on your own account."
     },
     {
       "q": "My WatchGuard Cloud account is in Europe or Asia Pacific. Does it work?",
@@ -90,7 +90,7 @@
     },
     {
       "q": "Will this hit my WatchGuard API rate limits?",
-      "a": "WatchGuard allows 500 requests per second and 200,000 requests per day per API key. The CLI paces itself to the server's rate-limit headers, the cross-customer commands fetch at most four accounts in parallel by default (--concurrency) and stop at --max-pages per account, and sync keeps a local copy so repeat questions do not call the API again."
+      "a": "WatchGuard allows 500 requests per second and 200,000 requests per day per API key; a 429 means the day's quota is spent until 00:00 UTC. The cross-customer commands fetch at most four accounts in parallel by default (--concurrency) and stop at --max-pages per account, --rate-limit caps requests per second, and sync keeps a local copy so repeat questions do not call the API again."
     },
     {
       "q": "Can my AI isolate devices or change firewall policy?",
@@ -115,17 +115,17 @@
     },
     {
       "tier": "Firewall config and deployment",
-      "examples": "firebox-deployments, firebox-policies create / update / set-enabled, the Firebox and FireCloud exception creates and updates, firebox-exceptions enable-global / disable-global, firebox-templates subscribe, firebox-bovpn-p1-settings create / update, firebox-transactions update, endpoint-risks update-config, ndr-assets create / update, threatsync-comments, allocations allocate / update-hardware / update-software, accounts create / update",
+      "examples": "firebox-deployments, firebox-policies create / update / set-enabled, the Firebox and FireCloud exception creates and updates, firebox-exceptions enable-global / disable-global, firebox-templates subscribe, firebox-bovpn-p1-settings create / update, firebox-transactions update, endpoint-risks update-config, ndr-assets create / update, threatsync-comments create / update, allocations allocate / update-hardware / update-software, accounts create / update, import",
       "policy": "Preview with --dry-run, then a human-approved write"
     },
     {
       "tier": "Destructive",
-      "examples": "accounts delete (it targets --account-id, which defaults to your own WATCHGUARD_ACCOUNT_ID), operators delete, allocations deallocate, firebox-transactions cancel, ndr-assets delete, firebox-policies delete, and every other delete command",
+      "examples": "accounts delete (it targets --account-id, which defaults to your own WATCHGUARD_ACCOUNT_ID), operators delete, allocations deallocate, firebox-transactions cancel, ndr-assets delete, firebox-policies delete, threatsync-comments delete, and every other delete command",
       "policy": "Human-in-the-loop only, explicit confirmation"
     },
     {
       "tier": "Credential and admin",
-      "examples": "firebox-bovpn-tunnels list / get and their writes (pre-shared keys), firebox-certificates list / get / create / install (private keys and passwords), firebox-networks, firebox-users and firebox-content-filtering list / get (PPPoE, Dynamic DNS, Wi-Fi and override passwords), activations list-recent / status and activate (activation keys), endpoint-installers (enrollment download links), operators create / update, audiences, authpoint check-policy / password / otp / qrcode / forgot-token, auth login, auth set-token",
+      "examples": "firebox-bovpn-tunnels list / get and their writes (pre-shared keys), firebox-certificates list / get / create / install (private keys and passwords), firebox-networks, firebox-users and firebox-content-filtering list / get (PPPoE, Dynamic DNS, Wi-Fi and override passwords), activations list-recent / status and activate (activation keys), endpoint-installers (enrollment download links), operators create / update, audiences, authpoint check-policy / password / otp / qrcode / forgot-token / transaction-status, auth login, auth set-token",
       "policy": "Human-in-the-loop only"
     }
   ],

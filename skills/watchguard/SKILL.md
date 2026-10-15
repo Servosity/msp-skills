@@ -51,7 +51,7 @@ Use this CLI when an MSP or admin needs to read or act on WatchGuard Cloud: Fire
 ## Anti-triggers
 
 Do not use this CLI for:
-- Do not use it for locally-managed Fireboxes; the Firebox Management API only reaches cloud-managed devices
+- Do not use it to manage firewall policies on locally-managed Fireboxes; WatchGuard's Firebox Management API manages firewall policies only for cloud-managed Fireboxes (device status, firmware and offline checks cover every Firebox added to WatchGuard Cloud)
 - Do not use it for Panda-branded Aether products (Adaptive Defense 360, Endpoint Protection); those use the separate Aether Endpoint Security API
 - Do not use it to place distributor orders or create Tier-1 partner accounts; those Subscription Billing APIs are distributor-only
 - Do not use it for on-premises WatchGuard System Manager, Dimension or Fireware Web UI tasks
@@ -96,7 +96,7 @@ Do not use this CLI for:
   ```
 
 ### Change control
-- **`firebox-transactions wait`**  -  Block until a Firebox deployment or certificate-install transaction finishes: exit 0 on complete, 8 on failed, 9 if still running at --max-wait.
+- **`firebox-transactions wait`**  -  Block until a Firebox deployment or certificate-install transaction finishes: exit 0 on complete, 8 if it ended without completing (failed, timed out or canceled), 9 if still running at --max-wait.
 
   _Use this right after a deploy so a script or agent gets a pass or fail instead of polling._
 
@@ -124,11 +124,11 @@ Do not use this CLI for:
 
 - **Read freely:** `accounts health`, `endpoint-devices posture`, `threatsync-incidents queue`, `endpoint-patches exposure`, `allocations reconcile`, `firebox-devices changes` / `firmware-lag`, `firebox-transactions wait`, `sync`, `search`, and every `list` / `get` except the credential reads below.
 - **Ask a human first, every time:** `firebox-bovpn-tunnels list` / `get` (BOVPN pre-shared keys), `firebox-certificates list` / `get` (private keys and their passwords), `firebox-networks list` / `get` (PPPoE, Dynamic DNS and Wi-Fi credentials), `firebox-users list` / `get` and `firebox-content-filtering list` / `get` (passwords), `activations list-recent` / `status` (activation keys) and `endpoint-installers` (an enrollment download link) print secrets in plaintext; `export` of those resources prints or writes them too; and `--deliver webhook:<url>` on any command posts its output off the machine. The local mirror and the response cache never store those fields.
-- **Preview, then ask:** no write asks for confirmation. Pass `--dry-run` first and show the user the request (it sends nothing and requests no token). `endpoint-devices isolate` / `stop-isolation` / `scan` / `action` / `uninstall` act on customer computers, `threatsync-actions perform` and `threatsync-incident-actions perform` act on incident entities, `authpoint push` sends a push to a user's phone, `firebox-deployments` pushes configuration to Fireboxes, and the `firebox-policies`, exception, BOVPN, certificate, template, allocation, account and operator writes change configuration or licensing. Never run these, or any `delete`, without explicit confirmation. `accounts delete` with no flags targets `--account-id`, which defaults to your own `WATCHGUARD_ACCOUNT_ID`.
+- **Preview, then ask:** no write asks for confirmation. Pass `--dry-run` first and show the user the request (it sends nothing, requests no token and changes nothing on disk; `jobs prune`, `profile save` and `profile delete` refuse it). `endpoint-devices isolate` / `stop-isolation` / `scan` / `action` / `uninstall` act on customer computers, `threatsync-actions perform` and `threatsync-incident-actions perform` act on incident entities, `authpoint push` sends a push to a user's phone, `firebox-deployments` pushes configuration to Fireboxes, and the `firebox-policies`, exception, BOVPN, certificate, template, allocation, account and operator writes change configuration or licensing. Never run these, or any `delete`, without explicit confirmation. `accounts delete` with no flags targets `--account-id`, which defaults to your own `WATCHGUARD_ACCOUNT_ID`.
 - **MCP read-only mode:** with `WATCHGUARD_MCP_READ_ONLY=1` the MCP server drops its write tools and `watchguard_execute` refuses every non-GET call; GET credential reads still pass, so pair it with the read-only Access ID. `tail` and `import` are not MCP tools, and MCP tools never take a local file path for the CLI to read (`teach-playbook` notes and playbook files, `import --input`).
 - **Credentials:** a cached token is reused only by a process with the same Access ID, scope and token URL; a process with a different Access ID and no password stops with exit 4 instead of borrowing it. Give a reporting agent the read-only Access ID.
-- **Service Provider fan-out:** `accounts health`, `endpoint-devices posture` and `endpoint-patches exposure` mint a token per managed account and exit 6 when some accounts could not be read (listed in `fetch_failures` or each row's `errors`) and 5 when none could. Report the failures; do not read a missing account as healthy.
-- Refresh the mirror with `sync --full`, not a bare `sync`: no WatchGuard resource syncs incrementally, and only a full run prunes Fireboxes and rows that disappeared, so `firebox-devices changes` reports them as removed.
+- **Service Provider fan-out:** `accounts health`, `endpoint-devices posture`, `endpoint-patches exposure`, `threatsync-incidents queue` and `allocations reconcile` exit 6 when any read failed (listed in `fetch_failures`, each row's `errors`, or `incidents_error` / `licenses_error`) and 5 when nothing could be read. WatchGuard documents no separate answer for a product a customer does not have, so that also counts as a failed read. In `accounts health` a failed count is `null`, the row says `complete: false` and is listed first. Report the failures; never read a missing count as zero or healthy.
+- Refresh the mirror with `sync --full`, not a bare `sync`: no WatchGuard resource syncs incrementally, and only a full run prunes Fireboxes and rows that disappeared, so `firebox-devices changes` reports them as removed. The Firebox device sync includes every Subscriber account's devices by default (`include_hierarchy=true`).
 - Other GET responses are cached on disk for 5 minutes. After a change, re-run a report with `--no-cache` or you get the earlier answer.
 
 ## Command Reference
@@ -548,7 +548,7 @@ Do not use this CLI for:
 
 **firebox-transactions**
 
-- `watchguard-cli firebox-transactions wait`  -  Block until a Firebox deployment or certificate-install transaction finishes: exit 0 on complete, 8 on failed, 9 if still running at --max-wait.
+- `watchguard-cli firebox-transactions wait`  -  Block until a Firebox deployment or certificate-install transaction finishes: exit 0 on complete, 8 if it ended without completing (failed, timed out or canceled), 9 if still running at --max-wait.
 
 **threatsync-incidents**
 
@@ -945,7 +945,7 @@ If `--wait` times out or polling fails after the job was accepted, the command e
 | 5 | API error (upstream issue) |
 | 6 | Partial failure |
 | 7 | Rate limited (wait and retry) |
-| 8 | Async job submitted but not finished (run the printed recovery command; do not resubmit). For `firebox-transactions wait`: the deployment FAILED. |
+| 8 | Async job submitted but not finished (run the printed recovery command; do not resubmit). For `firebox-transactions wait`: the deployment ENDED WITHOUT COMPLETING (failed, timed out or canceled; see `status`). |
 | 9 | `firebox-transactions wait` only: the transaction was still running when --max-wait elapsed |
 | 10 | Config error |
 

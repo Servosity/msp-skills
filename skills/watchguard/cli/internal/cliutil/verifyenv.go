@@ -138,14 +138,23 @@ func IsDogfoodEnv() bool {
 }
 
 // MCPReadOnlyEnvVar is the operator kill switch for this CLI's MCP server.
-// The value must be exactly "1", matching the other harness switches.
-// "true" and "yes" do not enable it.
+// It fails closed: see IsMCPReadOnlyEnv for the values that leave it off.
 const MCPReadOnlyEnvVar = "WATCHGUARD_MCP_READ_ONLY"
 
 // IsMCPReadOnlyEnv reports whether the MCP server should expose only
 // read-only mirrored commands and refuse non-GET execute calls.
 func IsMCPReadOnlyEnv() bool {
-	return os.Getenv(MCPReadOnlyEnvVar) == "1"
+	// Hand-fix (handfixes.json: mcp-read-only-fails-closed): only exactly "1"
+	// used to enable it, so "true", "yes" or "1 " silently left every write
+	// tool on. Off only for "", "0", "false", "no" and "off" (trimmed, any
+	// case); any other value turns read-only on. An unresolved .mcpb
+	// ${user_config...} template is an unset field (EffectiveEnv), as for every
+	// other variable, so a blank optional Claude Desktop field leaves it off.
+	switch strings.ToLower(strings.TrimSpace(EffectiveEnv(os.Getenv(MCPReadOnlyEnvVar)))) {
+	case "", "0", "false", "no", "off":
+		return false
+	}
+	return true
 }
 
 // EnvOverride returns the named environment variable, treating an

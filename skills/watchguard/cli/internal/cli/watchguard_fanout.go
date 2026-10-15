@@ -540,6 +540,27 @@ func expiringWithin(resourceType string, rows []map[string]any, window time.Dura
 
 // fanoutVerdict reports partial and total failure after a fan-out's output is written:
 // every account failed -> exit 5; some failed -> exit 6 unless --allow-partial-failure.
+// readVerdict is the one exit rule every fan-out report follows (hand-fix,
+// handfixes.json fanout-partial-data-exit): 0 when every read the report
+// depends on succeeded, 5 when none did, 6 when some failed - an account, a
+// product read inside an account, or a shared lookup - with
+// --allow-partial-failure turning 6 into 0. WatchGuard documents no separate
+// "product not licensed" answer (403 means "no permission"), so a product an
+// account does not have counts as a failed read: fail closed.
+func readVerdict(w io.Writer, flags *rootFlags, ok, failed int, what string) error {
+	if failed == 0 {
+		return nil
+	}
+	if ok == 0 {
+		return apiErr(fmt.Errorf("every %s failed; see the errors in the output", what))
+	}
+	fmt.Fprintf(w, "warning: %d of %d %s failed; the output marks what is missing\n", failed, ok+failed, what)
+	if flags.allowPartialFailure {
+		return nil
+	}
+	return partialFailureErr(fmt.Errorf("%d of %d %s failed (pass --allow-partial-failure to exit 0)", failed, ok+failed, what))
+}
+
 func fanoutVerdict(w io.Writer, flags *rootFlags, failed, total int) error {
 	if failed == 0 {
 		return nil

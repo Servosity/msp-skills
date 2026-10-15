@@ -61,6 +61,11 @@ var ErrTokenMintRejected = errors.New("OAuth client_credentials mint")
 
 var ErrTokenBoundElsewhere = errors.New("the cached WatchGuard Cloud token was issued for a different OAuth client (Access ID), scope or token URL")
 
+// ErrDryRunNoTokenRequest: hand-fix (handfixes.json dry-run-never-mints). A
+// --dry-run process never calls the token endpoint (own token, refresh or an
+// audience-scoped token), on any path.
+var ErrDryRunNoTokenRequest = errors.New("--dry-run never requests a token")
+
 type Client struct {
 	BaseURL    string
 	Config     *config.Config
@@ -661,8 +666,9 @@ func (c *Client) validateCachedRequestAuth(ctx context.Context) error {
 	}
 	// hand-fix (handfixes.json token-bound-to-client): the cache key includes
 	// the bearer token, so resolve this process's own token before a lookup
-	// could serve responses cached for another client.
-	if c.tokenBoundElsewhere() {
+	// could serve responses cached for another client. A dry run reads no
+	// cache and sends nothing, so it never mints here (dry-run-never-mints).
+	if c.tokenBoundElsewhere() && !c.DryRun {
 		if _, err := c.authHeader(ctx); err != nil {
 			return err
 		}
@@ -1940,6 +1946,9 @@ func resolveClientCredentialsUserAgent() string {
 }
 
 func (c *Client) mintClientCredentials(ctx context.Context, clientID, clientSecret string) error {
+	if c.DryRun {
+		return ErrDryRunNoTokenRequest
+	}
 	tokenURL := ""
 	if c.Config != nil {
 		tokenURL = c.Config.TokenURL
@@ -1965,12 +1974,12 @@ func (c *Client) mintClientCredentials(ctx context.Context, clientID, clientSecr
 	req.SetBasicAuth(clientID, clientSecret)
 	resp, err := cliutil.OAuthTokenHTTPClient(c.HTTPClient).Do(req)
 	if err != nil {
-		return fmt.Errorf("calling token endpoint: %w", err)
+		return fmt.Errorf("calling token endpoint: %w", SafeTokenEndpointError(err, tokenURL, clientID, clientSecret, c.Config.WatchguardApiKey))
 	}
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode >= 400 {
-		return fmt.Errorf("%w: HTTP %d: %s", ErrTokenMintRejected, resp.StatusCode, cliutil.SanitizeErrorBody(string(body)))
+		return fmt.Errorf("%w: HTTP %d: %s", ErrTokenMintRejected, resp.StatusCode, SafeTokenEndpointBody(body, clientID, clientSecret, c.Config.WatchguardApiKey))
 	}
 	var tokenResp struct {
 		AccessToken string `json:"access_token"`
@@ -2005,6 +2014,9 @@ func (c *Client) refreshAccessToken(ctx context.Context) error {
 	if c.Config == nil {
 		return nil
 	}
+	if c.DryRun {
+		return ErrDryRunNoTokenRequest
+	}
 	if c.Config.RefreshToken == "" {
 		return nil
 	}
@@ -2033,13 +2045,13 @@ func (c *Client) refreshAccessToken(ctx context.Context) error {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	resp, err := cliutil.OAuthTokenHTTPClient(c.HTTPClient).Do(req)
 	if err != nil {
-		return fmt.Errorf("refreshing access token: %w", err)
+		return fmt.Errorf("refreshing access token: %w", SafeTokenEndpointError(err, tokenURL, c.Config.ClientID, c.Config.ClientSecret, c.Config.WatchguardApiKey, c.Config.RefreshToken))
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 400 {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("refreshing access token: HTTP %d: %s", resp.StatusCode, cliutil.SanitizeErrorBody(truncateBody(body)))
+		return fmt.Errorf("refreshing access token: HTTP %d: %s", resp.StatusCode, SafeTokenEndpointBody(body, c.Config.ClientID, c.Config.ClientSecret, c.Config.WatchguardApiKey, c.Config.RefreshToken))
 	}
 
 	var tokenResp struct {

@@ -196,6 +196,9 @@ func readOnlyOpenNeedsImmutableFallback(err error) bool {
 // retry-on-SQLITE_BUSY loop and propagates ctx.Err() back to the caller
 // instead of waiting out the full migrationLockTimeout.
 func OpenWithContext(ctx context.Context, dbPath string) (*Store, error) {
+	if ReadOnlyProcess() {
+		return openForcedReadOnly(ctx, dbPath)
+	}
 	if err := os.MkdirAll(filepath.Dir(dbPath), 0o700); err != nil {
 		return nil, fmt.Errorf("creating db directory: %w", err)
 	}
@@ -5812,6 +5815,7 @@ var resourceIDFieldOverrides = map[string]string{
 // parameter fingerprint. Unlisted resources still increment extractFailures
 // when an item has no usable id.
 var parameterKeyedResources = map[string]bool{
+	"activations": true,
 	"allocations": true,
 	"authpoint":   true,
 	"operators":   true,
@@ -5855,6 +5859,10 @@ var resourceParentKeyColumns = map[string][]string{
 // Callers that need to gate best-effort writes can use this to avoid passing
 // non-entity envelopes into the batch path.
 func ExtractResourceID(resourceType string, obj map[string]any) string {
+	obj = identityView(obj)
+	if s := watchguardResourceID(resourceType, obj); s != "" {
+		return s
+	}
 	if override, ok := resourceIDFieldOverrides[resourceType]; ok && override != "" {
 		if s := canonicalIDFromOverride(obj, override); s != "" {
 			return s
@@ -5885,6 +5893,7 @@ func ExtractResourceID(resourceType string, obj map[string]any) string {
 // An identity-shaped key whose value was refused (timestamp, zero, empty)
 // still returns "" — fingerprinting those would hide a rejected entity id.
 func ResolveStorageID(resourceType string, obj map[string]any) string {
+	obj = identityView(obj)
 	if id := ExtractResourceID(resourceType, obj); id != "" {
 		return id
 	}

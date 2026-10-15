@@ -17,9 +17,14 @@ import (
 	"watchguard-pp-cli/internal/cliutil"
 )
 
-// Firebox transaction status enum (firebox-management spec):
-// scheduled, imaged, pending, in_progress -> complete | failed.
-var terminalTxStatus = map[string]bool{"complete": true, "failed": true}
+// Firebox transaction statuses (Firebox Management deployments docs):
+// scheduled, pending, in_progress -> complete, or one of the end states that
+// are not success: failed, imaged / timed_out (a pending or in-progress
+// deployment timed out; the docs renamed imaged to timed_out) and canceled
+// (the record was deleted before the deployment executed). Hand-fix
+// (handfixes.json transactions-wait-terminal-statuses): imaged and canceled
+// used to be polled until --max-wait and reported as still running (exit 9).
+var terminalTxStatus = map[string]bool{"complete": true, "failed": true, "imaged": true, "timed_out": true, "canceled": true}
 
 const (
 	minWaitInterval = 2 * time.Second
@@ -76,9 +81,9 @@ func newNovelFireboxTransactionsWaitCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "wait [transaction-id]",
 		Short: "Block until a Firebox deployment or install transaction completes or fails",
-		Long: "Polls a Firebox Management transaction until its status is complete or failed.\n\n" +
+		Long: "Polls a Firebox Management transaction until it reaches an end state: complete, failed, imaged or timed_out (the deployment timed out) or canceled.\n\n" +
 			"Pass a transaction ID (e.g. ddply_12345_J2VwPbXuek3CRGN1), or --device to wait on that device's newest deployment transaction.\n" +
-			"Exit codes for this command: 0 complete, 8 failed (the deployment failed; do not treat it as still running), 9 still running when --max-wait elapsed.",
+			"Exit codes for this command: 0 complete, 8 ended without completing - failed, imaged, timed_out or canceled, reported in status (do not treat it as still running), 9 still running when --max-wait elapsed.",
 		Example: strings.Trim(`
   watchguard-cli firebox-transactions wait --device FB-12345 --max-wait 10m
   watchguard-cli firebox-transactions wait ddply_12345_J2VwPbXuek3CRGN1 --interval 5s --json`, "\n"),
@@ -176,8 +181,8 @@ func newNovelFireboxTransactionsWaitCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 			switch {
-			case view.Status == "failed":
-				return &cliError{code: 8, err: fmt.Errorf("transaction %s failed", id)}
+			case view.Settled && view.Status != "complete":
+				return &cliError{code: 8, err: fmt.Errorf("transaction %s ended %s", id, view.Status)}
 			case !view.Settled:
 				return &cliError{code: 9, err: fmt.Errorf("transaction %s still %s after %s", id, view.Status, limit)}
 			}

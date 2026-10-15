@@ -122,11 +122,11 @@ func mirroredMCPReadOnlyRefusal(cmd *cobra.Command, args map[string]any) string 
 		path = cmd.CommandPath()
 	}
 	if !mirrorAllowedWhenMCPReadOnly(cmd) {
-		return fmt.Sprintf("refusing %s while %s=1", path, cliutil.MCPReadOnlyEnvVar)
+		return fmt.Sprintf("refusing %s while %s is on", path, cliutil.MCPReadOnlyEnvVar)
 	}
 	for name := range readOnlyUnlessFlagNames(cmd) {
 		if _, ok := args[name]; ok {
-			return fmt.Sprintf("refusing %s --%s while %s=1", path, name, cliutil.MCPReadOnlyEnvVar)
+			return fmt.Sprintf("refusing %s --%s while %s is on", path, name, cliutil.MCPReadOnlyEnvVar)
 		}
 	}
 	return ""
