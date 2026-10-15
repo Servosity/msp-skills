@@ -464,7 +464,7 @@
   "threatdown": {
     "state": "never-released",
     "version": "0.1.0",
-    "latest_tag": null,
+    "latest_tag": "threatdown-v0.1.0",
     "current_hash": "sha256:f63d519c4ca09233b2257c8c46abc34596ee4579414c2b3f9761725eb60f0d1f",
     "released_hash": null
   },
