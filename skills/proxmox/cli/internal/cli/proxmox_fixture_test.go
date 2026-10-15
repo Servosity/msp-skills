@@ -24,11 +24,12 @@ import (
 )
 
 type fixture struct {
-	now      time.Time
-	pve, pbs *httptest.Server
-	pbsNS    string // namespace the pbs1 storage writes to
-	pbsFP    string // fingerprint the pbs1 storage pins (optional)
-	pbsPrune string // prune-backups of the pbs1 storage (optional)
+	now        time.Time
+	pve, pbs   *httptest.Server
+	pbsNS      string           // namespace the pbs1 storage writes to
+	pbsFP      string           // fingerprint the pbs1 storage pins (optional)
+	pbsPrune   string           // prune-backups of the pbs1 storage (optional)
+	storageCfg []map[string]any // more /storage config entries (optional)
 	// The route maps the fixture servers answer from; a test may change an
 	// entry before it runs a command.
 	pveRoutes, pbsRoutes map[string]any
@@ -255,7 +256,7 @@ func (f *fixture) handler(t *testing.T, routes map[string]any, authPrefix string
 		case pve && path == "/storage":
 			hp := strings.Split(strings.TrimPrefix(f.pbs.URL, "https://"), ":")
 			port, _ := strconv.Atoi(hp[1])
-			writeData(w, []map[string]any{{"storage": "pbs1", "type": "pbs", "server": hp[0], "port": port, "datastore": "main", "namespace": f.pbsNS, "fingerprint": f.pbsFP, "prune-backups": f.pbsPrune}})
+			writeData(w, append([]map[string]any{{"storage": "pbs1", "type": "pbs", "server": hp[0], "port": port, "datastore": "main", "namespace": f.pbsNS, "fingerprint": f.pbsFP, "prune-backups": f.pbsPrune}}, f.storageCfg...))
 			return
 		case !pve && path == "/admin/sync":
 			if q.Get("sync-direction") != "all" && q.Get("sync-direction") != "push" {

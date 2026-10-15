@@ -49,27 +49,6 @@ pbs_fingerprint = "`+client.CertFingerprint(pbs2.Certificate())+`"
 	}
 }
 
-// A job with no storage of its own writes to its node's vzdump default; its
-// retention prunes that storage.
-func TestInheritedJobTargetRetentionCounts(t *testing.T) {
-	f := newFixture(t)
-	jobs := f.pveRoutes["/cluster/backup"].([]map[string]any)
-	for _, j := range jobs {
-		delete(j, "storage")
-		j["prune-backups"] = "keep-last=7"
-	}
-	f.pveRoutes["/nodes/pve1/vzdump/defaults"] = map[string]any{"storage": "pbs1"}
-	out, _, err := runCLI(t, "capacity", "--json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, r := range decodeJSON[capacityReport](t, out).Rows {
-		if r.Kind == "pbs-datastore" && strings.Contains(strings.Join(r.Flags, ","), "unpruned") {
-			t.Errorf("a job pruning its inherited pbs1 target prunes the datastore: %+v", r)
-		}
-	}
-}
-
 // A read peer's datastores are scoped per PBS service: beta writing other on
 // PBS1 and main on PBS2 does not claim main on PBS1.
 func TestPeerDatastoresArePerService(t *testing.T) {

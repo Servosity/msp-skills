@@ -13,6 +13,7 @@ import (
 	"io"
 	"net"
 	"net/url"
+	"path"
 	"regexp"
 	"slices"
 	"sort"
@@ -51,6 +52,13 @@ type pbsOwnership struct {
 	writers map[string]map[string]string // namespace key (see keys) -> PVE id -> cluster name
 	peers   []peerScope
 	svc     pbsServices
+	// Network backup storages (an NFS export, an SMB share): net maps a
+	// storage identity (netStorageID) to PVE id -> cluster name, netOf a PVE id
+	// to its storages' identities, for every cluster whose storage config was
+	// read; netUnread names the PVE clusters whose config was not, in full.
+	net       map[string]map[string]string
+	netOf     map[string]map[string]string
+	netUnread []string
 }
 
 type peerScope struct {
@@ -175,11 +183,7 @@ func pveID(baseURL string) string {
 	if port == "" {
 		port = map[string]string{"https": "443", "http": "80"}[strings.ToLower(u.Scheme)]
 	}
-	h := strings.TrimSuffix(strings.ToLower(u.Hostname()), ".")
-	if ip := net.ParseIP(h); ip != nil {
-		h = ip.String()
-	}
-	return strings.ToLower(u.Scheme) + "://" + net.JoinHostPort(h, port) + strings.TrimRight(u.EscapedPath(), "/")
+	return strings.ToLower(u.Scheme) + "://" + net.JoinHostPort(canonHost(u.Hostname()), port) + strings.TrimRight(u.EscapedPath(), "/")
 }
 
 // fleetTargets resolves the clusters to visit: --cluster narrows to one entry;
@@ -299,7 +303,7 @@ var (
 	coverageKeep = []string{"rows", "fetch_failures", "uncovered_guests", "guests_checked", "cluster", "vmid", "name", "disk", "reason", "detail", "disabled_jobs", "disagrees_with_upstream"}
 	verifyKeep   = []string{"stores", "groups", "skipped_clusters", "fetch_failures", "cluster", "store", "namespace", "group", "status", "snapshots", "failed", "never_verified", "outdated", "first_failure_at", "newest_verified_ok_at", "newest_is_bad", "failing_groups", "failed_snapshots", "never_verified_snapshots", "gc_still_bad_chunks", "namespaces_without_verify_job", "attribution"}
 	failuresKeep = []string{"rows", "fetch_failures", "scanned_tasks", "logs_read", "log_cap_hit", "note", "cluster", "product", "type", "target", "vmid", "guest_name", "result", "reason", "upid", "started_at", "attribution"}
-	capacityKeep = []string{"rows", "fetch_failures", "cluster", "kind", "name", "node", "used_pct", "days_to_full", "estimated_full_at", "gc_last_state", "gc_pending_bytes", "prune_jobs", "flags", "attribution"}
+	capacityKeep = []string{"rows", "fetch_failures", "cluster", "kind", "name", "node", "used_pct", "days_to_full", "estimated_full_at", "gc_last_state", "gc_pending_bytes", "flags", "attribution"}
 	restoreKeep  = []string{"query", "guests", "fetch_failures", "cluster", "vmid", "name", "covered_by_jobs", "count", "newest_at", "newest_verified_ok_at", "restore_points", "backup_time", "source", "verify_state", "protected", "encrypted", "evidence", "not_read"}
 	rpoKeep      = []string{"rows", "clients", "fetch_failures", "days", "window_start", "tenant", "cluster", "vmid", "name", "missed_runs", "scheduled_runs", "missed_run_times", "largest_gap_hours", "verified_ok_days", "met_schedule", "window_capped", "note", "guests", "guests_met_schedule", "worst_gap_hours", "evidence", "points_unread", "guests_unproven", "missed_runs_unproven", "guests_without_restore_points", "clusters_unreachable"}
 )
@@ -486,17 +490,14 @@ type jobTargets struct {
 	jobs     map[string]backupJob
 	defaults map[string]string
 	nodeDefs map[string]vzdumpDefaults
-	retDefs  map[string]vzdumpDefaults // node + "\x00" + storage -> defaults resolved for that target
 }
 
 // vzdumpDefaults is a node's /etc/vzdump.conf as the API reports it: what a
 // job inherits for every option it does not set.
 type vzdumpDefaults struct {
-	Storage      string          `json:"storage"`
-	Dumpdir      string          `json:"dumpdir"`
-	Remove       *flexBool       `json:"remove"`
-	PruneBackups json.RawMessage `json:"prune-backups"`
-	err          error
+	Storage string `json:"storage"`
+	Dumpdir string `json:"dumpdir"`
+	err     error
 }
 
 func (r *jobTargets) nodeDefaults(node string) vzdumpDefaults {
@@ -510,49 +511,6 @@ func (r *jobTargets) nodeDefaults(node string) vzdumpDefaults {
 	d.err = getJSON(r.ctx, r.c, pvePath("/nodes/%s/vzdump/defaults", node), nil, &d)
 	r.nodeDefs[node] = d
 	return d
-}
-
-// prunes reports whether a run of jobID on node prunes its target storage
-// (vzdump remove): the job's own setting, else the node's vzdump.conf, else
-// on. The defaults are asked for that storage: asked for none, PVE resolves
-// 'local' and fails when local takes no backups. known is false when they
-// could not be read.
-func (r *jobTargets) prunes(jobID, node, storage string) (prunes, known bool) {
-	if j := r.jobs[jobID]; j.Remove != nil {
-		return bool(*j.Remove), true
-	}
-	d := r.targetDefaults(node, storage)
-	if d.err != nil {
-		return true, false
-	}
-	return d.Remove == nil || bool(*d.Remove), true
-}
-
-// targetDefaults is the node's vzdump defaults resolved for one target
-// storage (its retention overlaid on /etc/vzdump.conf).
-func (r *jobTargets) targetDefaults(node, storage string) vzdumpDefaults {
-	if r.retDefs == nil {
-		r.retDefs = map[string]vzdumpDefaults{}
-	}
-	key := node + "\x00" + storage
-	d, ok := r.retDefs[key]
-	if !ok {
-		d.err = getJSON(r.ctx, r.c, pvePath("/nodes/%s/vzdump/defaults", node), map[string]string{"storage": storage}, &d)
-		r.retDefs[key] = d
-	}
-	return d
-}
-
-// retention is jobID's effective prune-backups when it writes to storage on
-// node. vzdump takes the job's own, else the storage's, else /etc/vzdump.conf's
-// (PVE::VZDump::new); the defaults API resolves the last two for one target
-// storage when asked with storage=<id>.
-func (r *jobTargets) retention(jobID, node, storage string) (string, error) {
-	if s := pruneSpec(r.jobs[jobID].PruneBackups); s != "" {
-		return s, nil
-	}
-	d := r.targetDefaults(node, storage)
-	return pruneSpec(d.PruneBackups), d.err
 }
 
 func newJobTargets(ctx context.Context, c *client.Client, cov *coverage) *jobTargets {
@@ -645,11 +603,7 @@ type backupJob struct {
 	Node     string    `json:"node"`
 	Comment  string    `json:"comment"`
 	Exclude  string    `json:"exclude"`
-	// PruneBackups is the job's retention (object or property string).
-	PruneBackups json.RawMessage `json:"prune-backups"`
-	NextRun      flexInt         `json:"next-run"`
-	// Remove (default on) prunes after the run; remove=0 keeps everything.
-	Remove *flexBool `json:"remove"`
+	NextRun  flexInt   `json:"next-run"`
 }
 
 // excludes reports whether the job's exclude list names vmid.
@@ -1258,6 +1212,7 @@ func markSharedPBS(ctx context.Context, flags *rootFlags, targets []fleetTarget)
 	}
 	type seen struct {
 		refs   map[string]pbsStorageRef
+		net    map[string]string
 		hidden bool
 	}
 	// Read every configured cluster in parallel (bounded), so a hung client
@@ -1270,13 +1225,18 @@ func markSharedPBS(ctx context.Context, flags *rootFlags, targets []fleetTarget)
 		if err != nil {
 			return seen{}, err
 		}
-		return seen{refs: refs, hidden: storageListHidden(ctx, t.C) != nil}, nil
+		net, err := fetchNetStorageIDs(ctx, t.C)
+		if err != nil {
+			return seen{}, err
+		}
+		return seen{refs: refs, net: net, hidden: storageListHidden(ctx, t.C) != nil}, nil
 	})
 	byName := map[string]fleetTarget{}
 	for _, t := range all {
 		byName[t.Name] = t
 	}
-	own := &pbsOwnership{writers: map[string]map[string]string{}, svc: pbsServices{}}
+	own := &pbsOwnership{writers: map[string]map[string]string{}, svc: pbsServices{},
+		net: map[string]map[string]string{}, netOf: map[string]map[string]string{}}
 	// Every spelling of a PBS service first: each entry's pbs_host with its
 	// pins, and each PVE storage's server with its fingerprint.
 	for _, t := range all {
@@ -1318,6 +1278,9 @@ func markSharedPBS(ctx context.Context, flags *rootFlags, targets []fleetTarget)
 	}
 	for _, f := range failures {
 		own.peers = append(own.peers, scope(byName[f.Cluster], nil, true))
+		if p := byName[f.Cluster].Profile; p.PVEHost != "" || p.PVEBaseURL != "" {
+			own.netUnread = append(own.netUnread, f.Cluster)
+		}
 	}
 	for _, r := range results {
 		t := byName[r.Source]
@@ -1329,6 +1292,17 @@ func markSharedPBS(ctx context.Context, flags *rootFlags, targets []fleetTarget)
 		// count and the rest is unknown.
 		if r.Value.hidden {
 			own.peers = append(own.peers, scope(t, r.Value.refs, true))
+			own.netUnread = append(own.netUnread, t.Name)
+		}
+		own.netOf[id] = r.Value.net
+		for _, ident := range r.Value.net {
+			if ident == "" {
+				continue // cluster-local (see netStorageID)
+			}
+			if own.net[ident] == nil {
+				own.net[ident] = map[string]string{}
+			}
+			own.net[ident][id] = t.Name
 		}
 		// A declared pbs_namespace owns its subtree, including namespaces a
 		// storage wrote to before it moved.
@@ -1352,14 +1326,126 @@ func markSharedPBS(ctx context.Context, flags *rootFlags, targets []fleetTarget)
 	}
 }
 
-// pbsRefMissing: with several configured clusters, a PBS storage whose config
-// could not be read cannot be tied to a namespace, so whether another cluster
-// writes there too is unknown and its listing proves nothing.
-func (t fleetTarget) pbsRefMissing(s storageInfo, refs map[string]pbsStorageRef) error {
-	if _, ok := refs[s.Storage]; ok || s.Type != "pbs" || t.own == nil {
+// storageUnattributed: with several configured clusters, a storage's archives
+// count for this cluster only when no other configured cluster writes there.
+// A PBS storage whose config could not be read cannot be tied to a namespace;
+// a network storage (netStorageID) another cluster mounts too, or may, holds
+// archives that carry only a VMID, and VMIDs repeat across clients.
+func (t fleetTarget) storageUnattributed(s storageInfo, refs map[string]pbsStorageRef) error {
+	if t.own == nil {
 		return nil
 	}
-	return fmt.Errorf("the storage config of %s could not be read, so which PBS namespace it reads, and whether another configured cluster writes there too, is unknown; its archives were not counted", s.Storage)
+	if _, ok := refs[s.Storage]; !ok && s.Type == "pbs" {
+		return fmt.Errorf("the storage config of %s could not be read, so which PBS namespace it reads, and whether another configured cluster writes there too, is unknown; its archives were not counted", s.Storage)
+	}
+	if sharers := t.netSharers(s); len(sharers) > 0 {
+		return fmt.Errorf("storage %s is a network share that another configured cluster also mounts, or may (%s); its archives carry only a VMID, which repeats across clients, so none was counted for this cluster. Give each client its own export, or a PBS namespace", s.Storage, strings.Join(sharers, ", "))
+	}
+	return nil
+}
+
+// netSharers names the other configured clusters that mount the network
+// storage s too, or whose storage config could not be read in full.
+func (t fleetTarget) netSharers(s storageInfo) []string {
+	if !netStorageType(s.Type) {
+		return nil
+	}
+	mine, read := t.own.netOf[t.pveID]
+	if !read {
+		return []string{"this cluster's storage config could not be read"}
+	}
+	ident, listed := mine[s.Storage]
+	if !listed {
+		return []string{"its share is not in the storage config this token sees"}
+	}
+	if ident == "" {
+		return nil // cluster-local (see netStorageID)
+	}
+	var out []string
+	for pve, name := range t.own.net[ident] {
+		if pve != t.pveID && !slices.Contains(out, name) {
+			out = append(out, name)
+		}
+	}
+	for _, name := range t.own.netUnread {
+		if name != t.Name && !slices.Contains(out, name+" (storage config not read)") {
+			out = append(out, name+" (storage config not read)")
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+// netStorageType: storage types that mount a share another cluster can mount
+// too. A dir storage's path is node-local; no Proxmox API says what backs it.
+func netStorageType(typ string) bool {
+	switch typ {
+	case "nfs", "cifs", "cephfs", "glusterfs":
+		return true
+	}
+	return false
+}
+
+// fetchNetStorageIDs reads the storage config for the identity of every
+// network storage (see netStorageID), keyed by storage ID; "" is
+// cluster-local.
+func fetchNetStorageIDs(ctx context.Context, c *client.Client) (map[string]string, error) {
+	var list []map[string]any
+	if err := getJSON(ctx, c, "/storage", nil, &list); err != nil {
+		return nil, fmt.Errorf("storage config: %w", err)
+	}
+	out := map[string]string{}
+	for _, e := range list {
+		str := func(k string) string {
+			if v, ok := e[k]; ok && v != nil {
+				return strings.TrimSpace(fmt.Sprint(v))
+			}
+			return ""
+		}
+		if netStorageType(str("type")) {
+			out[str("storage")] = netStorageID(str("type"), str("server"), str("export"), str("share"), str("subdir"), str("monhost"), str("fs-name"), str("volume"))
+		}
+	}
+	return out, nil
+}
+
+// netStorageID names the directory a network storage keeps its dump/ in, the
+// same for every cluster that mounts it: server (canonHost) plus export, or
+// SMB share and subdir (case-insensitive, as SMB is), or Ceph monitors plus
+// filesystem and subdir, or Gluster volume. "" when it is not a network
+// storage, or a CephFS on the cluster's own Ceph (no monhost).
+func netStorageID(typ, server, export, share, subdir, monhost, fsName, volume string) string {
+	clean := func(p string) string { return strings.TrimSuffix(path.Clean("/"+p), "/") }
+	switch typ {
+	case "nfs":
+		return "nfs://" + canonHost(server) + clean(export)
+	case "cifs":
+		return "cifs://" + canonHost(server) + strings.ToLower(clean(share)+clean(subdir))
+	case "cephfs":
+		if monhost == "" {
+			return ""
+		}
+		var mons []string
+		for _, m := range strings.FieldsFunc(monhost, func(r rune) bool { return r == ' ' || r == ',' || r == ';' }) {
+			mons = append(mons, canonHost(m))
+		}
+		sort.Strings(mons)
+		return "cephfs://" + strings.Join(mons, ",") + "/" + fsName + clean(subdir)
+	case "glusterfs":
+		return "glusterfs://" + canonHost(server) + clean(volume)
+	}
+	return ""
+}
+
+// canonHost is one spelling per host: lowercase, no trailing dot, no IPv6
+// brackets, one form per IP address. Names and addresses of one server stay
+// two spellings: no Proxmox API resolves them.
+func canonHost(host string) string {
+	h := strings.TrimSuffix(strings.ToLower(strings.Trim(strings.TrimSpace(host), "[]")), ".")
+	if ip := net.ParseIP(h); ip != nil {
+		h = ip.String()
+	}
+	return h
 }
 
 // allClusterTargets builds a client for every configured cluster, ignoring
@@ -1405,11 +1491,7 @@ func pbsEndpoint(host string, port int64) string {
 	if port > 0 {
 		p = port
 	}
-	h := strings.TrimSuffix(strings.ToLower(strings.Trim(strings.TrimSpace(host), "[]")), ".")
-	if ip := net.ParseIP(h); ip != nil {
-		h = ip.String() // one spelling per address: fd00:0::10 is fd00::10
-	}
-	return net.JoinHostPort(h, strconv.FormatInt(p, 10))
+	return net.JoinHostPort(canonHost(host), strconv.FormatInt(p, 10)) // fd00:0::10 is fd00::10
 }
 
 const pbsDefaultPortNum int64 = 8007

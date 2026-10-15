@@ -6,15 +6,15 @@ package cli
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
 	"strconv"
 	"strings"
 
-	"github.com/spf13/cobra"
 	"proxmox-pp-cli/internal/client"
+
+	"github.com/spf13/cobra"
 )
 
 type guestRestorePoints struct {
@@ -260,7 +260,7 @@ func collectRestorePoints(ctx context.Context, t fleetTarget, query string, veri
 			s, node := storages[key], readers[key]
 			covered := pbsCovers(refs, s.Storage, pbsHost, nsByStore)
 			rps, err := readStorageArchives(ctx, t.C, node, s, vmid, refs, covered)
-			if merr := t.pbsRefMissing(s, refs); merr != nil {
+			if merr := t.storageUnattributed(s, refs); merr != nil {
 				rps, err = nil, merr
 			}
 			if err != nil && covered {
@@ -349,27 +349,6 @@ func collectRestorePoints(ctx context.Context, t fleetTarget, query string, veri
 		out = append(out, gr)
 	}
 	return out, fails, nil
-}
-
-// pruneSpec renders a job's prune-backups (object or property string) as one
-// property string; "" when the job sets none.
-func pruneSpec(raw json.RawMessage) string {
-	if len(raw) == 0 || string(raw) == "null" {
-		return ""
-	}
-	var s string
-	if json.Unmarshal(raw, &s) == nil {
-		return s
-	}
-	var m map[string]any
-	if json.Unmarshal(raw, &m) != nil {
-		return ""
-	}
-	parts := make([]string, 0, len(m))
-	for _, k := range sortedKeys(m) {
-		parts = append(parts, fmt.Sprintf("%s=%v", k, m[k]))
-	}
-	return strings.Join(parts, ",")
 }
 
 // nothingReadable: no match has a readable restore point while some match's

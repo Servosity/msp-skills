@@ -259,7 +259,7 @@ func collectRPO(ctx context.Context, t fleetTarget, start, now time.Time, onlyVM
 		s := storages[key]
 		covered := pbsCovers(refs, s.Storage, t.pbsEndpoint(), nsByStore)
 		rps, err := readStorageArchives(ctx, t.C, readers[key], s, onlyVMID, refs, covered)
-		if merr := t.pbsRefMissing(s, refs); merr != nil {
+		if merr := t.storageUnattributed(s, refs); merr != nil {
 			rps, err = nil, merr
 		}
 		if err != nil && covered {

@@ -14,8 +14,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/spf13/cobra"
 	"proxmox-pp-cli/internal/client"
+
+	"github.com/spf13/cobra"
 )
 
 type capacityRow struct {
@@ -33,7 +34,6 @@ type capacityRow struct {
 	GCLastState     string   `json:"gc_last_state,omitempty"`
 	GCLastEndAt     string   `json:"gc_last_end_at,omitempty"`
 	GCPendingBytes  int64    `json:"gc_pending_bytes,omitempty"`
-	PruneJobs       int      `json:"prune_jobs"`
 	Flags           []string `json:"flags"`
 	// Attribution is "shared: <clusters>" on a PBS datastore row when another
 	// configured cluster also uses that PBS: tenant is then empty.
@@ -50,12 +50,11 @@ func newNovelCapacityCmd(flags *rootFlags) *cobra.Command {
 	var within, gcMargin, clientFilter string
 	cmd := &cobra.Command{
 		Use:   "capacity",
-		Short: "PBS datastores ranked by days to full, plus every PVE backup storage by percent used, with GC and prune state",
-		Long: "Use this command for days-to-full, GC and prune state across every PBS datastore, and percent used on every PVE backup storage. " +
+		Short: "PBS datastores ranked by days to full, plus every PVE backup storage by percent used, with GC state",
+		Long: "Use this command for days-to-full and GC state across every PBS datastore, and percent used on every PVE backup storage. " +
 			"Do NOT use this command for verify failures or corrupt chunks; use 'verify-health' instead.\n\n" +
 			"Flags: gc-deadlock-risk (free space below --gc-margin while the last garbage collection failed or never ran: GC needs " +
-			"free space to run, so the datastore can no longer clean itself), unpruned (nothing prunes the datastore: no PBS prune job, " +
-			"datastore keep-* on a prune-schedule, or PVE prune-backups on an enabled backup job writing there with remove on (remove: the job's, else its node's vzdump.conf; retention: the job's, else the storage's, else vzdump.conf's), that removes anything; keep-all or all-zero keep counts prune nothing), filling (estimated full within --within), no-forecast (a PVE storage, or a PBS datastore with too few usage " +
+			"free space to run, so the datastore can no longer clean itself), filling (estimated full within --within), no-forecast (a PVE storage, or a PBS datastore with too few usage " +
 			"samples for PBS to estimate: nothing forecasts its days to full, so it is always listed, --within included, and judged by used_pct), nearly-full (free space below --gc-margin). " +
 			"PBS forecasts come from its own linear regression over the last month. A datastore another configured cluster also writes to has attribution 'shared: <clusters>' and no tenant.",
 		Example: strings.Trim(`
@@ -158,11 +157,8 @@ func collectCapacity(ctx context.Context, t fleetTarget, now time.Time, margin f
 		refs, pveErr = fetchPBSStorageRefs(ctx, t.C)
 	}
 	var jobs []backupJob
-	// PVE retention (storage or job prune-backups) is known only when both reads succeeded.
-	pveRetentionKnown := pveErr == nil
 	if pveErr == nil {
 		if err := getJSON(ctx, t.C, "/cluster/backup", nil, &jobs); err != nil {
-			pveRetentionKnown = false
 			fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "backup jobs", Error: err.Error()})
 		}
 	}
@@ -170,68 +166,6 @@ func collectCapacity(ctx context.Context, t fleetTarget, now time.Time, margin f
 	targets := &jobTargets{ctx: ctx, c: t.C, jobs: map[string]backupJob{}, defaults: map[string]string{}}
 	for _, j := range jobs {
 		targets.jobs[j.ID] = j
-	}
-	nodesRead := false
-	// jobPrunes reports whether job j prunes storage: some node it runs on
-	// writes there with remove on and an effective retention (the job's
-	// prune-backups, else the storage's, else the node's vzdump.conf) that
-	// removes anything. Unreadable node defaults are
-	// reported and credited, like every other unknown retention source.
-	// vzdump prunes inside each guest's backup task, so a job prunes only on
-	// the nodes where it backs up some guest (an empty pool prunes nothing).
-	// Unknown selection is reported and credited, like unknown retention.
-	var jobGuestNodes map[string]map[string]bool
-	selectionKnown := true
-	jobPrunes := func(j backupJob, storage string) bool {
-		if !nodesRead {
-			nodesRead = true
-			cov, err := fetchCoverage(ctx, t.C)
-			var guests []pveGuest
-			if err == nil {
-				guests, err = fetchGuests(ctx, t.C)
-			}
-			if err == nil {
-				// Guests (and included_volumes) are filtered by VM.Audit: a
-				// hidden guest's job selection is missing, not empty.
-				err = guestListHidden(ctx, t.C)
-			}
-			if err != nil {
-				selectionKnown = false
-				fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "backup job guests", Error: "which guests the backup jobs select could not be read (" + err.Error() + "), so whether they prune is unknown; not flagged unpruned"})
-			} else {
-				jobGuestNodes = map[string]map[string]bool{}
-				for _, g := range guests {
-					for _, id := range cov.EnabledFor[int64(g.VMID)] {
-						if jobGuestNodes[id] == nil {
-							jobGuestNodes[id] = map[string]bool{}
-						}
-						jobGuestNodes[id][g.Node] = true
-					}
-				}
-			}
-		}
-		if !selectionKnown {
-			return true
-		}
-		for _, n := range sortedKeys(jobGuestNodes[j.ID]) {
-			if targets.target(j.ID, n) != storage {
-				continue
-			}
-			on, known := targets.prunes(j.ID, n, storage)
-			if !known {
-				fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "node " + n + " vzdump defaults", Error: "the node's vzdump defaults could not be read, so whether job " + j.ID + " prunes after its run is unknown; not flagged unpruned"})
-				return true
-			}
-			eff, err := targets.retention(j.ID, n, storage)
-			if err != nil {
-				fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "node " + n + " vzdump defaults", Error: "the retention job " + j.ID + " applies to " + storage + " could not be resolved (" + err.Error() + "); not flagged unpruned"})
-				return true
-			}
-			if on && retentionPrunes(parseRetention(eff)) {
-				return true
-			}
-		}
-		return false
 	}
 	pbsHost := t.pbsEndpoint()
 	pbsRowFor := map[string]bool{} // datastores that got an authoritative PBS row
@@ -260,12 +194,6 @@ func collectCapacity(ctx context.Context, t fleetTarget, now time.Time, margin f
 		}
 		if err := getJSON(ctx, t.C, pbsPath("/admin/gc"), nil, &gcs); err != nil {
 			fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "pbs gc", Error: err.Error()})
-		}
-		var prunes []map[string]any // store, disable, keep-*
-		pruneOK := true
-		if err := getJSON(ctx, t.C, pbsPath("/admin/prune"), nil, &prunes); err != nil {
-			pruneOK = false
-			fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "pbs prune jobs", Error: err.Error()})
 		}
 		for _, u := range usage {
 			if u.ErrorText != "" {
@@ -298,12 +226,6 @@ func collectCapacity(ctx context.Context, t fleetTarget, now time.Time, margin f
 					row.GCLastState, row.GCLastEndAt, row.GCPendingBytes = g.LastRunState, unixRFC3339(int64(g.LastRunEnd)), int64(g.PendingBytes)
 				}
 			}
-			for _, p := range prunes {
-				// Only an enabled job that keeps a bounded number removes anything.
-				if fmt.Sprint(p["store"]) == u.Store && !truthy(p["disable"]) && retentionPrunes(anyOpts(p)) {
-					row.PruneJobs++
-				}
-			}
 			free := 1.0
 			if row.TotalBytes > 0 {
 				free = float64(row.AvailBytes) / float64(row.TotalBytes)
@@ -318,18 +240,6 @@ func collectCapacity(ctx context.Context, t fleetTarget, now time.Time, margin f
 			}
 			if free < margin && !strings.EqualFold(row.GCLastState, "ok") {
 				row.Flags = append(row.Flags, "gc-deadlock-risk")
-			}
-			// Retention can live in a PBS prune job, the datastore's keep-* options,
-			// or PVE (the storage's or backup job's prune-backups). Flag only when
-			// none exists and every retention source was actually read.
-			if pruneOK && pveRetentionKnown && row.PruneJobs == 0 && !pveRetentionFor(u.Store, pbsHost, refs, jobs, jobPrunes) && !datastoreHasRetention(ctx, t, u.Store, &fails) {
-				row.Flags = append(row.Flags, "unpruned")
-			}
-			if pruneOK && errors.Is(pveErr, errNoPVE) && row.PruneJobs == 0 && !datastoreHasRetention(ctx, t, u.Store, &fails) {
-				// PBS prunes nothing here, and a PBS-only entry cannot see the
-				// PVE jobs that may: retention was not assessed, say so.
-				fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "pbs " + u.Store + " retention",
-					Error: "no PBS prune job or prune-schedule covers datastore " + u.Store + ", and this entry has no Proxmox VE host to read the backup jobs that may prune it, so whether anything prunes it is unknown"})
 			}
 			pbsRowFor[u.Store] = true
 			if within > 0 && row.DaysToFull != nil && *row.DaysToFull <= within.Hours()/24 {
@@ -426,19 +336,6 @@ func collectCapacity(ctx context.Context, t fleetTarget, now time.Time, margin f
 	return rows, fails, nil
 }
 
-// datastoreHasRetention reports whether the datastore config itself prunes:
-// keep-* options (the alternative to prune jobs) run only on the datastore's
-// own prune-schedule, so retention without a schedule removes nothing.
-func datastoreHasRetention(ctx context.Context, t fleetTarget, store string, fails *[]fetchFailure) bool {
-	var cfg map[string]any
-	if err := getJSON(ctx, t.C, pbsPath("/config/datastore/%s", store), nil, &cfg); err != nil {
-		*fails = append(*fails, fetchFailure{Cluster: t.Name, Scope: "pbs " + store + " config", Error: err.Error()})
-		return true // unknown: do not raise an unpruned flag on missing data
-	}
-	opts := anyOpts(cfg)
-	return strings.TrimSpace(opts["prune-schedule"]) != "" && retentionPrunes(opts)
-}
-
 func pct(used, total int64) float64 {
 	if total <= 0 {
 		return 0
@@ -468,69 +365,6 @@ func sortCapacity(rows []capacityRow) {
 		}
 		return rows[i].UsedPct > rows[j].UsedPct
 	})
-}
-
-// pveRetentionFor reports whether PVE prunes backups on a storage that points
-// at datastore store on this PBS host (storage or backup-job prune-backups).
-func pveRetentionFor(store, pbsHost string, refs map[string]pbsStorageRef, jobs []backupJob, prunes func(backupJob, string) bool) bool {
-	for id, ref := range refs {
-		if ref.datastore != store || !strings.EqualFold(ref.server, pbsHost) {
-			continue
-		}
-		// PVE prunes only after a job run, with the job's effective retention:
-		// the storage is pruned when some enabled job writing there prunes
-		// (see jobPrunes). With no enabled job writing there, nothing does.
-		for _, j := range jobs {
-			if j.enabled() && prunes(j, id) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-// retentionPrunes reports whether a retention policy removes anything: some
-// keep-<period> count above 0 and no keep-all. Proxmox keeps every backup when
-// no positive keep option is set, so keep-all=1 or all-zero counts prune nothing.
-func retentionPrunes(opts map[string]string) bool {
-	if truthy(opts["keep-all"]) {
-		return false
-	}
-	for k, v := range opts {
-		if strings.HasPrefix(k, "keep-") && k != "keep-all" {
-			if n, err := strconv.ParseFloat(strings.TrimSpace(v), 64); err == nil && n > 0 {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-// parseRetention reads a prune-backups property string ("keep-last=3,keep-daily=7").
-func parseRetention(spec string) map[string]string {
-	out := map[string]string{}
-	for _, part := range strings.Split(spec, ",") {
-		if k, v, ok := strings.Cut(strings.TrimSpace(part), "="); ok {
-			out[strings.TrimSpace(k)] = strings.TrimSpace(v)
-		}
-	}
-	return out
-}
-
-func anyOpts(m map[string]any) map[string]string {
-	out := make(map[string]string, len(m))
-	for k, v := range m {
-		out[k] = fmt.Sprint(v)
-	}
-	return out
-}
-
-func truthy(v any) bool {
-	switch s := strings.ToLower(strings.TrimSpace(fmt.Sprint(v))); s {
-	case "1", "true", "yes", "on":
-		return true
-	}
-	return false
 }
 
 // shareOf credits a datastore row to this target's tenant only when no other

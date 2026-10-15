@@ -21,8 +21,8 @@ func TestCapacityRunway(t *testing.T) {
 	if pbs.Kind != "pbs-datastore" || pbs.Name != "main" || pbs.DaysToFull == nil || *pbs.DaysToFull < 2.9 || *pbs.DaysToFull > 3.1 {
 		t.Fatalf("first row must be the datastore that fills in ~3 days: %+v", pbs)
 	}
-	// 2% free, GC failed, no prune job, no keep-* options, no PVE prune-backups.
-	for _, flag := range []string{"nearly-full", "gc-deadlock-risk", "unpruned"} {
+	// 2% free, GC failed.
+	for _, flag := range []string{"nearly-full", "gc-deadlock-risk"} {
 		if !slices.Contains(pbs.Flags, flag) {
 			t.Errorf("missing flag %s: %v", flag, pbs.Flags)
 		}

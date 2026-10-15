@@ -121,6 +121,15 @@ hosts before any request is built.
   `attribution` is `shared` on the store row and `shared: <clusters>` on each
   group row, whose tenant is left empty. `failures` marks a PBS task the same
   way.
+- **One backup export per client cluster** for NFS, SMB/CIFS, CephFS or
+  GlusterFS backup storage. A vzdump archive carries only a VMID, so where two
+  configured clusters mount the same export or share (or a configured cluster
+  could not be read), the skill counts none of its archives for either and
+  says so. It matches a share by server, export, share and subdir as the
+  storage config spells them; the same server reached by name on one cluster
+  and by address on another, a `dir` storage over a mounted share, and a
+  hyperconverged CephFS another cluster mounts through its monitors are not
+  matched, because no Proxmox read says what backs them.
 - **One token per client cluster**, referenced by env var name in
   `clusters.toml`, so revoking one client never touches another.
 - **Pin every certificate** with its SHA-256 fingerprint.
