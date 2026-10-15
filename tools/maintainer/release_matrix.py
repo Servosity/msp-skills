@@ -145,6 +145,8 @@ MACHINERY = (
     "tools/maintainer/check_mcp_gate.py",
     "tools/maintainer/check_doctor_truth.py",
     "tools/maintainer/windows_smoke.ps1",
+    "tools/maintainer/windows_known_failures.py",
+    "tools/maintainer/windows_known_test_failures.json",
     "tools/maintainer/cli_hash.py",
     # A Go workspace in an ANCESTOR of skills/<slug>/cli. None exists today,
     # but `go build` walks up looking for one (GOWORK=auto), so introducing or
@@ -396,6 +398,7 @@ def _self_test() -> int:
         ("tools/maintainer/check_mcp_gate.py", True),
         ("tools/maintainer/check_cli_claims.py", True),
         ("tools/maintainer/windows_smoke.ps1", True),
+        ("tools/maintainer/windows_known_test_failures.json", True),
         ("tools/maintainer/release_matrix.py", True),
         ("tools/maintainer/build-catalog.py", False),
         ("tools/maintainer/env_schema_internal.json", False),

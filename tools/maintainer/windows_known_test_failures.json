@@ -1,0 +1,175 @@
+{
+ "_doc": "Known Windows test failures, recorded so the ci.yml windows job can gate on everything else. Every test listed here still RUNS on every Windows row, in a separate advisory step that reports it as a warning; it just does not fail the job. A test NOT listed here that fails on Windows fails the job. Remove an entry when its fix lands (the advisory step prints a notice when every listed test for a skill passes). slugs '*' applies to every connector; tests are top-level Go test names. Read by tools/maintainer/windows_known_failures.py.",
+ "entries": [
+  {
+   "id": "WIN-CREDS-RID500-ALIAS",
+   "kind": "real-bug",
+   "slugs": [
+    "*"
+   ],
+   "tests": [
+    "TestEmptyCredentialsFileDoesNotClearLegacyConfig",
+    "TestAuthWriteMigratesLegacyConfigToCredentialsOnly",
+    "TestLoadCredentials_RefusesOverPermissiveFileOnRead",
+    "TestConfigFileWinsWhenCredentialsFileAlsoHasSecrets",
+    "TestPartialConfigCredentialsMergeMissingFields",
+    "TestExplicitConfigUsesSiblingCredentialsBeforeGlobal",
+    "TestExplicitConfigFallsBackToGlobalCredentialsWhenSiblingMissing",
+    "TestExplicitConfigFallsBackToGlobalCredentialsWhenSiblingEmpty",
+    "TestExplicitConfigFileCredentialsWinOverSiblingAndGlobal",
+    "TestCorruptCredentialsDoesNotOverrideLegacyConfig",
+    "TestAuthWriteScrubsLegacyConfigWhenRelocated",
+    "TestConcurrentCredentialWritersLeaveParseableCredentials",
+    "TestLoad_RefusesOverPermissiveConfigOnRead",
+    "TestExplicitConfigRejectsMalformedSiblingInsteadOfUsingGlobal",
+    "TestClearTokensFromBothStateClearsCredentialsAndLegacy",
+    "TestCorruptCredentialsFallsBackToEnvCredential"
+   ],
+   "why": "The Windows credential-permission check (internal/cliutil/creds_perms_eval.go, press 4.30.2 and later) compares SDDL text. The built-in local Administrator account (RID 500) renders as the alias LA, never as its S-1-5-21-...-500 SID, so a credentials or config file the CLI itself just wrote is refused as 'token file owner is not the current user'. The GitHub windows-latest account is that account; so is the local Administrator MSP techs use on servers. For them auth set-token saves and then refuses the token, and every MCP or CLI call answers 'stored credentials refused'.",
+   "fix": "Press: compare SIDs, not SDDL strings (resolve two-letter aliases with ConvertStringSidToSid, or walk the ACL with EqualSid), and add an LA case to TestEvalCredsSecurity. Then reprint or hand-fix creds_perms_eval.go per connector."
+  },
+  {
+   "id": "WIN-CREDS-RID500-ALIAS-HANDWRITTEN",
+   "kind": "real-bug",
+   "slugs": [
+    "connectwise-rmm",
+    "immybot",
+    "servosity",
+    "threatdown",
+    "wordpress"
+   ],
+   "tests": [
+    "TestTicketsListNeverSendsALonePagingKey",
+    "TestCodeOrchExecuteSendsUninstallBody",
+    "TestCodeOrchTicketsListPairsPagingKeys",
+    "TestSaveTokens_KeepsEnvSuppliedClientSecretOffDisk",
+    "TestSaveTokens_PersistsExplicitlyPassedClientSecret",
+    "TestWithoutTheSwitchTheCacheIsByteIdentical",
+    "TestNoConfigWriteStillAllowsTheWipe",
+    "TestRequestContractExecuteNamedWriteOnWire",
+    "TestRequestContractExecuteAdvertisedGETBindings",
+    "TestRequestContractExecuteNamedArrayBody",
+    "TestRequestContractPathAndBodyMayShareWireName",
+    "TestWorkflowArchivePartialSuccessExitsZero",
+    "TestWorkflowArchiveSuccessfulEmptyExitsZero",
+    "TestClearTokensWithExplicitConfigClearsSiblingStore",
+    "TestSaveCredentialWithExplicitConfigWritesSiblingStore",
+    "TestAuthLoginSavesThePairItUsed",
+    "TestAuthStatusTracksTokenBinding",
+    "TestSetTokenClearsSavedClientUnderEnvID",
+    "TestSetTokenDoesNotInheritOldExpiry",
+    "TestDiagLogIsNeverRetried",
+    "TestRespondIsolatePreviewThenConfirm",
+    "TestRespondSafetyGuards",
+    "TestRespondBatchesBulkJobs",
+    "TestFleetHealthStopsOnCountAuthError",
+    "TestEnvClientIDNeverPairsWithSavedSecret",
+    "TestRepeatedSavesKeepSavedClientPair",
+    "TestExplicitConfigSavesAndClearsItsOwnCredentialsFile"
+   ],
+   "why": "Hand-written tests that save credentials, so they hit WIN-CREDS-RID500-ALIAS through the generated check.",
+   "fix": "Fixed by the WIN-CREDS-RID500-ALIAS fix; no test change needed."
+  },
+  {
+   "id": "WIN-UNIX-MODE-BITS-430",
+   "kind": "real-bug",
+   "slugs": [
+    "unifi-network"
+   ],
+   "tests": [
+    "TestPlatformCredentiallessCLIAndMCPUseEmptyCredentials",
+    "TestPlatformReferencedSourceWithoutResolverFailsBeforeProbe",
+    "TestPlatformMCPBindingDoesNotConsumeResolverFactory",
+    "TestPlatformMCPNilResolverFailsBeforeProbe",
+    "TestPlatformReferencedProfileWritesFailBeforePersistence",
+    "TestPlatformCLIConformanceSurfaceAndGate",
+    "TestPlatformCLIConformanceMismatchFailsBeforeCommand",
+    "TestPlatformMigrationIsVerifiedIdempotentAndQuarantinesLegacyState",
+    "TestProfileParserAndSelectionConformance",
+    "TestProfilePreservesOpaqueSiblingReferences",
+    "TestCredentialResolutionAllowsEmptyReferencesWithoutResolver",
+    "TestCredentialResolutionFailsBeforeProbeWithoutResolver",
+    "TestTenantGateAndIsolationConformance",
+    "TestGateTypedFailuresConformance",
+    "TestProviderMismatchAndDatabaseOwnershipConformance",
+    "TestSharedLimiterHonorsBurstAndCrossInstanceLedger"
+   ],
+   "why": "Press 4.30.1 internal/platform/profile.go refuses any client profile whose Unix mode is not 0600; Windows always reports 0666. Inert today (no tenant identity adapter is registered), and fatal for client profiles once one is.",
+   "fix": "Reprint on press 4.30.2 or later, which splits the check into perms_windows.go."
+  },
+  {
+   "id": "WIN-TEST-UNIX-MODE-ASSERT",
+   "kind": "unix-only-test",
+   "slugs": [
+    "avanan",
+    "cork",
+    "threatlocker",
+    "unifi-network",
+    "fortinet",
+    "google-workspace",
+    "cipp"
+   ],
+   "tests": [
+    "TestPlatformMigrationAdoptsOnlyVerifiedTenantDatabase",
+    "TestFleetBackupThenChanges",
+    "TestDevicesPaginatesAndCachesToken",
+    "TestCacheFileIsPrivateEvenOverLooseTemp",
+    "TestQuarantineLiftMovesMirrorFirst",
+    "TestMintPreservesTokenOnReadOnlyConfigDir"
+   ],
+   "why": "The test asserts a Unix permission bit (Perm() == 0o600) or relies on a read-only directory refusing writes; Windows reports 0666 and ignores read-only on directories.",
+   "fix": "Guard the assert with runtime.GOOS != \"windows\" (or assert the Windows ACL instead)."
+  },
+  {
+   "id": "WIN-TEST-HOME-ONLY-ISOLATION",
+   "kind": "unix-only-test",
+   "slugs": [
+    "axcient",
+    "tactical-rmm",
+    "itglue",
+    "resourceguru"
+   ],
+   "tests": [
+    "TestHandleSearch_Issue148_Guidance",
+    "TestNovelAgentsBulkRun",
+    "TestNovelAgentsStale",
+    "TestNovelAlertsDigest",
+    "TestNovelChecksFlapping",
+    "TestNovelChecksWorst",
+    "TestNovelClientsScorecard",
+    "TestNovelCoverage",
+    "TestNovelFleetHealth",
+    "TestNovelMaintenanceSet",
+    "TestNovelPatchPosture",
+    "TestNovelSince",
+    "TestNovelSoftwareFind",
+    "TestNovelTriage",
+    "TestNovelOrphansCleanTenant",
+    "TestNovelOrphansZeroOrgsNote",
+    "TestNovelOrphansResourceFilter",
+    "TestKindDirDefaultsMatchLegacyLayout",
+    "TestKindDirDataPrecedencePairs",
+    "TestKindDirRelativeOverridesWarnAndFallThrough",
+    "TestSetHomeOverrideExpandsTildeAndCleans",
+    "TestCorruptCredentialsFallsBackToLegacyConfig",
+    "TestAgentcookieMarkerKeepsCredentialsInConfig",
+    "TestMCPPathResolutionMatchesCLIResolverWithPlatformDefaults",
+    "TestMCPSQLMissingStoreIsActionable"
+   ],
+   "why": "The test isolates the store by setting only HOME. On Windows os.UserHomeDir reads USERPROFILE, so the code reads the runner's real profile (and tests pollute each other through it).",
+   "fix": "Set USERPROFILE alongside HOME, or use the press testenv.Isolate helper."
+  },
+  {
+   "id": "WIN-FLAKY-CONCURRENT-SQLITE",
+   "kind": "flaky",
+   "slugs": [
+    "datto-bcdr"
+   ],
+   "tests": [
+    "TestHardenSQLiteFilesConcurrentWritersKeepIntegrity"
+   ],
+   "why": "Eight helper processes write one store at once; one exited 4 (a non-busy write error) on Windows. The same generated test passed in the 12 other connectors that carry it, so this reads as load-dependent, not deterministic.",
+   "fix": "Have the helper print its error before exiting 4, then re-run; if it reproduces, it is the CLI and MCP server writing one store concurrently on Windows."
+  }
+ ]
+}

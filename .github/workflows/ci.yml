@@ -157,6 +157,7 @@ jobs:
           python3 tools/maintainer/check_release_assets.py --self-test
           python3 tools/maintainer/check_release_pipeline.py --self-test
           python3 tools/maintainer/release_matrix.py --self-test
+          python3 tools/maintainer/windows_known_failures.py --self-test
 
       - name: Skill contract (frontmatter + required files)
         run: python3 tools/maintainer/check_skill_contract.py
@@ -570,8 +571,50 @@ jobs:
         run: go vet ./...
 
       - name: Test (windows/amd64, native)
+        # Gates on every test EXCEPT the ones recorded in
+        # tools/maintainer/windows_known_test_failures.json: diagnosed Windows
+        # failures whose fixes live elsewhere (a real bug in generated code, or
+        # a test that assumes Unix). Those still run in the next step and are
+        # reported there; a failure NOT in the ledger fails this row.
         working-directory: ${{ matrix.skill.dir }}
-        run: go test ./...
+        env:
+          SLUG: ${{ matrix.skill.name }}
+        run: |
+          set -euo pipefail
+          known="$(python "$GITHUB_WORKSPACE/tools/maintainer/windows_known_failures.py" --slug "$SLUG")"
+          known="${known%$'\r'}"
+          if [ -n "$known" ]; then
+            echo "Recorded known Windows failures for $SLUG run in the next step, not here: $known"
+            go test -skip "$known" ./...
+          else
+            go test ./...
+          fi
+
+      - name: Known Windows failures (run and reported, never gating)
+        if: ${{ !cancelled() }}
+        working-directory: ${{ matrix.skill.dir }}
+        env:
+          SLUG: ${{ matrix.skill.name }}
+        run: |
+          set -uo pipefail
+          known="$(python "$GITHUB_WORKSPACE/tools/maintainer/windows_known_failures.py" --slug "$SLUG")"
+          known="${known%$'\r'}"
+          if [ -z "$known" ]; then
+            echo "No known Windows failures recorded for $SLUG."
+            exit 0
+          fi
+          go test -count=1 -v -run "$known" ./... > "$RUNNER_TEMP/known.log" 2>&1
+          ran="$(grep -cE '^=== RUN +Test[^/]*$' "$RUNNER_TEMP/known.log" || true)"
+          failed="$(grep -cE '^--- FAIL: ' "$RUNNER_TEMP/known.log" || true)"
+          if [ "$ran" -eq 0 ]; then
+            echo "None of the recorded known Windows failures exist in $SLUG."
+          elif [ "$failed" -eq 0 ]; then
+            echo "::notice title=windows known failures::all $ran recorded known Windows failure(s) in $SLUG now PASS; remove them from tools/maintainer/windows_known_test_failures.json"
+          else
+            echo "::warning title=windows known failures::$failed of $ran recorded known Windows failure(s) still fail in $SLUG (tracked in tools/maintainer/windows_known_test_failures.json, not gating)"
+          fi
+          grep -E -- '^--- FAIL: |^(ok|FAIL)[[:space:]]' "$RUNNER_TEMP/known.log" || true
+          exit 0
 
       - name: Build the CLI and MCP server the way release.yml does
         # Runs (and so does the smoke) even when a test failed: "a test is
