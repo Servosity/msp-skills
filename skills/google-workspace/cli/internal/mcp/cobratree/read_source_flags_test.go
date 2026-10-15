@@ -10,7 +10,7 @@ func TestLocalFileReadFlagsBlockedOverMCP(t *testing.T) {
 		if !DestinationFlagBlocked(nil, name) {
 			t.Errorf("--%s reads a local file and must not be settable over MCP", name)
 		}
-		args := cliArgsFromMCP(map[string]any{name: "/home/someone/.config/google-workspace-pp-cli/keys/acme.json"}, blockedDestinationFlags)
+		args := cliArgsFromMCP(map[string]any{name: "/home/someone/keys/acme-service-account.json"}, blockedDestinationFlags)
 		if len(args) != 0 {
 			t.Errorf("--%s must be dropped from MCP argv, got %v", name, args)
 		}
