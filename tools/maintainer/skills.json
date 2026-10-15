@@ -1360,6 +1360,29 @@
         "evidence": "Servosity (an MSP) verified end-to-end against its PRODUCTION QuickBooks Online tenant on 2026-06-15: full paginated sync across all 8 resources matching live count(*); ar-aging and balances computed over the complete book. Fixes qbo-query-paging + qbo-db-path-env."
       }
     },
+    "quotewerks": {
+      "system": "QuoteWerks Web quoting: quotes, orders, invoices, line items, products, repricing",
+      "status": "beta",
+      "cli_binary": "quotewerks-cli",
+      "mcp_binary": "quotewerks-mcp",
+      "vendor": "QuoteWerks",
+      "vendor_trademark_owner": "Aspire Technologies, Inc.",
+      "first_party": false,
+      "category": "CRM",
+      "display_name": "QuoteWerks",
+      "tagline": "Find, build and reprice QuoteWerks Web quotes, and see margin and win rate across every document, by asking.",
+      "has_video": true,
+      "cli_hash": "sha256:9b9ed79e69902d8d818bf2b4880fccd474c0c4de1a39c939a65ddca06800325e",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "resourceguru": {
       "system": "Resource Guru - resource scheduling, bookings, and per-day utilization",
       "status": "beta",

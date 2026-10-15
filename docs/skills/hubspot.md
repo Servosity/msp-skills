@@ -177,7 +177,7 @@ It works against any portal that issues a Private App access token with the read
 
 ## More CRM connectors
 
-Run more than one CRM tool, or comparing options? These connectors work the same way: [Pipedrive](/skills/pipedrive/) · [Salesbuildr](/skills/salesbuildr/)
+Run more than one CRM tool, or comparing options? These connectors work the same way: [Pipedrive](/skills/pipedrive/) · [QuoteWerks](/skills/quotewerks/) · [Salesbuildr](/skills/salesbuildr/)
 
 ## Status
 

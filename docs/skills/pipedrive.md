@@ -173,7 +173,7 @@ Day-to-day questions answer from the local mirror after a `sync`, so they make z
 
 ## More CRM connectors
 
-Run more than one CRM tool, or comparing options? These connectors work the same way: [HubSpot](/skills/hubspot/) · [Salesbuildr](/skills/salesbuildr/)
+Run more than one CRM tool, or comparing options? These connectors work the same way: [HubSpot](/skills/hubspot/) · [QuoteWerks](/skills/quotewerks/) · [Salesbuildr](/skills/salesbuildr/)
 
 ## Status
 

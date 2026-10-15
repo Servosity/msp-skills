@@ -1,0 +1,46 @@
+{
+  "manifest_version": "0.3",
+  "name": "quotewerks-mcp",
+  "display_name": "QuoteWerks Web",
+  "version": "0.1.0",
+  "description": "Typed quote tools for QuoteWerks Web that use the real column names, preview every write, and add margin, win-rate and pipeline answers from a local mirror.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/quotewerks-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/quotewerks-mcp",
+      "args": [],
+      "env": {
+        "QUOTEWERKS_API_KEY": "${user_config.quotewerks_api_key}"
+      }
+    }
+  },
+  "user_config": {
+    "quotewerks_api_key": {
+      "type": "string",
+      "title": "QuoteWerks Web API key",
+      "description": "QuoteWerks Web API key sent as the X-API-Key header. Create one in QuoteWerks Web (requires MasterRights); writes need a key with AllowWrite.",
+      "sensitive": true,
+      "required": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  },
+  "printing_press_version": "4.33.5",
+  "press_provenance": {
+    "printing_press_version": "4.33.5",
+    "generated_at": "2026-10-14T06:42:55.619267Z",
+    "spec_checksum": "sha256:e7426da74577617417d45b827da5384cb24ad1e0b9e21e12094432b3592547b0",
+    "spec_format": "openapi3"
+  }
+}
