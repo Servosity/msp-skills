@@ -58,11 +58,14 @@ These commands print what the API returns, so treat their output as a credential
 so does `export` of any of these resources. The local SQLite mirror (`sync`, and every
 live read that writes through to it) drops these fields before anything reaches disk,
 and the HTTP response cache never stores a response that carries one, any
-`endpoint-installers` response, or any license allocation response. The one exception
-is `serialOrLicense` in allocation rows: the same field holds a Firebox serial number or
-a software license key, and the local mirror keeps it because it is what tells two
-otherwise identical allocation rows apart; delete the data directory if that matters
-to you.
+`endpoint-installers` response, or any license allocation response. Allocation rows
+need special handling: `serialOrLicense` holds a Firebox or access point serial number
+when the row's `productName` is `firebox`, `fireboxRetention` or `accessPoint`, and a
+software license key for every other product. The mirror keeps the serial numbers
+(`allocations reconcile` matches them to the Fireboxes reporting in) and replaces a
+license key with a one-way fingerprint, `license:` plus 16 hex characters, so two rows
+stay distinguishable while the key itself never reaches disk, the search index or a
+`tail` line. A row that declares no product is treated as a key.
 
 Through the MCP server these reads return their secrets to the agent, and so to your AI
 provider, like any other result: `WATCHGUARD_MCP_READ_ONLY=1` does not block them,

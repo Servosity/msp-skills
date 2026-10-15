@@ -120,7 +120,7 @@ func dryRunCommandArgs(root *cobra.Command, input string) [][]string {
 				case "feedback":
 					args = append(args, "--send")
 				case "import":
-					args = []string{"import", "firebox-aliases", "--input", input}
+					args = []string{"import", "operators", "--input", input} // a real importable resource, so the sweep reaches newClient
 				}
 				if child.Flags().Lookup("stdin") != nil {
 					args = append(args, "--stdin")

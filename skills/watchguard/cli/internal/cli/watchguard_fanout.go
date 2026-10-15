@@ -282,14 +282,27 @@ func listRows(raw json.RawMessage, key string) ([]map[string]any, error) {
 	if json.Unmarshal(raw, &v) != nil {
 		return nil, fmt.Errorf("unexpected response: not JSON")
 	}
+	var list []any
 	switch t := v.(type) {
 	case []any:
+		list = t
 	case map[string]any:
-		if _, ok := t[key]; !ok {
+		inner, ok := t[key]
+		if !ok {
 			return nil, fmt.Errorf("unexpected response: no %q list", key)
+		}
+		// Hand-fix (handfixes.json: fanout-malformed-collection-is-failed-read):
+		// {"data":null} or {"data":"unavailable"} is not an empty fleet.
+		if list, ok = inner.([]any); !ok {
+			return nil, fmt.Errorf("unexpected response: %q is not a list", key)
 		}
 	default:
 		return nil, fmt.Errorf("unexpected response: no %q list", key)
+	}
+	for _, e := range list {
+		if _, ok := e.(map[string]any); !ok {
+			return nil, fmt.Errorf("unexpected response: %q list holds a non-object row", key)
+		}
 	}
 	return asMaps(raw, key), nil
 }
@@ -520,25 +533,62 @@ func fetchIncidents(ctx context.Context, c *client.Client, own, duration string,
 
 // incidentRows reads {"items":[...]} and the grouped {"groups":{"<g>":[...]}} form the docs also show.
 func incidentRows(raw json.RawMessage) ([]map[string]any, error) {
-	rows := asMaps(raw, "items")
-	if len(rows) > 0 {
+	var v any
+	if json.Unmarshal(raw, &v) != nil {
+		return nil, fmt.Errorf("unexpected response: not JSON")
+	}
+	objects := func(name string, list any) ([]map[string]any, error) {
+		items, ok := list.([]any)
+		if !ok {
+			return nil, fmt.Errorf("unexpected response: %q is not a list", name)
+		}
+		out := make([]map[string]any, 0, len(items))
+		for _, e := range items {
+			m, ok := e.(map[string]any)
+			if !ok {
+				return nil, fmt.Errorf("unexpected response: %q list holds a non-object row", name)
+			}
+			out = append(out, m)
+		}
+		return out, nil
+	}
+	switch t := v.(type) {
+	case []any:
+		if _, err := objects("items", t); err != nil {
+			return nil, err
+		}
+		return asMaps(raw, "items"), nil
+	case map[string]any:
+		items, hasItems := t["items"]
+		groups, hasGroups := t["groups"]
+		if !hasItems && !hasGroups {
+			return nil, fmt.Errorf("unexpected response: no \"items\" or \"groups\" list")
+		}
+		rows := make([]map[string]any, 0)
+		if hasItems {
+			// Hand-fix (handfixes.json: fanout-malformed-collection-is-failed-read).
+			got, err := objects("items", items)
+			if err != nil {
+				return nil, err
+			}
+			rows = append(rows, got...)
+		}
+		if hasGroups {
+			gm, ok := groups.(map[string]any)
+			if !ok {
+				return nil, fmt.Errorf("unexpected response: \"groups\" is not an object")
+			}
+			for _, g := range sortedMapKeys(gm) {
+				got, err := objects("groups."+g, gm[g])
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, got...)
+			}
+		}
 		return rows, nil
 	}
-	var env struct {
-		Items  json.RawMessage             `json:"items"`
-		Groups map[string][]map[string]any `json:"groups"`
-	}
-	if json.Unmarshal(raw, &env) != nil || (env.Items == nil && env.Groups == nil) {
-		var list []any
-		if json.Unmarshal(raw, &list) == nil {
-			return rows, nil
-		}
-		return nil, fmt.Errorf("unexpected response: no \"items\" or \"groups\" list")
-	}
-	for _, g := range sortedMapKeys(env.Groups) {
-		rows = append(rows, env.Groups[g]...)
-	}
-	return rows, nil
+	return nil, fmt.Errorf("unexpected response: no \"items\" or \"groups\" list")
 }
 
 // expiryOf returns when a row expires: the allocation/license expiry date, or

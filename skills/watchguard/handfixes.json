@@ -187,7 +187,7 @@
     {
       "id": "generated-doc-corrections",
       "summary": "Generated SKILL.md, AGENTS.md and guide.md carry corrections for this CLI: the exit-code table documents firebox-transactions wait's 8 (failed) and 9 (still running), the env table names WATCHGUARD_ACCOUNT_ID (not WATCHGUARD_ACCOUNTID) plus the region and audience variables, AGENTS.md examples use real commands and a low-entropy device ID, and AGENTS.md says writes send without confirmation.",
-      "why": "The generated docs named a wrong env var (WATCHGUARD_ACCOUNTID), a wrong config path and `auth-status`, used <command> placeholders, and documented exit 8 only as 'async job not finished' - for firebox-transactions wait it means the deployment FAILED. The build pane's postgen_docs.py applies the doc fixes after every generate; onboard.py --resume re-vendors SKILL.md, AGENTS.md and guide.md from the source and would drop the msp-skills edits. Round 2 (2026-10-15): the 'Fleet status' recipe used --select data.id,... but the CLI unwraps the data envelope before --select, so it exited 2 with unfiltered rows; and the Quick Start promised `doctor --dry-run` checks the install, which it does not.",
+      "why": "The generated docs named a wrong env var (WATCHGUARD_ACCOUNTID), a wrong config path and `auth-status`, used <command> placeholders, and documented exit 8 only as 'async job not finished' - for firebox-transactions wait it means the deployment FAILED. The build pane's postgen_docs.py applies the doc fixes after every generate; onboard.py --resume re-vendors SKILL.md, AGENTS.md and guide.md from the source and would drop the msp-skills edits. Round 2 (2026-10-15): the 'Fleet status' recipe used --select data.id,... but the CLI unwraps the data envelope before --select, so it exited 2 with unfiltered rows; and the Quick Start promised `doctor --dry-run` checks the install, which it does not. Codex round 1 (2026-10-15): guide.md's Claude Desktop step named only the macOS config path after the Windows installer line; it now names %APPDATA%\\Claude\\claude_desktop_config.json too.",
       "status": "active",
       "asserts": [
         {
@@ -221,6 +221,10 @@
         {
           "file": "guide.md",
           "not_contains": "watchguard-cli doctor --dry-run"
+        },
+        {
+          "file": "guide.md",
+          "contains": "%APPDATA%\\Claude\\claude_desktop_config.json"
         }
       ]
     },
@@ -945,6 +949,91 @@
         {
           "file": "cli/internal/cli/accounts_delete.go",
           "contains": "Example:     \"  watchguard-cli accounts delete --account-id ACC-1234567 --dry-run\",",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "import-dry-run-honors-root-flag",
+      "summary": "`import` no longer binds its own --dry-run flag; the root persistent --dry-run reaches newClient, so a scoped (WATCHGUARD_AUDIENCE) process never mints a token and the import never delivers under --dry-run.",
+      "why": "Codex read-only review round 1 (2026-10-15): the generated import.go bound a command-local `dryRun` that shadowed the root flag, so flags.newClient() ran with DryRun=false and, with WATCHGUARD_AUDIENCE set, InstallScopeTransport minted a real token before c.DryRun was set. The dry-run sweep missed it because it imported an unsupported resource and exited before newClient; it now imports `operators`. TestDryRunIsSideEffectFreeEverywhere fails on revert.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/import.go",
+          "not_contains": "BoolVar(&dryRun, \"dry-run\""
+        },
+        {
+          "file": "cli/internal/cli/import.go",
+          "not_contains": "c.DryRun = dryRun"
+        },
+        {
+          "file": "cli/internal/cli/dryrun_sweep_test.go",
+          "contains": "[]string{\"import\", \"operators\", \"--input\", input}",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "scoped-bearer-in-secret-set",
+      "summary": "authSecrets includes every audience-scoped bearer this process minted (and its bare token), so the echo guards (error bodies, HTML summaries, transport errors, base64 echoes) withhold a customer's token exactly like the configured credential.",
+      "why": "Codex read-only review round 1 (2026-10-15): scopeTransport substitutes the audience bearer at the transport while client.go's guards checked only the original Authorization value, so a 200 HTML page or a 403 body echoing a customer's token (plain or base64) reached CLI/MCP error output. New func scopedSecrets in watchguard_tenant.go. TestAudienceScopedBearerEchoWithheld fails on revert.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/client/watchguard_redact.go",
+          "contains": "out := scopedSecrets()",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/watchguard_tenant.go",
+          "contains": "func scopedSecrets() []string {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "fanout-malformed-collection-is-failed-read",
+      "summary": "listRows and incidentRows require the collection to be a JSON list of objects: {\"data\":null}, a scalar, an object or a list of non-objects is a failed read, never zero devices, endpoints or incidents.",
+      "why": "Codex read-only review round 1 (2026-10-15): listRows checked only that the key existed, so {\"data\":null} or {\"data\":\"unavailable\"} became an empty fleet and accounts health reported zero counts with complete:true and exit 0; incidentRows accepted {\"items\":null} the same way. Companion to fanout-partial-data-exit. TestListRowsRejectsMalformedCollections fails on revert.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/watchguard_fanout.go",
+          "contains": "if list, ok = inner.([]any); !ok {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/watchguard_fanout.go",
+          "contains": "list holds a non-object row",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/watchguard_fanout.go",
+          "contains": "objects := func(name string, list any) ([]map[string]any, error) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "license-keys-fingerprinted",
+      "summary": "A software license key in an allocation row's serialOrLicense is replaced by a one-way fingerprint (license: plus 16 hex) before the row is persisted, indexed or tailed; Firebox and access point serial numbers (productName firebox, fireboxRetention, accessPoint) are kept. The row's declared productName decides, never the value's shape; a row with no productName is treated as a key.",
+      "why": "Codex read-only review round 1 (2026-10-15): the secret-field policy already classes license keys as credentials, but serialOrLicense was exempted for row identity and the typed allocations column stored software license keys in plaintext. allocations reconcile reads live rows, so the mirror fingerprint changes nothing it matches. governance.md, README.md and page.json describe the behavior. TestLicenseKeysFingerprinted and TestLicenseKeysNeverPersisted fail on revert.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cliutil/secretfields.go",
+          "contains": "func FingerprintLicenseKeys(t map[string]any) bool {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/secretfields.go",
+          "contains": "if FingerprintLicenseKeys(t) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/secretfields.go",
+          "contains": "var hardwareAllocationProducts = map[string]bool{\"firebox\": true, \"fireboxretention\": true, \"accesspoint\": true}",
           "code_only": true
         }
       ]

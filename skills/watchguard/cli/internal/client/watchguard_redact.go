@@ -150,10 +150,14 @@ func (c *Client) sentHeaders(overrides map[string]string) map[string]string {
 // part ("Bearer <jwt>" -> "<jwt>") so an echo of the CLI's own token is
 // withheld like a request secret.
 func authSecrets(authHeader string) []string {
+	// Hand-fix (handfixes.json: scoped-bearer-in-secret-set): a customer's
+	// audience token is substituted at the transport, so the configured
+	// credential's guards never saw it.
+	out := scopedSecrets()
 	if authHeader == "" {
-		return nil
+		return out
 	}
-	out := []string{authHeader}
+	out = append(out, authHeader)
 	if i := strings.LastIndexByte(authHeader, ' '); i >= 0 && i+1 < len(authHeader) {
 		out = append(out, authHeader[i+1:])
 	}

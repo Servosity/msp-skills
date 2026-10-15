@@ -133,6 +133,19 @@ func (c *Client) dropScoped(audience string) {
 	scopedMu.Unlock()
 }
 
+// scopedSecrets lists every audience-scoped bearer this process minted, with
+// its bare token, so the echo guards (error bodies, HTML summaries, transport
+// errors) withhold a customer's token exactly like the configured credential.
+func scopedSecrets() []string {
+	scopedMu.Lock()
+	defer scopedMu.Unlock()
+	out := make([]string, 0, 2*len(scopedBearers))
+	for b := range scopedBearers {
+		out = append(out, b, strings.TrimPrefix(b, "Bearer "))
+	}
+	return out
+}
+
 func isScopedBearer(v string) bool {
 	scopedMu.Lock()
 	defer scopedMu.Unlock()

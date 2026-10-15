@@ -4,6 +4,8 @@ package cliutil
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"strings"
 )
@@ -50,8 +52,8 @@ func IsSecretBearingPath(path string) bool {
 		p = strings.TrimRight(p[:i], "/")
 	}
 	// Allocation rows carry serialOrLicense, which is a Firebox serial or a
-	// software license key; the field cannot be dropped from the mirror (it is
-	// what tells allocation rows apart), but no allocation response is cached.
+	// software license key; the mirror keeps a serial and fingerprints a key
+	// (FingerprintLicenseKeys), and no allocation response is cached.
 	return strings.HasSuffix(p, "/installers") || strings.Contains(p, "/rest/platform/allocation/")
 }
 
@@ -116,6 +118,9 @@ func dropSecretKeys(v any) bool {
 	removed := false
 	switch t := v.(type) {
 	case map[string]any:
+		if FingerprintLicenseKeys(t) {
+			removed = true
+		}
 		for k, child := range t {
 			if IsSecretFieldKey(k) && SecretFieldValue(child) {
 				delete(t, k)
@@ -134,4 +139,46 @@ func dropSecretKeys(v any) bool {
 		}
 	}
 	return removed
+}
+
+// LicenseFingerprintPrefix marks a serialOrLicense value the mirror replaced.
+const LicenseFingerprintPrefix = "license:"
+
+// hardwareAllocationProducts are the productName values whose serialOrLicense
+// is a device serial number (the vendor spec: "Required if productName is
+// firebox, fireboxRetention, or accessPoint, or if allocationType is
+// linked_to_license"). Every other product's value is a software license key.
+var hardwareAllocationProducts = map[string]bool{"firebox": true, "fireboxretention": true, "accesspoint": true}
+
+// FingerprintLicenseKeys replaces the serialOrLicense of an allocation row
+// that is not a hardware product with a one-way fingerprint, so a software
+// license key never reaches the mirror, the FTS index or a tail line while two
+// rows stay distinguishable. The row's own productName decides, never the
+// value's shape; a row that declares no product is treated as a key. Hand-fix
+// (handfixes.json: license-keys-fingerprinted).
+func FingerprintLicenseKeys(t map[string]any) bool {
+	changed := false
+	for k, child := range t {
+		lk := strings.ToLower(strings.TrimSpace(k))
+		if lk != "serialorlicense" && lk != "serial_or_license" {
+			continue
+		}
+		s, ok := child.(string)
+		if !ok || strings.TrimSpace(s) == "" || strings.HasPrefix(s, LicenseFingerprintPrefix) || hardwareAllocationRow(t) {
+			continue
+		}
+		sum := sha256.Sum256([]byte(strings.TrimSpace(s)))
+		t[k] = LicenseFingerprintPrefix + hex.EncodeToString(sum[:8])
+		changed = true
+	}
+	return changed
+}
+
+func hardwareAllocationRow(t map[string]any) bool {
+	for _, k := range []string{"productName", "product_name", "productname"} {
+		if s, ok := t[k].(string); ok {
+			return hardwareAllocationProducts[strings.ToLower(strings.TrimSpace(s))]
+		}
+	}
+	return false
 }
