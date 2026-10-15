@@ -184,7 +184,7 @@
   "google-workspace": {
     "state": "never-released",
     "version": "0.1.0",
-    "latest_tag": null,
+    "latest_tag": "google-workspace-v0.1.0",
     "current_hash": "sha256:96bac9bf2133a55fd1b954ca997cd43804f950a90e2d1581c9f66b07dd723d3b",
     "released_hash": null
   },
