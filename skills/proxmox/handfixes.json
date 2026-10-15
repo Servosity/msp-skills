@@ -55,7 +55,15 @@
     },
     {
      "file": "cli/internal/cli/clusters.go",
-     "contains": "c.SetServicePins(client.EnvPins(\"PROXMOX_TLS_FINGERPRINT\"), client.EnvPins(\"PROXMOX_PBS_TLS_FINGERPRINT\"))"
+     "contains": "pvePins, err := client.EnvPins(\"PROXMOX_TLS_FINGERPRINT\")"
+    },
+    {
+     "file": "cli/internal/cli/clusters.go",
+     "contains": "c.SetServicePins(pvePins, pbsPins)"
+    },
+    {
+     "file": "cli/internal/client/proxmox_routing.go",
+     "contains": "refusing to fall back to unpinned TLS"
     },
     {
      "file": "cli/internal/client/client.go",

@@ -193,21 +193,21 @@ func pbsAuthValue(v string) string {
 	return "PBSAPIToken=" + v
 }
 
-// EnvPins reads comma-separated SHA-256 fingerprints from an env var; malformed
-// entries are reported on stderr and ignored.
-func EnvPins(name string) []string {
+// EnvPins reads comma-separated SHA-256 fingerprints from an env var. A
+// malformed entry is an error, never skipped: dropping every pin would fall
+// back to system trust, which a typo must not be able to do.
+func EnvPins(name string) ([]string, error) {
 	var pins []string
 	for _, p := range strings.Split(cliutil.EffectiveEnv(os.Getenv(name)), ",") { // an unfilled .mcpb prompt is unset; os.Getenv(name) keeps check_env_schema seeing the read
 		if strings.TrimSpace(p) == "" {
 			continue
 		}
 		if normalizeFingerprint(p) == "" {
-			fmt.Fprintf(os.Stderr, "warning: ignoring malformed %s entry (want a SHA-256 fingerprint like AB:CD:...)\n", name)
-			continue
+			return nil, fmt.Errorf("%s has a malformed entry (want SHA-256 fingerprints like AB:CD:..., comma-separated); refusing to fall back to unpinned TLS", name)
 		}
 		pins = append(pins, p)
 	}
-	return pins
+	return pins, nil
 }
 
 // SetServicePins gives the PVE and PBS endpoints separate TLS trust: requests

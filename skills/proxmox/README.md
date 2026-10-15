@@ -223,7 +223,7 @@ A privilege-separated API token for each product. Proxmox Backup Server: the `Au
 
 ### Proxmox uses a self-signed certificate. Do I have to turn off certificate checks?
 
-No, and there is no option to. Pin the certificate's SHA-256 fingerprint (shown under the node's Certificates) with `PROXMOX_TLS_FINGERPRINT` and `PROXMOX_PBS_TLS_FINGERPRINT`, or per client cluster in `clusters.toml`. A PVE pin never vouches for the PBS host.
+No, and there is no option to. Pin the certificate's SHA-256 fingerprint (shown under the node's Certificates) with `PROXMOX_TLS_FINGERPRINT` and `PROXMOX_PBS_TLS_FINGERPRINT`, or per client cluster in `clusters.toml`. A malformed pin is an error, never silently ignored, and a PVE pin never vouches for the PBS host.
 
 ### How do I cover many client clusters?
 

@@ -70,7 +70,15 @@ func init() {
 				return nil // applyClusterToClient sets and checks this profile's routing
 			}
 			// Env-configured target: per-service pins from the environment.
-			if err := c.SetServicePins(client.EnvPins("PROXMOX_TLS_FINGERPRINT"), client.EnvPins("PROXMOX_PBS_TLS_FINGERPRINT")); err != nil {
+			pvePins, err := client.EnvPins("PROXMOX_TLS_FINGERPRINT")
+			if err != nil {
+				return configErr(err)
+			}
+			pbsPins, err := client.EnvPins("PROXMOX_PBS_TLS_FINGERPRINT")
+			if err != nil {
+				return configErr(err)
+			}
+			if err := c.SetServicePins(pvePins, pbsPins); err != nil {
 				return err
 			}
 			return c.CheckServiceOrigins()
