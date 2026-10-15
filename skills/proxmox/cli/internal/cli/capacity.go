@@ -320,6 +320,12 @@ func collectCapacity(ctx context.Context, t fleetTarget, now time.Time, margin f
 			if pruneOK && pveRetentionKnown && row.PruneJobs == 0 && !pveRetentionFor(u.Store, pbsHost, refs, jobs, jobPrunes) && !datastoreHasRetention(ctx, t, u.Store, &fails) {
 				row.Flags = append(row.Flags, "unpruned")
 			}
+			if pruneOK && errors.Is(pveErr, errNoPVE) && row.PruneJobs == 0 && !datastoreHasRetention(ctx, t, u.Store, &fails) {
+				// PBS prunes nothing here, and a PBS-only entry cannot see the
+				// PVE jobs that may: retention was not assessed, say so.
+				fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "pbs " + u.Store + " retention",
+					Error: "no PBS prune job or prune-schedule covers datastore " + u.Store + ", and this entry has no Proxmox VE host to read the backup jobs that may prune it, so whether anything prunes it is unknown"})
+			}
 			pbsRowFor[u.Store] = true
 			if within > 0 && row.DaysToFull != nil && *row.DaysToFull <= within.Hours()/24 {
 				row.Flags = append(row.Flags, "filling")
