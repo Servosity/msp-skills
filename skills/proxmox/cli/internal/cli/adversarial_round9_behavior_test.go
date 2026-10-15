@@ -124,3 +124,28 @@ func TestEnvPBSOnlyHasNoSpuriousStorageFailure(t *testing.T) {
 		t.Errorf("a PBS-only env setup has no PVE storage config:\n%s", out)
 	}
 }
+
+// Codex round 15: a job inherits remove and prune-backups from its node's
+// /etc/vzdump.conf when it sets neither.
+func TestJobsInheritNodeVzdumpDefaults(t *testing.T) {
+	unpruned := func(t *testing.T) bool {
+		out, _, err := runCLI(t, "capacity", "--json")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return strings.Contains(strings.Join(datastoreRow(t, out, "pbs-datastore", "main").Flags, ","), "unpruned")
+	}
+	f := newFixture(t)
+	for _, j := range f.pveRoutes["/cluster/backup"].([]map[string]any) {
+		j["prune-backups"] = "keep-last=7"
+	}
+	f.pveRoutes["/nodes/pve1/vzdump/defaults"] = map[string]any{"remove": 0}
+	if !unpruned(t) {
+		t.Error("node default remove=0: the job prunes nothing, want unpruned")
+	}
+	f = newFixture(t)
+	f.pveRoutes["/nodes/pve1/vzdump/defaults"] = map[string]any{"prune-backups": "keep-last=5"}
+	if unpruned(t) {
+		t.Error("node default prune-backups keep-last=5 prunes after every job run")
+	}
+}
