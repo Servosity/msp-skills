@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"proxmox-pp-cli/internal/client"
+	"proxmox-pp-cli/internal/config"
 )
 
 // Codex round 12.
@@ -109,5 +110,22 @@ pbs_namespace = "beta"
 		if r.Kind == "pbs-datastore" && (r.Tenant != "" || !strings.HasPrefix(r.Attribution, "shared: ")) {
 			t.Errorf("shared datastore credited to %q (attribution %q)", r.Tenant, r.Attribution)
 		}
+	}
+}
+
+// Codex round 13: a storage on another endpoint that pins the same
+// certificate (a clone) is not the PBS whose tasks were read.
+func TestSamePBSIsTheEndpointRead(t *testing.T) {
+	own := &pbsOwnership{writers: map[string]map[string]string{}, svc: pbsServices{}}
+	pin := "AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99"
+	own.svc.link(pbsEndpointFromHost("pbs1.example.com"), pin)
+	own.svc.link(pbsEndpoint("pbs2.example.com", 0), pin)
+	acme := fleetTarget{Name: "acme", Profile: clusterProfile{PBSHost: "pbs1.example.com", PBSFingerprint: pin}, own: own,
+		C: &client.Client{Config: &config.Config{TemplateVars: map[string]string{"pbs_host": "pbs1.example.com"}}}}
+	if acme.samePBS(pbsStorageRef{server: pbsEndpoint("pbs2.example.com", 0), fingerprint: pin}) {
+		t.Error("a clone sharing the certificate counted as the PBS whose tasks were read")
+	}
+	if !acme.samePBS(pbsStorageRef{server: pbsEndpoint("pbs1.example.com", 0)}) {
+		t.Error("the configured endpoint itself must match")
 	}
 }
