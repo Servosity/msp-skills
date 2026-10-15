@@ -43,6 +43,10 @@ func lineAmount(l map[string]any, extended, unit string) (float64, bool) {
 	return 0, false
 }
 
+// costMissing: a zero cost on a priced line is how QuoteWerks stores a missing
+// cost (docs lint reports it as zero-cost), so it is unknown, not free.
+func costMissing(price, cost float64) bool { return cost == 0 && price != 0 }
+
 func sumLines(lines []map[string]any) lineTotals {
 	t := lineTotals{Lines: len(lines)}
 	for _, l := range lines {
@@ -60,7 +64,7 @@ func sumLines(lines []map[string]any) lineTotals {
 		}
 		price, okPrice := lineAmount(l, "ExtendedPrice", "UnitPrice")
 		cost, okCost := lineAmount(l, "ExtendedCost", "UnitCost")
-		if !okPrice || !okCost {
+		if !okPrice || !okCost || costMissing(price, cost) {
 			t.UnknownCostLines++
 			continue
 		}

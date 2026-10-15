@@ -364,6 +364,13 @@ func qwWrite(ctx context.Context, c *client.Client, method, table, id string, at
 		raw, _, err = c.Post(ctx, qwTablePath(table), map[string]any{"data": data})
 	}
 	if err != nil {
+		// A create that failed without a QuoteWerks rejection (a dropped
+		// connection, a timeout, a 5xx) may still have been committed, so the
+		// caller must check before retrying rather than create it again.
+		var rejected *client.APIError
+		if method == "POST" && !(errors.As(err, &rejected) && rejected.StatusCode >= 400 && rejected.StatusCode < 500) {
+			err = fmt.Errorf("%w (%w: check QuoteWerks before retrying, a retried create can duplicate the row)", err, errWriteMayHaveCommitted)
+		}
 		return qw.Resource{}, classifyAPIErrorOnly(err)
 	}
 	p, err := qw.ParsePage(raw)
@@ -372,6 +379,9 @@ func qwWrite(ctx context.Context, c *client.Client, method, table, id string, at
 	}
 	return p.Data[0], nil
 }
+
+// errWriteMayHaveCommitted marks a create whose outcome is unknown.
+var errWriteMayHaveCommitted = errors.New("the row may have been created before the failure")
 
 // jsonapiBody is what a preview shows for one pending write.
 func jsonapiBody(method, table, id string, attrs map[string]any) map[string]any {

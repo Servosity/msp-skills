@@ -5,6 +5,7 @@ package cli
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"strconv"
@@ -51,6 +52,9 @@ type requoteFailure struct {
 	Line  int    `json:"line"`
 	Part  string `json:"part,omitempty"`
 	Error string `json:"error"`
+	// MayHaveBeenWritten: the request failed without a QuoteWerks rejection,
+	// so the line may exist; check before adding it again.
+	MayHaveBeenWritten bool `json:"may_have_been_written,omitempty"`
 }
 
 func newNovelRequoteCmd(flags *rootFlags) *cobra.Command {
@@ -232,7 +236,7 @@ quote; use 'items add' instead.`,
 			for i, l := range lines {
 				l["DocRecGUID"] = created.ID
 				if _, err := qwWrite(ctx, c, "POST", qw.TableItems, "", l); err != nil {
-					failures = append(failures, requoteFailure{Line: i + 1, Part: qw.Str(l["ManufacturerPartNumber"]), Error: err.Error()})
+					failures = append(failures, requoteFailure{Line: i + 1, Part: qw.Str(l["ManufacturerPartNumber"]), Error: err.Error(), MayHaveBeenWritten: errors.Is(err, errWriteMayHaveCommitted)})
 					continue
 				}
 				written++
@@ -249,8 +253,8 @@ quote; use 'items add' instead.`,
 				for _, f := range failures {
 					nums = append(nums, fmt.Sprintf("%d (%s)", f.Line, f.Part))
 				}
-				return partialFailureErr(fmt.Errorf("new quote %s (DocNo %s) was created but %d of %d lines failed: lines %s; do not re-run requote (it would create another quote); add the missing lines with 'items add %s'",
-					created.ID, qw.Str(created.Attributes["DocNo"]), len(failures), len(lines), strings.Join(nums, ", "), created.ID))
+				return partialFailureErr(fmt.Errorf("new quote %s (DocNo %s) was created but %d of %d lines failed: lines %s; do not re-run requote (it would create another quote); check which lines landed with 'items list --doc %s' (a line whose request failed without a QuoteWerks rejection may have been written) and add only the missing ones with 'items add %s'",
+					created.ID, qw.Str(created.Attributes["DocNo"]), len(failures), len(lines), strings.Join(nums, ", "), created.ID, created.ID))
 			}
 			return nil
 		},

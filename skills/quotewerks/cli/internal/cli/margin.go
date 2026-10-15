@@ -149,7 +149,7 @@ month or manufacturer. Do NOT use it for quote win and loss rates; use 'winrate'
 						}
 						rev, okRev := lineAmount(l, "ExtendedPrice", "UnitPrice")
 						cost, okCost := lineAmount(l, "ExtendedCost", "UnitCost")
-						if !okRev || !okCost {
+						if !okRev || !okCost || costMissing(rev, cost) {
 							r.Unknown++
 							continue
 						}
