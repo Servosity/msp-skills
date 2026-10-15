@@ -1446,7 +1446,7 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 			{"topic": "Create a quote header", "insight": "Builds and previews the JSON:API body with verified column names; writes only with --confirm."},
 			{"topic": "Products across every product database", "insight": "Discovers each Products_<Db>_Products table from the table catalog and tags every row with its database."},
 			{"topic": "Re-quote from a prior document", "insight": "Chains the header, its lines and product lookups into a previewed multi-step create with partial-failure receipts."},
-			{"topic": "Pre-send quote audit", "insight": "Applies a QuoteWerks-specific rule set across the header, its lines and the product databases, exiting nonzero on errors."},
+			{"topic": "Pre-send quote audit", "insight": "Applies a QuoteWerks-specific rule set across the header, its lines and the product databases; findings are data (exit 0) unless --strict, which exits 1 on any error-severity finding."},
 			{"topic": "Local quoting mirror", "insight": "No API call answers cross-document questions; the mirror makes margin, win-rate, pipeline and drift queries possible."},
 			{"topic": "Margin rollup", "insight": "Groups mirrored headers and product lines locally; the API has no aggregation endpoint."},
 			{"topic": "Pipeline aging and chase list", "insight": "Buckets every open quote by age with its contact and QuoteValet state from the mirror."},

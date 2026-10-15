@@ -292,7 +292,7 @@
     {
       "id": "docs-surface-truth",
       "summary": "Re-vendored docs carry corrections the press text gets wrong for this connector: typed writes confirm with --confirm (not --yes); --dry-run only shows a request on generated endpoint commands; the 'not available in any other tool' claim is replaced by an accurate comparison with the raw REST API and the Zapier QuoteWerks app; SKILL.md H1 and description; AGENTS.md's TODO-free data-source paragraph; guide.md's one-bundle .mcpb text; mcp-install.md's HTTP-transport token and root-path wording; the manifest description no longer says every write is previewed.",
-      "why": "/msp-skills-publish re-copies SKILL.md, guide.md, AGENTS.md and mcp-install.md from the source on every --resume, so these edits are lost on a re-onboard while every build gate stays green. The README/SKILL/AGENTS corrections are re-applied to the library by ~/Documents/Dev/cli-factory/quotewerks/patch_docs.py after any regenerate; the rest were found during this publish: quotewerks-mcp --transport http refuses to start without QUOTEWERKS_MCP_HTTP_TOKEN and answers / like /mcp (401 without the token), so 'returns 404 at the bare root' and a bare `quotewerks-mcp --transport http` were both wrong; tools/maintainer/mcpb_bundle.py ships one bundle, not per-platform bundles; raw `tables` writes and `import` send immediately, so 'preview every write' was false; 'TODO stubs' fails check_no_todos. Adversarial round 1 added: the docs lint recipe promised a nonzero exit on errors without --strict (it exits 0); the SKILL advice to prefer --json over --agent for write previews was stale (write previews never compact); mcp-install.md never said QUOTEWERKS_MCP_READ_ONLY accepts only exactly 1.",
+      "why": "/msp-skills-publish re-copies SKILL.md, guide.md, AGENTS.md and mcp-install.md from the source on every --resume, so these edits are lost on a re-onboard while every build gate stays green. The README/SKILL/AGENTS corrections are re-applied to the library by ~/Documents/Dev/cli-factory/quotewerks/patch_docs.py after any regenerate; the rest were found during this publish: quotewerks-mcp --transport http refuses to start without QUOTEWERKS_MCP_HTTP_TOKEN and answers / like /mcp (401 without the token), so 'returns 404 at the bare root' and a bare `quotewerks-mcp --transport http` were both wrong; tools/maintainer/mcpb_bundle.py ships one bundle, not per-platform bundles; raw `tables` writes and `import` send immediately, so 'preview every write' was false; 'TODO stubs' fails check_no_todos. Adversarial round 1 added: the docs lint recipe promised a nonzero exit on errors without --strict (it exits 0); the SKILL advice to prefer --json over --agent for write previews was stale (write previews never compact); mcp-install.md never said QUOTEWERKS_MCP_READ_ONLY accepts only exactly 1. Codex round 5 (P2): the MCP context tool's insight text carried the same no-strict exit claim.",
       "status": "active",
       "asserts": [
         {
@@ -378,6 +378,10 @@
         {
           "file": "mcp-install.md",
           "contains": "`QUOTEWERKS_MCP_READ_ONLY` to exactly `1`"
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "not_contains": "exiting nonzero on errors"
         }
       ]
     }
