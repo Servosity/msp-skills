@@ -547,7 +547,8 @@ func truncateErr(err error) string {
 
 // pruneOutOfScopeTenants removes every stored trace of tenants that a full
 // listing no longer returns: their tenant and ledger rows, health and licence
-// documents, and endpoint and alert rows. It returns the removed tenant IDs.
+// documents, and endpoint and alert rows (including rows plain sync stored
+// for a tenant fleet refresh never recorded). It returns the removed tenant IDs.
 func pruneOutOfScopeTenants(db *store.Store, tenants []fleetTenant) ([]string, error) {
 	scope := make(map[string]bool, len(tenants))
 	ids := make([]string, 0, len(tenants))
@@ -574,6 +575,23 @@ func pruneOutOfScopeTenants(db *store.Store, tenants []fleetTenant) ([]string, e
 		return true
 	}); err != nil {
 		return nil, err
+	}
+	// Plain sync also stores endpoints and alerts, for tenants that may have
+	// no tenant or ledger row at all.
+	for _, rt := range []string{"endpoints", "alerts"} {
+		if err := db.ListScan(rt, func(_ string, raw json.RawMessage) bool {
+			var row struct {
+				Tenant struct {
+					ID string `json:"id"`
+				} `json:"tenant"`
+			}
+			if json.Unmarshal(raw, &row) == nil && row.Tenant.ID != "" {
+				stored[row.Tenant.ID] = true
+			}
+			return true
+		}); err != nil {
+			return nil, err
+		}
 	}
 	gone := make([]string, 0)
 	for id := range stored {

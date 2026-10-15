@@ -141,11 +141,42 @@ func TestFullRefreshPrunesFromTheLiveTenantList(t *testing.T) {
 	}
 }
 
+func TestPruneCoversEndpointsOfUnrecordedTenants(t *testing.T) {
+	db, err := store.OpenWithContext(context.Background(), filepath.Join(t.TempDir(), "data.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	// As plain `sync --tenant T9` leaves it: endpoint and alert rows, no
+	// tenant or ledger row.
+	for _, rt := range []string{"endpoints", "alerts"} {
+		if _, _, err := db.UpsertBatch(rt, []json.RawMessage{json.RawMessage(`{"id": "00000000-0000-0000-0000-00000000000` + map[string]string{"endpoints": "1", "alerts": "2"}[rt] + `", "tenant": {"id": "T9"}}`)}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	pruned, err := pruneOutOfScopeTenants(db, []fleetTenant{{ID: "T1", Name: "Acme"}})
+	if err != nil || len(pruned) != 1 || pruned[0] != "T9" {
+		t.Fatalf("pruned=%v err=%v", pruned, err)
+	}
+	for _, rt := range []string{"endpoints", "alerts"} {
+		n := 0
+		_ = db.ListScan(rt, func(string, json.RawMessage) bool { n++; return true })
+		if n != 0 {
+			t.Fatalf("%s rows of an offboarded tenant survived the prune", rt)
+		}
+	}
+}
+
 func TestNamelessTenantsRowIsNotATenant(t *testing.T) {
 	f := fakeFleetStore{}
 	f.put("tenants", "T1", fleetTenant{ID: "T1", Name: "Acme"})
 	f.put("tenants", "amend-1", map[string]any{"id": "amend-1", "type": "billingTypeChange"})
 	if got := unrefreshedTenants(f, map[string]fleetLedgerRow{}, nil); len(got) != 1 || got[0].TenantID != "T1" {
 		t.Fatalf("a cached amendment response is not a tenant: %+v", got)
+	}
+	f.put("endpoints", "E9", map[string]any{"id": "E9", "tenant": map[string]any{"id": "T9"}})
+	got := unrefreshedTenants(f, map[string]fleetLedgerRow{"T1": {ID: "T1"}}, nil)
+	if len(got) != 1 || got[0].TenantID != "T9" {
+		t.Fatalf("endpoints plain sync stored for a tenant fleet refresh never reached must be blind: %+v", got)
 	}
 }

@@ -488,27 +488,49 @@ func tenantNames(db fleetReader, ledger map[string]fleetLedgerRow) map[string]st
 }
 
 // unrefreshedTenants lists stored non-trial tenants that have no ledger row
-// (a tenants-only refresh, or a run cut off before reaching them), so an
-// unfiltered fleet read never presents a partial book as complete. Filtered
-// reads already report unknown --tenant IDs as not_in_store.
+// (a tenants-only refresh, a run cut off before reaching them, or endpoints
+// and alerts that plain sync stored), so an unfiltered fleet read never
+// presents a partial book as complete. Filtered reads already report unknown
+// --tenant IDs as not_in_store.
 func unrefreshedTenants(db fleetReader, ledger map[string]fleetLedgerRow, filter map[string]bool) []blindTenant {
 	out := make([]blindTenant, 0)
 	if filter != nil {
 		return out
 	}
+	names, trial := map[string]string{}, map[string]bool{}
+	ids := map[string]bool{}
 	_ = db.ListScan("tenants", func(_ string, data json.RawMessage) bool {
 		var t fleetTenant
 		// Rows without a name are not tenants (a mutation response cached
 		// under the tenants group).
-		if json.Unmarshal(data, &t) != nil || t.ID == "" || t.Name == "" || strings.EqualFold(t.BillingType, "trial") {
+		if json.Unmarshal(data, &t) != nil || t.ID == "" || t.Name == "" {
 			return true
 		}
-		if _, ok := ledger[t.ID]; !ok {
-			out = append(out, blindTenant{TenantID: t.ID, TenantName: t.Name, Status: "not_refreshed",
-				Error: "fleet refresh has not reached this tenant yet; run 'sophos-central-cli fleet refresh'"})
-		}
+		names[t.ID], ids[t.ID] = t.Name, true
+		trial[t.ID] = strings.EqualFold(t.BillingType, "trial")
 		return true
 	})
+	for _, rt := range []string{"endpoints", "alerts"} {
+		_ = db.ListScan(rt, func(_ string, data json.RawMessage) bool {
+			var row struct {
+				Tenant struct {
+					ID string `json:"id"`
+				} `json:"tenant"`
+			}
+			if json.Unmarshal(data, &row) == nil && row.Tenant.ID != "" {
+				ids[row.Tenant.ID] = true
+			}
+			return true
+		})
+	}
+	for id := range ids {
+		if _, ok := ledger[id]; ok || trial[id] {
+			continue
+		}
+		out = append(out, blindTenant{TenantID: id, TenantName: names[id], Status: "not_refreshed",
+			Error: "fleet refresh has not reached this tenant yet; run 'sophos-central-cli fleet refresh'"})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].TenantID < out[j].TenantID })
 	return out
 }
 

@@ -903,8 +903,8 @@
   },
   {
    "id": "fleet-freshness-per-resource",
-   "summary": "fleet freshness is per tenant and per resource: each ledger outcome records when it was fetched (at, prev_at, full_at, window); triage, health and gaps report the oldest input among the tenants in scope, and list tenants never fetched or only fetched with --since as blind; a resource that failed for every tenant in scope is named in the note; a full-scope refresh prunes tenants that left the listing; gaps --kind reads only the resources that kind needs; the prune reads the tenant list live (fleet refresh sets NoCache), also prunes the tenants table and prints what it removed; a --since fetch on top of a full one is dated by the full fetch; only failures in resources a view reads blind a tenant; stored tenants with no ledger row are listed as not_refreshed; an empty listing prunes every stored tenant; only a full-scope refresh moves the fleet-wide sync stamps; nameless rows in the tenants table are not tenants",
-   "why": "The build pane's known gap, confirmed by two Codex rounds: a single run-level fleet_meta timestamp (and then per-resource run maps) made a `--resources health` refresh, a `--tenant T1` refresh, or a first `--since 24h` alerts fetch look like a fresh complete view, so triage and gaps could present stale or partial data as current with no blind tenants. Each view names the resources it reads (triage: endpoints, alerts; health: health; gaps: health, endpoints, licenses). The triage 'new' flag compares against the tenant's own previous alerts fetch. gaps --include-server-gap also covers a fetched tenant with zero endpoints. TestFleetFreshnessIsOldestTenantInput, TestSinceOnlyAlertsTenantIsBlind and TestPartialRefreshNotFreshForTriage pin it. Codex round 3: a resource that errored for every tenant kept its last good fetch silently (now named), offboarded tenants lingered in triage and pinned freshness (now pruned on an unfiltered refresh), and gaps --kind commercial went blind on a missing health fetch (now per-kind). TestFailedResourceKeepsLastGoodFetchAndFlagsIt and TestFullRefreshPrunesTenantsThatLeftScope pin it. Adversarial round 5: the prune read the tenant list through the 5-minute response cache, so a tenant just added and refreshed with --tenant was deleted by the next unfiltered refresh and vanished from triage with no blind entry (now live, pinned by TestFullRefreshPrunesFromTheLiveTenantList, which fails with NoCache removed); a --since fetch made resolved alerts outside its window look current (freshness now uses full_at); a health 403 blinded triage (blindness is now per needed resource); a tenants-only refresh hid tenants it had not reached (now not_refreshed). Trial tenants are pruned unless --include-trial is set, documented in the FAQ, SKILL.md and guide.md. Codex round 4 + adversarial round 6: an empty listing left keep nil and skipped the prune (now a fullScope bool); a --tenant refresh rewrote the global endpoints/alerts/tenants sync stamps that date local reads (now only a full refresh writes them); `tenants post-account-amendment` caches its response under the tenants type, which unrefreshedTenants and the prune counted as a tenant (rows without a name are skipped).",
+   "summary": "fleet freshness is per tenant and per resource: each ledger outcome records when it was fetched (at, prev_at, full_at, window); triage, health and gaps report the oldest input among the tenants in scope, and list tenants never fetched or only fetched with --since as blind; a resource that failed for every tenant in scope is named in the note; a full-scope refresh prunes tenants that left the listing; gaps --kind reads only the resources that kind needs; the prune reads the tenant list live (fleet refresh sets NoCache), also prunes the tenants table and prints what it removed; a --since fetch on top of a full one is dated by the full fetch; only failures in resources a view reads blind a tenant; stored tenants with no ledger row are listed as not_refreshed; an empty listing prunes every stored tenant; only a full-scope refresh moves the fleet-wide sync stamps; nameless rows in the tenants table are not tenants; the prune and the not_refreshed check also find tenants that only have endpoint or alert rows (stored by plain sync)",
+   "why": "The build pane's known gap, confirmed by two Codex rounds: a single run-level fleet_meta timestamp (and then per-resource run maps) made a `--resources health` refresh, a `--tenant T1` refresh, or a first `--since 24h` alerts fetch look like a fresh complete view, so triage and gaps could present stale or partial data as current with no blind tenants. Each view names the resources it reads (triage: endpoints, alerts; health: health; gaps: health, endpoints, licenses). The triage 'new' flag compares against the tenant's own previous alerts fetch. gaps --include-server-gap also covers a fetched tenant with zero endpoints. TestFleetFreshnessIsOldestTenantInput, TestSinceOnlyAlertsTenantIsBlind and TestPartialRefreshNotFreshForTriage pin it. Codex round 3: a resource that errored for every tenant kept its last good fetch silently (now named), offboarded tenants lingered in triage and pinned freshness (now pruned on an unfiltered refresh), and gaps --kind commercial went blind on a missing health fetch (now per-kind). TestFailedResourceKeepsLastGoodFetchAndFlagsIt and TestFullRefreshPrunesTenantsThatLeftScope pin it. Adversarial round 5: the prune read the tenant list through the 5-minute response cache, so a tenant just added and refreshed with --tenant was deleted by the next unfiltered refresh and vanished from triage with no blind entry (now live, pinned by TestFullRefreshPrunesFromTheLiveTenantList, which fails with NoCache removed); a --since fetch made resolved alerts outside its window look current (freshness now uses full_at); a health 403 blinded triage (blindness is now per needed resource); a tenants-only refresh hid tenants it had not reached (now not_refreshed). Trial tenants are pruned unless --include-trial is set, documented in the FAQ, SKILL.md and guide.md. Codex round 4 + adversarial round 6: an empty listing left keep nil and skipped the prune (now a fullScope bool); a --tenant refresh rewrote the global endpoints/alerts/tenants sync stamps that date local reads (now only a full refresh writes them); `tenants post-account-amendment` caches its response under the tenants type, which unrefreshedTenants and the prune counted as a tenant (rows without a name are skipped). Codex round 5: endpoints and alerts that plain `sync --tenant` stored for a tenant with no tenant or ledger row survived offboarding and showed in triage with no blind entry; both the prune and unrefreshedTenants now read tenant IDs from endpoint and alert rows too (TestPruneCoversEndpointsOfUnrecordedTenants fails without the fleet_refresh.go change).",
    "status": "active",
    "asserts": [
     {
@@ -1119,13 +1119,31 @@
     },
     {
      "file": "cli/internal/cli/sophos_fleet.go",
-     "contains": "if json.Unmarshal(data, &t) != nil || t.ID == \"\" || t.Name == \"\" || strings.EqualFold(t.BillingType, \"trial\") {",
+     "contains": "if json.Unmarshal(data, &t) != nil || t.ID == \"\" || t.Name == \"\" {",
      "min_count": 1,
      "code_only": false
     },
     {
      "file": "cli/internal/cli/sophos_fleet_prune_test.go",
      "contains": "func TestNamelessTenantsRowIsNotATenant(",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_refresh.go",
+     "contains": "\t// Plain sync also stores endpoints and alerts, for tenants that may have\n\t// no tenant or ledger row at all.",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_fleet.go",
+     "contains": "\t\tif _, ok := ledger[id]; ok || trial[id] {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_fleet_prune_test.go",
+     "contains": "func TestPruneCoversEndpointsOfUnrecordedTenants(",
      "min_count": 1,
      "code_only": false
     }
