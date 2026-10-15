@@ -452,3 +452,205 @@ func TestRPOMetGuestIsNotUnproven(t *testing.T) {
 		}
 	}
 }
+
+// Codex round 4.
+
+// pbsOtherPVE serves the fixture PVE as another cluster whose pbs1 storage
+// writes to ns (and pins fp when set).
+func pbsOtherPVE(t *testing.T, f *fixture, ns, fp string) *httptest.Server {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/api2/json/storage") {
+			hp := strings.Split(strings.TrimPrefix(f.pbs.URL, "https://"), ":")
+			port, _ := strconv.Atoi(hp[1])
+			writeData(w, []map[string]any{{"storage": "pbs1", "type": "pbs", "server": hp[0], "port": port, "datastore": "main", "namespace": ns, "fingerprint": fp}})
+			return
+		}
+		f.pve.Config.Handler.ServeHTTP(w, r)
+	}))
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+// A namespace below pbs_namespace that another cluster writes to is not acme's.
+func TestDescendantWrittenByAnotherClusterIsNotAttributed(t *testing.T) {
+	f := newFixture(t)
+	setAcmeTokens(t)
+	auditOnly(f)
+	f.pbsNS = "clients/acme"
+	f.pbsRoutes["/admin/datastore/main/namespace"] = []map[string]any{{"ns": ""}, {"ns": "clients"}, {"ns": "clients/acme"}, {"ns": "clients/acme/beta"}}
+	f.pbsRoutes["/admin/datastore/main/snapshots#clients/acme"] = []any{}
+	f.pbsRoutes["/admin/datastore/main/snapshots#clients/acme/beta"] = []any{
+		map[string]any{"backup-type": "vm", "backup-id": "100", "backup-time": ago(f.now, 1), "size": 1 << 30, "owner": "root@pam", "verification": map[string]any{"state": "ok", "upid": "UPID:pbs:verify"}},
+	}
+	beta := pbsOtherPVE(t, f, "clients/acme/beta", "")
+	writeClustersFile(t, acmeClusters(f, f.pbs.URL, `pbs_namespace = "clients/acme"`)+`
+[clusters.beta]
+pve_base_url = "`+beta.URL+`/api2/json"
+pve_token_env = "ACME_PVE"
+pve_fingerprint = "`+client.CertFingerprint(beta.Certificate())+`"
+`)
+	out, _, err := runCLI(t, "--cluster", "acme", "posture", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range decodeJSON[postureReport](t, out).Rows {
+		if r.VMID == 100 && r.RestorePoints > 0 {
+			t.Errorf("acme/100 credited with beta's snapshot in clients/acme/beta: %s %q", r.Verdict, r.Reason)
+		}
+	}
+}
+
+// An unreadable peer pinning the same PBS certificate may write there, even
+// when its PBS host is spelled differently.
+func TestUnreadablePeerMatchedByFingerprint(t *testing.T) {
+	f := newFixture(t)
+	setAcmeTokens(t)
+	f.pbsFP = f.pbsFingerprint()
+	port := strings.Split(strings.TrimPrefix(f.pbs.URL, "https://"), ":")[1]
+	writeClustersFile(t, acmeClusters(f, f.pbs.URL, "")+`
+[clusters.beta]
+pve_base_url = "https://127.0.0.1:9/api2/json"
+pve_token_env = "ACME_PVE"
+pve_fingerprint = "zz"
+pbs_host = "https://localhost:`+port+`"
+pbs_fingerprint = "`+f.pbsFingerprint()+`"
+`)
+	out, _, err := runCLI(t, "--cluster", "acme", "posture", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "beta (could not be read)") {
+		t.Errorf("beta pins the same PBS certificate; acme's ownership is unknown:\n%s", out)
+	}
+}
+
+// With several clusters configured, a PBS storage whose config could not be
+// read cannot be tied to a namespace: its listing is not counted.
+func TestPBSStorageWithoutConfigIsNotCounted(t *testing.T) {
+	f := newFixture(t)
+	setAcmeTokens(t)
+	acmePVE := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/api2/json/storage") {
+			http.Error(w, `{"data":null}`, http.StatusInternalServerError)
+			return
+		}
+		f.pve.Config.Handler.ServeHTTP(w, r)
+	}))
+	defer acmePVE.Close()
+	beta := pbsOtherPVE(t, f, "beta", "")
+	writeClustersFile(t, `
+[clusters.acme]
+pve_base_url = "`+acmePVE.URL+`/api2/json"
+pve_token_env = "ACME_PVE"
+pve_fingerprint = "`+client.CertFingerprint(acmePVE.Certificate())+`"
+
+[clusters.beta]
+pve_base_url = "`+beta.URL+`/api2/json"
+pve_token_env = "ACME_PVE"
+pve_fingerprint = "`+client.CertFingerprint(beta.Certificate())+`"
+`)
+	out, _, err := runCLI(t, "--cluster", "acme", "posture", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if e := failureByScope(decodeJSON[postureReport](t, out).FetchFailures)["storage pbs1"]; !strings.Contains(e, "storage config of pbs1 could not be read") {
+		t.Errorf("want pbs1 refused without its config:\n%s", out)
+	}
+}
+
+// verify-health marks rows in a namespace another configured cluster writes to.
+func TestVerifyHealthMarksSharedNamespace(t *testing.T) {
+	f := newFixture(t)
+	setAcmeTokens(t)
+	beta := pbsOtherPVE(t, f, "", "")
+	writeClustersFile(t, acmeClusters(f, f.pbs.URL, "")+`
+[clusters.beta]
+pve_base_url = "`+beta.URL+`/api2/json"
+pve_token_env = "ACME_PVE"
+pve_fingerprint = "`+client.CertFingerprint(beta.Certificate())+`"
+`)
+	out, _, err := runCLI(t, "--cluster", "acme", "verify-health", "--all", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	groups := decodeJSON[verifyReport](t, out).Groups
+	if len(groups) == 0 {
+		t.Fatalf("no groups:\n%s", out)
+	}
+	for _, g := range groups {
+		if !strings.HasPrefix(g.Attribution, "shared") {
+			t.Errorf("group %s in a shared namespace must say so: %+v", g.Group, g)
+		}
+	}
+}
+
+// A namespace list the PBS token may not fully see is incomplete.
+func TestPBSNamespaceListCompleteness(t *testing.T) {
+	f := newFixture(t)
+	setAcmeTokens(t)
+	f.pbsNS = "acme"
+	f.pbsRoutes["/admin/datastore/main/namespace"] = []map[string]any{{"ns": ""}, {"ns": "acme"}}
+	f.pbsRoutes["/access/permissions"] = map[string]any{
+		"/":                    map[string]any{"Sys.Audit": true, "Datastore.Audit": true},
+		"/datastore/main/acme": map[string]any{"Datastore.Audit": false},
+	}
+	writeClustersFile(t, acmeClusters(f, f.pbs.URL, `pbs_namespace = "acme"`))
+	rep, _ := postureByVMID(t)
+	if e := failureByScope(rep.FetchFailures)["pbs"]; !strings.Contains(e, "propagate") {
+		t.Errorf("posture must flag the namespace list below acme as incomplete: %+v", rep.FetchFailures)
+	}
+	out, _, _ := runCLI(t, "verify-health", "--json")
+	if !strings.Contains(out, "propagate") {
+		t.Errorf("verify-health must flag it too:\n%s", out)
+	}
+}
+
+// A job's own retention overrides the storage's: keep-all on every job means
+// nothing prunes, whatever the storage says.
+func TestJobRetentionOverridesStorage(t *testing.T) {
+	f := newFixture(t)
+	f.pbsPrune = "keep-last=3"
+	jobs := f.pveRoutes["/cluster/backup"].([]map[string]any)
+	jobs[0]["prune-backups"] = "keep-all=1"
+	out, _, err := runCLI(t, "capacity", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range decodeJSON[capacityReport](t, out).Rows {
+		if r.Kind == "pbs-datastore" && !strings.Contains(strings.Join(r.Flags, ","), "unpruned") {
+			t.Errorf("every job keeps all: want unpruned despite the storage's keep-last: %+v", r)
+		}
+	}
+}
+
+// restore-points exits 5 when no match has a readable point and any is partial.
+func TestNothingReadableAcrossMatches(t *testing.T) {
+	full := guestRestorePoints{Evidence: "full"}
+	partial := guestRestorePoints{Evidence: "partial"}
+	withPoint := guestRestorePoints{Evidence: "partial", Count: 1}
+	for _, c := range []struct {
+		in   []guestRestorePoints
+		want bool
+	}{
+		{[]guestRestorePoints{full, partial}, true},
+		{[]guestRestorePoints{full}, false},
+		{[]guestRestorePoints{withPoint, partial}, false},
+	} {
+		if got := nothingReadable(c.in); got != c.want {
+			t.Errorf("nothingReadable(%+v) = %v, want %v", c.in, got, c.want)
+		}
+	}
+}
+
+// Human rpo says when misses are unproven.
+func TestRPOHumanShowsPartialEvidence(t *testing.T) {
+	f := newFixture(t)
+	auditOnly(f)
+	out, _, err := runCLI(t, "rpo", "--days", "7", "--human-friendly")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "partial evidence") || !strings.Contains(out, "EVIDENCE") {
+		t.Errorf("human rpo must flag partial evidence:\n%s", out)
+	}
+}

@@ -107,13 +107,8 @@ func newNovelRestorePointsCmd(flags *rootFlags) *cobra.Command {
 			// Every match came back empty while something was not read: that is
 			// "could not be read", and must not exit like a clean "none".
 			var unreadErr error
-			if g := rep.Guests; len(g) > 0 {
+			if nothingReadable(rep.Guests) {
 				unreadErr = apiErr(fmt.Errorf("no restore point of %q could be read and some sources were not (see not_read and the warnings)", query))
-				for _, gr := range g {
-					if gr.Count > 0 || gr.Evidence != "partial" {
-						unreadErr = nil
-					}
-				}
 			}
 			if !wantsHumanTable(cmd.OutOrStdout(), flags) {
 				var out any = rep
@@ -258,6 +253,9 @@ func collectRestorePoints(ctx context.Context, t fleetTarget, query string, veri
 			s, node := storages[key], readers[key]
 			covered := pbsCovers(refs, s.Storage, pbsHost, nsByStore)
 			rps, err := readStorageArchives(ctx, t.C, node, s, vmid, refs, covered)
+			if merr := t.pbsRefMissing(s, refs); merr != nil {
+				rps, err = nil, merr
+			}
 			if err != nil && covered {
 				standIn[key] = refs[s.Storage] // the PBS API lists these below
 				if !errors.Is(err, errCoveredByPBS) {
@@ -423,6 +421,17 @@ func pruneSpec(raw json.RawMessage) string {
 		parts = append(parts, fmt.Sprintf("%s=%v", k, m[k]))
 	}
 	return strings.Join(parts, ",")
+}
+
+// nothingReadable: no match has a readable restore point while some match's
+// evidence is partial, so "none" is unproven for the guest asked about.
+func nothingReadable(guests []guestRestorePoints) bool {
+	anyPoint, anyPartial := false, false
+	for _, g := range guests {
+		anyPoint = anyPoint || g.Count > 0
+		anyPartial = anyPartial || g.Evidence == "partial"
+	}
+	return !anyPoint && anyPartial
 }
 
 func orNone(s string) string {

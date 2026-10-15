@@ -102,6 +102,7 @@ func newNovelVerifyHealthCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			markSharedPBS(ctx, flags, targets)
 			rep := verifyReport{Stores: make([]verifyStoreRow, 0), Groups: make([]verifyGroupRow, 0), Skipped: make([]string, 0)}
 			var pbsTargets []fleetTarget
 			for _, t := range targets {
@@ -254,6 +255,13 @@ func collectVerifyHealth(ctx context.Context, t fleetTarget, onlyStore string, n
 		}
 		sr.GCStillBadChunks, sr.GCRemovedBadChunks = int64(gc.StillBad), int64(gc.RemovedBad)
 		for _, ns := range nsByStore[store] {
+			// A namespace another configured cluster writes to (or may) mixes
+			// its groups with this client's: mark the rows, never drop them.
+			nsAttribution := attribution
+			if owners := t.sharedOwners(pbsStorageRef{server: t.pbsEndpoint(), datastore: store, fingerprint: t.Profile.PBSFingerprint}, ns); len(owners) > 0 {
+				nsAttribution = "shared: " + strings.Join(owners, ", ")
+				sr.Attribution = "shared"
+			}
 			var reaching []verifyJobDef
 			for _, j := range storeJobs {
 				if j.reaches(ns) {
@@ -304,11 +312,13 @@ func collectVerifyHealth(ctx context.Context, t fleetTarget, onlyStore string, n
 				if g.Status == "failing" {
 					sr.FailingGroups++
 				}
-				g.Attribution = attribution
+				g.Attribution = nsAttribution
 				groups = append(groups, g)
 			}
 		}
-		sr.Attribution = attribution
+		if sr.Attribution == "" {
+			sr.Attribution = attribution
+		}
 		stores = append(stores, sr)
 	}
 	if wanted > 0 && read == 0 {
