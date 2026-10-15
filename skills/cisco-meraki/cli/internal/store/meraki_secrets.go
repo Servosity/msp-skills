@@ -458,7 +458,7 @@ func merakiDecoded(s string) string {
 	for i := 0; i < 4; i++ {
 		next := merakiPercentDecoded(s)
 		next = merakiJSONEscapePattern.ReplaceAllStringFunc(next, func(m string) string {
-			c, _ := strconv.ParseUint(m[2:], 16, 32)
+			c, _ := strconv.ParseUint(m[2:], 16, 16) // four hex digits: always fits
 			return string(rune(c))
 		})
 		next = strings.ReplaceAll(next, `\`, "")
