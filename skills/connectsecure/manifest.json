@@ -1,0 +1,111 @@
+{
+  "manifest_version": "0.3",
+  "name": "connectsecure-mcp",
+  "display_name": "ConnectSecure",
+  "version": "0.1.0",
+  "description": "Every ConnectSecure API operation, plus a local store that answers vulnerability x asset x client questions across your whole client base in one command.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/connectsecure-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/connectsecure-mcp",
+      "args": [],
+      "env": {
+        "CONNECTSECURE_BASE_URL": "${user_config.connectsecure_base_url}",
+        "CONNECTSECURE_TENANT": "${user_config.connectsecure_tenant}",
+        "CONNECTSECURE_CLIENT_ID": "${user_config.connectsecure_client_id}",
+        "CONNECTSECURE_CLIENT_SECRET": "${user_config.connectsecure_client_secret}",
+        "CONNECTSECURE_ACCESS_TOKEN": "${user_config.connectsecure_access_token}",
+        "CONNECTSECURE_USER_ID": "${user_config.connectsecure_user_id}",
+        "CONNECTSECURE_MCP_READ_ONLY": "${user_config.connectsecure_mcp_read_only}",
+        "CONNECTSECURE_USER_AGENT": "${user_config.connectsecure_user_agent}",
+        "CONNECTSECURE_MCP_HTTP_TOKEN": "${user_config.connectsecure_mcp_http_token}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
+      }
+    }
+  },
+  "user_config": {
+    "connectsecure_base_url": {
+      "type": "string",
+      "title": "CONNECTSECURE_BASE_URL",
+      "description": "Your tenant's pod URL, e.g. https://pod104.myconnectsecure.com (the pod API host shown under Profile > API Documentation in the ConnectSecure portal, not portal.myconnectsecure.com). Each tenant lives on its own pod, so there is no working default.",
+      "required": true
+    },
+    "connectsecure_tenant": {
+      "type": "string",
+      "title": "CONNECTSECURE_TENANT",
+      "description": "Tenant name you type on the ConnectSecure portal login screen.",
+      "required": true
+    },
+    "connectsecure_client_id": {
+      "type": "string",
+      "title": "CONNECTSECURE_CLIENT_ID",
+      "description": "API client ID from Settings > Users > (user) > API Key.",
+      "required": true,
+      "sensitive": true
+    },
+    "connectsecure_client_secret": {
+      "type": "string",
+      "title": "CONNECTSECURE_CLIENT_SECRET",
+      "description": "API client secret from Settings > Users > (user) > API Key.",
+      "sensitive": true,
+      "required": true
+    },
+    "connectsecure_access_token": {
+      "type": "string",
+      "title": "CONNECTSECURE_ACCESS_TOKEN",
+      "description": "Optional. A pre-minted JWT from /w/authorize; while it is unexpired it is used instead of minting one. The tenant, client ID and secret are still needed so the CLI can mint a fresh token once it expires.",
+      "sensitive": true
+    },
+    "connectsecure_user_id": {
+      "type": "string",
+      "title": "CONNECTSECURE_USER_ID",
+      "description": "Optional. user_id from /w/authorize. Only needed with a pre-minted CONNECTSECURE_ACCESS_TOKEN; minting fills it automatically."
+    },
+    "connectsecure_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only mode",
+      "description": "Set to 1 to make the MCP server refuse every write (any non-GET call) and hide the sync, export and tail tools (import is never an MCP tool). Credential reads are still answered, so this does not replace scoping the API user. Leave blank for full access.",
+      "required": false
+    },
+    "connectsecure_user_agent": {
+      "type": "string",
+      "title": "User-Agent header",
+      "description": "Overrides the User-Agent the CLI sends on ConnectSecure requests. Leave blank to use the CLI's own built-in User-Agent.",
+      "required": false
+    },
+    "connectsecure_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+      "required": false,
+      "sensitive": true
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile (optional)",
+      "description": "Only used when the MCP server is bound to a tenant-gated Printing Press client profile. This connector registers no tenant-gated source, so leave it blank unless you set one up yourself.",
+      "required": false,
+      "sensitive": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  },
+  "printing_press_version": "4.33.5",
+  "press_provenance": {
+    "printing_press_version": "4.33.5",
+    "generated_at": "2026-10-14T02:14:28.994266Z",
+    "spec_checksum": "sha256:6473a8ea8d5b64735ba88a82144728d888aef5ea9c3bd257b06022bb8ec2ab66",
+    "spec_format": "openapi3"
+  }
+}

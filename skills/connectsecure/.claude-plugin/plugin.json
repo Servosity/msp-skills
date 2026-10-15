@@ -1,0 +1,20 @@
+{
+  "name": "connectsecure",
+  "version": "0.1.0",
+  "description": "Every ConnectSecure API operation, plus a local store that answers vulnerability x asset x client questions across your whole client base in one command.",
+  "author": {
+    "name": "Servosity",
+    "url": "https://www.servosity.com"
+  },
+  "homepage": "https://github.com/servosity/msp-skills/tree/main/skills/connectsecure",
+  "repository": "https://github.com/servosity/msp-skills",
+  "license": "Apache-2.0",
+  "keywords": [
+    "connectsecure",
+    "security",
+    "msp",
+    "mcp",
+    "claude-code",
+    "claude-mcp"
+  ]
+}

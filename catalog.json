@@ -323,6 +323,26 @@
       "markdown_only": true
     },
     {
+      "name": "connectsecure",
+      "system": "ConnectSecure (formerly CyberCNS) vulnerability, asset and compliance management platform for MSPs",
+      "status": "beta",
+      "skill_path": "skills/connectsecure",
+      "cli_binary": "connectsecure-cli",
+      "mcp_binary": "connectsecure-mcp",
+      "version": "0.1.0",
+      "printing_press_version": "4.33.5",
+      "license": "Apache-2.0",
+      "vendor": "ConnectSecure",
+      "vendor_trademark_owner": "ConnectSecure",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/connectsecure/install.sh)",
+      "install_mcp_doc": "skills/connectsecure/mcp-install.md",
+      "description": "Every ConnectSecure API operation, plus a local store that answers vulnerability x asset x client questions across your whole client base in one command.",
+      "verification": "awaiting",
+      "category": "Security",
+      "tagline": "See which vulnerabilities hit which assets at which clients, across your whole client base, in one command."
+    },
+    {
       "name": "connectwise-automate",
       "system": "ConnectWise Automate (LabTech) RMM: device management, patching, scripting, monitors and alerts for MSPs",
       "status": "beta",
