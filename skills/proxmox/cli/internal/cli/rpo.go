@@ -482,7 +482,13 @@ func evaluateRPO(points []restorePoint, runs []int64, start, now time.Time) rpoR
 		// (and any that failed there) cannot be checked.
 		row.Evidence = "partial"
 	}
-	row.MetSchedule = row.MissedRuns == 0 && len(points) > 0 && row.Evidence == "full"
+	// Met only when some scheduled run was judged and none was missed: with
+	// no run judged (the only one still within the in-progress grace, or a
+	// window shorter than the job's interval) there is nothing to have met.
+	row.MetSchedule = row.ScheduledRuns > 0 && row.MissedRuns == 0 && row.Evidence == "full"
+	if row.ScheduledRuns == 0 && len(runs) > 0 && row.Note == "" {
+		row.Note = "no scheduled run in the window can be judged yet (the only one is still within the in-progress grace, or the window is shorter than the job's interval); widen --days"
+	}
 	return row
 }
 

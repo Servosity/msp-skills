@@ -285,6 +285,12 @@ func collectFailures(ctx context.Context, t fleetTarget, since time.Time, want m
 			lines, err := fetchTaskLog(ctx, t.C, false, node, task.UPID)
 			if err != nil {
 				fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "task log " + task.UPID, Error: err.Error()})
+				if !taskOK(task.Status) {
+					// The task list already says it failed: report it without per-guest attribution.
+					rows = append(rows, failureRow{Tenant: t.Tenant, Cluster: t.Name, Product: "pve", Type: "vzdump", Target: task.target(),
+						Result: "failed", Reason: task.Status + " (log not readable)", UPID: task.UPID, Node: node,
+						StartedAt: unixRFC3339(int64(task.StartTime)), EndedAt: unixRFC3339(int64(task.EndTime))})
+				}
 				continue
 			}
 			base := failureRow{Tenant: t.Tenant, Cluster: t.Name, Product: "pve", Type: "vzdump", UPID: task.UPID, Node: node,

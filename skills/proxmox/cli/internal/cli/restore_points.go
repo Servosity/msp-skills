@@ -27,6 +27,7 @@ type guestRestorePoints struct {
 	CoveredByJobs []string `json:"covered_by_jobs"`
 	DisabledJobs  []string `json:"disabled_jobs"`
 	Count         int      `json:"count"`
+	Readable      int      `json:"-"` // points read before --verified-only filtered them
 	// Evidence is "full" when every source that may hold this guest's restore
 	// points was read, else "partial" and NotRead names what was not: a count
 	// of 0 then means none could be read, not that none exist.
@@ -113,7 +114,7 @@ func newNovelRestorePointsCmd(flags *rootFlags) *cobra.Command {
 			if !wantsHumanTable(cmd.OutOrStdout(), flags) {
 				var out any = rep
 				if flags.csv {
-					var flat []restorePoint
+					flat := []restorePoint{}
 					for _, g := range rep.Guests {
 						flat = append(flat, g.RestorePoints...)
 					}
@@ -308,9 +309,12 @@ func collectRestorePoints(ctx context.Context, t fleetTarget, query string, veri
 		// A covering job's target that was not read (a dumpdir, a hidden or
 		// failed storage, a failed PBS stand-in) may hold this guest's points.
 		pbsStandIns(standIn, pbsUnread, read)
+		gaps := map[storageGap]bool{}
 		for _, gap := range jobStorageGaps(cov, vmid, g.Node, read, targets) {
 			notRead = append(notRead, gap.String())
+			gaps[gap] = true
 		}
+		fails = append(fails, gapFailures(t.Name, gaps)...) // as posture: a gap reaches stderr and --csv runs too
 		points, unreadable := splitUnreadable(dedupeRestorePoints(points))
 		for _, rp := range unreadable {
 			if rp.GuestType == "" || rp.GuestType == g.Type {
@@ -322,6 +326,7 @@ func collectRestorePoints(ctx context.Context, t fleetTarget, query string, veri
 			if rp.GuestType != "" && rp.GuestType != g.Type {
 				continue
 			}
+			gr.Readable++
 			if verifiedOnly && rp.VerifyState != "ok" {
 				continue
 			}
@@ -356,7 +361,7 @@ func collectRestorePoints(ctx context.Context, t fleetTarget, query string, veri
 func nothingReadable(guests []guestRestorePoints) bool {
 	anyPoint, anyPartial := false, false
 	for _, g := range guests {
-		anyPoint = anyPoint || g.Count > 0
+		anyPoint = anyPoint || g.Count > 0 || g.Readable > 0
 		anyPartial = anyPartial || g.Evidence == "partial"
 	}
 	return !anyPoint && anyPartial
