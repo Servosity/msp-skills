@@ -1338,6 +1338,26 @@
       "tagline": "Catch silently-failing Microsoft 365 backups across every SkyKick tenant before a customer needs a restore."
     },
     {
+      "name": "sophos-central",
+      "system": "Sophos Central endpoint protection across every partner tenant: alerts, endpoints, isolation, tamper protection, account health, licences, billing and SIEM",
+      "status": "beta",
+      "skill_path": "skills/sophos-central",
+      "cli_binary": "sophos-central-cli",
+      "mcp_binary": "sophos-central-mcp",
+      "version": "0.1.0",
+      "printing_press_version": "4.33.5",
+      "license": "Apache-2.0",
+      "vendor": "Sophos Central",
+      "vendor_trademark_owner": "Sophos Limited",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/sophos-central/install.sh)",
+      "install_mcp_doc": "skills/sophos-central/mcp-install.md",
+      "description": "The Sophos Central partner, organization and tenant APIs, routed to the right tenant and region automatically, plus a cross-tenant triage queue, fleet tamper remediation, a multi-tenant SIEM collector and hostname-based containment.",
+      "verification": "awaiting",
+      "category": "Security",
+      "tagline": "Triage alerts, restore tamper protection and contain a machine by hostname across every Sophos Central tenant by asking."
+    },
+    {
       "name": "superops",
       "system": "SuperOps PSA+RMM: tickets, SLAs, assets, alerts, clients, contracts, invoices, worklogs",
       "status": "beta",

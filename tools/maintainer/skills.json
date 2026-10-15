@@ -333,13 +333,7 @@
       "first_party": false,
       "category": "Security",
       "display_name": "CIPP + Microsoft 365",
-      "covers": [
-        "Entra ID",
-        "Intune",
-        "Exchange Online",
-        "Defender",
-        "GDAP"
-      ],
+      "covers": ["Entra ID", "Intune", "Exchange Online", "Defender", "GDAP"],
       "tagline": "MCP server for CIPP and the Microsoft 365 it runs - Entra ID, Intune, Exchange Online, Defender and GDAP - across every client tenant at once.",
       "cli_hash": "sha256:aa0dc021cdb156c7c5bd704dc240c05f666bcc65074ff04bc8a5b76852f20f19",
       "template_version": 3,
@@ -1641,6 +1635,29 @@
         "evidence": null,
         "verified_by": null,
         "issue_url": null
+      }
+    },
+    "sophos-central": {
+      "system": "Sophos Central endpoint protection across every partner tenant: alerts, endpoints, isolation, tamper protection, account health, licences, billing and SIEM",
+      "status": "beta",
+      "cli_binary": "sophos-central-cli",
+      "mcp_binary": "sophos-central-mcp",
+      "vendor": "Sophos Central",
+      "vendor_trademark_owner": "Sophos Limited",
+      "first_party": false,
+      "category": "Security",
+      "display_name": "Sophos Central",
+      "tagline": "Triage alerts, restore tamper protection and contain a machine by hostname across every Sophos Central tenant by asking.",
+      "has_video": true,
+      "cli_hash": "sha256:a3f408686c6b39b4ab1160bf0912835991552e004882eedd4680ec7fbea1790e",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
       }
     },
     "superops": {

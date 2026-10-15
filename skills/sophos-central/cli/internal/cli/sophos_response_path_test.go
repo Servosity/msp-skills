@@ -1,0 +1,47 @@
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+//
+// Hand-written (NOT generated): pinned by skills/sophos-central/handfixes.json
+// under the "single-read-keeps-the-object" entry.
+
+package cli
+
+import (
+	"encoding/json"
+	"testing"
+)
+
+func TestApplyEntityResponsePath(t *testing.T) {
+	for _, tc := range []struct {
+		name, body, path, want string
+		list                   bool
+	}{
+		{"alert keeps the object", `{"id":"a1","severity":"high","allowedActions":["acknowledge"]}`, "allowedActions", `{"id":"a1","severity":"high","allowedActions":["acknowledge"]}`, false},
+		{"tamper keeps current password", `{"enabled":true,"password":"cur","previousPasswords":[{"password":"old"}]}`, "previousPasswords", `{"enabled":true,"password":"cur","previousPasswords":[{"password":"old"}]}`, false},
+		{"items+pages unwraps", `{"items":[{"id":"e1"}],"pages":{"nextKey":"k"}}`, "items", `[{"id":"e1"}]`, false},
+		{"bare wrapper unwraps", `{"bands":[1,2]}`, "bands", `[1,2]`, false},
+		{"siem cursor unwraps", `{"items":[1],"has_more":false,"next_cursor":"c"}`, "items", `[1]`, false},
+		{"list command keeps rows", `{"organization":{"id":"o1"},"licenses":[{"id":"l1"}]}`, "licenses", `[{"id":"l1"}]`, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got := applyEntityResponsePath(json.RawMessage(tc.body), tc.path, tc.list)
+			var g, w any
+			_ = json.Unmarshal(got, &g)
+			_ = json.Unmarshal([]byte(tc.want), &w)
+			gb, _ := json.Marshal(g)
+			wb, _ := json.Marshal(w)
+			if string(gb) != string(wb) {
+				t.Fatalf("got %s, want %s", gb, wb)
+			}
+		})
+	}
+}
+
+// TestTenantPlaceholderIsUnset: an MCPB host that skips the optional
+// SOPHOS_CENTRAL_TENANT_ID prompt leaves the template text in the
+// environment; it must read as unset, not as a tenant ID.
+func TestTenantPlaceholderIsUnset(t *testing.T) {
+	t.Setenv("SOPHOS_CENTRAL_TENANT_ID", "${user_config.sophos_central_tenant_id}")
+	if got := configuredSophosTenant(); got != "" {
+		t.Fatalf("configuredSophosTenant() = %q, want unset", got)
+	}
+}

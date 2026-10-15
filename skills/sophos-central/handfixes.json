@@ -1,0 +1,1626 @@
+{
+ "slug": "sophos-central",
+ "doc": "docs/reprint-survival.md",
+ "_comment": "Connector-specific edits to GENERATED/authored files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and banned anti-patterns absent) and fails CI if a reprint dropped one. The press-side records live in ~/printing-press/library/sophos-central/.printing-press-patches/ (ids prefixed sophos-).",
+ "handfixes": [
+  {
+   "id": "sophos-token-form-auth",
+   "summary": "the Sophos token endpoint reads client_id and client_secret only from the form body, never HTTP Basic",
+   "why": "id.sophos.com/api/v2/oauth2/token rejects the generated client's SetBasicAuth client-credentials request; credentials must ride in the application/x-www-form-urlencoded body. Both mint paths (auth login and the client's automatic mint) carry the fix; without it every command fails INVALID_CLIENT.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "HAND-FIX(sophos-token-form-auth)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "\"client_secret\": {clientSecret},",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "HAND-FIX(sophos-token-form-auth)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "\"client_secret\": {clientSecret},",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "sophos-key-paging",
+   "summary": "key-based paging: pageFromKey cursor, next key read from pages.nextKey",
+   "why": "Sophos endpoint, alert, Live Discover result, audit-event and billing lists page with pageFromKey/pages.nextKey, not page numbers. The generated pager read the wrong cursor and either stopped after page one or repeated it. Sophos's partner getting-started guide: 'If the nextKey value is missing, you have reached the end of pages'.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/alerts_list.go",
+     "contains": "HAND-FIX(sophos-key-paging)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/alerts_list.go",
+     "contains": "\"pageFromKey\", \"cursor\", \"pageSize\"",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/endpoint_groups_list-tenant-endpoints-by-id.go",
+     "contains": "HAND-FIX(sophos-key-paging)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/endpoint_groups_list-tenant-endpoints-by-id.go",
+     "contains": "\"pageFromKey\", \"cursor\", \"pageSize\"",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/endpoints_list.go",
+     "contains": "HAND-FIX(sophos-key-paging)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/endpoints_list.go",
+     "contains": "\"pageFromKey\", \"cursor\", \"pageSize\"",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/live_discover_get-execution-results-by-id.go",
+     "contains": "HAND-FIX(sophos-key-paging)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/live_discover_get-execution-results-by-id.go",
+     "contains": "\"pageFromKey\", \"cursor\", \"pageSize\"",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/promoted_audit-events.go",
+     "contains": "HAND-FIX(sophos-key-paging)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/promoted_audit-events.go",
+     "contains": "\"pageFromKey\", \"cursor\", \"pageSize\"",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/promoted_billing.go",
+     "contains": "HAND-FIX(sophos-key-paging)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/promoted_billing.go",
+     "contains": "\"pageFromKey\", \"cursor\", \"pageSize\"",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "cursorParam:    \"pageFromKey\"",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "nextCursorPath: \"pages.nextKey\"",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "sophos-paging-errors",
+   "summary": "a repeated or stuck cursor is reported as an incomplete listing, never returned as complete",
+   "why": "When the API repeats a cursor the generated walker either looped or returned a partial list as if it were complete; the fix turns both into an explicit incomplete-listing error so a fleet answer never silently drops machines.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "HAND-FIX(sophos-paging-errors)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "--all: pagination repeated cursor %q; listing is incomplete",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "stopped at %d pages with more available",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "HAND-FIX(sophos-paging-errors)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "outcome.reason == \"stuck_page\" {",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "sophos-sync-safety",
+   "summary": "sync treats a revisited cursor as a cycle and rows with no usable key as a failed (not complete) walk",
+   "why": "A cycled or stuck cursor and undecodable or keyless items used to let sync record a complete walk, after which --full pruned live rows that were merely unread. The walk is now marked incomplete so reconcile never deletes on partial data.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "HAND-FIX(sophos-sync-safety)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "HAND-FIX(sophos-sync-safety)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "visitedCursors[nextCursor]",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "outcome.reason = \"extract_failures\"",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "pagination did not advance (repeated cursor)",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "sophos-tenant-sync-state",
+   "summary": "sync checkpoints and since-watermarks are keyed per tenant for tenant-scoped resources",
+   "why": "One local store holds every customer tenant (fleet refresh). A single checkpoint per resource meant tenant B resumed from tenant A's cursor and silently skipped rows; sophosSyncStateKey scopes each tenant-scoped resource's checkpoint to the active tenant. Codex round 4: `workflow archive --full` cleared the unscoped key while syncResource reads the tenant-scoped one, so a capped walk resumed mid-way and was marked complete; it now clears sophosSyncStateKey(resource), like sync --full.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "HAND-FIX(sophos-tenant-sync-state)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "stateKey := sophosSyncStateKey(resource)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "db.GetSyncState(stateKey)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "db.SaveSyncStateAt(sophosSyncStateKey(resource), \"\", 0, time.Time{})",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/channel_workflow.go",
+     "contains": "if err := s.SaveSyncStateAt(sophosSyncStateKey(resource), \"\", 0, time.Time{}); err != nil {",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "sophos-filtered-prune",
+   "summary": "a user --param that narrows the rows disables full-sync pruning; such a walk also stamps no watermark",
+   "why": "sync --full prunes local rows the API no longer returns, but with a narrowing --param the API returns a subset by design, so pruning deleted every row outside the filter. Codex round 9 (2026-10-15): a --param walk still stamped last_synced_at, so a later unfiltered incremental sync skipped the rows it filtered out and a local --tenant read dated them as current. TestOnlyCompleteFetchesDateALocalRead pins it.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "HAND-FIX(sophos-filtered-prune)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "!userParams.hasAny()",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\tcase userParams.hasAny():\n\t\t// HAND-FIX(sophos-filtered-prune): a --param walk saw a subset, so it",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "sophos-dependent-tenant",
+   "summary": "dependent (parent-keyed) sync drops parents stored for another tenant",
+   "why": "Parent-keyed sub-resources iterate the stored parent rows; with many tenants in one store, calling a parent ID under the wrong X-Tenant-ID returned 404s or, worse, another tenant's data.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "HAND-FIX(sophos-dependent-tenant)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "if parentRows, scopeErr = sophosScopeParentRows(db, dep, parentRows); scopeErr != nil {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "Err: scopeErr, IntegrityFailure: true",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "sophos-local-tenant",
+   "summary": "local reads scope stored rows to the active tenant before paging",
+   "why": "fleet refresh puts every tenant's rows in one table; a local `endpoints list --tenant X` returned other tenants' machines without this filter, and paging before scoping returned short pages.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "HAND-FIX(sophos-local-tenant)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "sophosScopeLocalItems(path, items)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "sophosCheckLocalItem(path, item)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "HAND-FIX(sophos-local-tenant-paging)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "sophosPage(items, pageOffset, pageLimit)",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "sophos-auth-hint",
+   "summary": "doctor, error hints and MCP tool text name the real Sophos credential setup (API Credentials menu, client ID + secret, --tenant)",
+   "why": "The generated hint pointed at a generic token flow; Sophos needs a service principal created under API Credentials, and a partner or organization credential must pick a tenant with --tenant.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "auth login' (reads SOPHOS_CENTRAL_CLIENT_ID and SOPHOS_CENTRAL_CLIENT_SECRET)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "auth login' (reads SOPHOS_CENTRAL_CLIENT_ID and SOPHOS_CENTRAL_CLIENT_SECRET)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "auth login' (reads SOPHOS_CENTRAL_CLIENT_ID and SOPHOS_CENTRAL_CLIENT_SECRET)",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "sophos-api-owned-whoami",
+   "summary": "platform tests accept that this spec owns the `whoami` command",
+   "why": "Sophos exposes GET /whoami/v1, so the API-generated `whoami` command replaces the framework one; the generated platform tests asserted the framework shape.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/platform_cli_test.go",
+     "contains": "HAND-FIX(sophos-api-owned-whoami)",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "sophos-docs",
+   "summary": "guide.md and SKILL.md document the tenant selector and leave the client secret as a placeholder",
+   "why": "The generated docs omitted SOPHOS_CENTRAL_TENANT_ID and showed a realistic-looking secret value in the env example; both are hand-fixed in the source docs that onboard re-vendors.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "guide.md",
+     "contains": "<your-client-secret>",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "guide.md",
+     "contains": "SOPHOS_CENTRAL_TENANT_ID` | selector",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "`state` contains `teach.log`",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "Create an API credential in Sophos Central",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "mcp-recipe-argv-not-flag-like",
+   "summary": "MCP recipe intents refuse a flag-like value (leading '-') for a positional or string flag, e.g. contain's slug",
+   "why": "Press 4.33.5 recipe intents append agent-supplied values to argv; a value like '--yes' or '--base-url=...' became a flag (argv smuggling, see the fleet-wide finding on PR #317). rejectFlagLikeRecipeValue refuses it and string flags are passed as --name=value. Same fix as skills/acronis 'mcp-recipe-argv-not-flag-like'.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "contains": "func rejectFlagLikeRecipeValue(",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "contains": "if err := rejectFlagLikeRecipeValue(\"slug\", input[\"slug\"]); err != nil {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "contains": "if s := recipeValueString(value); s != \"-\" && strings.HasPrefix(s, \"-\") {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "contains": "return append(args, \"--\"+name+\"=\"+selected), false",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/mcp/recipe_intents_test.go",
+     "contains": "func TestRecipeIntentContainACompromisedWorkstationRejectsFlagLikePositional(",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/mcp/recipe_intents_test.go",
+     "contains": "func TestRejectFlagLikeRecipeValueEdges(",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "sophos-whoami-apihost-routing",
+   "summary": "every request is routed by whoami: partner/organization calls go to the global host with X-Partner-ID / X-Organization-ID, tenant calls go to the tenant's regional apiHost with X-Tenant-ID, and the bearer token is only ever sent to a *.central.sophos.com host",
+   "why": "The generated client knows one base URL. Sophos Central splits its API across the global host (whoami, partner, organization) and a per-tenant regional host (endpoint, common, live-discover, xdr-query, account-health-check, siem) that each need a different ID header (developer.sophos.com/getting-started). sophos_routing.go installs a transport via the generated registerClientHook extension point, resolves the caller with GET /whoami/v1 (cached per credential), maps tenant -> apiHost, and rewrites host + headers. isSophosAPIHost refuses to send the token anywhere a cached or API-returned host would otherwise point. Novel file, so regen-merge keeps it; these asserts catch a reprint that drops the hook registration or the host guard.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sophos_routing.go",
+     "contains": "registerClientHook(installSophosRouting)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_routing.go",
+     "contains": "func (r *sophosRouter) route(req *http.Request) (*http.Request, error) {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_routing.go",
+     "contains": "func isSophosAPIHost(host string) bool {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_routing.go",
+     "contains": "out.Header.Set(headerTenantID, tenantID)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_routing.go",
+     "contains": "out.Header.Set(headerPartnerID, id.ID)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_routing.go",
+     "contains": "out.Header.Set(headerOrganizationID, id.ID)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "func registerClientHook(",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "sophos-per-credential-store-scope",
+   "summary": "the default local store and each tenant-scoped sync checkpoint are keyed per credential (base URL + client ID) and per tenant",
+   "why": "The generated store path keyed on the access token until one existed, so the first fleet refresh (no token yet) and every later command (token saved) used different database files, and two credentials could share one. sophosStoreScope pins the store to base URL + client ID; sophosSyncStateKey adds the tenant to each tenant-scoped checkpoint. Wired through the generated config.StoreScopeIdentity and resolveTenantID extension points.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sophos_routing.go",
+     "contains": "config.StoreScopeIdentity = sophosStoreScope",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_routing.go",
+     "contains": "resolveTenantID = sophosActiveTenant",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_routing.go",
+     "contains": "func sophosSyncStateKey(resource string) string {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_routing.go",
+     "contains": "func sophosStoreScope(c *config.Config) string {",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "dry-run-never-mints",
+   "summary": "--dry-run never mints a token: neither the client's automatic mint nor `auth login` sends the client secret or writes credentials.toml during a preview",
+   "why": "A dry run is the preview the governance doc tells agents to run before every write. The generated client minted a token on the first request even under --dry-run, POSTing the client secret to id.sophos.com and persisting the token; `auth login --dry-run` minted through its own path. A preview must have no side effects.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if !c.DryRun && c.needsClientCredentialsMint() {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "if flags.dryRun {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_dry_run_test.go",
+     "contains": "func TestAuthLoginDryRunSendsNothing(",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "env-client-secret-not-persisted",
+   "summary": "a client secret read from SOPHOS_CENTRAL_CLIENT_SECRET is never written to credentials.toml, by the automatic mint or by `auth login`; only --client-secret is saved",
+   "why": "The fleet's issue #266 shape. SaveTokens wrote whatever secret it was handed, so the first API call (automatic mint) or `auth login` with only environment variables copied the secret from a secret manager into a plaintext file. MarkClientSecretFromEnv records the env source so configForSave keeps the file's existing value. Proven both directions by TestAuthLoginKeepsEnvSecretOffDisk (env case fails when the auth.go call is removed).",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/config/sophos_env_secret.go",
+     "contains": "func (c *Config) MarkClientSecretFromEnv() {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "if c.envOverrides[\"ClientSecret\"] {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.Config.MarkClientSecretFromEnv()",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "cfg.KeepEnvSecretOffDisk(clientID)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_dry_run_test.go",
+     "contains": "func TestAuthLoginKeepsEnvSecretOffDisk(",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "secret-responses-never-persisted",
+   "summary": "a response carrying a tamper protection password or a migration token is never cached, stored, exported or printed by tail, and the six operations that return one are not MCP-executable",
+   "why": "Sophos returns live credentials from exactly six operations (a scan of every 2xx response schema in the vendor spec for password/secret/token keys): GET and POST /endpoint/v1/endpoints/{id}/tamper-protection (password, previousPasswords) and GET/POST/PUT /endpoint/v1/migrations[/{id}] (token). The generated response cache wrote every GET body to disk, sync stored migration rows (resources table, FTS index and the typed migrations.token column), and the export and tail commands - both MCP tools - printed the token to any agent. Guards: the cache refuses a body with a secret key, every store write and the typed migrations writer drop secret keys, export and tail redact before printing (round 1 of this run caught `export migrations` leaking through MCP), and the MCP execute tool drops the six endpoint IDs. A human reads the tamper password with `endpoints get-tamper-protection` on the CLI.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if responseCarriesSecret(data) {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/client/sophos_secret_cache.go",
+     "contains": "func responseCarriesSecret(data []byte) bool {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "data = redactStoredSecrets(data)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "data = redactStoredSecrets(data)",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "nil, // token: never stored (secret-responses-never-persisted)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/store/sophos_secret_redact.go",
+     "contains": "func redactStoredSecrets(data json.RawMessage) json.RawMessage {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/export.go",
+     "contains": "data = redactSecretOutput(data)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/tail.go",
+     "contains": "data = redactSecretOutput(data)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_secret_output.go",
+     "contains": "func redactSecretOutput(data json.RawMessage) json.RawMessage {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_secret_output_test.go",
+     "contains": "func TestExportAndTailDropMigrationToken(",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/mcp/sophos_secret_tools.go",
+     "contains": "\"endpoints.get-tamper-protection\": true,",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/mcp/sophos_secret_tools.go",
+     "contains": "\"migrations.get-jobs\":             true,",
+     "min_count": 1,
+     "code_only": false
+    }
+   ],
+   "spec_encode_followup": "cli-printing-press could mark response fields as x-sensitive in the spec and generate the cache, store, export/tail and MCP exclusions from that one declaration."
+  },
+  {
+   "id": "env-credential-wins-over-saved",
+   "summary": "a client ID in SOPHOS_CENTRAL_CLIENT_ID that differs from the saved one is the credential in use: the saved secret and the token minted for the saved credential are never sent, and the environment credential's token stays in memory",
+   "why": "Round 1 adversarial review (2026-10-14) proved the generated precedence (saved config first, then environment) sent credential A's cached bearer token on a run configured with credential B, including from the MCP server (the CLI and MCP share the default data dir). With A an admin credential from `auth login` and B the read-only credential the docs tell owners to give an agent, an agent's writes ran with admin rights; after the token expired the client minted with A's saved ID and B's secret and failed with a misleading 401. AdoptEnvClientCredential runs in the client hook for both CLI and MCP, sophosClientPair (store scope and identity cache) uses the same rule, and `auth login` drops a saved secret that belongs to the client ID being replaced. TestEnvCredentialWinsOverSavedToken fails when the adopt call is neutralised.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/config/sophos_env_secret.go",
+     "contains": "func (c *Config) AdoptEnvClientCredential() {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/config/sophos_env_secret.go",
+     "contains": "func (c *Config) KeepMintedTokenInMemory(accessToken string, expiry time.Time) bool {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/config/sophos_env_secret.go",
+     "contains": "func (c *Config) KeepEnvSecretOffDisk(clientID string) {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_routing.go",
+     "contains": "c.Config.AdoptEnvClientCredential()",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_routing.go",
+     "contains": "envID != \"\" && envID != id {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if c.Config.KeepMintedTokenInMemory(tokenResp.AccessToken, expiry) {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_env_credential_test.go",
+     "contains": "func TestEnvCredentialWinsOverSavedToken(",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "cfg.AdoptEnvClientCredential()",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "authed := header != \"\" || (strings.TrimSpace(cliutil.EnvOverride(\"SOPHOS_CENTRAL_CLIENT_ID\")) != \"\"",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "tenant-env-placeholder-is-unset",
+   "summary": "SOPHOS_CENTRAL_TENANT_ID and the client pair are read through cliutil.EnvOverride in the hand-written routing and fleet code, so an unresolved MCPB ${user_config...} placeholder reads as unset",
+   "why": "Round 2 adversarial review proved an MCPB host that skips the optional tenant prompt leaves the literal ${user_config.sophos_central_tenant_id} in the environment; os.Getenv sent it as X-Tenant-ID and every fleet command failed with 'tenant ... is not managed by this partner credential'. The generated config already uses EnvOverride for exactly this; the hand-written routing did not. TestTenantPlaceholderIsUnset fails when configuredSophosTenant goes back to os.Getenv.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sophos_routing.go",
+     "contains": "return strings.TrimSpace(cliutil.EnvOverride(sophosTenantEnv))",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_fleet.go",
+     "contains": "if env := cliutil.EnvOverride(sophosTenantEnv); env != \"\" {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_routing.go",
+     "contains": "id = cliutil.EnvOverride(\"SOPHOS_CENTRAL_CLIENT_ID\")",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_response_path_test.go",
+     "contains": "func TestTenantPlaceholderIsUnset(",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_routing.go",
+     "not_contains": "os.Getenv(sophosTenantEnv)"
+    },
+    {
+     "file": "cli/internal/cli/sophos_fleet.go",
+     "not_contains": "os.Getenv(sophosTenantEnv)"
+    }
+   ]
+  },
+  {
+   "id": "single-read-keeps-the-object",
+   "summary": "single-object GET commands return the whole object; a response path unwraps only a list wrapper (every other top-level key is paging metadata)",
+   "why": "The generator hands single-object GETs the first array property of the response schema as a response path. Round 1 adversarial review proved `alerts get` printed only allowedActions (the fleet triage next_command led nowhere), `tenants get` only products, and `endpoints get-tamper-protection` printed the INVALIDATED previous passwords under the key password while dropping the current password and enabled flag - a technician mid-incident would try a dead password. Also hit exploit-mitigation get-application-by-id, live-discover get-execution-summary, xdr get-query-run, web-control get-local-site-by-id and get-web-decryption-settings, software get-static-package and the three role get-by-id commands. applyEntityResponsePath is used only by the single-read resolver and passes list commands (isList) straight to the generated unwrap, so `licenses list` keeps printing rows (round 2 caught that regression); paginated list walkers keep applyResponsePath.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sophos_response_path.go",
+     "contains": "func applyEntityResponsePath(data json.RawMessage, responsePath string, isList bool) json.RawMessage {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "data = applyEntityResponsePath(data, responsePath, isList)",
+     "min_count": 3,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sophos_response_path_test.go",
+     "contains": "func TestApplyEntityResponsePath(",
+     "min_count": 1,
+     "code_only": false
+    }
+   ],
+   "spec_encode_followup": "cli-printing-press should only emit a response path for a single-object GET when the schema is a list wrapper (items plus paging keys)."
+  },
+  {
+   "id": "install-credentials-declared-on-every-channel",
+   "summary": "every environment variable the binaries read is declared on all three install channels: manifest.json (.mcpb), server.json (MCP Registry) and mcp-install.md",
+   "why": "check_env_schema.py failed the first verify_all run: the generated manifest declared only the client ID and secret, while the binaries also read SOPHOS_CENTRAL_TENANT_ID, BASE_URL, TOKEN_URL, OAUTH_SCOPE, MCP_READ_ONLY, MCP_HTTP_TOKEN, USER_AGENT and PRINTING_PRESS_CLIENT_PROFILE. A Claude Desktop install has no other way to set them. manifest.json, server.json and mcp-install.md are regenerated by /msp-skills-publish on a re-onboard, so these asserts pin the declarations (issue #282 fleet shape). Optional values are blank in the copy-paste env blocks: a placeholder in an optional slot would be sent as a real value.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "manifest.json",
+     "contains": "\"SOPHOS_CENTRAL_TENANT_ID\": \"${user_config.sophos_central_tenant_id}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"SOPHOS_CENTRAL_MCP_READ_ONLY\": \"${user_config.sophos_central_mcp_read_only}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"SOPHOS_CENTRAL_MCP_HTTP_TOKEN\": \"${user_config.sophos_central_mcp_http_token}\"",
+     "min_count": 1
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"SOPHOS_CENTRAL_TOKEN_URL\": \"${user_config.sophos_central_token_url}\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"SOPHOS_CENTRAL_TENANT_ID\"",
+     "min_count": 1
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"SOPHOS_CENTRAL_MCP_HTTP_TOKEN\"",
+     "min_count": 1
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"SOPHOS_CENTRAL_TENANT_ID\": \"\",",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "SOPHOS_CENTRAL_MCP_HTTP_TOKEN=<long-random-value> sophos-central-mcp --transport http",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "runtime-routing-not-persisted",
+   "summary": "config.toml keeps the base URL, token URL and headers the file had: --tenant / SOPHOS_CENTRAL_TENANT_ID (applied as an X-Tenant-ID header) and SOPHOS_CENTRAL_BASE_URL / _TOKEN_URL apply to the current run only",
+   "why": "Round 3 adversarial review proved that installSophosRouting's X-Tenant-ID header was saved into config.toml [headers] on the next token save, so one `--tenant T1` run silently pinned every later CLI and MCP call (including writes such as isolation and policy changes) to T1 and skipped the router's tenantRequired refusal; `auth logout` did not clear it. The generated Load also saved env-supplied base and token URLs, so a later run posted the real client secret to an old token URL. persisted() now takes BaseURL, TokenURL and Headers from the file snapshot; no CLI command edits these on purpose (they are hand-edited in config.toml). TestTenantSelectionNotPersisted fails when the configForSave line is removed.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "out.BaseURL, out.TokenURL, out.Headers = c.fileConfig.BaseURL, c.fileConfig.TokenURL, c.fileConfig.Headers",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_runtime_persist_test.go",
+     "contains": "func TestTenantSelectionNotPersisted(",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "mcp-http-token-placeholder",
+   "summary": "the MCP server's --transport http bearer token is read through cliutil.EnvOverride, so an unresolved ${user_config.sophos_central_mcp_http_token} placeholder refuses to start instead of becoming the secret",
+   "why": "Codex review (2026-10-14) found the generated requireHTTPCallerToken read SOPHOS_CENTRAL_MCP_HTTP_TOKEN with os.Getenv. The variable is declared as an optional MCPB user_config value, and a host that skips an optional prompt leaves the literal placeholder text in the environment; that text is public (it is in manifest.json), so anyone could authenticate to an HTTP-mode server started that way. TestHTTPTokenPlaceholderRefused fails when the read goes back to os.Getenv.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/cmd/sophos-central-mcp/main.go",
+     "contains": "token := strings.TrimSpace(cliutil.EnvOverride(httpTokenEnvVar))",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/cmd/sophos-central-mcp/sophos_http_token_test.go",
+     "contains": "func TestHTTPTokenPlaceholderRefused(",
+     "min_count": 1,
+     "code_only": false
+    }
+   ],
+   "spec_encode_followup": "the press main_mcp.go.tmpl should read the HTTP token through cliutil.EnvOverride for every connector."
+  },
+  {
+   "id": "export-key-paging",
+   "summary": "export walks endpoints, alerts and audit events with pageFromKey / pages.nextKey, like sync and the list commands",
+   "why": "Codex review found resourceReadConfigs still declared these three key-paged Sophos resources as offset paging with no cursor parameter, so `export endpoints --limit 100` requested the same first page twice and an unlimited export repeated page one until the 100000-page guard. The sophos-key-paging hand-fix had covered sync and the list commands but not the export/tail resource table.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/resource_paths.go",
+     "contains": "paginationType: \"cursor\", cursorParam: \"pageFromKey\", limitParam: \"pageSize\", nextCursorPath: \"pages.nextKey\"",
+     "min_count": 3,
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "fleet-freshness-per-resource",
+   "summary": "fleet freshness is per tenant and per resource: each ledger outcome records when it was fetched (at, prev_at, full_at, window); triage, health and gaps report the oldest input among the tenants in scope, and list tenants never fetched or only fetched with --since as blind; a resource that failed for every tenant in scope is named in the note; a full-scope refresh prunes tenants that left the listing; gaps --kind reads only the resources that kind needs; the prune reads the tenant list live (fleet refresh sets NoCache), also prunes the tenants table and prints what it removed; a --since fetch on top of a full one is dated by the full fetch; only failures in resources a view reads blind a tenant; stored tenants with no ledger row are listed as not_refreshed; an empty listing prunes every stored tenant; only a full-scope refresh moves the fleet-wide sync stamps; nameless rows in the tenants table are not tenants; the prune and the not_refreshed check also find tenants that only have endpoint or alert rows (stored by plain sync); the prune clears a removed tenant's checkpoints and spares a tenant a concurrent --tenant refresh wrote; trial tenants a full refresh skipped are recorded in fleet_meta and are not reported blind",
+   "why": "The build pane's known gap, confirmed by two Codex rounds: a single run-level fleet_meta timestamp (and then per-resource run maps) made a `--resources health` refresh, a `--tenant T1` refresh, or a first `--since 24h` alerts fetch look like a fresh complete view, so triage and gaps could present stale or partial data as current with no blind tenants. Each view names the resources it reads (triage: endpoints, alerts; health: health; gaps: health, endpoints, licenses). The triage 'new' flag compares against the tenant's own previous alerts fetch. gaps --include-server-gap also covers a fetched tenant with zero endpoints. TestFleetFreshnessIsOldestTenantInput, TestSinceOnlyAlertsTenantIsBlind and TestPartialRefreshNotFreshForTriage pin it. Codex round 3: a resource that errored for every tenant kept its last good fetch silently (now named), offboarded tenants lingered in triage and pinned freshness (now pruned on an unfiltered refresh), and gaps --kind commercial went blind on a missing health fetch (now per-kind). TestFailedResourceKeepsLastGoodFetchAndFlagsIt and TestFullRefreshPrunesTenantsThatLeftScope pin it. Adversarial round 5: the prune read the tenant list through the 5-minute response cache, so a tenant just added and refreshed with --tenant was deleted by the next unfiltered refresh and vanished from triage with no blind entry (now live, pinned by TestFullRefreshPrunesFromTheLiveTenantList, which fails with NoCache removed); a --since fetch made resolved alerts outside its window look current (freshness now uses full_at); a health 403 blinded triage (blindness is now per needed resource); a tenants-only refresh hid tenants it had not reached (now not_refreshed). Trial tenants are pruned unless --include-trial is set, documented in the FAQ, SKILL.md and guide.md. Codex round 4 + adversarial round 6: an empty listing left keep nil and skipped the prune (now a fullScope bool); a --tenant refresh rewrote the global endpoints/alerts/tenants sync stamps that date local reads (now only a full refresh writes them); `tenants post-account-amendment` caches its response under the tenants type, which unrefreshedTenants and the prune counted as a tenant (rows without a name are skipped). Codex round 5: endpoints and alerts that plain `sync --tenant` stored for a tenant with no tenant or ledger row survived offboarding and showed in triage with no blind entry; both the prune and unrefreshedTenants now read tenant IDs from endpoint and alert rows too (TestPruneCoversEndpointsOfUnrecordedTenants fails without the fleet_refresh.go change). Adversarial round 7: a pruned tenant kept its endpoints@T / alerts@T checkpoints, so a later local read dated an empty list; a full refresh deleted a tenant that a concurrent --tenant refresh had just stored; a live read of a trial tenant made every fleet view report it not_refreshed (trial_skipped in fleet_meta now marks it out of scope). Adversarial round 8: the prune cutoff is now taken before the tenant listing and also spares tenants whose endpoint or alert rows were written after it (an in-flight --tenant refresh); pruned checkpoints are deleted rather than zeroed (a zero row made unscoped hints say never synced); a skipped trial tenant whose rows came from a live read is reported as trial_not_refreshed rather than hidden.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sophos_fleet.go",
+     "contains": "FullAt time.Time `json:\"full_at,omitzero\"`",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_fleet.go",
+     "contains": "func fleetFreshness(w io.Writer, meta fleetSyncMeta, ledger map[string]fleetLedgerRow, filter map[string]bool, maxAge time.Duration, needed ...string) (*time.Time, string) {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_fleet.go",
+     "contains": "func alertIsNew(ledger map[string]fleetLedgerRow, tenantID string, raised time.Time, meta fleetSyncMeta) bool {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_fleet.go",
+     "contains": "Status: \"partial_window\"",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_refresh.go",
+     "contains": "o.Window, o.FullAt = since.String(), time.Time{}",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_refresh.go",
+     "contains": "v.FullAt = p.FullAt",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_triage.go",
+     "contains": "flags.maxAge, \"endpoints\", \"alerts\")",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_triage.go",
+     "contains": "alertIsNew(ledger, tenantID, at, meta)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_health.go",
+     "contains": "flags.maxAge, \"health\")",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_gaps.go",
+     "contains": "flags.maxAge, gapsNeeded(kind)...)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_gaps.go",
+     "contains": "o.Status == \"ok\" && tally[tid] == nil",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_fleet_freshness_test.go",
+     "contains": "func TestFleetFreshnessIsOldestTenantInput(",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_fleet_freshness_test.go",
+     "contains": "func TestSinceOnlyAlertsTenantIsBlind(",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_store_scope_test.go",
+     "contains": "func TestPartialRefreshNotFreshForTriage(",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_fleet.go",
+     "contains": "note := \"fleet refresh could not fetch \" + strings.Join(failed, \", \")",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_gaps.go",
+     "contains": "func gapsNeeded(kind string) []string {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_refresh.go",
+     "contains": "func pruneOutOfScopeTenants(db *store.Store, tenants []fleetTenant, started time.Time) ([]string, error) {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_refresh.go",
+     "contains": "fullScope := len(filter) == 0 && !cliutil.IsDogfoodEnv()",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_fleet_freshness_test.go",
+     "contains": "func TestFailedResourceKeepsLastGoodFetchAndFlagsIt(",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_fleet_freshness_test.go",
+     "contains": "func TestFullRefreshPrunesTenantsThatLeftScope(",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_refresh.go",
+     "contains": "\t\t\tc.NoCache = true\n",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_refresh.go",
+     "contains": "for _, rt := range []string{\"tenants\", fleetLedgerType, fleetHealthType, fleetHealthPrevType, fleetLicensesType} {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_refresh.go",
+     "contains": "Removed stored data for %d tenant(s) outside this refresh's scope (offboarded, or trial without --include-trial)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_fleet.go",
+     "contains": "func unrefreshedTenants(db fleetReader, ledger map[string]fleetLedgerRow, filter map[string]bool) []blindTenant {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_fleet.go",
+     "contains": "\t\t\tif !o.FullAt.IsZero() {\n\t\t\t\tt = o.FullAt\n\t\t\t}",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_fleet.go",
+     "contains": "\t\t\tout = append(out, blindTenant{TenantID: id, TenantName: row.TenantName, Status: failed.Status, Error: failed.Error})",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_triage.go",
+     "contains": "unrefreshedTenants(db, ledger, filter)...)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_health.go",
+     "contains": "unrefreshedTenants(db, ledger, filter)...)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_gaps.go",
+     "contains": "unrefreshedTenants(db, ledger, filter)...)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_fleet_prune_test.go",
+     "contains": "func TestFullRefreshPrunesFromTheLiveTenantList(",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_fleet_freshness_test.go",
+     "contains": "func TestSinceFetchOnTopOfFullOneIsDatedByTheFullFetch(",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_fleet_freshness_test.go",
+     "contains": "func TestUnreadResourceFailureDoesNotBlindTheView(",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_refresh.go",
+     "contains": "\t\t// An empty listing is an answer too: every stored tenant left.\n\t\tpruned, err := pruneOutOfScopeTenants(db, tenants, started)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_refresh.go",
+     "contains": "\t\tfor _, rt := range []string{\"tenants\", \"endpoints\", \"alerts\"} {\n\t\t\tif want[rt] {\n\t\t\t\t_ = db.SaveSyncState(rt, \"\", summary.Stored[rt])",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_refresh.go",
+     "contains": "if json.Unmarshal(raw, &t) == nil && t.ID != \"\" && t.Name != \"\" {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_fleet.go",
+     "contains": "if json.Unmarshal(data, &t) != nil || t.ID == \"\" || t.Name == \"\" {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_fleet_prune_test.go",
+     "contains": "func TestNamelessTenantsRowIsNotATenant(",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_refresh.go",
+     "contains": "\t// A run cut off after storing a tenant's rows but before its ledger row.\n\tfor _, rt := range []string{fleetEndpointsType, fleetAlertsType} {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_fleet.go",
+     "contains": "\t\tcase trial[id] && hasRows[id]:",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_fleet_prune_test.go",
+     "contains": "func TestPruneCoversEndpointsOfUnrecordedTenants(",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_refresh.go",
+     "contains": "\t\t\tif _, err := db.DB().Exec(`DELETE FROM sync_state WHERE resource_type = ?`, rt+\"@\"+id); err != nil {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_refresh.go",
+     "contains": "\t\tif ledger[id].SyncedAt.After(started) || recent[id] {\n\t\t\tkeep = append(keep, id)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_refresh.go",
+     "contains": "\t\t\t\t\t\ttrialSkipped = append(trialSkipped, t.ID)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_fleet.go",
+     "contains": "\tfor _, id := range loadFleetMeta(db).TrialSkipped {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_refresh.go",
+     "contains": "func tenantsWrittenSince(db *store.Store, t time.Time) (map[string]bool, error) {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_refresh.go",
+     "contains": "\t\t\t// The prune cutoff: rows another refresh writes after this point\n\t\t\t// are never pruned by this run.\n\t\t\tstarted := time.Now().UTC()",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_fleet.go",
+     "contains": "Status: \"trial_not_refreshed\"",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "docs-credentials-note",
+   "summary": "the rendered docs page's safety FAQ says where Sophos credentials live (secret in the environment, minted token cached in credentials.toml) via page.json credentials_note",
+   "why": "Codex round 2: the generator's fleet-wide sentence 'Credentials stay in your environment' is false for this OAuth connector, which caches the minted bearer token on disk. tools/maintainer/render_docs_page.py now takes an optional page.json credentials_note (default text unchanged for every other connector); this asserts the override stays in page.json, which a re-onboard preserves.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "page.json",
+     "contains": "\"credentials_note\": \"The client secret stays in your environment",
+     "min_count": 1
+    }
+   ]
+  },
+  {
+   "id": "revenue-variance-per-product",
+   "summary": "fleet revenue compares billed seats with deployed endpoints per product; the customer-level billable_minus_deployed uses the largest single product line; a refreshed tenant with no endpoints is deployed 0, so its billed seats show as variance; deployment is counted only for tenants a fleet refresh walked in full",
+   "why": "Codex review: the customer variance subtracted deployed endpoints from billable seats summed across every product, so ten machines with ten protection and ten encryption seats showed a false ten-seat discrepancy. One machine can consume several products. Codex round 3: a tenant whose endpoints were fetched but which has none got null deployment and null variance, hiding unused billed seats; TestZeroEndpointTenantIsDeployedZero pins it. Codex round 7: rows cached by a single-page live read or a capped sync were counted as the whole deployment, producing false billable_minus_deployed variances; only tenants whose ledger shows a full endpoints walk (full_at) are counted.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fleet_revenue.go",
+     "contains": "p.BillableMinusDeployed = intPtr(p.Billable - n)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_revenue.go",
+     "contains": "cust.Variance = intPtr(largest - n)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_revenue_variance_test.go",
+     "contains": "func TestRevenueVarianceNotSummedAcrossProducts(",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_revenue_variance_test.go",
+     "contains": "func TestZeroEndpointTenantIsDeployedZero(",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_revenue.go",
+     "contains": "\t\tif ledger[tid].Resources[\"endpoints\"].FullAt.IsZero() {\n\t\t\tdelete(deployed, tid)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_revenue.go",
+     "contains": "if _, seen := deployed[tid]; !seen && !row.Resources[\"endpoints\"].FullAt.IsZero() {",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "fleet-tamper-live-reads",
+   "summary": "fleet tamper bypasses the response cache so its plan reflects each tenant's current tamper protection setting",
+   "why": "Codex review: the global tamper setting came from the five-minute response cache, so turning tenant-wide tamper protection on in Sophos Central and rerunning `fleet tamper --yes` still reported global_off and skipped the tenant. The command's help already promised live reads.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fleet_tamper.go",
+     "contains": "c.NoCache = true",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "doctor-verdict-tracks-reality",
+   "summary": "doctor mints a token with the real credential and reports whether Sophos accepted it, instead of 'present, not verified'",
+   "why": "doctor is the command every doc tells an operator to run first. The generated version printed 'present, not verified' and left the operator to guess (issue #282 fleet shape). doctorProbeCredentials makes the token request and names the failure (for example INVALID_CLIENT) with the API Credentials menu path.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorProbeCredentials(",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "doctorAuthConfiguredHook = func() (bool, string) {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeCredentials(cmd.Context()",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "present, not verified. Run `%s %s`"
+    }
+   ]
+  },
+  {
+   "id": "mcp-filesystem-destination-gate",
+   "summary": "MCP shell-out tools refuse local-file source and destination flags (--home, --input, --notes-file, --playbook-file, --playbook-notes-file plus the generated output/receipt flags), and import is CLI-only",
+   "why": "Forwarded from a tool call, a local-path flag lets an agent read any file this account can reach (credentials.toml included) into the store, where playbook_list and sql hand it back, or write a file anywhere. UnblockedFilesystemPathFlags walks the registered tool set by usage text so a newly generated local-path flag fails the test instead of shipping open. import needs --input, so it is hidden from MCP rather than a tool that always fails.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "\"playbook-notes-file\": true,",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "func UnblockedFilesystemPathFlags(root *cobra.Command) []string {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/import.go",
+     "contains": "Annotations: map[string]string{\"mcp:hidden\": \"true\"},",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/filesystem_tree_test.go",
+     "contains": "UnblockedFilesystemPathFlags(",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "mcp-bool-false-forwarded",
+   "summary": "an explicit false for a boolean MCP argument is forwarded as --name=false",
+   "why": "cliArgsFromMCP dropped false booleans, so a default-true flag (tail --follow) could never be turned off from a tool call and tail ran forever inside the MCP server.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "out = append(out, \"--\"+k+\"=false\")",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/bool_false_test.go",
+     "contains": "=false",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "client-profile-inert",
+   "summary": "--client-profile is documented as inert on this connector and kept out of MCP tool schemas",
+   "why": "No tenant-gated client profile source is registered for Sophos Central, so the flag changes nothing; the generated help promised tenant gating it does not provide, and an agent could believe it had scoped itself. The help now says so and the MCP schema no longer offers it.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "Unused by this connector: no tenant-gated profile source is registered",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "\"client-profile\":          true,",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "sync-dependents-own-type",
+   "summary": "generic sync no longer runs the two press-emitted dependents (tenant account amendments, user groups), which were named after their parent resources",
+   "why": "Codex round 3 (2026-10-15): the press named the dependents 'tenants' and 'users', the same resource types as their parents, so child rows would be stored as parent rows and walked as parents on the next sync. Receipt against a local stub: with the old definitions, `sync` and `sync --resources tenants` emitted no tenants sync at all and stored 0 tenant rows (the dependent shadowed the parent); with the fix `sync` stores the tenant list. Account amendments and user groups stay available live (tenants list-account-amendments, users list-tenant-groups-by-id). The live write-through path was checked too and does not cache those sub-collections (the commands read with the live strategy), so it was left unchanged. TestParentNamedDependentsAreNotSynced pins it; the parent-scoping tests now build the users dependent directly.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "// HAND-FIX(sync-dependents-own-type): the press named both dependents",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "\treturn []dependentResourceDef{}\n}",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_review_fixes_test.go",
+     "contains": "func TestParentNamedDependentsAreNotSynced(",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "local-provenance-per-tenant",
+   "summary": "a local read with one --tenant is dated by that tenant's own last fetch (the later of its fleet ledger full_at/at and its sync checkpoint), never the fleet-wide stamp",
+   "why": "Codex round 4 (2026-10-15): localProvenance read the unscoped sync_state stamp, so `fleet refresh --tenant T2` made `endpoints list --tenant T1 --data-source local` report T1's stale rows with T2's fresh synced_at. sophosLocalSyncedAt reads the selected tenant's ledger row; several selected tenants get no single date. TestFullRefreshPrunesFromTheLiveTenantList checks localProvenance per tenant and fails with the data_source.go edit reverted. Adversarial round 7: the stderr freshness hints still read the fleet-wide stamp, so one command's synced_at and its hint disagreed; the local list path now calls emitScopedSyncHints with the same per-tenant date; adversarial round 8 showed analytics and search (which count every tenant's rows) must keep the fleet-wide hint, so readSyncHintState is left generated. Codex round 8: the ledger time always won, so a later full plain sync of the tenant still showed the older date; the later of the two is used now. Codex round 9: a --since fleet fetch's at time dated the tenant's alerts as current; only full_at counts now.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "// HAND-FIX(local-provenance-per-tenant): a --tenant read is dated by that tenant's own fetch.",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "lastSynced, err := sophosLocalSyncedAt(db, resourceType)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_fleet.go",
+     "contains": "func sophosLocalSyncedAt(db *store.Store, resourceType string) (time.Time, error) {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "emitScopedSyncHints(hintWriter, db, storedType, flags.maxAge) // HAND-FIX(local-provenance-per-tenant)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_fleet.go",
+     "contains": "func emitScopedSyncHints(w io.Writer, db *store.Store, resourceType string, maxAge time.Duration) {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_fleet_prune_test.go",
+     "contains": "func TestScopedSyncHintUsesTheTenantsOwnDate(",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_fleet.go",
+     "contains": "\t\t\tif o, ok := row.Resources[resourceType]; ok && o.FullAt.After(at) {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_fleet_prune_test.go",
+     "contains": "func TestOnlyCompleteFetchesDateALocalRead(",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "cached-rows-carry-tenant",
+   "summary": "live-read write-through and write-command responses are cached into a tenant-scoped partition only when the row records its tenant",
+   "why": "Adversarial round 7 (2026-10-15): writeMutationResponseToStore saved scan, update-check and alert-action receipts (and bulk-isolate items) into the endpoints and alerts tables with no tenant.id. The local tenant scoping fails closed on such a row, so after one `endpoints scan` every `endpoints list --tenant X --data-source local` failed until the store was deleted, and bulk-isolate items overwrote real endpoint rows with partial data. sophosAttributableRows drops tenant-less rows at all three UpsertBatch sites in data_source.go. Receipt: against a local stub, fleet refresh, then `endpoints scan <id> --tenant T1 --yes`, then `endpoints list --tenant T2 --data-source local` returns T2's endpoint and the store holds no scan row. TestReceiptsAreNotCachedAsEndpointRows pins the filter.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "sophosAttributableRows(storedType, ",
+     "min_count": 3,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_fleet.go",
+     "contains": "func sophosAttributableRows(resourceType string, items []json.RawMessage) []json.RawMessage {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_fleet_prune_test.go",
+     "contains": "func TestReceiptsAreNotCachedAsEndpointRows(",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "fleet-snapshots-replace",
+   "summary": "fleet snapshot documents (ledger rows, fleet_meta, health, previous health, licences) are replaced on write, not merged by UpsertBatch's keep-richer policy",
+   "why": "Codex round 6 (2026-10-15): UpsertBatch keeps richer existing JSON, so an omitted key or an empty array keeps the old value. A refresh returning {\"licenses\":[]} kept the removed licences (fleet gaps reported them as current over-usage or expiry), and the same merge would keep a ledger outcome's old --since window or error after a clean full fetch, and an old trial_skipped list. replaceFleetDoc writes through store.ReplaceBatch (see fleet-rows-replace), one transaction with no merge. TestFleetSnapshotsReplaceInsteadOfMerging fails with the delete removed.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fleet_refresh.go",
+     "contains": "if err := replaceFleetDoc(db, fleetLedgerType, raw); err != nil {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_refresh.go",
+     "contains": "_ = replaceFleetDoc(db, fleetMetaType, raw)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_refresh.go",
+     "contains": "_ = replaceFleetDoc(db, fleetHealthPrevType, prevRaw)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_refresh.go",
+     "contains": "if err := replaceFleetDoc(db, resourceType, b); err != nil {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_fleet_prune_test.go",
+     "contains": "func TestFleetSnapshotsReplaceInsteadOfMerging(",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_refresh.go",
+     "contains": "\tn, _, err := db.ReplaceBatch(resourceType, []json.RawMessage{raw})",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "fleet-rows-replace",
+   "summary": "fleet refresh writes each endpoint and alert row it fetched (view=full), and each fleet snapshot document, with store.ReplaceBatch: one transaction like UpsertBatch, but the item replaces the stored row instead of going through the keep-richer merge",
+   "why": "Codex round 7 (2026-10-15): an API response that cleared assignedProducts to [] kept the old entries through the keep-richer merge, so fleet gaps reported obsolete product and encryption gaps as freshly verified. storeTenantRows now deletes the stored rows for the fetched ids before upserting them; rows not fetched keep the existing reconcile. TestFleetRowsReplaceClearedFields fails with the delete removed. Adversarial round 9: the first version deleted rows in a separate autocommit before UpsertBatch, so a concurrent fleet revenue saw deployed 0 and a Ctrl+C or a failed upsert left the tenant's rows deleted (and the typed table out of step) while the ledger said ok. ReplaceBatch sets a per-Store flag that mergeIncomingResourceData honours inside UpsertBatch's own transaction. TestReplaceBatchReplacesAtomically proves a mid-batch failure keeps the old rows and that ordinary UpsertBatch keeps its merge.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/fleet_refresh.go",
+     "contains": "\t\tn, extractFailures, err := db.ReplaceBatch(rt, valid)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\tif replacingWrites(s) { // HAND-FIX(fleet-rows-replace): ReplaceBatch stores items as given",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/store/sophos_replace.go",
+     "contains": "func (s *Store) ReplaceBatch(resourceType string, items []json.RawMessage) (int, int, error) {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/store/sophos_replace_test.go",
+     "contains": "func TestReplaceBatchReplacesAtomically(",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_fleet_prune_test.go",
+     "contains": "func TestFleetRowsReplaceClearedFields(",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  },
+  {
+   "id": "fleet-copies-own-type",
+   "summary": "fleet views (triage, gaps, revenue, the not_refreshed check and the prune) read fleet_endpoints / fleet_alerts, copies that only fleet refresh writes, instead of the shared endpoints / alerts mirror",
+   "why": "Codex rounds 3-8 and adversarial rounds 5-9 (2026-10-15) kept finding one class: a fleet answer changed by another writer into the shared endpoints/alerts tables. Plain sync, workflow archive, live-read write-through and write-command responses all write there with UpsertBatch's keep-richer merge, so a cleared assignedProducts or a partial page fed obsolete gaps, false revenue variance, false blind tenants and prune churn. fleet refresh now stores each fetched row in the mirror (for --data-source local reads) and in the fleet copy (ReplaceBatch + per-tenant reconcile); fleet views read only the copy, and the copies are kept out of the search index so local search does not return every endpoint twice. TestOtherWritersCannotChangeAFleetView fails when triage reads the mirror.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sophos_fleet.go",
+     "contains": "\tfleetEndpointsType  = \"fleet_endpoints\"",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_refresh.go",
+     "contains": "\tfor _, rt := range []string{resourceType, fleetCopyType(resourceType)} {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_triage.go",
+     "contains": "db.ListScan(fleetAlertsType, ",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_triage.go",
+     "contains": "db.ListScan(fleetEndpointsType, ",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_gaps.go",
+     "contains": "db.ListScan(fleetEndpointsType, ",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_revenue.go",
+     "contains": "db.ListScan(fleetEndpointsType, ",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/store/store.go",
+     "contains": "\tif fleetCopyNotIndexed(resourceType) { // HAND-FIX(fleet-copies-own-type)",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/store/sophos_replace.go",
+     "contains": "func fleetCopyNotIndexed(resourceType string) bool {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_fleet_prune_test.go",
+     "contains": "func TestOtherWritersCannotChangeAFleetView(",
+     "min_count": 1,
+     "code_only": false
+    }
+   ]
+  }
+ ]
+}

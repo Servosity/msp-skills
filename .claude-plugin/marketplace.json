@@ -1200,6 +1200,22 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "sophos-central",
+      "source": "./skills/sophos-central",
+      "description": "The Sophos Central partner, organization and tenant APIs, routed to the right tenant and region automatically, plus a cross-tenant triage queue, fleet tamper remediation, a multi-tenant SIEM collector and hostname-based containment.",
+      "version": "0.1.0",
+      "category": "security",
+      "tags": [
+        "sophos-central",
+        "sophos central",
+        "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }

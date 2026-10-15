@@ -281,6 +281,10 @@ skykick:
   vendor: "SkyKick"
   example_command: "Which customers have a backup gap?"
 
+sophos-central:
+  vendor: "Sophos Central"
+  example_command: "What needs attention across my customers today?"
+
 superops:
   vendor: "SuperOps"
   example_command: "Who's about to breach SLA, by tech?"
