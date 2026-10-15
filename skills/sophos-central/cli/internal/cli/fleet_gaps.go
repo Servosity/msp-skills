@@ -107,7 +107,7 @@ Security gaps: Account Health Check scores below --threshold, tamper protection 
 			if err != nil {
 				return err
 			}
-			view.SyncedAt, view.Note = fleetFreshness(cmd.ErrOrStderr(), loadFleetMeta(db), loadFleetLedgerQuiet(db), filter, flags.maxAge, "health", "endpoints", "licenses")
+			view.SyncedAt, view.Note = fleetFreshness(cmd.ErrOrStderr(), loadFleetMeta(db), loadFleetLedgerQuiet(db), filter, flags.maxAge, gapsNeeded(kind)...)
 			if len(view.Items) > flagLimit {
 				view.Items = view.Items[:flagLimit]
 			}
@@ -307,7 +307,7 @@ func buildGaps(db fleetReader, filter map[string]bool, opt gapOptions) (gapsView
 		return gapsView{}, fmt.Errorf("reading licences: %w", err)
 	}
 
-	view := gapsView{Items: make([]tenantGaps, 0, len(gaps)), ByType: map[string]int{}, BlindTenants: append(blindTenantsFrom(ledger, filter, "health", "endpoints", "licenses"), unreadable.blind(names, filter)...)}
+	view := gapsView{Items: make([]tenantGaps, 0, len(gaps)), ByType: map[string]int{}, BlindTenants: append(blindTenantsFrom(ledger, filter, gapsNeeded(opt.kind)...), unreadable.blind(names, filter)...)}
 	for tid, list := range gaps {
 		sort.SliceStable(list, func(i, j int) bool { return list[i].Type < list[j].Type })
 		view.Items = append(view.Items, tenantGaps{TenantID: tid, TenantName: names[tid], GapCount: len(list), Gaps: list})
@@ -323,4 +323,17 @@ func buildGaps(db fleetReader, filter map[string]bool, opt gapOptions) (gapsView
 	})
 	view.Total = len(view.Items)
 	return view, nil
+}
+
+// gapsNeeded names the refreshed resources a gaps view reads: security gaps
+// come from health checks and endpoints, commercial ones from endpoints and
+// licences.
+func gapsNeeded(kind string) []string {
+	switch kind {
+	case "security":
+		return []string{"health", "endpoints"}
+	case "commercial":
+		return []string{"endpoints", "licenses"}
+	}
+	return []string{"health", "endpoints", "licenses"}
 }

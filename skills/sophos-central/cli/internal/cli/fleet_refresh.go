@@ -34,6 +34,7 @@ type fleetSyncSummary struct {
 	Unexpected      int              `json:"tenants_with_unexpected_errors"`
 	DurationSeconds float64          `json:"duration_seconds"`
 	Tenants         []fleetLedgerRow `json:"tenants"`
+	Pruned          []string         `json:"pruned_tenants,omitempty"`
 }
 
 // fleetSyncPlan is the --plan envelope: what a sync would cost.
@@ -97,7 +98,11 @@ Per-tenant 403s are expected for trial tenants and term customers without Partne
 			if flagPlan {
 				return flags.printJSON(cmd, planFleetSync(tenants, resources, idType, flags.rateLimit, flagIncludeTrial))
 			}
-			return runFleetSync(ctx, cmd, flags, c, tenants, resources, since, fleetDBPath(dbPath))
+			// A refresh over every tenant in scope also drops tenants that left
+			// it (offboarded, or trial tenants without --include-trial) so their
+			// stale rows cannot pin freshness or linger in triage.
+			fullScope := len(filter) == 0 && !cliutil.IsDogfoodEnv()
+			return runFleetSync(ctx, cmd, flags, c, tenants, resources, since, fleetDBPath(dbPath), fullScope)
 		},
 	}
 	cmd.Flags().StringVar(&flagResources, "resources", strings.Join(fleetSyncResources, ","), "Comma-separated resources to sync: tenants,endpoints,alerts,health,licenses")
@@ -184,7 +189,7 @@ func planFleetSync(tenants []fleetTenant, resources []string, idType string, rat
 	return p
 }
 
-func runFleetSync(ctx context.Context, cmd *cobra.Command, flags *rootFlags, c *client.Client, tenants []fleetTenant, resources []string, since time.Duration, dbPath string) error {
+func runFleetSync(ctx context.Context, cmd *cobra.Command, flags *rootFlags, c *client.Client, tenants []fleetTenant, resources []string, since time.Duration, dbPath string, fullScope bool) error {
 	started := time.Now().UTC()
 	db, err := store.OpenWithContext(ctx, dbPath)
 	if err != nil {
@@ -269,6 +274,13 @@ func runFleetSync(ctx context.Context, cmd *cobra.Command, flags *rootFlags, c *
 	if summary.OK+summary.Partial == 0 && summary.Errors > 0 {
 		_ = flags.printJSON(cmd, summary)
 		return apiErr(fmt.Errorf("fleet refresh: no tenant refreshed (%d errors); see tenants[].resources", summary.Errors))
+	}
+	if fullScope {
+		pruned, err := pruneOutOfScopeTenants(db, tenants)
+		if err != nil {
+			return fmt.Errorf("removing tenants no longer in scope: %w", err)
+		}
+		summary.Pruned = pruned
 	}
 	if want["tenants"] {
 		_ = db.SaveSyncState("tenants", "", summary.Stored["tenants"])
@@ -524,4 +536,41 @@ func truncateErr(err error) string {
 		s = s[:300] + "..."
 	}
 	return s
+}
+
+// pruneOutOfScopeTenants removes every stored trace of tenants that a full
+// listing no longer returns: their ledger row, health and licence documents,
+// and endpoint and alert rows. It returns the removed tenant IDs.
+func pruneOutOfScopeTenants(db *store.Store, tenants []fleetTenant) ([]string, error) {
+	scope := make(map[string]bool, len(tenants))
+	ids := make([]string, 0, len(tenants))
+	for _, t := range tenants {
+		scope[t.ID] = true
+		ids = append(ids, t.ID)
+	}
+	ledger, err := loadFleetLedger(db)
+	if err != nil {
+		return nil, err
+	}
+	gone := make([]string, 0)
+	for id := range ledger {
+		if !scope[id] {
+			gone = append(gone, id)
+		}
+	}
+	sort.Strings(gone)
+	for _, id := range gone {
+		for _, rt := range []string{"endpoints", "alerts"} {
+			typed, _ := store.TypedListTable(rt)
+			if _, err := db.ReconcilePartition(rt, "$.tenant.id", id, nil, typed, nil); err != nil {
+				return nil, err
+			}
+		}
+	}
+	for _, rt := range []string{fleetLedgerType, fleetHealthType, fleetHealthPrevType, fleetLicensesType} {
+		if _, err := db.ReconcileAll(rt, ids, "", nil); err != nil {
+			return nil, err
+		}
+	}
+	return gone, nil
 }

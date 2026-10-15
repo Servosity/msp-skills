@@ -897,13 +897,13 @@
   },
   {
    "id": "fleet-freshness-per-resource",
-   "summary": "fleet freshness is per tenant and per resource: each ledger outcome records when it was fetched (at, prev_at, full_at, window); triage, health and gaps report the oldest input among the tenants in scope, and list tenants never fetched or only fetched with --since as blind",
-   "why": "The build pane's known gap, confirmed by two Codex rounds: a single run-level fleet_meta timestamp (and then per-resource run maps) made a `--resources health` refresh, a `--tenant T1` refresh, or a first `--since 24h` alerts fetch look like a fresh complete view, so triage and gaps could present stale or partial data as current with no blind tenants. Each view names the resources it reads (triage: endpoints, alerts; health: health; gaps: health, endpoints, licenses). The triage 'new' flag compares against the tenant's own previous alerts fetch. gaps --include-server-gap also covers a fetched tenant with zero endpoints. TestFleetFreshnessIsOldestTenantInput, TestSinceOnlyAlertsTenantIsBlind and TestPartialRefreshNotFreshForTriage pin it.",
+   "summary": "fleet freshness is per tenant and per resource: each ledger outcome records when it was fetched (at, prev_at, full_at, window); triage, health and gaps report the oldest input among the tenants in scope, and list tenants never fetched or only fetched with --since as blind; a resource that failed for every tenant in scope is named in the note; a full-scope refresh prunes tenants that left the listing; gaps --kind reads only the resources that kind needs",
+   "why": "The build pane's known gap, confirmed by two Codex rounds: a single run-level fleet_meta timestamp (and then per-resource run maps) made a `--resources health` refresh, a `--tenant T1` refresh, or a first `--since 24h` alerts fetch look like a fresh complete view, so triage and gaps could present stale or partial data as current with no blind tenants. Each view names the resources it reads (triage: endpoints, alerts; health: health; gaps: health, endpoints, licenses). The triage 'new' flag compares against the tenant's own previous alerts fetch. gaps --include-server-gap also covers a fetched tenant with zero endpoints. TestFleetFreshnessIsOldestTenantInput, TestSinceOnlyAlertsTenantIsBlind and TestPartialRefreshNotFreshForTriage pin it. Codex round 3: a resource that errored for every tenant kept its last good fetch silently (now named), offboarded tenants lingered in triage and pinned freshness (now pruned on an unfiltered refresh), and gaps --kind commercial went blind on a missing health fetch (now per-kind). TestFailedResourceKeepsLastGoodFetchAndFlagsIt and TestFullRefreshPrunesTenantsThatLeftScope pin it.",
    "status": "active",
    "asserts": [
     {
      "file": "cli/internal/cli/sophos_fleet.go",
-     "contains": "FullAt time.Time `json:\"full_at,omitempty\"`",
+     "contains": "FullAt time.Time `json:\"full_at,omitzero\"`",
      "min_count": 1,
      "code_only": false
     },
@@ -957,7 +957,7 @@
     },
     {
      "file": "cli/internal/cli/fleet_gaps.go",
-     "contains": "flags.maxAge, \"health\", \"endpoints\", \"licenses\")",
+     "contains": "flags.maxAge, gapsNeeded(kind)...)",
      "min_count": 1,
      "code_only": false
     },
@@ -982,6 +982,42 @@
     {
      "file": "cli/internal/cli/sophos_store_scope_test.go",
      "contains": "func TestPartialRefreshNotFreshForTriage(",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_fleet.go",
+     "contains": "note := \"fleet refresh could not fetch \" + strings.Join(failed, \", \")",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_gaps.go",
+     "contains": "func gapsNeeded(kind string) []string {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_refresh.go",
+     "contains": "func pruneOutOfScopeTenants(db *store.Store, tenants []fleetTenant) ([]string, error) {",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/fleet_refresh.go",
+     "contains": "fullScope := len(filter) == 0 && !cliutil.IsDogfoodEnv()",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_fleet_freshness_test.go",
+     "contains": "func TestFailedResourceKeepsLastGoodFetchAndFlagsIt(",
+     "min_count": 1,
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/sophos_fleet_freshness_test.go",
+     "contains": "func TestFullRefreshPrunesTenantsThatLeftScope(",
      "min_count": 1,
      "code_only": false
     }

@@ -48,10 +48,10 @@ type fleetOutcome struct {
 	Items      int    `json:"items"`
 	// Freshness is per tenant and per resource: a --tenant or --resources
 	// refresh must not make another tenant's or resource's data look fresh.
-	At     time.Time `json:"at,omitempty"`      // this resource's last successful fetch
-	PrevAt time.Time `json:"prev_at,omitempty"` // the fetch before that ("new" alerts)
-	FullAt time.Time `json:"full_at,omitempty"` // last fetch not limited by --since
-	Window string    `json:"window,omitempty"`  // set when the last fetch used --since
+	At     time.Time `json:"at,omitzero"`      // this resource's last successful fetch
+	PrevAt time.Time `json:"prev_at,omitzero"` // the fetch before that ("new" alerts)
+	FullAt time.Time `json:"full_at,omitzero"` // last fetch not limited by --since
+	Window string    `json:"window,omitempty"` // set when the last fetch used --since
 }
 
 // fleetTenants enumerates the tenants this credential can reach. tenantFilter
@@ -401,37 +401,54 @@ func fleetFreshness(w io.Writer, meta fleetSyncMeta, ledger map[string]fleetLedg
 	// The view is as fresh as its oldest input: the oldest successful fetch of
 	// a needed resource across the tenants in scope. Tenants that were never
 	// fetched are reported in blind_tenants.
+	// A resource that failed this run still shows its last good fetch, so
+	// that fetch counts; a resource never attempted makes the view incomplete.
 	var at time.Time
-	seen := map[string]bool{}
+	attempted, fetched := map[string]bool{}, map[string]bool{}
 	for id, row := range ledger {
 		if filter != nil && !filter[id] {
 			continue
 		}
 		for _, rt := range needed {
 			o, ok := row.Resources[rt]
-			if !ok || o.Status != "ok" {
+			if !ok {
 				continue
 			}
-			seen[rt] = true
+			attempted[rt] = true
 			t := o.At
-			if t.IsZero() {
+			if t.IsZero() && o.Status == "ok" {
 				t = row.SyncedAt
 			}
+			if t.IsZero() {
+				continue
+			}
+			fetched[rt] = true
 			if at.IsZero() || t.Before(at) {
 				at = t
 			}
 		}
 	}
-	var missing []string
+	var missing, failed []string
 	for _, rt := range needed {
-		if !seen[rt] {
+		switch {
+		case !attempted[rt]:
 			missing = append(missing, rt)
+		case !fetched[rt]:
+			failed = append(failed, rt)
 		}
 	}
 	if len(missing) > 0 {
 		note := "fleet refresh has not fetched " + strings.Join(missing, ", ") + " yet, so this view is incomplete; run 'sophos-central-cli fleet refresh --resources " + strings.Join(missing, ",") + "'"
 		fmt.Fprintln(w, "hint: "+note)
 		return nil, note
+	}
+	if len(failed) > 0 {
+		note := "fleet refresh could not fetch " + strings.Join(failed, ", ") + " for any tenant in scope; see blind_tenants"
+		fmt.Fprintln(w, "hint: "+note)
+		if at.IsZero() {
+			return nil, note
+		}
+		return &at, note
 	}
 	if maxAge > 0 && time.Since(at) > maxAge {
 		note := fmt.Sprintf("local fleet data is %s old (older than --max-age=%s); run 'sophos-central-cli fleet refresh' to update it", time.Since(at).Round(time.Minute), maxAge)

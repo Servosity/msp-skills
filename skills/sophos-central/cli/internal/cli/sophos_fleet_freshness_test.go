@@ -6,10 +6,15 @@
 package cli
 
 import (
+	"context"
+	"encoding/json"
 	"io"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"sophos-central-pp-cli/internal/store"
 )
 
 func TestFleetFreshnessIsOldestTenantInput(t *testing.T) {
@@ -44,5 +49,54 @@ func TestSinceOnlyAlertsTenantIsBlind(t *testing.T) {
 		fleetLedgerRow{Resources: map[string]fleetOutcome{"alerts": {Status: "ok", At: time.Now(), Window: "24h0m0s"}}})
 	if merged.Resources["alerts"].FullAt.IsZero() {
 		t.Fatal("a --since fetch on top of a full one keeps the full fetch time")
+	}
+}
+
+func TestFailedResourceKeepsLastGoodFetchAndFlagsIt(t *testing.T) {
+	old := time.Now().UTC().Add(-time.Hour)
+	ledger := map[string]fleetLedgerRow{
+		"T1": {ID: "T1", Resources: map[string]fleetOutcome{"health": {Status: "error"}, "endpoints": {Status: "ok", At: old}}},
+	}
+	at, note := fleetFreshness(io.Discard, fleetSyncMeta{FinishedAt: old}, ledger, nil, 0, "health", "endpoints")
+	if !strings.Contains(note, "could not fetch health") {
+		t.Fatalf("a resource that never fetched for any tenant must be named: %q", note)
+	}
+	if at == nil || !at.Equal(old) {
+		t.Fatalf("the last good fetch still dates the view: %v", at)
+	}
+	if got := gapsNeeded("commercial"); strings.Join(got, ",") != "endpoints,licenses" {
+		t.Fatalf("commercial gaps do not read health checks: %v", got)
+	}
+}
+
+func TestFullRefreshPrunesTenantsThatLeftScope(t *testing.T) {
+	db, err := store.OpenWithContext(context.Background(), filepath.Join(t.TempDir(), "data.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	keep, gone := fleetTenant{ID: "T1"}, fleetTenant{ID: "T2"}
+	for _, ten := range []fleetTenant{keep, gone} {
+		row, _ := json.Marshal(fleetLedgerRow{ID: ten.ID, Status: "ok"})
+		if _, _, err := db.UpsertBatch(fleetLedgerType, []json.RawMessage{row}); err != nil {
+			t.Fatal(err)
+		}
+		if err := storeTenantDoc(db, fleetHealthType, ten, json.RawMessage(`{}`)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	pruned, err := pruneOutOfScopeTenants(db, []fleetTenant{keep})
+	if err != nil || len(pruned) != 1 || pruned[0] != "T2" {
+		t.Fatalf("pruned=%v err=%v", pruned, err)
+	}
+	ledger, _ := loadFleetLedger(db)
+	if _, ok := ledger["T2"]; ok || len(ledger) != 1 {
+		t.Fatalf("T2 must leave the ledger: %v", ledger)
+	}
+	if raw, _ := db.Get(fleetHealthType, "T2"); len(raw) > 0 {
+		t.Fatal("T2 health must be removed")
+	}
+	if raw, _ := db.Get(fleetHealthType, "T1"); len(raw) == 0 {
+		t.Fatal("T1 health must be kept")
 	}
 }
