@@ -35,8 +35,9 @@ transaction ID, and you poll it to learn whether the change landed or failed.
 - `watchguard-cli endpoint-devices posture --agent` - every unprotected, outdated,
   isolated, unlicensed or reboot-pending computer across every customer, with the
   status codes decoded.
-- `watchguard-cli threatsync-incidents queue --status new --agent` - the new incidents,
-  ranked by severity, threat score and age, with the untouched ones flagged.
+- `watchguard-cli threatsync-incidents queue --status new --duration 30D --agent` - the
+  new incidents of the last 30 days, ranked by severity, threat score and age, with the
+  untouched ones flagged.
 - `watchguard-cli allocations reconcile --agent` - allocated serials with no reporting
   Firebox, reporting Fireboxes with no allocation, and what expires soon.
 - `watchguard-cli firebox-transactions wait --device FB-12345` - exit 0 when the

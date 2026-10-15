@@ -51,7 +51,7 @@ Use this CLI when an MSP or admin needs to read or act on WatchGuard Cloud: Fire
 ## Anti-triggers
 
 Do not use this CLI for:
-- Do not use it to manage firewall policies on locally-managed Fireboxes; WatchGuard's Firebox Management API manages firewall policies only for cloud-managed Fireboxes (device status, firmware and offline checks cover every Firebox added to WatchGuard Cloud)
+- Do not use it to manage firewall policies on locally-managed Fireboxes; WatchGuard's Firebox Management API manages firewall policies only for cloud-managed Fireboxes (device status, firmware and offline checks cover every Firebox in WatchGuard Cloud that runs Fireware v12.5.3 or higher)
 - Do not use it for Panda-branded Aether products (Adaptive Defense 360, Endpoint Protection); those use the separate Aether Endpoint Security API
 - Do not use it to place distributor orders or create Tier-1 partner accounts; those Subscription Billing APIs are distributor-only
 - Do not use it for on-premises WatchGuard System Manager, Dimension or Fireware Web UI tasks
@@ -123,7 +123,7 @@ Do not use this CLI for:
 ## Safety for agents
 
 - **Read freely:** `accounts health`, `endpoint-devices posture`, `threatsync-incidents queue`, `endpoint-patches exposure`, `allocations reconcile`, `firebox-devices changes` / `firmware-lag`, `firebox-transactions wait`, `sync`, `search`, and every `list` / `get` except the credential reads below.
-- **Ask a human first, every time:** `firebox-bovpn-tunnels list` / `get` (BOVPN pre-shared keys), `firebox-certificates list` / `get` (private keys and their passwords), `firebox-networks list` / `get` (PPPoE, Dynamic DNS and Wi-Fi credentials), `firebox-users list` / `get` and `firebox-content-filtering list` / `get` (passwords), `activations list-recent` / `status` (activation keys) and `endpoint-installers` (an enrollment download link) print secrets in plaintext; `export` of those resources prints or writes them too; and `--deliver webhook:<url>` on any command posts its output off the machine. The local mirror and the response cache never store those fields.
+- **Ask a human first, every time:** `firebox-bovpn-tunnels list` / `get` (BOVPN pre-shared keys), `firebox-certificates list` / `get` (private keys and their passwords), `firebox-networks list` / `get` (PPPoE, Dynamic DNS and Wi-Fi credentials), `firebox-users list` / `get` and `firebox-content-filtering list` / `get` (passwords), `activations list-recent` / `status` (activation keys), `allocations list-owned` / `list-assigned` / `list-allocated` (serial numbers and software license keys) and `endpoint-installers` (an enrollment download link) print secrets in plaintext; `export` of those resources prints or writes them too; and `--deliver webhook:<url>` on any command posts its output off the machine. The local mirror and the response cache never store those fields.
 - **Preview, then ask:** no write asks for confirmation. Pass `--dry-run` first and show the user the request (it sends nothing, requests no token and changes nothing on disk; `jobs prune`, `profile save` and `profile delete` refuse it). `endpoint-devices isolate` / `stop-isolation` / `scan` / `action` / `uninstall` act on customer computers, `threatsync-actions perform` and `threatsync-incident-actions perform` act on incident entities, `authpoint push` sends a push to a user's phone, `firebox-deployments` pushes configuration to Fireboxes, and the `firebox-policies`, exception, BOVPN, certificate, template, allocation, account and operator writes change configuration or licensing. Never run these, or any `delete`, without explicit confirmation. `accounts delete` with no flags targets `--account-id`, which defaults to your own `WATCHGUARD_ACCOUNT_ID`.
 - **MCP read-only mode:** with `WATCHGUARD_MCP_READ_ONLY=1` the MCP server drops its write tools and `watchguard_execute` refuses every non-GET call; GET credential reads still pass, so pair it with the read-only Access ID. `tail` and `import` are not MCP tools, and MCP tools never take a local file path for the CLI to read (`teach-playbook` notes and playbook files, `import --input`).
 - **Credentials:** a cached token is reused only by a process with the same Access ID, scope and token URL; a process with a different Access ID and no password stops with exit 4 instead of borrowing it. Give a reporting agent the read-only Access ID.
@@ -569,7 +569,7 @@ watchguard-cli which "<capability in your own words>"
 ### Fleet status with only the fields you need
 
 ```bash
-watchguard-cli firebox-devices --include-hierarchy --agent --select data.id,data.name,data.state,data.version,data.offline_since
+watchguard-cli firebox-devices --include-hierarchy --agent --select id,name,state,version,offline_since
 ```
 
 Every Firebox, FireCluster and Access Point including subscriber devices, narrowed to state and firmware.
@@ -608,7 +608,7 @@ Blocks until the device's newest deployment completes (exit 0) or fails (exit 8)
 
 ## Auth Setup
 
-Enable API access in WatchGuard Cloud under Administration > Managed Access (Owner or Administrator role). Set WATCHGUARD_CLIENT_ID to the Access ID (read-only or read-write), WATCHGUARD_CLIENT_SECRET to the matching API password, and WATCHGUARD_API_KEY to the API key. The CLI exchanges the Access ID and password for a one-hour bearer token and sends the API key header on every call; 'auth status' shows what is configured. Set WATCHGUARD_ACCOUNT_ID to your account ID (ACC-... or WGC-...) so commands do not need --account-id. Accounts outside North America set WATCHGUARD_BASE_URL and WATCHGUARD_TOKEN_URL to the deu (EMEA) or jpn (APAC) hosts shown on the Managed Access page. A Service Provider reaches one managed account's resources with that account's audience: run 'watchguard-cli audiences --account-id ACC-1234567', then export WATCHGUARD_AUDIENCE=<audience> (or let the fan-out commands do it per account).
+Enable API access in WatchGuard Cloud under Administration > Managed Access (Owner or Administrator role). Set WATCHGUARD_CLIENT_ID to the Access ID (read-only or read-write), WATCHGUARD_CLIENT_SECRET to the matching API password, and WATCHGUARD_API_KEY to the API key. The CLI exchanges the Access ID and password for a one-hour bearer token and sends the API key header on every call; 'auth status' shows what is configured. Set WATCHGUARD_ACCOUNT_ID to your account ID (ACC-... or WGC-...) so commands do not need --account-id. Accounts outside North America set WATCHGUARD_BASE_URL to https://api.deu.cloud.watchguard.com (EMEA) or https://api.jpn.cloud.watchguard.com (APAC) - the host Managed Access shows, without its /rest/ suffix - and WATCHGUARD_TOKEN_URL to the same host plus /oauth/token. A Service Provider reaches one managed account's resources with that account's audience: run 'watchguard-cli audiences --account-id ACC-1234567', then export WATCHGUARD_AUDIENCE=<audience> (or let the fan-out commands do it per account).
 
 Run `watchguard-cli doctor` to verify setup.
 

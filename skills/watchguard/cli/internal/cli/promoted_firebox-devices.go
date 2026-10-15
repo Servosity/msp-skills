@@ -21,7 +21,7 @@ func newFireboxDevicesPromotedCmd(flags *rootFlags) *cobra.Command {
 		Use:         "firebox-devices",
 		Short:       "Retrieves a list of Fireboxes, FireClusters, and Access Points for the specified WatchGuard Cloud account.",
 		Long:        "Retrieves a list of Fireboxes, FireClusters, and Access Points for the specified WatchGuard Cloud account.",
-		Example:     "  watchguard-cli firebox-devices --include-hierarchy --agent --select data.id,data.name,data.state,data.version,data.offline_since",
+		Example:     "  watchguard-cli firebox-devices --include-hierarchy --agent --select id,name,state,version,offline_since",
 		Args:        cobra.NoArgs,
 		Annotations: map[string]string{"pp:endpoint": "firebox_devices.list", "pp:method": "GET", "pp:path": "/rest/firebox/management/v1/info/{accountId}/devices", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {

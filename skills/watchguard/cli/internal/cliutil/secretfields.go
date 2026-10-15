@@ -34,6 +34,7 @@ var secretFieldParts = []string{
 	"apikey", "api_key",
 	"activationkey", "activation_key", "licensekey", "license_key",
 	"activationcode", "activation_code", "verificationcode", "verification_code",
+	"qrcode",
 }
 
 var secretFieldSuffixes = []string{"token"}

@@ -1849,7 +1849,7 @@
       "display_name": "WatchGuard Cloud",
       "tagline": "Check Firebox, endpoint, ThreatSync and license health across every WatchGuard Cloud customer by asking.",
       "has_video": true,
-      "cli_hash": "sha256:abee397df2102ec014a08b118c96ae83ca89921f418db04719fd8c01c0154234",
+      "cli_hash": "sha256:8b5793b4992ac862164bd98c7084d77c4b4b24a7d5935e7124cbcadf2b87397e",
       "template_version": 3,
       "version": "0.1.0",
       "cli_hash_at_release": null,

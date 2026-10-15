@@ -52,11 +52,16 @@ Some WatchGuard reads return live secrets inside ordinary rows:
 | `firebox-content-filtering list` / `get` | WebBlocker override passwords |
 | `activations list-recent` / `status` | product activation keys |
 | `endpoint-installers` | a download link for an installer that enrolls devices into the account |
+| `allocations list-owned` / `list-assigned` / `list-allocated` | Firebox serial numbers and software license keys (`serialOrLicense`) |
 
-These commands print what the API returns, so treat their output as a credential. The
-local SQLite mirror (`sync`, and every live read that writes through to it) drops
-these fields before anything reaches disk, and the HTTP response cache never stores a
-response that carries one, or any `endpoint-installers` response.
+These commands print what the API returns, so treat their output as a credential, and
+so does `export` of any of these resources. The local SQLite mirror (`sync`, and every
+live read that writes through to it) drops these fields before anything reaches disk,
+and the HTTP response cache never stores a response that carries one, or any
+`endpoint-installers` response. The one exception is `serialOrLicense` in allocation
+rows: the same field holds a Firebox serial number or a software license key, and the
+mirror and the 5-minute response cache keep it because it is what tells two otherwise
+identical allocation rows apart; delete the data directory if that matters to you.
 
 ## Default-safe behavior
 
@@ -91,7 +96,7 @@ require a human for anything below the first row.
 | **Endpoint and incident actions** | Acts on customer computers, users' phones or open incidents. | `endpoint-devices isolate`, `endpoint-devices stop-isolation`, `endpoint-devices scan`, `endpoint-devices action`, `endpoint-devices uninstall`, `endpoint-configurations assign`, `threatsync-actions perform`, `threatsync-incident-actions perform`, `threatsync-transactions`, `threatsync-incidents set-status`, `ndr-smart-alerts close`, `authpoint push` | Human-in-the-loop, explicit confirmation |
 | **Firewall config and deployment** | Changes Firebox, FireCloud, Endpoint Security or account configuration, or pushes it to devices. | `firebox-deployments`, `firebox-policies create` / `update` / `set-enabled`, `firebox-blocked-sites`, `firebox-botnet-exceptions`, `firebox-file-exceptions`, `firebox-geo-exceptions`, `firebox-ips-exceptions` and `firebox-webblocker-exceptions` create / update, the same `firecloud-*` creates and updates (plus `firecloud-https-exceptions`), `firebox-exceptions enable-global` / `disable-global`, `firebox-templates subscribe`, `firebox-bovpn-p1-settings create` / `update`, `firebox-transactions update`, `endpoint-risks update-config`, `ndr-assets create` / `update`, `threatsync-comments create` / `update`, `allocations allocate` / `update-hardware` / `update-software`, `accounts create` / `update`, `import` | Preview with `--dry-run`, then a human-approved write |
 | **Destructive** | Irreversible removal. | `accounts delete`, `operators delete`, `allocations deallocate`, `firebox-transactions cancel`, `firebox-policies delete`, `firebox-bovpn-tunnels delete` / `delete-by-name`, `firebox-certificates delete`, every Firebox and FireCloud exception `delete`, `ndr-assets delete`, `threatsync-comments delete` | Human-in-the-loop only, explicit confirmation |
-| **Credential and admin** | Returns or sets secrets, creates operators, or touches MFA. | Every read in the table above, `firebox-bovpn-tunnels create` / `update` / `update-by-name` / `patch` / `patch-by-name`, `firebox-certificates create` / `install`, `activations activate`, `operators create` / `update`, `audiences`, `authpoint check-policy` / `password` / `otp` / `qrcode` / `forgot-token` / `transaction-status`, `auth login`, `auth set-token` | Human-in-the-loop only |
+| **Credential and admin** | Returns or sets secrets, creates operators, or touches MFA. | Every read in the table above, `export` of those resources, `firebox-bovpn-tunnels create` / `update` / `update-by-name` / `patch` / `patch-by-name`, `firebox-certificates create` / `install`, `activations activate`, `operators create` / `update`, `audiences`, `authpoint check-policy` / `password` / `otp` / `qrcode` / `forgot-token` / `transaction-status`, `auth login`, `auth set-token` | Human-in-the-loop only |
 
 ## How to lock it down
 

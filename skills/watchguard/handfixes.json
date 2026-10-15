@@ -182,7 +182,7 @@
     {
       "id": "generated-doc-corrections",
       "summary": "Generated SKILL.md, AGENTS.md and guide.md carry corrections for this CLI: the exit-code table documents firebox-transactions wait's 8 (failed) and 9 (still running), the env table names WATCHGUARD_ACCOUNT_ID (not WATCHGUARD_ACCOUNTID) plus the region and audience variables, AGENTS.md examples use real commands and a low-entropy device ID, and AGENTS.md says writes send without confirmation.",
-      "why": "The generated docs named a wrong env var (WATCHGUARD_ACCOUNTID), a wrong config path and `auth-status`, used <command> placeholders, and documented exit 8 only as 'async job not finished' - for firebox-transactions wait it means the deployment FAILED. The build pane's postgen_docs.py applies the doc fixes after every generate; onboard.py --resume re-vendors SKILL.md, AGENTS.md and guide.md from the source and would drop the msp-skills edits.",
+      "why": "The generated docs named a wrong env var (WATCHGUARD_ACCOUNTID), a wrong config path and `auth-status`, used <command> placeholders, and documented exit 8 only as 'async job not finished' - for firebox-transactions wait it means the deployment FAILED. The build pane's postgen_docs.py applies the doc fixes after every generate; onboard.py --resume re-vendors SKILL.md, AGENTS.md and guide.md from the source and would drop the msp-skills edits. Round 2 (2026-10-15): the 'Fleet status' recipe used --select data.id,... but the CLI unwraps the data envelope before --select, so it exited 2 with unfiltered rows; and the Quick Start promised `doctor --dry-run` checks the install, which it does not.",
       "status": "active",
       "asserts": [
         {
@@ -204,6 +204,18 @@
         {
           "file": "AGENTS.md",
           "not_contains": "287324d8-194f-4f5a-a7ad-e2480d5ad1b2"
+        },
+        {
+          "file": "SKILL.md",
+          "not_contains": "--select data.id"
+        },
+        {
+          "file": "guide.md",
+          "not_contains": "--select data.id"
+        },
+        {
+          "file": "guide.md",
+          "not_contains": "watchguard-cli doctor --dry-run"
         }
       ]
     },
@@ -671,7 +683,7 @@
     {
       "id": "secret-field-list-unified",
       "summary": "One secret-field matcher (cliutil.IsSecretFieldKey: exact, substring and suffix rules) feeds the store, response cache, tail, row identity, --dry-run previews and error-body echo withholding; the client's body redaction delegates to it. The list covers every credential field in the spec's request and response schemas, including the certificate pfx bundle and license keys.",
-      "why": "Adversarial round 1: certificate responses carry pfx (a PKCS#12 bundle holding the private key), which the closed key list missed, so it was stored, FTS-indexed and cached, and printed in --dry-run previews because the client kept a second, separate list. TestSecretFieldListCoversSpecCredentials (spec-driven) fails with pfx removed.",
+      "why": "Adversarial round 1: certificate responses carry pfx (a PKCS#12 bundle holding the private key), which the closed key list missed, so it was stored, FTS-indexed and cached, and printed in --dry-run previews because the client kept a second, separate list. TestSecretFieldListCoversSpecCredentials (spec-driven) fails with pfx removed. Round 2: AuthPoint's qrCodeResponse (a one-time code from a QR scan) printed in --dry-run previews; the qrcode part now catches it.",
       "status": "active",
       "asserts": [
         {
@@ -682,6 +694,11 @@
         {
           "file": "cli/internal/client/watchguard_redact.go",
           "contains": "func isSecretBodyKey(k string) bool { return cliutil.IsSecretFieldKey(k) }",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/secretfields.go",
+          "contains": "\"qrcode\",",
           "code_only": true
         }
       ]
@@ -857,6 +874,23 @@
         {
           "file": "cli/internal/mcp/tools.go",
           "not_contains": "wgrd-support/contact-support"
+        }
+      ]
+    },
+    {
+      "id": "firebox-devices-select-example",
+      "summary": "The generated firebox-devices Example uses --select id,name,state,version,offline_since, not data.id,... paths.",
+      "why": "The research-generated example selected data.* paths, but the CLI unwraps the data envelope before applying --select, so the example exited 2 (usage error) with unfiltered rows. Found by adversarial review round 2 (2026-10-15).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/promoted_firebox-devices.go",
+          "contains": "--select id,name,state,version,offline_since",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/promoted_firebox-devices.go",
+          "not_contains": "--select data.id"
         }
       ]
     }
