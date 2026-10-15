@@ -161,6 +161,10 @@ func (cl clusterProfile) validate(name string) error {
 		return fmt.Errorf("cluster %q needs pve_host, pve_base_url, or pbs_host", name)
 	}
 	for field, pins := range map[string]string{"pve_fingerprint": cl.PVEFingerprint, "pbs_fingerprint": cl.PBSFingerprint} {
+		if strings.TrimSpace(pins) != "" && len(splitPins(pins)) == 0 {
+			// A set pin that yields no pin must not fall back to system trust.
+			return fmt.Errorf("cluster %q: %s is set but holds no SHA-256 fingerprint", name, field)
+		}
 		for _, p := range splitPins(pins) {
 			if !client.ValidFingerprint(p) {
 				return fmt.Errorf("cluster %q: %s %q is not a SHA-256 fingerprint (AB:CD:... 32 bytes)", name, field, p)
