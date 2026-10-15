@@ -89,7 +89,7 @@ Do not use this CLI for:
   ```bash
   proxmox-cli verify-health --agent
   ```
-- **`capacity`**  -  PBS datastores ranked by days until full, plus every PVE backup storage by percent used (only PBS forecasts), with garbage-collection and prune state and a GC-deadlock warning.
+- **`capacity`**  -  PBS datastores ranked by days until full, plus every PVE backup storage by percent used (only PBS forecasts), with garbage-collection state and a GC-deadlock warning.
 
   _Use weekly to catch a datastore before it fills past the point where garbage collection can still run. fetch_failures lists clusters or calls that did not answer; when no cluster answers it exits 5._
 
@@ -584,7 +584,7 @@ Do not use this CLI for:
 **capacity**
 
 
-- `proxmox-cli capacity`  -  PBS datastores ranked by days until full, plus every PVE backup storage by percent used (only PBS forecasts), with garbage-collection and prune state and a GC-deadlock warning.
+- `proxmox-cli capacity`  -  PBS datastores ranked by days until full, plus every PVE backup storage by percent used (only PBS forecasts), with garbage-collection state and a GC-deadlock warning.
 
 
 **failures**
@@ -669,7 +669,7 @@ Every restore point of guest 104 with verify state and protection.
 proxmox-cli capacity --within 30d
 ```
 
-Ranked by days to full; also lists storage flagged gc-deadlock-risk or unpruned regardless of free space.
+Ranked by days to full; also lists storage carrying any flag (full, nearly-full, gc-deadlock-risk, no-forecast) whatever its runway.
 
 ## Auth Setup
 

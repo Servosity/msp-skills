@@ -3,7 +3,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -158,14 +157,6 @@ func TestByClientCountsFetchFailures(t *testing.T) {
 		if c.FetchFailures == 0 {
 			t.Errorf("rpo by-client must count fetch failures: %+v", c)
 		}
-	}
-}
-
-// pruneSpec renders a job's prune-backups (object or property string) as one
-// property string (capacity's retention read).
-func TestPruneSpec(t *testing.T) {
-	if s := pruneSpec(json.RawMessage(`{"keep-daily":7,"keep-last":3}`)); s != "keep-daily=7,keep-last=3" {
-		t.Errorf("pruneSpec = %q", s)
 	}
 }
 
@@ -383,28 +374,6 @@ func TestUnreadableManifestIsReported(t *testing.T) {
 	}
 }
 
-// keep-all, or keep counts that are all zero, prune nothing.
-func TestRetentionThatKeepsEverythingIsUnpruned(t *testing.T) {
-	f := newFixture(t)
-	jobs := f.pveRoutes["/cluster/backup"].([]map[string]any)
-	jobs[0]["prune-backups"] = "keep-all=1"
-	f.pbsRoutes["/admin/prune"] = []map[string]any{{"id": "p1", "store": "main", "keep-last": 0}}
-	out, _, err := runCLI(t, "capacity", "--json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, r := range decodeJSON[capacityReport](t, out).Rows {
-		if r.Kind == "pbs-datastore" && !strings.Contains(strings.Join(r.Flags, ","), "unpruned") {
-			t.Errorf("keep-all and keep-last=0 prune nothing; want unpruned: %+v", r)
-		}
-	}
-	for opts, want := range map[string]bool{"keep-last=3": true, "keep-all=1,keep-last=3": false, "keep-daily=0": false, "": false} {
-		if got := retentionPrunes(parseRetention(opts)); got != want {
-			t.Errorf("retentionPrunes(%q) = %v, want %v", opts, got, want)
-		}
-	}
-}
-
 // A guest that met its schedule is met even while another storage is unread.
 func TestRPOMetGuestIsNotUnproven(t *testing.T) {
 	f := newFixture(t)
@@ -569,24 +538,6 @@ func TestPBSNamespaceListCompleteness(t *testing.T) {
 	out, _, _ := runCLI(t, "verify-health", "--json")
 	if !strings.Contains(out, "propagate") {
 		t.Errorf("verify-health must flag it too:\n%s", out)
-	}
-}
-
-// A job's own retention overrides the storage's: keep-all on every job means
-// nothing prunes, whatever the storage says.
-func TestJobRetentionOverridesStorage(t *testing.T) {
-	f := newFixture(t)
-	f.pbsPrune = "keep-last=3"
-	jobs := f.pveRoutes["/cluster/backup"].([]map[string]any)
-	jobs[0]["prune-backups"] = "keep-all=1"
-	out, _, err := runCLI(t, "capacity", "--json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, r := range decodeJSON[capacityReport](t, out).Rows {
-		if r.Kind == "pbs-datastore" && !strings.Contains(strings.Join(r.Flags, ","), "unpruned") {
-			t.Errorf("every job keeps all: want unpruned despite the storage's keep-last: %+v", r)
-		}
 	}
 }
 

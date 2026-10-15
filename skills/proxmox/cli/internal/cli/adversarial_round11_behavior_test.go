@@ -54,33 +54,6 @@ func TestRestorePointsPredictsNoPrune(t *testing.T) {
 	}
 }
 
-// Points no enabled job writes are not scheduled to be pruned: no preview,
-// no failure.
-func TestUncoveredGuestPointsAreUnmarkedQuietly(t *testing.T) {
-	f := newFixture(t)
-	f.pveRoutes["/nodes/pve1/storage/pbs1/content"] = append(f.pveRoutes["/nodes/pve1/storage/pbs1/content"].([]any), map[string]any{"volid": "pbs1:backup/vm-103", "vmid": 103, "ctime": ago(f.now, 200), "size": 1 << 30, "subtype": "qemu", "format": "pbs-vm", "verification": map[string]any{"state": "ok", "upid": "UPID:pbs:verify"}})
-	pve := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// PVE::Storage::prune_backups dies without retention to apply.
-		if strings.HasSuffix(r.URL.Path, "/prunebackups") && r.URL.Query().Get("prune-backups") == "" {
-			http.Error(w, `{"errors":"no prune-backups options configured for storage 'pbs1'"}`, http.StatusInternalServerError)
-			return
-		}
-		f.pve.Config.Handler.ServeHTTP(w, r)
-	}))
-	t.Cleanup(pve.Close)
-	t.Setenv("PROXMOX_BASE_URL", pve.URL+"/api2/json")
-	t.Setenv("PROXMOX_TLS_FINGERPRINT", client.CertFingerprint(pve.Certificate()))
-	out, _, _ := runCLI(t, "restore-points", "103", "--json")
-	if n := decodeJSON[restorePointsReport](t, out).Guests; len(n) == 0 || n[0].Count == 0 {
-		t.Fatalf("103 needs a point for this test:\n%s", out)
-	}
-	for _, ff := range decodeJSON[restorePointsReport](t, out).FetchFailures {
-		if strings.HasPrefix(ff.Scope, "prune preview") {
-			t.Errorf("spurious prune preview failure: %+v", ff)
-		}
-	}
-}
-
 // clusters check fails when nothing at all is configured.
 func TestClustersCheckFailsWithNothingConfigured(t *testing.T) {
 	newFixture(t)

@@ -2,7 +2,10 @@
 
 package cli
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 // Codex round 21: a cluster's identity folds only the case-insensitive parts
 // of its PVE base. Two clusters behind one gateway at /A and /a stay two, so
@@ -30,5 +33,23 @@ func TestPVEIDKeepsPathCase(t *testing.T) {
 	}
 	if pveID("") != "" {
 		t.Error("an empty base must stay empty (no PVE identity)")
+	}
+}
+
+// Codex round 23: capacity asserts no retention absence. Whether anything
+// prunes a datastore depends on every cluster that writes there and on each
+// job's inherited target and vzdump.conf, so "unpruned" was a negative claim
+// built on partial evidence; it is gone, with the prune-job read behind it.
+func TestCapacityAssertsNoRetentionAbsence(t *testing.T) {
+	f := newFixture(t)
+	f.pbsRoutes["/admin/prune"] = []map[string]any{}
+	out, stderr, err := runCLI(t, "capacity", "--json")
+	if err != nil {
+		t.Fatalf("capacity: %v\n%s", err, stderr)
+	}
+	for _, w := range []string{"unpruned", "prune_jobs", "retention"} {
+		if strings.Contains(out+stderr, w) {
+			t.Errorf("capacity still carries %q:\n%s%s", w, out, stderr)
+		}
 	}
 }

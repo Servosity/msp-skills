@@ -25,22 +25,6 @@ func datastoreRow(t *testing.T, out, kind, name string) capacityRow {
 	return capacityRow{}
 }
 
-// A job with remove=0 prunes nothing after its run.
-func TestRemoveZeroJobDoesNotPrune(t *testing.T) {
-	f := newFixture(t)
-	for _, j := range f.pveRoutes["/cluster/backup"].([]map[string]any) {
-		j["prune-backups"] = "keep-last=3"
-		j["remove"] = 0
-	}
-	out, _, err := runCLI(t, "capacity", "--json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if r := datastoreRow(t, out, "pbs-datastore", "main"); !strings.Contains(strings.Join(r.Flags, ","), "unpruned") {
-		t.Errorf("remove=0 prunes nothing: want unpruned, got %v", r.Flags)
-	}
-}
-
 // Attribution is per datastore: beta writing datastore other on the same PBS
 // leaves acme's main its own.
 func TestCapacityAttributionIsPerDatastore(t *testing.T) {
@@ -125,96 +109,6 @@ func TestEnvPBSOnlyHasNoSpuriousStorageFailure(t *testing.T) {
 	}
 }
 
-// Codex round 15: a job inherits remove and prune-backups from its node's
-// /etc/vzdump.conf when it sets neither.
-func TestJobsInheritNodeVzdumpDefaults(t *testing.T) {
-	unpruned := func(t *testing.T) bool {
-		out, _, err := runCLI(t, "capacity", "--json")
-		if err != nil {
-			t.Fatal(err)
-		}
-		return strings.Contains(strings.Join(datastoreRow(t, out, "pbs-datastore", "main").Flags, ","), "unpruned")
-	}
-	f := newFixture(t)
-	for _, j := range f.pveRoutes["/cluster/backup"].([]map[string]any) {
-		j["prune-backups"] = "keep-last=7"
-	}
-	f.pveRoutes["/nodes/pve1/vzdump/defaults"] = map[string]any{"remove": 0}
-	if !unpruned(t) {
-		t.Error("node default remove=0: the job prunes nothing, want unpruned")
-	}
-	f = newFixture(t)
-	f.pveRoutes["/nodes/pve1/vzdump/defaults"] = map[string]any{"prune-backups": "keep-last=5"}
-	if unpruned(t) {
-		t.Error("node default prune-backups keep-last=5 prunes after every job run")
-	}
-}
-
-// Codex round 16: retention precedence is the job's, else the target
-// storage's, else /etc/vzdump.conf's. A keep-all PBS storage is not pruned by
-// a keep-last node default.
-func TestStorageRetentionBeatsNodeDefault(t *testing.T) {
-	f := newFixture(t)
-	f.pbsPrune = "keep-all=1"
-	f.pveRoutes["/nodes/pve1/vzdump/defaults"] = map[string]any{"prune-backups": "keep-last=7"}
-	out, _, err := runCLI(t, "capacity", "--json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if r := datastoreRow(t, out, "pbs-datastore", "main"); !strings.Contains(strings.Join(r.Flags, ","), "unpruned") {
-		t.Errorf("pbs1 keeps all, whatever vzdump.conf says: want unpruned, got %v", r.Flags)
-	}
-}
-
-// Adversarial round 10: asked for no storage, the vzdump defaults API
-// resolves 'local' and fails when local takes no backups (the recommended
-// setup). remove is read for the job's target instead: no spurious failure,
-// and unpruned still fires when nothing prunes.
-func TestRemoveIsReadForTheTargetStorage(t *testing.T) {
-	f := newFixture(t)
-	pve := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasSuffix(r.URL.Path, "/vzdump/defaults") && r.URL.Query().Get("storage") == "" {
-			http.Error(w, `{"errors":"can't use storage 'local' for backups - wrong content type"}`, http.StatusInternalServerError)
-			return
-		}
-		f.pve.Config.Handler.ServeHTTP(w, r)
-	}))
-	t.Cleanup(pve.Close)
-	t.Setenv("PROXMOX_BASE_URL", pve.URL+"/api2/json")
-	t.Setenv("PROXMOX_TLS_FINGERPRINT", client.CertFingerprint(pve.Certificate()))
-	out, _, err := runCLI(t, "capacity", "--json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	rep := decodeJSON[capacityReport](t, out)
-	for _, ff := range rep.FetchFailures {
-		if strings.Contains(ff.Scope, "vzdump defaults") {
-			t.Errorf("spurious failure: %+v", ff)
-		}
-	}
-	if r := datastoreRow(t, out, "pbs-datastore", "main"); !strings.Contains(strings.Join(r.Flags, ","), "unpruned") {
-		t.Errorf("nothing prunes main: want unpruned, got %v", r.Flags)
-	}
-}
-
-// Codex round 17: vzdump prunes inside each guest's backup task; a job that
-// selects no guest prunes nothing.
-func TestJobWithoutGuestsPrunesNothing(t *testing.T) {
-	f := newFixture(t)
-	jobs := f.pveRoutes["/cluster/backup"].([]map[string]any)
-	jobs[0]["prune-backups"] = "keep-last=7"
-	delete(jobs[0], "all")
-	jobs[0]["pool"] = "empty"
-	f.pveRoutes["/cluster/backup/job1/included_volumes"] = map[string]any{"children": []map[string]any{}}
-	out, _, err := runCLI(t, "capacity", "--json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if r := datastoreRow(t, out, "pbs-datastore", "main"); !strings.Contains(strings.Join(r.Flags, ","), "unpruned") {
-		t.Errorf("a job backing up no guest prunes nothing: want unpruned, got %v", r.Flags)
-	}
-}
-
 // A PBS-only env setup: capacity reports no PVE failure, and clusters check
 // marks PVE not-configured instead of failing.
 func TestEnvPBSOnlyCapacityAndCheck(t *testing.T) {
@@ -236,44 +130,5 @@ func TestEnvPBSOnlyCapacityAndCheck(t *testing.T) {
 		if r.Service == "pve" && r.Status != "not-configured" {
 			t.Errorf("pve row: %+v", r)
 		}
-	}
-}
-
-// Codex round 18: a PBS-only entry that finds no PBS-side pruning cannot see
-// the PVE jobs that may prune: retention unassessed is reported.
-func TestPBSOnlyRetentionUnassessedIsReported(t *testing.T) {
-	newFixture(t)
-	t.Setenv("PROXMOX_BASE_URL", "")
-	t.Setenv("PROXMOX_HOST", "")
-	out, _, err := runCLI(t, "capacity", "--json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if e := failureByScope(decodeJSON[capacityReport](t, out).FetchFailures)["pbs main retention"]; !strings.Contains(e, "whether anything prunes it is unknown") {
-		t.Errorf("want unassessed retention reported:\n%s", out)
-	}
-}
-
-// Codex round 19: guests a token cannot audit leave job selection unknown,
-// not empty: nothing is flagged unpruned on that, and the gap is reported.
-func TestHiddenGuestsLeaveJobSelectionUnknown(t *testing.T) {
-	f := newFixture(t)
-	for _, j := range f.pveRoutes["/cluster/backup"].([]map[string]any) {
-		j["prune-backups"] = "keep-last=3"
-	}
-	f.pveRoutes["/access/permissions"] = map[string]any{
-		"/":    map[string]any{"Sys.Audit": 1, "Datastore.Audit": 1, "Datastore.AllocateSpace": 1, "VM.Backup": 1},
-		"/vms": map[string]any{"VM.Audit": 0},
-	}
-	out, _, err := runCLI(t, "capacity", "--json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	rep := decodeJSON[capacityReport](t, out)
-	if e := failureByScope(rep.FetchFailures)["backup job guests"]; e == "" {
-		t.Errorf("want unknown job selection reported: %+v", rep.FetchFailures)
-	}
-	if r := datastoreRow(t, out, "pbs-datastore", "main"); strings.Contains(strings.Join(r.Flags, ","), "unpruned") {
-		t.Errorf("unknown selection must not flag unpruned: %v", r.Flags)
 	}
 }

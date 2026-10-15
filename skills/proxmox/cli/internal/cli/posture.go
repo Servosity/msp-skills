@@ -309,7 +309,7 @@ func collectPosture(ctx context.Context, t fleetTarget, o postureOpts) (clusterP
 		s := storages[key]
 		covered := pbsCovers(refs, s.Storage, pbsHost, nsByStore)
 		rps, err := readStorageArchives(ctx, t.C, readers[key], s, 0, refs, covered)
-		if merr := t.pbsRefMissing(s, refs); merr != nil {
+		if merr := t.storageUnattributed(s, refs); merr != nil {
 			rps, err = nil, merr
 		}
 		if err != nil && covered {

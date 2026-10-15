@@ -131,39 +131,3 @@ func TestFailuresWithoutPBSHostNamesTheGap(t *testing.T) {
 		t.Errorf("want the unchecked PBS tasks named: %+v", rep.FetchFailures)
 	}
 }
-
-// Codex round 10: retention prunes only when something runs it. Datastore
-// keep-* options run on the datastore's prune-schedule; PVE prune-backups run
-// after an enabled backup job.
-func TestRetentionWithoutARunnerIsUnpruned(t *testing.T) {
-	unpruned := func(t *testing.T) bool {
-		out, _, err := runCLI(t, "capacity", "--json")
-		if err != nil {
-			t.Fatal(err)
-		}
-		for _, r := range decodeJSON[capacityReport](t, out).Rows {
-			if r.Kind == "pbs-datastore" {
-				return strings.Contains(strings.Join(r.Flags, ","), "unpruned")
-			}
-		}
-		t.Fatalf("no datastore row:\n%s", out)
-		return false
-	}
-	f := newFixture(t)
-	f.pbsRoutes["/config/datastore/main"] = map[string]any{"name": "main", "path": "/mnt/datastore/main", "keep-last": 7}
-	if !unpruned(t) {
-		t.Error("datastore keep-last without a prune-schedule prunes nothing: want unpruned")
-	}
-	f.pbsRoutes["/config/datastore/main"] = map[string]any{"name": "main", "path": "/mnt/datastore/main", "keep-last": 7, "prune-schedule": "daily"}
-	if unpruned(t) {
-		t.Error("datastore keep-last on a prune-schedule prunes: want no unpruned flag")
-	}
-	f = newFixture(t)
-	f.pbsPrune = "keep-last=3"
-	for _, j := range f.pveRoutes["/cluster/backup"].([]map[string]any) {
-		j["enabled"] = 0
-	}
-	if !unpruned(t) {
-		t.Error("storage prune-backups with no enabled job writing there prunes nothing: want unpruned")
-	}
-}
