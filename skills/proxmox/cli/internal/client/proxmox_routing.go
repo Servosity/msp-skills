@@ -198,7 +198,8 @@ func pbsAuthValue(v string) string {
 // back to system trust, which a typo must not be able to do.
 func EnvPins(name string) ([]string, error) {
 	var pins []string
-	for _, p := range strings.Split(cliutil.EffectiveEnv(os.Getenv(name)), ",") { // an unfilled .mcpb prompt is unset; os.Getenv(name) keeps check_env_schema seeing the read
+	raw := cliutil.EffectiveEnv(os.Getenv(name)) // an unfilled .mcpb prompt is unset; os.Getenv(name) keeps check_env_schema seeing the read
+	for _, p := range strings.Split(raw, ",") {
 		if strings.TrimSpace(p) == "" {
 			continue
 		}
@@ -206,6 +207,9 @@ func EnvPins(name string) ([]string, error) {
 			return nil, fmt.Errorf("%s has a malformed entry (want SHA-256 fingerprints like AB:CD:..., comma-separated); refusing to fall back to unpinned TLS", name)
 		}
 		pins = append(pins, p)
+	}
+	if len(pins) == 0 && strings.TrimSpace(raw) != "" {
+		return nil, fmt.Errorf("%s is set but holds no SHA-256 fingerprint; refusing to fall back to unpinned TLS", name)
 	}
 	return pins, nil
 }

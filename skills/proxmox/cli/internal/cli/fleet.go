@@ -957,7 +957,7 @@ func (t fleetTarget) sharedOwners(ref pbsStorageRef, ns string) []string {
 		foreign = true
 	}
 	for _, p := range t.own.peers {
-		if p.pve == t.pveID || !t.own.covers(p, ref, ns) {
+		if p.name == t.Name || (p.pve != "" && p.pve == t.pveID) || !t.own.covers(p, ref, ns) {
 			continue
 		}
 		name := p.name
@@ -1000,7 +1000,7 @@ func (t fleetTarget) pbsServiceSharers() []string {
 		foreign = true
 	}
 	for _, p := range t.own.peers {
-		if p.pve == t.pveID || !overlaps(p.svcs, mine) {
+		if p.name == t.Name || (p.pve != "" && p.pve == t.pveID) || !overlaps(p.svcs, mine) {
 			continue
 		}
 		name := p.name
@@ -1306,6 +1306,9 @@ func pbsAttribution(ctx context.Context, t fleetTarget, refs map[string]pbsStora
 			listErr = errors.Join(listErr, fmt.Errorf("PBS: part of pbs_namespace %q is, or may be, written by another configured cluster, so restore points there were not read", ns))
 		case len(out) == 0:
 			warning = fmt.Sprintf("%s: PBS snapshots not attributed to guests: no PVE storage on this cluster points at PBS host %q, so pbs_namespace %q is not tied to a datastore", t.Name, host, ns)
+			// The client's restore points live below pbs_namespace, and none of
+			// it was read (an unreadable storage config lands here too).
+			listErr = errors.Join(listErr, fmt.Errorf("PBS: pbs_namespace %q is not tied to a datastore (no readable PVE storage config points at PBS host %q), so restore points there were not read", ns, host))
 		}
 		return out, warning, listErr
 	}
