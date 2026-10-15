@@ -56,7 +56,7 @@ func newNovelCapacityCmd(flags *rootFlags) *cobra.Command {
 			"free space to run, so the datastore can no longer clean itself), unpruned (nothing prunes the datastore: no PBS prune job, " +
 			"datastore keep-* on a prune-schedule, or PVE prune-backups on an enabled backup job writing there, that removes anything; keep-all or all-zero keep counts prune nothing), filling (estimated full within --within), no-forecast (a PVE storage, or a PBS datastore with too few usage " +
 			"samples for PBS to estimate: nothing forecasts its days to full, so it is always listed, --within included, and judged by used_pct), nearly-full (free space below --gc-margin). " +
-			"PBS forecasts come from its own linear regression over the last month.",
+			"PBS forecasts come from its own linear regression over the last month. A datastore another configured cluster also writes to has attribution 'shared: <clusters>' and no tenant.",
 		Example: strings.Trim(`
   proxmox-cli capacity --within 30d
   proxmox-cli capacity --gc-margin 10% --agent
@@ -134,9 +134,9 @@ func newNovelCapacityCmd(flags *rootFlags) *cobra.Command {
 				if r.DaysToFull != nil {
 					days = fmt.Sprintf("%.1f", *r.DaysToFull)
 				}
-				rows = append(rows, []string{r.Cluster, r.Kind, r.Name, fmt.Sprintf("%.1f%%", r.UsedPct), days, r.GCLastState, strings.Join(r.Flags, ",")})
+				rows = append(rows, []string{r.Cluster, r.Kind, r.Name, fmt.Sprintf("%.1f%%", r.UsedPct), days, r.GCLastState, strings.Join(r.Flags, ","), r.Attribution})
 			}
-			return flags.printTable(cmd, []string{"CLUSTER", "KIND", "NAME", "USED", "DAYS TO FULL", "GC LAST", "FLAGS"}, rows)
+			return flags.printTable(cmd, []string{"CLUSTER", "KIND", "NAME", "USED", "DAYS TO FULL", "GC LAST", "FLAGS", "ATTRIBUTION"}, rows)
 		},
 	}
 	f := cmd.Flags()
@@ -232,8 +232,9 @@ func collectCapacity(ctx context.Context, t fleetTarget, now time.Time, margin f
 				fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "pbs " + u.Store, Error: "PBS returned no usage for this datastore (unmeasured, or the token lacks Datastore.Audit on it); its capacity is unknown"})
 				continue
 			}
-			row := capacityRow{Tenant: shareTenant(t), Attribution: pbsAttributionLabel(t), Cluster: t.Name, Kind: "pbs-datastore", Name: u.Store,
+			row := capacityRow{Cluster: t.Name, Kind: "pbs-datastore", Name: u.Store,
 				TotalBytes: int64(u.Total), UsedBytes: int64(u.Used), AvailBytes: int64(u.Avail), Flags: []string{}}
+			row.Tenant, row.Attribution = shareOf(t, t.ownSvcs(), u.Store)
 			row.UsedPct = pct(row.UsedBytes, row.TotalBytes)
 			// PBS dates an estimate in the past when usage is flat or falling, so a
 			// full datastore is detected from free space, not from the forecast.
@@ -354,6 +355,9 @@ func collectCapacity(ctx context.Context, t fleetTarget, now time.Time, margin f
 		}
 		row := capacityRow{Tenant: t.Tenant, Cluster: t.Name, Kind: "pve-storage", Name: s.Storage, Node: readers[key],
 			TotalBytes: int64(s.Total), UsedBytes: int64(s.Used), AvailBytes: int64(s.Avail), Flags: []string{}}
+		if ref, ok := refs[s.Storage]; s.Type == "pbs" && ok && t.own != nil {
+			row.Tenant, row.Attribution = shareOf(t, t.own.svc.of(ref.server, ref.fingerprint), ref.datastore)
+		}
 		if bool(s.Shared) {
 			row.Node = ""
 		}
@@ -424,7 +428,7 @@ func pveRetentionFor(store, pbsHost string, refs map[string]pbsStorageRef, jobs 
 		// is pruned when some enabled job's effective retention removes
 		// anything. With no enabled job writing there, nothing prunes it.
 		for _, j := range jobs {
-			if !j.enabled() || !writes(j, id) {
+			if !j.enabled() || !j.prunes() || !writes(j, id) {
 				continue
 			}
 			eff := pruneSpec(j.PruneBackups)
@@ -483,20 +487,11 @@ func truthy(v any) bool {
 	return false
 }
 
-// pbsAttributionLabel is "shared: <clusters>" when another configured cluster
-// also uses this target's PBS (see pbsServiceSharers), else "".
-func pbsAttributionLabel(t fleetTarget) string {
-	if sharers := t.pbsServiceSharers(); len(sharers) > 0 {
-		return "shared: " + strings.Join(sharers, ", ")
+// shareOf credits a datastore row to this target's tenant only when no other
+// configured cluster writes, or may write, to that datastore.
+func shareOf(t fleetTarget, svcs []string, store string) (tenant, attribution string) {
+	if sharers := t.datastoreSharers(svcs, store); len(sharers) > 0 {
+		return "", "shared: " + strings.Join(sharers, ", ")
 	}
-	return ""
-}
-
-// shareTenant credits a PBS-wide row to this target's tenant only when no
-// other configured cluster uses that PBS.
-func shareTenant(t fleetTarget) string {
-	if pbsAttributionLabel(t) != "" {
-		return ""
-	}
-	return t.Tenant
+	return t.Tenant, ""
 }

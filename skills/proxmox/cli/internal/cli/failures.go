@@ -367,8 +367,8 @@ func collectFailures(ctx context.Context, t fleetTarget, since time.Time, want m
 			rows = append(rows, r)
 		}
 	}
-	if wantPBS && pveErr == nil && strings.TrimSpace(t.C.BaseURL) != "" { // a PBS-only profile has no PVE storages
-		fails = append(fails, uncheckedPBS(ctx, t)...)
+	if wantPBS && pveErr == nil && t.hasPVE() { // a PBS-only profile has no PVE storages
+		fails = append(fails, uncheckedPBS(ctx, t, "pbs tasks", "its verify, GC, sync and prune tasks were")...)
 	}
 	pbsAnswered := wantPBS && t.C.PBSConfigured() && pbsErr == nil
 	switch {
@@ -400,13 +400,13 @@ func tailLines(lines []string, n int) []string {
 // up to whose tasks were not read: every PBS but the configured one, or all
 // of them when none is configured. A storage list the token cannot fully see,
 // or an unreadable storage config, leaves that unknown.
-func uncheckedPBS(ctx context.Context, t fleetTarget) []fetchFailure {
+func uncheckedPBS(ctx context.Context, t fleetTarget, scope, what string) []fetchFailure {
 	fail := func(msg string) []fetchFailure {
-		return []fetchFailure{{Cluster: t.Name, Scope: "pbs tasks", Error: msg}}
+		return []fetchFailure{{Cluster: t.Name, Scope: scope, Error: msg}}
 	}
 	refs, err := fetchPBSStorageRefs(ctx, t.C)
 	if err != nil {
-		return fail("the storage config could not be read (" + err.Error() + "), so whether a Proxmox Backup Server other than the configured one holds this cluster's backups, and whether its tasks failed, is unknown")
+		return fail("the storage config could not be read (" + err.Error() + "), so whether a Proxmox Backup Server other than the configured one holds this cluster's backups is unknown, and " + what + " not checked there")
 	}
 	var other []string
 	for _, id := range sortedKeys(refs) {
@@ -416,10 +416,10 @@ func uncheckedPBS(ctx context.Context, t fleetTarget) []fetchFailure {
 	}
 	var out []fetchFailure
 	if len(other) > 0 {
-		out = fail("storage " + strings.Join(other, ", ") + " backs up to a Proxmox Backup Server that is not this cluster's configured PBS host, so its verify, GC, sync and prune tasks were not checked; set PROXMOX_PBS_HOST (or pbs_host) to it")
+		out = fail("storage " + strings.Join(other, ", ") + " backs up to a Proxmox Backup Server that is not this cluster's configured PBS host, so " + what + " not checked; set PROXMOX_PBS_HOST (or pbs_host) to it")
 	}
 	if err := storageListHidden(ctx, t.C); err != nil {
-		out = append(out, fetchFailure{Cluster: t.Name, Scope: "pbs tasks", Error: "a storage hidden from this token may back up to a Proxmox Backup Server whose tasks were not checked: " + err.Error()})
+		out = append(out, fetchFailure{Cluster: t.Name, Scope: scope, Error: "a storage hidden from this token may back up to a Proxmox Backup Server, and " + what + " not checked there: " + err.Error()})
 	}
 	return out
 }
