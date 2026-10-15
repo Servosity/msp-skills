@@ -319,6 +319,12 @@ func RegisterTools(s *server.MCPServer) {
 		handleContext(s),
 	)
 
+	// Hand-wired (handfixes.json: mcp-read-only-drops-endpoint-writes): the
+	// read-only kill switch must cover the endpoint tools above too.
+	if cliutil.IsMCPReadOnlyEnv() {
+		dropNonReadOnlyTools(s)
+	}
+
 	// Runtime Cobra-tree mirror — exposes every user-facing command that is
 	// not already covered by a typed endpoint or framework MCP tool.
 	cobratree.RegisterAll(s, cli.RootCmd(), cobratree.SiblingCLIPath)

@@ -355,6 +355,7 @@ var blockedRootFlags = map[string]bool{
 	"audit-dir":               true,
 	"base-url":                true,
 	"client":                  true,
+	"client-profile":          true, // hand-fix: inert here (no platform source); keep it out of tool schemas
 	"config":                  true,
 	confirmationBypassYesFlag: true,
 	"deliver":                 true,

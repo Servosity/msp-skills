@@ -381,16 +381,14 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 					// Step 2: Validate credentials with an authenticated probe.
 					authHeader := cfg.AuthHeader()
 					if authHeader == "" {
-						// No auth configured — skip credential validation
+						// Hand-wired (handfixes.json: doctor-verdict-tracks-reality).
+						report["credentials"] = "ERROR not verified: no API key is configured, so nothing was probed."
 					} else if reachErr != nil && !errors.As(reachErr, &reachAPIErr) {
 						report["credentials"] = "skipped (API unreachable)"
 					} else {
-						suggestion := suggestReadCommand(cmd.Root())
-						if suggestion != "" {
-							report["credentials"] = fmt.Sprintf("present, not verified. Run `%s %s` to confirm the token works end-to-end.", "quotewerks-cli", suggestion)
-						} else {
-							report["credentials"] = "present, not verified. Run any read command to confirm the token works end-to-end."
-						}
+						// Hand-wired (handfixes.json: doctor-verdict-tracks-reality):
+						// probe the key instead of printing "present, not verified".
+						doctorProbeCredentials(cmd.Context(), c, "quotewerks-cli", report)
 					}
 				}
 			} else if cfg != nil && cfg.BaseURL == "" {

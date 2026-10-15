@@ -37,7 +37,12 @@ Add (or merge with your existing `mcpServers` block):
     "quotewerks": {
       "command": "quotewerks-mcp",
       "env": {
-        "QUOTEWERKS_API_KEY": "<your-quotewerks_api_key>"
+        "QUOTEWERKS_API_KEY": "<your-quotewerks_api_key>",
+        "QUOTEWERKS_BASE_URL": "<your-quotewerks_base_url>",
+        "QUOTEWERKS_USER_AGENT": "<your-quotewerks_user_agent>",
+        "QUOTEWERKS_MCP_READ_ONLY": "<your-quotewerks_mcp_read_only>",
+        "QUOTEWERKS_MCP_HTTP_TOKEN": "<your-quotewerks_mcp_http_token>",
+        "PRINTING_PRESS_CLIENT_PROFILE": "<your-printing_press_client_profile>"
       }
     }
   }
@@ -62,7 +67,12 @@ Configuration**) and add:
       "type": "stdio",
       "command": "quotewerks-mcp",
       "env": {
-        "QUOTEWERKS_API_KEY": "<your-quotewerks_api_key>"
+        "QUOTEWERKS_API_KEY": "<your-quotewerks_api_key>",
+        "QUOTEWERKS_BASE_URL": "<your-quotewerks_base_url>",
+        "QUOTEWERKS_USER_AGENT": "<your-quotewerks_user_agent>",
+        "QUOTEWERKS_MCP_READ_ONLY": "<your-quotewerks_mcp_read_only>",
+        "QUOTEWERKS_MCP_HTTP_TOKEN": "<your-quotewerks_mcp_http_token>",
+        "PRINTING_PRESS_CLIENT_PROFILE": "<your-printing_press_client_profile>"
       }
     }
   }
@@ -83,7 +93,12 @@ Claude Desktop:
     "quotewerks": {
       "command": "quotewerks-mcp",
       "env": {
-        "QUOTEWERKS_API_KEY": "<your-quotewerks_api_key>"
+        "QUOTEWERKS_API_KEY": "<your-quotewerks_api_key>",
+        "QUOTEWERKS_BASE_URL": "<your-quotewerks_base_url>",
+        "QUOTEWERKS_USER_AGENT": "<your-quotewerks_user_agent>",
+        "QUOTEWERKS_MCP_READ_ONLY": "<your-quotewerks_mcp_read_only>",
+        "QUOTEWERKS_MCP_HTTP_TOKEN": "<your-quotewerks_mcp_http_token>",
+        "PRINTING_PRESS_CLIENT_PROFILE": "<your-printing_press_client_profile>"
       }
     }
   }
@@ -102,7 +117,7 @@ in HTTP mode with your credentials in the environment (it serves `http://127.0.0
 default; press 4.32+ refuses a non-loopback bind without TLS, so do not pass `--addr :7777`):
 
 ```bash
-QUOTEWERKS_API_KEY=<value> quotewerks-mcp --transport http
+QUOTEWERKS_API_KEY=<value> QUOTEWERKS_BASE_URL=<value> QUOTEWERKS_USER_AGENT=<value> QUOTEWERKS_MCP_READ_ONLY=<value> QUOTEWERKS_MCP_HTTP_TOKEN=<value> PRINTING_PRESS_CLIENT_PROFILE=<value> quotewerks-mcp --transport http
 ```
 
 Then expose `http://localhost:7777/mcp` as a public HTTPS URL via a secure tunnel
