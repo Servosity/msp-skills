@@ -710,10 +710,15 @@ func pbsCovers(refs map[string]pbsStorageRef, storage, endpoint string, nsByStor
 	return false
 }
 
+// errCoveredByPBS: the token cannot see this storage's PVE content list, but
+// the PBS API reads its datastore. The caller counts the storage as read only
+// once that PBS read succeeds (see pbsStandIns).
+var errCoveredByPBS = errors.New("read through the PBS API instead of the PVE content list")
+
 // readStorageArchives is fetchStorageArchives behind the visibility rule: a
 // content list the token cannot fully see is missing evidence, never "no
 // backups". When the PBS API reads the same archives (covered), a hidden PVE
-// list is skipped instead.
+// list returns errCoveredByPBS instead.
 func readStorageArchives(ctx context.Context, c *client.Client, node string, s storageInfo, vmid int64, refs map[string]pbsStorageRef, covered bool) ([]restorePoint, error) {
 	hidden, err := backupListingHidden(ctx, c, s.Storage, vmid)
 	if err != nil {
@@ -721,7 +726,7 @@ func readStorageArchives(ctx context.Context, c *client.Client, node string, s s
 	}
 	if hidden {
 		if covered {
-			return nil, nil
+			return nil, errCoveredByPBS
 		}
 		hint := ""
 		if ref, ok := refs[s.Storage]; ok {
@@ -730,6 +735,18 @@ func readStorageArchives(ctx context.Context, c *client.Client, node string, s s
 		return nil, fmt.Errorf("Proxmox VE lists backup archives on storage %s only to a token with Datastore.Allocate on /storage/%s, or Datastore.AllocateSpace on it plus VM.Backup on the guest; this token has neither, so it would see an empty list and the archives were not read.%s", s.Storage, s.Storage, hint)
 	}
 	return fetchStorageArchives(ctx, c, node, s, vmid, refs)
+}
+
+// pbsStandIns settles the storages whose archives the PBS API stood in for: a
+// storage counts as read only when the PBS snapshot list of its datastore and
+// namespace succeeded, so a failed PBS read leaves the job's target unread
+// (unproven) instead of empty (never).
+func pbsStandIns(standIn map[string]pbsStorageRef, pbsUnread map[string]bool, read map[string]bool) {
+	for key, ref := range standIn {
+		if !pbsUnread[pbsSourceLabel(ref.datastore, ref.namespace)] {
+			read[key] = true
+		}
+	}
 }
 
 func pbsCanonical(server, store, ns, guestType string, vmid, t int64) string {
@@ -956,47 +973,68 @@ func (s pbsSnapshot) restorePoint(host, store, ns string) restorePoint {
 
 // pbsNamespacesForCluster limits a shared PBS to this cluster's namespace on
 // the datastores its PVE storages write to when the profile names one;
-// otherwise every namespace on every datastore.
-func pbsNamespacesForCluster(ctx context.Context, t fleetTarget) (map[string][]string, error) {
+// otherwise every namespace on every datastore. notes name what was left out
+// or could not be tied, so nothing is dropped silently.
+func pbsNamespacesForCluster(ctx context.Context, t fleetTarget) (map[string][]string, []fetchFailure, error) {
 	stores, err := pbsDatastores(ctx, t.C)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	out := map[string][]string{}
+	var notes []fetchFailure
+	ns := t.Profile.PBSNamespace
 	var own map[string]bool
 	// A PBS-only profile (no PVE host) is scoped by the profile itself.
-	if t.Profile.PBSNamespace != "" && strings.TrimSpace(t.C.BaseURL) != "" {
+	if ns != "" && strings.TrimSpace(t.C.BaseURL) != "" {
 		// The namespace is this client's only on the datastores this cluster's
 		// own PVE storages write to; the same name elsewhere can be another's.
 		refs, err := fetchPBSStorageRefs(ctx, t.C)
 		if err != nil {
-			return nil, fmt.Errorf("tying pbs_namespace %q to this cluster's datastores: %w", t.Profile.PBSNamespace, err)
+			// PVE down must not blank the PBS view: read every datastore and say so.
+			notes = append(notes, fetchFailure{Cluster: t.Name, Scope: "pbs namespace", Error: fmt.Sprintf(
+				"could not tie pbs_namespace %q to this cluster's datastores (%v); namespace %q is listed on every datastore, so groups may include another client's", ns, err, ns)})
+			refs = nil
+		} else {
+			own = map[string]bool{}
 		}
-		own = map[string]bool{}
 		host := t.pbsEndpoint()
 		for _, ref := range refs {
 			if strings.EqualFold(ref.server, host) {
 				own[ref.datastore] = true
 			}
 		}
-		if len(own) == 0 {
-			return nil, fmt.Errorf("no PVE storage on this cluster points at PBS host %q (spelled as in the storage's server field), so pbs_namespace %q is not tied to a datastore and nothing was read", host, t.Profile.PBSNamespace)
+		if own != nil && len(own) == 0 {
+			return nil, nil, fmt.Errorf("no PVE storage on this cluster points at PBS host %q (spelled as in the storage's server field), so pbs_namespace %q is not tied to a datastore and nothing was read", host, ns)
 		}
 	}
 	for _, store := range stores {
-		if t.Profile.PBSNamespace != "" {
-			if own == nil || own[store] {
-				out[store] = []string{t.Profile.PBSNamespace}
+		if ns == "" {
+			nss, err := pbsNamespaces(ctx, t.C, store)
+			if err != nil {
+				return nil, nil, fmt.Errorf("PBS %s namespaces: %w", store, err)
 			}
+			out[store] = nss
 			continue
 		}
+		if own == nil || own[store] {
+			out[store] = []string{ns}
+			continue
+		}
+		// Not this cluster's datastore: say so when it carries the namespace
+		// (a sync target, or another client's), rather than drop it silently.
 		nss, err := pbsNamespaces(ctx, t.C, store)
 		if err != nil {
-			return nil, fmt.Errorf("PBS %s namespaces: %w", store, err)
+			notes = append(notes, fetchFailure{Cluster: t.Name, Scope: "pbs " + store, Error: "namespaces not listed: " + err.Error()})
+			continue
 		}
-		out[store] = nss
+		for _, n := range nss {
+			if n == ns {
+				notes = append(notes, fetchFailure{Cluster: t.Name, Scope: "pbs " + store, Error: fmt.Sprintf(
+					"datastore %s also has namespace %q, but no PVE storage on this cluster writes to it (a sync target, or another client's), so it was not read", store, ns)})
+			}
+		}
 	}
-	return out, nil
+	return out, notes, nil
 }
 
 // --- tasks and vzdump logs

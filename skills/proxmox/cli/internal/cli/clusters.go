@@ -420,7 +420,7 @@ func newClustersAddCmd(flags *rootFlags) *cobra.Command {
 	f.StringVar(&cl.PBSHost, "pbs-host", "", "PBS host or host:port (default port 8007)")
 	f.StringVar(&cl.PBSTokenEnv, "pbs-token-env", "", "NAME of the env var holding USER@REALM!TOKENID:SECRET")
 	f.StringVar(&cl.PBSFingerprint, "pbs-fingerprint", "", "PBS TLS certificate SHA-256 fingerprint to pin")
-	f.StringVar(&cl.PBSNamespace, "pbs-namespace", "", "PBS namespace holding this client's backups on a shared PBS")
+	f.StringVar(&cl.PBSNamespace, "pbs-namespace", "", "PBS namespace holding this client's backups on a shared PBS (read only on the datastores this cluster's PVE storages write to)")
 	f.BoolVar(&force, "force", false, "Replace an existing entry with the same name")
 	return cmd
 }

@@ -6,6 +6,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"sort"
@@ -284,9 +285,19 @@ func collectPosture(ctx context.Context, t fleetTarget, o postureOpts) (clusterP
 			out.warnings = append(out.warnings, warning)
 		}
 	}
+	standIn := map[string]pbsStorageRef{} // storages the PBS API reads instead of their PVE list
+	pbsUnread := map[string]bool{}        // PBS sources (pbsSourceLabel) whose snapshot list failed
 	for _, key := range sortedKeys(storages) {
 		s := storages[key]
-		rps, err := readStorageArchives(ctx, t.C, readers[key], s, 0, refs, pbsCovers(refs, s.Storage, pbsHost, nsByStore))
+		covered := pbsCovers(refs, s.Storage, pbsHost, nsByStore)
+		rps, err := readStorageArchives(ctx, t.C, readers[key], s, 0, refs, covered)
+		if err != nil && covered {
+			standIn[key] = refs[s.Storage]
+			if !errors.Is(err, errCoveredByPBS) {
+				out.failures = append(out.failures, fetchFailure{Cluster: t.Name, Scope: "storage " + key, Error: err.Error() + " (its datastore is read through the PBS API instead)"})
+			}
+			continue
+		}
 		if err != nil {
 			// An unread PBS storage may hide a newer point that failed
 			// verification, so nothing on the cluster is green. Any other
@@ -311,6 +322,7 @@ func collectPosture(ctx context.Context, t fleetTarget, o postureOpts) (clusterP
 				snaps, err := pbsSnapshots(ctx, t.C, store, ns, nil)
 				if err != nil {
 					archivesIncomplete = true
+					pbsUnread[pbsSourceLabel(store, ns)] = true
 					out.failures = append(out.failures, fetchFailure{Cluster: t.Name, Scope: pbsSourceLabel(store, ns), Error: err.Error()})
 					continue
 				}
@@ -332,6 +344,7 @@ func collectPosture(ctx context.Context, t fleetTarget, o postureOpts) (clusterP
 		}
 	}
 
+	pbsStandIns(standIn, pbsUnread, readStorage)
 	targets := newJobTargets(ctx, t.C, cov)
 	allGaps := map[storageGap]bool{}
 	attempts, blindSince, aborted := lastVzdumpAttempts(ctx, t, nodes, o.now.Add(-o.attemptWindow), o.maxLogs, &out)

@@ -197,10 +197,11 @@ func newNovelVerifyHealthCmd(flags *rootFlags) *cobra.Command {
 
 func collectVerifyHealth(ctx context.Context, t fleetTarget, onlyStore string, now time.Time) ([]verifyStoreRow, []verifyGroupRow, []fetchFailure, error) {
 	var fails []fetchFailure
-	nsByStore, err := pbsNamespacesForCluster(ctx, t)
+	nsByStore, notes, err := pbsNamespacesForCluster(ctx, t)
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	fails = append(fails, notes...)
 	if len(nsByStore) == 0 {
 		if err := requireVisibility(ctx, t.C, true, client.PrivDatastoreAudit); err != nil {
 			return nil, nil, nil, err

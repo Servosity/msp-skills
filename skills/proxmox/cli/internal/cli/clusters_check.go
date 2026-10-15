@@ -44,6 +44,9 @@ func init() {
 					return inner(cmd, args)
 				}
 				fmt.Fprintf(cmd.ErrOrStderr(), "doctor checks the PROXMOX_* environment; cluster %q comes from clusters.toml, so this is 'clusters check' for it\n", selectedCluster)
+				if dryRunOK(flags) {
+					return writeDryRun(cmd.OutOrStdout(), flags, "check configured clusters")
+				}
 				return runClustersCheck(cmd, flags)
 			}
 		}
@@ -80,6 +83,10 @@ func runClustersCheck(cmd *cobra.Command, flags *rootFlags) error {
 	rows := make([]clusterCheckRow, 0, 2*len(targets))
 	failed := 0
 	add := func(t fleetTarget, service, version string, err error) {
+		if err == nil && version == "" {
+			// A 200 without a version is not Proxmox answering.
+			err = fmt.Errorf("answered without a %s version; is this the Proxmox API?", strings.ToUpper(service))
+		}
 		r := clusterCheckRow{Cluster: t.Name, Tenant: t.Tenant, Service: service, Status: "ok", Version: version}
 		if err != nil {
 			r.Status, r.Detail = "failed", err.Error()

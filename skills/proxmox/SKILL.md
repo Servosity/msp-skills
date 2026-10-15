@@ -989,7 +989,7 @@ Explicit flags always win over profile values; profile values win over defaults.
 | Code | Meaning |
 |------|---------|
 | 0 | Success |
-| 1 | Gate tripped (`posture --fail-on-red`, `doctor --fail-on`) |
+| 1 | Gate tripped (`posture --fail-on-red`, `doctor --fail-on`, a failed `clusters check`) |
 | 2 | Usage error (wrong arguments) |
 | 3 | Resource not found |
 | 4 | Authentication required |
