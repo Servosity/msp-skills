@@ -23,7 +23,12 @@ name: Windows smoke
 #
 #   gh workflow run windows-smoke.yml -R Servosity/msp-skills -f tag=<slug>-v<x.y.z>
 #
-# Evidence: every run uploads the artifact `windows-smoke-transcript`.
+# Evidence: every run uploads the artifact `windows-smoke-transcript-<tag>`
+# (the tag in the name keeps a matrix of tags in one run from colliding).
+#
+# A caller must grant `contents: write`: the draft path reads an unpublished
+# release, and GitHub refuses a called workflow whose job asks for more than
+# its caller granted, even when that job would be skipped.
 
 on:
   workflow_call:
@@ -161,7 +166,7 @@ jobs:
       - name: Hand them to the Windows job
         uses: actions/upload-artifact@v4
         with:
-          name: windows-smoke-draft-assets
+          name: windows-smoke-draft-assets-${{ inputs.tag }}
           path: assets/
           retention-days: 3
           if-no-files-found: error
@@ -202,7 +207,7 @@ jobs:
         if: env.SOURCE == 'draft'
         uses: actions/download-artifact@v4
         with:
-          name: windows-smoke-draft-assets
+          name: windows-smoke-draft-assets-${{ inputs.tag }}
           path: ${{ runner.temp }}\assets
 
       - name: Lay the draft's binaries out the way install.ps1 does
@@ -254,6 +259,6 @@ jobs:
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
-          name: windows-smoke-transcript
+          name: windows-smoke-transcript-${{ inputs.tag }}
           path: ${{ runner.temp }}\windows-smoke\
           if-no-files-found: warn
