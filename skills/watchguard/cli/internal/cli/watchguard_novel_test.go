@@ -285,8 +285,8 @@ func TestParseTimeThreatSyncFormat(t *testing.T) {
 }
 
 func TestIncidentRowsGroupedForm(t *testing.T) {
-	got := incidentRows(json.RawMessage(`{"groups":{"_default":[{"id":"i1"},{"id":"i2"}]}}`))
-	if len(got) != 2 {
+	got, err := incidentRows(json.RawMessage(`{"groups":{"_default":[{"id":"i1"},{"id":"i2"}]}}`))
+	if err != nil || len(got) != 2 {
 		t.Fatalf("grouped incidents = %d rows", len(got))
 	}
 }

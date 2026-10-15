@@ -47,3 +47,22 @@ func TestSecretFieldListCoversSpecCredentials(t *testing.T) {
 		t.Fatalf("booleans or non-secret fields were dropped: %s", out)
 	}
 }
+
+// hand-fix guard (handfixes.json error-body-redacts-secrets): a secret the
+// server echoes back base64-encoded, alone or glued into a longer run, is
+// still seen.
+func TestEchoDetectedInBase64(t *testing.T) {
+	secret := "SENTINEL_PRIVATE_KEY"
+	for _, body := range []string{
+		`{"message":"U0VOVElORUxfUFJJVkFURV9LRVk="}`,
+		`{"message":"keyU0VOVElORUxfUFJJVkFURV9LRVk"}`,
+		`{"echo":"eyJwdnRfa2V5IjoiU0VOVElORUxfUFJJVkFURV9LRVkifQ"}`,
+	} {
+		if !EchoesSecret(body, []string{secret}) {
+			t.Errorf("base64 echo not detected: %s", body)
+		}
+	}
+	if EchoesSecret(`{"message":"invalid request body"}`, []string{secret}) {
+		t.Error("plain message flagged as an echo")
+	}
+}

@@ -52,16 +52,22 @@ Some WatchGuard reads return live secrets inside ordinary rows:
 | `firebox-content-filtering list` / `get` | WebBlocker override passwords |
 | `activations list-recent` / `status` | product activation keys |
 | `endpoint-installers` | a download link for an installer that enrolls devices into the account |
-| `allocations list-owned` / `list-assigned` / `list-allocated` | Firebox serial numbers and software license keys (`serialOrLicense`) |
+| `allocations list-owned` / `list-assigned` / `summary` | Firebox serial numbers and software license keys (`serialOrLicense`) |
 
 These commands print what the API returns, so treat their output as a credential, and
 so does `export` of any of these resources. The local SQLite mirror (`sync`, and every
 live read that writes through to it) drops these fields before anything reaches disk,
-and the HTTP response cache never stores a response that carries one, or any
-`endpoint-installers` response. The one exception is `serialOrLicense` in allocation
-rows: the same field holds a Firebox serial number or a software license key, and the
-mirror and the 5-minute response cache keep it because it is what tells two otherwise
-identical allocation rows apart; delete the data directory if that matters to you.
+and the HTTP response cache never stores a response that carries one, any
+`endpoint-installers` response, or any license allocation response. The one exception
+is `serialOrLicense` in allocation rows: the same field holds a Firebox serial number or
+a software license key, and the local mirror keeps it because it is what tells two
+otherwise identical allocation rows apart; delete the data directory if that matters
+to you.
+
+Through the MCP server these reads return their secrets to the agent, and so to your AI
+provider, like any other result: `WATCHGUARD_MCP_READ_ONLY=1` does not block them,
+because they are GET calls. Only the read-only Access ID plus not asking for them keeps
+them out of a conversation.
 
 ## Default-safe behavior
 
@@ -92,7 +98,7 @@ require a human for anything below the first row.
 
 | Tier | What it does | Examples | Recommended agent policy |
 | --- | --- | --- | --- |
-| **Read** | Reports, rollups, search, sync. No change in WatchGuard Cloud. | `accounts health`, `endpoint-devices posture`, `endpoint-devices list`, `endpoint-devices protection-status`, `threatsync-incidents queue`, `endpoint-patches exposure`, `allocations reconcile`, `allocations summary`, `firebox-devices`, `firebox-devices changes`, `firebox-devices firmware-lag`, `firebox-transactions wait`, `firebox-policies list`, `endpoint-security-events`, `ndr-assets list`, `operators list`, `accounts list-managed`, `sync`, `search`, `analytics`, `tail`, and every other list / get command not in the Credential row | Allow |
+| **Read** | Reports, rollups, search, sync. No change in WatchGuard Cloud. | `accounts health`, `endpoint-devices posture`, `endpoint-devices list`, `endpoint-devices protection-status`, `threatsync-incidents queue`, `endpoint-patches exposure`, `allocations reconcile`, `firebox-devices`, `firebox-devices changes`, `firebox-devices firmware-lag`, `firebox-transactions wait`, `firebox-policies list`, `endpoint-security-events`, `ndr-assets list`, `operators list`, `accounts list-managed`, `sync`, `search`, `analytics`, `tail`, and every other list / get command not in the Credential row | Allow |
 | **Endpoint and incident actions** | Acts on customer computers, users' phones or open incidents. | `endpoint-devices isolate`, `endpoint-devices stop-isolation`, `endpoint-devices scan`, `endpoint-devices action`, `endpoint-devices uninstall`, `endpoint-configurations assign`, `threatsync-actions perform`, `threatsync-incident-actions perform`, `threatsync-transactions`, `threatsync-incidents set-status`, `ndr-smart-alerts close`, `authpoint push` | Human-in-the-loop, explicit confirmation |
 | **Firewall config and deployment** | Changes Firebox, FireCloud, Endpoint Security or account configuration, or pushes it to devices. | `firebox-deployments`, `firebox-policies create` / `update` / `set-enabled`, `firebox-blocked-sites`, `firebox-botnet-exceptions`, `firebox-file-exceptions`, `firebox-geo-exceptions`, `firebox-ips-exceptions` and `firebox-webblocker-exceptions` create / update, the same `firecloud-*` creates and updates (plus `firecloud-https-exceptions`), `firebox-exceptions enable-global` / `disable-global`, `firebox-templates subscribe`, `firebox-bovpn-p1-settings create` / `update`, `firebox-transactions update`, `endpoint-risks update-config`, `ndr-assets create` / `update`, `threatsync-comments create` / `update`, `allocations allocate` / `update-hardware` / `update-software`, `accounts create` / `update`, `import` | Preview with `--dry-run`, then a human-approved write |
 | **Destructive** | Irreversible removal. | `accounts delete`, `operators delete`, `allocations deallocate`, `firebox-transactions cancel`, `firebox-policies delete`, `firebox-bovpn-tunnels delete` / `delete-by-name`, `firebox-certificates delete`, every Firebox and FireCloud exception `delete`, `ndr-assets delete`, `threatsync-comments delete` | Human-in-the-loop only, explicit confirmation |
@@ -105,6 +111,12 @@ require a human for anything below the first row.
 - **Run the MCP server read-only.** `WATCHGUARD_MCP_READ_ONLY=1` drops the MCP server's
   write tools and makes `watchguard_execute` refuse every non-GET call. GET calls still
   run, including the credential reads above, so pair it with the read-only Access ID.
+  The cross-customer report tools (`accounts health`, `endpoint-devices posture`,
+  `endpoint-patches exposure`) still send the audience lookup (a POST that only returns
+  a customer's audience value) and mint per-customer tokens in read-only mode.
+- **There is no preview through the MCP server.** `--dry-run` is a CLI flag;
+  `watchguard_execute` sends a write as soon as it is called, whatever its arguments say.
+  An agent that should only plan writes needs `WATCHGUARD_MCP_READ_ONLY=1`.
   `tail` and `import` are not MCP tools, and MCP tools never take a local file path
   for the CLI to read.
 - **Keep autonomous agents to Read plus previewed writes.** The gate lives in your

@@ -118,8 +118,12 @@ func accountHealth(ctx context.Context, c *client.Client, s subscriber, maxPages
 	if err != nil {
 		row.Errors = append(row.Errors, "firebox: "+err.Error())
 	} else {
-		total, offline := fleetCounts(asMaps(devData, "data"))
-		row.FireboxesTotal, row.FireboxesOffline = intPtr(total), intPtr(offline)
+		if devRows, lerr := listRows(devData, "data"); lerr != nil {
+			row.Errors = append(row.Errors, "firebox: "+lerr.Error())
+		} else {
+			total, offline := fleetCounts(devRows)
+			row.FireboxesTotal, row.FireboxesOffline = intPtr(total), intPtr(offline)
+		}
 	}
 	prot, trunc, err := pageOData(ctx, c, s.ID, "/rest/endpoint-security/management/api/v1/accounts/"+url.PathEscape(s.ID)+"/devicesprotectionstatus", maxPages)
 	if err != nil {

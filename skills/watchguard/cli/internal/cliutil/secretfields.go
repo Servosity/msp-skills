@@ -40,15 +40,19 @@ var secretFieldParts = []string{
 var secretFieldSuffixes = []string{"token"}
 
 // IsSecretBearingPath reports whether a GET path returns credentials in
-// fields whose names are not secret-shaped: the Endpoint Security installers
-// response is a download link for an installer that enrolls devices into the
-// account, so it is never cached or stored.
+// fields whose names are not secret-shaped, so its response is never cached:
+// the Endpoint Security installers response is a download link for an
+// installer that enrolls devices into the account (also never stored), and
+// license allocation responses carry software license keys.
 func IsSecretBearingPath(path string) bool {
 	p := strings.TrimRight(path, "/")
 	if i := strings.IndexByte(p, '?'); i >= 0 {
 		p = strings.TrimRight(p[:i], "/")
 	}
-	return strings.HasSuffix(p, "/installers")
+	// Allocation rows carry serialOrLicense, which is a Firebox serial or a
+	// software license key; the field cannot be dropped from the mirror (it is
+	// what tells allocation rows apart), but no allocation response is cached.
+	return strings.HasSuffix(p, "/installers") || strings.Contains(p, "/rest/platform/allocation/")
 }
 
 // IsSecretFieldKey reports whether a JSON key names a credential value.

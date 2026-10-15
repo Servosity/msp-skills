@@ -90,18 +90,18 @@
     },
     {
       "q": "Will this hit my WatchGuard API rate limits?",
-      "a": "WatchGuard allows 500 requests per second and 200,000 requests per day per API key; a 429 means the day's quota is spent until 00:00 UTC. The cross-customer commands fetch at most four accounts in parallel by default (--concurrency) and stop at --max-pages per account, --rate-limit caps requests per second, GET responses are cached for 5 minutes, and sync keeps a local copy that search, analytics and --data-source local read without calling the API."
+      "a": "WatchGuard allows 500 requests per second and 200,000 requests per day per API key; a 429 means the day's quota is spent until 00:00 UTC. The cross-customer commands fetch at most four accounts in parallel by default (--concurrency) and stop at --max-pages per account, --rate-limit caps requests per second, GET responses are cached for 5 minutes, and sync keeps a local copy that search and analytics read without calling the API."
     },
     {
       "q": "Can my AI isolate devices or change firewall policy?",
-      "a": "Only if you let it. Write commands such as endpoint-devices isolate, endpoint-devices uninstall, firebox-deployments and the delete commands send as soon as they run; there is no confirmation prompt. Preview any of them with --dry-run first. For a reporting agent, use the read-only Access ID, or set WATCHGUARD_MCP_READ_ONLY=1 so the MCP server drops its write tools and refuses every non-GET call through watchguard_execute."
+      "a": "Only if you let it. Write commands such as endpoint-devices isolate, endpoint-devices uninstall, firebox-deployments and the delete commands send as soon as they run; there is no confirmation prompt. Preview any of them with --dry-run first; through the MCP server there is no preview, watchguard_execute sends a write as soon as it is called. For a reporting agent, use the read-only Access ID, or set WATCHGUARD_MCP_READ_ONLY=1 so the MCP server drops its write tools and refuses every non-GET call through watchguard_execute."
     },
     {
       "q": "Has it been tested against a live WatchGuard Cloud account?",
       "a": "Not yet. Every command was built from WatchGuard's published OpenAPI specifications and tested against a local mock of those APIs, not a real account. If you run it against your own WatchGuard Cloud account, tell us what worked or broke on the GitHub issue tracker or at a Build Session; a real MSP run is what earns the live-verified badge."
     }
   ],
-  "governance_summary": "The skill is read-first: the cross-customer reports, sync, search and nearly every list and get command only read. The exceptions are the reads whose output carries a secret (BOVPN tunnels, Firebox certificates, networks, users, content filtering and the activation keys from activations), which belong with the credential commands; the local mirror and response cache never store those fields. Every write sends immediately with no confirmation prompt, so preview with --dry-run and keep endpoint actions, deployments and deletes human-in-the-loop. The read-only Access ID is the outer limit for a reporting agent.",
+  "governance_summary": "The skill is read-first: the cross-customer reports, sync, search and nearly every list and get command only read. The exceptions are the reads whose output carries a secret (BOVPN tunnels, Firebox certificates, networks, users, content filtering and the activation keys from activations), which belong with the credential commands; the response cache never stores them and the local mirror drops them (except serialOrLicense in allocation rows). Every write sends immediately with no confirmation prompt, so preview with --dry-run and keep endpoint actions, deployments and deletes human-in-the-loop. The read-only Access ID is the outer limit for a reporting agent.",
   "safety_tiers": [
     {
       "tier": "Read",
@@ -125,7 +125,7 @@
     },
     {
       "tier": "Credential and admin",
-      "examples": "firebox-bovpn-tunnels list / get and their writes (pre-shared keys), firebox-certificates list / get / create / install (private keys and passwords), firebox-networks, firebox-users and firebox-content-filtering list / get (PPPoE, Dynamic DNS, Wi-Fi and override passwords), activations list-recent / status and activate (activation keys), allocations list-owned / list-assigned / list-allocated (serial numbers and license keys), export of any of these resources, endpoint-installers (enrollment download links), operators create / update, audiences, authpoint check-policy / password / otp / qrcode / forgot-token / transaction-status, auth login, auth set-token",
+      "examples": "firebox-bovpn-tunnels list / get and their writes (pre-shared keys), firebox-certificates list / get / create / install (private keys and passwords), firebox-networks, firebox-users and firebox-content-filtering list / get (PPPoE, Dynamic DNS, Wi-Fi and override passwords), activations list-recent / status and activate (activation keys), allocations list-owned / list-assigned / summary (serial numbers and license keys), export of any of these resources, endpoint-installers (enrollment download links), operators create / update, audiences, authpoint check-policy / password / otp / qrcode / forgot-token / transaction-status, auth login, auth set-token",
       "policy": "Human-in-the-loop only"
     }
   ],

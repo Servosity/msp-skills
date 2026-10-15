@@ -443,6 +443,21 @@ func redirectLeavesOrigin(next *url.URL, via []*http.Request) bool {
 	return false
 }
 
+// sameOrigin reports whether a and b share scheme, host and port, with the
+// scheme's default port filled in (https://h and https://h:443 match).
+func sameOrigin(a, b *url.URL) bool {
+	port := func(u *url.URL) string {
+		if p := u.Port(); p != "" {
+			return p
+		}
+		if strings.EqualFold(u.Scheme, "https") {
+			return "443"
+		}
+		return "80"
+	}
+	return strings.EqualFold(a.Scheme, b.Scheme) && strings.EqualFold(a.Hostname(), b.Hostname()) && port(a) == port(b)
+}
+
 func New(cfg *config.Config, timeout time.Duration, rateLimit float64) *Client {
 	cacheDir := ""
 	if dir, err := cliutil.CacheDir(); err == nil {
@@ -484,6 +499,13 @@ func New(cfg *config.Config, timeout time.Duration, rateLimit float64) *Client {
 		if m := via[len(via)-1].Method; m != http.MethodGet && m != http.MethodHead && req.Response != nil &&
 			(req.Response.StatusCode == http.StatusMovedPermanently || req.Response.StatusCode == http.StatusFound) {
 			return fmt.Errorf("the server answered a %s with HTTP %d, so the write was not applied; check WATCHGUARD_BASE_URL", m, req.Response.StatusCode)
+		}
+		// Hand-wired (handfixes.json: redirect-refuses-cross-origin-body): a
+		// 307/308 replays a write body, so a write follows a redirect only to
+		// the exact origin (scheme, host and port) it was sent to - an
+		// http -> https upgrade or a port change is a different origin too.
+		if m := via[len(via)-1].Method; m != http.MethodGet && m != http.MethodHead && !sameOrigin(req.URL, via[0].URL) {
+			return fmt.Errorf("refusing to replay a %s request body to another origin (%s://%s)", m, req.URL.Scheme, req.URL.Host)
 		}
 		// Never carry credential material across a host change or protocol
 		// downgrade. Go strips Authorization and Cookie in common cases, but

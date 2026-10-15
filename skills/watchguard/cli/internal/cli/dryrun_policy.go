@@ -43,8 +43,13 @@ func applyDryRunPolicy(cmd *cobra.Command, flags *rootFlags) error {
 			return usageErr(fmt.Errorf("--dry-run cannot be combined with export --output: a dry run writes no file"))
 		}
 	}
-	if flags.deliverSink.Scheme == "webhook" {
+	switch flags.deliverSink.Scheme {
+	case "", "stdout":
+	case "webhook":
 		return usageErr(fmt.Errorf("--dry-run cannot be combined with --deliver webhook: a dry run sends nothing"))
+	default:
+		// A file sink would write (or overwrite) a file - even credentials.toml.
+		return usageErr(fmt.Errorf("--dry-run cannot be combined with --deliver %s: a dry run writes no file", flags.deliverSink.Scheme))
 	}
 	return nil
 }

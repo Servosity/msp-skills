@@ -200,7 +200,10 @@ func pageOData(ctx context.Context, c *client.Client, accountID, path string, ma
 		if err != nil {
 			return rows, false, err
 		}
-		batch := asMaps(data, "data")
+		batch, err := listRows(data, "data")
+		if err != nil {
+			return rows, false, err
+		}
 		rows = append(rows, batch...)
 		total := totalCount(data)
 		if pagingDone(len(batch), top, total, len(rows)) {
@@ -223,7 +226,10 @@ func pageLimitOffset(ctx context.Context, c *client.Client, path string, extra, 
 		if err != nil {
 			return rows, false, client.ScrubScoped(err)
 		}
-		batch := asMaps(data, key)
+		batch, err := listRows(data, key)
+		if err != nil {
+			return rows, false, err
+		}
 		rows = append(rows, batch...)
 		total := totalCount(data)
 		if pagingDone(len(batch), limit, total, len(rows)) {
@@ -264,6 +270,28 @@ func totalCount(raw json.RawMessage) int {
 		return env.TotalItems
 	}
 	return env.PageControls.TotalItems
+}
+
+// listRows is asMaps for a read whose answer feeds a report: a 2xx body that
+// carries neither a top-level list nor the expected key is a failed read, never
+// an empty one. Hand-fix (handfixes.json fanout-partial-data-exit): an
+// {"unexpected": ...} body used to count as zero devices, zero endpoints or
+// zero incidents and let accounts health report the account complete.
+func listRows(raw json.RawMessage, key string) ([]map[string]any, error) {
+	var v any
+	if json.Unmarshal(raw, &v) != nil {
+		return nil, fmt.Errorf("unexpected response: not JSON")
+	}
+	switch t := v.(type) {
+	case []any:
+	case map[string]any:
+		if _, ok := t[key]; !ok {
+			return nil, fmt.Errorf("unexpected response: no %q list", key)
+		}
+	default:
+		return nil, fmt.Errorf("unexpected response: no %q list", key)
+	}
+	return asMaps(raw, key), nil
 }
 
 // asMaps extracts a list of objects from an envelope: {key:[...]}, [...] or
@@ -395,6 +423,17 @@ func decodeCode(table map[int]string, m map[string]any, k string) string {
 // protectionIssues lists why a protection-status row needs attention; empty means healthy.
 func protectionIssues(m map[string]any) []string {
 	issues := make([]string, 0)
+	// Hand-fix (handfixes.json fanout-partial-data-exit): a row with none of
+	// the status fields is unknown, not healthy.
+	known := false
+	for _, k := range []string{"accumulated_protection_status", "isolation_state", "protection_engine_update_status", "license_status"} {
+		if _, ok := intField(m, k); ok {
+			known = true
+		}
+	}
+	if !known {
+		issues = append(issues, "protection status unknown (no status fields in the response)")
+	}
 	if n, ok := intField(m, "accumulated_protection_status"); ok && n != 1 {
 		issues = append(issues, "protection "+decodeCode(protectionCodes, m, "accumulated_protection_status"))
 	}
@@ -465,7 +504,10 @@ func fetchIncidents(ctx context.Context, c *client.Client, own, duration string,
 		if err != nil {
 			return all, false, err
 		}
-		batch := incidentRows(data)
+		batch, err := incidentRows(data)
+		if err != nil {
+			return all, false, err
+		}
 		all = append(all, batch...)
 		if len(batch) < 500 {
 			return all, false, nil
@@ -477,20 +519,26 @@ func fetchIncidents(ctx context.Context, c *client.Client, own, duration string,
 }
 
 // incidentRows reads {"items":[...]} and the grouped {"groups":{"<g>":[...]}} form the docs also show.
-func incidentRows(raw json.RawMessage) []map[string]any {
+func incidentRows(raw json.RawMessage) ([]map[string]any, error) {
 	rows := asMaps(raw, "items")
 	if len(rows) > 0 {
-		return rows
+		return rows, nil
 	}
 	var env struct {
+		Items  json.RawMessage             `json:"items"`
 		Groups map[string][]map[string]any `json:"groups"`
 	}
-	if json.Unmarshal(raw, &env) == nil {
-		for _, g := range sortedMapKeys(env.Groups) {
-			rows = append(rows, env.Groups[g]...)
+	if json.Unmarshal(raw, &env) != nil || (env.Items == nil && env.Groups == nil) {
+		var list []any
+		if json.Unmarshal(raw, &list) == nil {
+			return rows, nil
 		}
+		return nil, fmt.Errorf("unexpected response: no \"items\" or \"groups\" list")
 	}
-	return rows
+	for _, g := range sortedMapKeys(env.Groups) {
+		rows = append(rows, env.Groups[g]...)
+	}
+	return rows, nil
 }
 
 // expiryOf returns when a row expires: the allocation/license expiry date, or

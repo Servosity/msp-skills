@@ -5,8 +5,10 @@
 package cliutil
 
 import (
+	"encoding/base64"
 	"html"
 	"net/url"
+	"regexp"
 	"strings"
 	"unicode/utf16"
 	"unicode/utf8"
@@ -76,6 +78,9 @@ func decodedViews(text string) []string {
 		}
 		add(unescapeJS(v))
 		add(html.UnescapeString(v))
+		if d := decodeBase64Runs(v); d != "" {
+			add(d)
+		}
 		if u, err := url.QueryUnescape(v); err == nil {
 			add(u)
 		}
@@ -84,6 +89,30 @@ func decodedViews(text string) []string {
 		}
 	}
 	return views
+}
+
+var base64Run = regexp.MustCompile(`[A-Za-z0-9+/_-]{12,}={0,2}`)
+
+// decodeBase64Runs decodes every base64-looking run in s (standard or URL
+// alphabet, padded or not, starting at any of the 4 alignments so a run glued
+// to a preceding word still decodes) and joins the results, so a server that
+// echoes a submitted secret base64-encoded is caught. Hand-fix
+// (handfixes.json error-body-redacts-secrets): Codex review 2026-10-15 echoed
+// pvt_key back as base64 and it was printed.
+func decodeBase64Runs(s string) string {
+	var parts []string
+	for _, run := range base64Run.FindAllString(s, -1) {
+		run = strings.TrimRight(run, "=")
+		for off := 0; off < 4 && off < len(run); off++ {
+			r := run[off:]
+			for _, enc := range []*base64.Encoding{base64.RawStdEncoding, base64.RawURLEncoding} {
+				if d, err := enc.DecodeString(r); err == nil {
+					parts = append(parts, string(d))
+				}
+			}
+		}
+	}
+	return strings.Join(parts, "\n")
 }
 
 // decodeUTF16 reads s as UTF-16 code units so a non-ASCII secret echoed in

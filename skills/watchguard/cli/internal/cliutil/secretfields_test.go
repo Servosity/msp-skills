@@ -32,6 +32,9 @@ func TestSecretFieldDetection(t *testing.T) {
 	if !IsSecretBearingPath("/rest/endpoint-security/management/api/v1/accounts/ACC-1/installers/") {
 		t.Error("installers path not treated as secret-bearing")
 	}
+	if !IsSecretBearingPath("/rest/platform/allocation/v2/ACC-1/assets/summary/endPoint") {
+		t.Error("allocation path cached; its rows carry license keys")
+	}
 	if IsSecretBearingPath("/rest/endpoint-security/management/api/v1/accounts/ACC-1/devices") {
 		t.Error("devices path treated as secret-bearing")
 	}

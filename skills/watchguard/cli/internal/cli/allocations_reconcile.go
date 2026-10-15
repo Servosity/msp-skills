@@ -206,6 +206,10 @@ func newNovelAllocationsReconcileCmd(flags *rootFlags) *cobra.Command {
 			}
 			trunc("firebox unallocated summary", t2)
 			devData, errD := c.Get(ctx, "/rest/firebox/management/v1/info/"+url.PathEscape(own)+"/devices", map[string]string{"include_hierarchy": "true", "device_type": "FB"})
+			var devRows []map[string]any
+			if errD == nil {
+				devRows, errD = listRows(devData, "data")
+			}
 			if errD != nil {
 				fail("firebox devices", errD)
 			}
@@ -215,7 +219,7 @@ func newNovelAllocationsReconcileCmd(flags *rootFlags) *cobra.Command {
 			case t1 || t2:
 				view.Hardware.Skipped = "hardware matching skipped: an allocation list was cut short by --max-pages; raise it so every serial is matched"
 			default:
-				view.Hardware = reconcileHardware(allocated, unallocated, asMaps(devData, "data"), offlineAfter, now)
+				view.Hardware = reconcileHardware(allocated, unallocated, devRows, offlineAfter, now)
 			}
 			view.Expiring = append(view.Expiring, expiringWithin("firebox", allocated, window, now)...)
 

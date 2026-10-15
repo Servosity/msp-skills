@@ -24,7 +24,7 @@
     {
       "id": "secret-fields-never-persisted",
       "summary": "Secret-named JSON keys (any key containing password, passphrase, secret, psk, pvt_key, private key, pfx/pkcs12, api key, activation/license key or activation/verification code, any key ending in token, and otp/p12; case-insensitive; booleans and nulls exempt) are dropped at any depth before any row reaches the local store (generic blob, typed columns and FTS index, via the single mergeIncomingResourceData choke point), and an HTTP response that carries one is never written to the response cache. Endpoint Security installer responses (enrollment download links) are never cached and are stored as an empty object. Helper: internal/cliutil/secretfields.go.",
-      "why": "WatchGuard Firebox Management GETs return live secrets in ordinary rows: BOVPN tunnels carry psk/psk_encrypted, certificates carry pvt_key and password, networks carry PPPoE/Dynamic DNS passwords, Wi-Fi passphrases and DHCP auth tokens, users and content filtering carry passwords, and the activation API returns activationKey. Found at onboarding (2026-10-15) by scanning the spec's 2xx response schemas, then proven with a sentinel mock: a default `sync` plus list/get of each resource wrote every sentinel into data.db (typed psk column included) and 11 response-cache files. With the hooks: zero sentinels on disk while the rows still sync. internal/store/secret_fields_test.go fails (20 'secret persisted' findings) with the store hook reverted; internal/cliutil/secretfields_test.go covers the cache-side detection. A reprint regenerates store.go and client.go and silently drops both hooks while go build and go test stay green.",
+      "why": "WatchGuard Firebox Management GETs return live secrets in ordinary rows: BOVPN tunnels carry psk/psk_encrypted, certificates carry pvt_key and password, networks carry PPPoE/Dynamic DNS passwords, Wi-Fi passphrases and DHCP auth tokens, users and content filtering carry passwords, and the activation API returns activationKey. Found at onboarding (2026-10-15) by scanning the spec's 2xx response schemas, then proven with a sentinel mock: a default `sync` plus list/get of each resource wrote every sentinel into data.db (typed psk column included) and 11 response-cache files. With the hooks: zero sentinels on disk while the rows still sync. internal/store/secret_fields_test.go fails (20 'secret persisted' findings) with the store hook reverted; internal/cliutil/secretfields_test.go covers the cache-side detection. A reprint regenerates store.go and client.go and silently drops both hooks while go build and go test stay green. Codex review (2026-10-15): allocation responses carry software license keys in serialOrLicense (a field that also holds Firebox serials and distinguishes allocation rows, so it stays in the mirror, documented in governance.md); no license allocation response is cached any more.",
       "status": "active",
       "spec_encode_followup": "Needs a press feature: an x-secret / writeOnly-aware store projection that never persists credential fields; no spec extension expresses it today.",
       "asserts": [
@@ -61,6 +61,11 @@
         {
           "file": "cli/internal/cliutil/secretfields_test.go",
           "contains": "func TestSecretFieldDetection(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/secretfields.go",
+          "contains": "strings.Contains(p, \"/rest/platform/allocation/\")",
           "code_only": true
         }
       ]
@@ -478,7 +483,7 @@
     {
       "id": "error-body-redacts-secrets",
       "summary": "An API error body (or a 2xx HTML page summary) that echoes any secret the request carried - body secret fields, the API key, the bearer token - in any encoding is withheld instead of printed; otherwise secret-named fields are masked. New files: internal/client/watchguard_redact.go, internal/cliutil/secret_echo.go.",
-      "why": "Reproduced at onboarding: a 400 echoing the request printed a BOVPN pre-shared key four times. Ported from connectsecure. TestErrorBodyWithheldWhenItEchoesASecret, TestErrorBodyKeptWhenNothingEchoes, TestHTMLSuccessSummaryWithheldWhenItEchoes, TestEchoDetectedInEveryEncoderShape and TestEchoDetectedInUTF16 fail on revert.",
+      "why": "Reproduced at onboarding: a 400 echoing the request printed a BOVPN pre-shared key four times. Ported from connectsecure. TestErrorBodyWithheldWhenItEchoesASecret, TestErrorBodyKeptWhenNothingEchoes, TestHTMLSuccessSummaryWithheldWhenItEchoes, TestEchoDetectedInEveryEncoderShape and TestEchoDetectedInUTF16 fail on revert. Codex review (2026-10-15): a server echoing a submitted pvt_key base64-encoded was printed; base64-looking runs are now decoded at every alignment and checked (TestEchoDetectedInBase64 fails on revert).",
       "status": "active",
       "asserts": [
         {
@@ -494,6 +499,11 @@
         {
           "file": "cli/internal/cliutil/secret_echo.go",
           "contains": "func EchoesSecret(text string, secrets []string) bool {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/secret_echo.go",
+          "contains": "if d := decodeBase64Runs(v); d != \"\" {",
           "code_only": true
         }
       ]
@@ -527,7 +537,7 @@
     {
       "id": "redirect-refuses-cross-origin-body",
       "summary": "CheckRedirect refuses to replay a write body to another origin, refuses a cross-origin redirect of any non-GET/HEAD request, and turns a same-origin 301/302 on a write (which Go replays as a bodiless GET) into an error; 303 is still followed.",
-      "why": "Reproduced at onboarding: 307/308 replayed a pre-shared-key body cross-origin; 301/302/303 delivered a POST as a GET with no error. Ported from connectsecure. TestWriteBodyNotReplayedCrossOrigin, TestWriteNotDowngradedCrossOrigin, TestWriteNotDowngradedSameOrigin and TestWriteRedirectChainChecksTheLastHop fail on revert.",
+      "why": "Reproduced at onboarding: 307/308 replayed a pre-shared-key body cross-origin; 301/302/303 delivered a POST as a GET with no error. Ported from connectsecure. TestWriteBodyNotReplayedCrossOrigin, TestWriteNotDowngradedCrossOrigin, TestWriteNotDowngradedSameOrigin and TestWriteRedirectChainChecksTheLastHop fail on revert. Codex review (2026-10-15): a 307 from http://h to https://h replayed the write body and headers because redirectLeavesOrigin treats a same-host upgrade as the same origin; writes now require the exact origin (scheme, host, port). TestSameOriginIsStrict.",
       "status": "active",
       "asserts": [
         {
@@ -538,6 +548,11 @@
         {
           "file": "cli/internal/client/client.go",
           "contains": "if m := via[len(via)-1].Method; m != http.MethodGet && m != http.MethodHead {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "m != http.MethodGet && m != http.MethodHead && !sameOrigin(req.URL, via[0].URL) {",
           "code_only": true
         }
       ]
@@ -729,7 +744,7 @@
     {
       "id": "dry-run-side-effect-free",
       "summary": "--dry-run makes every command side-effect free: auth login / logout / set-token and feedback print what they would do; every store open is read-only (store.SetReadOnlyProcess); jobs prune, profile save and profile delete refuse --dry-run with a usage error; --dry-run cannot combine with export --output or --deliver webhook:; and a dry run leaves no learn-journal entry.",
-      "why": "Adversarial round 1: `auth login --dry-run` posted Basic AccessID:password and saved the token, `auth logout --dry-run` deleted credentials.toml, and `feedback --dry-run` POSTed to WATCHGUARD_FEEDBACK_ENDPOINT. TestDryRunIsSideEffectFreeEverywhere sweeps every command; TestDryRunHonoredAndRefusedCommands covers the refusals.",
+      "why": "Adversarial round 1: `auth login --dry-run` posted Basic AccessID:password and saved the token, `auth logout --dry-run` deleted credentials.toml, and `feedback --dry-run` POSTed to WATCHGUARD_FEEDBACK_ENDPOINT. TestDryRunIsSideEffectFreeEverywhere sweeps every command; TestDryRunHonoredAndRefusedCommands covers the refusals. Codex review (2026-10-15): `auth logout --dry-run --deliver file:<credentials.toml>` overwrote credentials with preview text; --dry-run now refuses every non-stdout --deliver sink.",
       "status": "active",
       "asserts": [
         {
@@ -750,6 +765,11 @@
         {
           "file": "cli/internal/cli/feedback.go",
           "contains": "if dryRunOK(flags) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dryrun_policy.go",
+          "contains": "return usageErr(fmt.Errorf(\"--dry-run cannot be combined with --deliver %s: a dry run writes no file\", flags.deliverSink.Scheme))",
           "code_only": true
         }
       ]
@@ -793,7 +813,7 @@
     {
       "id": "fanout-partial-data-exit",
       "summary": "Every fan-out (accounts health, endpoint-devices posture, endpoint-patches exposure, threatsync-incidents queue, allocations reconcile) reports a failed read as partial: exit 6 (5 when nothing could be read; --allow-partial-failure exits 0). accounts health shows a failed count as null with complete:false and sorts incomplete rows first; a product an account does not have counts as a failed read (WatchGuard documents no separate answer).",
-      "why": "Adversarial round 1: in accounts health an account whose Firebox and endpoint reads failed showed zeros, ranked last (healthiest) and exited 0, and an incidents or licenses lookup failure also exited 0 with counts shown as 0. TestAccountsHealthFailedReadsArePartial fails with the readVerdict call removed; TestReconcileAndQueueFailedLookupsArePartial covers the others.",
+      "why": "Adversarial round 1: in accounts health an account whose Firebox and endpoint reads failed showed zeros, ranked last (healthiest) and exited 0, and an incidents or licenses lookup failure also exited 0 with counts shown as 0. TestAccountsHealthFailedReadsArePartial fails with the readVerdict call removed; TestReconcileAndQueueFailedLookupsArePartial covers the others. Codex review (2026-10-15): a 2xx body without the expected collection ({\"unexpected\": ...}) counted as zero devices/endpoints/incidents with complete:true, and a protection row with no status fields counted as healthy; listRows / incidentRows now fail such reads and protectionIssues reports unknown status. TestMalformedListIsAFailedRead fails on revert.",
       "status": "active",
       "asserts": [
         {
@@ -809,6 +829,21 @@
         {
           "file": "cli/internal/cli/accounts_health.go",
           "contains": "FireboxesTotal   *int           `json:\"fireboxes_total\"`",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/watchguard_fanout.go",
+          "contains": "func listRows(raw json.RawMessage, key string) ([]map[string]any, error) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/watchguard_fanout.go",
+          "contains": "issues = append(issues, \"protection status unknown (no status fields in the response)\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/malformed_reads_test.go",
+          "contains": "func TestMalformedListIsAFailedRead(",
           "code_only": true
         }
       ]
@@ -891,6 +926,19 @@
         {
           "file": "cli/internal/cli/promoted_firebox-devices.go",
           "not_contains": "--select data.id"
+        }
+      ]
+    },
+    {
+      "id": "accounts-delete-example",
+      "summary": "The generated accounts delete Example passes --account-id and --dry-run instead of the bare `watchguard-cli accounts delete`.",
+      "why": "The bare example targets --account-id's default, the caller's own WATCHGUARD_ACCOUNT_ID, and WatchGuard's DELETE /accounts/{accountId}?force=true deletes the account and every account it manages; agents copy --help examples. Found by adversarial review round 3 (2026-10-15).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/accounts_delete.go",
+          "contains": "Example:     \"  watchguard-cli accounts delete --account-id ACC-1234567 --dry-run\",",
+          "code_only": true
         }
       ]
     }

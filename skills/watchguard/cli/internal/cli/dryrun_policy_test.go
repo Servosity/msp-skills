@@ -51,6 +51,7 @@ func TestDryRunHonoredAndRefusedCommands(t *testing.T) {
 		{"profile", "delete", "p1", "--yes"},
 		{"export", "activations", "--output", filepath.Join(home, "out.jsonl")},
 		{"firebox-aliases", "list", "--deliver", "webhook:" + os.Getenv("WATCHGUARD_BASE_URL") + "/hook"},
+		{"auth", "logout", "--deliver", "file:" + filepath.Join(home, "data", "credentials.toml")},
 	} {
 		_, err := runAuthCmd(t, "", append(args, "--dry-run", "--json")...)
 		if code := ExitCode(err); code != 2 {

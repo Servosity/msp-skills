@@ -18,7 +18,7 @@ func newAccountsDeleteCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "delete",
 		Short:       "Deletes the specified account.",
-		Example:     "  watchguard-cli accounts delete",
+		Example:     "  watchguard-cli accounts delete --account-id ACC-1234567 --dry-run",
 		Args:        cobra.NoArgs,
 		Annotations: map[string]string{"pp:endpoint": "accounts.delete", "pp:method": "DELETE", "pp:path": "/rest/platform/accounts/v2/accounts/{accountId}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
