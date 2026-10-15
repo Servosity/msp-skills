@@ -264,7 +264,7 @@ func collectVerifyHealth(ctx context.Context, t fleetTarget, onlyStore string, n
 				continue
 			}
 			read++
-			for _, g := range groupVerify(t, store, ns, snaps, outdatedDays, now) {
+			for _, g := range groupVerify(t, store, ns, snaps, outdatedDays, jobsOK, now) {
 				sr.Groups++
 				sr.FailedSnapshots += g.Failed
 				sr.NeverVerified += g.NeverVerified
@@ -286,7 +286,7 @@ func collectVerifyHealth(ctx context.Context, t fleetTarget, onlyStore string, n
 // groupVerify aggregates snapshots per backup group. A verified-ok snapshot is
 // outdated when its verification (start time encoded in the verify UPID) is
 // older than the reaching verify job's outdated-after days.
-func groupVerify(t fleetTarget, store, ns string, snaps []pbsSnapshot, outdatedDays int64, now time.Time) []verifyGroupRow {
+func groupVerify(t fleetTarget, store, ns string, snaps []pbsSnapshot, outdatedDays int64, jobsKnown bool, now time.Time) []verifyGroupRow {
 	byGroup := map[string]*verifyGroupRow{}
 	newest := map[string]int64{}
 	newestState := map[string]string{}
@@ -338,6 +338,10 @@ func groupVerify(t fleetTarget, store, ns string, snaps []pbsSnapshot, outdatedD
 			g.Status = "unverified"
 		case g.Outdated > 0:
 			g.Status = "outdated" // verified, but longer ago than the verify job's outdated-after
+		case !jobsKnown:
+			// The verify-job list was unreadable, so no outdated-after applies and
+			// a verification of any age would pass: that is unproven, not ok.
+			g.Status = "verify-age-unknown"
 		default:
 			g.Status = "ok"
 		}

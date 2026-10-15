@@ -240,8 +240,8 @@
   },
   {
    "id": "doctor-names-the-fix",
-   "summary": "doctor emits a negative credentials row when the client cannot be built, classifies a 404 at the health path as a wrong base URL, and names PROXMOX_HOST / PROXMOX_BASE_URL in the placeholder verdict",
-   "why": "check_doctor_truth (issue #282) failed proxmox in all four states: no credentials row on a client-init error, 'reachable (HTTP 404 at /)' against a host where the API path does not exist, and a placeholder verdict that never named the variable to set. Mirrors the doctor_verdict.go behaviour the fleet carries, applied as three narrow edits to the press 4.33.5 doctor.go, which already ships the placeholder check and client.ProbeGet.",
+   "summary": "doctor emits a negative credentials row when the client cannot be built, classifies a 404 at the health path as a wrong base URL, and names PROXMOX_HOST / PROXMOX_BASE_URL in the placeholder verdict, and reads the health path with GetWithHeadersNoCache",
+   "why": "check_doctor_truth (issue #282) failed proxmox in all four states: no credentials row on a client-init error, 'reachable (HTTP 404 at /)' against a host where the API path does not exist, and a placeholder verdict that never named the variable to set. Mirrors the doctor_verdict.go behaviour the fleet carries, applied as three narrow edits to the press 4.33.5 doctor.go, which already ships the placeholder check and client.ProbeGet. The health probe also went through the generated 5-minute GET cache, so doctor could report a host reachable from a cached answer after it went down.",
    "status": "active",
    "asserts": [
     {
@@ -255,6 +255,42 @@
     {
      "file": "cli/internal/cli/doctor.go",
      "contains": "not configured (base_url is a placeholder): set PROXMOX_HOST or PROXMOX_BASE_URL"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "c.GetWithHeadersNoCache(cmd.Context(), healthPath"
+    }
+   ]
+  },
+  {
+   "id": "mcp-filesystem-destination-gate",
+   "summary": "The MCP shell-out layer also refuses the local-file READ flags (--home, --input, --notes-file, --playbook-file, --playbook-notes-file), and a tree test fails the build when any shell-out tool forwards a flag whose usage text names a filesystem path",
+   "why": "Press 4.33.5 ships blockedDestinationFlags for write destinations (--db, --output and friends) but not for read sources. Forwarded, --playbook-file or --input let one MCP tool call load any file the server account can reach (credentials.toml included) into the local store, where playbook_list and sql hand it back. isFilesystemPathFlag classifies by USAGE TEXT, not flag name, so generated vendor body fields named like paths stay forwarded. Proven both directions: removing home and playbook-file from the map makes TestNoShellOutToolCanDirectAFilesystemPath fail naming them; restored, it passes. Same gate as skills/acronis and the rest of the fleet.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "\"playbook-file\":       true,"
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "\"home\":                true,"
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "func isFilesystemPathFlag(flag *pflag.Flag) bool {"
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "func UnblockedFilesystemPathFlags(root *cobra.Command) []string {"
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "strings.Contains(k, \"=\")"
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/filesystem_tree_test.go",
+     "contains": "func TestNoShellOutToolCanDirectAFilesystemPath("
     }
    ]
   }

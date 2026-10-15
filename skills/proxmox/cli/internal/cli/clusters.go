@@ -57,7 +57,7 @@ var (
 func init() {
 	registerNovelCommand(func(root *cobra.Command, flags *rootFlags) {
 		if root.PersistentFlags().Lookup("cluster") == nil {
-			root.PersistentFlags().StringVar(&selectedCluster, "cluster", os.Getenv("PROXMOX_CLUSTER"),
+			root.PersistentFlags().StringVar(&selectedCluster, "cluster", cliutil.EnvOverride("PROXMOX_CLUSTER"),
 				"Target the named cluster from clusters.toml (env: PROXMOX_CLUSTER)")
 		}
 		addNovelCommandIfAbsent(root, newClustersCmd(flags))
@@ -84,7 +84,7 @@ func init() {
 }
 
 func clustersPath() (string, error) {
-	if p := strings.TrimSpace(os.Getenv("PROXMOX_CLUSTERS_FILE")); p != "" {
+	if p := strings.TrimSpace(cliutil.EnvOverride("PROXMOX_CLUSTERS_FILE")); p != "" {
 		return p, nil
 	}
 	dir, err := cliutil.ConfigDir()
@@ -255,7 +255,9 @@ func envValue(name string) string {
 	if name == "" {
 		return ""
 	}
-	return strings.TrimSpace(os.Getenv(name))
+	// EnvOverride: an unfilled .mcpb prompt arrives as the literal
+	// ${user_config.x}; that is unset, not a token.
+	return strings.TrimSpace(cliutil.EnvOverride(name))
 }
 
 // newClusterClient builds a client for one cluster without consulting
