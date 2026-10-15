@@ -34,6 +34,9 @@ type capacityRow struct {
 	GCPendingBytes  int64    `json:"gc_pending_bytes,omitempty"`
 	PruneJobs       int      `json:"prune_jobs"`
 	Flags           []string `json:"flags"`
+	// Attribution is "shared: <clusters>" on a PBS datastore row when another
+	// configured cluster also uses that PBS: tenant is then empty.
+	Attribution string `json:"attribution,omitempty"`
 }
 
 type capacityReport struct {
@@ -80,6 +83,7 @@ func newNovelCapacityCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			markSharedPBS(ctx, flags, targets)
 			now := time.Now()
 			type result struct {
 				rows  []capacityRow
@@ -157,6 +161,32 @@ func collectCapacity(ctx context.Context, t fleetTarget, now time.Time, margin f
 			fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "backup jobs", Error: err.Error()})
 		}
 	}
+	// A job with no storage of its own writes to its node's vzdump default.
+	targets := &jobTargets{ctx: ctx, c: t.C, jobs: map[string]backupJob{}, defaults: map[string]string{}}
+	for _, j := range jobs {
+		targets.jobs[j.ID] = j
+	}
+	var allNodes []string
+	nodesRead := false
+	jobWrites := func(j backupJob, storage string) bool {
+		if j.Storage != "" || j.Dumpdir != "" {
+			return j.Storage == storage
+		}
+		if !nodesRead {
+			allNodes, _, _ = fetchNodes(ctx, t.C)
+			nodesRead = true
+		}
+		jobNodes := allNodes
+		if j.Node != "" {
+			jobNodes = []string{j.Node}
+		}
+		for _, n := range jobNodes {
+			if targets.target(j.ID, n) == storage {
+				return true
+			}
+		}
+		return false
+	}
 	pbsHost := t.pbsEndpoint()
 	pbsRowFor := map[string]bool{} // datastores that got an authoritative PBS row
 	if t.C.PBSConfigured() {
@@ -202,7 +232,7 @@ func collectCapacity(ctx context.Context, t fleetTarget, now time.Time, margin f
 				fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "pbs " + u.Store, Error: "PBS returned no usage for this datastore (unmeasured, or the token lacks Datastore.Audit on it); its capacity is unknown"})
 				continue
 			}
-			row := capacityRow{Tenant: t.Tenant, Cluster: t.Name, Kind: "pbs-datastore", Name: u.Store,
+			row := capacityRow{Tenant: shareTenant(t), Attribution: pbsAttributionLabel(t), Cluster: t.Name, Kind: "pbs-datastore", Name: u.Store,
 				TotalBytes: int64(u.Total), UsedBytes: int64(u.Used), AvailBytes: int64(u.Avail), Flags: []string{}}
 			row.UsedPct = pct(row.UsedBytes, row.TotalBytes)
 			// PBS dates an estimate in the past when usage is flat or falling, so a
@@ -245,7 +275,7 @@ func collectCapacity(ctx context.Context, t fleetTarget, now time.Time, margin f
 			// Retention can live in a PBS prune job, the datastore's keep-* options,
 			// or PVE (the storage's or backup job's prune-backups). Flag only when
 			// none exists and every retention source was actually read.
-			if pruneOK && pveRetentionKnown && row.PruneJobs == 0 && !pveRetentionFor(u.Store, pbsHost, refs, jobs) && !datastoreHasRetention(ctx, t, u.Store, &fails) {
+			if pruneOK && pveRetentionKnown && row.PruneJobs == 0 && !pveRetentionFor(u.Store, pbsHost, refs, jobs, jobWrites) && !datastoreHasRetention(ctx, t, u.Store, &fails) {
 				row.Flags = append(row.Flags, "unpruned")
 			}
 			pbsRowFor[u.Store] = true
@@ -286,10 +316,6 @@ func collectCapacity(ctx context.Context, t fleetTarget, now time.Time, margin f
 	}
 	// Every enabled job's target, including one inherited from the node's
 	// vzdump defaults: a target that cannot be measured is unknown capacity.
-	targets := &jobTargets{ctx: ctx, c: t.C, jobs: map[string]backupJob{}, defaults: map[string]string{}}
-	for _, j := range jobs {
-		targets.jobs[j.ID] = j
-	}
 	unmeasured := map[string]string{}
 	for _, j := range jobs {
 		if !j.enabled() {
@@ -388,7 +414,7 @@ func sortCapacity(rows []capacityRow) {
 
 // pveRetentionFor reports whether PVE prunes backups on a storage that points
 // at datastore store on this PBS host (storage or backup-job prune-backups).
-func pveRetentionFor(store, pbsHost string, refs map[string]pbsStorageRef, jobs []backupJob) bool {
+func pveRetentionFor(store, pbsHost string, refs map[string]pbsStorageRef, jobs []backupJob, writes func(backupJob, string) bool) bool {
 	for id, ref := range refs {
 		if ref.datastore != store || !strings.EqualFold(ref.server, pbsHost) {
 			continue
@@ -398,7 +424,7 @@ func pveRetentionFor(store, pbsHost string, refs map[string]pbsStorageRef, jobs 
 		// is pruned when some enabled job's effective retention removes
 		// anything. With no enabled job writing there, nothing prunes it.
 		for _, j := range jobs {
-			if !j.enabled() || j.Storage != id {
+			if !j.enabled() || !writes(j, id) {
 				continue
 			}
 			eff := pruneSpec(j.PruneBackups)
@@ -455,4 +481,22 @@ func truthy(v any) bool {
 		return true
 	}
 	return false
+}
+
+// pbsAttributionLabel is "shared: <clusters>" when another configured cluster
+// also uses this target's PBS (see pbsServiceSharers), else "".
+func pbsAttributionLabel(t fleetTarget) string {
+	if sharers := t.pbsServiceSharers(); len(sharers) > 0 {
+		return "shared: " + strings.Join(sharers, ", ")
+	}
+	return ""
+}
+
+// shareTenant credits a PBS-wide row to this target's tenant only when no
+// other configured cluster uses that PBS.
+func shareTenant(t fleetTarget) string {
+	if pbsAttributionLabel(t) != "" {
+		return ""
+	}
+	return t.Tenant
 }

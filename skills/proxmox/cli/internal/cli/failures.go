@@ -37,6 +37,7 @@ type failureRow struct {
 	// configured cluster also writes to: a PBS task names no PVE cluster, so it
 	// belongs to no single client and tenant is left empty.
 	Attribution string `json:"attribution,omitempty"`
+	pbsService  string // canonical PBS service identity (see pbsServices), for dedupe
 }
 
 type failuresReport struct {
@@ -129,13 +130,15 @@ func newNovelFailuresCmd(flags *rootFlags) *cobra.Command {
 			seenPBS := map[string]bool{}
 			for _, r := range results {
 				for _, row := range r.Value.rows {
-					// A UPID names its PBS node, PID, process start and start time, so
-					// two profiles reading one PBS (however spelled) list it once.
+					// One task read by two profiles of the same PBS endpoint is one
+					// row; two PBS servers (a clone keeps the node name) can mint the
+					// same UPID, so the endpoint is part of the key.
 					if row.Product == "pbs" {
-						if seenPBS[row.UPID] {
+						key := row.pbsService + "\x00" + row.UPID
+						if seenPBS[key] {
 							continue
 						}
-						seenPBS[row.UPID] = true
+						seenPBS[key] = true
 					}
 					rep.Rows = append(rep.Rows, row)
 				}
@@ -352,7 +355,7 @@ func collectFailures(ctx context.Context, t fleetTarget, since time.Time, want m
 			}
 			r := failureRow{Tenant: tenant, Cluster: t.Name, Product: "pbs", Type: kind, Target: task.target(), Result: "failed",
 				Reason: task.Status, UPID: task.UPID, Node: "localhost", StartedAt: unixRFC3339(int64(task.StartTime)), EndedAt: unixRFC3339(int64(task.EndTime)),
-				Attribution: attribution}
+				Attribution: attribution, pbsService: t.pbsServiceID()}
 			if tail > 0 && logs < maxLogs {
 				logs++
 				if lines, err := fetchTaskLog(ctx, t.C, true, "localhost", task.UPID); err == nil {
@@ -364,7 +367,7 @@ func collectFailures(ctx context.Context, t fleetTarget, since time.Time, want m
 			rows = append(rows, r)
 		}
 	}
-	if wantPBS && pveErr == nil {
+	if wantPBS && pveErr == nil && strings.TrimSpace(t.C.BaseURL) != "" { // a PBS-only profile has no PVE storages
 		fails = append(fails, uncheckedPBS(ctx, t)...)
 	}
 	pbsAnswered := wantPBS && t.C.PBSConfigured() && pbsErr == nil
