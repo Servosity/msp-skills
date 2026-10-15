@@ -1512,6 +1512,12 @@ func pbsNamespacesForCluster(ctx context.Context, t fleetTarget) (out map[string
 			}
 		}
 	}
+	for _, d := range sortedKeys(own) {
+		if !slices.Contains(stores, d) {
+			notes = append(notes, fetchFailure{Cluster: t.Name, Scope: "pbs " + d, Error: fmt.Sprintf(
+				"datastore %s, which this cluster's storages write to, is not in the datastore list the PBS token sees (it lists only datastores the token may audit), so it was not read", d)})
+		}
+	}
 	for _, store := range stores {
 		nss, lerr := pbsNamespaces(ctx, t.C, store)
 		if lerr == nil && (ns == "" || own == nil || own[store]) {

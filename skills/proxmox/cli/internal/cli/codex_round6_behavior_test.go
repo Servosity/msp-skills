@@ -182,4 +182,8 @@ func TestUnlistedDatastoreIsUnreadEvidence(t *testing.T) {
 			t.Errorf("restore-points claims full evidence with datastore main unlisted:\n%s", out)
 		}
 	}
+	out, _, _ = runCLI(t, "verify-health", "--json")
+	if rep := decodeJSON[verifyReport](t, out); len(rep.FetchFailures) == 0 || len(rep.Stores) > 0 {
+		t.Errorf("verify-health must say datastore main was not read:\n%s", out)
+	}
 }
