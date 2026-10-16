@@ -324,7 +324,7 @@
   {
    "id": "root-help-highlights-accurate",
    "summary": "The root --help highlights and the which index say capacity forecasts only PBS datastores, restore-points claims no prune prediction, and restore-points exit 5 also means no readable point while a source was unread",
-   "why": "The press copies the research novel-feature descriptions into root.go. Two overclaimed: capacity has no forecast for PVE storage (only PBS computes estimated-full-date), and pruneMarks runs only on PVE storage listings, so PBS-API points carry no prune mark. Round-2 adversarial review (2026-10-15) flagged both as claims the binary does not deliver. which.go carries the same novel-feature text (plus the restore-points exit-code note) and drifted the same way; adversarial round 5 caught the exit-5 contradiction against restore-points --help. Codex round 22 and adversarial round 12 (2026-10-15) found the prune prediction itself unsound (vzdump backs up before it prunes, per-node storages across migrations, storage aliases of one PBS datastore), so restore-points stopped predicting prunes and every description of it (root.go, which.go, the MCP insight in tools.go) drops the claim. Codex round 23 found capacity's unpruned flag a retention-absence claim built on one cluster's jobs, so capacity stopped asserting it and every description drops 'prune state'.",
+   "why": "The press copies the research novel-feature descriptions into root.go. Two overclaimed: capacity has no forecast for PVE storage (only PBS computes estimated-full-date), and pruneMarks runs only on PVE storage listings, so PBS-API points carry no prune mark. Round-2 adversarial review (2026-10-15) flagged both as claims the binary does not deliver. which.go carries the same novel-feature text (plus the restore-points exit-code note) and drifted the same way; adversarial round 5 caught the exit-5 contradiction against restore-points --help. Codex round 22 and adversarial round 12 (2026-10-15) found the prune prediction itself unsound (vzdump backs up before it prunes, per-node storages across migrations, storage aliases of one PBS datastore), so restore-points stopped predicting prunes and every description of it (root.go, which.go, the MCP insight in tools.go) drops the claim. Codex round 23 found capacity's unpruned flag a retention-absence claim built on one cluster's jobs, so capacity stopped asserting it and every description drops 'prune state'. The merge-gate Codex review (2026-10-16) found the MCP command-mirror description in tools.go still carried the PVE forecast overclaim.",
    "status": "active",
    "asserts": [
     {
@@ -374,6 +374,14 @@
     {
      "file": "cli/internal/mcp/tools.go",
      "not_contains": "GC and prune job state"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "PBS datastores ranked by days until full, plus every PVE backup storage by percent used (only PBS forecasts)"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "Every PBS datastore and PVE backup storage ranked by days until full"
     }
    ]
   },
@@ -444,7 +452,7 @@
   {
    "id": "per-cluster-store",
    "summary": "configureDefaultDBScope keys the local store by the selected clusters.toml entry (--cluster / PROXMOX_CLUSTER), so each client cluster has its own data.db",
-   "why": "The generated store scope comes from the env/config credential, fixed before the selected cluster's token is applied, so every --cluster wrote into one store: colliding VMIDs overwrote another client's rows, and an unreachable cluster's read fell back to another client's data labelled source=local. Found by adversarial round 7; TestLocalStoreIsPerCluster pins it.",
+   "why": "The generated store scope comes from the env/config credential, fixed before the selected cluster's token is applied, so every --cluster wrote into one store: colliding VMIDs overwrote another client's rows, and an unreachable cluster's read fell back to another client's data labelled source=local. Found by adversarial round 7; TestLocalStoreIsPerCluster pins it. The merge-gate Codex review (2026-10-16) found the name alone shared one store across two clusters files (or a clusters add --force replacement) that reuse a name for another client; the key now carries the clusters file path and the entry's endpoints. TestReusedClusterNameGetsItsOwnStore pins it.",
    "status": "active",
    "asserts": [
     {
@@ -455,6 +463,11 @@
     {
      "file": "cli/internal/cli/clusters.go",
      "contains": "func clusterStoreScope() string {"
+    },
+    {
+     "file": "cli/internal/cli/clusters.go",
+     "contains": "return strings.Join([]string{\"proxmox-cluster\", name, path, cl.Client, cl.PVEHost, cl.PVEBaseURL, cl.PBSHost, cl.PBSNamespace}, \"\\x00\")",
+     "code_only": true
     }
    ]
   },
@@ -649,6 +662,20 @@
     {
      "file": "cli/internal/cli/adversarial_round24_test.go",
      "contains": "func TestMirrorAnswerWarnsInEveryForm("
+    }
+   ]
+  },
+  {
+   "id": "profile-store-scope",
+   "summary": "PersistentPreRunE re-scopes the local store after a saved run profile is applied, so a profile's saved --cluster or --config gets that tenant's store",
+   "why": "The generated pre-run scopes the store before ApplyProfileToFlags, so two profiles saved with different --cluster values reached different tenants but both read and wrote the default store: rows could overwrite each other and answer for another tenant. Found by the merge-gate Codex review (2026-10-16); TestSavedProfileClusterGetsItsOwnStore pins it.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "configureDefaultDBScope(flags.configPath)",
+     "min_count": 2,
+     "code_only": true
     }
    ]
   }

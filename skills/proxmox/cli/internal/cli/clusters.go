@@ -96,11 +96,24 @@ func init() {
 // VMIDs collide across clusters, so one shared store would overwrite one
 // client's rows with another's and answer for an unreachable cluster with
 // another client's data.
+//
+// A name is not an identity: another clusters file, or `clusters add --force`,
+// can reuse it for a different client. The key also carries the file and the
+// entry's endpoints, so another tenant's entry never opens this store.
 func clusterStoreScope() string {
-	if name := strings.TrimSpace(selectedCluster); name != "" {
-		return "proxmox-cluster:" + name
+	name := strings.TrimSpace(selectedCluster)
+	if name == "" {
+		return ""
 	}
-	return ""
+	path, _ := clustersPath()
+	if abs, err := filepath.Abs(path); err == nil {
+		path = abs
+	}
+	cl, err := clusterByName(name)
+	if err != nil {
+		return strings.Join([]string{"proxmox-cluster", name, path, "unresolved"}, "\x00")
+	}
+	return strings.Join([]string{"proxmox-cluster", name, path, cl.Client, cl.PVEHost, cl.PVEBaseURL, cl.PBSHost, cl.PBSNamespace}, "\x00")
 }
 
 func clustersPath() (string, error) {

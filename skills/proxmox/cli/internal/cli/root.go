@@ -388,6 +388,10 @@ See README.md or the bundled SKILL.md for recipes.`,
 				return err
 			}
 			appliedProfile = profile
+			// proxmox hand-fix (profile-store-scope): a saved profile can set
+			// --cluster or --config after the store was scoped; re-scope so the
+			// profile's tenant never uses the default store.
+			configureDefaultDBScope(flags.configPath)
 		}
 		// A saved profile can set dry-run after flag parse. Suppression has to
 		// see that value before any store path is resolved.
