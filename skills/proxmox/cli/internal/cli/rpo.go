@@ -360,7 +360,14 @@ func collectRPO(ctx context.Context, t fleetTarget, start, now time.Time, onlyVM
 		}
 		runs = slices.DeleteFunc(runs, func(r int64) bool { return r < birth.at })
 		mine, unreadable := splitUnreadable(mine)
-		row := evaluateRPO(mine, runs, start, now)
+		// A VM created inside the window: its window starts at creation, so a
+		// first restore point at creation is no sign that retention pruned runs.
+		from := start
+		if birth.at > start.Unix() {
+			from = time.Unix(birth.at, 0)
+		}
+		row := evaluateRPO(mine, runs, from, now)
+		row.WindowStart = start.UTC().Format(time.RFC3339)
 		if birth.at > start.Unix() && row.ScheduledRuns == 0 && !row.WindowCapped {
 			// Created inside the window: no wider window judges runs from before then.
 			row.Note = strings.TrimSpace(strings.TrimSuffix(strings.Replace(row.Note, rpoNoJudgedRunNote, "", 1), "; ") + "; the VM was created " + unixRFC3339(birth.at) + ", inside the window, and no scheduled run since then can be judged yet")
@@ -537,6 +544,10 @@ func evaluateRPO(points []restorePoint, runs []int64, start, now time.Time) rpoR
 		// Real backups with unjudgeable dates may be the missed runs: unproven,
 		// like a point on unread storage. With no miss they can only add cover.
 		row.Note = fmt.Sprintf("%d restore point(s) dated in the future (a node clock ran ahead) were not counted; the missed runs may be among them, so they are unproven", future)
+		row.PointsUnread = true
+	case future > 0 && len(points) == 0:
+		// It has backups, none with a judgeable date: not "no restore points".
+		row.Note = fmt.Sprintf("its only %d restore point(s) are dated in the future (a node clock ran ahead) and were not counted", future)
 		row.PointsUnread = true
 	case len(points) == 0 && future == 0 && row.ScheduledRuns > 0:
 		row.Note = rpoNoPointsNote + "; every scheduled run in the window is missed"

@@ -240,7 +240,7 @@ This CLI separates local files into four path kinds:
 | `config` | User-editable settings such as `config.toml` and saved profiles |
 | `data` | Durable local data: `credentials.toml`, `data.db`, and other auth sidecars |
 | `state` | Runtime state such as persisted queries, jobs, and `teach.log` |
-| `cache` | Regenerable HTTP/cache files |
+| `cache` | Reserved for regenerable files (this CLI keeps no HTTP response cache) |
 
 Each kind resolves independently. The ladder is:
 
