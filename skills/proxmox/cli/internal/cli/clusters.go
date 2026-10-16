@@ -192,7 +192,7 @@ func (cl clusterProfile) validate(name string) error {
 	for field, v := range map[string]string{"pve_host": cl.PVEHost, "pbs_host": cl.PBSHost, "pve_base_url": cl.PVEBaseURL, "pbs_namespace": cl.PBSNamespace} {
 		if config.TokenShaped(v) {
 			// Never echo or use it: a host holding '!' or '=' is a pasted API token.
-			return fmt.Errorf("cluster %q: %s looks like an API token (it holds '!' or '='), so it is not shown and not used: put the token in the environment and its variable NAME in pve_token_env/pbs_token_env", name, field)
+			return fmt.Errorf("cluster %q: %s looks like an API token (it holds '!' or '=', or is a bare UUID), so it is not shown and not used: put the token in the environment and its variable NAME in pve_token_env/pbs_token_env", name, field)
 		}
 	}
 	if cl.PVEBaseURL != "" {
