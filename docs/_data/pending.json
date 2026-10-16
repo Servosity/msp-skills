@@ -184,7 +184,7 @@
   "datto-bcdr": {
     "state": "binary-pending",
     "version": "0.1.7",
-    "latest_tag": "datto-bcdr-v0.1.7",
+    "latest_tag": "datto-bcdr-v0.1.8",
     "current_hash": "sha256:8d5c3d97f1f9ee15d14cd826892c03005ce180ce7bd4c420597353727e8c9533",
     "released_hash": "sha256:f01fc45b847a1d25a899e897929b4c16a4cb50ae8e1cf35f87769fd43acd7eab"
   },
