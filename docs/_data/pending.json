@@ -296,7 +296,7 @@
   "liongard": {
     "state": "binary-pending",
     "version": "0.1.3",
-    "latest_tag": "liongard-v0.1.3",
+    "latest_tag": "liongard-v0.1.4",
     "current_hash": "sha256:5764c0cc85b0839de209b2fb3175c52019cb67e3427bb9594aefe9308c79623b",
     "released_hash": "sha256:d6c164127d0f3c1069f1647f766f79c9d9ce731bdb19301c2f3294be269cd0a0"
   },
