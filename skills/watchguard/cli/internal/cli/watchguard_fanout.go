@@ -369,21 +369,58 @@ func asMaps(raw json.RawMessage, key string) []map[string]any {
 	return out
 }
 
+// asMapsStrict is asMaps that fails instead of silently dropping a value it
+// cannot read as a row: a null or scalar under a {key: ...} wrapper or in a
+// list, at any depth. Hand-fix (handfixes.json:
+// fanout-malformed-collection-is-failed-read).
+func asMapsStrict(raw json.RawMessage, key string) ([]map[string]any, error) {
+	var v any
+	if json.Unmarshal(raw, &v) != nil {
+		return nil, fmt.Errorf("unexpected response: not JSON")
+	}
+	out := make([]map[string]any, 0)
+	var visit func(any) error
+	visit = func(x any) error {
+		switch t := x.(type) {
+		case []any:
+			for _, e := range t {
+				if err := visit(e); err != nil {
+					return err
+				}
+			}
+			return nil
+		case map[string]any:
+			if inner, ok := t[key]; ok && len(t) <= 2 {
+				return visit(inner)
+			}
+			out = append(out, t)
+			return nil
+		}
+		return fmt.Errorf("unexpected response: a %q row is not an object", key)
+	}
+	var err error
+	switch t := v.(type) {
+	case []any:
+		err = visit(t)
+	case map[string]any:
+		if inner, ok := t[key]; ok {
+			err = visit(inner)
+		}
+	}
+	return out, err
+}
+
 // firstObject reads a single-record response that may be a bare object or a
 // one-element list (the transaction GET is documented both ways).
 func firstObject(raw json.RawMessage, key string) map[string]any {
 	// Hand-fix (handfixes.json: fanout-malformed-collection-is-failed-read):
-	// a malformed wrapper row is never skipped to reach the row after it.
-	var v any
-	if json.Unmarshal(raw, &v) == nil {
-		if m, ok := v.(map[string]any); ok {
-			v = m[key]
-		}
-		if list, ok := v.([]any); ok && wrappedRowsErr(list, key) != nil {
-			return nil
-		}
+	// a malformed row, at any wrapper depth, is never skipped to reach the
+	// row after it.
+	rows, err := asMapsStrict(raw, key)
+	if err != nil {
+		return nil
 	}
-	if rows := asMaps(raw, key); len(rows) > 0 && len(rows[0]) > 0 {
+	if len(rows) > 0 && len(rows[0]) > 0 {
 		return rows[0]
 	}
 	var m map[string]any

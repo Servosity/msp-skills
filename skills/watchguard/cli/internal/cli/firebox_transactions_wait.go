@@ -5,6 +5,7 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
@@ -69,11 +70,43 @@ func getTransaction(ctx context.Context, c *client.Client, own, id string) (map[
 	if err != nil {
 		return nil, err
 	}
+	// Hand-fix (handfixes.json: fanout-malformed-collection-is-failed-read):
+	// a malformed body is a failed read (exit 5), never "not found" and never
+	// another transaction; a list answer must name the one asked for.
+	rows, serr := asMapsStrict(data, "data")
+	if serr != nil {
+		return nil, apiErr(fmt.Errorf("reading transaction %s: %w", id, serr))
+	}
 	tx := firstObject(data, "data")
+	if len(rows) > 1 {
+		tx = nil
+		for _, r := range rows {
+			if strField(r, "id") == id {
+				tx = r
+			}
+		}
+		if tx == nil {
+			return nil, apiErr(fmt.Errorf("reading transaction %s: the response listed %d transactions, none with that id", id, len(rows)))
+		}
+	}
 	if tx == nil || (strField(tx, "id") == "" && strField(tx, "status") == "") {
 		return nil, notFoundErr(fmt.Errorf("transaction %s not found", id))
 	}
 	return tx, nil
+}
+
+// transactionRows reads the transaction list in each documented shape: a bare
+// array (the OpenAPI spec), {"count","more","objects":[...]} (the API docs) or
+// a {"data":[...]} envelope. Hand-fix (handfixes.json:
+// transactions-list-objects-envelope).
+func transactionRows(raw json.RawMessage) ([]map[string]any, error) {
+	var m map[string]json.RawMessage
+	if json.Unmarshal(raw, &m) == nil {
+		if _, ok := m["objects"]; ok {
+			return listRows(raw, "objects")
+		}
+	}
+	return listRows(raw, "data")
 }
 
 func newNovelFireboxTransactionsWaitCmd(flags *rootFlags) *cobra.Command {
@@ -138,7 +171,7 @@ func newNovelFireboxTransactionsWaitCmd(flags *rootFlags) *cobra.Command {
 				}
 				// Hand-fix (handfixes.json: fanout-malformed-collection-is-failed-read):
 				// a malformed row must not hand the wait an older, finished transaction.
-				rows, lerr := listRows(data, "data")
+				rows, lerr := transactionRows(data)
 				if lerr != nil {
 					return apiErr(fmt.Errorf("listing deployment transactions for device %s: %w", device, lerr))
 				}

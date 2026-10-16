@@ -257,7 +257,7 @@ watchguard-cli doctor
 On Windows (PowerShell):
 
 ```powershell
-$env:WATCHGUARD_HOME = "C:\ProgramData\watchguard"
+$env:WATCHGUARD_HOME = "$env:LOCALAPPDATA\watchguard"
 watchguard-cli doctor
 ```
 

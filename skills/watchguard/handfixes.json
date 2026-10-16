@@ -232,7 +232,7 @@
         },
         {
           "file": "guide.md",
-          "contains": "$env:WATCHGUARD_HOME = \"C:\\ProgramData\\watchguard\""
+          "contains": "$env:WATCHGUARD_HOME = \"$env:LOCALAPPDATA\\watchguard\""
         }
       ]
     },
@@ -1002,8 +1002,8 @@
     },
     {
       "id": "fanout-malformed-collection-is-failed-read",
-      "summary": "listRows and incidentRows require the collection to be a JSON list of objects: {\"data\":null}, a scalar, an object or a list of non-objects is a failed read, never zero devices, endpoints or incidents. A {key: X} wrapper row (the [{\"data\":{...},\"total_items\":N}] form) whose X is null or a scalar is a failed read too, in listRows and in incidentRows' top-level-list branch. firebox-transactions wait applies the same rule: wait --device reads the transaction list through listRows, and firstObject never skips a malformed wrapper row to reach the row after it.",
-      "why": "Codex read-only review round 1 (2026-10-15): listRows checked only that the key existed, so {\"data\":null} or {\"data\":\"unavailable\"} became an empty fleet and accounts health reported zero counts with complete:true and exit 0; incidentRows accepted {\"items\":null} the same way. Companion to fanout-partial-data-exit. TestListRowsRejectsMalformedCollections fails on revert. Codex read-only review round 2 (2026-10-15): asMaps silently dropped wrapped null/scalar rows, so [{\"data\":null}] or [{\"items\":null}] still read as zero rows; wrappedRowsErr mirrors asMaps and fails those reads. The new TestListRowsRejectsMalformedCollections cases fail on revert. Codex read-only review round 3 (2026-10-15): wait --device read the list through raw asMaps, so [{\"data\":null},{\"data\":{...complete}}] picked an older finished transaction and exited 0. TestTransactionsWaitRejectsMalformedRows fails on revert of either the listRows call or the firstObject guard.",
+      "summary": "listRows and incidentRows require the collection to be a JSON list of objects: {\"data\":null}, a scalar, an object or a list of non-objects is a failed read, never zero devices, endpoints or incidents. A {key: X} wrapper row (the [{\"data\":{...},\"total_items\":N}] form) whose X is null or a scalar is a failed read too, in listRows and in incidentRows' top-level-list branch. firebox-transactions wait applies the same rule: wait --device reads the transaction list through listRows, and firstObject never skips a malformed wrapper row to reach the row after it. Single-record reads go through asMapsStrict, which fails on a null or scalar row at any wrapper depth; firebox-transactions wait <id> reports such a body as a failed read (exit 5), not \"not found\", and a list answer must contain the requested id.",
+      "why": "Codex read-only review round 1 (2026-10-15): listRows checked only that the key existed, so {\"data\":null} or {\"data\":\"unavailable\"} became an empty fleet and accounts health reported zero counts with complete:true and exit 0; incidentRows accepted {\"items\":null} the same way. Companion to fanout-partial-data-exit. TestListRowsRejectsMalformedCollections fails on revert. Codex read-only review round 2 (2026-10-15): asMaps silently dropped wrapped null/scalar rows, so [{\"data\":null}] or [{\"items\":null}] still read as zero rows; wrappedRowsErr mirrors asMaps and fails those reads. The new TestListRowsRejectsMalformedCollections cases fail on revert. Codex read-only review round 3 (2026-10-15): wait --device read the list through raw asMaps, so [{\"data\":null},{\"data\":{...complete}}] picked an older finished transaction and exited 0. TestTransactionsWaitRejectsMalformedRows fails on revert of either the listRows call or the firstObject guard. Adversarial round 6 (2026-10-15): the one-level firstObject pre-check still skipped {\"data\":{\"data\":[{\"data\":null},{...complete}]}} to an older transaction (exit 0), a malformed by-ID body read as exit 3, and a two-row by-ID answer used its first row. TestTransactionsWaitRejectsMalformedRows fails on revert of each piece.",
       "status": "active",
       "asserts": [
         {
@@ -1037,13 +1037,23 @@
           "code_only": true
         },
         {
-          "file": "cli/internal/cli/firebox_transactions_wait.go",
-          "contains": "rows, lerr := listRows(data, \"data\")",
+          "file": "cli/internal/cli/watchguard_fanout.go",
+          "contains": "func asMapsStrict(raw json.RawMessage, key string) ([]map[string]any, error) {",
           "code_only": true
         },
         {
           "file": "cli/internal/cli/watchguard_fanout.go",
-          "contains": "if list, ok := v.([]any); ok && wrappedRowsErr(list, key) != nil {",
+          "contains": "rows, err := asMapsStrict(raw, key)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/firebox_transactions_wait.go",
+          "contains": "rows, serr := asMapsStrict(data, \"data\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/firebox_transactions_wait.go",
+          "contains": "if strField(r, \"id\") == id {",
           "code_only": true
         }
       ]
@@ -1113,7 +1123,7 @@
     },
     {
       "id": "deallocate-managed-account-query",
-      "summary": "allocations deallocate sends the required accountId query parameter (the managed account) from a new --managed-account-id flag, while --account-id keeps filling the Service Provider path segment; the MCP allocations.deallocate endpoint binds managedAccountId to that query parameter and its summary says so.",
+      "summary": "allocations deallocate sends the required accountId query parameter (the managed account) from a new --managed-account-id flag, while --account-id keeps filling the Service Provider path segment; the MCP allocations.deallocate endpoint binds managedAccountId to that query parameter and its summary says so. Its --help Example and pp:happy-args carry the flag.",
       "why": "Adversarial round 5 (2026-10-15): the vendor spec declares accountId twice on DELETE /rest/platform/allocation/v2/{accountId}/assets (path = Service Provider, required query = managed account), the only such collision in the spec, and the generator kept only the path binding, so every deallocate lacked the managed account. TestDeallocateSendsManagedAccountQuery and TestCodeOrchDeallocateManagedAccountQuery fail on revert.",
       "status": "active",
       "asserts": [
@@ -1130,6 +1140,34 @@
         {
           "file": "cli/internal/mcp/code_orch.go",
           "contains": "{PublicName: \"managedAccountId\", WireName: \"accountId\"}",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/allocations_deallocate.go",
+          "contains": "\"pp:happy-args\": \"--managed-account-id=ACC-0000001 --product-name=accessPoint\"",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "transactions-list-objects-envelope",
+      "summary": "firebox-transactions wait --device reads the transaction list in every documented shape: the bare array the OpenAPI spec declares, the {\"count\",\"more\",\"objects\":[...]} envelope WatchGuard's API docs show (Query All Transaction Records), and a {\"data\":[...]} envelope.",
+      "why": "Adversarial round 6 (2026-10-15): the generated novel command read only a bare array or \"data\", so the documented objects envelope was reported as no transactions (and, after the listRows hand-fix, as a failed read). TestTransactionsWaitRejectsMalformedRows fails on revert.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/firebox_transactions_wait.go",
+          "contains": "func transactionRows(raw json.RawMessage) ([]map[string]any, error) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/firebox_transactions_wait.go",
+          "contains": "return listRows(raw, \"objects\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/firebox_transactions_wait.go",
+          "contains": "rows, lerr := transactionRows(data)",
           "code_only": true
         }
       ]

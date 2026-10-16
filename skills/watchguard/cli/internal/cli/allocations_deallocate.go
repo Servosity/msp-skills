@@ -22,9 +22,9 @@ func newAllocationsDeallocateCmd(flags *rootFlags) *cobra.Command {
 		Use:         "deallocate",
 		Aliases:     []string{"delete"},
 		Short:       "Remove an allocated asset from a managed account.",
-		Example:     "  watchguard-cli allocations deallocate --product-name accessPoint",
+		Example:     "  watchguard-cli allocations deallocate --managed-account-id ACC-0000001 --product-name accessPoint --serial-or-license XXXXXXXXXXXXX --dry-run",
 		Args:        cobra.NoArgs,
-		Annotations: map[string]string{"pp:endpoint": "allocations.deallocate", "pp:method": "DELETE", "pp:path": "/rest/platform/allocation/v2/{accountId}/assets", "pp:requires-input": "true", "pp:happy-args": "--product-name=accessPoint"},
+		Annotations: map[string]string{"pp:endpoint": "allocations.deallocate", "pp:method": "DELETE", "pp:path": "/rest/platform/allocation/v2/{accountId}/assets", "pp:requires-input": "true", "pp:happy-args": "--managed-account-id=ACC-0000001 --product-name=accessPoint"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help
 			// instead of pflag's terse "required flag not set" error. Optional-
