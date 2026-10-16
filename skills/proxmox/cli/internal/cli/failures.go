@@ -204,7 +204,25 @@ func collectFailures(ctx context.Context, t fleetTarget, since time.Time, want m
 	scanned, logs := 0, 0
 	capHit := false
 	var pveErr, pbsErr error
-	names := map[int64]string{}
+	guestByID := map[int64]pveGuest{}
+	created := map[int64]int64{}
+	// nameAt: the guest name for a VMID at a task's start; none for a task from
+	// before this VM was created (an earlier guest's with the same VMID).
+	nameAt := func(id, at int64) string {
+		g, ok := guestByID[id]
+		if !ok {
+			return ""
+		}
+		c, seen := created[id]
+		if !seen {
+			c = guestCreated(ctx, t.C, g)
+			created[id] = c
+		}
+		if predates(at, c) {
+			return ""
+		}
+		return g.Name
+	}
 	sinceParam := fmt.Sprint(since.Unix())
 	if want["vzdump"] {
 		guests, err := fetchGuests(ctx, t.C)
@@ -221,7 +239,7 @@ func collectFailures(ctx context.Context, t fleetTarget, since time.Time, want m
 		}
 		if pveErr == nil {
 			for _, g := range guests {
-				names[int64(g.VMID)] = g.Name
+				guestByID[int64(g.VMID)] = g
 			}
 			var offline []string
 			if nodes, offline, err = fetchNodes(ctx, t.C); err != nil {
@@ -302,7 +320,7 @@ func collectFailures(ctx context.Context, t fleetTarget, since time.Time, want m
 				}
 				attributed = true
 				r := base
-				r.VMID, r.GuestName, r.Target, r.Result, r.Reason = g.VMID, names[g.VMID], fmt.Sprint(g.VMID), g.Result, g.Reason
+				r.VMID, r.GuestName, r.Target, r.Result, r.Reason = g.VMID, nameAt(g.VMID, int64(task.StartTime)), fmt.Sprint(g.VMID), g.Result, g.Reason
 				rows = append(rows, r)
 			}
 			finished := vzdumpJobFinished(lines)
@@ -324,7 +342,7 @@ func collectFailures(ctx context.Context, t fleetTarget, since time.Time, want m
 				for _, id := range vzdumpJobVMIDs(lines) {
 					if !seen[id] {
 						r := base
-						r.VMID, r.GuestName, r.Target, r.Result, r.Reason = id, names[id], fmt.Sprint(id), "incomplete", "job aborted before reaching this guest"
+						r.VMID, r.GuestName, r.Target, r.Result, r.Reason = id, nameAt(id, int64(task.StartTime)), fmt.Sprint(id), "incomplete", "job aborted before reaching this guest"
 						rows = append(rows, r)
 					}
 				}

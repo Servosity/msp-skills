@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -29,6 +30,9 @@ type guestRestorePoints struct {
 	DisabledJobs  []string `json:"disabled_jobs"`
 	Count         int      `json:"count"`
 	Readable      int      `json:"-"` // points read before --verified-only filtered them
+	// PredatingGuest: backups under this VMID older than this VM's creation
+	// (an earlier guest's), not listed.
+	PredatingGuest int `json:"predating_guest,omitempty"`
 	// HiddenUnverified: read points --verified-only left out (none verified).
 	HiddenUnverified int `json:"hidden_unverified,omitempty"`
 	// Evidence is "full" when every source that may hold this guest's restore
@@ -133,6 +137,9 @@ func newNovelRestorePointsCmd(flags *rootFlags) *cobra.Command {
 			}
 			for _, g := range rep.Guests {
 				fmt.Fprintf(cmd.OutOrStdout(), "%s %d %s (%s on %s), jobs: %s\n", g.Cluster, g.VMID, g.Name, g.Type, g.Node, orDash(strings.Join(g.CoveredByJobs, ",")))
+				if g.PredatingGuest > 0 {
+					fmt.Fprintf(cmd.OutOrStdout(), "  %d older backup(s) under this VMID predate this VM's creation (an earlier guest's) and are not listed\n", g.PredatingGuest)
+				}
 				rows := make([][]string, 0, len(g.RestorePoints))
 				for _, rp := range g.RestorePoints {
 					rows = append(rows, []string{rp.TimeRFC3339, rp.Source, rp.VerifyState, strconv.FormatBool(rp.Protected), rp.Notes})
@@ -326,7 +333,19 @@ func collectRestorePoints(ctx context.Context, t fleetTarget, query string, veri
 			gaps[gap] = true
 		}
 		fails = append(fails, gapFailures(t.Name, gaps)...) // as posture: a gap reaches stderr and --csv runs too
-		points, unreadable := splitUnreadable(dedupeRestorePoints(points))
+		points = dedupeRestorePoints(points)
+		var created int64 // an earlier guest's backups under this VMID are not this one's
+		if len(points) > 0 {
+			created = guestCreated(ctx, t.C, g)
+		}
+		points = slices.DeleteFunc(points, func(rp restorePoint) bool {
+			old := (rp.GuestType == "" || rp.GuestType == g.Type) && predates(rp.Time, created)
+			if old {
+				gr.PredatingGuest++
+			}
+			return old
+		})
+		points, unreadable := splitUnreadable(points)
 		for _, rp := range unreadable {
 			if rp.GuestType == "" || rp.GuestType == g.Type {
 				notRead = append(notRead, fmt.Sprintf("%s backup at %s (listed without a readable manifest: still running, or damaged)", rp.Source, rp.TimeRFC3339))
