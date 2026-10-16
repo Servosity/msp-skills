@@ -56,7 +56,7 @@ func newNovelCapacityCmd(flags *rootFlags) *cobra.Command {
 			"Flags: gc-deadlock-risk (free space below --gc-margin while the last garbage collection failed or never ran: GC needs " +
 			"free space to run, so the datastore can no longer clean itself), filling (estimated full within --within), no-forecast (a PVE storage, or a PBS datastore with too few usage " +
 			"samples for PBS to estimate: nothing forecasts its days to full, so it is always listed, --within included, and judged by used_pct), nearly-full (free space below --gc-margin). " +
-			"PBS forecasts come from its own linear regression over the last month. A datastore another configured cluster also writes to, or a network share (NFS, SMB, CephFS, GlusterFS) another configured cluster also mounts, has attribution 'shared: <clusters>' and no tenant.",
+			"PBS forecasts come from its own linear regression over the last month. A datastore another configured cluster also writes to, or a network share (NFS, SMB, CephFS, GlusterFS) another configured cluster also mounts, has attribution 'shared: <clusters>' and no tenant (an entry with only a PBS host owns what one cluster of its own client writes).",
 		Example: strings.Trim(`
   proxmox-cli capacity --within 30d
   proxmox-cli capacity --gc-margin 10% --agent
@@ -170,6 +170,7 @@ func collectCapacity(ctx context.Context, t fleetTarget, now time.Time, margin f
 	pbsHost := t.pbsEndpoint()
 	pbsRowFor := map[string]bool{} // datastores that got an authoritative PBS row
 	var usageErr error             // the PBS did not answer its usage read
+	pbsListed := 0                 // datastores the PBS usage list showed this token
 	if t.C.PBSConfigured() {
 		// PBS reports usage only for the datastores the token may audit: a
 		// hidden one could be the one filling up.
@@ -196,6 +197,7 @@ func collectCapacity(ctx context.Context, t fleetTarget, now time.Time, margin f
 		if err := getJSON(ctx, t.C, pbsPath("/admin/gc"), nil, &gcs); err != nil {
 			fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "pbs gc", Error: err.Error()})
 		}
+		pbsListed = len(usage)
 		for _, u := range usage {
 			if u.ErrorText != "" {
 				fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "pbs " + u.Store, Error: u.ErrorText})
@@ -261,18 +263,18 @@ func collectCapacity(ctx context.Context, t fleetTarget, now time.Time, margin f
 	}
 	if err != nil {
 		if len(rows) == 0 {
-			if errors.Is(err, errNoPVE) && usageErr != nil {
-				// PBS-only and the PBS did not answer: its failure is the cause, not
-				// the absent PVE host, and the cluster counts as unreachable
-				// (scope-less failure) so the fleet exit code says so.
-				down := fetchFailure{Cluster: t.Name, Error: "no Backup Server capacity could be read: " + usageErr.Error()}
-				return nil, append(fails, down), nil
-			}
-			if errors.Is(err, errNoPVE) && len(fails) > 0 {
-				return nil, fails, nil // PBS-only, answered, nothing measurable: the scoped failures say why
-			}
 			if errors.Is(err, errNoPVE) && t.C.PBSConfigured() {
-				return nil, nil, errors.New("the Backup Server lists no datastore this token can see")
+				// PBS-only. Its failures are the cause, not the absent PVE host. A
+				// PBS that did not answer, or showed this token no datastore at all
+				// (no Datastore.Audit), measured nothing: the cluster counts as
+				// unreachable (scope-less failure) so the fleet exit code says so.
+				switch {
+				case usageErr != nil:
+					return nil, append(fails, fetchFailure{Cluster: t.Name, Error: "no Backup Server capacity could be read: " + usageErr.Error()}), nil
+				case pbsListed == 0:
+					return nil, append(fails, fetchFailure{Cluster: t.Name, Error: "the Backup Server lists no datastore this token can see"}), nil
+				}
+				return nil, fails, nil // it listed datastores it could not measure: the scoped failures say why
 			}
 			return nil, nil, err // nothing reachable on this cluster
 		}

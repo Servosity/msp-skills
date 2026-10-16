@@ -120,13 +120,15 @@ func newNovelBackupCoverageCmd(flags *rootFlags) *cobra.Command {
 			}
 			if len(rep.Rows) == 0 {
 				msg := fmt.Sprintf("Every one of %d guest(s) is included by an enabled backup job", rep.Guests)
-				if !includeTemplates || elsewhereTag != "" {
-					// Skipped guests are not covered: do not count them as included.
-					msg = fmt.Sprintf("No uncovered guest among %d checked (not checked: templates without --include-templates", rep.Guests)
-					if elsewhereTag != "" {
-						msg += fmt.Sprintf(", guests tagged %q", elsewhereTag)
-					}
-					msg += ")"
+				var skipped []string // skipped guests are not covered: do not count them as included
+				if !includeTemplates {
+					skipped = append(skipped, "templates without --include-templates")
+				}
+				if elsewhereTag != "" {
+					skipped = append(skipped, fmt.Sprintf("guests tagged %q", elsewhereTag))
+				}
+				if len(skipped) > 0 {
+					msg = fmt.Sprintf("No uncovered guest among the %d listed, apart from those not checked: %s", rep.Guests, strings.Join(skipped, ", "))
 				}
 				allClear(cmd.OutOrStdout(), msg+".", len(rep.FetchFailures))
 				return nil

@@ -1095,7 +1095,7 @@ func (t fleetTarget) foreignWriters(ids, names map[string]bool) bool {
 		return true
 	}
 	for name := range names {
-		if t.own.tenants[name] != t.Tenant {
+		if !strings.EqualFold(t.own.tenants[name], t.Tenant) { // --client matches case-insensitively too
 			return true
 		}
 	}
@@ -1487,7 +1487,11 @@ func allClusterTargets(flags *rootFlags) ([]fleetTarget, error) {
 		if err == nil {
 			c, err = newClusterClient(flags, cl)
 		}
-		out = append(out, fleetTarget{Name: name, Tenant: cl.Client, Profile: cl, C: c, Err: err})
+		tenant := cl.Client
+		if tenant == "" {
+			tenant = name // as fleetTargets does
+		}
+		out = append(out, fleetTarget{Name: name, Tenant: tenant, Profile: cl, C: c, Err: err})
 	}
 	return out, nil
 }
