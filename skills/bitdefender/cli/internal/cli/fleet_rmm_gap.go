@@ -106,6 +106,7 @@ use this command for GravityZone-only protection status without an external devi
 				view.DevicesRead = len(devices)
 			}
 			view.Source, view.TakenAt, view.InventoryComplete = inv.Source, inv.TakenAt, inv.Complete
+			flags.agentSource = inventoryAgentSource(inv)
 			view.FetchFailures = append(make([]fetchFailure, 0), inv.Failures...)
 			switch {
 			case inv.Source == "snapshot" && inv.TakenAt == "":

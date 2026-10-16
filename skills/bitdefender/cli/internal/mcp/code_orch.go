@@ -1965,7 +1965,9 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 	if ep == nil {
 		return mcplib.NewToolResultError(fmt.Sprintf("unknown endpoint_id %q — call bitdefender_search to discover valid ids", id)), nil
 	}
-	if codeOrchBlockedByMCPReadOnly(ep.Method) {
+	// Hand-wired (handfixes.json: mcp-read-only-allows-gravityzone-reads):
+	// every GravityZone method is a POST, so listed read methods pass.
+	if codeOrchBlockedByMCPReadOnly(ep.Method) && !gravityZoneReadOnlyAllows(ep.Path) {
 		return mcplib.NewToolResultError(fmt.Sprintf("refusing %s %s while %s=1", ep.Method, id, cliutil.MCPReadOnlyEnvVar)), nil
 	}
 

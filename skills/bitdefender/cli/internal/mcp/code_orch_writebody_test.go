@@ -132,6 +132,9 @@ func TestCodeOrchExecuteReadOnlyRefusesNonGET(t *testing.T) {
 			}
 			continue
 		}
+		if gravityZoneReadOnlyAllows(ep.Path) {
+			continue // hand-wired: listed GravityZone read methods (gz_readonly_test.go)
+		}
 		result, err := handleCodeOrchExecute(context.Background(), mcplib.CallToolRequest{Params: mcplib.CallToolParams{
 			Arguments: map[string]any{"endpoint_id": ep.ID},
 		}})

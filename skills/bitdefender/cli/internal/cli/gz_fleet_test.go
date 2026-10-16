@@ -1270,3 +1270,12 @@ func TestHumanOutputForEmptyStates(t *testing.T) {
 		t.Fatal("plural")
 	}
 }
+
+func TestInventoryAgentSource(t *testing.T) {
+	if got := inventoryAgentSource(inventoryResult{Source: "snapshot"}); got != "local" {
+		t.Fatalf("snapshot answer reported meta.source %q, want local", got)
+	}
+	if got := inventoryAgentSource(inventoryResult{Source: "live"}); got != "live" {
+		t.Fatalf("live answer reported meta.source %q, want live", got)
+	}
+}

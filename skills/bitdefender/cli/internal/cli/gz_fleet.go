@@ -778,3 +778,13 @@ func humanNote(cmd *cobra.Command, note string) {
 		fmt.Fprintln(cmd.ErrOrStderr(), "note: "+note)
 	}
 }
+
+// inventoryAgentSource is the agent envelope's meta.source for an answer
+// built from fleetInventory: a saved snapshot is local data, not a live read
+// (handfixes.json: fleet-snapshot-answers-report-local).
+func inventoryAgentSource(inv inventoryResult) string {
+	if inv.Source == "snapshot" {
+		return "local"
+	}
+	return "live"
+}

@@ -64,6 +64,7 @@ use 'fleet health' instead.`,
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
+			flags.agentSource = inventoryAgentSource(inv)
 			view := fleetFindView{Query: q, Matches: make([]snapEndpoint, 0), Source: inv.Source, TakenAt: inv.TakenAt, ScannedCompanies: inv.Companies, FetchFailures: make([]fetchFailure, 0)}
 			view.FetchFailures = append(view.FetchFailures, inv.Failures...)
 			for _, e := range inv.Endpoints {

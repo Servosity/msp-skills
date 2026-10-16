@@ -88,6 +88,155 @@
           "code_only": true
         }
       ]
+    },
+    {
+      "id": "gravityzone-jsonrpc-transport",
+      "summary": "a client hook turns each /v1.x/jsonrpc/<area>#<method> call into a JSON-RPC 2.0 envelope and unwraps result/error",
+      "why": "GravityZone's Public API is JSON-RPC 2.0 with no OpenAPI. The authored spec writes one POST path per method with the method name in the URL fragment, which net/http never sends. jsonrpc_transport.go (registered through registerClientHook, so it wraps every CLI and MCP client) builds the envelope from the fragment plus the generated command's body and returns the result member, or the error member as an HTTP error status. Without it every call posts bare params to the area URL and Control Center rejects it. Handwritten file from the factory's handfix/internal/cli; re-apply ~/Documents/Dev/cli-factory/bitdefender/handfix/ after any regen.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/jsonrpc_transport.go",
+          "contains": "func init() { registerClientHook(installJSONRPCTransport) }",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/jsonrpc_transport.go",
+          "contains": "env, err := json.Marshal(rpcRequest{JSONRPC: \"2.0\", Method: method, Params: params, ID: id})",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/jsonrpc_transport.go",
+          "contains": "return unwrapRPCResponse(resp, id)",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "remove-tail-command",
+      "summary": "the generated tail command is removed",
+      "why": "tail polls GET list endpoints. Every GravityZone method is a JSON-RPC POST, so the generator emits tail with an empty resource map that can only ever answer that there are no tail resources, and verify fails its resource-path check. handfix/patch_remove_tail.py deletes internal/cli/tail.go and its root.go registration; re-apply ~/Documents/Dev/cli-factory/bitdefender/handfix/ after any regen.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/root.go",
+          "not_contains": "rootCmd.AddCommand(newTailCmd(flags))"
+        }
+      ]
+    },
+    {
+      "id": "basic-auth-credentials-test",
+      "summary": "credential-precedence tests decode the HTTP Basic payload before asserting which key won",
+      "why": "The generated credentials_test.go asserts the raw secret appears in AuthHeader(), but GravityZone uses HTTP Basic with the API key as the username and an empty password, so the header is \"Basic \" + base64(\"<key>:\") and the substring check fails. handfix/patch_credentials_test.py decodes the payload first (same fix datto-bcdr and wordpress carry); re-apply ~/Documents/Dev/cli-factory/bitdefender/handfix/ after any regen.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cliutil/credentials_test.go",
+          "contains": "func basicAuthPayload(t *testing.T, header string) string {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/credentials_test.go",
+          "contains": "if got := basicAuthPayload(t, cfg.AuthHeader());",
+          "min_count": 2,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "generated-doc-corrections",
+      "summary": "SKILL.md, AGENTS.md and guide.md say writes run immediately (no prompt), the local store holds fleet snapshots (no sync/search), and fleet health --fail-on exits 1",
+      "why": "The generator's boilerplate promised sync/search commands that do not exist and an explicit --yes confirmation that generated write commands never ask for. handfix/patch_docs.py corrects the press README (vendored here as guide.md), SKILL.md and AGENTS.md; onboard re-vendors all three, so re-apply ~/Documents/Dev/cli-factory/bitdefender/handfix/ after any regen and re-run onboard.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "SKILL.md",
+          "contains": "generated write commands (create, delete, isolate, quarantine, tasks) run as soon as they are invoked and do not prompt"
+        },
+        {
+          "file": "SKILL.md",
+          "contains": "the fleet commands save dated snapshots to a local SQLite store"
+        },
+        {
+          "file": "AGENTS.md",
+          "contains": "Write commands run as soon as they are invoked and do not prompt"
+        },
+        {
+          "file": "guide.md",
+          "contains": "`1` `fleet health --fail-on` found issues"
+        }
+      ]
+    },
+    {
+      "id": "manifest-optional-base-url",
+      "summary": "the MCP bundle manifest declares BITDEFENDER_BASE_URL as an optional, non-secret field with the cloud default",
+      "why": "The generator ships only the API key in the .mcpb manifest, so Claude Desktop users on another region or an on-premises Control Center had no way to point the server at their Access URL. handfix/patch_manifest_base_url.py adds bitdefender_base_url (required false, default https://cloud.gravityzone.bitdefender.com/api) and maps it to BITDEFENDER_BASE_URL; re-apply ~/Documents/Dev/cli-factory/bitdefender/handfix/ after any regen.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "manifest.json",
+          "contains": "\"bitdefender_base_url\": {"
+        },
+        {
+          "file": "manifest.json",
+          "contains": "\"BITDEFENDER_BASE_URL\": \"${user_config.bitdefender_base_url}\""
+        },
+        {
+          "file": "manifest.json",
+          "contains": "\"default\": \"https://cloud.gravityzone.bitdefender.com/api\""
+        }
+      ]
+    },
+    {
+      "id": "mcp-read-only-allows-gravityzone-reads",
+      "summary": "BITDEFENDER_MCP_READ_ONLY=1 lets bitdefender_execute run an explicit list of GravityZone read methods; writes and credential-bearing reads stay refused",
+      "why": "The generated read-only switch refuses every non-GET execute call. Every GravityZone method is a JSON-RPC POST, so read-only mode refused reads too and an agent that should only read could not list a single endpoint. gz_readonly.go lists the get/find methods that only read (fail-closed: a method added by a later regeneration stays refused until listed) and leaves out the reads that return or take a credential: getPushEventSettings, getLicenseInfo, getCompanyDetailsByUser, getPackageDetails, getInstallationLinks, getIntegrationDetails. The check reads the endpoint's registered path template, never the resolved path. A reprint restores the method-only check and silently re-breaks reads.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/code_orch.go",
+          "contains": "if codeOrchBlockedByMCPReadOnly(ep.Method) && !gravityZoneReadOnlyAllows(ep.Path) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/gz_readonly.go",
+          "contains": "func gravityZoneReadOnlyAllows(pathTemplate string) bool {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/code_orch_writebody_test.go",
+          "contains": "if gravityZoneReadOnlyAllows(ep.Path) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/gz_readonly_test.go",
+          "contains": "func TestCodeOrchExecuteReadOnlyRunsGravityZoneReads(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "fleet-snapshot-answers-report-local",
+      "summary": "fleet locate and fleet rmm-gap set the agent envelope's meta.source to local when a saved snapshot answered",
+      "why": "Both commands carry pp:data-source auto, which the generated envelope reports as live, so a snapshot answer was labelled live in meta.source while results.source said snapshot. inventoryAgentSource maps the inventory's real source onto flags.agentSource before printing.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/gz_fleet.go",
+          "contains": "func inventoryAgentSource(inv inventoryResult) string {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/fleet_locate.go",
+          "contains": "flags.agentSource = inventoryAgentSource(inv)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/fleet_rmm_gap.go",
+          "contains": "flags.agentSource = inventoryAgentSource(inv)",
+          "code_only": true
+        }
+      ]
     }
   ]
 }
