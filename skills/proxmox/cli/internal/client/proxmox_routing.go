@@ -493,25 +493,37 @@ func redactValue(v any) bool {
 	return changed
 }
 
-// GetOnceNoStore reads path fresh, in one attempt, and never writes the
-// response cache: for a per-guest read whose failure the caller treats as
-// unread evidence (retrying every guest's 5xx would cost minutes), and whose
-// response carries free text the tool does not keep (a VM config's notes and
-// arguments, where MSPs often leave credentials).
+// GetNoStore reads path fresh and never writes the response cache: for the
+// backup-assurance reads, which never answer from the cache, so storing what
+// they read (snapshot comments, backup notes, VM configs, where MSPs often
+// leave credentials) would only keep free text on disk.
+func (c *Client) GetNoStore(ctx context.Context, path string, params map[string]string) (json.RawMessage, error) {
+	return c.getNoStore(ctx, path, params, nil)
+}
+
+// GetOnceNoStore is GetNoStore in one attempt: for a per-guest read whose
+// failure the caller treats as unread evidence (retrying every guest's 5xx
+// would cost minutes).
 func (c *Client) GetOnceNoStore(ctx context.Context, path string, params map[string]string) (json.RawMessage, error) {
+	return c.getNoStore(ctx, path, params, map[string]string{ReplaySafeHeader: "false"})
+}
+
+func (c *Client) getNoStore(ctx context.Context, path string, params, headers map[string]string) (json.RawMessage, error) {
 	if c.operationSendsPrimaryAuth(http.MethodGet, path) {
 		if err := c.validateCachedRequestAuth(ctx); err != nil {
 			return nil, err
 		}
 	}
-	result, _, err := c.do(ctx, http.MethodGet, path, params, nil, map[string]string{ReplaySafeHeader: "false"})
+	result, _, err := c.do(ctx, http.MethodGet, path, params, nil, headers)
 	return result, err
 }
 
-// guestConfigPath: a node's or guest's config, a guest's pending or snapshot
-// config, which carries free-text notes (description) and arguments. MSPs
-// often keep credentials there, so the response cache never stores it.
-var guestConfigPath = regexp.MustCompile(`^/?nodes/[^/]+(/(qemu|lxc)/[^/]+(/snapshot/[^/]+)?)?/(config|pending)/?$`)
+// guestConfigPath: reads that carry free-text notes, where MSPs often keep
+// credentials, so the response cache never stores them: a node's or guest's
+// config, a guest's pending config, snapshot list or snapshot config, a
+// storage's content list (backup notes), PBS snapshot lists (comments) and
+// datastore or group notes, and pools (comments).
+var guestConfigPath = regexp.MustCompile(`^/?(nodes/[^/]+(/config|/(qemu|lxc)/[^/]+/(config|pending|snapshot|snapshot/[^/]+/config)|/storage/[^/]+/content(/.+)?)|admin/datastore/[^/]+/(snapshots|notes|group-notes)|pools(/[^/]+)?)/?$`)
 
 func noStoreResponse(path string) bool {
 	if i := strings.IndexByte(path, '?'); i >= 0 {

@@ -460,8 +460,8 @@
   },
   {
    "id": "guest-config-no-cache",
-   "summary": "The response cache never stores a node or guest config (config, pending, snapshot config): those carry free-text notes and arguments where MSPs keep credentials",
-   "why": "Generated client.go writes every fresh GET to the on-disk response cache, including vm config, vm pending, ct config and nodes config, so a VM's description (notes) persisted in a 0600 file after any read. The 2026-10-16 adversarial review (round 20) found the sentinel in 3 cache files. writeCacheWithHeaders now returns early for paths noStoreResponse (proxmox_routing.go) matches; the backup commands read the VM config through GetOnceNoStore, which never writes the cache either. internal/cli/codex_round31_test.go (TestVMConfigNotCached) fails if the hook is removed.",
+   "summary": "The response cache never stores a read that carries free-text notes (node and guest configs, pending and snapshot configs, snapshot lists, storage content lists, PBS snapshot lists and notes, pools): MSPs keep credentials in notes",
+   "why": "Generated client.go writes every fresh GET to the on-disk response cache, so a VM's description (notes), a backup's notes or a PBS snapshot comment persisted in a 0600 file after any read. The 2026-10-16 adversarial reviews (rounds 20 and 21) found sentinels in the cache from vm/ct/nodes config, vm pending, snapshot lists, storage content, PBS snapshots, notes, group-notes and pools. writeCacheWithHeaders now returns early for paths noStoreResponse (proxmox_routing.go) matches; the backup-assurance commands read through GetNoStore/GetOnceNoStore, which never write the cache. internal/cli/codex_round31_test.go (TestVMConfigNotCached), internal/cli/adversarial_round21_test.go (TestAssuranceReadsStoreNothing) and internal/client/proxmox_nostore_test.go (TestNoStoreResponsePaths) fail if the hook or the path list regresses.",
    "status": "active",
    "asserts": [
     {
@@ -477,6 +477,10 @@
     {
      "file": "cli/internal/cli/codex_round31_test.go",
      "contains": "func TestVMConfigNotCached("
+    },
+    {
+     "file": "cli/internal/client/proxmox_nostore_test.go",
+     "contains": "func TestNoStoreResponsePaths("
     }
    ]
   }
