@@ -478,7 +478,7 @@
   "sonicwall": {
     "state": "never-released",
     "version": "0.1.0",
-    "latest_tag": null,
+    "latest_tag": "sonicwall-v0.1.0",
     "current_hash": "sha256:342f8166442c90ab1dbada2d633c238570fa337a106b893b393d321702c4d1a4",
     "released_hash": null
   },
