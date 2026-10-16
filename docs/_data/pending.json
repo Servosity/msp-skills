@@ -464,7 +464,7 @@
   "sherweb": {
     "state": "binary-pending",
     "version": "0.1.4",
-    "latest_tag": "sherweb-v0.1.4",
+    "latest_tag": "sherweb-v0.1.5",
     "current_hash": "sha256:f285097aa3b39917c58beb9931b8d5e7ca5d35c8c38b57f8ff0a2db8142c59cc",
     "released_hash": "sha256:270e8e6b56452c9af44bf0ca4c01fbc9fb3da633ae7ffb837b8627a5a459bc8f"
   },
