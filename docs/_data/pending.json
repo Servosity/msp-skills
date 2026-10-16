@@ -478,7 +478,7 @@
   "sophos-central": {
     "state": "binary-pending",
     "version": "0.1.0",
-    "latest_tag": "sophos-central-v0.1.0",
+    "latest_tag": "sophos-central-v0.1.1",
     "current_hash": "sha256:635d0129fc91354c77623e1cfe099042dd263068b1fc2e1e98ca48779c69c154",
     "released_hash": "sha256:a3f408686c6b39b4ab1160bf0912835991552e004882eedd4680ec7fbea1790e"
   },
