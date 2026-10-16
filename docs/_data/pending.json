@@ -282,14 +282,14 @@
   "knowbe4": {
     "state": "binary-pending",
     "version": "0.1.3",
-    "latest_tag": "knowbe4-v0.1.3",
+    "latest_tag": "knowbe4-v0.1.4",
     "current_hash": "sha256:4fea89b5f23ebad04fd74a58b0358d580c72edac6801091dcc08b4fcdc2fc0bb",
     "released_hash": "sha256:05f616bcfed71471b35f391be5a8319e21bf64b8be4c090658accf8a013299bc"
   },
   "levelio": {
     "state": "binary-pending",
     "version": "0.1.4",
-    "latest_tag": "levelio-v0.1.4",
+    "latest_tag": "levelio-v0.1.5",
     "current_hash": "sha256:89da97ed2582b299219138a00638d5cf55bbbbd547f047507d58d93f824c2920",
     "released_hash": "sha256:e89deb3813badb127c1863bfdb447a6b4254c7752d4929b6c63c869b1375ddf3"
   },
