@@ -534,7 +534,7 @@
   "wordpress": {
     "state": "binary-pending",
     "version": "0.1.6",
-    "latest_tag": "wordpress-v0.1.6",
+    "latest_tag": "wordpress-v0.1.7",
     "current_hash": "sha256:fe4fa40add74fa3a50c171514c0c134f26c01404588476f14c752c75e0189b3d",
     "released_hash": "sha256:98f1005ab6da2252a9448a073bc7615b77218191071728fff7305c75e452887a"
   },
