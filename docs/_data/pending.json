@@ -541,7 +541,7 @@
   "watchguard": {
     "state": "binary-pending",
     "version": "0.1.1",
-    "latest_tag": "watchguard-v0.1.0",
+    "latest_tag": "watchguard-v0.1.1",
     "current_hash": "sha256:5e1f901289cecc093502b094ae47ab90d08d599da4fef1c72c74b3aa1c220fcf",
     "released_hash": "sha256:20ec78e51cb5bcb177c28c2bc9f598a083499b3708ebe85285fa5db1acd2b4f6"
   },

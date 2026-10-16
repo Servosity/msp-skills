@@ -46,7 +46,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download WatchGuard MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/watchguard-v0.1.0/watchguard-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every WatchGuard release on the [releases page](https://github.com/servosity/msp-skills/releases?q=watchguard).)
+[**Download WatchGuard MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/watchguard-v0.1.1/watchguard-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. (Browse every WatchGuard release on the [releases page](https://github.com/servosity/msp-skills/releases?q=watchguard).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 
