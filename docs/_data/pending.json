@@ -471,7 +471,7 @@
   "skykick": {
     "state": "binary-pending",
     "version": "0.1.4",
-    "latest_tag": "skykick-v0.1.4",
+    "latest_tag": "skykick-v0.1.5",
     "current_hash": "sha256:289f4aba26db2811e6efe1fea65e5d8209b5c373de688053081caf267e2d1a58",
     "released_hash": "sha256:c13b6545a06e0eee503b5d22abe10e6690c9f67c0c14ec66d5c8ae8a8d117e4a"
   },
