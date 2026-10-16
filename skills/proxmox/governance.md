@@ -122,11 +122,13 @@ hosts before any request is built.
   `verify-health` keeps such a namespace's groups but marks them:
   `attribution` is `shared` on the store row and `shared: <clusters>` on each
   group row, whose tenant is left empty. `failures` marks a PBS task the same
-  way. A Backup Server is matched by the host and port each storage and entry
-  names, or by a certificate fingerprint any of them pins. One server reached
-  under two names with no fingerprint on either side (a CA-signed certificate)
-  is not matched, so pin it (Proxmox VE already requires the fingerprint for
-  the Backup Server's default self-signed certificate). The reverse also
+  way. Two references to a Backup Server are matched when they name the same
+  host and port, or carry the same certificate fingerprint. A pin on one side
+  does not reach a second name left unpinned: when one server is reached under
+  two names (a CA-signed certificate), every storage and clusters.toml entry
+  that names it must carry its fingerprint, or it is not matched and
+  colliding VMIDs are credited (Proxmox VE already requires the fingerprint
+  for the Backup Server's default self-signed certificate). The reverse also
   holds: two clients' separate servers that their clusters reach at the same
   private address and port count as one server, which a per-client
   `pbs_namespace` keeps apart.

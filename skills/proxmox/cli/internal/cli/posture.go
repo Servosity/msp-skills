@@ -66,6 +66,7 @@ type postureClientRow struct {
 	LastAttemptFailed  int    `json:"last_attempt_failed"`
 	AttemptUnknown     int    `json:"attempt_unknown"`
 	ArchivesIncomplete int    `json:"archives_incomplete"`
+	ClockSkew          int    `json:"clock_skew"`
 	ProtectedElsewhere int    `json:"protected_elsewhere"`
 	Unproven           int    `json:"unproven"`
 	// FetchFailures counts what was not read on this client's clusters (see
@@ -120,7 +121,8 @@ func newNovelPostureCmd(flags *rootFlags) *cobra.Command {
 			"stale (newest restore point older than --stale-after), verify-failed (newest PBS restore point failed verification) are red; " +
 			"unverified (newest PBS restore point not verified yet), last-attempt-failed (latest vzdump run failed but an older point is still fresh), " +
 			"attempt-unknown (fresh restore point, but the latest vzdump log could not be read; raise --max-logs or fix the reported fetch failure), " +
-			"and archives-incomplete (fresh restore point, but some backup storage could not be read, or a newer backup is listed without a readable manifest) are amber; " +
+			"archives-incomplete (fresh restore point, but some backup storage could not be read, or a newer backup is listed without a readable manifest), " +
+			"and clock-skew (fresh restore point, but another is dated in the future, so a node clock ran ahead; a future-dated point never counts toward age) are amber; " +
 			"protected-elsewhere (uncovered but tagged with --protected-elsewhere-tag) and fresh are green. " +
 			"Freshness comes from real archives (PVE backup storages, including PBS storages, and the PBS API when configured), never from a job having run.",
 		Example: strings.Trim(`
@@ -199,7 +201,7 @@ func newNovelPostureCmd(flags *rootFlags) *cobra.Command {
 			} else if !allFailed {
 				if only != "" && !byClient && len(report.Rows) == 0 && guestsSeen > 0 {
 					// Filtered to nothing is not "no guests": say what was seen.
-					fmt.Fprintf(cmd.OutOrStdout(), "No %s guests: %d guest(s) across %d cluster(s), none matched --only %s.\n", only, guestsSeen, len(report.Clusters), only)
+					fmt.Fprintf(cmd.OutOrStdout(), "No %s guests: %d guest(s) across %d cluster(s) that answered, none matched --only %s.\n", only, guestsSeen, answered(report.Clusters, report.FetchFailures), only)
 				} else if err := printPostureTable(cmd, flags, report, byClient); err != nil {
 					return err
 				}
@@ -405,6 +407,19 @@ func collectPosture(ctx context.Context, t fleetTarget, o postureOpts) (clusterP
 				rps = append(rps, rp)
 			}
 		}
+		// A point dated past now (the backing-up node's clock ran ahead: vzdump
+		// names the archive and PBS takes backup-time from it) has no judgeable
+		// age; counting it would keep a guest fresh after backups stop.
+		var future int
+		judged := rps[:0:0]
+		for _, rp := range rps {
+			if rp.Time > o.now.Add(clockSkewTolerance).Unix() {
+				future++
+			} else {
+				judged = append(judged, rp)
+			}
+		}
+		rps = judged
 		row.RestorePoints = len(rps)
 		var newest *restorePoint
 		for i := range rps {
@@ -475,6 +490,18 @@ func collectPosture(ctx context.Context, t fleetTarget, o postureOpts) (clusterP
 				row.Reason = "newest readable restore point is fresh, but " + why + "; a newer or failed archive may be unseen"
 			case row.Severity == "red":
 				row.Reason += " (" + why + ")"
+			}
+		}
+		if future > 0 {
+			note := fmt.Sprintf("%d restore point(s) dated in the future (the backing-up node's clock was ahead) not counted toward its age", future)
+			switch {
+			case row.Verdict == "never":
+				row.Verdict, row.Reason = "unproven", note+"; no other restore point exists"
+			case row.Severity == "green" && row.CoveredByJob:
+				row.Verdict, row.Severity = "clock-skew", "amber"
+				row.Reason += ", but " + note
+			default:
+				row.Reason += "; " + note
 			}
 		}
 		out.rows = append(out.rows, row)
@@ -815,6 +842,8 @@ func rollupByClient(rows []postureRow, targets []fleetTarget, failures []fetchFa
 			c.AttemptUnknown++
 		case "archives-incomplete":
 			c.ArchivesIncomplete++
+		case "clock-skew":
+			c.ClockSkew++
 		case "protected-elsewhere":
 			c.ProtectedElsewhere++
 		case "unproven":
@@ -870,7 +899,7 @@ func printPostureTable(cmd *cobra.Command, flags *rootFlags, rep postureReport, 
 		}
 		rows = append(rows, []string{r.Cluster, fmt.Sprint(r.VMID), r.AssetName, r.Verdict, age, r.VerifyState, r.Reason})
 	}
-	fmt.Fprintf(cmd.OutOrStdout(), "%d red, %d amber across %d cluster(s)\n", rep.Red, rep.Amber, len(rep.Clusters))
+	fmt.Fprintf(cmd.OutOrStdout(), "%d red, %d amber across %d cluster(s) that answered\n", rep.Red, rep.Amber, answered(rep.Clusters, rep.FetchFailures))
 	return flags.printTable(cmd, []string{"CLUSTER", "VMID", "NAME", "VERDICT", "AGE", "VERIFY", "REASON"}, rows)
 }
 
@@ -891,4 +920,16 @@ func newerThan(rps []restorePoint, newest *restorePoint) bool {
 		}
 	}
 	return false
+}
+
+// answered counts the clusters that answered: a scope-less failure is a
+// cluster that did not (unreachable or unauthorized).
+func answered(clusters []string, failures []fetchFailure) int {
+	down := map[string]bool{}
+	for _, f := range failures {
+		if f.Scope == "" {
+			down[f.Cluster] = true
+		}
+	}
+	return len(clusters) - len(down)
 }

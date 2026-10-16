@@ -56,7 +56,7 @@ func newNovelCapacityCmd(flags *rootFlags) *cobra.Command {
 			"Flags: gc-deadlock-risk (free space below --gc-margin while the last garbage collection failed or never ran: GC needs " +
 			"free space to run, so the datastore can no longer clean itself), filling (estimated full within --within), no-forecast (a PVE storage, or a PBS datastore with too few usage " +
 			"samples for PBS to estimate: nothing forecasts its days to full, so it is always listed, --within included, and judged by used_pct), nearly-full (free space below --gc-margin). " +
-			"PBS forecasts come from its own linear regression over the last month. A datastore another configured cluster also writes to has attribution 'shared: <clusters>' and no tenant.",
+			"PBS forecasts come from its own linear regression over the last month. A datastore another configured cluster also writes to, or a network share (NFS, SMB, CephFS, GlusterFS) another configured cluster also mounts, has attribution 'shared: <clusters>' and no tenant.",
 		Example: strings.Trim(`
   proxmox-cli capacity --within 30d
   proxmox-cli capacity --gc-margin 10% --agent
@@ -261,7 +261,11 @@ func collectCapacity(ctx context.Context, t fleetTarget, now time.Time, margin f
 	if err != nil {
 		if len(rows) == 0 {
 			if errors.Is(err, errNoPVE) && len(fails) > 0 {
-				return nil, fails, nil // PBS-only: the PBS reads that failed are the cause, not the absent PVE host
+				// PBS-only: the PBS reads that failed are the cause, not the absent PVE
+				// host. Nothing was measured, so the cluster also counts as unreachable
+				// (scope-less failure) and the fleet exit code says so.
+				down := fetchFailure{Cluster: t.Name, Error: "no Backup Server capacity could be read: " + fails[0].Error}
+				return nil, append(fails, down), nil
 			}
 			return nil, nil, err // nothing reachable on this cluster
 		}
@@ -324,6 +328,11 @@ func collectCapacity(ctx context.Context, t fleetTarget, now time.Time, margin f
 			TotalBytes: int64(s.Total), UsedBytes: int64(s.Used), AvailBytes: int64(s.Avail), Flags: []string{}}
 		if ref, ok := refs[s.Storage]; s.Type == "pbs" && ok && t.own != nil {
 			row.Tenant, row.Attribution = shareOf(t, t.own.svc.of(ref.server, ref.fingerprint), ref.datastore)
+		}
+		if t.own != nil && netStorageType(s.Type) {
+			if sharers := t.netMounters(s); len(sharers) > 0 { // one NAS export, not one per client
+				row.Tenant, row.Attribution = "", "shared: "+strings.Join(sharers, ", ")
+			}
 		}
 		if bool(s.Shared) {
 			row.Node = ""
