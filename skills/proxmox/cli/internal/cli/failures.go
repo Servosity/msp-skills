@@ -165,6 +165,9 @@ func newNovelFailuresCmd(flags *rootFlags) *cobra.Command {
 				var out any = rep
 				if flags.csv {
 					out = rep.Rows
+					if rep.LogCapHit { // CSV has no column for it
+						fmt.Fprintf(cmd.ErrOrStderr(), "warning: only %d of the vzdump task logs were read (--max-logs %d); incomplete guests in unread logs are not listed\n", rep.LogsRead, maxLogs)
+					}
 				}
 				if err := printJSONFilteredKeep(cmd.OutOrStdout(), out, flags, failuresKeep...); err != nil {
 					return err

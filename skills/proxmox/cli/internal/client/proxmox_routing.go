@@ -437,6 +437,10 @@ func isProxmoxEnvelope(envelope map[string]json.RawMessage) bool {
 // ValidFingerprint reports whether s is a SHA-256 certificate fingerprint.
 func ValidFingerprint(s string) bool { return normalizeFingerprint(s) != "" }
 
+// NormalizeFingerprint is a SHA-256 fingerprint the way pins are compared at
+// TLS time ("" when s is not one), so other comparisons agree with TLS.
+func NormalizeFingerprint(s string) string { return normalizeFingerprint(s) }
+
 // secretField names response fields that carry a credential. Proxmox core
 // keeps secrets out of its read APIs, but GET /storage returns a storage
 // plugin's storage.cfg entry verbatim, and third-party plugins keep passwords
