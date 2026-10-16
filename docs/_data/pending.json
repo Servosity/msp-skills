@@ -394,7 +394,7 @@
   "quotewerks": {
     "state": "binary-pending",
     "version": "0.1.0",
-    "latest_tag": "quotewerks-v0.1.0",
+    "latest_tag": "quotewerks-v0.1.1",
     "current_hash": "sha256:d3c5a18f696e39ddb42b78dc33dfec750c60a1f3acb9b213e435191db7b841a8",
     "released_hash": "sha256:b0c7027ae8e44536a8ab06e737c97bb151f94604195bc10316ede77ab2e7bb34"
   },
