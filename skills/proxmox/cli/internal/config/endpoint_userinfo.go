@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"regexp"
 	"strings"
 )
 
@@ -58,9 +59,12 @@ func StripUserinfo(s string) string {
 	return s[:start] + s[at+1:]
 }
 
-// TokenShaped: an endpoint holding '!' or '=' is an API token
-// (USER@REALM!TOKENID=SECRET) pasted into a host field, never a host.
-func TokenShaped(s string) bool { return strings.ContainsAny(s, "!=") }
+// TokenShaped: a value holding '!' or '=' (USER@REALM!TOKENID=SECRET) or a
+// UUID (a token's secret on its own) is an API token pasted into a host
+// field, never a host.
+func TokenShaped(s string) bool { return strings.ContainsAny(s, "!=") || uuidRe.MatchString(s) }
+
+var uuidRe = regexp.MustCompile(`(?i)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}`)
 
 // RedactUserinfo replaces a user:password@ part of an endpoint for display,
 // and hides a token-shaped value whole.

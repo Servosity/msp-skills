@@ -376,7 +376,7 @@ func newClustersListCmd(flags *rootFlags) *cobra.Command {
 					Name: name, Client: cl.Client, PVE: pve, PVETokenEnv: shownEnvName(cl.PVETokenEnv),
 					PVETokenSet: envValue(cl.PVETokenEnv) != "", PVEPinned: cl.PVEFingerprint != "",
 					PBS: config.RedactUserinfo(cl.PBSHost), PBSTokenEnv: shownEnvName(cl.PBSTokenEnv), PBSTokenSet: envValue(cl.PBSTokenEnv) != "",
-					PBSPinned: cl.PBSFingerprint != "", PBSNamespace: cl.PBSNamespace, ClustersSource: path,
+					PBSPinned: cl.PBSFingerprint != "", PBSNamespace: config.RedactUserinfo(cl.PBSNamespace), ClustersSource: path,
 				})
 				if err := cl.validate(name); err != nil {
 					rows[len(rows)-1].Invalid = err.Error()
