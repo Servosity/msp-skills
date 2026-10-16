@@ -212,7 +212,7 @@ func TestLocalStoreIsPerCluster(t *testing.T) {
 	for _, name := range []string{"acme", "beta", ""} {
 		selectedCluster = name
 		configureDefaultDBScope("")
-		paths[name] = defaultDBPath("proxmox-pp-cli")
+		paths[name] = defaultDBPath("proxmox-cli")
 	}
 	if paths["acme"] == paths["beta"] || paths["acme"] == paths[""] || paths["beta"] == paths[""] {
 		t.Errorf("stores are shared across clusters: %v", paths)
