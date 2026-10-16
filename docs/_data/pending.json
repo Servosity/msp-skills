@@ -240,7 +240,7 @@
   "hubspot": {
     "state": "binary-pending",
     "version": "0.2.1",
-    "latest_tag": "hubspot-v0.2.1",
+    "latest_tag": "hubspot-v0.2.2",
     "current_hash": "sha256:8ea5ef685f1d7aa1e799e014a34281a437bc13e82a6746d4e66d94c9274524b5",
     "released_hash": "sha256:2f0c00f239e7022ab9b3da7f68e23d75ebcace4a4a426c6aa28cbaa025c1399f"
   },
