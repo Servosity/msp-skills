@@ -1852,7 +1852,7 @@
       "cli_hash": "sha256:5e1f901289cecc093502b094ae47ab90d08d599da4fef1c72c74b3aa1c220fcf",
       "template_version": 3,
       "version": "0.1.1",
-      "cli_hash_at_release": "sha256:20ec78e51cb5bcb177c28c2bc9f598a083499b3708ebe85285fa5db1acd2b4f6",
+      "cli_hash_at_release": "sha256:5e1f901289cecc093502b094ae47ab90d08d599da4fef1c72c74b3aa1c220fcf",
       "live_verified": {
         "status": "awaiting",
         "date": null,
