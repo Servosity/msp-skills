@@ -1,6 +1,6 @@
 {
   "name": "connectwise-rmm",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "66 ConnectWise RMM (Asio) partner API operations, plus a local fleet database, patch-compliance rollups, and script runs you can preview, schedule and watch in one command.",
   "author": {
     "name": "Servosity",

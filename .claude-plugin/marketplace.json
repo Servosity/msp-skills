@@ -118,7 +118,7 @@
       "name": "auvik",
       "source": "./skills/auvik",
       "description": "Every Auvik endpoint as a command, plus the cross-client answers the Auvik UI and API cannot give you.",
-      "version": "0.2.4",
+      "version": "0.2.5",
       "category": "rmm",
       "tags": [
         "auvik",
@@ -133,7 +133,7 @@
       "name": "avanan",
       "source": "./skills/avanan",
       "description": "Every Avanan (Check Point Harmony Email and Collaboration) API operation, plus shift-start triage, phishing campaign clustering, single-message lifecycle timelines, one exception lookup across all seven security engines, and cross-tenant MSP fleet rollups that a stateless API mirror cannot answer in a single call.",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "category": "security",
       "tags": [
         "avanan",
@@ -295,7 +295,7 @@
       "name": "cork",
       "source": "./skills/cork",
       "description": "Every Cork API operation, plus cross-client risk attribution, exploitability-first vulnerability triage, overdue-compliance detection, and stale-connector health checks that a stateless API mirror cannot answer in a single call.",
-      "version": "0.1.4",
+      "version": "0.1.5",
       "category": "security",
       "tags": [
         "cork",
@@ -341,7 +341,7 @@
       "name": "datagate",
       "source": "./skills/datagate",
       "description": "Every DataGate telecom billing API resource, plus a local SQLite store and offline search the API can't return in one call.",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "category": "billing",
       "tags": [
         "datagate",
@@ -356,7 +356,7 @@
       "name": "datto-bcdr",
       "source": "./skills/datto-bcdr",
       "description": "Sync your whole Datto BCDR fleet into local SQLite and answer the questions the per-appliance Partner Portal can't: which backups failed screenshot verification, which are stale, and which clients are at risk.",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "category": "backup-dr",
       "tags": [
         "datto-bcdr",
@@ -455,7 +455,7 @@
       "name": "hubspot",
       "source": "./skills/hubspot",
       "description": "Every HubSpot Sales Hub feature, plus offline cross-object queries, property-change-history reporting, and an agent-native data layer no other HubSpot tool has.",
-      "version": "0.2.1",
+      "version": "0.2.2",
       "category": "crm",
       "tags": [
         "hubspot",
@@ -485,7 +485,7 @@
       "name": "huntress",
       "source": "./skills/huntress",
       "description": "Every Huntress endpoint, plus fleet-wide incident, coverage, and billing rollups the API can't.",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "category": "security",
       "tags": [
         "huntress",
@@ -500,7 +500,7 @@
       "name": "immybot",
       "source": "./skills/immybot",
       "description": "Every ImmyBot endpoint typed, plus a local SQLite mirror that answers the cross-tenant questions the web UI cannot.",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "category": "rmm",
       "tags": [
         "immybot",
@@ -900,7 +900,7 @@
       "name": "sentinelone",
       "source": "./skills/sentinelone",
       "description": "Every SentinelOne v2.1 management endpoint, plus an offline SQLite store and cross-entity analytics \u2014 fleet health, threat triage, blast radius, drift \u2014 that no console view offers.",
-      "version": "0.2.2",
+      "version": "0.2.3",
       "category": "security",
       "tags": [
         "sentinelone",
@@ -915,7 +915,7 @@
       "name": "servosity",
       "source": "./skills/servosity",
       "description": "The first MSP-fleet CLI for backup. Every Servosity API endpoint as a typed command, plus a local mirror that lets you ask questions the dashboard can't \u2014 across your whole book of clients.",
-      "version": "0.6.6",
+      "version": "0.6.7",
       "category": "backup-dr",
       "tags": [
         "servosity",
@@ -1006,7 +1006,7 @@
       "name": "threatlocker",
       "source": "./skills/threatlocker",
       "description": "Every ThreatLocker Portal API feature, plus the write operations the read-only tools lack and a cross-tenant offline store no other ThreatLocker tool has.",
-      "version": "0.3.8",
+      "version": "0.3.9",
       "category": "security",
       "tags": [
         "threatlocker",
@@ -1021,7 +1021,7 @@
       "name": "unifi-network",
       "source": "./skills/unifi-network",
       "description": "Every UniFi Network API operation, plus drift detection, topology, and rule prediction no other UniFi tool has.",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "category": "network-monitoring",
       "tags": [
         "unifi-network",
@@ -1052,7 +1052,7 @@
       "name": "wordpress",
       "source": "./skills/wordpress",
       "description": "Publish and manage WordPress pages, posts, media",
-      "version": "0.1.6",
+      "version": "0.1.7",
       "category": "marketing",
       "tags": [
         "wordpress",
@@ -1082,7 +1082,7 @@
       "name": "zammad",
       "source": "./skills/zammad",
       "description": "Every Zammad ticket, article, and Knowledge Base operation as one agent-native CLI  -  plus a team-management layer (agent load, customer health, aging backlog, escalation triage, churn risk, feedback mining) the Zammad API can't answer in a single call.",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "category": "psa",
       "tags": [
         "zammad",
@@ -1097,7 +1097,7 @@
       "name": "connectwise-rmm",
       "source": "./skills/connectwise-rmm",
       "description": "66 ConnectWise RMM (Asio) partner API operations, plus a local fleet database, patch-compliance rollups, and script runs you can preview, schedule and watch in one command.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "rmm",
       "tags": [
         "connectwise-rmm",
@@ -1113,7 +1113,7 @@
       "name": "fortinet",
       "source": "./skills/fortinet",
       "description": "Read every FortiGate's configuration and live state, then audit the whole client fleet for firmware, SSL-VPN exposure, admin accounts and license expiry in one command.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "security",
       "tags": [
         "fortinet",
@@ -1128,7 +1128,7 @@
       "name": "google-workspace",
       "source": "./skills/google-workspace",
       "description": "Cross-client Google Workspace admin: 2SV gaps, license waste, sharing drift, safe offboarding.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "security",
       "tags": [
         "google-workspace",
@@ -1144,7 +1144,7 @@
       "name": "threatdown",
       "source": "./skills/threatdown",
       "description": "Every ThreatDown OneView API, plus fleet-wide stale-endpoint, health and seat reports across all your sites, and guarded isolate/scan/restore jobs.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "security",
       "tags": [
         "threatdown",
@@ -1159,7 +1159,7 @@
       "name": "connectsecure",
       "source": "./skills/connectsecure",
       "description": "Every ConnectSecure API operation, plus a local store that answers vulnerability x asset x client questions across your whole client base in one command.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "security",
       "tags": [
         "connectsecure",
@@ -1174,7 +1174,7 @@
       "name": "cisco-meraki",
       "source": "./skills/cisco-meraki",
       "description": "Every Meraki Dashboard operation, plus cross-org fleet views that read every page, and a local mirror built for MSPs running many client orgs.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "network-monitoring",
       "tags": [
         "cisco-meraki",
@@ -1190,7 +1190,7 @@
       "name": "quotewerks",
       "source": "./skills/quotewerks",
       "description": "Typed quote tools for QuoteWerks Web that use the real column names, preview typed writes before sending them, and add margin, win-rate and pipeline answers from a local mirror.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "crm",
       "tags": [
         "quotewerks",
@@ -1205,7 +1205,7 @@
       "name": "sophos-central",
       "source": "./skills/sophos-central",
       "description": "The Sophos Central partner, organization and tenant APIs, routed to the right tenant and region automatically, plus a cross-tenant triage queue, fleet tamper remediation, a multi-tenant SIEM collector and hostname-based containment.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "security",
       "tags": [
         "sophos-central",
@@ -1221,7 +1221,7 @@
       "name": "cisco-duo",
       "source": "./skills/cisco-duo",
       "description": "Fix Duo MFA lockouts in one command and see every MSP subaccount at once, with signed Admin API calls.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "security",
       "tags": [
         "cisco-duo",

@@ -1,6 +1,6 @@
 {
   "name": "sophos-central",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "The Sophos Central partner, organization and tenant APIs, routed to the right tenant and region automatically, plus a cross-tenant triage queue, fleet tamper remediation, a multi-tenant SIEM collector and hostname-based containment.",
   "author": {
     "name": "Servosity",
