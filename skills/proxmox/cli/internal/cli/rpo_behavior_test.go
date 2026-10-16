@@ -30,7 +30,8 @@ func TestRPOEvidence(t *testing.T) {
 		t.Errorf("101 (only a 50h-old point) = %+v", r)
 	}
 	// Retention capped the window: no misses seen, but compliance is unproven.
-	if r := rows[100]; r.MissedRuns != 0 || r.MetSchedule || r.Evidence != "partial" || r.ScheduledRuns != 2 || r.VerifiedOKDays != 2 {
+	// The run whose window holds the oldest point (50h) is judged, and hit.
+	if r := rows[100]; r.MissedRuns != 0 || r.MetSchedule || r.Evidence != "partial" || r.ScheduledRuns != 3 || r.VerifiedOKDays != 2 {
 		t.Errorf("100 = %+v", r)
 	}
 	// Retention cap: runs older than the oldest retained point are not called missed.

@@ -351,7 +351,7 @@ func collectRestorePoints(ctx context.Context, t fleetTarget, query string, veri
 		fails = append(fails, gapFailures(t.Name, gaps)...) // as posture: a gap reaches stderr and --csv runs too
 		points = dedupeRestorePoints(points)
 		var birth guestBirth // an earlier guest's backups under this VMID are not this one's
-		if len(points) > 0 {
+		if slices.ContainsFunc(points, func(rp restorePoint) bool { return rp.GuestType == "" || rp.GuestType == g.Type }) {
 			birth = births.read(ctx, g)
 		}
 		var either []restorePoint

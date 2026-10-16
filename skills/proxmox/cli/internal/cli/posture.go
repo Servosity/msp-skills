@@ -440,7 +440,7 @@ func collectPosture(ctx context.Context, t fleetTarget, o postureOpts) (clusterP
 		for i, rp := range rps {
 			if rp.Time > o.now.Add(clockSkewTolerance).Unix() {
 				future++
-				if newestFuture == nil || rp.Time > newestFuture.Time {
+				if newerOrWorse(&rps[i], newestFuture) {
 					newestFuture = &rps[i]
 				}
 			} else {
@@ -451,7 +451,7 @@ func collectPosture(ctx context.Context, t fleetTarget, o postureOpts) (clusterP
 		row.RestorePoints = len(rps)
 		var newest *restorePoint
 		for i := range rps {
-			if newest == nil || rps[i].Time > newest.Time {
+			if newerOrWorse(&rps[i], newest) {
 				newest = &rps[i]
 			}
 			if rps[i].VerifyState == "ok" && (row.LastVerifiedOKAt == "" || unixRFC3339(rps[i].Time) > row.LastVerifiedOKAt) {
@@ -996,9 +996,28 @@ func sortedKeys[V any](m map[string]V) []string {
 }
 
 // newerThan reports whether any of rps is newer than newest (nil: any at all).
+// newerOrWorse: rp replaces cur as the newest restore point when it is newer,
+// or as new and worse (a failed verification beats an unverified one beats an
+// ok one), so copies of one backup time on two datastores never hide the bad one.
+func newerOrWorse(rp, cur *restorePoint) bool {
+	return cur == nil || rp.Time > cur.Time || (rp.Time == cur.Time && verifyRank(rp.VerifyState) < verifyRank(cur.VerifyState))
+}
+
+func verifyRank(s string) int {
+	switch s {
+	case "failed":
+		return 0
+	case "ok":
+		return 2
+	}
+	return 1
+}
+
+// newerThan: some point in rps is at least as new as newest (a tie is as
+// new: the copy that cannot be read may be the bad one).
 func newerThan(rps []restorePoint, newest *restorePoint) bool {
 	for _, rp := range rps {
-		if newest == nil || rp.Time > newest.Time {
+		if newest == nil || rp.Time >= newest.Time {
 			return true
 		}
 	}
