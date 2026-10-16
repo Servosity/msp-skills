@@ -196,7 +196,9 @@ func newNovelPostureCmd(flags *rootFlags) *cobra.Command {
 			} else if rowsOnly(flags) {
 				out = report.Rows
 			}
-			if flags.quiet && !byClient {
+			if flags.quiet && byClient {
+				printQuietRows(cmd.OutOrStdout(), report.Clients, func(c postureClientRow) string { return c.Tenant })
+			} else if flags.quiet {
 				printQuietRows(cmd.OutOrStdout(), report.Rows, func(r postureRow) string { return r.AssetID })
 			} else if !wantsHumanTable(cmd.OutOrStdout(), flags) {
 				if err := printJSONFilteredKeep(cmd.OutOrStdout(), out, flags, postureKeep...); err != nil {

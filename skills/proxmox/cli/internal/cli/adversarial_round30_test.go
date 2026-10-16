@@ -103,8 +103,10 @@ func TestRound30SecondJobFailsEveryNightIsOnlyUnproven(t *testing.T) {
 	t.Logf("err=%v stderr=%s", err, errOut)
 	dumpRPO(t, out)
 	r := decodeJSON[rpoReport](t, out).Rows[0]
-	if r.MissedRunsUnproven > 0 {
-		t.Errorf("WEAK: job3 -> local never wrote (local read, empty, no retention), yet %d of %d misses are unproven (evidence %s): each pbs1 point already paid job1's run at that time", r.MissedRunsUnproven, r.MissedRuns, r.Evidence)
+	// job3's 7 runs have no point at local: missed, never met. With no vzdump
+	// failure on record they are unproven (job3 may not have existed then).
+	if r.MissedRuns != 7 || r.MetSchedule {
+		t.Errorf("job3 -> local never wrote: missed %d unproven %d met %v", r.MissedRuns, r.MissedRunsUnproven, r.MetSchedule)
 	}
 	out, _, _ = runCLI(t, "rpo", "--days", "7", "--by-client", "--json")
 	t.Logf("by-client: %s", out)
