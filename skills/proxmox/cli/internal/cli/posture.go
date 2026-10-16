@@ -123,7 +123,7 @@ func newNovelPostureCmd(flags *rootFlags) *cobra.Command {
 			"stale (newest restore point older than --stale-after), verify-failed (newest PBS restore point failed verification, including one dated in the future) are red; " +
 			"unverified (newest PBS restore point not verified yet), last-attempt-failed (latest vzdump run failed but an older point is still fresh), " +
 			"attempt-unknown (fresh restore point, but the latest vzdump log could not be read; raise --max-logs or fix the reported fetch failure), " +
-			"archives-incomplete (fresh restore point, but some backup storage could not be read, or a newer backup is listed without a readable manifest), " +
+			"archives-incomplete (fresh restore point, but some backup storage could not be read, a PBS storage was read only through Proxmox VE, or a newer backup is listed without a readable manifest), " +
 			"and clock-skew (fresh restore point, but another is dated in the future, so a node clock ran ahead; a future-dated point never counts toward age) are amber; " +
 			"protected-elsewhere (uncovered but tagged with --protected-elsewhere-tag) and fresh are green. " +
 			"Freshness comes from real archives (PVE backup storages, including PBS storages, and the PBS API when configured), never from a job having run.",
@@ -536,7 +536,9 @@ func collectPosture(ctx context.Context, t fleetTarget, o postureOpts) (clusterP
 			case row.Verdict == "stale":
 				row.Verdict = "unproven"
 				row.Reason = fmt.Sprintf("newest readable restore point is %.1fh old, but %s; a newer one may be there", row.AgeHours, why)
-			case row.Severity == "green" && (archivesIncomplete || len(gaps) > 0):
+			case row.Severity == "green" && (archivesIncomplete || pveOnlyPBS || len(gaps) > 0):
+				// A PBS storage read only through PVE may hide a newer snapshot
+				// that failed verification, as an unread one may.
 				row.Verdict, row.Severity = "archives-incomplete", "amber"
 				row.Reason = "newest readable restore point is fresh, but " + why + "; a newer or failed archive may be unseen"
 			case row.Severity == "red":
