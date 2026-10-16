@@ -4,8 +4,9 @@
 // windows-null-dacl-behind-flags): trustees in the token file's SDDL are
 // compared by SID, so an alias that names the current user (the built-in
 // Administrator renders as LA) is the owner, and an alias that names anyone
-// else is not; and a NULL DACL is refused in the form Windows actually
-// renders. Pure SDDL strings, so this runs on any OS.
+// else is not; and the DACL section is parsed exactly, so a NULL DACL is
+// refused in the form Windows actually renders. Pure SDDL strings, so this
+// runs on any OS.
 package cliutil
 
 import (
@@ -114,5 +115,41 @@ func TestEvalCredsSecurityRefusesNullDACLBehindFlags(t *testing.T) {
 	// Looking at the flags prefix does not refuse an ordinary protected DACL.
 	if err := evalCredsSecurity("O:"+me+"D:PAI(A;;FA;;;"+me+")", me); err != nil {
 		t.Errorf("protected owner-only DACL refused: %v", err)
+	}
+}
+
+// The DACL section is split exactly: flags, then complete ACEs, then an
+// optional SACL section that grants nothing. Anything else is refused.
+func TestEvalCredsSecurityParsesTheDACLSectionExactly(t *testing.T) {
+	const me = "S-1-5-21-1-2-3-1000"
+	own := "(A;;FA;;;" + me + ")"
+	cases := []struct {
+		name    string
+		sddl    string
+		wantErr string
+	}{
+		{"empty DACL, NULL SACL", "O:BAD:S:NO_ACCESS_CONTROL", ""},
+		{"empty protected DACL, audit SACL", "O:BAD:PS:(AU;SA;FA;;;WD)", ""},
+		{"owner-only DACL, audit SACL for Everyone", "O:" + me + "D:PAI" + own + "S:AI(AU;SA;FA;;;WD)", ""},
+		{"NULL DACL followed by a SACL", "O:" + me + "D:PAINO_ACCESS_CONTROLS:NO_ACCESS_CONTROL", "NULL DACL"},
+		{"unknown DACL flag", "O:" + me + "D:XY" + own, "unparseable flags"},
+		{"lowercase NULL DACL flags", "O:" + me + "D:paino_access_control", "unparseable flags"},
+		{"unclosed trailing ACE", "O:" + me + "D:PAI" + own + "(A;;FA;;;WD", "unparseable ACE"},
+		{"text between ACEs", "O:" + me + "D:PAI" + own + "junk", "unparseable ACE"},
+		{"conditional ACE", "O:" + me + "D:PAI" + own + "(XA;;FA;;;WD;(Member_of{SID(BA)}))", "unparseable ACE"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			err := evalCredsSecurity(c.sddl, me)
+			if c.wantErr == "" {
+				if err != nil {
+					t.Fatalf("evalCredsSecurity(%q) refused: %v", c.sddl, err)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), c.wantErr) {
+				t.Fatalf("evalCredsSecurity(%q) err=%v, want a refusal containing %q", c.sddl, err, c.wantErr)
+			}
+		})
 	}
 }
