@@ -135,7 +135,7 @@
   "connectwise-control": {
     "state": "binary-pending",
     "version": "0.1.4",
-    "latest_tag": "connectwise-control-v0.1.4",
+    "latest_tag": "connectwise-control-v0.1.5",
     "current_hash": "sha256:985509cb59fa8842d8c3cbf73308d6f5303d8ca64eb42a2d515a2c081e1889a5",
     "released_hash": "sha256:e4d833af9fa586aff2806ffbeec1426faa88c0381bb085ac6e6f1c0ecc767ad4"
   },
