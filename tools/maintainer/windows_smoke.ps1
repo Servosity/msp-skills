@@ -19,7 +19,7 @@
                   -ExpectedVersion (when given). Proves the binary starts and
                   that the release stamped the version into it.
     cli-help      <cli>.exe --help exits 0 and prints a usage block.
-    cli-doctor    <cli>.exe doctor --json does not crash and prints a JSON
+    cli-doctor    <cli>.exe doctor --json --timeout 15s does not crash and prints a JSON
                   object. Any path it reports (config_path, cache.db_path) must
                   be absolute and inside the scratch profile this script gives
                   the process - a relative or "/.config/..." path means the code
@@ -354,7 +354,15 @@ if ($cliPath) {
   $ok = $r.Started -and -not $r.TimedOut -and $r.ExitCode -eq 0 -and ($r.Stdout -match "Usage:")
   Add-Result "cli-help" $ok $(if ($ok) { "exit 0 with a usage block" } else { "exit {0}, timed out {1}; stderr: {2}" -f $r.ExitCode, $r.TimedOut, ($r.Stderr + "").Trim() })
 
-  $r = Invoke-Child $cliPath @("doctor", "--json")
+  # doctor probes the vendor's real API at its base URL. Its own request
+  # timeout defaults to 60s, the same as this script's per-command deadline,
+  # so a slow vendor endpoint (huntress, CI run 38783891747: HTTP/2 stream
+  # CANCEL from api.huntress.io) made doctor race the deadline. --timeout is a
+  # root flag on every connector; 15s caps each request's stall (DNS, TLS,
+  # response), which shrinks that race. It does not guarantee doctor finishes
+  # under 60s: some clients retry a stalled request. A doctor that hangs or
+  # crashes still fails this check.
+  $r = Invoke-Child $cliPath @("doctor", "--json", "--timeout", "15s")
   $doctor = $null
   $why = $null
   if (-not $r.Started) { $why = "could not start: $($r.Stderr)" }
@@ -383,7 +391,8 @@ if ($cliPath) {
       try { $rooted = [System.IO.Path]::IsPathRooted($value) -and ($value -match '^(?:[A-Za-z]:[\\/]|\\\\)') } catch { }
       $inside = $false
       if ($rooted) {
-        try { $inside = [System.IO.Path]::GetFullPath($value).StartsWith($profileRoot, [System.StringComparison]::OrdinalIgnoreCase) } catch { }
+        # Directory boundary, not a bare prefix: "<profile>-other\x" is outside.
+        try { $inside = [System.IO.Path]::GetFullPath($value).StartsWith($profileRoot.TrimEnd("\", "/") + [System.IO.Path]::DirectorySeparatorChar, [System.StringComparison]::OrdinalIgnoreCase) } catch { }
       }
       if (-not ($rooted -and $inside)) { $bad += "$name='$value'" }
     }
