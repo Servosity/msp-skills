@@ -415,9 +415,13 @@ func scheduledRuns(ctx context.Context, t fleetTarget, schedule string, start, n
 // evaluateRPO scores one guest's restore points against its scheduled runs.
 func evaluateRPO(points []restorePoint, runs []int64, start, now time.Time) rpoRow {
 	row := rpoRow{WindowStart: start.UTC().Format(time.RFC3339), MissedRunTimes: []string{}}
-	// A point dated past now (a node clock ran ahead) proves no run and must
-	// not anchor the retention cap either.
-	points = slices.DeleteFunc(slices.Clone(points), func(p restorePoint) bool { return p.Time > now.Unix() })
+	// A point dated past the clock-skew tolerance (a node clock ran ahead) has
+	// no judgeable time: it proves no run and must not anchor the retention
+	// cap, but it is a real backup, so the runs it may cover are unproven.
+	cutoff := now.Add(clockSkewTolerance).Unix()
+	total := len(points)
+	points = slices.DeleteFunc(slices.Clone(points), func(p restorePoint) bool { return p.Time > cutoff })
+	future := total - len(points)
 	sort.Slice(points, func(i, j int) bool { return points[i].Time < points[j].Time })
 	runs = dedupeRuns(runs)
 	// Effective window: earlier runs may have had points that retention pruned.
@@ -429,7 +433,7 @@ func evaluateRPO(points []restorePoint, runs []int64, start, now time.Time) rpoR
 	var inWindow []int64
 	okDays := map[string]bool{}
 	for _, p := range points {
-		if p.Time < start.Unix() || p.Time > now.Unix() {
+		if p.Time < start.Unix() || p.Time > cutoff {
 			continue
 		}
 		inWindow = append(inWindow, p.Time)
@@ -477,11 +481,14 @@ func evaluateRPO(points []restorePoint, runs []int64, start, now time.Time) rpoR
 		}
 		row.LargestGapHours = math.Max(row.LargestGapHours, round1(float64(now.Unix()-prev)/3600))
 	}
-	if len(points) == 0 {
+	switch {
+	case future > 0:
+		row.Note = fmt.Sprintf("%d restore point(s) dated in the future (a node clock ran ahead) were not counted; the runs they may cover are unproven", future)
+	case len(points) == 0:
 		row.Note = "no restore points retained; every scheduled run in the window is missed"
 	}
 	row.Evidence = "full"
-	if row.WindowCapped {
+	if row.WindowCapped || future > 0 {
 		// Retention pruned the start of the window, so runs before capped_at
 		// (and any that failed there) cannot be checked.
 		row.Evidence = "partial"

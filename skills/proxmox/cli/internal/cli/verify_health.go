@@ -389,7 +389,8 @@ func groupVerify(t fleetTarget, store, ns string, snaps []pbsSnapshot, outdatedD
 	byGroup := map[string]*verifyGroupRow{}
 	newest := map[string]int64{}
 	newestState := map[string]string{}
-	futureFailed := map[string]bool{}
+	futureNewest := map[string]int64{} // newest future-dated snapshot per group
+	futureFailed := map[string]bool{}  // ... and whether it failed verification
 	firstFail := map[string]int64{}
 	newestOK := map[string]int64{}
 	for _, s := range snaps {
@@ -423,8 +424,8 @@ func groupVerify(t fleetTarget, store, ns string, snaps []pbsSnapshot, outdatedD
 			g.NeverVerified++
 		}
 		switch {
-		case future && state == "failed":
-			futureFailed[key] = true // newer than every real point, and bad
+		case future && ts > futureNewest[key]:
+			futureNewest[key], futureFailed[key] = ts, state == "failed" // newer than every real point
 		case !future && ts > newest[key]:
 			newest[key], newestState[key] = ts, state
 		}

@@ -119,6 +119,9 @@ hosts before any request is built.
   A cluster that cannot be read is assumed to write anywhere in its declared
   `pbs_namespace` on the PBS host (or certificate) its entry names (on any
   PBS, if it names none), or anywhere on that PBS when it declares none.
+  An entry with a `pbs_host` and no Proxmox VE host is credited only with
+  what one cluster of the same client (the same `client`, or the same entry
+  name when `client` is unset) writes there; anything else is shared.
   `verify-health` keeps such a namespace's groups but marks them:
   `attribution` is `shared` on the store row and `shared: <clusters>` on each
   group row, whose tenant is left empty. `failures` marks a PBS task the same
