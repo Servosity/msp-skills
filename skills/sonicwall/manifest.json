@@ -1,0 +1,103 @@
+{
+  "manifest_version": "0.3",
+  "name": "sonicwall-mcp",
+  "display_name": "SonicWall",
+  "version": "0.1.0",
+  "description": "Cyber-insurance posture for a whole SonicWall fleet: firmware, advisories, MFA, SSL-VPN exposure and licences, one row per firewall.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/sonicwall-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/sonicwall-mcp",
+      "args": [],
+      "env": {
+        "SONICWALL_MSW_API_KEY": "${user_config.sonicwall_msw_api_key}",
+        "SONICWALL_NSM_TOKEN": "${user_config.sonicwall_nsm_token}",
+        "SONICWALL_REGION": "${user_config.sonicwall_region}",
+        "SONICWALL_BASE_URL": "${user_config.sonicwall_base_url}",
+        "SONICWALL_MCP_READ_ONLY": "${user_config.sonicwall_mcp_read_only}",
+        "SONICWALL_MCP_HTTP_TOKEN": "${user_config.sonicwall_mcp_http_token}",
+        "SONICWALL_USER_AGENT": "${user_config.sonicwall_user_agent}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
+      }
+    }
+  },
+  "user_config": {
+    "sonicwall_msw_api_key": {
+      "type": "string",
+      "title": "MySonicWall API key",
+      "description": "Your MySonicWall API key, sent as X-API-KEY. nsm-login (CLI or the nsm_login tool) mints the NSM session token from it, and licence and blind-spots checks read MySonicWall with it. Use an account whose NSM role is read-only.",
+      "sensitive": true,
+      "required": true
+    },
+    "sonicwall_nsm_token": {
+      "type": "string",
+      "title": "NSM session token (leave blank)",
+      "description": "Optional override; leave blank. Run `sonicwall-cli nsm-login` (or the nsm_login tool) instead, which saves the token. A pasted token expires after 8 hours (15 minutes idle) and keeps overriding the saved one.",
+      "sensitive": true,
+      "required": false
+    },
+    "sonicwall_region": {
+      "type": "string",
+      "title": "NSM region",
+      "description": "NSM SaaS region in https://nsm-{region}.sonicwall.com: uswest (default) or eucentral for EU portals.",
+      "sensitive": false,
+      "required": false,
+      "default": "uswest"
+    },
+    "sonicwall_base_url": {
+      "type": "string",
+      "title": "Base URL override (testing)",
+      "description": "Optional; leave blank. Sends every NSM and MySonicWall call to this base URL instead, for tests and mock servers.",
+      "sensitive": false,
+      "required": false
+    },
+    "sonicwall_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP mode",
+      "description": "Optional. Set to 1 to hide tools that change NSM, MySonicWall or firewall state and refuse non-GET execute calls. Tools still write local state: the response cache, posture snapshots and learning entries.",
+      "sensitive": false,
+      "required": false
+    },
+    "sonicwall_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment); callers must send a matching Authorization: Bearer header. Leave blank for Claude Desktop.",
+      "sensitive": true,
+      "required": false
+    },
+    "sonicwall_user_agent": {
+      "type": "string",
+      "title": "User-Agent header",
+      "description": "Optional. Overrides the User-Agent the CLI sends to NSM and MySonicWall. Leave blank to use the built-in one.",
+      "sensitive": false,
+      "required": false
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile (optional)",
+      "description": "Only used when the MCP server is bound to a tenant-gated client profile. This connector registers no tenant-gated source, so leave it blank.",
+      "sensitive": true,
+      "required": false
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  },
+  "printing_press_version": "4.33.5",
+  "press_provenance": {
+    "printing_press_version": "4.33.5",
+    "generated_at": "2026-10-14T07:09:03.324917Z",
+    "spec_checksum": "sha256:2606d498acfd19a34a4bb3fdc7d832e4cd8248f657a8555af996470dd705c31e",
+    "spec_format": "openapi3"
+  }
+}

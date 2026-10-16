@@ -87,6 +87,7 @@ body:
         - servosity
         - sherweb
         - skykick
+        - sonicwall
         - sophos-central
         - superops
         - syncro

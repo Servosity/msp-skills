@@ -1,5 +1,5 @@
 {
-  "count": 77,
+  "count": 78,
   "connectors": [
     {
       "slug": "abnormal",
@@ -715,6 +715,17 @@
       "source": null,
       "issue_url": null,
       "url": "/skills/skykick/"
+    },
+    {
+      "slug": "sonicwall",
+      "display_name": "SonicWall",
+      "tagline": "Audit every client SonicWall firewall for firmware, SSL-VPN exposure, MFA and licence expiry in one command.",
+      "category": "Security",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "url": "/skills/sonicwall/"
     },
     {
       "slug": "sophos-central",

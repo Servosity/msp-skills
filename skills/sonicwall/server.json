@@ -1,0 +1,83 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Servosity/sonicwall-mcp",
+  "title": "SonicWall MCP",
+  "description": "Cyber-insurance posture for a whole SonicWall fleet: firmware, advisories, MFA, SSL-VPN exposure",
+  "version": "0.1.0",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/sonicwall/sonicwall-512x512.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/servosity/msp-skills",
+    "source": "github",
+    "subfolder": "skills/sonicwall"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/sonicwall-v0.1.0/sonicwall-mcp.mcpb",
+      "version": "0.1.0",
+      "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "SONICWALL_MSW_API_KEY",
+          "description": "Your MySonicWall API key, sent as X-API-KEY. nsm-login (CLI or the nsm_login tool) mints the NSM session token from it, and licence and blind-spots checks read MySonicWall with it. Use an account whose NSM role is read-only.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "SONICWALL_NSM_TOKEN",
+          "description": "Optional override; leave blank. Run `sonicwall-cli nsm-login` (or the nsm_login tool) instead, which saves the token. A pasted token expires after 8 hours (15 minutes idle) and keeps overriding the saved one.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "SONICWALL_REGION",
+          "description": "NSM SaaS region in https://nsm-{region}.sonicwall.com: uswest (default) or eucentral for EU portals.",
+          "isRequired": false,
+          "isSecret": false,
+          "default": "uswest"
+        },
+        {
+          "name": "SONICWALL_BASE_URL",
+          "description": "Optional; leave blank. Sends every NSM and MySonicWall call to this base URL instead, for tests and mock servers.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "SONICWALL_MCP_READ_ONLY",
+          "description": "Optional. Set to 1 to hide tools that change NSM, MySonicWall or firewall state and refuse non-GET execute calls. Tools still write local state: the response cache, posture snapshots and learning entries.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "SONICWALL_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment); callers must send a matching Authorization: Bearer header. Leave blank for Claude Desktop.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "SONICWALL_USER_AGENT",
+          "description": "Optional. Overrides the User-Agent the CLI sends to NSM and MySonicWall. Leave blank to use the built-in one.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Only used when the MCP server is bound to a tenant-gated client profile. This connector registers no tenant-gated source, so leave it blank.",
+          "isRequired": false,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}

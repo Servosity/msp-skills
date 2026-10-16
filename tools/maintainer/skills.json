@@ -1956,6 +1956,29 @@
         "source": null,
         "evidence": null
       }
+    },
+    "sonicwall": {
+      "system": "SonicWall firewalls via Network Security Manager (NSM SaaS) and MySonicWall",
+      "status": "beta",
+      "cli_binary": "sonicwall-cli",
+      "mcp_binary": "sonicwall-mcp",
+      "vendor": "SonicWall",
+      "vendor_trademark_owner": "SonicWall Inc",
+      "first_party": false,
+      "category": "Security",
+      "display_name": "SonicWall",
+      "tagline": "Audit every client SonicWall firewall for firmware, SSL-VPN exposure, MFA and licence expiry in one command.",
+      "has_video": true,
+      "cli_hash": "sha256:342f8166442c90ab1dbada2d633c238570fa337a106b893b393d321702c4d1a4",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
     }
   }
 }

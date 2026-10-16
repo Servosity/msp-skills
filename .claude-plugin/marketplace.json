@@ -1247,6 +1247,21 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "sonicwall",
+      "source": "./skills/sonicwall",
+      "description": "Cyber-insurance posture for a whole SonicWall fleet: firmware, advisories, MFA, SSL-VPN exposure and licences, one row per firewall.",
+      "version": "0.1.0",
+      "category": "security",
+      "tags": [
+        "sonicwall",
+        "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }

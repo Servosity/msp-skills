@@ -2466,6 +2466,42 @@ A: Yes - it authenticates with SkyKick Partner API client credentials (your API 
 
 Governance: The skill is read-first: every posture, staleness, coverage, retention, autodiscover, drift, alert, and partner view only reads. It can change a small, explicit set of things, all of which POST to the live SkyKick API: marking alerts complete (one at a time, or in bulk only with --apply), triggering Exchange mailbox and SharePoint site discovery, and bulk import from JSONL. There are no delete, credential, or admin commands. Keep an autonomous agent to read plus previewed writes, and require a human to approve the completion, discovery, and import commands.
 
+### SonicWall (Security)
+
+Page: https://msp-skills.compoundingteams.com/skills/sonicwall/
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/sonicwall/install.sh)
+
+Ask your AI which client SonicWall firewalls are behind on firmware, hit by an advisory with SSL-VPN on WAN, or have SSL-VPN users without one-time passwords, and get one pass, warn, fail or unknown row per firewall. It reads every firewall in your NSM tenant plus your MySonicWall registrations, read-only, and keeps a local history so you can see what got worse since last week.
+
+Outcomes (question -> command your AI agent runs):
+- Give me one insurance-posture row per client firewall: firmware, end of support, advisories, licences, admin TOTP and SSL-VPN exposure. -> sonicwall-cli posture
+- Which firewalls does the CVE-2024-40766 advisory hit, and which have SSL-VPN on a WAN zone? -> sonicwall-cli exposure "SNWLID-2024-0015"
+- Which SonicWall advisories hit the most firewalls in my fleet right now? -> sonicwall-cli exposure
+- Which admins and local SSL-VPN users have no one-time password? -> sonicwall-cli mfa-audit
+- Which firewalls are behind the newest firmware, and which advisories does the upgrade clear? -> sonicwall-cli firmware drift --behind-only
+- Which licences and security services expire in the next 90 days, and which boxes should be replaced instead of renewed? -> sonicwall-cli licenses renewals --days 90
+- Which firewalls are registered in MySonicWall but invisible to NSM? -> sonicwall-cli blind-spots
+- What got worse since last week: newly vulnerable, MFA turned off, SSL-VPN newly on WAN, a licence lapsed? -> sonicwall-cli posture changes --fleet --since 7d
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, and sonicwall-mcp speaks HTTP natively: set SONICWALL_MCP_HTTP_TOKEN, run `sonicwall-mcp --transport http`, and serve its /mcp endpoint (http://127.0.0.1:7777/mcp by default) over HTTPS behind an authenticating proxy that signs ChatGPT in with OAuth and adds the bearer header the server requires. ChatGPT cannot send a fixed bearer token, so a bare tunnel gets HTTP 401. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter a MySonicWall API key once and run `sonicwall-cli nsm-login`.
+Q: What credentials does it need?
+A: A MySonicWall API key (SONICWALL_MSW_API_KEY). `sonicwall-cli nsm-login` trades it for an NSM session token and saves it; the token lasts 8 hours with a 15-minute idle timeout, so run nsm-login again when NSM commands exit 4. EU portals also set SONICWALL_REGION=eucentral. Use a MySonicWall account whose NSM role is read-only.
+Q: Can it change my SonicWall firewalls?
+A: No. It reads NSM, the firewalls through NSM's SonicOS passthrough, and MySonicWall. The only POSTs are read-style MySonicWall queries and the token exchanges (nsm-login, nsm-session, msw-tenants access-code). Secret fields SonicWall's own API schemas document, such as local-user and device passwords, registration and authentication codes, SNMP community names and MySonicWall API keys, are blanked before anything is printed, cached or handed to an agent.
+Q: Will it see firewalls that are not in NSM?
+A: Not with posture, exposure, mfa-audit or firmware drift: those only see firewalls onboarded to NSM SaaS. Run `sonicwall-cli blind-spots` to list firewalls registered in MySonicWall that NSM cannot see, with the advisories for their registered firmware.
+Q: Is my SonicWall data safe?
+A: Your data stays on your machine. The CLI, MCP server and the local mirror are all local, and the MCP server runs over stdio unless you start it with --transport http. Credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+
+Governance: This connector is read-only against SonicWall: no command changes a firewall, NSM or MySonicWall configuration, and secret fields the vendor's schema documents are blanked from every read. The strongest control is a MySonicWall account whose NSM role is read-only. The tiers that need a human handle tokens or move data: nsm-login and the other token exchanges, config-audit and sync (configuration text as NSM returns it, not redacted field by field, in output or the local store), and a webhook delivery that sends output off your machine.
+
 ### Sophos Central (Security)
 
 Page: https://msp-skills.compoundingteams.com/skills/sophos-central/

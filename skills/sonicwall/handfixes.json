@@ -1,0 +1,999 @@
+{
+ "slug": "sonicwall",
+ "doc": "docs/reprint-survival.md",
+ "_comment": "Connector-specific edits to GENERATED/authored files that a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and banned anti-patterns absent) and fails CI if a reprint dropped one.",
+ "handfixes": [
+  {
+   "id": "doctor-verdict-tracks-reality",
+   "summary": "doctor probes GET /tenants with the real NSM token and names nsm-login, SONICWALL_REGION and SONICWALL_BASE_URL in its remedies, instead of calling any response to GET / reachable and printing 'present, not verified'",
+   "why": "The 4.33.5 doctor called any HTTP response to `GET /` reachable and never probed the credential, so a base_url aimed at a web UI (every API path 404s) and an expired or idle-timed-out NSM token both rendered healthy. /tenants is argument-free and answers a bad token with NSM's in-band E_INVALIDAUTH envelope (observed on the wire 2026-10-13; sonicwall_nsm_envelope.go maps it to 401). NSM is regional and a token minted on one region is rejected by another, so a 401 also downgrades the api row and names both SONICWALL_REGION and SONICWALL_BASE_URL. check_doctor_truth.py drives healthy / expired / wrong-base / placeholder: it failed 6 assertions before this fix and passes after (its placeholder state reaches the real nsm-uswest host, which rejected the fixture token as designed). Codex review 2026-10-15: a 2xx is reported valid only when the body is NSM's tenant list (a non-empty array of objects with a string id, per the vendor schema) or a list envelope whose keys are all list names (data, items, results, tenants, content) holding arrays; an error object, {}, [] or text is WARN not verified. See issue #282.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "func doctorProbeCredentials(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "doctorProbePath = \"/tenants\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "case err == nil && doctorProbeBodyHasData(body):",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "var doctorListEnvelopeKeys = map[string]bool{",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "doctorProbeCredentials(cmd.Context(), c, \"sonicwall-cli\", report)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"api\"] = fmt.Sprintf(\"unreachable: %s. %s\", reachErr, doctorRegionRemedy)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "not_contains": "present, not verified. Run `%s %s`"
+    }
+   ]
+  },
+  {
+   "id": "nsm-login-remedy-not-set-token",
+   "summary": "doctor's auth hint and `auth setup` / `auth status` tell a fresh install to set SONICWALL_MSW_API_KEY and run nsm-login, not to paste a token into `auth set-token`",
+   "why": "The generated hints said `echo \"$TOKEN\" | sonicwall-cli auth set-token or export SONICWALL_NSM_TOKEN`, but an operator has no NSM token to paste: NSM tokens are minted from the MySonicWall API key by nsm-login and expire after 8 hours (15 minutes idle), so an agent following the hint asks the human for a value that does not exist. A reprint regenerates auth.go and doctor.go from the template and restores the old hint.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "report[\"auth_hint\"] = doctorAuthHint",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/doctor_verdict.go",
+     "contains": "const doctorAuthHint = \"Set SONICWALL_MSW_API_KEY and run `sonicwall-cli nsm-login`",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "contains": "fmt.Fprintln(w, \"  sonicwall-cli nsm-login\")",
+     "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/auth.go",
+     "not_contains": "sonicwall-cli auth set-token or export SONICWALL_NSM_TOKEN"
+    }
+   ]
+  },
+  {
+   "id": "schema-secret-fields-redacted",
+   "summary": "every NSM, SonicOS passthrough and MySonicWall response (except the three token exchanges) has the secret fields SonicWall's schemas document blanked in a client transport hook, before print, cache, sync or MCP: schemaSecretFields everywhere, plus the generated nsmCredentialFields on SonicOS passthrough reads",
+   "why": "The vendor schemas document secrets on reads this CLI exposes: a password per local user; assign_token, authentication_code and registration_code in /firewall/reporting/status/system (the codes re-register the appliance); SNMP community names; a device password and authCode in NSM's /devices/{serial} device_info; and in MySonicWall an api_key per get-firewalls row, tcpassword in serviceInfo (licenses renewals reads it), authCode in productlist-customer and activationKey in the activity log. Only nsm-get redacted, and only by key heuristic. Adversarial round 1 (2026-10-15) proved sentinels for the codes, the device password and authCode reached stdout, the response cache, the SQLite store and the MCP execute tool (even with SONICWALL_MCP_READ_ONLY=1). The hook applies exact names from a scan of all three vendor schemas (case-insensitive), never a key heuristic, because posture and mfa-audit must still read one_time_password and totp; generic names (key, new, old) are applied only on SonicOS passthrough reads. Only string values are blanked (round 2: SonicOS administration.password is the password-policy object and bearer_token is a boolean flag, and blanking them broke firewall administration). A success body that is not exactly one JSON value and names a secret field is replaced by a non-retryable 422; error bodies and HTML keep their status. Round 3: the vendor spells the same secrets several ways (register_code, regCode, transAuthCode) and nsm-get reached them, so a normalized-suffix rule (regcode, authcode, assistancecode, activationcode, activationkey, sessionid, ...) covers the class; suffixes, not substrings, keep msgCode and product_code readable. Codex review rounds 1-2: the redaction transport is installed INSIDE the envelope hook (one registration), so it always sees the raw server body and the envelope's 401 text is built from redacted data; any body that is not exactly one JSON value and contains a secret-shaped word (quoted or not, every spelling the key rules know) is withheld whole whatever its status (2xx becomes 422; an error keeps its status). No partial text redaction and no boundary inference. Token exchanges (/auth/sso, /auth/refreshSessionToken, /api/generate-cscAccessCode) are skipped so nsm-login works. Hand-authored file registered through registerClientHook, so a reprint keeps it unless registerClientHook or nsmCredentialFields disappears. Codex round 14 + adversarial rounds 15-16: the client is handed exactly the bytes the transport judged. The body is decoded (an undecodable Content-Encoding is withheld), a JSON object or array (after a BOM or an XSSI guard, which the client strips too) is redacted and always re-encoded, so duplicate keys and guards never reach the client; anything that is not one JSON document (text, HTML, file downloads, binary, concatenated values) is withheld whole, and a bare string is withheld when it names a secret. Secret names compare with separators removed; a secret value is blanked whole whatever its type (booleans and null kept), except the settings objects the SonicOS schema documents under secret names (password policy, admin_password, passphrase, shared_secret), which keep only the policy children the schema documents (round 18, entry redaction-settings-allowlist-and-nested-text). The token-exchange skip applies only to the CLI's own POST, never a redirect hop or an escaped path. TestRedactOracleEveryNameEveryShape brute-forces every listed name in every body shape.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sonicwall_secret_redact.go",
+     "contains": "func redactSecretValue(name string, val any, passthrough bool) (any, bool) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_secret_redact.go",
+     "contains": "func redactSchemaSecrets(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_secret_redact.go",
+     "contains": "var schemaSecretFields = map[string]bool{",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_secret_redact.go",
+     "contains": "\"authentication_code\": true, \"registration_code\": true, \"get_community_name\": true,",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_secret_redact.go",
+     "contains": "var tokenExchangePaths = []string{\"/auth/sso\", \"/auth/refreshSessionToken\", \"/api/generate-cscAccessCode\"}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_secret_redact.go",
+     "contains": "t[k], c = redactSecretValue(k, val, passthrough)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_secret_redact.go",
+     "contains": "func decodeOneJSONValue(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_secret_redact.go",
+     "contains": "func containsSecretWord(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_nsm_envelope.go",
+     "contains": "c.HTTPClient.Transport = nsmEnvelopeTransport{base: sonicOSRedactTransport{base: base}}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_review_fixes_test.go",
+     "contains": "func TestRedactEnvelopeAndErrorBodies(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_secret_redact.go",
+     "contains": "var secretKeySuffixes = []string{\"regcode\", \"registercode\", \"registrationcode\", \"authcode\",",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_secret_redact_test.go",
+     "contains": "func TestSonicOSRedactTransport(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "func registerClientHook(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_nsm_get_routes.go",
+     "contains": "var nsmCredentialFields = map[string]bool{",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "token-mint-not-read-only",
+   "summary": "nsm-session sso (POST /auth/sso, which mints an NSM bearer token) does not carry the mcp:read-only annotation",
+   "why": "The generated command carried mcp:read-only=true, so agent-context and any MCP surface that reads the annotation advertised a Credential-tier token mint as read-only. Found by adversarial round 1 (2026-10-15). A reprint regenerates the annotation from the spec.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/nsm_session_sso.go",
+     "not_contains": "\"pp:path\": \"/auth/sso\", \"mcp:read-only\": \"true\""
+    }
+   ]
+  },
+  {
+   "id": "mcp-recipe-argv-not-flag-like",
+   "summary": "Recipe intent advisory_triage (internal/mcp/intents.go) refuses a flag-like advisory value before the CLI runs, always joins recipe string flags as --name=value, names its positional 'advisory' instead of the lifter's 'slug', describes the tool generically, and declares readOnlyHint/destructiveHint=false (it runs the read-only exposure command)",
+   "why": "Press 4.33.5 recipe intents append the MCP positional to argv ahead of the recipe's own flags with no flag-like check. Proven over MCP stdio on this print: {\"slug\":\"--dry-run\"} changed execution and {\"slug\":\"--home=<dir>/smuggled\"} smuggled the denylisted root flag --home (the directory was created). Same fix as the fleet ledger entry of the same id (see skills/acronis/handfixes.json); recorded at print time in cli/.printing-press-patches/mcp-recipe-argv-not-flag-like.json. Retire only when the press generator refuses flag-like recipe positionals itself.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "contains": "func rejectFlagLikeRecipeValue(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "contains": "if err := rejectFlagLikeRecipeValue(\"advisory\", input[\"advisory\"]); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "contains": "return append(args, \"--\"+name+\"=\"+selected), false",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "not_contains": "\"--\"+name, selected"
+    },
+    {
+     "file": "cli/internal/mcp/recipe_intents_test.go",
+     "contains": "func TestRecipeIntentAdvisoryTriageRejectsFlagLikePositional(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "install-credentials-declared-on-every-channel",
+   "summary": "every operator variable the binaries read is declared on all three install channels: manifest.json (.mcpb), server.json (MCP Registry) and mcp-install.md, with SONICWALL_NSM_TOKEN optional and blank so the saved nsm-login token is used",
+   "why": "manifest.json, server.json and mcp-install.md are regenerated by /msp-skills-publish on every re-onboard. The generated set declared only SONICWALL_MSW_API_KEY, SONICWALL_NSM_TOKEN and SONICWALL_REGION, marked all three required and secret in server.json (REGION is neither and defaults to uswest), and told manual installs to paste an NSM token, which expires after 8 hours and then overrides the token nsm-login saved. check_env_schema.py reported 10 findings before and passes after. Codex review round 5 (2026-10-15): the generated ChatGPT section told operators to point a connector straight at the tunnel, but ChatGPT connectors sign in with OAuth or no auth and cannot send the fixed bearer token sonicwall-mcp requires (HTTP 401), so the section now routes ChatGPT and the Gemini app through an authenticating proxy that adds the bearer header.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "manifest.json",
+     "contains": "\"SONICWALL_MSW_API_KEY\": \"${user_config.sonicwall_msw_api_key}\""
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"SONICWALL_BASE_URL\": \"${user_config.sonicwall_base_url}\""
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"SONICWALL_MCP_HTTP_TOKEN\": \"${user_config.sonicwall_mcp_http_token}\""
+    },
+    {
+     "file": "manifest.json",
+     "contains": "\"SONICWALL_MCP_READ_ONLY\": \"${user_config.sonicwall_mcp_read_only}\""
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"SONICWALL_BASE_URL\""
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"SONICWALL_MCP_HTTP_TOKEN\""
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"SONICWALL_NSM_TOKEN\": \"\"",
+     "min_count": 3
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "SONICWALL_MCP_HTTP_TOKEN=<a long random value> sonicwall-mcp --transport http"
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "They cannot send\nthe fixed `Authorization: Bearer` token that `sonicwall-mcp` requires"
+    }
+   ]
+  },
+  {
+   "id": "manifest-mcp-name-not-pp",
+   "summary": "manifest.json names the MCP server and its entry point sonicwall-mcp, not sonicwall-pp-mcp",
+   "why": "onboard's patch_manifest re-derives name / entry_point / mcp_config.command from the press manifest on every run and reintroduces -pp-mcp, which points the .mcpb at a binary the release build never emits.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "manifest.json",
+     "contains": "\"entry_point\": \"bin/sonicwall-mcp\""
+    },
+    {
+     "file": "manifest.json",
+     "not_contains": "sonicwall-pp-mcp"
+    }
+   ]
+  },
+  {
+   "id": "nsm-envelope-status",
+   "summary": "NSM's in-band failure envelope (HTTP 200 with status.success=false, e.g. E_INVALIDAUTH) is rewritten to the HTTP status the CLI classifies (401 -> exit 4 with an nsm-login hint) for the CLI and the MCP server",
+   "why": "Observed on the wire 2026-10-13: NSM answers /api/manager/tenants with no token or a bogus one with HTTP 200 and {\"status\":{\"success\":false,\"info\":[{\"code\":\"E_INVALIDAUTH\"}]}}. Left alone, an expired token prints that envelope as data and exits 0, and doctor's probe could never see a 401. Hand-authored hook (cli-factory/sonicwall/handfix/sonicwall_nsm_envelope.go) registered through registerClientHook.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sonicwall_nsm_envelope.go",
+     "contains": "func nsmEnvelopeFailure(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_nsm_envelope.go",
+     "contains": "c.HTTPClient.Transport = nsmEnvelopeTransport{base: sonicOSRedactTransport{base: base}}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_nsm_envelope_test.go",
+     "contains": "func TestNSMEnvelopeTransportRewritesStatus(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "nsm-get-route-allowlist",
+   "summary": "nsm-get only sends GETs to vendor-documented NSM and SonicOS read routes, minus credential and state-changing ones, from the generated allowlist sonicwall_nsm_get_routes.go",
+   "why": "The allowlist and nsmCredentialFields are generated by cli-factory/sonicwall/gen_nsm_get_routes.py from SonicWall's published NSM API Gateway and SonicOS Swagger files. A reprint does not know that script; re-run it (and fix_docs.py) after any regen so the escape hatch keeps refusing credential routes.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sonicwall_nsm_get_routes.go",
+     "contains": "var nsmGetRoutes = []string{",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_nsm_get_routes.go",
+     "contains": "var nsmCredentialFields = map[string]bool{",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/nsm_get.go",
+     "contains": "func redactCredentials(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "docs-two-credential-read-only-truth",
+   "summary": "fix_docs.py corrections in guide.md, SKILL.md and AGENTS.md: the read-only contract, unknown-is-never-pass, the nsm-login auth flow and the corrected environment table (incl. SONICWALL_MCP_READ_ONLY still writing local state)",
+   "why": "The press re-renders README/SKILL/AGENTS on every generate --force with template text that is wrong for this read-only, two-credential CLI (optional API key framing, --idempotent create retries, a required SONICWALL_NSM_TOKEN). cli-factory/sonicwall/handfix/fix_docs.py applies 28 literal rules; re-run it after any regen.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "guide.md",
+     "contains": "### nsm-login / nsm-get"
+    },
+    {
+     "file": "guide.md",
+     "contains": "Tools still write local state: the response cache, `posture` snapshots and learning entries."
+    },
+    {
+     "file": "SKILL.md",
+     "contains": "**Unknown is never pass**"
+    },
+    {
+     "file": "AGENTS.md",
+     "contains": "This CLI is read-only: no command changes firewall, NSM or MySonicWall configuration"
+    }
+   ]
+  },
+  {
+   "id": "root-short-vendor-casing",
+   "summary": "the root command's Short and Long read 'SonicWall CLI - ...' with the vendor's casing",
+   "why": "The generator emitted 'Sonicwall CLI' (lowercase w) with a long-dash separator and a Short truncated mid-sentence; MCP clients and --help show it.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "Short: `SonicWall CLI - Cyber-insurance posture",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "unknown-never-pass-review-fixes",
+   "summary": "unusable firmware strings make the advisory lookup fail (unknown, never pass); licence expiry checks the date even when a day count is given and takes the more conservative; NSM's liveStatus is tri-state (absent = unknown, never offline)",
+   "why": "Codex review 2026-10-15, two rounds: advisoriesForFirmware asked NSM about a blank or N/A build and graded an empty answer as no advisories (pass), so only a SonicOS version (digits.digits[-build]) is looked up; int(hours/24) truncated a lapse 12 hours ago to day 0, and a supplied nDaysToExpiry of 0 hid the same lapse, so timestamps are floored and checked as instants, calendar dates use whole days from today (MySonicWall's convention), and the smaller of the vendor count and the date wins; and a missing liveStatus decoded to false read as confirmed offline in posture and exposure, so it is now *bool and an absent value is unknown (null). Round 3 swept the same class through every posture parser: an absent admin one_time_password or admin object is unknown (null and {} stay 'none', which the vendor schema documents as unconfigured), an absent user one_time_password is unknown, a group whose OTP was not reported makes uncovered members unknown, SSL-VPN membership is known only when the SSLVPN Services chain reported its member lists and the user's direct groups are known (else null), an absent auth_type is unknown unless RADIUS decides it, MySonicWall secondaryServiceList rows are graded, and blind-spots support_expired combines the flag with the date (null when neither is reported). Round 5 swept it again: an advisory without NSM's haveWorkaroud is workaround unknown (null), not false; posture's sslvpn_users_without_mfa is emitted only when every account was decided (else sslvpn_users_mfa_unknown counts the undecided ones); and a licences renewals row whose expiry is unknown reports expired as null, not false. Round 6 (Codex round 6 plus adversarial round 5): posture graded advisories pass for a firewall whose running firmware NSM never reported (absence from /devices/vulnerable proves nothing without a SonicOS version), now unknown; posture invented licence_days_left -1 for an expired service with no date, now null; an unreported or null use_radius read as RADIUS off, now unknown unless SAML decides it; a name nested in SSLVPN Services, or in a user's member_of, that the group list did not return was read as a user or as a group with no OTP, so membership and coverage are now unknown; and mfa-audit labels an e-mail-OTP admin policy otp-email instead of none (still fail: the policy asks for TOTP). Round 7 (Codex round 7 plus adversarial round 6): the SSL-VPN sign-in source was decided from ssl_vpn.server.use_radius, which SonicWall documents as the MSCHAP mode for RADIUS password changes, while the firewall's real user authentication method (user.auth.auth_method and each partition's, at /firewall/user/authentication/methods: local, radius, ldap, tacacs, or an -local mix) was never read, so a firewall whose users sign in through LDAP or RADIUS graded pass on its local accounts alone. posture and mfa-audit now read it: SAML or a directory-only method is delegated (warn), an -local mix grades local accounts and adds a directory-users row (warn at best), and an unreported method is unknown. use_radius is no longer read, which also retires round 6's 'absent use_radius is unknown' rule. A user with no member_of is unknown when any group member list names a group the list did not return; a confirmed non-SSL-VPN account no longer makes the count undecided; an undecided count adds an errors entry. which.go and root.go (generated) carry the corrected mfa-audit description. Round 8 (Codex round 8 plus adversarial round 7): mfa-audit only surfaced the sign-in source on an -local mix, so a directory-only or SAML firewall, or one whose sign-in source was not reported, showed only passing local rows (and 'every account was read'); it now always adds one row per firewall: 'directory users (...)' warn when SAML or a directory signs users in, or 'SSL-VPN sign-in source' unknown when it was not reported. Values outside the schema enums (auth_type password/certificate/saml, auth_method local/radius/ldap/tacacs and their -local forms) are unknown. posture leaves sslvpn_users_without_mfa null when directory users exist (they are never read), always adds the undecided errors entry, and mfa_source is no longer 'user' on an unknown method. Round 9 (adversarial round 8): mfa-audit answered a --serial or --tenant that matched no NSM firewall with the empty list (and 'No MFA gaps found across 0 firewall(s)') that otherwise means every account passed; it now exits 3 (not found) and says nothing was audited. The human table gains a note column carrying each row's error. Round 10 (adversarial round 9): the zero-match refusal was swept to every fleet report whose empty answer reads as an all-clear (mfa-audit, posture, firmware drift, licenses renewals all exit 3 with a JSON error envelope when no NSM firewall matches; exposure already warns that an empty list is not zero exposure), and the hand-written reports print explicit ordered columns because printAutoTable keeps six columns and broke ties in map order, so mfa-audit (7 columns), firmware drift (8), licenses renewals (7) and blind-spots (7) dropped a random column per run and posture (10) fell back to cards with a random headline. Round 11 (Codex round 11 plus adversarial round 10): exposure's ranking answered an empty fleet, or firewalls with no reported SonicOS version, with an empty list; it now exits 3 on an empty fleet and 6 (partial) when a firewall could not be judged or the inventory was unreadable. posture's new exit 3 had skipped the snapshot save, so an emptied fleet vanished from posture changes; the empty run is saved first. blind-spots treated a MySonicWall product with no product name or line as not a firewall; it now reads productNameRaw too, lists unclassified products as product_class unknown, and exits 6 when NSM firewalls are missing from the registry the key reads (the comparison is incomplete). Round 12 (adversarial round 11): posture saved an empty run for any filter that matched nothing, so two wrong-filter runs made 'posture changes' report a clean comparison of zero firewalls and hid the fleet's real changes; an empty run is now saved only when it empties a scope whose last run had firewalls. blind-spots grades a non-firewall or unclassified product unknown, not pass, when the SonicOS advisory lookup returns nothing, and its table shows the product class. Round 13 (Codex round 13 plus adversarial round 12): postureScope dropped --tenant when --serial was given, so a --serial run with a mismatched tenant matched nothing yet saved an empty run under the plain serial scope and 'posture changes' reported the firewall removed; both filters now form the scope. licenses renewals read an empty MySonicWall service list as nothing expiring; it is now a per-firewall lookup failure (unknown), and posture adds an errors entry for it.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sonicwall_fleet.go",
+     "contains": "version := sonicOSVersionPattern.FindString(strings.TrimSpace(firmware))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_fleet.go",
+     "contains": "LiveStatus      *bool  `json:\"liveStatus\"`",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/posture/posture.go",
+     "contains": "days = int(math.Floor(t.Sub(now).Hours() / 24))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/posture/posture.go",
+     "contains": "if l.DaysToExpiry == nil || days < *l.DaysToExpiry {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/posture/posture_test.go",
+     "contains": "func TestLicencesDateBeatsStaleDayCount(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_review_fixes_test.go",
+     "contains": "func TestAdvisoriesForEmptyFirmwareIsUnknown(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_review_fixes_test.go",
+     "contains": "func TestPostureOnlineUnknown(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/posture/posture.go",
+     "contains": "m := OTPMethod(doc.Administration.Admin.OneTimePassword)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/posture/posture.go",
+     "contains": "SSLVPNMember  *bool  `json:\"sslvpn_member\"`",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/posture/posture.go",
+     "contains": "return authType, authType == \"saml\", true",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/posture/posture.go",
+     "contains": "SecondaryServiceList []*svc `json:\"secondaryServiceList\"`",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/blind_spots.go",
+     "contains": "func supportExpiredState(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/posture/posture.go",
+     "contains": "if a.Method == \"none\" && u.MemberOf == nil && !allGroupsListed {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_review_fixes_test.go",
+     "contains": "func TestSupportExpiredState(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/posture/posture_test.go",
+     "contains": "func TestLicencesSecondaryServices(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_fleet.go",
+     "contains": "HaveWorkaround *bool  `json:\"haveWorkaroud\"`",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/posture.go",
+     "contains": "missing, undecided := countSSLVPNMFA(accounts)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/licenses_renewals.go",
+     "contains": "Expired        *bool  `json:\"expired\"`",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_review_fixes_test.go",
+     "contains": "func TestSSLVPNMFACountUndecided(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_review_fixes_test.go",
+     "contains": "func TestAdvisoryWorkaroundUnreported(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/posture.go",
+     "contains": "case sonicOSVersionPattern.FindString(strings.TrimSpace(d.FirmwareVersion)) == \"\":",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/posture.go",
+     "contains": "r.LicenceDaysLeft = soon.DaysToExpiry",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/posture/posture.go",
+     "contains": "vpnGroupsComplete := groupsOK && isGroup[strings.ToLower(SSLVPNGroup)] && !unresolved",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/posture/posture_test.go",
+     "contains": "func TestLocalAccountsUnresolvedGroup(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/mfa_audit.go",
+     "contains": "} else if m, ok := posture.AdminOTP(raw); !ok {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/posture/posture.go",
+     "contains": "func UserAuthMethods(raw json.RawMessage) (methods []string, ok bool) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/posture.go",
+     "contains": "methodsRaw, merr := sonicOSGet(ctx, c, d.SerialNumber, \"/firewall/user/authentication/methods\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/mfa_audit.go",
+     "contains": "} else if mraw, err := read(\"/firewall/user/authentication/methods\"); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/posture/posture.go",
+     "contains": "if a.Method == \"none\" && u.MemberOf == nil && unresolvedAny {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/posture/posture_test.go",
+     "contains": "func TestUserAuthMethods(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/posture/posture_test.go",
+     "contains": "func TestLocalAccountsUnresolvedGroupNoMemberOf(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/which.go",
+     "contains": "with SAML, RADIUS, LDAP or TACACS+ sign-in marked as delegated."
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "with SAML, RADIUS, LDAP or TACACS+ sign-in marked as delegated."
+    },
+    {
+     "file": "cli/internal/cli/mfa_audit.go",
+     "contains": "sr.Account, sr.Kind, sr.Method, sr.Status, sr.Error = \"SSL-VPN sign-in source\", \"sign-in\", \"unknown\", posture.Unknown, authErrText",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/mfa_audit.go",
+     "contains": "case delegated || len(external) > 0:",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/posture.go",
+     "contains": "r.UserMFA = posture.Warn // local accounts pass; directory users' MFA is enforced upstream",
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/posture.go",
+     "contains": "} else if len(external) == 0 {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/posture/posture.go",
+     "contains": "if !authMethodEnum[m] {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_review_fixes_test.go",
+     "contains": "func TestMFAAuditSignInRow(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/posture/posture.go",
+     "contains": "if a.Method != \"none\" && a.Method != \"unknown\" {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_fleet.go",
+     "contains": "func noFirewallsErr(w io.Writer, flags *rootFlags) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_fleet.go",
+     "contains": "func printOrderedTable(w io.Writer, cols []string, rows []map[string]any) error {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/mfa_audit.go",
+     "contains": "return noFirewallsErr(cmd.OutOrStdout(), flags)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/posture.go",
+     "contains": "return noFirewallsErr(cmd.OutOrStdout(), flags)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/firmware_drift.go",
+     "contains": "return noFirewallsErr(cmd.OutOrStdout(), flags)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/licenses_renewals.go",
+     "contains": "return noFirewallsErr(cmd.OutOrStdout(), flags)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_review_fixes_test.go",
+     "contains": "func TestFleetReportsRefuseNoMatchingFirewall(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_review_fixes_test.go",
+     "contains": "func TestPrintOrderedTableKeepsColumns(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/exposure.go",
+     "contains": "if derr == nil && len(devices) == 0 {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/exposure.go",
+     "contains": "coverage = fmt.Errorf(\"%d of %d firewalls have no reported SonicOS version, so NSM could not match advisories to them\", unjudged, len(devices))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/posture.go",
+     "contains": "if serr := savePostureSnapshot(ctx, dbPath, time.Now().UTC(), postureScope(tenant, serial), ctx.Err() == nil, nil); serr != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/blind_spots.go",
+     "contains": "func productClass(p mswProduct) string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/blind_spots.go",
+     "contains": "partial = partialFailureErr(errors.New(note))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_review_fixes_test.go",
+     "contains": "func TestEmptyFleetExposureAndPostureHistory(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_review_fixes_test.go",
+     "contains": "func TestProductClass(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_snapshots.go",
+     "contains": "err := db.DB().QueryRowContext(ctx, `SELECT devices FROM posture_runs WHERE scope = ? ORDER BY taken_at DESC LIMIT 1`, scope).Scan(&last)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_review_fixes_test.go",
+     "contains": "func TestEmptyPostureRunSavedOnlyWhenScopeEmptied(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/blind_spots.go",
+     "contains": "r.AdvisoryStatus = \"unknown\" // a SonicOS advisory lookup proves nothing about a non-firewall",
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/cli/posture.go",
+     "contains": "return \"tenant:\" + strings.ToLower(tenant) + \"/serial:\" + strings.ToUpper(serial)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/licenses_renewals.go",
+     "contains": "return nil, fmt.Errorf(\"MySonicWall reported no services for this serial; licence expiry is unknown\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_review_fixes_test.go",
+     "contains": "func TestPostureScopeKeepsBothFilters(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_review_fixes_test.go",
+     "contains": "func TestRenewalsEmptyServiceListNotAllClear(",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "x-text-osv-floor",
+   "summary": "golang.org/x/text is pinned at v0.42.0 (>= 0.41.0)",
+   "why": "osv flags golang.org/x/text v0.39.0 for GO-2026-5970 and GO-2026-6629; the press go.mod template emits v0.39.0, so a reprint reintroduces it.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/go.mod",
+     "contains": "golang.org/x/text v0.42.0"
+    }
+   ]
+  },
+  {
+   "id": "no-create-alias-or-create-wording-on-reads",
+   "summary": "The MySonicWall POST reads (msw-products list, msw-users groups, msw-activity export, msw-tenants access-code) and nsm-session refresh carry no `create` Cobra alias, and the msw-users / msw-tenants / msw-activity group help does not say 'create'",
+   "why": "The press aliases the first POST command in each resource group to `create` and words the group Short as 'List and create ...'. Every POST here is a read (or a token refresh), so --help told agents the connector can create MySonicWall users and tenants, contradicting README, SKILL.md and governance.md. Adversarial round 13 (2026-10-15). A reprint re-adds both; remove them again. Same press bug as connectwise-control cli-no-create-alias-on-mutations.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/msw_products_list.go",
+     "not_contains": "[]string{\"create\"}"
+    },
+    {
+     "file": "cli/internal/cli/msw_users_groups.go",
+     "not_contains": "[]string{\"create\"}"
+    },
+    {
+     "file": "cli/internal/cli/msw_tenants_access-code.go",
+     "not_contains": "[]string{\"create\"}"
+    },
+    {
+     "file": "cli/internal/cli/nsm_session_refresh.go",
+     "not_contains": "[]string{\"create\"}"
+    },
+    {
+     "file": "cli/internal/cli/msw_activity_export.go",
+     "not_contains": "[]string{\"create\"}"
+    },
+    {
+     "file": "cli/internal/cli/msw_users.go",
+     "contains": "\"List msw users and user groups\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/msw_tenants.go",
+     "contains": "\"List msw tenants and read tenant details\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/msw_activity.go",
+     "contains": "\"Read msw user activity logs\"",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "blind-spots-other-needs-positive-match",
+   "summary": "blind-spots drops a registered product as 'other' only when its name or line matches a known non-firewall SonicWall family; a firewall family word with no digit after it (NSA E-Class, 'NSa Series', PRO) is a firewall, and anything unrecognised is listed as unknown",
+   "why": "Codex review 2026-10-15 round 17: firewallProduct required a digit after 'nsa', so a MySonicWall registration named 'NSA E7500' (the NSA E-Class) fell to 'other', was dropped from the default comparison, and the human output claimed every registered firewall was visible in NSM while a firewall NSM could not see went unreported. Fixing the one regex alternation would repeat the class: any model string the heuristic has not seen falls to 'other' and silently disappears. productClass now returns 'other' only on a positive match of a known non-firewall family (SMA/SRA, SonicWave, SonicPoint, SWS switches, CSa, Email Security, Capture Client, Cloud App Security, Cloud Edge, WXA, GMS/NSM/Analytics registrations) and 'unknown' for everything else, so an unrecognised product is listed, never assumed not a firewall. TestProductClass and TestBlindSpotsListsEClassAndUnrecognisedProducts fail on the previous build.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/blind_spots.go",
+     "contains": "var firewallProduct = regexp.MustCompile(`(?i)\\b(tz|nsa|nssp|nsv|soho|supermassive|pro)(\\b|[0-9])|\\bfirewall`)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/blind_spots.go",
+     "contains": "var otherProduct = regexp.MustCompile(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/blind_spots.go",
+     "contains": "case otherProduct.MatchString(text):\n\t\treturn \"other\"\n\t}\n\treturn \"unknown\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_review_fixes_test.go",
+     "contains": "{mswProduct{ProductNameRaw: \"NSA E7500\"}, \"firewall\"}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/blind_spots_test.go",
+     "contains": "func TestBlindSpotsListsEClassAndUnrecognisedProducts(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "redaction-settings-allowlist-and-nested-text",
+   "summary": "a container under a secret name that SonicOS also uses for a settings object (password, admin_password, passphrase, shared_secret) keeps a child only at a path and of a JSON type the SonicOS schema documents for a policy field (settingsPolicyPaths, enum values checked); every other child is dropped, key and value. A nested string that assigns a value to a credential name (a ':' or '=' after text whose squashed form ends in a secret name, judged as written and leniently decoded to a fixed point) is blanked whole; a name that only contains a secret word is kept; a key that assigns one is dropped with its value in every walker (dropAssigningKeys), never renamed",
+   "why": "Codex review 2026-10-15 round 18 (two P1s): settings objects were walked by child NAME, so password:[\"X\"], cli.ftp.password.default and admin_password.confirm_admin_password reached stdout and the cache; and a nested string such as [\"authentication_code: X\"] or status.info[].message escaped the free-text rule a bare-string body gets. Round 18's fix then failed adversarial round 17 and Codex round 19: substring matching blanked ordinary names (Token Users, Secretaries, pskinner, zone WAN-secret), two blanked group names joined as one and an SSL-VPN user with no MFA graded pass; the exact-name exemption kept 'password: !@#$%^&*()'; the allowlist was keyed by child name alone (password:{type:X} under a user kept X); and a malformed escape stopped all percent-decoding. Fixed by class: an assignment-shape rule with no boundary inference, a path+type allowlist generated from the schema scan, decodeLenient (each escape on its own, fixed point, unjudgeable after 16 rounds), keys judged too, and posture-redacted-names-not-joined. TestRedactJudgesDecodedForm g18-g34 and the posture test fail on the previous builds; TestRedactKeepsPolicyFieldsNamesAndEnumValues guards the false-RED side. Codex round 20: the key rule ran only in the top-level walker (keys inside settings objects and secret containers kept the credential) and renamed the key while keeping the assigned value; dropAssigningKeys now runs first in every map walker. Adversarial round 18 P2s taken: full-width ASCII folds to ASCII, colon/equals lookalikes count, and pass/pw/pin left out of the free-text words (they matched 'Authentication Bypass:' and 'NAT hairpin:'). Codex round 21: a closed list of colon/equals lookalikes missed U+A78A, so any non-ASCII punctuation or symbol now separates (isAssignSeparator); adversarial round 19 P2s taken: pass/pw/pin match as the whole word before the separator (wholeWordSecrets), settings objects drop undocumented children instead of blanking them (the key can be the secret), and squash folds full-width ASCII so full-width key spellings match. Codex round 22 + adversarial round 20 (same two P1s): the whole-word rule kept the word only across ASCII space/tab (NBSP, newline and ideographic space reset it), so any unicode.IsSpace now keeps it; and the bare-string rule was not a superset of the nested one, so bareTextHasSecret now includes textAssignsSecret and the free-text words. The separator class narrowed to Po/Sm/Sk (where every colon/equals lookalike sits) so dashes, quotes and marks in names stop blanking them, and a documented null settings object is kept. Codex round 23: SonicOS credential names (pop3_password, shared_secret) applied only on passthrough reads, so an NSM or MySonicWall body carrying one leaked; every non-generic credential name now applies on every route (a scan of the NSM and MySonicWall schemas finds only string credentials under those names). And Go's Unicode 15 tables do not know U+1B4E (Po in Unicode 16), so an unassigned (Cn) code point now counts as a separator; adversarial round 21 P2 taken: format characters and an undecodable byte keep the short word like whitespace. Codex round 24: the exact-name lookup let full-width and dotted spellings of the generic passthrough words (full-width key, k.e.y) through, because the squashed lookup left them out; isSchemaSecret now has one lookup, on the squashed key, with the passthrough gate applied there, and TestRedactOracleEveryNameEveryShape covers upper-case, full-width and dotted spellings of every name.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sonicwall_secret_redact.go",
+     "contains": "var settingsPolicyPaths = map[string]string{",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_secret_redact.go",
+     "contains": "func policyValueFits(p string, val any) bool {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_secret_redact.go",
+     "contains": "func textAssignsSecret(s string) bool {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_secret_redact.go",
+     "contains": "func decodeLenient(s string) (string, bool) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_secret_redact.go",
+     "contains": "func dropAssigningKeys(m map[string]any) bool {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_secret_redact.go",
+     "contains": "changed := dropAssigningKeys(t)\n\tfor k, val := range t {\n\t\tp := path + \".\" + squash(k)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_secret_redact.go",
+     "contains": "\tcase map[string]any:\n\t\tchanged = dropAssigningKeys(t)\n\t\tfor k, val := range t {\n\t\t\tvar c bool\n\t\t\tt[k], c = blankSecret(val)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_secret_redact.go",
+     "contains": "const redactedText = posture.Redacted",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_secret_redact.go",
+     "not_contains": "func stringNamesSecret("
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_secret_redact_test.go",
+     "contains": "{\"secret array under settings name\", \"/firewall/g18\",",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_secret_redact_test.go",
+     "contains": "{\"policy name at an undocumented path\", \"/firewall/g28\",",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_secret_redact_test.go",
+     "contains": "func TestRedactKeepsPolicyFieldsNamesAndEnumValues(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_secret_redact_test.go",
+     "contains": "{\"assigning key inside a settings object\", \"/firewall/g35\",",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_secret_redact.go",
+     "contains": "var wholeWordSecrets = map[string]bool{\"pass\": true, \"pw\": true, \"pin\": true}",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_secret_redact.go",
+     "contains": "\t\tr = foldFullWidth(r)\n\t\tif (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_secret_redact.go",
+     "contains": "\t\tdefault:\n\t\t\tdelete(t, k)\n\t\t\tc = true",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_secret_redact_test.go",
+     "contains": "{\"unlisted equals lookalike\", \"/tenants/g38\",",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_secret_redact.go",
+     "contains": "\t\t\tcase unicode.IsSpace(r) || unicode.Is(unicode.Cf, r) || r == utf8.RuneError:",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_secret_redact.go",
+     "contains": "return !ok || textAssignsSecret(s) || textHasSecret(s) || textHasSecret(d) || containsFreeTextWord(d)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_secret_redact_test.go",
+     "contains": "{\"bare free-text word\", \"/tenants/g44\",",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_secret_redact.go",
+     "contains": "if squashedSchemaNames[n] || squashedCredentialNames[n] || (passthrough && genericPassthroughNames[n]) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_secret_redact.go",
+     "contains": "return unicode.In(r, unicode.Po, unicode.Sm, unicode.Sk, unassigned)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_secret_redact.go",
+     "contains": "var unassigned = unicode.Categories[\"Cn\"]",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sonicwall_secret_redact_test.go",
+     "contains": "{\"SonicOS credential names on an NSM route\", \"/tenants/g47\",",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "posture-redacted-names-not-joined",
+   "summary": "posture's local-user and group parsers treat a name shaped like a redaction placeholder (starting \"[redacted\", any case) or a name repeated case-insensitively as carrying no identity: the list holding it is unreadable, so account coverage reads unknown and is never joined across two different names; a redacted SSL-VPN zone name is ungradeable",
+   "why": "Adversarial round 17 + Codex round 19 (2026-10-15): two different group names redacted to the same placeholder joined as one key, crediting one group's TOTP to another group's member, so posture graded an SSL-VPN user with no MFA as pass; a redacted zone read as not-WAN. Redaction is the only way two names become equal, and SonicOS names are unique, so a repeat means the join cannot be trusted. TestLocalAccountsRedactedOrRepeatedNamesAreNotJoined fails on the previous build. Codex round 20: the check accepted '[redacted 2]'; any name starting '[redacted' now carries no identity.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/posture/posture.go",
+     "contains": "const Redacted = \"[redacted]\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/posture/posture.go",
+     "contains": "return n != \"\" && !strings.HasPrefix(n, \"[redacted\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/posture/posture.go",
+     "contains": "if u == nil || !hasIdentity(u.Name) || seen[strings.ToLower(u.Name)] || !namedRefs(u.MemberOf) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/posture/posture.go",
+     "contains": "if g == nil || !hasIdentity(g.Name) || seen[strings.ToLower(g.Name)] || !namedRefs(g.Member) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/posture/posture.go",
+     "contains": "if a == nil || a.Zone == nil || a.Enable == nil || !hasIdentity(*a.Zone) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/posture/posture_test.go",
+     "contains": "func TestLocalAccountsRedactedOrRepeatedNamesAreNotJoined(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "windows-sddl-alias-sid-compare",
+   "summary": "the Windows token-file guard compares trustees by SID, resolving SDDL aliases through the OS, so the built-in Administrator (RID 500, rendered as LA) can save and load credentials",
+   "why": "Press 4.30.2+ creds_perms_eval.go compared the SDDL text of the token file's owner and ACE trustees against the process's SID string. The SDDL converter renders the built-in local Administrator (RID 500) as the alias LA, so that account's own ACE never matched: `auth set-token` exited 1 with `token file DACL grants access to a non-owner principal (LA)` and every read refused the file. Reproduced 2026-10-15 on the published fortinet-cli 0.1.0, installed with the README one-liner on a windows-latest runner (whoami S-1-5-21-...-500). The fix resolves each trustee to its SID (fixed aliases from a table, machine-relative ones like LA through ConvertStringSidToSid, kept only when the converter renders that SID back to the same alias) and compares SIDs. The allow-list is unchanged (current user, BUILTIN\\Administrators, SYSTEM): an owner or allow-ACE trustee that is any other principal, a broad group, or unresolvable is still refused. A reprint from an unfixed press silently restores the string compare while unit tests stay green on every non-Windows host.",
+   "status": "active",
+   "spec_encode_followup": "Press defect in internal/generator/templates/cliutil_creds_perms_eval.go.tmpl and cliutil_creds_perms_windows.go.tmpl (unfixed on press main as of 4.33.5). Reported upstream: https://github.com/mvanhorn/cli-printing-press/issues/5029",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/creds_perms_eval.go",
+     "contains": "func trusteeSID(trustee string, resolveAlias sddlAliasResolver) string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/creds_perms_eval.go",
+     "contains": "if om == nil || !sidAllowed(trusteeSID(om[1], resolveAlias), currentUserSID) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/creds_perms_eval.go",
+     "contains": "if !sidAllowed(trusteeSID(trustee, resolveAlias), currentUserSID) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/creds_perms_windows.go",
+     "contains": "return evalCredsSecurityResolved(sd.String(), me, resolveSDDLAlias)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/creds_perms_windows.go",
+     "contains": "sid, err := windows.StringToSid(alias)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/creds_perms_windows.go",
+     "not_contains": "return evalCredsSecurity(sd.String(), me)"
+    },
+    {
+     "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
+     "contains": "func TestEvalCredsSecurityResolvesSDDLAliases(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "windows-null-dacl-behind-flags",
+   "summary": "the Windows token-file guard checks the DACL section's framing, so a NULL DACL is refused in the form Windows actually renders it, flags first (D:PAINO_ACCESS_CONTROL), and DACL text that does not frame as flags plus complete six-field ACEs is refused rather than skipped",
+   "why": "Press creds_perms_eval.go refused a NULL DACL only when the DACL section began with NO_ACCESS_CONTROL. SDDL puts DACL flags (P, AI, AR) first, and a real NULL DACL on Windows Server 2025 renders as O:<owner>D:PAINO_ACCESS_CONTROL (measured on a windows-latest runner, 2026-10-15), so the guard found no ACEs to inspect and accepted a world-accessible token file. That was already a hole for every ordinary account; for the built-in Administrator the owner-alias mismatch happened to refuse it, so resolving LA (windows-sddl-alias-sid-compare) without this fix would have widened the hole. The DACL section's framing is now checked: its flags must be drawn from P/AI/AR/NO_ACCESS_CONTROL, an empty DACL followed by a SACL section ends at that section, and the ACE list must be complete, un-nested (...) groups of exactly six fields. Unknown flags, an unclosed or nested group, stray text, or a wrong field count is refused (fail-closed). ACE flags and rights are not validated; they do not change which principal an allow ACE names.",
+   "status": "active",
+   "spec_encode_followup": "Same press templates as windows-sddl-alias-sid-compare; reported in the same upstream issue: https://github.com/mvanhorn/cli-printing-press/issues/5029",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/creds_perms_eval.go",
+     "contains": "if strings.Contains(daclFlags, \"NO_ACCESS_CONTROL\") {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/creds_perms_eval.go",
+     "contains": "if !daclFlagsRe.MatchString(daclFlags) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/creds_perms_eval.go",
+     "contains": "if !aceListRe.MatchString(rest[flagsEnd:]) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/creds_perms_eval.go",
+     "contains": "if len(fields) != 6 {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/creds_perms_eval.go",
+     "not_contains": "if strings.HasPrefix(rest, \"NO_ACCESS_CONTROL\") {"
+    },
+    {
+     "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
+     "contains": "func TestEvalCredsSecurityRefusesNullDACLBehindFlags(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
+     "contains": "func TestEvalCredsSecurityChecksTheDACLSectionFraming(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  }
+ ]
+}
