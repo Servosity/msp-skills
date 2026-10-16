@@ -48,9 +48,11 @@ pin is bound to its own service. There is no option to skip certificate checks.
 - **One side effect to know about.** Reading a storage's status or content lets
   Proxmox activate (mount) an enabled storage, the same activation its own
   `pvestatd` daemon performs every 10 seconds.
-- **Assurance reads are live.** The backup commands above read Proxmox on every
-  run and never answer from the response cache, so a second run is never a
-  stale copy of the first.
+- **Every read is live.** The CLI keeps no response cache: every command reads
+  Proxmox on every run, so a second run is never a stale copy of the first,
+  and no API answer (with the free-text notes and comments it carries) is
+  kept on disk. The local mirror (`sync`, and the per-endpoint read commands)
+  keeps what those commands return, comments included.
 - **Agent mode is explicit.** `--agent` produces JSON for scripting; it does not
   widen anything. See AGENTS.md.
 

@@ -584,7 +584,8 @@ func (c *Client) GetWithHeadersNoCacheValues(ctx context.Context, path string, p
 }
 
 func (c *Client) responseCacheEnabled(binaryResponse bool) bool {
-	return !binaryResponse && !c.NoCache && !c.DryRun && c.cacheDir != ""
+	// proxmox hand-fix: no response cache (see proxmoxNoResponseCache in proxmox_routing.go).
+	return !proxmoxNoResponseCache && !binaryResponse && !c.NoCache && !c.DryRun && c.cacheDir != ""
 }
 
 // The response cache stores text/JSON bodies as <hash>.json. Binary callers
@@ -878,9 +879,6 @@ func (c *Client) writeCache(path string, params map[string]string, data json.Raw
 }
 
 func (c *Client) writeCacheWithHeaders(path string, params map[string]string, headers map[string]string, data json.RawMessage) {
-	if noStoreResponse(path) { // proxmox hand-fix: guest configs carry notes (see proxmox_routing.go)
-		return
-	}
 	resourceDir := c.cacheResourceDir(path)
 	_ = os.MkdirAll(resourceDir, 0o700)
 	cacheFile := filepath.Join(resourceDir, c.cacheKeyFor(http.MethodGet, path, params, headers, nil)+".json")

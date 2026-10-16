@@ -22,6 +22,10 @@ func TestRPONamesFlaggedBackups(t *testing.T) {
 	if r.MayBeEarlierGuest != 1 || strings.Contains(r.Note, rpoNoPointsNote) || r.MissedRuns == 0 || r.PointsUnread {
 		t.Errorf("rpo: flagged %d misses %d unread %v note %q", r.MayBeEarlierGuest, r.MissedRuns, r.PointsUnread, r.Note)
 	}
+	out, _, _ = runCLI(t, "rpo", "--days", "7", "--agent")
+	if !strings.Contains(out, `"may_be_earlier_guest"`) {
+		t.Errorf("rpo --agent drops may_be_earlier_guest:\n%s", out)
+	}
 	out, _, _ = runCLI(t, "rpo", "--days", "7", "--by-client", "--json")
 	for _, c := range decodeJSON[[]rpoClientRow](t, out) {
 		if c.GuestsWithNoData != 0 {

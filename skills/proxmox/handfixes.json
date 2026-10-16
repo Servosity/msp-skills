@@ -459,28 +459,24 @@
    ]
   },
   {
-   "id": "guest-config-no-cache",
-   "summary": "The response cache never stores a read that carries free-text notes (node and guest configs, pending and snapshot configs, snapshot lists, storage content lists, PBS snapshot lists and notes, pools): MSPs keep credentials in notes",
-   "why": "Generated client.go writes every fresh GET to the on-disk response cache, so a VM's description (notes), a backup's notes or a PBS snapshot comment persisted in a 0600 file after any read. The 2026-10-16 adversarial reviews (rounds 20 and 21) found sentinels in the cache from vm/ct/nodes config, vm pending, snapshot lists, storage content, PBS snapshots, notes, group-notes and pools. writeCacheWithHeaders now returns early for paths noStoreResponse (proxmox_routing.go) matches; the backup-assurance commands read through GetNoStore/GetOnceNoStore, which never write the cache. internal/cli/codex_round31_test.go (TestVMConfigNotCached), internal/cli/adversarial_round21_test.go (TestAssuranceReadsStoreNothing) and internal/client/proxmox_nostore_test.go (TestNoStoreResponsePaths) fail if the hook or the path list regresses.",
+   "id": "no-response-cache",
+   "summary": "The generated response cache is off (proxmoxNoResponseCache): no read is answered from it or written to it, because Proxmox answers carry free-text notes and comments where MSPs keep credentials, and a backup-assurance tool must not answer from a 5-minute-old copy",
+   "why": "Generated client.go caches every fresh GET on disk for 5 minutes, so VM/node/pool descriptions, backup notes, PBS snapshot comments and notes persisted in 0600 files. The 2026-10-16 adversarial reviews (rounds 20-22) and Codex round 34 found them there; a path allowlist missed every PBS read (absolute https://host:8007 URLs) and every comment-bearing endpoint nobody listed, so the cache is off at its single gate (responseCacheEnabled), which also stops a stale file from an older version being served. internal/cli/codex_round31_test.go (TestVMConfigNotCached) fails if any response cache file is written by the PVE and PBS reads it drives.",
    "status": "active",
    "asserts": [
     {
      "file": "cli/internal/client/client.go",
-     "contains": "if noStoreResponse(path) {",
+     "contains": "return !proxmoxNoResponseCache && !binaryResponse",
      "code_only": true
     },
     {
      "file": "cli/internal/client/proxmox_routing.go",
-     "contains": "func noStoreResponse(path string) bool {",
+     "contains": "const proxmoxNoResponseCache = true",
      "code_only": true
     },
     {
      "file": "cli/internal/cli/codex_round31_test.go",
      "contains": "func TestVMConfigNotCached("
-    },
-    {
-     "file": "cli/internal/client/proxmox_nostore_test.go",
-     "contains": "func TestNoStoreResponsePaths("
     }
    ]
   }

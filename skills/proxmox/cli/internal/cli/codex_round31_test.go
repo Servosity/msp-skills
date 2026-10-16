@@ -84,7 +84,7 @@ func TestUnreadVMConfigCreditsNothing(t *testing.T) {
 		t.Errorf("restore-points: err %v count %d flagged %d newest %q evidence %s", err, g.Count, g.MayBeEarlierGuest, g.NewestAt, g.Evidence)
 	}
 	out, _, _ = runCLI(t, "rpo", "--days", "7", "--guest", "100", "--json")
-	if r := decodeJSON[rpoReport](t, out).Rows[0]; r.RestorePoints != 0 || r.MetSchedule || r.Evidence != "partial" || strings.Contains(r.Note, "no restore points retained") {
+	if r := decodeJSON[rpoReport](t, out).Rows[0]; r.RestorePoints != 0 || r.MetSchedule || r.Evidence != "partial" || strings.Contains(r.Note, "no restore points retained") || !strings.Contains(r.Note, "; the VM's creation time could not be read") {
 		t.Errorf("rpo: points %d met %v evidence %s note %q", r.RestorePoints, r.MetSchedule, r.Evidence, r.Note)
 	}
 	out, _, _ = runCLI(t, "failures", "--json")
@@ -187,8 +187,8 @@ func TestNoConfigReadOnOfflineNode(t *testing.T) {
 	}
 }
 
-// A node or guest config carries its notes: it never reaches the response
-// cache, through the backup commands or the generated config reads.
+// Proxmox answers carry free-text notes: no response is cached at all, from
+// the backup commands or the generated PVE and PBS reads.
 func TestVMConfigNotCached(t *testing.T) {
 	f := newFixture(t)
 	const sentinel = "root-password-is-hunter2"
@@ -196,12 +196,14 @@ func TestVMConfigNotCached(t *testing.T) {
 	f.pveRoutes["/nodes/pve1/qemu/100/pending"] = []map[string]any{{"key": "description", "value": sentinel}}
 	f.pveRoutes["/nodes/pve1/lxc/102/config"] = map[string]any{"description": sentinel}
 	f.pveRoutes["/nodes/pve1/config"] = map[string]any{"description": sentinel}
+	snaps := f.pbsRoutes["/admin/datastore/main/snapshots"].([]any)
+	snaps[0].(map[string]any)["comment"] = sentinel
 	dir := t.TempDir()
 	t.Setenv("PROXMOX_CACHE_DIR", dir)
 	t.Setenv("XDG_CACHE_HOME", dir)
 	t.Setenv("HOME", dir)
 	t.Setenv("PROXMOX_HOME", dir)
-	for _, args := range [][]string{{"posture", "--json"}, {"vm", "config", "pve1", "100", "--json"}, {"vm", "pending", "pve1", "100", "--json"}, {"ct", "config", "pve1", "102", "--json"}, {"nodes", "config", "pve1", "--json"}} {
+	for _, args := range [][]string{{"posture", "--json"}, {"vm", "config", "pve1", "100", "--json"}, {"vm", "pending", "pve1", "100", "--json"}, {"ct", "config", "pve1", "102", "--json"}, {"nodes", "config", "pve1", "--json"}, {"pbs-datastore", "snapshots", "main", "--json"}} {
 		out, _, err := runCLI(t, args...)
 		if err != nil {
 			t.Fatalf("%v: %v", args, err)
@@ -213,12 +215,16 @@ func TestVMConfigNotCached(t *testing.T) {
 	cached := 0
 	_ = filepath.Walk(dir, func(p string, info os.FileInfo, err error) error {
 		if err == nil && !info.IsDir() {
-			cached++
+			if strings.Contains(p, string(filepath.Separator)+"http"+string(filepath.Separator)) {
+				cached++
+			}
 			if b, _ := os.ReadFile(p); strings.Contains(string(b), sentinel) {
 				t.Errorf("VM notes cached in %s", p)
 			}
 		}
 		return nil
 	})
-	t.Logf("%d files checked", cached)
+	if cached != 0 {
+		t.Errorf("%d response cache file(s) written", cached)
+	}
 }

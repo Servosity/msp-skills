@@ -306,7 +306,7 @@ var (
 	failuresKeep = []string{"rows", "fetch_failures", "scanned_tasks", "logs_read", "log_cap_hit", "note", "cluster", "product", "type", "target", "vmid", "guest_name", "result", "reason", "upid", "started_at", "attribution"}
 	capacityKeep = []string{"rows", "fetch_failures", "cluster", "kind", "name", "node", "used_pct", "days_to_full", "estimated_full_at", "gc_last_state", "gc_pending_bytes", "flags", "attribution"}
 	restoreKeep  = []string{"query", "guests", "fetch_failures", "cluster", "vmid", "name", "covered_by_jobs", "count", "newest_at", "newest_verified_ok_at", "restore_points", "backup_time", "source", "verify_state", "protected", "encrypted", "evidence", "not_read", "hidden_unverified", "predating_guest", "may_be_earlier_guest"}
-	rpoKeep      = []string{"rows", "clients", "fetch_failures", "days", "window_start", "tenant", "cluster", "vmid", "name", "missed_runs", "scheduled_runs", "missed_run_times", "largest_gap_hours", "verified_ok_days", "met_schedule", "window_capped", "note", "guests", "guests_met_schedule", "worst_gap_hours", "evidence", "points_unread", "guests_unproven", "missed_runs_unproven", "guests_without_restore_points", "clusters_unreachable"}
+	rpoKeep      = []string{"rows", "clients", "fetch_failures", "days", "window_start", "tenant", "cluster", "vmid", "name", "missed_runs", "scheduled_runs", "missed_run_times", "largest_gap_hours", "verified_ok_days", "met_schedule", "window_capped", "note", "guests", "guests_met_schedule", "worst_gap_hours", "evidence", "points_unread", "guests_unproven", "missed_runs_unproven", "guests_without_restore_points", "clusters_unreachable", "may_be_earlier_guest"}
 )
 
 func printFetchFailures(w io.Writer, failures []fetchFailure) {
