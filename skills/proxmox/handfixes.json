@@ -568,8 +568,8 @@
   },
   {
    "id": "endpoints-env-only",
-   "summary": "A PVE endpoint from one run's environment (PROXMOX_BASE_URL, PROXMOX_HOST, --cluster) is never saved to config.toml; PROXMOX_HOST that names another host than a saved base_url refuses the run; no endpoint keeps a user:password@ part",
-   "why": "Generated config.go persisted the runtime BaseURL and TemplateVars on every save, so `auth set-token` run with PROXMOX_BASE_URL wrote that host into config.toml, and every later env-configured run sent its own token there, ignoring PROXMOX_HOST: client B's token reached client A's host (2026-10-16 adversarial round 24, reproduced against a stub that logged the Authorization header). configForSave now keeps the file's endpoints; Load refuses when PROXMOX_HOST names another host than a base_url saved without {host} (a same-host base_url, e.g. a reverse proxy on 443, stays; round 25), and strips user:password@ from every endpoint so it is never sent or printed (endpoint_userinfo.go). internal/config/endpoints_env_only_test.go fails if any part is removed.",
+   "summary": "A PVE endpoint from one run's environment (PROXMOX_BASE_URL, PROXMOX_HOST, --cluster) is never saved to config.toml; when PROXMOX_HOST names another host:port than a saved base_url, no PVE request is sent; no endpoint keeps a user:password@ part",
+   "why": "Generated config.go persisted the runtime BaseURL and TemplateVars on every save, so `auth set-token` run with PROXMOX_BASE_URL wrote that host into config.toml, and every later env-configured run sent its own token there, ignoring PROXMOX_HOST: client B's token reached client A's host (2026-10-16 adversarial round 24, reproduced against a stub that logged the Authorization header). configForSave now keeps the file's endpoints; Load records an EndpointRefusal when PROXMOX_HOST names another host:port than a base_url saved without {host} (default port 8006; round 26 found a host-only compare let a port mismatch through), and doInternal in generated client.go refuses every PVE request with it, so auth logout and --cluster runs (which clear it) still work, and strips user:password@ from every endpoint so it is never sent or printed (endpoint_userinfo.go). internal/config/endpoints_env_only_test.go fails if any part is removed.",
    "status": "active",
    "asserts": [
     {
@@ -599,6 +599,20 @@
     {
      "file": "cli/internal/config/endpoints_env_only_test.go",
      "contains": "func TestEnvEndpointIsNeverSaved("
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.Config.EndpointRefusal != \"\" && c.operationSendsPrimaryAuth(method, path)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "EndpointRefusal    string",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/adversarial_round24_test.go",
+     "contains": "func TestHostDisagreementSendsNothing("
     }
    ]
   },

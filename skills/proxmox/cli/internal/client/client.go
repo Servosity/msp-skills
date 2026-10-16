@@ -1793,6 +1793,9 @@ func (c *Client) doMutation(ctx context.Context, method, path string, params map
 // mutationIntent extends that gate to GET action endpoints whose wire method
 // is not itself a mutating verb.
 func (c *Client) doInternal(ctx context.Context, method, path string, params map[string]string, body any, headerOverrides map[string]string, readOnlyIntent bool, mutationIntent bool) (json.RawMessage, int, error) {
+	if c.Config != nil && c.Config.EndpointRefusal != "" && c.operationSendsPrimaryAuth(method, path) { // proxmox hand-fix (endpoints-env-only)
+		return nil, 0, errors.New(c.Config.EndpointRefusal)
+	}
 	// Verify-mode transport-layer gate. When the verifier (or any consumer
 	// that sets PRINTING_PRESS_VERIFY=1) drives a mutating verb or explicit
 	// mutation intent without the LIVE_HTTP=1 opt-in, return a synthetic

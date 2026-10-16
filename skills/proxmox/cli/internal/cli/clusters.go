@@ -255,6 +255,7 @@ func applyClusterToClient(c *client.Client, cl clusterProfile) error {
 		cfg.ProxmoxApiToken = ""
 	}
 	cfg.BaseURL = c.BaseURL
+	cfg.EndpointRefusal = "" // this cluster's own endpoint, not config.toml's
 	cfg.TemplateVars["host"] = ""
 	cfg.TemplateVars["pbs_host"] = cl.PBSHost
 	if cl.PBSHost == "" {

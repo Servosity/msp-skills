@@ -75,12 +75,17 @@ func TestEvaluateRPOEdges(t *testing.T) {
 		t.Errorf("edge = %+v", r)
 	}
 	// Only identical timestamps merge: runs 30 minutes apart each need a point.
-	if got := dedupeRuns([]int64{100, 100, 1900}); len(got) != 2 {
-		t.Errorf("dedupeRuns = %v", got)
+	if got, jobs := dedupeRuns([]int64{100, 100, 1900}); len(got) != 2 || jobs[0] != 2 || jobs[1] != 1 {
+		t.Errorf("dedupeRuns = %v %v", got, jobs)
 	}
-	// Full evidence (a point before the window) and every run met.
-	full := []restorePoint{{Time: now.Add(-80 * time.Hour).Unix()}, {Time: now.Add(-47 * time.Hour).Unix()}, {Time: now.Add(-23 * time.Hour).Unix()}}
+	// Full evidence (a point before the window) and every run met, the
+	// in-progress newest one included.
+	full := []restorePoint{{Time: now.Add(-80 * time.Hour).Unix()}, {Time: now.Add(-47 * time.Hour).Unix()}, {Time: now.Add(-23 * time.Hour).Unix()}, {Time: now.Add(-time.Hour).Unix()}}
 	if r := evaluateRPO(full, runs, start, now); !r.MetSchedule || r.Evidence != "full" || r.MissedRuns != 0 {
 		t.Errorf("full evidence = %+v", r)
+	}
+	// The newest run within the grace and no point for it yet: not judged, not met.
+	if r := evaluateRPO(full[:3], runs, start, now); r.MetSchedule || r.MissedRuns != 0 || r.Note == "" {
+		t.Errorf("pending newest run = %+v", r)
 	}
 }

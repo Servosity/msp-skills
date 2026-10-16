@@ -504,8 +504,9 @@ type jobTargets struct {
 // vzdumpDefaults is a node's /etc/vzdump.conf as the API reports it: what a
 // job inherits for every option it does not set.
 type vzdumpDefaults struct {
-	Storage string `json:"storage"`
-	Dumpdir string `json:"dumpdir"`
+	Storage string     `json:"storage"`
+	Dumpdir string     `json:"dumpdir"`
+	Prune   keepPolicy `json:"prune-backups"`
 	err     error
 }
 
@@ -604,15 +605,16 @@ func allClear(w io.Writer, msg string, failures int) {
 }
 
 type backupJob struct {
-	ID       string    `json:"id"`
-	Enabled  *flexBool `json:"enabled"`
-	Schedule string    `json:"schedule"`
-	Storage  string    `json:"storage"`
-	Dumpdir  string    `json:"dumpdir"`
-	Node     string    `json:"node"`
-	Comment  string    `json:"comment"`
-	Exclude  string    `json:"exclude"`
-	NextRun  flexInt   `json:"next-run"`
+	ID       string     `json:"id"`
+	Enabled  *flexBool  `json:"enabled"`
+	Schedule string     `json:"schedule"`
+	Storage  string     `json:"storage"`
+	Dumpdir  string     `json:"dumpdir"`
+	Node     string     `json:"node"`
+	Comment  string     `json:"comment"`
+	Exclude  string     `json:"exclude"`
+	NextRun  flexInt    `json:"next-run"`
+	Prune    keepPolicy `json:"prune-backups"`
 }
 
 // excludes reports whether the job's exclude list names vmid.
@@ -2572,6 +2574,27 @@ func nsReaches(jobNS string, maxDepth *int, ns string) bool {
 	return levels <= depth
 }
 
+// sameServer: a sync remote is this PBS (same endpoint, a loopback name, or
+// a fingerprint this PBS is pinned to).
+func sameServer(remote, remoteFP, self string, selfPins []string) bool {
+	host := remote
+	if h, _, err := net.SplitHostPort(remote); err == nil {
+		host = h
+	}
+	if ip := net.ParseIP(host); strings.EqualFold(host, "localhost") || (ip != nil && ip.IsLoopback()) {
+		return true
+	}
+	if remote != "" && strings.EqualFold(remote, self) {
+		return true
+	}
+	for _, p := range selfPins {
+		if remoteFP != "" && strings.EqualFold(strings.ReplaceAll(p, ":", ""), strings.ReplaceAll(remoteFP, ":", "")) {
+			return true
+		}
+	}
+	return false
+}
+
 // pbsSyncJob is a PBS sync job; only push jobs copy this datastore offsite.
 type pbsSyncJob struct {
 	ID            string   `json:"id"`
@@ -2583,6 +2606,7 @@ type pbsSyncJob struct {
 	LastRunState  string   `json:"last-run-state"`
 	LastRunEnd    flexInt  `json:"last-run-endtime"`
 	LastRunUPID   string   `json:"last-run-upid"`
+	Remote        string   `json:"remote"`
 	EncryptedOnly flexBool `json:"encrypted-only"`
 	VerifiedOnly  flexBool `json:"verified-only"`
 	TransferLast  flexInt  `json:"transfer-last"`
@@ -2592,6 +2616,9 @@ type pbsSyncJob struct {
 	// not evidence; a skip ("older than the newest snapshot present on sync
 	// target") proves only that the target holds a newer snapshot, not this one.
 	evidenced map[string]bool
+	// offsite: its remote was read and is not this PBS (by endpoint, a
+	// loopback name, or a certificate fingerprint this PBS is pinned to).
+	offsite bool
 }
 
 // Push-sync task log lines, optionally behind the task log's own timestamp
@@ -2631,13 +2658,30 @@ func parseSyncEvidence(lines []string) map[string]bool {
 // loadSyncEvidence reads the task log of each successful push job's last run
 // and records the groups it handled. A log that cannot be read leaves the
 // job without evidence (no offsite claim), reported as a warning.
-func loadSyncEvidence(ctx context.Context, c *client.Client, jobs []pbsSyncJob) []string {
+func loadSyncEvidence(ctx context.Context, c *client.Client, self string, selfPins []string, jobs []pbsSyncJob) []string {
 	var warnings []string
 	for i := range jobs {
 		j := &jobs[i]
 		if !strings.EqualFold(j.Direction, "push") || !strings.EqualFold(j.LastRunState, "ok") || j.LastRunUPID == "" {
 			continue
 		}
+		var remote struct {
+			Host        string  `json:"host"`
+			Port        flexInt `json:"port"`
+			Fingerprint string  `json:"fingerprint"`
+		}
+		if j.Remote == "" {
+			continue // no remote: a copy on this same PBS is not offsite
+		}
+		if err := getJSON(ctx, c, pbsPath("/config/remote/"+url.PathEscape(j.Remote)), nil, &remote); err != nil {
+			warnings = append(warnings, "sync job "+j.ID+": remote "+j.Remote+" unreadable, so whether it copies offsite is unknown and it is not counted: "+err.Error())
+			continue
+		}
+		if sameServer(pbsEndpoint(remote.Host, int64(remote.Port)), remote.Fingerprint, self, selfPins) {
+			warnings = append(warnings, "sync job "+j.ID+": remote "+j.Remote+" is this Backup Server, so its copies are not offsite")
+			continue
+		}
+		j.offsite = true
 		lines, err := fetchTaskLog(ctx, c, true, "localhost", j.LastRunUPID)
 		if err != nil {
 			warnings = append(warnings, "sync job "+j.ID+": last run log unreadable, so no offsite evidence from it: "+err.Error())

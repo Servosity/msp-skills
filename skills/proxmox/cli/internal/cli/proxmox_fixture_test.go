@@ -152,6 +152,7 @@ func newFixture(t *testing.T) *fixture {
 	}
 	pbsRoutes := map[string]any{
 		"/admin/datastore":                []map[string]any{{"store": "main", "backend-type": "filesystem", "mount-status": "nonremovable"}},
+		"/config/remote/dr":               map[string]any{"name": "dr", "host": "dr.example.net", "port": 8007, "auth-id": "sync@pbs"},
 		"/admin/datastore/main/namespace": []map[string]any{{"ns": ""}},
 		"/admin/datastore/main/snapshots": []any{
 			snap("vm", "100", 2, "ok", 1<<30), snap("vm", "100", 26, "ok", 1<<30), // duplicates of the PVE listing
