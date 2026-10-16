@@ -531,6 +531,13 @@
     "current_hash": "sha256:b3d75714f7edb00e00fde688636dd9973a24f56ee32594fa73742c3b36b49655",
     "released_hash": "sha256:b3d75714f7edb00e00fde688636dd9973a24f56ee32594fa73742c3b36b49655"
   },
+  "watchguard": {
+    "state": "never-released",
+    "version": "0.1.0",
+    "latest_tag": null,
+    "current_hash": "sha256:8508c424fcff3eddf48ff78eacffa6b7221634c829c38745b469f7e18ea55a27",
+    "released_hash": null
+  },
   "wordpress": {
     "state": "up-to-date",
     "version": "0.1.7",
