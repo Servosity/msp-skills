@@ -415,7 +415,7 @@
   "riverside-fm": {
     "state": "binary-pending",
     "version": "0.1.1",
-    "latest_tag": "riverside-fm-v0.1.1",
+    "latest_tag": "riverside-fm-v0.1.2",
     "current_hash": "sha256:42034e76edb1ea3cb16ffccb158676eb56a8a77161303a2c262488b4958af8c0",
     "released_hash": "sha256:ef6450bb5ac3a9d8ebe504a4383249dc53c67ac2cc40d1b1320a3c3aaabff363"
   },
