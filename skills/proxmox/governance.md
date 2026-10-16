@@ -186,6 +186,11 @@ hosts before any request is built.
   may be another client's: restore-points does not list them and rpo can
   report their runs as missed. Naming the client's namespace root in
   pbs_namespace brings them back.
+- **Task history is read by start time.** Proxmox filters task lists by when a
+  task started, never by when it ended, so failures, posture's last attempt
+  and rpo's proof read tasks that started up to 48 hours before their window.
+  A vzdump, verify or sync task that ran longer than that before ending inside
+  the window is not seen.
 - **One token per client cluster**, referenced by env var name in
   `clusters.toml`, so revoking one client never touches another.
 - **Pin every certificate** with its SHA-256 fingerprint.

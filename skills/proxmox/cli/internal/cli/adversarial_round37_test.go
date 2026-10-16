@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -312,5 +313,31 @@ func TestGUIDNamespaceIsValid(t *testing.T) {
 	out, _, _ := runCLI(t, "clusters", "list", "--json")
 	if strings.Contains(out, "looks like an API token") {
 		t.Errorf("a GUID-named namespace refused:\n%s", out)
+	}
+}
+
+// Codex round 52: a job that started before the attempt window and failed
+// inside it is the guest's last attempt.
+func TestPostureReadsLongJobEndingInWindow(t *testing.T) {
+	f := newFixture(t)
+	tasks := f.pveRoutes["/nodes/pve1/tasks"].([]map[string]any)
+	tasks[0]["starttime"], tasks[0]["endtime"] = ago(f.now, 49), ago(f.now, 1) // failed 1h ago after 48h
+	pveVia(t, f, func(w http.ResponseWriter, r *http.Request) bool {
+		if !strings.HasSuffix(r.URL.Path, "/nodes/pve1/tasks") {
+			return false
+		}
+		since, _ := strconv.ParseInt(r.URL.Query().Get("since"), 10, 64)
+		var out []map[string]any
+		for _, tk := range tasks {
+			if tk["starttime"].(int64) >= since {
+				out = append(out, tk)
+			}
+		}
+		writeExtra(w, out, "total", len(out))
+		return true
+	})
+	out, _, _ := runCLI(t, "posture", "--json")
+	if r := postureRowFor(t, out, 108); r.LastAttemptStatus != "failed" {
+		t.Errorf("VM 108's long job failed 1h ago, last attempt %q (%s)", r.LastAttemptStatus, r.Verdict)
 	}
 }

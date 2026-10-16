@@ -101,7 +101,8 @@ func newNovelRpoCmd(flags *rootFlags) *cobra.Command {
 			"has a restore point. Each job's runs are judged against restore points on that job's own destination, and one backup pays " +
 			"one run. A missed run is proven only by the log of a vzdump task that wrote to the run's destination (its --storage) " +
 			"inside its window and records the guest's backup failing or stopping, with every task overlapping the window finished " +
-			"and read and none of them backing the guest up (logs are read only for unpaid runs, up to 400 per cluster). Any other miss counts in " +
+			"and read and none of them backing the guest up (logs are read only for unpaid runs, up to 400 per cluster; tasks that started " +
+			"more than 48h before the window are not listed, as Proxmox filters task lists by start time). Any other miss counts in " +
 			"missed_runs_unproven and evidence is partial: the run may not have been " +
 			"due then (Proxmox keeps no history of a job's schedule or guest list) or retention may have pruned its point; so does a " +
 			"miss a backup on another storage could cover (a job moved storages). may_be_earlier_guest counts backups under " +
