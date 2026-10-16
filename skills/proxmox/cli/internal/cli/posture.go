@@ -823,12 +823,7 @@ func rollupByClient(rows []postureRow, targets []fleetTarget, failures []fetchFa
 	clusters := map[string]map[string]bool{}
 	// Every cluster that answered counts for its client, guests or not: a
 	// client whose clusters list no included guest must not vanish.
-	down := map[string]bool{}
-	for _, f := range failures {
-		if f.Scope == "" {
-			down[f.Cluster] = true
-		}
-	}
+	down := downClusters(failures)
 	for _, t := range targets {
 		if down[t.Name] {
 			continue
@@ -953,14 +948,7 @@ func newerThan(rps []restorePoint, newest *restorePoint) bool {
 	return false
 }
 
-// answered counts the clusters that answered: a scope-less failure is a
-// cluster that did not (unreachable or unauthorized).
+// answered counts the clusters that answered.
 func answered(clusters []string, failures []fetchFailure) int {
-	down := map[string]bool{}
-	for _, f := range failures {
-		if f.Scope == "" {
-			down[f.Cluster] = true
-		}
-	}
-	return len(clusters) - len(down)
+	return len(clusters) - len(downClusters(failures))
 }
