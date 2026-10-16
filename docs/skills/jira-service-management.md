@@ -24,7 +24,7 @@ faqs:
   - q: "Does this work with Jira Service Management Data Center or Server?"
     a: "No. It targets Jira Service Management Cloud (your-site.atlassian.net). Data Center and Server use different hosts and authentication, and this connector does not call them."
   - q: "Do I need JSM Premium for Assets (CMDB)?"
-    a: "Only for the Assets commands. Assets is part of JSM Premium and Enterprise. Queues, SLAs, requests, comments, customers and organizations work on any JSM Cloud plan. For Assets, run `jira-service-management-cli cmdb discover --save` once: it finds your site's cloudId and Assets workspaceId and stores them in the config file."
+    a: "Only for the Assets commands. Assets is part of JSM Premium and Enterprise. Queues, SLAs, requests, comments, customers and organizations work on any JSM Cloud plan. For Assets, run `jira-service-management-cli cmdb discover --save` once per client site: it finds that site's cloudId and Assets workspaceId and stores them for that site only."
   - q: "What can the AI see and change?"
     a: "Exactly what the Atlassian account behind the API token can. An agent account sees its service desks, queues and internal notes; a customer-only account sees only its own requests. Create the token as an agent with the access you want the AI to have, and keep writes behind your agent's approval policy (see the safety model below)."
   - q: "Will an internal note ever reach the customer?"
@@ -188,7 +188,7 @@ No. It targets Jira Service Management Cloud (your-site.atlassian.net). Data Cen
 
 ### Do I need JSM Premium for Assets (CMDB)?
 
-Only for the Assets commands. Assets is part of JSM Premium and Enterprise. Queues, SLAs, requests, comments, customers and organizations work on any JSM Cloud plan. For Assets, run `jira-service-management-cli cmdb discover --save` once: it finds your site's cloudId and Assets workspaceId and stores them in the config file.
+Only for the Assets commands. Assets is part of JSM Premium and Enterprise. Queues, SLAs, requests, comments, customers and organizations work on any JSM Cloud plan. For Assets, run `jira-service-management-cli cmdb discover --save` once per client site: it finds that site's cloudId and Assets workspaceId and stores them for that site only.
 
 ### What can the AI see and change?
 

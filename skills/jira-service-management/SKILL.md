@@ -352,7 +352,7 @@ Breach rate per request type over the last week from the local store; run 'sync 
 
 ## Auth Setup
 
-Jira Service Management Cloud uses HTTP Basic auth with your Atlassian account email and an API token (create one at id.atlassian.com/manage-profile/security/api-tokens). Set JIRA_SERVICE_MANAGEMENT_SITE to your site subdomain (acme for acme.atlassian.net), JIRA_SERVICE_MANAGEMENT_EMAIL and JIRA_SERVICE_MANAGEMENT_API_TOKEN. Assets (CMDB) commands call api.atlassian.com, need a JSM Premium or Enterprise site, and also need JIRA_SERVICE_MANAGEMENT_CLOUD_ID and JIRA_SERVICE_MANAGEMENT_WORKSPACE_ID: run 'cmdb discover' to print them or 'cmdb discover --save' to store them in the config file. The same credential works for both APIs. What you can see follows your Jira permissions: agents see their desks' requests and internal notes, customers see only their own requests. Set the site rather than JIRA_SERVICE_MANAGEMENT_BASE_URL: a base-URL override also redirects Assets calls.
+Jira Service Management Cloud uses HTTP Basic auth with your Atlassian account email and an API token (create one at id.atlassian.com/manage-profile/security/api-tokens). Set JIRA_SERVICE_MANAGEMENT_SITE to your site subdomain (acme for acme.atlassian.net), JIRA_SERVICE_MANAGEMENT_EMAIL and JIRA_SERVICE_MANAGEMENT_API_TOKEN. Assets (CMDB) commands call api.atlassian.com, need a JSM Premium or Enterprise site, and also need JIRA_SERVICE_MANAGEMENT_CLOUD_ID and JIRA_SERVICE_MANAGEMENT_WORKSPACE_ID: run 'cmdb discover' to print them or 'cmdb discover --save' to store them in the config file for that site (saved ids never apply to another site). The same credential works for both APIs. What you can see follows your Jira permissions: agents see their desks' requests and internal notes, customers see only their own requests. Set the site rather than JIRA_SERVICE_MANAGEMENT_BASE_URL: a base-URL override also redirects Assets calls.
 
 Run `jira-service-management-cli doctor` to verify setup.
 
@@ -562,6 +562,7 @@ You do not need to decide whether a session "deserves" a playbook: a teach on a 
 QUERY=$(cat /path/to/question.txt)
 jira-service-management-cli teach \
   --query "$QUERY" \
+  --resource-type <type> \
   --resource <id> \
   --playbook-file ~/playbooks/<shape>.json \
   --playbook-notes-file ~/playbooks/<shape>-notes.md

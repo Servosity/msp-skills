@@ -22,8 +22,10 @@ func newImportCmd(flags *rootFlags) *cobra.Command {
 	var batchSize int
 
 	cmd := &cobra.Command{
-		Use:   "import <resource>",
-		Short: "Import data from JSONL file via API create/upsert calls",
+		Use: "import <resource>",
+		// pp:handfix mcp-blocks-local-file-inputs: --input is blocked over MCP, so the tool could never run.
+		Annotations: map[string]string{"mcp:hidden": "true"},
+		Short:       "Import data from JSONL file via API create/upsert calls",
 		Long: `Import data from a JSONL file by issuing POST requests for each record.
 Each line must be a valid JSON object. Failed records are logged to stderr
 but do not stop the import.`,

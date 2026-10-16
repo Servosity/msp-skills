@@ -86,7 +86,7 @@
     },
     {
       "q": "Do I need JSM Premium for Assets (CMDB)?",
-      "a": "Only for the Assets commands. Assets is part of JSM Premium and Enterprise. Queues, SLAs, requests, comments, customers and organizations work on any JSM Cloud plan. For Assets, run `jira-service-management-cli cmdb discover --save` once: it finds your site's cloudId and Assets workspaceId and stores them in the config file."
+      "a": "Only for the Assets commands. Assets is part of JSM Premium and Enterprise. Queues, SLAs, requests, comments, customers and organizations work on any JSM Cloud plan. For Assets, run `jira-service-management-cli cmdb discover --save` once per client site: it finds that site's cloudId and Assets workspaceId and stores them for that site only."
     },
     {
       "q": "What can the AI see and change?",

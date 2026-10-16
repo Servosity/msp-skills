@@ -36,7 +36,8 @@ Assets lives on api.atlassian.com and needs your site's cloudId and Assets
 workspaceId in every URL. This reads the cloudId from
 https://<site>.atlassian.net/_edge/tenant_info and the workspaceId from the service
 desk Assets workspace endpoint, then prints the export lines. --save writes both
-into the config file instead.`, "\n"),
+into the config file instead, bound to this site: a saved id never applies to
+another site, so run it once per client site.`, "\n"),
 		Example: strings.Trim(`
   jira-service-management-cli cmdb discover --agent
   jira-service-management-cli cmdb discover --save`, "\n"),
@@ -88,7 +89,11 @@ into the config file instead.`, "\n"),
 				envAssignLine("JIRA_SERVICE_MANAGEMENT_CLOUD_ID", view.CloudID),
 				envAssignLine("JIRA_SERVICE_MANAGEMENT_WORKSPACE_ID", view.WorkspaceID))
 			if save {
-				if err := cfg.SaveTemplateVars(map[string]string{"cloudId": view.CloudID, "workspaceId": view.WorkspaceID}); err != nil {
+				site := strings.TrimSpace(view.Site)
+				if site == "" {
+					return fmt.Errorf("set JIRA_SERVICE_MANAGEMENT_SITE before --save: saved Assets ids apply only to the site they were found for")
+				}
+				if err := cfg.SaveTemplateVars(map[string]string{config.JSMSiteBoundKey("cloudId", site): view.CloudID, config.JSMSiteBoundKey("workspaceId", site): view.WorkspaceID}); err != nil {
 					return fmt.Errorf("saving to config: %w; set them with:\n  %s", err, strings.Join(view.Exports, "\n  "))
 				}
 				view.Saved = cfg.Path

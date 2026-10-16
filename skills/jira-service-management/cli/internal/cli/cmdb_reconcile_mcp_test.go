@@ -32,6 +32,13 @@ func TestOpenInventoryUnderMCP(t *testing.T) {
 		t.Fatalf("file inside the working directory refused: %v", err)
 	}
 	_ = f.Close()
+	// t.TempDir sits under a symlinked prefix on macOS (/var -> /private/var):
+	// the unresolved absolute path names the same file and must open.
+	f, err = openInventoryUnderMCP(filepath.Join(wd, "rmm.csv"))
+	if err != nil {
+		t.Fatalf("absolute path inside the working directory refused: %v", err)
+	}
+	_ = f.Close()
 	for _, bad := range []string{"link/secret.csv", "../" + filepath.Base(outside) + "/secret.csv", filepath.Join(outside, "secret.csv")} {
 		if f, err := openInventoryUnderMCP(bad); err == nil {
 			_ = f.Close()

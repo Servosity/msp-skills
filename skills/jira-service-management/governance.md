@@ -18,7 +18,7 @@ The token is never logged. It is read from the environment by default; if you ru
 `jira-service-management-cli auth set-credentials`, the email and token are saved to
 `credentials.toml` in the CLI's data directory (`jira-service-management-cli doctor` prints the
 path), and that save goes to the default data directory even when you pass `--config`.
-`cmdb discover --save` writes the cloudId and workspaceId (not secrets) into the config file.
+`cmdb discover --save` writes the cloudId and workspaceId (not secrets) into the config file, bound to the current site: a saved id never applies to another site.
 
 The token can do whatever the Atlassian account that created it can do. An agent account sees
 and changes its service desks, queues, requests and internal notes; a customer-only account sees

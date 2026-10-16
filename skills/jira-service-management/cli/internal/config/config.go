@@ -246,6 +246,7 @@ func Load(configPath string) (*Config, error) {
 	} else if verifyMode {
 		cfg.TemplateVars["site"] = "site_placeholder"
 	}
+	cfg.bindAssetsIDsToSite() // pp:handfix jsm-assets-ids-per-site
 	if v := strings.TrimSpace(cliutil.EnvOverride("JIRA_SERVICE_MANAGEMENT_CLOUD_ID")); v != "" {
 		cfg.TemplateVars["cloudId"] = v
 	} else if verifyMode {

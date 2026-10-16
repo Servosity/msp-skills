@@ -98,7 +98,7 @@ Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json`
 
 ## Authentication
 
-Jira Service Management Cloud uses HTTP Basic auth with your Atlassian account email and an API token (create one at id.atlassian.com/manage-profile/security/api-tokens). Set JIRA_SERVICE_MANAGEMENT_SITE to your site subdomain (acme for acme.atlassian.net), JIRA_SERVICE_MANAGEMENT_EMAIL and JIRA_SERVICE_MANAGEMENT_API_TOKEN. Assets (CMDB) commands call api.atlassian.com, need a JSM Premium or Enterprise site, and also need JIRA_SERVICE_MANAGEMENT_CLOUD_ID and JIRA_SERVICE_MANAGEMENT_WORKSPACE_ID: run 'cmdb discover' to print them or 'cmdb discover --save' to store them in the config file. The same credential works for both APIs. What you can see follows your Jira permissions: agents see their desks' requests and internal notes, customers see only their own requests. Set the site rather than JIRA_SERVICE_MANAGEMENT_BASE_URL: a base-URL override also redirects Assets calls.
+Jira Service Management Cloud uses HTTP Basic auth with your Atlassian account email and an API token (create one at id.atlassian.com/manage-profile/security/api-tokens). Set JIRA_SERVICE_MANAGEMENT_SITE to your site subdomain (acme for acme.atlassian.net), JIRA_SERVICE_MANAGEMENT_EMAIL and JIRA_SERVICE_MANAGEMENT_API_TOKEN. Assets (CMDB) commands call api.atlassian.com, need a JSM Premium or Enterprise site, and also need JIRA_SERVICE_MANAGEMENT_CLOUD_ID and JIRA_SERVICE_MANAGEMENT_WORKSPACE_ID: run 'cmdb discover' to print them or 'cmdb discover --save' to store them in the config file for that site (saved ids never apply to another site). The same credential works for both APIs. What you can see follows your Jira permissions: agents see their desks' requests and internal notes, customers see only their own requests. Set the site rather than JIRA_SERVICE_MANAGEMENT_BASE_URL: a base-URL override also redirects Assets calls.
 
 ## Quick Start
 
@@ -665,8 +665,8 @@ Environment variables:
 | Name | Kind | Required | Description |
 | --- | --- | --- | --- |
 | `JIRA_SERVICE_MANAGEMENT_SITE` | endpoint | Yes | Site subdomain: `acme` for acme.atlassian.net. |
-| `JIRA_SERVICE_MANAGEMENT_CLOUD_ID` | endpoint | Assets only | Site cloudId; `cmdb discover --save` stores it. |
-| `JIRA_SERVICE_MANAGEMENT_WORKSPACE_ID` | endpoint | Assets only | Assets workspaceId; `cmdb discover --save` stores it. |
+| `JIRA_SERVICE_MANAGEMENT_CLOUD_ID` | endpoint | Assets only | Site cloudId; `cmdb discover --save` stores it for the current site. |
+| `JIRA_SERVICE_MANAGEMENT_WORKSPACE_ID` | endpoint | Assets only | Assets workspaceId; `cmdb discover --save` stores it for the current site. |
 | `JIRA_SERVICE_MANAGEMENT_BASE_URL` | override | No | Replaces the JSM base URL; also redirects Assets calls, so prefer SITE. |
 | `JIRA_SERVICE_MANAGEMENT_CONFIG` | override | No | Path to an alternate config.toml. |
 | `JIRA_SERVICE_MANAGEMENT_EMAIL` | per_call | Yes | Atlassian account email (Basic auth username). |
@@ -688,7 +688,7 @@ If you use agentcookie to sync secrets across machines, this CLI auto-adopts age
 ### API-specific
 - **HTTP 401 Unauthorized on every command**  -  Set JIRA_SERVICE_MANAGEMENT_EMAIL to your Atlassian account email and JIRA_SERVICE_MANAGEMENT_API_TOKEN to an API token (not your password), then run 'jira-service-management-cli doctor'.
 - **'JIRA_SERVICE_MANAGEMENT_SITE not set', or DNS errors for a host like acme.atlassian.net.atlassian.net**  -  Set the subdomain only, acme for acme.atlassian.net: 'export JIRA_SERVICE_MANAGEMENT_SITE=acme' on macOS or Linux, '$env:JIRA_SERVICE_MANAGEMENT_SITE = "acme"' in Windows PowerShell.
-- **Assets commands fail with a missing cloudId or workspaceId, or 404**  -  Run 'jira-service-management-cli cmdb discover --save' to store both ids in the config file, or run 'cmdb discover' and set JIRA_SERVICE_MANAGEMENT_CLOUD_ID and JIRA_SERVICE_MANAGEMENT_WORKSPACE_ID to the values it prints.
+- **Assets commands fail with a missing cloudId or workspaceId, or 404**  -  Run 'jira-service-management-cli cmdb discover --save' to store both ids in the config file for this site, or run 'cmdb discover' and set JIRA_SERVICE_MANAGEMENT_CLOUD_ID and JIRA_SERVICE_MANAGEMENT_WORKSPACE_ID to the values it prints.
 - **A desk's customer list stops at 50 people**  -  The customers endpoint returns at most 50 people a page. Add --all to 'servicedesk customer list', or use 'jira-service-management-cli roster <desk-id>', which pages until an empty or short page and de-duplicates.
 - **sync stores few or no requests for an agent account**  -  The request list is the customer view; sync asks for requestOwnership=ALL_REQUESTS. Use 'breaches --desk <id>' or 'servicedesk queue list-issues' for the agent's queue view.
 - **sla-report or client returns all zeros or requests_scanned 0**  -  The local store is empty or stale; run 'jira-service-management-cli sync --resources request,servicedesk,requesttype,organization' (a bare sync also walks Assets, which fails on non-Premium sites).

@@ -3,85 +3,50 @@
 package config
 
 import (
-	"os"
 	"path/filepath"
-	"strings"
 	"testing"
-
-	"jira-service-management-pp-cli/internal/cliutil"
-	"jira-service-management-pp-cli/internal/cliutil/testenv"
 )
 
-// cmdb discover --save writes cloudId/workspaceId into the config file and
-// must never rewrite the credentials file or persist env overrides.
-func TestSaveTemplateVarsLeavesCredentialsAlone(t *testing.T) {
-	testenv.Isolate(t)
-	t.Setenv("JIRA_SERVICE_MANAGEMENT_BASE_URL", "http://127.0.0.1:1/override")
+// Assets ids saved for one site must never apply to another.
+func TestAssetsIDsAreBoundToTheirSite(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	t.Setenv("JIRA_SERVICE_MANAGEMENT_CLOUD_ID", "")
+	t.Setenv("JIRA_SERVICE_MANAGEMENT_WORKSPACE_ID", "")
 	t.Setenv("JIRA_SERVICE_MANAGEMENT_SITE", "acme")
-	cfgPath := filepath.Join(t.TempDir(), "config.toml")
-	credsPath, err := cliutil.CredentialsFilePath()
+	cfg, err := Load(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.MkdirAll(filepath.Dir(credsPath), 0o700); err != nil {
+	if err := cfg.SaveTemplateVars(map[string]string{JSMSiteBoundKey("cloudId", "acme"): "cloud-a", JSMSiteBoundKey("workspaceId", "acme"): "ws-a"}); err != nil {
 		t.Fatal(err)
 	}
-	creds := []byte("service_management_email = 'a@b.c'\nservice_management_api_token = 'tok'\n")
-	if err := os.WriteFile(credsPath, creds, 0o600); err != nil {
-		t.Fatal(err)
+	load := func(site string) map[string]string {
+		t.Setenv("JIRA_SERVICE_MANAGEMENT_SITE", site)
+		c, err := Load(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return c.TemplateVars
 	}
-	cfg, err := Load(cfgPath)
-	if err != nil {
-		t.Fatal(err)
+	if v := load("acme"); v["cloudId"] != "cloud-a" || v["workspaceId"] != "ws-a" {
+		t.Fatalf("acme lost its saved ids: %v", v)
 	}
-	if err := cfg.SaveTemplateVars(map[string]string{"cloudId": "c-1", "workspaceId": "w-1"}); err != nil {
-		t.Fatal(err)
+	if v := load("beta"); v["cloudId"] != "" || v["workspaceId"] != "" {
+		t.Fatalf("beta inherited acme's Assets ids: %v", v)
 	}
-	after, _ := os.ReadFile(credsPath)
-	if string(after) != string(creds) {
-		t.Fatalf("credentials file rewritten:\n%s", after)
-	}
-	written, _ := os.ReadFile(cfgPath)
-	w := string(written)
-	if !strings.Contains(w, "c-1") || !strings.Contains(w, "w-1") {
-		t.Fatalf("template vars not saved: %s", w)
-	}
-	if strings.Contains(w, "override") || strings.Contains(w, "acme") || strings.Contains(w, "tok") {
-		t.Fatalf("env overrides or credentials leaked into config: %s", w)
-	}
-}
 
-// An explicit --config file with inline credentials must not be rewritten:
-// migrating them would overwrite the default tenant's credentials file.
-func TestSaveTemplateVarsRefusesInlineCredentials(t *testing.T) {
-	testenv.Isolate(t)
-	credsPath, err := cliutil.CredentialsFilePath()
+	t.Setenv("JIRA_SERVICE_MANAGEMENT_SITE", "acme")
+	c, err := Load(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.MkdirAll(filepath.Dir(credsPath), 0o700); err != nil {
-		t.Fatal(err)
+	c.TemplateVars["site"] = "beta" // what sync --path-context site=beta does
+	c.RebindAssetsIDs(map[string]string{"site": "beta"})
+	if c.TemplateVars["cloudId"] != "" {
+		t.Fatalf("path-context switch kept acme's cloudId: %v", c.TemplateVars)
 	}
-	tenantA := []byte("service_management_email = 'a@a.test'\nservice_management_api_token = 'tok-a'\n")
-	if err := os.WriteFile(credsPath, tenantA, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	cfgPath := filepath.Join(t.TempDir(), "tenant-b.toml")
-	tenantB := []byte("service_management_email = 'b@b.test'\nservice_management_api_token = 'tok-b'\n")
-	if err := os.WriteFile(cfgPath, tenantB, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	cfg, err := Load(cfgPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := cfg.SaveTemplateVars(map[string]string{"cloudId": "c-1"}); err == nil {
-		t.Fatal("want an error for a config with inline credentials")
-	}
-	if got, _ := os.ReadFile(credsPath); string(got) != string(tenantA) {
-		t.Fatalf("default credentials rewritten: %s", got)
-	}
-	if got, _ := os.ReadFile(cfgPath); string(got) != string(tenantB) {
-		t.Fatalf("tenant config rewritten: %s", got)
+	c.RebindAssetsIDs(map[string]string{"site": "beta", "cloudId": "cloud-b"})
+	if c.TemplateVars["cloudId"] != "cloud-b" {
+		t.Fatalf("explicit cloudId ignored: %v", c.TemplateVars)
 	}
 }

@@ -169,6 +169,9 @@ Resource scoping:
 					}
 					c.Config.TemplateVars[k] = v
 				}
+				if _, ok := pathContext["site"]; ok { // pp:handfix jsm-assets-ids-per-site
+					c.Config.RebindAssetsIDs(pathContext)
+				}
 			}
 
 			if dbPath == "" {

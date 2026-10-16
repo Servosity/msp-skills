@@ -154,7 +154,7 @@ $env:JIRA_SERVICE_MANAGEMENT_API_TOKEN = "<api-token>"
 jira-service-management-cli doctor
 ```
 
-Assets (CMDB) commands also need your site's cloudId and Assets workspaceId (Assets is part of JSM Premium and Enterprise). Run `jira-service-management-cli cmdb discover --save` once to look both up and store them in the config file.
+Assets (CMDB) commands also need your site's cloudId and Assets workspaceId (Assets is part of JSM Premium and Enterprise). Run `jira-service-management-cli cmdb discover --save` once per client site to look both up and store them in the config file for that site; saved ids apply only to the site they were found for, so switching `JIRA_SERVICE_MANAGEMENT_SITE` never points Assets at another client's CMDB.
 
 `doctor` checks config and paths, names any missing SITE, EMAIL or API_TOKEN, and verifies the token with one authenticated read (GET /servicedesk).
 
@@ -222,7 +222,7 @@ No. It targets Jira Service Management Cloud (your-site.atlassian.net). Data Cen
 
 ### Do I need JSM Premium for Assets (CMDB)?
 
-Only for the Assets commands. Assets is part of JSM Premium and Enterprise. Queues, SLAs, requests, comments, customers and organizations work on any JSM Cloud plan. For Assets, run `jira-service-management-cli cmdb discover --save` once: it finds your site's cloudId and Assets workspaceId and stores them in the config file.
+Only for the Assets commands. Assets is part of JSM Premium and Enterprise. Queues, SLAs, requests, comments, customers and organizations work on any JSM Cloud plan. For Assets, run `jira-service-management-cli cmdb discover --save` once per client site: it finds that site's cloudId and Assets workspaceId and stores them for that site only.
 
 ### Will an internal note ever reach the customer?
 

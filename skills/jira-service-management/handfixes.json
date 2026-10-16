@@ -327,6 +327,10 @@
         {
           "file": "AGENTS.md",
           "not_contains": "jira-service-management-cli <command> --agent"
+        },
+        {
+          "file": "SKILL.md",
+          "contains": "  --query \"$QUERY\" \\\n  --resource-type <type> \\\n  --resource <id> \\"
         }
       ]
     },
@@ -533,7 +537,7 @@
     },
     {
       "id": "mcp-blocks-local-file-inputs",
-      "summary": "MCP tools never accept a flag whose value is a local path the CLI reads (teach / teach-playbook notes and playbook files, import --input, upload-temporary-file --file)",
+      "summary": "MCP tools never accept a flag whose value is a local path the CLI reads (teach / teach-playbook notes and playbook files, import --input, upload-temporary-file --file); the import tool is hidden from MCP because its required --input can no longer be passed",
       "why": "teach_playbook --notes-file (and teach --playbook-notes-file / --playbook-file) read any local file the MCP client names and returned it through playbook_list and recall, even with JIRA_SERVICE_MANAGEMENT_MCP_READ_ONLY=1, so a prompt-injected ticket could read ~/.ssh or credentials.toml (adversarial review round 2 and Codex round 3, 2026-10-16; reproduced with a canary file, now refused as an unknown MCP parameter). Same fix as skills/connectsecure mcp-blocks-local-file-inputs; jsm_file_inputs_test.go scans internal/cli so a reprint that adds a file-reading flag fails the test.",
       "status": "active",
       "asserts": [
@@ -550,6 +554,61 @@
         {
           "file": "cli/internal/mcp/cobratree/jsm_file_inputs_test.go",
           "contains": "func TestEveryFileInputFlagIsBlocked(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/import.go",
+          "contains": "Annotations: map[string]string{\"mcp:hidden\": \"true\"},",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "jsm-experimental-header-on-every-request",
+      "summary": "every request-API (servicedeskapi) call carries X-ExperimentalApi: opt-in through a client hook, so sync and the MCP execute tool reach the experimental endpoints too",
+      "why": "Request types, desk customers and request feedback are experimental endpoints that answer HTTP 412 without the header. The generated commands send it per call, but sync and MCP execute did not, so `sync --resources requesttype` (which sla-report --group-by requesttype and client rely on) failed (Codex review round 4, 2026-10-16; reproduced against a stub that enforces the header). Atlassian ignores the header on stable endpoints. The hook lives in a hand-written file via registerClientHook, so it is regen-durable; jsm_experimental_header_test.go covers it.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/jsm_experimental_header.go",
+          "contains": "c.HTTPClient.Transport = jsmExperimentalHeader{next: next}",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "func ApplyClientHooks(c *client.Client) error {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "jsm-assets-ids-per-site",
+      "summary": "cmdb discover --save stores cloudId/workspaceId as cloudId@<site> / workspaceId@<site>, config load applies only the current site's ids, and sync --path-context site=... re-binds them",
+      "why": "Saved Assets ids used to be global: after switching JIRA_SERVICE_MANAGEMENT_SITE to another client, every Assets command (reads, object delete/update, reconcile) and the Assets resources in sync went to the first client's CMDB, and those rows landed in the second site's store (adversarial review round 3, 2026-10-16; reproduced with object delete --dry-run). The binding lives in internal/config/jsm_config.go (hand-written) behind one hook in config.go and one in sync.go; jsm_config_test.go covers save, per-site load and the path-context rebind, and fails with the load hook removed.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "cfg.bindAssetsIDsToSite()",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "c.Config.RebindAssetsIDs(pathContext)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/cmdb_discover.go",
+          "contains": "config.JSMSiteBoundKey(\"cloudId\", site): view.CloudID",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/cmdb_discover.go",
+          "not_contains": "map[string]string{\"cloudId\": view.CloudID"
+        },
+        {
+          "file": "cli/internal/config/jsm_config.go",
+          "contains": "func (c *Config) bindAssetsIDsToSite() {",
           "code_only": true
         }
       ]

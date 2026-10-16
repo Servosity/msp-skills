@@ -1518,7 +1518,7 @@ A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already us
 Q: Does this work with Jira Service Management Data Center or Server?
 A: No. It targets Jira Service Management Cloud (your-site.atlassian.net). Data Center and Server use different hosts and authentication, and this connector does not call them.
 Q: Do I need JSM Premium for Assets (CMDB)?
-A: Only for the Assets commands. Assets is part of JSM Premium and Enterprise. Queues, SLAs, requests, comments, customers and organizations work on any JSM Cloud plan. For Assets, run `jira-service-management-cli cmdb discover --save` once: it finds your site's cloudId and Assets workspaceId and stores them in the config file.
+A: Only for the Assets commands. Assets is part of JSM Premium and Enterprise. Queues, SLAs, requests, comments, customers and organizations work on any JSM Cloud plan. For Assets, run `jira-service-management-cli cmdb discover --save` once per client site: it finds that site's cloudId and Assets workspaceId and stores them for that site only.
 Q: What can the AI see and change?
 A: Exactly what the Atlassian account behind the API token can. An agent account sees its service desks, queues and internal notes; a customer-only account sees only its own requests. Create the token as an agent with the access you want the AI to have, and keep writes behind your agent's approval policy (see the safety model below).
 Q: Will an internal note ever reach the customer?

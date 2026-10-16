@@ -260,6 +260,16 @@ func openInventoryUnderMCP(path string) (*os.File, error) {
 		return nil, err
 	}
 	rel, err := filepath.Rel(wd, abs)
+	if (err != nil || !filepath.IsLocal(rel)) && filepath.IsAbs(path) {
+		// An absolute path through a symlinked prefix (/tmp is /private/tmp on
+		// macOS) names the same directory; the root below still enforces
+		// containment, so resolving both sides here cannot widen access.
+		rw, e1 := filepath.EvalSymlinks(wd)
+		ra, e2 := filepath.EvalSymlinks(filepath.Dir(abs))
+		if e1 == nil && e2 == nil {
+			rel, err = filepath.Rel(rw, filepath.Join(ra, filepath.Base(abs)))
+		}
+	}
 	if err != nil || !filepath.IsLocal(rel) {
 		return nil, fmt.Errorf("under MCP, --file must be inside the working directory")
 	}
