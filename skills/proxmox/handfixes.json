@@ -333,7 +333,7 @@
     },
     {
      "file": "cli/internal/cli/root.go",
-     "contains": "across all storages and PBS namespaces, with verify state, protection and encryption."
+     "contains": "across its cluster's storages and PBS namespaces, with verify state, protection and encryption."
     },
     {
      "file": "cli/internal/cli/root.go",

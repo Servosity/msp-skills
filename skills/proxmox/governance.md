@@ -177,6 +177,14 @@ hosts before any request is built.
   reused can be dated after the new creation time). The reverse also
   happens: if the creating node's clock ran more than an hour ahead and was
   corrected later, the VM's first backups read as an earlier guest's.
+- **Set pbs_namespace when you move or rename PBS namespaces.** The skill reads
+  the PBS datastores and namespaces this cluster's storages point at now, plus
+  pbs_namespace and everything below it. Snapshots left in a namespace a
+  storage pointed at before (the namespace edited in place, or the old storage
+  entry deleted after a move) are not read, because on a shared PBS a VMID in
+  an unnamed namespace may be another client's: restore-points does not list
+  them and rpo can report their runs as missed. Naming the client's namespace
+  root in pbs_namespace brings them back.
 - **One token per client cluster**, referenced by env var name in
   `clusters.toml`, so revoking one client never touches another.
 - **Pin every certificate** with its SHA-256 fingerprint.

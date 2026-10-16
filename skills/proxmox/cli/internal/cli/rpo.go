@@ -99,8 +99,9 @@ func newNovelRpoCmd(flags *rootFlags) *cobra.Command {
 			"reported as missed. Runs scheduled before a VM was created are not counted either. Jobs that run at the same time each need " +
 			"their own restore point. The newest run is not judged while it may still be running (6h), but the schedule is not met until it " +
 			"has a restore point. Each job's runs are judged against restore points on that job's own destination, and one backup pays " +
-			"one run. When retention may delete older backups (any covering job's prune-backups policy, from the job, its storage or " +
-			"vzdump.conf with remove on, a PBS prune job on the datastore, or one that cannot be read), a missed run older than a " +
+			"one run. When retention may delete older backups (any covering or disabled job's prune-backups policy, from the job, its " +
+			"storage or vzdump.conf with remove on, on any node; a PBS prune job on the datastore; the policy of a storage that holds an " +
+			"older backup though no job writes there now; or one that cannot be read), a missed run older than a " +
 			"restore point that was kept may have been pruned, and one with a restore point elsewhere inside its window (a job moved " +
 			"storages) may be that point: both count in missed_runs_unproven and evidence is partial. may_be_earlier_guest counts backups under " +
 			"the VMID that may be an earlier guest's with the same VMID (see restore-points); they are not counted in restore_points.",
@@ -421,10 +422,27 @@ func collectRPO(ctx context.Context, t fleetTarget, start, now time.Time, onlyVM
 			}
 		}
 		// A backup at a destination no covering job writes to now (a job moved
-		// storages) was pruned by whatever policy it had then: unknown.
-		prunes = prunes || slices.ContainsFunc(mine, func(p restorePoint) bool {
-			return !slices.ContainsFunc(order, func(key string) bool { return onDestination(p, key) })
-		})
+		// storages, a manual backup) was pruned there by that storage's own
+		// policy, or by a covering job's prune-backups if the job wrote there:
+		// asked the same way; a PBS storage entry that is gone is unknown.
+		for _, p := range mine {
+			if prunes || slices.ContainsFunc(order, func(key string) bool { return onDestination(p, key) }) {
+				continue
+			}
+			storage, ref, known := formerStorage(p, refs)
+			if !known {
+				prunes = true
+				continue
+			}
+			for _, id := range append(slices.Clone(cov.EnabledFor[vmid]), cov.DisabledFor[vmid]...) {
+				for _, node := range nodes {
+					prunes = prunes || retention.mayPrune(targets.jobs[id], node, storage, ref)
+				}
+			}
+			for _, node := range nodes {
+				prunes = prunes || retention.mayPrune(backupJob{}, node, storage, ref) // no job: the storage's own policy
+			}
+		}
 		var dests []rpoTarget
 		for _, key := range order {
 			byTarget[key].prunes = prunes
