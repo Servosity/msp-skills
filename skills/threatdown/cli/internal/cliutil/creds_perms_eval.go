@@ -115,7 +115,15 @@ func evalCredsSecurityResolved(sddl, currentUserSID string, resolveAlias sddlAli
 		return fmt.Errorf("token file has no DACL (potentially world-accessible)")
 	}
 	rest := sddl[i+2:]
-	if strings.HasPrefix(rest, "NO_ACCESS_CONTROL") {
+	// Hand-wired (handfixes.json: windows-null-dacl-behind-flags): DACL flags
+	// (P, AI, AR) come before NO_ACCESS_CONTROL, and the converter writes a
+	// real NULL DACL as "D:PAINO_ACCESS_CONTROL", so look at the whole flags
+	// prefix (everything before the first ACE), not just its start.
+	daclFlags := rest
+	if k := strings.IndexByte(rest, '('); k >= 0 {
+		daclFlags = rest[:k]
+	}
+	if strings.Contains(daclFlags, "NO_ACCESS_CONTROL") {
 		return fmt.Errorf("token file has a NULL DACL (world-accessible)")
 	}
 	// Cut at the SACL section ")S:" if present.
