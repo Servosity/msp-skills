@@ -156,7 +156,7 @@
   "cork": {
     "state": "binary-pending",
     "version": "0.1.4",
-    "latest_tag": "cork-v0.1.4",
+    "latest_tag": "cork-v0.1.5",
     "current_hash": "sha256:3fad5e6893ef94d5ae10d112fbff5919d6244d0cebdb645477ea6dfd1d4ee093",
     "released_hash": "sha256:1a9c5ab63587493b838a9d412ba66739f0f4547b0f9e6a137fd6d517f8f59d9a"
   },
