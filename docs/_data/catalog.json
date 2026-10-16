@@ -134,6 +134,17 @@
       "url": "/skills/betterstack/"
     },
     {
+      "slug": "bitdefender",
+      "display_name": "Bitdefender GravityZone",
+      "tagline": "Endpoint health, threats, incidents and license usage across every GravityZone child company.",
+      "category": "Security",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "url": "/skills/bitdefender/"
+    },
+    {
       "slug": "blumira",
       "display_name": "Blumira",
       "tagline": "Triage every Blumira finding across all your MSP client accounts from one ranked queue",

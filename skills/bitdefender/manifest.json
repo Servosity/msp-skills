@@ -1,0 +1,55 @@
+{
+  "manifest_version": "0.3",
+  "name": "bitdefender-mcp",
+  "display_name": "Bitdefender GravityZone",
+  "version": "0.1.0",
+  "description": "All GravityZone API methods, plus fleet health, billing and incident views across child companies.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/bitdefender-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/bitdefender-mcp",
+      "args": [],
+      "env": {
+        "BITDEFENDER_BASE_URL": "${user_config.bitdefender_base_url}",
+        "BITDEFENDER_API_KEY": "${user_config.bitdefender_api_key}"
+      }
+    }
+  },
+  "user_config": {
+    "bitdefender_base_url": {
+      "type": "string",
+      "title": "GravityZone Control Center API URL",
+      "description": "Sets BITDEFENDER_BASE_URL, the Access URL shown under My Account > Control Center API (cloud default https://cloud.gravityzone.bitdefender.com/api; on-premises and other regions differ).",
+      "sensitive": false,
+      "required": false,
+      "default": "https://cloud.gravityzone.bitdefender.com/api"
+    },
+    "bitdefender_api_key": {
+      "type": "string",
+      "title": "GravityZone API key",
+      "description": "Sets BITDEFENDER_API_KEY for the Bitdefender GravityZone MCP server. Get a credential from https://www.bitdefender.com/business/support/en/77209-125277-public-api.html.",
+      "sensitive": true,
+      "required": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  },
+  "printing_press_version": "4.33.5",
+  "press_provenance": {
+    "printing_press_version": "4.33.5",
+    "generated_at": "2026-10-14T11:08:22.704871Z",
+    "spec_checksum": "sha256:0a868cc8813e1b6245efa5aa7f1a5f5b732a0314835f6ba4d759609f89aaa571",
+    "spec_format": "openapi3"
+  }
+}

@@ -262,6 +262,26 @@
       "tagline": "Ask what's down, who's paged, where coverage is missing, and your MTTA/MTTR across your Better Stack account"
     },
     {
+      "name": "bitdefender",
+      "system": "Bitdefender GravityZone (cloud or on-premises Control Center)",
+      "status": "beta",
+      "skill_path": "skills/bitdefender",
+      "cli_binary": "bitdefender-cli",
+      "mcp_binary": "bitdefender-mcp",
+      "version": "0.1.0",
+      "printing_press_version": "4.33.5",
+      "license": "Apache-2.0",
+      "vendor": "Bitdefender",
+      "vendor_trademark_owner": "Bitdefender SRL",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/bitdefender/install.sh)",
+      "install_mcp_doc": "skills/bitdefender/mcp-install.md",
+      "description": "All GravityZone API methods, plus fleet health, billing and incident views across child companies.",
+      "verification": "awaiting",
+      "category": "Security",
+      "tagline": "Endpoint health, threats, incidents and license usage across every GravityZone child company."
+    },
+    {
       "name": "blumira",
       "system": "cloud SIEM and automated detection and response platform",
       "status": "beta",

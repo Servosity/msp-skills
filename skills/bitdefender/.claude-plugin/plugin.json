@@ -1,0 +1,20 @@
+{
+  "name": "bitdefender",
+  "version": "0.1.0",
+  "description": "All GravityZone API methods, plus fleet health, billing and incident views across child companies.",
+  "author": {
+    "name": "Servosity",
+    "url": "https://www.servosity.com"
+  },
+  "homepage": "https://github.com/servosity/msp-skills/tree/main/skills/bitdefender",
+  "repository": "https://github.com/servosity/msp-skills",
+  "license": "Apache-2.0",
+  "keywords": [
+    "bitdefender",
+    "security",
+    "msp",
+    "mcp",
+    "claude-code",
+    "claude-mcp"
+  ]
+}

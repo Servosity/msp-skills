@@ -1277,6 +1277,21 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "bitdefender",
+      "source": "./skills/bitdefender",
+      "description": "140 GravityZone API methods, plus fleet health, billing and incident views across child companies.",
+      "version": "0.1.0",
+      "category": "security",
+      "tags": [
+        "bitdefender",
+        "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }
