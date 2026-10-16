@@ -4,6 +4,13 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.1.7] - 2026-10-15
+
+### Changed
+- Rebuilt with Go 1.26.9 (was 1.26.6). Go 1.26.9 includes upstream Go security fixes,
+  among them the `net/http` advisories GO-2026-6617, GO-2026-6613 and GO-2026-6612.
+  No functional changes.
+
 ## [0.1.6] - 2026-10-03
 
 ### Fixed
