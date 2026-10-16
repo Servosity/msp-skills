@@ -1,6 +1,6 @@
 {
   "name": "threatdown",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Every ThreatDown OneView API, plus fleet-wide stale-endpoint, health and seat reports across all your sites, and guarded isolate/scan/restore jobs.",
   "author": {
     "name": "Servosity",

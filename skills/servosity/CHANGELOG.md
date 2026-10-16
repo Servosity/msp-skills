@@ -4,6 +4,25 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
+## [0.6.7] - 2026-10-15
+
+### Fixed
+- **Windows: the built-in Administrator account can save credentials.** On the built-in
+  local Administrator (common on MSP servers and jump boxes), saving credentials failed
+  with `token file DACL grants access to a non-owner principal (LA)`, and reads refused
+  the saved file. The token-file permission check compared security-descriptor text
+  instead of account SIDs; it now resolves each trustee to a SID first. The allowed
+  principals are unchanged: your account, BUILTIN\Administrators and SYSTEM.
+- **Windows: a token file with a NULL DACL is now refused.** A NULL DACL (no access
+  control at all, so any account on the machine can read the file) written with its
+  flags first, which is how Windows Server 2025 renders it, passed the check. The check
+  now parses the DACL exactly and refuses anything it cannot parse.
+
+### Changed
+- **Rebuilt with Go 1.26.9 (was 1.26.6).** Go 1.26.9 includes upstream Go security
+  fixes, among them the `net/http` advisories GO-2026-6617, GO-2026-6613 and
+  GO-2026-6612.
+
 ## [0.6.6] - 2026-10-02
 
 ### Fixed
