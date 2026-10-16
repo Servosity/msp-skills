@@ -132,7 +132,9 @@ func newNovelRestorePointsCmd(flags *rootFlags) *cobra.Command {
 					rows = append(rows, []string{rp.TimeRFC3339, rp.Source, rp.VerifyState, strconv.FormatBool(rp.Protected), rp.Notes})
 				}
 				if len(rows) == 0 {
-					if g.Evidence == "partial" {
+					if g.Readable > 0 { // --verified-only filtered out read points
+						fmt.Fprintf(cmd.OutOrStdout(), "  %d restore point(s) read, none verified\n", g.Readable)
+					} else if g.Evidence == "partial" {
 						fmt.Fprintf(cmd.OutOrStdout(), "  no restore point could be read; not read: %s\n", strings.Join(g.NotRead, "; "))
 					} else {
 						fmt.Fprintln(cmd.OutOrStdout(), "  no restore points")

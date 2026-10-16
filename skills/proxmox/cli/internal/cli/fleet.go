@@ -299,7 +299,7 @@ func (f fetchFailure) String() string {
 // otherwise drops sparse keys (present in under 80% of rows), which are
 // exactly the answers (age, last attempt, failing disk, guest name).
 var (
-	postureKeep  = []string{"rows", "clients", "warnings", "fetch_failures", "red", "amber", "clusters", "tenant", "cluster", "vmid", "asset_name", "asset_id", "verdict", "severity", "reason", "covered_by_job", "age_hours", "last_success_at", "verify_state", "last_verified_ok_at", "last_attempt_status", "last_attempt_at", "offsite_last_success_at", "guests", "stale", "never", "uncovered", "verify_failed", "unverified", "last_attempt_failed", "attempt_unknown", "archives_incomplete", "unproven", "clusters_unreachable"}
+	postureKeep  = []string{"rows", "clients", "warnings", "fetch_failures", "red", "amber", "clusters", "tenant", "cluster", "vmid", "asset_name", "asset_id", "verdict", "severity", "reason", "covered_by_job", "age_hours", "last_success_at", "verify_state", "last_verified_ok_at", "last_attempt_status", "last_attempt_at", "offsite_last_success_at", "guests", "stale", "never", "uncovered", "verify_failed", "unverified", "last_attempt_failed", "attempt_unknown", "archives_incomplete", "clock_skew", "unproven", "clusters_unreachable"}
 	coverageKeep = []string{"rows", "fetch_failures", "uncovered_guests", "guests_checked", "cluster", "vmid", "name", "disk", "reason", "detail", "disabled_jobs", "disagrees_with_upstream"}
 	verifyKeep   = []string{"stores", "groups", "skipped_clusters", "fetch_failures", "cluster", "store", "namespace", "group", "status", "snapshots", "failed", "never_verified", "outdated", "first_failure_at", "newest_verified_ok_at", "newest_is_bad", "failing_groups", "failed_snapshots", "never_verified_snapshots", "gc_still_bad_chunks", "namespaces_without_verify_job", "attribution", "snapshots_incomplete", "verify_jobs_unknown", "gc_unknown"}
 	failuresKeep = []string{"rows", "fetch_failures", "scanned_tasks", "logs_read", "log_cap_hit", "note", "cluster", "product", "type", "target", "vmid", "guest_name", "result", "reason", "upid", "started_at", "attribution"}
@@ -1360,17 +1360,25 @@ func (t fleetTarget) netSharers(s storageInfo) []string {
 	if len(toks) == 0 {
 		return nil // cluster-local (see netStorageID)
 	}
+	out := t.netMounters(s)
+	for _, name := range t.own.netUnread {
+		if name != t.Name && !slices.Contains(out, name+" (storage config not read)") {
+			out = append(out, name+" (storage config not read)")
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+// netMounters names the other configured clusters whose storage config shows
+// them mounting the network storage s too (the confirmed part of netSharers).
+func (t fleetTarget) netMounters(s storageInfo) []string {
 	var out []string
-	for _, tok := range toks {
+	for _, tok := range t.own.netOf[t.pveID][s.Storage] {
 		for pve, name := range t.own.net[tok] {
 			if pve != t.pveID && !slices.Contains(out, name) {
 				out = append(out, name)
 			}
-		}
-	}
-	for _, name := range t.own.netUnread {
-		if name != t.Name && !slices.Contains(out, name+" (storage config not read)") {
-			out = append(out, name+" (storage config not read)")
 		}
 	}
 	sort.Strings(out)
@@ -2346,6 +2354,10 @@ func unixRFC3339(sec int64) string {
 	}
 	return time.Unix(sec, 0).UTC().Format(time.RFC3339)
 }
+
+// clockSkewTolerance is how far past now a restore point may be dated before
+// it counts as clock skew rather than a backup that just finished.
+const clockSkewTolerance = time.Hour
 
 func hoursSince(now time.Time, sec int64) float64 {
 	if sec <= 0 {
