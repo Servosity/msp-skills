@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"math"
 	"slices"
 	"sort"
@@ -45,7 +46,8 @@ type rpoRow struct {
 	PointsUnread bool `json:"points_unread,omitempty"`
 	// MissedRunsUnproven: missed runs retention may have thinned (counted in
 	// missed_runs too).
-	MissedRunsUnproven int `json:"missed_runs_unproven,omitempty"`
+	MissedRunsUnproven int  `json:"missed_runs_unproven,omitempty"`
+	anyPoint           bool // some restore point, in the window or before it
 	// MayBeEarlierGuest: backups under the VMID that may be an earlier
 	// guest's (see restore-points), not counted in restore_points.
 	MayBeEarlierGuest int    `json:"may_be_earlier_guest,omitempty"`
@@ -418,6 +420,11 @@ func collectRPO(ctx context.Context, t fleetTarget, start, now time.Time, onlyVM
 				prunes = retention.mayPrune(targets.jobs[id], node, target, ref)
 			}
 		}
+		// A backup at a destination no covering job writes to now (a job moved
+		// storages) was pruned by whatever policy it had then: unknown.
+		prunes = prunes || slices.ContainsFunc(mine, func(p restorePoint) bool {
+			return !slices.ContainsFunc(order, func(key string) bool { return onDestination(p, key) })
+		})
 		var dests []rpoTarget
 		for _, key := range order {
 			byTarget[key].prunes = prunes
@@ -557,7 +564,7 @@ type rpoTarget struct {
 // or when any point not at its destination falls inside its window (a job
 // moved storages, the same archive under another name, a manual backup).
 func evaluateJobsRPO(all []restorePoint, targets []rpoTarget, start, now time.Time) rpoRow {
-	row := rpoRow{WindowStart: start.UTC().Format(time.RFC3339), MissedRunTimes: []string{}}
+	row := rpoRow{WindowStart: start.UTC().Format(time.RFC3339), MissedRunTimes: []string{}, anyPoint: len(all) > 0}
 	// A point dated past the clock-skew tolerance (a node clock ran ahead) has
 	// no judgeable time: it proves no run and must not anchor the retention
 	// cap, but it is a real backup, so the runs it may cover are unproven.
@@ -637,11 +644,14 @@ func evaluateJobsRPO(all []restorePoint, targets []rpoTarget, start, now time.Ti
 	times := map[int64]int{} // backup time -> index
 	var timeAt []int64
 	adj := make([][]int, len(wins))
+	// inside: the points of sorted pts dated in [from, until).
+	inside := func(pts []restorePoint, from, until int64) []restorePoint {
+		lo := sort.Search(len(pts), func(i int) bool { return pts[i].Time >= from })
+		hi := sort.Search(len(pts), func(i int) bool { return pts[i].Time >= until })
+		return pts[lo:max(lo, hi)]
+	}
 	for w := range wins {
-		for _, p := range dpts[wins[w].tgt] {
-			if p.Time < wins[w].from || p.Time >= wins[w].until {
-				continue
-			}
+		for _, p := range inside(dpts[wins[w].tgt], wins[w].from, wins[w].until) {
 			ti, ok := times[p.Time]
 			if !ok {
 				ti, times[p.Time], timeAt = len(timeAt), len(timeAt), append(timeAt, p.Time)
@@ -669,25 +679,49 @@ func evaluateJobsRPO(all []restorePoint, targets []rpoTarget, start, now time.Ti
 		}
 		return false
 	}
-	// elsewhereCouldPay: some point at another destination inside w's window
-	// (a job moved storages, a manual backup) could be w's own while every
-	// paid run stays paid: then w's miss is unproven. An augmenting path from
-	// w that may also use those times, on a copy of the matching.
-	elsewhereCouldPay := func(w int) bool {
-		saved := slices.Clone(owner)
-		defer copy(owner, saved)
-		own := adj[w]
-		ext := slices.Clone(own)
-		for _, p := range points {
-			if ti, ok := times[p.Time]; ok && !onTgt[wins[w].tgt][p.canonical] && p.Time >= wins[w].from && p.Time < wins[w].until && !slices.Contains(ext, ti) {
-				ext = append(ext, ti)
-			} else if !ok && !onTgt[wins[w].tgt][p.canonical] && p.Time >= wins[w].from && p.Time < wins[w].until {
-				return true // a free time no destination point holds
+	// elsewhereCouldPay: if any run may also be paid by a point at another
+	// destination inside its window (jobs moved storages, a manual backup),
+	// could w be paid while every paid run stays paid? Then w's miss is
+	// unproven. An augmenting path from w in that wider graph, on a copy of
+	// the matching.
+	extTimes := slices.Clone(timeAt)
+	extIdx := maps.Clone(times)
+	wide := make([][]int, len(wins))
+	for w := range wins {
+		wide[w] = slices.Clone(adj[w])
+		for _, p := range inside(points, wins[w].from, wins[w].until) {
+			if onTgt[wins[w].tgt][p.canonical] {
+				continue
+			}
+			ti, ok := extIdx[p.Time]
+			if !ok {
+				ti, extIdx[p.Time], extTimes = len(extTimes), len(extTimes), append(extTimes, p.Time)
+			}
+			if !slices.Contains(wide[w], ti) {
+				wide[w] = append(wide[w], ti)
 			}
 		}
-		adj[w] = ext
-		defer func() { adj[w] = own }()
-		return augment(w, make([]bool, len(timeAt)))
+	}
+	elsewhereCouldPay := func(w int) bool {
+		own := slices.Clone(owner)
+		for len(own) < len(extTimes) {
+			own = append(own, -1)
+		}
+		var aug func(w int, seen []bool) bool
+		aug = func(w int, seen []bool) bool {
+			for _, ti := range wide[w] {
+				if seen[ti] {
+					continue
+				}
+				seen[ti] = true
+				if own[ti] < 0 || aug(own[ti], seen) {
+					own[ti] = w
+					return true
+				}
+			}
+			return false
+		}
+		return aug(w, make([]bool, len(extTimes)))
 	}
 	for _, grace := range []bool{false, true} {
 		for w := range wins {
@@ -833,7 +867,7 @@ func rollupRPO(rows []rpoRow, targets []fleetTarget, failures []fetchFailure) []
 			c.GuestsUnproven++
 			c.MissedRunsUnproven += r.MissedRuns
 		default:
-			if r.RestorePoints == 0 && r.MayBeEarlierGuest == 0 {
+			if !r.anyPoint && r.MayBeEarlierGuest == 0 {
 				c.GuestsWithNoData++
 			}
 			certain := r.MissedRuns - r.MissedRunsUnproven

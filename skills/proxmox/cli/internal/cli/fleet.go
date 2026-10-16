@@ -2600,7 +2600,7 @@ func sameServer(remote, remoteFP, self string, selfPins []string) bool {
 		return true
 	}
 	for _, p := range selfPins {
-		if remoteFP != "" && strings.EqualFold(strings.ReplaceAll(p, ":", ""), strings.ReplaceAll(remoteFP, ":", "")) {
+		if fp := client.NormalizeFingerprint(remoteFP); fp != "" && fp == client.NormalizeFingerprint(p) {
 			return true
 		}
 	}
