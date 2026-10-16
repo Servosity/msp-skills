@@ -520,7 +520,7 @@
   "unifi-network": {
     "state": "binary-pending",
     "version": "0.1.5",
-    "latest_tag": "unifi-network-v0.1.5",
+    "latest_tag": "unifi-network-v0.1.6",
     "current_hash": "sha256:5a7546889e82ada111a0430de53ee353f11e5b5103426efa1b365f19e42e5c93",
     "released_hash": "sha256:7e59ca566a1e4d896789bfe3f4d28a2f6af9199a40011a8ba4f530cc90f47e21"
   },
