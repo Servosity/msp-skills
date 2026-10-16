@@ -209,7 +209,7 @@
     {
       "id": "jsm-reconcile-open-per-os",
       "summary": "cmdb reconcile opens --file through per-OS twins (O_NOFOLLOW|O_NONBLOCK on unix, Lstat + SameFile on Windows); under MCP it opens through an os.Root on the working directory and refuses any filesystem-root or home working directory",
-      "why": "cmdb_reconcile.go used syscall.O_NOFOLLOW directly, which does not exist on Windows, so GOOS=windows builds failed and the connector shipped no Windows binary. Windows has no O_NOFOLLOW; the twin refuses a symlink or reparse point via Lstat and then proves the opened handle is the same file, so a swap between check and open is refused too. Under MCP the containment check originally ran by path before the open, compared the working directory only with '/', and a later open-then-verify version still left a symlink-swap window between resolve and stat (Codex review rounds 1-2, 2026-10-16). os.Root resolves every component relative to the working-directory handle and refuses escapes, which closes the race by construction. cmdb_reconcile_mcp_test.go covers it.",
+      "why": "cmdb_reconcile.go used syscall.O_NOFOLLOW directly, which does not exist on Windows, so GOOS=windows builds failed and the connector shipped no Windows binary. Windows has no O_NOFOLLOW; the twin refuses a symlink or reparse point via Lstat and then proves the opened handle is the same file, so a swap between check and open is refused too. Under MCP the containment check originally ran by path before the open, compared the working directory only with '/', and a later open-then-verify version still left a symlink-swap window between resolve and stat (Codex review rounds 1-2, 2026-10-16). os.Root resolves every component relative to the working-directory handle and refuses escapes, which closes the race by construction. cmdb_reconcile_mcp_test.go covers it. Round 3: os.OpenRoot(wd) by pathname still let a swap of the working directory's path redirect the root, so the root is now the process working directory handle (\".\") and the root/home refusal compares directory identity, not strings.",
       "status": "active",
       "asserts": [
         {
@@ -228,17 +228,7 @@
         },
         {
           "file": "cli/internal/cli/cmdb_reconcile.go",
-          "contains": "r, err := os.OpenRoot(wd)",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/cmdb_reconcile.go",
           "contains": "f, err := r.OpenFile(rel, inventoryOpenFlags, 0)",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/cmdb_reconcile.go",
-          "contains": "if filepath.Dir(real) == real || (home != \"\" && sameDir(real, home)) {",
           "code_only": true
         },
         {
@@ -250,6 +240,20 @@
           "file": "cli/internal/cli/cmdb_reconcile_open_unix.go",
           "contains": "return os.OpenFile(path, inventoryOpenFlags|syscall.O_NOFOLLOW, 0)",
           "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/cmdb_reconcile.go",
+          "contains": "r, err := os.OpenRoot(\".\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/cmdb_reconcile.go",
+          "contains": "if fi, err := os.Stat(top); err == nil && os.SameFile(here, fi) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/cmdb_reconcile.go",
+          "not_contains": "os.OpenRoot(wd)"
         }
       ]
     },
@@ -328,8 +332,8 @@
     },
     {
       "id": "jsm-detail-no-unwrap",
-      "summary": "single-object GETs return the whole DTO, and object create/update and approval answer cache the entity, instead of unwrapping one array field",
-      "why": "The press picks a response path for any response with an array field, so 'request sla get' printed only completedCycles (the ongoing cycle, breach state and remaining time vanished), 'request comment get' printed _expands, 'servicedesk queue get' printed only the field list, 'request approval get' only the approvers, 'usage' dropped the total, 'importsource' dropped the config, and 'object get' (auto strategy) printed the attributes and wrote each one into the local store as an 'object' row keyed by the attribute id, overwriting unrelated cached objects. object create/update and request approval answer did the same through writeMutationResponseToStore. Found by the Codex read-only review, 2026-10-16; the list commands that do unwrap a list (tickets, keys, requestTypeFields, values) are unchanged.",
+      "summary": "single-object GETs return the whole DTO; object create/update cache the entity and request approval answer writes nothing to the store, instead of unwrapping one array field",
+      "why": "The press picks a response path for any response with an array field, so 'request sla get' printed only completedCycles (the ongoing cycle, breach state and remaining time vanished), 'request comment get' printed _expands, 'servicedesk queue get' printed only the field list, 'request approval get' only the approvers, 'usage' dropped the total, 'importsource' dropped the config, and 'object get' (auto strategy) printed the attributes and wrote each one into the local store as an 'object' row keyed by the attribute id, overwriting unrelated cached objects. object create/update and request approval answer did the same through writeMutationResponseToStore. Found by the Codex read-only review, 2026-10-16; the list commands that do unwrap a list (tickets, keys, requestTypeFields, values) are unchanged. Round 3: writing the whole approval DTO then failed the typed approval table (request_id NOT NULL) and printed a misleading 'typed-table upsert failed' warning on every successful answer, so approval answer no longer writes to the store; approvals are read live.",
       "status": "active",
       "spec_encode_followup": "Press defect: only list endpoints (or a response whose only meaningful content is the array) should get a response path; detail DTOs with an array member must not. Reported in the factory retro notes.",
       "asserts": [
@@ -379,11 +383,6 @@
           "code_only": true
         },
         {
-          "file": "cli/internal/cli/request_approval_answer.go",
-          "contains": "writeMutationResponseToStore(cmd.Context(), \"approval\", data, \"\")",
-          "code_only": true
-        },
-        {
           "file": "cli/internal/cli/request_sla_get.go",
           "not_contains": "\"completedCycles\", cmd.ErrOrStderr()"
         },
@@ -394,6 +393,10 @@
         {
           "file": "cli/internal/cli/object_create.go",
           "not_contains": "data, \"attributes\")"
+        },
+        {
+          "file": "cli/internal/cli/request_approval_answer.go",
+          "not_contains": "writeMutationResponseToStore(cmd.Context(), \"approval\""
         }
       ]
     },
@@ -457,8 +460,8 @@
     },
     {
       "id": "jsm-store-scope-by-site",
-      "summary": "the local store is scoped by credential AND resolved site URL, so one Atlassian token used on several client sites gets one database per site",
-      "why": "An Atlassian API token reaches every site its account belongs to, which is normal for an MSP. The generated store scope hashed only the credential, so switching JIRA_SERVICE_MANAGEMENT_SITE reused one data-<hash>.db: sites mixed in reports and search, and a --full sync of one site pruned the other's rows (Codex review round 2, 2026-10-16). The fix uses the generator's config.StoreScopeIdentity hook from a hand-written file; the MCP server resolves its store path through the same package. jsm_store_scope_test.go covers it.",
+      "summary": "the local store is scoped by credential AND resolved site URL, so one Atlassian token used on several client sites gets one database per site; sync --path-context site=... re-scopes the store to the site it selects",
+      "why": "An Atlassian API token reaches every site its account belongs to, which is normal for an MSP. The generated store scope hashed only the credential, so switching JIRA_SERVICE_MANAGEMENT_SITE reused one data-<hash>.db: sites mixed in reports and search, and a --full sync of one site pruned the other's rows (Codex review round 2, 2026-10-16). The fix uses the generator's config.StoreScopeIdentity hook from a hand-written file; the MCP server resolves its store path through the same package. jsm_store_scope_test.go covers it. Round 3: sync --path-context site=... changed the target after the store was scoped, so it still mixed sites; sync now re-scopes before opening the default store.",
       "status": "active",
       "asserts": [
         {
@@ -474,6 +477,11 @@
         {
           "file": "cli/internal/config/config.go",
           "contains": "if StoreScopeIdentity != nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "setDefaultDBScopeIdentity(c.Config.StoreScopeCredential(), c.Config.StoreScopeLegacyCredential(), c.Config.BaseURL)",
           "code_only": true
         }
       ]
@@ -519,6 +527,29 @@
         {
           "file": "cli/internal/mcp/jsm_delete_body.go",
           "contains": "\"request.participant.remove\":      true,",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-blocks-local-file-inputs",
+      "summary": "MCP tools never accept a flag whose value is a local path the CLI reads (teach / teach-playbook notes and playbook files, import --input, upload-temporary-file --file)",
+      "why": "teach_playbook --notes-file (and teach --playbook-notes-file / --playbook-file) read any local file the MCP client names and returned it through playbook_list and recall, even with JIRA_SERVICE_MANAGEMENT_MCP_READ_ONLY=1, so a prompt-injected ticket could read ~/.ssh or credentials.toml (adversarial review round 2 and Codex round 3, 2026-10-16; reproduced with a canary file, now refused as an unknown MCP parameter). Same fix as skills/connectsecure mcp-blocks-local-file-inputs; jsm_file_inputs_test.go scans internal/cli so a reprint that adds a file-reading flag fails the test.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/cobratree/typemap.go",
+          "contains": "for _, name := range fileInputFlagNames(cmd) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/jsm_file_inputs.go",
+          "contains": "\"teach-playbook\": {\"notes-file\", \"playbook-file\"},",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/jsm_file_inputs_test.go",
+          "contains": "func TestEveryFileInputFlagIsBlocked(",
           "code_only": true
         }
       ]

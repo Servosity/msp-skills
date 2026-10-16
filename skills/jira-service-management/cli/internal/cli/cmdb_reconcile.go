@@ -10,7 +10,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"strings"
 
@@ -228,27 +227,33 @@ func openInventoryFile(path string) (*os.File, error) {
 	return f, nil
 }
 
-// openInventoryUnderMCP opens path through an os.Root on the working directory.
-// os.Root resolves every component relative to that directory handle and
-// refuses ".." and symlinks that leave it, so swapping a directory for a
-// symlink or junction mid-open cannot redirect the read. A working directory
-// that is a filesystem root or the home directory is refused outright.
+// openInventoryUnderMCP opens path through an os.Root on the process working
+// directory itself (".", a kernel handle, not a pathname a swap could
+// redirect). os.Root resolves every component relative to that handle and
+// refuses ".." and symlinks that leave it. A working directory that is a
+// filesystem or volume root, or the home directory, is refused by identity.
 func openInventoryUnderMCP(path string) (*os.File, error) {
+	r, err := os.OpenRoot(".")
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+	here, err := r.Stat(".")
+	if err != nil {
+		return nil, err
+	}
 	wd, err := os.Getwd()
 	if err != nil {
 		return nil, err
 	}
-	real, err := filepath.EvalSymlinks(wd)
-	if err != nil {
-		return nil, err
-	}
 	home, _ := os.UserHomeDir()
-	if home != "" {
-		home, _ = filepath.EvalSymlinks(home)
-	}
-	// filepath.Dir(real) == real holds for / and for every Windows volume or share root (C:\).
-	if filepath.Dir(real) == real || (home != "" && sameDir(real, home)) {
-		return nil, fmt.Errorf("under MCP, run from a project directory (not a filesystem root or your home directory) and put the export there")
+	for _, top := range []string{string(filepath.Separator), filepath.VolumeName(wd) + string(filepath.Separator), home} {
+		if top == "" {
+			continue
+		}
+		if fi, err := os.Stat(top); err == nil && os.SameFile(here, fi) {
+			return nil, fmt.Errorf("under MCP, run from a project directory (not a filesystem root or your home directory) and put the export there")
+		}
 	}
 	abs, err := filepath.Abs(path)
 	if err != nil {
@@ -258,24 +263,11 @@ func openInventoryUnderMCP(path string) (*os.File, error) {
 	if err != nil || !filepath.IsLocal(rel) {
 		return nil, fmt.Errorf("under MCP, --file must be inside the working directory")
 	}
-	r, err := os.OpenRoot(wd)
-	if err != nil {
-		return nil, err
-	}
-	defer r.Close()
 	f, err := r.OpenFile(rel, inventoryOpenFlags, 0)
 	if err != nil {
 		return nil, fmt.Errorf("under MCP, --file must be inside the working directory: %w", err)
 	}
 	return f, nil
-}
-
-// sameDir compares resolved directories; Windows paths are case-insensitive.
-func sameDir(a, b string) bool {
-	if runtime.GOOS == "windows" {
-		return strings.EqualFold(a, b)
-	}
-	return a == b
 }
 
 type reconcileObject struct {

@@ -98,9 +98,7 @@ func newRequestApprovalAnswerCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 			}
-			if !flags.dryRun && statusCode >= 200 && statusCode < 300 && (partialFailure == nil || flags.allowPartialFailure) {
-				writeMutationResponseToStore(cmd.Context(), "approval", data, "") // pp:handfix jsm-detail-no-unwrap
-			}
+			// pp:handfix jsm-detail-no-unwrap: no store write; approvals are read live and the typed approval table needs a request_id this response lacks
 			if wantsHumanTable(cmd.OutOrStdout(), flags) {
 				// Check if response contains an array (directly or wrapped in "data")
 				var items []map[string]any

@@ -172,6 +172,9 @@ Resource scoping:
 			}
 
 			if dbPath == "" {
+				if len(pathContext) > 0 { // pp:handfix jsm-store-scope-by-site: the store follows the site --path-context selects
+					setDefaultDBScopeIdentity(c.Config.StoreScopeCredential(), c.Config.StoreScopeLegacyCredential(), c.Config.BaseURL)
+				}
 				dbPath = defaultDBPath("jira-service-management-cli")
 			}
 

@@ -46,6 +46,10 @@ only its own requests.
   write only to the CLI's own local store, never to your site. It does not change what the CLI
   itself can do.
 
+- **Local files under MCP.** MCP tools never take a local path to read for `teach`, `teach-playbook`
+  or `import`; `cmdb reconcile` reads an export only from inside the MCP server's working
+  directory and refuses a working directory that is a filesystem root or the home folder.
+
 ## Permission tiers
 
 The safe default for an autonomous agent is **read plus previewed writes**; require a human for

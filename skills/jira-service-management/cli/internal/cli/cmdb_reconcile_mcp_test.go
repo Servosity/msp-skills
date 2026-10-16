@@ -45,3 +45,37 @@ func TestOpenInventoryUnderMCP(t *testing.T) {
 		t.Fatal("filesystem-root working directory was allowed")
 	}
 }
+
+// TestOpenInventoryUnderMCPFollowsTheDirectoryNotThePath swaps the working
+// directory's pathname for a symlink to another directory after the server
+// started there: the open must still read the original directory's file.
+func TestOpenInventoryUnderMCPFollowsTheDirectoryNotThePath(t *testing.T) {
+	parent := t.TempDir()
+	wd := filepath.Join(parent, "project")
+	outside := filepath.Join(parent, "outside")
+	for dir, body := range map[string]string{wd: "inside", outside: "outside"} {
+		if err := os.Mkdir(dir, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "rmm.csv"), []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Chdir(wd)
+	if err := os.Rename(wd, filepath.Join(parent, "moved")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, wd); err != nil {
+		t.Fatal(err)
+	}
+	f, err := openInventoryUnderMCP("rmm.csv")
+	if err != nil {
+		t.Fatalf("open after the swap failed: %v", err)
+	}
+	defer f.Close()
+	buf := make([]byte, 16)
+	n, _ := f.Read(buf)
+	if got := string(buf[:n]); got != "inside" {
+		t.Fatalf("read %q through the swapped pathname, want the original directory's file", got)
+	}
+}

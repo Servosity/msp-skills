@@ -174,6 +174,8 @@ Assets (CMDB) commands also need your site's cloudId and Assets workspaceId (Ass
 
 `client` and `sla-report` read the local copy: run `jira-service-management-cli sync --resources organization,request,requesttype,servicedesk` first. Everything else reads live.
 
+Through the MCP server, `cmdb reconcile` reads an export only from inside the server's working directory, and refuses to run when that directory is a filesystem root or your home folder (so it cannot be used to read arbitrary files). If your MCP host starts servers from `/` or your home folder, run `cmdb reconcile` from the CLI in the folder that holds the export instead.
+
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
 
 ## What makes this different
