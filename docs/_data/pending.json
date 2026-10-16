@@ -261,7 +261,7 @@
   "immybot": {
     "state": "binary-pending",
     "version": "0.1.7",
-    "latest_tag": "immybot-v0.1.7",
+    "latest_tag": "immybot-v0.1.8",
     "current_hash": "sha256:48524413ff6de15cf160129a72471ec8596d867f1587062cbe0618f5c75278d7",
     "released_hash": "sha256:06cdf52b955ff06dc92e27785711c65696f1cfe19dd717420a0c9bb3aea6ceb7"
   },
