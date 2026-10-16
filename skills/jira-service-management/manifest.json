@@ -1,0 +1,74 @@
+{
+  "manifest_version": "0.3",
+  "name": "jira-service-management-mcp",
+  "display_name": "Jira Service Management",
+  "version": "0.1.0",
+  "description": "Every Jira Service Management Cloud request-API (servicedeskapi) and Assets endpoint in one binary, plus SLA breach radar, internal notes, ticket timelines, and CMDB-to-ticket joins.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/jira-service-management-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/jira-service-management-mcp",
+      "args": [],
+      "env": {
+        "JIRA_SERVICE_MANAGEMENT_API_TOKEN": "${user_config.jira_service_management_api_token}",
+        "JIRA_SERVICE_MANAGEMENT_CLOUD_ID": "${user_config.jira_service_management_cloud_id}",
+        "JIRA_SERVICE_MANAGEMENT_EMAIL": "${user_config.jira_service_management_email}",
+        "JIRA_SERVICE_MANAGEMENT_SITE": "${user_config.jira_service_management_site}",
+        "JIRA_SERVICE_MANAGEMENT_WORKSPACE_ID": "${user_config.jira_service_management_workspace_id}"
+      }
+    }
+  },
+  "user_config": {
+    "jira_service_management_api_token": {
+      "type": "string",
+      "title": "JIRA_SERVICE_MANAGEMENT_API_TOKEN",
+      "description": "Atlassian API token from id.atlassian.com/manage-profile/security/api-tokens (Basic auth password).",
+      "sensitive": true,
+      "required": true
+    },
+    "jira_service_management_cloud_id": {
+      "type": "string",
+      "title": "JIRA_SERVICE_MANAGEMENT_CLOUD_ID",
+      "description": "Assets only: your site's cloudId. Leave blank if you do not use Assets; 'cmdb discover' prints it.",
+      "required": false
+    },
+    "jira_service_management_email": {
+      "type": "string",
+      "title": "JIRA_SERVICE_MANAGEMENT_EMAIL",
+      "description": "Atlassian account email (Basic auth username).",
+      "required": true
+    },
+    "jira_service_management_site": {
+      "type": "string",
+      "title": "JIRA_SERVICE_MANAGEMENT_SITE",
+      "description": "Your Atlassian site subdomain: acme for acme.atlassian.net.",
+      "required": true
+    },
+    "jira_service_management_workspace_id": {
+      "type": "string",
+      "title": "JIRA_SERVICE_MANAGEMENT_WORKSPACE_ID",
+      "description": "Assets only: your site's workspaceId. Leave blank if you do not use Assets; 'cmdb discover' prints it.",
+      "required": false
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  },
+  "printing_press_version": "4.33.5",
+  "press_provenance": {
+    "printing_press_version": "4.33.5",
+    "generated_at": "2026-10-14T12:21:16.713464Z",
+    "spec_checksum": "sha256:34ddf4c2a3b3adf9e86526d4b24ba0603df67667a2bfa3e23822976e7d79973d",
+    "spec_format": "internal"
+  }
+}

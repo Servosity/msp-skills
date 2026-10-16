@@ -2025,6 +2025,29 @@
         "source": null,
         "evidence": null
       }
+    },
+    "jira-service-management": {
+      "system": "Jira Service Management Cloud: requests, queues, SLAs, customers, organizations, Assets (CMDB)",
+      "status": "beta",
+      "cli_binary": "jira-service-management-cli",
+      "mcp_binary": "jira-service-management-mcp",
+      "vendor": "Jira Service Management",
+      "vendor_trademark_owner": "Atlassian Pty Ltd",
+      "first_party": false,
+      "category": "PSA",
+      "display_name": "Jira Service Management",
+      "tagline": "Triage queues, catch SLA breaches, and reconcile Assets (CMDB) by asking.",
+      "has_video": true,
+      "cli_hash": "sha256:04d04cce848b070bb2e031cc87fae2b8e9727d006964a7b9e823cd4904398ec1",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
     }
   }
 }

@@ -822,6 +822,26 @@
       "tagline": "Find any device, audit stale passwords, and rank thin client docs by asking."
     },
     {
+      "name": "jira-service-management",
+      "system": "Jira Service Management Cloud: requests, queues, SLAs, customers, organizations, Assets (CMDB)",
+      "status": "beta",
+      "skill_path": "skills/jira-service-management",
+      "cli_binary": "jira-service-management-cli",
+      "mcp_binary": "jira-service-management-mcp",
+      "version": "0.1.0",
+      "printing_press_version": "4.33.5",
+      "license": "Apache-2.0",
+      "vendor": "Jira Service Management",
+      "vendor_trademark_owner": "Atlassian Pty Ltd",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/jira-service-management/install.sh)",
+      "install_mcp_doc": "skills/jira-service-management/mcp-install.md",
+      "description": "Every Jira Service Management Cloud request-API (servicedeskapi) and Assets endpoint in one binary, plus SLA breach radar, internal notes, ticket timelines, and CMDB-to-ticket joins.",
+      "verification": "awaiting",
+      "category": "PSA",
+      "tagline": "Triage queues, catch SLA breaches, and reconcile Assets (CMDB) by asking."
+    },
+    {
       "name": "kaseya-bms",
       "system": "Kaseya BMS PSA - tickets, CRM, contracts, finance, and projects",
       "status": "beta",

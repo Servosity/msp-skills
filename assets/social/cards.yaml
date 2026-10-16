@@ -171,6 +171,10 @@ itglue:
   vendor: "IT Glue"
   example_command: "Which clients are under-documented?"
 
+jira-service-management:
+  vendor: "Jira Service Mgmt"
+  example_command: "Which tickets breach SLA in the next two hours?"
+
 kaseya-bms:
   vendor: "Kaseya BMS"
   example_command: "What's ready to bill, by account?"

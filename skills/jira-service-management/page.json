@@ -1,0 +1,127 @@
+{
+  "outcome_intro": "If you run your service desk on Jira Service Management, ask your AI \"which tickets breach SLA in the next two hours across every queue,\" \"what happened on SD-123, internal notes included,\" or \"which laptops in our RMM are missing from Assets,\" and get the answer in one step. It reads JSM's own SLA timers, keeps internal notes internal, and joins Assets (CMDB) objects to the tickets that touch them.",
+  "instead_of_say": [
+    {
+      "instead": "Opening each queue every morning, sorting by SLA, and copying the red and amber tickets into a spreadsheet",
+      "say": "Which tickets breach SLA in the next two hours, across all our queues?",
+      "cli": "jira-service-management-cli breaches --within 2h"
+    },
+    {
+      "instead": "Scrolling a long ticket to work out which comments the customer can see before you write a reply",
+      "say": "Show me SD-123's full history, internal notes marked, before I answer the customer",
+      "cli": "jira-service-management-cli request timeline SD-123"
+    },
+    {
+      "instead": "Exporting your RMM device list and VLOOKUP-ing it against Assets to find machines nobody recorded",
+      "say": "Which laptops are in our RMM export but missing from Assets?",
+      "cli": "jira-service-management-cli cmdb reconcile --type Laptop --file rmm.csv --key Name --compare Serial,OS"
+    }
+  ],
+  "pain_points": [
+    "Internal notes leak to customers. Atlassian's own tracker carries the request (JSDCLOUD-17210): agents \"don't know if they are making an internal or external facing comment and may accidentally have selected the wrong one.\" An AI agent posting through a generic comment call has the same problem, so 'request note' always posts public=false and errors if JSM stores the comment as public.",
+    "No single API call answers \"what breaches next\" across queues. You list each queue, drop the tickets that sit in several, and read each ticket's SLA metrics. 'breaches' does that walk once and ranks open tickets by SLA time remaining, breached first.",
+    "MSPs model each client as a JSM organization (Atlassian's guide to supporting multiple clients on one site), and keeping client staff in the right organization is manual. 'roster' flags customers in no organization or in two, empty organizations, and organizations holding a desk's customers that are not attached to that desk.",
+    "Assets (CMDB) only knows what someone imported. Nothing in JSM compares it with your RMM or PSA inventory, so drift is found during an outage. 'cmdb reconcile' diffs an Assets object type against a CSV export, and 'cmdb tickets' lists every ticket connected to a device."
+  ],
+  "outcomes": [
+    {
+      "question": "Which tickets breach SLA in the next two hours, across every queue?",
+      "command": "jira-service-management-cli breaches --within 2h"
+    },
+    {
+      "question": "What happened on this ticket, internal notes included, before I reply?",
+      "command": "jira-service-management-cli request timeline SD-123"
+    },
+    {
+      "question": "Add a note for the other techs that the customer will never see",
+      "command": "jira-service-management-cli request note SD-123 \"Escalated to network team\""
+    },
+    {
+      "question": "How are Acme Corp's open tickets doing before my client call?",
+      "command": "jira-service-management-cli client \"Acme Corp\""
+    },
+    {
+      "question": "What was our SLA breach rate by request type over the last 30 days?",
+      "command": "jira-service-management-cli sla-report --since 30d --group-by requesttype"
+    },
+    {
+      "question": "Which client staff are in no organization, or in two?",
+      "command": "jira-service-management-cli roster 3"
+    },
+    {
+      "question": "Which tickets have touched this server?",
+      "command": "jira-service-management-cli cmdb tickets srv-01"
+    },
+    {
+      "question": "Which laptops are in our RMM export but missing from Assets?",
+      "command": "jira-service-management-cli cmdb reconcile --type Laptop --file rmm.csv --key Name --compare Serial,OS"
+    }
+  ],
+  "different_vs_wrappers": "Most Jira Service Management MCP servers expose the API one call at a time, so \"what breaches next\" becomes a queue walk plus one SLA call per ticket that the AI has to orchestrate and pay for in context. This connector does the walk itself ('breaches'), labels every comment public or internal in one timeline, refuses to post an internal note as public, and keeps a local SQLite copy of your requests so period SLA reports and per-client views are one local query. It also reaches Assets (CMDB): objects joined to their tickets, and an object type diffed against an RMM or PSA export.",
+  "different_vs_vendor": "Atlassian's Rovo MCP Server is the official option: hosted by Atlassian, it covers Jira and Confluence plus a growing set of JSM request, operations and Assets tools. This connector complements it rather than replacing it: it runs on your own machine with an API token, adds a local copy for period SLA reports and per-client views, and adds MSP-shaped commands (cross-queue SLA ranking, organization hygiene, Assets-to-ticket joins, Assets-vs-RMM reconcile) that are not single API calls.",
+  "faqs": [
+    {
+      "q": "Is there an MCP server for Jira Service Management?",
+      "a": "Yes. This is a free, open source MCP server for Jira Service Management Cloud. It runs on your own machine and connects to Claude Desktop, Claude Code, and other MCP-capable agents.\n\n1. Create an Atlassian API token at id.atlassian.com/manage-profile/security/api-tokens, signed in as an agent on your JSM site.\n2. **Claude Desktop:** download the Jira Service Management `.mcpb` from the [releases page](https://github.com/servosity/msp-skills/releases?q=jira-service-management), open **Claude Desktop > Settings > Extensions**, select the file, and enter your site subdomain, email and API token.\n3. **Claude Code:** run `/plugin marketplace add Servosity/msp-skills`, then `/plugin install jira-service-management@msp-skills`.\n4. **Any other agent, or a terminal:** run `bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/jira-service-management/install.sh)` on macOS or Linux, or `iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/jira-service-management/install.ps1 | iex` in Windows PowerShell. Set `JIRA_SERVICE_MANAGEMENT_SITE` (acme for acme.atlassian.net), `JIRA_SERVICE_MANAGEMENT_EMAIL` and `JIRA_SERVICE_MANAGEMENT_API_TOKEN`, then run `jira-service-management-cli doctor`. To wire it into your agent, follow the [agent setup guide](https://github.com/Servosity/msp-skills/blob/main/skills/jira-service-management/mcp-install.md).\n5. Ask your agent: \"Which tickets breach SLA in the next two hours?\" That reads live from your queues, so no sync is needed first.\n\nAtlassian also runs an official, hosted [Rovo MCP Server](https://support.atlassian.com/atlassian-rovo-mcp-server/docs/supported-tools/), and the community [mcp-atlassian](https://github.com/sooperset/mcp-atlassian) server covers Jira and Confluence broadly, including service desk queues and internal comments. This one runs locally, ranks open tickets across every queue by JSM's own SLA timers, keeps a local copy of your requests for period SLA reports and per-client views, and joins Assets (CMDB) objects to their tickets."
+    },
+    {
+      "q": "Does this work with ChatGPT?",
+      "a": "Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, and jira-service-management-mcp speaks HTTP natively: set JIRA_SERVICE_MANAGEMENT_MCP_HTTP_TOKEN to a bearer token, run `jira-service-management-mcp --transport http` (it listens on http://127.0.0.1:7777/mcp), and put that /mcp endpoint behind an HTTPS tunnel or your own reverse proxy. Step-by-step in the install guide."
+    },
+    {
+      "q": "Do I need to know how to code?",
+      "a": "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
+    },
+    {
+      "q": "Is my Jira Service Management data safe?",
+      "a": "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+    },
+    {
+      "q": "What does it cost?",
+      "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
+    },
+    {
+      "q": "Does this work with Jira Service Management Data Center or Server?",
+      "a": "No. It targets Jira Service Management Cloud (your-site.atlassian.net). Data Center and Server use different hosts and authentication, and this connector does not call them."
+    },
+    {
+      "q": "Do I need JSM Premium for Assets (CMDB)?",
+      "a": "Only for the Assets commands. Assets is part of JSM Premium and Enterprise. Queues, SLAs, requests, comments, customers and organizations work on any JSM Cloud plan. For Assets, run `jira-service-management-cli cmdb discover --save` once: it finds your site's cloudId and Assets workspaceId and stores them in the config file."
+    },
+    {
+      "q": "What can the AI see and change?",
+      "a": "Exactly what the Atlassian account behind the API token can. An agent account sees its service desks, queues and internal notes; a customer-only account sees only its own requests. Create the token as an agent with the access you want the AI to have, and keep writes behind your agent's approval policy (see the safety model below)."
+    },
+    {
+      "q": "Will an internal note ever reach the customer?",
+      "a": "Use `request note` for anything internal: it always posts with public=false, and if JSM reports the stored comment as public it exits with an error so the agent knows. `request comment add` is the customer-reply command: pass `--public` for a customer-visible reply. It sends no public field when you omit the flag, so never use it for internal notes. Read `request timeline` before replying: it labels every comment PUBLIC or INTERNAL."
+    },
+    {
+      "q": "Will this hit my Atlassian API rate limits?",
+      "a": "Live commands make normal API calls and pace themselves to the rate-limit headers Atlassian returns (`--rate-limit` overrides it). `breaches` reads each queue and then each ticket's SLA, so scope it with `--desk` and `--queue` on large sites. `sla-report`, `client` and `search` read the local copy after a `sync` and make no API calls."
+    }
+  ],
+  "governance_summary": "The skill drives jira-service-management-cli and jira-service-management-mcp with your Atlassian email and API token, sent only to your atlassian.net site and, for Assets, api.atlassian.com. Read commands (queues, SLA ranking, timelines, reports, Assets lookups) change nothing. Writes send immediately: --dry-run is an opt-in preview, so the recommended policy is preview, show the exact command, get approval, then run it. Keep deletes, customer and organization removals, and Assets schema changes human-only. The strongest control is the permissions of the Atlassian account that owns the token; setting JIRA_SERVICE_MANAGEMENT_MCP_READ_ONLY=1 also drops the MCP server's write tools and makes its generic execute tool refuse non-GET API calls.",
+  "safety_tiers": [
+    {
+      "tier": "Read",
+      "examples": "jira-service-management-cli breaches --within 2h; jira-service-management-cli request timeline SD-123; jira-service-management-cli servicedesk queue list-issues 3 10; jira-service-management-cli sla-report --since 30d; jira-service-management-cli roster 3; jira-service-management-cli cmdb tickets srv-01; jira-service-management-cli object find-by-aql",
+      "policy": "Allow"
+    },
+    {
+      "tier": "Write (routine)",
+      "examples": "jira-service-management-cli request note (internal note); jira-service-management-cli request comment add (reply, --public for customer-visible); jira-service-management-cli request transition perform; jira-service-management-cli request create; jira-service-management-cli request approval answer; jira-service-management-cli object create / update - writes send immediately; --dry-run is an opt-in preview, not a default",
+      "policy": "Preview with --dry-run, then a reviewed write"
+    },
+    {
+      "tier": "Customers and organizations",
+      "examples": "jira-service-management-cli customer create; jira-service-management-cli servicedesk customer add / invite / remove; jira-service-management-cli organization create; jira-service-management-cli organization user add / remove; jira-service-management-cli customer revoke-portal-only-access-for-user",
+      "policy": "Human-approved: these change who can raise tickets for a client"
+    },
+    {
+      "tier": "Destructive / config",
+      "examples": "jira-service-management-cli organization delete; jira-service-management-cli object delete; jira-service-management-cli objectschema delete; jira-service-management-cli objecttype delete; jira-service-management-cli servicedesk requesttype delete; jira-service-management-cli importsource token generate; jira-service-management-cli api-import",
+      "policy": "Human-in-the-loop only"
+    }
+  ]
+}

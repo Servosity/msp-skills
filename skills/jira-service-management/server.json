@@ -1,0 +1,64 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Servosity/jira-service-management-mcp",
+  "title": "Jira Service Management MCP",
+  "description": "Every Jira Service Management Cloud request-API (servicedeskapi) and Assets endpoint in one binary",
+  "version": "0.1.0",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/jira-service-management/jira-service-management-512x512.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/servosity/msp-skills",
+    "source": "github",
+    "subfolder": "skills/jira-service-management"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/jira-service-management-v0.1.0/jira-service-management-mcp.mcpb",
+      "version": "0.1.0",
+      "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "JIRA_SERVICE_MANAGEMENT_API_TOKEN",
+          "description": "Set the JIRA_SERVICE_MANAGEMENT_API_TOKEN credential for the Jira Service Management MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "JIRA_SERVICE_MANAGEMENT_CLOUD_ID",
+          "description": "Set the JIRA_SERVICE_MANAGEMENT_CLOUD_ID credential for the Jira Service Management MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "JIRA_SERVICE_MANAGEMENT_EMAIL",
+          "description": "Set the JIRA_SERVICE_MANAGEMENT_EMAIL credential for the Jira Service Management MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "JIRA_SERVICE_MANAGEMENT_SITE",
+          "description": "Set the JIRA_SERVICE_MANAGEMENT_SITE credential for the Jira Service Management MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "JIRA_SERVICE_MANAGEMENT_WORKSPACE_ID",
+          "description": "Set the JIRA_SERVICE_MANAGEMENT_WORKSPACE_ID credential for the Jira Service Management MCP server.",
+          "isRequired": true,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}
