@@ -224,7 +224,7 @@ func newNovelPostureCmd(flags *rootFlags) *cobra.Command {
 	}
 	f := cmd.Flags()
 	f.StringVar(&staleAfter, "stale-after", "26h", "Restore points older than this are stale (e.g. 26h, 2d, 1w)")
-	f.StringVar(&attemptWindow, "attempt-window", "48h", "How far back to read vzdump task logs for the last attempt status")
+	f.StringVar(&attemptWindow, "attempt-window", "48h", "How far back to read vzdump task logs for the last attempt status (a task that started up to 48h earlier and ended inside it counts)")
 	f.StringVar(&clientFilter, "client", "", "Only clusters whose client name (or cluster name) matches")
 	f.StringVar(&elsewhereTag, "protected-elsewhere-tag", "", "PVE guest tag meaning 'backed up by another product' (e.g. veeam); such uncovered guests are green")
 	f.StringVar(&only, "only", "", "Show only rows of this severity: red, amber, green, or problems (red+amber)")
@@ -647,7 +647,9 @@ func lastVzdumpAttempts(ctx context.Context, t fleetTarget, nodes []string, sinc
 		var tasks []pveTask
 		capped := false
 		if err == nil {
-			tasks, capped, err = fetchTasks(ctx, t.C, false, node, map[string]string{"typefilter": "vzdump", "since": fmt.Sprint(since.Unix())})
+			// Proxmox filters by start time: ask from earlier so a long job that
+			// ended inside the window is read too (as failures does).
+			tasks, capped, err = fetchTasks(ctx, t.C, false, node, map[string]string{"typefilter": "vzdump", "since": fmt.Sprint(since.Add(-taskStartSlack).Unix())})
 		}
 		if err != nil {
 			out.failures = append(out.failures, fetchFailure{Cluster: t.Name, Scope: scope, Error: err.Error()})
@@ -660,7 +662,7 @@ func lastVzdumpAttempts(ctx context.Context, t fleetTarget, nodes []string, sinc
 				Error: fmt.Sprintf("more than %d vzdump tasks in the attempt window; older ones not listed", taskListPage*taskListMaxPages)})
 		}
 		for _, task := range tasks {
-			if task.EndTime != 0 { // still running: no outcome yet
+			if task.EndTime != 0 && int64(task.EndTime) >= since.Unix() { // still running: no outcome yet; ended before the window: out of it
 				all = append(all, nodeTask{node, task})
 			}
 		}
