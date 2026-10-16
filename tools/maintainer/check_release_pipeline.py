@@ -57,7 +57,7 @@ Two directions, both mechanical:
 
 What "contains the draft-then-seal pipeline" means, mechanically
 ----------------------------------------------------------------
-Five requirements, all read from the workflow at the target commit:
+Six requirements, all read from the workflow at the target commit:
 
   R1 CREATE-IS-DRAFT   every `gh release create` carries `--draft`, and there is
                        at least one. This is the requirement the old
@@ -75,6 +75,19 @@ Five requirements, all read from the workflow at the target commit:
                        on the registry-owned MCPB_ASSET variable or the .mcpb
                        extension, so the bundle is inside the sealing contract
                        rather than chasing a release that is already immutable.
+  R6 WINDOWS-SMOKE-BEFORE-SEAL
+                       a job in the sealing job's `needs:` closure runs the
+                       release's Windows binaries on a Windows runner, so a
+                       connector that compiles for Windows but cannot run there
+                       is caught while the release is still a mutable draft.
+                       Either the job calls .github/workflows/windows-smoke.yml
+                       with `source: draft` and THAT file, read at the same
+                       commit, has a windows runner job that invokes
+                       windows_smoke.ps1; or the job is itself such a windows
+                       runner job. Neither may carry `continue-on-error: true`,
+                       which would let a failed smoke count as a pass. Most
+                       MSPs run these connectors on Windows; before this
+                       nothing executed a Windows binary before the seal.
 
 Reaching the HAND-TAGGING path, which is where the damage happens
 ----------------------------------------------------------------
@@ -171,6 +184,16 @@ GATE_FLAG = "--with-mcpb"
 # commit of this very branch did (it uploaded "mcpb-build/${slug}-mcp.mcpb"),
 # and refusing that would have been a false-RED.
 BUNDLE_MARKERS = ("MCPB_ASSET", ".mcpb")
+# The Windows smoke, either as the reusable workflow (matched on the `uses:`
+# line that calls it) or as an inline job that runs the script on a Windows
+# runner. The script alone is not enough: on a Linux runner it would execute
+# nothing Windows-shaped, so the inline form also needs a windows `runs-on`.
+WINDOWS_SMOKE_WORKFLOW = ".github/workflows/windows-smoke.yml"
+WINDOWS_SMOKE_SCRIPT = "windows_smoke.ps1"
+# An INVOCATION of the script (powershell -File <path> or & <path>), not a
+# line that merely names it, such as `echo windows_smoke.ps1`.
+_SMOKE_INVOCATION = re.compile(
+    r"(?:-File\s+|&\s*)['\"]?[^\s'\"]*" + re.escape(WINDOWS_SMOKE_SCRIPT), re.IGNORECASE)
 
 
 class ProbeError(Exception):
@@ -263,8 +286,28 @@ def transitive_needs(job: str, jobs: dict[str, str]) -> set[str]:
 # --------------------------------------------------------------------------
 # The requirements.
 # --------------------------------------------------------------------------
-def evaluate(text: str) -> list[tuple[str, str]]:
-    """[(requirement id, why it failed)] - empty means safe to tag."""
+def _swallows(line: str) -> bool:
+    """A `continue-on-error:` that is not literally false. An expression such
+    as `${{ true }}` cannot be evaluated here, so it counts as swallowing."""
+    m = re.match(r"^\s*(?:-\s+)?continue-on-error:\s*(.*?)\s*$", line, re.IGNORECASE)
+    return bool(m) and m.group(1).strip("'\"").lower() != "false"
+
+
+def smoke_job_runs_on_windows(lines: list[str]) -> bool:
+    """One job's code lines: a windows runner that invokes the smoke script,
+    with no `continue-on-error: true` to turn a failure into a pass."""
+    on_windows = any(re.match(r"^\s{4}runs-on:.*windows", ln, re.IGNORECASE) for ln in lines)
+    invokes = any(_SMOKE_INVOCATION.search(ln) for ln in lines)
+    swallows = any(_swallows(ln) for ln in lines)
+    return on_windows and invokes and not swallows
+
+
+def evaluate(text: str, smoke_text: str | None = None) -> list[tuple[str, str]]:
+    """[(requirement id, why it failed)] - empty means safe to tag.
+
+    `smoke_text` is .github/workflows/windows-smoke.yml as it exists beside
+    `text` (at the same commit), or None when that file does not exist there.
+    """
     jobs = workflow_jobs(text)
     failures: list[tuple[str, str]] = []
     if not jobs:
@@ -344,6 +387,52 @@ def evaluate(text: str) -> list[tuple[str, str]]:
             f"bundle (`{UPLOAD}` naming one of {list(BUNDLE_MARKERS)}); the "
             "bundle would have to be attached after the release is immutable, "
             "which cannot succeed",
+        ))
+
+    # R6 - the Windows binaries run on Windows before the release is sealed.
+    callee_jobs = workflow_jobs(smoke_text) if smoke_text else {}
+    callee_ok = any(smoke_job_runs_on_windows(_code_lines(body)) for body in callee_jobs.values())
+    smokers: set[str] = set()
+    near_misses: list[str] = []
+    for name in sorted(closure - {seal_job}):
+        lines = code[name]
+        calls = any(re.match(r"^\s{4}uses:\s*['\"]?\./" + re.escape(WINDOWS_SMOKE_WORKFLOW)
+                             + r"['\"]?\s*$", ln) for ln in lines)
+        remote = any(re.match(r"^\s{4}uses:\s*\S*" + re.escape(WINDOWS_SMOKE_WORKFLOW), ln)
+                     for ln in lines) and not calls
+        if remote:
+            near_misses.append(f"{name!r} calls a windows-smoke.yml that is not this commit's "
+                               f"./{WINDOWS_SMOKE_WORKFLOW}, so what it runs cannot be checked here")
+            continue
+        if calls:
+            draft = any(re.match(r"^\s{6}source:\s*['\"]?draft['\"]?\s*$", ln) for ln in lines)
+            swallows = any(_swallows(ln)
+                           for ln in lines)
+            if not draft:
+                near_misses.append(f"{name!r} calls {WINDOWS_SMOKE_WORKFLOW} without `source: draft`, "
+                                   "so it would not test the binaries this release is about to seal")
+            elif swallows:
+                near_misses.append(f"{name!r} carries `continue-on-error: true`, so a failed smoke "
+                                   "would still let the seal run")
+            elif smoke_text is None:
+                near_misses.append(f"{name!r} calls {WINDOWS_SMOKE_WORKFLOW}, which does not exist at "
+                                   "this commit")
+            elif not callee_ok:
+                near_misses.append(f"{WINDOWS_SMOKE_WORKFLOW} has no windows runner job that invokes "
+                                   f"{WINDOWS_SMOKE_SCRIPT} (or it carries `continue-on-error: true`)")
+            else:
+                smokers.add(name)
+        elif smoke_job_runs_on_windows(lines):
+            smokers.add(name)
+    if not smokers:
+        detail = "; ".join(near_misses) if near_misses else (
+            f"none calls ./{WINDOWS_SMOKE_WORKFLOW} or is a windows runner job invoking "
+            f"{WINDOWS_SMOKE_SCRIPT}")
+        failures.append((
+            "WINDOWS-SMOKE-BEFORE-SEAL",
+            f"no job in the `needs:` closure of the sealing job {seal_job!r} runs the "
+            f"Windows binaries on Windows ({detail}), so a connector that compiles for "
+            "Windows but cannot start there would be sealed that way, permanently",
         ))
 
     return failures
@@ -569,12 +658,29 @@ jobs:
     needs: [prepare, create-release, build]
     steps:
       - run: gh release upload "$TAG" "mcpb-build/${MCPB_ASSET}" --clobber
+  windows_smoke:
+    needs: [build]
+    uses: ./.github/workflows/windows-smoke.yml
+    with:
+      source: draft
   publish:
-    needs: [prepare, create-release, build, mcpb]
+    needs: [prepare, create-release, build, mcpb, windows_smoke]
     steps:
       - run: |
           gh release view "$TAG" --json assets | python3 tools/maintainer/check_release_assets.py --tag "$TAG" --with-mcpb
           gh release edit "$TAG" --draft=false
+"""
+
+# The callee the skeleton's windows_smoke job calls: a windows runner job that
+# invokes the script.
+_GOOD_SMOKE = """
+on:
+  workflow_call:
+jobs:
+  smoke:
+    runs-on: windows-latest
+    steps:
+      - run: powershell -NoProfile -File tools\\maintainer\\windows_smoke.ps1 -BinDir bin
 """
 
 _GATE_LINE = ('          gh release view "$TAG" --json assets | python3 '
@@ -591,8 +697,8 @@ def _self_test() -> int:
     repo_workflow = Path(__file__).resolve().parents[2] / WORKFLOW
     failures: list[str] = []
 
-    def case(label: str, text: str, want: set[str]) -> None:
-        got = {rid for rid, _why in evaluate(text)}
+    def case(label: str, text: str, want: set[str], smoke: str | None = _GOOD_SMOKE) -> None:
+        got = {rid for rid, _why in evaluate(text, smoke)}
         ok = got == want
         print(f"  [{'ok' if ok else 'FAIL'}] {label}")
         if not ok:
@@ -602,8 +708,10 @@ def _self_test() -> int:
     if not repo_workflow.is_file():
         failures.append(f"{WORKFLOW} not found at {repo_workflow}")
     else:
+        repo_smoke = repo_workflow.parent / Path(WINDOWS_SMOKE_WORKFLOW).name
         case("this repository's release.yml is safe to tag",
-             repo_workflow.read_text(encoding="utf-8"), set())
+             repo_workflow.read_text(encoding="utf-8"), set(),
+             repo_smoke.read_text(encoding="utf-8") if repo_smoke.is_file() else None)
 
     # SILENT on the minimal correct shape, so the requirements describe a
     # pipeline rather than this one file.
@@ -645,8 +753,8 @@ jobs:
                        "  mcpb:\n    needs: [prepare, create-release, build]",
                        "  mcpb:\n    needs: [prepare]")
     detached = _mutate(detached,
-                       "    needs: [prepare, create-release, build, mcpb]",
-                       "    needs: [prepare, create-release, build]")
+                       "    needs: [prepare, create-release, build, mcpb, windows_smoke]",
+                       "    needs: [prepare, create-release, build, windows_smoke]")
     case("an uploader outside the seal's needs closure is refused",
          detached, {"SEAL-NEEDS-UPLOADS", "BUNDLE-IN-CONTRACT"})
 
@@ -668,6 +776,94 @@ jobs:
                  '      - run: gh release upload "$TAG" "mcpb-build/${MCPB_ASSET}" --clobber',
                  '      - run: echo "bundle handled elsewhere"'),
          {"BUNDLE-IN-CONTRACT"})
+
+    # FIRES when nothing runs the Windows binaries before the seal - the state
+    # of every release before this requirement existed.
+    no_smoke = _mutate(_GOOD_SKELETON,
+                       "  windows_smoke:\n    needs: [build]\n    uses: ./.github/workflows/windows-smoke.yml\n"
+                       "    with:\n      source: draft\n", "")
+    no_smoke = _mutate(no_smoke, "mcpb, windows_smoke]", "mcpb]")
+    case("a pipeline with no Windows smoke is refused", no_smoke, {"WINDOWS-SMOKE-BEFORE-SEAL"})
+
+    # FIRES when the smoke exists but the seal does not wait for it: the
+    # release could go immutable while (or before) Windows says no.
+    case("a Windows smoke outside the seal's needs closure is refused",
+         _mutate(_GOOD_SKELETON, "mcpb, windows_smoke]", "mcpb]"),
+         {"WINDOWS-SMOKE-BEFORE-SEAL"})
+
+    # FIRES when the smoke is only QUOTED in a comment.
+    case("a Windows smoke named only in a comment satisfies nothing",
+         _mutate(_GOOD_SKELETON, "    uses: ./.github/workflows/windows-smoke.yml\n",
+                 "    # uses: ./.github/workflows/windows-smoke.yml\n    runs-on: ubuntu-latest\n"),
+         {"WINDOWS-SMOKE-BEFORE-SEAL"})
+
+    # FIRES when the call smokes some other release instead of this draft.
+    case("a Windows smoke called with source: published is refused",
+         _mutate(_GOOD_SKELETON, "      source: draft\n", "      source: published\n"),
+         {"WINDOWS-SMOKE-BEFORE-SEAL"})
+
+    # FIRES when a failed smoke is allowed to count as a pass.
+    case("a Windows smoke with continue-on-error is refused",
+         _mutate(_GOOD_SKELETON, "    uses: ./.github/workflows/windows-smoke.yml\n",
+                 "    continue-on-error: true\n    uses: ./.github/workflows/windows-smoke.yml\n"),
+         {"WINDOWS-SMOKE-BEFORE-SEAL"})
+
+    # FIRES when continue-on-error is an expression: it cannot be proved false.
+    case("a Windows smoke with an expression-valued continue-on-error is refused",
+         _mutate(_GOOD_SKELETON, "    uses: ./.github/workflows/windows-smoke.yml\n",
+                 "    continue-on-error: ${{ true }}\n    uses: ./.github/workflows/windows-smoke.yml\n"),
+         {"WINDOWS-SMOKE-BEFORE-SEAL"})
+    case("a called windows-smoke.yml whose job continue-on-error is an expression is refused",
+         _GOOD_SKELETON, {"WINDOWS-SMOKE-BEFORE-SEAL"},
+         smoke=_mutate(_GOOD_SMOKE, "    runs-on: windows-latest\n",
+                       "    runs-on: windows-latest\n    continue-on-error: ${{ inputs.lenient }}\n"))
+    # SILENT when continue-on-error is literally false.
+    case("continue-on-error: false does not count as swallowing",
+         _mutate(_GOOD_SKELETON, "    uses: ./.github/workflows/windows-smoke.yml\n",
+                 "    continue-on-error: false\n    uses: ./.github/workflows/windows-smoke.yml\n"),
+         set())
+
+    # FIRES when the call names someone else's (or an old revision's) workflow:
+    # the local file validated here is not what would run.
+    case("a remote windows-smoke.yml reference is refused",
+         _mutate(_GOOD_SKELETON, "    uses: ./.github/workflows/windows-smoke.yml\n",
+                 "    uses: someone/else/.github/workflows/windows-smoke.yml@v1\n"),
+         {"WINDOWS-SMOKE-BEFORE-SEAL"})
+
+    # FIRES when the called workflow does not exist at this commit.
+    case("a call to a windows-smoke.yml that does not exist is refused",
+         _GOOD_SKELETON, {"WINDOWS-SMOKE-BEFORE-SEAL"}, smoke=None)
+
+    # FIRES when the called workflow is a no-op: it never runs the script on
+    # a windows runner (here it only echoes the name on Linux).
+    case("a called windows-smoke.yml that never runs the script on Windows is refused",
+         _GOOD_SKELETON, {"WINDOWS-SMOKE-BEFORE-SEAL"},
+         smoke=_mutate(_GOOD_SMOKE, "windows-latest", "ubuntu-latest"))
+    case("a called windows-smoke.yml that only echoes the script name is refused",
+         _GOOD_SKELETON, {"WINDOWS-SMOKE-BEFORE-SEAL"},
+         smoke=_mutate(_GOOD_SMOKE, "powershell -NoProfile -File", "echo"))
+    case("a called windows-smoke.yml whose smoke step swallows failure is refused",
+         _GOOD_SKELETON, {"WINDOWS-SMOKE-BEFORE-SEAL"},
+         smoke=_mutate(_GOOD_SMOKE, "      - run:", "      - continue-on-error: true\n        run:"))
+
+    # SILENT on the inline shape: a windows runner job running the script.
+    inline = ("    runs-on: windows-latest\n    steps:\n"
+              "      - run: powershell -File tools/maintainer/windows_smoke.ps1 -BinDir bin\n")
+    case("an inline windows-latest job running windows_smoke.ps1 passes",
+         _mutate(_GOOD_SKELETON, "    uses: ./.github/workflows/windows-smoke.yml\n", inline), set())
+
+    # FIRES when the script runs on a Linux runner: nothing Windows ran.
+    case("windows_smoke.ps1 on a Linux runner does not count",
+         _mutate(_GOOD_SKELETON, "    uses: ./.github/workflows/windows-smoke.yml\n",
+                 inline.replace("windows-latest", "ubuntu-latest")),
+         {"WINDOWS-SMOKE-BEFORE-SEAL"})
+
+    # FIRES when the inline job only NAMES the script.
+    case("an inline windows job that only echoes the script name does not count",
+         _mutate(_GOOD_SKELETON, "    uses: ./.github/workflows/windows-smoke.yml\n",
+                 inline.replace("powershell -File tools/maintainer/windows_smoke.ps1 -BinDir bin",
+                                "echo windows_smoke.ps1")),
+         {"WINDOWS-SMOKE-BEFORE-SEAL"})
 
     # FIRES when a comment merely QUOTES the commands. Comments in release.yml
     # quote every one of these strings; a probe that counted them would pass a
@@ -800,7 +996,7 @@ jobs:
             print(f"  - {f}", file=sys.stderr)
         return 1
     print("check_release_pipeline self-test passed (the repo's own release.yml is "
-          "endorsable and a clean tag is endorsable; nine broken pipeline shapes, "
+          "endorsable and a clean tag is endorsable; twenty-three broken pipeline shapes, "
           "eleven bad tags and five malformed ledgers are refused).")
     return 0
 
@@ -847,14 +1043,19 @@ def main() -> int:
         if args.file:
             where = args.file
             text = Path(args.file).read_text(encoding="utf-8")
+            # The reusable smoke workflow is resolved beside the file, the way
+            # a `uses: ./.github/workflows/...` line resolves beside release.yml.
+            sibling = Path(args.file).resolve().parent / Path(WINDOWS_SMOKE_WORKFLOW).name
+            smoke_text = sibling.read_text(encoding="utf-8") if sibling.is_file() else None
         else:
             where = f"{args.sha} ({WORKFLOW})"
             text = workflow_at(args.sha, Path(args.repo))
+            smoke_text = blob_at(args.sha, WINDOWS_SMOKE_WORKFLOW, Path(args.repo))
     except (ProbeError, OSError) as exc:
         print(f"check_release_pipeline: REFUSE - {exc}", file=sys.stderr)
         return 1
 
-    failures = evaluate(text)
+    failures = evaluate(text, smoke_text)
     notes: list[str] = []
 
     if args.tag:
@@ -905,6 +1106,16 @@ def main() -> int:
         print("  workflow, at THAT commit, not the one on main:", file=sys.stderr)
         for rid, why in failures:
             print(f"  - [{rid}] {why}", file=sys.stderr)
+        if {rid for rid, _ in failures} == {"WINDOWS-SMOKE-BEFORE-SEAL"}:
+            # The draft-then-seal mechanics are intact; only the Windows run is
+            # missing. The release would seal complete but never run on Windows.
+            print("  The release would seal with its asset set complete, but without its "
+                  "Windows", file=sys.stderr)
+            print("  binaries ever having run, and a sealed release cannot be repaired. "
+                  "Tag a later", file=sys.stderr)
+            print("  commit of main that carries the Windows smoke (the version stamp "
+                  "carries forward).", file=sys.stderr)
+            return 1
         print("  Under immutable releases the result is a permanently sealed, "
               "incomplete", file=sys.stderr)
         print("  release and a spent version number. Tag a commit that carries the "

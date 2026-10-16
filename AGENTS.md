@@ -122,9 +122,10 @@ publishes last. Three consequences an agent has to hold:
 
    Do not substitute `git show <SHA>:.github/workflows/release.yml | grep
    -- '--draft'` for it. That grep is satisfied by any commit that merely
-   mentions the flag, and it cannot see the other four requirements (one sealing
+   mentions the flag, and it cannot see the other five requirements (one sealing
    job, every uploader inside its `needs:` closure, the completeness gate running
-   before the seal, the `.mcpb` inside the sealing contract). Then: one tag per
+   before the seal, the `.mcpb` inside the sealing contract, and the Windows
+   binaries run on a Windows runner before the seal). Then: one tag per
    push, and never `git push --tags` (it pushes stale local tags, and more than
    three tags in a single push fires no workflow run at all). Never delete a
    release and re-cut the same version - bump instead.
