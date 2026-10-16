@@ -2454,8 +2454,11 @@ func (b *guestBirths) read(ctx context.Context, g pveGuest) guestBirth {
 	var cfg struct {
 		Meta string `json:"meta"`
 	}
+	nodeDown := false // no answer at all: a transport error, or PVE's proxy gave up
 	switch {
 	case err != nil:
+		var apiErr *client.APIError
+		nodeDown = !errors.As(err, &apiErr) || apiErr.StatusCode >= 502
 	case len(raw) == 0 || string(raw) == "null":
 		err = errors.New("empty config response")
 	default:
@@ -2463,8 +2466,7 @@ func (b *guestBirths) read(ctx context.Context, g pveGuest) guestBirth {
 	}
 	if err != nil {
 		why := err.Error() + "; its creation time is unread, so its backups cannot be told from an earlier guest's with the same VMID"
-		var apiErr *client.APIError
-		if !errors.As(err, &apiErr) || apiErr.StatusCode >= 502 {
+		if nodeDown {
 			b.deadAt[g.Node] = true
 			why += " (node " + g.Node + " did not answer: its other VMs' configs were not asked for)"
 		}
