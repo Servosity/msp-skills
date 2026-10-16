@@ -248,20 +248,40 @@ func recentSnapshots(ctx context.Context, db querier) ([]snapshotRef, error) {
 
 // recordSnapshot stores cur as the successor of parent; it returns false when a
 // concurrent invocation already recorded that successor.
+// snapshotClock is time.Now; tests pin it to reproduce a Windows clock tie.
+var snapshotClock = time.Now
+
 func recordSnapshot(ctx context.Context, db *sql.DB, parent, fp string, cur map[string]fleetDevice) (string, bool, error) {
-	now := time.Now().UTC().Format(time.RFC3339Nano)
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return "", false, err
 	}
-	res, err := tx.ExecContext(ctx, `INSERT OR IGNORE INTO wg_fleet_runs (snapshot_at, parent, fingerprint, devices) VALUES (?, ?, ?, ?)`, now, parent, fp, len(cur))
-	if err != nil {
-		_ = tx.Rollback()
-		return "", false, err
-	}
-	if n, _ := res.RowsAffected(); n == 0 {
-		_ = tx.Rollback()
-		return "", false, nil
+	stamp := snapshotClock().UTC()
+	var now string
+	for tries := 0; ; tries++ {
+		now = stamp.Format(time.RFC3339Nano)
+		res, err := tx.ExecContext(ctx, `INSERT OR IGNORE INTO wg_fleet_runs (snapshot_at, parent, fingerprint, devices) VALUES (?, ?, ?, ?)`, now, parent, fp, len(cur))
+		if err != nil {
+			_ = tx.Rollback()
+			return "", false, err
+		}
+		if n, _ := res.RowsAffected(); n == 1 {
+			break
+		}
+		// The insert was ignored. A clash on parent means another run already
+		// recorded after our head (stale: refuse). A clash on snapshot_at is a
+		// clock tie: Windows' clock can return the same reading to two fast
+		// calls, which silently dropped the second snapshot. Step past the tie.
+		var tie int
+		if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM wg_fleet_runs WHERE snapshot_at = ?`, now).Scan(&tie); err != nil {
+			_ = tx.Rollback()
+			return "", false, err
+		}
+		if tie == 0 || tries >= 1000 {
+			_ = tx.Rollback()
+			return "", false, nil
+		}
+		stamp = stamp.Add(time.Microsecond)
 	}
 	// The insert holds the write lock: if another run recorded after we read the
 	// head, this fleet view is stale and must not become the new head.

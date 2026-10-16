@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "watchguard-mcp",
   "display_name": "WatchGuard Cloud",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "WatchGuard Cloud's Firebox, FireCloud, Endpoint Security, ThreatSync, NDR, AuthPoint and account platform APIs in one CLI and MCP server, with cross-customer reports for Service Providers.",
   "author": {
     "name": "Servosity Inc."
