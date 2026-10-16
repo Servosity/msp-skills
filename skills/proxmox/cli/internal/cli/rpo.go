@@ -96,10 +96,11 @@ func newNovelRpoCmd(flags *rootFlags) *cobra.Command {
 			"guest's oldest retained point is newer than the window start, earlier runs are not counted (window_capped) rather than " +
 			"reported as missed. Runs scheduled before a VM was created are not counted either. Jobs that run at the same time each need " +
 			"their own restore point. The newest run is not judged while it may still be running (6h), but the schedule is not met until it " +
-			"has a restore point. Each job's runs are judged against restore points on that job's own target. When retention may delete " +
-			"older backups (any prune-backups policy on the job, its storage or vzdump.conf with remove on, a PBS prune job on the " +
-			"datastore, or one that cannot be read), a missed run older than a restore point that was kept may have been pruned: it " +
-			"counts in missed_runs_unproven and evidence is partial. may_be_earlier_guest counts backups under " +
+			"has a restore point. Each job's runs are judged against restore points on that job's own destination, and one backup pays " +
+			"one run. When retention may delete older backups (any covering job's prune-backups policy, from the job, its storage or " +
+			"vzdump.conf with remove on, a PBS prune job on the datastore, or one that cannot be read), a missed run older than a " +
+			"restore point that was kept may have been pruned, and one with a restore point elsewhere inside its window (a job moved " +
+			"storages) may be that point: both count in missed_runs_unproven and evidence is partial. may_be_earlier_guest counts backups under " +
 			"the VMID that may be an earlier guest's with the same VMID (see restore-points); they are not counted in restore_points.",
 		Example: strings.Trim(`
   proxmox-cli rpo --days 7 --agent
@@ -429,6 +430,11 @@ func collectRPO(ctx context.Context, t fleetTarget, start, now time.Time, onlyVM
 			row.Note = strings.TrimSuffix(eitherGuestWhy(either, birth)+"; "+rest, "; ")
 		}
 		if pointsIncomplete || len(gaps) > 0 || len(unreadable) > 0 || birth.unread {
+			// Something that may hold restore points was not read: "none" is
+			// only "none read".
+			row.Note = strings.NewReplacer(rpoNoPointsNote+"; every scheduled run in the window is missed", "no restore point could be read, so the scheduled runs have none that was read",
+				rpoNoPointsNote, "no restore point could be read",
+				"no restore point inside the window", "no readable restore point inside the window").Replace(row.Note)
 			why := "some backup storage could not be read (see fetch_failures)"
 			missed := "missed runs may be unread restore points"
 			switch {
@@ -606,21 +612,58 @@ func evaluateJobsRPO(all []restorePoint, targets []rpoTarget, start, now time.Ti
 			}
 		}
 	}
-	sort.SliceStable(wins, func(i, j int) bool {
-		if wins[i].inGrace != wins[j].inGrace {
-			return !wins[i].inGrace
-		}
-		return wins[i].until < wins[j].until
-	})
-	usedTime := map[int64]bool{}
+	// One backup time pays one run: an exact maximum matching of windows to
+	// times (Kuhn's augmenting paths), judged windows first so a run still in
+	// its grace never takes a point a judged run needs.
+	times := map[int64]int{} // backup time -> index
+	var timeAt []int64
+	adj := make([][]int, len(wins))
 	for w := range wins {
 		for _, p := range dpts[wins[w].tgt] {
-			if !usedTime[p.Time] && p.Time >= wins[w].from && p.Time < wins[w].until {
-				usedTime[p.Time], wins[w].paid = true, true
-				break
+			if p.Time < wins[w].from || p.Time >= wins[w].until {
+				continue
+			}
+			ti, ok := times[p.Time]
+			if !ok {
+				ti, times[p.Time], timeAt = len(timeAt), len(timeAt), append(timeAt, p.Time)
+			}
+			if !slices.Contains(adj[w], ti) {
+				adj[w] = append(adj[w], ti)
 			}
 		}
 	}
+	owner := make([]int, len(timeAt))
+	for i := range owner {
+		owner[i] = -1
+	}
+	var augment func(w int, seen []bool) bool
+	augment = func(w int, seen []bool) bool {
+		for _, ti := range adj[w] {
+			if seen[ti] {
+				continue
+			}
+			seen[ti] = true
+			if owner[ti] < 0 || augment(owner[ti], seen) {
+				owner[ti] = w
+				return true
+			}
+		}
+		return false
+	}
+	for _, grace := range []bool{false, true} {
+		for w := range wins {
+			if wins[w].inGrace == grace {
+				augment(w, make([]bool, len(timeAt)))
+			}
+		}
+	}
+	usedTime := map[int64]bool{}
+	for ti, w := range owner {
+		if w >= 0 {
+			wins[w].paid, usedTime[timeAt[ti]] = true, true
+		}
+	}
+	prunes := slices.ContainsFunc(targets, func(tg rpoTarget) bool { return tg.prunes })
 	pending := ""
 	var missed []int64
 	for _, w := range wins {
@@ -636,12 +679,15 @@ func evaluateJobsRPO(all []restorePoint, targets []rpoTarget, start, now time.Ti
 			continue
 		}
 		missed = append(missed, w.from)
-		// Retention never deletes the newest backup: with a newer one kept,
-		// this run's may have been pruned; with none, it never existed.
+		// Retention never deletes the newest backup: with a newer one kept, this
+		// run's may have been pruned (by any covering job's policy: two storage
+		// ids can name one directory); with none, it never existed. A point at
+		// another destination inside the window that paid no run may be this
+		// run's (a job moved storages, a manual backup).
 		elsewhereIn := slices.ContainsFunc(points, func(p restorePoint) bool {
-			return !onTgt[w.tgt][p.canonical] && p.Time >= w.from && p.Time < w.until
+			return !onTgt[w.tgt][p.canonical] && !usedTime[p.Time] && p.Time >= w.from && p.Time < w.until
 		})
-		if (targets[w.tgt].prunes && newest[w.tgt] > w.from) || elsewhereIn {
+		if (prunes && newest[w.tgt] > w.from) || elsewhereIn {
 			row.MissedRunsUnproven++
 		}
 	}
