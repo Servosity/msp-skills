@@ -14,9 +14,11 @@ import (
 
 // userinfoEnd returns where a user:password@ part of an endpoint starts and
 // ends, or -1 when there is none. It runs to the LAST '@' (a password may
-// hold '/', '?' or '#'); it is userinfo only when a ':' comes before any '/'
-// in it or it has no '/', so an '@' in a path never moves the host.
-func userinfoEnd(s string) (int, int) {
+// hold '?' or '#'). strict (for stripping, which decides where a request
+// goes): the part may hold no '/', so an '@' after a '/' (a path, or a port
+// then a path) never moves the host. Loose (for redacting what is printed):
+// any '@' after the scheme.
+func userinfoEnd(s string, strict bool) (int, int) {
 	start := 0
 	if i := strings.Index(s, "://"); i > 0 && validScheme(s[:i]) {
 		start = i + 3
@@ -24,16 +26,18 @@ func userinfoEnd(s string) (int, int) {
 		start = 2
 	}
 	at := strings.LastIndex(s[start:], "@")
-	if at < 0 {
+	if at < 0 || (strict && strings.Contains(s[start:start+at], "/")) {
 		return -1, -1
 	}
-	info := s[start : start+at]
-	if slash := strings.IndexByte(info, '/'); slash >= 0 {
-		if colon := strings.IndexByte(info, ':'); colon < 0 || colon > slash {
-			return -1, -1
-		}
-	}
 	return start, start + at
+}
+
+// AmbiguousUserinfo: an '@' after a '/' could be a password holding '/' or a
+// path holding '@'; no request may be sent to such an endpoint.
+func AmbiguousUserinfo(s string) bool {
+	_, loose := userinfoEnd(s, false)
+	_, strict := userinfoEnd(s, true)
+	return loose >= 0 && strict < 0
 }
 
 func validScheme(s string) bool {
@@ -47,7 +51,7 @@ func validScheme(s string) bool {
 
 // StripUserinfo drops a user:password@ part from an endpoint.
 func StripUserinfo(s string) string {
-	start, at := userinfoEnd(s)
+	start, at := userinfoEnd(s, true)
 	if at < 0 {
 		return s
 	}
@@ -56,7 +60,7 @@ func StripUserinfo(s string) string {
 
 // RedactUserinfo replaces a user:password@ part of an endpoint for display.
 func RedactUserinfo(s string) string {
-	start, at := userinfoEnd(s)
+	start, at := userinfoEnd(s, false)
 	if at < 0 {
 		return s
 	}

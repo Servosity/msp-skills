@@ -193,7 +193,7 @@ func newNovelRpoCmd(flags *rootFlags) *cobra.Command {
 			}
 			if partial > 0 {
 				// Misses on a partial row may be restore points that were not read.
-				fmt.Fprintf(cmd.OutOrStdout(), "%d guest(s) with partial evidence: their missed runs are unproven (see NOTE)\n", partial)
+				fmt.Fprintf(cmd.OutOrStdout(), "%d guest(s) with partial evidence: some of their missed runs or met schedules are unproven (see NOTE and --json missed_runs_unproven)\n", partial)
 			}
 			return flags.printTable(cmd, []string{"CLUSTER", "VMID", "NAME", "RUNS", "MISSED", "LARGEST GAP (H)", "VERIFIED DAYS", "CAPPED", "EVIDENCE", "NOTE"}, rows)
 		},
@@ -374,10 +374,10 @@ func collectRPO(ctx context.Context, t fleetTarget, start, now time.Time, onlyVM
 		if birth.at > start.Unix() {
 			from = time.Unix(min(birth.at, now.Unix()), 0)
 		}
-		// The covering jobs' runs against the points on their own target (jobs
-		// sharing a target owe one point per run between them); a run scheduled
-		// before this guest existed is not one it missed.
-		byTarget := map[string]*rpoJob{}
+		// The covering jobs' runs against the points on their own destination
+		// (a PBS datastore namespace is one destination however many storages
+		// name it); a run scheduled before this guest existed is not one it missed.
+		byTarget := map[string]*rpoTarget{}
 		var order []string
 		for _, id := range cov.EnabledFor[vmid] {
 			target := targets.target(id, g.Node)
@@ -385,24 +385,31 @@ func collectRPO(ctx context.Context, t fleetTarget, start, now time.Time, onlyVM
 			if r, ok := refs[target]; ok {
 				ref = &r
 			}
-			job := byTarget[target]
-			if job == nil {
-				job = &rpoJob{}
+			key := destinationKey(target, ref)
+			tg := byTarget[key]
+			if tg == nil {
+				tg = &rpoTarget{}
 				for _, p := range mine {
-					if onTarget(p, target, ref) {
-						job.points = append(job.points, p)
+					if onDestination(p, key) {
+						tg.points = append(tg.points, p)
 					}
 				}
-				byTarget[target], order = job, append(order, target)
+				byTarget[key], order = tg, append(order, key)
 			}
-			job.runs = append(job.runs, slices.DeleteFunc(slices.Clone(runsByJob[id]), func(r int64) bool { return r < birth.at })...)
-			job.prunes = job.prunes || retention.mayPrune(targets.jobs[id], g.Node, target, ref)
+			tg.jobRuns = append(tg.jobRuns, slices.DeleteFunc(slices.Clone(runsByJob[id]), func(r int64) bool { return r < birth.at }))
+			tg.prunes = tg.prunes || retention.mayPrune(targets.jobs[id], g.Node, target, ref)
 		}
-		var jobs []rpoJob
-		for _, target := range order {
-			jobs = append(jobs, *byTarget[target])
+		var dests []rpoTarget
+		var elsewhere []restorePoint
+		for _, key := range order {
+			dests = append(dests, *byTarget[key])
 		}
-		row := evaluateJobsRPO(mine, jobs, from, now)
+		for _, p := range mine {
+			if !slices.ContainsFunc(order, func(key string) bool { return onDestination(p, key) }) {
+				elsewhere = append(elsewhere, p)
+			}
+		}
+		row := evaluateJobsRPO(mine, dests, elsewhere, from, now)
 		row.WindowStart = start.UTC().Format(time.RFC3339)
 		if birth.at > start.Unix() && row.ScheduledRuns == 0 && !row.WindowCapped {
 			// Created inside the window: no wider window judges runs from before then.
@@ -508,23 +515,27 @@ const rpoNoJudgedRunNote = "no scheduled run in the window can be judged yet (th
 
 // evaluateRPO scores one guest's restore points against its scheduled runs.
 func evaluateRPO(points []restorePoint, runs []int64, start, now time.Time) rpoRow {
-	return evaluateJobsRPO(points, []rpoJob{{runs: runs, points: points}}, start, now)
+	return evaluateJobsRPO(points, []rpoTarget{{jobRuns: [][]int64{runs}, points: points}}, nil, start, now)
 }
 
-// rpoJob is one covering job: its scheduled runs, the guest's restore points
-// on that job's own target, and whether retention may have deleted older
-// ones (any pruning policy on the job, its storage or vzdump.conf, a PBS prune
-// job on the datastore, or a policy that could not be read).
-type rpoJob struct {
-	runs   []int64
-	points []restorePoint
-	prunes bool
+// rpoTarget is one backup destination of a guest (a storage, or a PBS
+// datastore namespace however many storages name it): the scheduled runs of
+// each covering job that writes there, the guest's restore points there, and
+// whether retention may have deleted older ones (any prune-backups policy on
+// a job, its storage or vzdump.conf, a PBS prune job, or one not read).
+type rpoTarget struct {
+	jobRuns [][]int64
+	points  []restorePoint
+	prunes  bool
 }
 
-// evaluateJobsRPO scores each job's runs against the points on its own
-// target (two jobs at one time each owe a restore point; one job's point
-// never covers another's run) and the guest's points as a whole for gaps.
-func evaluateJobsRPO(all []restorePoint, jobs []rpoJob, start, now time.Time) rpoRow {
+// evaluateJobsRPO scores each target's runs against its own points: every
+// job's run owes one point before that job's next run, and one point pays
+// one run (an optimal assignment: windows by deadline, each taking the
+// earliest free point inside it). elsewhere are the guest's points on no
+// covering target: one inside a missed run's window (a job moved to another
+// storage, a manual backup) leaves that miss unproven.
+func evaluateJobsRPO(all []restorePoint, targets []rpoTarget, elsewhere []restorePoint, start, now time.Time) rpoRow {
 	row := rpoRow{WindowStart: start.UTC().Format(time.RFC3339), MissedRunTimes: []string{}}
 	// A point dated past the clock-skew tolerance (a node clock ran ahead) has
 	// no judgeable time: it proves no run and must not anchor the retention
@@ -550,12 +561,11 @@ func evaluateJobsRPO(all []restorePoint, jobs []rpoJob, start, now time.Time) rp
 	}
 	row.RestorePoints = len(inWindow)
 	row.VerifiedOKDays = len(okDays)
+	other := judgeable(elsewhere)
 	capHidesRun, pending, anyRuns := false, "", false
 	var missed []int64
-	for _, job := range jobs {
-		pts := judgeable(job.points)
-		runs, jobsAt := dedupeRuns(slices.Clone(job.runs))
-		anyRuns = anyRuns || len(runs) > 0
+	for _, tg := range targets {
+		pts := judgeable(tg.points)
 		// Effective window: earlier runs may have had points that retention pruned.
 		effStart, capped := start.Unix(), false
 		if len(pts) > 0 && pts[0].Time > effStart {
@@ -569,40 +579,60 @@ func evaluateJobsRPO(all []restorePoint, jobs []rpoJob, start, now time.Time) rp
 		if len(pts) > 0 {
 			newest = pts[len(pts)-1].Time
 		}
-		for i, run := range runs {
-			until := now.Unix()
-			if i+1 < len(runs) {
-				until = runs[i+1]
+		type window struct {
+			from, until int64
+			inGrace     bool
+			paid        bool
+		}
+		var wins []window
+		for _, jr := range tg.jobRuns {
+			runs, _ := dedupeRuns(slices.Clone(jr))
+			anyRuns = anyRuns || len(runs) > 0
+			for i, run := range runs {
+				until := now.Unix()
+				if i+1 < len(runs) {
+					until = runs[i+1]
+				}
+				// A run whose whole window precedes the oldest retained point may
+				// have had a point that retention pruned: not judged. Only the
+				// newest run can still be in progress: an older one's window closed
+				// when the job's next run was due, so it is judged whatever its age.
+				if until <= effStart {
+					capHidesRun = capHidesRun || capped
+					continue
+				}
+				wins = append(wins, window{from: run, until: until, inGrace: i == len(runs)-1 && now.Sub(time.Unix(run, 0)) < rpoInProgressGrace})
 			}
-			// A run whose whole window precedes the oldest retained point may
-			// have had a point that retention pruned: not judged. Only the newest
-			// run can still be in progress: an older one's window closed when the
-			// next run was due, so it is judged whatever its age.
-			if until <= effStart {
-				capHidesRun = capHidesRun || capped
-				continue
-			}
-			hits := 0
-			for _, p := range pts {
-				if p.Time >= run && p.Time < until {
-					hits++
+		}
+		sort.SliceStable(wins, func(i, j int) bool { return wins[i].until < wins[j].until })
+		used := make([]bool, len(pts))
+		for w := range wins {
+			for i, p := range pts {
+				if !used[i] && p.Time >= wins[w].from && p.Time < wins[w].until {
+					used[i], wins[w].paid = true, true
+					break
 				}
 			}
-			if i == len(runs)-1 && now.Sub(time.Unix(run, 0)) < rpoInProgressGrace {
+		}
+		for _, w := range wins {
+			if w.inGrace {
 				// It may still be running: not judged, but not met either.
-				if hits < jobsAt[i] {
-					pending = unixRFC3339(run)
+				if !w.paid {
+					pending = unixRFC3339(w.from)
 				}
 				continue
 			}
-			row.ScheduledRuns += jobsAt[i]
-			for range max(jobsAt[i]-hits, 0) {
-				missed = append(missed, run)
-				// Retention never deletes the newest backup: with a newer one kept,
-				// this run's may have been pruned; with none, it never existed.
-				if job.prunes && newest > run {
-					row.MissedRunsUnproven++
-				}
+			row.ScheduledRuns++
+			if w.paid {
+				continue
+			}
+			missed = append(missed, w.from)
+			// Retention never deletes the newest backup: with a newer one kept,
+			// this run's may have been pruned; with none, it never existed. A
+			// point on another storage inside the window may be this run's.
+			elsewhereIn := slices.ContainsFunc(other, func(p restorePoint) bool { return p.Time >= w.from && p.Time < w.until })
+			if (tg.prunes && newest > w.from) || elsewhereIn {
+				row.MissedRunsUnproven++
 			}
 		}
 	}
@@ -642,7 +672,7 @@ func evaluateJobsRPO(all []restorePoint, jobs []rpoJob, start, now time.Time) rp
 		row.Note = rpoNoPointsNote
 	}
 	if row.MissedRunsUnproven > 0 {
-		row.Note = joinNote(row.Note, fmt.Sprintf("%d missed run(s) are older than a restore point that was kept, and retention may have pruned theirs; they are unproven", row.MissedRunsUnproven))
+		row.Note = joinNote(row.Note, fmt.Sprintf("%d missed run(s) may have restore points that retention pruned (a newer one was kept) or that another storage holds; they are unproven", row.MissedRunsUnproven))
 	}
 	row.Evidence = "full"
 	// Retention may have pruned the start of the window, so a run whose

@@ -228,9 +228,14 @@ func Load(configPath string) (*Config, error) {
 	for k, v := range cfg.TemplateVars {
 		cfg.TemplateVars[k] = StripUserinfo(v)
 	}
-	if v := StripUserinfo(cliutil.EnvOverride("PROXMOX_BASE_URL")); v != "" {
-		cfg.BaseURL = v
-	} else if h := StripUserinfo(strings.TrimSpace(cliutil.EnvOverride("PROXMOX_HOST"))); h != "" && !strings.Contains(cfg.BaseURL, "{host}") {
+	envBase := StripUserinfo(cliutil.EnvOverride("PROXMOX_BASE_URL"))
+	if envBase != "" {
+		cfg.BaseURL = envBase
+	}
+	switch h := StripUserinfo(strings.TrimSpace(cliutil.EnvOverride("PROXMOX_HOST"))); {
+	case AmbiguousUserinfo(cfg.BaseURL) || AmbiguousUserinfo(h):
+		cfg.EndpointRefusal = "the Proxmox VE endpoint " + RedactUserinfo(cfg.BaseURL+" "+h) + " has an '@' after a '/', so whether it holds a password or a path cannot be told; no request is sent (remove the user:password@ part, or write the '@' as %40)"
+	case envBase == "" && h != "" && !strings.Contains(cfg.BaseURL, "{host}"):
 		// proxmox hand-fix (endpoints-env-only): PROXMOX_HOST names the host
 		// this run's token is for. A base_url in config.toml for that host
 		// stays (a reverse proxy on 443); one for another host would send a
@@ -255,7 +260,7 @@ func Load(configPath string) (*Config, error) {
 		cfg.TemplateVars = map[string]string{}
 	}
 	verifyMode := os.Getenv("PRINTING_PRESS_VERIFY") == "1"
-	if v := StripUserinfo(strings.TrimSpace(cliutil.EnvOverride("PROXMOX_PBS_HOST"))); v != "" {
+	if v := StripUserinfo(strings.TrimSpace(cliutil.EnvOverride("PROXMOX_PBS_HOST"))); v != "" && !AmbiguousUserinfo(v) {
 		cfg.TemplateVars["pbs_host"] = v
 	} else if verifyMode {
 		cfg.TemplateVars["pbs_host"] = "pbs_host_placeholder"
