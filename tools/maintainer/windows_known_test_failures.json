@@ -108,17 +108,6 @@
    }
   },
   {
-   "id": "WIN-TEST-POSIX-SHELL-STUB",
-   "kind": "unix-only-test",
-   "why": "The test points the MCP server at a companion-CLI stub written as a #!/bin/sh script (callWithArgvStub in internal/mcp/explicit_false_test.go). Windows cannot execute it, so the tool call returns no ARGV line. The behavior under test (argv construction) is platform-independent and passes on Linux and macOS.",
-   "fix": "On Windows write the stub as <name>.bat (\"@echo ARGV: %*\"), as connectsecure's cobratree shellout tests do.",
-   "failures": {
-    "watchguard": [
-     "TestExplicitFalseReachesDefaultTrueFlag"
-    ]
-   }
-  },
-  {
    "id": "WIN-FLAKY-CONCURRENT-SQLITE",
    "kind": "flaky",
    "why": "Eight helper processes write one store at once; one exited 4 (a non-busy write error) on Windows. The same generated test passed in the 12 other connectors that carry it, so this reads as load-dependent, not deterministic.",
