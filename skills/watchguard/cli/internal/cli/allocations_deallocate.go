@@ -16,6 +16,7 @@ func newAllocationsDeallocateCmd(flags *rootFlags) *cobra.Command {
 	var flagProductName string
 	var flagAllocationType string
 	var flagSerialOrLicense string
+	var flagManagedAccountID string
 
 	cmd := &cobra.Command{
 		Use:         "deallocate",
@@ -42,6 +43,12 @@ func newAllocationsDeallocateCmd(flags *rootFlags) *cobra.Command {
 					return usageErr(fmt.Errorf("%q requires input; run %q for usage", cmd.CommandPath(), cmd.CommandPath()+" --help"))
 				}
 				return cmd.Help()
+			}
+			// Hand-fix (handfixes.json: deallocate-managed-account-query): the
+			// spec names the Service Provider path segment and the managed-account
+			// query parameter both accountId; the generator kept only the path.
+			if !cmd.Flags().Changed("managed-account-id") && flagManagedAccountID == "" && !requiredInputWaived() {
+				return fmt.Errorf("required flag \"%s\" not set", "managed-account-id")
 			}
 			if !cmd.Flags().Changed("product-name") && flagProductName == "" && !requiredInputWaived() {
 				return fmt.Errorf("required flag \"%s\" not set", "product-name")
@@ -78,6 +85,9 @@ func newAllocationsDeallocateCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 			params := map[string]string{}
+			if flagManagedAccountID != "" {
+				params["accountId"] = formatCLIParamValue(flagManagedAccountID)
+			}
 			if cmd.Flags().Changed("product-name") || flagProductName != "" {
 				params["productName"] = formatCLIParamValue(flagProductName)
 			}
@@ -243,6 +253,7 @@ func newAllocationsDeallocateCmd(flags *rootFlags) *cobra.Command {
 	}
 	cmd.Flags().StringVar(&flagProductName, "product-name", "", "Product name. For Linked to License allocations, specify the name of the core product. (one of: accessPoint, firebox, fireboxRetention, AuthPoint_MFA, AuthPoint_TIS, WES_EDR_Core, WES_EPP, WES_EDR, WES_Prime, WES_EPDR, WES_AEPDR, WES_Module_Advanced_Reporting_Tool, WES_Module_Data_Control, WES_Module_Full_Encryption, WES_Module_Patch_Management, WES_Module_SIEMFeeder, WES_Module_MDR, WES_Module_Orion, WES_Module_Data_Retention, WatchGuard_NDR, WatchGuard_SaaSDR, FireCloud_InternetAccess, FireCloud_TotalAccess, WatchGuard_Compliance_Reporting, Total_NDR, ThreatSync_Open, MDR_CORE_Microsoft, Total_MDR, Open_MDR, NDR_for_Firebox, Cloud_DR)")
 	cmd.Flags().StringVar(&flagAllocationType, "allocation-type", "", "Allocation type. This parameter is required for software products. (one of: term, subscription, mixed, linked_to_license)")
+	cmd.Flags().StringVar(&flagManagedAccountID, "managed-account-id", "", "Managed account to deallocate the asset from (the accountId query parameter). --account-id names your Service Provider account.")
 	cmd.Flags().StringVar(&flagSerialOrLicense, "serial-or-license", "", "License key or serial number. This parameter is required for hardware devices and for Linked to License deallocations.")
 
 	return cmd

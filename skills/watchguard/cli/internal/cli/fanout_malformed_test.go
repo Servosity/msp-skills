@@ -5,6 +5,9 @@ package cli
 
 import (
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -35,5 +38,31 @@ func TestListRowsRejectsMalformedCollections(t *testing.T) {
 	}
 	if rows, err := incidentRows(json.RawMessage(`{"items":[]}`)); err != nil || len(rows) != 0 {
 		t.Fatalf("incidentRows empty items: rows=%d err=%v", len(rows), err)
+	}
+}
+
+// A malformed wrapper row never lets the wait skip to an older, finished
+// transaction: wait --device fails the read, and firstObject finds nothing.
+func TestTransactionsWaitRejectsMalformedRows(t *testing.T) {
+	const bad = `[{"data":null},{"data":{"id":"old","device":"FB-1","status":"complete","inception_time":1}}]`
+	if got := firstObject(json.RawMessage(bad), "data"); got != nil {
+		t.Fatalf("firstObject skipped a malformed row to %v", got)
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/oauth/token" {
+			_, _ = w.Write([]byte(`{"access_token":"tok","expires_in":3600}`))
+			return
+		}
+		if strings.HasSuffix(r.URL.Path, "/transactions/old") { // the by-ID read is well formed
+			_, _ = w.Write([]byte(`[{"id":"old","device":"FB-1","status":"complete"}]`))
+			return
+		}
+		_, _ = w.Write([]byte(bad))
+	}))
+	defer srv.Close()
+	spEnv(t, srv)
+	if _, code := runJSON(t, "firebox-transactions", "wait", "--device", "FB-1", "--interval", "2s", "--max-wait", "20s", "--json"); code == 0 {
+		t.Fatalf("wait --device exited 0 on a malformed transaction list")
 	}
 }

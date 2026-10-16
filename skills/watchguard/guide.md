@@ -304,7 +304,7 @@ Manage allocations
 - **`watchguard-cli allocations allocate`** - Allocate an asset to a managed account.
 
 **Note**: Due to export license and regulatory requirements, this endpoint will no longer accept requests after 15 October 2026 for accounts that do not have company name, industry, first name, last name, and full mailing address.
-- **`watchguard-cli allocations deallocate`** - Remove an allocated asset from a managed account.
+- **`watchguard-cli allocations deallocate`** - Remove an allocated asset from a managed account: `--managed-account-id` names the customer, `--account-id` your Service Provider account.
 - **`watchguard-cli allocations list-allocated`** - Returns a list of allocated assets (devices and software licenses) for a Service Provider's managed accounts.
 - **`watchguard-cli allocations list-assigned`** - Returns a list of assets (devices and software licenses) allocated to a specific account.
 - **`watchguard-cli allocations list-owned`** - Returns a list of assets (devices and software licenses) owned by a specific account.

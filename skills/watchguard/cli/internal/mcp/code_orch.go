@@ -231,10 +231,10 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		ID:             "allocations.deallocate",
 		Method:         "DELETE",
 		Path:           "/rest/platform/allocation/v2/{accountId}/assets",
-		Summary:        "Remove an allocated asset from a managed account.",
+		Summary:        "Remove an allocated asset from a managed account. Pass the managed account as managedAccountId; accountId is your Service Provider account.",
 		Positional:     []string{},
 		TemplateParams: []codeOrchParamBinding{{PublicName: "accountId", WireName: "accountId"}},
-		QueryParams:    []codeOrchParamBinding{{PublicName: "productName", WireName: "productName"}, {PublicName: "allocationType", WireName: "allocationType"}, {PublicName: "serialOrLicense", WireName: "serialOrLicense"}},
+		QueryParams:    []codeOrchParamBinding{{PublicName: "managedAccountId", WireName: "accountId"}, {PublicName: "productName", WireName: "productName"}, {PublicName: "allocationType", WireName: "allocationType"}, {PublicName: "serialOrLicense", WireName: "serialOrLicense"}}, // Hand-fix (handfixes.json: deallocate-managed-account-query)
 		HeaderParams:   []codeOrchParamBinding{},
 		Mutating:       false,
 		keywords:       codeOrchKeywords("allocations", "deallocate", "Remove an allocated asset from a managed account.", "/rest/platform/allocation/v2/{accountId}/assets"),

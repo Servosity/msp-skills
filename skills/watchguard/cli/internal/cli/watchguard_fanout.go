@@ -372,6 +372,17 @@ func asMaps(raw json.RawMessage, key string) []map[string]any {
 // firstObject reads a single-record response that may be a bare object or a
 // one-element list (the transaction GET is documented both ways).
 func firstObject(raw json.RawMessage, key string) map[string]any {
+	// Hand-fix (handfixes.json: fanout-malformed-collection-is-failed-read):
+	// a malformed wrapper row is never skipped to reach the row after it.
+	var v any
+	if json.Unmarshal(raw, &v) == nil {
+		if m, ok := v.(map[string]any); ok {
+			v = m[key]
+		}
+		if list, ok := v.([]any); ok && wrappedRowsErr(list, key) != nil {
+			return nil
+		}
+	}
 	if rows := asMaps(raw, key); len(rows) > 0 && len(rows[0]) > 0 {
 		return rows[0]
 	}

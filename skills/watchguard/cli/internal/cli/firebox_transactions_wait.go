@@ -136,7 +136,13 @@ func newNovelFireboxTransactionsWaitCmd(flags *rootFlags) *cobra.Command {
 				if err != nil {
 					return classifyAPIErrorOnly(err)
 				}
-				tx := newestTransaction(asMaps(data, "data"))
+				// Hand-fix (handfixes.json: fanout-malformed-collection-is-failed-read):
+				// a malformed row must not hand the wait an older, finished transaction.
+				rows, lerr := listRows(data, "data")
+				if lerr != nil {
+					return apiErr(fmt.Errorf("listing deployment transactions for device %s: %w", device, lerr))
+				}
+				tx := newestTransaction(rows)
 				if tx == nil {
 					return notFoundErr(fmt.Errorf("no deployment transactions found for device %s", device))
 				}

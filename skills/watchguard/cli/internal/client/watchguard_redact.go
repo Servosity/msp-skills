@@ -77,7 +77,7 @@ var benignParamKeys = map[string]bool{"username": true, "user_name": true, "logi
 // whose own key is secret-named; strings of 6+ characters elsewhere under a
 // secret-named object; and secret-named or authenticating headers (the
 // WatchGuard-API-Key, an audience-scoped Authorization override).
-func requestSecrets(body []byte, headers map[string]string) []string {
+func requestSecrets(body []byte, headers, params map[string]string) []string {
 	var out []string
 	add := func(s string) {
 		if s != "" {
@@ -109,6 +109,7 @@ func requestSecrets(body []byte, headers map[string]string) []string {
 	if json.Unmarshal(body, &v) == nil {
 		collect(v, "", false, false)
 	}
+	out = append(out, querySecrets(params)...)
 	for k, val := range headers {
 		if isSecretHeader(k) {
 			add(val)
@@ -118,6 +119,51 @@ func requestSecrets(body []byte, headers map[string]string) []string {
 		}
 	}
 	return out
+}
+
+// querySecrets is every secret a request's query string carried: a
+// secret-named parameter, or a software license key (allocations deallocate
+// sends serialOrLicense as a query parameter). Hand-fix (handfixes.json:
+// license-keys-fingerprinted).
+func querySecrets(params map[string]string) []string {
+	q := make(map[string]any, len(params))
+	for k, v := range params {
+		q[k] = v
+	}
+	var out []string
+	for k, v := range params {
+		if v != "" && (isSecretBodyKey(k) || cliutil.IsLicenseKeyField(q, k)) {
+			out = append(out, v)
+		}
+	}
+	return out
+}
+
+// urlQuery is the query a request URL carries: the CLI's params and any
+// query the MCP server built into the path.
+func urlQuery(u *url.URL) map[string]string {
+	out := map[string]string{}
+	for k, v := range u.Query() {
+		if len(v) > 0 {
+			out[k] = v[0]
+		}
+	}
+	return out
+}
+
+// withholdQuerySecrets drops the query from a URL or path shown in an error
+// or preview when it carries a query secret (an MCP deallocate builds
+// serialOrLicense into the path). Hand-fix (handfixes.json:
+// license-keys-fingerprinted).
+func withholdQuerySecrets(raw string) string {
+	base, rq, ok := strings.Cut(raw, "?")
+	if !ok {
+		return raw
+	}
+	if u, err := url.Parse("http://x/?" + rq); err != nil || len(querySecrets(urlQuery(u))) > 0 {
+		return base + "?[query withheld]"
+	}
+	return raw
 }
 
 // isSecretHeader: a secret-named header, or one that authenticates
@@ -169,8 +215,17 @@ func authSecrets(authHeader string) []string {
 // fill with the submitted pre-shared key. The request's own URL and host are
 // built by the CLI (a DNS error names the host), so they are dropped before
 // matching; a server-supplied Location keeps its query.
-func transportError(err error, reqURL string, reqBody []byte, headers map[string]string, authHeader string) error {
-	return transportErrorFor(err, reqURL, append(requestSecrets(reqBody, headers), authSecrets(authHeader)...))
+func transportError(err error, reqURL string, reqBody []byte, headers, params map[string]string, authHeader string) error {
+	shown := transportErrorFor(err, reqURL, append(requestSecrets(reqBody, headers, params), authSecrets(authHeader)...))
+	// The CLI's own URL is cut before matching, but it still carries the
+	// query, so a query secret is withheld from the shown URL. Hand-fix
+	// (handfixes.json: license-keys-fingerprinted).
+	if shown == err && len(querySecrets(params)) > 0 {
+		if base, _, ok := strings.Cut(reqURL, "?"); ok {
+			return errors.New(strings.ReplaceAll(err.Error(), reqURL, base+"?[query withheld]"))
+		}
+	}
+	return shown
 }
 
 func transportErrorFor(err error, reqURL string, secrets []string) error {
@@ -201,8 +256,8 @@ func transportErrorFor(err error, reqURL string, secrets []string) error {
 // errorBody is the text an API error may show: withheld when the response
 // carries a request secret in any form (raw or as displayed after
 // re-encoding, checked before truncation), else secret-named fields masked.
-func errorBody(respBody, reqBody []byte, headers map[string]string, authHeader string) string {
-	secrets := append(requestSecrets(reqBody, headers), authSecrets(authHeader)...)
+func errorBody(respBody, reqBody []byte, headers, params map[string]string, authHeader string) string {
+	secrets := append(requestSecrets(reqBody, headers, params), authSecrets(authHeader)...)
 	shown := truncateBody(redactBody(respBody))
 	if cliutil.EchoesSecret(string(respBody), secrets) || cliutil.EchoesSecret(shown, secrets) {
 		return withheldBody

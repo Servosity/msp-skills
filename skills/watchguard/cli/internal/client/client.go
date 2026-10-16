@@ -1503,7 +1503,7 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 			if ctxErr := ctx.Err(); ctxErr != nil {
 				return nil, 0, ctxErr
 			}
-			shownErr := transportError(err, req.URL.String(), bodyBytes, c.sentHeaders(headerOverrides), authHeader) // Hand-fix (handfixes.json: transport-error-withholds-echoed-secret)
+			shownErr := transportError(err, req.URL.String(), bodyBytes, c.sentHeaders(headerOverrides), urlQuery(req.URL), authHeader) // Hand-fix (handfixes.json: transport-error-withholds-echoed-secret)
 			lastErr = fmt.Errorf("%s %s: %w", method, c.displayURL(path, authHeader), c.maskError(shownErr, authHeader))
 			// Transient network failure (connection reset, DNS blip, request
 			// timeout). Back off before retrying — same exponential schedule as
@@ -1564,7 +1564,7 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 			if !htmlResponse {
 				if summary, ok := summarizeHTMLDocument(respBody); ok {
 					// Hand-wired (handfixes.json: error-body-redacts-secrets).
-					if cliutil.EchoesSecret(string(respBody), append(requestSecrets(bodyBytes, c.sentHeaders(headerOverrides)), authSecrets(authHeader)...)) {
+					if cliutil.EchoesSecret(string(respBody), append(requestSecrets(bodyBytes, c.sentHeaders(headerOverrides), urlQuery(req.URL)), authSecrets(authHeader)...)) {
 						summary = withheldBody
 					}
 					summary = c.maskCredentialText(summary, authHeader)
@@ -1582,7 +1582,7 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 		// that echoes a request secret in any form (checked before
 		// truncation), and mask secret-named fields otherwise, before it
 		// reaches stderr, error envelopes or MCP results.
-		bodyText := errorBody(respBody, bodyBytes, c.sentHeaders(headerOverrides), authHeader)
+		bodyText := errorBody(respBody, bodyBytes, c.sentHeaders(headerOverrides), urlQuery(req.URL), authHeader)
 		if resp.StatusCode == http.StatusForbidden {
 			bodyText = cliutil.AnnotateTransportBlock(bodyText, resp.Header, respBody)
 		}
@@ -1722,6 +1722,10 @@ func (c *Client) dryRun(method, targetURL, path string, params map[string]string
 	fmt.Fprintf(os.Stderr, "%s %s\n", method, c.displayURL(targetURL, authHeader))
 	queryPrinted := false
 	if params != nil {
+		hidden := map[string]bool{}
+		for _, s := range querySecrets(params) {
+			hidden[s] = true
+		}
 		keys := make([]string, 0, len(params))
 		for k := range params {
 			if params[k] != "" || method != "GET" {
@@ -1734,7 +1738,11 @@ func (c *Client) dryRun(method, targetURL, path string, params map[string]string
 			if queryPrinted {
 				sep = "&"
 			}
-			fmt.Fprintf(os.Stderr, "  %s%s=%s\n", sep, k, c.maskCredentialText(params[k], authHeader))
+			shown := c.maskCredentialText(params[k], authHeader)
+			if hidden[params[k]] { // Hand-fix (handfixes.json: license-keys-fingerprinted)
+				shown = "[redacted]"
+			}
+			fmt.Fprintf(os.Stderr, "  %s%s=%s\n", sep, k, shown)
 			queryPrinted = true
 		}
 	}
@@ -2313,7 +2321,7 @@ func (e maskedError) Error() string {
 }
 
 func (c *Client) displayURL(rawURL string, extraCredentials ...string) string {
-	return c.maskCredentialText(rawURL, extraCredentials...)
+	return c.maskCredentialText(withholdQuerySecrets(rawURL), extraCredentials...)
 }
 
 func (c *Client) maskError(err error, extraCredentials ...string) error {

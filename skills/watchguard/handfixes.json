@@ -493,7 +493,7 @@
       "asserts": [
         {
           "file": "cli/internal/client/client.go",
-          "contains": "bodyText := errorBody(respBody, bodyBytes, c.sentHeaders(headerOverrides), authHeader)",
+          "contains": "bodyText := errorBody(respBody, bodyBytes, c.sentHeaders(headerOverrides), urlQuery(req.URL), authHeader)",
           "code_only": true
         },
         {
@@ -521,7 +521,7 @@
       "asserts": [
         {
           "file": "cli/internal/client/client.go",
-          "contains": "shownErr := transportError(err, req.URL.String(), bodyBytes, c.sentHeaders(headerOverrides), authHeader)",
+          "contains": "shownErr := transportError(err, req.URL.String(), bodyBytes, c.sentHeaders(headerOverrides), urlQuery(req.URL), authHeader)",
           "code_only": true
         }
       ]
@@ -994,8 +994,8 @@
     },
     {
       "id": "fanout-malformed-collection-is-failed-read",
-      "summary": "listRows and incidentRows require the collection to be a JSON list of objects: {\"data\":null}, a scalar, an object or a list of non-objects is a failed read, never zero devices, endpoints or incidents. A {key: X} wrapper row (the [{\"data\":{...},\"total_items\":N}] form) whose X is null or a scalar is a failed read too, in listRows and in incidentRows' top-level-list branch.",
-      "why": "Codex read-only review round 1 (2026-10-15): listRows checked only that the key existed, so {\"data\":null} or {\"data\":\"unavailable\"} became an empty fleet and accounts health reported zero counts with complete:true and exit 0; incidentRows accepted {\"items\":null} the same way. Companion to fanout-partial-data-exit. TestListRowsRejectsMalformedCollections fails on revert. Codex read-only review round 2 (2026-10-15): asMaps silently dropped wrapped null/scalar rows, so [{\"data\":null}] or [{\"items\":null}] still read as zero rows; wrappedRowsErr mirrors asMaps and fails those reads. The new TestListRowsRejectsMalformedCollections cases fail on revert.",
+      "summary": "listRows and incidentRows require the collection to be a JSON list of objects: {\"data\":null}, a scalar, an object or a list of non-objects is a failed read, never zero devices, endpoints or incidents. A {key: X} wrapper row (the [{\"data\":{...},\"total_items\":N}] form) whose X is null or a scalar is a failed read too, in listRows and in incidentRows' top-level-list branch. firebox-transactions wait applies the same rule: wait --device reads the transaction list through listRows, and firstObject never skips a malformed wrapper row to reach the row after it.",
+      "why": "Codex read-only review round 1 (2026-10-15): listRows checked only that the key existed, so {\"data\":null} or {\"data\":\"unavailable\"} became an empty fleet and accounts health reported zero counts with complete:true and exit 0; incidentRows accepted {\"items\":null} the same way. Companion to fanout-partial-data-exit. TestListRowsRejectsMalformedCollections fails on revert. Codex read-only review round 2 (2026-10-15): asMaps silently dropped wrapped null/scalar rows, so [{\"data\":null}] or [{\"items\":null}] still read as zero rows; wrappedRowsErr mirrors asMaps and fails those reads. The new TestListRowsRejectsMalformedCollections cases fail on revert. Codex read-only review round 3 (2026-10-15): wait --device read the list through raw asMaps, so [{\"data\":null},{\"data\":{...complete}}] picked an older finished transaction and exited 0. TestTransactionsWaitRejectsMalformedRows fails on revert of either the listRows call or the firstObject guard.",
       "status": "active",
       "asserts": [
         {
@@ -1027,13 +1027,23 @@
           "file": "cli/internal/cli/watchguard_fanout.go",
           "contains": "list holds a non-object row",
           "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/firebox_transactions_wait.go",
+          "contains": "rows, lerr := listRows(data, \"data\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/watchguard_fanout.go",
+          "contains": "if list, ok := v.([]any); ok && wrappedRowsErr(list, key) != nil {",
+          "code_only": true
         }
       ]
     },
     {
       "id": "license-keys-fingerprinted",
-      "summary": "A software license key in an allocation row's serialOrLicense is replaced by a one-way fingerprint (license: plus 16 hex) before the row is persisted, indexed or tailed; Firebox and access point serial numbers (productName firebox, fireboxRetention, accessPoint) are kept. The row's declared productName decides, never the value's shape; a row with no productName is treated as a key. On the request side, a software license key sent in serialOrLicense (allocations allocate, import) is a request secret: it is withheld from error echoes and masked in the --dry-run preview; a Firebox or access point serial stays readable.",
-      "why": "Codex read-only review round 1 (2026-10-15): the secret-field policy already classes license keys as credentials, but serialOrLicense was exempted for row identity and the typed allocations column stored software license keys in plaintext. allocations reconcile reads live rows, so the mirror fingerprint changes nothing it matches. governance.md, README.md and page.json describe the behavior. TestLicenseKeysFingerprinted and TestLicenseKeysNeverPersisted fail on revert. Codex read-only review round 2 (2026-10-15): requestSecrets and redactBody used only the secret-name list, which excludes serialOrLicense, so an API error echoing the key or a --dry-run preview printed it. TestLicenseKeyNeverEchoedOrPreviewed fails on revert.",
+      "summary": "A software license key in an allocation row's serialOrLicense is replaced by a one-way fingerprint (license: plus 16 hex) before the row is persisted, indexed or tailed; Firebox and access point serial numbers (productName firebox, fireboxRetention, accessPoint) are kept. The row's declared productName decides, never the value's shape; a row with no productName is treated as a key. On the request side, a software license key sent in serialOrLicense (allocations allocate, import) is a request secret: it is withheld from error echoes and masked in the --dry-run preview; a Firebox or access point serial stays readable. The same holds for a key in the query string (allocations deallocate sends serialOrLicense as a query parameter; the MCP server builds it into the path): the request URL's query feeds the secret set, the --dry-run preview prints [redacted], and an error or transport error shows the URL with its query withheld.",
+      "why": "Codex read-only review round 1 (2026-10-15): the secret-field policy already classes license keys as credentials, but serialOrLicense was exempted for row identity and the typed allocations column stored software license keys in plaintext. allocations reconcile reads live rows, so the mirror fingerprint changes nothing it matches. governance.md, README.md and page.json describe the behavior. TestLicenseKeysFingerprinted and TestLicenseKeysNeverPersisted fail on revert. Codex read-only review round 2 (2026-10-15): requestSecrets and redactBody used only the secret-name list, which excludes serialOrLicense, so an API error echoing the key or a --dry-run preview printed it. TestLicenseKeyNeverEchoedOrPreviewed fails on revert. Codex round 3 and adversarial round 5 (2026-10-15) both found the query-string path: deallocate --dry-run printed the key and a 400 echo or a transport error showed it. TestLicenseKeyInQueryNeverEchoedOrPreviewed fails on revert of querySecrets, the transport URL withholding, the dry-run mask, displayURL, or urlQuery.",
       "status": "active",
       "asserts": [
         {
@@ -1064,6 +1074,54 @@
         {
           "file": "cli/internal/client/watchguard_redact.go",
           "contains": "collect(val, k, isSecretBodyKey(k) || cliutil.IsLicenseKeyField(t, k), under || own)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/watchguard_redact.go",
+          "contains": "func querySecrets(params map[string]string) []string {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/watchguard_redact.go",
+          "contains": "return errors.New(strings.ReplaceAll(err.Error(), reqURL, base+\"?[query withheld]\"))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "return c.maskCredentialText(withholdQuerySecrets(rawURL), extraCredentials...)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "errorBody(respBody, bodyBytes, c.sentHeaders(headerOverrides), urlQuery(req.URL), authHeader)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "if hidden[params[k]] {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "deallocate-managed-account-query",
+      "summary": "allocations deallocate sends the required accountId query parameter (the managed account) from a new --managed-account-id flag, while --account-id keeps filling the Service Provider path segment; the MCP allocations.deallocate endpoint binds managedAccountId to that query parameter and its summary says so.",
+      "why": "Adversarial round 5 (2026-10-15): the vendor spec declares accountId twice on DELETE /rest/platform/allocation/v2/{accountId}/assets (path = Service Provider, required query = managed account), the only such collision in the spec, and the generator kept only the path binding, so every deallocate lacked the managed account. TestDeallocateSendsManagedAccountQuery and TestCodeOrchDeallocateManagedAccountQuery fail on revert.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/allocations_deallocate.go",
+          "contains": "params[\"accountId\"] = formatCLIParamValue(flagManagedAccountID)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/allocations_deallocate.go",
+          "contains": "cmd.Flags().StringVar(&flagManagedAccountID, \"managed-account-id\"",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/code_orch.go",
+          "contains": "{PublicName: \"managedAccountId\", WireName: \"accountId\"}",
           "code_only": true
         }
       ]
