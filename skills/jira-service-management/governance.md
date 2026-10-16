@@ -39,22 +39,26 @@ only its own requests.
 - **Agent mode is explicit.** `--agent` produces JSON for scripting but does not add any write
   gating - the preview-then-approve policy above still applies. See AGENTS.md.
 - **MCP read-only switch.** With `JIRA_SERVICE_MANAGEMENT_MCP_READ_ONLY=1` in the MCP server's
-  environment, the server drops its write tools (`request_note`, `sync`, `import`, `export`,
-  `cmdb_reconcile`) and its generic `execute` tool refuses any non-GET API call. It does not
-  change what the CLI itself can do.
+  environment, the server drops the tools that write to the API, the local copy or local files
+  (`request_note`, `sync`, `import`, `export`, `workflow_archive`, `learnings_forget`,
+  `learnings_reject`) plus `cmdb_reconcile`, which reads a local file; its generic `execute` tool
+  refuses any non-GET API call, and `cmdb_discover` refuses `--save`. It does not change what the
+  CLI itself can do.
 
 ## Permission tiers
 
 The safe default for an autonomous agent is **read plus previewed writes**; require a human for
 anything below the line.
 
-| Tier | What it does | Examples | Recommended agent policy |
+| Tier | What it does | Commands | Recommended agent policy |
 | --- | --- | --- | --- |
-| **Read** | Queues, SLAs, timelines, reports, search, Assets lookups. No change. | `breaches`, `request timeline`, `request get`, `servicedesk queue list-issues`, `sla-report`, `client`, `roster`, `cmdb tickets`, `cmdb reconcile`, `object find-by-aql`, `search` | Allow |
-| **Write (routine)** | Day-to-day ticket work. | `request note`, `request comment add`, `request transition perform`, `request create`, `request approval answer`, `request participant add`, `request attachment add`, `request feedback post`, `object create`, `object update` | Preview with `--dry-run`, then an approved write |
-| **Customers and organizations** | Who can raise and see tickets for a client. | `customer create`, `servicedesk customer add` / `invite` / `remove`, `servicedesk organization add` / `remove`, `organization create`, `organization user add` / `remove`, `organization property set`, `customer revoke-portal-only-access-for-user`, `customer create-skippermissioncheck` | Human-approved write |
-| **Credential / bulk import** | Mints Assets import tokens or pushes data in bulk. | `importsource token generate`, `api-import`, `importsource executions start` / `submit-data`, `import` | Human-in-the-loop only |
-| **Destructive / config** | Irreversible data loss or desk and CMDB configuration changes. | `organization delete`, `organization property delete`, `object delete`, `objectschema create` / `update` / `delete`, `objecttype create` / `update` / `delete`, `objecttypeattribute create` / `update` / `delete`, `servicedesk requesttype create` / `delete`, `config delete-statustype`, `global` | Human-in-the-loop only, explicit confirmation |
+| **Read** | Queues, SLAs, timelines, reports, search, Assets lookups. No change on your site. | every command not listed below, including `breaches`, `request timeline`, `sla-report`, `client`, `roster`, `cmdb tickets`, `cmdb reconcile` (also reads a local file), `search`, and the POST requests that only read: `object find-by-aql`, `object count-by-aql`, `object navlist-aql`, `object navlist-iql`, `request validate`, `servicedesk requesttype check-permissions` | Allow |
+| **Write (routine)** | Day-to-day ticket work. | `request note`, `request comment add`, `request transition perform`, `request create`, `request approval answer`, `request participant add` / `remove`, `request attachment add`, `servicedesk attach-temporary-file upload-temporary-file`, `request feedback post` / `delete`, `request notification subscribe` / `unsubscribe`, `object create`, `object update` | Preview with `--dry-run`, then an approved write |
+| **Customers and organizations** | Who can raise and see tickets for a client. | `customer create`, `customer create-skippermissioncheck`, `customer revoke-portal-only-access-for-user`, `servicedesk customer add` / `add-skip-permission-check` / `invite` / `remove`, `servicedesk organization add` / `remove`, `organization create`, `organization user add` / `remove`, `organization property set` / `delete` | Human-approved write |
+| **Credential / bulk import** | Mints Assets import tokens or pushes data in bulk. | `importsource token generate`, `api-import`, `importsource executions start` / `submit-data` / `submit-progress` / `cancel` / `create-failed-history`, `importsource importschedule create` / `update` / `delete`, `importsource mapping submit` / `update`, `import` | Human-in-the-loop only |
+| **Destructive / config** | Irreversible data loss, or desk and CMDB configuration changes. | `organization delete`, `object delete`, `objectschema create` / `update` / `delete`, `objecttype create` / `update` / `delete`, `objecttype position change`, `objecttypeattribute create` / `update` / `delete`, `config create-referencetype` / `create-statustype` / `update-statustype` / `delete-statustype`, `servicedesk requesttype create` / `delete` / `set-property` / `delete-property`, `global` | Human-in-the-loop only, explicit confirmation |
+
+Local-only writes (no change on your Atlassian site): `sync`, `workflow archive`, `export`, `auth set-credentials`, `cmdb discover --save`, `profile save`, and the `teach`, `teach-*`, `learnings`, `playbook` and `feedback` commands write files under the CLI's own config, data and state directories. `feedback` sends anything upstream only if you opt in.
 
 ## How to lock it down
 

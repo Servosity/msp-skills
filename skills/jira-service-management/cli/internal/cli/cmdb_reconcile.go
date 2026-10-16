@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 
@@ -202,14 +203,15 @@ func openInventoryFile(path string) (*os.File, error) {
 	default:
 		return nil, fmt.Errorf("--file must be a .csv, .tsv or .txt export")
 	}
-	if os.Getenv("JIRA_SERVICE_MANAGEMENT_LEARN_SURFACE") == "mcp" {
-		if err := inventoryPathAllowedUnderMCP(path); err != nil {
-			return nil, err
-		}
-	}
 	f, err := openNoFollow(path) // per-OS twins: cmdb_reconcile_open_{unix,windows}.go
 	if err != nil {
 		return nil, fmt.Errorf("opening --file (symlinks are refused): %w", err)
+	}
+	if os.Getenv("JIRA_SERVICE_MANAGEMENT_LEARN_SURFACE") == "mcp" {
+		if err := inventoryPathAllowedUnderMCP(path, f); err != nil {
+			_ = f.Close()
+			return nil, err
+		}
 	}
 	info, err := f.Stat()
 	if err != nil || !info.Mode().IsRegular() {
@@ -223,7 +225,11 @@ func openInventoryFile(path string) (*os.File, error) {
 	return f, nil
 }
 
-func inventoryPathAllowedUnderMCP(path string) error {
+// inventoryPathAllowedUnderMCP runs after f is open: it resolves path by name,
+// checks containment, then requires the resolved file to be the one f holds,
+// so swapping a directory for a symlink or junction between the open and the
+// check cannot redirect the read.
+func inventoryPathAllowedUnderMCP(path string, f *os.File) error {
 	wd, err := os.Getwd()
 	if err != nil {
 		return err
@@ -235,8 +241,9 @@ func inventoryPathAllowedUnderMCP(path string) error {
 	if home != "" {
 		home, _ = filepath.EvalSymlinks(home)
 	}
-	if wd == string(filepath.Separator) || (home != "" && wd == home) {
-		return fmt.Errorf("under MCP, run from a project directory (not / or your home directory) and put the export there")
+	// filepath.Dir(wd) == wd holds for / and for every Windows volume or share root (C:\).
+	if filepath.Dir(wd) == wd || (home != "" && sameDir(wd, home)) {
+		return fmt.Errorf("under MCP, run from a project directory (not a filesystem root or your home directory) and put the export there")
 	}
 	abs, err := filepath.Abs(path)
 	if err != nil {
@@ -245,10 +252,25 @@ func inventoryPathAllowedUnderMCP(path string) error {
 	if abs, err = filepath.EvalSymlinks(abs); err != nil {
 		return fmt.Errorf("opening --file: %w", err)
 	}
-	if rel, err := filepath.Rel(wd, abs); err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+	if rel, err := filepath.Rel(wd, abs); err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || filepath.IsAbs(rel) {
 		return fmt.Errorf("under MCP, --file must be inside the working directory")
 	}
+	ri, err := os.Stat(abs)
+	if err != nil {
+		return fmt.Errorf("opening --file: %w", err)
+	}
+	if fi, err := f.Stat(); err != nil || !os.SameFile(ri, fi) {
+		return fmt.Errorf("under MCP, --file changed while it was being opened")
+	}
 	return nil
+}
+
+// sameDir compares resolved directories; Windows paths are case-insensitive.
+func sameDir(a, b string) bool {
+	if runtime.GOOS == "windows" {
+		return strings.EqualFold(a, b)
+	}
+	return a == b
 }
 
 type reconcileObject struct {

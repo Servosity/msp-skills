@@ -56,7 +56,7 @@ func newServicedeskQueueGetCmd(flags *rootFlags) *cobra.Command {
 			if cmd.Flags().Changed("include-count") {
 				params["includeCount"] = formatCLIParamValue(flagIncludeCount)
 			}
-			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "queue", false, path, params, nil, "fields", cmd.ErrOrStderr())
+			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "queue", false, path, params, nil, "", cmd.ErrOrStderr()) // pp:handfix jsm-detail-no-unwrap
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

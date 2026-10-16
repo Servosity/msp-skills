@@ -195,13 +195,21 @@
         {
           "file": "manifest.json",
           "not_contains": "jira-service-management-pp-mcp"
+        },
+        {
+          "file": "manifest.json",
+          "contains": "\"description\": \"Assets only: your site's cloudId. Leave blank if you do not use Assets; 'cmdb discover' prints it.\",\n      \"required\": false"
+        },
+        {
+          "file": "manifest.json",
+          "contains": "\"description\": \"Assets only: your site's workspaceId. Leave blank if you do not use Assets; 'cmdb discover' prints it.\",\n      \"required\": false"
         }
       ]
     },
     {
       "id": "jsm-reconcile-open-per-os",
-      "summary": "cmdb reconcile opens --file through per-OS twins: O_NOFOLLOW|O_NONBLOCK on unix, Lstat + SameFile on Windows",
-      "why": "cmdb_reconcile.go used syscall.O_NOFOLLOW directly, which does not exist on Windows, so GOOS=windows builds failed and the connector shipped no Windows binary. Windows has no O_NOFOLLOW; the twin refuses a symlink or reparse point via Lstat and then proves the opened handle is the same file, so a swap between check and open is refused too.",
+      "summary": "cmdb reconcile opens --file through per-OS twins (O_NOFOLLOW|O_NONBLOCK on unix, Lstat + SameFile on Windows); under MCP it then proves the opened file is the one the containment check resolved and refuses any filesystem-root working directory",
+      "why": "cmdb_reconcile.go used syscall.O_NOFOLLOW directly, which does not exist on Windows, so GOOS=windows builds failed and the connector shipped no Windows binary. Windows has no O_NOFOLLOW; the twin refuses a symlink or reparse point via Lstat and then proves the opened handle is the same file, so a swap between check and open is refused too. The MCP containment check originally ran before the open and compared the working directory only with '/', so a directory swapped for a symlink between check and open, or a Windows working directory of C:\\, escaped it (Codex review, 2026-10-16). cmdb_reconcile_mcp_test.go covers both.",
       "status": "active",
       "asserts": [
         {
@@ -221,6 +229,16 @@
         {
           "file": "cli/internal/cli/cmdb_reconcile_open_unix.go",
           "contains": "os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/cmdb_reconcile.go",
+          "contains": "if fi, err := f.Stat(); err != nil || !os.SameFile(ri, fi) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/cmdb_reconcile.go",
+          "contains": "if filepath.Dir(wd) == wd || (home != \"\" && sameDir(wd, home)) {",
           "code_only": true
         }
       ]
@@ -295,6 +313,135 @@
         {
           "file": "AGENTS.md",
           "not_contains": "jira-service-management-cli <command> --agent"
+        }
+      ]
+    },
+    {
+      "id": "jsm-detail-no-unwrap",
+      "summary": "single-object GETs return the whole DTO, and object create/update and approval answer cache the entity, instead of unwrapping one array field",
+      "why": "The press picks a response path for any response with an array field, so 'request sla get' printed only completedCycles (the ongoing cycle, breach state and remaining time vanished), 'request comment get' printed _expands, 'servicedesk queue get' printed only the field list, 'request approval get' only the approvers, 'usage' dropped the total, 'importsource' dropped the config, and 'object get' (auto strategy) printed the attributes and wrote each one into the local store as an 'object' row keyed by the attribute id, overwriting unrelated cached objects. object create/update and request approval answer did the same through writeMutationResponseToStore. Found by the Codex read-only review, 2026-10-16; the list commands that do unwrap a list (tickets, keys, requestTypeFields, values) are unchanged.",
+      "status": "active",
+      "spec_encode_followup": "Press defect: only list endpoints (or a response whose only meaningful content is the array) should get a response path; detail DTOs with an array member must not. Reported in the factory retro notes.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/object_get.go",
+          "contains": "params, nil, \"\", cmd.ErrOrStderr())",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/request_sla_get.go",
+          "contains": "params, nil, \"\", cmd.ErrOrStderr())",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/request_comment_get.go",
+          "contains": "params, nil, \"\", cmd.ErrOrStderr())",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/servicedesk_queue_get.go",
+          "contains": "params, nil, \"\", cmd.ErrOrStderr())",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/request_approval_get.go",
+          "contains": "params, nil, \"\", cmd.ErrOrStderr())",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/promoted_importsource.go",
+          "contains": "params, nil, \"\", cmd.ErrOrStderr())",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/promoted_usage.go",
+          "contains": "params, nil, \"\", cmd.ErrOrStderr())",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/object_create.go",
+          "contains": "writeMutationResponseToStore(cmd.Context(), \"object\", data, \"\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/object_update.go",
+          "contains": "writeMutationResponseToStore(cmd.Context(), \"object\", data, \"\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/request_approval_answer.go",
+          "contains": "writeMutationResponseToStore(cmd.Context(), \"approval\", data, \"\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/request_sla_get.go",
+          "not_contains": "\"completedCycles\", cmd.ErrOrStderr()"
+        },
+        {
+          "file": "cli/internal/cli/request_comment_get.go",
+          "not_contains": "\"_expands\", cmd.ErrOrStderr()"
+        },
+        {
+          "file": "cli/internal/cli/object_create.go",
+          "not_contains": "data, \"attributes\")"
+        }
+      ]
+    },
+    {
+      "id": "doctor-verdict-tracks-reality",
+      "summary": "doctor probes GET /servicedesk with the real credential and names JIRA_SERVICE_MANAGEMENT_SITE / _BASE_URL when the base URL is still the {site} placeholder, instead of calling any response to GET / reachable and printing 'present, not verified'",
+      "why": "The 4.33.5 doctor called any HTTP response to `GET /` reachable and never probed the credential: it printed 'present, not verified' and told the operator to run `objectschema list`, an Assets command that needs JSM Premium plus a cloudId and workspaceId, so on a Standard site the suggested check could never pass. A base_url aimed at a host where every API path 404s, and a revoked token, both rendered healthy, and the placeholder branch never named the variable to set. GET /servicedesk answers for any authenticated account. check_doctor_truth.py drives healthy / expired / wrong-base / placeholder against a stub server; it failed 5 assertions before this fix (verify_all, 2026-10-16) and passes after. Same fix as skills/fortinet doctor-verdict-tracks-reality; see issue #282.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/doctor_verdict.go",
+          "contains": "func doctorProbeCredentials(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor_verdict.go",
+          "contains": "doctorProbePath = \"/servicedesk\"",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor_verdict.go",
+          "contains": "WARN scope-limited (HTTP 403 from %s)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "doctorProbeCredentials(cmd.Context()",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "\"; set \" + doctorSiteEnv + \" to your site subdomain",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "not_contains": "present, not verified. Run `%s %s`"
+        }
+      ]
+    },
+    {
+      "id": "jsm-sync-defaults-skip-removed-aql",
+      "summary": "a bare sync no longer walks GET /aql/objects and /iql/objects, endpoints Atlassian removed; both stay syncable by name",
+      "why": "The generated default sync set included aql and iql, whose own command help says Atlassian removed them (18 September 2024), so every bare sync on an Assets site logged warnings instead of objects. The sync help example also named aql. Found by the adversarial review, 2026-10-16.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/sync.go",
+          "not_contains": "return []string{\n\t\t\"aql\",\n\t\t\"assets\","
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "not_contains": "sync --resources organization,aql"
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "names := []string{\n\t\t\"aql\",",
+          "code_only": true
         }
       ]
     }

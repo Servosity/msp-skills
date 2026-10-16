@@ -29,7 +29,7 @@ func newUsagePromotedCmd(flags *rootFlags) *cobra.Command {
 
 			path := "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/usage"
 			params := map[string]string{}
-			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "auto", "usage", false, path, params, nil, "perSchemaUsageInfo", cmd.ErrOrStderr())
+			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "auto", "usage", false, path, params, nil, "", cmd.ErrOrStderr()) // pp:handfix jsm-detail-no-unwrap
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

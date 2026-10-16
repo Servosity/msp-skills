@@ -52,7 +52,7 @@ func newRequestSlaGetCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 			params := map[string]string{}
-			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "sla", false, path, params, nil, "completedCycles", cmd.ErrOrStderr())
+			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "sla", false, path, params, nil, "", cmd.ErrOrStderr()) // pp:handfix jsm-detail-no-unwrap
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

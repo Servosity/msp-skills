@@ -30,32 +30,62 @@
       "environmentVariables": [
         {
           "name": "JIRA_SERVICE_MANAGEMENT_API_TOKEN",
-          "description": "Set the JIRA_SERVICE_MANAGEMENT_API_TOKEN credential for the Jira Service Management MCP server.",
+          "description": "Atlassian API token from id.atlassian.com/manage-profile/security/api-tokens (Basic auth password).",
           "isRequired": true,
           "isSecret": true
         },
         {
           "name": "JIRA_SERVICE_MANAGEMENT_CLOUD_ID",
-          "description": "Set the JIRA_SERVICE_MANAGEMENT_CLOUD_ID credential for the Jira Service Management MCP server.",
-          "isRequired": true,
-          "isSecret": true
+          "description": "Assets only: your site's cloudId. Leave blank if you do not use Assets; 'cmdb discover' prints it.",
+          "isRequired": false,
+          "isSecret": false
         },
         {
           "name": "JIRA_SERVICE_MANAGEMENT_EMAIL",
-          "description": "Set the JIRA_SERVICE_MANAGEMENT_EMAIL credential for the Jira Service Management MCP server.",
+          "description": "Atlassian account email (Basic auth username).",
           "isRequired": true,
-          "isSecret": true
+          "isSecret": false
         },
         {
           "name": "JIRA_SERVICE_MANAGEMENT_SITE",
-          "description": "Set the JIRA_SERVICE_MANAGEMENT_SITE credential for the Jira Service Management MCP server.",
+          "description": "Your Atlassian site subdomain: acme for acme.atlassian.net.",
           "isRequired": true,
-          "isSecret": true
+          "isSecret": false
         },
         {
           "name": "JIRA_SERVICE_MANAGEMENT_WORKSPACE_ID",
-          "description": "Set the JIRA_SERVICE_MANAGEMENT_WORKSPACE_ID credential for the Jira Service Management MCP server.",
-          "isRequired": true,
+          "description": "Assets only: your Assets workspaceId. Leave blank if you do not use Assets; 'cmdb discover' prints it.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "JIRA_SERVICE_MANAGEMENT_BASE_URL",
+          "description": "Optional. Replaces the request-API root built from your site. Leave blank: set the site instead, because this override also redirects Assets calls.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "JIRA_SERVICE_MANAGEMENT_MCP_READ_ONLY",
+          "description": "Optional. Set to 1 to drop the MCP server's write tools and refuse any non-GET execute call.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "JIRA_SERVICE_MANAGEMENT_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment); callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport Claude Desktop uses.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "JIRA_SERVICE_MANAGEMENT_USER_AGENT",
+          "description": "Optional. Overrides the User-Agent the CLI sends to Atlassian. Leave blank to use the built-in one.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Only used when the MCP server is bound to a tenant-gated client profile. This connector registers no tenant-gated source, so leave it blank.",
+          "isRequired": false,
           "isSecret": true
         }
       ]

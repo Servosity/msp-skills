@@ -45,7 +45,7 @@ func newImportsourcePromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
-			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "auto", "importsource", false, path, params, nil, "importSourceOTEntries", cmd.ErrOrStderr())
+			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "auto", "importsource", false, path, params, nil, "", cmd.ErrOrStderr()) // pp:handfix jsm-detail-no-unwrap
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

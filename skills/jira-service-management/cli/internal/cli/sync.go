@@ -121,7 +121,7 @@ Resource scoping:
 		Example: `  # Sync all resources
   jira-service-management-cli sync
   # Sync specific resources only
-  jira-service-management-cli sync --resources organization,aql
+  jira-service-management-cli sync --resources organization,request
 
   # Full resync (ignore previous checkpoint)
   jira-service-management-cli sync --full
@@ -2531,14 +2531,14 @@ func parseRestSyncTimestamp(value string) (time.Time, bool) {
 }
 
 func defaultSyncResources() []string {
+	// pp:handfix jsm-sync-defaults-skip-removed-aql: aql and iql (GET /aql/objects,
+	// /iql/objects) are endpoints Atlassian removed; they stay syncable by name.
 	return []string{
-		"aql",
 		"assets",
 		"config",
 		"config-statustype",
 		"icon",
 		"insight",
-		"iql",
 		"objectschema",
 		"organization",
 		"request",

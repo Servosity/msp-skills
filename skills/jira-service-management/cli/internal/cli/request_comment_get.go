@@ -56,7 +56,7 @@ func newRequestCommentGetCmd(flags *rootFlags) *cobra.Command {
 				path = appendArrayQueryParam(path, "expand", flagExpand, "form", true)
 			}
 			params := map[string]string{}
-			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "comment", false, path, params, nil, "_expands", cmd.ErrOrStderr())
+			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "comment", false, path, params, nil, "", cmd.ErrOrStderr()) // pp:handfix jsm-detail-no-unwrap
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

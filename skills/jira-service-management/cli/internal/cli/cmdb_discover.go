@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"runtime"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -84,8 +85,8 @@ into the config file instead.`, "\n"),
 				}
 			}
 			view.Exports = append(view.Exports,
-				"export JIRA_SERVICE_MANAGEMENT_CLOUD_ID="+view.CloudID,
-				"export JIRA_SERVICE_MANAGEMENT_WORKSPACE_ID="+view.WorkspaceID)
+				envAssignLine("JIRA_SERVICE_MANAGEMENT_CLOUD_ID", view.CloudID),
+				envAssignLine("JIRA_SERVICE_MANAGEMENT_WORKSPACE_ID", view.WorkspaceID))
 			if save {
 				if err := cfg.SaveTemplateVars(map[string]string{"cloudId": view.CloudID, "workspaceId": view.WorkspaceID}); err != nil {
 					return fmt.Errorf("saving to config: %w; set them with:\n  %s", err, strings.Join(view.Exports, "\n  "))
@@ -108,4 +109,14 @@ into the config file instead.`, "\n"),
 	}
 	cmd.Flags().BoolVar(&save, "save", false, "Write cloudId and workspaceId into the config file")
 	return cmd
+}
+
+// envAssignLine prints a variable assignment in the current OS's shell syntax
+// (PowerShell on Windows, POSIX sh elsewhere). The id is already checked
+// against discoverIDRe, so it needs no quoting beyond PowerShell's string.
+func envAssignLine(name, value string) string {
+	if runtime.GOOS == "windows" {
+		return "$env:" + name + " = \"" + value + "\""
+	}
+	return "export " + name + "=" + value
 }

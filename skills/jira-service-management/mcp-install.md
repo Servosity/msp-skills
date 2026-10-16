@@ -18,7 +18,7 @@ and `jira-service-management-mcp` on your PATH. `jira-service-management-mcp` is
 jira-service-management-mcp --help
 ```
 
-**Which variables you need.** `JIRA_SERVICE_MANAGEMENT_SITE` (your site subdomain: `acme` for acme.atlassian.net), `JIRA_SERVICE_MANAGEMENT_EMAIL` and `JIRA_SERVICE_MANAGEMENT_API_TOKEN` (an Atlassian API token) are required. `JIRA_SERVICE_MANAGEMENT_CLOUD_ID` and `JIRA_SERVICE_MANAGEMENT_WORKSPACE_ID` are only for Assets (CMDB) commands: leave them out if you do not use Assets, or run `jira-service-management-cli cmdb discover` to print them.
+**Which variables you need.** `JIRA_SERVICE_MANAGEMENT_SITE` (your site subdomain: `acme` for acme.atlassian.net), `JIRA_SERVICE_MANAGEMENT_EMAIL` and `JIRA_SERVICE_MANAGEMENT_API_TOKEN` (an Atlassian API token) are required. `JIRA_SERVICE_MANAGEMENT_CLOUD_ID` and `JIRA_SERVICE_MANAGEMENT_WORKSPACE_ID` are only for Assets (CMDB) commands: leave them out if you do not use Assets, or run `jira-service-management-cli cmdb discover` to print them. Every other variable in the blocks below is optional; leave it out unless you need it.
 
 ---
 
@@ -43,7 +43,12 @@ Add (or merge with your existing `mcpServers` block):
         "JIRA_SERVICE_MANAGEMENT_CLOUD_ID": "<your-jira_service_management_cloud_id>",
         "JIRA_SERVICE_MANAGEMENT_EMAIL": "<your-jira_service_management_email>",
         "JIRA_SERVICE_MANAGEMENT_SITE": "<your-jira_service_management_site>",
-        "JIRA_SERVICE_MANAGEMENT_WORKSPACE_ID": "<your-jira_service_management_workspace_id>"
+        "JIRA_SERVICE_MANAGEMENT_WORKSPACE_ID": "<your-jira_service_management_workspace_id>",
+        "JIRA_SERVICE_MANAGEMENT_BASE_URL": "<your-jira_service_management_base_url>",
+        "JIRA_SERVICE_MANAGEMENT_MCP_READ_ONLY": "<your-jira_service_management_mcp_read_only>",
+        "JIRA_SERVICE_MANAGEMENT_MCP_HTTP_TOKEN": "<your-jira_service_management_mcp_http_token>",
+        "JIRA_SERVICE_MANAGEMENT_USER_AGENT": "<your-jira_service_management_user_agent>",
+        "PRINTING_PRESS_CLIENT_PROFILE": "<your-printing_press_client_profile>"
       }
     }
   }
@@ -72,7 +77,12 @@ Configuration**) and add:
         "JIRA_SERVICE_MANAGEMENT_CLOUD_ID": "<your-jira_service_management_cloud_id>",
         "JIRA_SERVICE_MANAGEMENT_EMAIL": "<your-jira_service_management_email>",
         "JIRA_SERVICE_MANAGEMENT_SITE": "<your-jira_service_management_site>",
-        "JIRA_SERVICE_MANAGEMENT_WORKSPACE_ID": "<your-jira_service_management_workspace_id>"
+        "JIRA_SERVICE_MANAGEMENT_WORKSPACE_ID": "<your-jira_service_management_workspace_id>",
+        "JIRA_SERVICE_MANAGEMENT_BASE_URL": "<your-jira_service_management_base_url>",
+        "JIRA_SERVICE_MANAGEMENT_MCP_READ_ONLY": "<your-jira_service_management_mcp_read_only>",
+        "JIRA_SERVICE_MANAGEMENT_MCP_HTTP_TOKEN": "<your-jira_service_management_mcp_http_token>",
+        "JIRA_SERVICE_MANAGEMENT_USER_AGENT": "<your-jira_service_management_user_agent>",
+        "PRINTING_PRESS_CLIENT_PROFILE": "<your-printing_press_client_profile>"
       }
     }
   }
@@ -84,7 +94,7 @@ invisible in Ask/Edit mode.
 
 ## Gemini CLI (Google)
 
-Edit `~/.gemini/settings.json` (Gemini CLI's config) and add the same shape as
+Edit `~/.gemini/settings.json` (`%USERPROFILE%\.gemini\settings.json` on Windows) (Gemini CLI's config) and add the same shape as
 Claude Desktop:
 
 ```json
@@ -97,7 +107,12 @@ Claude Desktop:
         "JIRA_SERVICE_MANAGEMENT_CLOUD_ID": "<your-jira_service_management_cloud_id>",
         "JIRA_SERVICE_MANAGEMENT_EMAIL": "<your-jira_service_management_email>",
         "JIRA_SERVICE_MANAGEMENT_SITE": "<your-jira_service_management_site>",
-        "JIRA_SERVICE_MANAGEMENT_WORKSPACE_ID": "<your-jira_service_management_workspace_id>"
+        "JIRA_SERVICE_MANAGEMENT_WORKSPACE_ID": "<your-jira_service_management_workspace_id>",
+        "JIRA_SERVICE_MANAGEMENT_BASE_URL": "<your-jira_service_management_base_url>",
+        "JIRA_SERVICE_MANAGEMENT_MCP_READ_ONLY": "<your-jira_service_management_mcp_read_only>",
+        "JIRA_SERVICE_MANAGEMENT_MCP_HTTP_TOKEN": "<your-jira_service_management_mcp_http_token>",
+        "JIRA_SERVICE_MANAGEMENT_USER_AGENT": "<your-jira_service_management_user_agent>",
+        "PRINTING_PRESS_CLIENT_PROFILE": "<your-printing_press_client_profile>"
       }
     }
   }
@@ -120,7 +135,11 @@ connector will send; press 4.32+ refuses a non-loopback bind without TLS, so do 
 JIRA_SERVICE_MANAGEMENT_MCP_HTTP_TOKEN=<long-random-token> JIRA_SERVICE_MANAGEMENT_SITE=<value> JIRA_SERVICE_MANAGEMENT_EMAIL=<value> JIRA_SERVICE_MANAGEMENT_API_TOKEN=<value> jira-service-management-mcp --transport http
 ```
 
-In Windows PowerShell, set each variable first (`$env:JIRA_SERVICE_MANAGEMENT_MCP_HTTP_TOKEN = "<long-random-token>"`, and the same for SITE, EMAIL and API_TOKEN), then run `jira-service-management-mcp --transport http`.
+In Windows PowerShell:
+
+```powershell
+$env:JIRA_SERVICE_MANAGEMENT_MCP_HTTP_TOKEN="<long-random-token>"; $env:JIRA_SERVICE_MANAGEMENT_SITE="<value>"; $env:JIRA_SERVICE_MANAGEMENT_EMAIL="<value>"; $env:JIRA_SERVICE_MANAGEMENT_API_TOKEN="<value>"; jira-service-management-mcp --transport http
+```
 
 Then expose `http://localhost:7777/mcp` as a public HTTPS URL via a secure tunnel
 (Cloudflare Tunnel, ngrok) or your own reverse proxy. The path is part of the

@@ -353,9 +353,10 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 				doctorBase = client.ResolvedBaseURL(cfg.BaseURL, cfg.TemplateVars)
 			}
 			if doctorBaseURLIsPlaceholder(doctorBase) {
-				report["api"] = "not configured (base_url is a placeholder)"
+				// Refuse to dial a host the operator never set, and name the fix.
+				report["api"] = "ERROR base_url is still the placeholder \"" + doctorBase + "\"; set " + doctorSiteEnv + " to your site subdomain (acme for acme.atlassian.net), or " + doctorBaseURLEnv + " to the full request-API root"
 				if _, set := report["credentials"]; !set {
-					report["credentials"] = "skipped (base_url is a placeholder)"
+					report["credentials"] = "ERROR not verified: base_url is still a placeholder; set " + doctorSiteEnv + " or " + doctorBaseURLEnv
 				}
 			} else if cfg != nil && cfg.BaseURL != "" {
 				c, clientErr := flags.newClient()
@@ -401,16 +402,11 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 					// Step 2: Validate credentials with an authenticated probe.
 					authHeader := cfg.AuthHeader()
 					if authHeader == "" {
-						// No auth configured — skip credential validation
+						report["credentials"] = "ERROR not verified: no credential is configured, so nothing was probed."
 					} else if reachErr != nil && !errors.As(reachErr, &reachAPIErr) {
 						report["credentials"] = "skipped (API unreachable)"
 					} else {
-						suggestion := suggestReadCommand(cmd.Root())
-						if suggestion != "" {
-							report["credentials"] = fmt.Sprintf("present, not verified. Run `%s %s` to confirm the token works end-to-end.", "jira-service-management-cli", suggestion)
-						} else {
-							report["credentials"] = "present, not verified. Run any read command to confirm the token works end-to-end."
-						}
+						doctorProbeCredentials(cmd.Context(), c, "jira-service-management-cli", report) // pp:handfix doctor-verdict-tracks-reality
 					}
 				}
 			} else if cfg != nil && cfg.BaseURL == "" {

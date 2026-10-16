@@ -103,7 +103,7 @@ Jira Service Management Cloud uses HTTP Basic auth with your Atlassian account e
 ## Quick Start
 
 ```bash
-# Health check: lists missing EMAIL or API_TOKEN, flags an unset SITE as a placeholder base_url, then probes the API.
+# Health check: names any missing SITE, EMAIL or API_TOKEN, then verifies the token with GET /servicedesk.
 jira-service-management-cli doctor
 
 # List the service desks your account can see; note the desk id.
@@ -679,7 +679,7 @@ If you use agentcookie to sync secrets across machines, this CLI auto-adopts age
 ## Troubleshooting
 **Authentication errors (exit code 4)**
 - Run `jira-service-management-cli doctor` to check credentials
-- Run `jira-service-management-cli doctor`: it lists a missing EMAIL or API_TOKEN, and an unset SITE shows as a placeholder base_url
+- Run `jira-service-management-cli doctor`: it lists a missing EMAIL or API_TOKEN, names JIRA_SERVICE_MANAGEMENT_SITE when the site is unset, and verifies the token with GET /servicedesk
 - A 403 also exits 4: the account lacks permission (for example a customer-only account)
 **Not found errors (exit code 3)**
 - Check the resource ID is correct
