@@ -30,14 +30,14 @@
   "appdirect": {
     "state": "binary-pending",
     "version": "0.1.5",
-    "latest_tag": "appdirect-v0.1.5",
+    "latest_tag": "appdirect-v0.1.6",
     "current_hash": "sha256:bef36c3948c5fa69ba77e9dc4c430b0f69dbe39c150add5bd8d6466cc12d61b0",
     "released_hash": "sha256:809772ae2ed66ee7f8b93147b3a9b4ecde3f429c977ea56e2a5e0fd5968fc526"
   },
   "atera": {
     "state": "binary-pending",
     "version": "0.1.4",
-    "latest_tag": "atera-v0.1.4",
+    "latest_tag": "atera-v0.1.5",
     "current_hash": "sha256:ab16dec6fbeb4f73226026c5ce05011fe050a39d66b3792d0cf11456092fb79b",
     "released_hash": "sha256:c3803c428ba1bb60e0ccd6f419cc1df8ce8e303675d28e31b0c25a195fb0ee18"
   },
