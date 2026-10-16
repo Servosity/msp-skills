@@ -26,35 +26,103 @@ var broadTrustees = map[string]bool{
 	"NU": true, "S-1-5-2": true, // NETWORK
 }
 
-// ownerAllowed reports whether an SDDL trustee (SID or 2-letter alias) is the
-// current user, BUILTIN\Administrators, or SYSTEM. The Administrators/SYSTEM
-// carve-out avoids false-rejecting files created by an elevated process; it is
-// safe under the single-user-machine assumption (documented in the emitted
-// comment + runbook).
-func ownerAllowed(trustee, currentUserSID string) bool {
+// Hand-wired (handfixes.json: windows-sddl-alias-sid-compare): trustees are
+// compared by SID, never by SDDL text. The SDDL converter renders some SIDs as
+// two-letter aliases, and not only fixed ones: the built-in local Administrator
+// (RID 500 of this machine) renders as "LA". Comparing the alias text against
+// the process's SID string refused that account's own ACE, so `auth set-token`
+// failed for anyone working as the built-in Administrator.
+
+// sddlAliasResolver returns the SID a two-letter SDDL alias names on this
+// machine, or ok=false. The Windows shell resolves through the OS
+// (resolveSDDLAlias); a nil resolver knows only wellKnownTrusteeSIDs.
+type sddlAliasResolver func(alias string) (sid string, ok bool)
+
+// wellKnownTrusteeSIDs maps the machine-independent aliases this file names to
+// their fixed SIDs. Machine- and domain-relative aliases (LA, LG, DA, ...)
+// have no fixed SID and go through the resolver.
+var wellKnownTrusteeSIDs = map[string]string{
+	"WD": "S-1-1-0",
+	"AU": "S-1-5-11",
+	"BU": "S-1-5-32-545",
+	"GU": "S-1-5-32-546",
+	"IU": "S-1-5-4",
+	"NU": "S-1-5-2",
+	"BA": "S-1-5-32-544", // BUILTIN\Administrators
+	"SY": "S-1-5-18",     // SYSTEM
+}
+
+// trusteeSID resolves an SDDL trustee (a SID or a two-letter alias) to its SID.
+// It returns "" for an alias it cannot resolve; sidAllowed accepts only a
+// value shaped like a SID, so an unresolvable trustee is refused (fail-closed).
+func trusteeSID(trustee string, resolveAlias sddlAliasResolver) string {
 	t := strings.ToUpper(strings.TrimSpace(trustee))
-	switch t {
-	case strings.ToUpper(strings.TrimSpace(currentUserSID)),
-		"BA", "S-1-5-32-544", // BUILTIN\Administrators
-		"SY", "S-1-5-18": // SYSTEM
+	if strings.HasPrefix(t, "S-") {
+		return t
+	}
+	if sid, ok := wellKnownTrusteeSIDs[t]; ok {
+		return sid
+	}
+	if resolveAlias != nil {
+		if sid, ok := resolveAlias(t); ok {
+			return strings.ToUpper(strings.TrimSpace(sid))
+		}
+	}
+	return ""
+}
+
+// sidAllowed reports whether a resolved trustee SID is the current user,
+// BUILTIN\Administrators, or SYSTEM. The Administrators/SYSTEM carve-out avoids
+// false-rejecting files created by an elevated process; it is safe under the
+// single-user-machine assumption (documented in the emitted comment + runbook).
+func sidAllowed(sid, currentUserSID string) bool {
+	if !strings.HasPrefix(sid, "S-") {
+		return false // unresolved ("") or not a SID
+	}
+	switch sid {
+	case "S-1-5-32-544", // BUILTIN\Administrators
+		"S-1-5-18": // SYSTEM
 		return true
 	}
-	return false
+	return sid == strings.ToUpper(strings.TrimSpace(currentUserSID))
 }
 
 // aceRe pulls each "(...)" ACE group out of an SDDL string.
 var aceRe = regexp.MustCompile(`\(([^)]*)\)`)
+
+// daclFlagsRe and aceListRe check the DACL section's framing: SDDL DACL flags,
+// then nothing but complete, un-nested "(...)" groups. A conditional ACE
+// (nested parentheses), an unclosed group or stray text fails them and is
+// refused. Inside a group the loop below checks the field count, the ACE type
+// and the trustee; it does not validate ACE flags or rights, which do not
+// change which principal an allow ACE names.
+var (
+	daclFlagsRe = regexp.MustCompile(`^(?:P|AI|AR|NO_ACCESS_CONTROL)*$`)
+	aceListRe   = regexp.MustCompile(`^(?:\([^()]*\))*$`)
+)
 
 // ownerRe matches the O: field as either a SID ("S-1-..") or a 2-letter SDDL
 // alias ("BA"). NOTE: a naive `O:([^DGS]+)` is WRONG — SIDs begin with 'S', so
 // excluding 'S' fails to match the owner. TestEvalCredsSecurity/"owner-me" guards it.
 var ownerRe = regexp.MustCompile(`O:(S(?:-\d+)+|[A-Za-z]{2})`)
 
-// evalCredsSecurity fails CLOSED: any parse ambiguity or disallowed principal → error.
+// evalCredsSecurity evaluates with only the machine-independent aliases known;
+// a machine-relative alias such as LA stays unresolved, so as an owner or an
+// allow-ACE trustee it is refused.
 func evalCredsSecurity(sddl, currentUserSID string) error {
+	return evalCredsSecurityResolved(sddl, currentUserSID, nil)
+}
+
+// evalCredsSecurityResolved fails CLOSED. It returns an error for: a missing
+// owner or DACL; a NULL DACL; DACL flags other than P/AI/AR/NO_ACCESS_CONTROL;
+// a DACL that is not a run of complete, un-nested six-field "(...)" groups; an
+// ACE type other than A/OA/D/OD; and an owner or allow-ACE trustee that cannot
+// be resolved or is not the current user, Administrators or SYSTEM. Deny ACEs
+// (D/OD) are skipped because they grant nothing.
+func evalCredsSecurityResolved(sddl, currentUserSID string, resolveAlias sddlAliasResolver) error {
 	// (c) Owner must be current user, Administrators, or SYSTEM.
 	om := ownerRe.FindStringSubmatch(sddl)
-	if om == nil || !ownerAllowed(om[1], currentUserSID) {
+	if om == nil || !sidAllowed(trusteeSID(om[1], resolveAlias), currentUserSID) {
 		return fmt.Errorf("token file owner is not the current user; " +
 			"lock it down: icacls <path> /setowner %%USERNAME%%")
 	}
@@ -63,16 +131,34 @@ func evalCredsSecurity(sddl, currentUserSID string) error {
 		return fmt.Errorf("token file has no DACL (potentially world-accessible)")
 	}
 	rest := sddl[i+2:]
-	if strings.HasPrefix(rest, "NO_ACCESS_CONTROL") {
+	// Hand-wired (handfixes.json: windows-null-dacl-behind-flags): the DACL
+	// section is flags (P, AI, AR, NO_ACCESS_CONTROL, in any combination) then
+	// ACEs, and Windows writes a real NULL DACL as "D:PAINO_ACCESS_CONTROL".
+	// Split the section exactly and refuse whatever does not parse.
+	flagsEnd := len(rest)
+	if k := strings.IndexByte(rest, '('); k >= 0 {
+		flagsEnd = k
+	}
+	if k := strings.Index(rest[:flagsEnd], "S:"); k >= 0 {
+		rest, flagsEnd = rest[:k], k // no ACEs: the SACL section follows the flags
+	}
+	daclFlags := rest[:flagsEnd]
+	if !daclFlagsRe.MatchString(daclFlags) {
+		return fmt.Errorf("token file DACL has unparseable flags; refusing (fail-closed)")
+	}
+	if strings.Contains(daclFlags, "NO_ACCESS_CONTROL") {
 		return fmt.Errorf("token file has a NULL DACL (world-accessible)")
 	}
 	// Cut at the SACL section ")S:" if present.
 	if j := strings.Index(rest, ")S:"); j >= 0 {
 		rest = rest[:j+1]
 	}
+	if !aceListRe.MatchString(rest[flagsEnd:]) {
+		return fmt.Errorf("token file DACL has an unparseable ACE; refusing (fail-closed)")
+	}
 	for _, m := range aceRe.FindAllStringSubmatch(rest, -1) {
 		fields := strings.Split(m[1], ";")
-		if len(fields) < 6 {
+		if len(fields) != 6 { // A/OA/D/OD ACEs have exactly six fields
 			return fmt.Errorf("token file DACL has an unparseable ACE; refusing (fail-closed)")
 		}
 		aceType := strings.ToUpper(strings.TrimSpace(fields[0]))
@@ -88,11 +174,12 @@ func evalCredsSecurity(sddl, currentUserSID string) error {
 			return fmt.Errorf("token file DACL has an unsupported ACE type %q; refusing (fail-closed)", aceType)
 		}
 		// (d) Strict default-deny: every allow-ACE trustee must be current-user /
-		// Administrators / SYSTEM. Broad well-known groups get a clearer message.
+		// Administrators / SYSTEM, compared by SID. Broad well-known groups get a
+		// clearer message.
 		if broadTrustees[trustee] {
 			return fmt.Errorf("token file DACL grants access to a broad group (%s); restrict it", trustee)
 		}
-		if !ownerAllowed(trustee, currentUserSID) {
+		if !sidAllowed(trusteeSID(trustee, resolveAlias), currentUserSID) {
 			return fmt.Errorf("token file DACL grants access to a non-owner principal (%s); restrict it", trustee)
 		}
 	}

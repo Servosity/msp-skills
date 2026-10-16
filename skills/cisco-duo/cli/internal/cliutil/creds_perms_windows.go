@@ -12,6 +12,7 @@ package cliutil
 
 import (
 	"fmt"
+	"strings"
 
 	"golang.org/x/sys/windows"
 )
@@ -45,5 +46,29 @@ func VerifyCredsPerms(path string) error {
 	if err != nil {
 		return fmt.Errorf("cannot resolve current user SID: %w", err)
 	}
-	return evalCredsSecurity(sd.String(), me)
+	return evalCredsSecurityResolved(sd.String(), me, resolveSDDLAlias)
+}
+
+// resolveSDDLAlias returns the SID a two-letter SDDL alias names on this
+// machine (handfixes.json: windows-sddl-alias-sid-compare). LA, for example,
+// is this machine's built-in Administrator (RID 500). ConvertStringSidToSid
+// resolves the alias, and the alias counts only when the converter that
+// produced the file's SDDL renders that SID back as the same alias, so a
+// resolver/renderer disagreement fails closed rather than matching a
+// different account.
+func resolveSDDLAlias(alias string) (string, bool) {
+	sid, err := windows.StringToSid(alias)
+	if err != nil {
+		return "", false
+	}
+	s := sid.String()
+	sd, err := windows.SecurityDescriptorFromString("O:" + s)
+	if err != nil {
+		return "", false
+	}
+	m := ownerRe.FindStringSubmatch(sd.String())
+	if m == nil || !strings.EqualFold(m[1], alias) {
+		return "", false
+	}
+	return s, true
 }
