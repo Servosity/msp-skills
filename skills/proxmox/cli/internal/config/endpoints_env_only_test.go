@@ -80,3 +80,18 @@ func TestEndpointUserinfoIsDropped(t *testing.T) {
 		t.Errorf("RedactUserinfo: %s", got)
 	}
 }
+
+func TestUserinfoEdges(t *testing.T) {
+	for in, want := range map[string]string{
+		"https://root:p/S?x#y@pve.example:8006/api2/json": "https://pve.example:8006/api2/json",
+		"//backup:pw@pbs.example":                         "//pbs.example",
+		"root:pa://ss@pve.example":                        "pve.example",
+		"user@pve.example":                                "pve.example",
+		"https://pve.example/api2/json@evil.example":      "https://pve.example/api2/json@evil.example", // '@' in a path: not userinfo
+		"https://pve.example:8006/api2/json":              "https://pve.example:8006/api2/json",
+	} {
+		if got := StripUserinfo(in); got != want {
+			t.Errorf("StripUserinfo(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
