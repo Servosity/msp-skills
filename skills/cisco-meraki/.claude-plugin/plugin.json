@@ -1,6 +1,6 @@
 {
   "name": "cisco-meraki",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Every Meraki Dashboard operation, plus cross-org fleet views that read every page, and a local mirror built for MSPs running many client orgs.",
   "author": {
     "name": "Servosity",

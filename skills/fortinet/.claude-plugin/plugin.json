@@ -1,6 +1,6 @@
 {
   "name": "fortinet",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Read every FortiGate's configuration and live state, then audit the whole client fleet for firmware, SSL-VPN exposure, admin accounts and license expiry in one command.",
   "author": {
     "name": "Servosity",

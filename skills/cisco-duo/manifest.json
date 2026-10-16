@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "cisco-duo-mcp",
   "display_name": "Cisco Duo",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Fix Duo MFA lockouts in one command and see every MSP subaccount at once, with signed Admin API calls.",
   "author": {
     "name": "Servosity Inc."
