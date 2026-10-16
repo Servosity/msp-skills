@@ -153,8 +153,8 @@ hosts before any request is built.
   matched, because no Proxmox read says what backs them.
 - **Do not reuse a VMID while the old guest's backups are retained.** A
   backup carries only the VMID. For a VM the skill reads the creation time
-  Proxmox VE 7.1 and later record in its config (`meta` `ctime`, which a
-  restore keeps). It credits the VM with no backup or task from before then
+  Proxmox VE records in its config since qemu-server 7.0-18 (Proxmox VE 7.1):
+  `meta` `ctime`, which a restore keeps. It credits the VM with no backup or task from before then
   and judges no scheduled run from before then. A backup dated less than an
   hour before it (the clock-skew tolerance between nodes) may be either
   guest's: it is neither credited nor taken as proof that none exists. A VM
@@ -162,10 +162,10 @@ hosts before any request is built.
   backup credited and reads unproven. Where the record is missing or does not
   help, a guest that reuses a deleted guest's VMID is credited with that
   guest's retained backups: a container (it has no such record), a VM created
-  before Proxmox VE 7.1, a VM whose creation time is dated in the future (the
-  creating node's clock ran ahead, so it bounds nothing), and a VM cloned from
-  a template or restored from another guest's backup (it can carry the
-  source's older creation time). The reverse also happens: if the creating
+  before then, a VM whose creation time is dated in the future (the creating
+  node's clock ran ahead, so it bounds nothing), and a VM cloned from a
+  template or another VM, migrated in from another cluster, or restored from
+  another guest's backup (each keeps its source's older creation time). The reverse also happens: if the creating
   node's clock ran more than an hour ahead and was corrected later, the VM's
   first backups read as an earlier guest's.
 - **One token per client cluster**, referenced by env var name in
