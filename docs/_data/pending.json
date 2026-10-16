@@ -476,11 +476,11 @@
     "released_hash": "sha256:289f4aba26db2811e6efe1fea65e5d8209b5c373de688053081caf267e2d1a58"
   },
   "sonicwall": {
-    "state": "never-released",
+    "state": "up-to-date",
     "version": "0.1.0",
     "latest_tag": "sonicwall-v0.1.0",
     "current_hash": "sha256:342f8166442c90ab1dbada2d633c238570fa337a106b893b393d321702c4d1a4",
-    "released_hash": null
+    "released_hash": "sha256:342f8166442c90ab1dbada2d633c238570fa337a106b893b393d321702c4d1a4"
   },
   "sophos-central": {
     "state": "up-to-date",
@@ -539,11 +539,11 @@
     "released_hash": "sha256:b3d75714f7edb00e00fde688636dd9973a24f56ee32594fa73742c3b36b49655"
   },
   "watchguard": {
-    "state": "binary-pending",
+    "state": "up-to-date",
     "version": "0.1.1",
     "latest_tag": "watchguard-v0.1.1",
     "current_hash": "sha256:5e1f901289cecc093502b094ae47ab90d08d599da4fef1c72c74b3aa1c220fcf",
-    "released_hash": "sha256:20ec78e51cb5bcb177c28c2bc9f598a083499b3708ebe85285fa5db1acd2b4f6"
+    "released_hash": "sha256:5e1f901289cecc093502b094ae47ab90d08d599da4fef1c72c74b3aa1c220fcf"
   },
   "wordpress": {
     "state": "up-to-date",
