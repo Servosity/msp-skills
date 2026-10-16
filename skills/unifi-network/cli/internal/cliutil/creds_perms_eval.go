@@ -89,6 +89,14 @@ func sidAllowed(sid, currentUserSID string) bool {
 // aceRe pulls each "(...)" ACE group out of an SDDL string.
 var aceRe = regexp.MustCompile(`\(([^)]*)\)`)
 
+// daclFlagsRe and aceListRe accept only a well-formed DACL section: the SDDL
+// DACL flags, then nothing but complete, un-nested "(...)" ACEs. A conditional
+// ACE (nested parentheses) or an unclosed ACE fails them and is refused.
+var (
+	daclFlagsRe = regexp.MustCompile(`^(?:P|AI|AR|NO_ACCESS_CONTROL)*$`)
+	aceListRe   = regexp.MustCompile(`^(?:\([^()]*\))*$`)
+)
+
 // ownerRe matches the O: field as either a SID ("S-1-..") or a 2-letter SDDL
 // alias ("BA"). NOTE: a naive `O:([^DGS]+)` is WRONG — SIDs begin with 'S', so
 // excluding 'S' fails to match the owner. TestEvalCredsSecurity/"owner-me" guards it.
@@ -100,8 +108,9 @@ func evalCredsSecurity(sddl, currentUserSID string) error {
 	return evalCredsSecurityResolved(sddl, currentUserSID, nil)
 }
 
-// evalCredsSecurityResolved fails CLOSED: any parse ambiguity, unresolvable
-// trustee, or disallowed principal returns an error.
+// evalCredsSecurityResolved fails CLOSED: a missing owner or DACL, a NULL
+// DACL, unknown DACL flags, a malformed ACE list, an unsupported ACE type, an
+// unresolvable trustee, or a disallowed principal returns an error.
 func evalCredsSecurityResolved(sddl, currentUserSID string, resolveAlias sddlAliasResolver) error {
 	// (c) Owner must be current user, Administrators, or SYSTEM.
 	om := ownerRe.FindStringSubmatch(sddl)
@@ -114,13 +123,20 @@ func evalCredsSecurityResolved(sddl, currentUserSID string, resolveAlias sddlAli
 		return fmt.Errorf("token file has no DACL (potentially world-accessible)")
 	}
 	rest := sddl[i+2:]
-	// Hand-wired (handfixes.json: windows-null-dacl-behind-flags): DACL flags
-	// (P, AI, AR) come before NO_ACCESS_CONTROL, and the converter writes a
-	// real NULL DACL as "D:PAINO_ACCESS_CONTROL", so look at the whole flags
-	// prefix (everything before the first ACE), not just its start.
-	daclFlags := rest
+	// Hand-wired (handfixes.json: windows-null-dacl-behind-flags): the DACL
+	// section is flags (P, AI, AR, NO_ACCESS_CONTROL, in any combination) then
+	// ACEs, and Windows writes a real NULL DACL as "D:PAINO_ACCESS_CONTROL".
+	// Split the section exactly and refuse whatever does not parse.
+	flagsEnd := len(rest)
 	if k := strings.IndexByte(rest, '('); k >= 0 {
-		daclFlags = rest[:k]
+		flagsEnd = k
+	}
+	if k := strings.Index(rest[:flagsEnd], "S:"); k >= 0 {
+		rest, flagsEnd = rest[:k], k // no ACEs: the SACL section follows the flags
+	}
+	daclFlags := rest[:flagsEnd]
+	if !daclFlagsRe.MatchString(daclFlags) {
+		return fmt.Errorf("token file DACL has unparseable flags; refusing (fail-closed)")
 	}
 	if strings.Contains(daclFlags, "NO_ACCESS_CONTROL") {
 		return fmt.Errorf("token file has a NULL DACL (world-accessible)")
@@ -128,6 +144,9 @@ func evalCredsSecurityResolved(sddl, currentUserSID string, resolveAlias sddlAli
 	// Cut at the SACL section ")S:" if present.
 	if j := strings.Index(rest, ")S:"); j >= 0 {
 		rest = rest[:j+1]
+	}
+	if !aceListRe.MatchString(rest[flagsEnd:]) {
+		return fmt.Errorf("token file DACL has an unparseable ACE; refusing (fail-closed)")
 	}
 	for _, m := range aceRe.FindAllStringSubmatch(rest, -1) {
 		fields := strings.Split(m[1], ";")
