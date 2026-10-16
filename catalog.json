@@ -1517,6 +1517,26 @@
       "category": "Backup/DR"
     },
     {
+      "name": "watchguard",
+      "system": "WatchGuard Cloud: Firebox, Endpoint Security (EPDR), ThreatSync, AuthPoint and NDR across every Service Provider managed account",
+      "status": "beta",
+      "skill_path": "skills/watchguard",
+      "cli_binary": "watchguard-cli",
+      "mcp_binary": "watchguard-mcp",
+      "version": "0.1.0",
+      "printing_press_version": "4.33.5",
+      "license": "Apache-2.0",
+      "vendor": "WatchGuard",
+      "vendor_trademark_owner": "WatchGuard Technologies, Inc.",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/watchguard/install.sh)",
+      "install_mcp_doc": "skills/watchguard/mcp-install.md",
+      "description": "WatchGuard Cloud's Firebox, FireCloud, Endpoint Security, ThreatSync, NDR, AuthPoint and account platform APIs in one CLI and MCP server, with cross-customer reports for Service Providers.",
+      "verification": "awaiting",
+      "category": "Security",
+      "tagline": "Check Firebox, endpoint, ThreatSync and license health across every WatchGuard Cloud customer by asking."
+    },
+    {
       "name": "wordpress",
       "system": "Publish and manage WordPress pages, posts, and media",
       "status": "beta",

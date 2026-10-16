@@ -231,6 +231,9 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
 - Veeam (Backup/DR) - ask "Which backup jobs are failing across all my customers?" - 
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/veeam/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/veeam/install.sh)
+- WatchGuard Cloud (Security) - ask "Which customer needs attention first across Firebox, endpoints, ThreatSync and licenses?" - Check Firebox, endpoint, ThreatSync and license health across every WatchGuard Cloud customer by asking.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/watchguard/
+  Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/watchguard/install.sh)
 - WordPress (Marketing) - ask "Publish a landing page from HTML without opening wp-admin?" - 
   Verification: Live-verified by Servosity (maintainer) (2026-08-16). Page: https://msp-skills.compoundingteams.com/skills/wordpress/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/wordpress/install.sh)

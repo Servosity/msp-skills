@@ -1,5 +1,5 @@
 {
-  "count": 76,
+  "count": 77,
   "connectors": [
     {
       "slug": "abnormal",
@@ -803,6 +803,17 @@
       "source": null,
       "issue_url": null,
       "url": "/skills/veeam/"
+    },
+    {
+      "slug": "watchguard",
+      "display_name": "WatchGuard Cloud",
+      "tagline": "Check Firebox, endpoint, ThreatSync and license health across every WatchGuard Cloud customer by asking.",
+      "category": "Security",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "url": "/skills/watchguard/"
     },
     {
       "slug": "wordpress",

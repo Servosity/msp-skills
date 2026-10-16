@@ -1232,6 +1232,21 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "watchguard",
+      "source": "./skills/watchguard",
+      "description": "WatchGuard Cloud's Firebox, FireCloud, Endpoint Security, ThreatSync, NDR, AuthPoint and account platform APIs in one CLI and MCP server, with cross-customer reports for Service Providers.",
+      "version": "0.1.0",
+      "category": "security",
+      "tags": [
+        "watchguard",
+        "security",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }

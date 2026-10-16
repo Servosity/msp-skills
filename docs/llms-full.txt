@@ -2774,6 +2774,48 @@ A: The full VSPC v3 surface is exposed, including create/delete jobs and agent d
 
 Governance: The skill is read-first: cross-tenant health, stale-backup and at-risk sweeps, alarm triage, license usage, and search are read-only and safe to let an agent run. The write surface is large - creating and deleting backup jobs, policies and rules, installing agents, rebooting and deploying to real customer infrastructure, and credential/certificate operations - and is gated human-in-the-loop. The VSPC token's own permissions are the outer limit on anything the agent can do.
 
+### WatchGuard Cloud (Security)
+
+Page: https://msp-skills.compoundingteams.com/skills/watchguard/
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/watchguard/install.sh)
+
+Ask your AI "which customer needs attention first?" and get one answer across Firebox, Endpoint Security, ThreatSync and license allocation for every account you manage in WatchGuard Cloud. Each product is a separate WatchGuard API, and Endpoint Security answers for a customer only with a token minted for that customer. This skill mints those tokens for you, fans out across your customers and ranks what needs you.
+
+Outcomes (question -> command your AI agent runs):
+- Which customer needs attention first across Firebox, endpoints, ThreatSync and licenses? -> watchguard-cli accounts health --agent
+- Which endpoints are unprotected, out of date, isolated or waiting on a reboot, across every customer? -> watchguard-cli endpoint-devices posture --agent
+- Which new ThreatSync incidents from the last 30 days need triage first, and which has nobody touched? -> watchguard-cli threatsync-incidents queue --status new --duration 30D --agent
+- Which customers and computers are exposed to this CVE? -> watchguard-cli endpoint-patches exposure --cve CVE-2024-38063 --agent
+- Which Fireboxes and access points went offline, came back or changed firmware since the last sync? -> watchguard-cli firebox-devices changes --agent
+- Which Fireboxes are running older firmware than the rest of the same model in my fleet? -> watchguard-cli firebox-devices firmware-lag --agent
+- Which allocations don't match the Fireboxes that actually report in, and what expires this month? -> watchguard-cli allocations reconcile --expiring-within 30d --agent
+- Did the Firebox deployment finish, or fail? -> watchguard-cli firebox-transactions wait --device FB-12345 --max-wait 10m
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, so you run the WatchGuard MCP server in its built-in HTTP mode with a bearer token (WATCHGUARD_MCP_HTTP_TOKEN) and put it behind an HTTPS tunnel or reverse proxy. No bridge package is needed. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my WatchGuard data safe?
+A: The CLI, MCP server and local mirror run on your machine, and MSP Skills never bundles or transmits your WatchGuard credentials. What your agent reads does go to your AI provider: query results, and the secrets that credential reads return (BOVPN pre-shared keys, private keys, Firebox passwords, activation and license keys). Keep those commands human-in-the-loop as the safety tiers describe.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+Q: What credentials do I need?
+A: WatchGuard Cloud API access: as an Owner or Administrator, open Administration > Managed Access and click Enable API Access (a Service Provider does this from Subscriber view of its own account). You get a read-write Access ID, a read-only Access ID, the passwords you set for each, and an API key. Set WATCHGUARD_CLIENT_ID to an Access ID, WATCHGUARD_CLIENT_SECRET to its password, WATCHGUARD_API_KEY to the API key and WATCHGUARD_ACCOUNT_ID to your account ID (ACC-... or WGC-...), then run watchguard-cli doctor. For a reporting-only agent, use the read-only Access ID.
+Q: Does it work across all my customers, or one account at a time?
+A: Across all of them, with a Service Provider account. accounts health, endpoint-devices posture and endpoint-patches exposure list the accounts you manage, mint a separate token for each one and report every customer in one result, naming any account they could not reach. threatsync-incidents queue reads incidents for all your managed accounts in one ThreatSync call. If any read fails, including a product a customer does not have, these commands exit 6 (5 when nothing could be read) and say which account and product; accounts health lists that account first with complete: false instead of showing zeros, and an account it could not reach at all appears in fetch_failures. To work on one customer, set WATCHGUARD_AUDIENCE to that customer's audience value (watchguard-cli audiences --account-id <customer-account-id> returns it) and WATCHGUARD_ACCOUNT_ID to that customer's account ID. That is a convenience, not a security boundary: WatchGuard's audience token also works on your own account.
+Q: My WatchGuard Cloud account is in Europe or Asia Pacific. Does it work?
+A: Yes. Set WATCHGUARD_BASE_URL and WATCHGUARD_TOKEN_URL to your region's gateway: https://api.deu.cloud.watchguard.com for EMEA or https://api.jpn.cloud.watchguard.com for APAC, with /oauth/token on the end for the token URL. The default is the North America gateway, api.usa.cloud.watchguard.com. Managed Access in WatchGuard Cloud shows your account's API URL as https://api.<region>.cloud.watchguard.com/rest/; drop the /rest/ when you set WATCHGUARD_BASE_URL (the CLI adds it to every path).
+Q: Will this hit my WatchGuard API rate limits?
+A: WatchGuard allows 500 requests per second and 200,000 requests per day per API key; a 429 means the day's quota is spent until 00:00 UTC. accounts health, endpoint-devices posture and endpoint-patches exposure fetch at most four accounts in parallel by default (--concurrency), the cross-customer commands stop at --max-pages, --rate-limit caps requests per second, GET responses are cached for 5 minutes, and sync keeps a local copy that search and analytics read without calling the API.
+Q: Can my AI isolate devices or change firewall policy?
+A: Only if you let it. Write commands such as endpoint-devices isolate, endpoint-devices uninstall, firebox-deployments and the delete commands send as soon as they run; there is no confirmation prompt. Preview any of them with --dry-run first; through the MCP server there is no preview, watchguard_execute sends a write as soon as it is called. For a reporting agent, use the read-only Access ID, or set WATCHGUARD_MCP_READ_ONLY=1 so the MCP server drops its write tools and refuses every non-GET call through watchguard_execute.
+Q: Has it been tested against a live WatchGuard Cloud account?
+A: Not yet. Every command was built from WatchGuard's published OpenAPI specifications and tested against a local mock of those APIs, not a real account. If you run it against your own WatchGuard Cloud account, tell us what worked or broke on the GitHub issue tracker or at a Build Session; a real MSP run is what earns the live-verified badge.
+
+Governance: The skill is read-first: the cross-customer reports, sync, search and nearly every list and get command only read. The exceptions are the reads whose output carries a secret (BOVPN tunnels, Firebox certificates, networks, users, content filtering and the activation keys from activations), which belong with the credential commands; the response cache never stores them and the local mirror drops them (a software license key in an allocation row is replaced by a one-way fingerprint; Firebox serial numbers are kept). Every write sends immediately with no confirmation prompt, so preview with --dry-run and keep endpoint actions, deployments and deletes human-in-the-loop. The read-only Access ID is the outer limit for a reporting agent.
+
 ### WordPress (Marketing)
 
 Page: https://msp-skills.compoundingteams.com/skills/wordpress/
