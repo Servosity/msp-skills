@@ -1,0 +1,143 @@
+{
+  "manifest_version": "0.3",
+  "name": "proxmox-mcp",
+  "display_name": "Proxmox VE + Backup Server",
+  "version": "0.1.0",
+  "description": "Read-only Proxmox VE and Backup Server CLI that tells you, across every client cluster, which guests have a good, verified, recent restore point and which do not.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/proxmox-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/proxmox-mcp",
+      "args": [],
+      "env": {
+        "PROXMOX_API_TOKEN": "${user_config.proxmox_api_token}",
+        "PROXMOX_HOST": "${user_config.proxmox_host}",
+        "PROXMOX_PBS_API_TOKEN": "${user_config.proxmox_pbs_api_token}",
+        "PROXMOX_PBS_HOST": "${user_config.proxmox_pbs_host}",
+        "PROXMOX_TLS_FINGERPRINT": "${user_config.proxmox_tls_fingerprint}",
+        "PROXMOX_PBS_TLS_FINGERPRINT": "${user_config.proxmox_pbs_tls_fingerprint}",
+        "PROXMOX_BASE_URL": "${user_config.proxmox_base_url}",
+        "PROXMOX_CLUSTER": "${user_config.proxmox_cluster}",
+        "PROXMOX_CLUSTERS_FILE": "${user_config.proxmox_clusters_file}",
+        "PROXMOX_USER_AGENT": "${user_config.proxmox_user_agent}",
+        "PROXMOX_MCP_READ_ONLY": "${user_config.proxmox_mcp_read_only}",
+        "PROXMOX_MCP_HTTP_TOKEN": "${user_config.proxmox_mcp_http_token}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
+      }
+    }
+  },
+  "user_config": {
+    "proxmox_api_token": {
+      "type": "string",
+      "title": "PROXMOX_API_TOKEN",
+      "description": "Proxmox VE API token as USER@REALM!TOKENID=SECRET (e.g. monitor@pve!agent=<secret>); the CLI sends it as PVEAPIToken=...",
+      "sensitive": true,
+      "required": true
+    },
+    "proxmox_host": {
+      "type": "string",
+      "title": "PROXMOX_HOST",
+      "description": "Proxmox VE host name or IP (port 8006).",
+      "required": true
+    },
+    "proxmox_pbs_api_token": {
+      "type": "string",
+      "title": "PROXMOX_PBS_API_TOKEN",
+      "description": "Optional. Proxmox Backup Server API token as USER@REALM!TOKENID:SECRET (colon before the secret); needed only for pbs-* commands and PBS columns",
+      "sensitive": true,
+      "default": ""
+    },
+    "proxmox_pbs_host": {
+      "type": "string",
+      "title": "PROXMOX_PBS_HOST",
+      "description": "Optional. Proxmox Backup Server host, host:port, or https://host:port (default port 8007).",
+      "required": false,
+      "default": ""
+    },
+    "proxmox_tls_fingerprint": {
+      "type": "string",
+      "title": "PROXMOX_TLS_FINGERPRINT",
+      "description": "SHA-256 fingerprint of the PVE certificate to pin (stock Proxmox is self-signed); shown under the node's Certificates.",
+      "required": false,
+      "default": ""
+    },
+    "proxmox_pbs_tls_fingerprint": {
+      "type": "string",
+      "title": "PROXMOX_PBS_TLS_FINGERPRINT",
+      "description": "Optional. SHA-256 fingerprint of the PBS certificate to pin.",
+      "required": false,
+      "default": ""
+    },
+    "proxmox_base_url": {
+      "type": "string",
+      "title": "Proxmox VE API base URL (optional)",
+      "description": "Full PVE API base such as https://pve1:8006/api2/json; overrides PROXMOX_HOST. Leave blank to use PROXMOX_HOST.",
+      "required": false,
+      "default": ""
+    },
+    "proxmox_cluster": {
+      "type": "string",
+      "title": "Default cluster (optional)",
+      "description": "Name of the clusters.toml entry to use by default (same as --cluster). Leave blank to run across every configured cluster.",
+      "required": false,
+      "default": ""
+    },
+    "proxmox_clusters_file": {
+      "type": "string",
+      "title": "clusters.toml path (optional)",
+      "description": "Path to the clusters.toml that lists client clusters. Leave blank for the default in the config directory. Multi-cluster needs each cluster's token variables in the server's environment, which this prompt form cannot set: use the manual JSON config in mcp-install.md for that.",
+      "required": false,
+      "default": ""
+    },
+    "proxmox_user_agent": {
+      "type": "string",
+      "title": "User-Agent header (optional)",
+      "description": "Overrides the User-Agent the CLI sends on Proxmox requests. Leave blank to use the CLI's own.",
+      "required": false,
+      "default": ""
+    },
+    "proxmox_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP server (optional)",
+      "description": "Set to 1 to drop the sync, export, workflow archive and learnings forget/reject MCP tools. The learning-store tools (teach, playbook) still write locally. Proxmox itself is never written either way. Leave blank for the full tool set.",
+      "required": false,
+      "default": ""
+    },
+    "proxmox_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token (optional)",
+      "description": "Required only when running the MCP server with --transport http (a remote or hosted deployment); the server refuses to start without it. Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+      "required": false,
+      "sensitive": true,
+      "default": ""
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile (unused - leave blank)",
+      "description": "Leave blank. This connector registers no tenant-gated profile source, so the value is read but changes nothing; select client clusters with PROXMOX_CLUSTER or clusters.toml instead.",
+      "required": false,
+      "sensitive": true,
+      "default": ""
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  },
+  "printing_press_version": "4.33.5",
+  "press_provenance": {
+    "printing_press_version": "4.33.5",
+    "generated_at": "2026-10-14T06:50:51.276965Z",
+    "spec_checksum": "sha256:090513f1bce9c6794f863e7f75394493ae0171ac788b7c59135a46e4cd3c095d",
+    "spec_format": "openapi3"
+  }
+}

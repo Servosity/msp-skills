@@ -1,0 +1,688 @@
+{
+ "slug": "proxmox",
+ "doc": "docs/reprint-survival.md",
+ "_comment": "Connector-specific edits to GENERATED files that a cli-printing-press reprint must NOT clobber. Paths are relative to skills/proxmox/ once onboarded. Re-apply with the factory's handfix/apply_handfixes.py (~/Documents/Dev/cli-factory/proxmox/handfix/) (idempotent; exits non-zero if a hook site moved). A cross-spec regen (spec checksum changed) drops every client.go hook; a same-spec regen preserves them. internal/client/proxmox_routing_test.go fails if any hook is missing. tools-manifest.json (a library-only press artifact) is not vendored here, so its PBS-path fix is tracked only in the factory ledger.",
+ "handfixes": [
+  {
+   "id": "pbs-host-routing",
+   "summary": "PBS operations (generated with the placeholder origin https://localhost:8007) are routed to PROXMOX_PBS_HOST before the generated PROXMOX_BASE_URL rebase",
+   "why": "OpenAPI operation-level servers are not templated by the press, so every PBS command was baked to localhost:8007. Worse, the generated rebaseAbsoluteURLOntoOverride moves every absolute URL onto PROXMOX_BASE_URL, which would send PBS requests carrying the PBS token to the PVE host. Unconfigured PBS host errors instead; a loopback base stands in only under the Printing Press verify/dogfood harness. PVE bases must be https, except a loopback IP literal (a local stub, which never leaves the machine); TestPlainHTTPOnlyToLoopbackLiterals pins that rule.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/proxmox_routing.go",
+     "contains": "func pbsTargetURL("
+    },
+    {
+     "file": "cli/internal/client/proxmox_routing.go",
+     "contains": "cliutil.IsAnyHarness()"
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "pbsTargetURL(path, c.Config, c.BaseURL); isPBS {"
+    }
+   ]
+  },
+  {
+   "id": "pbs-token-scheme-prefix",
+   "summary": "The PBS per-operation Authorization header gets the PBSAPIToken= scheme prepended (bare USER@REALM!TOKENID:SECRET accepted)",
+   "why": "The press sends per-operation security-scheme headers raw and ignores x-auth-format on them, so a PBS request sent the bare token and got 401.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "req.Header.Set(\"Authorization\", pbsAuthValue(v))"
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "req.Header.Set(\"Authorization\", v)\n"
+    }
+   ]
+  },
+  {
+   "id": "tls-fingerprint-pinning",
+   "summary": "Self-signed Proxmox certificates are trusted by pinned SHA-256 fingerprint, bound per service: PROXMOX_TLS_FINGERPRINT pins only the PVE host and PROXMOX_PBS_TLS_FINGERPRINT only the PBS host (or per cluster in clusters.toml)",
+   "why": "Proxmox ships self-signed certificates and the generated client has no TLS option, so no command worked against a default install. Fingerprint pinning is Proxmox's own trust model (proxmox-backup-client uses PBS_FINGERPRINT). Pins are installed by a client hook (novel clusters.go via the generated registerClientHook) as a per-service transport, so a PVE pin can never vouch for the PBS host. There is deliberately no insecure mode.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/proxmox_routing.go",
+     "contains": "func (c *Client) SetServicePins("
+    },
+    {
+     "file": "cli/internal/client/proxmox_routing.go",
+     "contains": "type servicePinTransport struct"
+    },
+    {
+     "file": "cli/internal/cli/clusters.go",
+     "contains": "pvePins, err := client.EnvPins(\"PROXMOX_TLS_FINGERPRINT\")"
+    },
+    {
+     "file": "cli/internal/cli/clusters.go",
+     "contains": "c.SetServicePins(pvePins, pbsPins)"
+    },
+    {
+     "file": "cli/internal/client/proxmox_routing.go",
+     "contains": "refusing to fall back to unpinned TLS"
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "proxmoxTLSConfig()"
+    }
+   ]
+  },
+  {
+   "id": "proxmox-envelope-sidecars",
+   "summary": "Responses shaped {data, total|digest|changes|active|success} are unwrapped like a bare {data} envelope",
+   "why": "The generated unwrapper only strips a one-key envelope (len == 1). Proxmox puts total next to data on task lists and logs and digest on config/job reads, so those responses reached commands and the store still wrapped.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "!isProxmoxEnvelope(envelope)"
+    },
+    {
+     "file": "cli/internal/client/proxmox_routing.go",
+     "contains": "func isProxmoxEnvelope("
+    }
+   ]
+  },
+  {
+   "id": "proxmox-auth-scheme",
+   "summary": "Every auth-scheme decision goes through proxmoxAuthScheme, which forces PbsApiToken for PBS paths and the PBS host",
+   "why": "With --auth-preference PveApiToken the generated operationAuthScheme falls back to the PVE token for any request it cannot match to a PBS operation (redirects, absolute PBS URLs from code orchestration), which would send the PVE token to the PBS host.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.proxmoxAuthScheme(",
+     "min_count": 5
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "not_contains": "c.operationAuthScheme("
+    }
+   ]
+  },
+  {
+   "id": "pbs-display-url",
+   "summary": "Error messages and --dry-run show the routed PBS host instead of the placeholder https://localhost:8007",
+   "why": "Users debugging a PBS failure were told the CLI called localhost:8007, which is not where the request went.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "pbsDisplayURL(rawURL, c.Config, c.BaseURL)"
+    }
+   ]
+  },
+  {
+   "id": "generated-docs-corrections",
+   "summary": "guide.md (the vendored CLI README), SKILL.md, AGENTS.md and manifest.json carry Proxmox-correct env tables, exit codes, read-only statement and optional PBS/TLS settings (factory handfix/docs_patch.py)",
+   "why": "The templates claim PROXMOX_PBS_HOST is required, omit the TLS fingerprint and PBS token variables, advertise --stdin write input on a read-only CLI, and show a mock-value example; the Phase 4.8/4.9 doc audit flagged each. The press-generated manifest also names the MCP binary proxmox-pp-mcp, marks the PBS host required, defaults PROXMOX_HOST to localhost and omits both TLS fingerprint fields; onboard copies it from the source, so a reprint restores every one of those.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "guide.md",
+     "contains": "PROXMOX_PBS_TLS_FINGERPRINT"
+    },
+    {
+     "file": "guide.md",
+     "not_contains": "ct list mock-value"
+    },
+    {
+     "file": "AGENTS.md",
+     "contains": "Every command is read-only against Proxmox"
+    },
+    {
+     "file": "manifest.json",
+     "contains": "proxmox_tls_fingerprint"
+    },
+    {
+     "file": "manifest.json",
+     "contains": "proxmox_pbs_tls_fingerprint"
+    },
+    {
+     "file": "manifest.json",
+     "not_contains": "proxmox-pp-mcp"
+    },
+    {
+     "file": "manifest.json",
+     "not_contains": "\"default\": \"localhost\""
+    }
+   ]
+  },
+  {
+   "id": "same-origin-redirect-auth",
+   "summary": "A same-origin redirect to a PVE path keeps the PVE Authorization header the generated redirect handler just stamped",
+   "why": "The generated CheckRedirect stamps the primary-scheme header, then a second block deletes Authorization for every destination that is not the secondary (PBS) scheme, so a same-origin PVE hop arrived unauthenticated.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "} else if destinationScheme != \"PveApiToken\" {"
+    }
+   ]
+  },
+  {
+   "id": "mcp-install-env-and-registry-card",
+   "summary": "mcp-install.md env blocks and server.json environmentVariables name the real Proxmox variables: PROXMOX_HOST, PROXMOX_API_TOKEN and PROXMOX_TLS_FINGERPRINT to fill in, the three PROXMOX_PBS_* values optional and blank",
+   "why": "onboard.py generates both from the manifest env keys as '<your-...>' placeholders marked required and secret. A copy-pasted '<your-proxmox_pbs_host>' is a bogus PBS host, the generated block omitted the TLS fingerprint a stock (self-signed) Proxmox needs, and the registry card marked the hostnames secret and the optional PBS values required. A fleet docs re-mint regenerates mcp-install.md and would bring all of that back.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "mcp-install.md",
+     "contains": "\"PROXMOX_TLS_FINGERPRINT\": \"<PVE certificate SHA-256>\""
+    },
+    {
+     "file": "mcp-install.md",
+     "contains": "\"PROXMOX_PBS_HOST\": \"\""
+    },
+    {
+     "file": "mcp-install.md",
+     "not_contains": "<your-proxmox_"
+    },
+    {
+     "file": "server.json",
+     "contains": "\"name\": \"PROXMOX_TLS_FINGERPRINT\""
+    },
+    {
+     "file": "server.json",
+     "not_contains": "credential for the Proxmox MCP server"
+    }
+   ]
+  },
+  {
+   "id": "x-text-above-go-2026-6629",
+   "summary": "`golang.org/x/text` is pinned at v0.41.0, above the press-emitted v0.39.0 that osv-scanner flags for GO-2026-6629",
+   "why": "Press 4.33.5 emits `golang.org/x/text v0.39.0` as an indirect dependency (modernc.org/sqlite). osv-scanner flags GO-2026-6629 (panic parsing crafted input in x/text/secure/precis) against it. It is presence-only today, but the fleet rule since 2026-10-14 is to ship above it, and a reprint from a press that still emits v0.39.0 silently restores the old version. Mirrors avanan's x-text-above-go-2026-5970 entry.",
+   "status": "active",
+   "spec_encode_followup": "Raise the golang.org/x/text floor in the press module template (retro item against the generator).",
+   "asserts": [
+    {
+     "file": "cli/go.mod",
+     "contains": "golang.org/x/text v0.41.0",
+     "min_count": 1
+    },
+    {
+     "file": "cli/go.mod",
+     "not_contains": "golang.org/x/text v0.39.0"
+    }
+   ]
+  },
+  {
+   "id": "path-context-no-origin-override",
+   "summary": "sync refuses --path-context host=... and pbs_host=...: those keys choose the token-bearing origin, which the client already bound to its tokens, TLS pins and origin checks",
+   "why": "Generated sync.go writes --path-context values into Config.TemplateVars AFTER flags.newClient(), so CheckServiceOrigins and the per-service pins never saw the new host. `sync --path-context pbs_host=<attacker>` (also reachable as the MCP sync tool's path-context parameter) made the attacker the PBS host and sent it the PBS token; host= did the same for the PVE token. Only a pre-set pin stopped it. Found by the 2026-10-14 adversarial review with a live MCP repro. In this CLI the only path-context keys are those two origin vars, so the guard rejects every endpointTemplateVarSet key. internal/cli/credential_routing_behavior_test.go (TestPathContextCannotRepointTheHost) fails if the guard is removed.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "cannot change the Proxmox host: tokens and TLS pins are bound to the configured hosts",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "cannot change the Proxmox host"
+    },
+    {
+     "file": "cli/internal/cli/credential_routing_behavior_test.go",
+     "contains": "func TestPathContextCannotRepointTheHost("
+    }
+   ]
+  },
+  {
+   "id": "pve-host-no-localhost-default",
+   "summary": "An unset PROXMOX_HOST leaves {host} unresolved (outside the Printing Press verify harness) instead of defaulting to localhost",
+   "why": "The spec's server-variable default made generated config.go fill {host} with localhost, so an operator who never set PROXMOX_HOST dialled https://localhost:8006 and got 'connection refused', and doctor could not tell the base URL was a placeholder (check_doctor_truth placeholder state). Unresolved, every request fails with 'PROXMOX_HOST not set; export PROXMOX_HOST=<value>' and doctor reports the placeholder with the fix. Verify mode keeps localhost so the press verifier still reaches Cobra.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cfg.TemplateVars[\"host\"] = \"\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cfg.TemplateVars[\"host\"] = \"\""
+    }
+   ]
+  },
+  {
+   "id": "doctor-names-the-fix",
+   "summary": "doctor emits a negative credentials row when the client cannot be built, classifies a 404 at the health path as a wrong base URL, and names PROXMOX_HOST / PROXMOX_BASE_URL in the placeholder verdict, and reads the health path with GetWithHeadersNoCache",
+   "why": "check_doctor_truth (issue #282) failed proxmox in all four states: no credentials row on a client-init error, 'reachable (HTTP 404 at /)' against a host where the API path does not exist, and a placeholder verdict that never named the variable to set. Mirrors the doctor_verdict.go behaviour the fleet carries, applied as three narrow edits to the press 4.33.5 doctor.go, which already ships the placeholder check and client.ProbeGet. The health probe also went through the generated 5-minute GET cache, so doctor could report a host reachable from a cached answer after it went down.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "ERROR not verified: client init error: %s"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "is not there - this is not the Proxmox VE API root"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "not configured (base_url is a placeholder): set PROXMOX_HOST or PROXMOX_BASE_URL"
+    },
+    {
+     "file": "cli/internal/cli/doctor.go",
+     "contains": "c.GetWithHeadersNoCache(cmd.Context(), healthPath"
+    }
+   ]
+  },
+  {
+   "id": "mcp-filesystem-destination-gate",
+   "summary": "The MCP shell-out layer also refuses the local-file READ flags (--home, --input, --notes-file, --playbook-file, --playbook-notes-file), and a tree test fails the build when any shell-out tool forwards a flag whose usage text names a filesystem path",
+   "why": "Press 4.33.5 ships blockedDestinationFlags for write destinations (--db, --output and friends) but not for read sources. Forwarded, --playbook-file or --input let one MCP tool call load any file the server account can reach (credentials.toml included) into the local store, where playbook_list and sql hand it back. isFilesystemPathFlag classifies by USAGE TEXT, not flag name, so generated vendor body fields named like paths stay forwarded. Proven both directions: removing home and playbook-file from the map makes TestNoShellOutToolCanDirectAFilesystemPath fail naming them; restored, it passes. Same gate as skills/acronis and the rest of the fleet.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "\"playbook-file\":       true,"
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "\"home\":                true,"
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "func isFilesystemPathFlag(flag *pflag.Flag) bool {"
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "func UnblockedFilesystemPathFlags(root *cobra.Command) []string {"
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/shellout.go",
+     "contains": "strings.Contains(k, \"=\")"
+    },
+    {
+     "file": "cli/internal/mcp/cobratree/filesystem_tree_test.go",
+     "contains": "func TestNoShellOutToolCanDirectAFilesystemPath("
+    }
+   ]
+  },
+  {
+   "id": "code-orch-get-only",
+   "summary": "proxmox_execute refuses any non-GET endpoint whether or not PROXMOX_MCP_READ_ONLY is set",
+   "why": "The connector is read-only toward Proxmox by design (an MSP owner: 'I dont let AI near my hypervisors'), but the generated execute handler keeps live POST/PUT/PATCH/DELETE branches and refuses them only under the opt-in read-only switch. Today every codeOrchEndpoints entry is a GET, so read-only rested on one generated table with no guard: a reprint that admitted one write endpoint would make it callable over MCP. The refusal sits in the handler, ahead of the switch check, so the generated codeOrchBlockedByMCPReadOnly test keeps its meaning. TestCodeOrchIsGetOnly asserts every table entry is GET and that an injected POST is refused; reverting the guard makes it fail.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "this connector never writes to Proxmox\", ep.Method, id",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/code_orch_get_only_test.go",
+     "contains": "func TestCodeOrchIsGetOnly("
+    }
+   ]
+  },
+  {
+   "id": "root-help-highlights-accurate",
+   "summary": "The root --help highlights and the which index say capacity forecasts only PBS datastores, restore-points claims no prune prediction, and restore-points exit 5 also means no readable point while a source was unread",
+   "why": "The press copies the research novel-feature descriptions into root.go. Two overclaimed: capacity has no forecast for PVE storage (only PBS computes estimated-full-date), and pruneMarks runs only on PVE storage listings, so PBS-API points carry no prune mark. Round-2 adversarial review (2026-10-15) flagged both as claims the binary does not deliver. which.go carries the same novel-feature text (plus the restore-points exit-code note) and drifted the same way; adversarial round 5 caught the exit-5 contradiction against restore-points --help. Codex round 22 and adversarial round 12 (2026-10-15) found the prune prediction itself unsound (vzdump backs up before it prunes, per-node storages across migrations, storage aliases of one PBS datastore), so restore-points stopped predicting prunes and every description of it (root.go, which.go, the MCP insight in tools.go) drops the claim. Codex round 23 found capacity's unpruned flag a retention-absence claim built on one cluster's jobs, so capacity stopped asserting it and every description drops 'prune state'. The merge-gate Codex review (2026-10-16) found the MCP command-mirror description in tools.go still carried the PVE forecast overclaim.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "PBS datastores ranked by days until full, plus every PVE backup storage by percent used (only PBS forecasts)"
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "across its cluster's storages and PBS namespaces, with verify state, protection and encryption."
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "Every PBS datastore and PVE backup storage ranked by days until full"
+    },
+    {
+     "file": "cli/internal/cli/which.go",
+     "contains": "exit 5 means no cluster answered, or no match had a readable restore point while some source was not read"
+    },
+    {
+     "file": "cli/internal/cli/which.go",
+     "not_contains": "exit 5 means no cluster answered.\""
+    },
+    {
+     "file": "cli/internal/cli/which.go",
+     "contains": "PBS datastores ranked by days until full, plus every PVE backup storage by percent used (only PBS forecasts)"
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "whether the next prune removes it"
+    },
+    {
+     "file": "cli/internal/cli/which.go",
+     "not_contains": "whether the next prune removes it"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "PBS snapshots and the prune preview"
+    },
+    {
+     "file": "cli/internal/cli/root.go",
+     "not_contains": "garbage-collection and prune state"
+    },
+    {
+     "file": "cli/internal/cli/which.go",
+     "not_contains": "garbage-collection and prune state"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "GC and prune job state"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "contains": "PBS datastores ranked by days until full, plus every PVE backup storage by percent used (only PBS forecasts)"
+    },
+    {
+     "file": "cli/internal/mcp/tools.go",
+     "not_contains": "Every PBS datastore and PVE backup storage ranked by days until full"
+    }
+   ]
+  },
+  {
+   "id": "response-secret-redaction",
+   "summary": "Every successful JSON response passes through redactSecretFields before the generated client returns it, so secret-named fields never reach the HTTP cache, the local store, the search index, or any CLI or MCP output",
+   "why": "GET /storage returns a storage plugin's storage.cfg entry verbatim, and third-party plugins (freenas-proxmox and similar) keep passwords and API keys there. The generated client cached and stored the body as-is, and the MCP sql/search/execute tools returned it. Found by adversarial round 7 with a sentinel secret; TestStorageSecretsRedacted and client TestRedactSecretFields pin it.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "json.RawMessage(redactSecretFields(unwrapResponseEnvelope(sanitizeJSONResponse(respBody))))"
+    },
+    {
+     "file": "cli/internal/client/proxmox_routing.go",
+     "contains": "func redactSecretFields(body []byte) []byte {"
+    }
+   ]
+  },
+  {
+   "id": "mcp-read-only-hints",
+   "summary": "proxmox_execute and the posture recipe tool advertise readOnlyHint=true / destructiveHint=false (mcp-go defaults a tool to destructive)",
+   "why": "Every code-orchestration endpoint is a GET and execute refuses anything else (code-orch-get-only), but the generated tools carried mcp-go's default hints, so an MCP client gating on hints treated every Proxmox read as a destructive write. Found by adversarial round 7; internal/mcp/read_only_hints_test.go pins it.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "contains": "mcplib.WithReadOnlyHintAnnotation(true)",
+     "min_count": 3,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/intents.go",
+     "contains": "mcplib.WithReadOnlyHintAnnotation(true)",
+     "min_count": 1,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/mcp/read_only_hints_test.go",
+     "contains": "func TestToolsAdvertiseReadOnly("
+    }
+   ]
+  },
+  {
+   "id": "upstream-description-slips",
+   "summary": "Three upstream apidoc summaries that name the wrong operation are corrected in the generated command, the MCP endpoint table, SKILL.md and guide.md",
+   "why": "proxmox-backup's doc comments put 'Add a TOTP secret to the user' over the GET that lists a user's TFA entries, 'List all datastores' over the network-interface list, and 'Get named known ACME directory endpoints' over the challenge-schema read. In a read-only connector the first reads as a secret-writing call. A reprint from the same apidoc brings them back.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/pbs_access_tfa-get.go",
+     "contains": "List a user's TFA entries (types and descriptions; no secrets)."
+    },
+    {
+     "file": "cli/internal/cli/pbs_nodes_network.go",
+     "contains": "List network interfaces. Required privilege"
+    },
+    {
+     "file": "cli/internal/cli/pbs_config_acme-challenge-schema.go",
+     "contains": "Get the ACME challenge plugin schema."
+    },
+    {
+     "file": "cli/internal/mcp/code_orch.go",
+     "not_contains": "Add a TOTP secret to the user"
+    }
+   ]
+  },
+  {
+   "id": "per-cluster-store",
+   "summary": "configureDefaultDBScope keys the local store by the selected clusters.toml entry (--cluster / PROXMOX_CLUSTER), so each client cluster has its own data.db",
+   "why": "The generated store scope comes from the env/config credential, fixed before the selected cluster's token is applied, so every --cluster wrote into one store: colliding VMIDs overwrote another client's rows, and an unreachable cluster's read fell back to another client's data labelled source=local. Found by adversarial round 7; TestLocalStoreIsPerCluster pins it. The merge-gate Codex review (2026-10-16) found the name alone shared one store across two clusters files (or a clusters add --force replacement) that reuse a name for another client; the key now carries the clusters file path and the entry's endpoints (not the client label, so a rename keeps local-only data), and an entry with no endpoint identity gets a per-process store no later invocation reopens. TestReusedClusterNameGetsItsOwnStore and TestUnresolvedClusterNeverReopensAStore pin it.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "if scope := clusterStoreScope(); scope != \"\" {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/clusters.go",
+     "contains": "func clusterStoreScope() string {"
+    },
+    {
+     "file": "cli/internal/cli/clusters.go",
+     "contains": "return strings.Join(append([]string{\"proxmox-cluster\", name, path}, id...), \"\\x00\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/clusters.go",
+     "contains": "return strings.Join([]string{\"proxmox-cluster-unresolved\", name, unresolvedStoreNonce}, \"\\x00\")",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "no-response-cache",
+   "summary": "The generated response cache is off (proxmoxNoResponseCache): no read is answered from it or written to it, because Proxmox answers carry free-text notes and comments where MSPs keep credentials, and a backup-assurance tool must not answer from a 5-minute-old copy",
+   "why": "Generated client.go caches every fresh GET on disk for 5 minutes, so VM/node/pool descriptions, backup notes, PBS snapshot comments and notes persisted in 0600 files. The 2026-10-16 adversarial reviews (rounds 20-22) and Codex round 34 found them there; a path allowlist missed every PBS read (absolute https://host:8007 URLs) and every comment-bearing endpoint nobody listed, so the cache is off at its single gate (responseCacheEnabled), which also stops a stale file from an older version being served. internal/cli/codex_round31_test.go (TestVMConfigNotCached) fails if any response cache file is written by the PVE and PBS reads it drives.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "return !proxmoxNoResponseCache && !binaryResponse",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/proxmox_routing.go",
+     "contains": "const proxmoxNoResponseCache = true",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_round31_test.go",
+     "contains": "func TestVMConfigNotCached("
+    }
+   ]
+  },
+  {
+   "id": "windows-sddl-alias-sid-compare",
+   "summary": "the Windows token-file guard compares trustees by SID, resolving SDDL aliases through the OS, so the built-in Administrator (RID 500, rendered as LA) can save and load credentials",
+   "why": "Press 4.30.2+ creds_perms_eval.go compared the SDDL text of the token file's owner and ACE trustees against the process's SID string. The SDDL converter renders the built-in local Administrator (RID 500) as the alias LA, so that account's own ACE never matched: `auth set-token` exited 1 with `token file DACL grants access to a non-owner principal (LA)` and every read refused the file. Reproduced 2026-10-15 on the published fortinet-cli 0.1.0, installed with the README one-liner on a windows-latest runner (whoami S-1-5-21-...-500). The fix resolves each trustee to its SID (fixed aliases from a table, machine-relative ones like LA through ConvertStringSidToSid, kept only when the converter renders that SID back to the same alias) and compares SIDs. The allow-list is unchanged (current user, BUILTIN\\Administrators, SYSTEM): an owner or allow-ACE trustee that is any other principal, a broad group, or unresolvable is still refused. A reprint from an unfixed press silently restores the string compare while unit tests stay green on every non-Windows host.",
+   "status": "active",
+   "spec_encode_followup": "Press defect in internal/generator/templates/cliutil_creds_perms_eval.go.tmpl and cliutil_creds_perms_windows.go.tmpl (unfixed on press main as of 4.33.5). Reported upstream: https://github.com/mvanhorn/cli-printing-press/issues/5029",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/creds_perms_eval.go",
+     "contains": "func trusteeSID(trustee string, resolveAlias sddlAliasResolver) string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/creds_perms_eval.go",
+     "contains": "if om == nil || !sidAllowed(trusteeSID(om[1], resolveAlias), currentUserSID) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/creds_perms_eval.go",
+     "contains": "if !sidAllowed(trusteeSID(trustee, resolveAlias), currentUserSID) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/creds_perms_windows.go",
+     "contains": "return evalCredsSecurityResolved(sd.String(), me, resolveSDDLAlias)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/creds_perms_windows.go",
+     "contains": "sid, err := windows.StringToSid(alias)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/creds_perms_windows.go",
+     "not_contains": "return evalCredsSecurity(sd.String(), me)"
+    },
+    {
+     "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
+     "contains": "func TestEvalCredsSecurityResolvesSDDLAliases(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "windows-null-dacl-behind-flags",
+   "summary": "the Windows token-file guard checks the DACL section's framing, so a NULL DACL is refused in the form Windows actually renders it, flags first (D:PAINO_ACCESS_CONTROL), and DACL text that does not frame as flags plus complete six-field ACEs is refused rather than skipped",
+   "why": "Press creds_perms_eval.go refused a NULL DACL only when the DACL section began with NO_ACCESS_CONTROL. SDDL puts DACL flags (P, AI, AR) first, and a real NULL DACL on Windows Server 2025 renders as O:<owner>D:PAINO_ACCESS_CONTROL (measured on a windows-latest runner, 2026-10-15), so the guard found no ACEs to inspect and accepted a world-accessible token file. That was already a hole for every ordinary account; for the built-in Administrator the owner-alias mismatch happened to refuse it, so resolving LA (windows-sddl-alias-sid-compare) without this fix would have widened the hole. The DACL section's framing is now checked: its flags must be drawn from P/AI/AR/NO_ACCESS_CONTROL, an empty DACL followed by a SACL section ends at that section, and the ACE list must be complete, un-nested (...) groups of exactly six fields. Unknown flags, an unclosed or nested group, stray text, or a wrong field count is refused (fail-closed). ACE flags and rights are not validated; they do not change which principal an allow ACE names.",
+   "status": "active",
+   "spec_encode_followup": "Same press templates as windows-sddl-alias-sid-compare; reported in the same upstream issue: https://github.com/mvanhorn/cli-printing-press/issues/5029",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/creds_perms_eval.go",
+     "contains": "if strings.Contains(daclFlags, \"NO_ACCESS_CONTROL\") {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/creds_perms_eval.go",
+     "contains": "if !daclFlagsRe.MatchString(daclFlags) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/creds_perms_eval.go",
+     "contains": "if !aceListRe.MatchString(rest[flagsEnd:]) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/creds_perms_eval.go",
+     "contains": "if len(fields) != 6 {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/creds_perms_eval.go",
+     "not_contains": "if strings.HasPrefix(rest, \"NO_ACCESS_CONTROL\") {"
+    },
+    {
+     "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
+     "contains": "func TestEvalCredsSecurityRefusesNullDACLBehindFlags(t *testing.T) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
+     "contains": "func TestEvalCredsSecurityChecksTheDACLSectionFraming(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "endpoints-env-only",
+   "summary": "A PVE endpoint from one run's environment (PROXMOX_BASE_URL, PROXMOX_HOST, --cluster) is never saved to config.toml; when PROXMOX_HOST names another host:port than a saved base_url, or an endpoint is ambiguous ('@' after '/'), no PVE (or PBS) request is sent; no endpoint keeps a user:password@ part",
+   "why": "Generated config.go persisted the runtime BaseURL and TemplateVars on every save, so `auth set-token` run with PROXMOX_BASE_URL wrote that host into config.toml, and every later env-configured run sent its own token there, ignoring PROXMOX_HOST: client B's token reached client A's host (2026-10-16 adversarial round 24, reproduced against a stub that logged the Authorization header). configForSave now keeps the file's endpoints; Load records an EndpointRefusal when PROXMOX_HOST names another host:port than a base_url saved without {host} (default port 8006; round 26 found a host-only compare let a port mismatch through), and doInternal in generated client.go refuses every PVE request with it, so auth logout and --cluster runs (which clear it) still work, and strips user:password@ from every endpoint so it is never sent or printed (endpoint_userinfo.go). internal/config/endpoints_env_only_test.go fails if any part is removed. Round 29: an ambiguous PROXMOX_PBS_HOST is refused (PBSRefusal, enforced in doInternal for PBS requests), never replaced by a pbs_host saved in config.toml, and ambiguous endpoints are stored only redacted so doctor cannot print them.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "out.BaseURL = c.fileConfig.BaseURL",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "if err := hostAgrees(cfg.BaseURL, h); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "StripUserinfo(cliutil.EnvOverride(\"PROXMOX_BASE_URL\"))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/endpoint_userinfo.go",
+     "contains": "func hostAgrees(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/endpoints_env_only_test.go",
+     "contains": "func TestHostEnvMustAgreeWithSavedBaseURL("
+    },
+    {
+     "file": "cli/internal/config/endpoints_env_only_test.go",
+     "contains": "func TestEnvEndpointIsNeverSaved("
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.Config.EndpointRefusal != \"\" && c.operationSendsPrimaryAuth(method, path)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "EndpointRefusal    string",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/adversarial_round24_test.go",
+     "contains": "func TestHostDisagreementSendsNothing("
+    },
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "c.Config.PBSRefusal != \"\" && !c.operationSendsPrimaryAuth(method, path)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "cfg.PBSRefusal = \"the Proxmox Backup Server host \"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/endpoints_env_only_test.go",
+     "contains": "func TestAmbiguousPBSHostNeverFallsBack("
+    }
+   ]
+  },
+  {
+   "id": "mirror-answer-warns",
+   "summary": "A per-endpoint read that answers from the local mirror because Proxmox could not be reached warns on stderr in every output form (the JSON meta.source label is lost in --csv, --plain and --quiet)",
+   "why": "Generated data_source.go falls back to the local SQLite mirror on a network error and labels it only in the JSON envelope, so `backup job --csv` after a sync printed a stale job row, exit 0, with nothing marking it (2026-10-16 adversarial round 24). Both fallback sites now call warnMirrorAnswer (internal/cli/mirror_answer.go). internal/cli/adversarial_round24_test.go (TestMirrorAnswerWarnsInEveryForm) fails if the call is removed.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "warnMirrorAnswer(hintWriter, fallbackProv)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/mirror_answer.go",
+     "contains": "func warnMirrorAnswer(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/adversarial_round24_test.go",
+     "contains": "func TestMirrorAnswerWarnsInEveryForm("
+    }
+   ]
+  },
+  {
+   "id": "profile-store-scope",
+   "summary": "PersistentPreRunE re-scopes the local store after a saved run profile is applied, so a profile's saved --cluster or --config gets that tenant's store",
+   "why": "The generated pre-run scopes the store before ApplyProfileToFlags, so two profiles saved with different --cluster values reached different tenants but both read and wrote the default store: rows could overwrite each other and answer for another tenant. Found by the merge-gate Codex review (2026-10-16); TestSavedProfileClusterGetsItsOwnStore pins it.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/root.go",
+     "contains": "configureDefaultDBScope(flags.configPath)",
+     "min_count": 2,
+     "code_only": true
+    }
+   ]
+  }
+ ]
+}

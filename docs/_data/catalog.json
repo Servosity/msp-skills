@@ -1,5 +1,5 @@
 {
-  "count": 78,
+  "count": 79,
   "connectors": [
     {
       "slug": "abnormal",
@@ -572,6 +572,17 @@
       "source": null,
       "issue_url": null,
       "url": "/skills/proofpoint/"
+    },
+    {
+      "slug": "proxmox",
+      "display_name": "Proxmox",
+      "tagline": "Prove every client's Proxmox VMs are backed up and verified, read-only, from one prompt.",
+      "category": "Backup/DR",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "url": "/skills/proxmox/"
     },
     {
       "slug": "quickbooks",

@@ -232,6 +232,10 @@ proofpoint:
   vendor: "Proofpoint"
   example_command: "Who's both attacked and clicking?"
 
+proxmox:
+  vendor: "Proxmox"
+  example_command: "Which client VMs lack a verified backup?"
+
 quickbooks:
   vendor: "QuickBooks Online"
   example_command: "Which overdue invoices should I chase first?"

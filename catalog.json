@@ -1101,6 +1101,26 @@
       "tagline": "Investigate Proofpoint TAP threats, VAPs, and top clickers from your terminal without burning the daily API quota."
     },
     {
+      "name": "proxmox",
+      "system": "Proxmox Virtual Environment (PVE) hypervisor clusters and Proxmox Backup Server (PBS)",
+      "status": "beta",
+      "skill_path": "skills/proxmox",
+      "cli_binary": "proxmox-cli",
+      "mcp_binary": "proxmox-mcp",
+      "version": "0.1.0",
+      "printing_press_version": "4.33.5",
+      "license": "Apache-2.0",
+      "vendor": "Proxmox",
+      "vendor_trademark_owner": "Proxmox Server Solutions GmbH",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/proxmox/install.sh)",
+      "install_mcp_doc": "skills/proxmox/mcp-install.md",
+      "description": "Read-only Proxmox VE and Backup Server CLI that tells you, across every client cluster, which guests have a good, verified, recent restore point and which do not.",
+      "verification": "awaiting",
+      "category": "Backup/DR",
+      "tagline": "Prove every client's Proxmox VMs are backed up and verified, read-only, from one prompt."
+    },
+    {
       "name": "quickbooks",
       "system": "QuickBooks Online accounting: invoices, bills, payments, customers, vendors, AR/AP aging, DSO, cash forecast",
       "status": "beta",
