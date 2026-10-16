@@ -90,9 +90,12 @@ func sidAllowed(sid, currentUserSID string) bool {
 // aceRe pulls each "(...)" ACE group out of an SDDL string.
 var aceRe = regexp.MustCompile(`\(([^)]*)\)`)
 
-// daclFlagsRe and aceListRe accept only a well-formed DACL section: the SDDL
-// DACL flags, then nothing but complete, un-nested "(...)" ACEs. A conditional
-// ACE (nested parentheses) or an unclosed ACE fails them and is refused.
+// daclFlagsRe and aceListRe check the DACL section's framing: SDDL DACL flags,
+// then nothing but complete, un-nested "(...)" groups. A conditional ACE
+// (nested parentheses), an unclosed group or stray text fails them and is
+// refused. Inside a group the loop below checks the field count, the ACE type
+// and the trustee; it does not validate ACE flags or rights, which do not
+// change which principal an allow ACE names.
 var (
 	daclFlagsRe = regexp.MustCompile(`^(?:P|AI|AR|NO_ACCESS_CONTROL)*$`)
 	aceListRe   = regexp.MustCompile(`^(?:\([^()]*\))*$`)
@@ -104,14 +107,18 @@ var (
 var ownerRe = regexp.MustCompile(`O:(S(?:-\d+)+|[A-Za-z]{2})`)
 
 // evalCredsSecurity evaluates with only the machine-independent aliases known;
-// a machine-relative alias such as LA stays unresolved and is refused.
+// a machine-relative alias such as LA stays unresolved, so as an owner or an
+// allow-ACE trustee it is refused.
 func evalCredsSecurity(sddl, currentUserSID string) error {
 	return evalCredsSecurityResolved(sddl, currentUserSID, nil)
 }
 
-// evalCredsSecurityResolved fails CLOSED: a missing owner or DACL, a NULL
-// DACL, unknown DACL flags, a malformed ACE list, an unsupported ACE type, an
-// unresolvable trustee, or a disallowed principal returns an error.
+// evalCredsSecurityResolved fails CLOSED. It returns an error for: a missing
+// owner or DACL; a NULL DACL; DACL flags other than P/AI/AR/NO_ACCESS_CONTROL;
+// a DACL that is not a run of complete, un-nested six-field "(...)" groups; an
+// ACE type other than A/OA/D/OD; and an owner or allow-ACE trustee that cannot
+// be resolved or is not the current user, Administrators or SYSTEM. Deny ACEs
+// (D/OD) are skipped because they grant nothing.
 func evalCredsSecurityResolved(sddl, currentUserSID string, resolveAlias sddlAliasResolver) error {
 	// (c) Owner must be current user, Administrators, or SYSTEM.
 	om := ownerRe.FindStringSubmatch(sddl)
@@ -151,7 +158,7 @@ func evalCredsSecurityResolved(sddl, currentUserSID string, resolveAlias sddlAli
 	}
 	for _, m := range aceRe.FindAllStringSubmatch(rest, -1) {
 		fields := strings.Split(m[1], ";")
-		if len(fields) < 6 {
+		if len(fields) != 6 { // A/OA/D/OD ACEs have exactly six fields
 			return fmt.Errorf("token file DACL has an unparseable ACE; refusing (fail-closed)")
 		}
 		aceType := strings.ToUpper(strings.TrimSpace(fields[0]))
