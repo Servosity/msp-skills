@@ -302,3 +302,15 @@ func TestUUIDBaseURLNeverShown(t *testing.T) {
 		}
 	}
 }
+
+// Round 39 P2: a GUID-named PBS namespace (or one below it) is a real
+// namespace, not a token.
+func TestGUIDNamespaceIsValid(t *testing.T) {
+	f := newFixture(t)
+	writeClustersFile(t, acmeClusters(f, f.pbs.URL, `pbs_namespace = "5ec7e7aa-0000-4000-8000-00000000c0de/pve1"`))
+	setAcmeTokens(t)
+	out, _, _ := runCLI(t, "clusters", "list", "--json")
+	if strings.Contains(out, "looks like an API token") {
+		t.Errorf("a GUID-named namespace refused:\n%s", out)
+	}
+}

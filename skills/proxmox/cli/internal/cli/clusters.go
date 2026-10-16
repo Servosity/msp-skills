@@ -190,7 +190,7 @@ func (cl clusterProfile) validate(name string) error {
 		}
 	}
 	for field, v := range map[string]string{"pve_host": cl.PVEHost, "pbs_host": cl.PBSHost, "pve_base_url": cl.PVEBaseURL, "pbs_namespace": cl.PBSNamespace} {
-		if config.TokenShaped(v) {
+		if config.TokenShaped(v) && (field != "pbs_namespace" || strings.ContainsAny(v, "!=")) { // a GUID-named namespace is a real one
 			// Never echo or use it: a host holding '!' or '=' is a pasted API token.
 			return fmt.Errorf("cluster %q: %s looks like an API token (it holds '!' or '=', or is a bare UUID), so it is not shown and not used: put the token in the environment and its variable NAME in pve_token_env/pbs_token_env", name, field)
 		}
@@ -376,7 +376,7 @@ func newClustersListCmd(flags *rootFlags) *cobra.Command {
 					Name: name, Client: cl.Client, PVE: pve, PVETokenEnv: shownEnvName(cl.PVETokenEnv),
 					PVETokenSet: envValue(cl.PVETokenEnv) != "", PVEPinned: cl.PVEFingerprint != "",
 					PBS: config.RedactUserinfo(cl.PBSHost), PBSTokenEnv: shownEnvName(cl.PBSTokenEnv), PBSTokenSet: envValue(cl.PBSTokenEnv) != "",
-					PBSPinned: cl.PBSFingerprint != "", PBSNamespace: config.RedactUserinfo(cl.PBSNamespace), ClustersSource: path,
+					PBSPinned: cl.PBSFingerprint != "", PBSNamespace: shownNamespace(cl.PBSNamespace), ClustersSource: path,
 				})
 				if err := cl.validate(name); err != nil {
 					rows[len(rows)-1].Invalid = err.Error()
@@ -400,6 +400,14 @@ func newClustersListCmd(flags *rootFlags) *cobra.Command {
 			return flags.printTable(cmd, []string{"NAME", "CLIENT", "PVE", "PVE TOKEN", "PBS", "PBS TOKEN"}, tableRows)
 		},
 	}
+}
+
+// shownNamespace hides a pbs_namespace holding '!' or '=' (a pasted token).
+func shownNamespace(ns string) string {
+	if strings.ContainsAny(ns, "!=") {
+		return "(not shown: it looks like an API token)"
+	}
+	return ns
 }
 
 // shownEnvName: a *_token_env value that is not a variable name may be the
