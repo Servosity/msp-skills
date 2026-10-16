@@ -108,7 +108,7 @@ func newNovelFailuresCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 			sinceT := time.Now().Add(-window)
-			if want["verify"] || want["gc"] || want["sync"] || want["prune"] {
+			if want["verify"] || want["gc"] || want["sync"] || want["prune"] || want["other"] {
 				markSharedPBS(ctx, flags, targets)
 			}
 			type result struct {
