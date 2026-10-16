@@ -171,7 +171,7 @@ func pbsOrigin(host string) (string, error) {
 	}
 	u, err := url.Parse(raw)
 	if err != nil || u.Hostname() == "" || (u.Path != "" && u.Path != "/") || strings.ContainsAny(host, "?#") || u.User != nil {
-		return "", fmt.Errorf("PROXMOX_PBS_HOST %q must be a host, host:port, or https://host:port", host)
+		return "", fmt.Errorf("PROXMOX_PBS_HOST %q must be a host, host:port, or https://host:port", config.RedactUserinfo(host))
 	}
 	if u.Scheme != "https" {
 		return "", fmt.Errorf("PROXMOX_PBS_HOST %q must use https (the PBS token is never sent in clear text)", host)
@@ -283,7 +283,7 @@ func (c *Client) CheckServiceOrigins() error {
 	}
 	u, perr := url.Parse(resolved)
 	if perr != nil || u.Hostname() == "" {
-		return fmt.Errorf("the Proxmox VE base URL %q is not a valid URL", c.BaseURL)
+		return fmt.Errorf("the Proxmox VE base URL %q is not a valid URL", config.RedactUserinfo(c.BaseURL))
 	}
 	// Plain http is refused except to a loopback IP literal, which never
 	// leaves this machine (a local stub or test server; real PVE is HTTPS).

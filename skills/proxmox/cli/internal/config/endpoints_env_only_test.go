@@ -67,28 +67,47 @@ func TestHostEnvMustAgreeWithSavedBaseURL(t *testing.T) {
 func TestEndpointUserinfoIsDropped(t *testing.T) {
 	isolateCredentials(t)
 	p := filepath.Join(t.TempDir(), configFileName())
-	t.Setenv("PROXMOX_BASE_URL", "https://root:Pa5/5?wo#rd@pve.example:8006/api2/json")
-	t.Setenv("PROXMOX_PBS_HOST", "//backup:Pa5/5?wo#rd@pbs.example:8007")
+	t.Setenv("PROXMOX_BASE_URL", "https://root:Pa5?wo#rd@pve.example:8006/api2/json")
+	t.Setenv("PROXMOX_PBS_HOST", "//backup:Pa5?wo#rd@pbs.example:8007")
 	cfg, err := Load(p)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(cfg.BaseURL+cfg.TemplateVars["pbs_host"], "wo#rd") || !strings.Contains(cfg.BaseURL, "pve.example:8006") {
-		t.Errorf("userinfo kept: %s %s", cfg.BaseURL, cfg.TemplateVars["pbs_host"])
+	if strings.Contains(cfg.BaseURL+cfg.TemplateVars["pbs_host"], "wo#rd") || !strings.Contains(cfg.BaseURL, "pve.example:8006") || cfg.EndpointRefusal != "" {
+		t.Errorf("userinfo kept: %s %s %q", cfg.BaseURL, cfg.TemplateVars["pbs_host"], cfg.EndpointRefusal)
 	}
 	if got := RedactUserinfo("root:Pa5/5?wo#rd@pve.example"); strings.Contains(got, "wo#rd") || !strings.Contains(got, "pve.example") {
 		t.Errorf("RedactUserinfo: %s", got)
 	}
 }
 
+// An '@' after a '/' is a password holding '/' or a path holding '@': no
+// PVE request is sent, no PBS host is used, and nothing printed carries it.
+func TestAmbiguousEndpointIsRefused(t *testing.T) {
+	for _, base := range []string{"https://root:Pa5/5wo#rd@pve.example:8006/api2/json", "https://gateway.example:8443/clients/@collector.example/api2/json"} {
+		isolateCredentials(t)
+		t.Setenv("PROXMOX_BASE_URL", base)
+		t.Setenv("PROXMOX_PBS_HOST", "https://backup:Pa5/5wo#rd@pbs.example:8007")
+		cfg, err := Load(filepath.Join(t.TempDir(), configFileName()))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if cfg.EndpointRefusal == "" || strings.Contains(cfg.EndpointRefusal, "wo#rd") || strings.Contains(cfg.TemplateVars["pbs_host"], "wo#rd") {
+			t.Errorf("%s: refusal %q pbs_host %q", base, cfg.EndpointRefusal, cfg.TemplateVars["pbs_host"])
+		}
+	}
+}
+
 func TestUserinfoEdges(t *testing.T) {
 	for in, want := range map[string]string{
-		"https://root:p/S?x#y@pve.example:8006/api2/json": "https://pve.example:8006/api2/json",
-		"//backup:pw@pbs.example":                         "//pbs.example",
-		"root:pa://ss@pve.example":                        "pve.example",
-		"user@pve.example":                                "pve.example",
-		"https://pve.example/api2/json@evil.example":      "https://pve.example/api2/json@evil.example", // '@' in a path: not userinfo
-		"https://pve.example:8006/api2/json":              "https://pve.example:8006/api2/json",
+		"https://root:p?x#y@pve.example:8006/api2/json": "https://pve.example:8006/api2/json",
+		"https://root:p/S@pve.example:8006/api2/json":   "https://root:p/S@pve.example:8006/api2/json", // ambiguous: refused at load, never stripped
+		"https://gw.example:8443/x/@evil.example/api2":  "https://gw.example:8443/x/@evil.example/api2",
+		"//backup:pw@pbs.example":                       "//pbs.example",
+		"root:pa://ss@pve.example":                      "root:pa://ss@pve.example", // ambiguous: refused at load
+		"user@pve.example":                              "pve.example",
+		"https://pve.example/api2/json@evil.example":    "https://pve.example/api2/json@evil.example", // '@' in a path: not userinfo
+		"https://pve.example:8006/api2/json":            "https://pve.example:8006/api2/json",
 	} {
 		if got := StripUserinfo(in); got != want {
 			t.Errorf("StripUserinfo(%q) = %q, want %q", in, got, want)

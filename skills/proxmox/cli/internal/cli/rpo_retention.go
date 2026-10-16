@@ -198,13 +198,25 @@ func (r *rpoRetention) vzdumpMayPrune(job backupJob, node, target string) bool {
 	return (remove == nil || bool(*remove)) && policy.prunes()
 }
 
-// onTarget: rp was written by a job whose target storage is target (for a
-// PBS storage: its datastore and namespace, read through either API).
-func onTarget(rp restorePoint, target string, ref *pbsStorageRef) bool {
+// destinationKey names where a job writes: for a PBS storage the PBS server,
+// datastore and namespace (two storage ids for one datastore are one
+// destination; one datastore name on two servers is two), else the storage.
+func destinationKey(target string, ref *pbsStorageRef) string {
 	if ref != nil {
-		return strings.HasPrefix(rp.canonical, "pbs:") && rp.pbsStore == ref.datastore && rp.pbsNS == ref.namespace
+		return "pbs:" + strings.ToLower(ref.server) + "/" + ref.datastore + "/" + ref.namespace
 	}
-	return strings.HasPrefix(rp.canonical, "pve:"+target+"@")
+	return "pve:" + target
+}
+
+// onDestination: rp is a backup at that destination (a PBS snapshot by its
+// server, datastore and namespace, read through either API; any other
+// archive by its storage id, on whichever node).
+func onDestination(rp restorePoint, key string) bool {
+	if strings.HasPrefix(key, "pbs:") {
+		server, _, ok := strings.Cut(strings.TrimPrefix(rp.canonical, "pbs:"), "/")
+		return ok && strings.HasPrefix(rp.canonical, "pbs:") && key == "pbs:"+strings.ToLower(server)+"/"+rp.pbsStore+"/"+rp.pbsNS
+	}
+	return strings.HasPrefix(rp.canonical, key+"@")
 }
 
 var errNoPBS = errors.New("no Proxmox Backup Server configured")
