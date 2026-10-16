@@ -368,12 +368,7 @@ func collectRestorePoints(ctx context.Context, t fleetTarget, query string, veri
 		for i, rp := range points {
 			if (rp.GuestType == "" || rp.GuestType == g.Type) && birth.of(rp.Time) == ofEitherGuest {
 				points[i].MayBeEarlierGuest = true // listed, never withheld: it may be the one to restore
-				either = append(either, rp)
 			}
-		}
-		if len(either) > 0 {
-			gr.MayBeEarlierGuest = len(either)
-			notRead = append(notRead, eitherGuestWhy(either, birth)+" (listed with may_be_earlier_guest)")
 		}
 		points, unreadable := splitUnreadable(points)
 		for _, rp := range unreadable {
@@ -407,6 +402,17 @@ func collectRestorePoints(ctx context.Context, t fleetTarget, query string, veri
 			}
 		}
 		gr.Count = len(kept)
+		for _, rp := range kept {
+			if rp.MayBeEarlierGuest {
+				either = append(either, rp)
+			}
+		}
+		if len(either) > 0 {
+			gr.MayBeEarlierGuest = len(either)
+			notRead = append(notRead, eitherGuestWhy(either, birth)+" (listed with may_be_earlier_guest)")
+		} else if birth.unread {
+			notRead = append(notRead, "its config (which records when the VM was created) could not be read (see fetch_failures)")
+		}
 		gr.HiddenUnverified = gr.Readable - gr.Count
 		gr.Evidence = "full"
 		if len(notRead) > 0 {

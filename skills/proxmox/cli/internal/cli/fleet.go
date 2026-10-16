@@ -382,8 +382,9 @@ func getJSON(ctx context.Context, c *client.Client, path string, params map[stri
 	if strings.HasPrefix(path, "/") && strings.TrimSpace(c.BaseURL) == "" {
 		return errors.New("this cluster has no Proxmox VE host configured (set pve_host or pve_base_url in clusters.toml)")
 	}
-	// Assurance reads must see current state: never answer from the response cache.
-	raw, err := c.GetNoCache(ctx, path, params)
+	// Assurance reads must see current state: never answer from the response
+	// cache, and never store what they read in it either.
+	raw, err := c.GetNoStore(ctx, path, params)
 	if err != nil {
 		return err
 	}
@@ -2453,7 +2454,11 @@ func (b *guestBirths) read(ctx context.Context, g pveGuest) guestBirth {
 	var cfg struct {
 		Meta string `json:"meta"`
 	}
-	if err == nil && len(raw) > 0 && string(raw) != "null" {
+	switch {
+	case err != nil:
+	case len(raw) == 0 || string(raw) == "null":
+		err = errors.New("empty config response")
+	default:
 		err = json.Unmarshal(raw, &cfg)
 	}
 	if err != nil {
@@ -2488,7 +2493,7 @@ func eitherGuestWhy(points []restorePoint, b guestBirth) string {
 		}
 	}
 	if b.unread {
-		return fmt.Sprintf("%d backup(s) under its VMID (newest %s) were read, but its config (which records when the VM was created) could not be, so they cannot be told from an earlier guest's with the same VMID", len(points), newest)
+		return fmt.Sprintf("%d backup(s) under its VMID (newest %s) are listed, but its config (which records when the VM was created) could not be read, so they cannot be told from an earlier guest's with the same VMID", len(points), newest)
 	}
 	return fmt.Sprintf("%d backup(s) under its VMID (newest %s) are dated within an hour before this VM's recorded creation and may be an earlier guest's with the same VMID", len(points), newest)
 }

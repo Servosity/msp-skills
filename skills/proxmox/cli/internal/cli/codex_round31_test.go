@@ -70,7 +70,7 @@ func TestUnreadVMConfigCreditsNothing(t *testing.T) {
 	})
 	out, _, _ := runCLI(t, "posture", "--json")
 	rep := decodeJSON[postureReport](t, out)
-	if r := postureRowFor(t, out, 100); r.Verdict != "unproven" || !strings.Contains(r.Reason, "were read, but its config") {
+	if r := postureRowFor(t, out, 100); r.Verdict != "unproven" || !strings.Contains(r.Reason, "are listed, but its config") {
 		t.Errorf("posture: want unproven, got %s %q", r.Verdict, r.Reason)
 	}
 	if !strings.Contains(fmt.Sprint(rep.FetchFailures), "config") {
