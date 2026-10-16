@@ -13,17 +13,16 @@ import (
 )
 
 // userinfoEnd returns where a user:password@ part of an endpoint starts and
-// ends, or -1 when there is none ('@' in a path or query is not userinfo).
+// ends, or -1 when there is none. It runs to the LAST '@': a password may hold
+// '/', '?' or '#', and Proxmox endpoints carry no '@' in a path.
 func userinfoEnd(s string) (int, int) {
 	start := 0
 	if i := strings.Index(s, "://"); i >= 0 {
 		start = i + 3
+	} else if strings.HasPrefix(s, "//") {
+		start = 2
 	}
-	end := len(s)
-	if i := strings.IndexAny(s[start:], "/?#"); i >= 0 {
-		end = start + i
-	}
-	at := strings.LastIndex(s[start:end], "@")
+	at := strings.LastIndex(s[start:], "@")
 	if at < 0 {
 		return -1, -1
 	}
@@ -48,20 +47,24 @@ func RedactUserinfo(s string) string {
 	return s[:start] + "REDACTED@" + s[at+1:]
 }
 
-// hostAgrees: a base_url saved in config.toml names the same host as
-// PROXMOX_HOST, or the run must not start.
+// hostAgrees: a base_url saved in config.toml names the same host and port
+// as PROXMOX_HOST (default port 8006), or a PVE request must not be sent.
 func hostAgrees(baseURL, hostEnv string) error {
-	saved := ""
+	savedHost, savedPort := "", ""
 	if u, err := url.Parse(baseURL); err == nil {
-		saved = u.Hostname()
+		savedHost, savedPort = u.Hostname(), u.Port()
+		if savedPort == "" {
+			savedPort = map[string]string{"https": "443", "http": "80"}[strings.ToLower(u.Scheme)]
+		}
 	}
-	want := normalizeEndpointTemplateValue(hostEnv)
-	if h, _, err := net.SplitHostPort(want); err == nil {
-		want = h
+	want, wantPort := normalizeEndpointTemplateValue(hostEnv), "8006"
+	if h, p, err := net.SplitHostPort(want); err == nil {
+		want, wantPort = h, p
 	}
 	want = strings.Trim(want, "[]")
-	if saved != "" && strings.EqualFold(saved, want) {
+	norm := func(h string) string { return strings.TrimSuffix(strings.ToLower(h), ".") }
+	if savedHost != "" && norm(savedHost) == norm(want) && savedPort == wantPort {
 		return nil
 	}
-	return fmt.Errorf("PROXMOX_HOST is %s but base_url in config.toml points at %s; a token would go to the wrong host. Remove base_url from config.toml, or unset PROXMOX_HOST", want, RedactUserinfo(baseURL))
+	return fmt.Errorf("PROXMOX_HOST is %s but base_url in config.toml points at %s; a token would go to the wrong host. Remove base_url from config.toml, or set PROXMOX_HOST to its host:port", net.JoinHostPort(want, wantPort), RedactUserinfo(baseURL))
 }

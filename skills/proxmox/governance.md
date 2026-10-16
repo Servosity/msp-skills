@@ -180,6 +180,11 @@ hosts before any request is built.
 - **One token per client cluster**, referenced by env var name in
   `clusters.toml`, so revoking one client never touches another.
 - **Pin every certificate** with its SHA-256 fingerprint.
+- **Offsite means another server.** posture's `offsite_last_success_at`
+  counts a PBS push sync only when its remote is read and is not this Backup
+  Server (the same host:port, a loopback name, or a fingerprint this PBS is
+  pinned to). The same server reached under another name is caught only by
+  the fingerprint, so pin the PBS fingerprint.
 - **Never let an agent run the Data egress tier unattended.**
 - **Rotate a token if it is ever exposed** (for example after bridging the MCP
   server to a public endpoint for ChatGPT - see mcp-install.md).

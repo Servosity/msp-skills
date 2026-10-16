@@ -3,8 +3,11 @@ package cli
 import (
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"proxmox-pp-cli/internal/client"
@@ -127,7 +130,7 @@ func TestNewestTieGoesToTheBadCopy(t *testing.T) {
 // A password in a clusters.toml endpoint is never printed back.
 func TestEndpointPasswordIsNeverEchoed(t *testing.T) {
 	f := newFixture(t)
-	const pw = "Pa55wordSECRET"
+	const pw = "Pa5/5?wo#rdSECRET"
 	writeClustersFile(t, `
 [clusters.beta]
 pve_host = "root:`+pw+`@pve-beta.invalid"
@@ -173,5 +176,33 @@ func TestRPOCreatedInWindowMet(t *testing.T) {
 	out, _, _ := runCLI(t, "rpo", "--days", "7", "--guest", "100", "--json")
 	if r := decodeJSON[rpoReport](t, out).Rows[0]; !r.MetSchedule || r.Evidence != "full" || r.ScheduledRuns != 2 || r.LargestGapHours < 0 {
 		t.Errorf("rpo: met %v evidence %s runs %d gap %.1f note %q", r.MetSchedule, r.Evidence, r.ScheduledRuns, r.LargestGapHours, r.Note)
+	}
+}
+
+// PROXMOX_HOST naming another endpoint than a base_url saved in config.toml:
+// no request reaches the saved host; a --cluster run is not affected.
+func TestHostDisagreementSendsNothing(t *testing.T) {
+	f := newFixture(t)
+	var hits atomic.Int64
+	saved := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits.Add(1)
+		http.Error(w, `{"data":null}`, http.StatusUnauthorized)
+	}))
+	defer saved.Close()
+	cfgPath := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(cfgPath, []byte("base_url = \""+saved.URL+"/api2/json\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PROXMOX_CONFIG", cfgPath)
+	t.Setenv("PROXMOX_BASE_URL", "")
+	t.Setenv("PROXMOX_HOST", strings.TrimPrefix(f.pve.URL, "https://"))
+	_, errOut, err := runCLI(t, "nodes", "list", "--json")
+	if err == nil || hits.Load() != 0 || !strings.Contains(errOut+err.Error(), "wrong host") {
+		t.Errorf("err %v, %d request(s) reached the saved host; stderr %s", err, hits.Load(), errOut)
+	}
+	setAcmeTokens(t)
+	writeClustersFile(t, acmeClusters(f, f.pbs.URL, ""))
+	if _, errOut, err := runCLI(t, "--cluster", "acme", "posture", "--json"); err != nil || hits.Load() != 0 {
+		t.Errorf("--cluster acme: %v (%d saved-host hits) %s", err, hits.Load(), errOut)
 	}
 }

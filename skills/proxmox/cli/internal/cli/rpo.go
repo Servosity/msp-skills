@@ -43,6 +43,9 @@ type rpoRow struct {
 	// some are dated in the future (a node clock ran ahead), so the missed
 	// runs and the restore-point count are unproven, not measured.
 	PointsUnread bool `json:"points_unread,omitempty"`
+	// MissedRunsUnproven: missed runs retention may have thinned (counted in
+	// missed_runs too).
+	MissedRunsUnproven int `json:"missed_runs_unproven,omitempty"`
 	// MayBeEarlierGuest: backups under the VMID that may be an earlier
 	// guest's (see restore-points), not counted in restore_points.
 	MayBeEarlierGuest int    `json:"may_be_earlier_guest,omitempty"`
@@ -91,7 +94,11 @@ func newNovelRpoCmd(flags *rootFlags) *cobra.Command {
 			"Each enabled job's schedule is expanded server-side (cluster jobs schedule-analyze) into the past runs inside the window. " +
 			"A run is missed when no restore point exists between it and the next scheduled run. Retention prunes old points, so when a " +
 			"guest's oldest retained point is newer than the window start, earlier runs are not counted (window_capped) rather than " +
-			"reported as missed. Runs scheduled before a VM was created are not counted either. may_be_earlier_guest counts backups under " +
+			"reported as missed. Runs scheduled before a VM was created are not counted either. Jobs that run at the same time each need " +
+			"their own restore point. The newest run is not judged while it may still be running (6h), but the schedule is not met until it " +
+			"has a restore point. A missed run older than a covering job's retention horizon (keep-hourly/daily/weekly/monthly/yearly on " +
+			"the job, its storage or vzdump.conf, or a PBS prune job on the datastore), with a newer restore point kept, may have been " +
+			"pruned: it counts in missed_runs_unproven and evidence is partial. may_be_earlier_guest counts backups under " +
 			"the VMID that may be an earlier guest's with the same VMID (see restore-points); they are not counted in restore_points.",
 		Example: strings.Trim(`
   proxmox-cli rpo --days 7 --agent
@@ -329,6 +336,7 @@ func collectRPO(ctx context.Context, t fleetTarget, start, now time.Time, onlyVM
 	}
 	pbsStandIns(standIn, pbsUnread, readStorage)
 	targets := newJobTargets(ctx, t.C, cov)
+	retention := newRPORetention(ctx, t.C)
 	allGaps := map[storageGap]bool{}
 	births := newGuestBirths(t, now, offline)
 	var rows []rpoRow
@@ -368,6 +376,32 @@ func collectRPO(ctx context.Context, t fleetTarget, start, now time.Time, onlyVM
 		}
 		row := evaluateRPO(mine, runs, from, now)
 		row.WindowStart = start.UTC().Format(time.RFC3339)
+		// A missed run older than a covering job's dense retention horizon, with
+		// a newer point retained, may have had a point retention thinned.
+		var prunable int64
+		for _, id := range cov.EnabledFor[vmid] {
+			target := targets.target(id, g.Node)
+			var ref *pbsStorageRef
+			if r, ok := refs[target]; ok {
+				ref = &r
+			}
+			prunable = max(prunable, retention.prunableBefore(targets.jobs[id], g.Node, target, targets.nodeDefaults(g.Node), ref, runsByJob[id], now))
+		}
+		var newestOwn int64
+		for _, p := range mine {
+			if p.Time <= now.Add(clockSkewTolerance).Unix() {
+				newestOwn = max(newestOwn, p.Time)
+			}
+		}
+		for _, ts := range row.MissedRunTimes {
+			if at, err := time.Parse(time.RFC3339, ts); err == nil && at.Unix() < prunable && at.Unix() < newestOwn {
+				row.MissedRunsUnproven++
+			}
+		}
+		if row.MissedRunsUnproven > 0 {
+			row.Evidence = "partial"
+			row.Note = joinNote(row.Note, fmt.Sprintf("%d missed run(s) before %s may have had restore points that retention (keep-hourly/daily/weekly/monthly/yearly) pruned; they are unproven", row.MissedRunsUnproven, unixRFC3339(prunable)))
+		}
 		if birth.at > start.Unix() && row.ScheduledRuns == 0 && !row.WindowCapped {
 			// Created inside the window: no wider window judges runs from before then.
 			row.Note = strings.TrimSpace(strings.TrimSuffix(strings.Replace(row.Note, rpoNoJudgedRunNote, "", 1), "; ") + "; the VM was created " + unixRFC3339(birth.at) + ", inside the window, and no scheduled run since then can be judged yet")
@@ -481,7 +515,8 @@ func evaluateRPO(points []restorePoint, runs []int64, start, now time.Time) rpoR
 	points = slices.DeleteFunc(slices.Clone(points), func(p restorePoint) bool { return p.Time > cutoff })
 	future := total - len(points)
 	sort.Slice(points, func(i, j int) bool { return points[i].Time < points[j].Time })
-	runs = dedupeRuns(runs)
+	// Runs of several jobs at one time each need their own restore point.
+	runs, jobsAt := dedupeRuns(runs)
 	// Effective window: earlier runs may have had points that retention pruned.
 	effStart := start.Unix()
 	if len(points) > 0 && points[0].Time > effStart {
@@ -501,7 +536,7 @@ func evaluateRPO(points []restorePoint, runs []int64, start, now time.Time) rpoR
 	}
 	row.RestorePoints = len(inWindow)
 	row.VerifiedOKDays = len(okDays)
-	capHidesRun := false
+	capHidesRun, pending := false, false
 	for i, run := range runs {
 		until := now.Unix()
 		if i+1 < len(runs) {
@@ -515,18 +550,19 @@ func evaluateRPO(points []restorePoint, runs []int64, start, now time.Time) rpoR
 			capHidesRun = capHidesRun || row.WindowCapped
 			continue
 		}
-		if i == len(runs)-1 && now.Sub(time.Unix(run, 0)) < rpoInProgressGrace {
-			continue
-		}
-		row.ScheduledRuns++
-		hit := false
+		hits := 0
 		for _, p := range inWindow {
 			if p >= run && p < until {
-				hit = true
-				break
+				hits++
 			}
 		}
-		if !hit {
+		if i == len(runs)-1 && now.Sub(time.Unix(run, 0)) < rpoInProgressGrace {
+			// It may still be running: not judged, but not met either.
+			pending = hits < jobsAt[i]
+			continue
+		}
+		row.ScheduledRuns += jobsAt[i]
+		for range max(jobsAt[i]-hits, 0) {
 			row.MissedRuns++
 			row.MissedRunTimes = append(row.MissedRunTimes, unixRFC3339(run))
 		}
@@ -571,7 +607,10 @@ func evaluateRPO(points []restorePoint, runs []int64, start, now time.Time) rpoR
 	// Met only when some scheduled run was judged and none was missed: with
 	// no run judged (the only one still within the in-progress grace, or a
 	// window shorter than the job's interval) there is nothing to have met.
-	row.MetSchedule = row.ScheduledRuns > 0 && row.MissedRuns == 0 && row.Evidence == "full"
+	row.MetSchedule = row.ScheduledRuns > 0 && row.MissedRuns == 0 && row.Evidence == "full" && !pending
+	if pending {
+		row.Note = joinNote(row.Note, "the newest scheduled run ("+unixRFC3339(runs[len(runs)-1])+") has no restore point yet; it may still be running")
+	}
 	if row.ScheduledRuns == 0 && len(runs) > 0 && row.Note == "" {
 		row.Note = rpoNoJudgedRunNote
 	}
@@ -580,16 +619,19 @@ func evaluateRPO(points []restorePoint, runs []int64, start, now time.Time) rpoR
 
 // dedupeRuns merges only identical timestamps (two jobs firing at the same
 // moment); runs at different times each need their own restore point.
-func dedupeRuns(runs []int64) []int64 {
+// dedupeRuns sorts runs and merges equal times, counting how many jobs run
+// at each.
+func dedupeRuns(runs []int64) ([]int64, []int) {
 	sort.Slice(runs, func(i, j int) bool { return runs[i] < runs[j] })
-	out := runs[:0]
+	out, n := runs[:0], []int{}
 	for _, r := range runs {
 		if len(out) > 0 && r == out[len(out)-1] {
+			n[len(n)-1]++
 			continue
 		}
-		out = append(out, r)
+		out, n = append(out, r), append(n, 1)
 	}
-	return out
+	return out, n
 }
 
 func round1(v float64) float64 { return math.Round(v*10) / 10 }
@@ -627,7 +669,12 @@ func rollupRPO(rows []rpoRow, targets []fleetTarget, failures []fetchFailure) []
 			if r.RestorePoints == 0 && r.MayBeEarlierGuest == 0 {
 				c.GuestsWithNoData++
 			}
-			c.MissedRuns += r.MissedRuns
+			certain := r.MissedRuns - r.MissedRunsUnproven
+			if certain == 0 && r.MissedRunsUnproven > 0 {
+				c.GuestsUnproven++
+			}
+			c.MissedRuns += certain
+			c.MissedRunsUnproven += r.MissedRunsUnproven
 		}
 		c.WorstGapHours = math.Max(c.WorstGapHours, r.LargestGapHours)
 		c.VerifiedOKDays += r.VerifiedOKDays

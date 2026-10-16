@@ -40,6 +40,7 @@ type Config struct {
 	ClientSecret       string          `toml:"client_secret"`
 	Path               string          `toml:"-"`
 	envOverrides       map[string]bool `toml:"-"`
+	EndpointRefusal    string          `toml:"-"` // proxmox hand-fix (endpoints-env-only): why no PVE request may be sent
 	fileConfig         *Config         `toml:"-"`
 	ProxmoxApiToken    string          `toml:"api_token"`
 	ProxmoxPbsApiToken string          `toml:"pbs_api_token"`
@@ -235,7 +236,7 @@ func Load(configPath string) (*Config, error) {
 		// stays (a reverse proxy on 443); one for another host would send a
 		// token to the wrong (another client's) host, so the run refuses.
 		if err := hostAgrees(cfg.BaseURL, h); err != nil {
-			return nil, err
+			cfg.EndpointRefusal = err.Error() // refused at the first PVE request (client.go), not at load
 		}
 	}
 

@@ -190,7 +190,8 @@ func TestRPONoJudgedRunIsNotMet(t *testing.T) {
 	if row.MetSchedule || row.ScheduledRuns != 0 {
 		t.Errorf("no judged run, newest point 50h old: %+v", row)
 	}
-	row = evaluateRPO([]restorePoint{old, {Time: now.Add(-20 * time.Hour).Unix()}}, []int64{now.Add(-22 * time.Hour).Unix(), now.Add(-2 * time.Hour).Unix()}, now.Add(-24*time.Hour), now)
+	// One judged run with its point, and the in-grace newest run with its point too.
+	row = evaluateRPO([]restorePoint{old, {Time: now.Add(-20 * time.Hour).Unix()}, {Time: now.Add(-time.Hour).Unix()}}, []int64{now.Add(-22 * time.Hour).Unix(), now.Add(-2 * time.Hour).Unix()}, now.Add(-24*time.Hour), now)
 	if !row.MetSchedule || row.ScheduledRuns != 1 {
 		t.Errorf("one judged run with its point: want met: %+v", row)
 	}

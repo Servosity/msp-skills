@@ -372,7 +372,7 @@ func collectPosture(ctx context.Context, t fleetTarget, o postureOpts) (clusterP
 		if err := getJSON(ctx, t.C, pbsPath("/admin/sync"), map[string]string{"sync-direction": "all"}, &syncJobs); err != nil {
 			out.failures = append(out.failures, fetchFailure{Cluster: t.Name, Scope: "pbs sync jobs", Error: err.Error()})
 		}
-		for _, w := range loadSyncEvidence(ctx, t.C, syncJobs) {
+		for _, w := range loadSyncEvidence(ctx, t.C, t.pbsEndpoint(), splitPins(t.Profile.PBSFingerprint), syncJobs) {
 			out.warnings = append(out.warnings, t.Name+": "+w)
 		}
 	}
@@ -771,7 +771,7 @@ func offsiteFor(rps []restorePoint, pbsHost string, jobs []pbsSyncJob) string {
 		typ := map[string]string{"qemu": "vm", "lxc": "ct"}[rp.GuestType]
 		for _, j := range jobs {
 			end := int64(j.LastRunEnd)
-			if !strings.EqualFold(j.LastRunState, "ok") || end < rp.Time || !j.evidenced[syncEvidenceKey(rp.pbsStore, rp.pbsNS, typ+"/"+strconv.FormatInt(rp.VMID, 10), rp.Time)] || !j.admits(rp, rps, end) ||
+			if !j.offsite || !strings.EqualFold(j.LastRunState, "ok") || end < rp.Time || !j.evidenced[syncEvidenceKey(rp.pbsStore, rp.pbsNS, typ+"/"+strconv.FormatInt(rp.VMID, 10), rp.Time)] || !j.admits(rp, rps, end) ||
 				!j.covers(rp.pbsStore, rp.pbsNS, typ, strconv.FormatInt(rp.VMID, 10)) {
 				continue
 			}

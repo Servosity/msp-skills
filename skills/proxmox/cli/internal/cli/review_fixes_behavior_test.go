@@ -248,7 +248,7 @@ func TestDedupeKeepsFailedVerification(t *testing.T) {
 // run that ended before the snapshot existed did not copy it.
 func TestOffsiteRequiresAdmittedSnapshot(t *testing.T) {
 	rp := restorePoint{VMID: 100, GuestType: "qemu", Time: 1000, canonical: "pbs:h:8007/main//qemu/100/1000", pbsStore: "main", VerifyState: "ok"}
-	job := pbsSyncJob{Store: "main", Direction: "push", LastRunState: "OK", LastRunEnd: 2000, evidenced: map[string]bool{syncEvidenceKey("main", "", "vm/100", 1000): true}}
+	job := pbsSyncJob{Store: "main", Direction: "push", offsite: true, LastRunState: "OK", LastRunEnd: 2000, evidenced: map[string]bool{syncEvidenceKey("main", "", "vm/100", 1000): true}}
 	if offsiteFor([]restorePoint{rp}, "h:8007", []pbsSyncJob{job}) == "" {
 		t.Fatal("qualifying push run not credited")
 	}
@@ -337,7 +337,7 @@ func TestMergeVerificationOrderIndependent(t *testing.T) {
 // and an archive newer than the run start was not part of it.
 func TestVerifiedOnlyNeedsVerificationBeforeRun(t *testing.T) {
 	runUPID := "UPID:pbs:00000ABC:0000F00D:00000001:000007D0:syncjob:j1:root@pam:" // run start 2000
-	job := pbsSyncJob{Store: "main", Direction: "push", LastRunState: "OK", LastRunEnd: 2500, LastRunUPID: runUPID, VerifiedOnly: true, evidenced: map[string]bool{syncEvidenceKey("main", "", "vm/100", 1000): true}}
+	job := pbsSyncJob{Store: "main", Direction: "push", offsite: true, LastRunState: "OK", LastRunEnd: 2500, LastRunUPID: runUPID, VerifiedOnly: true, evidenced: map[string]bool{syncEvidenceKey("main", "", "vm/100", 1000): true}}
 	rp := restorePoint{VMID: 100, GuestType: "qemu", Time: 1000, canonical: "pbs:h:8007/main//qemu/100/1000", pbsStore: "main", VerifyState: "ok",
 		VerifyUPID: "UPID:pbs:00000ABC:0000F00D:00000001:00000960:verify:main:root@pam:"} // verified at 2400, after the run started
 	if offsiteFor([]restorePoint{rp}, "h:8007", []pbsSyncJob{job}) != "" {
@@ -721,7 +721,7 @@ func TestAbortedVzdumpJobUnreachedGuests(t *testing.T) {
 // added to the filter later, not another namespace, not a skipped snapshot.
 func TestOffsiteNeedsRunLogEvidence(t *testing.T) {
 	rp := restorePoint{VMID: 100, GuestType: "qemu", Time: 1000, canonical: "pbs:h:8007/main//qemu/100/1000", pbsStore: "main", VerifyState: "ok"}
-	job := pbsSyncJob{Store: "main", Direction: "push", LastRunState: "OK", LastRunEnd: 2000, GroupFilter: []string{"group:vm/100", "group:vm/101"}}
+	job := pbsSyncJob{Store: "main", Direction: "push", offsite: true, LastRunState: "OK", LastRunEnd: 2000, GroupFilter: []string{"group:vm/100", "group:vm/101"}}
 	job.evidenced = map[string]bool{syncEvidenceKey("main", "", "vm/101", 1000): true}
 	if offsiteFor([]restorePoint{rp}, "h:8007", []pbsSyncJob{job}) != "" {
 		t.Error("offsite credited for a group the last run never pushed")
