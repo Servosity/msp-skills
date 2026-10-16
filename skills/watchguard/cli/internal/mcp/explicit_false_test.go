@@ -6,6 +6,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -17,8 +18,12 @@ import (
 // echoes its argv, and returns what the CLI would have been run with.
 func callWithArgvStub(t *testing.T, tool string, args map[string]any) string {
 	t.Helper()
-	stub := filepath.Join(t.TempDir(), "watchguard-cli")
-	if err := os.WriteFile(stub, []byte("#!/bin/sh\necho \"ARGV: $*\"\n"), 0o700); err != nil {
+	// A #!/bin/sh stub cannot run on Windows; use a .bat there (as connectsecure does).
+	stub, body := filepath.Join(t.TempDir(), "watchguard-cli"), "#!/bin/sh\necho \"ARGV: $*\"\n"
+	if runtime.GOOS == "windows" {
+		stub, body = stub+".bat", "@echo off\r\necho ARGV: %*\r\n"
+	}
+	if err := os.WriteFile(stub, []byte(body), 0o700); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("WATCHGUARD_CLI_PATH", stub)
