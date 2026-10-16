@@ -203,15 +203,18 @@ func openInventoryFile(path string) (*os.File, error) {
 	default:
 		return nil, fmt.Errorf("--file must be a .csv, .tsv or .txt export")
 	}
-	f, err := openNoFollow(path) // per-OS twins: cmdb_reconcile_open_{unix,windows}.go
-	if err != nil {
-		return nil, fmt.Errorf("opening --file (symlinks are refused): %w", err)
-	}
+	var f *os.File
+	var err error
 	if os.Getenv("JIRA_SERVICE_MANAGEMENT_LEARN_SURFACE") == "mcp" {
-		if err := inventoryPathAllowedUnderMCP(path, f); err != nil {
-			_ = f.Close()
-			return nil, err
+		f, err = openInventoryUnderMCP(path)
+	} else {
+		f, err = openNoFollow(path) // per-OS twins: cmdb_reconcile_open_{unix,windows}.go
+		if err != nil {
+			err = fmt.Errorf("opening --file (symlinks are refused): %w", err)
 		}
+	}
+	if err != nil {
+		return nil, err
 	}
 	info, err := f.Stat()
 	if err != nil || !info.Mode().IsRegular() {
@@ -225,44 +228,46 @@ func openInventoryFile(path string) (*os.File, error) {
 	return f, nil
 }
 
-// inventoryPathAllowedUnderMCP runs after f is open: it resolves path by name,
-// checks containment, then requires the resolved file to be the one f holds,
-// so swapping a directory for a symlink or junction between the open and the
-// check cannot redirect the read.
-func inventoryPathAllowedUnderMCP(path string, f *os.File) error {
+// openInventoryUnderMCP opens path through an os.Root on the working directory.
+// os.Root resolves every component relative to that directory handle and
+// refuses ".." and symlinks that leave it, so swapping a directory for a
+// symlink or junction mid-open cannot redirect the read. A working directory
+// that is a filesystem root or the home directory is refused outright.
+func openInventoryUnderMCP(path string) (*os.File, error) {
 	wd, err := os.Getwd()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	if wd, err = filepath.EvalSymlinks(wd); err != nil {
-		return err
+	real, err := filepath.EvalSymlinks(wd)
+	if err != nil {
+		return nil, err
 	}
 	home, _ := os.UserHomeDir()
 	if home != "" {
 		home, _ = filepath.EvalSymlinks(home)
 	}
-	// filepath.Dir(wd) == wd holds for / and for every Windows volume or share root (C:\).
-	if filepath.Dir(wd) == wd || (home != "" && sameDir(wd, home)) {
-		return fmt.Errorf("under MCP, run from a project directory (not a filesystem root or your home directory) and put the export there")
+	// filepath.Dir(real) == real holds for / and for every Windows volume or share root (C:\).
+	if filepath.Dir(real) == real || (home != "" && sameDir(real, home)) {
+		return nil, fmt.Errorf("under MCP, run from a project directory (not a filesystem root or your home directory) and put the export there")
 	}
 	abs, err := filepath.Abs(path)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	if abs, err = filepath.EvalSymlinks(abs); err != nil {
-		return fmt.Errorf("opening --file: %w", err)
+	rel, err := filepath.Rel(wd, abs)
+	if err != nil || !filepath.IsLocal(rel) {
+		return nil, fmt.Errorf("under MCP, --file must be inside the working directory")
 	}
-	if rel, err := filepath.Rel(wd, abs); err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || filepath.IsAbs(rel) {
-		return fmt.Errorf("under MCP, --file must be inside the working directory")
-	}
-	ri, err := os.Stat(abs)
+	r, err := os.OpenRoot(wd)
 	if err != nil {
-		return fmt.Errorf("opening --file: %w", err)
+		return nil, err
 	}
-	if fi, err := f.Stat(); err != nil || !os.SameFile(ri, fi) {
-		return fmt.Errorf("under MCP, --file changed while it was being opened")
+	defer r.Close()
+	f, err := r.OpenFile(rel, inventoryOpenFlags, 0)
+	if err != nil {
+		return nil, fmt.Errorf("under MCP, --file must be inside the working directory: %w", err)
 	}
-	return nil
+	return f, nil
 }
 
 // sameDir compares resolved directories; Windows paths are case-insensitive.

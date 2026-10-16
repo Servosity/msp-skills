@@ -208,13 +208,13 @@
     },
     {
       "id": "jsm-reconcile-open-per-os",
-      "summary": "cmdb reconcile opens --file through per-OS twins (O_NOFOLLOW|O_NONBLOCK on unix, Lstat + SameFile on Windows); under MCP it then proves the opened file is the one the containment check resolved and refuses any filesystem-root working directory",
-      "why": "cmdb_reconcile.go used syscall.O_NOFOLLOW directly, which does not exist on Windows, so GOOS=windows builds failed and the connector shipped no Windows binary. Windows has no O_NOFOLLOW; the twin refuses a symlink or reparse point via Lstat and then proves the opened handle is the same file, so a swap between check and open is refused too. The MCP containment check originally ran before the open and compared the working directory only with '/', so a directory swapped for a symlink between check and open, or a Windows working directory of C:\\, escaped it (Codex review, 2026-10-16). cmdb_reconcile_mcp_test.go covers both.",
+      "summary": "cmdb reconcile opens --file through per-OS twins (O_NOFOLLOW|O_NONBLOCK on unix, Lstat + SameFile on Windows); under MCP it opens through an os.Root on the working directory and refuses any filesystem-root or home working directory",
+      "why": "cmdb_reconcile.go used syscall.O_NOFOLLOW directly, which does not exist on Windows, so GOOS=windows builds failed and the connector shipped no Windows binary. Windows has no O_NOFOLLOW; the twin refuses a symlink or reparse point via Lstat and then proves the opened handle is the same file, so a swap between check and open is refused too. Under MCP the containment check originally ran by path before the open, compared the working directory only with '/', and a later open-then-verify version still left a symlink-swap window between resolve and stat (Codex review rounds 1-2, 2026-10-16). os.Root resolves every component relative to the working-directory handle and refuses escapes, which closes the race by construction. cmdb_reconcile_mcp_test.go covers it.",
       "status": "active",
       "asserts": [
         {
           "file": "cli/internal/cli/cmdb_reconcile.go",
-          "contains": "f, err := openNoFollow(path)",
+          "contains": "f, err = openNoFollow(path)",
           "code_only": true
         },
         {
@@ -227,18 +227,28 @@
           "code_only": true
         },
         {
+          "file": "cli/internal/cli/cmdb_reconcile.go",
+          "contains": "r, err := os.OpenRoot(wd)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/cmdb_reconcile.go",
+          "contains": "f, err := r.OpenFile(rel, inventoryOpenFlags, 0)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/cmdb_reconcile.go",
+          "contains": "if filepath.Dir(real) == real || (home != \"\" && sameDir(real, home)) {",
+          "code_only": true
+        },
+        {
           "file": "cli/internal/cli/cmdb_reconcile_open_unix.go",
-          "contains": "os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK",
+          "contains": "const inventoryOpenFlags = os.O_RDONLY | syscall.O_NONBLOCK",
           "code_only": true
         },
         {
-          "file": "cli/internal/cli/cmdb_reconcile.go",
-          "contains": "if fi, err := f.Stat(); err != nil || !os.SameFile(ri, fi) {",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/cmdb_reconcile.go",
-          "contains": "if filepath.Dir(wd) == wd || (home != \"\" && sameDir(wd, home)) {",
+          "file": "cli/internal/cli/cmdb_reconcile_open_unix.go",
+          "contains": "return os.OpenFile(path, inventoryOpenFlags|syscall.O_NOFOLLOW, 0)",
           "code_only": true
         }
       ]
@@ -441,6 +451,74 @@
         {
           "file": "cli/internal/cli/sync.go",
           "contains": "names := []string{\n\t\t\"aql\",",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "jsm-store-scope-by-site",
+      "summary": "the local store is scoped by credential AND resolved site URL, so one Atlassian token used on several client sites gets one database per site",
+      "why": "An Atlassian API token reaches every site its account belongs to, which is normal for an MSP. The generated store scope hashed only the credential, so switching JIRA_SERVICE_MANAGEMENT_SITE reused one data-<hash>.db: sites mixed in reports and search, and a --full sync of one site pruned the other's rows (Codex review round 2, 2026-10-16). The fix uses the generator's config.StoreScopeIdentity hook from a hand-written file; the MCP server resolves its store path through the same package. jsm_store_scope_test.go covers it.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/jsm_store_scope.go",
+          "contains": "config.StoreScopeIdentity = jsmStoreScopeIdentity",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/jsm_store_scope.go",
+          "contains": "return auth + \"|site=\" + client.ResolvedBaseURL(c.BaseURL, c.TemplateVars)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "if StoreScopeIdentity != nil {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "jsm-scrub-media-jwt",
+      "summary": "every successful API response has Assets' mediaJwtToken removed before the response cache, local store, write-through or stdout sees it",
+      "why": "Assets object responses carry avatar.mediaClientConfig.mediaJwtToken, a bearer JWT for Atlassian's media API. Once object get returned the whole DTO (jsm-detail-no-unwrap), and on any Assets sync, it was persisted in plaintext in the mirror and the HTTP cache and echoed into agent transcripts (Codex review round 2, 2026-10-16). The scrub is exact-key so importsource token generate still returns the token the user asked for. jsm_scrub_test.go covers it.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "return json.RawMessage(jsmScrubIncidentalSecrets(sanitizeJSONResponse(respBody))), resp.StatusCode, nil",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "not_contains": "\t\t\treturn json.RawMessage(sanitizeJSONResponse(respBody)), resp.StatusCode, nil\n"
+        },
+        {
+          "file": "cli/internal/client/jsm_scrub.go",
+          "contains": "const jsmIncidentalSecretKey = \"mediaJwtToken\"",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "jsm-mcp-delete-body",
+      "summary": "the MCP execute tool sends a JSON body for the four DELETE endpoints whose spec declares one (participant, organization-member, desk-customer and desk-organization removal)",
+      "why": "The generated execute path sent every DELETE parameter as a query string, so removing request participants, organization users, desk customers or desk organizations through MCP could never succeed (the API needs accountIds / organizationId in the body); the CLI already sends the body. Verified against an echo stub, 2026-10-16 (Codex review round 2).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/code_orch.go",
+          "contains": "if ep.Method == \"GET\" || (ep.Method == \"DELETE\" && !jsmDeleteBodyEndpoints[ep.ID]) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/code_orch.go",
+          "contains": "data, _, err = c.DeleteWithParamsAndBodyAndHeaders(ctx, path, query, writeBody(), hdrs)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/jsm_delete_body.go",
+          "contains": "\"request.participant.remove\":      true,",
           "code_only": true
         }
       ]

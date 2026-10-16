@@ -37,8 +37,13 @@ type timelineView struct {
 }
 
 type jsmRequestDetail struct {
-	IssueKey      string  `json:"issueKey"`
-	Summary       string  `json:"summary"`
+	IssueKey string `json:"issueKey"`
+	// JSM has no top-level summary: it is the requestFieldValues entry with
+	// fieldId "summary".
+	FieldValues []struct {
+		FieldID string          `json:"fieldId"`
+		Value   json.RawMessage `json:"value"`
+	} `json:"requestFieldValues"`
 	CreatedDate   jsmDate `json:"createdDate"`
 	Reporter      jsmUser `json:"reporter"`
 	CurrentStatus struct {
@@ -82,7 +87,9 @@ reads internal notes before replying and never mistakes one for a customer reply
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
 			if !wantsHumanTable(cmd.OutOrStdout(), flags) {
-				return printJSONFiltered(cmd.OutOrStdout(), view, flags)
+				// --agent compaction drops row keys most events lack; the
+				// comment label and author must survive it.
+				return printJSONFilteredKeep(cmd.OutOrStdout(), view, flags, "visibility", "author")
 			}
 			w := cmd.OutOrStdout()
 			fmt.Fprintf(w, "%s  %s\nstatus: %s  reporter: %s  comments: %d public / %d internal\n", termSafe(view.Key), termSafe(view.Summary), termSafe(view.Status), termSafe(view.Reporter), view.Public, view.Internal)
@@ -119,7 +126,7 @@ func buildTimeline(ctx context.Context, c jsmGetter, key string) (timelineView, 
 	if err := json.Unmarshal(raw, &req); err != nil {
 		return timelineView{}, fmt.Errorf("decoding request %s: %w", key, err)
 	}
-	view := timelineView{Key: req.IssueKey, Summary: req.Summary, Status: req.CurrentStatus.Status, Reporter: req.Reporter.DisplayName,
+	view := timelineView{Key: req.IssueKey, Summary: req.summary(), Status: req.CurrentStatus.Status, Reporter: req.Reporter.DisplayName,
 		RequestType: req.RequestType.Name, Participants: make([]string, 0), SLA: make([]slaRisk, 0), Events: make([]timelineEvent, 0)}
 	if view.Key == "" {
 		view.Key = key
@@ -146,7 +153,7 @@ func buildTimeline(ctx context.Context, c jsmGetter, key string) (timelineView, 
 		}
 	}
 	if req.CreatedDate.EpochMillis > 0 {
-		view.Events = append(view.Events, timelineEvent{At: req.CreatedDate.ISO8601, EpochMS: req.CreatedDate.EpochMillis, Kind: "created", Author: req.Reporter.DisplayName, Text: req.Summary})
+		view.Events = append(view.Events, timelineEvent{At: req.CreatedDate.ISO8601, EpochMS: req.CreatedDate.EpochMillis, Kind: "created", Author: req.Reporter.DisplayName, Text: view.Summary})
 	}
 
 	comments, _, err := jsmWalk(ctx, c, "/request/"+seg+"/comment", map[string]string{"public": "true", "internal": "true"}, 0, jsonKey("id"))
@@ -209,4 +216,14 @@ func buildTimeline(ctx context.Context, c jsmGetter, key string) (timelineView, 
 	}
 	sort.SliceStable(view.Events, func(i, j int) bool { return view.Events[i].EpochMS < view.Events[j].EpochMS })
 	return view, nil
+}
+
+func (r jsmRequestDetail) summary() string {
+	for _, f := range r.FieldValues {
+		var v string
+		if f.FieldID == "summary" && json.Unmarshal(f.Value, &v) == nil {
+			return v
+		}
+	}
+	return ""
 }

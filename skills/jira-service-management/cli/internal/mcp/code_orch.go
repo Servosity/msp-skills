@@ -1998,7 +1998,7 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 	// strings; write methods split spec-declared query params from the
 	// remaining params used as the request body below.
 	query := map[string]string{}
-	if ep.Method == "GET" || ep.Method == "DELETE" {
+	if ep.Method == "GET" || (ep.Method == "DELETE" && !jsmDeleteBodyEndpoints[ep.ID]) { // pp:handfix jsm-mcp-delete-body
 		path = codeOrchSplitQuery(path, ep.QueryParams, params)
 		for k, v := range params {
 			query[codeOrchWireQueryName(ep.QueryParams, k)] = formatMCPParamValue(v)
@@ -2035,7 +2035,9 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 			}
 		}
 	case "DELETE":
-		if len(hdrs) > 0 {
+		if jsmDeleteBodyEndpoints[ep.ID] { // pp:handfix jsm-mcp-delete-body
+			data, _, err = c.DeleteWithParamsAndBodyAndHeaders(ctx, path, query, writeBody(), hdrs)
+		} else if len(hdrs) > 0 {
 			data, _, err = c.DeleteWithParamsAndHeaders(ctx, path, query, hdrs)
 		} else {
 			data, _, err = c.DeleteWithParams(ctx, path, query)

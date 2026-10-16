@@ -156,7 +156,7 @@ jira-service-management-cli doctor
 
 Assets (CMDB) commands also need your site's cloudId and Assets workspaceId (Assets is part of JSM Premium and Enterprise). Run `jira-service-management-cli cmdb discover --save` once to look both up and store them in the config file.
 
-`doctor` checks config, paths, and API reachability, and reports whether credentials are loaded - it does not validate them. Run a read command to confirm the credential actually works end-to-end.
+`doctor` checks config and paths, names any missing SITE, EMAIL or API_TOKEN, and verifies the token with one authenticated read (GET /servicedesk).
 
 
 ## What this skill does
@@ -244,7 +244,7 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 | Customers and organizations | `customer create`, `servicedesk customer add` / `invite` / `remove`, `organization create`, `organization user add` / `remove`, `customer revoke-portal-only-access-for-user` | Human-approved: these change who can raise tickets for a client |
 | Destructive / config | `organization delete`, `object delete`, `objectschema delete`, `objecttype delete`, `servicedesk requesttype delete`, `importsource token generate`, `api-import` | Human-in-the-loop only |
 
-Writes send immediately: `--dry-run` is an opt-in preview, not a default. Set `JIRA_SERVICE_MANAGEMENT_MCP_READ_ONLY=1` in the MCP server's environment and it drops the tools that write to the API, the local copy or local files (`request_note`, `sync`, `import`, `export`, `workflow_archive`, `learnings_forget`, `learnings_reject`) plus `cmdb_reconcile`, which reads a local file; its generic `execute` tool refuses any non-GET API call, and `cmdb_discover` refuses `--save`.
+Writes send immediately: `--dry-run` is an opt-in preview, not a default. Set `JIRA_SERVICE_MANAGEMENT_MCP_READ_ONLY=1` in the MCP server's environment and it drops `request_note`, `sync`, `import`, `export`, `workflow_archive`, `learnings_forget`, `learnings_reject` and `cmdb_reconcile` (which reads a local file); its generic `execute` tool refuses any non-GET API call, and `cmdb_discover` refuses `--save`. The local learning tools (`teach`, `teach_*`, `playbook_amend`, `learnings_confirm`) stay: they write only to the CLI's own local store, never to your site.
 
 The strongest control is the **Atlassian account behind the API token** - the CLI can only do what that account is permitted to do, so create the token as an agent with the access you want the AI to have. Full details, including how to lock it down, are in [governance.md](./governance.md).
 

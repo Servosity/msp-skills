@@ -7,6 +7,9 @@ import (
 	"os"
 )
 
+// inventoryOpenFlags opens an export read-only (Windows has no FIFOs to guard).
+const inventoryOpenFlags = os.O_RDONLY
+
 // openNoFollow opens path read-only and refuses a symlink or other reparse point.
 // Windows has no O_NOFOLLOW, so Lstat first, then prove the opened handle is the
 // same file so a swap between the check and the open is refused too.

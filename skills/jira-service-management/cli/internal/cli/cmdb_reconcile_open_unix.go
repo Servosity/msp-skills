@@ -7,8 +7,11 @@ import (
 	"syscall"
 )
 
+// inventoryOpenFlags opens an export read-only. O_NONBLOCK: a FIFO would
+// otherwise block before the regular-file check.
+const inventoryOpenFlags = os.O_RDONLY | syscall.O_NONBLOCK
+
 // openNoFollow opens path read-only and refuses a symlink at the final component.
-// O_NONBLOCK: a FIFO would otherwise block here before the regular-file check.
 func openNoFollow(path string) (*os.File, error) {
-	return os.OpenFile(path, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0) // #nosec G304 -- validated user-chosen export file
+	return os.OpenFile(path, inventoryOpenFlags|syscall.O_NOFOLLOW, 0) // #nosec G304 -- validated user-chosen export file
 }

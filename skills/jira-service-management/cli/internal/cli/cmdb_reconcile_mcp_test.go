@@ -10,16 +10,14 @@ import (
 	"testing"
 )
 
-// TestInventoryPathAllowedUnderMCP covers the MCP containment for
-// cmdb reconcile --file: a filesystem-root working directory, a symlinked
-// directory pointing outside, and an opened file that is not the file the
-// path resolves to (the directory-swap race).
-func TestInventoryPathAllowedUnderMCP(t *testing.T) {
+// TestOpenInventoryUnderMCP covers the MCP containment for cmdb reconcile
+// --file: files inside the working directory open; a symlinked directory
+// pointing outside, a ".." path, an absolute path elsewhere, and a
+// filesystem-root working directory are refused.
+func TestOpenInventoryUnderMCP(t *testing.T) {
 	wd := t.TempDir()
 	outside := t.TempDir()
-	inside := filepath.Join(wd, "rmm.csv")
-	secret := filepath.Join(outside, "secret.csv")
-	for _, p := range []string{inside, secret} {
+	for _, p := range []string{filepath.Join(wd, "rmm.csv"), filepath.Join(outside, "secret.csv")} {
 		if err := os.WriteFile(p, []byte("Name\nsrv-01\n"), 0o600); err != nil {
 			t.Fatal(err)
 		}
@@ -27,30 +25,23 @@ func TestInventoryPathAllowedUnderMCP(t *testing.T) {
 	if err := os.Symlink(outside, filepath.Join(wd, "link")); err != nil {
 		t.Fatal(err)
 	}
-	open := func(p string) *os.File {
-		f, err := os.Open(p)
-		if err != nil {
-			t.Fatal(err)
-		}
-		t.Cleanup(func() { _ = f.Close() })
-		return f
-	}
 	t.Chdir(wd)
 
-	if err := inventoryPathAllowedUnderMCP("rmm.csv", open(inside)); err != nil {
+	f, err := openInventoryUnderMCP("rmm.csv")
+	if err != nil {
 		t.Fatalf("file inside the working directory refused: %v", err)
 	}
-	if err := inventoryPathAllowedUnderMCP("link/secret.csv", open(secret)); err == nil {
-		t.Fatal("file reached through a symlinked directory outside the working directory was allowed")
-	}
-	// The path resolves inside, but the descriptor holds a different file:
-	// what a directory swapped for a symlink between open and check yields.
-	if err := inventoryPathAllowedUnderMCP("rmm.csv", open(secret)); err == nil {
-		t.Fatal("opened file differing from the checked path was allowed")
+	_ = f.Close()
+	for _, bad := range []string{"link/secret.csv", "../" + filepath.Base(outside) + "/secret.csv", filepath.Join(outside, "secret.csv")} {
+		if f, err := openInventoryUnderMCP(bad); err == nil {
+			_ = f.Close()
+			t.Fatalf("%s escaped the working directory", bad)
+		}
 	}
 
 	t.Chdir("/")
-	if err := inventoryPathAllowedUnderMCP(inside, open(inside)); err == nil {
+	if f, err := openInventoryUnderMCP(filepath.Join(wd, "rmm.csv")); err == nil {
+		_ = f.Close()
 		t.Fatal("filesystem-root working directory was allowed")
 	}
 }

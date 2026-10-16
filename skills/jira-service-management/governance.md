@@ -39,11 +39,12 @@ only its own requests.
 - **Agent mode is explicit.** `--agent` produces JSON for scripting but does not add any write
   gating - the preview-then-approve policy above still applies. See AGENTS.md.
 - **MCP read-only switch.** With `JIRA_SERVICE_MANAGEMENT_MCP_READ_ONLY=1` in the MCP server's
-  environment, the server drops the tools that write to the API, the local copy or local files
-  (`request_note`, `sync`, `import`, `export`, `workflow_archive`, `learnings_forget`,
-  `learnings_reject`) plus `cmdb_reconcile`, which reads a local file; its generic `execute` tool
-  refuses any non-GET API call, and `cmdb_discover` refuses `--save`. It does not change what the
-  CLI itself can do.
+  environment, the server drops `request_note`, `sync`, `import`, `export`, `workflow_archive`,
+  `learnings_forget`, `learnings_reject` and `cmdb_reconcile` (which reads a local file); its
+  generic `execute` tool refuses any non-GET API call, and `cmdb_discover` refuses `--save`. The
+  local learning tools (`teach`, `teach_*`, `playbook_amend`, `learnings_confirm`) stay: they
+  write only to the CLI's own local store, never to your site. It does not change what the CLI
+  itself can do.
 
 ## Permission tiers
 
