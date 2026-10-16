@@ -306,7 +306,7 @@ Highlights (not in the official API docs):
   • verify-health   Per PBS datastore and backup group: failed, never-verified and outdated snapshots, first failure, newest verified-good point, and namespaces no verify job reaches. Needs the PBS API.
   • failures   Failed and silently incomplete backup, verify, GC, sync and prune tasks in a time window, one row per failed guest or datastore with the reason line.
   • capacity   PBS datastores ranked by days until full, plus every PVE backup storage by percent used (only PBS forecasts), with garbage-collection state and a GC-deadlock warning.
-  • restore-points   Every restore point of one guest across all storages and PBS namespaces, with verify state, protection and encryption.
+  • restore-points   Every restore point of one guest across its cluster's storages and PBS namespaces, with verify state, protection and encryption.
   • rpo   Per guest over a past window: largest gap between restore points, scheduled runs with no restore point, and days with a verified-good point, rolled up per client.
 
 Agent mode: add --agent to any command for JSON output + non-interactive mode.

@@ -61,8 +61,9 @@ func newNovelRestorePointsCmd(flags *rootFlags) *cobra.Command {
 	var clientFilter string
 	cmd := &cobra.Command{
 		Use:   "restore-points [vmid-or-name]",
-		Short: "Every restore point of one guest across all storages and PBS namespaces, with verify state and protection",
-		Long: "Use this command for every restore point of ONE guest (vmid or name) across all storages and PBS namespaces. " +
+		Short: "Every restore point of one guest across its cluster's storages and PBS namespaces, with verify state and protection",
+		Long: "Use this command for every restore point of ONE guest (vmid or name) across the storages and PBS namespaces this cluster's " +
+			"configuration names (its storages, and pbs_namespace with everything below it). " +
 			"Do NOT use this command for a fleet-wide verdict; use 'posture' instead. " +
 			"Do NOT use it for gaps between restore points over time; use 'rpo' instead.\n\n" +
 			"The guest is resolved by vmid or name (case-insensitive) on every configured cluster; a vmid that exists on several " +

@@ -138,7 +138,9 @@ func (r *rpoRetention) mayPrune(job backupJob, node, target string, ref *pbsStor
 		return true
 	}
 	for _, pj := range r.pbsJobs {
-		if bool(pj.Disable) || pj.Schedule == "" || pj.Store != ref.datastore || !pj.Keep.prunes() {
+		// A disabled or unscheduled prune job may have run earlier in the
+		// window (as a disabled vzdump job may have): it counts.
+		if pj.Store != ref.datastore || !pj.Keep.prunes() {
 			continue
 		}
 		if pj.NS == "" || ref.namespace == pj.NS || strings.HasPrefix(ref.namespace, pj.NS+"/") {
@@ -196,6 +198,23 @@ func (r *rpoRetention) vzdumpMayPrune(job backupJob, node, target string) bool {
 		}
 	}
 	return (remove == nil || bool(*remove)) && policy.prunes()
+}
+
+// formerStorage is the storage holding rp, for asking its retention: a PVE
+// storage by its id; a PBS snapshot by the current storage entry naming its
+// server, datastore and namespace (none: the entry is gone, so unknown).
+func formerStorage(rp restorePoint, refs map[string]pbsStorageRef) (string, *pbsStorageRef, bool) {
+	if strings.HasPrefix(rp.canonical, "pve:") {
+		storage, _, ok := strings.Cut(strings.TrimPrefix(rp.canonical, "pve:"), "@")
+		return storage, nil, ok
+	}
+	for _, id := range sortedKeys(refs) {
+		ref := refs[id]
+		if onDestination(rp, destinationKey(id, &ref)) {
+			return id, &ref, true
+		}
+	}
+	return "", nil, false
 }
 
 // destinationKey names where a job writes: for a PBS storage the PBS server,
