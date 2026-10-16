@@ -4,7 +4,7 @@
 // windows-null-dacl-behind-flags): trustees in the token file's SDDL are
 // compared by SID, so an alias that names the current user (the built-in
 // Administrator renders as LA) is the owner, and an alias that names anyone
-// else is not; and the DACL section is parsed exactly, so a NULL DACL is
+// else is not; and the DACL section's framing is checked, so a NULL DACL is
 // refused in the form Windows actually renders. Pure SDDL strings, so this
 // runs on any OS.
 package cliutil
@@ -118,9 +118,10 @@ func TestEvalCredsSecurityRefusesNullDACLBehindFlags(t *testing.T) {
 	}
 }
 
-// The DACL section is split exactly: flags, then complete ACEs, then an
-// optional SACL section that grants nothing. Anything else is refused.
-func TestEvalCredsSecurityParsesTheDACLSectionExactly(t *testing.T) {
+// The DACL section is framed as flags, then complete six-field ACEs, then an
+// optional SACL section that grants nothing. Text outside that framing is
+// refused.
+func TestEvalCredsSecurityChecksTheDACLSectionFraming(t *testing.T) {
 	const me = "S-1-5-21-1-2-3-1000"
 	own := "(A;;FA;;;" + me + ")"
 	cases := []struct {
@@ -137,6 +138,9 @@ func TestEvalCredsSecurityParsesTheDACLSectionExactly(t *testing.T) {
 		{"unclosed trailing ACE", "O:" + me + "D:PAI" + own + "(A;;FA;;;WD", "unparseable ACE"},
 		{"text between ACEs", "O:" + me + "D:PAI" + own + "junk", "unparseable ACE"},
 		{"conditional ACE", "O:" + me + "D:PAI" + own + "(XA;;FA;;;WD;(Member_of{SID(BA)}))", "unparseable ACE"},
+		{"allow ACE with a seventh field", "O:" + me + "D:PAI(A;;FA;;;" + me + ";extra)", "unparseable ACE"},
+		{"allow ACE with five fields", "O:" + me + "D:PAI(A;;FA;;" + me + ")", "unparseable ACE"},
+		{"inherited and object ACEs for allowed principals", "O:" + me + "D:AI(A;ID;FA;;;SY)(OA;CI;CR;00000000-0000-0000-0000-000000000000;;BA)(A;ID;FA;;;" + me + ")", ""},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
