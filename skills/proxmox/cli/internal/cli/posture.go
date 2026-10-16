@@ -380,7 +380,11 @@ func collectPosture(ctx context.Context, t fleetTarget, o postureOpts) (clusterP
 	pbsStandIns(standIn, pbsUnread, readStorage)
 	targets := newJobTargets(ctx, t.C, cov)
 	allGaps := map[storageGap]bool{}
-	attempts, blindSince, aborted := lastVzdumpAttempts(ctx, t, nodes, o.now.Add(-o.attemptWindow), o.maxLogs, &out)
+	typeOf := map[int64]string{}
+	for _, g := range guests {
+		typeOf[int64(g.VMID)] = g.Type
+	}
+	attempts, blindSince, aborted := lastVzdumpAttempts(ctx, t, nodes, o.now.Add(-o.attemptWindow), o.maxLogs, typeOf, &out)
 	if len(offline) > 0 {
 		blindSince = math.MaxInt64 // an offline node's vzdump tasks are unread
 	}
@@ -615,7 +619,7 @@ type vzdumpAttempt struct {
 // whose log was not read (math.MaxInt64 when a node's task list itself could
 // not be read): an attempt no newer than that may be superseded by the
 // unread one, so the caller reports it as unknown.
-func lastVzdumpAttempts(ctx context.Context, t fleetTarget, nodes []string, since time.Time, maxLogs int, out *clusterPosture) (map[int64]vzdumpAttempt, int64, []abortedRun) {
+func lastVzdumpAttempts(ctx context.Context, t fleetTarget, nodes []string, since time.Time, maxLogs int, typeOf map[int64]string, out *clusterPosture) (map[int64]vzdumpAttempt, int64, []abortedRun) {
 	var blindSince int64
 	blind := func(at int64) {
 		if at > blindSince {
@@ -673,6 +677,9 @@ func lastVzdumpAttempts(ctx context.Context, t fleetTarget, nodes []string, sinc
 		}
 		results := parseVzdumpLog(lines)
 		for _, r := range results {
+			if !r.sameGuestType(typeOf[r.VMID]) {
+				continue // a deleted guest of the other type had this VMID
+			}
 			if prev, ok := latest[r.VMID]; !ok || int64(nt.task.StartTime) > prev.at {
 				latest[r.VMID] = attemptSeen{at: int64(nt.task.StartTime), res: r.Result}
 			}

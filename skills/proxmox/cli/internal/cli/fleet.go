@@ -1238,6 +1238,7 @@ func markSharedPBS(ctx context.Context, flags *rootFlags, targets []fleetTarget)
 	type seen struct {
 		refs   map[string]pbsStorageRef
 		net    map[string][]string
+		netErr bool // the full storage list failed: its network shares are unknown
 		hidden bool
 	}
 	// Read every configured cluster in parallel (bounded), so a hung client
@@ -1250,11 +1251,10 @@ func markSharedPBS(ctx context.Context, flags *rootFlags, targets []fleetTarget)
 		if err != nil {
 			return seen{}, err
 		}
+		// Its PBS storages were read: keep them even when the network-share
+		// read fails, or the peer would be judged only by its pbs_host.
 		net, err := fetchNetStorageIDs(ctx, t.C)
-		if err != nil {
-			return seen{}, err
-		}
-		return seen{refs: refs, net: net, hidden: storageListHidden(ctx, t.C) != nil}, nil
+		return seen{refs: refs, net: net, netErr: err != nil, hidden: storageListHidden(ctx, t.C) != nil}, nil
 	})
 	byName := map[string]fleetTarget{}
 	own := &pbsOwnership{writers: map[string]map[string]string{}, svc: pbsServices{},
@@ -1318,6 +1318,8 @@ func markSharedPBS(ctx context.Context, flags *rootFlags, targets []fleetTarget)
 		// count and the rest is unknown.
 		if r.Value.hidden {
 			own.peers = append(own.peers, scope(t, r.Value.refs, true))
+		}
+		if r.Value.hidden || r.Value.netErr {
 			own.netUnread = append(own.netUnread, t.Name)
 		}
 		own.netOf[id] = r.Value.net
@@ -2267,7 +2269,7 @@ func fetchTaskLog(ctx context.Context, c *client.Client, pbs bool, node, upid st
 }
 
 var (
-	vzStartRe  = regexp.MustCompile(`Starting Backup of VM (\d+)\b`)
+	vzStartRe  = regexp.MustCompile(`Starting Backup of VM (\d+)\b(?: \((qemu|lxc)\))?`)
 	vzFinishRe = regexp.MustCompile(`Finished Backup of VM (\d+)\b`)
 	vzErrorRe  = regexp.MustCompile(`ERROR: Backup of VM (\d+) failed - (.*)$`)
 )
@@ -2275,8 +2277,15 @@ var (
 // vzdumpGuestResult is one guest's outcome inside a (possibly multi-guest) vzdump task.
 type vzdumpGuestResult struct {
 	VMID   int64
+	Type   string // qemu | lxc as the log names it; "" when it does not
 	Result string // ok | failed | incomplete
 	Reason string
+}
+
+// sameGuestType: a result the log ties to the other guest type is a
+// different guest that had the same VMID (CT 108 replaced by VM 108).
+func (r vzdumpGuestResult) sameGuestType(typ string) bool {
+	return r.Type == "" || typ == "" || r.Type == typ
 }
 
 // parseVzdumpLog attributes per-guest results from a vzdump task log:
@@ -2362,7 +2371,9 @@ func parseVzdumpLog(lines []string) []vzdumpGuestResult {
 			continue
 		}
 		if m := vzStartRe.FindStringSubmatch(line); m != nil {
-			get(m[1])
+			if r := get(m[1]); m[2] != "" {
+				r.Type = m[2]
+			}
 		}
 	}
 	out := make([]vzdumpGuestResult, 0, len(order))

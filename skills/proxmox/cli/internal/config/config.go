@@ -223,6 +223,11 @@ func Load(configPath string) (*Config, error) {
 	// Base URL override (used by printing-press verify to point at mock/test servers)
 	if v := cliutil.EnvOverride("PROXMOX_BASE_URL"); v != "" {
 		cfg.BaseURL = v
+	} else if h := strings.TrimSpace(cliutil.EnvOverride("PROXMOX_HOST")); h != "" && !strings.Contains(cfg.BaseURL, "{host}") {
+		// proxmox hand-fix (endpoints-env-only): PROXMOX_HOST names the host
+		// this run's token is for; a base_url in config.toml must not send the
+		// token to another (another client's) host.
+		cfg.BaseURL = "https://{host}:8006/api2/json"
 	}
 
 	// Endpoint template vars: resolve each {placeholder} in BaseURL or the
@@ -830,6 +835,12 @@ func (c *Config) snapshotFileConfig() {
 func (c *Config) configForSave() Config {
 	out := *c
 	if c.fileConfig != nil {
+		// proxmox hand-fix (endpoints-env-only): endpoints come from the env,
+		// --cluster or the file at load time; a save keeps the file's, so a
+		// PROXMOX_BASE_URL / PROXMOX_HOST from one run never becomes the saved
+		// host every later run sends its token to.
+		out.BaseURL = c.fileConfig.BaseURL
+		out.TemplateVars = cloneStringMap(c.fileConfig.TemplateVars)
 		if c.envOverrides["ProxmoxApiToken"] {
 			out.ProxmoxApiToken = c.fileConfig.ProxmoxApiToken
 		}

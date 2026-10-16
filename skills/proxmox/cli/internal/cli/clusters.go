@@ -182,9 +182,10 @@ func (cl clusterProfile) validate(name string) error {
 			}
 		}
 	}
-	for _, env := range []string{cl.PVETokenEnv, cl.PBSTokenEnv} {
+	for field, env := range map[string]string{"pve_token_env": cl.PVETokenEnv, "pbs_token_env": cl.PBSTokenEnv} {
 		if env != "" && !envNamePattern.MatchString(env) {
-			return fmt.Errorf("cluster %q: %q is not an environment variable name (store the variable NAME, never the token)", name, env)
+			// Never echo it: a value that is not a variable name is most often the token itself.
+			return fmt.Errorf("cluster %q: %s is not an environment variable name, so its value is not shown (it may be the token: store the variable NAME, never the token)", name, field)
 		}
 	}
 	if cl.PVEBaseURL != "" {
@@ -363,9 +364,9 @@ func newClustersListCmd(flags *rootFlags) *cobra.Command {
 					pve = cl.PVEHost
 				}
 				rows = append(rows, clusterRow{
-					Name: name, Client: cl.Client, PVE: pve, PVETokenEnv: cl.PVETokenEnv,
+					Name: name, Client: cl.Client, PVE: pve, PVETokenEnv: shownEnvName(cl.PVETokenEnv),
 					PVETokenSet: envValue(cl.PVETokenEnv) != "", PVEPinned: cl.PVEFingerprint != "",
-					PBS: cl.PBSHost, PBSTokenEnv: cl.PBSTokenEnv, PBSTokenSet: envValue(cl.PBSTokenEnv) != "",
+					PBS: cl.PBSHost, PBSTokenEnv: shownEnvName(cl.PBSTokenEnv), PBSTokenSet: envValue(cl.PBSTokenEnv) != "",
 					PBSPinned: cl.PBSFingerprint != "", PBSNamespace: cl.PBSNamespace, ClustersSource: path,
 				})
 				if err := cl.validate(name); err != nil {
@@ -390,6 +391,15 @@ func newClustersListCmd(flags *rootFlags) *cobra.Command {
 			return flags.printTable(cmd, []string{"NAME", "CLIENT", "PVE", "PVE TOKEN", "PBS", "PBS TOKEN"}, tableRows)
 		},
 	}
+}
+
+// shownEnvName: a *_token_env value that is not a variable name may be the
+// token pasted in its place, so it is never shown.
+func shownEnvName(env string) string {
+	if env == "" || envNamePattern.MatchString(env) {
+		return env
+	}
+	return "(not a variable name; not shown)"
 }
 
 func tokenState(env string, set bool) string {
