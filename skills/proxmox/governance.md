@@ -119,10 +119,16 @@ hosts before any request is built.
   A cluster that cannot be read is assumed to write anywhere in its declared
   `pbs_namespace` on the PBS host (or certificate) its entry names (on any
   PBS, if it names none), or anywhere on that PBS when it declares none.
-  An entry with a `pbs_host` and no Proxmox VE host is credited with what
-  its own client's clusters write there (the same `client`, or the same
-  entry name when `client` is unset; compared without case), as long as one
-  cluster writes each namespace; anything else is shared.
+  An entry with a `pbs_host` and no Proxmox VE host belongs to its own
+  client (the same `client`, or the same entry name when `client` is unset;
+  compared without case). In `verify-health` it is credited with each
+  namespace one of that client's clusters writes alone; for a whole
+  datastore (`capacity`) and for Backup Server tasks (`failures`), only when
+  a single cluster of that client writes there. Anything else is shared.
+  Such an entry is not itself counted as a writer: give another client's
+  PBS-only entry (host backups through proxmox-backup-client, say) its own
+  datastore, or that datastore's capacity, verify and garbage-collection
+  results may be credited to a client whose cluster writes there too.
   `verify-health` keeps such a namespace's groups but marks them:
   `attribution` is `shared` on the store row and `shared: <clusters>` on each
   group row, whose tenant is left empty. `failures` marks a PBS task the same
