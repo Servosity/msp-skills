@@ -44,10 +44,12 @@ func RegisterTools(s *server.MCPServer) {
 	// Code-orchestration mode — the full surface is covered by registry tools
 	// (<api>_search, <api>_get, and <api>_execute). Endpoint-mirror tools are suppressed.
 	RegisterCodeOrchestrationTools(s)
-	// SQL tool — ad-hoc analysis on synced data without API calls
+	// SQL tool — ad-hoc analysis on the local store without API calls.
+	// Hand-wired (handfixes.json: generated-help-corrections): the description
+	// names the fleet snapshot tables, because there is no sync command.
 	s.AddTool(
 		mcplib.NewTool("sql",
-			mcplib.WithDescription("Run read-only SQL against local database: the fleet snapshot store (hand-wired, handfixes.json: generated-help-corrections). Each fleet health run saves a snapshot; run it first. There is no sync command, so the generic resources table stays empty."),
+			mcplib.WithDescription("Run read-only SQL against local database: the fleet snapshot store. Each fleet health run saves a snapshot; run it first. There is no sync command, so the generic resources table stays empty."),
 			mcplib.WithString("query", mcplib.Required(), mcplib.Description("SQL query (SELECT or WITH...SELECT). Snapshots live in gz_fleet_runs(run_id, taken_at, companies, endpoints, failures, tree_complete), gz_fleet_companies(run_id, company_id, company_name, ok) and gz_fleet_endpoints(run_id, company_id, company_name, endpoint_id, name, fqdn, ip, macs, label, is_managed, is_isolated, policy_id, policy_name, policy_applied, product_outdated, last_scan, machine_type, os); e.g. SELECT company_name, name, ip FROM gz_fleet_endpoints WHERE run_id = (SELECT max(run_id) FROM gz_fleet_runs).")),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),

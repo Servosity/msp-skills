@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"bitdefender-pp-cli/internal/client"
+	"bitdefender-pp-cli/internal/cliutil"
 )
 
 const (
@@ -49,6 +50,16 @@ func doctorProbe(ctx context.Context, c *client.Client, authHeader string) (int,
 	if err != nil {
 		return 0, nil, err
 	}
+	// Same static headers and User-Agent real commands send, so a proxy that
+	// gates on either answers the probe as it answers them.
+	for k, v := range c.Config.Headers {
+		req.Header.Set(k, v)
+	}
+	ua := cliutil.EnvOverride("BITDEFENDER_USER_AGENT")
+	if ua == "" {
+		ua = "bitdefender-cli/1.0"
+	}
+	req.Header.Set("User-Agent", ua)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", authHeader)
 	resp, err := c.HTTPClient.Do(req)

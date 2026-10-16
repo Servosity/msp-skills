@@ -53,9 +53,10 @@ Quit Claude Desktop completely and reopen, then ask a question that needs the AP
 
 `BITDEFENDER_BASE_URL` is optional: leave it out for the cloud console
 (`https://cloud.gravityzone.bitdefender.com/api`), or set it to the Access URL from
-**My Account > Control Center API**. For an agent that should only read, add
-`"BITDEFENDER_MCP_READ_ONLY": "1"` to the same `env` block (in this file or any other
-agent's config below): the generic `bitdefender_execute` tool then runs only
+**My Account > Control Center API**. For an agent that should only read, set the
+`"BITDEFENDER_MCP_READ_ONLY"` entry that is already in the `env` block to `"1"` (here or in
+any other agent's config below; do not add a second entry, because JSON keeps the last
+one): the generic `bitdefender_execute` tool then runs only
 GravityZone read methods and refuses writes and the reads that return or take a
 credential. The one-click `.mcpb` extension asks for the same switch as **Read-only MCP
 server**: enter `1` there.
@@ -156,6 +157,13 @@ behind SSO / Cloudflare Access for team use.
 In ChatGPT (Pro, Plus, Team, Business, Enterprise, or Education - **not** Free):
 Settings > Apps > Advanced > **Developer mode**, then create a custom connector
 pointing at your tunnel's HTTPS URL.
+
+At the time of writing, ChatGPT's custom connectors sign in with OAuth or use no
+authentication; they do not send a fixed bearer header. So `bitdefender-mcp` answers a
+direct ChatGPT connector with 401. Put a gateway in front that ChatGPT can authenticate to
+with OAuth and that adds `Authorization: Bearer <your BITDEFENDER_MCP_HTTP_TOKEN>` to the
+requests it forwards. Never expose the endpoint without authentication, and run it with
+`BITDEFENDER_MCP_READ_ONLY=1` unless ChatGPT must change things in GravityZone.
 
 Official OpenAI guidance (beta, plan-dependent): https://help.openai.com/en/articles/12584461-developer-mode-and-mcp-apps-in-chatgpt-beta
 

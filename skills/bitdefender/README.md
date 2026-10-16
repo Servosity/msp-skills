@@ -147,7 +147,7 @@ $env:BITDEFENDER_API_KEY = "<value>"
 bitdefender-cli doctor
 ```
 
-`doctor` checks config, paths, and API reachability, and reports whether credentials are loaded - it does not validate them. Run `bitdefender-cli api-key --json` to confirm the key works end-to-end and see which API areas it has.
+`doctor` checks config, paths and API reachability, and sends the key to GravityZone's `getApiKeyDetails` method, so a rejected or deleted key shows up as a `Credentials: ERROR` row and a wrong base URL as an `API: ERROR` row. It exits 0 even then, so scripts should add `--fail-on error`. `bitdefender-cli api-key --json` shows which API areas the key has.
 
 
 ## What this skill does
@@ -244,7 +244,7 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 | Protection and policy config | `policies set-modules`, `endpoints assign-policy`, `blocklist add`, `blocklist remove`, `custom-rules create`, `custom-rules update`, `custom-rules delete`, `phasr apply`, `maintenance-windows create`, `push set`, `integrations create`, `aws-ec2 configure`, `endpoints move`, `groups move` | Preview with `--dry-run`, then a human-approved write - an exclusion rule, a weaker policy or a move into another group's policy can open a hole |
 | Write (routine) | `incidents note`, `incidents set-status`, `incidents assign`, `endpoints set-label`, `groups create`, `company-folders create`, `reports create`, `packages create` | Preview with `--dry-run`, then a reviewed write |
 | Credential and access | `push get` (returns the webhook Authorization value), `license get` (returns the license key), `companies get-by-user` (takes a user's password), `packages get`, `packages install-links`, `integrations get`, `accounts create`, `accounts update`, `accounts delete`, `email-verification`, `auth set-token` | Human-in-the-loop only |
-| Destructive and commercial | `import` (one create per JSONL line, so it can reach any tier above), `endpoints delete`, `endpoints move-to-company`, `companies create`, `companies suspend`, `companies delete`, `company-folders delete`, `groups delete`, `packages delete`, `license set-key`, `license add-product-key`, `license remove-product-key`, `license set-monthly-subscription` | Human-in-the-loop only, explicit confirmation |
+| Destructive and commercial | `import` (one create per JSONL line, so it can reach any tier above), `endpoints delete`, `endpoints move-to-company`, `company-folders move`, `companies create`, `companies suspend`, `companies delete`, `company-folders delete`, `groups delete`, `packages delete`, `license set-key`, `license add-product-key`, `license remove-product-key`, `license set-monthly-subscription` | Human-in-the-loop only, explicit confirmation |
 
 Generated commands run as soon as they are invoked; preview with `--dry-run`. Over MCP, the generic `bitdefender_execute` tool can reach every write in the table; set `BITDEFENDER_MCP_READ_ONLY=1` for an agent that should only read.
 
