@@ -145,6 +145,13 @@ hosts before any request is built.
   and by address on another, a `dir` storage over a mounted share, and a
   hyperconverged CephFS another cluster mounts through its monitors are not
   matched, because no Proxmox read says what backs them.
+- **Do not reuse a VMID while the old guest's backups are retained.** A
+  backup carries only the VMID. For a VM the skill reads the creation time
+  Proxmox VE records in its config (`meta` `ctime`, which a restore keeps)
+  and credits it with no backup or task older than that. A container has no
+  such record, and neither has a VM created before Proxmox VE 6.2: one that
+  reuses a deleted guest's VMID is credited with that guest's retained
+  backups.
 - **One token per client cluster**, referenced by env var name in
   `clusters.toml`, so revoking one client never touches another.
 - **Pin every certificate** with its SHA-256 fingerprint.

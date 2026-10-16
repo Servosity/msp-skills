@@ -305,7 +305,7 @@ var (
 	verifyKeep   = []string{"stores", "groups", "skipped_clusters", "fetch_failures", "cluster", "store", "namespace", "group", "status", "snapshots", "failed", "never_verified", "outdated", "first_failure_at", "newest_verified_ok_at", "newest_is_bad", "failing_groups", "failed_snapshots", "never_verified_snapshots", "gc_still_bad_chunks", "namespaces_without_verify_job", "attribution", "snapshots_incomplete", "verify_jobs_unknown", "gc_unknown"}
 	failuresKeep = []string{"rows", "fetch_failures", "scanned_tasks", "logs_read", "log_cap_hit", "note", "cluster", "product", "type", "target", "vmid", "guest_name", "result", "reason", "upid", "started_at", "attribution"}
 	capacityKeep = []string{"rows", "fetch_failures", "cluster", "kind", "name", "node", "used_pct", "days_to_full", "estimated_full_at", "gc_last_state", "gc_pending_bytes", "flags", "attribution"}
-	restoreKeep  = []string{"query", "guests", "fetch_failures", "cluster", "vmid", "name", "covered_by_jobs", "count", "newest_at", "newest_verified_ok_at", "restore_points", "backup_time", "source", "verify_state", "protected", "encrypted", "evidence", "not_read", "hidden_unverified"}
+	restoreKeep  = []string{"query", "guests", "fetch_failures", "cluster", "vmid", "name", "covered_by_jobs", "count", "newest_at", "newest_verified_ok_at", "restore_points", "backup_time", "source", "verify_state", "protected", "encrypted", "evidence", "not_read", "hidden_unverified", "predating_guest"}
 	rpoKeep      = []string{"rows", "clients", "fetch_failures", "days", "window_start", "tenant", "cluster", "vmid", "name", "missed_runs", "scheduled_runs", "missed_run_times", "largest_gap_hours", "verified_ok_days", "met_schedule", "window_capped", "note", "guests", "guests_met_schedule", "worst_gap_hours", "evidence", "points_unread", "guests_unproven", "missed_runs_unproven", "guests_without_restore_points", "clusters_unreachable"}
 )
 
@@ -2379,6 +2379,36 @@ func unixRFC3339(sec int64) string {
 		return ""
 	}
 	return time.Unix(sec, 0).UTC().Format(time.RFC3339)
+}
+
+// guestCreated returns when Proxmox VE created a QEMU guest: the ctime in
+// its config's meta property, which a restore keeps. 0 when unknown: an LXC
+// guest has no such record, nor has a VM created before PVE 6.2 or one whose
+// config the token cannot read. A backup or task of the VMID from before
+// then belongs to an earlier guest that had the same VMID.
+func guestCreated(ctx context.Context, c *client.Client, g pveGuest) int64 {
+	if g.Type != "qemu" || g.Node == "" {
+		return 0
+	}
+	var cfg struct {
+		Meta string `json:"meta"`
+	}
+	if getJSON(ctx, c, fmt.Sprintf("/nodes/%s/qemu/%d/config", url.PathEscape(g.Node), int64(g.VMID)), nil, &cfg) != nil {
+		return 0
+	}
+	for _, kv := range strings.Split(cfg.Meta, ",") {
+		if v, ok := strings.CutPrefix(strings.TrimSpace(kv), "ctime="); ok {
+			n, _ := strconv.ParseInt(v, 10, 64)
+			return n
+		}
+	}
+	return 0
+}
+
+// predates: something at sec happened before a guest created at created
+// (0 = unknown), beyond the clock-skew tolerance between nodes.
+func predates(sec, created int64) bool {
+	return created > 0 && sec+int64(clockSkewTolerance/time.Second) < created
 }
 
 // clockSkewTolerance is how far past now a restore point may be dated before

@@ -339,8 +339,12 @@ func collectRPO(ctx context.Context, t fleetTarget, start, now time.Time, onlyVM
 			scheduleUnknown = scheduleUnknown || unknownJob[id]
 		}
 		var mine []restorePoint
+		var created int64 // an earlier guest's backups under this VMID are not this one's
+		if len(points[vmid]) > 0 {
+			created = guestCreated(ctx, t.C, g)
+		}
 		for _, rp := range dedupeRestorePoints(points[vmid]) {
-			if rp.GuestType == "" || rp.GuestType == g.Type {
+			if (rp.GuestType == "" || rp.GuestType == g.Type) && !predates(rp.Time, created) {
 				mine = append(mine, rp)
 			}
 		}

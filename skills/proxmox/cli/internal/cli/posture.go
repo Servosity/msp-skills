@@ -396,9 +396,20 @@ func collectPosture(ctx context.Context, t fleetTarget, o postureOpts) (clusterP
 		row.CoveredByJob = len(row.Jobs) > 0
 		// Only this guest's type: a VMID reused by a guest of the other type
 		// (CT 100 replaced by VM 100) is a different backup group.
+		// A backup from before this VM was created is an earlier guest's that
+		// had the same VMID (deleted, its backups retained).
+		var created int64
+		if _, tried := attempts[vmid]; tried || len(points[vmid]) > 0 {
+			created = guestCreated(ctx, t.C, g)
+		}
+		predated := 0
 		var rps, unreadable []restorePoint
 		for _, rp := range dedupeRestorePoints(points[vmid]) {
 			if rp.GuestType != "" && rp.GuestType != g.Type {
+				continue
+			}
+			if predates(rp.Time, created) {
+				predated++
 				continue
 			}
 			if rp.unreadable {
@@ -448,7 +459,10 @@ func collectPosture(ctx context.Context, t fleetTarget, o postureOpts) (clusterP
 			row.OffsiteLastSuccessAt = offsiteFor(rps, pbsHost, syncJobs)
 		}
 		a, ok := attempts[vmid]
-		superseded := supersededByAbort(aborted, vmid, a.atUnix)
+		if ok && predates(a.atUnix, created) {
+			a, ok = vzdumpAttempt{}, false // an earlier guest's run
+		}
+		superseded := supersededByAbort(aborted, vmid, max(a.atUnix, created))
 		switch {
 		case ok && a.atUnix > blindSince && !superseded:
 			row.LastAttemptStatus, row.LastAttemptAt = a.status, a.at
@@ -505,17 +519,26 @@ func collectPosture(ctx context.Context, t fleetTarget, o postureOpts) (clusterP
 				note += "; the newest of them failed verification"
 			}
 			switch {
+			case futureFailed && row.CoveredByJob:
+				// The newest backup is known and bad: that is the verdict, whatever
+				// the older points say (stale, never, unproven).
+				prior := ""
+				if row.Severity == "red" && row.Verdict != "never" {
+					prior = "; also " + row.Verdict + ": " + row.Reason
+				}
+				row.Verdict, row.Severity, row.VerifyState = "verify-failed", "red", "failed"
+				row.Reason = "the newest restore point failed verification; " + note + prior
 			case row.Verdict == "never":
 				row.Verdict, row.Reason = "unproven", note+"; no other restore point exists"
-			case futureFailed && row.Severity != "red" && row.CoveredByJob:
-				row.Verdict, row.Severity, row.VerifyState = "verify-failed", "red", "failed"
-				row.Reason = "the newest restore point failed verification; " + note
 			case row.Severity == "green" && row.CoveredByJob:
 				row.Verdict, row.Severity = "clock-skew", "amber"
 				row.Reason += ", but " + note
 			default:
 				row.Reason += "; " + note
 			}
+		}
+		if predated > 0 {
+			row.Reason += fmt.Sprintf("; %d older backup(s) of VMID %d predate this VM's creation (an earlier guest with the same VMID) and were not counted", predated, vmid)
 		}
 		out.rows = append(out.rows, row)
 	}
