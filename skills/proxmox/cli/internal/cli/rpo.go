@@ -99,11 +99,10 @@ func newNovelRpoCmd(flags *rootFlags) *cobra.Command {
 			"reported as missed. Runs scheduled before a VM was created are not counted either. Jobs that run at the same time each need " +
 			"their own restore point. The newest run is not judged while it may still be running (6h), but the schedule is not met until it " +
 			"has a restore point. Each job's runs are judged against restore points on that job's own destination, and one backup pays " +
-			"one run. When retention may delete older backups (any covering or disabled job's prune-backups policy, from the job, its " +
-			"storage or vzdump.conf with remove on, on any node; a PBS prune job on the datastore; the policy of a storage that holds an " +
-			"older backup though no job writes there now; or one that cannot be read), a missed run older than a " +
-			"restore point that was kept may have been pruned, and one with a restore point elsewhere inside its window (a job moved " +
-			"storages) may be that point: both count in missed_runs_unproven and evidence is partial. may_be_earlier_guest counts backups under " +
+			"one run. A missed run is proven only when no newer restore point exists at its destination (retention never deletes the " +
+			"newest backup). An older miss counts in missed_runs_unproven and evidence is partial: retention may have pruned its point, " +
+			"or the job's schedule or guest list may have differed then (Proxmox keeps no history of either); so does a miss a backup " +
+			"on another storage could cover (a job moved storages). may_be_earlier_guest counts backups under " +
 			"the VMID that may be an earlier guest's with the same VMID (see restore-points); they are not counted in restore_points.",
 		Example: strings.Trim(`
   proxmox-cli rpo --days 7 --agent
@@ -165,10 +164,12 @@ func newNovelRpoCmd(flags *rootFlags) *cobra.Command {
 				switch {
 				case byClient:
 					out = rep.Clients
-				case flags.csv:
+				case rowsOnly(flags):
 					out = rep.Rows
 				}
-				if err := printJSONFilteredKeep(cmd.OutOrStdout(), out, flags, rpoKeep...); err != nil {
+				if flags.quiet && !byClient {
+					printQuietRows(cmd.OutOrStdout(), rep.Rows, func(r rpoRow) string { return fmt.Sprintf("%s:%d", r.Cluster, r.VMID) })
+				} else if err := printJSONFilteredKeep(cmd.OutOrStdout(), out, flags, rpoKeep...); err != nil {
 					return err
 				}
 				return outcomeErr
@@ -341,7 +342,6 @@ func collectRPO(ctx context.Context, t fleetTarget, start, now time.Time, onlyVM
 	}
 	pbsStandIns(standIn, pbsUnread, readStorage)
 	targets := newJobTargets(ctx, t.C, cov)
-	retention := newRPORetention(ctx, t.C)
 	allGaps := map[storageGap]bool{}
 	births := newGuestBirths(t, now, offline)
 	var rows []rpoRow
@@ -402,50 +402,8 @@ func collectRPO(ctx context.Context, t fleetTarget, start, now time.Time, onlyVM
 			}
 			tg.jobRuns = append(tg.jobRuns, slices.DeleteFunc(slices.Clone(runsByJob[id]), func(r int64) bool { return r < birth.at }))
 		}
-		// Retention may have deleted this guest's older backups if any job that
-		// covers or covered it (a disabled one may have run earlier in the
-		// window) prunes on any node it may have run on (the guest migrates; a
-		// default storage and vzdump.conf are per node); an offline node's
-		// policy is unknown.
-		prunes := len(offline) > 0
-		for _, id := range append(slices.Clone(cov.EnabledFor[vmid]), cov.DisabledFor[vmid]...) {
-			for _, node := range nodes {
-				if prunes {
-					break
-				}
-				target := targets.target(id, node)
-				var ref *pbsStorageRef
-				if r, ok := refs[target]; ok {
-					ref = &r
-				}
-				prunes = retention.mayPrune(targets.jobs[id], node, target, ref)
-			}
-		}
-		// A backup at a destination no covering job writes to now (a job moved
-		// storages, a manual backup) was pruned there by that storage's own
-		// policy, or by a covering job's prune-backups if the job wrote there:
-		// asked the same way; a PBS storage entry that is gone is unknown.
-		for _, p := range mine {
-			if prunes || slices.ContainsFunc(order, func(key string) bool { return onDestination(p, key) }) {
-				continue
-			}
-			storage, ref, known := formerStorage(p, refs)
-			if !known {
-				prunes = true
-				continue
-			}
-			for _, id := range append(slices.Clone(cov.EnabledFor[vmid]), cov.DisabledFor[vmid]...) {
-				for _, node := range nodes {
-					prunes = prunes || retention.mayPrune(targets.jobs[id], node, storage, ref)
-				}
-			}
-			for _, node := range nodes {
-				prunes = prunes || retention.mayPrune(backupJob{}, node, storage, ref) // no job: the storage's own policy
-			}
-		}
 		var dests []rpoTarget
 		for _, key := range order {
-			byTarget[key].prunes = prunes
 			dests = append(dests, *byTarget[key])
 		}
 		row := evaluateJobsRPO(mine, dests, from, now) // window_start: the evaluated start (creation, when inside the window)
@@ -564,13 +522,10 @@ func evaluateRPO(points []restorePoint, runs []int64, start, now time.Time) rpoR
 
 // rpoTarget is one backup destination of a guest (a storage, or a PBS
 // datastore namespace however many storages name it): the scheduled runs of
-// each covering job that writes there, the guest's restore points there, and
-// whether retention may have deleted older ones (any prune-backups policy on
-// a job, its storage or vzdump.conf, a PBS prune job, or one not read).
+// each covering job that writes there and the guest's restore points there.
 type rpoTarget struct {
 	jobRuns [][]int64
 	points  []restorePoint
-	prunes  bool
 }
 
 // evaluateJobsRPO scores each destination's runs against its own points:
@@ -753,7 +708,6 @@ func evaluateJobsRPO(all []restorePoint, targets []rpoTarget, start, now time.Ti
 			wins[w].paid = true
 		}
 	}
-	prunes := slices.ContainsFunc(targets, func(tg rpoTarget) bool { return tg.prunes })
 	pending := ""
 	var missed []int64
 	for wi, w := range wins {
@@ -769,12 +723,14 @@ func evaluateJobsRPO(all []restorePoint, targets []rpoTarget, start, now time.Ti
 			continue
 		}
 		missed = append(missed, w.from)
-		// Retention never deletes the newest backup: with a newer one kept, this
-		// run's may have been pruned (by any covering job's policy: two storage
-		// ids can name one directory); with none, it never existed. A point at
-		// another destination inside the window that paid no run may be this
-		// run's (a job moved storages, a manual backup).
-		if (prunes && newest[w.tgt] > w.from) || elsewhereCouldPay(wi) {
+		// Proven only when no newer restore point exists at its destination:
+		// retention never deletes the newest backup, so then this run left
+		// none. With a newer one kept, retention may have pruned this run's,
+		// or the job's schedule or guest list may have differed then: Proxmox
+		// keeps no history of either. A point at another destination that
+		// could be this run's (a job moved storages, a manual backup) leaves it
+		// unproven too.
+		if newest[w.tgt] > w.from || elsewhereCouldPay(wi) {
 			row.MissedRunsUnproven++
 		}
 	}
@@ -814,7 +770,7 @@ func evaluateJobsRPO(all []restorePoint, targets []rpoTarget, start, now time.Ti
 		row.Note = rpoNoPointsNote
 	}
 	if row.MissedRunsUnproven > 0 {
-		row.Note = joinNote(row.Note, fmt.Sprintf("%d missed run(s) may have restore points that retention pruned (a newer one was kept) or that another storage holds inside the run's window; they are unproven", row.MissedRunsUnproven))
+		row.Note = joinNote(row.Note, fmt.Sprintf("%d missed run(s) are older than a restore point that was kept (retention may have pruned theirs, or the schedule or job may have differed then) or may be covered by a backup on another storage; they are unproven", row.MissedRunsUnproven))
 	}
 	row.Evidence = "full"
 	// Retention may have pruned the start of the window, so a run whose

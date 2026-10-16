@@ -163,10 +163,14 @@ func newNovelVerifyHealthCmd(flags *rootFlags) *cobra.Command {
 			}
 			if !wantsHumanTable(cmd.OutOrStdout(), flags) {
 				var out any = rep
-				if flags.csv {
+				if rowsOnly(flags) {
 					out = rep.Groups
 				}
-				if err := printJSONFilteredKeep(cmd.OutOrStdout(), out, flags, verifyKeep...); err != nil {
+				if flags.quiet {
+					printQuietRows(cmd.OutOrStdout(), rep.Groups, func(r verifyGroupRow) string {
+						return r.Cluster + " " + r.Store + "/" + r.Namespace + "/" + r.Group
+					})
+				} else if err := printJSONFilteredKeep(cmd.OutOrStdout(), out, flags, verifyKeep...); err != nil {
 					return err
 				}
 				return outcomeErr

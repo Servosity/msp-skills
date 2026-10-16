@@ -129,7 +129,7 @@ func newNovelRestorePointsCmd(flags *rootFlags) *cobra.Command {
 			}
 			if !wantsHumanTable(cmd.OutOrStdout(), flags) {
 				var out any = rep
-				if flags.csv {
+				if rowsOnly(flags) {
 					flat := []restorePoint{}
 					for _, g := range rep.Guests {
 						flat = append(flat, g.RestorePoints...)
@@ -142,7 +142,9 @@ func newNovelRestorePointsCmd(flags *rootFlags) *cobra.Command {
 					}
 					out = flat
 				}
-				if err := printJSONFilteredKeep(cmd.OutOrStdout(), out, flags, restoreKeep...); err != nil {
+				if flat, ok := out.([]restorePoint); ok && flags.quiet {
+					printQuietRows(cmd.OutOrStdout(), flat, func(r restorePoint) string { return r.Source + " " + r.TimeRFC3339 })
+				} else if err := printJSONFilteredKeep(cmd.OutOrStdout(), out, flags, restoreKeep...); err != nil {
 					return err
 				}
 				return unreadErr

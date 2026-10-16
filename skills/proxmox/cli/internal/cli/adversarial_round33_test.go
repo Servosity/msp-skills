@@ -78,7 +78,8 @@ func TestRound33DisabledPBSPruneJobProvenMisses(t *testing.T) {
 // "Backup now" to local 60 days ago (before an upgrade). No job ever wrote
 // local, and local keeps everything.
 func TestRound33StrayManualBackupDemotesRealMisses(t *testing.T) {
-	for _, stray := range []bool{false, true} {
+	var got [2]rpoRow
+	for i, stray := range []bool{false, true} {
 		f := newFixture(t)
 		f.pbsRoutes["/admin/datastore/main/snapshots"] = []any{}
 		f.pveRoutes["/nodes/pve1/storage/pbs1/content"] = []any{}
@@ -91,13 +92,11 @@ func TestRound33StrayManualBackupDemotesRealMisses(t *testing.T) {
 			f.pveRoutes["/nodes/pve1/storage/local/content"] = []any{vzdumpEntry("local", 100, f.now.Add(-60*24*time.Hour).Unix())}
 		}
 		out, _, _ := runCLI(t, "rpo", "--days", "7", "--guest", "100", "--json")
-		r := decodeJSON[rpoReport](t, out).Rows[0]
-		out2, _, _ := runCLI(t, "rpo", "--days", "7", "--guest", "100", "--by-client", "--json")
-		c := decodeJSON[[]rpoClientRow](t, out2)[0]
-		t.Logf("stray=%v runs=%d missed=%d unproven=%d evidence=%s | by-client missed_runs=%d unproven=%d guests_unproven=%d", stray, r.ScheduledRuns, r.MissedRuns, r.MissedRunsUnproven, r.Evidence, c.MissedRuns, c.MissedRunsUnproven, c.GuestsUnproven)
-		if r.MissedRuns != 3 || r.MissedRunsUnproven != 0 || c.MissedRuns != 3 {
-			t.Errorf("stray=%v: a manual backup to a keep-all storage must not demote the 3 real misses (missed %d unproven %d, rollup %d)", stray, r.MissedRuns, r.MissedRunsUnproven, c.MissedRuns)
-		}
+		got[i] = decodeJSON[rpoReport](t, out).Rows[0]
+	}
+	// A manual backup elsewhere, outside every run's window, changes nothing.
+	if got[0].MissedRuns != 3 || got[1].MissedRuns != got[0].MissedRuns || got[1].MissedRunsUnproven != got[0].MissedRunsUnproven || got[1].Evidence != got[0].Evidence {
+		t.Errorf("without %+v\nwith a stray backup %+v", got[0], got[1])
 	}
 }
 
