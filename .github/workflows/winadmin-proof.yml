@@ -177,6 +177,7 @@ jobs:
         if: ${{ !cancelled() }}
         shell: bash
         run: |
+          set +e
           set -uo pipefail
           GEN='TestEmptyCredentialsFileDoesNotClearLegacyConfig|TestAuthWriteMigratesLegacyConfigToCredentialsOnly|TestLoadCredentials_RefusesOverPermissiveFileOnRead|TestConfigFileWinsWhenCredentialsFileAlsoHasSecrets|TestPartialConfigCredentialsMergeMissingFields|TestExplicitConfigUsesSiblingCredentialsBeforeGlobal|TestExplicitConfigFallsBackToGlobalCredentialsWhenSiblingMissing|TestExplicitConfigFallsBackToGlobalCredentialsWhenSiblingEmpty|TestExplicitConfigFileCredentialsWinOverSiblingAndGlobal|TestCorruptCredentialsDoesNotOverrideLegacyConfig|TestAuthWriteScrubsLegacyConfigWhenRelocated|TestConcurrentCredentialWritersLeaveParseableCredentials|TestLoad_RefusesOverPermissiveConfigOnRead|TestExplicitConfigRejectsMalformedSiblingInsteadOfUsingGlobal|TestClearTokensFromBothStateClearsCredentialsAndLegacy|TestCorruptCredentialsFallsBackToEnvCredential'
           declare -A HAND
