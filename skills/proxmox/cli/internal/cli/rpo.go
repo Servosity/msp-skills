@@ -368,7 +368,7 @@ func collectRPO(ctx context.Context, t fleetTarget, start, now time.Time, onlyVM
 		}
 		if scheduleUnknown {
 			row.MetSchedule, row.Evidence = false, "partial"
-			row.Note = strings.TrimSpace(row.Note + " a covering job's schedule could not be expanded; compliance unproven")
+			row.Note = joinNote(row.Note, "a covering job's schedule could not be expanded; compliance unproven")
 		}
 		gaps := jobStorageGaps(cov, vmid, g.Node, readStorage, targets)
 		for _, g := range gaps {
@@ -406,9 +406,9 @@ func collectRPO(ctx context.Context, t fleetTarget, start, now time.Time, onlyVM
 			row.PointsUnread = true
 			if row.MissedRuns > 0 {
 				row.MetSchedule = false
-				row.Note = strings.TrimSpace(row.Note + " " + why + "; " + missed)
+				row.Note = joinNote(row.Note, why+"; "+missed)
 			} else {
-				row.Note = strings.TrimSpace(row.Note + " " + why + "; gaps and verified days may be understated")
+				row.Note = joinNote(row.Note, why+"; gaps and verified days may be understated")
 			}
 		}
 		row.Tenant, row.Cluster, row.VMID, row.Name = t.Tenant, t.Name, vmid, g.Name
@@ -452,6 +452,14 @@ func scheduledRuns(ctx context.Context, t fleetTarget, schedule string, start, n
 }
 
 const rpoNoPointsNote = "no restore points retained"
+
+// joinNote appends one clause to an rpo note.
+func joinNote(note, clause string) string {
+	if note == "" {
+		return clause
+	}
+	return note + "; " + clause
+}
 
 const rpoNoJudgedRunNote = "no scheduled run in the window can be judged yet (the only one is still within the in-progress grace, or the window is shorter than the job's interval); widen --days"
 

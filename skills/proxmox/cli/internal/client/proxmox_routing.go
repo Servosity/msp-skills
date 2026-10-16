@@ -518,16 +518,10 @@ func (c *Client) getNoStore(ctx context.Context, path string, params, headers ma
 	return result, err
 }
 
-// guestConfigPath: reads that carry free-text notes, where MSPs often keep
-// credentials, so the response cache never stores them: a node's or guest's
-// config, a guest's pending config, snapshot list or snapshot config, a
-// storage's content list (backup notes), PBS snapshot lists (comments) and
-// datastore or group notes, and pools (comments).
-var guestConfigPath = regexp.MustCompile(`^/?(nodes/[^/]+(/config|/(qemu|lxc)/[^/]+/(config|pending|snapshot|snapshot/[^/]+/config)|/storage/[^/]+/content(/.+)?)|admin/datastore/[^/]+/(snapshots|notes|group-notes)|pools(/[^/]+)?)/?$`)
-
-func noStoreResponse(path string) bool {
-	if i := strings.IndexByte(path, '?'); i >= 0 {
-		path = path[:i]
-	}
-	return guestConfigPath.MatchString(path)
-}
+// proxmoxNoResponseCache turns the generated response cache off: no read is
+// answered from it and none is written to it. Proxmox answers carry free text
+// (VM, node and pool descriptions, backup notes, PBS snapshot comments and
+// notes, job comments) where MSPs keep credentials, and no list of paths
+// stays complete (PBS reads use absolute URLs; every new endpoint is another
+// gap). A backup-assurance tool also must not answer from a 5-minute-old copy.
+const proxmoxNoResponseCache = true
