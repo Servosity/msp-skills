@@ -79,14 +79,14 @@
   "betterstack": {
     "state": "binary-pending",
     "version": "0.1.3",
-    "latest_tag": "betterstack-v0.1.3",
+    "latest_tag": "betterstack-v0.1.4",
     "current_hash": "sha256:8637b1f27f4b7a475a4fcf750e1950c131c701f675a2f5b86ed99d9eb79043a9",
     "released_hash": "sha256:b0278fef78dcbcb77d33e877722488d209e3346c7c0d5afef4c15b192ba5e8f5"
   },
   "blumira": {
     "state": "binary-pending",
     "version": "0.1.3",
-    "latest_tag": "blumira-v0.1.3",
+    "latest_tag": "blumira-v0.1.4",
     "current_hash": "sha256:4b9fd7fd199db42d67751fcd00ca9a2fef7e9dfc45b05e45ad1102da26e75e2d",
     "released_hash": "sha256:0f03b0c3ae0aac62ca22581e62793e53a71565a036b6d532586a8dbfc6ea013d"
   },
