@@ -457,7 +457,7 @@
   "servosity": {
     "state": "binary-pending",
     "version": "0.6.6",
-    "latest_tag": "servosity-v0.6.6",
+    "latest_tag": "servosity-v0.6.7",
     "current_hash": "sha256:47cedafa951c72f3253bc2b294d73a081dc00ae6e413508e24b60ffa7c080973",
     "released_hash": "sha256:6357f96593453730f503adddfdbae47b3cd53d0f39508488f17c46cf67acb5da"
   },
