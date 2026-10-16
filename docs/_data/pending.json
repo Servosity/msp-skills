@@ -450,7 +450,7 @@
   "sentinelone": {
     "state": "binary-pending",
     "version": "0.2.2",
-    "latest_tag": "sentinelone-v0.2.2",
+    "latest_tag": "sentinelone-v0.2.3",
     "current_hash": "sha256:daa8dfb56230ebbd3d172cc1c03e1fcaa4645639c8df7a5cf4849649b5fe2129",
     "released_hash": "sha256:d9c79b54cdade127fb9f0da375227b79d91698386bf5bdecea28cf4f37d40eb5"
   },
