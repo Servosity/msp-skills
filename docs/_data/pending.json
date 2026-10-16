@@ -142,7 +142,7 @@
   "connectwise-manage": {
     "state": "binary-pending",
     "version": "0.2.0",
-    "latest_tag": "connectwise-manage-v0.2.0",
+    "latest_tag": "connectwise-manage-v0.2.1",
     "current_hash": "sha256:d10c02e059f94ad63982f73b105395d4876b96e7fd5b09b4fd47dff8b73a07b0",
     "released_hash": "sha256:b05893974652584c7c987365f9e6639a421fa0bb5451e443533080fba7a38f2b"
   },
