@@ -80,13 +80,14 @@ echo "==> 6. No connector selects a Go toolchain below the fleet floor"
 #
 # A reprint regenerates `go.mod`, so the floor is exactly the kind of edit that
 # gets silently reverted. One guard covers all 58 connectors, which is why this
-# is not 58 entries in 58 handfixes.json files: the press emits go1.26.6 from
-# 4.30.2 onward, so a reprint at the current press satisfies this by
-# construction and only a reprint at an OLDER press can trip it.
+# is not 58 entries in 58 handfixes.json files. The press emits go1.26.6 (4.30.2
+# onward), BELOW this floor, so a raw reprint trips it; msp-skills-publish's
+# onboard.py raises go.mod to GO_TOOLCHAIN (1.26.9, #358) and the fleet moved in
+# #370.
 #
 # Raising the floor is a deliberate act: bump GO_FLOOR here in the same PR that
 # sweeps go.mod, so the guard and the fleet move together.
-GO_FLOOR="1.26.6"
+GO_FLOOR="1.26.9"
 floor_bad=0
 while IFS= read -r gomod; do
   # The effective toolchain is the `toolchain` line when present, else the `go`
