@@ -298,6 +298,29 @@
         "issue_url": null
       }
     },
+    "bitdefender": {
+      "system": "Bitdefender GravityZone (cloud or on-premises Control Center)",
+      "status": "beta",
+      "cli_binary": "bitdefender-cli",
+      "mcp_binary": "bitdefender-mcp",
+      "vendor": "Bitdefender",
+      "vendor_trademark_owner": "Bitdefender SRL",
+      "first_party": false,
+      "category": "Security",
+      "display_name": "Bitdefender GravityZone",
+      "tagline": "Endpoint health, threats, incidents and license usage across every GravityZone child company.",
+      "has_video": true,
+      "cli_hash": "sha256:27891983e8394233f2b285435a958d86e5a02ded8002a1db68be409987bb49a5",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "blumira": {
       "system": "cloud SIEM and automated detection and response platform",
       "status": "beta",
