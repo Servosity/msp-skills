@@ -154,7 +154,7 @@ $env:JIRA_SERVICE_MANAGEMENT_API_TOKEN = "<api-token>"
 jira-service-management-cli doctor
 ```
 
-Assets (CMDB) commands also need your site's cloudId and Assets workspaceId (Assets is part of JSM Premium and Enterprise). Run `jira-service-management-cli cmdb discover --save` once per client site to look both up and store them in the config file for that site; saved ids apply only to the site they were found for, so switching `JIRA_SERVICE_MANAGEMENT_SITE` never points Assets at another client's CMDB.
+Assets (CMDB) commands also need your site's cloudId and Assets workspaceId (Assets is part of JSM Premium and Enterprise). Run `jira-service-management-cli cmdb discover --save` once per client site to look both up and store them in the config file for that site; saved ids apply only to the site they were found for. As a backstop, every Assets call is refused unless its cloudId is the current site's (checked once per run against the site's public tenant_info), so a leftover `JIRA_SERVICE_MANAGEMENT_CLOUD_ID` from another client can never point Assets at that client's CMDB.
 
 `doctor` checks config and paths, names any missing SITE, EMAIL or API_TOKEN, and verifies the token with one authenticated read (GET /servicedesk).
 

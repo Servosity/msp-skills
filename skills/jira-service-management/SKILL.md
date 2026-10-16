@@ -107,14 +107,14 @@ Do not use this CLI for:
   ```
 
 ### Assets (CMDB)
-- **`cmdb tickets`**  -  Go from a hostname, Assets key or AQL query to the matching Assets objects and every service desk ticket connected to them, with each ticket's SLA breach state. Needs Assets (JSM Premium or Enterprise) plus JIRA_SERVICE_MANAGEMENT_CLOUD_ID and JIRA_SERVICE_MANAGEMENT_WORKSPACE_ID; run 'cmdb discover --save' once.
+- **`cmdb tickets`**  -  Go from a hostname, Assets key or AQL query to the matching Assets objects and every service desk ticket connected to them, with each ticket's SLA breach state. Needs Assets (JSM Premium or Enterprise) plus JIRA_SERVICE_MANAGEMENT_CLOUD_ID and JIRA_SERVICE_MANAGEMENT_WORKSPACE_ID; run 'cmdb discover --save' once per client site.
 
   _Use this when a ticket names a device and you need its history across tickets._
 
   ```bash
   jira-service-management-cli cmdb tickets srv-01 --agent
   ```
-- **`cmdb reconcile`**  -  Diff an Assets object type against an RMM or PSA CSV export: missing from Assets, missing from inventory, and attribute mismatches. Needs Assets (JSM Premium or Enterprise) plus JIRA_SERVICE_MANAGEMENT_CLOUD_ID and JIRA_SERVICE_MANAGEMENT_WORKSPACE_ID; run 'cmdb discover --save' once.
+- **`cmdb reconcile`**  -  Diff an Assets object type against an RMM or PSA CSV export: missing from Assets, missing from inventory, and attribute mismatches. Needs Assets (JSM Premium or Enterprise) plus JIRA_SERVICE_MANAGEMENT_CLOUD_ID and JIRA_SERVICE_MANAGEMENT_WORKSPACE_ID; run 'cmdb discover --save' once per client site.
 
   _Use this for the weekly CMDB-vs-inventory check instead of a spreadsheet VLOOKUP._
 
@@ -269,9 +269,9 @@ Do not use this CLI for:
 **cmdb**
 
 
-- `jira-service-management-cli cmdb tickets`  -  Go from a hostname, Assets key or AQL query to the matching Assets objects and every service desk ticket connected to them, with each ticket's SLA breach state. Needs Assets (JSM Premium or Enterprise) plus JIRA_SERVICE_MANAGEMENT_CLOUD_ID and JIRA_SERVICE_MANAGEMENT_WORKSPACE_ID; run 'cmdb discover --save' once.
+- `jira-service-management-cli cmdb tickets`  -  Go from a hostname, Assets key or AQL query to the matching Assets objects and every service desk ticket connected to them, with each ticket's SLA breach state. Needs Assets (JSM Premium or Enterprise) plus JIRA_SERVICE_MANAGEMENT_CLOUD_ID and JIRA_SERVICE_MANAGEMENT_WORKSPACE_ID; run 'cmdb discover --save' once per client site.
 
-- `jira-service-management-cli cmdb reconcile`  -  Diff an Assets object type against an RMM or PSA CSV export: missing from Assets, missing from inventory, and attribute mismatches. Needs Assets (JSM Premium or Enterprise) plus JIRA_SERVICE_MANAGEMENT_CLOUD_ID and JIRA_SERVICE_MANAGEMENT_WORKSPACE_ID; run 'cmdb discover --save' once.
+- `jira-service-management-cli cmdb reconcile`  -  Diff an Assets object type against an RMM or PSA CSV export: missing from Assets, missing from inventory, and attribute mismatches. Needs Assets (JSM Premium or Enterprise) plus JIRA_SERVICE_MANAGEMENT_CLOUD_ID and JIRA_SERVICE_MANAGEMENT_WORKSPACE_ID; run 'cmdb discover --save' once per client site.
 
 - `jira-service-management-cli cmdb discover`  -  Find your site's cloudId and Assets workspaceId (Assets requires JSM Premium or Enterprise) and optionally save them with --save so Assets commands work.
 

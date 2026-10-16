@@ -46,6 +46,10 @@ only its own requests.
   write only to the CLI's own local store, never to your site. It does not change what the CLI
   itself can do.
 
+- **Assets calls are pinned to your site.** Every Assets request is refused unless its cloudId is
+  the current site's cloudId (read once per run from `https://<site>.atlassian.net/_edge/tenant_info`,
+  which needs no credential). One Atlassian token can reach several client sites; this stops a
+  leftover cloudId from another client from reading or deleting that client's CMDB.
 - **Local files under MCP.** MCP tools never take a local path to read for `teach`, `teach-playbook`
   or `import`; `cmdb reconcile` reads an export only from inside the MCP server's working
   directory and refuses a working directory that is a filesystem root or the home folder.

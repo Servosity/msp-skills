@@ -1501,6 +1501,9 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 		for k, v := range headerOverrides {
 			req.Header.Set(k, v)
 		}
+		if err := jsmBeforeRequest(opCtx, c, req); err != nil { // pp:handfix jsm-request-guard
+			return nil, 0, err
+		}
 		req.Header.Del(ReplaySafeHeader)
 		binaryResponse := strings.EqualFold(req.Header.Get(BinaryResponseHeader), "true")
 		if binaryResponse {

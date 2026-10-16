@@ -75,7 +75,7 @@ values to names, and joins them to a CSV export on --key (case-insensitive). Rep
 rows missing from Assets, objects missing from the inventory, and differences in the
 --compare columns. Column names match Assets attribute names; Key and Label are
 also available on the Assets side. Needs Assets (JSM Premium/Enterprise) plus
-JIRA_SERVICE_MANAGEMENT_CLOUD_ID and _WORKSPACE_ID, or run 'cmdb discover --save' once.
+JIRA_SERVICE_MANAGEMENT_CLOUD_ID and _WORKSPACE_ID, or run 'cmdb discover --save' once per client site.
 
 Use this command to diff Assets objects against an RMM/PSA inventory export file.
 Do NOT use this command to find tickets connected to an object; use 'cmdb tickets' instead.`, "\n"),

@@ -54,7 +54,7 @@ Resolves a hostname/label (Name = "..."), an object key (Key = "ITAM-12", which
 also matches a Name of the same text) or a raw --aql query to Assets objects, lists each object's connected service desk
 tickets, and adds each ticket's most urgent running SLA. Needs Assets (JSM
 Premium/Enterprise) plus JIRA_SERVICE_MANAGEMENT_CLOUD_ID and _WORKSPACE_ID, or run
-'cmdb discover --save' once.
+'cmdb discover --save' once per client site.
 
 Use this command to see which service desk tickets touch an Assets object.
 Do NOT use this command to compare Assets against an RMM/PSA inventory export; use 'cmdb reconcile' instead.`, "\n"),
