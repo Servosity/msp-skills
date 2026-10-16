@@ -310,7 +310,7 @@
   "microsoft-graph": {
     "state": "binary-pending",
     "version": "0.2.3",
-    "latest_tag": "microsoft-graph-v0.2.3",
+    "latest_tag": "microsoft-graph-v0.2.4",
     "current_hash": "sha256:53bd1f6aff89275721825d536968438905a8d253aa896432cd9f85093a380c1a",
     "released_hash": "sha256:7d4f6702a6f891d0524789f14bad812813856babaef6043d5d4fc5dc26049aec"
   },
