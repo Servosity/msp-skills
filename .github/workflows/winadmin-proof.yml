@@ -41,8 +41,9 @@ jobs:
         shell: pwsh
         run: |
           whoami /user
-          $pw = "Pp1!" + [guid]::NewGuid().ToString("N")
-          net user winproof $pw /add | Out-Null
+          $pw = "Pp1!" + [guid]::NewGuid().ToString("N").Substring(0, 10)
+          net user winproof $pw /add /Y
+          if ($LASTEXITCODE -ne 0) { "net user failed"; exit 1 }
           $sid = (New-Object System.Security.Principal.NTAccount("winproof")).Translate([System.Security.Principal.SecurityIdentifier]).Value
           "second local account winproof = $sid"
           "WINPROOF_OTHER_SID=$sid" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
@@ -61,7 +62,7 @@ jobs:
             for f in creds_perms_eval.go creds_perms_windows.go; do
               git show "$OLD_REF:skills/$slug/cli/internal/cliutil/$f" > "$dst/internal/cliutil/$f"
             done
-            rm -f "$dst/internal/cliutil/creds_perms_alias_test.go" "$dst/internal/cliutil/zz_winadmin_proof_windows_test.go"
+            rm -f "$dst/internal/cliutil/creds_perms_alias_test.go" "$dst/internal/cliutil/creds_perms_sddl_test.go" "$dst/internal/cliutil/zz_winadmin_proof_windows_test.go"
           }
           for s in fortinet servosity immybot connectwise-rmm threatdown; do mkold "$s"; done
           mkdir -p "$RUNNER_TEMP/bin/fixed" "$RUNNER_TEMP/bin/old"
@@ -75,9 +76,8 @@ jobs:
         working-directory: skills/fortinet/cli
         run: go test -count=1 -v -run 'TestWinAdminProofResolver|TestWinAdminProofRealDescriptors|TestEvalCredsSecurity' ./internal/cliutil/
 
-      - name: "Informational: NULL DACL rendering (not part of the RID-500 verdict)"
+      - name: "NULL DACL as Windows renders it (D:PAINO_ACCESS_CONTROL) is refused"
         if: ${{ !cancelled() }}
-        continue-on-error: true
         shell: bash
         working-directory: skills/fortinet/cli
         run: go test -count=1 -v -run 'TestWinAdminProofNullDACL' ./internal/cliutil/
@@ -148,6 +148,19 @@ jobs:
           # 8. Grants removed: accepted again (the refusals were about the extra principal).
           $r = Invoke-Cli $fixed @("auth","status")
           Expect "fixed build: accepts again once the extra grants are gone" ($r.Code -eq 0 -and $r.Out -notmatch 'refused') "$(Show-Sddl)`nexit=$($r.Code)`n$($r.Out)"
+
+          # 8b. Read-time refusal: the file's DACL replaced by a NULL DACL (world-accessible).
+          $saved = (Get-Acl -LiteralPath $f).Sddl
+          $nullSd = New-Object System.Security.AccessControl.FileSecurity
+          $nullSd.SetSecurityDescriptorSddlForm("D:NO_ACCESS_CONTROL")
+          Set-Acl -LiteralPath $f -AclObject $nullSd
+          $r = Invoke-Cli $fixed @("auth","status")
+          Expect "fixed build: refuses the file once its DACL is NULL" ($r.Code -ne 0 -and $r.Out -match 'NULL DACL') "$(Show-Sddl)`nexit=$($r.Code)`n$($r.Out)"
+          $restore = New-Object System.Security.AccessControl.FileSecurity
+          $restore.SetSecurityDescriptorSddlForm($saved)
+          Set-Acl -LiteralPath $f -AclObject $restore
+          $r = Invoke-Cli $fixed @("auth","status")
+          Expect "fixed build: accepts again once the DACL is restored" ($r.Code -eq 0 -and $r.Out -notmatch 'refused') "$(Show-Sddl)`nexit=$($r.Code)`n$($r.Out)"
 
           # 9. Write-time refusal: the directory hands a second user an inherited ACE.
           icacls $dir /grant "*${other}:(OI)(R)" | Out-Null
