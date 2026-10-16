@@ -44,7 +44,7 @@
   "autotask": {
     "state": "binary-pending",
     "version": "0.1.5",
-    "latest_tag": "autotask-v0.1.5",
+    "latest_tag": "autotask-v0.1.6",
     "current_hash": "sha256:2a0fc6e8bfa5ebea0a6150b85d16fa25cda1f3430c07a6bc5e0bb5d221477ed5",
     "released_hash": "sha256:27817df5a7a17761b2deb932c34dccd8fb29a3676adbf083c9c5d48b6e8529d0"
   },
