@@ -657,6 +657,49 @@
      "contains": "\"properties\""
     }
    ]
+  },
+  {
+   "id": "windows-sddl-alias-sid-compare",
+   "summary": "the Windows token-file guard compares trustees by SID, resolving SDDL aliases through the OS, so the built-in Administrator (RID 500, rendered as LA) can save and load credentials",
+   "why": "Press 4.30.2+ creds_perms_eval.go compared the SDDL text of the token file's owner and ACE trustees against the process's SID string. The SDDL converter renders the built-in local Administrator (RID 500) as the alias LA, so that account's own ACE never matched: `auth set-token` exited 1 with `token file DACL grants access to a non-owner principal (LA)` and every read refused the file. Reproduced 2026-10-15 on the published fortinet-cli 0.1.0, installed with the README one-liner on a windows-latest runner (whoami S-1-5-21-...-500). The fix resolves each trustee to its SID (fixed aliases from a table, machine-relative ones like LA through ConvertStringSidToSid, kept only when the converter renders that SID back to the same alias) and compares SIDs. The allow-list is unchanged (current user, BUILTIN\\Administrators, SYSTEM); any other principal, a broad group, or an unresolvable trustee is still refused. A reprint from an unfixed press silently restores the string compare while unit tests stay green on every non-Windows host.",
+   "status": "active",
+   "spec_encode_followup": "Press defect in internal/generator/templates/cliutil_creds_perms_eval.go.tmpl and cliutil_creds_perms_windows.go.tmpl (unfixed on press main as of 4.33.5). Upstream report: mvanhorn/cli-printing-press (link added once filed).",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/creds_perms_eval.go",
+     "contains": "func trusteeSID(trustee string, resolveAlias sddlAliasResolver) string {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/creds_perms_eval.go",
+     "contains": "if om == nil || !sidAllowed(trusteeSID(om[1], resolveAlias), currentUserSID) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/creds_perms_eval.go",
+     "contains": "if !sidAllowed(trusteeSID(trustee, resolveAlias), currentUserSID) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/creds_perms_windows.go",
+     "contains": "return evalCredsSecurityResolved(sd.String(), me, resolveSDDLAlias)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/creds_perms_windows.go",
+     "contains": "sid, err := windows.StringToSid(alias)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/creds_perms_windows.go",
+     "not_contains": "return evalCredsSecurity(sd.String(), me)"
+    },
+    {
+     "file": "cli/internal/cliutil/creds_perms_alias_test.go",
+     "contains": "func TestEvalCredsSecurityResolvesSDDLAliases(t *testing.T) {",
+     "code_only": true
+    }
+   ]
   }
  ]
 }
