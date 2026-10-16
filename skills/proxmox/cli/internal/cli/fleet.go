@@ -2382,12 +2382,13 @@ func unixRFC3339(sec int64) string {
 }
 
 // guestBirth is what a QEMU guest's own config says about when Proxmox VE
-// created it: the ctime in its meta property (PVE 7.1 and later), which a
-// restore keeps. at is 0 when there is no usable record: an LXC guest, a VM
-// created before PVE 7.1, or a ctime dated past now (the creating node's clock
-// ran ahead, so the record bounds nothing). unread: the config could not be
-// read (an error, or the guest's node is offline), so nothing under the VMID
-// can be told apart from an earlier guest's.
+// created it: the ctime in its meta property (qemu-server 7.0-18, PVE 7.1),
+// which a restore, a clone and a remote migration keep from their source.
+// at is 0 when there is no usable record: an LXC guest, a VM created before
+// then, or a ctime dated past now (the creating node's clock ran ahead, so the
+// record bounds nothing). unread: the config could not be read (an error, or
+// the guest's node is offline), so nothing under the VMID can be told apart
+// from an earlier guest's.
 type guestBirth struct {
 	at     int64
 	unread bool
