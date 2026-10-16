@@ -278,6 +278,9 @@ func Load(configPath string) (*Config, error) {
 		cfg.TemplateVars["pbs_host"] = "pbs_host_placeholder"
 	}
 	if v := StripUserinfo(strings.TrimSpace(cliutil.EnvOverride("PROXMOX_HOST"))); v != "" {
+		if AmbiguousUserinfo(v) {
+			v = RedactUserinfo(v) // refused above (EndpointRefusal); never kept as written
+		}
 		cfg.TemplateVars["host"] = normalizeEndpointTemplateValue(v)
 	} else if verifyMode {
 		cfg.TemplateVars["host"] = "localhost"
