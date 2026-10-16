@@ -443,7 +443,7 @@
   "salesbuildr": {
     "state": "binary-pending",
     "version": "0.1.3",
-    "latest_tag": "salesbuildr-v0.1.3",
+    "latest_tag": "salesbuildr-v0.1.4",
     "current_hash": "sha256:12a16b02708fd0241ea603050d7b3405bc9ef6073131b5da7799f173acfabb4d",
     "released_hash": "sha256:c74b9f70dfa00153c3082b954f8ff1439cf732a4019f6f2bd27419a4f4a99e90"
   },
