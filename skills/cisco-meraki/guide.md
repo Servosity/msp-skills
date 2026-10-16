@@ -79,7 +79,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/sk
 iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/cisco-meraki/install.ps1 | iex            # Windows
 ```
 
-Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json` on Windows, `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
 
 ```json
 {
@@ -272,6 +272,13 @@ export CISCO_MERAKI_HOME=/srv/cisco-meraki
 cisco-meraki-cli doctor
 ```
 
+On Windows (PowerShell):
+
+```powershell
+$env:CISCO_MERAKI_HOME = "C:\ProgramData\cisco-meraki"
+cisco-meraki-cli doctor
+```
+
 Under `CISCO_MERAKI_HOME=/srv/cisco-meraki`, the four dirs resolve to `/srv/cisco-meraki/config`, `/srv/cisco-meraki/data`, `/srv/cisco-meraki/state`, and `/srv/cisco-meraki/cache`.
 
 MCP servers do not receive CLI flags from the host. Put relocation in the host `env` block:
@@ -429,7 +436,7 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Run `cisco-meraki-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/cisco-meraki-cli/config.toml`; `--home`, `CISCO_MERAKI_HOME`, and per-kind env vars can relocate it.
+Run `cisco-meraki-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/cisco-meraki-cli/config.toml` (`%USERPROFILE%\.config\cisco-meraki-cli\config.toml` on Windows); `--home`, `CISCO_MERAKI_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
 

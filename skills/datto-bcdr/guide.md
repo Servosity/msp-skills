@@ -78,7 +78,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/sk
 iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/datto-bcdr/install.ps1 | iex            # Windows
 ```
 
-Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json` on Windows, `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
 
 ```json
 {
@@ -279,6 +279,13 @@ export DATTO_BCDR_HOME=/srv/datto-bcdr
 datto-bcdr-cli doctor
 ```
 
+On Windows (PowerShell):
+
+```powershell
+$env:DATTO_BCDR_HOME = "C:\ProgramData\datto-bcdr"
+datto-bcdr-cli doctor
+```
+
 Under `DATTO_BCDR_HOME=/srv/datto-bcdr`, the four dirs resolve to `/srv/datto-bcdr/config`, `/srv/datto-bcdr/data`, `/srv/datto-bcdr/state`, and `/srv/datto-bcdr/cache`.
 
 MCP servers do not receive CLI flags from the host. Put relocation in the host `env` block:
@@ -429,7 +436,7 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Run `datto-bcdr-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/datto-bcdr-cli/config.toml`; `--home`, `DATTO_BCDR_HOME`, and per-kind env vars can relocate it.
+Run `datto-bcdr-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/datto-bcdr-cli/config.toml` (`%USERPROFILE%\.config\datto-bcdr-cli\config.toml` on Windows); `--home`, `DATTO_BCDR_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
 

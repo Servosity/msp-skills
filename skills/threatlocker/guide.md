@@ -80,7 +80,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/sk
 iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/threatlocker/install.ps1 | iex            # Windows
 ```
 
-Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json` on Windows, `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
 
 ```json
 {
@@ -260,6 +260,13 @@ For containers and agent sandboxes, prefer a single relocated root:
 
 ```bash
 export THREATLOCKER_HOME=/srv/threatlocker
+threatlocker-cli doctor
+```
+
+On Windows (PowerShell):
+
+```powershell
+$env:THREATLOCKER_HOME = "C:\ProgramData\threatlocker"
 threatlocker-cli doctor
 ```
 
@@ -489,7 +496,7 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Run `threatlocker-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/threatlocker-cli/config.toml`; `--home`, `THREATLOCKER_HOME`, and per-kind env vars can relocate it.
+Run `threatlocker-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/threatlocker-cli/config.toml` (`%USERPROFILE%\.config\threatlocker-cli\config.toml` on Windows); `--home`, `THREATLOCKER_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
 

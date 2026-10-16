@@ -81,7 +81,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/sk
 iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/connectwise-rmm/install.ps1 | iex            # Windows
 ```
 
-Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json` on Windows, `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
 
 ```json
 {
@@ -261,6 +261,13 @@ For containers and agent sandboxes, prefer a single relocated root:
 
 ```bash
 export CONNECTWISE_RMM_HOME=/srv/connectwise-rmm
+connectwise-rmm-cli doctor
+```
+
+On Windows (PowerShell):
+
+```powershell
+$env:CONNECTWISE_RMM_HOME = "C:\ProgramData\connectwise-rmm"
 connectwise-rmm-cli doctor
 ```
 
@@ -695,7 +702,7 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Run `connectwise-rmm-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/connectwise-rmm-cli/config.toml`; `--home`, `CONNECTWISE_RMM_HOME`, and per-kind env vars can relocate it.
+Run `connectwise-rmm-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/connectwise-rmm-cli/config.toml` (`%USERPROFILE%\.config\connectwise-rmm-cli\config.toml` on Windows); `--home`, `CONNECTWISE_RMM_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
 

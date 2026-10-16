@@ -169,6 +169,13 @@ export GOOGLE_WORKSPACE_HOME=/srv/google-workspace
 google-workspace-cli doctor
 ```
 
+On Windows (PowerShell):
+
+```powershell
+$env:GOOGLE_WORKSPACE_HOME = "C:\ProgramData\google-workspace"
+google-workspace-cli doctor
+```
+
 Under `GOOGLE_WORKSPACE_HOME=/srv/google-workspace`, the four dirs resolve to `/srv/google-workspace/config`, `/srv/google-workspace/data`, `/srv/google-workspace/state`, and `/srv/google-workspace/cache`.
 
 MCP servers do not receive CLI flags from the host. Put relocation in the host `env` block:
@@ -655,7 +662,7 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Run `google-workspace-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/google-workspace-cli/config.toml`; `--home`, `GOOGLE_WORKSPACE_HOME`, and per-kind env vars can relocate it.
+Run `google-workspace-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/google-workspace-cli/config.toml` (`%USERPROFILE%\.config\google-workspace-cli\config.toml` on Windows); `--home`, `GOOGLE_WORKSPACE_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
 

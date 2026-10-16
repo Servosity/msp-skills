@@ -79,7 +79,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/sk
 iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/threatdown/install.ps1 | iex            # Windows
 ```
 
-Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json` on Windows, `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
 
 ```json
 {
@@ -269,6 +269,13 @@ For containers and agent sandboxes, prefer a single relocated root:
 
 ```bash
 export THREATDOWN_HOME=/srv/threatdown
+threatdown-cli doctor
+```
+
+On Windows (PowerShell):
+
+```powershell
+$env:THREATDOWN_HOME = "C:\ProgramData\threatdown"
 threatdown-cli doctor
 ```
 
@@ -2365,7 +2372,7 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Run `threatdown-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/threatdown-cli/config.toml`; `--home`, `THREATDOWN_HOME`, and per-kind env vars can relocate it.
+Run `threatdown-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/threatdown-cli/config.toml` (`%USERPROFILE%\.config\threatdown-cli\config.toml` on Windows); `--home`, `THREATDOWN_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
 
