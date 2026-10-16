@@ -338,7 +338,7 @@
   "nerdio": {
     "state": "binary-pending",
     "version": "0.1.4",
-    "latest_tag": "nerdio-v0.1.4",
+    "latest_tag": "nerdio-v0.1.5",
     "current_hash": "sha256:0ff0fb95147e791cf39f919d4073e1770c0ca2fbeb465bc2ce2e79217d47d0dd",
     "released_hash": "sha256:babbdfb76a319602cb7ca5924173029c40edb209e647da83f9be85be397e2998"
   },
