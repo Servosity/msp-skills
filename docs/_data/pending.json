@@ -177,7 +177,7 @@
   "datagate": {
     "state": "binary-pending",
     "version": "0.1.2",
-    "latest_tag": "datagate-v0.1.2",
+    "latest_tag": "datagate-v0.1.3",
     "current_hash": "sha256:0f8d86807e9e32385d550f0c2c93c3e8454239442fd970cfef5fb30303a82707",
     "released_hash": "sha256:eb9ad56cc207a7a5253df1bf6b454f091133b047524752c57d94df4f8233ee5d"
   },
