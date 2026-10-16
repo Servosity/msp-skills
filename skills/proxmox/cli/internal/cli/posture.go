@@ -372,7 +372,7 @@ func collectPosture(ctx context.Context, t fleetTarget, o postureOpts) (clusterP
 		if err := getJSON(ctx, t.C, pbsPath("/admin/sync"), map[string]string{"sync-direction": "all"}, &syncJobs); err != nil {
 			out.failures = append(out.failures, fetchFailure{Cluster: t.Name, Scope: "pbs sync jobs", Error: err.Error()})
 		}
-		for _, w := range loadSyncEvidence(ctx, t.C, t.pbsEndpoint(), splitPins(t.Profile.PBSFingerprint), syncJobs) {
+		for _, w := range loadSyncEvidence(ctx, t.C, t.pbsEndpoint(), t.pbsPins(), syncJobs) {
 			out.warnings = append(out.warnings, t.Name+": "+w)
 		}
 	}

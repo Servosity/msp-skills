@@ -1,17 +1,17 @@
 // Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
-// Hand-written: which of rpo's missed runs retention may have thinned. A
-// keep-daily/weekly/monthly/yearly policy deletes older restore points
-// between the ones it keeps, so a run older than its dense horizon with no
-// point left may have had one: unproven, never a proven miss.
+// Hand-written: whether retention may have deleted a covering job's older
+// restore points. Then a missed run older than a point that was kept may have
+// had one (retention never deletes the newest backup): unproven, never a
+// proven miss. Only "keep everything" lets an older miss stand as proven.
 
 package cli
 
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strconv"
 	"strings"
-	"time"
 
 	"proxmox-pp-cli/internal/client"
 )
@@ -43,41 +43,21 @@ func (k *keepPolicy) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-var keepPeriods = map[string]int64{"keep-hourly": 3600, "keep-daily": 86400, "keep-weekly": 7 * 86400, "keep-monthly": 28 * 86400, "keep-yearly": 365 * 86400}
-
-// denseSince is the oldest time from which policy keeps the restore point of
-// every run in runs (ascending): 0 when it thins nothing (keep-all, none, or
-// keep-last alone, which prunes only the oldest: the window cap handles that).
-// Each keep-<period>=N keeps every run within N periods only when runs are at
-// least a period apart; the policy keeps a point when any option does.
-func denseSince(policy keepPolicy, runs []int64, now time.Time) int64 {
-	thins := false
-	for name, n := range policy {
-		thins = thins || (n > 0 && name != "keep-last" && name != "keep-all")
+// prunes: some keep-* count is set and keep-all is not (no option at all
+// means keep everything).
+func (k keepPolicy) prunes() bool {
+	if k["keep-all"] > 0 {
+		return false
 	}
-	if policy["keep-all"] > 0 || !thins {
-		return 0
-	}
-	gap := int64(1 << 62)
-	for i := 1; i < len(runs); i++ {
-		gap = min(gap, runs[i]-runs[i-1])
-	}
-	since := now.Unix()
-	if n := policy["keep-last"]; n > 0 {
-		if int(n) >= len(runs) {
-			return 0
-		}
-		since = min(since, runs[len(runs)-int(n)])
-	}
-	for name, period := range keepPeriods {
-		if n := policy[name]; n > 0 && gap >= period {
-			since = min(since, now.Unix()-n*period)
+	for name, n := range k {
+		if name != "keep-all" && n > 0 {
+			return true
 		}
 	}
-	return since
+	return false
 }
 
-// pbsPruneJob is a PBS prune job: it thins a datastore namespace on its own.
+// pbsPruneJob is a PBS prune job: it prunes a datastore namespace on its own.
 type pbsPruneJob struct {
 	Store    string     `json:"store"`
 	NS       string     `json:"ns"`
@@ -105,77 +85,126 @@ func (j *pbsPruneJob) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-// rpoRetention resolves, per covering job, where retention may have thinned
-// a guest's restore points. unknown: a policy could not be read, so every
-// run older than the guest's newest point may have been pruned.
+// rpoRetention answers, per covering job, whether retention may delete the
+// guest's older restore points on that job's target.
 type rpoRetention struct {
-	storage    map[string]keepPolicy
-	storageErr bool
-	pbsJobs    []pbsPruneJob
-	pbsErr     bool
-	pbsRead    bool
-	ctx        context.Context
-	c          *client.Client
+	ctx      context.Context
+	c        *client.Client
+	defaults map[string]vzdumpDefaults // node + "\x00" + storage
+	pbsJobs  []pbsPruneJob
+	pbsErr   error
+	pbsRead  bool
+	hidden   map[string]string
 }
 
 func newRPORetention(ctx context.Context, c *client.Client) *rpoRetention {
-	r := &rpoRetention{storage: map[string]keepPolicy{}, ctx: ctx, c: c}
-	var list []struct {
-		Storage string     `json:"storage"`
-		Prune   keepPolicy `json:"prune-backups"`
-	}
-	if err := getJSON(ctx, c, "/storage", nil, &list); err != nil {
-		r.storageErr = true
-	}
-	for _, s := range list {
-		r.storage[s.Storage] = s.Prune
-	}
-	return r
+	return &rpoRetention{ctx: ctx, c: c, defaults: map[string]vzdumpDefaults{}, hidden: map[string]string{}}
 }
 
-func (r *rpoRetention) pbsPruneJobs() ([]pbsPruneJob, bool) {
+// storageDefaults is what a job that sets nothing inherits for target on
+// node: /etc/vzdump.conf with the target storage's own prune-backups laid
+// over it, as vzdump resolves it (the defaults API takes the storage).
+func (r *rpoRetention) storageDefaults(node, target string) vzdumpDefaults {
+	key := node + "\x00" + target
+	if d, ok := r.defaults[key]; ok {
+		return d
+	}
+	var d vzdumpDefaults
+	d.err = getJSON(r.ctx, r.c, pvePath("/nodes/%s/vzdump/defaults", node), map[string]string{"storage": target}, &d)
+	r.defaults[key] = d
+	return d
+}
+
+// mayPrune: retention may delete older restore points of the guest on
+// target. Unknown (a policy or prune job list not read) counts as yes.
+func (r *rpoRetention) mayPrune(job backupJob, node, target string, ref *pbsStorageRef) bool {
+	if r.vzdumpMayPrune(job, node, target) {
+		return true
+	}
+	if ref == nil {
+		return false
+	}
+	// A PBS prune job on the datastore prunes on its own. PBS lists one only
+	// to a token that may audit its datastore or namespace path.
 	if !r.pbsRead {
 		r.pbsRead = true
-		if !r.c.PBSConfigured() || getJSON(r.ctx, r.c, pbsPath("/admin/prune"), nil, &r.pbsJobs) != nil {
-			r.pbsErr = true
+		if !r.c.PBSConfigured() {
+			r.pbsErr = errNoPBS
+		} else {
+			r.pbsErr = getJSON(r.ctx, r.c, pbsPath("/admin/prune"), nil, &r.pbsJobs)
 		}
 	}
-	return r.pbsJobs, !r.pbsErr
-}
-
-// prunableBefore: a run older than this may have lost its restore point to
-// job's retention (0: none did). runs are the job's runs, ascending.
-func (r *rpoRetention) prunableBefore(job backupJob, node, target string, nodeDef vzdumpDefaults, ref *pbsStorageRef, runs []int64, now time.Time) int64 {
-	unknown := now.Unix()
-	policy := job.Prune
-	switch {
-	case len(policy) > 0:
-	case r.storageErr:
-		return unknown
-	case len(r.storage[target]) > 0:
-		policy = r.storage[target]
-	case nodeDef.err != nil:
-		return unknown
-	default:
-		policy = nodeDef.Prune
+	if r.pbsErr != nil || r.pruneJobsHidden(ref.datastore, ref.namespace) {
+		return true
 	}
-	since := denseSince(policy, runs, now)
-	if ref == nil {
-		return since
-	}
-	// A PBS prune job on the datastore thins on its own: a point survives
-	// only if both keep it.
-	jobs, ok := r.pbsPruneJobs()
-	if !ok {
-		return unknown
-	}
-	for _, pj := range jobs {
-		if bool(pj.Disable) || pj.Schedule == "" || pj.Store != ref.datastore {
+	for _, pj := range r.pbsJobs {
+		if bool(pj.Disable) || pj.Schedule == "" || pj.Store != ref.datastore || !pj.Keep.prunes() {
 			continue
 		}
 		if pj.NS == "" || ref.namespace == pj.NS || strings.HasPrefix(ref.namespace, pj.NS+"/") {
-			since = max(since, denseSince(pj.Keep, runs, now))
+			return true
 		}
 	}
-	return since
+	return false
 }
+
+// pruneJobsHidden: PBS lists a prune job only to a token that may audit its
+// datastore or namespace path, so a job on store/ns or an ancestor may be
+// missing from the list.
+func (r *rpoRetention) pruneJobsHidden(store, ns string) bool {
+	paths := []string{nsACLPath(store, "")}
+	if ns != "" {
+		parts := strings.Split(ns, "/")
+		for i := range parts {
+			paths = append(paths, nsACLPath(store, strings.Join(parts[:i+1], "/")))
+		}
+	}
+	for _, p := range paths {
+		why, seen := r.hidden[p]
+		if !seen {
+			privs, err := privsAt(r.ctx, r.c, true, p)
+			if err != nil || !hasKey(privs, client.PrivDatastoreAudit.String()) {
+				why = "hidden"
+			}
+			r.hidden[p] = why
+		}
+		if why != "" {
+			return true
+		}
+	}
+	return false
+}
+
+// vzdumpMayPrune: vzdump prunes after each backup by the job's
+// prune-backups, else the target storage's, else vzdump.conf's, unless remove
+// is off (job, else vzdump.conf).
+func (r *rpoRetention) vzdumpMayPrune(job backupJob, node, target string) bool {
+	remove, policy := job.Remove, job.Prune
+	if remove != nil && !bool(*remove) {
+		return false
+	}
+	if remove == nil || len(policy) == 0 {
+		d := r.storageDefaults(node, target)
+		if d.err != nil {
+			return true
+		}
+		if remove == nil {
+			remove = d.Remove
+		}
+		if len(policy) == 0 {
+			policy = d.Prune
+		}
+	}
+	return (remove == nil || bool(*remove)) && policy.prunes()
+}
+
+// onTarget: rp was written by a job whose target storage is target (for a
+// PBS storage: its datastore and namespace, read through either API).
+func onTarget(rp restorePoint, target string, ref *pbsStorageRef) bool {
+	if ref != nil {
+		return strings.HasPrefix(rp.canonical, "pbs:") && rp.pbsStore == ref.datastore && rp.pbsNS == ref.namespace
+	}
+	return strings.HasPrefix(rp.canonical, "pve:"+target+"@")
+}
+
+var errNoPBS = errors.New("no Proxmox Backup Server configured")

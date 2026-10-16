@@ -507,6 +507,7 @@ type vzdumpDefaults struct {
 	Storage string     `json:"storage"`
 	Dumpdir string     `json:"dumpdir"`
 	Prune   keepPolicy `json:"prune-backups"`
+	Remove  *flexBool  `json:"remove"`
 	err     error
 }
 
@@ -615,6 +616,7 @@ type backupJob struct {
 	Exclude  string     `json:"exclude"`
 	NextRun  flexInt    `json:"next-run"`
 	Prune    keepPolicy `json:"prune-backups"`
+	Remove   *flexBool  `json:"remove"`
 }
 
 // excludes reports whether the job's exclude list names vmid.
@@ -1573,6 +1575,16 @@ func fetchPBSStorageRefs(ctx context.Context, c *client.Client) (map[string]pbsS
 // pbsEndpoint is the configured PBS service of this target as "host:port"
 // (comparable with pbsStorageRef.server), or "".
 func (t fleetTarget) pbsEndpoint() string { return pbsEndpointOf(t.C) }
+
+// pbsPins: the certificate fingerprints this target pins its PBS to (the
+// clusters.toml entry's, or PROXMOX_PBS_TLS_FINGERPRINT for the env setup).
+func (t fleetTarget) pbsPins() []string {
+	if t.Profile.PBSHost != "" || t.Profile.PBSFingerprint != "" {
+		return splitPins(t.Profile.PBSFingerprint)
+	}
+	pins, _ := client.EnvPins("PROXMOX_PBS_TLS_FINGERPRINT")
+	return pins
+}
 
 func pbsEndpointOf(c *client.Client) string {
 	return pbsEndpointFromHost(c.Config.TemplateVars["pbs_host"])

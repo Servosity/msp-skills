@@ -13,11 +13,12 @@ import (
 )
 
 // userinfoEnd returns where a user:password@ part of an endpoint starts and
-// ends, or -1 when there is none. It runs to the LAST '@': a password may hold
-// '/', '?' or '#', and Proxmox endpoints carry no '@' in a path.
+// ends, or -1 when there is none. It runs to the LAST '@' (a password may
+// hold '/', '?' or '#'); it is userinfo only when a ':' comes before any '/'
+// in it or it has no '/', so an '@' in a path never moves the host.
 func userinfoEnd(s string) (int, int) {
 	start := 0
-	if i := strings.Index(s, "://"); i >= 0 {
+	if i := strings.Index(s, "://"); i > 0 && validScheme(s[:i]) {
 		start = i + 3
 	} else if strings.HasPrefix(s, "//") {
 		start = 2
@@ -26,7 +27,22 @@ func userinfoEnd(s string) (int, int) {
 	if at < 0 {
 		return -1, -1
 	}
+	info := s[start : start+at]
+	if slash := strings.IndexByte(info, '/'); slash >= 0 {
+		if colon := strings.IndexByte(info, ':'); colon < 0 || colon > slash {
+			return -1, -1
+		}
+	}
 	return start, start + at
+}
+
+func validScheme(s string) bool {
+	for i, r := range s {
+		if !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || i > 0 && (r >= '0' && r <= '9' || r == '+' || r == '-' || r == '.')) {
+			return false
+		}
+	}
+	return s != ""
 }
 
 // StripUserinfo drops a user:password@ part from an endpoint.
