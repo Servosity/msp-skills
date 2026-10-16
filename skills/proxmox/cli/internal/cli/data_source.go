@@ -269,6 +269,7 @@ func resolveReadWithStrategyResponsePathAndJSONGuard(ctx context.Context, c *cli
 		if fallbackErr != nil {
 			return nil, DataProvenance{}, localFallbackError(err, fallbackErr)
 		}
+		warnMirrorAnswer(hintWriter, fallbackProv) // proxmox hand-fix (mirror-answer-warns)
 		return fallbackData, attachFreshness(fallbackProv, flags), nil
 	}
 }
@@ -367,6 +368,7 @@ func resolvePaginatedReadWithStrategyAndJSONGuard(ctx context.Context, c *client
 		if fallbackErr != nil {
 			return nil, DataProvenance{}, localFallbackError(err, fallbackErr)
 		}
+		warnMirrorAnswer(hintWriter, fallbackProv) // proxmox hand-fix (mirror-answer-warns)
 		return fallbackData, attachFreshness(fallbackProv, flags), nil
 	}
 }

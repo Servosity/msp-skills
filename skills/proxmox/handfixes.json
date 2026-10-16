@@ -565,6 +565,50 @@
      "code_only": true
     }
    ]
+  },
+  {
+   "id": "endpoints-env-only",
+   "summary": "A PVE endpoint from one run's environment (PROXMOX_BASE_URL, PROXMOX_HOST, --cluster) is never saved to config.toml, and PROXMOX_HOST beats a base_url saved there",
+   "why": "Generated config.go persisted the runtime BaseURL and TemplateVars on every save, so `auth set-token` run with PROXMOX_BASE_URL wrote that host into config.toml, and every later env-configured run sent its own token there, ignoring PROXMOX_HOST: client B's token reached client A's host (2026-10-16 adversarial round 24, reproduced against a stub that logged the Authorization header). configForSave now keeps the file's endpoints, and Load lets PROXMOX_HOST replace a base_url that has no {host} placeholder. internal/config/endpoints_env_only_test.go (TestEnvEndpointIsNeverSaved, TestHostEnvBeatsSavedBaseURL) fails if either half is removed.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "out.BaseURL = c.fileConfig.BaseURL",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "!strings.Contains(cfg.BaseURL, \"{host}\")",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/endpoints_env_only_test.go",
+     "contains": "func TestHostEnvBeatsSavedBaseURL("
+    }
+   ]
+  },
+  {
+   "id": "mirror-answer-warns",
+   "summary": "A per-endpoint read that answers from the local mirror because Proxmox could not be reached warns on stderr in every output form (the JSON meta.source label is lost in --csv, --plain and --quiet)",
+   "why": "Generated data_source.go falls back to the local SQLite mirror on a network error and labels it only in the JSON envelope, so `backup job --csv` after a sync printed a stale job row, exit 0, with nothing marking it (2026-10-16 adversarial round 24). Both fallback sites now call warnMirrorAnswer (internal/cli/mirror_answer.go). internal/cli/adversarial_round24_test.go (TestMirrorAnswerWarnsInEveryForm) fails if the call is removed.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/data_source.go",
+     "contains": "warnMirrorAnswer(hintWriter, fallbackProv)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/mirror_answer.go",
+     "contains": "func warnMirrorAnswer(",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/adversarial_round24_test.go",
+     "contains": "func TestMirrorAnswerWarnsInEveryForm("
+    }
+   ]
   }
  ]
 }

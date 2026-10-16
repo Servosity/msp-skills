@@ -210,9 +210,9 @@ func collectFailures(ctx context.Context, t fleetTarget, since time.Time, want m
 	// nameAt: the guest name for a VMID at a task's start; none for a task
 	// that may be from before this VM was created (an earlier guest's with the
 	// same VMID).
-	nameAt := func(id, at int64) string {
+	nameAt := func(id int64, typ string, at int64) string {
 		g, ok := guestByID[id]
-		if !ok || births == nil {
+		if !ok || births == nil || (typ != "" && typ != g.Type) {
 			return ""
 		}
 		b, seen := birthOf[id]
@@ -323,7 +323,7 @@ func collectFailures(ctx context.Context, t fleetTarget, since time.Time, want m
 				}
 				attributed = true
 				r := base
-				r.VMID, r.GuestName, r.Target, r.Result, r.Reason = g.VMID, nameAt(g.VMID, int64(task.StartTime)), fmt.Sprint(g.VMID), g.Result, g.Reason
+				r.VMID, r.GuestName, r.Target, r.Result, r.Reason = g.VMID, nameAt(g.VMID, g.Type, int64(task.StartTime)), fmt.Sprint(g.VMID), g.Result, g.Reason
 				rows = append(rows, r)
 			}
 			finished := vzdumpJobFinished(lines)
@@ -345,7 +345,7 @@ func collectFailures(ctx context.Context, t fleetTarget, since time.Time, want m
 				for _, id := range vzdumpJobVMIDs(lines) {
 					if !seen[id] {
 						r := base
-						r.VMID, r.GuestName, r.Target, r.Result, r.Reason = id, nameAt(id, int64(task.StartTime)), fmt.Sprint(id), "incomplete", "job aborted before reaching this guest"
+						r.VMID, r.GuestName, r.Target, r.Result, r.Reason = id, nameAt(id, "", int64(task.StartTime)), fmt.Sprint(id), "incomplete", "job aborted before reaching this guest"
 						rows = append(rows, r)
 					}
 				}

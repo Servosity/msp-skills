@@ -52,9 +52,9 @@ pin is bound to its own service. There is no option to skip certificate checks.
   commands above read Proxmox on every run, so a second run is never a stale
   copy of the first. The per-endpoint read commands default to `--data-source
   auto`: when Proxmox cannot be reached they answer from the local mirror
-  (which `sync` and their own earlier reads fill, comments included) and mark
-  that answer `meta.source: local`. Pass `--data-source live` to refuse a
-  mirror answer.
+  (which `sync` and their own earlier reads fill, comments included) and say
+  so: a warning on stderr in every output form, and `meta.source: local` in
+  JSON. Pass `--data-source live` to refuse a mirror answer.
 - **Agent mode is explicit.** `--agent` produces JSON for scripting; it does not
   widen anything. See AGENTS.md.
 
