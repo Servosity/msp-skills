@@ -275,3 +275,30 @@ func TestRunningTaskMakesWindowUnprovable(t *testing.T) {
 		t.Errorf("a running task overlaps the window: missed %d unproven %d", r.MissedRuns, r.MissedRunsUnproven)
 	}
 }
+
+// Codex round 50: with PBS read only through PVE, a fresh guest is not green
+// (a newer snapshot that failed verification may be hidden from the saved
+// credential).
+func TestPVEOnlyPBSFreshIsNotGreen(t *testing.T) {
+	newFixture(t)
+	t.Setenv("PROXMOX_PBS_HOST", "")
+	t.Setenv("PROXMOX_PBS_API_TOKEN", "")
+	t.Setenv("PROXMOX_PBS_TLS_FINGERPRINT", "")
+	out, _, _ := runCLI(t, "posture", "--json")
+	if r := postureRowFor(t, out, 100); r.Severity == "green" {
+		t.Errorf("VM 100 green with PBS read only through PVE: %s %q", r.Verdict, r.Reason)
+	}
+}
+
+// Round 38 P2: a token's secret as the host of a base URL is never printed.
+func TestUUIDBaseURLNeverShown(t *testing.T) {
+	newFixture(t)
+	const secret = "5ec7e7aa-0000-4000-8000-00000000c0de"
+	t.Setenv("PROXMOX_BASE_URL", "https://"+secret+":8006/api2/json")
+	for _, args := range [][]string{{"doctor", "--json"}, {"posture", "--json"}} {
+		out, errOut, _ := runCLI(t, args...)
+		if strings.Contains(out+errOut, secret) {
+			t.Errorf("%v printed the secret", args)
+		}
+	}
+}

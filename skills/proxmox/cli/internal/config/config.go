@@ -250,7 +250,7 @@ func Load(configPath string) (*Config, error) {
 	// proxmox hand-fix (endpoints-env-only): a token pasted into a host field
 	// is neither used nor kept as written.
 	if TokenShaped(cfg.BaseURL) || TokenShaped(strings.TrimSpace(cliutil.EnvOverride("PROXMOX_HOST"))) {
-		cfg.EndpointRefusal = "the Proxmox VE host looks like an API token (it holds '!' or '='), so it is not shown and no request is sent; put the token in PROXMOX_API_TOKEN and the host in PROXMOX_HOST"
+		cfg.EndpointRefusal = "the Proxmox VE host looks like an API token (it holds '!' or '=', or is a bare UUID), so it is not shown and no request is sent; put the token in PROXMOX_API_TOKEN and the host in PROXMOX_HOST"
 		cfg.BaseURL = "https://REDACTED:8006/api2/json"
 	}
 
@@ -274,7 +274,7 @@ func Load(configPath string) (*Config, error) {
 		pbsEnv = cfg.TemplateVars["pbs_host"]
 	}
 	if TokenShaped(pbsEnv) {
-		cfg.PBSRefusal = "the Proxmox Backup Server host looks like an API token (it holds '!' or '='), so it is not shown and no PBS request is sent; put the token in PROXMOX_PBS_API_TOKEN"
+		cfg.PBSRefusal = "the Proxmox Backup Server host looks like an API token (it holds '!' or '=', or is a bare UUID), so it is not shown and no PBS request is sent; put the token in PROXMOX_PBS_API_TOKEN"
 		pbsEnv = "https://REDACTED:8007"
 	} else if AmbiguousUserinfo(pbsEnv) {
 		// Refused, never replaced (a pbs_host saved in config.toml must not

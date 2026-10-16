@@ -17,17 +17,21 @@ func TestPVEOnlyPBSListingProvesNoAbsence(t *testing.T) {
 	if len(rep.Warnings) == 0 || !strings.Contains(strings.Join(rep.Warnings, " "), "read only through Proxmox VE") {
 		t.Errorf("want the PVE-only PBS listing named in warnings: %+v", rep.Warnings)
 	}
-	fresh, never := 0, 0
+	// Fresh points count, but none reads green: a newer snapshot that failed
+	// verification may be hidden from the saved credential (Codex round 50).
+	incomplete, green, never := 0, 0, 0
 	for _, r := range rows {
-		switch r.Verdict {
-		case "fresh":
-			fresh++
-		case "never":
+		switch {
+		case r.Verdict == "archives-incomplete":
+			incomplete++
+		case r.Severity == "green" && r.CoveredByJob:
+			green++
+		case r.Verdict == "never":
 			never++
 		}
 	}
-	if fresh == 0 || never > 0 {
-		t.Errorf("fresh points stand, absence is unproven: fresh=%d never=%d", fresh, never)
+	if incomplete == 0 || green > 0 || never > 0 {
+		t.Errorf("fresh points count but are not green, absence is unproven: archives-incomplete=%d green=%d never=%d", incomplete, green, never)
 	}
 	_ = f
 	out, _, _ := runCLI(t, "restore-points", "100", "--json")

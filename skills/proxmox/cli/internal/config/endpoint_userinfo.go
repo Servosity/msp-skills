@@ -64,8 +64,8 @@ func StripUserinfo(s string) string {
 // field, never a host.
 func TokenShaped(s string) bool { return strings.ContainsAny(s, "!=") || uuidRe.MatchString(s) }
 
-// uuidRe: the whole value (a host, maybe with scheme and port) is a UUID.
-var uuidRe = regexp.MustCompile(`(?i)^(https?://)?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(:\d+)?/?$`)
+// uuidRe: the host (maybe with scheme, port and path) is a UUID.
+var uuidRe = regexp.MustCompile(`(?i)^(https?://)?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(:\d+)?(/.*)?$`)
 
 // RedactUserinfo replaces a user:password@ part of an endpoint for display,
 // and hides a token-shaped value whole.
