@@ -183,7 +183,9 @@ jobs:
           declare -A HAND
           HAND[fortinet]=''
           HAND[servosity]='TestClearTokensWithExplicitConfigClearsSiblingStore|TestSaveCredentialWithExplicitConfigWritesSiblingStore'
-          HAND[immybot]='TestSaveTokens_KeepsEnvSuppliedClientSecretOffDisk|TestSaveTokens_PersistsExplicitlyPassedClientSecret|TestWithoutTheSwitchTheCacheIsByteIdentical|TestNoConfigWriteStillAllowsTheWipe|TestRequestContractExecuteNamedWriteOnWire|TestRequestContractExecuteAdvertisedGETBindings|TestRequestContractExecuteNamedArrayBody|TestRequestContractPathAndBodyMayShareWireName|TestWorkflowArchivePartialSuccessExitsZero|TestWorkflowArchiveSuccessfulEmptyExitsZero'
+          # immybot TestWithoutTheSwitchTheCacheIsByteIdentical / TestNoConfigWriteStillAllowsTheWipe set only HOME, which
+          # Windows ignores: they fail with or without this fix (run 38837742528), so they are not RID-500 tests.
+          HAND[immybot]='TestSaveTokens_KeepsEnvSuppliedClientSecretOffDisk|TestSaveTokens_PersistsExplicitlyPassedClientSecret|TestRequestContractExecuteNamedWriteOnWire|TestRequestContractExecuteAdvertisedGETBindings|TestRequestContractExecuteNamedArrayBody|TestRequestContractPathAndBodyMayShareWireName|TestWorkflowArchivePartialSuccessExitsZero|TestWorkflowArchiveSuccessfulEmptyExitsZero'
           HAND[connectwise-rmm]='TestTicketsListNeverSendsALonePagingKey|TestCodeOrchExecuteSendsUninstallBody|TestCodeOrchTicketsListPairsPagingKeys'
           HAND[threatdown]='TestAuthLoginSavesThePairItUsed|TestAuthStatusTracksTokenBinding|TestSetTokenClearsSavedClientUnderEnvID|TestSetTokenDoesNotInheritOldExpiry|TestDiagLogIsNeverRetried|TestRespondIsolatePreviewThenConfirm|TestRespondSafetyGuards|TestRespondBatchesBulkJobs|TestFleetHealthStopsOnCountAuthError|TestEnvClientIDNeverPairsWithSavedSecret|TestRepeatedSavesKeepSavedClientPair'
           bad=0
