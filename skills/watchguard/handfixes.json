@@ -1002,8 +1002,8 @@
     },
     {
       "id": "fanout-malformed-collection-is-failed-read",
-      "summary": "listRows and incidentRows require the collection to be a JSON list of objects: {\"data\":null}, a scalar, an object or a list of non-objects is a failed read, never zero devices, endpoints or incidents. A {key: X} wrapper row (the [{\"data\":{...},\"total_items\":N}] form) whose X is null or a scalar is a failed read too, in listRows and in incidentRows' top-level-list branch. firebox-transactions wait applies the same rule: wait --device reads the transaction list through listRows, and firstObject never skips a malformed wrapper row to reach the row after it. Single-record reads go through asMapsStrict, which fails on a null or scalar row at any wrapper depth; firebox-transactions wait <id> reports such a body as a failed read (exit 5), not \"not found\", and a list answer must contain the requested id.",
-      "why": "Codex read-only review round 1 (2026-10-15): listRows checked only that the key existed, so {\"data\":null} or {\"data\":\"unavailable\"} became an empty fleet and accounts health reported zero counts with complete:true and exit 0; incidentRows accepted {\"items\":null} the same way. Companion to fanout-partial-data-exit. TestListRowsRejectsMalformedCollections fails on revert. Codex read-only review round 2 (2026-10-15): asMaps silently dropped wrapped null/scalar rows, so [{\"data\":null}] or [{\"items\":null}] still read as zero rows; wrappedRowsErr mirrors asMaps and fails those reads. The new TestListRowsRejectsMalformedCollections cases fail on revert. Codex read-only review round 3 (2026-10-15): wait --device read the list through raw asMaps, so [{\"data\":null},{\"data\":{...complete}}] picked an older finished transaction and exited 0. TestTransactionsWaitRejectsMalformedRows fails on revert of either the listRows call or the firstObject guard. Adversarial round 6 (2026-10-15): the one-level firstObject pre-check still skipped {\"data\":{\"data\":[{\"data\":null},{...complete}]}} to an older transaction (exit 0), a malformed by-ID body read as exit 3, and a two-row by-ID answer used its first row. TestTransactionsWaitRejectsMalformedRows fails on revert of each piece.",
+      "summary": "listRows and incidentRows require the collection to be a JSON list of objects: {\"data\":null}, a scalar, an object or a list of non-objects is a failed read, never zero devices, endpoints or incidents. A {key: X} wrapper row (the [{\"data\":{...},\"total_items\":N}] form) whose X is null or a scalar is a failed read too, in listRows and in incidentRows' top-level-list branch. firebox-transactions wait applies the same rule: wait --device reads the transaction list through listRows, and firstObject never skips a malformed wrapper row to reach the row after it. Single-record reads go through asMapsStrict, which fails on a null or scalar row at any wrapper depth; firebox-transactions wait <id> reports such a body as a failed read (exit 5), not \"not found\", and a list answer must contain the requested id. An object that carries its own id or status is a record, never an envelope, even with a \"data\" field (the documented certificate-install and deployment transaction records); a top-level null or scalar is a failed read; and a single-row answer naming another transaction is a failed read.",
+      "why": "Codex read-only review round 1 (2026-10-15): listRows checked only that the key existed, so {\"data\":null} or {\"data\":\"unavailable\"} became an empty fleet and accounts health reported zero counts with complete:true and exit 0; incidentRows accepted {\"items\":null} the same way. Companion to fanout-partial-data-exit. TestListRowsRejectsMalformedCollections fails on revert. Codex read-only review round 2 (2026-10-15): asMaps silently dropped wrapped null/scalar rows, so [{\"data\":null}] or [{\"items\":null}] still read as zero rows; wrappedRowsErr mirrors asMaps and fails those reads. The new TestListRowsRejectsMalformedCollections cases fail on revert. Codex read-only review round 3 (2026-10-15): wait --device read the list through raw asMaps, so [{\"data\":null},{\"data\":{...complete}}] picked an older finished transaction and exited 0. TestTransactionsWaitRejectsMalformedRows fails on revert of either the listRows call or the firstObject guard. Adversarial round 6 (2026-10-15): the one-level firstObject pre-check still skipped {\"data\":{\"data\":[{\"data\":null},{...complete}]}} to an older transaction (exit 0), a malformed by-ID body read as exit 3, and a two-row by-ID answer used its first row. TestTransactionsWaitRejectsMalformedRows fails on revert of each piece. Adversarial round 7 and Codex round 5 (2026-10-15): asMapsStrict unwrapped a top-level record's own \"data\" field (wait on a certificate-install record exited 5, a deployment record with data exited 3), a top-level null read as not found, and [{\"id\":\"old\",...}] for wait new exited 0. TestTransactionsWaitRejectsMalformedRows fails on revert of each.",
       "status": "active",
       "asserts": [
         {
@@ -1054,6 +1054,26 @@
         {
           "file": "cli/internal/cli/firebox_transactions_wait.go",
           "contains": "if strField(r, \"id\") == id {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/watchguard_fanout.go",
+          "contains": "func isRecord(t map[string]any) bool {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/watchguard_fanout.go",
+          "contains": "if inner, ok := t[key]; ok && !isRecord(t) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/watchguard_fanout.go",
+          "contains": "err = fmt.Errorf(\"unexpected response: not an object or a list\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/firebox_transactions_wait.go",
+          "contains": "if got := strField(tx, \"id\"); got != \"\" && got != id {",
           "code_only": true
         }
       ]

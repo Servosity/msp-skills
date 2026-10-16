@@ -16,7 +16,7 @@ faqs:
   - q: "Do I need to know how to code?"
     a: "No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once."
   - q: "Is my WatchGuard data safe?"
-    a: "Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills."
+    a: "The CLI, MCP server and local mirror run on your machine, and MSP Skills never bundles or transmits your WatchGuard credentials. What your agent reads does go to your AI provider: query results, and the secrets that credential reads return (BOVPN pre-shared keys, private keys, Firebox passwords, activation and license keys). Keep those commands human-in-the-loop as the safety tiers describe."
   - q: "What does it cost?"
     a: "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
   - q: "What credentials do I need?"
@@ -165,7 +165,7 @@ No. Paste one sentence into Claude Code or Codex and your agent does the install
 
 ### Is my WatchGuard data safe?
 
-Your data stays on your machine. The CLI, MCP server, and the local mirror are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+The CLI, MCP server and local mirror run on your machine, and MSP Skills never bundles or transmits your WatchGuard credentials. What your agent reads does go to your AI provider: query results, and the secrets that credential reads return (BOVPN pre-shared keys, private keys, Firebox passwords, activation and license keys). Keep those commands human-in-the-loop as the safety tiers describe.
 
 ### What does it cost?
 

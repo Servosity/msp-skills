@@ -92,6 +92,9 @@ func getTransaction(ctx context.Context, c *client.Client, own, id string) (map[
 	if tx == nil || (strField(tx, "id") == "" && strField(tx, "status") == "") {
 		return nil, notFoundErr(fmt.Errorf("transaction %s not found", id))
 	}
+	if got := strField(tx, "id"); got != "" && got != id {
+		return nil, apiErr(fmt.Errorf("reading transaction %s: the response carried transaction %s", id, got))
+	}
 	return tx, nil
 }
 

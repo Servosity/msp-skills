@@ -390,7 +390,7 @@ func asMapsStrict(raw json.RawMessage, key string) ([]map[string]any, error) {
 			}
 			return nil
 		case map[string]any:
-			if inner, ok := t[key]; ok && len(t) <= 2 {
+			if inner, ok := t[key]; ok && len(t) <= 2 && !isRecord(t) {
 				return visit(inner)
 			}
 			out = append(out, t)
@@ -403,11 +403,21 @@ func asMapsStrict(raw json.RawMessage, key string) ([]map[string]any, error) {
 	case []any:
 		err = visit(t)
 	case map[string]any:
-		if inner, ok := t[key]; ok {
+		if inner, ok := t[key]; ok && !isRecord(t) {
 			err = visit(inner)
 		}
+	default:
+		err = fmt.Errorf("unexpected response: not an object or a list")
 	}
 	return out, err
+}
+
+// isRecord: an object carrying its own id or status is a record, even when it
+// also has a field named like the envelope key (a transaction's "data").
+func isRecord(t map[string]any) bool {
+	_, id := t["id"]
+	_, status := t["status"]
+	return id || status
 }
 
 // firstObject reads a single-record response that may be a bare object or a
@@ -425,7 +435,7 @@ func firstObject(raw json.RawMessage, key string) map[string]any {
 	}
 	var m map[string]any
 	if json.Unmarshal(raw, &m) == nil && len(m) > 0 {
-		if _, envelope := m[key]; !envelope {
+		if _, envelope := m[key]; !envelope || isRecord(m) {
 			return m
 		}
 	}

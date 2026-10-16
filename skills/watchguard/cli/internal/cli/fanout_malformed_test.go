@@ -89,6 +89,29 @@ func TestTransactionsWaitRejectsMalformedRows(t *testing.T) {
 			t.Errorf("wait %s on %s: exit %d, want 5", id, body, code)
 		}
 	}
+	for id, body := range map[string]string{
+		"t1": `null`, "t2": `42`, "t3": `"unavailable"`, // malformed at the top level
+		"mm1": `[{"id":"old","status":"complete"}]`, "mm2": `{"id":"old","status":"complete"}`, // another transaction
+	} {
+		byID[id] = body
+		if _, code := wait(id); code != 5 {
+			t.Errorf("wait %s on %s: exit %d, want 5", id, body, code)
+		}
+	}
+	// Documented records that carry their own "data" field are records, not envelopes.
+	for id, c := range map[string]struct {
+		body string
+		want int
+	}{
+		"install_cert_1": {`{"id":"install_cert_1","status":"complete","parent":"","children":[],"timeout":600,"data":"{\"cert\":\"x\"}"}`, 0},
+		"ddply_1":        {`{"id":"ddply_1","device":"FB-1","status":"failed","data":{"version":45}}`, 8},
+		"ddply_2":        {`{"id":"ddply_2","device":"FB-1","status":"complete","data":null}`, 0},
+	} {
+		byID[id] = c.body
+		if doc, code := wait(id); code != c.want || doc["id"] != id {
+			t.Errorf("wait %s on %s: exit %d, id %v; want %d", id, c.body, code, doc["id"], c.want)
+		}
+	}
 	byID["pick"] = `[{"id":"other","status":"failed"},{"id":"pick","status":"complete"}]`
 	if doc, code := wait("pick"); code != 0 || doc["id"] != "pick" {
 		t.Errorf("wait pick on a two-row list: exit %d, id %v; want 0, pick", code, doc["id"])
