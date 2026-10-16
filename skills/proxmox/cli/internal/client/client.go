@@ -1796,6 +1796,9 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 	if c.Config != nil && c.Config.EndpointRefusal != "" && c.operationSendsPrimaryAuth(method, path) { // proxmox hand-fix (endpoints-env-only)
 		return nil, 0, errors.New(c.Config.EndpointRefusal)
 	}
+	if c.Config != nil && c.Config.PBSRefusal != "" && !c.operationSendsPrimaryAuth(method, path) { // proxmox hand-fix (endpoints-env-only)
+		return nil, 0, errors.New(c.Config.PBSRefusal)
+	}
 	// Verify-mode transport-layer gate. When the verifier (or any consumer
 	// that sets PRINTING_PRESS_VERIFY=1) drives a mutating verb or explicit
 	// mutation intent without the LIVE_HTTP=1 opt-in, return a synthetic

@@ -92,8 +92,8 @@ func TestAmbiguousEndpointIsRefused(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if cfg.EndpointRefusal == "" || strings.Contains(cfg.EndpointRefusal, "wo#rd") || strings.Contains(cfg.TemplateVars["pbs_host"], "wo#rd") {
-			t.Errorf("%s: refusal %q pbs_host %q", base, cfg.EndpointRefusal, cfg.TemplateVars["pbs_host"])
+		if cfg.EndpointRefusal == "" || cfg.PBSRefusal == "" || strings.Contains(cfg.EndpointRefusal+cfg.PBSRefusal+cfg.BaseURL+cfg.TemplateVars["pbs_host"], "wo#rd") {
+			t.Errorf("%s: refusals %q %q, base %q pbs_host %q", base, cfg.EndpointRefusal, cfg.PBSRefusal, cfg.BaseURL, cfg.TemplateVars["pbs_host"])
 		}
 	}
 }
@@ -112,5 +112,25 @@ func TestUserinfoEdges(t *testing.T) {
 		if got := StripUserinfo(in); got != want {
 			t.Errorf("StripUserinfo(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+// An ambiguous PROXMOX_PBS_HOST is refused, never replaced by a pbs_host
+// saved in config.toml (that host must not receive this run's PBS token).
+func TestAmbiguousPBSHostNeverFallsBack(t *testing.T) {
+	isolateCredentials(t)
+	p := filepath.Join(t.TempDir(), configFileName())
+	if err := os.WriteFile(p, []byte("[template_vars]\npbs_host = \"https://client-a-pbs.example:8007\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	lockOwnerOnly(t, p)
+	t.Setenv("PROXMOX_BASE_URL", "")
+	t.Setenv("PROXMOX_PBS_HOST", "https://backup:p/w@client-b-pbs.example:8007")
+	cfg, err := Load(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.PBSRefusal == "" || strings.Contains(cfg.TemplateVars["pbs_host"], "client-a") || strings.Contains(cfg.TemplateVars["pbs_host"], "p/w") {
+		t.Errorf("refusal %q, pbs_host %q", cfg.PBSRefusal, cfg.TemplateVars["pbs_host"])
 	}
 }
