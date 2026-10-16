@@ -102,3 +102,76 @@ func TestVzdumpOutcomeKeepsItsGuestType(t *testing.T) {
 		t.Errorf("container 108 carries VM 108's failed attempt: %s %q", r.Verdict, r.Reason)
 	}
 }
+
+// One backup time on two datastores, verified ok on one and failed on the
+// other: the tie goes to the failure, never to the good copy.
+func TestNewestTieGoesToTheBadCopy(t *testing.T) {
+	f := newFixture(t)
+	hp := strings.Split(strings.TrimPrefix(f.pbs.URL, "https://"), ":")
+	port, _ := strconv.Atoi(hp[1])
+	ts := ago(f.now, 2)
+	f.storageCfg = []map[string]any{{"storage": "pbs2", "type": "pbs", "server": hp[0], "port": port, "datastore": "zz", "namespace": ""}}
+	st := f.pveRoutes["/nodes/pve1/storage"].([]map[string]any)
+	f.pveRoutes["/nodes/pve1/storage"] = append(st, map[string]any{"storage": "pbs2", "type": "pbs", "shared": 1, "active": 1, "enabled": 1, "content": "backup", "total": 1000, "used": 10, "avail": 990})
+	failed := map[string]any{"state": "failed", "upid": "UPID:pbs:verify"}
+	f.pveRoutes["/nodes/pve1/storage/pbs2/content"] = []any{map[string]any{"volid": "pbs2:backup/vm/100/" + strconv.FormatInt(ts, 10), "vmid": 100, "ctime": ts, "size": 1 << 30, "subtype": "qemu", "format": "pbs-vm", "verification": failed}}
+	f.pveRoutes["/nodes/pve1/storage/pbs2/prunebackups"] = []any{}
+	f.pbsRoutes["/admin/datastore"] = []map[string]any{{"store": "main", "backend-type": "filesystem", "mount-status": "nonremovable"}, {"store": "zz", "backend-type": "filesystem", "mount-status": "nonremovable"}}
+	f.pbsRoutes["/admin/datastore/zz/snapshots"] = []any{map[string]any{"backup-type": "vm", "backup-id": "100", "backup-time": ts, "size": 1 << 30, "files": []string{"index.json.blob"}, "owner": "root@pam", "verification": failed}}
+	out, _, _ := runCLI(t, "posture", "--json")
+	if r := postureRowFor(t, out, 100); r.Severity == "green" || r.VerifyState != "failed" {
+		t.Errorf("a same-time failed copy was hidden by the ok one: %s/%s %q", r.Verdict, r.VerifyState, r.Reason)
+	}
+}
+
+// A password in a clusters.toml endpoint is never printed back.
+func TestEndpointPasswordIsNeverEchoed(t *testing.T) {
+	f := newFixture(t)
+	const pw = "Pa55wordSECRET"
+	writeClustersFile(t, `
+[clusters.beta]
+pve_host = "root:`+pw+`@pve-beta.invalid"
+pve_token_env = "ACME_PVE"
+
+[clusters.gamma]
+pve_host = "`+strings.TrimPrefix(f.pve.URL, "https://")+`"
+pbs_host = "https://backup:`+pw+`@pbs-gamma.invalid:8007"
+pve_token_env = "ACME_PVE"
+`)
+	setAcmeTokens(t)
+	for _, args := range [][]string{{"clusters", "list", "--json"}, {"clusters", "list"}, {"clusters", "check", "--json"}, {"posture", "--json"}, {"failures", "--json"}} {
+		out, errOut, _ := runCLI(t, args...)
+		if strings.Contains(out+errOut, pw) {
+			t.Errorf("%v echoed the password", args)
+		}
+	}
+}
+
+// Only backups of this guest's type need its creation time: a VM whose
+// config cannot be read, with only a container's backups under its VMID, has
+// no restore point and full evidence.
+func TestOtherTypeBackupsNeedNoCreationTime(t *testing.T) {
+	f := newFixture(t)
+	f.pveRoutes["/nodes/pve1/storage/local/content"] = []any{map[string]any{"volid": "local:backup/vzdump-lxc-105-2026_10_01-00_00_00.tar.zst", "vmid": 105, "ctime": ago(f.now, 3), "size": 1 << 20, "subtype": "lxc", "format": "tar.zst"}}
+	pveVia(t, f, func(w http.ResponseWriter, r *http.Request) bool {
+		if isVMConfig(r) {
+			http.Error(w, `{"data":null}`, http.StatusServiceUnavailable)
+			return true
+		}
+		return false
+	})
+	out, _, err := runCLI(t, "restore-points", "105", "--json")
+	if g := decodeJSON[restorePointsReport](t, out).Guests[0]; err != nil || g.Count != 0 || g.Evidence != "full" {
+		t.Errorf("restore-points 105: err %v count %d evidence %s %v", err, g.Count, g.Evidence, g.NotRead)
+	}
+}
+
+// A VM created inside the window, with a point after every run since: met.
+func TestRPOCreatedInWindowMet(t *testing.T) {
+	f := newFixture(t)
+	setCreated(f, 100, 40) // own points at 26h and 2h; runs since creation at 36h and 12h
+	out, _, _ := runCLI(t, "rpo", "--days", "7", "--guest", "100", "--json")
+	if r := decodeJSON[rpoReport](t, out).Rows[0]; !r.MetSchedule || r.Evidence != "full" || r.ScheduledRuns != 2 || r.LargestGapHours < 0 {
+		t.Errorf("rpo: met %v evidence %s runs %d gap %.1f note %q", r.MetSchedule, r.Evidence, r.ScheduledRuns, r.LargestGapHours, r.Note)
+	}
+}

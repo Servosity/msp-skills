@@ -23,6 +23,7 @@ import (
 
 	"proxmox-pp-cli/internal/client"
 	"proxmox-pp-cli/internal/cliutil"
+	"proxmox-pp-cli/internal/config"
 )
 
 // clusterProfile holds no secrets: tokens are referenced by the NAME of the
@@ -207,7 +208,7 @@ func (cl clusterProfile) validate(name string) error {
 		}
 		u, err := url.Parse(raw)
 		if err != nil || u.Hostname() == "" || u.User != nil || (u.Path != "" && u.Path != "/") || strings.ContainsAny(host, "?#") {
-			return fmt.Errorf("cluster %q: %s %q must be a host, host:port, or https://host:port", name, field, host)
+			return fmt.Errorf("cluster %q: %s %q must be a host, host:port, or https://host:port", name, field, config.RedactUserinfo(host))
 		}
 		if u.Scheme != "https" {
 			return fmt.Errorf("cluster %q: %s %q must use https", name, field, host)
@@ -242,7 +243,7 @@ func applyClusterToClient(c *client.Client, cl clusterProfile) error {
 		}
 		u, err := url.Parse(raw)
 		if err != nil || u.Hostname() == "" {
-			return fmt.Errorf("pve_host %q must be a host, host:port, or https://host:port", cl.PVEHost)
+			return fmt.Errorf("pve_host %q must be a host, host:port, or https://host:port", config.RedactUserinfo(cl.PVEHost))
 		}
 		port := u.Port()
 		if port == "" {
@@ -363,10 +364,11 @@ func newClustersListCmd(flags *rootFlags) *cobra.Command {
 				if pve == "" {
 					pve = cl.PVEHost
 				}
+				pve = config.RedactUserinfo(pve)
 				rows = append(rows, clusterRow{
 					Name: name, Client: cl.Client, PVE: pve, PVETokenEnv: shownEnvName(cl.PVETokenEnv),
 					PVETokenSet: envValue(cl.PVETokenEnv) != "", PVEPinned: cl.PVEFingerprint != "",
-					PBS: cl.PBSHost, PBSTokenEnv: shownEnvName(cl.PBSTokenEnv), PBSTokenSet: envValue(cl.PBSTokenEnv) != "",
+					PBS: config.RedactUserinfo(cl.PBSHost), PBSTokenEnv: shownEnvName(cl.PBSTokenEnv), PBSTokenSet: envValue(cl.PBSTokenEnv) != "",
 					PBSPinned: cl.PBSFingerprint != "", PBSNamespace: cl.PBSNamespace, ClustersSource: path,
 				})
 				if err := cl.validate(name); err != nil {

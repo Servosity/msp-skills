@@ -221,13 +221,22 @@ func Load(configPath string) (*Config, error) {
 	}
 
 	// Base URL override (used by printing-press verify to point at mock/test servers)
-	if v := cliutil.EnvOverride("PROXMOX_BASE_URL"); v != "" {
+	// proxmox hand-fix (endpoints-env-only): no endpoint keeps a
+	// user:password@ part (endpoint_userinfo.go); it would be printed.
+	cfg.BaseURL = StripUserinfo(cfg.BaseURL)
+	for k, v := range cfg.TemplateVars {
+		cfg.TemplateVars[k] = StripUserinfo(v)
+	}
+	if v := StripUserinfo(cliutil.EnvOverride("PROXMOX_BASE_URL")); v != "" {
 		cfg.BaseURL = v
-	} else if h := strings.TrimSpace(cliutil.EnvOverride("PROXMOX_HOST")); h != "" && !strings.Contains(cfg.BaseURL, "{host}") {
+	} else if h := StripUserinfo(strings.TrimSpace(cliutil.EnvOverride("PROXMOX_HOST"))); h != "" && !strings.Contains(cfg.BaseURL, "{host}") {
 		// proxmox hand-fix (endpoints-env-only): PROXMOX_HOST names the host
-		// this run's token is for; a base_url in config.toml must not send the
-		// token to another (another client's) host.
-		cfg.BaseURL = "https://{host}:8006/api2/json"
+		// this run's token is for. A base_url in config.toml for that host
+		// stays (a reverse proxy on 443); one for another host would send a
+		// token to the wrong (another client's) host, so the run refuses.
+		if err := hostAgrees(cfg.BaseURL, h); err != nil {
+			return nil, err
+		}
 	}
 
 	// Endpoint template vars: resolve each {placeholder} in BaseURL or the
@@ -245,12 +254,12 @@ func Load(configPath string) (*Config, error) {
 		cfg.TemplateVars = map[string]string{}
 	}
 	verifyMode := os.Getenv("PRINTING_PRESS_VERIFY") == "1"
-	if v := strings.TrimSpace(cliutil.EnvOverride("PROXMOX_PBS_HOST")); v != "" {
+	if v := StripUserinfo(strings.TrimSpace(cliutil.EnvOverride("PROXMOX_PBS_HOST"))); v != "" {
 		cfg.TemplateVars["pbs_host"] = v
 	} else if verifyMode {
 		cfg.TemplateVars["pbs_host"] = "pbs_host_placeholder"
 	}
-	if v := strings.TrimSpace(cliutil.EnvOverride("PROXMOX_HOST")); v != "" {
+	if v := StripUserinfo(strings.TrimSpace(cliutil.EnvOverride("PROXMOX_HOST"))); v != "" {
 		cfg.TemplateVars["host"] = normalizeEndpointTemplateValue(v)
 	} else if verifyMode {
 		cfg.TemplateVars["host"] = "localhost"

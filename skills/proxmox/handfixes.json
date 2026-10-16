@@ -568,8 +568,8 @@
   },
   {
    "id": "endpoints-env-only",
-   "summary": "A PVE endpoint from one run's environment (PROXMOX_BASE_URL, PROXMOX_HOST, --cluster) is never saved to config.toml, and PROXMOX_HOST beats a base_url saved there",
-   "why": "Generated config.go persisted the runtime BaseURL and TemplateVars on every save, so `auth set-token` run with PROXMOX_BASE_URL wrote that host into config.toml, and every later env-configured run sent its own token there, ignoring PROXMOX_HOST: client B's token reached client A's host (2026-10-16 adversarial round 24, reproduced against a stub that logged the Authorization header). configForSave now keeps the file's endpoints, and Load lets PROXMOX_HOST replace a base_url that has no {host} placeholder. internal/config/endpoints_env_only_test.go (TestEnvEndpointIsNeverSaved, TestHostEnvBeatsSavedBaseURL) fails if either half is removed.",
+   "summary": "A PVE endpoint from one run's environment (PROXMOX_BASE_URL, PROXMOX_HOST, --cluster) is never saved to config.toml; PROXMOX_HOST that names another host than a saved base_url refuses the run; no endpoint keeps a user:password@ part",
+   "why": "Generated config.go persisted the runtime BaseURL and TemplateVars on every save, so `auth set-token` run with PROXMOX_BASE_URL wrote that host into config.toml, and every later env-configured run sent its own token there, ignoring PROXMOX_HOST: client B's token reached client A's host (2026-10-16 adversarial round 24, reproduced against a stub that logged the Authorization header). configForSave now keeps the file's endpoints; Load refuses when PROXMOX_HOST names another host than a base_url saved without {host} (a same-host base_url, e.g. a reverse proxy on 443, stays; round 25), and strips user:password@ from every endpoint so it is never sent or printed (endpoint_userinfo.go). internal/config/endpoints_env_only_test.go fails if any part is removed.",
    "status": "active",
    "asserts": [
     {
@@ -579,12 +579,26 @@
     },
     {
      "file": "cli/internal/config/config.go",
-     "contains": "!strings.Contains(cfg.BaseURL, \"{host}\")",
+     "contains": "if err := hostAgrees(cfg.BaseURL, h); err != nil {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/config.go",
+     "contains": "StripUserinfo(cliutil.EnvOverride(\"PROXMOX_BASE_URL\"))",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/config/endpoint_userinfo.go",
+     "contains": "func hostAgrees(",
      "code_only": true
     },
     {
      "file": "cli/internal/config/endpoints_env_only_test.go",
-     "contains": "func TestHostEnvBeatsSavedBaseURL("
+     "contains": "func TestHostEnvMustAgreeWithSavedBaseURL("
+    },
+    {
+     "file": "cli/internal/config/endpoints_env_only_test.go",
+     "contains": "func TestEnvEndpointIsNeverSaved("
     }
    ]
   },

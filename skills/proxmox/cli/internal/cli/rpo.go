@@ -364,7 +364,7 @@ func collectRPO(ctx context.Context, t fleetTarget, start, now time.Time, onlyVM
 		// first restore point at creation is no sign that retention pruned runs.
 		from := start
 		if birth.at > start.Unix() {
-			from = time.Unix(birth.at, 0)
+			from = time.Unix(min(birth.at, now.Unix()), 0)
 		}
 		row := evaluateRPO(mine, runs, from, now)
 		row.WindowStart = start.UTC().Format(time.RFC3339)
@@ -501,17 +501,24 @@ func evaluateRPO(points []restorePoint, runs []int64, start, now time.Time) rpoR
 	}
 	row.RestorePoints = len(inWindow)
 	row.VerifiedOKDays = len(okDays)
+	capHidesRun := false
 	for i, run := range runs {
-		// Only the newest run can still be in progress: an older one's window
-		// closed when the next run was due, so it is judged whatever its age.
-		if run < effStart || (i == len(runs)-1 && now.Sub(time.Unix(run, 0)) < rpoInProgressGrace) {
-			continue
-		}
-		row.ScheduledRuns++
 		until := now.Unix()
 		if i+1 < len(runs) {
 			until = runs[i+1]
 		}
+		// A run whose whole window precedes the oldest retained point may have
+		// had a point that retention pruned: not judged. Only the newest run can
+		// still be in progress: an older one's window closed when the next run
+		// was due, so it is judged whatever its age.
+		if until <= effStart {
+			capHidesRun = capHidesRun || row.WindowCapped
+			continue
+		}
+		if i == len(runs)-1 && now.Sub(time.Unix(run, 0)) < rpoInProgressGrace {
+			continue
+		}
+		row.ScheduledRuns++
 		hit := false
 		for _, p := range inWindow {
 			if p >= run && p < until {
@@ -555,9 +562,10 @@ func evaluateRPO(points []restorePoint, runs []int64, start, now time.Time) rpoR
 		row.Note = rpoNoPointsNote
 	}
 	row.Evidence = "full"
-	if row.WindowCapped || row.PointsUnread {
-		// Retention pruned the start of the window, so runs before capped_at
-		// (and any that failed there) cannot be checked.
+	// Retention may have pruned the start of the window, so a run whose
+	// window ended before capped_at cannot be checked; when none did, the cap
+	// hides nothing.
+	if capHidesRun || row.PointsUnread {
 		row.Evidence = "partial"
 	}
 	// Met only when some scheduled run was judged and none was missed: with
