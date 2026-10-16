@@ -21,7 +21,7 @@ The six agents MSP owners actually use (self-serve, works today):
 | Your AI agent | How to install the Bitdefender skill |
 | --- | --- |
 | **Claude Desktop** | Run installer, then **Settings > Extensions** to register `bitdefender-mcp` (no JSON editing). |
-| **ChatGPT** (paid plans) | Run installer, expose `bitdefender-mcp` over HTTPS, register as a Developer Mode connector. |
+| **ChatGPT** (paid plans) | Run installer, expose `bitdefender-mcp` over HTTPS behind an OAuth gateway that adds its bearer token, register as a Developer Mode connector. |
 | **Codex CLI** | Paste the install prompt below. |
 | **Claude Code** | Paste the install prompt below. |
 | **Claude Cowork** | Paste the install prompt below. |
@@ -188,7 +188,7 @@ See [pain-point.md](./pain-point.md) for the longer narrative.
 
 ### Does this work with ChatGPT?
 
-Yes, on **Plus, Pro, Team, Business, Enterprise, and Education** plans (Free tier does not yet expose Developer Mode). ChatGPT connects to **remote** MCP servers over HTTPS, not local stdio binaries. The Bitdefender MCP server runs locally, but it speaks HTTP natively: start it with `bitdefender-mcp --transport http` and `BITDEFENDER_MCP_HTTP_TOKEN` set (it serves `http://127.0.0.1:7777/mcp` by default and requires that token as a bearer header) and put that endpoint behind an HTTPS tunnel or your own reverse proxy. No bridge package is involved. Step-by-step in [mcp-install.md](./mcp-install.md).
+Yes, on **Plus, Pro, Team, Business, Enterprise, and Education** plans (Free tier does not yet expose Developer Mode). ChatGPT connects to **remote** MCP servers over HTTPS, not local stdio binaries. The Bitdefender MCP server runs locally, but it speaks HTTP natively: start it with `bitdefender-mcp --transport http` and `BITDEFENDER_MCP_HTTP_TOKEN` set (it serves `http://127.0.0.1:7777/mcp` by default and requires that token as a bearer header) and put it behind an HTTPS gateway that ChatGPT can sign in to with OAuth and that adds that bearer header (ChatGPT connectors do not send a fixed one). No bridge package is involved. Step-by-step in [mcp-install.md](./mcp-install.md).
 
 ### Does this work with Codex, Cursor, Windsurf, Cline, Copilot, or Gemini?
 

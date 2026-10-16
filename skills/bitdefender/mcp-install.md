@@ -147,8 +147,8 @@ requests it forwards, and put your own sign-in in front of the proxy.
 
 Then expose `http://localhost:7777/mcp` as a public HTTPS URL via a secure tunnel
 (Cloudflare Tunnel, ngrok) or your own reverse proxy. The path is part of the
-endpoint: the server answers Streamable HTTP at `/mcp` and returns 404 at the
-bare root, so a connector pointed at the root URL never handshakes. **Treat the token
+endpoint: put `/mcp` in the connector URL, which is the Streamable HTTP endpoint this
+server documents. **Treat the token
 and the URL as sensitive.** Never expose the endpoint bare on the internet; gate it
 behind SSO / Cloudflare Access for team use.
 

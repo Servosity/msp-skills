@@ -29,6 +29,8 @@ func TestDoctorProbeCredentials(t *testing.T) {
 		{"404", 404, `not found`, false},
 		{"html", 200, `<!doctype html><html></html>`, false},
 		{"empty object", 200, `{}`, false},
+		{"405", 405, `method not allowed`, false},
+		{"429", 429, `{"jsonrpc":"2.0","id":"doctor","error":{"code":-32004,"message":"Too many requests"}}`, false},
 	}
 	for _, tc := range cases {
 		var gotAuth, gotMethod string

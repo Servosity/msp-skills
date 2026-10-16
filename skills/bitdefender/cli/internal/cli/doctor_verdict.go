@@ -50,18 +50,22 @@ func doctorProbe(ctx context.Context, c *client.Client, authHeader string) (int,
 	if err != nil {
 		return 0, nil, err
 	}
-	// Same static headers and User-Agent real commands send, so a proxy that
-	// gates on either answers the probe as it answers them.
+	// Headers in the order real commands apply them (client.go): the key,
+	// then config.toml [headers] (which may override it), then the
+	// User-Agent only when [headers] did not set one. The probe then tests
+	// exactly what every command sends.
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", authHeader)
 	for k, v := range c.Config.Headers {
 		req.Header.Set(k, v)
 	}
-	ua := cliutil.EnvOverride("BITDEFENDER_USER_AGENT")
-	if ua == "" {
-		ua = "bitdefender-cli/1.0"
+	if req.Header.Get("User-Agent") == "" {
+		ua := cliutil.EnvOverride("BITDEFENDER_USER_AGENT")
+		if ua == "" {
+			ua = "bitdefender-cli/1.0"
+		}
+		req.Header.Set("User-Agent", ua)
 	}
-	req.Header.Set("User-Agent", ua)
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", authHeader)
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
 		return 0, nil, err
@@ -139,9 +143,12 @@ func doctorProbeCredentials(ctx context.Context, c *client.Client, authHeader st
 	case ok2xx && doctorListEnvelope(body):
 		report["credentials"] = fmt.Sprintf("valid (HTTP %d list response to %s)", status, call)
 	case ok2xx:
-		report["credentials"] = fmt.Sprintf("WARN not verified (%s answered %d without a JSON-RPC result) - %s", call, status, doctorBaseRemedy)
-		report["api"] = "WARN the host answered but not like the Control Center API. " + doctorBaseRemedy
+		report["credentials"] = fmt.Sprintf("ERROR not verified (%s answered %d without a JSON-RPC result) - %s", call, status, doctorBaseRemedy)
+		report["api"] = "ERROR the host answered but not like the Control Center API - base_url is not the Control Center API root. " + doctorBaseRemedy
+	case status == http.StatusTooManyRequests:
+		report["credentials"] = fmt.Sprintf("WARN not verified (HTTP 429 from %s) - the key is rate limited; run doctor again in a minute.", call)
 	default:
-		report["credentials"] = fmt.Sprintf("WARN not verified (HTTP %d from %s). Run `bitdefender-cli %s` to see the full response.", status, call, doctorProbeCmd)
+		report["credentials"] = fmt.Sprintf("ERROR not verified (HTTP %d from %s) - Control Center answers its API with JSON-RPC, so this is not the API root. Run `bitdefender-cli %s` to see the full response.", status, call, doctorProbeCmd)
+		report["api"] = fmt.Sprintf("ERROR the host answered HTTP %d to a JSON-RPC call - base_url is not the Control Center API root. %s", status, doctorBaseRemedy)
 	}
 }
