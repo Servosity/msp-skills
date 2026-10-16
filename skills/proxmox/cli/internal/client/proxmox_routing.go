@@ -507,3 +507,15 @@ func (c *Client) GetOnceNoStore(ctx context.Context, path string, params map[str
 	result, _, err := c.do(ctx, http.MethodGet, path, params, nil, map[string]string{ReplaySafeHeader: "false"})
 	return result, err
 }
+
+// guestConfigPath: a node's or guest's config, a guest's pending or snapshot
+// config, which carries free-text notes (description) and arguments. MSPs
+// often keep credentials there, so the response cache never stores it.
+var guestConfigPath = regexp.MustCompile(`^/?nodes/[^/]+(/(qemu|lxc)/[^/]+(/snapshot/[^/]+)?)?/(config|pending)/?$`)
+
+func noStoreResponse(path string) bool {
+	if i := strings.IndexByte(path, '?'); i >= 0 {
+		path = path[:i]
+	}
+	return guestConfigPath.MatchString(path)
+}

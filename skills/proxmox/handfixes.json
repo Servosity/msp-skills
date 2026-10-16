@@ -457,6 +457,28 @@
      "contains": "func clusterStoreScope() string {"
     }
    ]
+  },
+  {
+   "id": "guest-config-no-cache",
+   "summary": "The response cache never stores a node or guest config (config, pending, snapshot config): those carry free-text notes and arguments where MSPs keep credentials",
+   "why": "Generated client.go writes every fresh GET to the on-disk response cache, including vm config, vm pending, ct config and nodes config, so a VM's description (notes) persisted in a 0600 file after any read. The 2026-10-16 adversarial review (round 20) found the sentinel in 3 cache files. writeCacheWithHeaders now returns early for paths noStoreResponse (proxmox_routing.go) matches; the backup commands read the VM config through GetOnceNoStore, which never writes the cache either. internal/cli/codex_round31_test.go (TestVMConfigNotCached) fails if the hook is removed.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/client/client.go",
+     "contains": "if noStoreResponse(path) {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/client/proxmox_routing.go",
+     "contains": "func noStoreResponse(path string) bool {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/codex_round31_test.go",
+     "contains": "func TestVMConfigNotCached("
+    }
+   ]
   }
  ]
 }

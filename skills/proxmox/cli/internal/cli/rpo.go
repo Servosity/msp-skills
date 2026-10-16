@@ -326,6 +326,7 @@ func collectRPO(ctx context.Context, t fleetTarget, start, now time.Time, onlyVM
 	pbsStandIns(standIn, pbsUnread, readStorage)
 	targets := newJobTargets(ctx, t.C, cov)
 	allGaps := map[storageGap]bool{}
+	births := newGuestBirths(t, now, offline)
 	var rows []rpoRow
 	for _, g := range guests {
 		vmid := int64(g.VMID)
@@ -340,7 +341,7 @@ func collectRPO(ctx context.Context, t fleetTarget, start, now time.Time, onlyVM
 		}
 		// An earlier guest's backups under this VMID are not this one's, and a
 		// run scheduled before this guest existed is not one it missed.
-		birth := readGuestBirth(ctx, t.C, g, now, offline)
+		birth := births.read(ctx, g)
 		var mine, either []restorePoint
 		for _, rp := range dedupeRestorePoints(points[vmid]) {
 			if rp.GuestType != "" && rp.GuestType != g.Type {
@@ -356,6 +357,11 @@ func collectRPO(ctx context.Context, t fleetTarget, start, now time.Time, onlyVM
 		runs = slices.DeleteFunc(runs, func(r int64) bool { return r < birth.at })
 		mine, unreadable := splitUnreadable(mine)
 		row := evaluateRPO(mine, runs, start, now)
+		if birth.at > start.Unix() && row.ScheduledRuns == 0 {
+			// Created inside the window: no wider window judges runs from before then.
+			row.Note = strings.TrimSpace(strings.TrimSuffix(strings.Replace(row.Note, rpoNoJudgedRunNote, "", 1), "; ") + "; the VM was created " + unixRFC3339(birth.at) + ", inside the window, and no scheduled run since then can be judged yet")
+			row.Note = strings.TrimPrefix(row.Note, "; ")
+		}
 		if scheduleUnknown {
 			row.MetSchedule, row.Evidence = false, "partial"
 			row.Note = strings.TrimSpace(row.Note + " a covering job's schedule could not be expanded; compliance unproven")
@@ -364,15 +370,25 @@ func collectRPO(ctx context.Context, t fleetTarget, start, now time.Time, onlyVM
 		for _, g := range gaps {
 			allGaps[g] = true
 		}
-		if pointsIncomplete || len(gaps) > 0 || len(unreadable) > 0 || len(either) > 0 || birth.unread {
+		// An either-guest point predates every judged run (all are at or after
+		// creation), so it can neither meet nor excuse one; only an unread
+		// config, which also hides when the guest was created, makes misses
+		// unproven.
+		if birth.unread {
+			row.Note = strings.TrimPrefix(row.Note, "no restore points retained; every scheduled run in the window is missed")
+			if len(either) > 0 {
+				row.Note = strings.TrimSpace(eitherGuestWhy(either, birth) + "; " + row.Note)
+			} else {
+				row.Note = strings.TrimSpace("its config (which records when the VM was created) could not be read, so runs before its creation may be counted as missed; " + row.Note)
+			}
+		}
+		if pointsIncomplete || len(gaps) > 0 || len(unreadable) > 0 || birth.unread {
 			why := "some backup storage could not be read (see fetch_failures)"
 			switch {
 			case len(gaps) > 0:
 				why = "the backup target of " + joinGaps(gaps) + " was not read"
-			case (len(either) > 0 || birth.unread) && !pointsIncomplete:
-				// Unread, it also hides when the guest was created: runs before
-				// then are not misses.
-				why = eitherGuestWhy(len(either), birth)
+			case birth.unread && !pointsIncomplete:
+				why = "the VM's creation time could not be read (see fetch_failures)"
 			case len(unreadable) > 0 && !pointsIncomplete:
 				why = fmt.Sprintf("%d backup(s) are listed without a readable manifest (still running, or damaged)", len(unreadable))
 			}
@@ -392,6 +408,7 @@ func collectRPO(ctx context.Context, t fleetTarget, start, now time.Time, onlyVM
 		row.Jobs = append([]string{}, cov.EnabledFor[vmid]...)
 		rows = append(rows, row)
 	}
+	fails = append(fails, births.fails...)
 	return rows, append(fails, gapFailures(t.Name, allGaps)...), nil
 }
 
@@ -426,6 +443,8 @@ func scheduledRuns(ctx context.Context, t fleetTarget, schedule string, start, n
 	}
 	return nil, fmt.Errorf("schedule %q expands to more than 5000 runs in the window", schedule)
 }
+
+const rpoNoJudgedRunNote = "no scheduled run in the window can be judged yet (the only one is still within the in-progress grace, or the window is shorter than the job's interval); widen --days"
 
 // evaluateRPO scores one guest's restore points against its scheduled runs.
 func evaluateRPO(points []restorePoint, runs []int64, start, now time.Time) rpoRow {
@@ -502,8 +521,10 @@ func evaluateRPO(points []restorePoint, runs []int64, start, now time.Time) rpoR
 		// like a point on unread storage. With no miss they can only add cover.
 		row.Note = fmt.Sprintf("%d restore point(s) dated in the future (a node clock ran ahead) were not counted; the missed runs may be among them, so they are unproven", future)
 		row.PointsUnread = true
-	case len(points) == 0 && future == 0:
+	case len(points) == 0 && future == 0 && row.ScheduledRuns > 0:
 		row.Note = "no restore points retained; every scheduled run in the window is missed"
+	case len(points) == 0 && future == 0:
+		row.Note = "no restore points retained"
 	}
 	row.Evidence = "full"
 	if row.WindowCapped || row.PointsUnread {
@@ -516,7 +537,7 @@ func evaluateRPO(points []restorePoint, runs []int64, start, now time.Time) rpoR
 	// window shorter than the job's interval) there is nothing to have met.
 	row.MetSchedule = row.ScheduledRuns > 0 && row.MissedRuns == 0 && row.Evidence == "full"
 	if row.ScheduledRuns == 0 && len(runs) > 0 && row.Note == "" {
-		row.Note = "no scheduled run in the window can be judged yet (the only one is still within the in-progress grace, or the window is shorter than the job's interval); widen --days"
+		row.Note = rpoNoJudgedRunNote
 	}
 	return row
 }

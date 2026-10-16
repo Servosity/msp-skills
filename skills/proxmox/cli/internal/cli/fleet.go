@@ -305,7 +305,7 @@ var (
 	verifyKeep   = []string{"stores", "groups", "skipped_clusters", "fetch_failures", "cluster", "store", "namespace", "group", "status", "snapshots", "failed", "never_verified", "outdated", "first_failure_at", "newest_verified_ok_at", "newest_is_bad", "failing_groups", "failed_snapshots", "never_verified_snapshots", "gc_still_bad_chunks", "namespaces_without_verify_job", "attribution", "snapshots_incomplete", "verify_jobs_unknown", "gc_unknown"}
 	failuresKeep = []string{"rows", "fetch_failures", "scanned_tasks", "logs_read", "log_cap_hit", "note", "cluster", "product", "type", "target", "vmid", "guest_name", "result", "reason", "upid", "started_at", "attribution"}
 	capacityKeep = []string{"rows", "fetch_failures", "cluster", "kind", "name", "node", "used_pct", "days_to_full", "estimated_full_at", "gc_last_state", "gc_pending_bytes", "flags", "attribution"}
-	restoreKeep  = []string{"query", "guests", "fetch_failures", "cluster", "vmid", "name", "covered_by_jobs", "count", "newest_at", "newest_verified_ok_at", "restore_points", "backup_time", "source", "verify_state", "protected", "encrypted", "evidence", "not_read", "hidden_unverified", "predating_guest"}
+	restoreKeep  = []string{"query", "guests", "fetch_failures", "cluster", "vmid", "name", "covered_by_jobs", "count", "newest_at", "newest_verified_ok_at", "restore_points", "backup_time", "source", "verify_state", "protected", "encrypted", "evidence", "not_read", "hidden_unverified", "predating_guest", "may_be_earlier_guest"}
 	rpoKeep      = []string{"rows", "clients", "fetch_failures", "days", "window_start", "tenant", "cluster", "vmid", "name", "missed_runs", "scheduled_runs", "missed_run_times", "largest_gap_hours", "verified_ok_days", "met_schedule", "window_capped", "note", "guests", "guests_met_schedule", "worst_gap_hours", "evidence", "points_unread", "guests_unproven", "missed_runs_unproven", "guests_without_restore_points", "clusters_unreachable"}
 )
 
@@ -722,7 +722,10 @@ type restorePoint struct {
 	Protected   bool   `json:"protected"`
 	Encrypted   bool   `json:"encrypted"`
 	Notes       string `json:"notes,omitempty"`
-	PBSBacked   bool   `json:"-"`
+	// MayBeEarlierGuest: read, but it cannot be told from a backup of an
+	// earlier guest with the same VMID (see guestBirth.of).
+	MayBeEarlierGuest bool `json:"may_be_earlier_guest,omitempty"`
+	PBSBacked         bool `json:"-"`
 	// unreadable: listed without a readable manifest (PBS omits the size, PVE's
 	// PBS plugin reports 1, a dir archive is 0 bytes): a backup still running,
 	// or a damaged one. Not a restore point, and not proof of none either.
@@ -2420,27 +2423,53 @@ func (b guestBirth) of(sec int64) attribution {
 	}
 }
 
-// readGuestBirth reads a guest's creation time. It sends nothing to an
-// offline node (PVE proxies the read there and times out), tries once, and
-// never writes the config to the response cache (it carries the VM's notes).
-func readGuestBirth(ctx context.Context, c *client.Client, g pveGuest, now time.Time, offline []string) guestBirth {
+// guestBirths reads one cluster's guest creation times. It sends nothing to
+// an offline node, and stops asking a node whose read got no answer (a
+// transport error or a 502-599 from PVE's proxy, which waits 30s per request)
+// so a dead node costs one timeout, not one per VM. Each read is one attempt
+// and never written to the response cache (the config carries the VM's
+// notes). A failed read is a fetch failure: the counts it feeds are partial.
+type guestBirths struct {
+	c       *client.Client
+	cluster string
+	now     time.Time
+	offline []string
+	deadAt  map[string]bool
+	fails   []fetchFailure
+}
+
+func newGuestBirths(t fleetTarget, now time.Time, offline []string) *guestBirths {
+	return &guestBirths{c: t.C, cluster: t.Name, now: now, offline: offline, deadAt: map[string]bool{}}
+}
+
+func (b *guestBirths) read(ctx context.Context, g pveGuest) guestBirth {
 	if g.Type != "qemu" {
 		return guestBirth{}
 	}
-	if g.Node == "" || slices.Contains(offline, g.Node) {
+	if g.Node == "" || slices.Contains(b.offline, g.Node) || b.deadAt[g.Node] {
 		return guestBirth{unread: true}
 	}
-	raw, err := c.GetOnceNoStore(ctx, fmt.Sprintf("/nodes/%s/qemu/%d/config", url.PathEscape(g.Node), int64(g.VMID)), nil)
+	raw, err := b.c.GetOnceNoStore(ctx, fmt.Sprintf("/nodes/%s/qemu/%d/config", url.PathEscape(g.Node), int64(g.VMID)), nil)
 	var cfg struct {
 		Meta string `json:"meta"`
 	}
-	if err != nil || json.Unmarshal(raw, &cfg) != nil {
+	if err == nil && len(raw) > 0 && string(raw) != "null" {
+		err = json.Unmarshal(raw, &cfg)
+	}
+	if err != nil {
+		why := err.Error() + "; its creation time is unread, so its backups cannot be told from an earlier guest's with the same VMID"
+		var apiErr *client.APIError
+		if !errors.As(err, &apiErr) || apiErr.StatusCode >= 502 {
+			b.deadAt[g.Node] = true
+			why += " (node " + g.Node + " did not answer: its other VMs' configs were not asked for)"
+		}
+		b.fails = append(b.fails, fetchFailure{Cluster: b.cluster, Scope: fmt.Sprintf("vm %d config", int64(g.VMID)), Error: why})
 		return guestBirth{unread: true}
 	}
 	for _, kv := range strings.Split(cfg.Meta, ",") {
 		if v, ok := strings.CutPrefix(strings.TrimSpace(kv), "ctime="); ok {
 			n, _ := strconv.ParseInt(v, 10, 64)
-			if n > now.Add(clockSkewTolerance).Unix() {
+			if n > b.now.Add(clockSkewTolerance).Unix() {
 				n = 0
 			}
 			return guestBirth{at: max(n, 0)}
@@ -2449,12 +2478,19 @@ func readGuestBirth(ctx context.Context, c *client.Client, g pveGuest, now time.
 	return guestBirth{}
 }
 
-// eitherGuestWhy says why n backups of a guest are uncertain evidence.
-func eitherGuestWhy(n int, b guestBirth) string {
-	if b.unread {
-		return "its config (which records when the VM was created) could not be read, so nothing under its VMID can be told from an earlier guest's with the same VMID"
+// eitherGuestWhy says why backups of a guest are uncertain evidence: they
+// exist and were read, but may be an earlier guest's with the same VMID.
+func eitherGuestWhy(points []restorePoint, b guestBirth) string {
+	newest := ""
+	for _, rp := range points {
+		if t := unixRFC3339(rp.Time); t > newest {
+			newest = t
+		}
 	}
-	return fmt.Sprintf("%d backup(s) under its VMID are dated within an hour before this VM's recorded creation and may be an earlier guest's with the same VMID", n)
+	if b.unread {
+		return fmt.Sprintf("%d backup(s) under its VMID (newest %s) were read, but its config (which records when the VM was created) could not be, so they cannot be told from an earlier guest's with the same VMID", len(points), newest)
+	}
+	return fmt.Sprintf("%d backup(s) under its VMID (newest %s) are dated within an hour before this VM's recorded creation and may be an earlier guest's with the same VMID", len(points), newest)
 }
 
 // clockSkewTolerance is how far past now a restore point may be dated before

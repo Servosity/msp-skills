@@ -117,7 +117,9 @@ func newNovelPostureCmd(flags *rootFlags) *cobra.Command {
 			"Do NOT use it for last night's failed tasks and log lines; use 'failures' instead.\n\n" +
 			"Verdicts: uncovered (no ENABLED job includes the guest), never (covered, every source that may hold its restore points was read, none exists), " +
 			"unproven (covered, no readable restore point or only an old one, while something that may hold one was not proven: a storage or PBS namespace " +
-			"not read, a backup listed without a readable manifest, or a PBS namespace another configured cluster writes to or may write to; see reason and fetch_failures), " +
+			"not read, a backup listed without a readable manifest, a PBS namespace another configured cluster writes to or may write to, or a backup under its VMID that " +
+			"may be an earlier guest's with the same VMID because the VM's config (which records its creation time) could not be read or the backup is dated within an hour before that time; " +
+			"see reason and fetch_failures), " +
 			"stale (newest restore point older than --stale-after), verify-failed (newest PBS restore point failed verification, including one dated in the future) are red; " +
 			"unverified (newest PBS restore point not verified yet), last-attempt-failed (latest vzdump run failed but an older point is still fresh), " +
 			"attempt-unknown (fresh restore point, but the latest vzdump log could not be read; raise --max-logs or fix the reported fetch failure), " +
@@ -383,6 +385,7 @@ func collectPosture(ctx context.Context, t fleetTarget, o postureOpts) (clusterP
 		blindSince = math.MaxInt64 // an offline node's vzdump tasks are unread
 	}
 
+	births := newGuestBirths(t, o.now, offline)
 	for _, g := range guests {
 		if bool(g.Template) && !o.includeTemplate {
 			continue
@@ -400,7 +403,7 @@ func collectPosture(ctx context.Context, t fleetTarget, o postureOpts) (clusterP
 		// had the same VMID (deleted, its backups retained).
 		var birth guestBirth
 		if _, tried := attempts[vmid]; tried || len(points[vmid]) > 0 {
-			birth = readGuestBirth(ctx, t.C, g, o.now, offline)
+			birth = births.read(ctx, g)
 		}
 		predated := 0
 		var rps, unreadable, either []restorePoint
@@ -479,19 +482,23 @@ func collectPosture(ctx context.Context, t fleetTarget, o postureOpts) (clusterP
 			row.LastAttemptStatus = "unknown"
 		}
 		classifyPosture(&row, g, cov, newest, o.elsewhereTag)
-		if len(unreadable)+len(either) > 0 && row.CoveredByJob && (row.Verdict == "never" || row.Verdict == "stale") {
-			// A snapshot listed without a readable manifest may be a backup still
-			// running or a damaged one, and one that may be an earlier guest's
-			// may be this one's: no restore point proven, none ruled out.
+		// A snapshot listed without a readable manifest may be a backup still
+		// running or a damaged one; one that may be an earlier guest's may be
+		// this one's: no restore point proven, none ruled out. An either-guest
+		// point is older than every point of this guest, so it can only change
+		// a verdict when this guest has none.
+		unreadableCounts := row.CoveredByJob && len(unreadable) > 0 && (row.Verdict == "never" || row.Verdict == "stale")
+		eitherCounts := row.CoveredByJob && len(either) > 0 && row.Verdict == "never"
+		if unreadableCounts || eitherCounts {
 			row.Verdict = "unproven"
 			var why []string
-			if len(unreadable) > 0 {
+			if unreadableCounts {
 				why = append(why, fmt.Sprintf("%d backup(s) of it are listed without a readable manifest (still running, or damaged)", len(unreadable)))
 			}
-			if len(either) > 0 {
-				why = append(why, eitherGuestWhy(len(either), birth))
+			if eitherCounts {
+				why = append(why, eitherGuestWhy(either, birth))
 			}
-			row.Reason = strings.Join(why, "; ") + "; the newest readable restore point is " + orNone(row.LastSuccessAt)
+			row.Reason = strings.Join(why, "; ") + "; the newest restore point proven to be this VM's is " + orNone(row.LastSuccessAt)
 		}
 		if row.Severity == "green" && newerThan(unreadable, newest) {
 			// The newest backup cannot be read: it may be running, or it failed
@@ -556,12 +563,13 @@ func collectPosture(ctx context.Context, t fleetTarget, o postureOpts) (clusterP
 		if predated > 0 {
 			row.Reason += fmt.Sprintf("; %d older backup(s) of VMID %d predate this VM's creation (an earlier guest with the same VMID) and were not counted", predated, vmid)
 		}
-		if len(either) > 0 && row.Verdict != "unproven" {
-			row.Reason += "; " + eitherGuestWhy(len(either), birth) + " and were not counted"
+		if len(either) > 0 && !eitherCounts {
+			row.Reason += "; " + eitherGuestWhy(either, birth) + "; they were not counted"
 		}
 		out.rows = append(out.rows, row)
 	}
 	out.failures = append(out.failures, gapFailures(t.Name, allGaps)...)
+	out.failures = append(out.failures, births.fails...)
 	return out, nil
 }
 
