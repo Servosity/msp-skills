@@ -254,7 +254,7 @@
   "huntress": {
     "state": "binary-pending",
     "version": "0.1.7",
-    "latest_tag": "huntress-v0.1.7",
+    "latest_tag": "huntress-v0.1.8",
     "current_hash": "sha256:72745b93783221475c07c9974b7d96e89900f5db547fd0f9cd83d3d8022827c7",
     "released_hash": "sha256:0c2d82af72e9fcf85c6a3a9dd8fdfa6bd9abc06a1d3fbf3d6c119132ad6fd9cd"
   },
