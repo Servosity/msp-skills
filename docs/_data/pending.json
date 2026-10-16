@@ -352,7 +352,7 @@
   "pagerduty": {
     "state": "binary-pending",
     "version": "0.1.3",
-    "latest_tag": "pagerduty-v0.1.3",
+    "latest_tag": "pagerduty-v0.1.4",
     "current_hash": "sha256:659ee11168186a1cdc8ef03b9270ede4f5c491fbeaf84978733934930e69b932",
     "released_hash": "sha256:77f63c97d8238f3c929aa113a03dfa9bce62981d96189ba882ad6ed457feb429"
   },
