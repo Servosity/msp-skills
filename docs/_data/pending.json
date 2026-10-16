@@ -331,7 +331,7 @@
   "n-central": {
     "state": "binary-pending",
     "version": "0.1.4",
-    "latest_tag": "n-central-v0.1.4",
+    "latest_tag": "n-central-v0.1.5",
     "current_hash": "sha256:4463ec4bd32c4d54ba71880ecf040846783a1d50b6687900520d251e55628fb6",
     "released_hash": "sha256:cc1f5a40096229450410eeb3f258ea4542cdcfb0a8f3212163f651b4987849ea"
   },
