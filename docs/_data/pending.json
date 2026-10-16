@@ -205,7 +205,7 @@
   "fortinet": {
     "state": "binary-pending",
     "version": "0.1.0",
-    "latest_tag": "fortinet-v0.1.0",
+    "latest_tag": "fortinet-v0.1.1",
     "current_hash": "sha256:5006548d06d36fb196d860c8c34300de70ba5f39a8cd21a9db159778377ad11e",
     "released_hash": "sha256:25498852c84042ac4397c2c9100ec4d8394d1b1bf34939c76de2538bf6493ad6"
   },
