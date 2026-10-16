@@ -51,7 +51,7 @@
   "auvik": {
     "state": "binary-pending",
     "version": "0.2.4",
-    "latest_tag": "auvik-v0.2.4",
+    "latest_tag": "auvik-v0.2.5",
     "current_hash": "sha256:a1a2362eab5cc6f18ef00709c7bcedcef619653634a28ee41ce978fbe0373df6",
     "released_hash": "sha256:233ec9bbf66d797ffc5f3885695e3d2cdf8a807509b3a309d01d79f7b32fc274"
   },
