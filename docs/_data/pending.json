@@ -303,7 +303,7 @@
   "maxio": {
     "state": "binary-pending",
     "version": "0.1.3",
-    "latest_tag": "maxio-v0.1.3",
+    "latest_tag": "maxio-v0.1.4",
     "current_hash": "sha256:e271fe759c9b2ecd177b860a520016b45317b8407b7bcf3d35187650f55352a5",
     "released_hash": "sha256:defb344890754a0489842ef8c8f2c2d185a167be9a334fa81539cfb879e6f23b"
   },
