@@ -324,7 +324,7 @@
   "mspbots": {
     "state": "binary-pending",
     "version": "0.1.3",
-    "latest_tag": "mspbots-v0.1.3",
+    "latest_tag": "mspbots-v0.1.4",
     "current_hash": "sha256:0804edd0b4bcb86161c150de67f09adf9be2663b5b8f4ff214f8550212150e69",
     "released_hash": "sha256:e58f3ee67da946ad69ea384a2f6bdf27b1d5c9a03454ba0c237f42fa40fe8add"
   },
