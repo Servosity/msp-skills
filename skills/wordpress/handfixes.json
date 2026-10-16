@@ -511,8 +511,31 @@
      "not_contains": "return evalCredsSecurity(sd.String(), me)"
     },
     {
-     "file": "cli/internal/cliutil/creds_perms_alias_test.go",
+     "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
      "contains": "func TestEvalCredsSecurityResolvesSDDLAliases(t *testing.T) {",
+     "code_only": true
+    }
+   ]
+  },
+  {
+   "id": "windows-null-dacl-behind-flags",
+   "summary": "the Windows token-file guard refuses a NULL DACL in the form Windows actually renders it, with DACL flags first (D:PAINO_ACCESS_CONTROL)",
+   "why": "Press creds_perms_eval.go refused a NULL DACL only when the DACL section began with NO_ACCESS_CONTROL. SDDL puts DACL flags (P, AI, AR) first, and a real NULL DACL on Windows Server 2025 renders as O:<owner>D:PAINO_ACCESS_CONTROL (measured on a windows-latest runner, 2026-10-15), so the guard found no ACEs to inspect and accepted a world-accessible token file. Before windows-sddl-alias-sid-compare this was already a hole for every ordinary account; for the built-in Administrator the owner-alias mismatch happened to refuse it, so resolving LA without this fix would have widened the hole. The flags prefix (everything before the first ACE) is now searched for NO_ACCESS_CONTROL.",
+   "status": "active",
+   "spec_encode_followup": "Same press templates as windows-sddl-alias-sid-compare; included in the same upstream report.",
+   "asserts": [
+    {
+     "file": "cli/internal/cliutil/creds_perms_eval.go",
+     "contains": "if strings.Contains(daclFlags, \"NO_ACCESS_CONTROL\") {",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cliutil/creds_perms_eval.go",
+     "not_contains": "if strings.HasPrefix(rest, \"NO_ACCESS_CONTROL\") {"
+    },
+    {
+     "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
+     "contains": "func TestEvalCredsSecurityRefusesNullDACLBehindFlags(t *testing.T) {",
      "code_only": true
     }
    ]

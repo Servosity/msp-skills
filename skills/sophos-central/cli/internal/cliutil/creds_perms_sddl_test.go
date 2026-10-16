@@ -1,9 +1,11 @@
 // Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 
-// Hand-wired (handfixes.json: windows-sddl-alias-sid-compare): trustees in the
-// token file's SDDL are compared by SID, so an alias that names the current
-// user (the built-in Administrator renders as LA) is the owner, and an alias
-// that names anyone else is not. Pure SDDL strings, so this runs on any OS.
+// Hand-wired (handfixes.json: windows-sddl-alias-sid-compare,
+// windows-null-dacl-behind-flags): trustees in the token file's SDDL are
+// compared by SID, so an alias that names the current user (the built-in
+// Administrator renders as LA) is the owner, and an alias that names anyone
+// else is not; and a NULL DACL is refused in the form Windows actually
+// renders. Pure SDDL strings, so this runs on any OS.
 package cliutil
 
 import (
@@ -87,5 +89,30 @@ func TestEvalCredsSecurityAliasResolverFailsClosed(t *testing.T) {
 	// Without a resolver, the evaluator keeps its machine-independent verdicts.
 	if err := evalCredsSecurity("O:BAD:(A;;FA;;;SY)(A;;FA;;;BA)", "S-1-5-21-1-2-3-1000"); err != nil {
 		t.Errorf("BA owner with SY/BA ACEs refused without a resolver: %v", err)
+	}
+}
+
+// Windows renders a real NULL DACL with its flags first: measured on Windows
+// Server 2025 as "O:LAD:PAINO_ACCESS_CONTROL". Every form is world-accessible.
+func TestEvalCredsSecurityRefusesNullDACLBehindFlags(t *testing.T) {
+	const me = "S-1-5-21-1-2-3-1000"
+	for _, dacl := range []string{"NO_ACCESS_CONTROL", "PNO_ACCESS_CONTROL", "AINO_ACCESS_CONTROL", "PAINO_ACCESS_CONTROL", "PAIARNO_ACCESS_CONTROL"} {
+		sddl := "O:" + me + "D:" + dacl
+		if err := evalCredsSecurity(sddl, me); err == nil || !strings.Contains(err.Error(), "NULL DACL") {
+			t.Errorf("evalCredsSecurity(%q) err=%v, want a NULL DACL refusal", sddl, err)
+		}
+	}
+	builtinAdmin := func(alias string) (string, bool) {
+		if alias == "LA" {
+			return "S-1-5-21-1-2-3-500", true
+		}
+		return "", false
+	}
+	if err := evalCredsSecurityResolved("O:LAD:PAINO_ACCESS_CONTROL", "S-1-5-21-1-2-3-500", builtinAdmin); err == nil || !strings.Contains(err.Error(), "NULL DACL") {
+		t.Errorf("measured NULL DACL shape err=%v, want a NULL DACL refusal", err)
+	}
+	// Looking at the flags prefix does not refuse an ordinary protected DACL.
+	if err := evalCredsSecurity("O:"+me+"D:PAI(A;;FA;;;"+me+")", me); err != nil {
+		t.Errorf("protected owner-only DACL refused: %v", err)
 	}
 }
