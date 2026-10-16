@@ -211,7 +211,7 @@ func TestDryRunAndStoreShareOneSecretList(t *testing.T) {
 			t.Errorf("dry-run/store disagree on %q: %s", k, masked)
 		}
 	}
-	for _, k := range []string{"total_tokens", "serialOrLicense", "certificate"} {
+	for _, k := range []string{"total_tokens", "certificate"} {
 		if masked := string(redactBody([]byte(`{"` + k + `":"KEEP"}`))); !strings.Contains(masked, "KEEP") {
 			t.Errorf("dry-run masked non-secret %q: %s", k, masked)
 		}

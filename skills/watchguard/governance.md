@@ -24,7 +24,7 @@ Where credentials live:
 - The token minted for your own account is cached in `credentials.toml` under the data
   directory (mode 0600). `auth login --client-id ... --client-secret ...` also saves that
   Access ID and password there. Removing the environment variables does not remove them;
-  run `watchguard-cli auth logout`, or disable the Access ID in WatchGuard Cloud.
+  run `watchguard-cli auth logout`, or click Revoke Access under Administration > Managed Access in WatchGuard Cloud.
 - The cached token is reused only by a process with the same Access ID, scope and
   token URL. A process configured with a different Access ID (for example the
   read-only one) mints its own token, and stops with an error rather
@@ -55,7 +55,7 @@ Some WatchGuard reads return live secrets inside ordinary rows:
 | `allocations list-owned` / `list-assigned` / `summary` | Firebox serial numbers and software license keys (`serialOrLicense`) |
 
 These commands print what the API returns, so treat their output as a credential, and
-so does `export` of any of these resources. The local SQLite mirror (`sync`, and every
+so does `export activations`, the one `export` resource that returns any of them. The local SQLite mirror (`sync`, and every
 live read that writes through to it) drops these fields before anything reaches disk,
 and the HTTP response cache never stores a response that carries one, any
 `endpoint-installers` response, or any license allocation response. Allocation rows
@@ -103,9 +103,9 @@ require a human for anything below the first row.
 | --- | --- | --- | --- |
 | **Read** | Reports, rollups, search, sync. No change in WatchGuard Cloud. | `accounts health`, `endpoint-devices posture`, `endpoint-devices list`, `endpoint-devices protection-status`, `threatsync-incidents queue`, `endpoint-patches exposure`, `allocations reconcile`, `firebox-devices`, `firebox-devices changes`, `firebox-devices firmware-lag`, `firebox-transactions wait`, `firebox-policies list`, `endpoint-security-events`, `ndr-assets list`, `operators list`, `accounts list-managed`, `sync`, `search`, `analytics`, `tail`, and every other list / get command not in the Credential row | Allow |
 | **Endpoint and incident actions** | Acts on customer computers, users' phones or open incidents. | `endpoint-devices isolate`, `endpoint-devices stop-isolation`, `endpoint-devices scan`, `endpoint-devices action`, `endpoint-devices uninstall`, `endpoint-configurations assign`, `threatsync-actions perform`, `threatsync-incident-actions perform`, `threatsync-transactions`, `threatsync-incidents set-status`, `ndr-smart-alerts close`, `authpoint push` | Human-in-the-loop, explicit confirmation |
-| **Firewall config and deployment** | Changes Firebox, FireCloud, Endpoint Security or account configuration, or pushes it to devices. | `firebox-deployments`, `firebox-policies create` / `update` / `set-enabled`, `firebox-blocked-sites`, `firebox-botnet-exceptions`, `firebox-file-exceptions`, `firebox-geo-exceptions`, `firebox-ips-exceptions` and `firebox-webblocker-exceptions` create / update, the same `firecloud-*` creates and updates (plus `firecloud-https-exceptions`), `firebox-exceptions enable-global` / `disable-global`, `firebox-templates subscribe`, `firebox-bovpn-p1-settings create` / `update`, `firebox-transactions update`, `endpoint-risks update-config`, `ndr-assets create` / `update`, `threatsync-comments create` / `update`, `allocations allocate` / `update-hardware` / `update-software`, `accounts create` / `update`, `import` | Preview with `--dry-run`, then a human-approved write |
+| **Firewall config and deployment** | Changes Firebox, FireCloud, Endpoint Security or account configuration, or pushes it to devices. | `firebox-deployments`, `firebox-policies create` / `update` / `set-enabled`, `firebox-blocked-sites`, `firebox-botnet-exceptions`, `firebox-file-exceptions`, `firebox-geo-exceptions`, `firebox-ips-exceptions` and `firebox-webblocker-exceptions` create / update, the same `firecloud-*` creates and updates (plus `firecloud-https-exceptions`), `firebox-exceptions enable-global` / `disable-global`, `firebox-templates subscribe`, `firebox-bovpn-p1-settings create` / `update`, `firebox-transactions update`, `endpoint-risks update-config`, `ndr-assets create` / `update`, `threatsync-comments create` / `update`, `allocations allocate` / `update-hardware` / `update-software`, `accounts create` / `update` | Preview with `--dry-run`, then a human-approved write |
 | **Destructive** | Irreversible removal. | `accounts delete`, `operators delete`, `allocations deallocate`, `firebox-transactions cancel`, `firebox-policies delete`, `firebox-bovpn-tunnels delete` / `delete-by-name`, `firebox-certificates delete`, every Firebox and FireCloud exception `delete`, `ndr-assets delete`, `threatsync-comments delete` | Human-in-the-loop only, explicit confirmation |
-| **Credential and admin** | Returns or sets secrets, creates operators, or touches MFA. | Every read in the table above, `export` of those resources, `firebox-bovpn-tunnels create` / `update` / `update-by-name` / `patch` / `patch-by-name`, `firebox-certificates create` / `install`, `activations activate`, `operators create` / `update`, `audiences`, `authpoint check-policy` / `password` / `otp` / `qrcode` / `forgot-token` / `transaction-status`, `auth login`, `auth set-token` | Human-in-the-loop only |
+| **Credential and admin** | Returns or sets secrets, creates operators, or touches MFA. | Every read in the table above, `export activations`, `import`, `firebox-bovpn-tunnels create` / `update` / `update-by-name` / `patch` / `patch-by-name`, `firebox-certificates create` / `install`, `activations activate`, `operators create` / `update`, `audiences`, `authpoint check-policy` / `password` / `otp` / `qrcode` / `forgot-token` / `transaction-status`, `auth login`, `auth set-token` | Human-in-the-loop only |
 
 ## How to lock it down
 
@@ -124,7 +124,7 @@ require a human for anything below the first row.
   for the CLI to read.
 - **Keep autonomous agents to Read plus previewed writes.** The gate lives in your
   agent's policy, not in the binary's defaults.
-- **Rotate the Access ID password and API key if they are ever exposed**, for example
+- **Change the API passwords (Change Passwords under Administration > Managed Access) or Revoke Access if they are ever exposed**, for example
   after bridging the MCP server to a public endpoint for ChatGPT (see mcp-install.md).
   The HTTP transport refuses to start without `WATCHGUARD_MCP_HTTP_TOKEN`.
 

@@ -994,8 +994,8 @@
     },
     {
       "id": "fanout-malformed-collection-is-failed-read",
-      "summary": "listRows and incidentRows require the collection to be a JSON list of objects: {\"data\":null}, a scalar, an object or a list of non-objects is a failed read, never zero devices, endpoints or incidents.",
-      "why": "Codex read-only review round 1 (2026-10-15): listRows checked only that the key existed, so {\"data\":null} or {\"data\":\"unavailable\"} became an empty fleet and accounts health reported zero counts with complete:true and exit 0; incidentRows accepted {\"items\":null} the same way. Companion to fanout-partial-data-exit. TestListRowsRejectsMalformedCollections fails on revert.",
+      "summary": "listRows and incidentRows require the collection to be a JSON list of objects: {\"data\":null}, a scalar, an object or a list of non-objects is a failed read, never zero devices, endpoints or incidents. A {key: X} wrapper row (the [{\"data\":{...},\"total_items\":N}] form) whose X is null or a scalar is a failed read too, in listRows and in incidentRows' top-level-list branch.",
+      "why": "Codex read-only review round 1 (2026-10-15): listRows checked only that the key existed, so {\"data\":null} or {\"data\":\"unavailable\"} became an empty fleet and accounts health reported zero counts with complete:true and exit 0; incidentRows accepted {\"items\":null} the same way. Companion to fanout-partial-data-exit. TestListRowsRejectsMalformedCollections fails on revert. Codex read-only review round 2 (2026-10-15): asMaps silently dropped wrapped null/scalar rows, so [{\"data\":null}] or [{\"items\":null}] still read as zero rows; wrappedRowsErr mirrors asMaps and fails those reads. The new TestListRowsRejectsMalformedCollections cases fail on revert.",
       "status": "active",
       "asserts": [
         {
@@ -1005,20 +1005,35 @@
         },
         {
           "file": "cli/internal/cli/watchguard_fanout.go",
-          "contains": "list holds a non-object row",
+          "contains": "objects := func(name string, list any) ([]map[string]any, error) {",
           "code_only": true
         },
         {
           "file": "cli/internal/cli/watchguard_fanout.go",
-          "contains": "objects := func(name string, list any) ([]map[string]any, error) {",
+          "contains": "func wrappedRowsErr(list []any, key string) error {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/watchguard_fanout.go",
+          "contains": "if err := wrappedRowsErr(list, key); err != nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/watchguard_fanout.go",
+          "contains": "if err := wrappedRowsErr(t, \"items\"); err != nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/watchguard_fanout.go",
+          "contains": "list holds a non-object row",
           "code_only": true
         }
       ]
     },
     {
       "id": "license-keys-fingerprinted",
-      "summary": "A software license key in an allocation row's serialOrLicense is replaced by a one-way fingerprint (license: plus 16 hex) before the row is persisted, indexed or tailed; Firebox and access point serial numbers (productName firebox, fireboxRetention, accessPoint) are kept. The row's declared productName decides, never the value's shape; a row with no productName is treated as a key.",
-      "why": "Codex read-only review round 1 (2026-10-15): the secret-field policy already classes license keys as credentials, but serialOrLicense was exempted for row identity and the typed allocations column stored software license keys in plaintext. allocations reconcile reads live rows, so the mirror fingerprint changes nothing it matches. governance.md, README.md and page.json describe the behavior. TestLicenseKeysFingerprinted and TestLicenseKeysNeverPersisted fail on revert.",
+      "summary": "A software license key in an allocation row's serialOrLicense is replaced by a one-way fingerprint (license: plus 16 hex) before the row is persisted, indexed or tailed; Firebox and access point serial numbers (productName firebox, fireboxRetention, accessPoint) are kept. The row's declared productName decides, never the value's shape; a row with no productName is treated as a key. On the request side, a software license key sent in serialOrLicense (allocations allocate, import) is a request secret: it is withheld from error echoes and masked in the --dry-run preview; a Firebox or access point serial stays readable.",
+      "why": "Codex read-only review round 1 (2026-10-15): the secret-field policy already classes license keys as credentials, but serialOrLicense was exempted for row identity and the typed allocations column stored software license keys in plaintext. allocations reconcile reads live rows, so the mirror fingerprint changes nothing it matches. governance.md, README.md and page.json describe the behavior. TestLicenseKeysFingerprinted and TestLicenseKeysNeverPersisted fail on revert. Codex read-only review round 2 (2026-10-15): requestSecrets and redactBody used only the secret-name list, which excludes serialOrLicense, so an API error echoing the key or a --dry-run preview printed it. TestLicenseKeyNeverEchoedOrPreviewed fails on revert.",
       "status": "active",
       "asserts": [
         {
@@ -1034,6 +1049,21 @@
         {
           "file": "cli/internal/cliutil/secretfields.go",
           "contains": "var hardwareAllocationProducts = map[string]bool{\"firebox\": true, \"fireboxretention\": true, \"accesspoint\": true}",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/secretfields.go",
+          "contains": "func IsLicenseKeyField(t map[string]any, k string) bool {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/watchguard_redact.go",
+          "contains": "if (isSecretBodyKey(k) || cliutil.IsLicenseKeyField(t, k)) && !isFlagValue(val) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/watchguard_redact.go",
+          "contains": "collect(val, k, isSecretBodyKey(k) || cliutil.IsLicenseKeyField(t, k), under || own)",
           "code_only": true
         }
       ]

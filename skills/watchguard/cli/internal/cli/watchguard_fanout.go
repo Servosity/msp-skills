@@ -299,12 +299,40 @@ func listRows(raw json.RawMessage, key string) ([]map[string]any, error) {
 	default:
 		return nil, fmt.Errorf("unexpected response: no %q list", key)
 	}
-	for _, e := range list {
-		if _, ok := e.(map[string]any); !ok {
-			return nil, fmt.Errorf("unexpected response: %q list holds a non-object row", key)
-		}
+	if err := wrappedRowsErr(list, key); err != nil {
+		return nil, err
 	}
 	return asMaps(raw, key), nil
+}
+
+// wrappedRowsErr reports any row asMaps would silently drop: a non-object in the
+// list, or a {key: X} wrapper whose X is null or a scalar. Hand-fix
+// (handfixes.json: fanout-malformed-collection-is-failed-read): [{"data":null}]
+// used to read as zero rows, so accounts health reported the account complete.
+func wrappedRowsErr(list []any, key string) error {
+	for _, e := range list {
+		m, ok := e.(map[string]any)
+		if !ok {
+			return fmt.Errorf("unexpected response: %q list holds a non-object row", key)
+		}
+		inner, wrapped := m[key]
+		if !wrapped || len(m) > 2 {
+			continue
+		}
+		switch t := inner.(type) {
+		case map[string]any:
+			if err := wrappedRowsErr([]any{t}, key); err != nil {
+				return err
+			}
+		case []any:
+			if err := wrappedRowsErr(t, key); err != nil {
+				return err
+			}
+		default:
+			return fmt.Errorf("unexpected response: wrapped %q row is not an object", key)
+		}
+	}
+	return nil
 }
 
 // asMaps extracts a list of objects from an envelope: {key:[...]}, [...] or
@@ -554,7 +582,7 @@ func incidentRows(raw json.RawMessage) ([]map[string]any, error) {
 	}
 	switch t := v.(type) {
 	case []any:
-		if _, err := objects("items", t); err != nil {
+		if err := wrappedRowsErr(t, "items"); err != nil {
 			return nil, err
 		}
 		return asMaps(raw, "items"), nil

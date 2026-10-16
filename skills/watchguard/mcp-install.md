@@ -139,9 +139,8 @@ WATCHGUARD_CLIENT_ID=<value> WATCHGUARD_CLIENT_SECRET=<value> WATCHGUARD_API_KEY
 ```
 
 Then expose `http://localhost:7777/mcp` as a public HTTPS URL via a secure tunnel
-(Cloudflare Tunnel, ngrok) or your own reverse proxy. The path is part of the
-endpoint: the server answers Streamable HTTP at `/mcp` and returns 404 at the
-bare root, so a connector pointed at the root URL never handshakes. **Treat that
+(Cloudflare Tunnel, ngrok) or your own reverse proxy. Use the `/mcp` URL exactly as
+shown when you add the connector. **Treat that
 URL as sensitive** - it's a key to your MCP server. Never expose it bare on the
 internet; gate it behind SSO / Cloudflare Access for team use.
 

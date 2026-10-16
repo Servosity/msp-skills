@@ -56,11 +56,11 @@ This CLI ships an [MCPB](https://github.com/modelcontextprotocol/mcpb) bundle  -
 
 To install:
 
-1. Download the `.mcpb` for your platform from the [latest release](https://github.com/Servosity/msp-skills/releases?q=watchguard).
+1. Download `watchguard-mcp.mcpb` from the [latest release](https://github.com/Servosity/msp-skills/releases?q=watchguard).
 2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
 3. Fill in `WATCHGUARD_CLIENT_ID` (Access ID), `WATCHGUARD_CLIENT_SECRET` (API password), `WATCHGUARD_API_KEY` and `WATCHGUARD_ACCOUNT_ID` when Claude Desktop prompts you.
 
-Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
+Requires Claude Desktop 1.0.0 or later. The one bundle carries macOS (universal), Linux (`amd64`) and Windows (`amd64`) binaries; on Windows or Linux `arm64`, use the manual config below.
 
 <details>
 <summary>Manual JSON config (advanced)</summary>
@@ -331,7 +331,7 @@ For a managed Service Provider account, you can include a single productName or 
 
 Manage audiences
 
-- **`watchguard-cli audiences`** - Sets and returns the audience parameter value for the specified managed account.
+- **`watchguard-cli audiences`** - Returns the audience parameter value for the specified managed account.
 
 ### authpoint
 
@@ -369,13 +369,13 @@ Manage endpoint devices
 
 Manage endpoint installers
 
-- **`watchguard-cli endpoint-installers`** - Retrieves the URL to download an installation package that installs Panda software with the specified managed configuration settings on a device.
+- **`watchguard-cli endpoint-installers`** - Retrieves the URL to download an installation package that installs WatchGuard Endpoint Security software with the specified managed configuration settings on a device.
 
 ### endpoint-licenses
 
 Manage endpoint licenses
 
-- **`watchguard-cli endpoint-licenses`** - Retrieves license information for Panda products associated with your WatchGuard Cloud account.
+- **`watchguard-cli endpoint-licenses`** - Retrieves license information for WatchGuard Endpoint Security products associated with your WatchGuard Cloud account.
 
 ### endpoint-patches
 

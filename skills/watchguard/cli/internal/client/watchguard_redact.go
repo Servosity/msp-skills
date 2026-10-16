@@ -55,7 +55,7 @@ func redactSecretValues(v any) any {
 	switch t := v.(type) {
 	case map[string]any:
 		for k, val := range t {
-			if isSecretBodyKey(k) && !isFlagValue(val) {
+			if (isSecretBodyKey(k) || cliutil.IsLicenseKeyField(t, k)) && !isFlagValue(val) {
 				t[k] = "[redacted]"
 			} else {
 				t[k] = redactSecretValues(val)
@@ -89,7 +89,7 @@ func requestSecrets(body []byte, headers map[string]string) []string {
 		switch t := v.(type) {
 		case map[string]any:
 			for k, val := range t {
-				collect(val, k, isSecretBodyKey(k), under || own)
+				collect(val, k, isSecretBodyKey(k) || cliutil.IsLicenseKeyField(t, k), under || own)
 			}
 		case []any:
 			for _, val := range t {

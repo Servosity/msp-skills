@@ -174,6 +174,16 @@ func FingerprintLicenseKeys(t map[string]any) bool {
 	return changed
 }
 
+// IsLicenseKeyField reports whether t[k] is a software license key: a
+// serialOrLicense on an object that is not a hardware product. Request
+// echo-withholding and the --dry-run preview use it so a key sent by
+// allocations allocate never comes back in error or preview text. Hand-fix
+// (handfixes.json: license-keys-fingerprinted).
+func IsLicenseKeyField(t map[string]any, k string) bool {
+	lk := strings.ToLower(strings.TrimSpace(k))
+	return (lk == "serialorlicense" || lk == "serial_or_license") && !hardwareAllocationRow(t)
+}
+
 func hardwareAllocationRow(t map[string]any) bool {
 	for _, k := range []string{"productName", "product_name", "productname"} {
 		if s, ok := t[k].(string); ok {

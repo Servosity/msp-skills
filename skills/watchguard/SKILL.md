@@ -127,7 +127,7 @@ Do not use this CLI for:
 - **Preview, then ask:** no write asks for confirmation. Pass `--dry-run` first and show the user the request (it sends nothing, requests no token and changes nothing on disk; `jobs prune`, `profile save` and `profile delete` refuse it). `endpoint-devices isolate` / `stop-isolation` / `scan` / `action` / `uninstall` act on customer computers, `threatsync-actions perform` and `threatsync-incident-actions perform` act on incident entities, `authpoint push` sends a push to a user's phone, `firebox-deployments` pushes configuration to Fireboxes, and the `firebox-policies`, exception, BOVPN, certificate, template, allocation, account and operator writes change configuration or licensing. Never run these, or any `delete`, without explicit confirmation. `accounts delete` with no flags targets `--account-id`, which defaults to your own `WATCHGUARD_ACCOUNT_ID`.
 - **MCP read-only mode:** with `WATCHGUARD_MCP_READ_ONLY=1` the MCP server drops its write tools and `watchguard_execute` refuses every non-GET call; GET credential reads still pass and return their secrets to the agent, and the cross-customer report tools still send the audience lookup, so pair it with the read-only Access ID. Through MCP there is no preview: `watchguard_execute` sends a write as soon as it is called. `tail` and `import` are not MCP tools, and MCP tools never take a local file path for the CLI to read (`teach-playbook` notes and playbook files, `import --input`).
 - **Credentials:** a cached token is reused only by a process with the same Access ID, scope and token URL; a process with a different Access ID and no password stops with exit 4 instead of borrowing it. Give a reporting agent the read-only Access ID.
-- **Service Provider fan-out:** `accounts health`, `endpoint-devices posture`, `endpoint-patches exposure`, `threatsync-incidents queue` and `allocations reconcile` exit 6 when any read failed (listed in `fetch_failures`, each row's `errors`, or `incidents_error` / `licenses_error`) and 5 when nothing could be read. WatchGuard documents no separate answer for a product a customer does not have, so that also counts as a failed read. In `accounts health` a failed count is `null`, the row says `complete: false` and is listed first. Report the failures; never read a missing count as zero or healthy.
+- **Service Provider fan-out:** `accounts health`, `endpoint-devices posture`, `endpoint-patches exposure`, `threatsync-incidents queue` and `allocations reconcile` exit 6 when any read failed (listed in `fetch_failures`, each row's `errors`, or `incidents_error` / `licenses_error` / `account_names_error`) and 5 when nothing could be read; a 401 or 403 on the first shared lookup (the managed-account list, the incident read or the allocation lookup) exits 4 (an auth or permission error) instead. WatchGuard documents no separate answer for a product a customer does not have, so that also counts as a failed read. In `accounts health` a failed count is `null`, the row says `complete: false` and is listed first. Report the failures; never read a missing count as zero or healthy.
 - Refresh the mirror with `sync --full`, not a bare `sync`: no WatchGuard resource syncs incrementally, and only a full run prunes Fireboxes and rows that disappeared, so `firebox-devices changes` reports them as removed. The Firebox device sync includes every Subscriber account's devices by default (`include_hierarchy=true`).
 - Other GET responses are cached on disk for 5 minutes. After a change, re-run a report with `--no-cache` or you get the earlier answer.
 
@@ -160,7 +160,7 @@ Do not use this CLI for:
 
 **audiences**  -  Manage audiences
 
-- `watchguard-cli audiences`  -  Sets and returns the audience parameter value for the specified managed account.
+- `watchguard-cli audiences`  -  Returns the audience parameter value for the specified managed account.
 
 **authpoint**  -  Manage authpoint
 
@@ -190,11 +190,11 @@ Do not use this CLI for:
 
 **endpoint-installers**  -  Manage endpoint installers
 
-- `watchguard-cli endpoint-installers`  -  Retrieves the URL to download an installation package that installs Panda software with the specified managed
+- `watchguard-cli endpoint-installers`  -  Retrieves the URL to download an installation package that installs WatchGuard Endpoint Security software with the specified managed configuration settings on a device.
 
 **endpoint-licenses**  -  Manage endpoint licenses
 
-- `watchguard-cli endpoint-licenses`  -  Retrieves license information for Panda products associated with your WatchGuard Cloud account.
+- `watchguard-cli endpoint-licenses`  -  Retrieves license information for WatchGuard Endpoint Security products associated with your WatchGuard Cloud account.
 
 **endpoint-patches**  -  Manage endpoint patches
 
@@ -614,7 +614,7 @@ Run `watchguard-cli doctor` to verify setup.
 
 ## Agent Mode
 
-Add `--agent` to any command. Expands to: `--json --compact --no-input --no-color`.
+Add `--agent` to any command. Expands to: `--json --compact --no-input --no-color`. On the cross-customer reports (`accounts health`, `endpoint-devices posture`, `endpoint-patches exposure`, `threatsync-incidents queue`, `allocations reconcile`) `--agent` also adds the `{meta, results}` envelope below, which those four flags alone do not.
 
 Global format flags share one contract on promoted, novel, sync, and `--deliver` paths:
 
