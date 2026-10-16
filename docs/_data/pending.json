@@ -359,7 +359,7 @@
   "pandadoc": {
     "state": "binary-pending",
     "version": "0.1.3",
-    "latest_tag": "pandadoc-v0.1.3",
+    "latest_tag": "pandadoc-v0.1.4",
     "current_hash": "sha256:359d43484e86dc77eb0aacb333808f3cf5dd83e56bc1dad8a6a4316e5e587256",
     "released_hash": "sha256:0913c4acd982fdbd307661a3d4b8e563bcb2cfa06f93bba51b1b3c5d91ca57da"
   },
