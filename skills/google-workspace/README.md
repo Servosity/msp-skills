@@ -44,7 +44,7 @@ Big install base, but an honest heads-up: these are the **remote / enterprise** 
 
 ### Fastest for Claude Desktop - one-click `.mcpb`
 
-[**Download Google Workspace MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/google-workspace-v0.1.0/google-workspace-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. Client tenants are registered with the CLI (`tenants add` is CLI-only), so install it too (Path B below). (Browse every Google Workspace release on the [releases page](https://github.com/servosity/msp-skills/releases?q=google-workspace).)
+[**Download Google Workspace MCP (.mcpb)**](https://github.com/servosity/msp-skills/releases/download/google-workspace-v0.1.1/google-workspace-mcp.mcpb) - then open **Claude Desktop > Settings > Extensions** and select the file. One click, no JSON, no shell. Client tenants are registered with the CLI (`tenants add` is CLI-only), so install it too (Path B below). (Browse every Google Workspace release on the [releases page](https://github.com/servosity/msp-skills/releases?q=google-workspace).)
 
 Prefer the Claude Code plugin? Add the marketplace once, then install - works immediately, no directory listing required:
 

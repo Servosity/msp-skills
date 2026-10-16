@@ -212,7 +212,7 @@
   "google-workspace": {
     "state": "binary-pending",
     "version": "0.1.0",
-    "latest_tag": "google-workspace-v0.1.0",
+    "latest_tag": "google-workspace-v0.1.1",
     "current_hash": "sha256:a595c2c37dc7d0253473368b1d6f47c01235cccdbaaeed7ee5f6fdebf0e1782a",
     "released_hash": "sha256:96bac9bf2133a55fd1b954ca997cd43804f950a90e2d1581c9f66b07dd723d3b"
   },
