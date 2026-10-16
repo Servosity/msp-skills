@@ -198,7 +198,7 @@
   "domotz": {
     "state": "binary-pending",
     "version": "0.1.3",
-    "latest_tag": "domotz-v0.1.3",
+    "latest_tag": "domotz-v0.1.4",
     "current_hash": "sha256:56b9ecdc1888afb84c7874b23481beb245ed1e121f78257a859f572a757e52e6",
     "released_hash": "sha256:d0568cb31d893b0e44fc1791f7c5f297cd016c72a908f549120bb54b08cefebb"
   },
@@ -226,7 +226,7 @@
   "gradient": {
     "state": "binary-pending",
     "version": "0.1.3",
-    "latest_tag": "gradient-v0.1.3",
+    "latest_tag": "gradient-v0.1.4",
     "current_hash": "sha256:c98091a5b195aeebe9d10d40bdaacda18a2fbc451f82213c4363f7c7cb371f35",
     "released_hash": "sha256:ecb9243e53302e8ddf5bb9bee871e92b527888ee35c6ab90c1465ba7f7b21ebd"
   },
