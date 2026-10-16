@@ -58,7 +58,7 @@
   "avanan": {
     "state": "binary-pending",
     "version": "0.1.7",
-    "latest_tag": "avanan-v0.1.7",
+    "latest_tag": "avanan-v0.1.8",
     "current_hash": "sha256:6f628149b4f002acd74781ad345b5a30295648339a363fe5e463354cfd776e57",
     "released_hash": "sha256:5f2fd2567af5493fccc10617e1f9cc1db877fb39ca58ca1c7899f9543203e8e3"
   },
