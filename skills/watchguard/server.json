@@ -3,7 +3,7 @@
   "name": "io.github.Servosity/watchguard-mcp",
   "title": "WatchGuard MCP",
   "description": "WatchGuard Cloud Firebox, Endpoint Security, ThreatSync, NDR and AuthPoint APIs for every customer",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/watchguard/watchguard-512x512.png",
@@ -21,8 +21,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/servosity/msp-skills/releases/download/watchguard-v0.1.0/watchguard-mcp.mcpb",
-      "version": "0.1.0",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/watchguard-v0.1.1/watchguard-mcp.mcpb",
+      "version": "0.1.1",
       "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
       "transport": {
         "type": "stdio"

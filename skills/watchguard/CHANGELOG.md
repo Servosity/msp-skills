@@ -4,7 +4,16 @@ All notable changes to this skill are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.1.0]
+## [0.1.1] - 2026-10-16
+
+### Fixed
+- `firebox devices changes` no longer drops a fleet snapshot when two runs land in the
+  same clock tick. Windows' clock can return one reading to two fast calls; the second
+  snapshot collided with the first and was silently not recorded. A tie now steps the
+  timestamp forward, while a genuinely stale run is still refused. Found by the new
+  Windows CI job.
+
+## [0.1.0] - 2026-10-16
 
 ### Added
 - Initial msp-skills release: `watchguard-cli` and `watchguard-mcp` for 208 operations

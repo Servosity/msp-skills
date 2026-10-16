@@ -1543,7 +1543,7 @@
       "skill_path": "skills/watchguard",
       "cli_binary": "watchguard-cli",
       "mcp_binary": "watchguard-mcp",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "printing_press_version": "4.33.5",
       "license": "Apache-2.0",
       "vendor": "WatchGuard",

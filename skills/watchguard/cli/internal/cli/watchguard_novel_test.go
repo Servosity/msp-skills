@@ -460,3 +460,41 @@ func TestRecordSnapshotRefusesStaleHead(t *testing.T) {
 		t.Fatalf("head moved to stale data: %+v", snaps)
 	}
 }
+
+// A second snapshot taken within one clock tick (routine on Windows, where
+// time.Now can repeat a reading) used to collide on snapshot_at and be dropped.
+func TestRecordSnapshotSurvivesAClockTie(t *testing.T) {
+	db, err := store.Open(filepath.Join(t.TempDir(), "fleet.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	ctx, sqldb := context.Background(), db.DB()
+	for _, ddl := range fleetSnapshotDDL {
+		if _, err := sqldb.ExecContext(ctx, ddl); err != nil {
+			t.Fatal(err)
+		}
+	}
+	tick := time.Date(2026, 10, 16, 9, 0, 0, 0, time.UTC)
+	snapshotClock = func() time.Time { return tick }
+	defer func() { snapshotClock = time.Now }()
+	a := map[string]fleetDevice{"FB-1": {ID: "FB-1", State: "online"}}
+	b := map[string]fleetDevice{"FB-1": {ID: "FB-1", State: "offline"}}
+	first, ok, err := recordSnapshot(ctx, sqldb, "", fleetFingerprint(a), a)
+	if !ok || err != nil {
+		t.Fatalf("A not recorded: ok=%v err=%v", ok, err)
+	}
+	second, ok, err := recordSnapshot(ctx, sqldb, first, fleetFingerprint(b), b)
+	if !ok || err != nil || second == first {
+		t.Fatalf("B dropped on a clock tie: ok=%v err=%v first=%s second=%s", ok, err, first, second)
+	}
+	// The stale-parent refusal still holds under the same tie.
+	stale := map[string]fleetDevice{"FB-1": {ID: "FB-1", State: "never connected"}}
+	if _, ok, err := recordSnapshot(ctx, sqldb, first, fleetFingerprint(stale), stale); ok || err != nil {
+		t.Fatalf("stale recorder appended on a tie: ok=%v err=%v", ok, err)
+	}
+	snaps, _ := recentSnapshots(ctx, sqldb)
+	if len(snaps) != 2 || snaps[0].fingerprint != fleetFingerprint(b) {
+		t.Fatalf("head is not B: %+v", snaps)
+	}
+}
