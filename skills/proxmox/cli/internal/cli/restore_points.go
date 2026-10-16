@@ -33,6 +33,10 @@ type guestRestorePoints struct {
 	// PredatingGuest: backups under this VMID older than this VM's creation
 	// (an earlier guest's), not listed.
 	PredatingGuest int `json:"predating_guest,omitempty"`
+	// MayBeEarlierGuest: listed points that cannot be told from an earlier
+	// guest's (marked may_be_earlier_guest); newest_at and
+	// newest_verified_ok_at count only points proven this VM's.
+	MayBeEarlierGuest int `json:"may_be_earlier_guest,omitempty"`
 	// HiddenUnverified: read points --verified-only left out (none verified).
 	HiddenUnverified int `json:"hidden_unverified,omitempty"`
 	// Evidence is "full" when every source that may hold this guest's restore
@@ -67,7 +71,9 @@ func newNovelRestorePointsCmd(flags *rootFlags) *cobra.Command {
 			"not_read names the sources, when something that may hold the guest's restore points could not be read; then a count " +
 			"of 0 means none could be read, and the command exits 5 when no match has a readable point. " +
 			"predating_guest counts backups under the VMID from before this VM was created (an earlier guest's with the same VMID), " +
-			"which are not listed; --csv reports both on stderr.",
+			"which are not listed. A backup that may be either guest's (the VM's config, which records its creation time, could not be read, " +
+			"or the backup is dated within an hour before that time) is listed with may_be_earlier_guest, counted in the guest's may_be_earlier_guest, " +
+			"and left out of newest_at and newest_verified_ok_at; evidence is then partial. --csv reports predating_guest and partial evidence on stderr.",
 		Example: strings.Trim(`
   proxmox-cli restore-points 104 --agent
   proxmox-cli restore-points files --cluster acme
@@ -147,7 +153,11 @@ func newNovelRestorePointsCmd(flags *rootFlags) *cobra.Command {
 				}
 				rows := make([][]string, 0, len(g.RestorePoints))
 				for _, rp := range g.RestorePoints {
-					rows = append(rows, []string{rp.TimeRFC3339, rp.Source, rp.VerifyState, strconv.FormatBool(rp.Protected), rp.Notes})
+					notes := rp.Notes
+					if rp.MayBeEarlierGuest {
+						notes = strings.TrimSpace("(may be an earlier guest's) " + notes)
+					}
+					rows = append(rows, []string{rp.TimeRFC3339, rp.Source, rp.VerifyState, strconv.FormatBool(rp.Protected), notes})
 				}
 				if len(rows) == 0 {
 					if g.HiddenUnverified > 0 {
@@ -226,6 +236,7 @@ func collectRestorePoints(ctx context.Context, t fleetTarget, query string, veri
 	if err != nil {
 		return nil, nil, err
 	}
+	births := newGuestBirths(t, time.Now(), offline)
 	// clusterUnread: sources that may hold any guest's restore points but were
 	// not read; every guest's evidence is then partial.
 	var clusterUnread []string
@@ -341,25 +352,28 @@ func collectRestorePoints(ctx context.Context, t fleetTarget, query string, veri
 		points = dedupeRestorePoints(points)
 		var birth guestBirth // an earlier guest's backups under this VMID are not this one's
 		if len(points) > 0 {
-			birth = readGuestBirth(ctx, t.C, g, time.Now(), offline)
+			birth = births.read(ctx, g)
 		}
-		either := 0
+		var either []restorePoint
 		points = slices.DeleteFunc(points, func(rp restorePoint) bool {
 			if rp.GuestType != "" && rp.GuestType != g.Type {
 				return false
 			}
-			switch birth.of(rp.Time) {
-			case ofEarlierGuest:
+			if birth.of(rp.Time) == ofEarlierGuest {
 				gr.PredatingGuest++
-				return true
-			case ofEitherGuest:
-				either++
 				return true
 			}
 			return false
 		})
-		if either > 0 {
-			notRead = append(notRead, eitherGuestWhy(either, birth)+" (not listed)")
+		for i, rp := range points {
+			if (rp.GuestType == "" || rp.GuestType == g.Type) && birth.of(rp.Time) == ofEitherGuest {
+				points[i].MayBeEarlierGuest = true // listed, never withheld: it may be the one to restore
+				either = append(either, rp)
+			}
+		}
+		if len(either) > 0 {
+			gr.MayBeEarlierGuest = len(either)
+			notRead = append(notRead, eitherGuestWhy(either, birth)+" (listed with may_be_earlier_guest)")
 		}
 		points, unreadable := splitUnreadable(points)
 		for _, rp := range unreadable {
@@ -382,8 +396,8 @@ func collectRestorePoints(ctx context.Context, t fleetTarget, query string, veri
 		sort.SliceStable(kept, func(i, j int) bool { return kept[i].Time > kept[j].Time })
 		cutoff := time.Now().Add(clockSkewTolerance).Unix()
 		for _, rp := range kept {
-			if rp.Time > cutoff {
-				continue // listed, but a node clock ran ahead: not the newest real point
+			if rp.Time > cutoff || rp.MayBeEarlierGuest {
+				continue // listed, but a node clock ran ahead, or it may not be this VM's
 			}
 			if gr.NewestAt == "" {
 				gr.NewestAt = rp.TimeRFC3339
@@ -404,7 +418,7 @@ func collectRestorePoints(ctx context.Context, t fleetTarget, query string, veri
 		gr.RestorePoints = kept
 		out = append(out, gr)
 	}
-	return out, fails, nil
+	return out, append(fails, births.fails...), nil
 }
 
 // nothingReadable: no match has a readable restore point while some match's
