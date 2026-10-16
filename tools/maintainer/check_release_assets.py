@@ -47,7 +47,8 @@ The release's own asset list arrives on stdin as the JSON `gh release view
 --json assets` prints, so this script needs no network and no `gh` of its own:
 it is a pure comparison you can run locally against a saved listing. Exit 0 when
 every expected asset is present and fully uploaded, 1 otherwise (with the
-offending names printed). Extra assets are reported but never fatal - a re-run
+offending names printed), including when the tag names no skill this checkout
+knows. Extra assets are reported but never fatal - a re-run
 that uploads the same files again must converge, not fail.
 
     python3 tools/maintainer/check_release_assets.py --self-test
@@ -334,6 +335,15 @@ def _self_test() -> int:
     print(f"  [{'ok' if ok else 'FAIL'}] a tag naming no releasable skill expects nothing")
     if not ok:
         failures.append(f"unreleasable tag expected [], got {none}")
+    # ...but the CLI must not report that tag as verified: a stale checkout or a
+    # mistyped slug used to exit 0 here.
+    import subprocess
+    rc = subprocess.run([sys.executable, __file__, "--tag", "not-a-real-skill-v1.2.3"],
+                        input="{}", capture_output=True, text=True).returncode
+    ok = rc == 1
+    print(f"  [{'ok' if ok else 'FAIL'}] the CLI fails closed on a tag naming no releasable skill")
+    if not ok:
+        failures.append(f"unknown-slug CLI exit expected 1, got {rc}")
 
     if failures:
         print("check_release_assets self-test FAILED:", file=sys.stderr)
@@ -375,11 +385,16 @@ def main() -> int:
     slug, expected = expected_assets(args.tag, args.with_mcpb)
 
     if not expected:
-        # Not a releasable skill. release.yml creates no release for such a
-        # tag, so there is nothing to verify and nothing to seal.
-        print(f"tag {args.tag!r} names no releasable skill "
-              f"(derived slug {slug!r}); nothing to verify.")
-        return 0
+        # Fail CLOSED. release.yml never reaches this line for such a tag (its
+        # `any` guard stops first), so the only callers that get here are a
+        # person or an agent asking "is this release complete?" - usually from
+        # a checkout older than the skill, or with a mistyped slug. Answering 0
+        # there reports a release that was never checked as complete.
+        print(f"::error::tag {args.tag!r} names no releasable skill in this checkout's "
+              f"registry (derived slug {slug!r}). Check the slug, or update the checkout "
+              f"(git pull) if the skill is newer than it; nothing was verified.",
+              file=sys.stderr)
+        return 1
 
     if args.print_expected:
         print("\n".join(expected))
