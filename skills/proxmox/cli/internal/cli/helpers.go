@@ -4179,15 +4179,19 @@ var defaultDBScopeState struct {
 }
 
 func configureDefaultDBScope(configPath string) {
+	// proxmox hand-fix (per-cluster-store): one local store per clusters.toml
+	// entry, decided before config.toml is read so a config error cannot drop
+	// every cluster into the one unscoped store.
+	if scope := clusterStoreScope(); scope != "" {
+		setDefaultDBScopeIdentity(scope, "", "")
+		return
+	}
 	cfg, err := config.Load(configPath)
 	if err != nil {
 		setDefaultDBScopeIdentity("", "", "")
 		return
 	}
 	setDefaultDBScopeIdentity(cfg.StoreScopeCredential(), cfg.StoreScopeLegacyCredential(), cfg.BaseURL)
-	if scope := clusterStoreScope(); scope != "" { // proxmox hand-fix (per-cluster-store): one local store per clusters.toml entry
-		setDefaultDBScopeIdentity(scope, "", "")
-	}
 }
 
 func setDefaultDBScopeIdentity(credential, legacyCredential, baseURL string) {

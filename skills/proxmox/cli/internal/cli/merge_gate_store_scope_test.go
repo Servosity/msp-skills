@@ -98,3 +98,27 @@ func TestSavedProfileClusterGetsItsOwnStore(t *testing.T) {
 		t.Fatalf("profile with --cluster acme used store %q, want acme's %q (default store is %q)", got, want, storePathFor(""))
 	}
 }
+
+// hand-fix (per-cluster-store): a malformed config.toml must not drop every
+// cluster into the one unscoped store; the cluster scope is decided first.
+func TestConfigErrorKeepsClusterStoresApart(t *testing.T) {
+	f := newFixture(t)
+	defer func() { selectedCluster = ""; configureDefaultDBScope("") }()
+	writeClustersFile(t, acmeClusters(f, f.pbs.URL, ""))
+	bad := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(bad, []byte("this is = = not toml [\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	pathWithBadConfig := func(cluster string) string {
+		selectedCluster = cluster
+		configureDefaultDBScope(bad)
+		return defaultDBPath("proxmox-cli")
+	}
+	acme, beta, none := pathWithBadConfig("acme"), pathWithBadConfig("beta"), pathWithBadConfig("")
+	if acme == beta || acme == none || beta == none {
+		t.Fatalf("a config error merged cluster stores: acme=%q beta=%q default=%q", acme, beta, none)
+	}
+	if acme != storePathFor("acme") {
+		t.Fatalf("a config error changed acme's store: %q vs %q", acme, storePathFor("acme"))
+	}
+}
