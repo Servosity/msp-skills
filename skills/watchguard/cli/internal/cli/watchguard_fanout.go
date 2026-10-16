@@ -412,12 +412,13 @@ func asMapsStrict(raw json.RawMessage, key string) ([]map[string]any, error) {
 	return out, err
 }
 
-// isRecord: an object carrying its own id or status is a record, even when it
-// also has a field named like the envelope key (a transaction's "data").
+// isRecord: an object carrying its own id is a record, even when it also has a
+// field named like the envelope key (a transaction's "data"). A status alone
+// does not make one: WatchGuard envelopes such as {"status":"success","data":...}
+// carry it too.
 func isRecord(t map[string]any) bool {
 	_, id := t["id"]
-	_, status := t["status"]
-	return id || status
+	return id
 }
 
 // firstObject reads a single-record response that may be a bare object or a

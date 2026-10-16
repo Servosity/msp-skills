@@ -91,6 +91,7 @@ func TestTransactionsWaitRejectsMalformedRows(t *testing.T) {
 	}
 	for id, body := range map[string]string{
 		"t1": `null`, "t2": `42`, "t3": `"unavailable"`, // malformed at the top level
+		"s1": `{"status":"complete","data":null}`, "s2": `{"status":"success","data":{"id":"OTHER","status":"complete"}}`, // a status envelope is not a record
 		"mm1": `[{"id":"old","status":"complete"}]`, "mm2": `{"id":"old","status":"complete"}`, // another transaction
 	} {
 		byID[id] = body

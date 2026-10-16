@@ -194,7 +194,7 @@ No. The recommended install is to paste one sentence into Claude Code or Codex -
 
 ### Is my WatchGuard data safe?
 
-Your data stays on **your machine**. The CLI and MCP server are local binaries. The SQLite mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Credentials are read from your environment or your agent's config; never bundled into this repo or transmitted anywhere by MSP Skills.
+The CLI, MCP server and SQLite mirror run on **your machine**, under your user account, and MSP Skills never bundles or transmits your WatchGuard credentials. What your agent reads does go to your AI provider: query results, and the secrets that credential reads return (BOVPN pre-shared keys, private keys, Firebox passwords, activation and license keys). Keep those commands human-in-the-loop as the safety tiers below describe.
 
 ### What credentials do I need?
 
