@@ -366,7 +366,7 @@
   "pax8": {
     "state": "binary-pending",
     "version": "0.1.4",
-    "latest_tag": "pax8-v0.1.4",
+    "latest_tag": "pax8-v0.1.5",
     "current_hash": "sha256:808359d3e4e3a3e169284bc7d09c08555ea52ccfa971eafa4d1a3cee7d445897",
     "released_hash": "sha256:6d64e196db392ed74d872119411435a997ba98f39de88f304cab1f80ed632f0c"
   },
