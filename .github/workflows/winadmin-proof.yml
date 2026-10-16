@@ -1,0 +1,193 @@
+name: winadmin-proof (DO NOT MERGE)
+
+# Temporary proof for the built-in Administrator (RID 500) credentials fix.
+# windows-latest runs as runneradmin, which IS the built-in local Administrator.
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/winadmin-proof.yml"
+
+permissions:
+  contents: read
+
+env:
+  OLD_REF: 03d8ca9843179ec6f52fbc922901f883b58516ca
+
+jobs:
+  rid500:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - name: LF checkout
+        shell: bash
+        run: git config --global core.autocrlf false
+
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            skills/fortinet
+            skills/servosity
+            skills/immybot
+            skills/connectwise-rmm
+            skills/threatdown
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: skills/fortinet/cli/go.mod
+          cache-dependency-path: skills/fortinet/cli/go.sum
+
+      - name: Identity and a second local account
+        shell: pwsh
+        run: |
+          whoami /user
+          $pw = "Pp1!" + [guid]::NewGuid().ToString("N")
+          net user winproof $pw /add | Out-Null
+          $sid = (New-Object System.Security.Principal.NTAccount("winproof")).Translate([System.Security.Principal.SecurityIdentifier]).Value
+          "second local account winproof = $sid"
+          "WINPROOF_OTHER_SID=$sid" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          exit 0
+
+      - name: Build fixed and original fortinet-cli, and original module trees
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin "$OLD_REF"
+          mkold() {
+            slug=$1
+            dst="$RUNNER_TEMP/old/$slug"
+            mkdir -p "$(dirname "$dst")"
+            cp -r "skills/$slug/cli" "$dst"
+            for f in creds_perms_eval.go creds_perms_windows.go; do
+              git show "$OLD_REF:skills/$slug/cli/internal/cliutil/$f" > "$dst/internal/cliutil/$f"
+            done
+            rm -f "$dst/internal/cliutil/creds_perms_alias_test.go" "$dst/internal/cliutil/zz_winadmin_proof_windows_test.go"
+          }
+          for s in fortinet servosity immybot connectwise-rmm threatdown; do mkold "$s"; done
+          mkdir -p "$RUNNER_TEMP/bin/fixed" "$RUNNER_TEMP/bin/old"
+          (cd skills/fortinet/cli && go build -o "$RUNNER_TEMP/bin/fixed/fortinet-cli.exe" ./cmd/fortinet-cli)
+          (cd "$RUNNER_TEMP/old/fortinet" && go build -o "$RUNNER_TEMP/bin/old/fortinet-cli.exe" ./cmd/fortinet-cli)
+          ls -la "$RUNNER_TEMP/bin/fixed" "$RUNNER_TEMP/bin/old"
+
+      - name: "Unit proof on real descriptors (fixed code, RID 500)"
+        if: ${{ !cancelled() }}
+        shell: bash
+        working-directory: skills/fortinet/cli
+        run: go test -count=1 -v -run 'TestWinAdminProofResolver|TestWinAdminProofRealDescriptors|TestEvalCredsSecurity' ./internal/cliutil/
+
+      - name: "Informational: NULL DACL rendering (not part of the RID-500 verdict)"
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        shell: bash
+        working-directory: skills/fortinet/cli
+        run: go test -count=1 -v -run 'TestWinAdminProofNullDACL' ./internal/cliutil/
+
+      - name: "Production path: auth set-token / auth status as the built-in Administrator"
+        if: ${{ !cancelled() }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Continue'
+          $fixed = Join-Path $env:RUNNER_TEMP "bin\fixed\fortinet-cli.exe"
+          $old = Join-Path $env:RUNNER_TEMP "bin\old\fortinet-cli.exe"
+          $dir = Join-Path $env:USERPROFILE ".local\share\fortinet-cli"
+          $f = Join-Path $dir "credentials.toml"
+          $other = $env:WINPROOF_OTHER_SID
+          $verdicts = New-Object System.Collections.Generic.List[string]
+          $bad = 0
+          function Invoke-Cli($exe, [string[]]$cliArgs, $stdin) {
+            if ($null -ne $stdin) { $o = $stdin | & $exe @cliArgs 2>&1 | Out-String } else { $o = & $exe @cliArgs 2>&1 | Out-String }
+            return [pscustomobject]@{ Out = $o.Trim(); Code = $LASTEXITCODE }
+          }
+          function Expect($name, $ok, $detail) {
+            $script:verdicts.Add(("{0}  {1}" -f ($(if ($ok) { "PASS" } else { "FAIL" })), $name))
+            "---- $name : $(if ($ok) { 'as expected' } else { 'UNEXPECTED' })"
+            $detail
+            if (-not $ok) { $script:bad++ }
+          }
+          function Show-Sddl { if (Test-Path -LiteralPath $f) { "file SDDL: " + (Get-Acl -LiteralPath $f).Sddl } else { "no file" } }
+          whoami /user
+          Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $dir
+
+          # 1. Original binary reproduces the bug.
+          $r = Invoke-Cli $old @("auth","set-token") "dummy-token-not-a-secret"
+          Expect "original build: set-token refused as RID 500" ($r.Code -ne 0 -and $r.Out -match 'principal \(LA\)|owner is not the current user') "exit=$($r.Code)`n$($r.Out)`n$(Show-Sddl)"
+          Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $dir
+
+          # 2. Fixed binary saves.
+          $r = Invoke-Cli $fixed @("auth","set-token") "dummy-token-not-a-secret"
+          Expect "fixed build: set-token succeeds as RID 500" ($r.Code -eq 0) "exit=$($r.Code)`n$($r.Out)"
+          $sddl = (Get-Acl -LiteralPath $f).Sddl
+          Expect "saved file's SDDL names the user by alias LA" ($sddl -match ';;;LA\)|O:LA') "file SDDL: $sddl"
+
+          # 3. Fixed binary reads it back.
+          $r = Invoke-Cli $fixed @("auth","status")
+          Expect "fixed build: auth status accepts the saved file" ($r.Code -eq 0 -and $r.Out -match 'Credentials present' -and $r.Out -notmatch 'refused') "exit=$($r.Code)`n$($r.Out)"
+
+          # 4. The original build refuses the same file on read (the read path was broken too).
+          $r = Invoke-Cli $old @("auth","status")
+          Expect "original build: auth status refuses the same file" ($r.Code -ne 0 -and $r.Out -match 'refused') "exit=$($r.Code)`n$($r.Out)"
+
+          # 5. Read-time refusal: BUILTIN\Users added to the file.
+          icacls $f /grant "*S-1-5-32-545:(R)" | Out-Null
+          $r = Invoke-Cli $fixed @("auth","status")
+          Expect "fixed build: refuses the file once BUILTIN\Users can read it" ($r.Code -ne 0 -and $r.Out -match 'broad group \(BU\)') "$(Show-Sddl)`nexit=$($r.Code)`n$($r.Out)"
+          icacls $f /remove:g "*S-1-5-32-545" | Out-Null
+
+          # 6. Read-time refusal: a second local user added to the file.
+          icacls $f /grant "*${other}:(R)" | Out-Null
+          $r = Invoke-Cli $fixed @("auth","status")
+          Expect "fixed build: refuses the file once a second local user can read it" ($r.Code -ne 0 -and $r.Out -match 'non-owner principal') "$(Show-Sddl)`nexit=$($r.Code)`n$($r.Out)"
+          icacls $f /remove:g "*$other" | Out-Null
+
+          # 7. Read-time refusal: Everyone added to the file.
+          icacls $f /grant "*S-1-1-0:(R)" | Out-Null
+          $r = Invoke-Cli $fixed @("auth","status")
+          Expect "fixed build: refuses the file once Everyone can read it" ($r.Code -ne 0 -and $r.Out -match 'broad group \(WD\)') "$(Show-Sddl)`nexit=$($r.Code)`n$($r.Out)"
+          icacls $f /remove:g "*S-1-1-0" | Out-Null
+
+          # 8. Grants removed: accepted again (the refusals were about the extra principal).
+          $r = Invoke-Cli $fixed @("auth","status")
+          Expect "fixed build: accepts again once the extra grants are gone" ($r.Code -eq 0 -and $r.Out -notmatch 'refused') "$(Show-Sddl)`nexit=$($r.Code)`n$($r.Out)"
+
+          # 9. Write-time refusal: the directory hands a second user an inherited ACE.
+          icacls $dir /grant "*${other}:(OI)(R)" | Out-Null
+          $r = Invoke-Cli $fixed @("auth","set-token") "dummy-token-not-a-secret"
+          Expect "fixed build: set-token refuses when the new file inherits a second user's ACE" ($r.Code -ne 0 -and $r.Out -match 'non-owner principal') "$(Show-Sddl)`nexit=$($r.Code)`n$($r.Out)"
+
+          ""
+          "==== VERDICTS ===="
+          $verdicts
+          if ($bad -gt 0) { "$bad unexpected result(s)"; exit 1 }
+          exit 0
+
+      - name: "Connector test suites on RID 500: fixed passes, original fails"
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: |
+          set -uo pipefail
+          GEN='TestEmptyCredentialsFileDoesNotClearLegacyConfig|TestAuthWriteMigratesLegacyConfigToCredentialsOnly|TestLoadCredentials_RefusesOverPermissiveFileOnRead|TestConfigFileWinsWhenCredentialsFileAlsoHasSecrets|TestPartialConfigCredentialsMergeMissingFields|TestExplicitConfigUsesSiblingCredentialsBeforeGlobal|TestExplicitConfigFallsBackToGlobalCredentialsWhenSiblingMissing|TestExplicitConfigFallsBackToGlobalCredentialsWhenSiblingEmpty|TestExplicitConfigFileCredentialsWinOverSiblingAndGlobal|TestCorruptCredentialsDoesNotOverrideLegacyConfig|TestAuthWriteScrubsLegacyConfigWhenRelocated|TestConcurrentCredentialWritersLeaveParseableCredentials|TestLoad_RefusesOverPermissiveConfigOnRead|TestExplicitConfigRejectsMalformedSiblingInsteadOfUsingGlobal|TestClearTokensFromBothStateClearsCredentialsAndLegacy|TestCorruptCredentialsFallsBackToEnvCredential'
+          declare -A HAND
+          HAND[fortinet]=''
+          HAND[servosity]='TestClearTokensWithExplicitConfigClearsSiblingStore|TestSaveCredentialWithExplicitConfigWritesSiblingStore'
+          HAND[immybot]='TestSaveTokens_KeepsEnvSuppliedClientSecretOffDisk|TestSaveTokens_PersistsExplicitlyPassedClientSecret|TestWithoutTheSwitchTheCacheIsByteIdentical|TestNoConfigWriteStillAllowsTheWipe|TestRequestContractExecuteNamedWriteOnWire|TestRequestContractExecuteAdvertisedGETBindings|TestRequestContractExecuteNamedArrayBody|TestRequestContractPathAndBodyMayShareWireName|TestWorkflowArchivePartialSuccessExitsZero|TestWorkflowArchiveSuccessfulEmptyExitsZero'
+          HAND[connectwise-rmm]='TestTicketsListNeverSendsALonePagingKey|TestCodeOrchExecuteSendsUninstallBody|TestCodeOrchTicketsListPairsPagingKeys'
+          HAND[threatdown]='TestAuthLoginSavesThePairItUsed|TestAuthStatusTracksTokenBinding|TestSetTokenClearsSavedClientUnderEnvID|TestSetTokenDoesNotInheritOldExpiry|TestDiagLogIsNeverRetried|TestRespondIsolatePreviewThenConfirm|TestRespondSafetyGuards|TestRespondBatchesBulkJobs|TestFleetHealthStopsOnCountAuthError|TestEnvClientIDNeverPairsWithSavedSecret|TestRepeatedSavesKeepSavedClientPair'
+          bad=0
+          summary=""
+          for s in fortinet servosity immybot connectwise-rmm threatdown; do
+            re="^(${GEN}${HAND[$s]:+|${HAND[$s]}})\$"
+            (cd "skills/$s/cli" && go test -count=1 -run "$re" ./... > "$RUNNER_TEMP/$s.fixed.log" 2>&1); fx=$?
+            (cd "$RUNNER_TEMP/old/$s" && go test -count=1 -run "$re" ./... > "$RUNNER_TEMP/$s.old.log" 2>&1); ox=$?
+            echo "::group::$s fixed (exit $fx)"
+            grep -Ev 'no test files|no tests to run' "$RUNNER_TEMP/$s.fixed.log" | tail -60
+            echo "::endgroup::"
+            echo "::group::$s original (exit $ox)"
+            grep -E '^(--- FAIL|FAIL|ok|panic)|non-owner|owner is not' "$RUNNER_TEMP/$s.old.log" | head -60
+            echo "::endgroup::"
+            v="$s: fixed exit=$fx (want 0), original exit=$ox (want non-zero)"
+            if [ "$fx" -ne 0 ] || [ "$ox" -eq 0 ]; then v="FAIL  $v"; bad=$((bad+1)); else v="PASS  $v"; fi
+            summary="$summary$v"$'\n'
+          done
+          echo "==== VERDICTS ===="
+          printf '%s' "$summary"
+          exit $bad
