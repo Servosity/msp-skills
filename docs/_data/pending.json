@@ -170,7 +170,7 @@
   "crowdstrike": {
     "state": "binary-pending",
     "version": "0.1.5",
-    "latest_tag": "crowdstrike-v0.1.5",
+    "latest_tag": "crowdstrike-v0.1.6",
     "current_hash": "sha256:92a850a889b1e95a1b97267187ef5a74791f2a530312cf6f4bc1033d6d572aff",
     "released_hash": "sha256:a2eaa2eaae3df72b5142a85110d4dae89065964fd388af7d720b157909588d9e"
   },
