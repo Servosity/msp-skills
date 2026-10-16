@@ -14,8 +14,11 @@ import "strings"
 // (the webhook Authorization value), licensing#getLicenseInfo (license key),
 // companies#getCompanyDetailsByUser (takes a user's password),
 // packages#getPackageDetails (package settings, uninstall password),
-// packages#getInstallationLinks (links that enroll a machine) and
-// integrations#getIntegrationDetails (integration connection settings).
+// packages#getInstallationLinks (links that enroll a machine),
+// integrations#getIntegrationDetails (integration connection settings),
+// policies#getPolicyDetails (policy settings carry the password-protection and
+// power-user password fields) and network#getNetworkInventoryItems (company
+// items can carry license keys).
 var gravityZoneReadOnlyMethods = map[string]bool{
 	"accounts#getAccountDetails":                             true,
 	"accounts#getAccountsList":                               true,
@@ -48,7 +51,6 @@ var gravityZoneReadOnlyMethods = map[string]bool{
 	"network#getEndpointTags":                                true,
 	"network#getIntegrators":                                 true,
 	"network#getManagedEndpointDetails":                      true,
-	"network#getNetworkInventoryItems":                       true,
 	"network#getRootContainers":                              true,
 	"network#getScanTasksList":                               true,
 	"network#getTaskStatus":                                  true,
@@ -62,7 +64,6 @@ var gravityZoneReadOnlyMethods = map[string]bool{
 	"phasr#getPhasrRecommendations":                          true,
 	"phasr#getRecommendationProfiles":                        true,
 	"policies#getPoliciesList":                               true,
-	"policies#getPolicyDetails":                              true,
 	"push#getPushEventStats":                                 true,
 	"quarantine/{service}#getQuarantineItemsList":            true,
 	"reports#getDownloadLinks":                               true,

@@ -140,6 +140,11 @@ use this command for GravityZone-only protection status without an external devi
 				fmt.Fprintln(cmd.OutOrStdout(), "Nothing compared: no GravityZone inventory was read (see the note above).")
 				return nil
 			}
+			if len(rows) == 0 && !view.InventoryComplete {
+				// Hand-wired (handfixes.json: rmm-gap-incomplete-never-clean).
+				fmt.Fprintf(cmd.OutOrStdout(), "INCOMPLETE: no gaps among the %d endpoints that were read, but %d GravityZone fetch(es) failed, so devices in those companies were not compared (run with --json and read fetch_failures).\n", view.EndpointsCompared, len(view.FetchFailures))
+				return nil
+			}
 			if len(rows) == 0 {
 				fmt.Fprintf(cmd.OutOrStdout(), "No gaps: %d devices and %d endpoints line up.\n", view.DevicesRead, view.EndpointsCompared)
 				return nil

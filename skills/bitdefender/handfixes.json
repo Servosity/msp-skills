@@ -222,7 +222,7 @@
     {
       "id": "mcp-read-only-allows-gravityzone-reads",
       "summary": "BITDEFENDER_MCP_READ_ONLY=1 lets bitdefender_execute run an explicit list of GravityZone read methods; writes and credential-bearing reads stay refused",
-      "why": "The generated read-only switch refuses every non-GET execute call. Every GravityZone method is a JSON-RPC POST, so read-only mode refused reads too and an agent that should only read could not list a single endpoint. gz_readonly.go lists the get/find methods that only read (fail-closed: a method added by a later regeneration stays refused until listed) and leaves out the reads that return or take a credential: getPushEventSettings, getLicenseInfo, getCompanyDetailsByUser, getPackageDetails, getInstallationLinks, getIntegrationDetails. The check reads the endpoint's registered path template, never the resolved path. A reprint restores the method-only check and silently re-breaks reads.",
+      "why": "The generated read-only switch refuses every non-GET execute call. Every GravityZone method is a JSON-RPC POST, so read-only mode refused reads too and an agent that should only read could not list a single endpoint. gz_readonly.go lists the get/find methods that only read (fail-closed: a method added by a later regeneration stays refused until listed) and leaves out the reads that return or take a credential: getPushEventSettings, getLicenseInfo, getCompanyDetailsByUser, getPackageDetails, getInstallationLinks, getIntegrationDetails, getPolicyDetails (password-protection and power-user password fields, per the vendor method page) and getNetworkInventoryItems (company items can carry license keys). The check reads the endpoint's registered path template, never the resolved path. A reprint restores the method-only check and silently re-breaks reads.",
       "status": "active",
       "asserts": [
         {
@@ -243,6 +243,11 @@
         {
           "file": "cli/internal/mcp/gz_readonly_test.go",
           "contains": "func TestCodeOrchExecuteReadOnlyRunsGravityZoneReads(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/gz_readonly_test.go",
+          "contains": "\"policies#getPolicyDetails\":",
           "code_only": true
         }
       ]
@@ -357,7 +362,7 @@
     {
       "id": "doctor-verdict-tracks-reality",
       "summary": "doctor probes general#getApiKeyDetails with the configured key and classifies the answer, instead of calling any response to GET / reachable and printing 'present, not verified'",
-      "why": "check_doctor_truth (issue #282) failed: the generated doctor printed the same verdict for a working key, a rejected key and a base_url aimed at the console's web UI. GravityZone has no GET endpoints, so doctor_verdict.go posts one JSON-RPC getApiKeyDetails call (no parameters, answered for any valid key) without a #method fragment, so the strict JSON-RPC transport passes it through and the raw status and envelope can be classified: a result is valid; a JSON-RPC error, 401, 404, 5xx or a non-envelope body is negative, and a 404 also marks the api row as not the Control Center API root. A 2xx list envelope (data/items/results arrays) is accepted the way the sonicwall doctor accepts it, for a stub or proxy in front of Control Center. doctor_verdict_test.go covers each case; check_doctor_truth --slug bitdefender fails without the wiring.",
+      "why": "check_doctor_truth (issue #282) failed: the generated doctor printed the same verdict for a working key, a rejected key and a base_url aimed at the console's web UI. GravityZone has no GET endpoints, so doctor_verdict.go posts one JSON-RPC getApiKeyDetails call (no parameters, answered for any valid key) without a #method fragment, so the strict JSON-RPC transport passes it through and the raw status and envelope can be classified: a result is valid; a JSON-RPC error, 401, 404, 5xx or a non-envelope body is negative, and a 404 also marks the api row as not the Control Center API root. Only a JSON-RPC result counts: a 2xx list envelope is NOT accepted (Codex review 2026-10-16, P1: a wrong base answering {\"items\":[]} would read as valid); because GravityZone has no argument-free GET endpoint, that verdict says so, which is the honest negative check_doctor_truth allows for the healthy stub. doctor_verdict_test.go covers each case; check_doctor_truth --slug bitdefender fails without the wiring.",
       "status": "active",
       "asserts": [
         {
@@ -383,6 +388,10 @@
           "file": "cli/internal/cli/doctor_verdict_test.go",
           "contains": "func TestDoctorProbeCredentials(t *testing.T) {",
           "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor_verdict.go",
+          "not_contains": "doctorListEnvelope"
         }
       ]
     },
@@ -449,6 +458,19 @@
           "file": "mcp-install.md",
           "contains": "\"BITDEFENDER_MCP_READ_ONLY\": \"\"",
           "min_count": 3
+        }
+      ]
+    },
+    {
+      "id": "rmm-gap-incomplete-never-clean",
+      "summary": "fleet rmm-gap's human output says INCOMPLETE instead of 'No gaps' when any GravityZone fetch failed",
+      "why": "With a company fetch failed and the supplied devices matching the companies that were read, the human output printed 'No gaps: N devices and M endpoints line up.' - a clean verdict over an incomplete comparison (Codex review 2026-10-16, P1). The JSON output already carried inventory_complete:false and fetch_failures.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/fleet_rmm_gap.go",
+          "contains": "if len(rows) == 0 && !view.InventoryComplete {",
+          "code_only": true
         }
       ]
     }

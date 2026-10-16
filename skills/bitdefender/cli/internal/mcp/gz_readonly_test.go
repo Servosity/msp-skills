@@ -23,6 +23,8 @@ func TestGravityZoneReadOnlyMethodsMatchRegistry(t *testing.T) {
 		"packages#getPackageDetails":         true,
 		"packages#getInstallationLinks":      true,
 		"integrations#getIntegrationDetails": true,
+		"policies#getPolicyDetails":          true,
+		"network#getNetworkInventoryItems":   true,
 	}
 	registered := map[string]bool{}
 	for _, ep := range codeOrchEndpoints {
@@ -77,7 +79,7 @@ func TestCodeOrchExecuteReadOnlyRunsGravityZoneReads(t *testing.T) {
 	if got := call("endpoints.list"); strings.Contains(got, "refusing") {
 		t.Fatalf("endpoints.list refused under read-only: %s", got)
 	}
-	for _, id := range []string{"isolation.isolate", "endpoints.delete", "push.get", "license.get"} {
+	for _, id := range []string{"isolation.isolate", "endpoints.delete", "push.get", "license.get", "policies.get", "inventory.list"} {
 		if got := call(id); !strings.Contains(got, "refusing") {
 			t.Fatalf("%s was not refused under read-only: %s", id, got)
 		}

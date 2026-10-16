@@ -92,29 +92,6 @@ func doctorRPCEnvelope(body []byte) (result json.RawMessage, rpcErr *rpcError, o
 	return env.Result, env.Error, true
 }
 
-// doctorListEnvelope reports whether body is a non-empty JSON object whose
-// every field is an array under a list name (data, items, results). That is
-// not Control Center's own shape: it is what a stub or proxy in front of it
-// may answer, and it is accepted only after the key was sent and the call
-// answered 2xx.
-func doctorListEnvelope(body []byte) bool {
-	var doc map[string]any
-	if json.Unmarshal(bytes.TrimSpace(body), &doc) != nil || len(doc) == 0 {
-		return false
-	}
-	for k, v := range doc {
-		switch strings.ToLower(k) {
-		case "data", "items", "results":
-		default:
-			return false
-		}
-		if _, ok := v.([]any); !ok {
-			return false
-		}
-	}
-	return true
-}
-
 // doctorProbeCredentials writes the credentials verdict from one authenticated
 // getApiKeyDetails call, and corrects the api verdict when the probe proves
 // the generated `GET /` check was optimistic.
@@ -140,10 +117,10 @@ func doctorProbeCredentials(ctx context.Context, c *client.Client, authHeader st
 		report["credentials"] = fmt.Sprintf("ERROR rejected (JSON-RPC error %d from %s: %s) - Control Center refused the call, so the key is not confirmed.", rpcErr.Code, call, rpcErr.Message)
 	case ok2xx && isRPC && !bytes.Equal(bytes.TrimSpace(result), []byte("null")):
 		report["credentials"] = fmt.Sprintf("valid (API key verified with %s)", call)
-	case ok2xx && doctorListEnvelope(body):
-		report["credentials"] = fmt.Sprintf("valid (HTTP %d list response to %s)", status, call)
 	case ok2xx:
-		report["credentials"] = fmt.Sprintf("ERROR not verified (%s answered %d without a JSON-RPC result) - %s", call, status, doctorBaseRemedy)
+		// Only a JSON-RPC result proves the key. GravityZone has no
+		// argument-free GET endpoint either, so nothing else can confirm it.
+		report["credentials"] = fmt.Sprintf("ERROR not verified: %s answered %d without a JSON-RPC result, and GravityZone exposes no argument-free GET endpoint to probe instead. %s", call, status, doctorBaseRemedy)
 		report["api"] = "ERROR the host answered but not like the Control Center API - base_url is not the Control Center API root. " + doctorBaseRemedy
 	case status == http.StatusTooManyRequests:
 		report["credentials"] = fmt.Sprintf("WARN not verified (HTTP 429 from %s) - the key is rate limited; run doctor again in a minute.", call)
