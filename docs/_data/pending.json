@@ -475,6 +475,13 @@
     "current_hash": "sha256:289f4aba26db2811e6efe1fea65e5d8209b5c373de688053081caf267e2d1a58",
     "released_hash": "sha256:289f4aba26db2811e6efe1fea65e5d8209b5c373de688053081caf267e2d1a58"
   },
+  "sonicwall": {
+    "state": "never-released",
+    "version": "0.1.0",
+    "latest_tag": null,
+    "current_hash": "sha256:342f8166442c90ab1dbada2d633c238570fa337a106b893b393d321702c4d1a4",
+    "released_hash": null
+  },
   "sophos-central": {
     "state": "up-to-date",
     "version": "0.1.1",
