@@ -489,6 +489,50 @@ A: No, it complements it. The portal is still where you configure monitors and w
 
 Governance: The skill reads your Better Stack monitors, heartbeats, incidents, on-call calendars, and status pages, and it can create or update monitors, heartbeats, groups, policies, and status-page sections, acknowledge or resolve incidents, bulk-import records, and delete resources. Reads are always safe to allow. Routine writes - creates, updates, incident acknowledge/resolve, and import - should be previewed with --dry-run and approved. Deletes are human-in-the-loop only.
 
+### Bitdefender GravityZone (Security)
+
+Page: https://msp-skills.compoundingteams.com/skills/bitdefender/
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/bitdefender/install.sh)
+
+Running Bitdefender GravityZone for a book of customers? Ask your AI "which customers have unmanaged or outdated machines," "what open incidents are high or critical across every client," or "which company is LAPTOP-7 in" and get one answer instead of opening each company in Control Center. The fleet commands walk your whole partner tree, so health ranking, incident triage, threat spread and monthly seat usage cover every child company.
+
+Outcomes (question -> command your AI agent runs):
+- Which customers have unmanaged, outdated or unscanned endpoints? -> bitdefender-cli fleet health
+- What changed in endpoint protection since last week? -> bitdefender-cli fleet changes --since 7d
+- What open incidents across every client are high or critical? -> bitdefender-cli fleet incident-queue --priority high,critical
+- Is the same malware quarantined at several customers, and is it blocklisted? -> bitdefender-cli fleet threats --window 7d
+- Which customer is this machine in, and what is its endpoint id? -> bitdefender-cli fleet locate "LAPTOP-7"
+- Which machines in my RMM have no Bitdefender agent? -> bitdefender-cli fleet rmm-gap --devices ninja-devices.csv
+- What did each customer use last month, after the partner rollup? -> bitdefender-cli usage billing --month 09/2026
+- List every child company and sub-partner with its id and parent -> bitdefender-cli companies tree
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, and bitdefender-mcp speaks HTTP natively: run `bitdefender-mcp --transport http` with BITDEFENDER_MCP_HTTP_TOKEN set (it serves `http://127.0.0.1:7777/mcp` and requires that token as a bearer header) and put that endpoint behind an HTTPS tunnel or your own reverse proxy. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You enter your credentials once.
+Q: Is my GravityZone data safe?
+A: Your data stays on your machine. The CLI, the MCP server and the local snapshot store are all local. The AI sees query results, not raw bulk data, and credentials are never bundled or transmitted by MSP Skills.
+Q: What GravityZone API key do I need?
+A: A Control Center API key: click the user icon in Control Center, choose My Account and use the Control Center API section, which also shows the Access URL. Keys are scoped per API area when you create them, with no read/write split inside an area. The fleet commands need the Companies and Network APIs, plus Licensing for usage billing, Incidents for fleet incident-queue, and Quarantine and Incidents for fleet threats. Set BITDEFENDER_API_KEY, and set BITDEFENDER_BASE_URL to your Access URL if it is not https://cloud.gravityzone.bitdefender.com/api.
+Q: Does it need a partner account?
+A: For the cross-customer views, yes: walking child companies needs a partner-level key, because getCompaniesList is a partner API. A customer-level key works, but every fleet view then covers only that one company.
+Q: Will this hit GravityZone API rate limits?
+A: Control Center limits each API key to a number of requests per second and answers 429 with a Retry-After header when you go over. The CLI paces itself at 5 requests per second by default (--rate-limit) and waits out a 429. getIncidentsList allows about 3 calls a minute, so fleet incident-queue makes one partner-wide call and spaces any extra pages 21 seconds apart.
+Q: Can the AI isolate a machine or run a command on an endpoint by itself?
+A: Only if you let it. Generated commands run as soon as they are invoked and do not prompt, so preview with --dry-run first: it prints the JSON-RPC method and parameters it would send, without sending. Over MCP, the generic bitdefender_execute tool can call any GravityZone method, including isolation, kill process, remote command execution and deletes, gated only by your AI app's approval prompt. For an agent that should only read, set BITDEFENDER_MCP_READ_ONLY=1 in the MCP server's environment: bitdefender_execute then runs only GravityZone read methods, refuses every write and the reads that return or take a credential, and the import tool is hidden. Keep the approval prompt on.
+Q: Why does fleet changes say it has nothing to compare?
+A: It diffs saved snapshots, and each fleet health run saves one (unless you pass --no-save). Run fleet health at least twice, for example daily, and fleet changes reports endpoints added or removed, managed/unmanaged flips, newly outdated agents, policies no longer applied and isolation changes between them.
+Q: Does it work with on-premises GravityZone?
+A: It speaks the same JSON-RPC Public API, so set BITDEFENDER_BASE_URL to your Control Center's Access URL. It has not yet been verified against a live on-premises console.
+Q: Does it replace GravityZone Control Center?
+A: No. Control Center stays best for policy authoring, investigations and day-to-day console work. This skill answers the across-every-customer questions and runs scripted actions from your AI agent.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+
+Governance: The skill authenticates with a GravityZone Control Center API key you create, and its reach is exactly the API areas you enable on that key. Every fleet report (health, incident queue, threats, locate, RMM gap, changes, billing) and every list or get, except the credential reads named below, is read-only and safe to let an agent run. GravityZone is also an endpoint security console, so isolating machines, killing processes, running remote commands, scans and quarantine tasks reach real customer machines; those, plus policy, blocklist and exclusion changes, need a human to approve the exact command. Reads that return or take a credential (push settings, license keys, package settings and install links, integration settings, user password checks) are human-only. Generated commands run immediately, and the MCP server's generic execute tool can call any method, so set BITDEFENDER_MCP_READ_ONLY=1 for an agent that should only read.
+
 ### Blumira (Security)
 
 Page: https://msp-skills.compoundingteams.com/skills/blumira/

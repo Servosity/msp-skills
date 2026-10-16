@@ -2,7 +2,7 @@
 
 **140 GravityZone Public API methods as commands, plus fleet health, billing and incident views across child companies.**
 
-Every method documented in the GravityZone Partners and Cloud public API references is a typed command and MCP tool, with --json, --dry-run and read-only MCP annotations on reads. On top, fleet health, fleet incident-queue and usage billing walk the whole partner tree so an MSP sees every customer at once, and fleet changes diffs saved snapshots because GravityZone keeps no history. Not yet verified against a live tenant.
+140 GravityZone Partners and Cloud Public API methods are typed commands with --json and --dry-run; over MCP they are reached through bitdefender_search and bitdefender_execute. On top, fleet health, fleet incident-queue and usage billing walk the whole partner tree so an MSP sees every customer at once, and fleet changes diffs saved fleet health snapshots. Not yet verified against a live tenant.
 
 Learn more at [Bitdefender GravityZone](https://www.bitdefender.com/business/).
 
@@ -99,7 +99,7 @@ Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json`
 
 ## Authentication
 
-GravityZone authenticates with HTTP Basic: the API key is the username and the password is empty. Create the key in Control Center under your user menu > My Account > API keys and enable the API areas you will use: keys are scoped per area, with no read/write split. The fleet commands need a partner-level key with the Companies and Network APIs (companies tree, fleet health, fleet locate, fleet rmm-gap), plus Licensing for usage billing, Incidents for fleet incident-queue, and Quarantine and Incidents for fleet threats. A customer-level key works but every fleet view then covers only that one company. Export the key as BITDEFENDER_API_KEY. The API host differs by region and on-premises install, so also set BITDEFENDER_BASE_URL to the Access URL shown under My Account > Control Center API (for example https://cloud.gravityzone.bitdefender.com/api).
+GravityZone authenticates with HTTP Basic: the API key is the username and the password is empty. Create the key in Control Center under your user menu > My Account > API keys and enable the API areas you will use: keys are scoped per area, with no read/write split. The fleet commands need a partner-level key with the Companies and Network APIs (companies tree, fleet health, fleet locate, fleet rmm-gap), plus Licensing for usage billing, Incidents for fleet incident-queue, and Quarantine and Incidents for fleet threats. A customer-level key works but every fleet view then covers only that one company. Export the key as BITDEFENDER_API_KEY (`export BITDEFENDER_API_KEY=<key>` in bash or zsh; `$env:BITDEFENDER_API_KEY = "<key>"` in PowerShell), or pipe it to `bitdefender-cli auth set-token` to save it. The API host differs by region and on-premises install, so also set BITDEFENDER_BASE_URL to the Access URL shown under My Account > Control Center API (for example https://cloud.gravityzone.bitdefender.com/api).
 
 ## Quick Start
 
@@ -670,7 +670,7 @@ This CLI is designed for AI agent consumption:
 - **Non-interactive** - never prompts, every input is a flag
 - **Pipeable** - `--json` output to stdout, errors to stderr
 - **Filterable** - `--select <field>[,<field>...]` returns only fields you need
-- **Previewable** - `--dry-run` shows the request without sending
+- **Previewable** - `--dry-run` prints the JSON-RPC method (after the `#` in the URL) and the parameters it would send, without sending; the wire body wraps them in a JSON-RPC envelope
 - **Explicit retries** - add `--idempotent` to create retries when a no-op success is acceptable
 - **Writes run immediately** - generated write commands (create, delete, isolate, quarantine, tasks) run as soon as they are invoked and do not prompt; preview with `--dry-run` first. `--agent` does not imply `--yes`
 - **Piped input** - write commands can accept structured input when their help lists `--stdin`
@@ -702,6 +702,7 @@ Environment variables:
 | `BITDEFENDER_CONFIG` | path | No | Path to the config file, instead of `config.toml` in the config directory. |
 | `BITDEFENDER_NO_LEARN` | per_call | No | Set to `true` to turn off the self-learning loop for deterministic runs. |
 | `BITDEFENDER_MCP_HTTP_TOKEN` | mcp | Only with `--transport http` | Bearer token the MCP server requires on every HTTP request. |
+| `BITDEFENDER_MCP_READ_ONLY` | mcp | No | Set to exactly `1` so the MCP server's `bitdefender_execute` runs only GravityZone read methods and refuses writes and the reads that return or take a credential. |
 
 ### agentcookie (optional)
 
@@ -716,7 +717,7 @@ If you use agentcookie to sync secrets across machines, this CLI auto-adopts age
 - Run the `list` command to see available items
 
 ### API-specific
-- **HTTP 401: Authorization header not passed, HTTP Basic Authentication should be used**  -  export BITDEFENDER_API_KEY=<key>; the CLI sends it as the Basic username with an empty password
+- **HTTP 401: Authorization header not passed, HTTP Basic Authentication should be used**  -  export BITDEFENDER_API_KEY=<key> (PowerShell: $env:BITDEFENDER_API_KEY = "<key>"); the CLI sends it as the Basic username with an empty password
 - **HTTP 403: API Key is not allowed to access the selected API: <Area>**  -  Edit the key in Control Center (My Account > API keys) and enable that API area, or run bitdefender-cli api-key --json to see enabled areas
 - **HTTP 400: The requested API is not available**  -  Set BITDEFENDER_BASE_URL to the Access URL from My Account > Control Center API, including the /api suffix
 - **HTTP 429 Too many requests on getIncidentsList or a per-company incidents loop**  -  getIncidentsList allows about 3 calls per minute per key; use fleet incident-queue (one partner-scope call that spaces extra --max-pages pages 21s apart), or wait for Retry-After

@@ -1,6 +1,6 @@
 ---
 name: bitdefender
-description: "140 GravityZone Public API methods as commands, plus fleet health, billing and incident views across child companies. Trigger phrases: `which customers have unprotected endpoints`, `gravityzone monthly usage for billing`, `open bitdefender incidents across all clients`, `find a machine across all gravityzone customers`, `same malware quarantined at several clients`, `use bitdefender gravityzone`."
+description: "Use when the user asks about Bitdefender GravityZone across every customer: which child companies have unmanaged, outdated or unscanned endpoints, what changed since the last check, the open EDR/XDR incident queue, malware quarantined at several clients, which company a machine is in, RMM devices with no agent, or monthly seat usage for billing. Covers 140 GravityZone Public API methods as commands. Trigger phrases: `which customers have unprotected endpoints`, `gravityzone monthly usage for billing`, `open bitdefender incidents across all clients`, `find a machine across all gravityzone customers`, `same malware quarantined at several clients`, `use bitdefender gravityzone`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "Bitdefender"
@@ -42,11 +42,11 @@ register the skill with your agent and writes no MCP client config - see
 
 If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
-Every method documented in the GravityZone Partners and Cloud public API references is a typed command and MCP tool, with --json, --dry-run and read-only MCP annotations on reads. On top, fleet health, fleet incident-queue and usage billing walk the whole partner tree so an MSP sees every customer at once, and fleet changes diffs saved snapshots because GravityZone keeps no history. Not yet verified against a live tenant.
+140 GravityZone Partners and Cloud Public API methods are typed commands with --json and --dry-run; over MCP they are reached through bitdefender_search and bitdefender_execute. On top, fleet health, fleet incident-queue and usage billing walk the whole partner tree so an MSP sees every customer at once, and fleet changes diffs saved fleet health snapshots. Not yet verified against a live tenant.
 
 ## When to Use This CLI
 
-Use this CLI when an agent or MSP technician needs GravityZone data or actions from a script or chat: endpoints, companies, policies, quarantine and incidents; scans, isolation and quarantine tasks; licence and monthly usage. Prefer the fleet commands for any question that spans more than one child company. fleet changes needs two saved fleet health snapshots before it reports anything; fleet locate answers from the latest snapshot, so pass --data-source live before acting on an endpoint id. fleet locate and fleet rmm-gap state where their inventory came from in results.source (snapshot or live) and results.taken_at; read those rather than meta.source, which says live under the default --data-source auto even when the snapshot answered. Write commands run as soon as they are invoked: preview with --dry-run. These commands have not yet been verified against a live tenant.
+Use this CLI when an agent or MSP technician needs GravityZone data or actions from a script or chat: endpoints, companies, policies, quarantine and incidents; scans, isolation and quarantine tasks; licence and monthly usage. Prefer the fleet commands for any question that spans more than one child company. fleet changes needs two saved fleet health snapshots before it reports anything; fleet locate answers from the latest snapshot, so pass --data-source live before acting on an endpoint id. fleet locate and fleet rmm-gap state where their inventory came from in results.source (snapshot or live) and results.taken_at; meta.source says local when the snapshot answered and live after a live fan-out. Write commands run as soon as they are invoked: preview with --dry-run. These commands have not yet been verified against a live tenant.
 
 ## Anti-triggers
 
@@ -449,7 +449,7 @@ Include endpoints in custom groups and narrow the large payload to the fields an
 
 ## Auth Setup
 
-GravityZone authenticates with HTTP Basic: the API key is the username and the password is empty. Create the key in Control Center under your user menu > My Account > API keys and enable the API areas you will use: keys are scoped per area, with no read/write split. The fleet commands need a partner-level key with the Companies and Network APIs (companies tree, fleet health, fleet locate, fleet rmm-gap), plus Licensing for usage billing, Incidents for fleet incident-queue, and Quarantine and Incidents for fleet threats. A customer-level key works but every fleet view then covers only that one company. Export the key as BITDEFENDER_API_KEY. The API host differs by region and on-premises install, so also set BITDEFENDER_BASE_URL to the Access URL shown under My Account > Control Center API (for example https://cloud.gravityzone.bitdefender.com/api).
+GravityZone authenticates with HTTP Basic: the API key is the username and the password is empty. Create the key in Control Center under your user menu > My Account > API keys and enable the API areas you will use: keys are scoped per area, with no read/write split. The fleet commands need a partner-level key with the Companies and Network APIs (companies tree, fleet health, fleet locate, fleet rmm-gap), plus Licensing for usage billing, Incidents for fleet incident-queue, and Quarantine and Incidents for fleet threats. A customer-level key works but every fleet view then covers only that one company. Export the key as BITDEFENDER_API_KEY (`export BITDEFENDER_API_KEY=<key>` in bash or zsh; `$env:BITDEFENDER_API_KEY = "<key>"` in PowerShell), or pipe it to `bitdefender-cli auth set-token` to save it. The API host differs by region and on-premises install, so also set BITDEFENDER_BASE_URL to the Access URL shown under My Account > Control Center API (for example https://cloud.gravityzone.bitdefender.com/api).
 
 Run `bitdefender-cli doctor` to verify setup.
 
@@ -470,7 +470,7 @@ Global format flags share one contract on promoted, novel, sync, and `--deliver`
   ```bash
   bitdefender-cli accounts list --agent --select email,id,profile
   ```
-- **Previewable**  -  `--dry-run` shows the request without sending
+- **Previewable**  -  `--dry-run` prints the JSON-RPC method (after the `#` in the URL) and the parameters it would send, without sending; the wire body wraps them in a JSON-RPC envelope
 - **Offline-friendly**  -  the fleet commands save dated snapshots to a local SQLite store; `fleet changes`, `fleet locate` and `fleet rmm-gap` can answer from them offline
 - **Non-interactive**  -  never prompts, every input is a flag
 - **Writes run immediately**  -  generated write commands (create, delete, isolate, quarantine, tasks) run as soon as they are invoked and do not prompt; preview with `--dry-run` first. `--agent` does not imply `--yes`

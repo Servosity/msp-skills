@@ -145,8 +145,8 @@
     },
     {
       "id": "generated-doc-corrections",
-      "summary": "SKILL.md, AGENTS.md and guide.md say writes run immediately (no prompt), the local store holds fleet snapshots (no sync/search), and fleet health --fail-on exits 1",
-      "why": "The generator's boilerplate promised sync/search commands that do not exist and an explicit --yes confirmation that generated write commands never ask for. handfix/patch_docs.py corrects the press README (vendored here as guide.md), SKILL.md and AGENTS.md; onboard re-vendors all three, so re-apply ~/Documents/Dev/cli-factory/bitdefender/handfix/ after any regen and re-run onboard.",
+      "summary": "SKILL.md, AGENTS.md and guide.md say writes run immediately (no prompt), the local store holds fleet snapshots (no sync/search), and fleet health --fail-on exits 1; --dry-run is described as printing the JSON-RPC method and params (not the wire request); the MCP surface and read-only switch are described as they behave",
+      "why": "The generator's boilerplate promised sync/search commands that do not exist and an explicit --yes confirmation that generated write commands never ask for. handfix/patch_docs.py corrects the press README (vendored here as guide.md), SKILL.md and AGENTS.md; onboard re-vendors all three, so re-apply ~/Documents/Dev/cli-factory/bitdefender/handfix/ after any regen and re-run onboard. The msp-skills onboard also corrected, in the re-vendored SKILL.md and guide.md: --dry-run prints the method in the URL fragment plus bare params, not the JSON-RPC body sent on the wire; the API methods are reached over MCP through bitdefender_search/bitdefender_execute, not one MCP tool each; meta.source now tracks the real source for fleet locate and fleet rmm-gap; and guide.md documents BITDEFENDER_MCP_READ_ONLY. Re-apply these after any re-vendor.",
       "status": "active",
       "asserts": [
         {
@@ -164,6 +164,22 @@
         {
           "file": "guide.md",
           "contains": "`1` `fleet health --fail-on` found issues"
+        },
+        {
+          "file": "SKILL.md",
+          "contains": "`--dry-run` prints the JSON-RPC method (after the `#` in the URL) and the parameters it would send, without sending"
+        },
+        {
+          "file": "guide.md",
+          "contains": "`--dry-run` prints the JSON-RPC method (after the `#` in the URL) and the parameters it would send, without sending"
+        },
+        {
+          "file": "SKILL.md",
+          "not_contains": "read-only MCP annotations on reads"
+        },
+        {
+          "file": "guide.md",
+          "contains": "| `BITDEFENDER_MCP_READ_ONLY` | mcp | No |"
         }
       ]
     },
