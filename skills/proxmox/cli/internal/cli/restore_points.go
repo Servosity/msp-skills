@@ -65,7 +65,9 @@ func newNovelRestorePointsCmd(flags *rootFlags) *cobra.Command {
 			"clusters is reported once per cluster. protected marks a point Proxmox never prunes; the CLI does not predict what a future prune removes. " +
 			"evidence is partial, and " +
 			"not_read names the sources, when something that may hold the guest's restore points could not be read; then a count " +
-			"of 0 means none could be read, and the command exits 5 when no match has a readable point.",
+			"of 0 means none could be read, and the command exits 5 when no match has a readable point. " +
+			"predating_guest counts backups under the VMID from before this VM was created (an earlier guest's with the same VMID), " +
+			"which are not listed; --csv reports both on stderr.",
 		Example: strings.Trim(`
   proxmox-cli restore-points 104 --agent
   proxmox-cli restore-points files --cluster acme
@@ -126,6 +128,9 @@ func newNovelRestorePointsCmd(flags *rootFlags) *cobra.Command {
 						flat = append(flat, g.RestorePoints...)
 						if g.Evidence == "partial" { // CSV has no column for it
 							fmt.Fprintf(cmd.ErrOrStderr(), "warning: %s %d: partial evidence, not read: %s\n", g.Cluster, g.VMID, strings.Join(g.NotRead, "; "))
+						}
+						if g.PredatingGuest > 0 {
+							fmt.Fprintf(cmd.ErrOrStderr(), "warning: %s %d: %d older backup(s) under this VMID predate this VM's creation (an earlier guest's) and are not listed\n", g.Cluster, g.VMID, g.PredatingGuest)
 						}
 					}
 					out = flat
@@ -334,17 +339,28 @@ func collectRestorePoints(ctx context.Context, t fleetTarget, query string, veri
 		}
 		fails = append(fails, gapFailures(t.Name, gaps)...) // as posture: a gap reaches stderr and --csv runs too
 		points = dedupeRestorePoints(points)
-		var created int64 // an earlier guest's backups under this VMID are not this one's
+		var birth guestBirth // an earlier guest's backups under this VMID are not this one's
 		if len(points) > 0 {
-			created = guestCreated(ctx, t.C, g)
+			birth = readGuestBirth(ctx, t.C, g, time.Now(), offline)
 		}
+		either := 0
 		points = slices.DeleteFunc(points, func(rp restorePoint) bool {
-			old := (rp.GuestType == "" || rp.GuestType == g.Type) && predates(rp.Time, created)
-			if old {
-				gr.PredatingGuest++
+			if rp.GuestType != "" && rp.GuestType != g.Type {
+				return false
 			}
-			return old
+			switch birth.of(rp.Time) {
+			case ofEarlierGuest:
+				gr.PredatingGuest++
+				return true
+			case ofEitherGuest:
+				either++
+				return true
+			}
+			return false
 		})
+		if either > 0 {
+			notRead = append(notRead, eitherGuestWhy(either, birth)+" (not listed)")
+		}
 		points, unreadable := splitUnreadable(points)
 		for _, rp := range unreadable {
 			if rp.GuestType == "" || rp.GuestType == g.Type {

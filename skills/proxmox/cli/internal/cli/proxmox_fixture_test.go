@@ -298,6 +298,9 @@ func (f *fixture) handler(t *testing.T, routes map[string]any, authPrefix string
 			}
 		}
 		data, ok := routes[path]
+		if !ok && pve && strings.HasPrefix(path, "/nodes/") && strings.Contains(path, "/qemu/") && strings.HasSuffix(path, "/config") {
+			data, ok = map[string]any{}, true // a VM config with no creation record (meta ctime)
+		}
 		if !ok {
 			t.Logf("fixture 404: %s %s", r.Method, r.URL.String())
 			http.Error(w, `{"data":null}`, http.StatusNotFound)

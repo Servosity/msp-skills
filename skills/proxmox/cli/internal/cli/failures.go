@@ -205,20 +205,22 @@ func collectFailures(ctx context.Context, t fleetTarget, since time.Time, want m
 	capHit := false
 	var pveErr, pbsErr error
 	guestByID := map[int64]pveGuest{}
-	created := map[int64]int64{}
-	// nameAt: the guest name for a VMID at a task's start; none for a task from
-	// before this VM was created (an earlier guest's with the same VMID).
+	births := map[int64]guestBirth{}
+	var offline []string
+	// nameAt: the guest name for a VMID at a task's start; none for a task
+	// that may be from before this VM was created (an earlier guest's with the
+	// same VMID).
 	nameAt := func(id, at int64) string {
 		g, ok := guestByID[id]
 		if !ok {
 			return ""
 		}
-		c, seen := created[id]
+		b, seen := births[id]
 		if !seen {
-			c = guestCreated(ctx, t.C, g)
-			created[id] = c
+			b = readGuestBirth(ctx, t.C, g, time.Now(), offline)
+			births[id] = b
 		}
-		if predates(at, c) {
+		if b.of(at) != ofThisGuest {
 			return ""
 		}
 		return g.Name
@@ -241,7 +243,6 @@ func collectFailures(ctx context.Context, t fleetTarget, since time.Time, want m
 			for _, g := range guests {
 				guestByID[int64(g.VMID)] = g
 			}
-			var offline []string
 			if nodes, offline, err = fetchNodes(ctx, t.C); err != nil {
 				fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "pve nodes", Error: err.Error()})
 			}

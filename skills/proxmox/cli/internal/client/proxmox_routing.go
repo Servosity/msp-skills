@@ -7,6 +7,7 @@ package client
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
@@ -490,4 +491,19 @@ func redactValue(v any) bool {
 		}
 	}
 	return changed
+}
+
+// GetOnceNoStore reads path fresh, in one attempt, and never writes the
+// response cache: for a per-guest read whose failure the caller treats as
+// unread evidence (retrying every guest's 5xx would cost minutes), and whose
+// response carries free text the tool does not keep (a VM config's notes and
+// arguments, where MSPs often leave credentials).
+func (c *Client) GetOnceNoStore(ctx context.Context, path string, params map[string]string) (json.RawMessage, error) {
+	if c.operationSendsPrimaryAuth(http.MethodGet, path) {
+		if err := c.validateCachedRequestAuth(ctx); err != nil {
+			return nil, err
+		}
+	}
+	result, _, err := c.do(ctx, http.MethodGet, path, params, nil, map[string]string{ReplaySafeHeader: "false"})
+	return result, err
 }

@@ -2381,34 +2381,79 @@ func unixRFC3339(sec int64) string {
 	return time.Unix(sec, 0).UTC().Format(time.RFC3339)
 }
 
-// guestCreated returns when Proxmox VE created a QEMU guest: the ctime in
-// its config's meta property, which a restore keeps. 0 when unknown: an LXC
-// guest has no such record, nor has a VM created before PVE 6.2 or one whose
-// config the token cannot read. A backup or task of the VMID from before
-// then belongs to an earlier guest that had the same VMID.
-func guestCreated(ctx context.Context, c *client.Client, g pveGuest) int64 {
-	if g.Type != "qemu" || g.Node == "" {
-		return 0
+// guestBirth is what a QEMU guest's own config says about when Proxmox VE
+// created it: the ctime in its meta property (PVE 7.1 and later), which a
+// restore keeps. at is 0 when there is no usable record: an LXC guest, a VM
+// created before PVE 7.1, or a ctime dated past now (the creating node's clock
+// ran ahead, so the record bounds nothing). unread: the config could not be
+// read (an error, or the guest's node is offline), so nothing under the VMID
+// can be told apart from an earlier guest's.
+type guestBirth struct {
+	at     int64
+	unread bool
+}
+
+// attribution says whose a backup or task under a VMID is.
+type attribution int
+
+const (
+	ofThisGuest    attribution = iota
+	ofEarlierGuest             // a deleted guest that had the same VMID
+	ofEitherGuest              // cannot be told: config unread, or within the clock-skew tolerance before creation
+)
+
+// of attributes something under the guest's VMID dated sec. At or after
+// creation it is this guest's; more than the clock-skew tolerance before, an
+// earlier guest's; in between (or with the config unread) it may be either,
+// so it is uncertain evidence: never credited, never proof of absence.
+func (b guestBirth) of(sec int64) attribution {
+	switch {
+	case b.unread:
+		return ofEitherGuest
+	case b.at == 0 || sec >= b.at:
+		return ofThisGuest
+	case sec+int64(clockSkewTolerance/time.Second) < b.at:
+		return ofEarlierGuest
+	default:
+		return ofEitherGuest
 	}
+}
+
+// readGuestBirth reads a guest's creation time. It sends nothing to an
+// offline node (PVE proxies the read there and times out), tries once, and
+// never writes the config to the response cache (it carries the VM's notes).
+func readGuestBirth(ctx context.Context, c *client.Client, g pveGuest, now time.Time, offline []string) guestBirth {
+	if g.Type != "qemu" {
+		return guestBirth{}
+	}
+	if g.Node == "" || slices.Contains(offline, g.Node) {
+		return guestBirth{unread: true}
+	}
+	raw, err := c.GetOnceNoStore(ctx, fmt.Sprintf("/nodes/%s/qemu/%d/config", url.PathEscape(g.Node), int64(g.VMID)), nil)
 	var cfg struct {
 		Meta string `json:"meta"`
 	}
-	if getJSON(ctx, c, fmt.Sprintf("/nodes/%s/qemu/%d/config", url.PathEscape(g.Node), int64(g.VMID)), nil, &cfg) != nil {
-		return 0
+	if err != nil || json.Unmarshal(raw, &cfg) != nil {
+		return guestBirth{unread: true}
 	}
 	for _, kv := range strings.Split(cfg.Meta, ",") {
 		if v, ok := strings.CutPrefix(strings.TrimSpace(kv), "ctime="); ok {
 			n, _ := strconv.ParseInt(v, 10, 64)
-			return n
+			if n > now.Add(clockSkewTolerance).Unix() {
+				n = 0
+			}
+			return guestBirth{at: max(n, 0)}
 		}
 	}
-	return 0
+	return guestBirth{}
 }
 
-// predates: something at sec happened before a guest created at created
-// (0 = unknown), beyond the clock-skew tolerance between nodes.
-func predates(sec, created int64) bool {
-	return created > 0 && sec+int64(clockSkewTolerance/time.Second) < created
+// eitherGuestWhy says why n backups of a guest are uncertain evidence.
+func eitherGuestWhy(n int, b guestBirth) string {
+	if b.unread {
+		return "its config (which records when the VM was created) could not be read, so nothing under its VMID can be told from an earlier guest's with the same VMID"
+	}
+	return fmt.Sprintf("%d backup(s) under its VMID are dated within an hour before this VM's recorded creation and may be an earlier guest's with the same VMID", n)
 }
 
 // clockSkewTolerance is how far past now a restore point may be dated before
