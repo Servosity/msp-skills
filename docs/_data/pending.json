@@ -506,7 +506,7 @@
   "threatdown": {
     "state": "binary-pending",
     "version": "0.1.0",
-    "latest_tag": "threatdown-v0.1.0",
+    "latest_tag": "threatdown-v0.1.1",
     "current_hash": "sha256:6d765e19636d25fc6dcd8d61be0aa34f1d2ef1348dd5a85652705799a3b3cc3d",
     "released_hash": "sha256:f63d519c4ca09233b2257c8c46abc34596ee4579414c2b3f9761725eb60f0d1f"
   },
