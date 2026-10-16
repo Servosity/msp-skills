@@ -254,6 +254,13 @@ export WATCHGUARD_HOME=/srv/watchguard
 watchguard-cli doctor
 ```
 
+On Windows (PowerShell):
+
+```powershell
+$env:WATCHGUARD_HOME = "C:\ProgramData\watchguard"
+watchguard-cli doctor
+```
+
 Under `WATCHGUARD_HOME=/srv/watchguard`, the four dirs resolve to `/srv/watchguard/config`, `/srv/watchguard/data`, `/srv/watchguard/state`, and `/srv/watchguard/cache`.
 
 MCP servers do not receive CLI flags from the host. Put relocation in the host `env` block:
@@ -909,7 +916,7 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Run `watchguard-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/watchguard-cli/config.toml`; `--home`, `WATCHGUARD_HOME`, and per-kind env vars can relocate it.
+Run `watchguard-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/watchguard-cli/config.toml` (`%USERPROFILE%\.config\watchguard-cli\config.toml` on Windows); `--home`, `WATCHGUARD_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
 

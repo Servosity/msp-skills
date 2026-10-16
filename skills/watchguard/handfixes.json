@@ -186,7 +186,7 @@
     },
     {
       "id": "generated-doc-corrections",
-      "summary": "Generated SKILL.md, AGENTS.md and guide.md carry corrections for this CLI: the exit-code table documents firebox-transactions wait's 8 (failed) and 9 (still running), the env table names WATCHGUARD_ACCOUNT_ID (not WATCHGUARD_ACCOUNTID) plus the region and audience variables, AGENTS.md examples use real commands and a low-entropy device ID, and AGENTS.md says writes send without confirmation.",
+      "summary": "Generated SKILL.md, AGENTS.md and guide.md carry corrections for this CLI: the exit-code table documents firebox-transactions wait's 8 (failed) and 9 (still running), the env table names WATCHGUARD_ACCOUNT_ID (not WATCHGUARD_ACCOUNTID) plus the region and audience variables, AGENTS.md examples use real commands and a low-entropy device ID, and AGENTS.md says writes send without confirmation. guide.md also carries the Windows forms main gave every other connector guide in #390: the %USERPROFILE% default config path and a PowerShell $env:WATCHGUARD_HOME block.",
       "why": "The generated docs named a wrong env var (WATCHGUARD_ACCOUNTID), a wrong config path and `auth-status`, used <command> placeholders, and documented exit 8 only as 'async job not finished' - for firebox-transactions wait it means the deployment FAILED. The build pane's postgen_docs.py applies the doc fixes after every generate; onboard.py --resume re-vendors SKILL.md, AGENTS.md and guide.md from the source and would drop the msp-skills edits. Round 2 (2026-10-15): the 'Fleet status' recipe used --select data.id,... but the CLI unwraps the data envelope before --select, so it exited 2 with unfiltered rows; and the Quick Start promised `doctor --dry-run` checks the install, which it does not. Codex round 1 (2026-10-15): guide.md's Claude Desktop step named only the macOS config path after the Windows installer line; it now names %APPDATA%\\Claude\\claude_desktop_config.json too.",
       "status": "active",
       "asserts": [
@@ -225,6 +225,14 @@
         {
           "file": "guide.md",
           "contains": "%APPDATA%\\Claude\\claude_desktop_config.json"
+        },
+        {
+          "file": "guide.md",
+          "contains": "(`%USERPROFILE%\\.config\\watchguard-cli\\config.toml` on Windows)"
+        },
+        {
+          "file": "guide.md",
+          "contains": "$env:WATCHGUARD_HOME = \"C:\\ProgramData\\watchguard\""
         }
       ]
     },
