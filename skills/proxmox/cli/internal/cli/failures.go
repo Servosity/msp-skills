@@ -70,7 +70,7 @@ func newNovelFailuresCmd(flags *rootFlags) *cobra.Command {
 			"A multi-guest vzdump task logs each guest's outcome only inside its task log, so the log is read and every guest is attributed: " +
 			"'ERROR: Backup of VM N failed - ...' is failed, and 'Starting Backup of VM N' with no finish and no error is incomplete " +
 			"(the silent mid-job stop). PBS tasks are read with errors=1. A PBS task names no PVE cluster: on a PBS that another configured cluster also writes to, " +
-			"its row carries attribution 'shared: <clusters>' and no tenant, and a task two profiles both read is listed once.",
+			"its row carries attribution 'shared: <clusters>' and no tenant (an entry with only a PBS host owns what one cluster of its own client writes), and a task two profiles both read is listed once.",
 		Example: strings.Trim(`
   proxmox-cli failures --since 24h --agent
   proxmox-cli failures --since 7d --type vzdump,verify

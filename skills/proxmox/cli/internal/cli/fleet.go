@@ -320,13 +320,20 @@ func printFetchFailures(w io.Writer, failures []fetchFailure) {
 // failed there is no data at all, so the command must say so and exit 5
 // instead of ending on a healthy-looking empty result. allFailed tells the
 // caller to skip human-mode "all clear" prose.
-func fleetOutcome(w io.Writer, visited int, failures []fetchFailure) (allFailed bool, err error) {
+// downClusters names the clusters that did not answer (unreachable or
+// unauthorized): a scope-less failure.
+func downClusters(failures []fetchFailure) map[string]bool {
 	down := map[string]bool{}
 	for _, f := range failures {
 		if f.Scope == "" {
 			down[f.Cluster] = true
 		}
 	}
+	return down
+}
+
+func fleetOutcome(w io.Writer, visited int, failures []fetchFailure) (allFailed bool, err error) {
+	down := downClusters(failures)
 	switch {
 	case visited > 0 && len(down) == visited:
 		msg := fmt.Sprintf("No data: %d of %d cluster(s) unreachable or unauthorized", len(down), visited)
@@ -1049,7 +1056,7 @@ func (t fleetTarget) sharedOwners(ref pbsStorageRef, ns string) []string {
 	}
 	foreign := t.foreignWriters(ids, names)
 	for _, p := range t.own.peers {
-		if p.name == t.Name || (p.pve != "" && p.pve == t.pveID) || !t.own.covers(p, ref, ns) {
+		if t.selfPeer(p) || !t.own.covers(p, ref, ns) {
 			continue
 		}
 		name := p.name
@@ -1102,6 +1109,13 @@ func (t fleetTarget) foreignWriters(ids, names map[string]bool) bool {
 	return false
 }
 
+// selfPeer: p is this target, or, for a PBS-only entry, a readable cluster of
+// its own client (whose declared namespace is that client's, not foreign).
+func (t fleetTarget) selfPeer(p peerScope) bool {
+	return p.name == t.Name || (p.pve != "" && p.pve == t.pveID) ||
+		(t.pveID == "" && !p.unknown && strings.EqualFold(t.own.tenants[p.name], t.Tenant))
+}
+
 // datastoreSharers is pbsServiceSharers for one datastore of a PBS service
 // (svcs): the configured clusters writing, or possibly writing, anywhere in
 // it when any of them is not this target's PVE cluster.
@@ -1122,7 +1136,7 @@ func (t fleetTarget) datastoreSharers(svcs []string, store string) []string {
 	}
 	foreign := t.foreignWriters(ids, names)
 	for _, p := range t.own.peers {
-		if p.name == t.Name || (p.pve != "" && p.pve == t.pveID) || !(p.anyPBS() || overlaps(p.svcs, svcs)) {
+		if t.selfPeer(p) || !(p.anyPBS() || overlaps(p.svcs, svcs)) {
 			continue
 		}
 		if p.stores != nil {
@@ -1189,7 +1203,7 @@ func (t fleetTarget) pbsServiceSharers() []string {
 	}
 	foreign := t.foreignWriters(ids, names)
 	for _, p := range t.own.peers {
-		if p.name == t.Name || (p.pve != "" && p.pve == t.pveID) || !(p.anyPBS() || overlaps(p.svcs, mine)) {
+		if t.selfPeer(p) || !(p.anyPBS() || overlaps(p.svcs, mine)) {
 			continue
 		}
 		name := p.name

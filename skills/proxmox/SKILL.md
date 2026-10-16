@@ -75,7 +75,7 @@ Do not use this CLI for:
   ```
 - **`failures`**  -  Failed and silently incomplete backup, verify, GC, sync and prune tasks in a time window, one row per failed guest or datastore with the reason line.
 
-  _Use for morning triage instead of reading backup emails; it names the guest and the error, not just the task. It reads at most --max-logs task logs per cluster (default 50); log_cap_hit says when that limit was reached. A PBS task names no PVE cluster, so on a PBS that another configured cluster also writes to its row has attribution `shared: <clusters>` and an empty tenant; do not credit it to one client. A task two profiles read through the same PBS host spelling is listed once. fetch_failures lists clusters or calls that did not answer; when no cluster answers it exits 5._
+  _Use for morning triage instead of reading backup emails; it names the guest and the error, not just the task. It reads at most --max-logs task logs per cluster (default 50); log_cap_hit says when that limit was reached. A PBS task names no PVE cluster, so on a PBS that another configured cluster also writes to its row has attribution `shared: <clusters>` and an empty tenant; do not credit it to one client (an entry with only a PBS host owns what one cluster of its own client writes). A task two profiles read through the same PBS host spelling is listed once. fetch_failures lists clusters or calls that did not answer; when no cluster answers it exits 5._
 
   ```bash
   proxmox-cli failures --since 24h --agent

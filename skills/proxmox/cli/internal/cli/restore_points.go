@@ -120,6 +120,9 @@ func newNovelRestorePointsCmd(flags *rootFlags) *cobra.Command {
 					flat := []restorePoint{}
 					for _, g := range rep.Guests {
 						flat = append(flat, g.RestorePoints...)
+						if g.Evidence == "partial" { // CSV has no column for it
+							fmt.Fprintf(cmd.ErrOrStderr(), "warning: %s %d: partial evidence, not read: %s\n", g.Cluster, g.VMID, strings.Join(g.NotRead, "; "))
+						}
 					}
 					out = flat
 				}

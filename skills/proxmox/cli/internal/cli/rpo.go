@@ -39,8 +39,9 @@ type rpoRow struct {
 	// retention or a failed schedule expansion leaves part of it unproven.
 	Evidence string `json:"evidence"`
 	// PointsUnread: a storage that may hold this guest's restore points (its
-	// job's target, a former target, a hidden storage) could not be read, so
-	// the missed runs and the restore-point count are unproven, not measured.
+	// job's target, a former target, a hidden storage) could not be read, or
+	// some are dated in the future (a node clock ran ahead), so the missed
+	// runs and the restore-point count are unproven, not measured.
 	PointsUnread bool   `json:"points_unread,omitempty"`
 	Note         string `json:"note,omitempty"`
 }
@@ -482,13 +483,16 @@ func evaluateRPO(points []restorePoint, runs []int64, start, now time.Time) rpoR
 		row.LargestGapHours = math.Max(row.LargestGapHours, round1(float64(now.Unix()-prev)/3600))
 	}
 	switch {
-	case future > 0:
-		row.Note = fmt.Sprintf("%d restore point(s) dated in the future (a node clock ran ahead) were not counted; the runs they may cover are unproven", future)
-	case len(points) == 0:
+	case future > 0 && row.MissedRuns > 0:
+		// Real backups with unjudgeable dates may be the missed runs: unproven,
+		// like a point on unread storage. With no miss they can only add cover.
+		row.Note = fmt.Sprintf("%d restore point(s) dated in the future (a node clock ran ahead) were not counted; the missed runs may be among them, so they are unproven", future)
+		row.PointsUnread = true
+	case len(points) == 0 && future == 0:
 		row.Note = "no restore points retained; every scheduled run in the window is missed"
 	}
 	row.Evidence = "full"
-	if row.WindowCapped || future > 0 {
+	if row.WindowCapped || row.PointsUnread {
 		// Retention pruned the start of the window, so runs before capped_at
 		// (and any that failed there) cannot be checked.
 		row.Evidence = "partial"
@@ -522,6 +526,13 @@ func round1(v float64) float64 { return math.Round(v*10) / 10 }
 func rollupRPO(rows []rpoRow, targets []fleetTarget, failures []fetchFailure) []rpoClientRow {
 	unreachable, scoped := tenantFailures(targets, failures)
 	by := map[string]*rpoClientRow{}
+	// Every client with a cluster that answered gets a row, guests or not.
+	down := downClusters(failures)
+	for _, t := range targets {
+		if !down[t.Name] && by[t.Tenant] == nil {
+			by[t.Tenant] = &rpoClientRow{Tenant: t.Tenant}
+		}
+	}
 	for _, r := range rows {
 		c := by[r.Tenant]
 		if c == nil {
