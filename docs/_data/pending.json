@@ -422,7 +422,7 @@
   "rocketcyber": {
     "state": "binary-pending",
     "version": "0.1.3",
-    "latest_tag": "rocketcyber-v0.1.3",
+    "latest_tag": "rocketcyber-v0.1.4",
     "current_hash": "sha256:5e524cd1092052240e3c2a919b4729ad6ac19786c737c604ef6f0a4340e6ad49",
     "released_hash": "sha256:00608f1082a385b7c476961b7059dcc076394ebb42c7c92d5055134196c2a547"
   },
