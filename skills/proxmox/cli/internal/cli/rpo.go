@@ -338,16 +338,22 @@ func collectRPO(ctx context.Context, t fleetTarget, start, now time.Time, onlyVM
 			runs = append(runs, runsByJob[id]...)
 			scheduleUnknown = scheduleUnknown || unknownJob[id]
 		}
-		var mine []restorePoint
-		var created int64 // an earlier guest's backups under this VMID are not this one's
-		if len(points[vmid]) > 0 {
-			created = guestCreated(ctx, t.C, g)
-		}
+		// An earlier guest's backups under this VMID are not this one's, and a
+		// run scheduled before this guest existed is not one it missed.
+		birth := readGuestBirth(ctx, t.C, g, now, offline)
+		var mine, either []restorePoint
 		for _, rp := range dedupeRestorePoints(points[vmid]) {
-			if (rp.GuestType == "" || rp.GuestType == g.Type) && !predates(rp.Time, created) {
+			if rp.GuestType != "" && rp.GuestType != g.Type {
+				continue
+			}
+			switch birth.of(rp.Time) {
+			case ofThisGuest:
 				mine = append(mine, rp)
+			case ofEitherGuest:
+				either = append(either, rp)
 			}
 		}
+		runs = slices.DeleteFunc(runs, func(r int64) bool { return r < birth.at })
 		mine, unreadable := splitUnreadable(mine)
 		row := evaluateRPO(mine, runs, start, now)
 		if scheduleUnknown {
@@ -358,11 +364,15 @@ func collectRPO(ctx context.Context, t fleetTarget, start, now time.Time, onlyVM
 		for _, g := range gaps {
 			allGaps[g] = true
 		}
-		if pointsIncomplete || len(gaps) > 0 || len(unreadable) > 0 {
+		if pointsIncomplete || len(gaps) > 0 || len(unreadable) > 0 || len(either) > 0 || birth.unread {
 			why := "some backup storage could not be read (see fetch_failures)"
 			switch {
 			case len(gaps) > 0:
 				why = "the backup target of " + joinGaps(gaps) + " was not read"
+			case (len(either) > 0 || birth.unread) && !pointsIncomplete:
+				// Unread, it also hides when the guest was created: runs before
+				// then are not misses.
+				why = eitherGuestWhy(len(either), birth)
 			case len(unreadable) > 0 && !pointsIncomplete:
 				why = fmt.Sprintf("%d backup(s) are listed without a readable manifest (still running, or damaged)", len(unreadable))
 			}

@@ -398,18 +398,22 @@ func collectPosture(ctx context.Context, t fleetTarget, o postureOpts) (clusterP
 		// (CT 100 replaced by VM 100) is a different backup group.
 		// A backup from before this VM was created is an earlier guest's that
 		// had the same VMID (deleted, its backups retained).
-		var created int64
+		var birth guestBirth
 		if _, tried := attempts[vmid]; tried || len(points[vmid]) > 0 {
-			created = guestCreated(ctx, t.C, g)
+			birth = readGuestBirth(ctx, t.C, g, o.now, offline)
 		}
 		predated := 0
-		var rps, unreadable []restorePoint
+		var rps, unreadable, either []restorePoint
 		for _, rp := range dedupeRestorePoints(points[vmid]) {
 			if rp.GuestType != "" && rp.GuestType != g.Type {
 				continue
 			}
-			if predates(rp.Time, created) {
+			switch birth.of(rp.Time) {
+			case ofEarlierGuest:
 				predated++
+				continue
+			case ofEitherGuest:
+				either = append(either, rp)
 				continue
 			}
 			if rp.unreadable {
@@ -459,23 +463,35 @@ func collectPosture(ctx context.Context, t fleetTarget, o postureOpts) (clusterP
 			row.OffsiteLastSuccessAt = offsiteFor(rps, pbsHost, syncJobs)
 		}
 		a, ok := attempts[vmid]
-		if ok && predates(a.atUnix, created) {
+		attemptOf := ofThisGuest
+		if ok {
+			attemptOf = birth.of(a.atUnix)
+		}
+		if attemptOf == ofEarlierGuest {
 			a, ok = vzdumpAttempt{}, false // an earlier guest's run
 		}
-		superseded := supersededByAbort(aborted, vmid, max(a.atUnix, created))
+		superseded := supersededByAbort(aborted, vmid, max(a.atUnix, birth.at))
 		switch {
-		case ok && a.atUnix > blindSince && !superseded:
+		case ok && a.atUnix > blindSince && !superseded && attemptOf == ofThisGuest:
 			row.LastAttemptStatus, row.LastAttemptAt = a.status, a.at
 		case ok || blindSince > 0 || superseded:
 			// An unread task (log cap, failed log or task-list read) may hold a newer attempt.
 			row.LastAttemptStatus = "unknown"
 		}
 		classifyPosture(&row, g, cov, newest, o.elsewhereTag)
-		if len(unreadable) > 0 && row.CoveredByJob && (row.Verdict == "never" || row.Verdict == "stale") {
+		if len(unreadable)+len(either) > 0 && row.CoveredByJob && (row.Verdict == "never" || row.Verdict == "stale") {
 			// A snapshot listed without a readable manifest may be a backup still
-			// running or a damaged one: no restore point proven, none ruled out.
+			// running or a damaged one, and one that may be an earlier guest's
+			// may be this one's: no restore point proven, none ruled out.
 			row.Verdict = "unproven"
-			row.Reason = fmt.Sprintf("%d backup(s) of it are listed without a readable manifest (still running, or damaged) and the newest readable restore point is %s", len(unreadable), orNone(row.LastSuccessAt))
+			var why []string
+			if len(unreadable) > 0 {
+				why = append(why, fmt.Sprintf("%d backup(s) of it are listed without a readable manifest (still running, or damaged)", len(unreadable)))
+			}
+			if len(either) > 0 {
+				why = append(why, eitherGuestWhy(len(either), birth))
+			}
+			row.Reason = strings.Join(why, "; ") + "; the newest readable restore point is " + orNone(row.LastSuccessAt)
 		}
 		if row.Severity == "green" && newerThan(unreadable, newest) {
 			// The newest backup cannot be read: it may be running, or it failed
@@ -539,6 +555,9 @@ func collectPosture(ctx context.Context, t fleetTarget, o postureOpts) (clusterP
 		}
 		if predated > 0 {
 			row.Reason += fmt.Sprintf("; %d older backup(s) of VMID %d predate this VM's creation (an earlier guest with the same VMID) and were not counted", predated, vmid)
+		}
+		if len(either) > 0 && row.Verdict != "unproven" {
+			row.Reason += "; " + eitherGuestWhy(len(either), birth) + " and were not counted"
 		}
 		out.rows = append(out.rows, row)
 	}
