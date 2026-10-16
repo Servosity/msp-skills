@@ -548,7 +548,7 @@
   "zammad": {
     "state": "binary-pending",
     "version": "0.1.7",
-    "latest_tag": "zammad-v0.1.7",
+    "latest_tag": "zammad-v0.1.8",
     "current_hash": "sha256:ad83c4e9c98d6f324ac3ffc0a3be41e20e9959576378597100375168dbf4b639",
     "released_hash": "sha256:c2f82539e84af84970c17805577a815e649e81b65e11f3d90a881928dbba6b2e"
   }
