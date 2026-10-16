@@ -79,7 +79,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/sk
 iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/zammad/install.ps1 | iex            # Windows
 ```
 
-Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json` on Windows, `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
 
 ```json
 {
@@ -291,6 +291,13 @@ export ZAMMAD_HOME=/srv/zammad
 zammad-cli doctor
 ```
 
+On Windows (PowerShell):
+
+```powershell
+$env:ZAMMAD_HOME = "C:\ProgramData\zammad"
+zammad-cli doctor
+```
+
 Under `ZAMMAD_HOME=/srv/zammad`, the four dirs resolve to `/srv/zammad/config`, `/srv/zammad/data`, `/srv/zammad/state`, and `/srv/zammad/cache`.
 
 MCP servers do not receive CLI flags from the host. Put relocation in the host `env` block:
@@ -464,7 +471,7 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Run `zammad-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/zammad-cli/config.toml`; `--home`, `ZAMMAD_HOME`, and per-kind env vars can relocate it.
+Run `zammad-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/zammad-cli/config.toml` (`%USERPROFILE%\.config\zammad-cli\config.toml` on Windows); `--home`, `ZAMMAD_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
 

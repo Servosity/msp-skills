@@ -43,7 +43,7 @@ If you can't use the MCPB bundle (older Claude Desktop, unsupported platform), i
 go install unifi-network-cli/cmd/unifi-network-mcp@latest
 ```
 
-Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json` on Windows, `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
 
 ```json
 {
@@ -187,6 +187,13 @@ For containers and agent sandboxes, prefer a single relocated root:
 
 ```bash
 export UNIFI_HOME=/srv/unifi
+unifi-network-cli doctor
+```
+
+On Windows (PowerShell):
+
+```powershell
+$env:UNIFI_HOME = "C:\ProgramData\unifi"
 unifi-network-cli doctor
 ```
 
@@ -364,7 +371,7 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Run `unifi-network-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/unifi-network-cli/config.toml`; `--home`, `UNIFI_HOME`, and per-kind env vars can relocate it.
+Run `unifi-network-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/unifi-network-cli/config.toml` (`%USERPROFILE%\.config\unifi-network-cli\config.toml` on Windows); `--home`, `UNIFI_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
 

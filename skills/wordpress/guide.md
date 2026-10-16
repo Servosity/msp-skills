@@ -77,7 +77,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/sk
 iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/wordpress/install.ps1 | iex            # Windows
 ```
 
-Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json` on Windows, `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
 
 ```json
 {
@@ -150,6 +150,13 @@ For containers and agent sandboxes, prefer a single relocated root:
 
 ```bash
 export WORDPRESS_HOME=/srv/wordpress
+wordpress-cli doctor
+```
+
+On Windows (PowerShell):
+
+```powershell
+$env:WORDPRESS_HOME = "C:\ProgramData\wordpress"
 wordpress-cli doctor
 ```
 
@@ -300,7 +307,7 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Run `wordpress-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/wordpress-cli/config.toml`; `--home`, `WORDPRESS_HOME`, and per-kind env vars can relocate it.
+Run `wordpress-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/wordpress-cli/config.toml` (`%USERPROFILE%\.config\wordpress-cli\config.toml` on Windows); `--home`, `WORDPRESS_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
 

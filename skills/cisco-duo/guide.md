@@ -79,7 +79,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/sk
 iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/cisco-duo/install.ps1 | iex            # Windows
 ```
 
-Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json` on Windows, `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
 
 ```json
 {
@@ -268,6 +268,13 @@ For containers and agent sandboxes, prefer a single relocated root:
 
 ```bash
 export CISCO_DUO_HOME=/srv/cisco-duo
+cisco-duo-cli doctor
+```
+
+On Windows (PowerShell):
+
+```powershell
+$env:CISCO_DUO_HOME = "C:\ProgramData\cisco-duo"
 cisco-duo-cli doctor
 ```
 
@@ -632,7 +639,7 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Run `cisco-duo-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/cisco-duo-cli/config.toml`; `--home`, `CISCO_DUO_HOME`, and per-kind env vars can relocate it.
+Run `cisco-duo-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/cisco-duo-cli/config.toml` (`%USERPROFILE%\.config\cisco-duo-cli\config.toml` on Windows); `--home`, `CISCO_DUO_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
 

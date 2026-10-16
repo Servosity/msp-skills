@@ -48,7 +48,7 @@ If you can't use the MCPB bundle (older Claude Desktop, unsupported platform), i
 bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/cork/install.sh)
 ```
 
-Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json` on Windows, `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
 
 ```json
 {
@@ -229,6 +229,13 @@ export CORK_HOME=/srv/cork
 cork-cli doctor
 ```
 
+On Windows (PowerShell):
+
+```powershell
+$env:CORK_HOME = "C:\ProgramData\cork"
+cork-cli doctor
+```
+
 Under `CORK_HOME=/srv/cork`, the four dirs resolve to `/srv/cork/config`, `/srv/cork/data`, `/srv/cork/state`, and `/srv/cork/cache`.
 
 MCP servers do not receive CLI flags from the host. Put relocation in the host `env` block:
@@ -381,7 +388,7 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Run `cork-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/cork-cli/config.toml`; `--home`, `CORK_HOME`, and per-kind env vars can relocate it.
+Run `cork-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/cork-cli/config.toml` (`%USERPROFILE%\.config\cork-cli\config.toml` on Windows); `--home`, `CORK_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
 

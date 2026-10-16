@@ -51,7 +51,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/sk
 iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/auvik/install.ps1 | iex            # Windows
 ```
 
-Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json` on Windows, `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
 
 ```json
 {
@@ -235,6 +235,13 @@ For containers and agent sandboxes, prefer a single relocated root:
 
 ```bash
 export AUVIK_HOME=/srv/auvik
+auvik-cli doctor
+```
+
+On Windows (PowerShell):
+
+```powershell
+$env:AUVIK_HOME = "C:\ProgramData\auvik"
 auvik-cli doctor
 ```
 
@@ -522,7 +529,7 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Run `auvik-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/auvik-cli/config.toml`; `--home`, `AUVIK_HOME`, and per-kind env vars can relocate it.
+Run `auvik-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/auvik-cli/config.toml` (`%USERPROFILE%\.config\auvik-cli\config.toml` on Windows); `--home`, `AUVIK_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
 

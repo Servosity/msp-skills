@@ -80,7 +80,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/sk
 iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/huntress/install.ps1 | iex            # Windows
 ```
 
-Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json` on Windows, `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
 
 ```json
 {
@@ -305,6 +305,13 @@ For containers and agent sandboxes, prefer a single relocated root:
 
 ```bash
 export HUNTRESS_HOME=/srv/huntress
+huntress-cli doctor
+```
+
+On Windows (PowerShell):
+
+```powershell
+$env:HUNTRESS_HOME = "C:\ProgramData\huntress"
 huntress-cli doctor
 ```
 
@@ -678,7 +685,7 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Run `huntress-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/huntress-reference-pp-cli/config.toml`; `--home`, `HUNTRESS_HOME`, and per-kind env vars can relocate it.
+Run `huntress-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/huntress-reference-pp-cli/config.toml` (`%USERPROFILE%\.config\huntress-reference-pp-cli\config.toml` on Windows); `--home`, `HUNTRESS_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
 
