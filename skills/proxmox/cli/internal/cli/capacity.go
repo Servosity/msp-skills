@@ -369,7 +369,7 @@ func pct(used, total int64) float64 {
 func parsePercent(s string) (float64, error) {
 	s = strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(s), "%"))
 	v, err := strconv.ParseFloat(s, 64)
-	if err != nil || v < 0 || v > 100 {
+	if err != nil || !(v >= 0 && v <= 100) { // NaN fails both
 		return 0, fmt.Errorf("--gc-margin %q must be a percentage between 0 and 100", s)
 	}
 	return v / 100, nil

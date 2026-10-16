@@ -179,7 +179,7 @@ func (cl clusterProfile) validate(name string) error {
 		}
 		for _, p := range splitPins(pins) {
 			if !client.ValidFingerprint(p) {
-				return fmt.Errorf("cluster %q: %s %q is not a SHA-256 fingerprint (AB:CD:... 32 bytes)", name, field, p)
+				return fmt.Errorf("cluster %q: %s %q is not a SHA-256 fingerprint (AB:CD:... 32 bytes)", name, field, config.RedactUserinfo(p))
 			}
 		}
 	}
@@ -187,6 +187,12 @@ func (cl clusterProfile) validate(name string) error {
 		if env != "" && !envNamePattern.MatchString(env) {
 			// Never echo it: a value that is not a variable name is most often the token itself.
 			return fmt.Errorf("cluster %q: %s is not an environment variable name, so its value is not shown (it may be the token: store the variable NAME, never the token)", name, field)
+		}
+	}
+	for field, v := range map[string]string{"pve_host": cl.PVEHost, "pbs_host": cl.PBSHost, "pve_base_url": cl.PVEBaseURL, "pbs_namespace": cl.PBSNamespace} {
+		if config.TokenShaped(v) {
+			// Never echo or use it: a host holding '!' or '=' is a pasted API token.
+			return fmt.Errorf("cluster %q: %s looks like an API token (it holds '!' or '='), so it is not shown and not used: put the token in the environment and its variable NAME in pve_token_env/pbs_token_env", name, field)
 		}
 	}
 	if cl.PVEBaseURL != "" {
@@ -211,7 +217,7 @@ func (cl clusterProfile) validate(name string) error {
 			return fmt.Errorf("cluster %q: %s %q must be a host, host:port, or https://host:port", name, field, config.RedactUserinfo(host))
 		}
 		if u.Scheme != "https" {
-			return fmt.Errorf("cluster %q: %s %q must use https", name, field, host)
+			return fmt.Errorf("cluster %q: %s %q must use https", name, field, config.RedactUserinfo(host))
 		}
 	}
 	return nil

@@ -90,13 +90,13 @@ func newNovelFailuresCmd(flags *rootFlags) *cobra.Command {
 				switch ty {
 				case "":
 				case "all":
-					for _, k := range []string{"vzdump", "verify", "gc", "sync", "prune"} {
+					for _, k := range []string{"vzdump", "verify", "gc", "sync", "prune", "other"} {
 						want[k] = true
 					}
-				case "vzdump", "verify", "gc", "sync", "prune":
+				case "vzdump", "verify", "gc", "sync", "prune", "other":
 					want[ty] = true
 				default:
-					return usageErr(fmt.Errorf("--type %q: use vzdump, verify, gc, sync, prune or all", ty))
+					return usageErr(fmt.Errorf("--type %q: use vzdump, verify, gc, sync, prune, other or all", ty))
 				}
 			}
 			if cliutil.IsDogfoodEnv() && maxLogs > 3 {
@@ -196,7 +196,7 @@ func newNovelFailuresCmd(flags *rootFlags) *cobra.Command {
 	}
 	f := cmd.Flags()
 	f.StringVar(&since, "since", "24h", "Look back this far (e.g. 24h, 3d, 1w)")
-	f.StringVar(&types, "type", "all", "Comma-separated task kinds: vzdump, verify, gc, sync, prune, or all")
+	f.StringVar(&types, "type", "all", "Comma-separated task kinds: vzdump, verify, gc, sync, prune, other (any other failed PBS task: host backup, tape, ...), or all")
 	f.StringVar(&clientFilter, "client", "", "Only clusters whose client name (or cluster name) matches")
 	f.IntVar(&tail, "log-tail", 5, "Log lines to keep per failed task (0 for none)")
 	f.IntVar(&maxLogs, "max-logs", 50, "Maximum task logs to read per cluster (bounds scan cost)")
@@ -368,7 +368,7 @@ func collectFailures(ctx context.Context, t fleetTarget, since time.Time, want m
 			}
 		}
 	}
-	wantPBS := want["verify"] || want["gc"] || want["sync"] || want["prune"]
+	wantPBS := want["verify"] || want["gc"] || want["sync"] || want["prune"] || want["other"]
 	if wantPBS && t.C.PBSConfigured() {
 		var tasks []pveTask
 		perms, err := fetchPrivs(ctx, t.C, true)
@@ -396,10 +396,17 @@ func collectFailures(ctx context.Context, t fleetTarget, since time.Time, want m
 			}
 			scanned++
 			kind := pbsWorkerKinds[task.kind()]
-			if kind == "" || !want[kind] || taskOK(task.Status) {
+			if kind == "" {
+				kind = "other" // a failed PBS task of any other kind (host backup, tape, ...) is still a failure
+			}
+			if !want[kind] || taskOK(task.Status) {
 				continue
 			}
-			r := failureRow{Tenant: tenant, Cluster: t.Name, Product: "pbs", Type: kind, Target: task.target(), Result: "failed",
+			typ := kind
+			if kind == "other" {
+				typ = task.kind()
+			}
+			r := failureRow{Tenant: tenant, Cluster: t.Name, Product: "pbs", Type: typ, Target: task.target(), Result: "failed",
 				Reason: task.Status, UPID: task.UPID, Node: "localhost", StartedAt: unixRFC3339(int64(task.StartTime)), EndedAt: unixRFC3339(int64(task.EndTime)),
 				Attribution: attribution, pbsService: t.pbsServiceID()}
 			if tail > 0 && logs < maxLogs {

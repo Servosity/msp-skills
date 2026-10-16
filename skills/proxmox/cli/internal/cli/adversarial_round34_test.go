@@ -5,6 +5,7 @@ package cli
 
 import (
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -91,5 +92,41 @@ pve_token_env = "ACME_PVE"
 		if strings.Contains(out+errOut, secret) {
 			t.Errorf("env %v printed the token", args)
 		}
+	}
+}
+
+// Round 35: a token without its USER@ prefix in a host field is still a
+// token; a failed PBS task of another kind is listed; --by-client --quiet
+// prints client names; --gc-margin NaN is refused.
+func TestRound35Receipts(t *testing.T) {
+	f := newFixture(t)
+	const secret = "5ec7e7aa-0000-4000-8000-00000000c0de"
+	writeClustersFile(t, `
+[clusters.acme]
+pve_host = "pve!cli=`+secret+`"
+pve_token_env = "ACME_PVE"
+`)
+	setAcmeTokens(t)
+	for _, args := range [][]string{{"clusters", "list", "--json"}, {"posture", "--json"}, {"clusters", "check", "--json"}, {"clusters", "add", "beta", "--pve-host", "pve!cli=" + secret, "--pve-token-env", "ACME_PVE"}} {
+		out, errOut, _ := runCLI(t, args...)
+		if strings.Contains(out+errOut, secret) {
+			t.Errorf("%v printed the token", args)
+		}
+	}
+	if b, _ := os.ReadFile(os.Getenv("PROXMOX_CLUSTERS_FILE")); strings.Contains(string(b), "beta") {
+		t.Errorf("clusters add saved a token-shaped host")
+	}
+	writeClustersFile(t, "")
+	f.pbsRoutes["/nodes/localhost/tasks"] = []map[string]any{{"upid": "UPID:pbs:hostbackup", "node": "localhost", "worker_type": "backup", "worker_id": "main:host/fs1", "status": "TASK ERROR: connection lost", "starttime": ago(f.now, 3), "endtime": ago(f.now, 2.9), "user": "root@pam"}}
+	out, _, _ := runCLI(t, "failures", "--json")
+	if !strings.Contains(out, "UPID:pbs:hostbackup") {
+		t.Errorf("a failed PBS host backup is not listed:\n%s", out)
+	}
+	out, _, _ = runCLI(t, "posture", "--by-client", "--quiet")
+	if strings.TrimSpace(out) != "default" {
+		t.Errorf("posture --by-client --quiet: %q", out)
+	}
+	if _, _, err := runCLI(t, "capacity", "--gc-margin", "NaN", "--json"); err == nil {
+		t.Errorf("--gc-margin NaN accepted")
 	}
 }

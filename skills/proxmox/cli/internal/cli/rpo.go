@@ -99,10 +99,10 @@ func newNovelRpoCmd(flags *rootFlags) *cobra.Command {
 			"reported as missed. Runs scheduled before a VM was created are not counted either. Jobs that run at the same time each need " +
 			"their own restore point. The newest run is not judged while it may still be running (6h), but the schedule is not met until it " +
 			"has a restore point. Each job's runs are judged against restore points on that job's own destination, and one backup pays " +
-			"one run. A missed run is proven only when no newer restore point exists at its destination (retention never deletes the " +
-			"newest backup). An older miss counts in missed_runs_unproven and evidence is partial: retention may have pruned its point, " +
-			"or the job's schedule or guest list may have differed then (Proxmox keeps no history of either); so does a miss a backup " +
-			"on another storage could cover (a job moved storages). may_be_earlier_guest counts backups under " +
+			"one run. A missed run is proven only by a vzdump task log inside the run's window that records the guest's backup " +
+			"failing or stopping. Any other miss counts in missed_runs_unproven and evidence is partial: the run may not have been " +
+			"due then (Proxmox keeps no history of a job's schedule or guest list) or retention may have pruned its point; so does a " +
+			"miss a backup on another storage could cover (a job moved storages). may_be_earlier_guest counts backups under " +
 			"the VMID that may be an earlier guest's with the same VMID (see restore-points); they are not counted in restore_points.",
 		Example: strings.Trim(`
   proxmox-cli rpo --days 7 --agent
@@ -167,7 +167,9 @@ func newNovelRpoCmd(flags *rootFlags) *cobra.Command {
 				case rowsOnly(flags):
 					out = rep.Rows
 				}
-				if flags.quiet && !byClient {
+				if flags.quiet && byClient {
+					printQuietRows(cmd.OutOrStdout(), rep.Clients, func(c rpoClientRow) string { return c.Tenant })
+				} else if flags.quiet {
 					printQuietRows(cmd.OutOrStdout(), rep.Rows, func(r rpoRow) string { return fmt.Sprintf("%s:%d", r.Cluster, r.VMID) })
 				} else if err := printJSONFilteredKeep(cmd.OutOrStdout(), out, flags, rpoKeep...); err != nil {
 					return err
@@ -342,6 +344,7 @@ func collectRPO(ctx context.Context, t fleetTarget, start, now time.Time, onlyVM
 	}
 	pbsStandIns(standIn, pbsUnread, readStorage)
 	targets := newJobTargets(ctx, t.C, cov)
+	failedAt := rpoFailureRecords(ctx, t, nodes, start)
 	allGaps := map[storageGap]bool{}
 	births := newGuestBirths(t, now, offline)
 	var rows []rpoRow
@@ -404,6 +407,12 @@ func collectRPO(ctx context.Context, t fleetTarget, start, now time.Time, onlyVM
 		}
 		var dests []rpoTarget
 		for _, key := range order {
+			byTarget[key].failedAt = nil
+			for _, f := range failedAt[vmid] {
+				if f.typ == "" || f.typ == g.Type { // another type's failure is an earlier guest's
+					byTarget[key].failedAt = append(byTarget[key].failedAt, f.at)
+				}
+			}
 			dests = append(dests, *byTarget[key])
 		}
 		row := evaluateJobsRPO(mine, dests, from, now) // window_start: the evaluated start (creation, when inside the window)
@@ -463,6 +472,9 @@ func collectRPO(ctx context.Context, t fleetTarget, start, now time.Time, onlyVM
 				row.Note = joinNote(row.Note, why+"; gaps and verified days may be understated")
 			}
 		}
+		if row.PointsUnread {
+			row.MissedRunsUnproven = row.MissedRuns // some restore point went unread: no miss is proven
+		}
 		row.Tenant, row.Cluster, row.VMID, row.Name = t.Tenant, t.Name, vmid, g.Name
 		row.Jobs = append([]string{}, cov.EnabledFor[vmid]...)
 		rows = append(rows, row)
@@ -515,17 +527,15 @@ func joinNote(note, clause string) string {
 
 const rpoNoJudgedRunNote = "no scheduled run in the window can be judged yet (the only one is still within the in-progress grace, or the window is shorter than the job's interval); widen --days"
 
-// evaluateRPO scores one guest's restore points against its scheduled runs.
-func evaluateRPO(points []restorePoint, runs []int64, start, now time.Time) rpoRow {
-	return evaluateJobsRPO(points, []rpoTarget{{jobRuns: [][]int64{runs}, points: points}}, start, now)
-}
-
 // rpoTarget is one backup destination of a guest (a storage, or a PBS
 // datastore namespace however many storages name it): the scheduled runs of
 // each covering job that writes there and the guest's restore points there.
 type rpoTarget struct {
 	jobRuns [][]int64
 	points  []restorePoint
+	// failedAt: start times of vzdump tasks whose log records this guest's
+	// backup failing or stopping (the guest's, not this destination's).
+	failedAt []int64
 }
 
 // evaluateJobsRPO scores each destination's runs against its own points:
@@ -570,7 +580,6 @@ func evaluateJobsRPO(all []restorePoint, targets []rpoTarget, start, now time.Ti
 	}
 	var wins []window
 	dpts := make([][]restorePoint, len(targets))
-	newest := make([]int64, len(targets))
 	onTgt := make([]map[string]bool, len(targets))
 	capHidesRun, anyRuns := false, false
 	for ti, tg := range targets {
@@ -582,7 +591,6 @@ func evaluateJobsRPO(all []restorePoint, targets []rpoTarget, start, now time.Ti
 		// Effective window: earlier runs may have had points that retention pruned.
 		effStart, capped := start.Unix(), false
 		if len(pts) > 0 {
-			newest[ti] = pts[len(pts)-1].Time
 			if pts[0].Time > effStart {
 				effStart, capped = pts[0].Time, true
 				row.WindowCapped = true
@@ -723,14 +731,15 @@ func evaluateJobsRPO(all []restorePoint, targets []rpoTarget, start, now time.Ti
 			continue
 		}
 		missed = append(missed, w.from)
-		// Proven only when no newer restore point exists at its destination:
-		// retention never deletes the newest backup, so then this run left
-		// none. With a newer one kept, retention may have pruned this run's,
-		// or the job's schedule or guest list may have differed then: Proxmox
-		// keeps no history of either. A point at another destination that
+		// Proven only by a vzdump task log, inside the run's window, that
+		// records this guest's backup failing or stopping. A run with no
+		// restore point and no such record may not have been due then
+		// (Proxmox keeps no history of a job's schedule or guest list), or its
+		// point may have been pruned. A point at another destination that
 		// could be this run's (a job moved storages, a manual backup) leaves it
 		// unproven too.
-		if newest[w.tgt] > w.from || elsewhereCouldPay(wi) {
+		failed := slices.ContainsFunc(targets[w.tgt].failedAt, func(at int64) bool { return at >= w.from && at < w.until })
+		if !failed || elsewhereCouldPay(wi) {
 			row.MissedRunsUnproven++
 		}
 	}
@@ -770,7 +779,7 @@ func evaluateJobsRPO(all []restorePoint, targets []rpoTarget, start, now time.Ti
 		row.Note = rpoNoPointsNote
 	}
 	if row.MissedRunsUnproven > 0 {
-		row.Note = joinNote(row.Note, fmt.Sprintf("%d missed run(s) are older than a restore point that was kept (retention may have pruned theirs, or the schedule or job may have differed then) or may be covered by a backup on another storage; they are unproven", row.MissedRunsUnproven))
+		row.Note = joinNote(row.Note, fmt.Sprintf("%d missed run(s) have no vzdump failure on record for this guest in the run's window (the run may not have been due then, or its restore point was pruned) or may be covered by a backup on another storage; they are unproven", row.MissedRunsUnproven))
 	}
 	row.Evidence = "full"
 	// Retention may have pruned the start of the window, so a run whose

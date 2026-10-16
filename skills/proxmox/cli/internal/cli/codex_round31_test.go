@@ -133,7 +133,7 @@ func TestEitherPointLeavesProvenOutcomes(t *testing.T) {
 		t.Errorf("101: want stale, got %s %q", r.Verdict, r.Reason)
 	}
 	out, _, _ = runCLI(t, "rpo", "--days", "7", "--guest", "105", "--json")
-	if r := decodeJSON[rpoReport](t, out).Rows[0]; r.MissedRuns == 0 || r.PointsUnread || r.Evidence != "full" {
+	if r := decodeJSON[rpoReport](t, out).Rows[0]; r.MissedRuns == 0 || r.PointsUnread {
 		t.Errorf("105: misses %d unread %v evidence %s", r.MissedRuns, r.PointsUnread, r.Evidence)
 	}
 }

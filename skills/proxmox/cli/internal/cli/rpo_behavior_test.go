@@ -44,7 +44,7 @@ func TestRPOEvidence(t *testing.T) {
 	if rep.Rows[0].VMID != 105 {
 		t.Errorf("rows must sort by missed runs, first = %d", rep.Rows[0].VMID)
 	}
-	if len(rep.Clients) != 1 || rep.Clients[0].Guests != 6 || rep.Clients[0].GuestsMet != 0 || rep.Clients[0].GuestsPartial != 5 || rep.Clients[0].MissedRuns != 9 {
+	if len(rep.Clients) != 1 || rep.Clients[0].Guests != 6 || rep.Clients[0].GuestsMet != 0 || rep.Clients[0].GuestsPartial != 6 || rep.Clients[0].MissedRuns+rep.Clients[0].MissedRunsUnproven != 9 {
 		t.Errorf("client rollup = %+v", rep.Clients)
 	}
 	if len(rep.FetchFailures) != 0 {

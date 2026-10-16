@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"slices"
 	"testing"
 	"time"
 )
@@ -37,8 +38,29 @@ func TestRetentionThinnedRunsAreUnproven(t *testing.T) {
 	}
 	newFixture(t)
 	out, _, _ := runCLI(t, "rpo", "--days", "7", "--guest", "101", "--json") // newest point 50h old: later runs missed
-	if r := decodeJSON[rpoReport](t, out).Rows[0]; r.MissedRuns == 0 || r.MissedRunsUnproven != 0 {
-		t.Errorf("misses after the newest point must be proven: missed %d unproven %d", r.MissedRuns, r.MissedRunsUnproven)
+	if r := decodeJSON[rpoReport](t, out).Rows[0]; r.MissedRuns == 0 || r.MissedRunsUnproven != r.MissedRuns {
+		t.Errorf("with no vzdump failure on record the misses are unproven: missed %d unproven %d", r.MissedRuns, r.MissedRunsUnproven)
+	}
+}
+
+// A vzdump task log that records the guest's backup failing inside the run's
+// window proves the miss.
+func TestRecordedFailureProvesTheMiss(t *testing.T) {
+	f := newFixture(t)
+	// VM 108's run 12h ago: drop its 4h point; the 1h-old task logs its failure.
+	snaps := f.pbsRoutes["/admin/datastore/main/snapshots"].([]any)
+	f.pbsRoutes["/admin/datastore/main/snapshots"] = slices.DeleteFunc(snaps, func(s any) bool {
+		m := s.(map[string]any)
+		return m["backup-id"] == "108" && m["backup-time"] == ago(f.now, 4)
+	})
+	vols := f.pveRoutes["/nodes/pve1/storage/pbs1/content"].([]any)
+	f.pveRoutes["/nodes/pve1/storage/pbs1/content"] = slices.DeleteFunc(vols, func(v any) bool {
+		m := v.(map[string]any)
+		return m["vmid"] == 108 && m["ctime"] == ago(f.now, 4)
+	})
+	out, _, _ := runCLI(t, "rpo", "--days", "7", "--guest", "108", "--json")
+	if r := decodeJSON[rpoReport](t, out).Rows[0]; r.MissedRuns != 1 || r.MissedRunsUnproven != 0 {
+		t.Errorf("108's failed backup is on record: missed %d unproven %d note %q", r.MissedRuns, r.MissedRunsUnproven, r.Note)
 	}
 }
 
