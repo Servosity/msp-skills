@@ -41,6 +41,7 @@ type Config struct {
 	Path               string          `toml:"-"`
 	envOverrides       map[string]bool `toml:"-"`
 	EndpointRefusal    string          `toml:"-"` // proxmox hand-fix (endpoints-env-only): why no PVE request may be sent
+	PBSRefusal         string          `toml:"-"` // proxmox hand-fix (endpoints-env-only): why no PBS request may be sent
 	fileConfig         *Config         `toml:"-"`
 	ProxmoxApiToken    string          `toml:"api_token"`
 	ProxmoxPbsApiToken string          `toml:"pbs_api_token"`
@@ -235,6 +236,7 @@ func Load(configPath string) (*Config, error) {
 	switch h := StripUserinfo(strings.TrimSpace(cliutil.EnvOverride("PROXMOX_HOST"))); {
 	case AmbiguousUserinfo(cfg.BaseURL) || AmbiguousUserinfo(h):
 		cfg.EndpointRefusal = "the Proxmox VE endpoint " + RedactUserinfo(cfg.BaseURL+" "+h) + " has an '@' after a '/', so whether it holds a password or a path cannot be told; no request is sent (remove the user:password@ part, or write the '@' as %40)"
+		cfg.BaseURL = RedactUserinfo(cfg.BaseURL) // never kept (or printed, e.g. by doctor) as written
 	case envBase == "" && h != "" && !strings.Contains(cfg.BaseURL, "{host}"):
 		// proxmox hand-fix (endpoints-env-only): PROXMOX_HOST names the host
 		// this run's token is for. A base_url in config.toml for that host
@@ -260,7 +262,17 @@ func Load(configPath string) (*Config, error) {
 		cfg.TemplateVars = map[string]string{}
 	}
 	verifyMode := os.Getenv("PRINTING_PRESS_VERIFY") == "1"
-	if v := StripUserinfo(strings.TrimSpace(cliutil.EnvOverride("PROXMOX_PBS_HOST"))); v != "" && !AmbiguousUserinfo(v) {
+	pbsEnv := strings.TrimSpace(cliutil.EnvOverride("PROXMOX_PBS_HOST"))
+	if pbsEnv == "" {
+		pbsEnv = cfg.TemplateVars["pbs_host"]
+	}
+	if AmbiguousUserinfo(pbsEnv) {
+		// Refused, never replaced (a pbs_host saved in config.toml must not
+		// receive this run's PBS token) and kept only redacted.
+		cfg.PBSRefusal = "the Proxmox Backup Server host " + RedactUserinfo(pbsEnv) + " has an '@' after a '/', so whether it holds a password or a path cannot be told; no PBS request is sent (remove the user:password@ part, or write the '@' as %40)"
+		pbsEnv = RedactUserinfo(pbsEnv)
+	}
+	if v := StripUserinfo(pbsEnv); v != "" {
 		cfg.TemplateVars["pbs_host"] = v
 	} else if verifyMode {
 		cfg.TemplateVars["pbs_host"] = "pbs_host_placeholder"

@@ -116,7 +116,7 @@ func newNovelRpoCmd(flags *rootFlags) *cobra.Command {
 			var guestID int64
 			if guest != "" {
 				id, err := strconv.ParseInt(guest, 10, 64)
-				if err != nil {
+				if err != nil || id <= 0 {
 					return usageErr(fmt.Errorf("--guest %q must be a vmid", guest))
 				}
 				guestID = id
@@ -400,16 +400,10 @@ func collectRPO(ctx context.Context, t fleetTarget, start, now time.Time, onlyVM
 			tg.prunes = tg.prunes || retention.mayPrune(targets.jobs[id], g.Node, target, ref)
 		}
 		var dests []rpoTarget
-		var elsewhere []restorePoint
 		for _, key := range order {
 			dests = append(dests, *byTarget[key])
 		}
-		for _, p := range mine {
-			if !slices.ContainsFunc(order, func(key string) bool { return onDestination(p, key) }) {
-				elsewhere = append(elsewhere, p)
-			}
-		}
-		row := evaluateJobsRPO(mine, dests, elsewhere, from, now)
+		row := evaluateJobsRPO(mine, dests, from, now)
 		row.WindowStart = start.UTC().Format(time.RFC3339)
 		if birth.at > start.Unix() && row.ScheduledRuns == 0 && !row.WindowCapped {
 			// Created inside the window: no wider window judges runs from before then.
@@ -515,7 +509,7 @@ const rpoNoJudgedRunNote = "no scheduled run in the window can be judged yet (th
 
 // evaluateRPO scores one guest's restore points against its scheduled runs.
 func evaluateRPO(points []restorePoint, runs []int64, start, now time.Time) rpoRow {
-	return evaluateJobsRPO(points, []rpoTarget{{jobRuns: [][]int64{runs}, points: points}}, nil, start, now)
+	return evaluateJobsRPO(points, []rpoTarget{{jobRuns: [][]int64{runs}, points: points}}, start, now)
 }
 
 // rpoTarget is one backup destination of a guest (a storage, or a PBS
@@ -529,13 +523,15 @@ type rpoTarget struct {
 	prunes  bool
 }
 
-// evaluateJobsRPO scores each target's runs against its own points: every
-// job's run owes one point before that job's next run, and one point pays
-// one run (an optimal assignment: windows by deadline, each taking the
-// earliest free point inside it). elsewhere are the guest's points on no
-// covering target: one inside a missed run's window (a job moved to another
-// storage, a manual backup) leaves that miss unproven.
-func evaluateJobsRPO(all []restorePoint, targets []rpoTarget, elsewhere []restorePoint, start, now time.Time) rpoRow {
+// evaluateJobsRPO scores each destination's runs against its own points:
+// every job's run owes one point before that job's own next run, and one
+// backup time pays one run in all (one archive can show under two storage
+// names). Judged runs are paid first (windows by deadline, each taking the
+// earliest free point inside it), then in-grace ones. A missed run is
+// unproven when retention may have deleted its point (a newer one was kept),
+// or when any point not at its destination falls inside its window (a job
+// moved storages, the same archive under another name, a manual backup).
+func evaluateJobsRPO(all []restorePoint, targets []rpoTarget, start, now time.Time) rpoRow {
 	row := rpoRow{WindowStart: start.UTC().Format(time.RFC3339), MissedRunTimes: []string{}}
 	// A point dated past the clock-skew tolerance (a node clock ran ahead) has
 	// no judgeable time: it proves no run and must not anchor the retention
@@ -561,30 +557,35 @@ func evaluateJobsRPO(all []restorePoint, targets []rpoTarget, elsewhere []restor
 	}
 	row.RestorePoints = len(inWindow)
 	row.VerifiedOKDays = len(okDays)
-	other := judgeable(elsewhere)
-	capHidesRun, pending, anyRuns := false, "", false
-	var missed []int64
-	for _, tg := range targets {
+	type window struct {
+		tgt         int
+		from, until int64
+		inGrace     bool
+		paid        bool
+	}
+	var wins []window
+	dpts := make([][]restorePoint, len(targets))
+	newest := make([]int64, len(targets))
+	onTgt := make([]map[string]bool, len(targets))
+	capHidesRun, anyRuns := false, false
+	for ti, tg := range targets {
 		pts := judgeable(tg.points)
+		dpts[ti], onTgt[ti] = pts, map[string]bool{}
+		for _, p := range tg.points {
+			onTgt[ti][p.canonical] = true
+		}
 		// Effective window: earlier runs may have had points that retention pruned.
 		effStart, capped := start.Unix(), false
-		if len(pts) > 0 && pts[0].Time > effStart {
-			effStart, capped = pts[0].Time, true
-			row.WindowCapped = true
-			if c := unixRFC3339(pts[0].Time); c > row.CappedAt {
-				row.CappedAt = c
+		if len(pts) > 0 {
+			newest[ti] = pts[len(pts)-1].Time
+			if pts[0].Time > effStart {
+				effStart, capped = pts[0].Time, true
+				row.WindowCapped = true
+				if c := unixRFC3339(pts[0].Time); c > row.CappedAt {
+					row.CappedAt = c
+				}
 			}
 		}
-		var newest int64
-		if len(pts) > 0 {
-			newest = pts[len(pts)-1].Time
-		}
-		type window struct {
-			from, until int64
-			inGrace     bool
-			paid        bool
-		}
-		var wins []window
 		for _, jr := range tg.jobRuns {
 			runs, _ := dedupeRuns(slices.Clone(jr))
 			anyRuns = anyRuns || len(runs) > 0
@@ -601,39 +602,47 @@ func evaluateJobsRPO(all []restorePoint, targets []rpoTarget, elsewhere []restor
 					capHidesRun = capHidesRun || capped
 					continue
 				}
-				wins = append(wins, window{from: run, until: until, inGrace: i == len(runs)-1 && now.Sub(time.Unix(run, 0)) < rpoInProgressGrace})
+				wins = append(wins, window{tgt: ti, from: run, until: until, inGrace: i == len(runs)-1 && now.Sub(time.Unix(run, 0)) < rpoInProgressGrace})
 			}
 		}
-		sort.SliceStable(wins, func(i, j int) bool { return wins[i].until < wins[j].until })
-		used := make([]bool, len(pts))
-		for w := range wins {
-			for i, p := range pts {
-				if !used[i] && p.Time >= wins[w].from && p.Time < wins[w].until {
-					used[i], wins[w].paid = true, true
-					break
-				}
+	}
+	sort.SliceStable(wins, func(i, j int) bool {
+		if wins[i].inGrace != wins[j].inGrace {
+			return !wins[i].inGrace
+		}
+		return wins[i].until < wins[j].until
+	})
+	usedTime := map[int64]bool{}
+	for w := range wins {
+		for _, p := range dpts[wins[w].tgt] {
+			if !usedTime[p.Time] && p.Time >= wins[w].from && p.Time < wins[w].until {
+				usedTime[p.Time], wins[w].paid = true, true
+				break
 			}
 		}
-		for _, w := range wins {
-			if w.inGrace {
-				// It may still be running: not judged, but not met either.
-				if !w.paid {
-					pending = unixRFC3339(w.from)
-				}
-				continue
+	}
+	pending := ""
+	var missed []int64
+	for _, w := range wins {
+		if w.inGrace {
+			// It may still be running: not judged, but not met either.
+			if !w.paid {
+				pending = unixRFC3339(w.from)
 			}
-			row.ScheduledRuns++
-			if w.paid {
-				continue
-			}
-			missed = append(missed, w.from)
-			// Retention never deletes the newest backup: with a newer one kept,
-			// this run's may have been pruned; with none, it never existed. A
-			// point on another storage inside the window may be this run's.
-			elsewhereIn := slices.ContainsFunc(other, func(p restorePoint) bool { return p.Time >= w.from && p.Time < w.until })
-			if (tg.prunes && newest > w.from) || elsewhereIn {
-				row.MissedRunsUnproven++
-			}
+			continue
+		}
+		row.ScheduledRuns++
+		if w.paid {
+			continue
+		}
+		missed = append(missed, w.from)
+		// Retention never deletes the newest backup: with a newer one kept,
+		// this run's may have been pruned; with none, it never existed.
+		elsewhereIn := slices.ContainsFunc(points, func(p restorePoint) bool {
+			return !onTgt[w.tgt][p.canonical] && p.Time >= w.from && p.Time < w.until
+		})
+		if (targets[w.tgt].prunes && newest[w.tgt] > w.from) || elsewhereIn {
+			row.MissedRunsUnproven++
 		}
 	}
 	slices.Sort(missed)
@@ -672,7 +681,7 @@ func evaluateJobsRPO(all []restorePoint, targets []rpoTarget, elsewhere []restor
 		row.Note = rpoNoPointsNote
 	}
 	if row.MissedRunsUnproven > 0 {
-		row.Note = joinNote(row.Note, fmt.Sprintf("%d missed run(s) may have restore points that retention pruned (a newer one was kept) or that another storage holds; they are unproven", row.MissedRunsUnproven))
+		row.Note = joinNote(row.Note, fmt.Sprintf("%d missed run(s) may have restore points that retention pruned (a newer one was kept) or that another storage holds inside the run's window; they are unproven", row.MissedRunsUnproven))
 	}
 	row.Evidence = "full"
 	// Retention may have pruned the start of the window, so a run whose
