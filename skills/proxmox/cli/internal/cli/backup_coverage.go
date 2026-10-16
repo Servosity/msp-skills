@@ -119,7 +119,16 @@ func newNovelBackupCoverageCmd(flags *rootFlags) *cobra.Command {
 				return outcomeErr
 			}
 			if len(rep.Rows) == 0 {
-				allClear(cmd.OutOrStdout(), fmt.Sprintf("Every one of %d guest(s) is included by an enabled backup job.", rep.Guests), len(rep.FetchFailures))
+				msg := fmt.Sprintf("Every one of %d guest(s) is included by an enabled backup job", rep.Guests)
+				if !includeTemplates || elsewhereTag != "" {
+					// Skipped guests are not covered: do not count them as included.
+					msg = fmt.Sprintf("No uncovered guest among %d checked (not checked: templates without --include-templates", rep.Guests)
+					if elsewhereTag != "" {
+						msg += fmt.Sprintf(", guests tagged %q", elsewhereTag)
+					}
+					msg += ")"
+				}
+				allClear(cmd.OutOrStdout(), msg+".", len(rep.FetchFailures))
 				return nil
 			}
 			rows := make([][]string, 0, len(rep.Rows))

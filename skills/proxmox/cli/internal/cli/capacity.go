@@ -169,6 +169,7 @@ func collectCapacity(ctx context.Context, t fleetTarget, now time.Time, margin f
 	}
 	pbsHost := t.pbsEndpoint()
 	pbsRowFor := map[string]bool{} // datastores that got an authoritative PBS row
+	var usageErr error             // the PBS did not answer its usage read
 	if t.C.PBSConfigured() {
 		// PBS reports usage only for the datastores the token may audit: a
 		// hidden one could be the one filling up.
@@ -183,8 +184,8 @@ func collectCapacity(ctx context.Context, t fleetTarget, now time.Time, margin f
 			FullDate  *flexInt `json:"estimated-full-date"` // absent: too few samples; 0 or past: not filling
 			ErrorText string   `json:"error"`
 		}
-		if err := getJSON(ctx, t.C, pbsPath("/status/datastore-usage"), nil, &usage); err != nil {
-			fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "pbs datastore-usage", Error: err.Error()})
+		if usageErr = getJSON(ctx, t.C, pbsPath("/status/datastore-usage"), nil, &usage); usageErr != nil {
+			fails = append(fails, fetchFailure{Cluster: t.Name, Scope: "pbs datastore-usage", Error: usageErr.Error()})
 		}
 		var gcs []struct {
 			Store        string  `json:"store"`
@@ -260,12 +261,18 @@ func collectCapacity(ctx context.Context, t fleetTarget, now time.Time, margin f
 	}
 	if err != nil {
 		if len(rows) == 0 {
-			if errors.Is(err, errNoPVE) && len(fails) > 0 {
-				// PBS-only: the PBS reads that failed are the cause, not the absent PVE
-				// host. Nothing was measured, so the cluster also counts as unreachable
-				// (scope-less failure) and the fleet exit code says so.
-				down := fetchFailure{Cluster: t.Name, Error: "no Backup Server capacity could be read: " + fails[0].Error}
+			if errors.Is(err, errNoPVE) && usageErr != nil {
+				// PBS-only and the PBS did not answer: its failure is the cause, not
+				// the absent PVE host, and the cluster counts as unreachable
+				// (scope-less failure) so the fleet exit code says so.
+				down := fetchFailure{Cluster: t.Name, Error: "no Backup Server capacity could be read: " + usageErr.Error()}
 				return nil, append(fails, down), nil
+			}
+			if errors.Is(err, errNoPVE) && len(fails) > 0 {
+				return nil, fails, nil // PBS-only, answered, nothing measurable: the scoped failures say why
+			}
+			if errors.Is(err, errNoPVE) && t.C.PBSConfigured() {
+				return nil, nil, errors.New("the Backup Server lists no datastore this token can see")
 			}
 			return nil, nil, err // nothing reachable on this cluster
 		}

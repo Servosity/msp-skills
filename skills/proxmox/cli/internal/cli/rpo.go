@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -414,6 +415,9 @@ func scheduledRuns(ctx context.Context, t fleetTarget, schedule string, start, n
 // evaluateRPO scores one guest's restore points against its scheduled runs.
 func evaluateRPO(points []restorePoint, runs []int64, start, now time.Time) rpoRow {
 	row := rpoRow{WindowStart: start.UTC().Format(time.RFC3339), MissedRunTimes: []string{}}
+	// A point dated past now (a node clock ran ahead) proves no run and must
+	// not anchor the retention cap either.
+	points = slices.DeleteFunc(slices.Clone(points), func(p restorePoint) bool { return p.Time > now.Unix() })
 	sort.Slice(points, func(i, j int) bool { return points[i].Time < points[j].Time })
 	runs = dedupeRuns(runs)
 	// Effective window: earlier runs may have had points that retention pruned.

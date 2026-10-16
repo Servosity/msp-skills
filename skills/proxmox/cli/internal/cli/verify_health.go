@@ -52,8 +52,9 @@ type verifyStoreRow struct {
 	// *Unknown is set when the fetch failed: the matching fields are not zero, they are unknown.
 	VerifyJobsUnknown bool `json:"verify_jobs_unknown,omitempty"`
 	GCUnknown         bool `json:"gc_unknown,omitempty"`
-	// SnapshotsIncomplete: at least one namespace's snapshot list could not be
-	// read, so the group counts cover only the namespaces that were.
+	// SnapshotsIncomplete: a namespace's snapshot list could not be read (or
+	// a namespace below it not listed), or a snapshot had no readable
+	// manifest, so the group counts cover only what was read.
 	SnapshotsIncomplete bool   `json:"snapshots_incomplete,omitempty"`
 	Attribution         string `json:"attribution,omitempty"` // see verifyGroupRow
 }
@@ -208,7 +209,9 @@ func collectVerifyHealth(ctx context.Context, t fleetTarget, onlyStore string, n
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	gapStores := map[string]bool{} // a namespace below it was not listed or not read
 	for _, n := range notes {
+		gapStores[strings.TrimPrefix(n.Scope, "pbs ")] = true
 		// --store narrows the notes about other datastores away too.
 		if onlyStore == "" || !strings.HasPrefix(n.Scope, "pbs ") || n.Scope == "pbs "+onlyStore || n.Scope == "pbs namespace" {
 			fails = append(fails, n)
@@ -244,7 +247,7 @@ func collectVerifyHealth(ctx context.Context, t fleetTarget, onlyStore string, n
 		if onlyStore != "" && store != onlyStore {
 			continue
 		}
-		sr := verifyStoreRow{Cluster: t.Name, Store: store, VerifyJobs: []string{}, UnreachedNS: []string{}, VerifyJobsUnknown: !jobsOK}
+		sr := verifyStoreRow{Cluster: t.Name, Store: store, VerifyJobs: []string{}, UnreachedNS: []string{}, VerifyJobsUnknown: !jobsOK, SnapshotsIncomplete: gapStores[store]}
 		var storeJobs []verifyJobDef
 		for _, j := range jobs {
 			if j.Store == store {
@@ -315,6 +318,7 @@ func collectVerifyHealth(ctx context.Context, t fleetTarget, onlyStore string, n
 				}
 			}
 			if noManifest > 0 {
+				sr.SnapshotsIncomplete = true
 				fails = append(fails, fetchFailure{Cluster: t.Name, Scope: pbsSourceLabel(store, ns), Error: fmt.Sprintf(
 					"%d snapshot(s) listed without a readable manifest (a backup still running, or a damaged snapshot); they are not in the group counts", noManifest)})
 			}
@@ -385,6 +389,7 @@ func groupVerify(t fleetTarget, store, ns string, snaps []pbsSnapshot, outdatedD
 	byGroup := map[string]*verifyGroupRow{}
 	newest := map[string]int64{}
 	newestState := map[string]string{}
+	futureFailed := map[string]bool{}
 	firstFail := map[string]int64{}
 	newestOK := map[string]int64{}
 	for _, s := range snaps {
@@ -396,6 +401,7 @@ func groupVerify(t fleetTarget, store, ns string, snaps []pbsSnapshot, outdatedD
 		}
 		g.Snapshots++
 		ts := int64(s.BackupTime)
+		future := ts > now.Add(clockSkewTolerance).Unix() // a node clock ran ahead: no judgeable recency
 		state := ""
 		if s.Verification != nil {
 			state = s.Verification.State
@@ -407,7 +413,7 @@ func groupVerify(t fleetTarget, store, ns string, snaps []pbsSnapshot, outdatedD
 				firstFail[key] = ts
 			}
 		case "ok":
-			if ts > newestOK[key] {
+			if ts > newestOK[key] && !future {
 				newestOK[key] = ts
 			}
 			if vt := upidStartTime(s.Verification.UPID); outdatedDays > 0 && vt > 0 && now.Sub(time.Unix(vt, 0)) > time.Duration(outdatedDays)*24*time.Hour {
@@ -416,7 +422,10 @@ func groupVerify(t fleetTarget, store, ns string, snaps []pbsSnapshot, outdatedD
 		default:
 			g.NeverVerified++
 		}
-		if ts > newest[key] {
+		switch {
+		case future && state == "failed":
+			futureFailed[key] = true // newer than every real point, and bad
+		case !future && ts > newest[key]:
 			newest[key], newestState[key] = ts, state
 		}
 	}
@@ -425,7 +434,7 @@ func groupVerify(t fleetTarget, store, ns string, snaps []pbsSnapshot, outdatedD
 		g := byGroup[key]
 		g.FirstFailureAt = unixRFC3339(firstFail[key])
 		g.NewestVerifiedOKAt = unixRFC3339(newestOK[key])
-		g.NewestIsBad = newestState[key] == "failed"
+		g.NewestIsBad = newestState[key] == "failed" || futureFailed[key]
 		switch {
 		case g.Failed > 0:
 			g.Status = "failing"
