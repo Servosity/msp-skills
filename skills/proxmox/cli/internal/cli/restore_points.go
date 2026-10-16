@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"proxmox-pp-cli/internal/client"
 
@@ -28,6 +29,8 @@ type guestRestorePoints struct {
 	DisabledJobs  []string `json:"disabled_jobs"`
 	Count         int      `json:"count"`
 	Readable      int      `json:"-"` // points read before --verified-only filtered them
+	// HiddenUnverified: read points --verified-only left out (none verified).
+	HiddenUnverified int `json:"hidden_unverified,omitempty"`
 	// Evidence is "full" when every source that may hold this guest's restore
 	// points was read, else "partial" and NotRead names what was not: a count
 	// of 0 then means none could be read, not that none exist.
@@ -132,8 +135,11 @@ func newNovelRestorePointsCmd(flags *rootFlags) *cobra.Command {
 					rows = append(rows, []string{rp.TimeRFC3339, rp.Source, rp.VerifyState, strconv.FormatBool(rp.Protected), rp.Notes})
 				}
 				if len(rows) == 0 {
-					if g.Readable > 0 { // --verified-only filtered out read points
-						fmt.Fprintf(cmd.OutOrStdout(), "  %d restore point(s) read, none verified\n", g.Readable)
+					if g.HiddenUnverified > 0 {
+						fmt.Fprintf(cmd.OutOrStdout(), "  %d restore point(s) read, none verified\n", g.HiddenUnverified)
+						if g.Evidence == "partial" {
+							fmt.Fprintf(cmd.OutOrStdout(), "  partial: not read: %s\n", strings.Join(g.NotRead, "; "))
+						}
 					} else if g.Evidence == "partial" {
 						fmt.Fprintf(cmd.OutOrStdout(), "  no restore point could be read; not read: %s\n", strings.Join(g.NotRead, "; "))
 					} else {
@@ -336,15 +342,20 @@ func collectRestorePoints(ctx context.Context, t fleetTarget, query string, veri
 			kept = append(kept, rp)
 		}
 		sort.SliceStable(kept, func(i, j int) bool { return kept[i].Time > kept[j].Time })
+		cutoff := time.Now().Add(clockSkewTolerance).Unix()
 		for _, rp := range kept {
+			if rp.Time > cutoff {
+				continue // listed, but a node clock ran ahead: not the newest real point
+			}
+			if gr.NewestAt == "" {
+				gr.NewestAt = rp.TimeRFC3339
+			}
 			if rp.VerifyState == "ok" && gr.NewestVerifiedOKAt == "" {
 				gr.NewestVerifiedOKAt = rp.TimeRFC3339
 			}
 		}
-		if len(kept) > 0 {
-			gr.NewestAt = kept[0].TimeRFC3339
-		}
 		gr.Count = len(kept)
+		gr.HiddenUnverified = gr.Readable - gr.Count
 		gr.Evidence = "full"
 		if len(notRead) > 0 {
 			gr.Evidence, gr.NotRead = "partial", notRead

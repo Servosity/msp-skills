@@ -40,7 +40,7 @@ func TestFleetAllUnreachable(t *testing.T) {
 	}
 	// Human mode must not print an all-clear line.
 	out, _, _ := runCLI(t, "backup", "coverage")
-	if strings.Contains(out, "Every one of") {
+	if strings.Contains(out, "Every one of") || strings.Contains(out, "No uncovered guest") {
 		t.Errorf("human output claims full coverage with no data: %q", out)
 	}
 }

@@ -118,7 +118,7 @@ func newNovelPostureCmd(flags *rootFlags) *cobra.Command {
 			"Verdicts: uncovered (no ENABLED job includes the guest), never (covered, every source that may hold its restore points was read, none exists), " +
 			"unproven (covered, no readable restore point or only an old one, while something that may hold one was not proven: a storage or PBS namespace " +
 			"not read, a backup listed without a readable manifest, or a PBS namespace another configured cluster writes to or may write to; see reason and fetch_failures), " +
-			"stale (newest restore point older than --stale-after), verify-failed (newest PBS restore point failed verification) are red; " +
+			"stale (newest restore point older than --stale-after), verify-failed (newest PBS restore point failed verification, including one dated in the future) are red; " +
 			"unverified (newest PBS restore point not verified yet), last-attempt-failed (latest vzdump run failed but an older point is still fresh), " +
 			"attempt-unknown (fresh restore point, but the latest vzdump log could not be read; raise --max-logs or fix the reported fetch failure), " +
 			"archives-incomplete (fresh restore point, but some backup storage could not be read, or a newer backup is listed without a readable manifest), " +
@@ -410,11 +410,15 @@ func collectPosture(ctx context.Context, t fleetTarget, o postureOpts) (clusterP
 		// A point dated past now (the backing-up node's clock ran ahead: vzdump
 		// names the archive and PBS takes backup-time from it) has no judgeable
 		// age; counting it would keep a guest fresh after backups stop.
-		var future int
+		// Its verify result still counts: a failed one is a bad newest backup.
+		var future, futureFailed int
 		judged := rps[:0:0]
 		for _, rp := range rps {
 			if rp.Time > o.now.Add(clockSkewTolerance).Unix() {
 				future++
+				if rp.VerifyState == "failed" {
+					futureFailed++
+				}
 			} else {
 				judged = append(judged, rp)
 			}
@@ -494,9 +498,15 @@ func collectPosture(ctx context.Context, t fleetTarget, o postureOpts) (clusterP
 		}
 		if future > 0 {
 			note := fmt.Sprintf("%d restore point(s) dated in the future (the backing-up node's clock was ahead) not counted toward its age", future)
+			if futureFailed > 0 {
+				note += fmt.Sprintf(" (%d failed verification)", futureFailed)
+			}
 			switch {
 			case row.Verdict == "never":
 				row.Verdict, row.Reason = "unproven", note+"; no other restore point exists"
+			case futureFailed > 0 && row.Severity != "red" && row.CoveredByJob:
+				row.Verdict, row.Severity, row.VerifyState = "verify-failed", "red", "failed"
+				row.Reason = "a restore point newer than the rest failed verification; " + note
 			case row.Severity == "green" && row.CoveredByJob:
 				row.Verdict, row.Severity = "clock-skew", "amber"
 				row.Reason += ", but " + note

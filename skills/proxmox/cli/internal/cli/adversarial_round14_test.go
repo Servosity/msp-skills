@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"errors"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -12,17 +11,6 @@ import (
 
 	"proxmox-pp-cli/internal/client"
 )
-
-func exitCode(err error) int {
-	var ce *cliError
-	switch {
-	case errors.As(err, &ce):
-		return ce.code
-	case err != nil:
-		return -1
-	}
-	return 0
-}
 
 func deadAddr(t *testing.T) string {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
@@ -43,7 +31,7 @@ func TestPBSOnlyCapacityDownExits5(t *testing.T) {
 	t.Setenv("PROXMOX_PBS_HOST", "https://"+deadAddr(t))
 	for _, mode := range []string{"--json", "--human-friendly"} {
 		out, _, err := runCLI(t, "capacity", "--timeout", "2s", mode)
-		if code := exitCode(err); code != 5 {
+		if code := ExitCode(err); code != 5 {
 			t.Errorf("%s: exit %d, want 5 (%v)", mode, code, err)
 		}
 		if strings.Contains(out, "No backup storage at risk") {

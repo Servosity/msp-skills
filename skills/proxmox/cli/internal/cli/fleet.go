@@ -59,6 +59,7 @@ type pbsOwnership struct {
 	net       map[string]map[string]string
 	netOf     map[string]map[string][]string
 	netUnread []string
+	tenants   map[string]string // cluster name -> client (tenant)
 }
 
 type peerScope struct {
@@ -304,7 +305,7 @@ var (
 	verifyKeep   = []string{"stores", "groups", "skipped_clusters", "fetch_failures", "cluster", "store", "namespace", "group", "status", "snapshots", "failed", "never_verified", "outdated", "first_failure_at", "newest_verified_ok_at", "newest_is_bad", "failing_groups", "failed_snapshots", "never_verified_snapshots", "gc_still_bad_chunks", "namespaces_without_verify_job", "attribution", "snapshots_incomplete", "verify_jobs_unknown", "gc_unknown"}
 	failuresKeep = []string{"rows", "fetch_failures", "scanned_tasks", "logs_read", "log_cap_hit", "note", "cluster", "product", "type", "target", "vmid", "guest_name", "result", "reason", "upid", "started_at", "attribution"}
 	capacityKeep = []string{"rows", "fetch_failures", "cluster", "kind", "name", "node", "used_pct", "days_to_full", "estimated_full_at", "gc_last_state", "gc_pending_bytes", "flags", "attribution"}
-	restoreKeep  = []string{"query", "guests", "fetch_failures", "cluster", "vmid", "name", "covered_by_jobs", "count", "newest_at", "newest_verified_ok_at", "restore_points", "backup_time", "source", "verify_state", "protected", "encrypted", "evidence", "not_read"}
+	restoreKeep  = []string{"query", "guests", "fetch_failures", "cluster", "vmid", "name", "covered_by_jobs", "count", "newest_at", "newest_verified_ok_at", "restore_points", "backup_time", "source", "verify_state", "protected", "encrypted", "evidence", "not_read", "hidden_unverified"}
 	rpoKeep      = []string{"rows", "clients", "fetch_failures", "days", "window_start", "tenant", "cluster", "vmid", "name", "missed_runs", "scheduled_runs", "missed_run_times", "largest_gap_hours", "verified_ok_days", "met_schedule", "window_capped", "note", "guests", "guests_met_schedule", "worst_gap_hours", "evidence", "points_unread", "guests_unproven", "missed_runs_unproven", "guests_without_restore_points", "clusters_unreachable"}
 )
 
@@ -1033,7 +1034,8 @@ type pbsStorageRef struct {
 // of ref's datastore when any of them is not this target's PVE cluster: then
 // a snapshot of vm/100 there may be another cluster's. Empty when only this
 // cluster writes there (or nobody configured does). A PBS-only profile (no
-// PVE) is flagged only where two PVE clusters, or an unreadable peer, write.
+// PVE) is flagged where two PVE clusters, another client's cluster, or an
+// unreadable peer write.
 func (t fleetTarget) sharedOwners(ref pbsStorageRef, ns string) []string {
 	if t.own == nil {
 		return nil
@@ -1045,13 +1047,7 @@ func (t fleetTarget) sharedOwners(ref pbsStorageRef, ns string) []string {
 			names[name], ids[id] = true, true
 		}
 	}
-	foreign := false
-	for id := range ids {
-		foreign = foreign || (t.pveID != "" && id != t.pveID)
-	}
-	if t.pveID == "" && len(ids) > 1 {
-		foreign = true
-	}
+	foreign := t.foreignWriters(ids, names)
 	for _, p := range t.own.peers {
 		if p.name == t.Name || (p.pve != "" && p.pve == t.pveID) || !t.own.covers(p, ref, ns) {
 			continue
@@ -1083,6 +1079,29 @@ func (t fleetTarget) samePBS(ref pbsStorageRef) bool {
 	return ep != "" && strings.EqualFold(ref.server, ep)
 }
 
+// foreignWriters: a cluster other than this target's own PVE cluster writes
+// here. A PBS-only profile (no PVE) owns only what one cluster of its own
+// client writes; another client's writes are never its own.
+func (t fleetTarget) foreignWriters(ids, names map[string]bool) bool {
+	if t.pveID != "" {
+		for id := range ids {
+			if id != t.pveID {
+				return true
+			}
+		}
+		return false
+	}
+	if len(ids) > 1 {
+		return true
+	}
+	for name := range names {
+		if t.own.tenants[name] != t.Tenant {
+			return true
+		}
+	}
+	return false
+}
+
 // datastoreSharers is pbsServiceSharers for one datastore of a PBS service
 // (svcs): the configured clusters writing, or possibly writing, anywhere in
 // it when any of them is not this target's PVE cluster.
@@ -1101,13 +1120,7 @@ func (t fleetTarget) datastoreSharers(svcs []string, store string) []string {
 			names[name], ids[id] = true, true
 		}
 	}
-	foreign := false
-	for id := range ids {
-		foreign = foreign || (t.pveID != "" && id != t.pveID)
-	}
-	if t.pveID == "" && len(ids) > 1 {
-		foreign = true
-	}
+	foreign := t.foreignWriters(ids, names)
 	for _, p := range t.own.peers {
 		if p.name == t.Name || (p.pve != "" && p.pve == t.pveID) || !(p.anyPBS() || overlaps(p.svcs, svcs)) {
 			continue
@@ -1174,13 +1187,7 @@ func (t fleetTarget) pbsServiceSharers() []string {
 			names[name], ids[id] = true, true
 		}
 	}
-	foreign := false
-	for id := range ids {
-		foreign = foreign || (t.pveID != "" && id != t.pveID)
-	}
-	if t.pveID == "" && len(ids) > 1 {
-		foreign = true
-	}
+	foreign := t.foreignWriters(ids, names)
 	for _, p := range t.own.peers {
 		if p.name == t.Name || (p.pve != "" && p.pve == t.pveID) || !(p.anyPBS() || overlaps(p.svcs, mine)) {
 			continue
@@ -1232,11 +1239,12 @@ func markSharedPBS(ctx context.Context, flags *rootFlags, targets []fleetTarget)
 		return seen{refs: refs, net: net, hidden: storageListHidden(ctx, t.C) != nil}, nil
 	})
 	byName := map[string]fleetTarget{}
+	own := &pbsOwnership{writers: map[string]map[string]string{}, svc: pbsServices{},
+		net: map[string]map[string]string{}, netOf: map[string]map[string][]string{}, tenants: map[string]string{}}
 	for _, t := range all {
 		byName[t.Name] = t
+		own.tenants[t.Name] = t.Tenant
 	}
-	own := &pbsOwnership{writers: map[string]map[string]string{}, svc: pbsServices{},
-		net: map[string]map[string]string{}, netOf: map[string]map[string][]string{}}
 	// Every spelling of a PBS service first: each entry's pbs_host with its
 	// pins, and each PVE storage's server with its fingerprint.
 	for _, t := range all {
@@ -2363,7 +2371,7 @@ func hoursSince(now time.Time, sec int64) float64 {
 	if sec <= 0 {
 		return 0
 	}
-	h := now.Sub(time.Unix(sec, 0)).Hours()
+	h := max(now.Sub(time.Unix(sec, 0)).Hours(), 0) // a point within the clock-skew tolerance is not negative-aged
 	return float64(int64(h*10)) / 10
 }
 
