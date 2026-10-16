@@ -1,9 +1,10 @@
 // Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-written: the only proof rpo accepts that a scheduled run left no
-// restore point: a vzdump task log, from a task that wrote to that run's
-// destination, recording the guest's backup failing or stopping, with no
-// backup of the guest succeeding in the same window. Absence alone proves
-// nothing (a run may not have been due).
+// restore point: the log of a vzdump task that wrote to that run's
+// destination (an explicit --storage), recording the guest's backup failing
+// or stopping, with no backup of the guest succeeding in the same window and
+// every task that overlaps the window read and finished. Absence alone
+// proves nothing (a run may not have been due).
 
 package cli
 
@@ -14,79 +15,126 @@ import (
 	"time"
 )
 
-// rpoMaxLogs bounds the vzdump task logs rpo reads per cluster; past it no
-// miss is proven (a success may sit in an unread log).
+// rpoMaxLogs bounds the vzdump task logs rpo reads per cluster; a window
+// whose logs it did not read proves nothing.
 const rpoMaxLogs = 400
 
 // vzStorageRe is the storage a vzdump job wrote to, from its first line.
 var vzStorageRe = regexp.MustCompile(`starting new backup job: vzdump .*--storage (\S+)`)
 
-// vzRecord is one guest's outcome in one vzdump task.
-type vzRecord struct {
-	at      int64
-	typ     string // qemu | lxc as the log names it; "" when it does not
-	storage string // the storage the task wrote to ("" = its node's default)
-	node    string
-	ok      bool
+// vzTask is one vzdump task and, once read, what its log says.
+type vzTask struct {
+	node     string
+	task     pveTask
+	read     bool
+	unread   bool // the log could not be read
+	storage  string
+	outcomes []vzdumpGuestResult // incl. "incomplete" for guests an aborted job never reached
 }
 
-// rpoTaskRecords maps a VMID to its outcomes in the vzdump tasks since start.
-// complete is false when a task list or log could not be read or the log cap
-// was reached: then no miss on that cluster is proven.
-func rpoTaskRecords(ctx context.Context, t fleetTarget, nodes []string, start time.Time) (map[int64][]vzRecord, bool) {
-	out, complete := map[int64][]vzRecord{}, true
+// rpoEvidence reads vzdump task logs on demand, per run window, for one cluster.
+type rpoEvidence struct {
+	ctx      context.Context
+	t        fleetTarget
+	tasks    []*vzTask
+	complete bool // every node's task list (archived and running) was read
+	logs     int
+}
+
+func newRPOEvidence(ctx context.Context, t fleetTarget, nodes []string, start time.Time) *rpoEvidence {
+	e := &rpoEvidence{ctx: ctx, t: t, complete: true}
 	perms, err := fetchPrivs(ctx, t.C, false)
 	if err != nil {
-		return out, false
+		e.complete = false
+		return e
 	}
-	logs := 0
 	for _, node := range nodes {
 		if taskListVisibility(perms, false, node) != nil {
-			complete = false
+			e.complete = false
 			continue
 		}
-		tasks, capped, err := fetchTasks(ctx, t.C, false, node, map[string]string{"typefilter": "vzdump", "since": strconv.FormatInt(start.Add(-taskStartSlack).Unix(), 10)})
+		// source=all: running tasks too (Proxmox lists archived ones by default).
+		tasks, capped, err := fetchTasks(ctx, t.C, false, node, map[string]string{"typefilter": "vzdump", "source": "all", "since": strconv.FormatInt(start.Add(-taskStartSlack).Unix(), 10)})
 		if err != nil || capped {
-			complete = false
-			if err != nil {
-				continue
-			}
+			e.complete = false
 		}
-		for _, task := range tasks {
-			if task.EndTime == 0 {
+		for _, tk := range tasks {
+			e.tasks = append(e.tasks, &vzTask{node: node, task: tk})
+		}
+	}
+	return e
+}
+
+// window reports, for a guest of type typ, whether in [from, until) some task
+// that wrote to destination key logged its backup failing or stopping, and
+// whether every task overlapping the window was finished and read with no
+// success of the guest. A miss is proven only when both hold.
+func (e *rpoEvidence) window(vmid int64, typ, key string, refs map[string]pbsStorageRef, from, until int64) bool {
+	if e == nil || !e.complete {
+		return false
+	}
+	failedHere := false
+	for _, vt := range e.tasks {
+		start, end := int64(vt.task.StartTime), int64(vt.task.EndTime)
+		if start >= until || (end != 0 && end < from) {
+			continue // does not overlap the window
+		}
+		if end == 0 {
+			return false // still running: its outcome for this guest is not known yet
+		}
+		if !e.load(vt) {
+			return false
+		}
+		for _, r := range vt.outcomes {
+			if r.VMID != vmid || (r.Type != "" && r.Type != typ) {
 				continue
 			}
-			if logs >= rpoMaxLogs {
-				complete = false
-				break
+			if r.Result == "ok" {
+				return false // backed up in this window: its point may be pruned or elsewhere
 			}
-			logs++
-			lines, err := fetchTaskLog(ctx, t.C, false, node, task.UPID)
-			if err != nil {
-				complete = false
-				continue
-			}
-			storage := ""
-			for _, l := range lines {
-				if m := vzStorageRe.FindStringSubmatch(l); m != nil {
-					storage = m[1]
-					break
+			if vt.storage != "" && start >= from {
+				var ref *pbsStorageRef
+				if rf, ok := refs[vt.storage]; ok {
+					ref = &rf
 				}
-			}
-			at := int64(task.StartTime)
-			seen := map[int64]bool{}
-			for _, r := range parseVzdumpLog(lines) {
-				seen[r.VMID] = true
-				out[r.VMID] = append(out[r.VMID], vzRecord{at: at, typ: r.Type, storage: storage, node: node, ok: r.Result == "ok"})
-			}
-			if !taskOK(task.Status) && !vzdumpJobFinished(lines) { // aborted: the guests it never reached
-				for _, id := range vzdumpJobVMIDs(lines) {
-					if !seen[id] {
-						out[id] = append(out[id], vzRecord{at: at, storage: storage, node: node})
-					}
-				}
+				failedHere = failedHere || destinationKey(vt.storage, ref) == key
 			}
 		}
 	}
-	return out, complete
+	return failedHere
+}
+
+func (e *rpoEvidence) load(vt *vzTask) bool {
+	if vt.read {
+		return !vt.unread
+	}
+	if e.logs >= rpoMaxLogs {
+		return false
+	}
+	vt.read = true
+	e.logs++
+	lines, err := fetchTaskLog(e.ctx, e.t.C, false, vt.node, vt.task.UPID)
+	if err != nil {
+		vt.unread = true
+		return false
+	}
+	for _, l := range lines {
+		if m := vzStorageRe.FindStringSubmatch(l); m != nil {
+			vt.storage = m[1]
+			break
+		}
+	}
+	vt.outcomes = parseVzdumpLog(lines)
+	if !taskOK(vt.task.Status) && !vzdumpJobFinished(lines) { // aborted: the guests it never reached
+		seen := map[int64]bool{}
+		for _, r := range vt.outcomes {
+			seen[r.VMID] = true
+		}
+		for _, id := range vzdumpJobVMIDs(lines) {
+			if !seen[id] {
+				vt.outcomes = append(vt.outcomes, vzdumpGuestResult{VMID: id, Result: "incomplete"})
+			}
+		}
+	}
+	return true
 }
