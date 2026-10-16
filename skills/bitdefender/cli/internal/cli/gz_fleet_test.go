@@ -1279,3 +1279,22 @@ func TestInventoryAgentSource(t *testing.T) {
 		t.Fatalf("live answer reported meta.source %q, want live", got)
 	}
 }
+
+// A company whose fetch failed must carry a status that survives --compact,
+// so its zero counts are never read as a clean row (fleet-health-row-status).
+func TestFleetHealthFailedRowStatus(t *testing.T) {
+	view := buildFleetHealth([]fleetCompanyResult{
+		{Company: gzCompany{ID: "c1", Name: "Acme Corp"}},
+		{Company: gzCompany{ID: "c2", Name: "Northwind IT"}, Err: errors.New("boom")},
+	}, 7, time.Now())
+	got := map[string]string{}
+	for _, c := range view.Companies {
+		got[c.Name] = c.Status
+	}
+	if got["Acme Corp"] != "ok" || got["Northwind IT"] != "fetch_failed" {
+		t.Fatalf("row status = %v, want Acme Corp ok and Northwind IT fetch_failed", got)
+	}
+	if !isCompactGravityField("status") {
+		t.Fatal("status no longer survives --compact")
+	}
+}

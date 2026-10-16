@@ -1537,7 +1537,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Method:         "POST",
 		Path:           "/v1.1/jsonrpc/quarantine/{service}#createEmptyQuarantineTask",
 		Summary:        "Creates a new task to empty the quarantine.",
-		Positional:     []string{},
+		Positional:     []string{"service"}, // hand-wired (handfixes.json: mcp-quarantine-service-path-param)
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
@@ -1549,7 +1549,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Method:         "POST",
 		Path:           "/v1.0/jsonrpc/quarantine/{service}#getQuarantineItemsList",
 		Summary:        "Retrieves the list of quarantined items available for a company.",
-		Positional:     []string{},
+		Positional:     []string{"service"}, // hand-wired (handfixes.json: mcp-quarantine-service-path-param)
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
@@ -1573,7 +1573,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		Method:         "POST",
 		Path:           "/v1.1/jsonrpc/quarantine/{service}#createRemoveQuarantineItemTask",
 		Summary:        "Creates a new task to remove items from quarantine.",
-		Positional:     []string{},
+		Positional:     []string{"service"}, // hand-wired (handfixes.json: mcp-quarantine-service-path-param)
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},

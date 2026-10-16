@@ -118,12 +118,12 @@
     },
     {
       "tier": "Protection and policy config",
-      "examples": "policies set-modules; endpoints assign-policy; blocklist add; blocklist remove; custom-rules create; custom-rules update; custom-rules delete; phasr apply; phasr edit-rules-access; phasr request-access-action; maintenance-windows create; maintenance-windows assign; push set; integrations create; integrations manage; integrators add; aws-ec2 configure",
-      "policy": "Preview with --dry-run, then a human-approved write. An exclusion rule or a weaker policy can open a hole."
+      "examples": "policies set-modules; endpoints assign-policy; blocklist add; blocklist remove; custom-rules create; custom-rules update; custom-rules delete; phasr apply; phasr edit-rules-access; phasr request-access-action; maintenance-windows create; maintenance-windows assign; push set; integrations create; integrations manage; integrators add; aws-ec2 configure; endpoints move; groups move",
+      "policy": "Preview with --dry-run, then a human-approved write. An exclusion rule, a weaker policy or a move into another group's policy can open a hole."
     },
     {
       "tier": "Write (routine)",
-      "examples": "incidents note; incidents set-status; incidents set-priority; incidents assign; endpoints set-label; endpoints move; groups create; company-folders create; custom-fields create; reports create; packages create; tasks delete; import",
+      "examples": "incidents note; incidents set-status; incidents set-priority; incidents assign; endpoints set-label; groups create; company-folders create; custom-fields create; reports create; packages create; tasks delete",
       "policy": "Preview with --dry-run, then a reviewed write"
     },
     {
@@ -133,7 +133,7 @@
     },
     {
       "tier": "Destructive and commercial",
-      "examples": "endpoints delete; endpoints move-to-company; companies create; companies update; companies suspend; companies delete; company-folders delete; groups delete; custom-fields delete; packages delete; license set-key; license add-product-key; license remove-product-key; license set-monthly-subscription",
+      "examples": "import (one create per JSONL line, so it can reach any tier above); endpoints delete; endpoints move-to-company; companies create; companies update; companies suspend; companies delete; company-folders delete; groups delete; custom-fields delete; packages delete; license set-key; license add-product-key; license remove-product-key; license set-monthly-subscription",
       "policy": "Human-in-the-loop only, explicit confirmation"
     }
   ],

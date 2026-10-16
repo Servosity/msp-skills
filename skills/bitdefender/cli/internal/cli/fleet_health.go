@@ -28,7 +28,10 @@ type companyHealth struct {
 	Isolated         int    `json:"isolated"`
 	Unscanned        int    `json:"unscanned"`
 	Issues           int    `json:"issues"`
-	Error            string `json:"error,omitempty"`
+	// Status survives --compact (--agent), so a company whose fetch failed is
+	// never read as a clean row of zeros (handfixes.json: fleet-health-row-status).
+	Status string `json:"status,omitempty"`
+	Error  string `json:"error,omitempty"`
 }
 
 type endpointDetail struct {
@@ -240,10 +243,12 @@ func buildFleetHealth(results []fleetCompanyResult, scanDays int, now time.Time)
 	for _, r := range results {
 		h := companyHealth{ID: r.Company.ID, Name: r.Company.Name, Path: r.Company.Path}
 		if r.Err != nil {
+			h.Status = "fetch_failed"
 			h.Error = r.Err.Error()
 			view.Companies = append(view.Companies, h)
 			continue
 		}
+		h.Status = "ok"
 		for _, e := range r.Endpoints {
 			h.Endpoints++
 			if !e.IsManaged {

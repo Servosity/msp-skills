@@ -30,15 +30,40 @@
       "environmentVariables": [
         {
           "name": "BITDEFENDER_BASE_URL",
-          "description": "Set the BITDEFENDER_BASE_URL credential for the Bitdefender MCP server.",
+          "description": "Optional: Control Center Access URL (default https://cloud.gravityzone.bitdefender.com/api).",
+          "isRequired": false,
+          "isSecret": false,
+          "default": "https://cloud.gravityzone.bitdefender.com/api"
+        },
+        {
+          "name": "BITDEFENDER_API_KEY",
+          "description": "GravityZone Control Center API key (My Account > Control Center API).",
           "isRequired": true,
           "isSecret": true
         },
         {
-          "name": "BITDEFENDER_API_KEY",
-          "description": "Set the BITDEFENDER_API_KEY credential for the Bitdefender MCP server.",
-          "isRequired": true,
+          "name": "BITDEFENDER_USER_AGENT",
+          "description": "Optional: override the User-Agent the CLI sends.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "BITDEFENDER_MCP_READ_ONLY",
+          "description": "Optional: set to 1 so the MCP server runs GravityZone read methods only.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "BITDEFENDER_MCP_HTTP_TOKEN",
+          "description": "Bearer token callers must present when the server runs with --transport http; not used by stdio.",
+          "isRequired": false,
           "isSecret": true
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Not enforced by this connector (no tenant-gated profiles); leave unset. It does not limit access.",
+          "isRequired": false,
+          "isSecret": false
         }
       ]
     }

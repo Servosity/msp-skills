@@ -78,7 +78,7 @@ func newWorkflowStatusCmd(flags *rootFlags) *cobra.Command {
 			}
 
 			if len(status) == 0 {
-				fmt.Fprintln(cmd.OutOrStdout(), "No archived data. Add a site-specific sync command to populate the store.")
+				fmt.Fprintln(cmd.OutOrStdout(), "No synced resources: this CLI has no sync command. fleet health saves fleet snapshots, which fleet changes, fleet locate and fleet rmm-gap read.")
 				return nil
 			}
 

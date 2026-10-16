@@ -382,12 +382,8 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 					} else if reachErr != nil && !errors.As(reachErr, &reachAPIErr) {
 						report["credentials"] = "skipped (API unreachable)"
 					} else {
-						suggestion := suggestReadCommand(cmd.Root())
-						if suggestion != "" {
-							report["credentials"] = fmt.Sprintf("present, not verified. Run `%s %s` to confirm the token works end-to-end.", "bitdefender-cli", suggestion)
-						} else {
-							report["credentials"] = "present, not verified. Run any read command to confirm the token works end-to-end."
-						}
+						// Hand-wired (handfixes.json: doctor-verdict-tracks-reality).
+						doctorProbeCredentials(cmd.Context(), c, authHeader, report)
 					}
 				}
 			} else if cfg != nil && cfg.BaseURL == "" {

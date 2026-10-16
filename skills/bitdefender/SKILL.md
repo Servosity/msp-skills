@@ -410,10 +410,10 @@ bitdefender-cli which "<capability in your own words>"
 ### Monday fleet sweep
 
 ```bash
-bitdefender-cli fleet health --agent --select companies.name,companies.issues,companies.unmanaged,companies.outdated,companies.unscanned,companies.policy_not_applied,companies.isolated
+bitdefender-cli fleet health --agent --select companies.name,companies.status,companies.issues,companies.unmanaged,companies.outdated,companies.unscanned,companies.policy_not_applied,companies.isolated,fetch_failures
 ```
 
-One row per customer, ranked by total issues, with the counts that need action.
+One row per customer, ranked by total issues, with the counts that need action. A company whose fetch failed has status fetch_failed and is listed in fetch_failures: its zero counts mean unknown, not clean.
 
 ### What changed this week
 
@@ -426,10 +426,10 @@ Diffs the latest fleet snapshot against the newest one at least 7 days older, or
 ### Month-end billing
 
 ```bash
-bitdefender-cli usage billing --month 09/2026 --agent --select rows.company_name,rows.product_type,rows.usage,rows.own_share,rows.delta,rows.flags
+bitdefender-cli usage billing --month 09/2026 --agent --select rows.company_name,rows.product_type,rows.usage,rows.own_share,rows.delta,rows.flags,fetch_failures
 ```
 
-Per-company seats with own share and month-over-month swings; flags mark anything withheld because a fetch failed.
+Per-company seats with own share and month-over-month swings; flags mark a comparison withheld because a fetch failed, and a company whose usage could not be read at all is listed in fetch_failures, not in rows.
 
 ### Find then isolate a machine
 
@@ -513,6 +513,8 @@ Agents should treat the CLI's path resolver as part of the runtime contract:
     }
   }
   ```
+
+  On Windows, use a Windows path with doubled backslashes in JSON, for example `"BITDEFENDER_HOME": "C:\\msp\\bitdefender"`.
 
 Fleet precedence: an inherited per-kind env var overrides an explicit `--home` for that kind. Use `BITDEFENDER_HOME` or per-kind vars as durable fleet levers, and use `--home` only for a single invocation. Relocation is not reversible by unsetting env vars; move files manually before clearing `BITDEFENDER_HOME`, or `doctor` will not find credentials left under the former root.
 

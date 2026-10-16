@@ -47,8 +47,8 @@ func RegisterTools(s *server.MCPServer) {
 	// SQL tool — ad-hoc analysis on synced data without API calls
 	s.AddTool(
 		mcplib.NewTool("sql",
-			mcplib.WithDescription("Run read-only SQL against local database. Use for ad-hoc analysis, aggregations, and joins across synced resources. Requires sync first."),
-			mcplib.WithString("query", mcplib.Required(), mcplib.Description("SQL query (SELECT or WITH...SELECT). Synced records live in resources(resource_type, id, data); filter by resource_type and use json_extract on data, e.g. SELECT json_extract(data,'$.name') FROM resources WHERE resource_type='accounts'.")),
+			mcplib.WithDescription("Run read-only SQL against local database: the fleet snapshot store (hand-wired, handfixes.json: generated-help-corrections). Each fleet health run saves a snapshot; run it first. There is no sync command, so the generic resources table stays empty."),
+			mcplib.WithString("query", mcplib.Required(), mcplib.Description("SQL query (SELECT or WITH...SELECT). Snapshots live in gz_fleet_runs(run_id, taken_at, companies, endpoints, failures, tree_complete), gz_fleet_companies(run_id, company_id, company_name, ok) and gz_fleet_endpoints(run_id, company_id, company_name, endpoint_id, name, fqdn, ip, macs, label, is_managed, is_isolated, policy_id, policy_name, policy_applied, product_outdated, last_scan, machine_type, os); e.g. SELECT company_name, name, ip FROM gz_fleet_endpoints WHERE run_id = (SELECT max(run_id) FROM gz_fleet_runs).")),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 		),

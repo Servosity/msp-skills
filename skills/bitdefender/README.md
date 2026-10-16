@@ -27,7 +27,7 @@ The six agents MSP owners actually use (self-serve, works today):
 | **Claude Cowork** | Paste the install prompt below. |
 | **GitHub Copilot** (VS Code) | Run installer, add `bitdefender-mcp` to `mcp.json` under the `servers` key, then pick **Agent** mode. |
 
-For ChatGPT, run `bitdefender-mcp --transport http` and expose that behind HTTPS - no bridge package is needed. See [mcp-install.md](./mcp-install.md).
+For ChatGPT, run `bitdefender-mcp --transport http` (with `BITDEFENDER_MCP_HTTP_TOKEN` set; it refuses to start without one) and expose that behind HTTPS - no bridge package is needed. See [mcp-install.md](./mcp-install.md).
 
 ### Also for the Microsoft and Google stacks
 
@@ -134,13 +134,20 @@ OpenClaw isn't generally available yet; the frontmatter wiring is pre-shipped an
 
 ### Authenticate
 
-Set the credentials the CLI needs (from your Bitdefender portal):
+Set the API key from GravityZone Control Center (user icon > **My Account** > **Control Center API**). `BITDEFENDER_BASE_URL` is only needed when your Access URL is not `https://cloud.gravityzone.bitdefender.com/api`:
 
 ```bash
-BITDEFENDER_BASE_URL=<value> BITDEFENDER_API_KEY=<value> bitdefender-cli doctor
+BITDEFENDER_API_KEY=<value> bitdefender-cli doctor
 ```
 
-`doctor` checks config, paths, and API reachability, and reports whether credentials are loaded - it does not validate them. Run a read command to confirm the credential actually works end-to-end.
+On Windows (PowerShell):
+
+```powershell
+$env:BITDEFENDER_API_KEY = "<value>"
+bitdefender-cli doctor
+```
+
+`doctor` checks config, paths, and API reachability, and reports whether credentials are loaded - it does not validate them. Run `bitdefender-cli api-key --json` to confirm the key works end-to-end and see which API areas it has.
 
 
 ## What this skill does
@@ -234,10 +241,10 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 | --- | --- | --- |
 | Read | `fleet health`, `fleet incident-queue`, `fleet threats`, `fleet locate`, `fleet rmm-gap`, `fleet changes`, `companies tree`, `usage billing`, `usage monthly`, `companies list`, `endpoints list`, `endpoints get`, `incidents list`, `quarantine list`, `policies list`, `patches missing`, `tasks status`, `reports list` | Allow |
 | Endpoint response | `isolation isolate`, `isolation restore`, `endpoints kill-process`, `investigation run-command`, `investigation kill-process`, `investigation collect-package`, `investigation retrieve-file`, `tasks scan`, `tasks reconfigure`, `quarantine remove`, `quarantine restore`, `quarantine empty`, `live-search`, `yara`, `response-actions create` | Human-in-the-loop, explicit confirmation - these reach real customer machines |
-| Protection and policy config | `policies set-modules`, `endpoints assign-policy`, `blocklist add`, `blocklist remove`, `custom-rules create`, `custom-rules update`, `custom-rules delete`, `phasr apply`, `maintenance-windows create`, `push set`, `integrations create`, `aws-ec2 configure` | Preview with `--dry-run`, then a human-approved write - an exclusion rule or a weaker policy can open a hole |
-| Write (routine) | `incidents note`, `incidents set-status`, `incidents assign`, `endpoints set-label`, `endpoints move`, `groups create`, `company-folders create`, `reports create`, `packages create`, `import` | Preview with `--dry-run`, then a reviewed write |
+| Protection and policy config | `policies set-modules`, `endpoints assign-policy`, `blocklist add`, `blocklist remove`, `custom-rules create`, `custom-rules update`, `custom-rules delete`, `phasr apply`, `maintenance-windows create`, `push set`, `integrations create`, `aws-ec2 configure`, `endpoints move`, `groups move` | Preview with `--dry-run`, then a human-approved write - an exclusion rule, a weaker policy or a move into another group's policy can open a hole |
+| Write (routine) | `incidents note`, `incidents set-status`, `incidents assign`, `endpoints set-label`, `groups create`, `company-folders create`, `reports create`, `packages create` | Preview with `--dry-run`, then a reviewed write |
 | Credential and access | `push get` (returns the webhook Authorization value), `license get` (returns the license key), `companies get-by-user` (takes a user's password), `packages get`, `packages install-links`, `integrations get`, `accounts create`, `accounts update`, `accounts delete`, `email-verification`, `auth set-token` | Human-in-the-loop only |
-| Destructive and commercial | `endpoints delete`, `endpoints move-to-company`, `companies create`, `companies suspend`, `companies delete`, `company-folders delete`, `groups delete`, `packages delete`, `license set-key`, `license add-product-key`, `license remove-product-key`, `license set-monthly-subscription` | Human-in-the-loop only, explicit confirmation |
+| Destructive and commercial | `import` (one create per JSONL line, so it can reach any tier above), `endpoints delete`, `endpoints move-to-company`, `companies create`, `companies suspend`, `companies delete`, `company-folders delete`, `groups delete`, `packages delete`, `license set-key`, `license add-product-key`, `license remove-product-key`, `license set-monthly-subscription` | Human-in-the-loop only, explicit confirmation |
 
 Generated commands run as soon as they are invoked; preview with `--dry-run`. Over MCP, the generic `bitdefender_execute` tool can reach every write in the table; set `BITDEFENDER_MCP_READ_ONLY=1` for an agent that should only read.
 

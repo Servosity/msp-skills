@@ -38,7 +38,11 @@ Add (or merge with your existing `mcpServers` block):
       "command": "bitdefender-mcp",
       "env": {
         "BITDEFENDER_BASE_URL": "<your-bitdefender_base_url>",
-        "BITDEFENDER_API_KEY": "<your-bitdefender_api_key>"
+        "BITDEFENDER_API_KEY": "<your-bitdefender_api_key>",
+        "BITDEFENDER_USER_AGENT": "",
+        "BITDEFENDER_MCP_READ_ONLY": "",
+        "BITDEFENDER_MCP_HTTP_TOKEN": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
@@ -46,6 +50,15 @@ Add (or merge with your existing `mcpServers` block):
 ```
 
 Quit Claude Desktop completely and reopen, then ask a question that needs the API.
+
+`BITDEFENDER_BASE_URL` is optional: leave it out for the cloud console
+(`https://cloud.gravityzone.bitdefender.com/api`), or set it to the Access URL from
+**My Account > Control Center API**. For an agent that should only read, add
+`"BITDEFENDER_MCP_READ_ONLY": "1"` to the same `env` block (in this file or any other
+agent's config below): the generic `bitdefender_execute` tool then runs only
+GravityZone read methods and refuses writes and the reads that return or take a
+credential. The one-click `.mcpb` extension asks for the same switch as **Read-only MCP
+server**: enter `1` there.
 
 ## GitHub Copilot (VS Code)
 
@@ -64,7 +77,11 @@ Configuration**) and add:
       "command": "bitdefender-mcp",
       "env": {
         "BITDEFENDER_BASE_URL": "<your-bitdefender_base_url>",
-        "BITDEFENDER_API_KEY": "<your-bitdefender_api_key>"
+        "BITDEFENDER_API_KEY": "<your-bitdefender_api_key>",
+        "BITDEFENDER_USER_AGENT": "",
+        "BITDEFENDER_MCP_READ_ONLY": "",
+        "BITDEFENDER_MCP_HTTP_TOKEN": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
@@ -86,7 +103,11 @@ Claude Desktop:
       "command": "bitdefender-mcp",
       "env": {
         "BITDEFENDER_BASE_URL": "<your-bitdefender_base_url>",
-        "BITDEFENDER_API_KEY": "<your-bitdefender_api_key>"
+        "BITDEFENDER_API_KEY": "<your-bitdefender_api_key>",
+        "BITDEFENDER_USER_AGENT": "",
+        "BITDEFENDER_MCP_READ_ONLY": "",
+        "BITDEFENDER_MCP_HTTP_TOKEN": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
@@ -102,18 +123,33 @@ web** is remote-only - see the remote section below.)
 
 All remote agents need `bitdefender-mcp` reachable as a public **HTTPS** endpoint. Run it
 in HTTP mode with your credentials in the environment (it serves `http://127.0.0.1:7777/mcp` by
-default; press 4.32+ refuses a non-loopback bind without TLS, so do not pass `--addr :7777`):
+default; the server refuses a non-loopback bind without `--tls-cert`/`--tls-key`, so do not
+pass `--addr :7777`):
 
 ```bash
-BITDEFENDER_BASE_URL=<value> BITDEFENDER_API_KEY=<value> bitdefender-mcp --transport http
+BITDEFENDER_API_KEY=<value> BITDEFENDER_MCP_HTTP_TOKEN=<long-random-value> bitdefender-mcp --transport http
 ```
+
+On Windows (PowerShell):
+
+```powershell
+$env:BITDEFENDER_API_KEY="<value>"; $env:BITDEFENDER_MCP_HTTP_TOKEN="<long-random-value>"; bitdefender-mcp --transport http
+```
+
+Add `BITDEFENDER_BASE_URL=<Access URL>` (PowerShell: `$env:BITDEFENDER_BASE_URL = "<Access URL>"`)
+if your console is not `https://cloud.gravityzone.bitdefender.com/api`.
+
+`BITDEFENDER_MCP_HTTP_TOKEN` is required: the server refuses to start in HTTP mode
+without it, and rejects any request that does not carry `Authorization: Bearer <that value>`.
+If your remote client cannot send that header, have your reverse proxy add it to the
+requests it forwards, and put your own sign-in in front of the proxy.
 
 Then expose `http://localhost:7777/mcp` as a public HTTPS URL via a secure tunnel
 (Cloudflare Tunnel, ngrok) or your own reverse proxy. The path is part of the
 endpoint: the server answers Streamable HTTP at `/mcp` and returns 404 at the
-bare root, so a connector pointed at the root URL never handshakes. **Treat that
-URL as sensitive** - it's a key to your MCP server. Never expose it bare on the
-internet; gate it behind SSO / Cloudflare Access for team use.
+bare root, so a connector pointed at the root URL never handshakes. **Treat the token
+and the URL as sensitive.** Never expose the endpoint bare on the internet; gate it
+behind SSO / Cloudflare Access for team use.
 
 ## ChatGPT (Developer Mode)
 

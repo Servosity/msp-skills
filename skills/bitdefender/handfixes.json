@@ -180,12 +180,24 @@
         {
           "file": "guide.md",
           "contains": "| `BITDEFENDER_MCP_READ_ONLY` | mcp | No |"
+        },
+        {
+          "file": "SKILL.md",
+          "contains": "companies.status,companies.issues"
+        },
+        {
+          "file": "SKILL.md",
+          "contains": "rows.flags,fetch_failures"
+        },
+        {
+          "file": "guide.md",
+          "contains": "rows.flags,fetch_failures"
         }
       ]
     },
     {
       "id": "manifest-optional-base-url",
-      "summary": "the MCP bundle manifest declares BITDEFENDER_BASE_URL as an optional, non-secret field with the cloud default",
+      "summary": "the MCP bundle manifest declares BITDEFENDER_BASE_URL as an optional, non-secret field with the cloud default; server.json declares it optional and non-secret",
       "why": "The generator ships only the API key in the .mcpb manifest, so Claude Desktop users on another region or an on-premises Control Center had no way to point the server at their Access URL. handfix/patch_manifest_base_url.py adds bitdefender_base_url (required false, default https://cloud.gravityzone.bitdefender.com/api) and maps it to BITDEFENDER_BASE_URL; re-apply ~/Documents/Dev/cli-factory/bitdefender/handfix/ after any regen.",
       "status": "active",
       "asserts": [
@@ -200,6 +212,10 @@
         {
           "file": "manifest.json",
           "contains": "\"default\": \"https://cloud.gravityzone.bitdefender.com/api\""
+        },
+        {
+          "file": "server.json",
+          "contains": "\"description\": \"Optional: Control Center Access URL (default https://cloud.gravityzone.bitdefender.com/api).\""
         }
       ]
     },
@@ -275,6 +291,164 @@
           "file": "cli/internal/config/env_base_url_test.go",
           "contains": "func TestEnvBaseURLNeverPersisted(",
           "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "fleet-health-row-status",
+      "summary": "each fleet health company row carries status ok or fetch_failed, a field --compact (--agent) keeps",
+      "why": "A company whose getEndpointsList failed was still a ranked row with zero counts, and --agent (--compact) strips the row's error field, so an agent read it as a clean customer. Found by the 2026-10-16 adversarial review (round 1, P1). status survives compaction; gz_fleet_test.go TestFleetHealthFailedRowStatus fails if the failed row is marked ok.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/fleet_health.go",
+          "contains": "h.Status = \"fetch_failed\"",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/fleet_health.go",
+          "contains": "Status string `json:\"status,omitempty\"`",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/gz_fleet_test.go",
+          "contains": "func TestFleetHealthFailedRowStatus(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-quarantine-service-path-param",
+      "summary": "bitdefender_execute substitutes the {service} path parameter for quarantine.list, quarantine.remove and quarantine.empty",
+      "why": "The generated code-orchestration registry gave the three quarantine/{service} methods an empty Positional list, so bitdefender_execute never substituted {service} and every call failed with 'unresolved path parameter {service}' (quarantine list could not run over MCP at all). The value is path-escaped, so a '#' cannot change the JSON-RPC method (verified: service='computers#createEmptyQuarantineTask' reached the server as quarantine/computers%23createEmptyQuarantineTask with method getQuarantineItemsList).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/code_orch.go",
+          "contains": "Positional:     []string{\"service\"},",
+          "min_count": 3,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "generated-help-corrections",
+      "summary": "MCP sql tool names the fleet snapshot tables; workflow status says there is no sync command; policies help no longer claims create",
+      "why": "Generated text sent agents to an always-empty resources table (there is no sync command), claimed a policies create command that does not exist while hiding the set-modules write. Found by the 2026-10-16 adversarial review (round 1, P2).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "contains": "Snapshots live in gz_fleet_runs(run_id, taken_at, companies, endpoints, failures, tree_complete)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/channel_workflow.go",
+          "contains": "No synced resources: this CLI has no sync command.",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/policies.go",
+          "contains": "Short:       \"List and get policies, and enable or disable policy modules\",",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "doctor-verdict-tracks-reality",
+      "summary": "doctor probes general#getApiKeyDetails with the configured key and classifies the answer, instead of calling any response to GET / reachable and printing 'present, not verified'",
+      "why": "check_doctor_truth (issue #282) failed: the generated doctor printed the same verdict for a working key, a rejected key and a base_url aimed at the console's web UI. GravityZone has no GET endpoints, so doctor_verdict.go posts one JSON-RPC getApiKeyDetails call (no parameters, answered for any valid key) without a #method fragment, so the strict JSON-RPC transport passes it through and the raw status and envelope can be classified: a result is valid; a JSON-RPC error, 401, 404, 5xx or a non-envelope body is negative, and a 404 also marks the api row as not the Control Center API root. A 2xx list envelope (data/items/results arrays) is accepted the way the sonicwall doctor accepts it, for a stub or proxy in front of Control Center. doctor_verdict_test.go covers each case; check_doctor_truth --slug bitdefender fails without the wiring.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/doctor_verdict.go",
+          "contains": "func doctorProbeCredentials(ctx context.Context, c *client.Client, authHeader string, report map[string]any) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor_verdict.go",
+          "contains": "case ok2xx && isRPC && !bytes.Equal(bytes.TrimSpace(result), []byte(\"null\")):",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "doctorProbeCredentials(cmd.Context(), c, authHeader, report)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "not_contains": "present, not verified. Run `%s %s` to confirm the token works end-to-end."
+        },
+        {
+          "file": "cli/internal/cli/doctor_verdict_test.go",
+          "contains": "func TestDoctorProbeCredentials(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-http-token-placeholder",
+      "summary": "the MCP server's --transport http bearer token is read through cliutil.EnvOverride, so an unresolved ${user_config.bitdefender_mcp_http_token} placeholder refuses to start instead of becoming the secret",
+      "why": "The generated requireHTTPCallerToken read BITDEFENDER_MCP_HTTP_TOKEN with os.Getenv. The variable is declared as an optional MCPB user_config value, and a host that skips an optional prompt leaves the literal placeholder text in the environment; that text is public (it is in manifest.json), so anyone could authenticate to an HTTP-mode server started that way. Same fix as sophos-central. TestHTTPTokenPlaceholderRefused fails when the read goes back to os.Getenv.",
+      "status": "active",
+      "spec_encode_followup": "the press main_mcp.go.tmpl should read the HTTP token through cliutil.EnvOverride for every connector.",
+      "asserts": [
+        {
+          "file": "cli/cmd/bitdefender-mcp/main.go",
+          "contains": "token := strings.TrimSpace(cliutil.EnvOverride(httpTokenEnvVar))",
+          "code_only": true
+        },
+        {
+          "file": "cli/cmd/bitdefender-mcp/http_token_placeholder_test.go",
+          "contains": "func TestHTTPTokenPlaceholderRefused(",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "client-profile-inert",
+      "summary": "--client-profile is documented as inert on this connector and kept out of MCP tool schemas",
+      "why": "No tenant-gated client profile source is registered for GravityZone, so the flag changes nothing; the generated help promised tenant gating it does not provide, and an agent could believe it had scoped itself. The help now says so and the MCP schema no longer offers it. manifest.json and server.json describe PRINTING_PRESS_CLIENT_PROFILE the same way.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "Unused by this connector: no tenant-gated profile source is registered",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/shellout.go",
+          "contains": "\"client-profile\":          true,",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "install-env-declared-on-every-channel",
+      "summary": "every variable the binaries read (API key, base URL, user agent, MCP read-only switch, MCP HTTP token, client profile) is declared identically in manifest.json, server.json and every mcp-install.md env block",
+      "why": "check_env_schema failed: the generated manifest declared only the API key and base URL, so the .mcpb install could not turn on BITDEFENDER_MCP_READ_ONLY (the adversarial review's P2) and server.json marked the optional base URL as a required secret with no default. A regenerated manifest drops the extra user_config prompts.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "manifest.json",
+          "contains": "\"BITDEFENDER_MCP_READ_ONLY\": \"${user_config.bitdefender_mcp_read_only}\""
+        },
+        {
+          "file": "manifest.json",
+          "contains": "\"BITDEFENDER_MCP_HTTP_TOKEN\": \"${user_config.bitdefender_mcp_http_token}\""
+        },
+        {
+          "file": "server.json",
+          "contains": "\"name\": \"BITDEFENDER_MCP_READ_ONLY\""
+        },
+        {
+          "file": "server.json",
+          "contains": "\"default\": \"https://cloud.gravityzone.bitdefender.com/api\""
+        },
+        {
+          "file": "mcp-install.md",
+          "contains": "\"BITDEFENDER_MCP_READ_ONLY\": \"\"",
+          "min_count": 3
         }
       ]
     }

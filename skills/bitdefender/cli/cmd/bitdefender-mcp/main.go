@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"bitdefender-pp-cli/internal/cli"
+	"bitdefender-pp-cli/internal/cliutil"
 	mcptools "bitdefender-pp-cli/internal/mcp"
 	"github.com/mark3labs/mcp-go/server"
 )
@@ -118,7 +119,7 @@ func defaultTransport() string {
 }
 
 func requireHTTPCallerToken() (string, error) {
-	token := strings.TrimSpace(os.Getenv(httpTokenEnvVar))
+	token := strings.TrimSpace(cliutil.EnvOverride(httpTokenEnvVar))
 	if token == "" {
 		return "", fmt.Errorf("%s must be set to a non-empty bearer token before starting --transport http", httpTokenEnvVar)
 	}
