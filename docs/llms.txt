@@ -207,6 +207,9 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
 - SkyKick (Backup/DR) - ask "Which customers have a protection gap right now?" - Catch silently-failing Microsoft 365 backups across every SkyKick tenant before a customer needs a restore.
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/skykick/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/skykick/install.sh)
+- SonicWall (Security) - ask "Give me one insurance-posture row per client firewall: firmware, end of support, advisories, licences, admin TOTP and SSL-VPN exposure." - Audit every client SonicWall firewall for firmware, SSL-VPN exposure, MFA and licence expiry in one command.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/sonicwall/
+  Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/sonicwall/install.sh)
 - Sophos Central (Security) - ask "What needs attention across all my customers today?" - Triage alerts, restore tamper protection and contain a machine by hostname across every Sophos Central tenant by asking.
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/sophos-central/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/sophos-central/install.sh)

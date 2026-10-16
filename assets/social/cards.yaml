@@ -64,6 +64,10 @@ cipp:
   vendor: "CIPP"
   example_command: "Which tenants lack MFA?"
 
+cisco-meraki:
+  vendor: "Cisco Meraki"
+  example_command: "What is down across all my Meraki clients?"
+
 cisco-duo:
   vendor: "Cisco Duo"
   example_command: "Why is Jane locked out of Duo?"
@@ -72,6 +76,10 @@ connect-tool:
   subtitle: "Claude Code Skill - no MCP server to install"
   vendor: "connect-tool"  # matches docs/skills/connect-tool.md
   example_command: "Connect my Pax8 account and prove it works"
+
+connectsecure:
+  vendor: "ConnectSecure"
+  example_command: "Which of our clients does this CVE hit?"
 
 connectwise-automate:
   vendor: "ConnectWise"
@@ -112,6 +120,14 @@ datto-rmm:
 domotz:
   vendor: "Domotz"
   example_command: "Which client sites have devices down?"
+
+fortinet:
+  vendor: "Fortinet"
+  example_command: "Which client FortiGates expose SSL-VPN?"
+
+google-workspace:
+  vendor: "Google Workspace"
+  example_command: "Who lacks 2SV across my clients?"
 
 grab-cookie:
   subtitle: "Claude Code Skill - no MCP server to install"
@@ -220,6 +236,10 @@ quickbooks:
   vendor: "QuickBooks Online"
   example_command: "Which overdue invoices should I chase first?"
 
+quotewerks:
+  vendor: "QuoteWerks"
+  example_command: "Which open quotes went thin when our cost changed?"
+
 resourceguru:
   vendor: "Resource Guru"
   example_command: "Who's overbooked next week, across the team?"
@@ -265,6 +285,14 @@ skykick:
   vendor: "SkyKick"
   example_command: "Which customers have a backup gap?"
 
+sophos-central:
+  vendor: "Sophos Central"
+  example_command: "What needs attention across my customers today?"
+
+sonicwall:
+  vendor: "SonicWall"
+  example_command: "Which client SonicWalls have SSL-VPN on WAN?"
+
 superops:
   vendor: "SuperOps"
   example_command: "Who's about to breach SLA, by tech?"
@@ -276,6 +304,10 @@ syncro:
 tactical-rmm:
   vendor: "Tactical RMM"
   example_command: "Where do patches and reboots stand across every client?"
+
+threatdown:
+  vendor: "ThreatDown"
+  example_command: "Which endpoints went dark this week?"
 
 threatlocker:
   vendor: "ThreatLocker"

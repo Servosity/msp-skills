@@ -1358,6 +1358,26 @@
       "tagline": "Catch silently-failing Microsoft 365 backups across every SkyKick tenant before a customer needs a restore."
     },
     {
+      "name": "sonicwall",
+      "system": "SonicWall firewalls via Network Security Manager (NSM SaaS) and MySonicWall",
+      "status": "beta",
+      "skill_path": "skills/sonicwall",
+      "cli_binary": "sonicwall-cli",
+      "mcp_binary": "sonicwall-mcp",
+      "version": "0.1.0",
+      "printing_press_version": "4.33.5",
+      "license": "Apache-2.0",
+      "vendor": "SonicWall",
+      "vendor_trademark_owner": "SonicWall Inc",
+      "first_party": false,
+      "install_skill_one_liner": "bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/sonicwall/install.sh)",
+      "install_mcp_doc": "skills/sonicwall/mcp-install.md",
+      "description": "Cyber-insurance posture for a whole SonicWall fleet: firmware, advisories, MFA, SSL-VPN exposure and licences, one row per firewall.",
+      "verification": "awaiting",
+      "category": "Security",
+      "tagline": "Audit every client SonicWall firewall for firmware, SSL-VPN exposure, MFA and licence expiry in one command."
+    },
+    {
       "name": "sophos-central",
       "system": "Sophos Central endpoint protection across every partner tenant: alerts, endpoints, isolation, tamper protection, account health, licences, billing and SIEM",
       "status": "beta",
