@@ -436,7 +436,7 @@
   "runzero": {
     "state": "binary-pending",
     "version": "0.1.3",
-    "latest_tag": "runzero-v0.1.3",
+    "latest_tag": "runzero-v0.1.4",
     "current_hash": "sha256:feb29a26e8de92b6d747864be6e227697a456e4f2b8a8cc19405961022ace82e",
     "released_hash": "sha256:f9dc86fa9b0c5dd1038a4ea033e2c446f544910ab3e5268a3d7a1a7484eddd45"
   },
