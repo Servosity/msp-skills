@@ -398,14 +398,32 @@ func collectRPO(ctx context.Context, t fleetTarget, start, now time.Time, onlyVM
 				byTarget[key], order = tg, append(order, key)
 			}
 			tg.jobRuns = append(tg.jobRuns, slices.DeleteFunc(slices.Clone(runsByJob[id]), func(r int64) bool { return r < birth.at }))
-			tg.prunes = tg.prunes || retention.mayPrune(targets.jobs[id], g.Node, target, ref)
+		}
+		// Retention may have deleted this guest's older backups if any job that
+		// covers or covered it (a disabled one may have run earlier in the
+		// window) prunes on any node it may have run on (the guest migrates; a
+		// default storage and vzdump.conf are per node); an offline node's
+		// policy is unknown.
+		prunes := len(offline) > 0
+		for _, id := range append(slices.Clone(cov.EnabledFor[vmid]), cov.DisabledFor[vmid]...) {
+			for _, node := range nodes {
+				if prunes {
+					break
+				}
+				target := targets.target(id, node)
+				var ref *pbsStorageRef
+				if r, ok := refs[target]; ok {
+					ref = &r
+				}
+				prunes = retention.mayPrune(targets.jobs[id], node, target, ref)
+			}
 		}
 		var dests []rpoTarget
 		for _, key := range order {
+			byTarget[key].prunes = prunes
 			dests = append(dests, *byTarget[key])
 		}
-		row := evaluateJobsRPO(mine, dests, from, now)
-		row.WindowStart = start.UTC().Format(time.RFC3339)
+		row := evaluateJobsRPO(mine, dests, from, now) // window_start: the evaluated start (creation, when inside the window)
 		if birth.at > start.Unix() && row.ScheduledRuns == 0 && !row.WindowCapped {
 			// Created inside the window: no wider window judges runs from before then.
 			row.Note = strings.TrimSpace(strings.TrimSuffix(strings.Replace(row.Note, rpoNoJudgedRunNote, "", 1), "; ") + "; the VM was created " + unixRFC3339(birth.at) + ", inside the window, and no scheduled run since then can be judged yet")
@@ -433,6 +451,7 @@ func collectRPO(ctx context.Context, t fleetTarget, start, now time.Time, onlyVM
 			// Something that may hold restore points was not read: "none" is
 			// only "none read".
 			row.Note = strings.NewReplacer(rpoNoPointsNote+"; every scheduled run in the window is missed", "no restore point could be read, so the scheduled runs have none that was read",
+				"every scheduled run in the window is missed", "the scheduled runs have no restore point that was read",
 				rpoNoPointsNote, "no restore point could be read",
 				"no restore point inside the window", "no readable restore point inside the window").Replace(row.Note)
 			why := "some backup storage could not be read (see fetch_failures)"
@@ -650,6 +669,26 @@ func evaluateJobsRPO(all []restorePoint, targets []rpoTarget, start, now time.Ti
 		}
 		return false
 	}
+	// elsewhereCouldPay: some point at another destination inside w's window
+	// (a job moved storages, a manual backup) could be w's own while every
+	// paid run stays paid: then w's miss is unproven. An augmenting path from
+	// w that may also use those times, on a copy of the matching.
+	elsewhereCouldPay := func(w int) bool {
+		saved := slices.Clone(owner)
+		defer copy(owner, saved)
+		own := adj[w]
+		ext := slices.Clone(own)
+		for _, p := range points {
+			if ti, ok := times[p.Time]; ok && !onTgt[wins[w].tgt][p.canonical] && p.Time >= wins[w].from && p.Time < wins[w].until && !slices.Contains(ext, ti) {
+				ext = append(ext, ti)
+			} else if !ok && !onTgt[wins[w].tgt][p.canonical] && p.Time >= wins[w].from && p.Time < wins[w].until {
+				return true // a free time no destination point holds
+			}
+		}
+		adj[w] = ext
+		defer func() { adj[w] = own }()
+		return augment(w, make([]bool, len(timeAt)))
+	}
 	for _, grace := range []bool{false, true} {
 		for w := range wins {
 			if wins[w].inGrace == grace {
@@ -657,16 +696,15 @@ func evaluateJobsRPO(all []restorePoint, targets []rpoTarget, start, now time.Ti
 			}
 		}
 	}
-	usedTime := map[int64]bool{}
-	for ti, w := range owner {
+	for _, w := range owner {
 		if w >= 0 {
-			wins[w].paid, usedTime[timeAt[ti]] = true, true
+			wins[w].paid = true
 		}
 	}
 	prunes := slices.ContainsFunc(targets, func(tg rpoTarget) bool { return tg.prunes })
 	pending := ""
 	var missed []int64
-	for _, w := range wins {
+	for wi, w := range wins {
 		if w.inGrace {
 			// It may still be running: not judged, but not met either.
 			if !w.paid {
@@ -684,10 +722,7 @@ func evaluateJobsRPO(all []restorePoint, targets []rpoTarget, start, now time.Ti
 		// ids can name one directory); with none, it never existed. A point at
 		// another destination inside the window that paid no run may be this
 		// run's (a job moved storages, a manual backup).
-		elsewhereIn := slices.ContainsFunc(points, func(p restorePoint) bool {
-			return !onTgt[w.tgt][p.canonical] && !usedTime[p.Time] && p.Time >= w.from && p.Time < w.until
-		})
-		if (prunes && newest[w.tgt] > w.from) || elsewhereIn {
+		if (prunes && newest[w.tgt] > w.from) || elsewhereCouldPay(wi) {
 			row.MissedRunsUnproven++
 		}
 	}
