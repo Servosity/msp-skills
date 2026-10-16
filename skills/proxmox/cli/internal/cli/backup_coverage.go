@@ -107,10 +107,12 @@ func newNovelBackupCoverageCmd(flags *rootFlags) *cobra.Command {
 			allFailed, outcomeErr := fleetOutcome(cmd.ErrOrStderr(), len(targets), failures)
 			if !wantsHumanTable(cmd.OutOrStdout(), flags) {
 				var out any = rep
-				if flags.csv {
+				if rowsOnly(flags) {
 					out = rep.Rows
 				}
-				if err := printJSONFilteredKeep(cmd.OutOrStdout(), out, flags, coverageKeep...); err != nil {
+				if flags.quiet {
+					printQuietRows(cmd.OutOrStdout(), rep.Rows, func(r coverageRow) string { return fmt.Sprintf("%s:%d", r.Cluster, r.VMID) })
+				} else if err := printJSONFilteredKeep(cmd.OutOrStdout(), out, flags, coverageKeep...); err != nil {
 					return err
 				}
 				return outcomeErr

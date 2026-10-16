@@ -113,10 +113,12 @@ func newNovelCapacityCmd(flags *rootFlags) *cobra.Command {
 			allFailed, outcomeErr := fleetOutcome(cmd.ErrOrStderr(), len(targets), rep.FetchFailures)
 			if !wantsHumanTable(cmd.OutOrStdout(), flags) {
 				var out any = rep
-				if flags.csv {
+				if rowsOnly(flags) {
 					out = rep.Rows
 				}
-				if err := printJSONFilteredKeep(cmd.OutOrStdout(), out, flags, capacityKeep...); err != nil {
+				if flags.quiet {
+					printQuietRows(cmd.OutOrStdout(), rep.Rows, func(r capacityRow) string { return r.Cluster + " " + r.Name })
+				} else if err := printJSONFilteredKeep(cmd.OutOrStdout(), out, flags, capacityKeep...); err != nil {
 					return err
 				}
 				return outcomeErr

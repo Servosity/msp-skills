@@ -504,10 +504,8 @@ type jobTargets struct {
 // vzdumpDefaults is a node's /etc/vzdump.conf as the API reports it: what a
 // job inherits for every option it does not set.
 type vzdumpDefaults struct {
-	Storage string     `json:"storage"`
-	Dumpdir string     `json:"dumpdir"`
-	Prune   keepPolicy `json:"prune-backups"`
-	Remove  *flexBool  `json:"remove"`
+	Storage string `json:"storage"`
+	Dumpdir string `json:"dumpdir"`
 	err     error
 }
 
@@ -606,17 +604,15 @@ func allClear(w io.Writer, msg string, failures int) {
 }
 
 type backupJob struct {
-	ID       string     `json:"id"`
-	Enabled  *flexBool  `json:"enabled"`
-	Schedule string     `json:"schedule"`
-	Storage  string     `json:"storage"`
-	Dumpdir  string     `json:"dumpdir"`
-	Node     string     `json:"node"`
-	Comment  string     `json:"comment"`
-	Exclude  string     `json:"exclude"`
-	NextRun  flexInt    `json:"next-run"`
-	Prune    keepPolicy `json:"prune-backups"`
-	Remove   *flexBool  `json:"remove"`
+	ID       string    `json:"id"`
+	Enabled  *flexBool `json:"enabled"`
+	Schedule string    `json:"schedule"`
+	Storage  string    `json:"storage"`
+	Dumpdir  string    `json:"dumpdir"`
+	Node     string    `json:"node"`
+	Comment  string    `json:"comment"`
+	Exclude  string    `json:"exclude"`
+	NextRun  flexInt   `json:"next-run"`
 }
 
 // excludes reports whether the job's exclude list names vmid.

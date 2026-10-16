@@ -247,6 +247,13 @@ func Load(configPath string) (*Config, error) {
 		}
 	}
 
+	// proxmox hand-fix (endpoints-env-only): a token pasted into a host field
+	// is neither used nor kept as written.
+	if TokenShaped(cfg.BaseURL) || TokenShaped(strings.TrimSpace(cliutil.EnvOverride("PROXMOX_HOST"))) {
+		cfg.EndpointRefusal = "the Proxmox VE host looks like an API token (it holds '!' or '='), so it is not shown and no request is sent; put the token in PROXMOX_API_TOKEN and the host in PROXMOX_HOST"
+		cfg.BaseURL = "https://REDACTED:8006/api2/json"
+	}
+
 	// Endpoint template vars: resolve each {placeholder} in BaseURL or the
 	// GraphQL path against the matching env var. Populated even when values
 	// are empty so the client's buildURL helper can issue an actionable
@@ -266,7 +273,10 @@ func Load(configPath string) (*Config, error) {
 	if pbsEnv == "" {
 		pbsEnv = cfg.TemplateVars["pbs_host"]
 	}
-	if AmbiguousUserinfo(pbsEnv) {
+	if TokenShaped(pbsEnv) {
+		cfg.PBSRefusal = "the Proxmox Backup Server host looks like an API token (it holds '!' or '='), so it is not shown and no PBS request is sent; put the token in PROXMOX_PBS_API_TOKEN"
+		pbsEnv = "https://REDACTED:8007"
+	} else if AmbiguousUserinfo(pbsEnv) {
 		// Refused, never replaced (a pbs_host saved in config.toml must not
 		// receive this run's PBS token) and kept only redacted.
 		cfg.PBSRefusal = "the Proxmox Backup Server host " + RedactUserinfo(pbsEnv) + " has an '@' after a '/', so whether it holds a password or a path cannot be told; no PBS request is sent (remove the user:password@ part, or write the '@' as %40)"
@@ -278,8 +288,8 @@ func Load(configPath string) (*Config, error) {
 		cfg.TemplateVars["pbs_host"] = "pbs_host_placeholder"
 	}
 	if v := StripUserinfo(strings.TrimSpace(cliutil.EnvOverride("PROXMOX_HOST"))); v != "" {
-		if AmbiguousUserinfo(v) {
-			v = RedactUserinfo(v) // refused above (EndpointRefusal); never kept as written
+		if AmbiguousUserinfo(v) || TokenShaped(v) {
+			v = "REDACTED" // refused above (EndpointRefusal); never kept as written
 		}
 		cfg.TemplateVars["host"] = normalizeEndpointTemplateValue(v)
 	} else if verifyMode {

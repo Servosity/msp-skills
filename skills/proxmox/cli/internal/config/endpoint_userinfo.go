@@ -58,8 +58,16 @@ func StripUserinfo(s string) string {
 	return s[:start] + s[at+1:]
 }
 
-// RedactUserinfo replaces a user:password@ part of an endpoint for display.
+// TokenShaped: an endpoint holding '!' or '=' is an API token
+// (USER@REALM!TOKENID=SECRET) pasted into a host field, never a host.
+func TokenShaped(s string) bool { return strings.ContainsAny(s, "!=") }
+
+// RedactUserinfo replaces a user:password@ part of an endpoint for display,
+// and hides a token-shaped value whole.
 func RedactUserinfo(s string) string {
+	if TokenShaped(s) {
+		return "(not shown: it looks like an API token)"
+	}
 	start, at := userinfoEnd(s, false)
 	if at < 0 {
 		return s

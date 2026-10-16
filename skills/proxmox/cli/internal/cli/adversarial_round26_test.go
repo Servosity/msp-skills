@@ -1,9 +1,6 @@
 package cli
 
 import (
-	"net/http"
-	"strings"
-	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -23,26 +20,25 @@ func TestCoincidentJobsEachNeedAPoint(t *testing.T) {
 	}
 }
 
-// Any pruning policy on the target storage (keep-daily+weekly, or keep-last
-// with an older survivor) may have deleted a run's point when a newer one was
-// kept: unproven. keep-all deletes nothing: the same misses are proven.
+// A miss older than a restore point that was kept is unproven whatever the
+// retention (keep-all included): retention may have pruned it, or the job's
+// schedule or guest list may have differed then, and Proxmox keeps no
+// history of either. Misses after the newest point stay proven.
 func TestRetentionThinnedRunsAreUnproven(t *testing.T) {
-	for _, tc := range []struct {
-		policy   string
-		unproven bool
-	}{{"keep-daily=2,keep-weekly=4", true}, {"keep-last=1", true}, {"keep-all=1", false}} {
+	for _, policy := range []string{"keep-daily=2,keep-weekly=4", "keep-last=1", "keep-all=1"} {
 		f := newFixture(t)
-		f.pbsPrune = tc.policy
-		f.pbsRoutes["/admin/prune"] = []any{}
-		addPointAt(f, 100, -170*time.Hour, "ok") // a weekly survivor before the window
+		f.pbsPrune = policy
+		addPointAt(f, 100, -170*time.Hour, "ok") // an old point before the window
 		out, _, _ := runCLI(t, "rpo", "--days", "7", "--guest", "100", "--json")
 		r := decodeJSON[rpoReport](t, out).Rows[0]
-		if r.MissedRuns == 0 {
-			t.Fatalf("%s: want missed runs between the 170h and 50h points: %+v", tc.policy, r)
+		if r.MissedRuns == 0 || r.MissedRunsUnproven != r.MissedRuns || r.Evidence != "partial" {
+			t.Errorf("%s: missed %d unproven %d evidence %s", policy, r.MissedRuns, r.MissedRunsUnproven, r.Evidence)
 		}
-		if got := r.MissedRunsUnproven == r.MissedRuns && r.Evidence == "partial"; got != tc.unproven {
-			t.Errorf("%s: missed %d unproven %d evidence %s", tc.policy, r.MissedRuns, r.MissedRunsUnproven, r.Evidence)
-		}
+	}
+	newFixture(t)
+	out, _, _ := runCLI(t, "rpo", "--days", "7", "--guest", "101", "--json") // newest point 50h old: later runs missed
+	if r := decodeJSON[rpoReport](t, out).Rows[0]; r.MissedRuns == 0 || r.MissedRunsUnproven != 0 {
+		t.Errorf("misses after the newest point must be proven: missed %d unproven %d", r.MissedRuns, r.MissedRunsUnproven)
 	}
 }
 
@@ -118,59 +114,16 @@ func TestOtherTargetsPointsNeverCoverAJob(t *testing.T) {
 	}
 }
 
-// Two jobs on one target at one time owe two points; with keep-all the
-// missing one is proven, with pruning it is unproven (the second may have
-// been pruned as the older of the two).
+// Two jobs on one target at one time owe two points: one point per run is
+// not met, whatever the retention.
 func TestTwoJobsOneTarget(t *testing.T) {
-	for _, tc := range []struct {
-		policy   string
-		unproven bool
-	}{{"keep-all=1", false}, {"keep-daily=2", true}} {
+	for _, policy := range []string{"keep-all=1", "keep-daily=2"} {
 		f := newFixture(t)
-		f.pbsPrune = tc.policy
+		f.pbsPrune = policy
 		addJob3(f, "pbs1")
 		out, _, _ := runCLI(t, "rpo", "--days", "7", "--guest", "100", "--json")
-		r := decodeJSON[rpoReport](t, out).Rows[0]
-		if r.MissedRuns == 0 || r.MetSchedule || (r.MissedRunsUnproven > 0) != tc.unproven {
-			t.Errorf("%s: missed %d unproven %d met %v", tc.policy, r.MissedRuns, r.MissedRunsUnproven, r.MetSchedule)
+		if r := decodeJSON[rpoReport](t, out).Rows[0]; r.MissedRuns == 0 || r.MetSchedule {
+			t.Errorf("%s: missed %d met %v", policy, r.MissedRuns, r.MetSchedule)
 		}
-	}
-}
-
-// vzdump.conf's policy is asked for the job's target storage (the defaults
-// API overlays that storage's own retention), and a PBS prune job the token
-// cannot see makes retention unknown.
-func TestRetentionReadsTargetDefaultsAndHiddenPruneJobs(t *testing.T) {
-	f := newFixture(t)
-	f.pbsPrune = "keep-all=1"
-	addPointAt(f, 100, -170*time.Hour, "ok")
-	var asked atomic.Int64
-	pveVia(t, f, func(w http.ResponseWriter, r *http.Request) bool {
-		if strings.HasSuffix(r.URL.Path, "/vzdump/defaults") && r.URL.Query().Get("storage") == "pbs1" {
-			asked.Add(1)
-		}
-		return false
-	})
-	out, _, _ := runCLI(t, "rpo", "--days", "7", "--guest", "100", "--json")
-	if r := decodeJSON[rpoReport](t, out).Rows[0]; asked.Load() == 0 || r.MissedRunsUnproven != 0 {
-		t.Errorf("defaults asked for pbs1 %d time(s); unproven %d", asked.Load(), r.MissedRunsUnproven)
-	}
-	f.pbsRoutes["/access/permissions"] = map[string]any{"/": map[string]any{"Sys.Audit": 1}}
-	out, _, _ = runCLI(t, "rpo", "--days", "7", "--guest", "100", "--json")
-	if r := decodeJSON[rpoReport](t, out).Rows[0]; r.MissedRuns == 0 || r.MissedRunsUnproven != r.MissedRuns {
-		t.Errorf("hidden prune jobs: missed %d unproven %d", r.MissedRuns, r.MissedRunsUnproven)
-	}
-}
-
-// remove=0 on the job: vzdump prunes nothing after a backup, so its
-// prune-backups deletes nothing and the misses stand as proven.
-func TestRemoveOffPrunesNothing(t *testing.T) {
-	f := newFixture(t)
-	jobs := f.pveRoutes["/cluster/backup"].([]map[string]any)
-	jobs[0]["remove"], jobs[0]["prune-backups"] = 0, "keep-daily=2"
-	addPointAt(f, 100, -170*time.Hour, "ok")
-	out, _, _ := runCLI(t, "rpo", "--days", "7", "--guest", "100", "--json")
-	if r := decodeJSON[rpoReport](t, out).Rows[0]; r.MissedRuns == 0 || r.MissedRunsUnproven != 0 {
-		t.Errorf("remove=0: missed %d unproven %d", r.MissedRuns, r.MissedRunsUnproven)
 	}
 }

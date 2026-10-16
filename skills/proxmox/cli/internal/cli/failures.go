@@ -69,7 +69,7 @@ func newNovelFailuresCmd(flags *rootFlags) *cobra.Command {
 			"Do NOT use it to read one task's complete log; use 'tasks log' instead.\n\n" +
 			"A multi-guest vzdump task logs each guest's outcome only inside its task log, so the log is read and every guest is attributed: " +
 			"'ERROR: Backup of VM N failed - ...' is failed, and 'Starting Backup of VM N' with no finish and no error is incomplete " +
-			"(the silent mid-job stop). PBS tasks are read with errors=1. A PBS task names no PVE cluster: on a PBS that another configured cluster also writes to, " +
+			"(the silent mid-job stop). A task counts when it ended inside --since (one that started up to 48h earlier is read). PBS tasks are read with errors=1. A PBS task names no PVE cluster: on a PBS that another configured cluster also writes to, " +
 			"its row carries attribution 'shared: <clusters>' and no tenant (an entry with only a PBS host owns what one cluster of its own client writes), and a task two profiles both read is listed once.",
 		Example: strings.Trim(`
   proxmox-cli failures --since 24h --agent
@@ -157,7 +157,7 @@ func newNovelFailuresCmd(flags *rootFlags) *cobra.Command {
 				rep.Note = fmt.Sprintf("no failed or incomplete tasks in %d task(s) since %s", rep.ScannedTasks, rep.Since)
 			}
 			printFetchFailures(cmd.ErrOrStderr(), rep.FetchFailures)
-			if rep.LogCapHit && len(rep.Rows) > 0 { // every output form: only JSON has log_cap_hit
+			if rep.LogCapHit { // every output form: only JSON has log_cap_hit
 				fmt.Fprintf(cmd.ErrOrStderr(), "warning: only %d of the vzdump task logs were read (--max-logs %d); incomplete guests in unread logs are not listed\n", rep.LogsRead, maxLogs)
 			}
 			allFailed, outcomeErr := fleetOutcome(cmd.ErrOrStderr(), len(targets), rep.FetchFailures)
@@ -166,10 +166,12 @@ func newNovelFailuresCmd(flags *rootFlags) *cobra.Command {
 			}
 			if !wantsHumanTable(cmd.OutOrStdout(), flags) {
 				var out any = rep
-				if flags.csv {
+				if rowsOnly(flags) {
 					out = rep.Rows
 				}
-				if err := printJSONFilteredKeep(cmd.OutOrStdout(), out, flags, failuresKeep...); err != nil {
+				if flags.quiet {
+					printQuietRows(cmd.OutOrStdout(), rep.Rows, func(r failureRow) string { return r.UPID })
+				} else if err := printJSONFilteredKeep(cmd.OutOrStdout(), out, flags, failuresKeep...); err != nil {
 					return err
 				}
 				return outcomeErr
@@ -201,6 +203,10 @@ func newNovelFailuresCmd(flags *rootFlags) *cobra.Command {
 	return cmd
 }
 
+// taskStartSlack: how long before --since a task may have started and still
+// end inside the window (a long backup or verify job).
+const taskStartSlack = 48 * time.Hour
+
 func collectFailures(ctx context.Context, t fleetTarget, since time.Time, want map[string]bool, tail, maxLogs int) ([]failureRow, int, int, bool, []fetchFailure, error) {
 	var rows []failureRow
 	var fails []fetchFailure
@@ -228,7 +234,11 @@ func collectFailures(ctx context.Context, t fleetTarget, since time.Time, want m
 		}
 		return g.Name
 	}
-	sinceParam := fmt.Sprint(since.Unix())
+	// Proxmox filters task lists by start time; a task that started before
+	// the window and ended (failed) inside it counts, so ask from earlier and
+	// keep tasks by end time.
+	sinceParam := fmt.Sprint(since.Add(-taskStartSlack).Unix())
+	endedBefore := func(tk pveTask) bool { return tk.EndTime > 0 && int64(tk.EndTime) < since.Unix() }
 	if want["vzdump"] {
 		guests, err := fetchGuests(ctx, t.C)
 		var nodes []string
@@ -291,6 +301,9 @@ func collectFailures(ctx context.Context, t fleetTarget, since time.Time, want m
 		sort.SliceStable(all, func(i, j int) bool { return all[i].task.StartTime > all[j].task.StartTime })
 		for _, nt := range all {
 			node, task := nt.node, nt.task
+			if endedBefore(task) {
+				continue
+			}
 			scanned++
 			if task.EndTime == 0 {
 				continue
@@ -378,6 +391,9 @@ func collectFailures(ctx context.Context, t fleetTarget, since time.Time, want m
 			tenant, attribution = "", "shared: "+strings.Join(sharers, ", ")
 		}
 		for _, task := range tasks {
+			if endedBefore(task) {
+				continue
+			}
 			scanned++
 			kind := pbsWorkerKinds[task.kind()]
 			if kind == "" || !want[kind] || taskOK(task.Status) {

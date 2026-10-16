@@ -12,6 +12,17 @@ import (
 	"time"
 )
 
+// rowsOnly: --csv, --plain and --quiet print the report's rows, not its
+// envelope (whose first scalar --quiet would otherwise print).
+func rowsOnly(f *rootFlags) bool { return f.csv || f.plain || f.quiet }
+
+// printQuietRows is --quiet for a fleet command: one identity per row.
+func printQuietRows[T any](w io.Writer, rows []T, id func(T) string) {
+	for _, r := range rows {
+		fmt.Fprintln(w, id(r))
+	}
+}
+
 func warnMirrorAnswer(w io.Writer, prov DataProvenance) {
 	if w == nil {
 		w = os.Stderr
