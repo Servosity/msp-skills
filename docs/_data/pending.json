@@ -492,14 +492,14 @@
   "syncro": {
     "state": "binary-pending",
     "version": "0.1.3",
-    "latest_tag": "syncro-v0.1.3",
+    "latest_tag": "syncro-v0.1.4",
     "current_hash": "sha256:049aaafb50c4a3c74a3df8f4299c792d72688b60fff411dcb1d5c1a70cb1b50c",
     "released_hash": "sha256:cb18de48e243404c07c10fc8628986fb0fa48d6f4eccb61054c015fe9a405991"
   },
   "tactical-rmm": {
     "state": "binary-pending",
     "version": "0.1.3",
-    "latest_tag": "tactical-rmm-v0.1.3",
+    "latest_tag": "tactical-rmm-v0.1.4",
     "current_hash": "sha256:7d8051050dd901666990691dabe13cac6bef21b82457c67ce7106b15b085b492",
     "released_hash": "sha256:c2ec39e79968c572bbfc500bf309458387b0e4815227950718bf561ab6670be6"
   },
