@@ -65,7 +65,7 @@
   "aws-billing": {
     "state": "binary-pending",
     "version": "0.1.4",
-    "latest_tag": "aws-billing-v0.1.4",
+    "latest_tag": "aws-billing-v0.1.5",
     "current_hash": "sha256:d6bf0172ac7ef08d1e2c939fd5522460b4b015f302b64c27887f001e49049f22",
     "released_hash": "sha256:a02a7d1c2f2f9aa278088fa0acdbec76fea7b30c8bd6bafe974a6d41b73feb26"
   },
