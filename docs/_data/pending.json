@@ -429,7 +429,7 @@
   "rootly": {
     "state": "binary-pending",
     "version": "0.1.3",
-    "latest_tag": "rootly-v0.1.3",
+    "latest_tag": "rootly-v0.1.4",
     "current_hash": "sha256:ccf19408a27e67a820b78747a5fe4e3b9d13dccbb8f1946e899b6a59fd422eb8",
     "released_hash": "sha256:043fe6b79c288c1f6728a25b6c2e8e27535cb27b12e8153d797b2876e1983ba4"
   },
