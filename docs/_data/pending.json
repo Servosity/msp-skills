@@ -513,7 +513,7 @@
   "threatlocker": {
     "state": "binary-pending",
     "version": "0.3.8",
-    "latest_tag": "threatlocker-v0.3.8",
+    "latest_tag": "threatlocker-v0.3.9",
     "current_hash": "sha256:704ea4c1b2facd11c7452d0473505bb6a67b8be198e98f2a1c3dc9a7fe3b9ae1",
     "released_hash": "sha256:6ba1552b29e84569b9c13f766d3033e5f74853276635b8e75f884f549db01d24"
   },
