@@ -100,7 +100,7 @@
   "cisco-duo": {
     "state": "never-released",
     "version": "0.1.0",
-    "latest_tag": "cisco-duo-v0.1.0",
+    "latest_tag": "cisco-duo-v0.1.1",
     "current_hash": "sha256:af2b2893ab2c3a54a317dc720a1407e2d72a22a5f62b16e553516c6f89b85808",
     "released_hash": null
   },
