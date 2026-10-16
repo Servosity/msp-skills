@@ -149,7 +149,7 @@
   "connectwise-rmm": {
     "state": "binary-pending",
     "version": "0.1.0",
-    "latest_tag": "connectwise-rmm-v0.1.0",
+    "latest_tag": "connectwise-rmm-v0.1.1",
     "current_hash": "sha256:f57f9c6a45371783c80e7030b7150ca1315fc5fed506287afedb6b1db694faa8",
     "released_hash": "sha256:3e7ce5ef31df94a51a7a28989b3df7afc3ad89ec7211b6b6ca19082a056c3807"
   },
