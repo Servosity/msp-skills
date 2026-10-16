@@ -237,6 +237,30 @@
           "code_only": true
         }
       ]
+    },
+    {
+      "id": "env-base-url-never-persisted",
+      "summary": "an env-sourced BITDEFENDER_BASE_URL is marked as an env override in config.Load and configForSave writes the file's own value back, so config.toml never captures the override",
+      "why": "The generated configForSave restored only the env-sourced API key, so `auth set-token` run with BITDEFENDER_BASE_URL set wrote that one-run URL into config.toml. After that, unsetting the variable had no effect and every later call sent the saved API key to the old host. Reproduced 2026-10-16 (config.toml carried base_url = the env value after set-token). internal/config/env_base_url_test.go fails with the restore lines removed. Same generator defect threatdown carries as env-urls-never-persisted.",
+      "status": "active",
+      "spec_encode_followup": "Generator defect: configForSave should restore every env-overridden field, not only credentials.",
+      "asserts": [
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "cfg.markEnvOverride(\"BaseURL\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "out.BaseURL = c.fileConfig.BaseURL",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/env_base_url_test.go",
+          "contains": "func TestEnvBaseURLNeverPersisted(",
+          "code_only": true
+        }
+      ]
     }
   ]
 }
