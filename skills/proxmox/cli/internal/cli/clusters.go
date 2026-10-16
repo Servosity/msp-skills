@@ -8,6 +8,8 @@
 package cli
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"net"
@@ -98,8 +100,10 @@ func init() {
 // another client's data.
 //
 // A name is not an identity: another clusters file, or `clusters add --force`,
-// can reuse it for a different client. The key also carries the file and the
-// entry's endpoints, so another tenant's entry never opens this store.
+// can reuse it for a different client. The key is the clusters file plus where
+// the entry points (read even when the entry is invalid); the client label is
+// display text, so renaming it keeps the store. An entry with no endpoint to
+// bind to gets a store no other invocation can open.
 func clusterStoreScope() string {
 	name := strings.TrimSpace(selectedCluster)
 	if name == "" {
@@ -109,12 +113,22 @@ func clusterStoreScope() string {
 	if abs, err := filepath.Abs(path); err == nil {
 		path = abs
 	}
-	cl, err := clusterByName(name)
-	if err != nil {
-		return strings.Join([]string{"proxmox-cluster", name, path, "unresolved"}, "\x00")
+	all, _, err := loadClusters()
+	cl, ok := all[name]
+	id := []string{cl.PVEHost, cl.PVEBaseURL, cl.PBSHost, cl.PBSNamespace}
+	if err != nil || !ok || strings.Join(id, "") == "" {
+		return strings.Join([]string{"proxmox-cluster-unresolved", name, unresolvedStoreNonce}, "\x00")
 	}
-	return strings.Join([]string{"proxmox-cluster", name, path, cl.Client, cl.PVEHost, cl.PVEBaseURL, cl.PBSHost, cl.PBSNamespace}, "\x00")
+	return strings.Join(append([]string{"proxmox-cluster", name, path}, id...), "\x00")
 }
+
+// unresolvedStoreNonce is fresh per process, so an unresolvable cluster never
+// reopens a store an earlier invocation (possibly another tenant) wrote.
+var unresolvedStoreNonce = func() string {
+	b := make([]byte, 16)
+	_, _ = rand.Read(b)
+	return hex.EncodeToString(b)
+}()
 
 func clustersPath() (string, error) {
 	if p := strings.TrimSpace(cliutil.EnvOverride("PROXMOX_CLUSTERS_FILE")); p != "" {

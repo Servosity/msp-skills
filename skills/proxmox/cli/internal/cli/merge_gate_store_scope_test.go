@@ -44,6 +44,39 @@ func TestReusedClusterNameGetsItsOwnStore(t *testing.T) {
 	if replaced == storePathFor("acme") {
 		t.Fatalf("replacing the entry's endpoint kept the old tenant's store: %q", replaced)
 	}
+
+	// The client label is display text: renaming it keeps local-only data
+	// (taught notes, amended playbooks) that a sync cannot restore.
+	labelled := storePathFor("acme")
+	writeClustersFile(t, strings.Replace(body, `client = "Other Clinic"`, `client = "Other Clinic LLC"`, 1))
+	if got := storePathFor("acme"); got != labelled {
+		t.Fatalf("a client label edit moved the store: %q -> %q", labelled, got)
+	}
+}
+
+// An entry with no endpoint to bind to (undefined, unreadable, or empty) never
+// reopens a store an earlier invocation wrote: two tenants could each have
+// owned that name.
+func TestUnresolvedClusterNeverReopensAStore(t *testing.T) {
+	f := newFixture(t)
+	defer func() { selectedCluster = ""; configureDefaultDBScope("") }()
+	saved := unresolvedStoreNonce
+	defer func() { unresolvedStoreNonce = saved }()
+	for _, body := range []string{"", "[clusters.acme]\nclient = \"Acme Dental\"\n"} {
+		if body != "" {
+			writeClustersFile(t, body)
+		}
+		first := storePathFor("acme")
+		unresolvedStoreNonce = "next-invocation" // a later process
+		if got := storePathFor("acme"); got == first {
+			t.Fatalf("an unresolvable acme reopened an earlier invocation's store %q (clusters file %q)", got, body)
+		}
+		if storePathFor("beta") == storePathFor("acme") {
+			t.Fatal("two unresolvable cluster names share one store")
+		}
+		unresolvedStoreNonce = saved
+	}
+	_ = f
 }
 
 // hand-fix (profile-store-scope): a saved run profile's --cluster is applied
