@@ -387,7 +387,7 @@
   "proxmox": {
     "state": "never-released",
     "version": "0.1.0",
-    "latest_tag": null,
+    "latest_tag": "proxmox-v0.1.0",
     "current_hash": "sha256:01636a9c504cbc6bb78bb3cbb639a5ff8656facb1bef502a718e234dcc3b0da7",
     "released_hash": null
   },
