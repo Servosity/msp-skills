@@ -4561,6 +4561,9 @@ func defaultDBPathInDir(dir string) string {
 // that never wrote the unscoped file.
 func MCPStorePath() (string, error) {
 	configureDefaultDBScope("")
+	if err := clusterStorePathErr(); err != nil { // proxmox hand-fix (cluster-store-no-fallback)
+		return "", err
+	}
 	dir, err := cliutil.DataDir()
 	if err != nil {
 		return "", err

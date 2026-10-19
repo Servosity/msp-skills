@@ -187,38 +187,46 @@ func TestDBFlagRefusedWithCluster(t *testing.T) {
 		t.Fatalf("profile cluster+db: err=%v", err)
 	}
 	selectedCluster = ""
+	if _, _, err := runCLI(t, "--cluster", "acme", "learnings", "stats", "--db", " "); err == nil || !strings.Contains(err.Error(), "--db cannot be combined") {
+		t.Fatalf("--cluster with a whitespace --db: err=%v", err)
+	}
+	selectedCluster = ""
 	if _, stderr, err := runCLI(t, "learnings", "stats", "--db", shared); err != nil {
 		t.Fatalf("--db without a cluster must still work: %v\n%s", err, stderr)
 	}
 }
 
-func TestArgsMentionCluster(t *testing.T) {
-	for args, want := range map[string]bool{
-		"clusters list --jso --cluster=acme": true,
-		"--jso --cluster acme":               true,
-		"clusters list --json":               false,
-		"teach -- --cluster x":               false,
-	} {
-		if got := argsMentionCluster(strings.Fields(args)); got != want {
-			t.Errorf("argsMentionCluster(%q) = %v, want %v", args, got, want)
-		}
-	}
-}
-
-// hand-fix (cluster-store-no-fallback): with no resolvable home, a selected
-// cluster still gets its own file, never the bare shared data.db.
-func TestClusterStoreWithoutHome(t *testing.T) {
+// hand-fix (cluster-store-no-fallback): SQLite ends a DSN filename at '?' or
+// '#', so a selected cluster refuses a store path that contains one.
+func TestClusterStorePathWithQueryCharRefused(t *testing.T) {
 	f := newFixture(t)
 	defer func() { selectedCluster = ""; configureDefaultDBScope("") }()
 	writeClustersFile(t, acmeClusters(f, f.pbs.URL, ""))
-	for _, k := range []string{"HOME", "XDG_DATA_HOME", "PROXMOX_DATA_DIR", "PROXMOX_HOME"} {
-		t.Setenv(k, "")
+	t.Setenv("PROXMOX_DATA_DIR", filepath.Join(t.TempDir(), "data?tenant"))
+	selectedCluster = "acme"
+	if !strings.Contains(defaultDBPath("proxmox-cli"), "?") {
+		t.Skip("PROXMOX_DATA_DIR does not reach the store path")
 	}
-	if _, err := cliutil.DataDir(); err == nil {
-		t.Skip("data dir still resolves without HOME on this platform")
+	if _, err := MCPStorePath(); err == nil {
+		t.Fatal("MCPStorePath accepted a '?' store path for a selected cluster")
 	}
-	acme, beta := storePathFor("acme"), storePathFor("beta")
-	if acme == "data.db" || beta == "data.db" || acme == beta {
-		t.Fatalf("no-home fallback shared a store: acme=%q beta=%q", acme, beta)
+	selectedCluster = ""
+	if _, _, err := runCLI(t, "--cluster", "acme", "learnings", "stats"); err == nil || !strings.Contains(err.Error(), "contains '?' or '#'") {
+		t.Fatalf("a '?' store path was not refused: err=%v", err)
+	}
+}
+
+// A clusters entry with only a PBS namespace names no cluster, so it gets a
+// per-process store like any other unresolvable entry.
+func TestNamespaceOnlyEntryIsUnresolved(t *testing.T) {
+	newFixture(t)
+	defer func() { selectedCluster = ""; configureDefaultDBScope("") }()
+	saved := unresolvedStoreNonce
+	defer func() { unresolvedStoreNonce = saved }()
+	writeClustersFile(t, "[clusters.acme]\npbs_namespace = \"backups\"\n")
+	first := storePathFor("acme")
+	unresolvedStoreNonce = "next-invocation"
+	if got := storePathFor("acme"); got == first {
+		t.Fatalf("a namespace-only entry reopened an earlier invocation's store %q", got)
 	}
 }

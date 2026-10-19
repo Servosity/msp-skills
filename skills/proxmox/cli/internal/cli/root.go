@@ -400,10 +400,14 @@ See README.md or the bundled SKILL.md for recipes.`,
 		// cluster could share, so it is refused while a cluster is selected
 		// (including a db value from a saved profile).
 		if strings.TrimSpace(selectedCluster) != "" {
-			if f := cmd.Flags().Lookup("db"); f != nil && strings.TrimSpace(f.Value.String()) != "" { // a profile sets values without marking Changed
+			if f := cmd.Flags().Lookup("db"); f != nil && (f.Changed || f.Value.String() != "") { // a profile sets values without marking Changed
 				return usageErr(fmt.Errorf("--db cannot be combined with a selected cluster (--cluster, PROXMOX_CLUSTER or a saved profile): each cluster keeps its own local store"))
 			}
 		}
+		if err := clusterStorePathErr(); err != nil {
+			return err
+		}
+		preRunScoped = true
 		// An incompatible --data-source has to fail before the platform
 		// identity probe. A failed probe would otherwise hide this error.
 		switch flags.dataSource {
@@ -717,18 +721,6 @@ func findSubcommand(cmd *cobra.Command, name string) *cobra.Command {
 // --no-learn switch. Needed on the parse-failure journal path where
 // pflag never populated rootFlags; an explicit --no-learn=false does
 // not disable.
-func argsMentionCluster(args []string) bool {
-	for _, tok := range args {
-		if tok == "--" {
-			return false
-		}
-		if tok == "--cluster" || strings.HasPrefix(tok, "--cluster=") {
-			return true
-		}
-	}
-	return false
-}
-
 func argsDisableLearn(args []string) bool {
 	for _, tok := range args {
 		if tok == "--no-learn" {
@@ -771,9 +763,10 @@ func deriveFlagCorrections(flags *rootFlags, rootCmd, executed *cobra.Command) {
 	if noLearnActive(flags) || argsDisableLearn(os.Args[1:]) || learn.JournalCaptureDisabled() {
 		return
 	}
-	// proxmox hand-fix (cluster-store-no-fallback): a --cluster the parser never
-	// reached (it stopped at an earlier bad flag) leaves no scope to write into.
-	if strings.TrimSpace(selectedCluster) == "" && argsMentionCluster(os.Args[1:]) {
+	// proxmox hand-fix (cluster-store-no-fallback): help and parse-failure
+	// paths skip pre-run, where the cluster (or a profile's cluster) and the
+	// store scope are resolved; with no scope there is no store to write into.
+	if !preRunScoped {
 		return
 	}
 	chain := journalVerbChain(rootCmd, executed)

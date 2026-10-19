@@ -116,10 +116,27 @@ func clusterStoreScope() string {
 	all, _, err := loadClusters()
 	cl, ok := all[name]
 	id := []string{cl.PVEHost, cl.PVEBaseURL, cl.PBSHost, cl.PBSNamespace}
-	if err != nil || !ok || strings.Join(id, "") == "" {
+	if err != nil || !ok || strings.Join(id[:3], "") == "" { // a namespace alone names no cluster
 		return strings.Join([]string{"proxmox-cluster-unresolved", name, unresolvedStoreNonce}, "\x00")
 	}
 	return strings.Join(append([]string{"proxmox-cluster", name, path}, id...), "\x00")
+}
+
+// preRunScoped records that pre-run resolved the cluster and store scope for
+// this process; paths that skipped it (help, parse failures) must not write.
+var preRunScoped bool
+
+// clusterStorePathErr refuses a selected cluster's store path that SQLite
+// would not open as given: a DSN ends the filename at the first '?' or '#',
+// so two clusters under such a data directory would open one file.
+func clusterStorePathErr() error {
+	if clusterStoreScope() == "" {
+		return nil
+	}
+	if p := defaultDBPath("proxmox-cli"); strings.ContainsAny(p, "?#") {
+		return configErr(fmt.Errorf("local store path %q contains '?' or '#', which SQLite treats as the end of the filename; choose a data directory without them", p))
+	}
+	return nil
 }
 
 // unresolvedStoreNonce is fresh per process, so an unresolvable cluster never
