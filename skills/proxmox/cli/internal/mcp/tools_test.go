@@ -47,8 +47,10 @@ func TestMCPPathResolutionMatchesCLIResolverWithHomeEnv(t *testing.T) {
 	if err != nil {
 		t.Fatalf("cliutil.DataDir() error = %v", err)
 	}
-	if want := filepath.Join(cliDataDir, "data.db"); gotDB != want {
-		t.Fatalf("MCP db path = %q, want CLI resolver path %q", gotDB, want)
+	// proxmox hand-fix (env-store-endpoint-scope): every target has a scoped
+	// file; the resolver contract is the directory.
+	if filepath.Dir(gotDB) != cliDataDir || !strings.HasPrefix(filepath.Base(gotDB), "data-") {
+		t.Fatalf("MCP db path = %q, want a data-<hash>.db in the CLI resolver dir %q", gotDB, cliDataDir)
 	}
 	wantCLI, err := cli.MCPStorePath()
 	if err != nil {
@@ -74,8 +76,8 @@ func TestMCPPathResolutionMatchesCLIResolverWithPlatformDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("mcpDBPath() error = %v", err)
 	}
-	if want := filepath.Join(home, ".local", "share", "proxmox-cli", "data.db"); gotDB != want {
-		t.Fatalf("MCP db path = %q, want %q", gotDB, want)
+	if want := filepath.Join(home, ".local", "share", "proxmox-cli"); filepath.Dir(gotDB) != want || !strings.HasPrefix(filepath.Base(gotDB), "data-") { // proxmox hand-fix (env-store-endpoint-scope)
+		t.Fatalf("MCP db path = %q, want a data-<hash>.db in %q", gotDB, want)
 	}
 	wantCLI, err := cli.MCPStorePath()
 	if err != nil {
@@ -277,7 +279,7 @@ func TestMCPSearchMissingStoreIsActionable(t *testing.T) {
 		t.Fatalf("handleSearch missing store IsError = %v, want true", result != nil && result.IsError)
 	}
 	text := mcpTextContent(t, result)
-	for _, want := range []string{"No local data store found", "data.db"} {
+	for _, want := range []string{"No local data store found", "data-"} { // proxmox hand-fix (env-store-endpoint-scope): scoped file
 		if !strings.Contains(text, want) {
 			t.Fatalf("missing-store error %q missing %q", text, want)
 		}
@@ -353,7 +355,7 @@ func TestMCPSQLMissingStoreIsActionable(t *testing.T) {
 		t.Fatalf("handleSQL missing store IsError = %v, want true", result != nil && result.IsError)
 	}
 	text := mcpTextContent(t, result)
-	for _, want := range []string{"No local data store found", "data.db"} {
+	for _, want := range []string{"No local data store found", "data-"} { // proxmox hand-fix (env-store-endpoint-scope): scoped file
 		if !strings.Contains(text, want) {
 			t.Fatalf("missing-store error %q missing %q", text, want)
 		}

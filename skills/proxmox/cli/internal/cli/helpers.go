@@ -4188,19 +4188,21 @@ func configureDefaultDBScope(configPath string) {
 	}
 	cfg, err := config.Load(configPath)
 	if err != nil {
-		setDefaultDBScopeIdentity("", "", "")
+		// proxmox hand-fix (env-store-endpoint-scope): an unreadable config
+		// names no target, so it gets a store no other invocation reopens.
+		setDefaultDBScopeIdentity("proxmox-env-unresolved\x00"+unresolvedStoreNonce, "", "")
 		return
 	}
-	// proxmox hand-fix (env-store-endpoint-scope): the env target's store is
-	// keyed by where it points as well as what it sends, so one token aimed at
-	// another host never falls back to the first host's rows. proxmox shipped
-	// with this scope, so there is no legacy credential-only file to adopt.
-	cred := cfg.StoreScopeCredential()
-	if cred != "" {
-		cred = strings.Join([]string{cred, cfg.BaseURL, cfg.TemplateVars["host"], cfg.TemplateVars["pbs_host"],
-			strings.TrimSpace(cliutil.EnvOverride("PROXMOX_TLS_FINGERPRINT")), strings.TrimSpace(cliutil.EnvOverride("PROXMOX_PBS_TLS_FINGERPRINT"))}, "\x00")
-	}
-	setDefaultDBScopeIdentity(cred, "", cfg.BaseURL)
+	setDefaultDBScopeIdentity(envStoreScope(cfg), "", cfg.BaseURL)
+}
+
+// envStoreScope is the no-cluster target's store identity (proxmox hand-fix
+// env-store-endpoint-scope): what it sends and where it points, so one token
+// aimed at another host, or two hosts with no token loaded, never share rows.
+// proxmox shipped with this scope, so there is no legacy file to adopt.
+func envStoreScope(cfg *config.Config) string {
+	return strings.Join([]string{"proxmox-env", cfg.StoreScopeCredential(), cfg.BaseURL, cfg.TemplateVars["host"], cfg.TemplateVars["pbs_host"],
+		strings.TrimSpace(cliutil.EnvOverride("PROXMOX_TLS_FINGERPRINT")), strings.TrimSpace(cliutil.EnvOverride("PROXMOX_PBS_TLS_FINGERPRINT"))}, "\x00")
 }
 
 func setDefaultDBScopeIdentity(credential, legacyCredential, baseURL string) {
@@ -4573,7 +4575,7 @@ func defaultDBPathInDir(dir string) string {
 // that never wrote the unscoped file.
 func MCPStorePath() (string, error) {
 	configureDefaultDBScope("")
-	if err := clusterStorePathErr(); err != nil { // proxmox hand-fix (cluster-store-no-fallback)
+	if err := storePathErr(); err != nil { // proxmox hand-fix (cluster-store-no-fallback)
 		return "", err
 	}
 	dir, err := cliutil.DataDir()

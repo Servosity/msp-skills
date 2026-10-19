@@ -184,14 +184,10 @@ func tokenDigest(token string) string {
 // this process; paths that skipped it (help, parse failures) must not write.
 var preRunScoped bool
 
-// clusterStorePathErr refuses a selected cluster's store path that SQLite
-// would not open as given: a DSN ends the filename at '?' or '#' and a file:
-// URI decodes '%' escapes, so two clusters under such a directory could open
-// one file.
-func clusterStorePathErr() error {
-	if clusterStoreScope() == "" {
-		return nil
-	}
+// storePathErr refuses a store path that SQLite would not open as given: a
+// DSN ends the filename at '?' or '#' and a file: URI decodes '%' escapes, so
+// two targets under such a directory could open one file.
+func storePathErr() error {
 	p := defaultDBPath("proxmox-cli")
 	if strings.ContainsAny(p, "?#%") || strings.IndexFunc(p, func(r rune) bool { return r < 0x20 || r == 0x7f }) >= 0 {
 		return configErr(fmt.Errorf("local store path %q contains '?', '#', '%%' or a control character, which SQLite reads as URI syntax; choose a data directory without them", p))

@@ -404,7 +404,7 @@ See README.md or the bundled SKILL.md for recipes.`,
 				return usageErr(fmt.Errorf("--db cannot be combined with a selected cluster (--cluster, PROXMOX_CLUSTER or a saved profile): each cluster keeps its own local store"))
 			}
 		}
-		if err := clusterStorePathErr(); err != nil {
+		if err := storePathErr(); err != nil {
 			return err
 		}
 		preRunScoped = true
@@ -837,6 +837,14 @@ func (f *rootFlags) newClient() (*client.Client, error) {
 	cfg, err := config.Load(f.configPath)
 	if err != nil {
 		return nil, configErr(err)
+	}
+	// proxmox hand-fix (env-store-endpoint-scope): pre-run scoped the store
+	// from its own read of the config; a client built from a different read
+	// (the config replaced mid-run) would mirror one target into another's store.
+	if preRunScoped && !buildingProfileClient && clusterStoreScope() == "" { // fleet clients are bound to their own clusters.toml entry
+		if hash, _, _ := currentDefaultDBScope(); hash != hashDefaultDBScope(envStoreScope(cfg)) {
+			return nil, configErr(fmt.Errorf("the configuration changed while this command was running; run it again"))
+		}
 	}
 	c := client.New(cfg, f.timeout, f.rateLimit)
 	if f.timeoutExplicit {

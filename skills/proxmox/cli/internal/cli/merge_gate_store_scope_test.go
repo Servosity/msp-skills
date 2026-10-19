@@ -217,7 +217,7 @@ func TestClusterStorePathWithQueryCharRefused(t *testing.T) {
 	for _, dir := range []string{"data%00-archive", "data#x", "data\x01x"} {
 		t.Setenv("PROXMOX_DATA_DIR", filepath.Join(t.TempDir(), dir))
 		selectedCluster = "acme"
-		if err := clusterStorePathErr(); err == nil {
+		if err := storePathErr(); err == nil {
 			t.Errorf("store path under %q was not refused", dir)
 		}
 	}
@@ -339,5 +339,61 @@ func TestEnvStoreIgnoresLegacyUnscopedDB(t *testing.T) {
 	}
 	if got := storePathFor(""); got == unscoped {
 		t.Fatalf("the env target adopted the shared data.db %q", got)
+	}
+}
+
+// hand-fix (env-store-endpoint-scope): the no-cluster target fails closed the
+// same ways a cluster does.
+func TestEnvStoreFailsClosed(t *testing.T) {
+	newFixture(t)
+	defer func() { selectedCluster = ""; configureDefaultDBScope(""); preRunScoped = false }()
+
+	// Two hosts with no token loaded still get separate stores.
+	t.Setenv("PROXMOX_API_TOKEN", "")
+	t.Setenv("PROXMOX_PBS_API_TOKEN", "")
+	a := storePathFor("")
+	t.Setenv("PROXMOX_BASE_URL", "https://192.0.2.10:8006/api2/json")
+	if b := storePathFor(""); a == b {
+		t.Errorf("two hosts with no token share %q", a)
+	}
+
+	// An unreadable config names no target: never a store another run reopens.
+	bad := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(bad, []byte("this is = = not toml [\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	saved := unresolvedStoreNonce
+	defer func() { unresolvedStoreNonce = saved }()
+	configureDefaultDBScope(bad)
+	first := defaultDBPath("proxmox-cli")
+	unresolvedStoreNonce = "next-invocation"
+	configureDefaultDBScope(bad)
+	if filepath.Base(first) == "data.db" || defaultDBPath("proxmox-cli") == first {
+		t.Errorf("a config error reused a store: %q", first)
+	}
+	unresolvedStoreNonce = saved
+
+	// URI syntax in the data directory is refused without a cluster too.
+	t.Setenv("PROXMOX_DATA_DIR", filepath.Join(t.TempDir(), "data?tenant"))
+	configureDefaultDBScope("")
+	if err := storePathErr(); err == nil {
+		t.Error("a '?' store path was accepted without a cluster")
+	}
+}
+
+// hand-fix (env-store-endpoint-scope): a client built from a config read that
+// differs from the one pre-run scoped the store with is refused.
+func TestClientRefusedWhenConfigChangedMidRun(t *testing.T) {
+	newFixture(t)
+	defer func() { selectedCluster = ""; configureDefaultDBScope(""); preRunScoped = false }()
+	configureDefaultDBScope("")
+	preRunScoped = true
+	f := &rootFlags{}
+	if _, err := f.newClient(); err != nil {
+		t.Fatalf("unchanged config refused: %v", err)
+	}
+	t.Setenv("PROXMOX_BASE_URL", "https://192.0.2.10:8006/api2/json")
+	if _, err := f.newClient(); err == nil || !strings.Contains(err.Error(), "configuration changed") {
+		t.Fatalf("a changed target got a client on the old store: err=%v", err)
 	}
 }
