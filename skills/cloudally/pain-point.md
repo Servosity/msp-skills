@@ -43,8 +43,9 @@ customer account in the partner portal and looking.
 - `cloudally-cli backup health` finds every stale or failing mailbox and site across
   every customer from one synced feed.
 
-Every command that changes CloudAlly prints what it would do and stops until `--yes`
-is passed.
+`restore submit`, `download submit` and `download start` print what they would do and
+stop until `--yes` is passed. The generated API commands, including `recovery restore`
+and every delete, send immediately, so governance.md marks them human-only.
 
 ## Status
 

@@ -114,6 +114,7 @@ cloudally-cli tasks list --source MS365 --agent
 cloudally-cli tasks get 64b0e9 --agent --select entity,status
 
 # Preview which backup each mailbox would be restored from
+# (dates before the latest backup need auth login --partner and --account <id>)
 cloudally-cli restore plan --task 64b0e9 --date 2026-10-01
 
 # Show the exact restore requests before sending them; a real submit also needs --yes
@@ -192,7 +193,7 @@ cloudally-cli restore submit --task 64b0e9 --date 2026-10-01 --dry-run
   _Use this for a partner-wide health check instead of paging through distributor-accounts backup-statuses._
 
   ```bash
-  cloudally-cli backup health --stale-days 2 --failing --group-by account --agent
+  cloudally-cli backup health --stale-days 2 --group-by account --agent
   ```
 
 ## Recipes
@@ -224,7 +225,7 @@ Polls the account's RESTORE tasks, correlates them to the batch and prints only 
 ### Partner-wide health sweep (partner login)
 
 ```bash
-cloudally-cli sync --resources distributor_accounts-backup-statuses && cloudally-cli backup health --stale-days 2 --failing --group-by account
+cloudally-cli sync --resources distributor_accounts-backup-statuses && cloudally-cli backup health --stale-days 2 --group-by account
 ```
 
 Needs `auth login --partner`; refreshes the statuses feed for every customer, then lists stale or failing entities grouped by customer.
@@ -294,7 +295,7 @@ This CLI separates local files into four path kinds:
 | Kind | Contents |
 |------|----------|
 | `config` | User-editable settings such as `config.toml` and saved profiles |
-| `data` | Durable local data: `credentials.toml`, `data.db`, cookies, browser-session proof files, and other auth sidecars |
+| `data` | Durable local data: `credentials.toml`, `data.db`, cookies, browser-session proof files, and other auth sidecars. The partner login's `auth-context.json` (partner access and refresh token) is in the `state` dir; `auth logout` deletes it |
 | `state` | Runtime state such as persisted queries, jobs, and `teach.log` |
 | `cache` | Regenerable HTTP/cache files |
 
@@ -312,6 +313,8 @@ For containers and agent sandboxes, prefer a single relocated root:
 export CLOUDALLY_HOME=/srv/cloudally
 cloudally-cli doctor
 ```
+
+Windows (PowerShell): `$env:CLOUDALLY_HOME = "C:\cloudally"`
 
 Under `CLOUDALLY_HOME=/srv/cloudally`, the four dirs resolve to `/srv/cloudally/config`, `/srv/cloudally/data`, `/srv/cloudally/state`, and `/srv/cloudally/cache`.
 
@@ -622,7 +625,7 @@ Environment variables:
 
 ### agentcookie (optional)
 
-If you use agentcookie to sync secrets across machines, this CLI auto-adopts agentcookie-managed credentials with no extra setup. When the daemon writes to this CLI's config, `cloudally-cli doctor` reports `agentcookie: detected` and `auth-status` labels the source as `agentcookie`. Skip this section if you don't use agentcookie - the CLI works the same as any other.
+If you use agentcookie to sync secrets across machines, this CLI auto-adopts agentcookie-managed credentials with no extra setup. When the daemon writes to this CLI's config, `cloudally-cli doctor` reports `agentcookie: detected` and `auth status` labels the source as `agentcookie`. Skip this section if you don't use agentcookie - the CLI works the same as any other.
 
 ## Troubleshooting
 **Authentication errors (exit code 4)**

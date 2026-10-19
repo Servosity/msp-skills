@@ -144,6 +144,18 @@ cloudally-cli auth login --partner --password-stdin < password-file
 cloudally-cli doctor
 ```
 
+Windows (PowerShell):
+
+```powershell
+$env:CLOUDALLY_CLIENT_ID = "<client id>"
+$env:CLOUDALLY_CLIENT_SECRET = "<client secret>"
+$env:CLOUDALLY_PARTNER_EMAIL = "<partner portal login email>"
+Get-Content password-file | cloudally-cli auth login --partner --password-stdin
+cloudally-cli doctor
+```
+
+`$env:` lasts only for that window; use `setx` or System Properties > Environment Variables to keep the key pair.
+
 `auth login --partner` saves the access and refresh tokens (never printed) and the CLI refreshes them on its own. The partner login reaches every customer and is what past backup dates, downloads and `backup health` need. To work inside one company only, set `CLOUDALLY_EMAIL` and `CLOUDALLY_PASSWORD` and run `cloudally-cli auth login` instead. `doctor` then makes one authenticated read (`GET /v2/user`), so it reports whether the token actually works, not just whether one is set.
 
 
@@ -151,7 +163,7 @@ cloudally-cli doctor
 
 | Question your MSP keeps asking | Command |
 | --- | --- |
-| Which mailboxes across all my customers have not backed up in two days, or failed? | `cloudally-cli backup health --stale-days 2 --failing --group-by account` |
+| Which mailboxes across all my customers have not backed up in two days, or failed? | `cloudally-cli backup health --stale-days 2 --group-by account` |
 | What backups does this mailbox have for December? | `cloudally-cli backup snapshots --account 5f1c2a --task 64b0e9 --entity jane.doe@contoso.com --month 2025-12` |
 | Which backup would each mailbox be restored from for December 31st? | `cloudally-cli restore plan --account 5f1c2a --task 64b0e9 --date 2025-12-31` |
 | Restore every mailbox on the task to October 1st | `cloudally-cli restore submit --account 5f1c2a --task 64b0e9 --date 2026-10-01 --yes` |
@@ -203,7 +215,7 @@ A CloudAlly API application key pair (`CLOUDALLY_CLIENT_ID`, `CLOUDALLY_CLIENT_S
 
 ### Can it change or delete my customers' backups?
 
-It can, because CloudAlly's API can: restores write back into live mailboxes, and deleting a backup task deletes its backed-up data. `restore submit`, `download submit` and `download start` print exactly what they would do and stop until you pass `--yes`, and download jobs are only ever EXPORT jobs. [governance.md](./governance.md) lists the destructive commands an agent should never run on its own, and `CLOUDALLY_MCP_READ_ONLY=1` gives an MCP agent read-only tools.
+It can, because CloudAlly's API can: restores write back into live mailboxes, and deleting a backup task deletes its backed-up data. `restore submit`, `download submit` and `download start` print exactly what they would do and stop until you pass `--yes`, and download jobs are only ever EXPORT jobs. The generated API commands (`recovery restore` and every delete or unsubscribe) send at once with no confirmation, so [governance.md](./governance.md) marks them human-only. `CLOUDALLY_MCP_READ_ONLY=1` gives an MCP agent read-only tools; even with it off, the MCP restore and download tools only preview, and submitting happens from a terminal.
 
 ### Why does a December 31st download hold December 30th?
 
@@ -219,10 +231,10 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 | --- | --- | --- |
 | Read | `backup health`, `backup snapshots`, `restore plan`, `restore watch`, `restore history`, `download list`, `download watch`; every list / get / details / bills / backup-statuses read; `sync`, `search`, `export` (local writes only: the response cache, the local store, files you name) | Allow |
 | Sensitive read | `download link` (a 60-second presigned URL to a mailbox archive), `download fetch` (writes complete mailbox archives to disk) | Human-in-the-loop; never paste a link anywhere |
-| Write | `download submit`, `download start` (EXPORT jobs only); `backup-now`, `activate`, `pause`, `add-entity`, `cancel` on backup tasks; creating accounts, resellers and users; settings and permission updates | Human-in-the-loop |
+| Write | `download submit`, `download start` (EXPORT jobs only); `backup-now`, `activate`, `pause`, `add-entity`, `cancel` on backup tasks; creating accounts, resellers and users (`import` included); settings and permission updates | Human-in-the-loop |
 | Restore | `restore submit` and the `recovery restore` commands (write back into live mailboxes, sites and drives) | Human-in-the-loop; run `restore plan` or `--dry-run` first |
 | Destructive | `tasks delete` and its distributor and reseller variants (delete a backup task and its data), `remove-entity`, `unsubscribe`, `user delete`, `delete-user` | Human only |
-| Credential | `auth login`, `auth use-account`, `auth set-token`, `auth logout`, `session` login and refresh, `access-token`, `sign-in-token`, `user update-password`, `import` | Human-in-the-loop only |
+| Credential | `auth login`, `auth use-account`, `auth set-token`, `auth logout`, `session` login and refresh, `access-token`, `sign-in-token`, `user update-password` | Human-in-the-loop only |
 | Data egress | `--deliver webhook:<url>`, `feedback --send`, and `feedback` when `CLOUDALLY_FEEDBACK_ENDPOINT` is set with `CLOUDALLY_FEEDBACK_AUTO_SEND=true` | Human-in-the-loop |
 
 The MCP `cloudally_execute` tool can call any endpoint of CloudAlly's spec by ID: each call follows the tiers above, and every non-GET call is refused while `CLOUDALLY_MCP_READ_ONLY=1`.

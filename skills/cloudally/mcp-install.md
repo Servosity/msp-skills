@@ -98,7 +98,7 @@ invisible in Ask/Edit mode.
 
 ## Gemini CLI (Google)
 
-Edit `~/.gemini/settings.json` (Gemini CLI's config) and add the same shape as
+Edit `~/.gemini/settings.json` (Windows: `%USERPROFILE%\.gemini\settings.json`; Gemini CLI's config) and add the same shape as
 Claude Desktop:
 
 ```json
@@ -138,6 +138,13 @@ default and refuses to start until `CLOUDALLY_MCP_HTTP_TOKEN` is set; press 4.32
 
 ```bash
 CLOUDALLY_CLIENT_ID=<value> CLOUDALLY_CLIENT_SECRET=<value> CLOUDALLY_MCP_HTTP_TOKEN=<a long random value> cloudally-mcp --transport http
+```
+
+Windows (PowerShell):
+
+```powershell
+$env:CLOUDALLY_CLIENT_ID = "<value>"; $env:CLOUDALLY_CLIENT_SECRET = "<value>"; $env:CLOUDALLY_MCP_HTTP_TOKEN = "<a long random value>"
+cloudally-mcp --transport http
 ```
 
 Then expose `http://localhost:7777/mcp` as a public HTTPS URL via a secure tunnel

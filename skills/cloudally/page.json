@@ -8,13 +8,13 @@
     },
     {
       "instead": "Building a year-end export per mailbox and per sub-source in the portal, then racing 60-second download links one archive at a time",
-      "say": "Archive every mailbox as it stood on December 31st in the customer's timezone, and download the archives to disk.",
+      "say": "Plan year-end archives of every mailbox as they stood on December 31st in the customer's timezone, and show me the plan first.",
       "cli": "cloudally-cli download submit --account 5f1c2a --task 64b0e9 --on-date 2025-12-31 --utc-offset -5 --dry-run"
     },
     {
       "instead": "Clicking into every customer account in the partner portal to look for red backup statuses",
       "say": "Which mailboxes across all my CloudAlly customers have not backed up in two days, or failed?",
-      "cli": "cloudally-cli backup health --stale-days 2 --failing --group-by account"
+      "cli": "cloudally-cli backup health --stale-days 2 --group-by account"
     }
   ],
   "pain_points": [
@@ -27,7 +27,7 @@
   "outcomes": [
     {
       "question": "Which mailboxes across all my CloudAlly customers have not backed up in two days, or failed?",
-      "command": "cloudally-cli backup health --stale-days 2 --failing --group-by account"
+      "command": "cloudally-cli backup health --stale-days 2 --group-by account"
     },
     {
       "question": "What backups does this mailbox have for December?",
@@ -38,7 +38,7 @@
       "command": "cloudally-cli restore plan --account 5f1c2a --task 64b0e9 --date 2025-12-31"
     },
     {
-      "question": "Restore every mailbox on the task to October 1st, then follow the batch until it finishes.",
+      "question": "Restore every mailbox on the task to October 1st.",
       "command": "cloudally-cli restore submit --account 5f1c2a --task 64b0e9 --date 2026-10-01 --yes"
     },
     {
@@ -71,7 +71,7 @@
     },
     {
       "q": "Can it change or delete my customers' backups?",
-      "a": "It can, because CloudAlly's API can: restores write back into live mailboxes, and deleting a backup task deletes its data. Every restore and download command shows what it would do and stops until you pass --yes, and governance.md lists the destructive commands an agent should never run on its own. Set CLOUDALLY_MCP_READ_ONLY=1 to give an MCP agent read-only tools."
+      "a": "It can, because CloudAlly's API can: restores write back into live mailboxes, and deleting a backup task deletes its data. restore submit, download submit and download start show what they would do and stop until you pass --yes; the generated recovery restore and delete commands send immediately, which is why governance.md marks them human-only. Set CLOUDALLY_MCP_READ_ONLY=1 to give an MCP agent read-only tools; even with it off, the MCP restore and download tools only preview."
     },
     {
       "q": "Why does a December 31st download hold December 30th?",
@@ -86,7 +86,7 @@
       "a": "Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use."
     }
   ],
-  "governance_summary": "This connector can restore into live customer mailboxes, create download jobs and, through CloudAlly's own API, delete backup tasks and their data, so it is not read-only. Every restore and download command prints its plan and stops until --yes is passed, download jobs are only ever EXPORT jobs, and CLOUDALLY_MCP_READ_ONLY=1 limits an MCP agent to reads. The company login (auth login) reaches one customer; the partner login reaches all of them.",
+  "governance_summary": "This connector can restore into live customer mailboxes, create download jobs and, through CloudAlly's own API, delete backup tasks and their data, so it is not read-only. restore submit, download submit and download start print their plan and stop until --yes is passed, while the generated recovery restore and delete commands send immediately and are human-only. Download jobs are only ever EXPORT jobs, and CLOUDALLY_MCP_READ_ONLY=1 limits an MCP agent to reads. The company login (auth login) reaches one customer; the partner login reaches all of them.",
   "safety_tiers": [
     {
       "tier": "Read",
@@ -100,7 +100,7 @@
     },
     {
       "tier": "Write",
-      "examples": "download submit and download start (EXPORT jobs only); backup-now, activate, pause, add-entity and cancel on backup tasks; creating accounts, resellers and users; updating settings and permissions",
+      "examples": "download submit and download start (EXPORT jobs only); backup-now, activate, pause, add-entity and cancel on backup tasks; creating accounts, resellers and users (import included); updating settings and permissions",
       "policy": "Human-in-the-loop"
     },
     {
@@ -115,7 +115,7 @@
     },
     {
       "tier": "Credential",
-      "examples": "auth login, auth use-account, auth set-token, auth logout, session login and refresh, access-token and sign-in-token, user update-password, import",
+      "examples": "auth login, auth use-account, auth set-token, auth logout, session login and refresh, access-token and sign-in-token, user update-password",
       "policy": "Human-in-the-loop only"
     },
     {

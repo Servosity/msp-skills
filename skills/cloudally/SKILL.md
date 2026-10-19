@@ -127,7 +127,7 @@ Do not use this CLI for:
   _Use this for a partner-wide health check instead of paging through distributor-accounts backup-statuses._
 
   ```bash
-  cloudally-cli backup health --stale-days 2 --failing --group-by account --agent
+  cloudally-cli backup health --stale-days 2 --group-by account --agent
   ```
 
 ## Command Reference
@@ -346,7 +346,7 @@ Polls the account's RESTORE tasks, correlates them to the batch and prints only 
 ### Partner-wide health sweep (partner login)
 
 ```bash
-cloudally-cli sync --resources distributor_accounts-backup-statuses && cloudally-cli backup health --stale-days 2 --failing --group-by account
+cloudally-cli sync --resources distributor_accounts-backup-statuses && cloudally-cli backup health --stale-days 2 --group-by account
 ```
 
 Needs `auth login --partner`; refreshes the statuses feed for every customer, then lists stale or failing entities grouped by customer.
@@ -454,7 +454,7 @@ Agents should treat the CLI's path resolver as part of the runtime contract:
 - Use `--home <dir>` for one invocation, or set `CLOUDALLY_HOME=<dir>` to relocate all four path kinds under one root.
 - Use per-kind env vars only when a specific kind must diverge: `CLOUDALLY_CONFIG_DIR`, `CLOUDALLY_DATA_DIR`, `CLOUDALLY_STATE_DIR`, `CLOUDALLY_CACHE_DIR`.
 - Resolution order is per-kind env var, `--home`, `CLOUDALLY_HOME`, XDG (`XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME`, `XDG_CACHE_HOME`), then platform defaults.
-- `config` contains settings like `config.toml` and profiles. `data` contains `credentials.toml`, `data.db`, cookies, and auth sidecars. `state` contains persisted queries, jobs, and `teach.log`. `cache` contains regenerable HTTP/cache files.
+- `config` contains settings like `config.toml` and profiles. `data` contains `credentials.toml`, `data.db`, cookies, and auth sidecars. `state` contains persisted queries, jobs, `teach.log`, and (after `auth login --partner`) `auth-context.json`, which holds the partner access and refresh token; `auth logout` deletes it. `cache` contains regenerable HTTP/cache files.
 - Stored secrets live in `credentials.toml` under the data dir. Existing legacy `config.toml` secrets are read for compatibility and leave `config.toml` on the first auth write.
 - Run `cloudally-cli doctor --fail-on warn` to surface path and credential-location warnings. `agent-context` exposes a schema v4 `paths` block for agents that need the resolved dirs.
 - For MCP, pass relocation through the MCP host config. The MCP binary does not inherit CLI flags:
@@ -763,6 +763,7 @@ Parse `$ARGUMENTS`:
    claude mcp add cloudally-mcp --env CLOUDALLY_CLIENT_ID="<your client id>" --env CLOUDALLY_CLIENT_SECRET="<your client secret>" -- cloudally-mcp
    ```
 3. Run `cloudally-cli auth login --partner` (or `auth login` for one company) once in a terminal; the MCP server reads the saved token and refreshes it.
+   Through MCP, `restore_submit`, `download_submit` and `download_start` only preview (the server exposes no `--yes`), and `download fetch` is CLI-only: review the plan, then submit from a terminal.
 4. Verify: `claude mcp list`
 
 ## Direct Use
