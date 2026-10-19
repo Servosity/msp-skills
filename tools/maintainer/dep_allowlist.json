@@ -50,6 +50,7 @@
     "github.com/spf13/cobra",
     "github.com/spf13/pflag",
     "github.com/stretchr/testify",
+    "github.com/ulikunitz/xz",
     "github.com/wzshiming/socks5",
     "github.com/yosida95/uritemplate/v3",
     "golang.org/x/crypto",
