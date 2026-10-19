@@ -1533,7 +1533,7 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 		},
 		"query_tips": []string{
 			"Page with JSM's own parameter names, which execute sends as given: start and limit on request-API lists (offset is translated to start only on the knowledgebase article lists), startAt and maxResults on Assets AQL search (object.find-by-aql).", // pp:handfix jsm-mcp-context-paging
-			"On request-API lists, raise start by the number of values returned until a page comes back empty or shorter than limit.",
+			"On request-API lists, raise start by the number of values returned and stop only when a page comes back empty: JSM can return fewer rows than the limit you sent on a page that is not the last.",
 			"Use the sql tool for ad-hoc analysis on synced data. Run sync first to populate the local database.",
 			"Use the search tool for full-text search across all synced resources. Faster than iterating list endpoints.",
 			"Prefer sql/search over repeated API calls when the data is already synced.",

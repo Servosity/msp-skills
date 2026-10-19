@@ -170,7 +170,10 @@ var jsmFetchSiteWorkspaceIDs = func(ctx context.Context, hc *http.Client, site, 
 	case http.StatusNotFound:
 		return nil, fmt.Errorf("the site's Assets workspace list answered with status 404 (check that the site has Assets)")
 	default:
-		return nil, fmt.Errorf("the site's Assets workspace list answered with status %d (try again; a 5xx is usually transient)", resp.StatusCode)
+		if resp.StatusCode >= 500 {
+			return nil, fmt.Errorf("the site's Assets workspace list answered with status %d (try again; a 5xx is usually transient)", resp.StatusCode)
+		}
+		return nil, fmt.Errorf("the site's Assets workspace list answered with status %d", resp.StatusCode)
 	}
 	var page struct {
 		Values []struct {

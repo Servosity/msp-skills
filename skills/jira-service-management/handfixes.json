@@ -740,7 +740,7 @@
     {
       "id": "jsm-mcp-context-paging",
       "summary": "the MCP context tool's query tips name JSM's real paging parameters (start/limit on request-API lists, startAt/maxResults on Assets AQL search), which the execute tool sends as given, instead of claiming cursor paging with a default of 100",
-      "why": "The generated tips told agents pagination was cursor-based with a default page of 100. Round 5's fix said offset is sent as start/startAt, which adversarial round 6 (2026-10-19) proved false: execute translates offset only on the two knowledgebase article lists and sends every other name as given, so request.list with offset returned page 1 forever. Verified by driving MCP execute against a stub: start=50 and startAt=25 reach the wire; offset reaches it untranslated except on knowledgebase. Round 7: the roster rationale and insight in the same context output still said the customers endpoint has an always-true isLastPage (JSDCLOUD-8279, fixed by Atlassian), contradicting the tip; both now describe the empty-or-short-page stop the connector uses.",
+      "why": "The generated tips told agents pagination was cursor-based with a default page of 100. Round 5's fix said offset is sent as start/startAt, which adversarial round 6 (2026-10-19) proved false: execute translates offset only on the two knowledgebase article lists and sends every other name as given, so request.list with offset returned page 1 forever. Verified by driving MCP execute against a stub: start=50 and startAt=25 reach the wire; offset reaches it untranslated except on knowledgebase. Round 7: the roster rationale and insight in the same context output still said the customers endpoint has an always-true isLastPage (JSDCLOUD-8279, fixed by Atlassian), contradicting the tip; both now describe the empty-or-short-page stop the connector uses. Round 9 (Codex P1, adversarial P2): 'stop on a page shorter than limit' ends an agent's walk on page 1 when it sends a limit above the server's page cap, because execute forwards limit as given; the tip now says stop only on an empty page.",
       "status": "active",
       "asserts": [
         {
@@ -758,12 +758,16 @@
         },
         {
           "file": "cli/internal/mcp/tools.go",
-          "contains": "\"On request-API lists, raise start by the number of values returned until a page comes back empty or shorter than limit.\"",
+          "contains": "\"On request-API lists, raise start by the number of values returned and stop only when a page comes back empty: JSM can return fewer rows than the limit you sent on a page that is not the last.\"",
           "code_only": true
         },
         {
           "file": "cli/internal/mcp/tools.go",
           "not_contains": "always-true isLastPage"
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "not_contains": "until a page comes back empty or shorter than limit"
         }
       ]
     }
