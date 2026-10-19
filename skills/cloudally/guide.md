@@ -1,0 +1,656 @@
+# CloudAlly CLI
+
+**Restore or download every CloudAlly mailbox as it stood on a past date, and find failing backups across every customer.**
+
+Drives CloudAlly backups of Microsoft 365 and Google Workspace for one company account or, with a partner login, every customer. The restore group plans, submits, watches and remembers multi-mailbox restores to a chosen backup date; the download group builds and collects year-end mailbox archives; `backup snapshots` lists a mailbox's past backups, which the documented API cannot; and `backup health` sweeps every customer for stale or failing backups.
+
+Learn more at [CloudAlly](https://www.cloudally.com).
+
+Created by [@sonofskywalker3](https://github.com/sonofskywalker3) (Jeff Moore).
+
+## Install
+
+This CLI ships as a Claude Code Skill and MCP server in [Servosity/msp-skills](https://github.com/Servosity/msp-skills). The installer downloads the `cloudally-cli` and `cloudally-mcp` binaries into `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows). It does not register the skill with your agent and writes no MCP client config - see [mcp-install.md](./mcp-install.md) for that wire-up.
+
+1. macOS / Linux:
+   ```bash
+   bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/cloudally/install.sh)
+   ```
+2. Windows (PowerShell):
+   ```powershell
+   iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/cloudally/install.ps1 | iex
+   ```
+3. Verify: `cloudally-cli --version`
+4. Ensure `~/.local/bin` (macOS / Linux) or `%LOCALAPPDATA%\Programs\msp-skills` (Windows) is on `$PATH`.
+
+If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed until verification succeeds.
+
+### Pre-built binary
+
+Download a pre-built binary for your platform from the [latest release](https://github.com/Servosity/msp-skills/releases?q=cloudally). On macOS, clear the Gatekeeper quarantine: `xattr -d com.apple.quarantine <binary>`. On Unix, mark it executable: `chmod +x <binary>`.
+
+<!-- pp-hermes-install-anchor -->
+## Install for Hermes
+
+From the Hermes CLI:
+
+```bash
+hermes skills install Servosity/msp-skills/skills/cloudally --force
+```
+
+Inside a Hermes chat session:
+
+```bash
+/skills install Servosity/msp-skills/skills/cloudally --force
+```
+
+Hermes [speaks MCP natively](https://hermes-agent.nousresearch.com), so it can also use the `cloudally-mcp` server directly - same install path, same environment variables. Restart the Hermes session or gateway if the newly installed skill is not visible immediately.
+
+## Install for OpenClaw
+
+Tell your OpenClaw agent (copy this):
+
+> Install the cloudally skill from https://github.com/Servosity/msp-skills/tree/main/skills/cloudally. The skill defines how its required CLI (`cloudally-cli`) can be installed via the `openclaw:` frontmatter block.
+
+OpenClaw isn't generally available yet; the frontmatter wiring is pre-shipped and will activate the moment OpenClaw launches.
+
+## Use with Claude Desktop
+
+This CLI ships an [MCPB](https://github.com/modelcontextprotocol/mcpb) bundle - Claude Desktop's standard format for one-click MCP extension installs (no JSON config required).
+
+To install:
+
+1. Download the `.mcpb` for your platform from the [latest release](https://github.com/Servosity/msp-skills/releases?q=cloudally).
+2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
+3. Fill in `CLOUDALLY_CLIENT_ID` and `CLOUDALLY_CLIENT_SECRET` when Claude Desktop prompts you. Leave `CLOUDALLY_ACCESS_TOKEN` empty: run `cloudally-cli auth login --partner` (or `auth login` for one company) in a terminal once instead. The MCP server reads the saved token and refreshes it.
+
+Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
+
+<details>
+<summary>Manual JSON config (advanced)</summary>
+
+If you can't use the MCPB bundle (older Claude Desktop, unsupported platform), install the MCP binary and configure it manually.
+
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/cloudally/install.sh)          # macOS / Linux
+```
+```powershell
+iwr -useb https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/cloudally/install.ps1 | iex            # Windows
+```
+
+Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json` on Windows, `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+
+```json
+{
+  "mcpServers": {
+    "cloudally": {
+      "command": "cloudally-mcp",
+      "env": {
+        "CLOUDALLY_CLIENT_ID": "<your CloudAlly API client id>",
+        "CLOUDALLY_CLIENT_SECRET": "<your CloudAlly API client secret>"
+      }
+    }
+  }
+}
+```
+
+</details>
+
+## Authentication
+
+CloudAlly needs three things on every request: a client-id header, a client-secret header (the API key pair created under Integrations > REST API in the partner portal) and a Bearer access token. The key pair identifies the integration; what the CLI can reach depends only on which login you use. Set CLOUDALLY_CLIENT_ID and CLOUDALLY_CLIENT_SECRET, then set CLOUDALLY_EMAIL and CLOUDALLY_PASSWORD to one company's CloudAlly account and run `cloudally-cli auth login`: that is the default, and every command is limited to that one company. For partner-wide work (backup health across customers, switching between customers with `auth use-account <accountId>`), set CLOUDALLY_PARTNER_EMAIL and CLOUDALLY_PARTNER_PASSWORD and run `cloudally-cli auth login --partner`; that login can see and change every customer account. Tokens are stored in the credentials file and refreshed automatically. Past backup dates, downloads and download links come from the customer portal, which the CLI reaches through the partner handoff, so those commands need the partner login and `--account <id>`.
+
+## Quick Start
+
+```bash
+# Confirm the client headers and token are configured and the API is reachable
+cloudally-cli doctor
+
+# List the company's Microsoft 365 backup tasks to get the task id
+cloudally-cli tasks list --source MS365 --agent
+
+# See every mailbox in that task and its backup status
+cloudally-cli tasks get 64b0e9 --agent --select entities.entity,entities.status
+
+# Preview which backup each mailbox would be restored from
+cloudally-cli restore plan --task 64b0e9 --date 2026-10-01
+
+# Show the exact restore requests before sending them; a real submit also needs --yes
+cloudally-cli restore submit --task 64b0e9 --date 2026-10-01 --dry-run
+
+```
+
+## Unique Features
+
+### Batch restore by date
+- **`restore plan`** - Preview every mailbox-and-date restore a batch would submit, with the exact backup each mailbox will be restored from.
+
+  _Reach for this before any multi-mailbox restore so the operator can review what will be restored and from which backup._
+
+  ```bash
+  cloudally-cli restore plan --task 64b0e9 --date 2026-10-01 --date 2026-10-03 --agent
+  ```
+- **`restore submit`** - Submit one restore per mailbox per date with bounded concurrency and a local ledger; --resume skips rows already submitted and never resends a restore whose outcome is unknown.
+
+  _Use this instead of looping over recovery restore when more than one mailbox or date is involved._
+
+  ```bash
+  cloudally-cli restore submit --task 64b0e9 --date 2026-10-01 --dry-run
+  ```
+- **`restore watch`** - Follow a submitted batch until every restore finishes, with a per-mailbox tally and a non-zero exit if any failed.
+
+  _Pick this to track a batch you submitted; use tasks list --type RESTORE only for raw job listings._
+
+  ```bash
+  cloudally-cli restore watch --batch 20261015-120000-ab12 --interval 30s --agent
+  ```
+- **`restore history`** - See what was restored for which company and when, from the local ledger, without calling the API.
+
+  _Use this for audit questions about past restores; it never calls the API._
+
+  ```bash
+  cloudally-cli restore history --since 2026-09-01 --agent
+  ```
+- **`backup snapshots`** - List every past backup run for one mailbox in a given month, with each run's date in both ISO and the raw yyyyMMddHHmmss form a restore body needs.
+
+  _Use this to confirm a past restore point exists before restoring anything. It is read-only and needs a partner login plus --account._
+
+  ```bash
+  cloudally-cli backup snapshots --account 5f1c2a --task 64b0e9 --entity jane.doe@contoso.com --month 2025-12 --agent
+  ```
+
+### Mailbox downloads to a past date
+- **`download submit`** - Create one download (export) job per mailbox and sub-source for every mailbox backed up on one date, record every row in a local ledger, and reconcile it against the portal.
+
+  _Use this for year-end or legal-hold archives of many mailboxes, and for any MS365 mailbox. Pass `--utc-offset` so `--on-date` means the account's own calendar day, and `--dry-run` first._
+
+  ```bash
+  cloudally-cli download submit --account 5f1c2a --task 64b0e9 --on-date 2025-12-31 --utc-offset -5 --dry-run
+  ```
+- **`download fetch`** - Download every ready archive to disk, one folder per year and mailbox, minting and streaming each 60-second link in one step and resuming safely after an interruption.
+
+  _Use this to collect the archives `download submit` created; `--plan-only` lists what it would write._
+
+  ```bash
+  cloudally-cli download fetch --account 5f1c2a --dest ./archives --year 2025 --on-date 2025-12-31 --plan-only
+  ```
+- **`download start`** - Build one archive of one mailbox from the backup taken on or before a date, for single-archive sources (MS365 tasks go through `download submit`).
+
+  ```bash
+  cloudally-cli download start --account 5f1c2a --task 64b0e9 --entity jane.doe@contoso.com --date 2025-12-31 --dry-run
+  ```
+- **`download list`**, **`download watch`** and **`download link`** - List an account's download jobs, follow one to READY_FOR_DOWNLOAD, and mint a fresh link for a finished one. A link is valid for about 60 seconds: hand it to a program, never to a ticket.
+
+  ```bash
+  cloudally-cli download watch --account 5f1c2a --job 9f2b1c --once
+  ```
+
+### Partner operations
+- **`backup health`** - Find every mailbox or site across all customer accounts that has not backed up in N days or whose last attempt failed, with the error text.
+
+  _Use this for a partner-wide health check instead of paging through distributor-accounts backup-statuses._
+
+  ```bash
+  cloudally-cli backup health --stale-days 2 --failing --group-by account --agent
+  ```
+
+## Recipes
+
+### Plan a batch restore and save it for review
+
+```bash
+cloudally-cli restore plan --task 64b0e9 --date 2026-10-01 --plan-out plan.json
+```
+
+Resolve which backup each mailbox would be restored from and save the plan for review.
+
+### Submit the batch after reviewing the plan
+
+```bash
+cloudally-cli restore submit --task 64b0e9 --date 2026-10-01 --concurrency 3 --yes
+```
+
+Sends one restore per mailbox from the same plan restore plan showed (or pass --plan-file plan.json to submit a saved plan exactly). Without --yes nothing is sent.
+
+### Follow a batch to completion
+
+```bash
+cloudally-cli restore watch --batch 20261015-120000-ab12 --interval 30s --agent --select rows.entity,rows.status,rows.task_id
+```
+
+Polls the account's RESTORE tasks, correlates them to the batch and prints only the columns an agent needs.
+
+### Partner-wide health sweep (partner login)
+
+```bash
+cloudally-cli sync --resources distributor_accounts-backup-statuses && cloudally-cli backup health --stale-days 2 --failing --group-by account
+```
+
+Needs `auth login --partner`; refreshes the statuses feed for every customer, then lists stale or failing entities grouped by customer.
+
+### What did we restore for a customer last quarter
+
+```bash
+cloudally-cli restore history --since 2026-07-01 --csv
+```
+
+Reads the local ledger only, so it works offline and keeps every batch this machine submitted.
+
+### Check which backup a past date resolves to for one mailbox
+
+```bash
+cloudally-cli backup snapshots --account 5f1c2a --task 64b0e9 --entity jane.doe@contoso.com --month 2025-12
+```
+
+Lists that mailbox's backup runs for the month from the portal's backup calendar, so the restore point is confirmed before anything is restored.
+
+### Plan an end-of-year restore for every mailbox on a task
+
+```bash
+cloudally-cli restore plan --account 5f1c2a --task 64b0e9 --date 2025-12-31 --plan-out eoy.json
+```
+
+Resolves each mailbox to its newest successful backup at or before 2025-12-31 from the portal's backup calendar. Mailboxes with no backup by that date are listed as NO_BACKUP and left out of the submission.
+
+### Year-end archive of every mailbox on a task (partner login)
+
+```bash
+cloudally-cli download submit --account 5f1c2a --task 64b0e9 --on-date 2025-12-31 --utc-offset -5 --dry-run
+cloudally-cli download submit --account 5f1c2a --task 64b0e9 --on-date 2025-12-31 --utc-offset -5 --yes
+```
+
+Creates one job per mailbox and sub-source for the backups taken on 31 December in the account's own timezone. A mailbox with no successful backup that day is listed as skipped, never archived from another date. Rows that never appear on the portal are marked MISSING; re-send them with `--batch <key> --resume --yes`.
+
+### Collect the finished archives
+
+```bash
+cloudally-cli download fetch --account 5f1c2a --dest ./archives --year 2025 --on-date 2025-12-31
+```
+
+Writes `<dest>/2025/<mailbox>/<archive>.zip`, skipping archives already present at the expected size, so it can be re-run until every job is collected. When several fetches run for the same customer, start them a few seconds apart.
+
+## How CloudAlly behaves (read before restoring or downloading)
+
+These were observed against a production CloudAlly partner tenant, not taken from the API reference. They decide which command to use.
+
+- **The documented API knows only the latest backup.** `tasks get` and the status feeds report each mailbox's most recent backup per sub-source. Every past backup date comes from the customer portal's backup calendar (`getSnapshotsCalendar`), which `backup snapshots`, `restore plan`, `download start` and `download submit` read for you. The portal is reached through the partner handoff: the partner token calls `POST /v2/distributors/accounts/{id}/partner-access-token`, which returns a single-use opaque token that is spent at `app.cloudally.com/newapp?accessToken=`. So any past-date read needs `auth login --partner` and `--account <id>`.
+- **`extid` is mandatory for the calendar.** Without the mailbox's external id the calendar answers success with no rows, which reads as "no backups". The CLI looks it up from the task; pass `backup snapshots --ext-id` only when the task record lacks it.
+- **Snapshot timestamps are UTC.** A nightly backup that runs late in the evening local time is stamped the next UTC day, so the run stamped `2022-12-31` for a US Eastern account holds the 30 December state. `download submit --utc-offset -5` selects by the account's own calendar day; leaving it at 0 matches the UTC date, which is usually the day before the one intended.
+- **The documented export endpoint does nothing.** `POST .../recovery/export` (the generated `distributor-recovery export`, `reseller-recovery export` and `recovery export` commands) answers 200 with an empty body and creates no job. Downloads are created the way the portal creates them, through `download start` (single-archive sources) and `download submit` (MS365, any number of mailboxes).
+- **An MS365 mailbox is one download job per sub-source.** Mail, calendar, contacts, tasks and notes (`O365MAIL`, `O365CALENDAR`, `O365CONTACTS`, `O365TASKS`, `O365NOTES`) are separate jobs, each asked for with that sub-source's own timestamp. A job for the parent `MS365` source is accepted and creates nothing, which is why `download start` refuses MS365 tasks and points at `download submit`.
+- **Download links last 60 seconds.** A link is a presigned object-storage URL. `download fetch` mints and streams each one in the same step. Never paste a link into a ticket or chat; it is dead within a minute and is a credential until then. Customers can collect finished downloads themselves in the CloudAlly portal (their account name > Jobs > Download results).
+- **Finished download jobs cannot be deleted.** `tasks delete` (and the distributor and reseller variants) is `DELETE .../backup-tasks/{id}`: it deletes a backup task together with its backed-up data. Never point it at a download job id.
+- **One portal session per customer at a time.** Starting several portal sessions for the same customer in the same instant can invalidate each other's unspent handoff tokens (seen as `portal session is not authenticated (status 401)`). When running several `download fetch` or `download submit` processes for one customer, start them a few seconds apart (about 6 seconds was enough).
+
+## Usage
+
+Run `cloudally-cli --help` for the full command reference and flag list.
+
+## Paths & environment variables
+
+This CLI separates local files into four path kinds:
+
+| Kind | Contents |
+|------|----------|
+| `config` | User-editable settings such as `config.toml` and saved profiles |
+| `data` | Durable local data: `credentials.toml`, `data.db`, cookies, browser-session proof files, and other auth sidecars |
+| `state` | Runtime state such as persisted queries, jobs, and `teach.log` |
+| `cache` | Regenerable HTTP/cache files |
+
+Each kind resolves independently. The ladder is:
+
+1. Per-kind env var: `CLOUDALLY_CONFIG_DIR`, `CLOUDALLY_DATA_DIR`, `CLOUDALLY_STATE_DIR`, or `CLOUDALLY_CACHE_DIR`
+2. `--home <dir>` for this invocation
+3. `CLOUDALLY_HOME` for a flat relocated root
+4. XDG env vars: `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME`, `XDG_CACHE_HOME`
+5. Platform defaults matching existing installs
+
+For containers and agent sandboxes, prefer a single relocated root:
+
+```bash
+export CLOUDALLY_HOME=/srv/cloudally
+cloudally-cli doctor
+```
+
+Under `CLOUDALLY_HOME=/srv/cloudally`, the four dirs resolve to `/srv/cloudally/config`, `/srv/cloudally/data`, `/srv/cloudally/state`, and `/srv/cloudally/cache`.
+
+MCP servers do not receive CLI flags from the host. Put relocation in the host `env` block:
+
+```json
+{
+  "mcpServers": {
+    "cloudally": {
+      "command": "cloudally-mcp",
+      "env": {
+        "CLOUDALLY_HOME": "/srv/cloudally"
+      }
+    }
+  }
+}
+```
+
+Precedence matters in fleets: an ambient per-kind variable such as `CLOUDALLY_DATA_DIR` overrides an explicit `--home` for that kind. Use `CLOUDALLY_HOME` or the per-kind variables for durable fleet relocation; treat `--home` as the weaker per-invocation lever.
+
+Relocation is one-way. Unsetting `CLOUDALLY_HOME` does not move files back to platform defaults, and `doctor` cannot find credentials left under a former root. Move the files manually before unsetting relocation variables.
+
+Existing installs keep working because the platform-default rung matches the legacy layout. On the first auth write, stored secrets leave `config.toml` and are consolidated into `credentials.toml` under the data directory. Run `cloudally-cli doctor --fail-on warn` to check path and credential-location warnings in automation.
+
+## Commands
+
+### distributor
+
+Manage distributor
+
+- **`cloudally-cli distributor bills`** - bills
+- **`cloudally-cli distributor create-user`** - Create a secondary partner under a specific reseller. Use role='administrator' for full permissions or role='custom' with a permissions block. Set accessType='all' for access to all accounts, or 'custom' with accountIds for specific accounts.
+- **`cloudally-cli distributor delete-user`** - Delete a secondary user from a partner.
+- **`cloudally-cli distributor details`** - Returns partner details
+
+### distributor_account_tasks
+
+Manage distributor account tasks
+
+- **`cloudally-cli distributor-account-tasks activate`** - Activate a backup task to run on schedule, if it was paused.
+- **`cloudally-cli distributor-account-tasks activate-all`** - Activate all accounts in a task for a backup.
+- **`cloudally-cli distributor-account-tasks activate-entity`** - Activate a specific account in a task for a backup.
+- **`cloudally-cli distributor-account-tasks add-entity`** - Manually add a site or account for a backup in a backup task.
+- **`cloudally-cli distributor-account-tasks backup-entity-now`** - Run a backup for the specified account or site.
+- **`cloudally-cli distributor-account-tasks backup-now`** - Run a backup task with all the activated accounts or sites in it.
+- **`cloudally-cli distributor-account-tasks cancel`** - Cancel the specified running task (an entire backup, restore or download tasks).
+- **`cloudally-cli distributor-account-tasks cancel-entity`** - Cancel the specified running task of a specified account or a site.
+- **`cloudally-cli distributor-account-tasks delete`** - Delete a backup task, removing all the data.
+- **`cloudally-cli distributor-account-tasks get`** - Get information for the specified task
+- **`cloudally-cli distributor-account-tasks list`** - List all tasks of a specified type: backup, restore, download (paginated).
+- **`cloudally-cli distributor-account-tasks pause`** - Pause execution by schedule for all accounts or sites of a backup task.
+- **`cloudally-cli distributor-account-tasks pause-entity`** - Pause execution by schedule of a specified account or a site.
+- **`cloudally-cli distributor-account-tasks remove-entity`** - Deactivate an account or site from a backup, removing all the coorresponding data.
+
+### distributor_accounts
+
+Manage distributor accounts
+
+- **`cloudally-cli distributor-accounts access-token`** - Access token
+- **`cloudally-cli distributor-accounts backup-statuses`** - Get all active backup statuses.
+- **`cloudally-cli distributor-accounts create`** - Create a Cloudally account (trial status).
+- **`cloudally-cli distributor-accounts list`** - Get all users belonging to the partner.
+- **`cloudally-cli distributor-accounts sign-in-token`** - Sign in token
+- **`cloudally-cli distributor-accounts tasks`** - tasks
+- **`cloudally-cli distributor-accounts unsubscribe`** - Cancel subscription and delete a Cloudally account.
+
+### distributor_recovery
+
+Manage distributor recovery
+
+- **`cloudally-cli distributor-recovery export`** - The documented export call. On the live API it answers 200 and creates no job; use `download submit` or `download start` instead.
+- **`cloudally-cli distributor-recovery restore`** - Create a restore job for one entity (mailbox, site, drive) of a backup task from a specific backup date. One call restores one entity; repeat per entity for a batch. It writes back into the customer's live mailbox, site or drive.
+
+### distributor_resellers
+
+Manage distributor resellers
+
+- **`cloudally-cli distributor-resellers accounts`** - accounts
+- **`cloudally-cli distributor-resellers all-accounts`** - All accounts
+- **`cloudally-cli distributor-resellers all-backup-statuses`** - Get backup status for all resellers
+- **`cloudally-cli distributor-resellers all-bills`** - Get bills for all resellers
+- **`cloudally-cli distributor-resellers all-tasks`** - Get backup tasks for all resellers
+- **`cloudally-cli distributor-resellers backup-statuses`** - Get all active backup statuses.
+- **`cloudally-cli distributor-resellers bills`** - bills
+- **`cloudally-cli distributor-resellers create`** - Create a reseller
+- **`cloudally-cli distributor-resellers create-account`** - Create a Cloudally account (trial status).
+- **`cloudally-cli distributor-resellers create-user`** - Create a secondary user under a specific reseller. Use role='administrator' for full permissions or role='custom' with a permissions block. Set accessType='all' for access to all accounts, or 'custom' with accountIds for specific accounts.
+- **`cloudally-cli distributor-resellers delete-user`** - Delete a secondary user from a reseller.
+- **`cloudally-cli distributor-resellers get`** - Returns reseller by partnerId
+- **`cloudally-cli distributor-resellers list`** - Returns list of current distributor's resellers
+- **`cloudally-cli distributor-resellers tasks`** - tasks
+- **`cloudally-cli distributor-resellers unsubscribe-account`** - Cancel subscription and delete a Cloudally account.
+- **`cloudally-cli distributor-resellers update`** - update a reseller
+
+### recovery
+
+Manage recovery
+
+- **`cloudally-cli recovery export`** - The documented export call. On the live API it answers 200 and creates no job; use `download submit` or `download start` instead.
+- **`cloudally-cli recovery restore`** - Create a restore job for one entity (mailbox, site, drive) of a backup task from a specific backup date. One call restores one entity; repeat per entity for a batch. It writes back into the customer's live mailbox, site or drive.
+
+### reseller
+
+Manage reseller
+
+- **`cloudally-cli reseller bills`** - bills
+- **`cloudally-cli reseller create-user`** - Create a secondary user under the reseller. Use role='administrator' for full permissions or role='custom' with a permissions block. Set accessType='all' for access to all accounts, or 'custom' with accountIds for specific accounts.
+- **`cloudally-cli reseller delete-user`** - Delete a secondary user from a reseller.
+- **`cloudally-cli reseller details`** - Returns partner details
+
+### reseller_account_tasks
+
+Manage reseller account tasks
+
+- **`cloudally-cli reseller-account-tasks activate`** - Activate a backup task to run on schedule, if it was paused.
+- **`cloudally-cli reseller-account-tasks activate-all`** - Activate all accounts in a task for a backup.
+- **`cloudally-cli reseller-account-tasks activate-entity`** - Activate a specific account in a task for a backup.
+- **`cloudally-cli reseller-account-tasks add-entity`** - Manually add a site or account for a backup in a backup task.
+- **`cloudally-cli reseller-account-tasks backup-entity-now`** - Run a backup for the specified account or site.
+- **`cloudally-cli reseller-account-tasks backup-now`** - Run a backup task with all the activated accounts or sites in it.
+- **`cloudally-cli reseller-account-tasks cancel`** - Cancel the specified running task (an entire backup, restore or download tasks).
+- **`cloudally-cli reseller-account-tasks cancel-entity`** - Cancel the specified running task of a specified account or a site.
+- **`cloudally-cli reseller-account-tasks delete`** - Delete a backup task, removing all the data.
+- **`cloudally-cli reseller-account-tasks get`** - Get information for the specified task
+- **`cloudally-cli reseller-account-tasks list`** - List all tasks of a specified type: backup, restore, download (paginated).
+- **`cloudally-cli reseller-account-tasks pause`** - Pause execution by schedule for all accounts or sites of a backup task.
+- **`cloudally-cli reseller-account-tasks pause-entity`** - Pause execution by schedule of a specified account or a site.
+- **`cloudally-cli reseller-account-tasks remove-entity`** - Deactivate an account or site from a backup, removing all the coorresponding data.
+
+### reseller_accounts
+
+Manage reseller accounts
+
+- **`cloudally-cli reseller-accounts access-token`** - Access token
+- **`cloudally-cli reseller-accounts backup-statuses`** - Get all active backup statuses.
+- **`cloudally-cli reseller-accounts create`** - Create a Cloudally account (trial status).
+- **`cloudally-cli reseller-accounts list`** - Get all users belonging to the partner.
+- **`cloudally-cli reseller-accounts sign-in-token`** - Sign in token
+- **`cloudally-cli reseller-accounts tasks`** - tasks
+- **`cloudally-cli reseller-accounts unsubscribe`** - Cancel subscription and delete a Cloudally account.
+
+### reseller_recovery
+
+Manage reseller recovery
+
+- **`cloudally-cli reseller-recovery export`** - The documented export call. On the live API it answers 200 and creates no job; use `download submit` or `download start` instead.
+- **`cloudally-cli reseller-recovery restore`** - Create a restore job for one entity (mailbox, site, drive) of a backup task from a specific backup date. One call restores one entity; repeat per entity for a batch. It writes back into the customer's live mailbox, site or drive.
+
+### session
+
+Manage session
+
+- **`cloudally-cli session login`** - Returns the access and refresh tokens.
+- **`cloudally-cli session partner-login`** - Returns the access and refresh tokens.
+- **`cloudally-cli session refresh`** - Returns the access and refresh tokens.
+
+### tasks
+
+Manage tasks
+
+- **`cloudally-cli tasks activate`** - Activate a backup task to run on schedule, if it was paused.
+- **`cloudally-cli tasks activate-all`** - Activate all accounts in a task for a backup.
+- **`cloudally-cli tasks activate-entity`** - Activate a specific account in a task for a backup.
+- **`cloudally-cli tasks add-entity`** - Manually add a site or account for a backup in a backup task.
+- **`cloudally-cli tasks backup-entity-now`** - Run a backup for the specified account or site.
+- **`cloudally-cli tasks backup-now`** - Run a backup task with all the activated accounts or sites in it.
+- **`cloudally-cli tasks cancel`** - Cancel the specified running task (an entire backup, restore or download tasks).
+- **`cloudally-cli tasks cancel-entity`** - Cancel the specified running task of a specified account or a site.
+- **`cloudally-cli tasks delete`** - Delete a backup task, removing all the data.
+- **`cloudally-cli tasks get`** - Get information for the specified task
+- **`cloudally-cli tasks list`** - List all tasks of a specified type: backup, restore, download (paginated).
+- **`cloudally-cli tasks pause`** - Pause execution by schedule for all accounts or sites of a backup task.
+- **`cloudally-cli tasks pause-entity`** - Pause execution by schedule of a specified account or a site.
+- **`cloudally-cli tasks remove-entity`** - Deactivate an account or site from a backup, removing all the coorresponding data.
+
+### user
+
+Manage user
+
+- **`cloudally-cli user bills`** - Get current billing forecast.
+- **`cloudally-cli user create-primary`** - Create a Cloudally account (trial status).
+- **`cloudally-cli user create-secondary`** - Create a Cloudally user in a Cloudally account.
+- **`cloudally-cli user delete`** - Cancel subscription and delete a Cloudally account.
+- **`cloudally-cli user me`** - Get Cloudally Account settings.
+- **`cloudally-cli user secondaries`** - Get list of the Cloudally users of a Cloudally account.
+- **`cloudally-cli user status`** - Get status for all tasks of user.
+- **`cloudally-cli user update-password`** - Update password
+- **`cloudally-cli user update-permissions`** - Update permission setting of a Cloudally account user.
+- **`cloudally-cli user update-settings`** - Update Cloudally account settings.
+
+
+### backup
+
+
+- **`cloudally-cli backup health`** - Find every mailbox or site across all customer accounts that has not backed up in N days or whose last attempt failed, with the error text.
+
+- **`cloudally-cli backup snapshots`** - List every past backup run for one mailbox in a given month, with each run's date in both ISO and the raw yyyyMMddHHmmss form a restore body needs.
+
+
+### restore
+
+
+- **`cloudally-cli restore plan`** - Preview every mailbox-and-date restore a batch would submit, with the exact backup each mailbox will be restored from.
+
+- **`cloudally-cli restore submit`** - Submit one restore per mailbox per date with bounded concurrency and a local ledger; --resume skips rows already submitted and never resends a restore whose outcome is unknown.
+
+- **`cloudally-cli restore watch`** - Follow a submitted batch until every restore finishes, with a per-mailbox tally and a non-zero exit if any failed.
+
+- **`cloudally-cli restore history`** - See what was restored for which company and when, from the local ledger, without calling the API.
+
+
+### download
+
+
+- **`cloudally-cli download submit`** - Create one download (export) job per mailbox and sub-source for every mailbox backed up on one date, with a local ledger and a reconcile pass.
+
+- **`cloudally-cli download fetch`** - Download every ready archive to disk, one folder per year and mailbox.
+
+- **`cloudally-cli download start`** - Build one archive of one mailbox (single-archive sources; MS365 goes through download submit).
+
+- **`cloudally-cli download list`** - List an account's download (export) jobs.
+
+- **`cloudally-cli download watch`** - Follow one download job until its archive is ready.
+
+- **`cloudally-cli download link`** - Mint a fresh 60-second link for a finished download job.
+
+
+### Self-learning loop
+
+This CLI caches per-question discovery so repeat queries skip the walk and structurally similar queries get answered via entity substitution. The loop also self-captures: every invocation is journaled locally, and failed-flag corrections plus fresh teaches surface as candidates on the next `recall` for confirm/reject judgment. Agents call `recall` before discovery and fire `teach &` after answering. See the `## Automatic learning` section in `SKILL.md` for the full protocol.
+
+- **`cloudally-cli recall <query>`** - Look up cached resources for a query before running discovery
+- **`cloudally-cli teach`** - Record a query -> resource mapping (silent on success, safe to background with `&`)
+- **`cloudally-cli learnings list`** - Inspect taught rows
+- **`cloudally-cli learnings forget <query>`** - Undo a teach
+- **`cloudally-cli learnings candidates`** - List auto-captured candidates awaiting confirm/reject
+- **`cloudally-cli learnings stats`** - Local loop metrics: recall hit rate, teach-to-reuse, playbook resolution, candidate counts
+- **`cloudally-cli teach-pattern`** - Install a query/resource template up front
+- **`cloudally-cli teach-lookup`** - Add an entity mapping (e.g. country code, team alias) for pattern substitution
+
+Pass `--no-learn` or set `CLOUDALLY_NO_LEARN=true` to disable the loop for deterministic flows.
+
+The local store's schema version stamp is one-way: once this version of `cloudally-cli` opens the database, older binaries refuse it with a version error - upgrade the binary rather than downgrading.
+
+## Output Formats
+
+```bash
+# Human-readable table (default in terminal, JSON when piped)
+cloudally-cli tasks list
+
+# JSON for scripting and agents
+cloudally-cli tasks list --json
+# Filter to specific fields
+cloudally-cli tasks list --json --select id,source,status
+
+# Dry run - show the request without sending
+cloudally-cli tasks list --dry-run
+
+# Agent mode - JSON + compact + no prompts in one flag
+cloudally-cli tasks list --agent
+```
+
+## Agent Usage
+
+This CLI is designed for AI agent consumption:
+
+- **Non-interactive** - never prompts, every input is a flag
+- **Pipeable** - `--json` output to stdout, errors to stderr
+- **Filterable** - `--select <field>[,<field>...]` returns only fields you need
+- **Previewable** - `--dry-run` shows the request without sending
+- **Explicit retries** - add `--idempotent` to create retries and add `--ignore-missing` to delete retries when a no-op success is acceptable
+- **Explicit confirmation** - `--agent` does not imply `--yes`; pass `--yes` separately only after the target, arguments, and side effects are clear
+- **Piped input** - write commands can accept structured input when their help lists `--stdin`
+- **Offline-friendly** - sync/search commands can use the local SQLite store when available
+- **Agent-safe by default** - no colors or formatting unless `--human-friendly` is set
+
+Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `6` partial failure, `7` rate limited, `8` async job submitted but not finished (rerun the printed recovery command; do not resubmit), `10` config error.
+
+## Health Check
+
+```bash
+cloudally-cli doctor
+```
+
+Checks configuration and paths, then verifies the stored token with one authenticated read (`GET /v2/user`): it reports the credential as valid, rejected (run `auth login` again) or not verified, and turns the API row red when `base_url` is not the CloudAlly API. Add `--fail-on error` to make a failed check exit non-zero.
+
+## Configuration
+
+Run `cloudally-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/cloudally-cli/config.toml` (`%USERPROFILE%\.config\cloudally-cli\config.toml` on Windows); `--home`, `CLOUDALLY_HOME`, and per-kind env vars can relocate it.
+
+Static request headers can be configured under `headers`; per-command header overrides take precedence.
+
+Environment variables:
+
+| Name | Kind | Required | Description |
+| --- | --- | --- | --- |
+| `CLOUDALLY_CLIENT_ID` | credential | Yes | API application client id, sent as the `client-id` header on every request (partner portal > Integrations > REST API). |
+| `CLOUDALLY_CLIENT_SECRET` | credential | Yes | API application client secret, sent as the `client-secret` header on every request. |
+| `CLOUDALLY_ACCESS_TOKEN` | credential | No | Bearer token override. Leave it unset and run `auth login`, which saves and refreshes the token; when set it overrides the stored token on every command. |
+| `CLOUDALLY_EMAIL` | login | No | Company account login email used by `auth login` (the default login, limited to that one company). |
+| `CLOUDALLY_PASSWORD` | login | No | Company account login password used by `auth login`. |
+| `CLOUDALLY_PARTNER_EMAIL` | login | No | Partner portal login email used by `auth login --partner` (reaches every customer account; needed for past backup dates and downloads). |
+| `CLOUDALLY_PARTNER_PASSWORD` | login | No | Partner portal login password used by `auth login --partner`. |
+| `CLOUDALLY_BASE_URL` | endpoint | No (default `https://api.cloudally.com`) | Sends every API call to this base URL instead; for tests and mock servers. |
+| `CLOUDALLY_CONFIG` | path | No | Config file path (default `~/.config/cloudally-cli/config.toml`). |
+| `CLOUDALLY_MCP_READ_ONLY` | MCP | No | Set to `1` so the MCP server hides tools that change CloudAlly state and refuses non-GET execute calls. Tools still write local state: the response cache and learning entries. |
+| `CLOUDALLY_MCP_HTTP_TOKEN` | MCP | Only with `--transport http` | Bearer token HTTP MCP callers must send; the HTTP transport refuses to start without it. |
+
+### agentcookie (optional)
+
+If you use agentcookie to sync secrets across machines, this CLI auto-adopts agentcookie-managed credentials with no extra setup. When the daemon writes to this CLI's config, `cloudally-cli doctor` reports `agentcookie: detected` and `auth-status` labels the source as `agentcookie`. Skip this section if you don't use agentcookie - the CLI works the same as any other.
+
+## Troubleshooting
+**Authentication errors (exit code 4)**
+- Run `cloudally-cli doctor` to check credentials
+- Run `cloudally-cli auth login --partner` (or `auth login`) again; a set `CLOUDALLY_ACCESS_TOKEN` overrides the stored token, so unset it
+**Not found errors (exit code 3)**
+- Check the resource ID is correct
+- Run the `list` command to see available items
+
+### API-specific
+- **HTTP 403 with an empty body on every command** - The client-id or client-secret header is missing or wrong: set CLOUDALLY_CLIENT_ID and CLOUDALLY_CLIENT_SECRET, then run cloudally-cli doctor
+- **401 The user is not logged in** - The access token expired and could not be refreshed: run cloudally-cli auth login again
+- **restore watch shows UNMATCHED rows** - The restore was submitted but no RESTORE task appeared yet; rerun restore watch --once after a minute, or check tasks list --type RESTORE in that account
+- **backup health says no local data** - Run cloudally-cli sync --resources distributor_accounts-backup-statuses first; the sweep reads the synced feed
+- **auth use-account says no partner token available** - Set CLOUDALLY_PARTNER_EMAIL and CLOUDALLY_PARTNER_PASSWORD and run cloudally-cli auth login --partner
+- **auth use-account or a stored login seems ignored** - CLOUDALLY_ACCESS_TOKEN in the environment overrides the stored token on every command; unset it
+- **backup snapshots or restore plan finds no past backups for a mailbox that has them** - The calendar needs the mailbox's external id; the CLI reads it from the task. Pass `backup snapshots --ext-id <id>` when the task record lacks one.
+- **A download for the right day holds the day before** - Snapshot dates are UTC; pass `download submit --utc-offset <hours>` (for example -5 for US Eastern) so `--on-date` means the account's own day.
+- **distributor-recovery export (or recovery export) succeeds but no download appears** - That documented endpoint creates no job. Use `download submit` or `download start`.
+- **portal session is not authenticated (status 401)** - Several portal sessions for the same customer started at the same instant invalidated each other's handoff tokens. Start parallel `download fetch` or `download submit` runs a few seconds apart, or run them one at a time.
+- **A link from download link stopped working** - Links last about 60 seconds. Run `download link` again for a fresh one, or let `download fetch` mint and stream in one step.
+- **restore submit lists restores that may already have been accepted** - Check the batch with cloudally-cli restore watch --batch <id> --once. For restores that never appeared, run cloudally-cli restore submit --resume --retry-unknown --yes with the same task and dates.
+
+## Sources & Inspiration
+
+This CLI was built by studying these projects and resources:
+
+- [**cloudally (Ruby gem)**](https://github.com/jancotanis/cloudally) - Ruby
+- [**n8n-nodes-cloudally**](https://github.com/davejlong/n8n-nodes-cloudally) - TypeScript
+
+Generated by [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press)

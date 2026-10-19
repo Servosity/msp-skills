@@ -72,6 +72,10 @@ cisco-duo:
   vendor: "Cisco Duo"
   example_command: "Why is Jane locked out of Duo?"
 
+cloudally:
+  vendor: "CloudAlly"
+  example_command: "Archive every mailbox as of Dec 31"
+
 connect-tool:
   subtitle: "Claude Code Skill - no MCP server to install"
   vendor: "connect-tool"  # matches docs/skills/connect-tool.md

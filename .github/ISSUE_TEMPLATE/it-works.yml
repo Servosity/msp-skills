@@ -38,6 +38,7 @@ body:
         - cipp
         - cisco-duo
         - cisco-meraki
+        - cloudally
         - connectsecure
         - connectwise-automate
         - connectwise-control

@@ -1,0 +1,106 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Servosity/cloudally-mcp",
+  "title": "CloudAlly MCP",
+  "description": "Restore or download CloudAlly mailboxes as of a past date, and find failing backups",
+  "version": "0.1.0",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/servosity/msp-skills/main/docs/assets/social/cloudally/cloudally-512x512.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/servosity/msp-skills",
+    "source": "github",
+    "subfolder": "skills/cloudally"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/servosity/msp-skills/releases/download/cloudally-v0.1.0/cloudally-mcp.mcpb",
+      "version": "0.1.0",
+      "fileSha256": "PLACEHOLDER_SHA256_FILLED_BY_CI",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "CLOUDALLY_CLIENT_ID",
+          "description": "The client-id of your CloudAlly API application (partner portal > Integrations > REST API), sent as the client-id header on every request.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "CLOUDALLY_CLIENT_SECRET",
+          "description": "The client-secret of the same API application, sent as the client-secret header on every request.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "CLOUDALLY_ACCESS_TOKEN",
+          "description": "Optional override; leave blank. Run `cloudally-cli auth login --partner` (or `auth login` for one company) in a terminal instead, which saves and refreshes the token. A pasted token expires and keeps overriding the saved one.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "CLOUDALLY_EMAIL",
+          "description": "Optional. Company account login used by `auth login`; every command is then limited to that one company. Most operators run `auth login` once in a terminal and leave this blank.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "CLOUDALLY_PASSWORD",
+          "description": "Optional. Password for the company account login above.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "CLOUDALLY_PARTNER_EMAIL",
+          "description": "Optional. Partner portal login used by `auth login --partner`; it reaches every customer account and is needed for past backup dates and downloads.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "CLOUDALLY_PARTNER_PASSWORD",
+          "description": "Optional. Password for the partner portal login above.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "CLOUDALLY_BASE_URL",
+          "description": "Optional; leave blank. Sends every CloudAlly API call to this base URL instead of https://api.cloudally.com, for tests and mock servers.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "CLOUDALLY_MCP_READ_ONLY",
+          "description": "Optional. Set to 1 to hide tools that change CloudAlly state (restores, downloads, task changes, deletes) and refuse non-GET execute calls. Tools still write local state: the response cache and learning entries.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "CLOUDALLY_MCP_HTTP_TOKEN",
+          "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment); callers must send a matching Authorization: Bearer header. Leave blank for Claude Desktop.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "CLOUDALLY_USER_AGENT",
+          "description": "Optional. Overrides the User-Agent the CLI sends to CloudAlly. Leave blank to use the built-in one.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Only used when the MCP server is bound to a tenant-gated client profile. This connector registers no tenant-gated source, so leave it blank.",
+          "isRequired": false,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}

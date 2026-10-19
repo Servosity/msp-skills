@@ -1262,6 +1262,21 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "cloudally",
+      "source": "./skills/cloudally",
+      "description": "Restore or download every CloudAlly mailbox as it stood on a past date, read each mailbox's backup history, and find failing backups across every customer.",
+      "version": "0.1.0",
+      "category": "backup-dr",
+      "tags": [
+        "cloudally",
+        "backup-dr",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }

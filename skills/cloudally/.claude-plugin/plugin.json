@@ -1,0 +1,20 @@
+{
+  "name": "cloudally",
+  "version": "0.1.0",
+  "description": "Restore or download every CloudAlly mailbox as it stood on a past date, read each mailbox's backup history, and find failing backups across every customer.",
+  "author": {
+    "name": "Servosity",
+    "url": "https://www.servosity.com"
+  },
+  "homepage": "https://github.com/servosity/msp-skills/tree/main/skills/cloudally",
+  "repository": "https://github.com/servosity/msp-skills",
+  "license": "Apache-2.0",
+  "keywords": [
+    "cloudally",
+    "backup",
+    "msp",
+    "mcp",
+    "claude-code",
+    "claude-mcp"
+  ]
+}
