@@ -84,11 +84,11 @@
     "released_hash": "sha256:8637b1f27f4b7a475a4fcf750e1950c131c701f675a2f5b86ed99d9eb79043a9"
   },
   "bitdefender": {
-    "state": "never-released",
+    "state": "up-to-date",
     "version": "0.1.0",
     "latest_tag": "bitdefender-v0.1.0",
     "current_hash": "sha256:81e994a8dcd203314278a9b9b77590e5d7b21f5864d377e051ff403034563ed3",
-    "released_hash": null
+    "released_hash": "sha256:81e994a8dcd203314278a9b9b77590e5d7b21f5864d377e051ff403034563ed3"
   },
   "blumira": {
     "state": "up-to-date",
@@ -392,11 +392,11 @@
     "released_hash": "sha256:c7a6b6975a8557c87b0247bae77c96d416691b552cbd907076fb9f6ae41d2127"
   },
   "proxmox": {
-    "state": "never-released",
+    "state": "up-to-date",
     "version": "0.1.0",
     "latest_tag": "proxmox-v0.1.0",
     "current_hash": "sha256:01636a9c504cbc6bb78bb3cbb639a5ff8656facb1bef502a718e234dcc3b0da7",
-    "released_hash": null
+    "released_hash": "sha256:01636a9c504cbc6bb78bb3cbb639a5ff8656facb1bef502a718e234dcc3b0da7"
   },
   "quickbooks": {
     "state": "up-to-date",
