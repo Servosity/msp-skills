@@ -42,8 +42,8 @@ only its own requests.
   environment, the server drops `request_note`, `sync`, `export`, `workflow_archive`,
   `learnings_forget`, `learnings_reject` and `cmdb_reconcile` (which reads a local file); its
   generic `execute` tool refuses any non-GET API call, and `cmdb_discover` refuses `--save`. The
-  local learning tools (`teach`, `teach_*`, `playbook_amend`, `learnings_confirm`) stay: they
-  write only to the CLI's own local store, never to your site. It does not change what the CLI
+  local learning tools (`teach`, `teach_*`, `playbook_amend`, `learnings_confirm`, `recall`) stay:
+  they write only to the CLI's own local store (`recall` logs each lookup there), never to your site. It does not change what the CLI
   itself can do.
 
 - **Assets calls are pinned to your site.** Every Assets request is refused unless its cloudId is
@@ -70,7 +70,7 @@ anything below the line.
 | **Credential / bulk import** | Mints Assets import tokens or pushes data in bulk. | `importsource token generate`, `api-import`, `importsource executions start` / `submit-data` / `submit-progress` / `cancel` / `create-failed-history`, `importsource importschedule create` / `update` / `delete`, `importsource mapping submit` / `update`, `import` | Human-in-the-loop only |
 | **Destructive / config** | Irreversible data loss, or desk and CMDB configuration changes. | `organization delete`, `object delete`, `objectschema create` / `update` / `delete`, `objecttype create` / `update` / `delete`, `objecttype position change`, `objecttypeattribute create` / `update` / `delete`, `config create-referencetype` / `create-statustype` / `update-statustype` / `delete-statustype`, `servicedesk requesttype create` / `delete` / `set-property` / `delete-property`, `global` | Human-in-the-loop only, explicit confirmation |
 
-Local-only writes (no change on your Atlassian site): `sync`, `workflow archive`, `export`, `auth set-credentials`, `auth logout`, `cmdb discover --save`, `profile save`, `profile delete`, and the `teach`, `teach-*`, `learnings`, `playbook` and `feedback` commands write files under the CLI's own config, data and state directories. `feedback` sends anything upstream only if you opt in.
+Local-only writes (no change on your Atlassian site): `sync`, `workflow archive`, `export`, `auth set-credentials`, `auth logout`, `cmdb discover --save`, `profile save`, `profile delete`, and the `teach`, `teach-*`, `learnings`, `playbook`, `recall` and `feedback` commands write files under the CLI's own config, data and state directories. `feedback` sends anything upstream only if you opt in.
 
 ## How to lock it down
 
