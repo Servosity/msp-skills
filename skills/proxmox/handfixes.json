@@ -213,7 +213,7 @@
   {
    "id": "path-context-no-origin-override",
    "summary": "sync refuses --path-context host=... and pbs_host=...: those keys choose the token-bearing origin, which the client already bound to its tokens, TLS pins and origin checks",
-   "why": "Generated sync.go writes --path-context values into Config.TemplateVars AFTER flags.newClient(), so CheckServiceOrigins and the per-service pins never saw the new host. `sync --path-context pbs_host=<attacker>` (also reachable as the MCP sync tool's path-context parameter) made the attacker the PBS host and sent it the PBS token; host= did the same for the PVE token. Only a pre-set pin stopped it. Found by the 2026-10-14 adversarial review with a live MCP repro. In this CLI the only path-context keys are those two origin vars, so the guard rejects every endpointTemplateVarSet key. internal/cli/credential_routing_behavior_test.go (TestPathContextCannotRepointTheHost) fails if the guard is removed.",
+   "why": "Generated sync.go writes --path-context values into Config.TemplateVars AFTER flags.newClient(), so CheckServiceOrigins and the per-service pins never saw the new host. `sync --path-context pbs_host=<attacker>` (also reachable as the MCP sync tool's path-context parameter) made the attacker the PBS host and sent it the PBS token; host= did the same for the PVE token. Only a pre-set pin stopped it. Found by the 2026-10-14 adversarial review with a live MCP repro. In this CLI the only path-context keys are those two origin vars, so the guard rejects every endpointTemplateVarSet key. internal/cli/credential_routing_behavior_test.go (TestPathContextCannotRepointTheHost) fails if the guard is removed. A ninth store-isolation sweep (2026-10-19) found a --path-context key filling a base-URL placeholder re-pointed sync after the store was scoped; such keys are refused (TestPathContextCannotRepointBaseURL).",
    "status": "active",
    "asserts": [
     {
@@ -228,6 +228,11 @@
     {
      "file": "cli/internal/cli/credential_routing_behavior_test.go",
      "contains": "func TestPathContextCannotRepointTheHost("
+    },
+    {
+     "file": "cli/internal/cli/sync.go",
+     "contains": "if strings.Contains(c.Config.BaseURL, \"{\"+k+\"}\") {",
+     "code_only": true
     }
    ]
   },

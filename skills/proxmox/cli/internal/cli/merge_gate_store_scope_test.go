@@ -451,3 +451,19 @@ func TestTemplateVarsAreStoreIdentity(t *testing.T) {
 		t.Errorf("a {placeholder} pve_base_url was accepted: %v", err)
 	}
 }
+
+// hand-fix (path-context-no-origin-override): --path-context may not fill a
+// base-URL placeholder after the store was scoped to the configured target.
+func TestPathContextCannotRepointBaseURL(t *testing.T) {
+	newFixture(t)
+	defer func() { selectedCluster = ""; configureDefaultDBScope("") }()
+	cfgPath := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(cfgPath, []byte("base_url = \"https://{site}:8006/api2/json\"\n[template_vars]\nsite = \"alpha.example\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PROXMOX_BASE_URL", "")
+	_, _, err := runCLI(t, "--config", cfgPath, "sync", "--path-context", "site=beta.example", "--resources", "cluster-resources")
+	if err == nil || !strings.Contains(err.Error(), "cannot change the base URL") {
+		t.Fatalf("--path-context re-pointed the base URL: err=%v", err)
+	}
+}

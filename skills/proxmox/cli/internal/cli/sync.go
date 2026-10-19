@@ -168,6 +168,12 @@ Resource scoping:
 				// env-resolved default. Non-fatal: the merge still proceeds
 				// so callers passing forward-compat keys aren't blocked.
 				for k, v := range pathContext {
+					// proxmox hand-fix (path-context-no-origin-override): a key
+					// that fills a base-URL placeholder re-points the target
+					// after the store and client were scoped to it.
+					if strings.Contains(c.Config.BaseURL, "{"+k+"}") {
+						return usageErr(fmt.Errorf("--path-context %s=... cannot change the base URL: the local store and the client are bound to the configured target; set it in config.toml instead", k))
+					}
 					if !pathContextVarSet[k] {
 						fmt.Fprintf(os.Stderr, "warning: --path-context key %q is not a known endpoint placeholder; this value will not be substituted into any request path\n", k)
 					}
