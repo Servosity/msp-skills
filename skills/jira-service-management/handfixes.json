@@ -781,6 +781,15 @@
         {
           "file": "cli/internal/mcp/bound/bound.go",
           "not_contains": "Narrow the request with limit, offset, filters"
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "contains": "unless JSM marks it isLastPage:false (a capped page can be short without being the last); a full page always continues, whatever isLastPage says",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "not_contains": "rather than trusting isLastPage"
         }
       ]
     },
