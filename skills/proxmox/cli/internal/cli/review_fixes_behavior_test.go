@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -161,6 +162,9 @@ func TestHostFragmentsRejected(t *testing.T) {
 }
 
 func TestClustersFileInWritableDirRefused(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("POSIX mode bits; on Windows clusters.toml inherits the user profile ACL (clusters_perms_windows.go)")
+	}
 	dir := t.TempDir()
 	if err := os.Chmod(dir, 0o770); err != nil {
 		t.Fatal(err)
