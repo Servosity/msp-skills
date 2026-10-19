@@ -1,0 +1,320 @@
+// Copyright 2026 Servosity Inc. and msp-skills contributors. Licensed under Apache-2.0. See LICENSE.
+// pp:data-source live
+
+package cli
+
+import (
+	"errors"
+	"fmt"
+	"sort"
+	"strings"
+	"time"
+
+	"cloudally-pp-cli/internal/cadate"
+	"cloudally-pp-cli/internal/cliutil"
+	"github.com/spf13/cobra"
+)
+
+const (
+	defaultWatchInterval = 30 * time.Second
+	defaultWatchTimeout  = 2 * time.Hour
+	// watchCreateSlack tolerates clock skew between submit and the API's createDate.
+	watchCreateSlack = 2 * time.Minute
+	// unmatchedAfterPolls is how many polls a submitted row may go without a task.
+	unmatchedAfterPolls = 2
+)
+
+// watchTally is the per-poll count line.
+type watchTally struct {
+	Running   int `json:"running"`
+	Finished  int `json:"finished"`
+	Failed    int `json:"failed"`
+	Unmatched int `json:"unmatched"`
+	Unknown   int `json:"unknown"`
+	Pending   int `json:"pending"`
+}
+
+// jobOutcomeUnknown reports a row whose submission was never confirmed.
+// Watch can settle it by matching a RESTORE task, but never marks it
+// UNMATCHED: it stays UNKNOWN so --retry-unknown can still pick it up.
+func jobOutcomeUnknown(j restoreJob) bool {
+	return j.Status == jobUnknown || j.Status == jobSubmitting
+}
+
+// watchOutput is the JSON document 'restore watch' prints.
+type watchOutput struct {
+	BatchID string       `json:"batch_id"`
+	Polls   int          `json:"polls"`
+	Done    bool         `json:"done"`
+	Tally   watchTally   `json:"tally"`
+	Rows    []restoreJob `json:"rows"`
+}
+
+// jobSubmittedForMatch reports whether a ledger row has a restore to find.
+func jobSubmittedForMatch(j restoreJob) bool {
+	switch j.Status {
+	case jobPlanned, jobFailed, jobFailedRedirect:
+		return false
+	}
+	return j.SubmittedAt != nil
+}
+
+// matchRestoreTasks pairs ledger rows with RESTORE tasks: same entity
+// (case-insensitive), same source, created no earlier than submitted_at
+// minus the slack. Rows whose resolved date equals a task's snapshotDate
+// claim it first; the rest take the earliest unclaimed candidate.
+func matchRestoreTasks(jobs []restoreJob, tasks []restoreTaskView, source string) map[int64]*restoreTaskView {
+	type candidate struct {
+		task    *restoreTaskView
+		created time.Time
+	}
+	var cands []candidate
+	for i := range tasks {
+		t := &tasks[i]
+		if source != "" && t.Source != "" && !strings.EqualFold(t.Source, source) {
+			continue
+		}
+		created, err := cadate.ParseLoose(t.CreateDate)
+		if err != nil {
+			continue
+		}
+		cands = append(cands, candidate{task: t, created: created})
+	}
+	sort.SliceStable(cands, func(i, j int) bool { return cands[i].created.Before(cands[j].created) })
+	ordered := make([]restoreJob, 0, len(jobs))
+	for _, j := range jobs {
+		if jobSubmittedForMatch(j) {
+			ordered = append(ordered, j)
+		}
+	}
+	sort.SliceStable(ordered, func(i, j int) bool {
+		if ordered[i].SubmittedAt.Equal(*ordered[j].SubmittedAt) {
+			return ordered[i].ID < ordered[j].ID
+		}
+		return ordered[i].SubmittedAt.Before(*ordered[j].SubmittedAt)
+	})
+	claimed := map[*restoreTaskView]bool{}
+	matched := map[int64]*restoreTaskView{}
+	eligible := func(j restoreJob, c candidate) bool {
+		return !claimed[c.task] && strings.EqualFold(strings.TrimSpace(c.task.Account), strings.TrimSpace(j.Entity)) &&
+			!c.created.Before(j.SubmittedAt.Add(-watchCreateSlack))
+	}
+	for _, j := range ordered {
+		if j.TaskID != "" {
+			for _, c := range cands {
+				if string(c.task.ID) == j.TaskID && !claimed[c.task] {
+					claimed[c.task], matched[j.ID] = true, c.task
+					break
+				}
+			}
+			continue
+		}
+		for _, c := range cands {
+			if eligible(j, c) && int64(c.task.SnapshotDate) != 0 && int64(c.task.SnapshotDate) == j.ResolvedRaw {
+				claimed[c.task], matched[j.ID] = true, c.task
+				break
+			}
+		}
+	}
+	for _, j := range ordered {
+		if _, ok := matched[j.ID]; ok {
+			continue
+		}
+		for _, c := range cands {
+			if eligible(j, c) {
+				claimed[c.task], matched[j.ID] = true, c.task
+				break
+			}
+		}
+	}
+	return matched
+}
+
+// jobTerminal reports whether a row needs no further polling.
+func jobTerminal(j restoreJob) bool {
+	switch j.Status {
+	case jobPlanned, jobFailed, jobFailedRedirect, jobUnmatched:
+		return true
+	case jobSubmitted:
+		return false
+	}
+	return !restoreTaskRunning(j.Status)
+}
+
+func tallyJobs(jobs []restoreJob) watchTally {
+	var t watchTally
+	for _, j := range jobs {
+		switch {
+		case j.Status == jobFailed || j.Status == jobFailedRedirect:
+			t.Failed++
+		case j.Status == jobUnmatched:
+			t.Unmatched++
+		case jobOutcomeUnknown(j):
+			t.Unknown++
+		case j.Status == jobSubmitted || j.Status == jobPlanned:
+			t.Pending++
+		case restoreTaskRunning(j.Status):
+			t.Running++
+		default:
+			t.Finished++
+		}
+	}
+	return t
+}
+
+func printWatchTable(cmd *cobra.Command, poll int, jobs []restoreJob, t watchTally) error {
+	rows := make([][]string, 0, len(jobs))
+	for _, j := range jobs {
+		rows = append(rows, []string{j.Entity, j.Requested, j.Status, j.TaskID, j.Progress})
+	}
+	if err := printRestoreTable(cmd.OutOrStdout(), []string{"entity", "requested", "status", "task_id", "progress"}, rows); err != nil {
+		return err
+	}
+	_, err := fmt.Fprintf(cmd.OutOrStdout(), "poll %d: %d running, %d finished, %d failed, %d unmatched, %d unknown, %d pending (%s)\n\n",
+		poll, t.Running, t.Finished, t.Failed, t.Unmatched, t.Unknown, t.Pending, time.Now().UTC().Format(time.RFC3339))
+	return err
+}
+
+func newRestoreWatchCmd(flags *rootFlags) *cobra.Command {
+	var flagBatch string
+	var flagInterval, flagTimeout time.Duration
+	var flagOnce bool
+
+	cmd := &cobra.Command{
+		Use:   "watch",
+		Short: "Follow one submitted batch until every restore finishes",
+		Long:  "Use this command to follow the restores of one submitted batch to completion. Do NOT use it to list raw RESTORE tasks; use 'tasks list --type RESTORE' instead. Do NOT use it for past batches offline; use 'restore history' instead.",
+		Example: strings.Trim(`
+  cloudally-cli restore watch --batch 20261015-120000-ab12
+  cloudally-cli restore watch --batch 20261015-120000-ab12 --interval 1m --timeout 4h
+  cloudally-cli restore watch --batch 20261015-120000-ab12 --once --json
+`, "\n"),
+		Annotations: map[string]string{
+			"mcp:read-only":  "true",
+			"pp:data-source": "live",
+			"pp:happy-args":  "--batch=20261015-120000-ab12;--once",
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if !hasChangedLocalFlags(cmd) && len(args) == 0 {
+				return cmd.Help()
+			}
+			if err := validateDataSourceStrategy(flags, "live"); err != nil {
+				return usageErr(err)
+			}
+			if strings.TrimSpace(flagBatch) == "" {
+				return usageErr(errors.New("--batch <batch id> is required"))
+			}
+			if flagInterval <= 0 {
+				return usageErr(errors.New("--interval must be greater than 0"))
+			}
+			if cliutil.IsDogfoodEnv() {
+				flagOnce = true
+			}
+			if restoreShortCircuit(flags) {
+				would := fmt.Sprintf("load batch %s from the ledger and poll its RESTORE tasks every %s until finished or %s", flagBatch, flagInterval, flagTimeout)
+				if flagOnce {
+					would = fmt.Sprintf("load batch %s from the ledger and poll its RESTORE tasks once", flagBatch)
+				}
+				return writeWould(cmd.OutOrStdout(), flags, "restore watch", would, map[string]any{"batch_id": flagBatch})
+			}
+			ctx := cmd.Context()
+			db, err := openLedger(ctx)
+			if err != nil {
+				return fmt.Errorf("opening ledger: %w", err)
+			}
+			defer db.Close()
+			sqlDB := db.DB()
+			batch, err := ledgerGetBatch(sqlDB, flagBatch)
+			if err != nil {
+				return fmt.Errorf("reading ledger: %w", err)
+			}
+			if batch == nil {
+				return usageErr(fmt.Errorf("unknown batch %q; list batches with 'cloudally-cli restore history'", flagBatch))
+			}
+			c, err := flags.newClient()
+			if err != nil {
+				return err
+			}
+			scope := scopeFromKind(batch.Scope, batch.AccountID)
+			deadline := time.Now().Add(flagTimeout)
+			human := wantsHumanTable(cmd.OutOrStdout(), flags)
+			out := watchOutput{BatchID: batch.BatchID}
+			for {
+				out.Polls++
+				jobs, err := ledgerListJobs(sqlDB, batch.BatchID, "")
+				if err != nil {
+					return fmt.Errorf("reading ledger: %w", err)
+				}
+				tasks, err := fetchRestoreTasks(ctx, c, scope)
+				if err != nil {
+					return classifyAPIError(cmd.OutOrStdout(), err, flags)
+				}
+				matched := matchRestoreTasks(jobs, tasks, batch.Source)
+				for i := range jobs {
+					j := &jobs[i]
+					if !jobSubmittedForMatch(*j) && j.Status != jobUnmatched {
+						continue
+					}
+					if t, ok := matched[j.ID]; ok {
+						j.Status, j.TaskID, j.Progress = strings.ToUpper(strings.TrimSpace(t.Status)), string(t.ID), t.Progress.String()
+					} else if j.TaskID == "" && out.Polls >= unmatchedAfterPolls && !jobOutcomeUnknown(*j) {
+						j.Status = jobUnmatched
+					} else {
+						continue
+					}
+					if err := ledgerUpdateJobWatch(sqlDB, j.ID, j.Status, j.TaskID, j.Progress); err != nil {
+						fmt.Fprintf(cmd.ErrOrStderr(), "warning: ledger update failed for %s: %v\n", j.Entity, err)
+					}
+				}
+				_ = ledgerTouchBatch(sqlDB, batch.BatchID, time.Now())
+				out.Rows, out.Tally = jobs, tallyJobs(jobs)
+				out.Done = true
+				for _, j := range jobs {
+					if !jobTerminal(j) {
+						out.Done = false
+						break
+					}
+				}
+				if human {
+					if err := printWatchTable(cmd, out.Polls, jobs, out.Tally); err != nil {
+						return err
+					}
+				}
+				if out.Done || flagOnce {
+					break
+				}
+				if time.Now().After(deadline) {
+					if !human {
+						_ = printJSONFiltered(cmd.OutOrStdout(), out, flags)
+					}
+					return apiErr(fmt.Errorf("timed out after %s with %d restore(s) still running in batch %s", flagTimeout, out.Tally.Running+out.Tally.Pending, batch.BatchID))
+				}
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				case <-time.After(flagInterval):
+				}
+			}
+			if out.Tally.Unmatched > 0 {
+				fmt.Fprintf(cmd.ErrOrStderr(), "warning: %d row(s) have no matching RESTORE task after %d poll(s)\n", out.Tally.Unmatched, out.Polls)
+			}
+			if out.Tally.Unknown > 0 {
+				fmt.Fprintf(cmd.ErrOrStderr(), "warning: %d UNKNOWN row(s) have no matching RESTORE task yet; if they stay missing, re-run 'restore submit --resume --retry-unknown --yes' for this batch\n", out.Tally.Unknown)
+			}
+			if !human {
+				if err := printJSONFiltered(cmd.OutOrStdout(), out, flags); err != nil {
+					return err
+				}
+			}
+			if out.Tally.Failed > 0 {
+				return apiErr(fmt.Errorf("%d restore(s) failed in batch %s", out.Tally.Failed, batch.BatchID))
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&flagBatch, "batch", "", "Batch id printed by 'restore submit'")
+	cmd.Flags().DurationVar(&flagInterval, "interval", defaultWatchInterval, "Time between polls")
+	cmd.Flags().DurationVar(&flagTimeout, "timeout", defaultWatchTimeout, "Give up after this long")
+	cmd.Flags().BoolVar(&flagOnce, "once", false, "Poll one time and exit")
+	return cmd
+}

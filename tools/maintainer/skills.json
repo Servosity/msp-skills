@@ -379,6 +379,29 @@
       },
       "install_auth_hint": "Then set your Meraki API key: `export MERAKI_DASHBOARD_API_KEY=<your-api-key>` (Dashboard > My profile > API access; it reaches every org the generating admin can see), set `CISCO_MERAKI_BASE_URL` only for a regional dashboard, and check the Credentials line of `cisco-meraki-cli doctor`"
     },
+    "cloudally": {
+      "system": "CloudAlly SaaS backup for Microsoft 365 and Google Workspace: per-mailbox backup history, bulk restores and mailbox downloads to a past date, and backup health across every partner customer",
+      "status": "beta",
+      "cli_binary": "cloudally-cli",
+      "mcp_binary": "cloudally-mcp",
+      "vendor": "CloudAlly",
+      "vendor_trademark_owner": "OpenText Corporation",
+      "first_party": false,
+      "category": "Backup/DR",
+      "display_name": "CloudAlly",
+      "tagline": "Restore or download every CloudAlly mailbox as it stood on a past date, and find failing backups across every customer.",
+      "cli_hash": "sha256:ffb3df4d0a8d20850108d76a1888bd77f9e9196857f6066d0c225413692b3a52",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      },
+      "install_auth_hint": "Then set your CloudAlly API key pair (`CLOUDALLY_CLIENT_ID`, `CLOUDALLY_CLIENT_SECRET`; partner portal > Integrations > REST API), run `cloudally-cli auth login --partner` (or `auth login` for one company), and check `cloudally-cli doctor`"
+    },
     "connect-tool": {
       "system": "Authentication setup for any CLI, MCP server, or Skill, driven through your own logged-in Chrome. Windows and macOS",
       "status": "beta",

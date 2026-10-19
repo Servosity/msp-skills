@@ -1,5 +1,5 @@
 {
-  "count": 78,
+  "count": 79,
   "connectors": [
     {
       "slug": "abnormal",
@@ -176,6 +176,17 @@
       "source": null,
       "issue_url": null,
       "url": "/skills/cisco-meraki/"
+    },
+    {
+      "slug": "cloudally",
+      "display_name": "CloudAlly",
+      "tagline": "Restore or download every CloudAlly mailbox as it stood on a past date, and find failing backups across every customer.",
+      "category": "Backup/DR",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "url": "/skills/cloudally/"
     },
     {
       "slug": "connectsecure",
