@@ -452,7 +452,7 @@
   {
    "id": "per-cluster-store",
    "summary": "configureDefaultDBScope keys the local store by the selected clusters.toml entry (--cluster / PROXMOX_CLUSTER), so each client cluster has its own data.db",
-   "why": "The generated store scope comes from the env/config credential, fixed before the selected cluster's token is applied, so every --cluster wrote into one store: colliding VMIDs overwrote another client's rows, and an unreachable cluster's read fell back to another client's data labelled source=local. Found by adversarial round 7; TestLocalStoreIsPerCluster pins it. The merge-gate Codex review (2026-10-16) found the name alone shared one store across two clusters files (or a clusters add --force replacement) that reuse a name for another client; the key now carries the clusters file path and the entry's endpoints (not the client label, so a rename keeps local-only data), and an entry with no endpoint identity gets a per-process store no later invocation reopens. TestReusedClusterNameGetsItsOwnStore and TestUnresolvedClusterNeverReopensAStore pin it. A second merge-gate review found config.Load errors returned before the cluster scope was applied, so a malformed config.toml put every cluster in one unscoped store; the cluster scope is now decided first (TestConfigErrorKeepsClusterStoresApart).",
+   "why": "The generated store scope comes from the env/config credential, fixed before the selected cluster's token is applied, so every --cluster wrote into one store: colliding VMIDs overwrote another client's rows, and an unreachable cluster's read fell back to another client's data labelled source=local. Found by adversarial round 7; TestLocalStoreIsPerCluster pins it. The merge-gate Codex review (2026-10-16) found the name alone shared one store across two clusters files (or a clusters add --force replacement) that reuse a name for another client; the key now carries the clusters file path and the entry's endpoints (not the client label, so a rename keeps local-only data), and an entry with no endpoint identity gets a per-process store no later invocation reopens. TestReusedClusterNameGetsItsOwnStore and TestUnresolvedClusterNeverReopensAStore pin it. A second merge-gate review found config.Load errors returned before the cluster scope was applied, so a malformed config.toml put every cluster in one unscoped store; the cluster scope is now decided first (TestConfigErrorKeepsClusterStoresApart). A fourth sweep found one private address reused behind another VPN for a different client kept the store; every connection field (token references and certificate fingerprints too) is now identity, only the client label is not (TestReusedPrivateAddressWithNewCredentialsGetsItsOwnStore).",
    "status": "active",
    "asserts": [
     {
@@ -466,12 +466,12 @@
     },
     {
      "file": "cli/internal/cli/clusters.go",
-     "contains": "return strings.Join(append([]string{\"proxmox-cluster\", name, path}, id...), \"\\x00\")",
+     "contains": "return strings.Join([]string{\"proxmox-cluster-unresolved\", name, unresolvedStoreNonce}, \"\\x00\")",
      "code_only": true
     },
     {
      "file": "cli/internal/cli/clusters.go",
-     "contains": "return strings.Join([]string{\"proxmox-cluster-unresolved\", name, unresolvedStoreNonce}, \"\\x00\")",
+     "contains": "id := []string{cl.PVEHost, cl.PVEBaseURL, cl.PVETokenEnv, cl.PVEFingerprint, cl.PBSHost, cl.PBSTokenEnv, cl.PBSFingerprint, cl.PBSNamespace}",
      "code_only": true
     }
    ]
@@ -687,7 +687,7 @@
   {
    "id": "cluster-store-no-fallback",
    "summary": "With a cluster selected, every local store path derives from that cluster's scope: legacy data.db adoption and ownership markers are skipped, a missing HOME still yields a scoped file, any --db (including whitespace or a saved profile's db) is refused, a store path SQLite would truncate at '?' or '#' is refused, a namespace-only entry is unresolved, and flag-correction learning never runs when pre-run did not scope the store; and one process binds one read of the entry for both the API client and the store",
-   "why": "A Codex class sweep of every store open (2026-10-16) found four ways two clusters still resolved to one file: unproven .owner ownership fell back to the shared data.db, help and parse-failure paths opened the learn store before pre-run scoped it, HOME unset returned a bare data.db, and an explicit or profile-supplied --db named one shared file. Pinned by TestClusterStoreIgnoresLegacyUnscopedDB, TestClusterStoreWithoutPreRun, TestClusterStoreWithoutHome, TestDBFlagRefusedWithCluster. A second sweep found a profile's cluster unapplied on the help path, a whitespace --db, a '?' in the data directory truncating the SQLite DSN, and a namespace-only entry keeping a reusable identity; each now fails closed (TestDBFlagRefusedWithCluster, TestClusterStorePathWithQueryCharRefused, TestNamespaceOnlyEntryIsUnresolved). A third sweep found the store re-read clusters.toml per call, so a clusters add --force during a request moved the store to the new tenant while the client kept the old endpoint; entries are now snapshotted once per process (TestClusterEntryBoundForTheProcess).",
+   "why": "A Codex class sweep of every store open (2026-10-16) found four ways two clusters still resolved to one file: unproven .owner ownership fell back to the shared data.db, help and parse-failure paths opened the learn store before pre-run scoped it, HOME unset returned a bare data.db, and an explicit or profile-supplied --db named one shared file. Pinned by TestClusterStoreIgnoresLegacyUnscopedDB, TestClusterStoreWithoutPreRun, TestClusterStoreWithoutHome, TestDBFlagRefusedWithCluster. A second sweep found a profile's cluster unapplied on the help path, a whitespace --db, a '?' in the data directory truncating the SQLite DSN, and a namespace-only entry keeping a reusable identity; each now fails closed (TestDBFlagRefusedWithCluster, TestClusterStorePathWithQueryCharRefused, TestNamespaceOnlyEntryIsUnresolved). A third sweep found the store re-read clusters.toml per call, so a clusters add --force during a request moved the store to the new tenant while the client kept the old endpoint; entries are now snapshotted once per process (TestClusterEntryBoundForTheProcess). The fourth sweep also found '%' escapes decoded by the read-only file: URI; '%' and control characters are refused with '?' and '#'.",
    "status": "active",
    "asserts": [
     {
@@ -722,12 +722,17 @@
     },
     {
      "file": "cli/internal/cli/clusters.go",
-     "contains": "strings.Join(id[:3], \"\") == \"\"",
+     "contains": "if snap, hit := clusterSnapshots.m[key]; hit {",
      "code_only": true
     },
     {
      "file": "cli/internal/cli/clusters.go",
-     "contains": "if snap, hit := clusterSnapshots.m[key]; hit {",
+     "contains": "cl.PVEHost+cl.PVEBaseURL+cl.PBSHost == \"\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/clusters.go",
+     "contains": "strings.ContainsAny(p, \"?#%\")",
      "code_only": true
     }
    ]

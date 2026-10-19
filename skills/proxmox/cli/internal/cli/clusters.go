@@ -116,10 +116,12 @@ func clusterStoreScope() string {
 	}
 	snap := snapshotCluster(name)
 	cl, ok, err := snap.cl, snap.ok, snap.err
-	id := []string{cl.PVEHost, cl.PVEBaseURL, cl.PBSHost, cl.PBSNamespace}
-	if err != nil || !ok || strings.Join(id[:3], "") == "" { // a namespace alone names no cluster
+	if err != nil || !ok || cl.PVEHost+cl.PVEBaseURL+cl.PBSHost == "" { // a namespace alone names no cluster
 		return strings.Join([]string{"proxmox-cluster-unresolved", name, unresolvedStoreNonce}, "\x00")
 	}
+	// Every connection field counts: one private address can be a different
+	// client behind another VPN, told apart only by its token or certificate.
+	id := []string{cl.PVEHost, cl.PVEBaseURL, cl.PVETokenEnv, cl.PVEFingerprint, cl.PBSHost, cl.PBSTokenEnv, cl.PBSFingerprint, cl.PBSNamespace}
 	return strings.Join(append([]string{"proxmox-cluster", name, path}, id...), "\x00")
 }
 
@@ -170,14 +172,16 @@ func resetClusterSnapshots() {
 var preRunScoped bool
 
 // clusterStorePathErr refuses a selected cluster's store path that SQLite
-// would not open as given: a DSN ends the filename at the first '?' or '#',
-// so two clusters under such a data directory would open one file.
+// would not open as given: a DSN ends the filename at '?' or '#' and a file:
+// URI decodes '%' escapes, so two clusters under such a directory could open
+// one file.
 func clusterStorePathErr() error {
 	if clusterStoreScope() == "" {
 		return nil
 	}
-	if p := defaultDBPath("proxmox-cli"); strings.ContainsAny(p, "?#") {
-		return configErr(fmt.Errorf("local store path %q contains '?' or '#', which SQLite treats as the end of the filename; choose a data directory without them", p))
+	p := defaultDBPath("proxmox-cli")
+	if strings.ContainsAny(p, "?#%") || strings.IndexFunc(p, func(r rune) bool { return r < 0x20 || r == 0x7f }) >= 0 {
+		return configErr(fmt.Errorf("local store path %q contains '?', '#', '%%' or a control character, which SQLite reads as URI syntax; choose a data directory without them", p))
 	}
 	return nil
 }

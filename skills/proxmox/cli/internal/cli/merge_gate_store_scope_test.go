@@ -211,8 +211,31 @@ func TestClusterStorePathWithQueryCharRefused(t *testing.T) {
 		t.Fatal("MCPStorePath accepted a '?' store path for a selected cluster")
 	}
 	selectedCluster = ""
-	if _, _, err := runCLI(t, "--cluster", "acme", "learnings", "stats"); err == nil || !strings.Contains(err.Error(), "contains '?' or '#'") {
+	if _, _, err := runCLI(t, "--cluster", "acme", "learnings", "stats"); err == nil || !strings.Contains(err.Error(), "reads as URI syntax") {
 		t.Fatalf("a '?' store path was not refused: err=%v", err)
+	}
+	for _, dir := range []string{"data%00-archive", "data#x", "data\x01x"} {
+		t.Setenv("PROXMOX_DATA_DIR", filepath.Join(t.TempDir(), dir))
+		selectedCluster = "acme"
+		if err := clusterStorePathErr(); err == nil {
+			t.Errorf("store path under %q was not refused", dir)
+		}
+	}
+}
+
+// One private address can be a different client behind another VPN: a new
+// token reference or certificate fingerprint is a new store.
+func TestReusedPrivateAddressWithNewCredentialsGetsItsOwnStore(t *testing.T) {
+	f := newFixture(t)
+	defer func() { selectedCluster = ""; configureDefaultDBScope("") }()
+	base := acmeClusters(f, f.pbs.URL, "")
+	writeClustersFile(t, base)
+	first := storePathFor("acme")
+	for _, edit := range [][2]string{{`ACME_PVE`, `BETA_PVE`}, {`ACME_PBS`, `BETA_PBS`}, {f.pveFingerprint(), strings.Repeat("AB:", 31) + "AB"}} {
+		writeClustersFile(t, strings.Replace(base, edit[0], edit[1], 1))
+		if got := storePathFor("acme"); got == first {
+			t.Errorf("changing %q kept the previous tenant's store", edit[0])
+		}
 	}
 }
 
