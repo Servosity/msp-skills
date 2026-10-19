@@ -83,6 +83,13 @@
     "current_hash": "sha256:8637b1f27f4b7a475a4fcf750e1950c131c701f675a2f5b86ed99d9eb79043a9",
     "released_hash": "sha256:8637b1f27f4b7a475a4fcf750e1950c131c701f675a2f5b86ed99d9eb79043a9"
   },
+  "bitdefender": {
+    "state": "never-released",
+    "version": "0.1.0",
+    "latest_tag": null,
+    "current_hash": "sha256:81e994a8dcd203314278a9b9b77590e5d7b21f5864d377e051ff403034563ed3",
+    "released_hash": null
+  },
   "blumira": {
     "state": "up-to-date",
     "version": "0.1.4",
