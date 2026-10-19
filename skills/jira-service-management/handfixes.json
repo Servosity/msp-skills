@@ -915,13 +915,18 @@
     },
     {
       "id": "jsm-export-repeated-page-guard",
-      "summary": "export stops with an error when the server returns the same page twice instead of advancing, rather than writing duplicates until the 100000-page guard or exiting 0 with a short file",
-      "why": "--all, sync and jsmWalk already detect a repeated page; export did not, so a server that ignores the paging key made export loop (and with --limit, finish 'successfully' with 50 unique rows) (Codex round 13 P1, 2026-10-19). Receipt: against a stub that ignores start, export request exits 1 with 'the server repeated a page instead of advancing' with and without --limit 120. Round 14 (Codex P1): the first guard compared whole responses, so a server echoing the requested start while serving the same rows slipped past it (120 rows written, 20 unique); it now compares the page's rows. Receipt: exit 1 against that stub, with and without --limit 120.",
+      "summary": "export writes each row once and stops with an error when a page adds no new row (a server that ignores the paging key), rather than writing duplicates until the 100000-page guard or exiting 0 with a short or duplicated file",
+      "why": "--all, sync and jsmWalk already detect a repeated page; export did not, so a server that ignores the paging key made export loop (and with --limit, finish 'successfully' with 50 unique rows) (Codex round 13 P1, 2026-10-19). Receipt: against a stub that ignores start, export request exits 1 with 'the server repeated a page instead of advancing' with and without --limit 120. Round 14 (Codex P1): the first guard compared whole responses, so a server echoing the requested start while serving the same rows slipped past it (120 rows written, 20 unique); it now compares the page's rows. Receipt: exit 1 against that stub, with and without --limit 120. Round 15 (Codex P1): comparing a page to the previous one missed a --limit-shortened last request (export request --limit 75 wrote 75 rows, 50 unique); export now de-duplicates by row hash and errors when a page adds nothing new. Receipt: exit 1 for no limit, --limit 120 and --limit 75; normal exports still 120/120.",
       "status": "active",
       "asserts": [
         {
           "file": "cli/internal/cli/export.go",
-          "contains": "if page > 0 && len(items) > 0 && paginatedItemsEqual(prevItems, items) {",
+          "contains": "if page > 0 && len(items) > 0 && len(fresh) == 0 {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/export.go",
+          "contains": "if h := sha256.Sum256(item); !seenRows[h] {",
           "code_only": true
         }
       ]

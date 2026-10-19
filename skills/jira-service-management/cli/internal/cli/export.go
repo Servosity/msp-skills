@@ -6,6 +6,7 @@ package cli
 
 import (
 	"bufio"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -129,7 +130,7 @@ large datasets as it has no memory pressure.`,
 			var singlePayload json.RawMessage
 			count, page, cursor := 0, 0, ""
 			fetched := 0 // pp:handfix jsm-pages-by-rows-returned: rows the API has returned so far
-			var prevItems []json.RawMessage
+			seenRows := map[[32]byte]bool{}
 			for {
 				remaining := 0
 				if limit > 0 {
@@ -162,13 +163,22 @@ large datasets as it has no memory pressure.`,
 					items = []json.RawMessage{data}
 				}
 				fetched += len(items)
-				// pp:handfix jsm-export-repeated-page-guard: a server that ignores the
-				// paging key would otherwise be exported again and again.
-				if page > 0 && len(items) > 0 && paginatedItemsEqual(prevItems, items) {
+				// pp:handfix jsm-export-repeated-page-guard: write each row once (a row
+				// shifted back a page by an insert is not written twice), and stop with
+				// an error when a page adds nothing new: a server that ignores the paging
+				// key, even on a --limit-shortened last request, would otherwise be
+				// exported again and again.
+				fresh := items[:0:0]
+				for _, item := range items {
+					if h := sha256.Sum256(item); !seenRows[h] {
+						seenRows[h] = true
+						fresh = append(fresh, item)
+					}
+				}
+				if page > 0 && len(items) > 0 && len(fresh) == 0 {
 					return fmt.Errorf("export %s: the server repeated a page instead of advancing; results after %d rows are unreachable", resource, count)
 				}
-				prevItems = append(prevItems[:0], items...)
-				for _, item := range items {
+				for _, item := range fresh {
 					if limit > 0 && count >= limit {
 						break
 					}
