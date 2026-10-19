@@ -786,8 +786,8 @@
     },
     {
       "id": "jsm-export-pagination-wire-names",
-      "summary": "export (CLI and the MCP export tool) and tail page with JSM's wire keys (start, Assets startAt) and the 50-row JSM page cap, through one hook in resourceReadConfigFor",
-      "why": "export and tail read their own generic page table (resourceReadConfigs: offset, limit 100) that jsm-pagination-wire-names never touched. JSM ignores offset, so with its 50-row cap export stopped after one 'short' page and exited 0 with 50 of 120 requests, and with a cap of 100 or more it re-fetched page one until the 100000-page guard, writing duplicates (Codex round 10 P1 and adversarial round 9 P1, 2026-10-19, both reproduced against a stub). Receipt after the fix: export request, servicedesk, organization and requesttype each wrote 120 of 120 with start=0/50/100 and limit=50, and 250 of 250 against a 100-row cap. TestResourceReadConfigWireNames fails with the hook removed.",
+      "summary": "export (CLI and the MCP export tool) pages with JSM's wire keys (start, Assets startAt) and the 50-row JSM page cap, through one hook in resourceReadConfigFor (tail reads one page per poll; see jsm-tail-says-first-page)",
+      "why": "export and tail read their own generic page table (resourceReadConfigs: offset, limit 100) that jsm-pagination-wire-names never touched. JSM ignores offset, so with its 50-row cap export stopped after one 'short' page and exited 0 with 50 of 120 requests, and with a cap of 100 or more it re-fetched page one until the 100000-page guard, writing duplicates (Codex round 10 P1 and adversarial round 9 P1, 2026-10-19, both reproduced against a stub). Receipt after the fix: export request, servicedesk, organization and requesttype each wrote 120 of 120 with start=0/50/100 and limit=50, and 250 of 250 against a 100-row cap. TestResourceReadConfigWireNames fails with the hook removed. Correction (adversarial round 10): an earlier summary said tail also pages through this hook; it does not, tail only extracts rows with this config.",
       "status": "active",
       "asserts": [
         {
@@ -842,6 +842,65 @@
         {
           "file": "cli/internal/cli/resource_paths.go",
           "contains": "start := strings.LastIndex(path, \"{\")",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "jsm-pages-by-rows-returned",
+      "summary": "every pager advances start by the rows a page actually returned and keeps going on a short page JSM marks isLastPage:false (or Assets isLast:false): export, --all (helpers.go), and sync's flat and dependent walks; jsmWalk (hand-written) follows the same rule",
+      "why": "Atlassian documents that a page can hold fewer items than limit without being the last ('size is less than limit and isLastPage is false') when the server caps it. The generated pagers stopped on any short page and strided by the requested size, so at a 20-row cap sync stored 20 of 120 rows per resource and export wrote 60 of 120, both exit 0 (Codex round 12 P1s; reproduced with a stub that caps pages at 20 and echoes the requested limit). After the fix: export, --all, --all --limit 50, and sync (flat and every dependent table) return 120 of 120 at caps 20, 50 and 100. A full page still continues whatever isLastPage says, so the old always-true isLastPage bug (JSDCLOUD-8279, since fixed) cannot cut a walk short. TestJSMWalkFollowsCappedPages fails with the old jsmWalk rule.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "if paginationType == \"offset\" {\n\t\tpageSize = itemCount",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "moreByTotal || jsmPageHasMore(data)); ok {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "(len(items) >= pageSize.limit || (len(items) > 0 && jsmPageHasMore(data))) && pageAllowsPageIntFallback(data)",
+          "code_only": true,
+          "min_count": 2
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "nextCursor = strconv.Itoa(currentOffset + len(items))",
+          "code_only": true,
+          "min_count": 2
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "pageSize.limit) && !jsmPageHasMore(data)) {",
+          "code_only": true,
+          "min_count": 2
+        },
+        {
+          "file": "cli/internal/cli/export.go",
+          "contains": "params[config.cursorParam] = strconv.Itoa(fetched)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/export.go",
+          "contains": "len(items) < requested && !jsmPageHasMore(data) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "jsm-mcp-tail-single-poll",
+      "summary": "the MCP tail tool always polls once and returns: --follow is forced false for the tail command path",
+      "why": "tail follows by default and the generated cliArgsFromMCP forwards only true booleans, so an agent's follow:false was dropped: the tool call never returned and the child CLI kept polling the JSM API until the MCP server exited (adversarial round 10 P1; reproduced: 13 then 16 polls, no result after 25 s). A targeted fix was chosen over forwarding every explicit false, which would let an MCP caller switch off any default-true flag. Receipt: tools/call tail with and without follow:false returns after exactly one poll. TestJSMTailSinglePoll covers the argv rewrite.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/cobratree/shellout.go",
+          "contains": "finalArgs = jsmTailSinglePoll(finalArgs, len(prefixArgs))",
           "code_only": true
         }
       ]

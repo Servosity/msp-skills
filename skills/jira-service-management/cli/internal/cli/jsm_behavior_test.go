@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -317,5 +318,26 @@ func TestResourceDetailPathFillsItemID(t *testing.T) {
 	}
 	if got, _ := resourceDetailPath("request", "SD-1"); got != "/request/SD-1" {
 		t.Fatalf("request item path = %q", got)
+	}
+}
+
+// cappedPager serves 120 rows 20 at a time while echoing the requested limit,
+// the way Atlassian documents a server-capped page (size < limit, isLastPage false).
+type cappedPager struct{}
+
+func (cappedPager) GetWithHeadersNoCache(_ context.Context, _ string, params map[string]string, _ map[string]string) (json.RawMessage, error) {
+	start, _ := strconv.Atoi(params["start"])
+	vals := []string{}
+	for i := start; i < start+20 && i < 120; i++ {
+		vals = append(vals, fmt.Sprintf(`{"id":"%d"}`, i))
+	}
+	return json.RawMessage(fmt.Sprintf(`{"start":%d,"limit":%s,"size":%d,"isLastPage":%t,"values":[%s]}`,
+		start, params["limit"], len(vals), start+len(vals) >= 120, strings.Join(vals, ","))), nil
+}
+
+func TestJSMWalkFollowsCappedPages(t *testing.T) {
+	items, truncated, err := jsmWalk(context.Background(), cappedPager{}, "/servicedesk/1/customer", nil, 0, jsonKey("id"))
+	if err != nil || truncated || len(items) != 120 {
+		t.Fatalf("got %d rows (truncated=%v, err=%v), want 120", len(items), truncated, err)
 	}
 }

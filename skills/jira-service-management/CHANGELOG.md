@@ -21,6 +21,7 @@ All notable changes to this skill are documented here. Format follows
   (`JIRA_SERVICE_MANAGEMENT_SITE`), so ids left over from another client never reach that
   client's CMDB.
 - Pagination sends the real wire names (`start` for JSM; `startAt` and `resultPerPage` for
-  Assets) and clamps JSM page size to 50.
+  Assets), clamps JSM page size to 50, and follows a page the server capped short
+  (`isLastPage: false`) to the end, in sync, export, `--all` and the built-in commands.
 - Windows builds: `cmdb reconcile` opens its input file through per-OS code, so the connector
   ships Windows binaries.

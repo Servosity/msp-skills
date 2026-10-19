@@ -128,6 +128,7 @@ large datasets as it has no memory pressure.`,
 			allItems := []json.RawMessage{}
 			var singlePayload json.RawMessage
 			count, page, cursor := 0, 0, ""
+			fetched := 0 // pp:handfix jsm-pages-by-rows-returned: rows the API has returned so far
 			for {
 				remaining := 0
 				if limit > 0 {
@@ -136,6 +137,9 @@ large datasets as it has no memory pressure.`,
 				params := map[string]string(nil)
 				if !singleItem && config.paginationType != "" {
 					params = resourcePageParams(config, cursor, page, remaining)
+					if config.paginationType == "offset" && config.cursorParam != "" {
+						params[config.cursorParam] = strconv.Itoa(fetched)
+					}
 				}
 				data, err := c.Get(cmd.Context(), path, params)
 				if err != nil {
@@ -156,6 +160,7 @@ large datasets as it has no memory pressure.`,
 				if items == nil {
 					items = []json.RawMessage{data}
 				}
+				fetched += len(items)
 				for _, item := range items {
 					if limit > 0 && count >= limit {
 						break
@@ -184,7 +189,7 @@ large datasets as it has no memory pressure.`,
 				}
 				if config.limitParam != "" && !hasMore {
 					requested, _ := strconv.Atoi(params[config.limitParam])
-					if requested > 0 && len(items) < requested {
+					if requested > 0 && len(items) < requested && !jsmPageHasMore(data) {
 						break
 					}
 				}

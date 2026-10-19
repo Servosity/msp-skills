@@ -776,9 +776,12 @@ func syncResource(ctx context.Context, c interface {
 			nextCursor = strconv.Itoa(currentPage + 1)
 			hasMore = true
 		}
-		if pageSize.cursorParam != "" && pageSize.cursorType == "offset" && nextCursor == "" && len(items) >= pageSize.limit && pageAllowsPageIntFallback(data) {
+		// pp:handfix jsm-pages-by-rows-returned: JSM may cap a page below the
+		// limit without it being the last (isLastPage:false), so advance by the
+		// rows returned and keep going on such a page.
+		if pageSize.cursorParam != "" && pageSize.cursorType == "offset" && nextCursor == "" && (len(items) >= pageSize.limit || (len(items) > 0 && jsmPageHasMore(data))) && pageAllowsPageIntFallback(data) {
 			currentOffset, _ := strconv.Atoi(cursor)
-			nextCursor = strconv.Itoa(currentOffset + pageSize.limit)
+			nextCursor = strconv.Itoa(currentOffset + len(items))
 			hasMore = true
 		}
 		if hasMore && previousPageItemsSet && syncPageItemsEqual(previousPageItems, items) && syncPaginationPageIsStuck(pageSize.cursorType, cursor, nextCursor) {
@@ -1017,7 +1020,7 @@ func syncResource(ctx context.Context, c interface {
 			outcome.reason = "cursor_unavailable"
 			break
 		}
-		if !hasMore || shortPageEndsPagination(pageSize.cursorType, fetchedThisPage, pageSize.limit) {
+		if !hasMore || (shortPageEndsPagination(pageSize.cursorType, fetchedThisPage, pageSize.limit) && !jsmPageHasMore(data)) {
 			outcome.complete = true
 			break
 		}
@@ -3062,9 +3065,12 @@ func syncOneParent(
 			nextCursor = strconv.Itoa(currentPage + 1)
 			hasMore = true
 		}
-		if pageSize.cursorParam != "" && pageSize.cursorType == "offset" && nextCursor == "" && len(items) >= pageSize.limit && pageAllowsPageIntFallback(data) {
+		// pp:handfix jsm-pages-by-rows-returned: JSM may cap a page below the
+		// limit without it being the last (isLastPage:false), so advance by the
+		// rows returned and keep going on such a page.
+		if pageSize.cursorParam != "" && pageSize.cursorType == "offset" && nextCursor == "" && (len(items) >= pageSize.limit || (len(items) > 0 && jsmPageHasMore(data))) && pageAllowsPageIntFallback(data) {
 			currentOffset, _ := strconv.Atoi(cursor)
-			nextCursor = strconv.Itoa(currentOffset + pageSize.limit)
+			nextCursor = strconv.Itoa(currentOffset + len(items))
 			hasMore = true
 		}
 		if hasMore && previousPageItemsSet && syncPageItemsEqual(previousPageItems, items) && syncPaginationPageIsStuck(pageSize.cursorType, cursor, nextCursor) {
@@ -3215,7 +3221,7 @@ func syncOneParent(
 			outcome.reason = "cursor_unavailable"
 			break
 		}
-		if !hasMore || shortPageEndsPagination(pageSize.cursorType, len(items), pageSize.limit) {
+		if !hasMore || (shortPageEndsPagination(pageSize.cursorType, len(items), pageSize.limit) && !jsmPageHasMore(data)) {
 			outcome.complete = true
 			break
 		}

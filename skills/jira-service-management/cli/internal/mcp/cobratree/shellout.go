@@ -75,6 +75,9 @@ func shellOutToCLI(cliPath func() (string, error), commandPath []string, blocked
 			}
 			finalArgs = append(finalArgs, rawPositionals...)
 		}
+		if len(commandPath) == 1 && commandPath[0] == "tail" { // pp:handfix jsm-mcp-tail-single-poll
+			finalArgs = jsmTailSinglePoll(finalArgs, len(prefixArgs))
+		}
 		out, err := RunCLICommand(ctx, lookupPath, finalArgs)
 		if err != nil {
 			return boundedToolResultError(err.Error()), nil

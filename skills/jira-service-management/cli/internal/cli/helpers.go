@@ -1498,7 +1498,7 @@ func paginatedGet(ctx context.Context, c interface {
 					moreByTotal := reportedTotal > 0 && len(allItems) < reportedTotal
 					usePageHeuristic := nextCursorPath == "" && hasMoreField == ""
 					if moreByTotal || usePageHeuristic {
-						if next, ok := nextFullPageOffsetCursor(clean, cursorParam, paginationType, pageSize, itemCount, moreByTotal); ok {
+						if next, ok := nextFullPageOffsetCursor(clean, cursorParam, paginationType, pageSize, itemCount, moreByTotal || jsmPageHasMore(data)); ok {
 							if page >= paginatedGetMaxPages {
 								emitPaginatedGetMaxPagesWarning(ctx)
 								break
@@ -1634,8 +1634,8 @@ func nextFullPageOffsetCursor(params map[string]string, cursorParam, paginationT
 	if pageSize > 0 && itemCount < pageSize && !moreRemain {
 		return "", false
 	}
-	if pageSize <= 0 && paginationType == "offset" {
-		pageSize = itemCount
+	if paginationType == "offset" {
+		pageSize = itemCount // pp:handfix jsm-pages-by-rows-returned: a capped page is shorter than asked
 	}
 	return nextClientSidePaginationCursor(params, cursorParam, paginationType, pageSize)
 }

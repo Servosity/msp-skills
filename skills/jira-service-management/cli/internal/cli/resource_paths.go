@@ -106,9 +106,10 @@ func resourceDetailPath(resource, escapedID string) (string, error) {
 
 func resourceReadConfigFor(resource string) resourceReadConfig {
 	config := resourceReadConfigs[resource]
-	// pp:handfix jsm-export-pagination-wire-names: export and tail page with
-	// JSM's wire keys and its 50-row cap, as --all and sync do; the generic
-	// offset/limit=100 re-fetched page one and a capped 50-row page ended the walk.
+	// pp:handfix jsm-export-pagination-wire-names: export pages with JSM's
+	// wire keys and its 50-row cap, as --all and sync do; the generic
+	// offset/limit=100 re-fetched page one and a capped 50-row page ended the
+	// walk. (tail only reads rows out of one page per poll with this config.)
 	if path, err := resourceReadPath(resource); err == nil {
 		config.cursorParam = jsmWireParam(path, config.cursorParam)
 		config.limitParam = jsmWireParam(path, config.limitParam)

@@ -55,8 +55,9 @@ func (f *flexString) UnmarshalJSON(b []byte) error {
 }
 
 type jsmPage struct {
-	Limit  int               `json:"limit"`
-	Values []json.RawMessage `json:"values"`
+	Limit      int               `json:"limit"`
+	IsLastPage *bool             `json:"isLastPage"`
+	Values     []json.RawMessage `json:"values"`
 }
 
 // jsmWalkCeiling bounds an "unlimited" walk so a server that ignores ?start=
@@ -135,8 +136,11 @@ func jsmWalk(ctx context.Context, c jsmGetter, path string, params map[string]st
 		}
 		// A short page is the end even if every row on it was already seen
 		// (a row inserted at the head mid-walk shifts one back); only a full
-		// page that adds nothing is a stall.
-		if len(pg.Values) == 0 || len(pg.Values) < limit {
+		// page that adds nothing is a stall. JSM may cap a page below the
+		// limit without it being the last, so a short page with
+		// isLastPage:false continues; a full page continues whatever
+		// isLastPage says.
+		if len(pg.Values) == 0 || (len(pg.Values) < limit && (pg.IsLastPage == nil || *pg.IsLastPage)) {
 			return items, false, nil
 		}
 		if fresh == 0 {
