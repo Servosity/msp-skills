@@ -66,7 +66,7 @@ Do not use this CLI for:
   ```bash
   cloudally-cli restore plan --task 64b0e9 --date 2026-10-01 --date 2026-10-03 --agent
   ```
-- **`restore submit`** - Submit one restore per mailbox per date with bounded concurrency and a local ledger; --resume skips rows already submitted and never resends a restore whose outcome is unknown.
+- **`restore submit`** - Submit one restore per mailbox per date with bounded concurrency and a local ledger; --resume never resends a restore the API accepted or may have accepted, and keeps the batch's recorded target account and restore options.
 
   _Use this instead of looping over recovery restore when more than one mailbox or date is involved._
 
@@ -284,7 +284,7 @@ Do not use this CLI for:
 
 - `cloudally-cli restore plan` - Preview every mailbox-and-date restore a batch would submit, with the exact backup each mailbox will be restored from.
 
-- `cloudally-cli restore submit` - Submit one restore per mailbox per date with bounded concurrency and a local ledger; --resume skips rows already submitted and never resends a restore whose outcome is unknown.
+- `cloudally-cli restore submit` - Submit one restore per mailbox per date with bounded concurrency and a local ledger; --resume never resends a restore the API accepted or may have accepted, and keeps the batch's recorded target account and restore options.
 
 - `cloudally-cli restore watch` - Follow a submitted batch until every restore finishes, with a per-mailbox tally and a non-zero exit if any failed.
 

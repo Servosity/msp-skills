@@ -55,8 +55,11 @@ another host. **Three commands write a credential to disk:** `auth login` (and
   date from the portal's backup calendar (partner login plus `--account`; under a
   company login it can only use the latest backup). A mailbox with no such backup is a
   `NO_BACKUP` row and is never submitted. `restore submit` records every row in a local
-  ledger before the request leaves, so a re-run with `--resume` never resends a restore
-  whose outcome is unknown.
+  ledger before the request leaves. `--resume` never resends a restore whose outcome is
+  unknown or that CloudAlly accepted, even if its RESTORE task later failed, and always
+  sends with the target account and restore options recorded on the batch; a
+  conflicting flag is refused. Re-running the same submit without `--resume` is refused
+  once any of its restores were accepted, unless `--new-batch` is passed.
 - **Downloads only ever create EXPORT jobs.** The portal endpoint the download
   commands use (`startRestoreOrDownload`) also accepts `RESTORE` (writes into the live
   mailbox) and `DELETEITEMS` (deletes from the backup). The CLI only ever sends

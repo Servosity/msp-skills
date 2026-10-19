@@ -132,7 +132,7 @@ cloudally-cli restore submit --task 64b0e9 --date 2026-10-01 --dry-run
   ```bash
   cloudally-cli restore plan --task 64b0e9 --date 2026-10-01 --date 2026-10-03 --agent
   ```
-- **`restore submit`** - Submit one restore per mailbox per date with bounded concurrency and a local ledger; --resume skips rows already submitted and never resends a restore whose outcome is unknown.
+- **`restore submit`** - Submit one restore per mailbox per date with bounded concurrency and a local ledger; --resume never resends a restore the API accepted or may have accepted, and keeps the batch's recorded target account and restore options.
 
   _Use this instead of looping over recovery restore when more than one mailbox or date is involved._
 
@@ -519,7 +519,7 @@ Manage user
 
 - **`cloudally-cli restore plan`** - Preview every mailbox-and-date restore a batch would submit, with the exact backup each mailbox will be restored from.
 
-- **`cloudally-cli restore submit`** - Submit one restore per mailbox per date with bounded concurrency and a local ledger; --resume skips rows already submitted and never resends a restore whose outcome is unknown.
+- **`cloudally-cli restore submit`** - Submit one restore per mailbox per date with bounded concurrency and a local ledger; --resume never resends a restore the API accepted or may have accepted, and keeps the batch's recorded target account and restore options.
 
 - **`cloudally-cli restore watch`** - Follow a submitted batch until every restore finishes, with a per-mailbox tally and a non-zero exit if any failed.
 
@@ -647,7 +647,10 @@ If you use agentcookie to sync secrets across machines, this CLI auto-adopts age
 - **distributor-recovery export (or recovery export) succeeds but no download appears** - That documented endpoint creates no job. Use `download submit` or `download start`.
 - **portal session is not authenticated (status 401)** - Several portal sessions for the same customer started at the same instant invalidated each other's handoff tokens. Start parallel `download fetch` or `download submit` runs a few seconds apart, or run them one at a time.
 - **A link from download link stopped working** - Links last about 60 seconds. Run `download link` again for a fresh one, or let `download fetch` mint and stream in one step.
-- **restore submit lists restores that may already have been accepted** - Check the batch with cloudally-cli restore watch --batch <id> --once. For restores that never appeared, run cloudally-cli restore submit --resume --retry-unknown --yes with the same task and dates.
+- **restore submit lists restores that may already have been accepted** - Check the batch with cloudally-cli restore watch --batch <id> --once; it settles every row it finds a RESTORE task for. Then run the command the notice prints (your original submit with --resume --retry-unknown --yes added); it sends only rows still UNKNOWN.
+- **restore submit refuses: batch already has restores CloudAlly accepted** - Re-running would restore those mailboxes twice. Run the --resume command the error prints; pass --new-batch only to restore every mailbox again.
+- **--resume refuses: different options** - A resumed batch always restores to the target and options it started with. Drop the flag, or start a separate batch with --new-batch.
+- **restore watch exits 5: failed after CloudAlly accepted them** - Those restores ran and may have written part of the mailbox, and --resume never resends them. Check the mailbox, then submit just those rows as a new batch.
 
 ## Sources & Inspiration
 
