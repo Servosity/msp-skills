@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"bitdefender-pp-cli/internal/client"
+	"bitdefender-pp-cli/internal/cliutil"
 
 	"github.com/spf13/cobra"
 )
@@ -44,7 +45,10 @@ type billingView struct {
 	Rows          []billingRow   `json:"rows"`
 	Flagged       int            `json:"flagged"`
 	FetchFailures []fetchFailure `json:"fetch_failures"`
-	Note          string         `json:"note,omitempty"`
+	// UnmatchedAgreements lists --agreements companies that matched no company
+	// in the tree, so a PSA name that differs from GravityZone's is visible.
+	UnmatchedAgreements []string `json:"unmatched_agreements"`
+	Note                string   `json:"note,omitempty"`
 }
 
 // usageCounts maps product type -> counter -> seats for one company and month.
@@ -69,10 +73,12 @@ children's, since child usage rolls up into the parent). Flags:
                     committed minimum; a partner is checked on its own share)
   minimum_usage_applies  the company's committed monthly minimum (minimumUsage) is above
                     its endpointMonthlyUsage, so the minimum is what gets billed
-The main license is Endpoint Security (product type 0) when the company has usage there,
-otherwise its lowest product type; minimum_usage and both checks sit on that row.
   prior_month_unavailable / own_share_unavailable / agreement_unchecked
                     a needed fetch failed, so that comparison is withheld (never read as zero)
+The main license is Endpoint Security (product type 0) when the company has usage there,
+otherwise its lowest product type (last month's when it has none this month);
+minimum_usage and both checks sit on that row. --agreements rows that match no company
+are listed in unmatched_agreements.
 Managed endpoint counts come from the latest 'fleet health' snapshot when one exists.
 --agreements reads a CSV with a company (id or name) column and a quantity column.
 
@@ -143,6 +149,7 @@ protection status; use 'fleet health' instead.`,
 			// credit missing children's seats to the parent.
 			treeComplete := err == nil && len(failures) == 0 && limit == len(tree)
 			view.Rows = buildBillingRows(tree[:limit], curUsage, priorUsage, minimums, managed, agreed, treeComplete)
+			view.UnmatchedAgreements = unmatchedAgreements(tree[:limit], agreed)
 			for _, r := range view.Rows {
 				if len(r.Flags) > 0 {
 					view.Flagged++
@@ -150,6 +157,9 @@ protection status; use 'fleet health' instead.`,
 			}
 			if n := len(view.FetchFailures); n > 0 {
 				fmt.Fprintf(cmd.ErrOrStderr(), "warning: %d usage fetches failed; own-share math skips companies without data\n", n)
+			}
+			if n := len(view.UnmatchedAgreements); n > 0 {
+				fmt.Fprintf(cmd.ErrOrStderr(), "warning: %d --agreements companies matched no GravityZone company and were not checked: %s\n", n, cliutil.ScrubTerminal(strings.Join(view.UnmatchedAgreements, ", ")))
 			}
 			if wantsHumanTable(cmd.OutOrStdout(), flags) {
 				humanNote(cmd, view.Note)
@@ -170,7 +180,7 @@ protection status; use 'fleet health' instead.`,
 				}
 				return printAutoTable(cmd.OutOrStdout(), rows)
 			}
-			return printJSONFiltered(cmd.OutOrStdout(), view, flags)
+			return printJSONFilteredKeep(cmd.OutOrStdout(), view, flags, "minimum_usage", "agreement_quantity", "managed_endpoints", "own_share")
 		},
 	}
 	cmd.Flags().StringVar(&month, "month", "", "Billing month as mm/yyyy (default: current month)")
@@ -277,9 +287,13 @@ func buildBillingRows(tree []gzCompany, cur, prior map[string]usageCounts, minim
 		// its lowest product type (Bitdefender's own minimumUsage example is a
 		// PHASR-only company, product type 5).
 		mainPT := 0
-		if _, hasES := u[0]; !hasES && len(u) > 0 {
+		lic := u
+		if len(lic) == 0 {
+			lic = p // nothing this month: last month's products say which license it is
+		}
+		if _, hasES := lic[0]; !hasES && len(lic) > 0 {
 			mainPT = -1
-			for pt := range u {
+			for pt := range lic {
 				if mainPT < 0 || pt < mainPT {
 					mainPT = pt
 				}
@@ -391,6 +405,24 @@ func buildBillingRows(tree []gzCompany, cur, prior map[string]usageCounts, minim
 		}
 	}
 	return rows
+}
+
+// unmatchedAgreements returns the --agreements companies (lowercased id or
+// name, sorted) that match no company id or name in the tree.
+func unmatchedAgreements(tree []gzCompany, agreed map[string]int) []string {
+	known := map[string]bool{}
+	for _, co := range tree {
+		known[strings.ToLower(co.ID)] = true
+		known[strings.ToLower(co.Name)] = true
+	}
+	out := make([]string, 0)
+	for k := range agreed {
+		if !known[k] {
+			out = append(out, k)
+		}
+	}
+	sort.Strings(out)
+	return out
 }
 
 // seatSwing is the ERPNext review guard: a move of more than 50% and more than 5 seats.

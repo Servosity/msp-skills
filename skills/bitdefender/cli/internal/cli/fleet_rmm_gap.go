@@ -67,7 +67,8 @@ Returns three lists:
 Inventory comes from the latest 'fleet health' snapshot, or a live fan-out when there is no
 snapshot or --data-source live is set. That inventory is getEndpointsList's: a device that
 exists only under GravityZone's Active Directory integration can show as missing, so check
-missing_in_gravityzone against 'inventory list' (getNetworkInventoryItems) before deploying an agent.
+missing_in_gravityzone against 'inventory list' (getNetworkInventoryItems; a Credential-tier
+read, since its company rows carry license keys) before deploying an agent.
 Recognized columns/keys: hostname, name, device,
 computer, systemName, dnsName, displayName; mac, macAddress, macs.
 

@@ -36,7 +36,8 @@ none exists; --data-source live always fans out live (and saves the result as a 
 --data-source local reads the snapshot only. Matching is always done locally so names,
 FQDNs, labels, IPs and MACs in any notation are all searched. The inventory is
 getEndpointsList's, so a machine that exists only under the Active Directory integration is
-not found here; try 'inventory list' (getNetworkInventoryItems).
+not found here; try 'inventory list' (getNetworkInventoryItems; a Credential-tier read, since
+its company rows carry license keys).
 
 Use this command to locate a machine by hostname, IP, MAC or label across every child company
 and get its endpoint id and company. Do NOT use this command for per-company status counts;

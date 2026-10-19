@@ -1441,3 +1441,50 @@ func TestInputFilesAcceptUTF16(t *testing.T) {
 		t.Fatalf("readRMMDevices(PS 5.1 export) = %+v, %v; want one device", got, err)
 	}
 }
+
+// --agent compaction must not drop the reconciliation fields, and an
+// agreement row that matches no company must be reported, not dropped.
+func TestUsageBillingAgentKeepsAgreementFieldsAndUnmatched(t *testing.T) {
+	setupFakeGZ(t)
+	agreements := filepath.Join(t.TempDir(), "agreements.csv")
+	if err := os.WriteFile(agreements, []byte("Company,Quantity\nAcme,12\nAcme Typo Corp,99\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	v, stderr, err := runGZ(t, "usage", "billing", "--month", "09/2026", "--agreements", agreements, "--agent")
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, r := range v["rows"].([]any) {
+		m := r.(map[string]any)
+		if m["company_name"] == "Acme" && m["agreement_quantity"] != nil {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("--agent rows lost agreement_quantity: %v", v["rows"])
+	}
+	um, _ := v["unmatched_agreements"].([]any)
+	if len(um) != 1 || um[0] != "acme typo corp" {
+		t.Fatalf("unmatched_agreements = %v, want [acme typo corp]", v["unmatched_agreements"])
+	}
+	if !strings.Contains(stderr, "matched no GravityZone company") {
+		t.Fatalf("stderr = %q, want an unmatched-agreements warning", stderr)
+	}
+}
+
+// A company with no usage this month takes its main license from last month.
+func TestBillingMainLicenseFallsBackToPriorMonth(t *testing.T) {
+	tree := []gzCompany{{ID: "c1", Name: "Acme Corp", Type: 1}}
+	cur := map[string]usageCounts{"c1": {}}
+	prior := map[string]usageCounts{"c1": {5: {"endpointMonthlyUsage": 10}}}
+	rows := buildBillingRows(tree, cur, prior, map[string]map[string]int{"c1": {"endpointMonthlyUsage": 40}}, nil, nil, true)
+	for _, r := range rows {
+		if r.ProductType == 0 {
+			t.Fatalf("rows = %+v: no Endpoint Security row should be invented", rows)
+		}
+		if r.ProductType == 5 && r.MinimumUsage["endpointMonthlyUsage"] != 40 {
+			t.Fatalf("product type 5 row = %+v, want the minimum on it", r)
+		}
+	}
+}
