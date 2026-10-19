@@ -686,8 +686,8 @@
   },
   {
    "id": "cluster-store-no-fallback",
-   "summary": "With a cluster selected, every local store path derives from that cluster's scope: legacy data.db adoption and ownership markers are skipped, a missing HOME still yields a scoped file, any --db (including whitespace or a saved profile's db) is refused, a store path SQLite would truncate at '?' or '#' is refused, a namespace-only entry is unresolved, and flag-correction learning never runs when pre-run did not scope the store",
-   "why": "A Codex class sweep of every store open (2026-10-16) found four ways two clusters still resolved to one file: unproven .owner ownership fell back to the shared data.db, help and parse-failure paths opened the learn store before pre-run scoped it, HOME unset returned a bare data.db, and an explicit or profile-supplied --db named one shared file. Pinned by TestClusterStoreIgnoresLegacyUnscopedDB, TestClusterStoreWithoutPreRun, TestClusterStoreWithoutHome, TestDBFlagRefusedWithCluster. A second sweep found a profile's cluster unapplied on the help path, a whitespace --db, a '?' in the data directory truncating the SQLite DSN, and a namespace-only entry keeping a reusable identity; each now fails closed (TestDBFlagRefusedWithCluster, TestClusterStorePathWithQueryCharRefused, TestNamespaceOnlyEntryIsUnresolved).",
+   "summary": "With a cluster selected, every local store path derives from that cluster's scope: legacy data.db adoption and ownership markers are skipped, a missing HOME still yields a scoped file, any --db (including whitespace or a saved profile's db) is refused, a store path SQLite would truncate at '?' or '#' is refused, a namespace-only entry is unresolved, and flag-correction learning never runs when pre-run did not scope the store; and one process binds one read of the entry for both the API client and the store",
+   "why": "A Codex class sweep of every store open (2026-10-16) found four ways two clusters still resolved to one file: unproven .owner ownership fell back to the shared data.db, help and parse-failure paths opened the learn store before pre-run scoped it, HOME unset returned a bare data.db, and an explicit or profile-supplied --db named one shared file. Pinned by TestClusterStoreIgnoresLegacyUnscopedDB, TestClusterStoreWithoutPreRun, TestClusterStoreWithoutHome, TestDBFlagRefusedWithCluster. A second sweep found a profile's cluster unapplied on the help path, a whitespace --db, a '?' in the data directory truncating the SQLite DSN, and a namespace-only entry keeping a reusable identity; each now fails closed (TestDBFlagRefusedWithCluster, TestClusterStorePathWithQueryCharRefused, TestNamespaceOnlyEntryIsUnresolved). A third sweep found the store re-read clusters.toml per call, so a clusters add --force during a request moved the store to the new tenant while the client kept the old endpoint; entries are now snapshotted once per process (TestClusterEntryBoundForTheProcess).",
    "status": "active",
    "asserts": [
     {
@@ -723,6 +723,11 @@
     {
      "file": "cli/internal/cli/clusters.go",
      "contains": "strings.Join(id[:3], \"\") == \"\"",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/clusters.go",
+     "contains": "if snap, hit := clusterSnapshots.m[key]; hit {",
      "code_only": true
     }
    ]

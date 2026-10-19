@@ -230,3 +230,28 @@ func TestNamespaceOnlyEntryIsUnresolved(t *testing.T) {
 		t.Fatalf("a namespace-only entry reopened an earlier invocation's store %q", got)
 	}
 }
+
+// hand-fix (cluster-store-no-fallback): one process binds one version of an
+// entry, so `clusters add --force` mid-request cannot move the store to the
+// new tenant while the client still talks to the old one.
+func TestClusterEntryBoundForTheProcess(t *testing.T) {
+	f := newFixture(t)
+	defer func() { selectedCluster = ""; configureDefaultDBScope("") }()
+	writeClustersFile(t, acmeClusters(f, f.pbs.URL, ""))
+	before := storePathFor("acme")
+	cl, err := clusterByName("acme")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Rewrite in place without the helper's reset: a concurrent `clusters add --force`.
+	body := strings.Replace(acmeClusters(f, f.pbs.URL, ""), f.pve.URL, "https://192.0.2.10:8006", 1)
+	if err := os.WriteFile(os.Getenv("PROXMOX_CLUSTERS_FILE"), []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if got := storePathFor("acme"); got != before {
+		t.Fatalf("store moved mid-process: %q -> %q", before, got)
+	}
+	if again, _ := clusterByName("acme"); again.PVEBaseURL != cl.PVEBaseURL {
+		t.Fatalf("client entry changed mid-process: %q -> %q", cl.PVEBaseURL, again.PVEBaseURL)
+	}
+}

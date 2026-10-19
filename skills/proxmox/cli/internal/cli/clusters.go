@@ -19,6 +19,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/pelletier/go-toml/v2"
 	"github.com/spf13/cobra"
@@ -113,13 +114,55 @@ func clusterStoreScope() string {
 	if abs, err := filepath.Abs(path); err == nil {
 		path = abs
 	}
-	all, _, err := loadClusters()
-	cl, ok := all[name]
+	snap := snapshotCluster(name)
+	cl, ok, err := snap.cl, snap.ok, snap.err
 	id := []string{cl.PVEHost, cl.PVEBaseURL, cl.PBSHost, cl.PBSNamespace}
 	if err != nil || !ok || strings.Join(id[:3], "") == "" { // a namespace alone names no cluster
 		return strings.Join([]string{"proxmox-cluster-unresolved", name, unresolvedStoreNonce}, "\x00")
 	}
 	return strings.Join(append([]string{"proxmox-cluster", name, path}, id...), "\x00")
+}
+
+// clusterSnapshots binds one read of a clusters.toml entry per process, so
+// the API client and the local store always see the same version of it: a
+// `clusters add --force` during a request cannot point the store at the new
+// tenant while the client still talks to the old one.
+var clusterSnapshots struct {
+	sync.Mutex
+	m map[string]clusterSnapshot
+}
+
+type clusterSnapshot struct {
+	cl   clusterProfile
+	ok   bool
+	path string
+	err  error
+}
+
+func snapshotCluster(name string) clusterSnapshot {
+	file, _ := clustersPath()
+	key := file + "\x00" + name
+	clusterSnapshots.Lock()
+	defer clusterSnapshots.Unlock()
+	if snap, hit := clusterSnapshots.m[key]; hit {
+		return snap
+	}
+	all, path, err := loadClusters()
+	cl, ok := all[name]
+	snap := clusterSnapshot{cl: cl, ok: ok, path: path, err: err}
+	if clusterSnapshots.m == nil {
+		clusterSnapshots.m = map[string]clusterSnapshot{}
+	}
+	clusterSnapshots.m[key] = snap
+	return snap
+}
+
+// resetClusterSnapshots forgets every bound entry (tests rewrite clusters.toml
+// in one process; a real process reads each entry once).
+func resetClusterSnapshots() {
+	clusterSnapshots.Lock()
+	clusterSnapshots.m = nil
+	clusterSnapshots.Unlock()
 }
 
 // preRunScoped records that pre-run resolved the cluster and store scope for
@@ -186,11 +229,11 @@ func loadClusters() (map[string]clusterProfile, string, error) {
 }
 
 func clusterByName(name string) (clusterProfile, error) {
-	all, path, err := loadClusters()
-	if err != nil {
-		return clusterProfile{}, err
+	snap := snapshotCluster(name)
+	if snap.err != nil {
+		return clusterProfile{}, snap.err
 	}
-	cl, ok := all[name]
+	cl, ok, path := snap.cl, snap.ok, snap.path
 	if !ok {
 		return clusterProfile{}, fmt.Errorf("cluster %q is not defined in %s (run 'proxmox-cli clusters list')", name, path)
 	}

@@ -1349,7 +1349,7 @@
       "display_name": "Proxmox",
       "tagline": "Prove every client's Proxmox VMs are backed up and verified, read-only, from one prompt.",
       "has_video": true,
-      "cli_hash": "sha256:44a81ece58d84d82e5cec488f56c2d9ea517968996df3f73e0e81be6daebf85f",
+      "cli_hash": "sha256:aa0581faa455105d0b79a3119a3917d3faa3c68632a7fa155988b705940b2b2b",
       "template_version": 3,
       "version": "0.1.0",
       "cli_hash_at_release": null,

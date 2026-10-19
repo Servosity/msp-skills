@@ -197,6 +197,7 @@ func newFixture(t *testing.T) *fixture {
 	t.Setenv("PROXMOX_CLUSTERS_FILE", filepath.Join(t.TempDir(), "clusters.toml"))
 	t.Setenv("PROXMOX_CLUSTER", "")
 	selectedCluster = ""
+	resetClusterSnapshots()
 	return f
 }
 
@@ -376,6 +377,7 @@ func decodeJSON[T any](t *testing.T, s string) T {
 
 func writeClustersFile(t *testing.T, body string) {
 	t.Helper()
+	resetClusterSnapshots() // a rewrite stands in for a new process
 	if err := os.WriteFile(os.Getenv("PROXMOX_CLUSTERS_FILE"), []byte(body), 0o600); err != nil {
 		t.Fatal(err)
 	}
