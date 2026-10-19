@@ -278,3 +278,20 @@ func TestClusterEntryBoundForTheProcess(t *testing.T) {
 		t.Fatalf("client entry changed mid-process: %q -> %q", cl.PVEBaseURL, again.PVEBaseURL)
 	}
 }
+
+// The token values the client sends are part of the identity: the same entry
+// reused behind another client's VPN with new token values is a new store.
+func TestNewTokenValuesGetTheirOwnStore(t *testing.T) {
+	f := newFixture(t)
+	defer func() { selectedCluster = ""; configureDefaultDBScope("") }()
+	writeClustersFile(t, acmeClusters(f, f.pbs.URL, ""))
+	t.Setenv("ACME_PVE", "auditor@pve!cli=00000000-0000-0000-0000-00000000000a")
+	t.Setenv("ACME_PBS", "auditor@pbs!cli:00000000-0000-0000-0000-00000000000a")
+	first := storePathFor("acme")
+	for _, env := range []string{"ACME_PVE", "ACME_PBS"} {
+		t.Setenv(env, "auditor@pve!cli=00000000-0000-0000-0000-00000000000b")
+		if got := storePathFor("acme"); got == first {
+			t.Errorf("new %s token value kept the previous tenant's store", env)
+		}
+	}
+}

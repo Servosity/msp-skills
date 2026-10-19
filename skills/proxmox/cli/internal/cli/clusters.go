@@ -9,6 +9,7 @@ package cli
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -122,6 +123,10 @@ func clusterStoreScope() string {
 	// Every connection field counts: one private address can be a different
 	// client behind another VPN, told apart only by its token or certificate.
 	id := []string{cl.PVEHost, cl.PVEBaseURL, cl.PVETokenEnv, cl.PVEFingerprint, cl.PBSHost, cl.PBSTokenEnv, cl.PBSFingerprint, cl.PBSNamespace}
+	// The token values the client will send are the tenant's identity too:
+	// same names and hosts behind another VPN can carry another client's
+	// tokens. Digests only; the scope is hashed again into the filename.
+	id = append(id, tokenDigest(envValue(cl.PVETokenEnv)), tokenDigest(envValue(cl.PBSTokenEnv)))
 	return strings.Join(append([]string{"proxmox-cluster", name, path}, id...), "\x00")
 }
 
@@ -165,6 +170,14 @@ func resetClusterSnapshots() {
 	clusterSnapshots.Lock()
 	clusterSnapshots.m = nil
 	clusterSnapshots.Unlock()
+}
+
+func tokenDigest(token string) string {
+	if token == "" {
+		return ""
+	}
+	sum := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(sum[:])
 }
 
 // preRunScoped records that pre-run resolved the cluster and store scope for
