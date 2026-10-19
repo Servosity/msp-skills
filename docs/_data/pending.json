@@ -86,7 +86,7 @@
   "bitdefender": {
     "state": "never-released",
     "version": "0.1.0",
-    "latest_tag": null,
+    "latest_tag": "bitdefender-v0.1.0",
     "current_hash": "sha256:81e994a8dcd203314278a9b9b77590e5d7b21f5864d377e051ff403034563ed3",
     "released_hash": null
   },
