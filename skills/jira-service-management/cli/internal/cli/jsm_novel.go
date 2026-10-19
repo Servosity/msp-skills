@@ -65,7 +65,8 @@ const jsmWalkCeiling = 500
 
 // jsmWalk pages a JSM PagedDTO endpoint (?start=&limit=) until an empty page or
 // a page shorter than the effective limit. It never trusts isLastPage, which
-// the customers endpoint reports as true on every page (JSDCLOUD-8279), and it
+// the customers endpoint once reported as true on every page (JSDCLOUD-8279,
+// since fixed by Atlassian), and it
 // de-duplicates by key so rows shifting between pages (queues drift as tickets
 // arrive) are counted once. It also stops when a page adds nothing new (every
 // row already seen, or a byte-identical repeat of the previous page when no

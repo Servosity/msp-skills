@@ -1533,7 +1533,7 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 		},
 		"query_tips": []string{
 			"Page with JSM's own parameter names, which execute sends as given: start and limit on request-API lists (offset is translated to start only on the knowledgebase article lists), startAt and maxResults on Assets AQL search (object.find-by-aql).", // pp:handfix jsm-mcp-context-paging
-			"A request-API page reports isLastPage; raise start by the number of values returned until it is true.",
+			"On request-API lists, raise start by the number of values returned until a page comes back empty or shorter than limit.",
 			"Use the sql tool for ad-hoc analysis on synced data. Run sync first to populate the local database.",
 			"Use the search tool for full-text search across all synced resources. Faster than iterating list endpoints.",
 			"Prefer sql/search over repeated API calls when the data is already synced.",
@@ -1542,7 +1542,7 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 		// to the companion CLI binary.
 		"command_mirror_capabilities": registeredCommandMirrorCapabilities(s, []map[string]string{
 			{"name": "SLA breach radar", "command": "breaches", "cli_command": "breaches", "description": "Rank open tickets that have a running SLA across your queues by time remaining, breached first", "rationale": "Requires walking every queue, de-duplicating tickets that sit in several queues", "via": "mcp-command-mirror"},
-			{"name": "Customer/org roster", "command": "roster", "cli_command": "roster", "description": "Get the complete customer list for a desk and spot customers with no organization, customers in two organizations", "rationale": "Pages past the customers endpoint's forced 50-row limit and always-true isLastPage", "via": "mcp-command-mirror"},
+			{"name": "Customer/org roster", "command": "roster", "cli_command": "roster", "description": "Get the complete customer list for a desk and spot customers with no organization, customers in two organizations", "rationale": "Walks every page of the desk's customers, stopping on an empty or short page rather than trusting isLastPage", "via": "mcp-command-mirror"},
 			{"name": "Ticket timeline", "command": "request timeline", "cli_command": "request timeline", "description": "Read one ticket's whole story in order: comments labeled public or internal, status changes, approvals", "rationale": "Merges five endpoints (request, comments with internal notes, status history, approvals, SLA) into one chronology.", "via": "mcp-command-mirror"},
 			{"name": "Internal note", "command": "request note", "cli_command": "request note", "description": "Add an agent-only internal note to a request", "rationale": "Always posts the comment with public set to false, so an agent cannot forget the flag and reply to the customer.", "via": "mcp-command-mirror"},
 			{"name": "Object-to-tickets", "command": "cmdb tickets", "cli_command": "cmdb tickets", "description": "Go from a hostname", "rationale": "Joins Assets AQL results, Assets connected-ticket links and JSM SLA data across two APIs.", "via": "mcp-command-mirror"},
@@ -1553,7 +1553,7 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 		}),
 		"playbook": []map[string]string{
 			{"topic": "SLA breach radar", "insight": "Requires walking every queue, de-duplicating tickets that sit in several queues, and joining each one to its per-request SLA metrics."},
-			{"topic": "Customer/org roster", "insight": "Pages past the customers endpoint's forced 50-row limit and always-true isLastPage, then joins customers to desk organizations and their members."},
+			{"topic": "Customer/org roster", "insight": "Walks every page of the desk's customers, stopping on an empty or short page rather than trusting isLastPage, then joins customers to desk organizations and their members."},
 			{"topic": "Ticket timeline", "insight": "Merges five endpoints (request, comments with internal notes, status history, approvals, SLA) into one chronology."},
 			{"topic": "Internal note", "insight": "Always posts the comment with public set to false, so an agent cannot forget the flag and reply to the customer."},
 			{"topic": "Object-to-tickets", "insight": "Joins Assets AQL results, Assets connected-ticket links and JSM SLA data across two APIs."},

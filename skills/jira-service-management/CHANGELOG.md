@@ -17,6 +17,9 @@ All notable changes to this skill are documented here. Format follows
 - `sla-report`: breach rate and median time vs goal per desk, request type or SLA metric.
 - `cmdb discover`, `cmdb tickets` and `cmdb reconcile`: find the Assets workspace, join Assets
   objects to their tickets, and diff an object type against an RMM or PSA export.
+- Assets calls are refused unless their cloudId and workspaceId belong to the current site
+  (`JIRA_SERVICE_MANAGEMENT_SITE`), so ids left over from another client never reach that
+  client's CMDB.
 - Pagination sends the real wire names (`start` for JSM; `startAt` and `resultPerPage` for
   Assets) and clamps JSM page size to 50.
 - Windows builds: `cmdb reconcile` opens its input file through per-OS code, so the connector

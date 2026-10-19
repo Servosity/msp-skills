@@ -52,7 +52,7 @@ func doctorProbeCredentials(ctx context.Context, c *client.Client, bin string, r
 		report["credentials"] = fmt.Sprintf("WARN scope-limited (HTTP 403 from %s) - the token is accepted but this account cannot list service desks.", doctorProbePath)
 	case status == 404:
 		report["credentials"] = fmt.Sprintf("ERROR not verified (HTTP 404 from %s) - the endpoint does not exist at this base_url, so the token was never checked.", doctorProbePath)
-		report["api"] = fmt.Sprintf("ERROR the host answered but %s is not there - base_url is not the JSM request-API root. Set %s to your site subdomain, or %s to https://<site>.atlassian.net/rest/servicedeskapi.", doctorProbePath, doctorSiteEnv, doctorBaseURLEnv)
+		report["api"] = fmt.Sprintf("ERROR the host answered but %s is not there - base_url is not the JSM request-API root. Set %s to your site subdomain (acme for acme.atlassian.net) and unset %s, which also moves Assets (CMDB) calls onto that host and breaks them.", doctorProbePath, doctorSiteEnv, doctorBaseURLEnv)
 	case status >= 500:
 		report["credentials"] = fmt.Sprintf("WARN not verified (HTTP %d from %s) - Atlassian returned a server error, so the token was never checked.", status, doctorProbePath)
 	case status > 0:

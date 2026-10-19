@@ -635,13 +635,18 @@
           "file": "cli/internal/client/jsm_request_guard.go",
           "contains": "case http.StatusUnauthorized, http.StatusForbidden, http.StatusTooManyRequests:",
           "code_only": true
+        },
+        {
+          "file": "cli/internal/client/jsm_request_guard.go",
+          "contains": "fmt.Errorf(\"the site's Assets workspace list returned HTTP %d\", resp.StatusCode)",
+          "code_only": true
         }
       ]
     },
     {
       "id": "jsm-auth-hint-email-placeholder",
       "summary": "every auth hint names an email for JIRA_SERVICE_MANAGEMENT_EMAIL (not a token placeholder), shows the PowerShell form beside the POSIX export, and the set-credentials example passes an email first",
-      "why": "The press rendered the composed Basic-auth hint with the token placeholder for both variables (export JIRA_SERVICE_MANAGEMENT_EMAIL=\"your-token-here\" ...), POSIX only, in doctor, auth, the 401/403/HTML error hints, the MCP error hints and the placeholder-credential error; the set-credentials example passed two tokens. Agents and Windows MSPs follow these runtime hints on every auth failure. Found by the adversarial review, round 5, 2026-10-19. Adversarial round 6 (2026-10-19): auth setup, auth status and the placeholder-credential error still had no PowerShell form, and the placeholder error's <you@example.com> parsed as a shell redirect; all three now print quoted, runnable POSIX and PowerShell forms (both run under bash and pwsh).",
+      "why": "The press rendered the composed Basic-auth hint with the token placeholder for both variables (export JIRA_SERVICE_MANAGEMENT_EMAIL=\"your-token-here\" ...), POSIX only, in doctor, auth, the 401/403/HTML error hints, the MCP error hints and the placeholder-credential error; the set-credentials example passed two tokens. Agents and Windows MSPs follow these runtime hints on every auth failure. Found by the adversarial review, round 5, 2026-10-19. Adversarial round 6 (2026-10-19): auth setup, auth status and the placeholder-credential error still had no PowerShell form, and the placeholder error's <you@example.com> parsed as a shell redirect; all three now print quoted, runnable POSIX and PowerShell forms (both run under bash and pwsh). Round 7: auth status's export lines carried trailing '# ...' comments that fail when pasted into an interactive zsh (the macOS default); the explanation is now its own line.",
       "spec_encode_followup": "Press template defect for composed Basic auth (email + token); not spec-encodable.",
       "status": "active",
       "asserts": [
@@ -685,13 +690,18 @@
         {
           "file": "cli/internal/cli/auth.go",
           "contains": "fmt.Fprintln(w, \"  $env:JIRA_SERVICE_MANAGEMENT_EMAIL=\\\"you@example.com\\\"; $env:JIRA_SERVICE_MANAGEMENT_API_TOKEN=\\\"your-token-here\\\"\")",
-          "code_only": true
+          "code_only": true,
+          "min_count": 2
+        },
+        {
+          "file": "cli/internal/cli/auth.go",
+          "not_contains": "# Atlassian account email (Basic auth username).\")"
         }
       ]
     },
     {
       "id": "jsm-doctor-prefers-site",
-      "summary": "doctor's placeholder-base_url api and credentials lines tell the user to set JIRA_SERVICE_MANAGEMENT_SITE and warn that BASE_URL also moves Assets calls, instead of offering BASE_URL as an equal alternative",
+      "summary": "doctor's placeholder-base_url api and credentials lines tell the user to set JIRA_SERVICE_MANAGEMENT_SITE and warn that BASE_URL also moves Assets calls, instead of offering BASE_URL as an equal alternative; the 404 probe verdict says the same",
       "why": "Following the generated advice (set BASE_URL to the request-API root) moved every Assets call onto the site host, where it 404s and is reported as 'resource not found'. The guide and manifest already say to prefer SITE. Found by the adversarial review, round 5, 2026-10-19.",
       "status": "active",
       "asserts": [
@@ -703,6 +713,10 @@
         {
           "file": "cli/internal/cli/doctor.go",
           "not_contains": "base_url is still a placeholder; set \" + doctorSiteEnv + \" or \" + doctorBaseURLEnv"
+        },
+        {
+          "file": "cli/internal/cli/doctor_verdict.go",
+          "not_contains": "to your site subdomain, or %s to https://<site>.atlassian.net/rest/servicedeskapi"
         }
       ]
     },
@@ -726,7 +740,7 @@
     {
       "id": "jsm-mcp-context-paging",
       "summary": "the MCP context tool's query tips name JSM's real paging parameters (start/limit on request-API lists, startAt/maxResults on Assets AQL search), which the execute tool sends as given, instead of claiming cursor paging with a default of 100",
-      "why": "The generated tips told agents pagination was cursor-based with a default page of 100. Round 5's fix said offset is sent as start/startAt, which adversarial round 6 (2026-10-19) proved false: execute translates offset only on the two knowledgebase article lists and sends every other name as given, so request.list with offset returned page 1 forever. Verified by driving MCP execute against a stub: start=50 and startAt=25 reach the wire; offset reaches it untranslated except on knowledgebase.",
+      "why": "The generated tips told agents pagination was cursor-based with a default page of 100. Round 5's fix said offset is sent as start/startAt, which adversarial round 6 (2026-10-19) proved false: execute translates offset only on the two knowledgebase article lists and sends every other name as given, so request.list with offset returned page 1 forever. Verified by driving MCP execute against a stub: start=50 and startAt=25 reach the wire; offset reaches it untranslated except on knowledgebase. Round 7: the roster rationale and insight in the same context output still said the customers endpoint has an always-true isLastPage (JSDCLOUD-8279, fixed by Atlassian), contradicting the tip; both now describe the empty-or-short-page stop the connector uses.",
       "status": "active",
       "asserts": [
         {
@@ -741,6 +755,15 @@
         {
           "file": "cli/internal/mcp/tools.go",
           "not_contains": "sent to JSM as start/startAt"
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "contains": "\"On request-API lists, raise start by the number of values returned until a page comes back empty or shorter than limit.\"",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "not_contains": "always-true isLastPage"
         }
       ]
     }
