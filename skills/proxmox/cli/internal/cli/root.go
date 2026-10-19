@@ -407,6 +407,11 @@ See README.md or the bundled SKILL.md for recipes.`,
 		if err := storePathErr(); err != nil {
 			return err
 		}
+		if f := cmd.Flags().Lookup("db"); f != nil && f.Value.String() != "" {
+			if err := sqlitePathErr(f.Value.String()); err != nil {
+				return err
+			}
+		}
 		preRunScoped = true
 		// An incompatible --data-source has to fail before the platform
 		// identity probe. A failed probe would otherwise hide this error.

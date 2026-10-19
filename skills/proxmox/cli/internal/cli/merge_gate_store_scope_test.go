@@ -397,3 +397,29 @@ func TestClientRefusedWhenConfigChangedMidRun(t *testing.T) {
 		t.Fatalf("a changed target got a client on the old store: err=%v", err)
 	}
 }
+
+// hand-fix (cluster-store-no-fallback): with no resolvable home the
+// no-cluster target is scoped too, and an explicit --db is held to the same
+// URI-syntax rule as the default path.
+func TestEnvStoreWithoutHomeAndExplicitDBSyntax(t *testing.T) {
+	newFixture(t)
+	defer func() { selectedCluster = ""; configureDefaultDBScope(""); preRunScoped = false }()
+	if _, _, err := runCLI(t, "learnings", "stats", "--db", filepath.Join(t.TempDir(), "archive?2026", "acme.db")); err == nil || !strings.Contains(err.Error(), "reads as URI syntax") {
+		t.Fatalf("a '?' in --db was accepted: err=%v", err)
+	}
+	for _, k := range []string{"HOME", "XDG_DATA_HOME", "PROXMOX_DATA_DIR", "PROXMOX_HOME"} {
+		t.Setenv(k, "")
+	}
+	if _, err := cliutil.DataDir(); err == nil {
+		t.Skip("data dir still resolves without HOME on this platform")
+	}
+	// No home: the config cannot load, so each invocation gets its own scoped
+	// file in the working directory, never the bare shared data.db.
+	saved := unresolvedStoreNonce
+	defer func() { unresolvedStoreNonce = saved }()
+	a := storePathFor("")
+	unresolvedStoreNonce = "next-invocation"
+	if b := storePathFor(""); a == "data.db" || a == b {
+		t.Fatalf("no-home fallback reused a store across invocations: %q and %q", a, b)
+	}
+}

@@ -4508,10 +4508,7 @@ func defaultDBPath(name string) string {
 		if home, homeErr := os.UserHomeDir(); homeErr == nil {
 			return defaultDBPathInDir(filepath.Join(home, ".local", "share", name))
 		}
-		if clusterStoreScope() != "" { // proxmox hand-fix (cluster-store-no-fallback)
-			return defaultDBPathInDir(".")
-		}
-		return "data.db"
+		return defaultDBPathInDir(".") // proxmox hand-fix (cluster-store-no-fallback): scoped even with no home
 	}
 	return defaultDBPathInDir(dir)
 }
