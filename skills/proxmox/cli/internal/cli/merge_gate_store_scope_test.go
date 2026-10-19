@@ -295,3 +295,49 @@ func TestNewTokenValuesGetTheirOwnStore(t *testing.T) {
 		}
 	}
 }
+
+// hand-fix (env-store-endpoint-scope): without a cluster, the env target's
+// store follows where it points, not only the token: the same token aimed at
+// another host must not fall back to the first host's rows.
+func TestEnvStoreFollowsEndpoint(t *testing.T) {
+	newFixture(t)
+	defer func() { selectedCluster = ""; configureDefaultDBScope("") }()
+	first := storePathFor("")
+	for env, value := range map[string]string{
+		"PROXMOX_BASE_URL":            "https://192.0.2.10:8006/api2/json",
+		"PROXMOX_PBS_HOST":            "https://192.0.2.11:8007",
+		"PROXMOX_TLS_FINGERPRINT":     strings.Repeat("AB:", 31) + "AB",
+		"PROXMOX_PBS_TLS_FINGERPRINT": strings.Repeat("CD:", 31) + "CD",
+	} {
+		saved := os.Getenv(env)
+		t.Setenv(env, value)
+		if got := storePathFor(""); got == first {
+			t.Errorf("changing %s kept the previous target's store %q", env, got)
+		}
+		t.Setenv(env, saved)
+	}
+	if again := storePathFor(""); again != first {
+		t.Fatalf("restoring the target moved its store: %q -> %q", first, again)
+	}
+}
+
+// hand-fix (env-store-endpoint-scope): a scoped store never adopts an
+// existing data.db, whose owner cannot be told apart.
+func TestEnvStoreIgnoresLegacyUnscopedDB(t *testing.T) {
+	newFixture(t)
+	defer func() { selectedCluster = ""; configureDefaultDBScope("") }()
+	dir, err := cliutil.DataDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	unscoped := filepath.Join(dir, "data.db")
+	if err := os.WriteFile(unscoped, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if got := storePathFor(""); got == unscoped {
+		t.Fatalf("the env target adopted the shared data.db %q", got)
+	}
+}

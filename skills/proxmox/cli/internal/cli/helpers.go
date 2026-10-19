@@ -4191,7 +4191,16 @@ func configureDefaultDBScope(configPath string) {
 		setDefaultDBScopeIdentity("", "", "")
 		return
 	}
-	setDefaultDBScopeIdentity(cfg.StoreScopeCredential(), cfg.StoreScopeLegacyCredential(), cfg.BaseURL)
+	// proxmox hand-fix (env-store-endpoint-scope): the env target's store is
+	// keyed by where it points as well as what it sends, so one token aimed at
+	// another host never falls back to the first host's rows. proxmox shipped
+	// with this scope, so there is no legacy credential-only file to adopt.
+	cred := cfg.StoreScopeCredential()
+	if cred != "" {
+		cred = strings.Join([]string{cred, cfg.BaseURL, cfg.TemplateVars["host"], cfg.TemplateVars["pbs_host"],
+			strings.TrimSpace(cliutil.EnvOverride("PROXMOX_TLS_FINGERPRINT")), strings.TrimSpace(cliutil.EnvOverride("PROXMOX_PBS_TLS_FINGERPRINT"))}, "\x00")
+	}
+	setDefaultDBScopeIdentity(cred, "", cfg.BaseURL)
 }
 
 func setDefaultDBScopeIdentity(credential, legacyCredential, baseURL string) {
@@ -4515,6 +4524,9 @@ func defaultDBPathInDir(dir string) string {
 	}
 	unscoped := filepath.Join(dir, "data.db")
 	scopeHash, legacyHash, label := currentDefaultDBScope()
+	if scopeHash != "" { // proxmox hand-fix (env-store-endpoint-scope): a scoped store never adopts data.db or a legacy file
+		return filepath.Join(dir, "data-"+scopeHash+".db")
+	}
 	if scopeHash != "" {
 		scoped := filepath.Join(dir, "data-"+scopeHash+".db")
 		_, scopedErr := os.Stat(scoped)

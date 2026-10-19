@@ -741,6 +741,34 @@
      "code_only": true
     }
    ]
+  },
+  {
+   "id": "env-store-endpoint-scope",
+   "summary": "Without a cluster, the env target's store is keyed by its credentials plus its effective endpoints and TLS pins, and a scoped store never adopts data.db or a legacy credential-only file",
+   "why": "The generated store scope hashed the credential alone, so the same token aimed at another PROXMOX_HOST fell back to the first host's rows (auto fallback and --data-source local). proxmox shipped with endpoint-aware scoping, so legacy adoption has nothing to migrate and is ambiguous by construction. Found by the merge-gate Codex review (2026-10-19); TestEnvStoreFollowsEndpoint and TestEnvStoreIgnoresLegacyUnscopedDB pin it. The generated MCP test that expected adoption of an existing data.db now asserts the scoped path.",
+   "status": "active",
+   "asserts": [
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "cred = strings.Join([]string{cred, cfg.BaseURL, cfg.TemplateVars[\"host\"], cfg.TemplateVars[\"pbs_host\"],",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "setDefaultDBScopeIdentity(cred, \"\", cfg.BaseURL)",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "if scopeHash != \"\" { // proxmox hand-fix (env-store-endpoint-scope)",
+     "code_only": false
+    },
+    {
+     "file": "cli/internal/mcp/tools_test.go",
+     "contains": "if got != wantCLI || got == legacy {",
+     "code_only": true
+    }
+   ]
   }
  ]
 }

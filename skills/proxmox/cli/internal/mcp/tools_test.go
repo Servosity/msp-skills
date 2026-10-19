@@ -116,8 +116,10 @@ func TestMCPDBPathUsesCredentialScopedStore(t *testing.T) {
 	if err != nil {
 		t.Fatalf("mcpDBPath() after legacy file error = %v", err)
 	}
-	if got != legacy {
-		t.Fatalf("MCP db path = %q, want existing unscoped %q", got, legacy)
+	// proxmox hand-fix (env-store-endpoint-scope): a scoped store never adopts
+	// an existing data.db, whose owner cannot be told apart.
+	if got != wantCLI || got == legacy {
+		t.Fatalf("MCP db path = %q, want the scoped %q, never the shared %q", got, wantCLI, legacy)
 	}
 }
 
