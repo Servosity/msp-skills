@@ -784,12 +784,29 @@
         },
         {
           "file": "cli/internal/mcp/tools.go",
-          "contains": "unless JSM marks it isLastPage:false (a capped page can be short without being the last); a full page always continues, whatever isLastPage says",
+          "contains": "on a short page JSM does not mark isLastPage:false (a capped page can be short without being the last), or on a page with no new rows (the server stopped advancing); a full page with new rows continues whatever isLastPage says, up to 2,000 pages",
           "code_only": true
         },
         {
           "file": "cli/internal/mcp/tools.go",
           "not_contains": "rather than trusting isLastPage"
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "contains": "Merges six endpoints (request, participants, comments with internal notes, status history, approvals, SLA)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "not_contains": "\"description\": \"Go from a hostname\""
+        },
+        {
+          "file": "guide.md",
+          "contains": "which pages until an empty page or a short page JSM does not mark isLastPage:false, and de-duplicates."
+        },
+        {
+          "file": "guide.md",
+          "not_contains": "pages until an empty or short page"
         }
       ]
     },

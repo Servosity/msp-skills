@@ -136,12 +136,13 @@ func jsmWalk(ctx context.Context, c jsmGetter, path string, params map[string]st
 		if pg.Limit > 0 && pg.Limit < limit {
 			limit = pg.Limit
 		}
-		// A short page is the end even if every row on it was already seen
-		// (a row inserted at the head mid-walk shifts one back); only a full
-		// page that adds nothing is a stall. JSM may cap a page below the
-		// limit without it being the last, so a short page with
-		// isLastPage:false continues; a full page continues whatever
-		// isLastPage says.
+		// A short page that JSM does not mark isLastPage:false is the end even
+		// if every row on it was already seen (a row inserted at the head
+		// mid-walk shifts one back). JSM may cap a page below the limit without
+		// it being the last, so a short page with isLastPage:false continues
+		// like a full page, and a full page continues whatever isLastPage
+		// says; a continuing page that adds nothing new is a stall (the
+		// server stopped advancing ?start=).
 		if len(pg.Values) == 0 || (len(pg.Values) < limit && (pg.IsLastPage == nil || *pg.IsLastPage)) {
 			return items, false, nil
 		}

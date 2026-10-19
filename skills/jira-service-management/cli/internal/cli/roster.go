@@ -53,9 +53,10 @@ func newNovelRosterCmd(flags *rootFlags) *cobra.Command {
 		Use:   "roster <desk-id>",
 		Short: "Full customer list for a desk with membership problems flagged: no org, two orgs, empty orgs, orgs not on the desk.",
 		Long: strings.Trim(`
-Reads every customer on the service desk, paging until an empty or short page and
-de-duplicating by accountId. The customers endpoint returns at most 50 people a
-page, and its paging metadata has been unreliable (JSDCLOUD-8012, JSDCLOUD-8279).
+Reads every customer on the service desk, paging until an empty page or a short
+page JSM does not mark isLastPage:false, and de-duplicating by accountId. The
+customers endpoint returns at most 50 people a page, and its paging metadata has
+been unreliable (JSDCLOUD-8012, JSDCLOUD-8279).
 Then it joins customers to organizations and their members and reports:
 customers in no organization, customers in more than one, empty organizations,
 and organizations that hold this desk's customers but are not attached to it.
