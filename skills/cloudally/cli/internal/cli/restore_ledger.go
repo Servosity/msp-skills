@@ -42,24 +42,63 @@ type restoreBatch struct {
 	LastRefreshAt *time.Time     `json:"last_refresh_at,omitempty"`
 }
 
-// restoreJob is one row of restore_jobs.
+// restoreJob is one row of restore_jobs. Status is what the row shows: the
+// submission outcome until 'restore watch' replaces it with the RESTORE
+// task's own status. SubmitStatus is the submission outcome alone and is
+// what decides whether a row may be sent again; see submitOutcome.
 type restoreJob struct {
-	ID          int64      `json:"id"`
-	BatchID     string     `json:"batch_id"`
-	Entity      string     `json:"entity"`
-	ExtID       string     `json:"ext_id,omitempty"`
-	Requested   string     `json:"requested"`
-	ResolvedRaw int64      `json:"resolved_raw"`
-	Resolved    string     `json:"resolved"`
-	SubSource   string     `json:"sub_source,omitempty"`
-	Status      string     `json:"status"`
-	HTTPStatus  int        `json:"http_status,omitempty"`
-	Response    string     `json:"response,omitempty"`
-	Error       string     `json:"error,omitempty"`
-	TaskID      string     `json:"task_id,omitempty"`
-	Progress    string     `json:"progress,omitempty"`
-	SubmittedAt *time.Time `json:"submitted_at,omitempty"`
-	UpdatedAt   time.Time  `json:"updated_at"`
+	ID           int64      `json:"id"`
+	BatchID      string     `json:"batch_id"`
+	Entity       string     `json:"entity"`
+	ExtID        string     `json:"ext_id,omitempty"`
+	Requested    string     `json:"requested"`
+	ResolvedRaw  int64      `json:"resolved_raw"`
+	Resolved     string     `json:"resolved"`
+	SubSource    string     `json:"sub_source,omitempty"`
+	Status       string     `json:"status"`
+	SubmitStatus string     `json:"submit_status"`
+	HTTPStatus   int        `json:"http_status,omitempty"`
+	Response     string     `json:"response,omitempty"`
+	Error        string     `json:"error,omitempty"`
+	TaskID       string     `json:"task_id,omitempty"`
+	Progress     string     `json:"progress,omitempty"`
+	SubmittedAt  *time.Time `json:"submitted_at,omitempty"`
+	UpdatedAt    time.Time  `json:"updated_at"`
+}
+
+// submitOutcome is the row's submission outcome: PLANNED, SUBMITTING,
+// SUBMITTED, FAILED (rejected before it ran), FAILED_REDIRECT, or UNKNOWN.
+// It never takes a RESTORE task status, so a task that ran and then
+// reported FAILED still reads SUBMITTED here. Rows read from the ledger
+// always carry it; a row built without it is derived with the same rule
+// the ledger migration uses (store.LegacySubmitStatusSQL).
+func (j restoreJob) submitOutcome() string {
+	if s := strings.ToUpper(strings.TrimSpace(j.SubmitStatus)); s != "" {
+		return s
+	}
+	switch {
+	case strings.TrimSpace(j.TaskID) != "":
+		return jobSubmitted
+	case j.Status == jobPlanned || j.Status == jobSubmitting || j.Status == jobSubmitted || j.Status == jobUnknown || j.Status == jobFailedRedirect:
+		return j.Status
+	case j.Status == jobFailed && j.HTTPStatus >= 200 && j.HTTPStatus <= 299:
+		return jobSubmitted
+	case j.Status == jobFailed:
+		return jobFailed
+	default:
+		return jobSubmitted
+	}
+}
+
+// jobEverAccepted reports whether the API accepted this row's restore, or
+// may have. Such a row is never sent again automatically: an UNKNOWN row
+// only with --retry-unknown, and a row with a RESTORE task id never.
+func jobEverAccepted(j restoreJob) bool {
+	switch j.submitOutcome() {
+	case jobSubmitted, jobSubmitting, jobUnknown:
+		return true
+	}
+	return strings.TrimSpace(j.TaskID) != ""
 }
 
 // batchSummary is the per-batch aggregate 'restore history' prints.
@@ -242,14 +281,30 @@ func ledgerTouchBatch(db *sql.DB, batchID string, at time.Time) error {
 // still folds two dates that resolve to one backup into a single row.
 func ledgerInsertJob(db *sql.DB, j restoreJob) error {
 	_, err := db.Exec(`INSERT OR IGNORE INTO restore_jobs
-		(batch_id, entity, ext_id, requested, resolved_raw, resolved, sub_source, status, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		j.BatchID, j.Entity, j.ExtID, j.Requested, j.ResolvedRaw, j.Resolved, j.SubSource, jobPlanned, isoUTC(time.Now()))
+		(batch_id, entity, ext_id, requested, resolved_raw, resolved, sub_source, status, submit_status, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		j.BatchID, j.Entity, j.ExtID, j.Requested, j.ResolvedRaw, j.Resolved, j.SubSource, jobPlanned, jobPlanned, isoUTC(time.Now()))
 	return err
 }
 
-const jobColumns = `id, batch_id, entity, ext_id, requested, resolved_raw, resolved, sub_source, status,
+const jobBaseColumns = `id, batch_id, entity, ext_id, requested, resolved_raw, resolved, sub_source, status,
 	http_status, response, error, task_id, progress, submitted_at, updated_at`
+
+// jobColumnList returns the SELECT list scanJob reads. A ledger opened
+// read-only before its first read-write open has no submit_status column
+// yet, and a row an older binary wrote since has it empty; both derive the
+// outcome from the older columns.
+func jobColumnList(db *sql.DB) string {
+	return jobBaseColumns + ", " + submitStatusExpr(db, "") + " AS submit_status"
+}
+
+// submitStatusExpr is the SQL for a restore_jobs row's submission outcome.
+func submitStatusExpr(db *sql.DB, prefix string) string {
+	if !ledgerHasColumn(db, "restore_jobs", "submit_status") {
+		return store.LegacySubmitStatusSQL(prefix)
+	}
+	return "COALESCE(NULLIF(" + prefix + "submit_status, ''), " + store.LegacySubmitStatusSQL(prefix) + ")"
+}
 
 func scanJob(rows *sql.Rows) (restoreJob, error) {
 	var j restoreJob
@@ -257,7 +312,7 @@ func scanJob(rows *sql.Rows) (restoreJob, error) {
 	var response, errText, taskID, progress, submitted sql.NullString
 	var updated string
 	if err := rows.Scan(&j.ID, &j.BatchID, &j.Entity, &j.ExtID, &j.Requested, &j.ResolvedRaw, &j.Resolved, &j.SubSource, &j.Status,
-		&httpStatus, &response, &errText, &taskID, &progress, &submitted, &updated); err != nil {
+		&httpStatus, &response, &errText, &taskID, &progress, &submitted, &updated, &j.SubmitStatus); err != nil {
 		return j, err
 	}
 	j.HTTPStatus = int(httpStatus.Int64)
@@ -274,7 +329,7 @@ func scanJob(rows *sql.Rows) (restoreJob, error) {
 // ledgerListJobs returns a batch's rows in insertion order, optionally
 // filtered by status (case-insensitive).
 func ledgerListJobs(db *sql.DB, batchID, status string) ([]restoreJob, error) {
-	query := `SELECT ` + jobColumns + ` FROM restore_jobs WHERE batch_id = ?`
+	query := `SELECT ` + jobColumnList(db) + ` FROM restore_jobs WHERE batch_id = ?`
 	args := []any{batchID}
 	if status != "" {
 		query += ` AND UPPER(status) = ?`
@@ -302,15 +357,17 @@ func ledgerListJobs(db *sql.DB, batchID, status string) ([]restoreJob, error) {
 
 // errRowNotSendable reports that a row changed status after it was chosen
 // for sending, for example because another run already claimed it.
-var errRowNotSendable = errors.New("ledger row is no longer PLANNED, FAILED, or UNKNOWN; not sending it")
+var errRowNotSendable = errors.New("ledger row is no longer PLANNED, FAILED, or UNKNOWN, or has a RESTORE task; not sending it")
 
 // ledgerMarkSubmitting moves a sendable row to SUBMITTING and commits it
-// before the request goes out. The status guard makes the update a
-// compare-and-swap, so two runs of the same batch cannot both send a row.
+// before the request goes out. The guard on the submission outcome makes
+// the update a compare-and-swap, so two runs of the same batch cannot both
+// send a row, and a row with a recorded RESTORE task is never sent again
+// whatever its outcome reads.
 func ledgerMarkSubmitting(db *sql.DB, id int64, at time.Time) error {
-	res, err := db.Exec(`UPDATE restore_jobs SET status = ?, submitted_at = ?, updated_at = ?
-		WHERE id = ? AND status IN (?, ?, ?)`,
-		jobSubmitting, isoUTC(at), isoUTC(time.Now()), id, jobPlanned, jobFailed, jobUnknown)
+	res, err := db.Exec(`UPDATE restore_jobs SET status = ?, submit_status = ?, submitted_at = ?, updated_at = ?
+		WHERE id = ? AND submit_status IN (?, ?, ?) AND COALESCE(task_id, '') = ''`,
+		jobSubmitting, jobSubmitting, isoUTC(at), isoUTC(time.Now()), id, jobPlanned, jobFailed, jobUnknown)
 	if err != nil {
 		return err
 	}
@@ -325,8 +382,8 @@ func ledgerMarkSubmitting(db *sql.DB, id int64, at time.Time) error {
 // ledgerRecoverInFlight turns rows a crashed run left SUBMITTING into
 // UNKNOWN and reports how many it changed.
 func ledgerRecoverInFlight(db *sql.DB, batchID string) (int64, error) {
-	res, err := db.Exec(`UPDATE restore_jobs SET status = ?, error = ?, updated_at = ? WHERE batch_id = ? AND status = ?`,
-		jobUnknown, recoveredInFlightError, isoUTC(time.Now()), batchID, jobSubmitting)
+	res, err := db.Exec(`UPDATE restore_jobs SET status = ?, submit_status = ?, error = ?, updated_at = ? WHERE batch_id = ? AND submit_status = ?`,
+		jobUnknown, jobUnknown, recoveredInFlightError, isoUTC(time.Now()), batchID, jobSubmitting)
 	if err != nil {
 		return 0, err
 	}
@@ -334,15 +391,51 @@ func ledgerRecoverInFlight(db *sql.DB, batchID string) (int64, error) {
 }
 
 func ledgerUpdateJobSubmit(db *sql.DB, id int64, status string, httpStatus int, response, errText string, submittedAt time.Time) error {
-	_, err := db.Exec(`UPDATE restore_jobs SET status = ?, http_status = ?, response = ?, error = ?, submitted_at = ?, updated_at = ? WHERE id = ?`,
-		status, httpStatus, response, errText, isoUTC(submittedAt), isoUTC(time.Now()), id)
+	_, err := db.Exec(`UPDATE restore_jobs SET status = ?, submit_status = ?, http_status = ?, response = ?, error = ?, submitted_at = ?, updated_at = ? WHERE id = ?`,
+		status, status, httpStatus, response, errText, isoUTC(submittedAt), isoUTC(time.Now()), id)
 	return err
 }
 
-func ledgerUpdateJobWatch(db *sql.DB, id int64, status, taskID, progress string) error {
-	_, err := db.Exec(`UPDATE restore_jobs SET status = ?, task_id = ?, progress = ?, updated_at = ? WHERE id = ?`,
-		status, taskID, progress, isoUTC(time.Now()), id)
+// ledgerUpdateJobWatch records what 'restore watch' saw. status is the
+// RESTORE task status (or UNMATCHED) and only ever lands in the status
+// column. matched means a RESTORE task was found for the row, which proves
+// the API accepted it, so an UNKNOWN or SUBMITTING outcome is settled as
+// SUBMITTED; no other outcome is changed.
+func ledgerUpdateJobWatch(db *sql.DB, id int64, status, taskID, progress string, matched bool) error {
+	_, err := db.Exec(`UPDATE restore_jobs SET status = ?, task_id = ?, progress = ?, updated_at = ?,
+		submit_status = CASE WHEN ? AND submit_status IN (?, ?) THEN ? ELSE submit_status END
+		WHERE id = ?`,
+		status, taskID, progress, isoUTC(time.Now()), matched, jobUnknown, jobSubmitting, jobSubmitted, id)
 	return err
+}
+
+// ledgerAcceptedRowsByKey finds the newest batch recorded under any of the
+// given batch keys that holds rows the API accepted or may have accepted
+// (SUBMITTED, SUBMITTING, UNKNOWN, or a recorded RESTORE task) and counts
+// those rows. It returns "", 0 when there is none.
+func ledgerAcceptedRowsByKey(db *sql.DB, keys ...string) (string, int, error) {
+	var nonEmpty []any
+	for _, k := range keys {
+		if k != "" {
+			nonEmpty = append(nonEmpty, k)
+		}
+	}
+	if len(nonEmpty) == 0 {
+		return "", 0, nil
+	}
+	placeholders := strings.TrimSuffix(strings.Repeat("?, ", len(nonEmpty)), ", ")
+	outcome := submitStatusExpr(db, "j.")
+	query := `SELECT b.batch_id, COUNT(j.id) FROM restore_batches b JOIN restore_jobs j ON j.batch_id = b.batch_id
+		WHERE b.batch_key IN (` + placeholders + `) AND (` + outcome + ` IN (?, ?, ?) OR COALESCE(j.task_id, '') <> '')
+		GROUP BY b.batch_id ORDER BY b.created_at DESC LIMIT 1`
+	args := append(nonEmpty, jobSubmitted, jobSubmitting, jobUnknown)
+	var batchID string
+	var n int
+	err := db.QueryRow(query, args...).Scan(&batchID, &n)
+	if errors.Is(err, sql.ErrNoRows) || isMissingTableErr(err) {
+		return "", 0, nil
+	}
+	return batchID, n, err
 }
 
 // historyFilter narrows 'restore history' output.
@@ -354,20 +447,24 @@ type historyFilter struct {
 }
 
 // ledgerListBatches aggregates per-batch counts newest-first. submitted
-// counts rows the API accepted (SUBMITTED or any later task status); unknown
-// counts rows whose outcome was never confirmed.
+// counts rows the API accepted, whatever their task did afterwards; failed
+// counts rows that show FAILED or FAILED_REDIRECT now, whether they were
+// rejected before running or their RESTORE task failed after being
+// accepted (so such a row is counted in both); unknown counts rows whose
+// submission was never confirmed.
 func ledgerListBatches(db *sql.DB, f historyFilter) ([]batchSummary, error) {
 	authScope := "b.auth_scope"
 	if !ledgerHasColumn(db, "restore_batches", "auth_scope") {
 		authScope = "''"
 	}
+	outcome := submitStatusExpr(db, "j.")
 	query := `SELECT b.batch_id, b.created_at, b.scope, b.account_id, ` + authScope + `, b.task_id, b.source, b.label, b.last_refresh_at,
 			COUNT(j.id),
-			COALESCE(SUM(CASE WHEN j.status NOT IN (?, ?, ?, ?, ?) THEN 1 ELSE 0 END), 0),
+			COALESCE(SUM(CASE WHEN j.id IS NOT NULL AND ` + outcome + ` = ? THEN 1 ELSE 0 END), 0),
 			COALESCE(SUM(CASE WHEN j.status IN (?, ?) THEN 1 ELSE 0 END), 0),
-			COALESCE(SUM(CASE WHEN j.status IN (?, ?) THEN 1 ELSE 0 END), 0)
+			COALESCE(SUM(CASE WHEN j.id IS NOT NULL AND ` + outcome + ` IN (?, ?) THEN 1 ELSE 0 END), 0)
 		FROM restore_batches b LEFT JOIN restore_jobs j ON j.batch_id = b.batch_id WHERE 1=1`
-	args := []any{jobPlanned, jobSubmitting, jobFailed, jobFailedRedirect, jobUnknown, jobFailed, jobFailedRedirect, jobUnknown, jobSubmitting}
+	args := []any{jobSubmitted, jobFailed, jobFailedRedirect, jobUnknown, jobSubmitting}
 	if f.account != "" {
 		query += ` AND b.account_id = ?`
 		args = append(args, f.account)

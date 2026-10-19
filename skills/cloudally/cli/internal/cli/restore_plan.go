@@ -466,7 +466,7 @@ entities stay listed with their own status.
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
 			for _, m := range missingEntities(task, requested) {
-				fmt.Fprintf(cmd.ErrOrStderr(), "warning: entity %q is not on task %s\n", m, flagTask)
+				termf(cmd.ErrOrStderr(), "warning: entity %q is not on task %s\n", m, flagTask)
 			}
 			var resolver snapshotResolver
 			if wantsSnapshotResolution(resolveMode, scope) {
@@ -478,14 +478,14 @@ entities stay listed with their own status.
 					if resolveMode == resolveSnapshots {
 						return fmt.Errorf("opening the portal backup calendar: %w", rerr)
 					}
-					fmt.Fprintf(cmd.ErrOrStderr(), "warning: the portal backup calendar is unavailable (%v); resolving from the latest backup dates instead, which cannot find a backup before the most recent one\n", rerr)
+					termf(cmd.ErrOrStderr(), "warning: the portal backup calendar is unavailable (%v); resolving from the latest backup dates instead, which cannot find a backup before the most recent one\n", rerr)
 				} else {
 					resolver = r
 				}
 			}
 			rows, warnings := buildPlanWithResolver(ctx, task, dates, filter, flagSubSource, resolver)
 			for _, w := range warnings {
-				fmt.Fprintf(cmd.ErrOrStderr(), "warning: %v\n", w)
+				termf(cmd.ErrOrStderr(), "warning: %v\n", w)
 			}
 			plan := restorePlan{Scope: scope.kind(), AccountID: scope.account, TaskID: flagTask, Source: task.Source, SubSource: flagSubSource, Resolve: resolveMode, Rows: rows}
 			for _, d := range dates {
@@ -495,20 +495,20 @@ entities stay listed with their own status.
 				if err := writePlanFile(flagPlanOut, plan); err != nil {
 					return fmt.Errorf("writing --plan-out: %w", err)
 				}
-				fmt.Fprintf(cmd.ErrOrStderr(), "plan written to %s\n", flagPlanOut)
+				termf(cmd.ErrOrStderr(), "plan written to %s\n", flagPlanOut)
 			}
 			if wantsHumanTable(cmd.OutOrStdout(), flags) {
 				if len(rows) == 0 {
-					fmt.Fprintf(cmd.OutOrStdout(), "no entities matched on task %s (%s)\n", flagTask, task.Source)
+					termf(cmd.OutOrStdout(), "no entities matched on task %s (%s)\n", flagTask, task.Source)
 					return nil
 				}
 				if err := printRestoreTable(cmd.OutOrStdout(), planTableHeaders, planRowsAsMaps(rows)); err != nil {
 					return err
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), "\n%d row(s): %d restorable, %d with no backup at or before the date. Submit with: cloudally-cli restore submit%s --task %s --date %s --yes\n",
+				termf(cmd.OutOrStdout(), "\n%d row(s): %d restorable, %d with no backup at or before the date. Submit with: cloudally-cli restore submit%s --task %s --date %s --yes\n",
 					len(rows), countPlanStatus(rows, planOK), countPlanStatus(rows, planNoBackup), scopeFlagText(scope), flagTask, strings.Join(plan.Dates, " --date "))
 				if n := countPlanStatus(rows, planNoBackup); n > 0 {
-					fmt.Fprintf(cmd.OutOrStdout(), "%d NO_BACKUP row(s) carry no date and are excluded from submission; run with --json to see why each one failed to resolve.\n", n)
+					termf(cmd.OutOrStdout(), "%d NO_BACKUP row(s) carry no date and are excluded from submission; run with --json to see why each one failed to resolve.\n", n)
 				}
 				return nil
 			}

@@ -38,7 +38,8 @@ type watchTally struct {
 // Watch can settle it by matching a RESTORE task, but never marks it
 // UNMATCHED: it stays UNKNOWN so --retry-unknown can still pick it up.
 func jobOutcomeUnknown(j restoreJob) bool {
-	return j.Status == jobUnknown || j.Status == jobSubmitting
+	o := j.submitOutcome()
+	return o == jobUnknown || o == jobSubmitting
 }
 
 // watchOutput is the JSON document 'restore watch' prints.
@@ -50,13 +51,15 @@ type watchOutput struct {
 	Rows    []restoreJob `json:"rows"`
 }
 
-// jobSubmittedForMatch reports whether a ledger row has a restore to find.
+// jobSubmittedForMatch reports whether a ledger row has a restore to find:
+// one the API accepted or may have, decided on the submission outcome, so
+// a row whose RESTORE task already reported FAILED keeps its task.
 func jobSubmittedForMatch(j restoreJob) bool {
-	switch j.Status {
-	case jobPlanned, jobFailed, jobFailedRedirect:
-		return false
+	switch j.submitOutcome() {
+	case jobSubmitted, jobUnknown, jobSubmitting:
+		return j.SubmittedAt != nil
 	}
-	return j.SubmittedAt != nil
+	return false
 }
 
 // matchRestoreTasks pairs ledger rows with RESTORE tasks: same entity
@@ -170,7 +173,7 @@ func printWatchTable(cmd *cobra.Command, poll int, jobs []restoreJob, t watchTal
 	if err := printRestoreTable(cmd.OutOrStdout(), []string{"entity", "requested", "status", "task_id", "progress"}, rows); err != nil {
 		return err
 	}
-	_, err := fmt.Fprintf(cmd.OutOrStdout(), "poll %d: %d running, %d finished, %d failed, %d unmatched, %d unknown, %d pending (%s)\n\n",
+	_, err := termf(cmd.OutOrStdout(), "poll %d: %d running, %d finished, %d failed, %d unmatched, %d unknown, %d pending (%s)\n\n",
 		poll, t.Running, t.Finished, t.Failed, t.Unmatched, t.Unknown, t.Pending, time.Now().UTC().Format(time.RFC3339))
 	return err
 }
@@ -255,15 +258,22 @@ func newRestoreWatchCmd(flags *rootFlags) *cobra.Command {
 					if !jobSubmittedForMatch(*j) && j.Status != jobUnmatched {
 						continue
 					}
-					if t, ok := matched[j.ID]; ok {
+					// The task status only ever replaces what the row
+					// shows; the submission outcome is kept, except that a
+					// found task settles an unconfirmed row as SUBMITTED.
+					t, found := matched[j.ID]
+					if found {
 						j.Status, j.TaskID, j.Progress = strings.ToUpper(strings.TrimSpace(t.Status)), string(t.ID), t.Progress.String()
+						if jobOutcomeUnknown(*j) {
+							j.SubmitStatus = jobSubmitted
+						}
 					} else if j.TaskID == "" && out.Polls >= unmatchedAfterPolls && !jobOutcomeUnknown(*j) {
 						j.Status = jobUnmatched
 					} else {
 						continue
 					}
-					if err := ledgerUpdateJobWatch(sqlDB, j.ID, j.Status, j.TaskID, j.Progress); err != nil {
-						fmt.Fprintf(cmd.ErrOrStderr(), "warning: ledger update failed for %s: %v\n", j.Entity, err)
+					if err := ledgerUpdateJobWatch(sqlDB, j.ID, j.Status, j.TaskID, j.Progress, found); err != nil {
+						termf(cmd.ErrOrStderr(), "warning: ledger update failed for %s: %v\n", j.Entity, err)
 					}
 				}
 				_ = ledgerTouchBatch(sqlDB, batch.BatchID, time.Now())
@@ -296,10 +306,10 @@ func newRestoreWatchCmd(flags *rootFlags) *cobra.Command {
 				}
 			}
 			if out.Tally.Unmatched > 0 {
-				fmt.Fprintf(cmd.ErrOrStderr(), "warning: %d row(s) have no matching RESTORE task after %d poll(s)\n", out.Tally.Unmatched, out.Polls)
+				termf(cmd.ErrOrStderr(), "warning: %d row(s) have no matching RESTORE task after %d poll(s)\n", out.Tally.Unmatched, out.Polls)
 			}
 			if out.Tally.Unknown > 0 {
-				fmt.Fprintf(cmd.ErrOrStderr(), "warning: %d UNKNOWN row(s) have no matching RESTORE task yet; if they stay missing, re-run 'restore submit --resume --retry-unknown --yes' for this batch\n", out.Tally.Unknown)
+				termf(cmd.ErrOrStderr(), "warning: %d UNKNOWN row(s) have no matching RESTORE task yet; if they stay missing, re-run the 'restore submit' command that created batch %s with --resume --retry-unknown --yes added\n", out.Tally.Unknown, batch.BatchID)
 			}
 			if !human {
 				if err := printJSONFiltered(cmd.OutOrStdout(), out, flags); err != nil {
@@ -307,7 +317,16 @@ func newRestoreWatchCmd(flags *rootFlags) *cobra.Command {
 				}
 			}
 			if out.Tally.Failed > 0 {
-				return apiErr(fmt.Errorf("%d restore(s) failed in batch %s", out.Tally.Failed, batch.BatchID))
+				afterAccept := 0
+				for _, j := range out.Rows {
+					if (j.Status == jobFailed || j.Status == jobFailedRedirect) && jobEverAccepted(j) {
+						afterAccept++
+					}
+				}
+				if afterAccept == 0 {
+					return apiErr(fmt.Errorf("%d restore(s) failed in batch %s", out.Tally.Failed, batch.BatchID))
+				}
+				return apiErr(fmt.Errorf("%d restore(s) failed in batch %s; %d of them failed after CloudAlly accepted them and may have restored part of the mailbox, so 'restore submit --resume' never sends those again: check what they restored before submitting them in a new batch", out.Tally.Failed, batch.BatchID, afterAccept))
 			}
 			return nil
 		},

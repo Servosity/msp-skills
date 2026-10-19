@@ -4,7 +4,6 @@ package cli
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"strings"
 )
@@ -80,15 +79,15 @@ func printSubmitConfirmation(w io.Writer, req submitRequest) {
 	for _, r := range req.rows {
 		entities[strings.ToLower(strings.TrimSpace(r.Entity))] = true
 	}
-	fmt.Fprintf(w, "restore submit would send %d restore(s); nothing has been sent\n", len(req.rows))
-	fmt.Fprintf(w, "  rows:     %d\n", len(req.rows))
-	fmt.Fprintf(w, "  entities: %d\n", len(entities))
-	fmt.Fprintf(w, "  dates:    %s (cutoffs in UTC)\n", strings.Join(req.dateTexts, ", "))
-	fmt.Fprintf(w, "  scope:    %s (POST %s)\n", req.scope.kind(), req.restorePath)
-	fmt.Fprintf(w, "  account:  %s\n", req.account.label())
-	fmt.Fprintf(w, "  task:     %s (%s)\n", req.taskID, req.source)
+	termf(w, "restore submit would send %d restore(s); nothing has been sent\n", len(req.rows))
+	termf(w, "  rows:     %d\n", len(req.rows))
+	termf(w, "  entities: %d\n", len(entities))
+	termf(w, "  dates:    %s (cutoffs in UTC)\n", strings.Join(req.dateTexts, ", "))
+	termf(w, "  scope:    %s (POST %s)\n", req.scope.kind(), req.restorePath)
+	termf(w, "  account:  %s\n", req.account.label())
+	termf(w, "  task:     %s (%s)\n", req.taskID, req.source)
 	if req.resume {
-		fmt.Fprintln(w, "  resume:   rows already in the batch ledger keep their status; only PLANNED and FAILED rows would be sent")
+		termf(w, "  resume:   rows already in the batch ledger keep their status; only PLANNED and FAILED rows the API never accepted would be sent, with the target account and restore options recorded on the batch\n")
 	}
 	shown := req.rows
 	const maxShown = 20
@@ -96,9 +95,9 @@ func printSubmitConfirmation(w io.Writer, req submitRequest) {
 		shown = shown[:maxShown]
 	}
 	for _, r := range shown {
-		fmt.Fprintf(w, "    %s  requested %s  -> backup %s\n", r.Entity, r.Requested, r.Resolved)
+		termf(w, "    %s  requested %s  -> backup %s\n", r.Entity, r.Requested, r.Resolved)
 	}
 	if len(req.rows) > len(shown) {
-		fmt.Fprintf(w, "    ... and %d more\n", len(req.rows)-len(shown))
+		termf(w, "    ... and %d more\n", len(req.rows)-len(shown))
 	}
 }

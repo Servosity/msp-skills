@@ -199,20 +199,72 @@ func writeWould(w io.Writer, flags *rootFlags, action, would string, extra map[s
 		}
 		return json.NewEncoder(w).Encode(out)
 	}
-	_, err := fmt.Fprintf(w, "dry-run: would %s\n", would)
+	_, err := termf(w, "dry-run: would %s\n", would)
 	return err
 }
 
-// printRestoreTable renders a fixed-column table.
+// termSafe is the one funnel every human-readable value from a tenant, the
+// API, or the ledger passes through before it reaches a terminal.
+// cliutil.ScrubTerminal turns tabs and newlines into spaces and drops the
+// C0 and C1 controls (ESC, BEL, CR, DEL, U+0080-U+009F such as CSI and
+// OSC), so a mailbox name cannot retitle the window, clear the screen, or
+// start a fake line. The Unicode bidi embedding, override, and isolate
+// controls are dropped too, since they reorder how the rest of the line
+// reads.
+func termSafe(s string) string {
+	return strings.Map(func(r rune) rune {
+		if isBidiControl(r) {
+			return -1
+		}
+		return r
+	}, cliutil.ScrubTerminal(s))
+}
+
+// isBidiControl reports U+202A-U+202E (LRE, RLE, PDF, LRO, RLO) and
+// U+2066-U+2069 (LRI, RLI, FSI, PDI).
+func isBidiControl(r rune) bool {
+	return (r >= 0x202a && r <= 0x202e) || (r >= 0x2066 && r <= 0x2069)
+}
+
+// termf is fmt.Fprintf for human-readable restore output. Every string,
+// []string, error, and fmt.Stringer argument goes through termSafe; the
+// format string itself is trusted. JSON output never goes through here.
+func termf(w io.Writer, format string, args ...any) (int, error) {
+	for i, a := range args {
+		switch v := a.(type) {
+		case string:
+			args[i] = termSafe(v)
+		case []string:
+			safe := make([]string, len(v))
+			for k := range v {
+				safe[k] = termSafe(v[k])
+			}
+			args[i] = safe
+		case error:
+			args[i] = termSafe(v.Error())
+		case fmt.Stringer:
+			args[i] = termSafe(v.String())
+		}
+	}
+	return fmt.Fprintf(w, format, args...)
+}
+
+// printRestoreTable renders a fixed-column table. Every header and cell
+// goes through termSafe, which also keeps a tab or newline inside a value
+// from breaking the columns.
 func printRestoreTable(w io.Writer, headers []string, rows [][]string) error {
 	tw := newTabWriter(w)
 	upper := make([]string, len(headers))
 	for i, h := range headers {
-		upper[i] = strings.ToUpper(h)
+		upper[i] = termSafe(strings.ToUpper(h))
 	}
 	fmt.Fprintln(tw, strings.Join(upper, "\t"))
 	for _, r := range rows {
-		fmt.Fprintln(tw, strings.Join(r, "\t"))
+		cells := make([]string, len(r))
+		for i, c := range r {
+			cells[i] = termSafe(c)
+		}
+		fmt.Fprintln(tw, strings.Join(cells, "\t"))
 	}
 	return tw.Flush()
 }

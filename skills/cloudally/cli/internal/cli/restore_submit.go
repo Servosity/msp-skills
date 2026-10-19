@@ -32,6 +32,15 @@ type submitOptions struct {
 	targetAccount    string
 }
 
+// Flag names of the submit options; a resumed batch checks the ones a run
+// passed explicitly against what the batch recorded.
+const (
+	flagNameIncludeDeleted   = "include-deleted"
+	flagNameIncludeLegalHold = "include-legal-hold"
+	flagNameRestoreOption    = "restore-option"
+	flagNameTargetAccount    = "target-account"
+)
+
 func (o submitOptions) asMap() map[string]any {
 	return map[string]any{
 		"include_deleted":    o.includeDeleted,
@@ -39,6 +48,18 @@ func (o submitOptions) asMap() map[string]any {
 		"restore_option":     o.restoreOption,
 		"target_account":     o.targetAccount,
 	}
+}
+
+// submitOptionsFromMap reads the options a batch recorded. ok is false when
+// any of them is missing, in which case where the batch's restores went
+// cannot be confirmed.
+func submitOptionsFromMap(m map[string]any) (o submitOptions, ok bool) {
+	var ok1, ok2, ok3, ok4 bool
+	o.includeDeleted, ok1 = m["include_deleted"].(bool)
+	o.includeLegalHold, ok2 = m["include_legal_hold"].(bool)
+	o.restoreOption, ok3 = m["restore_option"].(string)
+	o.targetAccount, ok4 = m["target_account"].(string)
+	return o, ok1 && ok2 && ok3 && ok4
 }
 
 // restoreBody builds the POST body for one row. The date is the compact
@@ -120,17 +141,21 @@ type submitOutput struct {
 
 // submitRequest carries everything runSubmit needs about one invocation.
 type submitRequest struct {
-	scope        restoreScope
-	account      submitAccount
-	taskID       string
-	source       string
-	dateTexts    []string
-	filter       []string
-	rows         []planRow
-	opts         submitOptions
+	scope     restoreScope
+	account   submitAccount
+	taskID    string
+	source    string
+	dateTexts []string
+	filter    []string
+	rows      []planRow
+	opts      submitOptions
+	// optsSet names the option flags this run passed explicitly; on
+	// --resume each must agree with the batch's recorded value.
+	optsSet      map[string]bool
 	label        string
 	resume       bool
 	retryUnknown bool
+	newBatch     bool
 	concurrency  int
 	rate         float64
 	restorePath  string
@@ -142,7 +167,7 @@ func newRestoreSubmitCmd(flags *rootFlags) *cobra.Command {
 	var flagDates, flagEntities []string
 	var flagConcurrency int
 	var flagRate float64
-	var flagResume, flagRetryUnknown bool
+	var flagResume, flagRetryUnknown, flagNewBatch bool
 	var flagResolve, flagPortalURL string
 	var flagLookback int
 	var opts submitOptions
@@ -163,7 +188,13 @@ Each row moves PLANNED -> SUBMITTING (saved before the request leaves) -> SUBMIT
 FAILED, FAILED_REDIRECT, or UNKNOWN. UNKNOWN means the API may have accepted the
 restore (timeout, connection reset, 408, 5xx, interrupted run). --resume sends only
 PLANNED and FAILED rows again; check UNKNOWN rows with 'restore watch --batch <id> --once'
-and add --retry-unknown only for those that are missing.
+and add --retry-unknown only for those that are missing. A row the API accepted is never
+sent again by --resume, even when 'restore watch' later shows its RESTORE task FAILED.
+
+--resume keeps the target account, restore option, and include flags recorded on the
+batch; passing one of those flags with a different value is refused. Re-running the same
+command without --resume, after any of its restores were accepted or may have been, is
+refused too: continue with --resume, or pass --new-batch to send every restore again.
 
 Without --account the active login decides the customer: the account from
 'auth use-account' or 'auth login' is recorded on the batch. A partner login needs
@@ -209,7 +240,10 @@ one the plan resolved for it.
 				return usageErr(errors.New("--rate must be greater than 0"))
 			}
 			if flagRetryUnknown && !flagResume {
-				return usageErr(errors.New("--retry-unknown only applies with --resume"))
+				return usageErr(errors.New("--retry-unknown only applies with --resume; add --resume to continue the earlier batch"))
+			}
+			if flagNewBatch && flagResume {
+				return usageErr(errors.New("--new-batch and --resume cannot be combined: --resume continues the earlier batch, --new-batch starts another that sends every restore again"))
 			}
 			var planDoc *restorePlan
 			if flagPlanFile != "" {
@@ -289,7 +323,7 @@ one the plan resolved for it.
 					return classifyAPIError(cmd.OutOrStdout(), err, flags)
 				}
 				for _, m := range missingEntities(task, requested) {
-					fmt.Fprintf(cmd.ErrOrStderr(), "warning: entity %q is not on task %s\n", m, flagTask)
+					termf(cmd.ErrOrStderr(), "warning: entity %q is not on task %s\n", m, flagTask)
 				}
 				var resolver snapshotResolver
 				if wantsSnapshotResolution(resolveMode, scope) {
@@ -302,14 +336,14 @@ one the plan resolved for it.
 						if resolveMode == resolveSnapshots {
 							return fmt.Errorf("opening the portal backup calendar: %w", rerr)
 						}
-						fmt.Fprintf(cmd.ErrOrStderr(), "warning: the portal backup calendar is unavailable (%v); resolving from the latest backup dates instead, which cannot find a backup before the most recent one\n", rerr)
+						termf(cmd.ErrOrStderr(), "warning: the portal backup calendar is unavailable (%v); resolving from the latest backup dates instead, which cannot find a backup before the most recent one\n", rerr)
 					} else {
 						resolver = r
 					}
 				}
 				builtRows, warnings := buildPlanWithResolver(ctx, task, dates, filter, flagSubSource, resolver)
 				for _, w := range warnings {
-					fmt.Fprintf(cmd.ErrOrStderr(), "warning: %v\n", w)
+					termf(cmd.ErrOrStderr(), "warning: %v\n", w)
 				}
 				rows, source = builtRows, task.Source
 				for _, d := range dates {
@@ -320,10 +354,14 @@ one the plan resolved for it.
 			if len(ok) == 0 {
 				return notFoundErr(fmt.Errorf("no entity on task %s has a backup at or before the requested date(s)", flagTask))
 			}
+			optsSet := map[string]bool{}
+			for _, name := range []string{flagNameIncludeDeleted, flagNameIncludeLegalHold, flagNameRestoreOption, flagNameTargetAccount} {
+				optsSet[name] = cmd.Flags().Changed(name)
+			}
 			req := submitRequest{
 				scope: scope, account: account, taskID: flagTask, source: source, dateTexts: dateTexts,
-				filter: sortedKeys(filter), rows: ok, opts: opts, label: flagLabel, resume: flagResume,
-				retryUnknown: flagRetryUnknown, concurrency: flagConcurrency, rate: flagRate, restorePath: restorePath,
+				filter: sortedKeys(filter), rows: ok, opts: opts, optsSet: optsSet, label: flagLabel, resume: flagResume,
+				retryUnknown: flagRetryUnknown, newBatch: flagNewBatch, concurrency: flagConcurrency, rate: flagRate, restorePath: restorePath,
 			}
 			if !flags.yes {
 				printSubmitConfirmation(cmd.ErrOrStderr(), req)
@@ -341,13 +379,14 @@ one the plan resolved for it.
 	cmd.Flags().StringVar(&flagPlanFile, "plan-file", "", "Submit the rows of a plan written by 'restore plan --plan-out' instead of resolving again")
 	cmd.Flags().IntVar(&flagConcurrency, "concurrency", defaultSubmitConcurrency, "Parallel restore requests")
 	cmd.Flags().Float64Var(&flagRate, "rate", defaultSubmitRate, "Maximum restore requests per second across all workers")
-	cmd.Flags().BoolVar(&opts.includeDeleted, "include-deleted", false, "Set includeDeleted on every restore")
-	cmd.Flags().BoolVar(&opts.includeLegalHold, "include-legal-hold", false, "Set includeLegalHold on every restore")
-	cmd.Flags().StringVar(&opts.restoreOption, "restore-option", "", "Optional restoreOption string passed through to the API")
-	cmd.Flags().StringVar(&opts.targetAccount, "target-account", "", "Optional targetAccount to restore into")
+	cmd.Flags().BoolVar(&opts.includeDeleted, flagNameIncludeDeleted, false, "Set includeDeleted on every restore")
+	cmd.Flags().BoolVar(&opts.includeLegalHold, flagNameIncludeLegalHold, false, "Set includeLegalHold on every restore")
+	cmd.Flags().StringVar(&opts.restoreOption, flagNameRestoreOption, "", "Optional restoreOption string passed through to the API")
+	cmd.Flags().StringVar(&opts.targetAccount, flagNameTargetAccount, "", "Optional targetAccount to restore into")
 	cmd.Flags().StringVar(&flagLabel, "label", "", "Free-text label stored on the batch")
-	cmd.Flags().BoolVar(&flagResume, "resume", false, "Continue the batch with the same scope, account, task, entity filter, and dates; sends only PLANNED and FAILED rows")
+	cmd.Flags().BoolVar(&flagResume, "resume", false, "Continue the batch with the same scope, account, task, entity filter, and dates; sends only PLANNED and FAILED rows that were never accepted, with the batch's recorded restore options")
 	cmd.Flags().BoolVar(&flagRetryUnknown, "retry-unknown", false, "With --resume, also send UNKNOWN rows again; use only after 'restore watch' shows they are missing")
+	cmd.Flags().BoolVar(&flagNewBatch, "new-batch", false, "Start a new batch even though an earlier batch for the same scope, account, task, entities, and dates already has accepted or unconfirmed restores; every row is sent again")
 	addResolveFlags(cmd, &flagResolve, &flagPortalURL, &flagLookback)
 	return cmd
 }
@@ -378,7 +417,7 @@ func printSubmitDryRun(cmd *cobra.Command, taskID, path string, planDoc *restore
 	if h := cliutil.HarnessName(); h != "" {
 		mode = h + " harness"
 	}
-	fmt.Fprintf(cmd.ErrOrStderr(), "%s: would POST %s once per row below; nothing sent, ledger untouched\n", mode, path)
+	termf(cmd.ErrOrStderr(), "%s: would POST %s once per row below; nothing sent, ledger untouched\n", mode, path)
 	if planDoc != nil {
 		for _, r := range filterPlanRows(planDoc.Rows, filter) {
 			if err := enc.Encode(restoreBody(planDoc.TaskID, planDoc.Source, r.Entity, r.ExtID, r.ResolvedRaw, opts)); err != nil {

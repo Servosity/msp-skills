@@ -26,27 +26,38 @@ import (
 const fakeBackupRaw = int64(20260930120000)
 
 // fakeRestoreAPI serves one backup task and counts every restore POST by
-// entity. statusFor overrides the POST status per entity; backupRaw and
-// entities can change between runs to model a task that moved on.
+// entity. statusFor overrides the POST status per entity; backupRaw,
+// entities, and source can change between runs to model a task that moved
+// on. Every accepted POST (and every POST for an entity in acceptAnyway)
+// becomes a RESTORE task in the task feed with status taskStatus.
 type fakeRestoreAPI struct {
-	srv        *httptest.Server
-	posts      atomic.Int32
-	mu         sync.Mutex
-	byEntity   map[string]int
-	restoreErr int
-	statusFor  map[string]int
-	entities   []string
-	backupRaw  int64
+	srv          *httptest.Server
+	posts        atomic.Int32
+	mu           sync.Mutex
+	byEntity     map[string]int
+	bodies       map[string][]map[string]any
+	restoreErr   int
+	statusFor    map[string]int
+	acceptAnyway map[string]bool
+	entities     []string
+	backupRaw    int64
+	source       string
+	taskStatus   string
+	tasks        []map[string]any
 }
 
 func newFakeRestoreAPI(t *testing.T, restoreStatus int) *fakeRestoreAPI {
 	t.Helper()
 	f := &fakeRestoreAPI{
-		byEntity:   map[string]int{},
-		restoreErr: restoreStatus,
-		statusFor:  map[string]int{},
-		entities:   []string{"a@contoso.com", "b@contoso.com", "c@contoso.com", "d@contoso.com", "e@contoso.com"},
-		backupRaw:  fakeBackupRaw,
+		byEntity:     map[string]int{},
+		bodies:       map[string][]map[string]any{},
+		restoreErr:   restoreStatus,
+		statusFor:    map[string]int{},
+		acceptAnyway: map[string]bool{},
+		entities:     []string{"a@contoso.com", "b@contoso.com", "c@contoso.com", "d@contoso.com", "e@contoso.com"},
+		backupRaw:    fakeBackupRaw,
+		source:       "MS365",
+		taskStatus:   "INPROCESS",
 	}
 	f.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -55,10 +66,20 @@ func newFakeRestoreAPI(t *testing.T, restoreStatus int) *fakeRestoreAPI {
 			f.mu.Lock()
 			var ents []string
 			for _, e := range f.entities {
-				ents = append(ents, fmt.Sprintf(`{"entity":%q,"lastBackupDates":{"mail":%d}}`, e, f.backupRaw))
+				name, _ := json.Marshal(e)
+				ents = append(ents, fmt.Sprintf(`{"entity":%s,"lastBackupDates":{"mail":%d}}`, name, f.backupRaw))
 			}
+			source := f.source
 			f.mu.Unlock()
-			_, _ = fmt.Fprintf(w, `{"id":"64b0e9","source":"MS365","entities":[%s]}`, strings.Join(ents, ","))
+			_, _ = fmt.Fprintf(w, `{"id":"64b0e9","source":%q,"entities":[%s]}`, source, strings.Join(ents, ","))
+		case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/backup-tasks"):
+			f.mu.Lock()
+			for _, t := range f.tasks {
+				t["status"] = f.taskStatus
+			}
+			raw, _ := json.Marshal(map[string]any{"data": f.tasks})
+			f.mu.Unlock()
+			_, _ = w.Write(raw)
 		case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/recovery/restore"):
 			f.posts.Add(1)
 			var body map[string]any
@@ -66,9 +87,16 @@ func newFakeRestoreAPI(t *testing.T, restoreStatus int) *fakeRestoreAPI {
 			entity, _ := body["account"].(string)
 			f.mu.Lock()
 			f.byEntity[entity]++
+			f.bodies[entity] = append(f.bodies[entity], body)
 			status := f.restoreErr
 			if s, ok := f.statusFor[entity]; ok {
 				status = s
+			}
+			if status == 0 || status == http.StatusOK || f.acceptAnyway[entity] {
+				f.tasks = append(f.tasks, map[string]any{
+					"id": fmt.Sprintf("rt-%d", len(f.tasks)+1), "account": entity, "type": "RESTORE", "source": body["source"],
+					"snapshotDate": body["date"], "createDate": time.Now().UTC().Format(time.RFC3339),
+				})
 			}
 			f.mu.Unlock()
 			if status != 0 && status != http.StatusOK {
@@ -107,6 +135,23 @@ func (f *fakeRestoreAPI) entityPosts(entity string) int {
 	return f.byEntity[entity]
 }
 
+// lastBody returns the most recent restore POST body for an entity.
+func (f *fakeRestoreAPI) lastBody(entity string) map[string]any {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	b := f.bodies[entity]
+	if len(b) == 0 {
+		return nil
+	}
+	return b[len(b)-1]
+}
+
+func (f *fakeRestoreAPI) set(fn func(f *fakeRestoreAPI)) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	fn(f)
+}
+
 // ledgerRows returns every restore_jobs row, or nil when there is no ledger.
 func ledgerRows(t *testing.T) []restoreJob {
 	t.Helper()
@@ -119,7 +164,7 @@ func ledgerRows(t *testing.T) []restoreJob {
 		t.Fatalf("open ledger: %v", err)
 	}
 	defer db.Close()
-	rows, err := db.DB().Query(`SELECT ` + jobColumns + ` FROM restore_jobs ORDER BY id`)
+	rows, err := db.DB().Query(`SELECT ` + jobColumnList(db.DB()) + ` FROM restore_jobs ORDER BY id`)
 	if err != nil {
 		t.Fatalf("query ledger: %v", err)
 	}
@@ -299,8 +344,9 @@ func TestRestoreSubmitServerErrorIsUnknownAndNotResent(t *testing.T) {
 	if got := api.posts.Load(); got != 3 {
 		t.Fatalf("resume re-posted: total %d, want 3", got)
 	}
-	if !strings.Contains(stderr, "these 1 restores may already have been accepted; check 'restore watch --batch") ||
-		!strings.Contains(stderr, "--retry-unknown only if they are missing") {
+	if !strings.Contains(stderr, "these 1 restore(s) may already have been accepted") ||
+		!strings.Contains(stderr, "cloudally-cli restore watch --batch") ||
+		!strings.Contains(stderr, "--resume --retry-unknown --yes") {
 		t.Fatalf("stderr should explain the UNKNOWN row:\n%s", stderr)
 	}
 
@@ -355,9 +401,10 @@ func TestRestoreSubmitCrashedSubmittingRowNotResent(t *testing.T) {
 		t.Fatalf("first submit: %v (%s)", err, stderr)
 	}
 	// Model a run that died: b was claimed (SUBMITTING) and maybe sent, c
-	// was never reached (PLANNED).
-	ledgerExec(t, `UPDATE restore_jobs SET status = ? WHERE entity = ?`, jobSubmitting, "b@contoso.com")
-	ledgerExec(t, `UPDATE restore_jobs SET status = ?, submitted_at = NULL WHERE entity = ?`, jobPlanned, "c@contoso.com")
+	// was never reached (PLANNED). A claim writes both the shown status and
+	// the submission outcome.
+	ledgerExec(t, `UPDATE restore_jobs SET status = ?, submit_status = ? WHERE entity = ?`, jobSubmitting, jobSubmitting, "b@contoso.com")
+	ledgerExec(t, `UPDATE restore_jobs SET status = ?, submit_status = ?, submitted_at = NULL WHERE entity = ?`, jobPlanned, jobPlanned, "c@contoso.com")
 	_, stderr, err := runAuthCmd(t, "", append(args, "--resume")...)
 	if err == nil || ExitCode(err) != 5 {
 		t.Fatalf("resume with a crashed row should exit 5, got %v", err)
@@ -488,7 +535,7 @@ func TestRestoreSubmitRecordsAccountAndRefusesMismatchedResume(t *testing.T) {
 	if err := saveAuthContext(&authContext{Scope: authScopeAccount, AccountID: "acct-b", PartnerAccessToken: "p"}); err != nil {
 		t.Fatal(err)
 	}
-	ledgerExec(t, `UPDATE restore_jobs SET status = ? WHERE entity = ?`, jobPlanned, "a@contoso.com")
+	ledgerExec(t, `UPDATE restore_jobs SET status = ?, submit_status = ? WHERE entity = ?`, jobPlanned, jobPlanned, "a@contoso.com")
 	_, _, err = runAuthCmd(t, "", append(args, "--resume")...)
 	if err == nil || ExitCode(err) != 2 || !strings.Contains(err.Error(), "different account") {
 		t.Fatalf("mismatched resume: want exit 2, got %v", err)

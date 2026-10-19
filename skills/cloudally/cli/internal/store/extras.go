@@ -40,7 +40,10 @@ func (s *Store) migrateExtras(ctx context.Context, conn *sql.Conn) error {
 		// status moves PLANNED -> SUBMITTING before the request is sent,
 		// then SUBMITTED | FAILED | FAILED_REDIRECT | UNKNOWN once the
 		// outcome is known, then takes the raw RESTORE task status (or
-		// UNMATCHED) as 'restore watch' refreshes it. The inline UNIQUE on
+		// UNMATCHED) as 'restore watch' refreshes it. Because a task can
+		// itself report FAILED, status alone cannot say whether the API
+		// ever accepted the restore; the submit_status column added below
+		// holds the submission outcome on its own. The inline UNIQUE on
 		// resolved_raw stays for existing ledgers; the identity --resume
 		// relies on is the (batch_id, entity, requested) index added below.
 		`CREATE TABLE IF NOT EXISTS restore_jobs (
@@ -80,7 +83,47 @@ func (s *Store) migrateExtras(ctx context.Context, conn *sql.Conn) error {
 	if _, err := conn.ExecContext(ctx, `CREATE INDEX IF NOT EXISTS idx_restore_batches_resume ON restore_batches(resume_key)`); err != nil {
 		return fmt.Errorf("extra migration failed: %w", err)
 	}
+	for _, col := range restoreJobAddedColumns {
+		if err := s.ensureColumn(ctx, conn, "restore_jobs", col.name, col.decl); err != nil {
+			return fmt.Errorf("extra migration failed: %w", err)
+		}
+	}
+	// Rows written before submit_status existed, or since by an older
+	// binary, carry '' there. Every open fills them in from the older
+	// columns; rows this binary writes always set it.
+	if _, err := conn.ExecContext(ctx, `UPDATE restore_jobs SET submit_status = `+LegacySubmitStatusSQL("")+` WHERE submit_status = ''`); err != nil {
+		return fmt.Errorf("extra migration failed: backfilling submit_status: %w", err)
+	}
 	return ensureRestoreJobIdentity(ctx, conn)
+}
+
+// restoreJobAddedColumns are restore_jobs columns newer than the original
+// CREATE TABLE. submit_status is the submission outcome alone: PLANNED,
+// SUBMITTING, SUBMITTED, FAILED (rejected before it ran), FAILED_REDIRECT,
+// or UNKNOWN. 'restore watch' never writes a task status into it; the only
+// change it makes is settling an UNKNOWN or SUBMITTING row it matched to a
+// RESTORE task as SUBMITTED. Whether a row may be sent again is decided on
+// this column, never on status.
+var restoreJobAddedColumns = []struct{ name, decl string }{
+	{"submit_status", "TEXT NOT NULL DEFAULT ''"},
+}
+
+// LegacySubmitStatusSQL derives a restore_jobs row's submission outcome
+// from the columns written before submit_status existed, when 'restore
+// watch' still wrote the RESTORE task status over the submission outcome.
+// prefix qualifies the column names (for example "j."). A row the API
+// accepted is recognised by a recorded task id or a 2xx answer, so a task
+// that later reported FAILED is never read as a rejection that is safe to
+// send again; every other status watch can write (task statuses, UNMATCHED)
+// also means the restore was accepted.
+func LegacySubmitStatusSQL(prefix string) string {
+	p := prefix
+	return `(CASE
+		WHEN COALESCE(` + p + `task_id, '') <> '' THEN 'SUBMITTED'
+		WHEN ` + p + `status IN ('PLANNED', 'SUBMITTING', 'SUBMITTED', 'UNKNOWN', 'FAILED_REDIRECT') THEN ` + p + `status
+		WHEN ` + p + `status = 'FAILED' AND COALESCE(` + p + `http_status, 0) BETWEEN 200 AND 299 THEN 'SUBMITTED'
+		WHEN ` + p + `status = 'FAILED' THEN 'FAILED'
+		ELSE 'SUBMITTED' END)`
 }
 
 // restoreBatchAddedColumns are restore_batches columns newer than the

@@ -62,7 +62,7 @@ func newRestoreHistoryCmd(flags *rootFlags) *cobra.Command {
 			}
 			human := wantsHumanTable(cmd.OutOrStdout(), flags)
 			if !ok {
-				fmt.Fprintln(cmd.ErrOrStderr(), emptyLedgerHint)
+				termf(cmd.ErrOrStderr(), "%s\n", emptyLedgerHint)
 				if !human {
 					return printJSONFiltered(cmd.OutOrStdout(), []any{}, flags)
 				}
@@ -88,19 +88,19 @@ func newRestoreHistoryCmd(flags *rootFlags) *cobra.Command {
 				if !human {
 					return printJSONFiltered(cmd.OutOrStdout(), jobs, flags)
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), "batch %s  task %s (%s)  scope %s  account %s  created %s\n\n", batch.BatchID, batch.TaskID, batch.Source, batch.Scope, historyAccountLabel(batch.AccountID, batch.AuthScope), isoUTC(batch.CreatedAt))
+				termf(cmd.OutOrStdout(), "batch %s  task %s (%s)  scope %s  account %s  created %s\n\n", batch.BatchID, batch.TaskID, batch.Source, batch.Scope, historyAccountLabel(batch.AccountID, batch.AuthScope), isoUTC(batch.CreatedAt))
 				rows := make([][]string, 0, len(jobs))
 				for _, j := range jobs {
-					rows = append(rows, []string{j.Entity, j.Requested, j.Resolved, j.Status, j.TaskID, strings.TrimSpace(truncate(j.Error, 50))})
+					rows = append(rows, []string{j.Entity, j.Requested, j.Resolved, j.submitOutcome(), j.Status, j.TaskID, strings.TrimSpace(truncate(j.Error, 50))})
 				}
-				return printRestoreTable(cmd.OutOrStdout(), []string{"entity", "requested", "resolved", "status", "task_id", "error"}, rows)
+				return printRestoreTable(cmd.OutOrStdout(), []string{"entity", "requested", "resolved", "submit", "status", "task_id", "error"}, rows)
 			}
 			batches, err := ledgerListBatches(sqlDB, historyFilter{account: flagAccount, status: flagStatus, since: since, limit: flagLimit})
 			if err != nil {
 				return fmt.Errorf("reading ledger: %w", err)
 			}
 			if len(batches) == 0 {
-				fmt.Fprintln(cmd.ErrOrStderr(), emptyLedgerHint)
+				termf(cmd.ErrOrStderr(), "%s\n", emptyLedgerHint)
 			}
 			if !human {
 				if batches == nil {

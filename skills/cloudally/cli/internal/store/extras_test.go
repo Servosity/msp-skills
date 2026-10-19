@@ -11,8 +11,10 @@ import (
 )
 
 // TestRestoreLedgerMigrationFromOldSchema opens a ledger written before the
-// resume_key / auth_scope columns and the (batch, entity, requested) index
-// existed, with a duplicate row for one (entity, requested) pair.
+// resume_key / auth_scope / submit_status columns and the (batch, entity,
+// requested) index existed, with a duplicate row for one (entity,
+// requested) pair, and rows where 'restore watch' had written the RESTORE
+// task status over the submission outcome.
 func TestRestoreLedgerMigrationFromOldSchema(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "old.db")
 	raw, err := sql.Open("sqlite", path)
@@ -37,6 +39,14 @@ func TestRestoreLedgerMigrationFromOldSchema(t *testing.T) {
 			VALUES ('b1', 'a@contoso.com', '2026-10-01', 20261001120000, 'y', 'PLANNED', 'now')`,
 		`INSERT INTO restore_jobs (batch_id, entity, requested, resolved_raw, resolved, status, updated_at)
 			VALUES ('b1', 'b@contoso.com', '2026-10-01', 20260930120000, 'x', 'PLANNED', 'now')`,
+		// Accepted, then its task failed: watch wrote FAILED and the task id.
+		`INSERT INTO restore_jobs (batch_id, entity, requested, resolved_raw, resolved, status, http_status, task_id, updated_at)
+			VALUES ('b1', 'c@contoso.com', '2026-10-01', 20260930120000, 'x', 'FAILED', 200, 'rt-9', 'now')`,
+		// Rejected before it ran.
+		`INSERT INTO restore_jobs (batch_id, entity, requested, resolved_raw, resolved, status, http_status, updated_at)
+			VALUES ('b1', 'd@contoso.com', '2026-10-01', 20260930120000, 'x', 'FAILED', 400, 'now')`,
+		`INSERT INTO restore_jobs (batch_id, entity, requested, resolved_raw, resolved, status, task_id, updated_at)
+			VALUES ('b1', 'e@contoso.com', '2026-10-01', 20260930120000, 'x', 'ARCHIVED', 'rt-10', 'now')`,
 	}
 	for _, s := range stmts {
 		if _, err := raw.Exec(s); err != nil {
@@ -61,6 +71,12 @@ func TestRestoreLedgerMigrationFromOldSchema(t *testing.T) {
 		}
 		if _, err := db.Exec(`UPDATE restore_batches SET resume_key='r', auth_scope='use-account' WHERE batch_id='b1'`); err != nil {
 			t.Fatalf("new columns missing: %v", err)
+		}
+		for entity, want := range map[string]string{"a@contoso.com": "SUBMITTED", "b@contoso.com": "PLANNED", "c@contoso.com": "SUBMITTED", "d@contoso.com": "FAILED", "e@contoso.com": "SUBMITTED"} {
+			var got string
+			if err := db.QueryRow(`SELECT submit_status FROM restore_jobs WHERE entity = ?`, entity).Scan(&got); err != nil || got != want {
+				t.Fatalf("%s submit_status = %q (%v), want %s", entity, got, err, want)
+			}
 		}
 		_, err = db.Exec(`INSERT INTO restore_jobs (batch_id, entity, requested, resolved_raw, resolved, status, updated_at)
 			VALUES ('b1', 'b@contoso.com', '2026-10-01', 20261002120000, 'z', 'PLANNED', 'now')`)
