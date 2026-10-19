@@ -20,6 +20,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -31,6 +32,13 @@ func init() { registerClientHook(installJSONRPCTransport) }
 func installJSONRPCTransport(c *client.Client) error {
 	if c == nil || c.HTTPClient == nil {
 		return nil
+	}
+	// Fail fast on a plain-HTTP base URL (a config error, not a network blip
+	// worth retrying); RoundTrip re-checks every request and redirect hop.
+	if u, err := url.Parse(c.BaseURL); err == nil {
+		if err := refusePlainHTTP(u.Scheme, u.Hostname()); err != nil {
+			return configErr(err)
+		}
 	}
 	if _, ok := c.HTTPClient.Transport.(*jsonrpcTransport); ok {
 		return nil

@@ -310,7 +310,7 @@
       "display_name": "Bitdefender GravityZone",
       "tagline": "Endpoint health, threats, incidents and license usage across every GravityZone child company.",
       "has_video": true,
-      "cli_hash": "sha256:0db36446d6757aa08b9303b1b6ac171da48ee6fd533849474d318c144b75e51b",
+      "cli_hash": "sha256:599569be52707d654f5a978fbddc04bb6e7c6633976529f670feb6435cf5f170",
       "template_version": 3,
       "version": "0.1.0",
       "cli_hash_at_release": null,

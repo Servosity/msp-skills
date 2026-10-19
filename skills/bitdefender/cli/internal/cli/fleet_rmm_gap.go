@@ -45,6 +45,7 @@ type rmmGapView struct {
 	Ambiguous         []ambiguousMatch `json:"ambiguous"`
 	Summary           map[string]int   `json:"summary"`
 	FetchFailures     []fetchFailure   `json:"fetch_failures"`
+	InventoryScope    string           `json:"inventory_scope"`
 	Note              string           `json:"note,omitempty"`
 }
 
@@ -64,7 +65,10 @@ Returns three lists:
   unmanaged_in_gravityzone  RMM devices GravityZone discovered but that have no agent
   missing_in_rmm            managed GravityZone endpoints the RMM does not know
 Inventory comes from the latest 'fleet health' snapshot, or a live fan-out when there is no
-snapshot or --data-source live is set. Recognized columns/keys: hostname, name, device,
+snapshot or --data-source live is set. That inventory is getEndpointsList's: a device that
+exists only under GravityZone's Active Directory integration can show as missing, so check
+missing_in_gravityzone against 'inventory list' (getNetworkInventoryItems) before deploying an agent.
+Recognized columns/keys: hostname, name, device,
 computer, systemName, dnsName, displayName; mac, macAddress, macs.
 
 Use this command to compare an RMM or PSA device list against GravityZone inventory. Do NOT
@@ -273,7 +277,7 @@ func parseRMMJSON(b []byte) ([]rmmDevice, error) {
 // compareRMM joins devices to endpoints: by MAC when any device MAC is known,
 // else by short hostname. A hostname matching several endpoints is ambiguous.
 func compareRMM(devices []rmmDevice, eps []snapEndpoint) rmmGapView {
-	view := rmmGapView{DevicesRead: len(devices), EndpointsCompared: len(eps), MissingInGZ: make([]rmmDevice, 0),
+	view := rmmGapView{InventoryScope: gzInventoryScope, DevicesRead: len(devices), EndpointsCompared: len(eps), MissingInGZ: make([]rmmDevice, 0),
 		UnmanagedInGZ: make([]gapEndpoint, 0), MissingInRMM: make([]gapEndpoint, 0), Ambiguous: make([]ambiguousMatch, 0), Summary: map[string]int{}}
 	byHost := map[string][]int{}
 	byMAC := map[string][]int{}

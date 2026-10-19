@@ -114,7 +114,7 @@ func doctorProbeCredentials(ctx context.Context, c *client.Client, authHeader st
 	case status >= 500:
 		report["credentials"] = fmt.Sprintf("WARN not verified (HTTP %d from %s) - Control Center returned a server error, so the key was never checked.", status, call)
 	case ok2xx && isRPC && rpcErr != nil:
-		report["credentials"] = fmt.Sprintf("ERROR rejected (JSON-RPC error %d from %s: %s) - Control Center refused the call, so the key is not confirmed.", rpcErr.Code, call, rpcErr.Message)
+		report["credentials"] = fmt.Sprintf("ERROR rejected (JSON-RPC error %d from %s: %s) - Control Center refused the call, so the key is not confirmed.", rpcErr.Code, call, cliutil.ScrubTerminal(rpcErr.Message))
 	case ok2xx && isRPC && !bytes.Equal(bytes.TrimSpace(result), []byte("null")):
 		report["credentials"] = fmt.Sprintf("valid (API key verified with %s)", call)
 	case ok2xx:

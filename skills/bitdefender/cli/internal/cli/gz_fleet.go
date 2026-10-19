@@ -8,8 +8,10 @@ package cli
 // GravityZone Partners Public API docs (77211-*); see spec.yaml x-source.
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -18,6 +20,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf16"
 
 	"bitdefender-pp-cli/internal/client"
 	"bitdefender-pp-cli/internal/cliutil"
@@ -174,6 +177,13 @@ type gzEndpoint struct {
 		Date string `json:"date"`
 	} `json:"lastSuccessfulScan,omitempty"`
 }
+
+// gzInventoryScope is stated on every fleet view that reads endpoint
+// inventory: getEndpointsList does not return endpoints that exist only in
+// the Active Directory integration (Bitdefender points those callers to
+// getNetworkInventoryItems), so a "clean" or "missing" answer covers this
+// inventory only.
+const gzInventoryScope = "getEndpointsList inventory (Computers and Groups, recursive). Endpoints that exist only under the Active Directory integration are not included; list them with 'bitdefender-cli inventory list' (getNetworkInventoryItems; Credential tier, because its company rows carry license keys)."
 
 // listCompanyEndpoints pages getEndpointsList v1.1 for one company, recursing
 // into its groups, with the productOutdated and lastSuccessfulScan options on.
@@ -761,7 +771,28 @@ func readBoundedFile(flag, path string) ([]byte, error) {
 	if len(b) > maxInputFileBytes {
 		return nil, fmt.Errorf("%s: %s is larger than %d MiB", flag, path, maxInputFileBytes>>20)
 	}
-	return b, nil
+	return decodeUTF16BOM(b), nil
+}
+
+// decodeUTF16BOM converts a UTF-16 file (Windows PowerShell 5.1 writes `>`
+// redirects and Out-File as UTF-16LE with a BOM) to UTF-8; anything else is
+// returned unchanged.
+func decodeUTF16BOM(b []byte) []byte {
+	var order binary.ByteOrder
+	switch {
+	case bytes.HasPrefix(b, []byte{0xFF, 0xFE}):
+		order = binary.LittleEndian
+	case bytes.HasPrefix(b, []byte{0xFE, 0xFF}):
+		order = binary.BigEndian
+	default:
+		return b
+	}
+	b = b[2:]
+	units := make([]uint16, len(b)/2)
+	for i := range units {
+		units[i] = order.Uint16(b[2*i:])
+	}
+	return []byte(string(utf16.Decode(units)))
 }
 
 // fleetUsageErr reports bad input as exit 2 and, for --json/--agent callers,

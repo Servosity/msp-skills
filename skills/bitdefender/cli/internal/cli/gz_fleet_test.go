@@ -1117,7 +1117,7 @@ func TestRepeatedMACOnOneEndpointStillIdentifies(t *testing.T) {
 
 func TestBillingChecksAgreementWithoutUsageRows(t *testing.T) {
 	tree := []gzCompany{{ID: "c1", Name: "Quiet Co", Type: 1}}
-	rows := buildBillingRows(tree, map[string]usageCounts{"c1": {}}, map[string]usageCounts{"c1": {}}, nil, map[string]int{"quiet co": 5}, true)
+	rows := buildBillingRows(tree, map[string]usageCounts{"c1": {}}, map[string]usageCounts{"c1": {}}, nil, nil, map[string]int{"quiet co": 5}, true)
 	if len(rows) != 1 || !strings.Contains(strings.Join(rows[0].Flags, ","), "agreement_mismatch:0_billed_vs_5_agreed") {
 		t.Fatalf("rows = %+v, want a mismatch row for an agreement with no usage", rows)
 	}
@@ -1238,7 +1238,7 @@ func TestChangesIgnoreOwnershipShiftThroughSkippedCompany(t *testing.T) {
 func TestBillingZeroOwnShareSerializesAsEmptyObject(t *testing.T) {
 	tree := []gzCompany{{ID: "p", Name: "P", Type: 0}, {ID: "c", Name: "C", Type: 1, ParentID: "p"}}
 	u := map[string]usageCounts{"p": {0: {"endpointMonthlyUsage": 5}}, "c": {0: {"endpointMonthlyUsage": 5}}}
-	rows := buildBillingRows(tree, u, u, nil, nil, true)
+	rows := buildBillingRows(tree, u, u, nil, nil, nil, true)
 	raw, _ := json.Marshal(rows[0])
 	if rows[0].CompanyID != "p" || !strings.Contains(string(raw), `"own_share":{}`) {
 		t.Fatalf("row = %s, want a computed zero own_share as {}", raw)
@@ -1340,5 +1340,85 @@ func TestHumanNoteScrubsTerminalEscapes(t *testing.T) {
 	}
 	if !strings.Contains(errOut.String(), "Evil") {
 		t.Fatalf("note lost its text: %q", errOut.String())
+	}
+}
+
+// minimumUsage (the committed monthly minimum) is billed when usage is lower:
+// it must be decoded, shown, flagged and used by the agreement check.
+func TestBillingAppliesMinimumUsage(t *testing.T) {
+	// The documented getMonthlyUsagePerProductType example.
+	u, minimum, err := parseUsage(json.RawMessage(`{"usages":[{"endpointMonthlyUsage":10,"productType":5}],"minimumUsage":{"endpointMonthlyUsage":120}}`))
+	if err != nil || u[5]["endpointMonthlyUsage"] != 10 || minimum["endpointMonthlyUsage"] != 120 {
+		t.Fatalf("parseUsage = %v, %v, %v; want usage 10 and minimum 120", u, minimum, err)
+	}
+	if _, m, err := parseUsage(json.RawMessage(`0`)); err != nil || len(m) != 0 {
+		t.Fatalf("no-licence response = %v, %v; want an empty minimum", m, err)
+	}
+	tree := []gzCompany{{ID: "c1", Name: "Acme Corp", Type: 1}}
+	cur := map[string]usageCounts{"c1": {0: {"endpointMonthlyUsage": 40}}}
+	rows := buildBillingRows(tree, cur, cur, map[string]map[string]int{"c1": {"endpointMonthlyUsage": 50}}, nil, map[string]int{"acme corp": 50}, true)
+	if len(rows) != 1 || rows[0].MinimumUsage["endpointMonthlyUsage"] != 50 {
+		t.Fatalf("rows = %+v, want one row carrying minimum_usage 50", rows)
+	}
+	flags := strings.Join(rows[0].Flags, " ")
+	if !strings.Contains(flags, "minimum_usage_applies:40_used_vs_50_minimum") {
+		t.Fatalf("flags = %q, want minimum_usage_applies", flags)
+	}
+	if strings.Contains(flags, "agreement_mismatch") {
+		t.Fatalf("flags = %q: an agreement equal to the billed minimum is not a mismatch", flags)
+	}
+}
+
+// --csv, --plain and --quiet print tenant strings (company and endpoint
+// names); terminal control sequences must not survive any of them.
+func TestTabularPrintersScrubTerminalEscapes(t *testing.T) {
+	data := json.RawMessage(`[{"name":"Evil\u001b]52;c;cGF5bG9hZA==\u0007Co\u001b[2J\u009b31m","endpoints":3}]`)
+	for name, print := range map[string]func(io.Writer, json.RawMessage) error{
+		"csv":   func(w io.Writer, d json.RawMessage) error { return printCSV(w, d) },
+		"plain": func(w io.Writer, d json.RawMessage) error { return printPlain(w, d) },
+		"quiet": printQuiet,
+	} {
+		var out bytes.Buffer
+		if err := print(&out, data); err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if strings.ContainsAny(out.String(), "\x1b\x07\u009b") {
+			t.Fatalf("%s leaked a terminal escape: %q", name, out.String())
+		}
+		if !strings.Contains(out.String(), "Evil") {
+			t.Fatalf("%s lost the value: %q", name, out.String())
+		}
+	}
+}
+
+// Windows PowerShell 5.1 writes `> file` and Out-File as UTF-16LE with a BOM;
+// device exports and agreement CSVs saved that way must still parse.
+func TestInputFilesAcceptUTF16(t *testing.T) {
+	utf16le := func(s string) []byte {
+		out := []byte{0xFF, 0xFE}
+		for _, r := range s {
+			out = append(out, byte(r), byte(r>>8))
+		}
+		return out
+	}
+	dir := t.TempDir()
+	devices := filepath.Join(dir, "devices.json")
+	if err := os.WriteFile(devices, utf16le(`[{"hostname":"PC-ACME-01"}]`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	got, err := readRMMDevices(devices)
+	if err != nil || len(got) != 1 {
+		t.Fatalf("readRMMDevices(UTF-16LE JSON) = %+v, %v; want one device", got, err)
+	}
+	agreements := filepath.Join(dir, "agreements.csv")
+	if err := os.WriteFile(agreements, utf16le("company,quantity\r\nAcme Corp,25\r\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	agreed, err := readAgreements(agreements)
+	if err != nil || agreed["acme corp"] != 25 {
+		t.Fatalf("readAgreements(UTF-16LE CSV) = %v, %v; want acme corp = 25", agreed, err)
+	}
+	if string(decodeUTF16BOM([]byte("plain"))) != "plain" {
+		t.Fatal("a UTF-8 file must pass through unchanged")
 	}
 }

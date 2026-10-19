@@ -11,6 +11,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"bitdefender-pp-cli/internal/client"
 )
 
 func TestJSONRPCTransportEnvelopeAndUnwrap(t *testing.T) {
@@ -212,3 +214,17 @@ func TestJSONRPCTransportRefusesPlainHTTPToRemoteHost(t *testing.T) {
 type roundTripperFunc func(*http.Request) (*http.Response, error)
 
 func (f roundTripperFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+// A plain-HTTP base URL is a config error caught when the client is built,
+// so no command retries it as a network failure.
+func TestJSONRPCTransportHookRejectsPlainHTTPBaseURL(t *testing.T) {
+	err := installJSONRPCTransport(&client.Client{BaseURL: "http://gz.example.com/api", HTTPClient: &http.Client{}})
+	if err == nil || ExitCode(err) != 10 {
+		t.Fatalf("err = %v (exit %d), want a config error (exit 10)", err, ExitCode(err))
+	}
+	for _, base := range []string{"https://cloud.gravityzone.bitdefender.com/api", "http://127.0.0.1:8080/api"} {
+		if err := installJSONRPCTransport(&client.Client{BaseURL: base, HTTPClient: &http.Client{}}); err != nil {
+			t.Fatalf("%s: %v", base, err)
+		}
+	}
+}

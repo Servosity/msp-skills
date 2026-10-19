@@ -163,7 +163,7 @@ bitdefender-cli fleet incident-queue --sla 24h --agent
   ```
 
 ### Billing and reconciliation
-- **`usage billing`**  -  Per-company billable usage for a month with own share after the child rollup, month-over-month seat swings, and flags wherever a needed fetch failed.
+- **`usage billing`**  -  Per-company billable usage for a month with own share after the child rollup, month-over-month seat swings, each company's committed monthly minimum (flagged when it is above actual usage, since the minimum is what gets billed), and flags wherever a needed fetch failed.
 
   _Use it for month-end PSA billing reconciliation instead of pasting monthly usage into a spreadsheet._
 
@@ -173,6 +173,8 @@ bitdefender-cli fleet incident-queue --sla 24h --agent
 - **`fleet rmm-gap`**  -  Joins an RMM device export to GravityZone inventory to list devices with no agent, discovered-but-unmanaged machines, and agents the RMM does not know.
 
   _Use it for the weekly 'is every RMM device protected' check. --devices takes your RMM's device export: a CSV with a hostname column (Hostname, Device Name, Computer Name and similar headers all match; a MAC column is optional) or a JSON array of device objects, such as another connector's --json output._
+
+  _Inventory scope: the fleet commands read getEndpointsList, which does not return endpoints that exist only under GravityZone's Active Directory integration (inventory_scope in every fleet result says so). Check a device rmm-gap lists as missing with `inventory list` before deploying an agent._
 
   ```bash
   bitdefender-cli fleet rmm-gap --devices ninja-devices.csv --agent
@@ -623,7 +625,7 @@ YARA scans on endpoints
 ### usage
 
 
-- **`bitdefender-cli usage billing`** - Per-company billable usage for a month with own share after the child rollup, month-over-month seat swings, and flags wherever a needed fetch failed.
+- **`bitdefender-cli usage billing`** - Per-company billable usage for a month with own share after the child rollup, month-over-month seat swings, each company's committed monthly minimum (flagged when it is above actual usage, since the minimum is what gets billed), and flags wherever a needed fetch failed.
 
 
 

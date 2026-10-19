@@ -57,6 +57,7 @@ type fleetHealthView struct {
 	ScannedCompanies int              `json:"scanned_companies"`
 	ScannedPages     int              `json:"scanned_pages"`
 	FetchFailures    []fetchFailure   `json:"fetch_failures"`
+	InventoryScope   string           `json:"inventory_scope"`
 	Note             string           `json:"note,omitempty"`
 }
 
@@ -76,6 +77,9 @@ Each run is saved as a dated local snapshot that 'fleet changes', 'fleet locate'
 outdated, infected) for the N managed endpoints with the oldest or missing scan.
 --fail-on unmanaged,outdated exits 1 when any company has one of those issues, and 6 (partial
 failure) when any fetch failed (an incomplete fleet is never certified clean).
+getEndpointsList does not return endpoints that exist only under the Active Directory
+integration (use getNetworkInventoryItems for those), so counts and --fail-on cover the
+Computers and Groups inventory; inventory_scope in the output says so.
 
 Use this command for a per-company rollup of current endpoint protection status (unmanaged,
 outdated, unscanned, policy not applied, isolated). Do NOT use this command to see what
@@ -238,7 +242,7 @@ func countFailed(results []fleetCompanyResult) int {
 // buildFleetHealth rolls endpoints up per company. Failed companies keep a row
 // with the error but are excluded from the totals.
 func buildFleetHealth(results []fleetCompanyResult, scanDays int, now time.Time) fleetHealthView {
-	view := fleetHealthView{TakenAt: now.Format(time.RFC3339), ScanDays: scanDays, Companies: make([]companyHealth, 0, len(results)), ScannedCompanies: len(results)}
+	view := fleetHealthView{TakenAt: now.Format(time.RFC3339), InventoryScope: gzInventoryScope, ScanDays: scanDays, Companies: make([]companyHealth, 0, len(results)), ScannedCompanies: len(results)}
 	cutoff := now.Add(-time.Duration(scanDays) * 24 * time.Hour)
 	view.Totals.Name = "TOTAL"
 	for _, r := range results {

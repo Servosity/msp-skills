@@ -365,7 +365,7 @@ func TestMCPSQLDomainTableMismatchIsActionable(t *testing.T) {
 		t.Fatalf("handleSQL domain-table mismatch IsError = %v, want true", result != nil && result.IsError)
 	}
 	text := mcpTextContent(t, result)
-	for _, want := range []string{"resources(resource_type, id, data)", "resource_type", "json_extract", missingTable} {
+	for _, want := range []string{"gz_fleet_runs", "gz_fleet_endpoints", "fleet_health", missingTable} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("domain-table mismatch error %q missing %q", text, want)
 		}

@@ -35,6 +35,7 @@ type billingRow struct {
 	Flags            []string       `json:"flags"`
 	ManagedEndpoints *int           `json:"managed_endpoints,omitempty"`
 	AgreementQty     *int           `json:"agreement_quantity,omitempty"`
+	MinimumUsage     map[string]int `json:"minimum_usage,omitempty"` // committed monthly minimum (getMonthlyUsagePerProductType minimumUsage), product type 0 rows only
 }
 
 type billingView struct {
@@ -63,7 +64,11 @@ children's, since child usage rolls up into the parent). Flags:
                     of endpointMonthlyUsage) add up to more than endpointMonthlyUsage
   negative_own_share:<c>  children report more than the parent: the rollup assumption failed
   seat_swing:<c>    counter c moved more than 50% AND more than 5 seats month over month
-  agreement_mismatch  --agreements quantity differs from the Endpoint Security seats
+  agreement_mismatch  --agreements quantity differs from the Endpoint Security seats billed
+                    (for a company without children, the larger of its usage and its
+                    committed minimum)
+  minimum_usage_applies  the company's committed monthly minimum (minimumUsage) is above
+                    its endpointMonthlyUsage, so the minimum is what gets billed
   prior_month_unavailable / own_share_unavailable / agreement_unchecked
                     a needed fetch failed, so that comparison is withheld (never read as zero)
 Managed endpoint counts come from the latest 'fleet health' snapshot when one exists.
@@ -116,14 +121,16 @@ protection status; use 'fleet health' instead.`,
 			}
 			curUsage := map[string]usageCounts{}
 			priorUsage := map[string]usageCounts{}
+			minimums := map[string]map[string]int{}
 			for _, co := range tree[:limit] {
-				u, err := fetchUsage(ctx, c, co.ID, cur)
+				u, minU, err := fetchUsage(ctx, c, co.ID, cur)
 				if err != nil {
 					view.FetchFailures = append(view.FetchFailures, fetchFailure{Scope: co.Name + " " + cur, Error: err.Error()})
 					continue
 				}
 				curUsage[co.ID] = u
-				if p, err := fetchUsage(ctx, c, co.ID, prior); err == nil {
+				minimums[co.ID] = minU
+				if p, _, err := fetchUsage(ctx, c, co.ID, prior); err == nil {
 					priorUsage[co.ID] = p
 				} else {
 					view.FetchFailures = append(view.FetchFailures, fetchFailure{Scope: co.Name + " " + prior, Error: err.Error()})
@@ -133,7 +140,7 @@ protection status; use 'fleet health' instead.`,
 			// Own share subtracts children; with an incomplete child list it would
 			// credit missing children's seats to the parent.
 			treeComplete := err == nil && len(failures) == 0 && limit == len(tree)
-			view.Rows = buildBillingRows(tree[:limit], curUsage, priorUsage, managed, agreed, treeComplete)
+			view.Rows = buildBillingRows(tree[:limit], curUsage, priorUsage, minimums, managed, agreed, treeComplete)
 			for _, r := range view.Rows {
 				if len(r.Flags) > 0 {
 					view.Flagged++
@@ -182,21 +189,36 @@ func billingMonths(month string, now time.Time) (string, string, error) {
 	return t.Format("01/2006"), t.AddDate(0, -1, 0).Format("01/2006"), nil
 }
 
-func fetchUsage(ctx context.Context, c *client.Client, companyID, month string) (usageCounts, error) {
+func fetchUsage(ctx context.Context, c *client.Client, companyID, month string) (usageCounts, map[string]int, error) {
 	raw, err := gzRead(ctx, c, gzPathUsageByProduct, map[string]any{"companyId": companyID, "targetMonth": month})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
+	return parseUsage(raw)
+}
+
+// parseUsage decodes getMonthlyUsagePerProductType: the per-product-type
+// usages plus minimumUsage, the monthly minimum the company committed to,
+// which is what gets billed when actual usage is lower.
+func parseUsage(raw json.RawMessage) (usageCounts, map[string]int, error) {
 	// The licensing docs return 0 (or null) for a company without a monthly
 	// licence: that is "no usage", not a failed fetch.
 	if t := strings.TrimSpace(string(raw)); t == "" || t == "null" || t == "0" {
-		return usageCounts{}, nil
+		return usageCounts{}, map[string]int{}, nil
 	}
 	var resp struct {
-		Usages []map[string]json.RawMessage `json:"usages"`
+		Usages       []map[string]json.RawMessage `json:"usages"`
+		MinimumUsage map[string]json.RawMessage   `json:"minimumUsage"`
 	}
 	if err := json.Unmarshal(raw, &resp); err != nil {
-		return nil, fmt.Errorf("unexpected getMonthlyUsagePerProductType response: %w", err)
+		return nil, nil, fmt.Errorf("unexpected getMonthlyUsagePerProductType response: %w", err)
+	}
+	minimum := map[string]int{}
+	for k, v := range resp.MinimumUsage {
+		var n float64
+		if json.Unmarshal(v, &n) == nil && n != 0 {
+			minimum[k] = int(n)
+		}
 	}
 	out := usageCounts{}
 	for _, u := range resp.Usages {
@@ -216,10 +238,10 @@ func fetchUsage(ctx context.Context, c *client.Client, companyID, month string) 
 		}
 		out[pt] = counts
 	}
-	return out, nil
+	return out, minimum, nil
 }
 
-func buildBillingRows(tree []gzCompany, cur, prior map[string]usageCounts, managed map[string]int, agreed map[string]int, treeComplete bool) []billingRow {
+func buildBillingRows(tree []gzCompany, cur, prior map[string]usageCounts, minimums map[string]map[string]int, managed map[string]int, agreed map[string]int, treeComplete bool) []billingRow {
 	children := map[string][]string{}
 	for _, co := range tree {
 		if co.ParentID != "" {
@@ -252,6 +274,10 @@ func buildBillingRows(tree []gzCompany, cur, prior map[string]usageCounts, manag
 		_, byName := agreed[strings.ToLower(co.Name)]
 		if byID || byName {
 			seenPT[0] = true // compare confirmed zero usage against the agreement
+		}
+		minEndpoints := minimums[co.ID]["endpointMonthlyUsage"]
+		if minEndpoints > 0 {
+			seenPT[0] = true // a committed minimum is billed even with zero usage
 		}
 		pts := make([]int, 0, len(seenPT))
 		for pt := range seenPT {
@@ -316,6 +342,14 @@ func buildBillingRows(tree []gzCompany, cur, prior map[string]usageCounts, manag
 			if n, ok := managed[co.ID]; ok {
 				r.ManagedEndpoints = &n
 			}
+			if pt == 0 {
+				if m := minimums[co.ID]; len(m) > 0 {
+					r.MinimumUsage = m
+				}
+				if minEndpoints > r.Usage["endpointMonthlyUsage"] {
+					r.Flags = append(r.Flags, fmt.Sprintf("minimum_usage_applies:%d_used_vs_%d_minimum", r.Usage["endpointMonthlyUsage"], minEndpoints))
+				}
+			}
 			if pt == 0 && agreed != nil {
 				q, ok := agreed[strings.ToLower(co.ID)]
 				if !ok {
@@ -326,6 +360,8 @@ func buildBillingRows(tree []gzCompany, cur, prior map[string]usageCounts, manag
 					billed := r.Usage["endpointMonthlyUsage"]
 					if r.OwnShare != nil {
 						billed = r.OwnShare["endpointMonthlyUsage"]
+					} else if minEndpoints > billed {
+						billed = minEndpoints // the commitment is billed when usage is lower
 					}
 					switch {
 					case hasChildren && r.OwnShare == nil:

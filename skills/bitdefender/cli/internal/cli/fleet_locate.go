@@ -19,6 +19,7 @@ type fleetFindView struct {
 	TakenAt          string         `json:"taken_at,omitempty"`
 	ScannedCompanies int            `json:"scanned_companies"`
 	FetchFailures    []fetchFailure `json:"fetch_failures"`
+	InventoryScope   string         `json:"inventory_scope"`
 	Note             string         `json:"note,omitempty"`
 }
 
@@ -65,7 +66,7 @@ use 'fleet health' instead.`,
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
 			flags.agentSource = inventoryAgentSource(inv)
-			view := fleetFindView{Query: q, Matches: make([]snapEndpoint, 0), Source: inv.Source, TakenAt: inv.TakenAt, ScannedCompanies: inv.Companies, FetchFailures: make([]fetchFailure, 0)}
+			view := fleetFindView{InventoryScope: gzInventoryScope, Query: q, Matches: make([]snapEndpoint, 0), Source: inv.Source, TakenAt: inv.TakenAt, ScannedCompanies: inv.Companies, FetchFailures: make([]fetchFailure, 0)}
 			view.FetchFailures = append(view.FetchFailures, inv.Failures...)
 			for _, e := range inv.Endpoints {
 				if endpointMatches(e, q) {

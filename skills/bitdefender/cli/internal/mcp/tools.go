@@ -902,7 +902,7 @@ func mcpSQLEnvelope(rows []map[string]any, columns []string, storeStatus mcpStor
 		if storeStatus == mcpStoreStatusEmpty {
 			out["next_step"] = mcpEmptyStoreNextStep()
 		} else {
-			out["next_step"] = "The read-only SQL query returned no rows. Check resource_type filters, json_extract paths."
+			out["next_step"] = "The read-only SQL query returned no rows. Local data lives only in the fleet snapshot tables (gz_fleet_runs, gz_fleet_companies, gz_fleet_endpoints); filter by run_id = (SELECT max(run_id) FROM gz_fleet_runs) for the latest snapshot."
 		}
 	}
 	return out
@@ -917,7 +917,7 @@ func mcpSQLQueryError(queryCtx context.Context, err error) string {
 	}
 	msg := err.Error()
 	if strings.Contains(strings.ToLower(msg), "no such table") {
-		return fmt.Sprintf("query failed: %v. Synced records live in resources(resource_type, id, data), not one SQL table per resource. Filter by resource_type, for example resource_type='accounts', and read JSON fields with json_extract(data,'$.field').", err)
+		return fmt.Sprintf("query failed: %v. There is no sync, so the generic resource tables stay empty: local data lives in the fleet snapshot tables gz_fleet_runs, gz_fleet_companies and gz_fleet_endpoints that fleet_health writes (see the sql tool's query description for their columns).", err)
 	}
 	return fmt.Sprintf("query failed: %v", err)
 }
