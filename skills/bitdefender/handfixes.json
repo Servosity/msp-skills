@@ -655,6 +655,44 @@
           "file": "cli/internal/cli/helpers.go",
           "contains": "fmt.Fprintln(w, cliutil.ScrubTerminal(fmt.Sprint(v)))",
           "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "fmt.Fprintln(w, cliutil.ScrubTerminal(trimmed))",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "output-escapes-c1-controls",
+      "summary": "stdout and stderr are wrapped in c1EscapeWriter, which rewrites UTF-8 C1 controls (U+0080-U+009F) as \\u00XX; isTerminal unwraps it",
+      "why": "encoding/json escapes C0 controls but writes C1 raw, and xterm/VTE act on UTF-8 C1 (CSI, OSC, ST), so a tenant endpoint name or a quarantined file path in --json, --agent or the default pretty-JSON output could drive the terminal (adversarial review round 7, 2026-10-19, P1). The escape keeps JSON valid and lossless. c1_escape.go is hand-written; root.go wires it in Execute and in the --deliver multiwriter, and helpers.go isTerminal unwraps it so TTY detection is unchanged.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "rootCmd.SetOut(&c1EscapeWriter{w: os.Stdout})",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "rootCmd.SetErr(&c1EscapeWriter{w: os.Stderr})",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "cmd.SetOut(io.MultiWriter(&c1EscapeWriter{w: os.Stdout}, flags.deliverBuf))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "if u, ok := w.(interface{ Unwrap() io.Writer }); ok {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/c1_escape.go",
+          "contains": "func (c *c1EscapeWriter) Write(p []byte) (int, error) {",
+          "code_only": true
         }
       ]
     }

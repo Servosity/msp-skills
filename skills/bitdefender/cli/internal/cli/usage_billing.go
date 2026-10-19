@@ -35,7 +35,7 @@ type billingRow struct {
 	Flags            []string       `json:"flags"`
 	ManagedEndpoints *int           `json:"managed_endpoints,omitempty"`
 	AgreementQty     *int           `json:"agreement_quantity,omitempty"`
-	MinimumUsage     map[string]int `json:"minimum_usage,omitempty"` // committed monthly minimum (getMonthlyUsagePerProductType minimumUsage), product type 0 rows only
+	MinimumUsage     map[string]int `json:"minimum_usage,omitempty"` // committed monthly minimum (getMonthlyUsagePerProductType minimumUsage), on the main-license row only
 }
 
 type billingView struct {
@@ -64,11 +64,13 @@ children's, since child usage rolls up into the parent). Flags:
                     of endpointMonthlyUsage) add up to more than endpointMonthlyUsage
   negative_own_share:<c>  children report more than the parent: the rollup assumption failed
   seat_swing:<c>    counter c moved more than 50% AND more than 5 seats month over month
-  agreement_mismatch  --agreements quantity differs from the Endpoint Security seats billed
+  agreement_mismatch  --agreements quantity differs from the main license's seats billed
                     (for a company without children, the larger of its usage and its
-                    committed minimum)
+                    committed minimum; a partner is checked on its own share)
   minimum_usage_applies  the company's committed monthly minimum (minimumUsage) is above
                     its endpointMonthlyUsage, so the minimum is what gets billed
+The main license is Endpoint Security (product type 0) when the company has usage there,
+otherwise its lowest product type; minimum_usage and both checks sit on that row.
   prior_month_unavailable / own_share_unavailable / agreement_unchecked
                     a needed fetch failed, so that comparison is withheld (never read as zero)
 Managed endpoint counts come from the latest 'fleet health' snapshot when one exists.
@@ -270,14 +272,27 @@ func buildBillingRows(tree []gzCompany, cur, prior map[string]usageCounts, minim
 		for pt := range p {
 			seenPT[pt] = true // a product that disappeared this month still gets a row
 		}
+		// The minimum and the agreement apply to the company's main license:
+		// Endpoint Security (product type 0) when it has usage there, otherwise
+		// its lowest product type (Bitdefender's own minimumUsage example is a
+		// PHASR-only company, product type 5).
+		mainPT := 0
+		if _, hasES := u[0]; !hasES && len(u) > 0 {
+			mainPT = -1
+			for pt := range u {
+				if mainPT < 0 || pt < mainPT {
+					mainPT = pt
+				}
+			}
+		}
 		_, byID := agreed[strings.ToLower(co.ID)]
 		_, byName := agreed[strings.ToLower(co.Name)]
 		if byID || byName {
-			seenPT[0] = true // compare confirmed zero usage against the agreement
+			seenPT[mainPT] = true // compare confirmed zero usage against the agreement
 		}
 		minEndpoints := minimums[co.ID]["endpointMonthlyUsage"]
 		if minEndpoints > 0 {
-			seenPT[0] = true // a committed minimum is billed even with zero usage
+			seenPT[mainPT] = true // a committed minimum is billed even with zero usage
 		}
 		pts := make([]int, 0, len(seenPT))
 		for pt := range seenPT {
@@ -342,7 +357,7 @@ func buildBillingRows(tree []gzCompany, cur, prior map[string]usageCounts, minim
 			if n, ok := managed[co.ID]; ok {
 				r.ManagedEndpoints = &n
 			}
-			if pt == 0 {
+			if pt == mainPT {
 				if m := minimums[co.ID]; len(m) > 0 {
 					r.MinimumUsage = m
 				}
@@ -350,7 +365,7 @@ func buildBillingRows(tree []gzCompany, cur, prior map[string]usageCounts, minim
 					r.Flags = append(r.Flags, fmt.Sprintf("minimum_usage_applies:%d_used_vs_%d_minimum", r.Usage["endpointMonthlyUsage"], minEndpoints))
 				}
 			}
-			if pt == 0 && agreed != nil {
+			if pt == mainPT && agreed != nil {
 				q, ok := agreed[strings.ToLower(co.ID)]
 				if !ok {
 					q, ok = agreed[strings.ToLower(co.Name)]

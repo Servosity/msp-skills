@@ -1367,6 +1367,17 @@ func TestBillingAppliesMinimumUsage(t *testing.T) {
 	if strings.Contains(flags, "agreement_mismatch") {
 		t.Fatalf("flags = %q: an agreement equal to the billed minimum is not a mismatch", flags)
 	}
+	// The vendor example: a PHASR-only company (product type 5). The minimum
+	// and the agreement belong on that row; no Endpoint Security row is made.
+	phasr := map[string]usageCounts{"c1": {5: {"endpointMonthlyUsage": 10}}}
+	rows = buildBillingRows(tree, phasr, phasr, map[string]map[string]int{"c1": {"endpointMonthlyUsage": 120}}, nil, map[string]int{"acme corp": 120}, true)
+	if len(rows) != 1 || rows[0].ProductType != 5 || rows[0].MinimumUsage["endpointMonthlyUsage"] != 120 {
+		t.Fatalf("PHASR-only rows = %+v, want one product type 5 row carrying the minimum", rows)
+	}
+	flags = strings.Join(rows[0].Flags, " ")
+	if !strings.Contains(flags, "minimum_usage_applies:10_used_vs_120_minimum") || strings.Contains(flags, "agreement_mismatch") {
+		t.Fatalf("PHASR-only flags = %q, want minimum_usage_applies and no mismatch", flags)
+	}
 }
 
 // --csv, --plain and --quiet print tenant strings (company and endpoint
@@ -1420,5 +1431,13 @@ func TestInputFilesAcceptUTF16(t *testing.T) {
 	}
 	if string(decodeUTF16BOM([]byte("plain"))) != "plain" {
 		t.Fatal("a UTF-8 file must pass through unchanged")
+	}
+	// PowerShell 5.1 ConvertTo-Csv > file: UTF-16LE plus a #TYPE first line.
+	ps := filepath.Join(dir, "ps51.csv")
+	if err := os.WriteFile(ps, utf16le("#TYPE System.Management.Automation.PSCustomObject\r\n\"Hostname\",\"MAC\"\r\n\"PC3\",\"\"\r\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := readRMMDevices(ps); err != nil || len(got) != 1 {
+		t.Fatalf("readRMMDevices(PS 5.1 export) = %+v, %v; want one device", got, err)
 	}
 }

@@ -29,6 +29,7 @@ type fleetChangesView struct {
 	SkippedCompanies []string       `json:"skipped_companies"`
 	Changes          []fleetChange  `json:"changes"`
 	Summary          map[string]int `json:"summary"`
+	InventoryScope   string         `json:"inventory_scope"`
 	Note             string         `json:"note,omitempty"`
 }
 
@@ -58,7 +59,7 @@ current status; use 'fleet health' instead.`,
 			if err != nil {
 				return fleetUsageErr(cmd, flags, err)
 			}
-			view := fleetChangesView{Changes: make([]fleetChange, 0), Summary: map[string]int{}, SkippedCompanies: make([]string, 0)}
+			view := fleetChangesView{InventoryScope: gzInventoryScope, Changes: make([]fleetChange, 0), Summary: map[string]int{}, SkippedCompanies: make([]string, 0)}
 			if _, statErr := os.Stat(defaultDBPath("bitdefender-cli")); os.IsNotExist(statErr) {
 				view.Note = "no fleet snapshots yet; run 'bitdefender-cli fleet health' twice"
 				return emitChanges(cmd, flags, view)

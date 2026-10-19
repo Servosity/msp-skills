@@ -109,7 +109,7 @@ Do not use this CLI for:
 
   _Use it for the weekly 'is every RMM device protected' check. --devices takes your RMM's device export: a CSV with a hostname column (Hostname, Device Name, Computer Name and similar headers all match; a MAC column is optional) or a JSON array of device objects, such as another connector's --json output._
 
-  _Inventory scope: the fleet commands read getEndpointsList, which does not return endpoints that exist only under GravityZone's Active Directory integration (inventory_scope in every fleet result says so). Check a device rmm-gap lists as missing with `inventory list` before deploying an agent._
+  _Inventory scope: the fleet commands read getEndpointsList, which does not return endpoints that exist only under GravityZone's Active Directory integration (inventory_scope in the fleet health, locate, rmm-gap and changes results says so). Check a device rmm-gap lists as missing with `inventory list` before deploying an agent._
 
   ```bash
   bitdefender-cli fleet rmm-gap --devices ninja-devices.csv --agent

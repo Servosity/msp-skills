@@ -34,7 +34,9 @@ address matches exactly, and a MAC address matches in any notation. By default i
 latest 'fleet health' snapshot and falls back to a live fan-out over every company when
 none exists; --data-source live always fans out live (and saves the result as a snapshot);
 --data-source local reads the snapshot only. Matching is always done locally so names,
-FQDNs, labels, IPs and MACs in any notation are all searched.
+FQDNs, labels, IPs and MACs in any notation are all searched. The inventory is
+getEndpointsList's, so a machine that exists only under the Active Directory integration is
+not found here; try 'inventory list' (getNetworkInventoryItems).
 
 Use this command to locate a machine by hostname, IP, MAC or label across every child company
 and get its endpoint id and company. Do NOT use this command for per-company status counts;

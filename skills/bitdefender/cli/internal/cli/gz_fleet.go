@@ -771,7 +771,21 @@ func readBoundedFile(flag, path string) ([]byte, error) {
 	if len(b) > maxInputFileBytes {
 		return nil, fmt.Errorf("%s: %s is larger than %d MiB", flag, path, maxInputFileBytes>>20)
 	}
-	return decodeUTF16BOM(b), nil
+	return stripPSTypeLine(decodeUTF16BOM(b)), nil
+}
+
+// stripPSTypeLine drops the "#TYPE System.Management..." first line that
+// Windows PowerShell 5.1's Export-Csv and ConvertTo-Csv write unless
+// -NoTypeInformation is passed; the CSV header is the line after it.
+func stripPSTypeLine(b []byte) []byte {
+	rest := bytes.TrimPrefix(b, []byte("\xef\xbb\xbf"))
+	if !bytes.HasPrefix(rest, []byte("#TYPE ")) {
+		return b
+	}
+	if i := bytes.IndexByte(rest, '\n'); i >= 0 {
+		return rest[i+1:]
+	}
+	return nil
 }
 
 // decodeUTF16BOM converts a UTF-16 file (Windows PowerShell 5.1 writes `>`

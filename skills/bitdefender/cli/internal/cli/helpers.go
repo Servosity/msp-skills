@@ -102,6 +102,9 @@ func colorEnabled() bool {
 }
 
 func isTerminal(w io.Writer) bool {
+	if u, ok := w.(interface{ Unwrap() io.Writer }); ok {
+		w = u.Unwrap() // c1EscapeWriter around stdout/stderr
+	}
 	if f, ok := w.(*os.File); ok {
 		fi, err := f.Stat()
 		if err != nil {

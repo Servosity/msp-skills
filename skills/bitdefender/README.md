@@ -224,7 +224,7 @@ It diffs saved snapshots, and each `fleet health` run saves one (unless you pass
 
 ### Does it see endpoints from GravityZone's Active Directory integration?
 
-Not in the fleet commands. They read `getEndpointsList`, which returns the Computers and Groups inventory; Bitdefender documents that endpoints living only under the Active Directory integration come from `getNetworkInventoryItems` instead. So `fleet health` counts, `--fail-on` and `fleet rmm-gap` cover Computers and Groups, and every fleet result carries an `inventory_scope` field that says so. Before deploying an agent to a device `rmm-gap` lists as missing, check it with `inventory list` (a Credential-tier read, because its company rows carry license keys).
+Not in the fleet commands. They read `getEndpointsList`, which returns the Computers and Groups inventory; Bitdefender documents that endpoints living only under the Active Directory integration come from `getNetworkInventoryItems` instead. So `fleet health` counts, `--fail-on` and `fleet rmm-gap` cover Computers and Groups, and the `fleet health`, `fleet locate`, `fleet rmm-gap` and `fleet changes` results carry an `inventory_scope` field that says so. Before deploying an agent to a device `rmm-gap` lists as missing, check it with `inventory list` (a Credential-tier read, because its company rows carry license keys).
 
 ### Does it work with on-premises GravityZone?
 
