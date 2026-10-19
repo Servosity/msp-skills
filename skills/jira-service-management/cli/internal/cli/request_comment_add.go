@@ -234,7 +234,7 @@ func newRequestCommentAddCmd(flags *rootFlags) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&bodyBody, "body", "", "Content of the comment.")
-	cmd.Flags().BoolVar(&bodyPublic, "public", false, "Indicates whether the comment is public (true) or private/internal (false).")
+	cmd.Flags().BoolVar(&bodyPublic, "public", false, "true posts a customer-visible reply, false an internal note. Omitted, no public field is sent and JSM applies its own default, which can make the comment customer-visible; for an internal note use request note or pass --public=false.") // pp:handfix jsm-comment-public-help
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")
 
 	return cmd

@@ -41,7 +41,7 @@ only its own requests.
 - **MCP read-only switch.** With `JIRA_SERVICE_MANAGEMENT_MCP_READ_ONLY=1` in the MCP server's
   environment, the server drops `request_note`, `sync`, `export`, `workflow_archive`,
   `learnings_forget`, `learnings_reject` and `cmdb_reconcile` (which reads a local file); its
-  generic `execute` tool refuses any non-GET API call, and `cmdb_discover` refuses `--save`. The
+  generic `jira-service-management_execute` tool refuses any non-GET API call, and `cmdb_discover` refuses `--save`. The
   local learning tools (`teach`, `teach_*`, `playbook_amend`, `learnings_confirm`, `recall`) stay:
   they write only to the CLI's own local store (`recall` logs each lookup there), never to your site. It does not change what the CLI
   itself can do.

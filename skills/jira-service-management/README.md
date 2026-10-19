@@ -27,7 +27,7 @@ The six agents MSP owners actually use (self-serve, works today):
 | **Claude Cowork** | Paste the install prompt below. |
 | **GitHub Copilot** (VS Code) | Run installer, add `jira-service-management-mcp` to `mcp.json` under the `servers` key, then pick **Agent** mode. |
 
-For ChatGPT, run `jira-service-management-mcp --transport http` and expose that behind HTTPS - no bridge package is needed. See [mcp-install.md](./mcp-install.md).
+For ChatGPT, set `JIRA_SERVICE_MANAGEMENT_MCP_HTTP_TOKEN` to a bearer token, run `jira-service-management-mcp --transport http` and expose that behind HTTPS - no bridge package is needed. See [mcp-install.md](./mcp-install.md).
 
 ### Also for the Microsoft and Google stacks
 
@@ -246,7 +246,7 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 | Customers and organizations | `customer create`, `servicedesk customer add` / `invite` / `remove`, `organization create`, `organization user add` / `remove`, `customer revoke-portal-only-access-for-user` | Human-approved: these change who can raise tickets for a client |
 | Destructive / config | `organization delete`, `object delete`, `objectschema delete`, `objecttype delete`, `servicedesk requesttype delete`, `importsource token generate`, `api-import` | Human-in-the-loop only |
 
-Writes send immediately: `--dry-run` is an opt-in preview, not a default. Set `JIRA_SERVICE_MANAGEMENT_MCP_READ_ONLY=1` in the MCP server's environment and it drops `request_note`, `sync`, `export`, `workflow_archive`, `learnings_forget`, `learnings_reject` and `cmdb_reconcile` (which reads a local file); its generic `execute` tool refuses any non-GET API call, and `cmdb_discover` refuses `--save`. The local learning tools (`teach`, `teach_*`, `playbook_amend`, `learnings_confirm`, `recall`) stay: they write only to the CLI's own local store (`recall` logs each lookup there), never to your site.
+Writes send immediately: `--dry-run` is an opt-in preview, not a default. Set `JIRA_SERVICE_MANAGEMENT_MCP_READ_ONLY=1` in the MCP server's environment and it drops `request_note`, `sync`, `export`, `workflow_archive`, `learnings_forget`, `learnings_reject` and `cmdb_reconcile` (which reads a local file); its generic `jira-service-management_execute` tool refuses any non-GET API call, and `cmdb_discover` refuses `--save`. The local learning tools (`teach`, `teach_*`, `playbook_amend`, `learnings_confirm`, `recall`) stay: they write only to the CLI's own local store (`recall` logs each lookup there), never to your site.
 
 The strongest control is the **Atlassian account behind the API token** - the CLI can only do what that account is permitted to do, so create the token as an agent with the access you want the AI to have. Full details, including how to lock it down, are in [governance.md](./governance.md).
 
