@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"proxmox-pp-cli/internal/cliutil"
 )
 
 func storePathFor(cluster string) string {
@@ -120,5 +122,103 @@ func TestConfigErrorKeepsClusterStoresApart(t *testing.T) {
 	}
 	if acme != storePathFor("acme") {
 		t.Fatalf("a config error changed acme's store: %q vs %q", acme, storePathFor("acme"))
+	}
+}
+
+// hand-fix (cluster-store-no-fallback): with a cluster selected, a legacy
+// data.db whose ownership is unproven (empty marker) never becomes the store.
+func TestClusterStoreIgnoresLegacyUnscopedDB(t *testing.T) {
+	f := newFixture(t)
+	defer func() { selectedCluster = ""; configureDefaultDBScope("") }()
+	writeClustersFile(t, acmeClusters(f, f.pbs.URL, ""))
+	dir, err := cliutil.DataDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	unscoped := filepath.Join(dir, "data.db")
+	for _, p := range []string{unscoped, unscoped + ".owner"} {
+		if err := os.WriteFile(p, nil, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	acme, beta := storePathFor("acme"), storePathFor("beta")
+	if acme == unscoped || beta == unscoped || acme == beta {
+		t.Fatalf("a selected cluster fell back to the shared store: acme=%q beta=%q unscoped=%q", acme, beta, unscoped)
+	}
+}
+
+// hand-fix (cluster-store-no-fallback): help and parse-failure paths never
+// run pre-run, so the path must follow the selected cluster on its own.
+func TestClusterStoreWithoutPreRun(t *testing.T) {
+	f := newFixture(t)
+	defer func() { selectedCluster = ""; configureDefaultDBScope("") }()
+	writeClustersFile(t, acmeClusters(f, f.pbs.URL, ""))
+	want := storePathFor("acme")
+	selectedCluster = ""
+	configureDefaultDBScope("") // pre-run state of a process that never scoped
+	selectedCluster = "acme"    // what flag parsing sets before --help returns
+	if got := learnDBPath(""); got != want {
+		t.Fatalf("learn store without pre-run = %q, want acme's %q", got, want)
+	}
+}
+
+// hand-fix (cluster-store-no-fallback): --db names a file any cluster could
+// share, so a selected cluster refuses it, including from a saved profile.
+func TestDBFlagRefusedWithCluster(t *testing.T) {
+	f := newFixture(t)
+	defer func() { selectedCluster = ""; configureDefaultDBScope("") }()
+	writeClustersFile(t, acmeClusters(f, f.pbs.URL, ""))
+	shared := filepath.Join(t.TempDir(), "shared.db")
+	_, _, err := runCLI(t, "--cluster", "acme", "learnings", "stats", "--db", shared)
+	if err == nil || !strings.Contains(err.Error(), "--db cannot be combined") {
+		t.Fatalf("--cluster with --db: err=%v", err)
+	}
+	selectedCluster = ""
+	if err := saveProfileStore(&profileStore{Profiles: map[string]Profile{
+		"shared": {Name: "shared", Values: map[string]string{"cluster": "acme", "db": shared}},
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	_, _, err = runCLI(t, "--profile", "shared", "learnings", "stats")
+	if err == nil || !strings.Contains(err.Error(), "--db cannot be combined") {
+		t.Fatalf("profile cluster+db: err=%v", err)
+	}
+	selectedCluster = ""
+	if _, stderr, err := runCLI(t, "learnings", "stats", "--db", shared); err != nil {
+		t.Fatalf("--db without a cluster must still work: %v\n%s", err, stderr)
+	}
+}
+
+func TestArgsMentionCluster(t *testing.T) {
+	for args, want := range map[string]bool{
+		"clusters list --jso --cluster=acme": true,
+		"--jso --cluster acme":               true,
+		"clusters list --json":               false,
+		"teach -- --cluster x":               false,
+	} {
+		if got := argsMentionCluster(strings.Fields(args)); got != want {
+			t.Errorf("argsMentionCluster(%q) = %v, want %v", args, got, want)
+		}
+	}
+}
+
+// hand-fix (cluster-store-no-fallback): with no resolvable home, a selected
+// cluster still gets its own file, never the bare shared data.db.
+func TestClusterStoreWithoutHome(t *testing.T) {
+	f := newFixture(t)
+	defer func() { selectedCluster = ""; configureDefaultDBScope("") }()
+	writeClustersFile(t, acmeClusters(f, f.pbs.URL, ""))
+	for _, k := range []string{"HOME", "XDG_DATA_HOME", "PROXMOX_DATA_DIR", "PROXMOX_HOME"} {
+		t.Setenv(k, "")
+	}
+	if _, err := cliutil.DataDir(); err == nil {
+		t.Skip("data dir still resolves without HOME on this platform")
+	}
+	acme, beta := storePathFor("acme"), storePathFor("beta")
+	if acme == "data.db" || beta == "data.db" || acme == beta {
+		t.Fatalf("no-home fallback shared a store: acme=%q beta=%q", acme, beta)
 	}
 }

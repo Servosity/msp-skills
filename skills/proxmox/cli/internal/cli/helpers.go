@@ -4497,12 +4497,22 @@ func defaultDBPath(name string) string {
 		if home, homeErr := os.UserHomeDir(); homeErr == nil {
 			return defaultDBPathInDir(filepath.Join(home, ".local", "share", name))
 		}
+		if clusterStoreScope() != "" { // proxmox hand-fix (cluster-store-no-fallback)
+			return defaultDBPathInDir(".")
+		}
 		return "data.db"
 	}
 	return defaultDBPathInDir(dir)
 }
 
 func defaultDBPathInDir(dir string) string {
+	// proxmox hand-fix (cluster-store-no-fallback): a selected cluster always
+	// gets its own file. Legacy data.db adoption and ownership markers predate
+	// clusters and never apply, and the scope is computed here because help
+	// and parse-failure paths never run pre-run.
+	if scope := clusterStoreScope(); scope != "" {
+		return filepath.Join(dir, "data-"+hashDefaultDBScope(scope)+".db")
+	}
 	unscoped := filepath.Join(dir, "data.db")
 	scopeHash, legacyHash, label := currentDefaultDBScope()
 	if scopeHash != "" {
