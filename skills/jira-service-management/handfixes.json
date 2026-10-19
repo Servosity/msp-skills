@@ -740,7 +740,7 @@
     {
       "id": "jsm-mcp-context-paging",
       "summary": "the MCP context tool's query tips name JSM's real paging parameters (start/limit on request-API lists, startAt/maxResults on Assets AQL search), which the execute tool sends as given, instead of claiming cursor paging with a default of 100",
-      "why": "The generated tips told agents pagination was cursor-based with a default page of 100. Round 5's fix said offset is sent as start/startAt, which adversarial round 6 (2026-10-19) proved false: execute translates offset only on the two knowledgebase article lists and sends every other name as given, so request.list with offset returned page 1 forever. Verified by driving MCP execute against a stub: start=50 and startAt=25 reach the wire; offset reaches it untranslated except on knowledgebase. Round 7: the roster rationale and insight in the same context output still said the customers endpoint has an always-true isLastPage (JSDCLOUD-8279, fixed by Atlassian), contradicting the tip; both now describe the empty-or-short-page stop the connector uses. Round 9 (Codex P1, adversarial P2): 'stop on a page shorter than limit' ends an agent's walk on page 1 when it sends a limit above the server's page cap, because execute forwards limit as given; the tip now says stop only on an empty page.",
+      "why": "The generated tips told agents pagination was cursor-based with a default page of 100. Round 5's fix said offset is sent as start/startAt, which adversarial round 6 (2026-10-19) proved false: execute translates offset only on the two knowledgebase article lists and sends every other name as given, so request.list with offset returned page 1 forever. Verified by driving MCP execute against a stub: start=50 and startAt=25 reach the wire; offset reaches it untranslated except on knowledgebase. Round 7: the roster rationale and insight in the same context output still said the customers endpoint has an always-true isLastPage (JSDCLOUD-8279, fixed by Atlassian), contradicting the tip; both now describe the empty-or-short-page stop the connector uses. Round 9 (Codex P1, adversarial P2): 'stop on a page shorter than limit' ends an agent's walk on page 1 when it sends a limit above the server's page cap, because execute forwards limit as given; the tip now says stop only on an empty page. Round 10 (adversarial P2s): an MCP output-trimmed page can come back with no values and _pp_truncated set, so the tip now says to retry that start with a smaller limit instead of stopping; the bounded-list note in internal/mcp/bound/bound.go no longer suggests offset (ignored on request lists); the roster rationale names the page size it compares against.",
       "status": "active",
       "asserts": [
         {
@@ -758,7 +758,7 @@
         },
         {
           "file": "cli/internal/mcp/tools.go",
-          "contains": "\"On request-API lists, raise start by the number of values returned and stop only when a page comes back empty: JSM can return fewer rows than the limit you sent on a page that is not the last.\"",
+          "contains": "\"On request-API lists, raise start by the number of values returned and stop only when a page comes back empty without _pp_truncated: JSM can return fewer rows than the limit you sent on a page that is not the last. If a page is _pp_truncated, ask again at the same start with a smaller limit.\"",
           "code_only": true
         },
         {
@@ -768,6 +768,37 @@
         {
           "file": "cli/internal/mcp/tools.go",
           "not_contains": "until a page comes back empty or shorter than limit"
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "not_contains": "stopping on an empty or short page rather than trusting isLastPage"
+        },
+        {
+          "file": "cli/internal/mcp/bound/bound.go",
+          "contains": "Narrow the request with a smaller limit (page with start, or startAt on Assets)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/bound/bound.go",
+          "not_contains": "Narrow the request with limit, offset, filters"
+        }
+      ]
+    },
+    {
+      "id": "jsm-export-pagination-wire-names",
+      "summary": "export (CLI and the MCP export tool) and tail page with JSM's wire keys (start, Assets startAt) and the 50-row JSM page cap, through one hook in resourceReadConfigFor",
+      "why": "export and tail read their own generic page table (resourceReadConfigs: offset, limit 100) that jsm-pagination-wire-names never touched. JSM ignores offset, so with its 50-row cap export stopped after one 'short' page and exited 0 with 50 of 120 requests, and with a cap of 100 or more it re-fetched page one until the 100000-page guard, writing duplicates (Codex round 10 P1 and adversarial round 9 P1, 2026-10-19, both reproduced against a stub). Receipt after the fix: export request, servicedesk, organization and requesttype each wrote 120 of 120 with start=0/50/100 and limit=50, and 250 of 250 against a 100-row cap. TestResourceReadConfigWireNames fails with the hook removed.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/resource_paths.go",
+          "contains": "config.cursorParam = jsmWireParam(path, config.cursorParam)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/resource_paths.go",
+          "contains": "config.pageSize = jsmPageCap(path, config.pageSize)",
+          "code_only": true
         }
       ]
     }

@@ -254,3 +254,18 @@ func TestNoteKeyOK(t *testing.T) {
 		}
 	}
 }
+
+// export and tail page with JSM's wire keys and its 50-row cap.
+func TestResourceReadConfigWireNames(t *testing.T) {
+	req := resourceReadConfigFor("request")
+	if req.cursorParam != "start" || req.limitParam != "limit" || req.pageSize != 50 {
+		t.Fatalf("request read config = %+v, want start/limit/50", req)
+	}
+	if got := resourcePageParams(req, "", 2, 0); got["start"] != "100" || got["limit"] != "50" {
+		t.Fatalf("page 3 params = %v, want start=100 limit=50", got)
+	}
+	schema := resourceReadConfigFor("objectschema")
+	if schema.cursorParam != "startAt" || schema.limitParam != "maxResults" {
+		t.Fatalf("objectschema read config = %+v, want startAt/maxResults", schema)
+	}
+}
