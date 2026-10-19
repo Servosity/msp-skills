@@ -279,6 +279,13 @@
     "current_hash": "sha256:e0fa5a6db8a89060d2786d1484dc2f2b37dc131858e67cf6726a7fb5ff872602",
     "released_hash": "sha256:e0fa5a6db8a89060d2786d1484dc2f2b37dc131858e67cf6726a7fb5ff872602"
   },
+  "jira-service-management": {
+    "state": "never-released",
+    "version": "0.1.0",
+    "latest_tag": null,
+    "current_hash": "sha256:390564ee6691dc4b29d4ee62ea05f798eed8df30e0272cd05d03a6411d777729",
+    "released_hash": null
+  },
   "kaseya-bms": {
     "state": "up-to-date",
     "version": "0.1.4",
