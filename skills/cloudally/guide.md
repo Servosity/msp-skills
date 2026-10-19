@@ -111,7 +111,7 @@ cloudally-cli doctor
 cloudally-cli tasks list --source MS365 --agent
 
 # See every mailbox in that task and its backup status
-cloudally-cli tasks get 64b0e9 --agent --select entities.entity,entities.status
+cloudally-cli tasks get 64b0e9 --agent --select entity,status
 
 # Preview which backup each mailbox would be restored from
 cloudally-cli restore plan --task 64b0e9 --date 2026-10-01

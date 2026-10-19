@@ -455,8 +455,9 @@ Nothing is created without --yes.
   cloudally-cli download submit --batch 20261015-201500-ab12 --resume --yes
 `, "\n"),
 		Annotations: map[string]string{
-			"pp:data-source": "live",
-			"pp:happy-args":  "--account=5f1c2a;--task=64b0e9;--on-date=2022-12-31;--dry-run",
+			"mcp:write-flags": "plan-out entities-file",
+			"pp:data-source":  "live",
+			"pp:happy-args":   "--account=5f1c2a;--task=64b0e9;--on-date=2022-12-31;--dry-run",
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !hasChangedLocalFlags(cmd) && len(args) == 0 {

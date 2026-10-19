@@ -233,7 +233,7 @@ the command says so rather than implying the link is durable.
   cloudally-cli download link --account 5f1c2a --job 9f2b1c --files
   cloudally-cli download link --account 5f1c2a --job 9f2b1c --json
 `, "\n"),
-		Annotations: map[string]string{"mcp:read-only": "true", "pp:data-source": "live"},
+		Annotations: map[string]string{"pp:data-source": "live"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !hasChangedLocalFlags(cmd) && len(args) == 0 {
 				return cmd.Help()

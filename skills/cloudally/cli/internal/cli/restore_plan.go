@@ -420,9 +420,10 @@ entities stay listed with their own status.
   cloudally-cli restore plan --account 5f1c2a --task 64b0e9 --date 2025-12-31
 `, "\n"),
 		Annotations: map[string]string{
-			"mcp:read-only":  "true",
-			"pp:data-source": "live",
-			"pp:happy-args":  "--task=64b0e9;--date=2026-10-01",
+			"mcp:read-only":   "true",
+			"mcp:write-flags": "plan-out entities-file",
+			"pp:data-source":  "live",
+			"pp:happy-args":   "--task=64b0e9;--date=2026-10-01",
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !hasChangedLocalFlags(cmd) && len(args) == 0 {

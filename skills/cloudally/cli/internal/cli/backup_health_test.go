@@ -7,6 +7,7 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -202,21 +203,24 @@ func TestHealthFilterAndGrouping(t *testing.T) {
 	}
 }
 
-func TestBackupHealthUnsyncedHintNoCrash(t *testing.T) {
+// An unsynced store must fail, not print [] that an agent reads as "all healthy".
+func TestBackupHealthUnsyncedIsAnError(t *testing.T) {
 	testenv.Isolate(t)
 	cmd := RootCmd()
 	cmd.SetArgs([]string{"backup", "health", "--stale-days", "2", "--json"})
 	var out, errOut bytes.Buffer
 	cmd.SetOut(&out)
 	cmd.SetErr(&errOut)
-	if err := cmd.Execute(); err != nil {
-		t.Fatalf("unsynced run error = %v", err)
+	err := cmd.Execute()
+	var ce *cliError
+	if !errors.As(err, &ce) || ce.code != 3 {
+		t.Fatalf("unsynced run error = %v, want exit 3", err)
 	}
-	if !strings.Contains(errOut.String(), "hint: local store has not been synced yet") {
-		t.Fatalf("want unsynced hint on stderr, got %q", errOut.String())
+	if !strings.Contains(err.Error(), "sync --resources distributor_accounts-backup-statuses") {
+		t.Fatalf("error should name the sync command, got %q", err.Error())
 	}
-	if strings.TrimSpace(out.String()) != "[]" {
-		t.Fatalf("want empty JSON array, got %q", out.String())
+	if strings.TrimSpace(out.String()) != "" {
+		t.Fatalf("want no results on stdout, got %q", out.String())
 	}
 }
 

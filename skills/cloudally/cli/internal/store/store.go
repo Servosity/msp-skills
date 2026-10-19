@@ -3725,20 +3725,28 @@ func (s *Store) UpsertUser(data json.RawMessage) error {
 // child path-item annotated with x-resource-id resolves the same as a flat
 // path-item.
 var resourceIDFieldOverrides = map[string]string{
-	"distributor_account_tasks":                       "id",
-	"distributor_accounts":                            "id",
-	"distributor_accounts-backup-tasks":               "id",
-	"distributor_resellers-accounts":                  "id",
-	"distributor_resellers-backup-tasks":              "id",
-	"reseller_account_tasks":                          "id",
-	"reseller_accounts":                               "id",
-	"reseller_accounts-backup-tasks":                  "id",
-	"tasks":                                           "id",
-	"user":                                            "id",
-	"user-status":                                     "userId",
-	"v2_distributors_resellers_accounts":              "id",
-	"v2_distributors_resellers_accounts_backup_tasks": "id",
+	"distributor_account_tasks":                          "id",
+	"distributor_accounts":                               "id",
+	"distributor_accounts-backup-statuses":               backupStatusIdentity,
+	"distributor_accounts-backup-tasks":                  "id",
+	"distributor_resellers-accounts":                     "id",
+	"distributor_resellers-backup-statuses":              backupStatusIdentity,
+	"distributor_resellers-backup-tasks":                 "id",
+	"reseller_account_tasks":                             "id",
+	"reseller_accounts":                                  "id",
+	"reseller_accounts-backup-statuses":                  backupStatusIdentity,
+	"reseller_accounts-backup-tasks":                     "id",
+	"tasks":                                              "id",
+	"user":                                               "id",
+	"user-status":                                        "userId",
+	"v2_distributors_resellers_accounts":                 "id",
+	"v2_distributors_resellers_accounts_backup_statuses": backupStatusIdentity,
+	"v2_distributors_resellers_accounts_backup_tasks":    "id",
 }
+
+// backupStatusIdentity keys a backup-statuses row: the feed carries no id,
+// so without it sync stored 0 rows and backup health had nothing to read.
+const backupStatusIdentity = "userId+taskId+source+entityName"
 
 // Only typed resources with no identity field may be stored under a
 // parameter fingerprint. Unlisted resources still increment extractFailures

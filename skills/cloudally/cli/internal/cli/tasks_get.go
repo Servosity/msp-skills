@@ -22,7 +22,7 @@ func newTasksGetCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "get <id>",
 		Short:   "Get information for the specified task",
-		Example: "  cloudally-cli tasks get 64b0e9 --agent --select entities.entity,entities.status",
+		Example: "  cloudally-cli tasks get 64b0e9 --agent --select entity,status",
 		Args: func(cmd *cobra.Command, args []string) error {
 			return endpointPositionalArgs(cmd, flags, args, cobra.MaximumNArgs(1))
 		},

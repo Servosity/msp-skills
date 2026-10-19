@@ -262,6 +262,12 @@ func fmtDays(v *float64) string {
 	return fmt.Sprintf("%.1f", *v)
 }
 
+// errHealthNotSynced keeps an empty store from reading as "every backup is
+// healthy": an agent reports results [] as good news.
+func errHealthNotSynced(resource string) error {
+	return notFoundErr(fmt.Errorf("no synced %s rows: run 'cloudally-cli sync --resources %s' under a partner login (auth login --partner) first", resource, resource))
+}
+
 func newBackupHealthCmd(flags *rootFlags) *cobra.Command {
 	var flagStaleDays, flagLimit int
 	var flagFailing, flagReseller bool
@@ -307,11 +313,7 @@ func newBackupHealthCmd(flags *rootFlags) *cobra.Command {
 			}
 			human := wantsHumanTable(cmd.OutOrStdout(), flags)
 			if db == nil {
-				fmt.Fprintf(cmd.ErrOrStderr(), "hint: local store has not been synced yet. Run '%s' before trusting local results.\n", syncHintCommand)
-				if !human {
-					return printJSONFiltered(cmd.OutOrStdout(), []any{}, flags)
-				}
-				return nil
+				return errHealthNotSynced(resource)
 			}
 			defer db.Close()
 			if !hintIfUnsynced(cmd, db, resource) {
@@ -327,7 +329,9 @@ func newBackupHealthCmd(flags *rootFlags) *cobra.Command {
 			totals := map[string]int{}
 			inScope := 0
 			skipped := 0
+			scanned := 0
 			err = db.ListScan(resource, func(_ string, data json.RawMessage) bool {
+				scanned++
 				var r backupStatusRow
 				if json.Unmarshal(data, &r) != nil || r.EntityName == "" {
 					skipped++
@@ -345,6 +349,9 @@ func newBackupHealthCmd(flags *rootFlags) *cobra.Command {
 			})
 			if err != nil && !isMissingTableErr(err) {
 				return fmt.Errorf("reading local store: %w", err)
+			}
+			if scanned == 0 {
+				return errHealthNotSynced(resource)
 			}
 			if skipped > 0 {
 				fmt.Fprintf(cmd.ErrOrStderr(), "warning: skipped %d row(s) that did not decode as backup statuses\n", skipped)

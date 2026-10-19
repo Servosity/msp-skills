@@ -110,7 +110,7 @@ than failed: an empty mailbox is a fact about the mailbox, not an error.
   cloudally-cli download fetch --account 5f1c2a --dest ./archives --year 2022 --on-date 2022-12-31 --dry-run
   cloudally-cli download fetch --account 5f1c2a --dest ./archives --year 2022 --on-date 2022-12-31
 `, "\n"),
-		Annotations: map[string]string{"pp:data-source": "live"},
+		Annotations: map[string]string{"mcp:hidden": "true", "pp:data-source": "live"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !hasChangedLocalFlags(cmd) && len(args) == 0 {
 				return cmd.Help()

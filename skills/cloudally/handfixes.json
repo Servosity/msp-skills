@@ -297,6 +297,42 @@
           "contains": "**Download links last 60 seconds.**"
         }
       ]
+    },
+    {
+      "id": "backup-status-composite-identity",
+      "summary": "The store keys backup-statuses rows by userId+taskId+source+entityName, so sync stores them and backup health has rows to read",
+      "why": "The backup-statuses feed carries no id field (spec types V2EntityStatusDirectView / V2EntityStatus3TierView, and the shapes seen live). The 4.33.5 store found no identity, so sync stored 0 rows, exited 1, and backup health printed [] (exit 0), which an agent reads as every backup healthy. Found by the PR #400 docs review against a stub feed. The composite override uses the store's native a+b override syntax; TestBackupStatusRowsStoreWithoutID fails without it.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "const backupStatusIdentity = \"userId+taskId+source+entityName\"",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "backupStatusIdentity,",
+          "min_count": 4,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "tasks-get-select-example",
+      "summary": "tasks get's Example selects entity,status, the keys it actually emits",
+      "why": "tasks get unwraps the response to the entities array, so the generated Example --select entities.entity,entities.status matched no fields and exited 2. Found by the PR #400 docs review.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/tasks_get.go",
+          "contains": "--select entity,status",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/tasks_get.go",
+          "not_contains": "entities.entity"
+        }
+      ]
     }
   ]
 }
