@@ -1,7 +1,7 @@
 {
  "slug": "proxmox",
  "doc": "docs/reprint-survival.md",
- "_comment": "Connector-specific edits to GENERATED files that a cli-printing-press reprint must NOT clobber. Paths are relative to skills/proxmox/ once onboarded. Re-apply with the factory's handfix/apply_handfixes.py (~/Documents/Dev/cli-factory/proxmox/handfix/) (idempotent; exits non-zero if a hook site moved). A cross-spec regen (spec checksum changed) drops every client.go hook; a same-spec regen preserves them. internal/client/proxmox_routing_test.go fails if any hook is missing. tools-manifest.json (a library-only press artifact) is not vendored here, so its PBS-path fix is tracked only in the factory ledger.",
+ "_comment": "Connector-specific edits to GENERATED files that a cli-printing-press reprint must NOT clobber. Paths are relative to skills/proxmox/ once onboarded. Re-apply by hand or with the factory's handfix/apply_handfixes.py (kept with the cli-printing-press factory run, not in this repo; idempotent; exits non-zero if a hook site moved). A cross-spec regen (spec checksum changed) drops every client.go hook; a same-spec regen preserves them. internal/client/proxmox_routing_test.go fails if any hook is missing. tools-manifest.json (a library-only press artifact) is not vendored here, so its PBS-path fix is tracked only in the factory ledger.",
  "handfixes": [
   {
    "id": "pbs-host-routing",
