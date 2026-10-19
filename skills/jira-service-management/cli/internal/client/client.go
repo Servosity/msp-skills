@@ -1831,7 +1831,7 @@ func looksLikeCredentialPlaceholder(value string) bool {
 }
 
 func authPlaceholderCredentialError(cfg *config.Config) error {
-	return authPlaceholderCredentialErrorWithSetup(cfg, "export JIRA_SERVICE_MANAGEMENT_EMAIL=<you@example.com> JIRA_SERVICE_MANAGEMENT_API_TOKEN=<your-token-here> or jira-service-management-cli auth set-credentials you@example.com your-token-here")
+	return authPlaceholderCredentialErrorWithSetup(cfg, "export JIRA_SERVICE_MANAGEMENT_EMAIL=\"you@example.com\" JIRA_SERVICE_MANAGEMENT_API_TOKEN=\"your-token-here\" (PowerShell: $env:JIRA_SERVICE_MANAGEMENT_EMAIL=\"you@example.com\"; $env:JIRA_SERVICE_MANAGEMENT_API_TOKEN=\"your-token-here\") or jira-service-management-cli auth set-credentials you@example.com your-token-here")
 }
 
 func authPlaceholderCredentialErrorWithSetup(cfg *config.Config, setup string) error {

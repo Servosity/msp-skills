@@ -4,6 +4,7 @@ package client
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"strings"
 	"testing"
@@ -65,5 +66,39 @@ func TestRequestGuard(t *testing.T) {
 	c.Config.TemplateVars["site"] = ""
 	if _, err := send("https://api.atlassian.com/ex/jira/cloud-acme/jsm/assets/workspace/w/v1/object/1"); err == nil {
 		t.Fatal("Assets call allowed with no site to check against")
+	}
+}
+
+type jsmRoundTrip func(*http.Request) (*http.Response, error)
+
+func (f jsmRoundTrip) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+func TestFetchSiteWorkspaceIDs(t *testing.T) {
+	status, body := 0, ""
+	hc := &http.Client{Transport: jsmRoundTrip(func(r *http.Request) (*http.Response, error) {
+		if r.URL.Host != "acme.atlassian.net" || r.Header.Get("Authorization") != "Basic test-auth" {
+			t.Fatalf("workspace list went to %s with Authorization %q", r.URL.Host, r.Header.Get("Authorization"))
+		}
+		return &http.Response{StatusCode: status, Body: io.NopCloser(strings.NewReader(body)), Header: http.Header{}}, nil
+	})}
+	fetch := func() ([]string, error) {
+		return jsmFetchSiteWorkspaceIDs(context.Background(), hc, "acme", "Basic test-auth")
+	}
+
+	status, body = 200, `{"values":[{"workspaceId":"w1"},{"workspaceId":""}]}`
+	if ids, err := fetch(); err != nil || len(ids) != 1 || ids[0] != "w1" {
+		t.Fatalf("ids=%v err=%v", ids, err)
+	}
+	status, body = 200, `{"values":[]}`
+	if _, err := fetch(); err == nil {
+		t.Fatal("empty workspace list accepted")
+	}
+	status, body = 401, ""
+	if _, err := fetch(); err == nil || !strings.Contains(err.Error(), "HTTP 401") {
+		t.Fatalf("401 must read as an auth error: %v", err)
+	}
+	status = 404
+	if _, err := fetch(); err == nil || strings.Contains(err.Error(), "HTTP 404") {
+		t.Fatalf("404 must not read as resource-not-found: %v", err)
 	}
 }

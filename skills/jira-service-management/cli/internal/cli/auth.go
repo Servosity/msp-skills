@@ -49,6 +49,8 @@ func newAuthSetupCmd(_ *rootFlags) *cobra.Command {
 			fmt.Fprintln(w, "  export JIRA_SERVICE_MANAGEMENT_EMAIL=\"you@example.com\"")
 			fmt.Fprintln(w, "  export JIRA_SERVICE_MANAGEMENT_API_TOKEN=\"your-token-here\"")
 			fmt.Fprintln(w, "  jira-service-management-cli auth set-credentials you@example.com your-token-here")
+			fmt.Fprintln(w, "PowerShell:")
+			fmt.Fprintln(w, "  $env:JIRA_SERVICE_MANAGEMENT_EMAIL=\"you@example.com\"; $env:JIRA_SERVICE_MANAGEMENT_API_TOKEN=\"your-token-here\"") // pp:handfix jsm-auth-hint-email-placeholder
 			if !launch {
 				return nil
 			}
@@ -145,6 +147,8 @@ func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
 				fmt.Fprintln(w, "  export JIRA_SERVICE_MANAGEMENT_EMAIL=\"you@example.com\" # Atlassian account email (Basic auth username).")
 				fmt.Fprintln(w, "  export JIRA_SERVICE_MANAGEMENT_API_TOKEN=\"your-token-here\" # Atlassian API token from id.atlassian.com/manage-profile/security/api-tokens (Basic auth password).")
 				fmt.Fprintf(w, "  jira-service-management-cli auth set-credentials you@example.com your-token-here\n")
+				fmt.Fprintln(w, "PowerShell:")
+				fmt.Fprintln(w, "  $env:JIRA_SERVICE_MANAGEMENT_EMAIL=\"you@example.com\"; $env:JIRA_SERVICE_MANAGEMENT_API_TOKEN=\"your-token-here\"")
 				return authErr(fmt.Errorf("no credentials configured"))
 			}
 

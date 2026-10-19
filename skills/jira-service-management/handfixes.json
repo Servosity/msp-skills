@@ -444,7 +444,7 @@
     {
       "id": "jsm-sync-defaults-skip-removed-aql",
       "summary": "a bare sync no longer walks GET /aql/objects and /iql/objects, endpoints Atlassian removed; both stay syncable by name",
-      "why": "The generated default sync set included aql and iql, whose own command help says Atlassian removed them (18 September 2024), so every bare sync on an Assets site logged warnings instead of objects. The sync help example also named aql. Found by the adversarial review, 2026-10-16.",
+      "why": "The generated default sync set included aql and iql, whose own command help says Atlassian removed them (18 September 2024), so every bare sync on an Assets site logged warnings instead of objects. The sync help example also named aql. Found by the adversarial review, 2026-10-16. The exact default list is pinned (Codex round 7, 2026-10-19: the aql-only not_contains let iql back in unnoticed).",
       "status": "active",
       "asserts": [
         {
@@ -458,6 +458,11 @@
         {
           "file": "cli/internal/cli/sync.go",
           "contains": "names := []string{\n\t\t\"aql\",",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "\treturn []string{\n\t\t\"assets\",\n\t\t\"config\",\n\t\t\"config-statustype\",\n\t\t\"icon\",\n\t\t\"insight\",\n\t\t\"objectschema\",\n\t\t\"organization\",\n\t\t\"request\",\n\t\t\"requesttype\",\n\t\t\"servicedesk\",\n\t\t\"usage\",\n\t}",
           "code_only": true
         }
       ]
@@ -584,7 +589,7 @@
     {
       "id": "jsm-assets-ids-per-site",
       "summary": "cmdb discover --save stores cloudId/workspaceId as cloudId@<site> / workspaceId@<site>, config load applies only the current site's ids, and sync --path-context site=... re-binds them; and every Assets request is refused unless its cloudId is the current site's (tenant_info) and its workspaceId is one the site lists (servicedeskapi/assets/workspace), each read once per process",
-      "why": "Saved Assets ids used to be global: after switching JIRA_SERVICE_MANAGEMENT_SITE to another client, every Assets command (reads, object delete/update, reconcile) and the Assets resources in sync went to the first client's CMDB, and those rows landed in the second site's store (adversarial review round 3, 2026-10-16; reproduced with object delete --dry-run). The binding lives in internal/config/jsm_config.go (hand-written) behind one hook in config.go and one in sync.go; jsm_config_test.go covers save, per-site load and the path-context rebind, and fails with the load hook removed. Round 4: an exported JIRA_SERVICE_MANAGEMENT_CLOUD_ID from another client still won over the per-site binding and sent object delete to that client's CMDB (adversarial review). jsmCheckAssetsCloud (internal/client/jsm_request_guard.go) now refuses any api.atlassian.com/ex/jira/<cloudId>/jsm/... request whose cloudId is not the site's, whatever set it; jsm_request_guard_test.go fails with the check disabled. Round 5 (adversarial review, 2026-10-19): a leftover JIRA_SERVICE_MANAGEMENT_WORKSPACE_ID was still unchecked (the code relied on an unproven claim that Atlassian rejects a workspaceId outside the cloud), and a trailing-dot host (api.atlassian.com.) skipped the guard. The guard now also requires the workspaceId to be one the site's own /rest/servicedeskapi/assets/workspace lists (fetched with the request's own Authorization header from the same <site>.atlassian.net host) and normalizes the host; jsm_request_guard_test.go fails with either check disabled (mutation-tested).",
+      "why": "Saved Assets ids used to be global: after switching JIRA_SERVICE_MANAGEMENT_SITE to another client, every Assets command (reads, object delete/update, reconcile) and the Assets resources in sync went to the first client's CMDB, and those rows landed in the second site's store (adversarial review round 3, 2026-10-16; reproduced with object delete --dry-run). The binding lives in internal/config/jsm_config.go (hand-written) behind one hook in config.go and one in sync.go; jsm_config_test.go covers save, per-site load and the path-context rebind, and fails with the load hook removed. Round 4: an exported JIRA_SERVICE_MANAGEMENT_CLOUD_ID from another client still won over the per-site binding and sent object delete to that client's CMDB (adversarial review). jsmCheckAssetsCloud (internal/client/jsm_request_guard.go) now refuses any api.atlassian.com/ex/jira/<cloudId>/jsm/... request whose cloudId is not the site's, whatever set it; jsm_request_guard_test.go fails with the check disabled. Round 5 (adversarial review, 2026-10-19): a leftover JIRA_SERVICE_MANAGEMENT_WORKSPACE_ID was still unchecked (the code relied on an unproven claim that Atlassian rejects a workspaceId outside the cloud), and a trailing-dot host (api.atlassian.com.) skipped the guard. The guard now also requires the workspaceId to be one the site's own /rest/servicedeskapi/assets/workspace lists (fetched with the request's own Authorization header from the same <site>.atlassian.net host) and normalizes the host; jsm_request_guard_test.go fails with either check disabled (mutation-tested). Round 6: a 401/403/429 from the workspace lookup reads 'HTTP <code>' so the CLI and MCP classify it as auth (exit 4, with the credentials hint) or rate limit; other statuses read 'status <code>' so they never look like a missing resource. TestFetchSiteWorkspaceIDs covers both.",
       "status": "active",
       "asserts": [
         {
@@ -625,13 +630,18 @@
           "file": "cli/internal/client/jsm_request_guard.go",
           "contains": "strings.TrimSuffix(strings.ToLower(u.Hostname()), \".\") != \"api.atlassian.com\"",
           "code_only": true
+        },
+        {
+          "file": "cli/internal/client/jsm_request_guard.go",
+          "contains": "case http.StatusUnauthorized, http.StatusForbidden, http.StatusTooManyRequests:",
+          "code_only": true
         }
       ]
     },
     {
       "id": "jsm-auth-hint-email-placeholder",
       "summary": "every auth hint names an email for JIRA_SERVICE_MANAGEMENT_EMAIL (not a token placeholder), shows the PowerShell form beside the POSIX export, and the set-credentials example passes an email first",
-      "why": "The press rendered the composed Basic-auth hint with the token placeholder for both variables (export JIRA_SERVICE_MANAGEMENT_EMAIL=\"your-token-here\" ...), POSIX only, in doctor, auth, the 401/403/HTML error hints, the MCP error hints and the placeholder-credential error; the set-credentials example passed two tokens. Agents and Windows MSPs follow these runtime hints on every auth failure. Found by the adversarial review, round 5, 2026-10-19.",
+      "why": "The press rendered the composed Basic-auth hint with the token placeholder for both variables (export JIRA_SERVICE_MANAGEMENT_EMAIL=\"your-token-here\" ...), POSIX only, in doctor, auth, the 401/403/HTML error hints, the MCP error hints and the placeholder-credential error; the set-credentials example passed two tokens. Agents and Windows MSPs follow these runtime hints on every auth failure. Found by the adversarial review, round 5, 2026-10-19. Adversarial round 6 (2026-10-19): auth setup, auth status and the placeholder-credential error still had no PowerShell form, and the placeholder error's <you@example.com> parsed as a shell redirect; all three now print quoted, runnable POSIX and PowerShell forms (both run under bash and pwsh).",
       "spec_encode_followup": "Press template defect for composed Basic auth (email + token); not spec-encodable.",
       "status": "active",
       "asserts": [
@@ -665,14 +675,23 @@
         },
         {
           "file": "cli/internal/client/client.go",
-          "contains": "export JIRA_SERVICE_MANAGEMENT_EMAIL=<you@example.com>",
+          "contains": "export JIRA_SERVICE_MANAGEMENT_EMAIL=\\\"you@example.com\\\" JIRA_SERVICE_MANAGEMENT_API_TOKEN=\\\"your-token-here\\\" (PowerShell: ",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "not_contains": "EMAIL=<"
+        },
+        {
+          "file": "cli/internal/cli/auth.go",
+          "contains": "fmt.Fprintln(w, \"  $env:JIRA_SERVICE_MANAGEMENT_EMAIL=\\\"you@example.com\\\"; $env:JIRA_SERVICE_MANAGEMENT_API_TOKEN=\\\"your-token-here\\\"\")",
           "code_only": true
         }
       ]
     },
     {
       "id": "jsm-doctor-prefers-site",
-      "summary": "doctor's placeholder-base_url error tells the user to set JIRA_SERVICE_MANAGEMENT_SITE and warns that BASE_URL also moves Assets calls, instead of offering BASE_URL as an equal alternative",
+      "summary": "doctor's placeholder-base_url api and credentials lines tell the user to set JIRA_SERVICE_MANAGEMENT_SITE and warn that BASE_URL also moves Assets calls, instead of offering BASE_URL as an equal alternative",
       "why": "Following the generated advice (set BASE_URL to the request-API root) moved every Assets call onto the site host, where it 404s and is reported as 'resource not found'. The guide and manifest already say to prefer SITE. Found by the adversarial review, round 5, 2026-10-19.",
       "status": "active",
       "asserts": [
@@ -680,6 +699,10 @@
           "file": "cli/internal/cli/doctor.go",
           "contains": "Prefer it over \" + doctorBaseURLEnv + \", which also moves Assets (CMDB) calls onto that host and breaks them",
           "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "not_contains": "base_url is still a placeholder; set \" + doctorSiteEnv + \" or \" + doctorBaseURLEnv"
         }
       ]
     },
@@ -702,18 +725,22 @@
     },
     {
       "id": "jsm-mcp-context-paging",
-      "summary": "the MCP context tool's query tips say paging is offset-based with JSM's 50-row cap, not cursor-based with a default of 100",
-      "why": "The generated tips told agents pagination was cursor-based with a default page of 100; JSM pages by start/startAt offsets and the connector clamps request-API pages to 50 (CHANGELOG). Found by the adversarial review, round 5, 2026-10-19.",
+      "summary": "the MCP context tool's query tips name JSM's real paging parameters (start/limit on request-API lists, startAt/maxResults on Assets AQL search), which the execute tool sends as given, instead of claiming cursor paging with a default of 100",
+      "why": "The generated tips told agents pagination was cursor-based with a default page of 100. Round 5's fix said offset is sent as start/startAt, which adversarial round 6 (2026-10-19) proved false: execute translates offset only on the two knowledgebase article lists and sends every other name as given, so request.list with offset returned page 1 forever. Verified by driving MCP execute against a stub: start=50 and startAt=25 reach the wire; offset reaches it untranslated except on knowledgebase.",
       "status": "active",
       "asserts": [
         {
           "file": "cli/internal/mcp/tools.go",
-          "contains": "\"Pagination is offset-based: pass the offset parameter for later pages (sent to JSM as start/startAt).\"",
+          "contains": "\"Page with JSM's own parameter names, which execute sends as given: start and limit on request-API lists (offset is translated to start only on the knowledgebase article lists), startAt and maxResults on Assets AQL search (object.find-by-aql).\"",
           "code_only": true
         },
         {
           "file": "cli/internal/mcp/tools.go",
           "not_contains": "Pagination uses cursor-based paging"
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "not_contains": "sent to JSM as start/startAt"
         }
       ]
     }

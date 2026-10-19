@@ -162,8 +162,13 @@ var jsmFetchSiteWorkspaceIDs = func(ctx context.Context, hc *http.Client, site, 
 	}
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("the site's Assets workspace list answered with status %d (check the site's credentials and that it has Assets)", resp.StatusCode)
+	switch resp.StatusCode {
+	case http.StatusOK:
+	case http.StatusUnauthorized, http.StatusForbidden, http.StatusTooManyRequests:
+		// "HTTP <code>" so callers classify these as auth (exit 4) or rate-limit errors.
+		return nil, fmt.Errorf("the site's Assets workspace list returned HTTP %d", resp.StatusCode)
+	default:
+		return nil, fmt.Errorf("the site's Assets workspace list answered with status %d (check that the site has Assets)", resp.StatusCode)
 	}
 	var page struct {
 		Values []struct {

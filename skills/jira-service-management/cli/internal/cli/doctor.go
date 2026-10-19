@@ -356,7 +356,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 				// Refuse to dial a host the operator never set, and name the fix.
 				report["api"] = "ERROR base_url is still the placeholder \"" + doctorBase + "\"; set " + doctorSiteEnv + " to your site subdomain (acme for acme.atlassian.net). Prefer it over " + doctorBaseURLEnv + ", which also moves Assets (CMDB) calls onto that host and breaks them" // pp:handfix jsm-doctor-prefers-site
 				if _, set := report["credentials"]; !set {
-					report["credentials"] = "ERROR not verified: base_url is still a placeholder; set " + doctorSiteEnv + " or " + doctorBaseURLEnv
+					report["credentials"] = "ERROR not verified: base_url is still a placeholder; set " + doctorSiteEnv
 				}
 			} else if cfg != nil && cfg.BaseURL != "" {
 				c, clientErr := flags.newClient()
