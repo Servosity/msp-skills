@@ -282,7 +282,7 @@
   "jira-service-management": {
     "state": "never-released",
     "version": "0.1.0",
-    "latest_tag": null,
+    "latest_tag": "jira-service-management-v0.1.0",
     "current_hash": "sha256:390564ee6691dc4b29d4ee62ea05f798eed8df30e0272cd05d03a6411d777729",
     "released_hash": null
   },
