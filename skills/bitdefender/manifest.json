@@ -1,0 +1,84 @@
+{
+  "manifest_version": "0.3",
+  "name": "bitdefender-mcp",
+  "display_name": "Bitdefender GravityZone",
+  "version": "0.1.0",
+  "description": "140 GravityZone API methods, plus fleet health, billing and incident views across child companies.",
+  "author": {
+    "name": "Servosity Inc."
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/bitdefender-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/bitdefender-mcp",
+      "args": [],
+      "env": {
+        "BITDEFENDER_BASE_URL": "${user_config.bitdefender_base_url}",
+        "BITDEFENDER_API_KEY": "${user_config.bitdefender_api_key}",
+        "BITDEFENDER_USER_AGENT": "${user_config.bitdefender_user_agent}",
+        "BITDEFENDER_MCP_READ_ONLY": "${user_config.bitdefender_mcp_read_only}",
+        "BITDEFENDER_MCP_HTTP_TOKEN": "${user_config.bitdefender_mcp_http_token}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
+      }
+    }
+  },
+  "user_config": {
+    "bitdefender_base_url": {
+      "type": "string",
+      "title": "GravityZone Control Center API URL",
+      "description": "Sets BITDEFENDER_BASE_URL, the Access URL shown under My Account > Control Center API (cloud default https://cloud.gravityzone.bitdefender.com/api; on-premises and other regions differ).",
+      "sensitive": false,
+      "required": false,
+      "default": "https://cloud.gravityzone.bitdefender.com/api"
+    },
+    "bitdefender_api_key": {
+      "type": "string",
+      "title": "GravityZone API key",
+      "description": "Sets BITDEFENDER_API_KEY for the Bitdefender GravityZone MCP server. Get a credential from https://www.bitdefender.com/business/support/en/77209-125277-public-api.html.",
+      "sensitive": true,
+      "required": true
+    },
+    "bitdefender_user_agent": {
+      "type": "string",
+      "title": "User-Agent header",
+      "description": "Overrides the User-Agent the CLI sends. Leave blank to use the CLI's own.",
+      "required": false
+    },
+    "bitdefender_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP server",
+      "description": "Set to exactly 1 so bitdefender_execute runs only GravityZone read methods and refuses writes and the Credential-tier reads (incident reads stay allowed). Leave blank for full access.",
+      "required": false
+    },
+    "bitdefender_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+      "sensitive": true,
+      "required": false
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile",
+      "description": "Not enforced by this connector: there are no tenant-gated client profiles, so a value here does not limit which companies a call can reach. Leave blank. To limit what an agent can do, enable fewer API areas on the key or turn on the read-only MCP server.",
+      "required": false
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  },
+  "printing_press_version": "4.33.5",
+  "press_provenance": {
+    "printing_press_version": "4.33.5",
+    "generated_at": "2026-10-14T11:08:22.704871Z",
+    "spec_checksum": "sha256:0a868cc8813e1b6245efa5aa7f1a5f5b732a0314835f6ba4d759609f89aaa571",
+    "spec_format": "openapi3"
+  }
+}

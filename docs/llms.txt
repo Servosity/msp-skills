@@ -42,6 +42,9 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
 - Better Stack (Monitoring) - ask "What's down right now and is anyone actually paged?" - Ask what's down, who's paged, where coverage is missing, and your MTTA/MTTR across your Better Stack account
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/betterstack/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/betterstack/install.sh)
+- Bitdefender GravityZone (Security) - ask "Which customers have unmanaged, outdated or unscanned endpoints?" - Endpoint health, threats, incidents and license usage across every GravityZone child company.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/bitdefender/
+  Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/bitdefender/install.sh)
 - Blumira (Security) - ask "What are the worst open findings across all my client accounts right now?" - Triage every Blumira finding across all your MSP client accounts from one ranked queue
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/blumira/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/blumira/install.sh)

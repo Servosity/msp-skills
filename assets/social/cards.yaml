@@ -56,6 +56,10 @@ betterstack:
   vendor: "Better Stack"
   example_command: "Which monitors would page nobody if they failed?"
 
+bitdefender:
+  vendor: "Bitdefender"
+  example_command: "Which customers have unprotected endpoints?"
+
 blumira:
   vendor: "Blumira"
   example_command: "Triage findings across every account"

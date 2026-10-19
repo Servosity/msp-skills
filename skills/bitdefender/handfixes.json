@@ -1,0 +1,700 @@
+{
+  "slug": "bitdefender",
+  "doc": "docs/reprint-survival.md",
+  "_comment": "Connector-specific edits a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and every banned anti-pattern still absent) and fails CI if a reprint dropped one. Schema and rationale: docs/reprint-survival.md. Regen steps: re-apply ~/Documents/Dev/cli-factory/bitdefender/handfix/ (patch_*.py + internal/cli files) after any regen.",
+  "handfixes": [
+    {
+      "id": "windows-sddl-alias-sid-compare",
+      "summary": "the Windows token-file guard compares trustees by SID, resolving SDDL aliases through the OS, so the built-in Administrator (RID 500, rendered as LA) can save and load credentials",
+      "why": "Press 4.30.2+ creds_perms_eval.go compared the SDDL text of the token file's owner and ACE trustees against the process's SID string. The SDDL converter renders the built-in local Administrator (RID 500) as the alias LA, so that account's own ACE never matched: `auth set-token` exited 1 with `token file DACL grants access to a non-owner principal (LA)` and every read refused the file. Reproduced 2026-10-15 on the published fortinet-cli 0.1.0, installed with the README one-liner on a windows-latest runner (whoami S-1-5-21-...-500). The fix resolves each trustee to its SID (fixed aliases from a table, machine-relative ones like LA through ConvertStringSidToSid, kept only when the converter renders that SID back to the same alias) and compares SIDs. The allow-list is unchanged (current user, BUILTIN\\Administrators, SYSTEM): an owner or allow-ACE trustee that is any other principal, a broad group, or unresolvable is still refused. A reprint from an unfixed press silently restores the string compare while unit tests stay green on every non-Windows host.",
+      "status": "active",
+      "spec_encode_followup": "Press defect in internal/generator/templates/cliutil_creds_perms_eval.go.tmpl and cliutil_creds_perms_windows.go.tmpl (unfixed on press main as of 4.33.5). Reported upstream: https://github.com/mvanhorn/cli-printing-press/issues/5029",
+      "asserts": [
+        {
+          "file": "cli/internal/cliutil/creds_perms_eval.go",
+          "contains": "func trusteeSID(trustee string, resolveAlias sddlAliasResolver) string {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_eval.go",
+          "contains": "if om == nil || !sidAllowed(trusteeSID(om[1], resolveAlias), currentUserSID) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_eval.go",
+          "contains": "if !sidAllowed(trusteeSID(trustee, resolveAlias), currentUserSID) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_windows.go",
+          "contains": "return evalCredsSecurityResolved(sd.String(), me, resolveSDDLAlias)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_windows.go",
+          "contains": "sid, err := windows.StringToSid(alias)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_windows.go",
+          "not_contains": "return evalCredsSecurity(sd.String(), me)"
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
+          "contains": "func TestEvalCredsSecurityResolvesSDDLAliases(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "windows-null-dacl-behind-flags",
+      "summary": "the Windows token-file guard checks the DACL section's framing, so a NULL DACL is refused in the form Windows actually renders it, flags first (D:PAINO_ACCESS_CONTROL), and DACL text that does not frame as flags plus complete six-field ACEs is refused rather than skipped",
+      "why": "Press creds_perms_eval.go refused a NULL DACL only when the DACL section began with NO_ACCESS_CONTROL. SDDL puts DACL flags (P, AI, AR) first, and a real NULL DACL on Windows Server 2025 renders as O:<owner>D:PAINO_ACCESS_CONTROL (measured on a windows-latest runner, 2026-10-15), so the guard found no ACEs to inspect and accepted a world-accessible token file. That was already a hole for every ordinary account; for the built-in Administrator the owner-alias mismatch happened to refuse it, so resolving LA (windows-sddl-alias-sid-compare) without this fix would have widened the hole. The DACL section's framing is now checked: its flags must be drawn from P/AI/AR/NO_ACCESS_CONTROL, an empty DACL followed by a SACL section ends at that section, and the ACE list must be complete, un-nested (...) groups of exactly six fields. Unknown flags, an unclosed or nested group, stray text, or a wrong field count is refused (fail-closed). ACE flags and rights are not validated; they do not change which principal an allow ACE names.",
+      "status": "active",
+      "spec_encode_followup": "Same press templates as windows-sddl-alias-sid-compare; reported in the same upstream issue: https://github.com/mvanhorn/cli-printing-press/issues/5029",
+      "asserts": [
+        {
+          "file": "cli/internal/cliutil/creds_perms_eval.go",
+          "contains": "if strings.Contains(daclFlags, \"NO_ACCESS_CONTROL\") {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_eval.go",
+          "contains": "if !daclFlagsRe.MatchString(daclFlags) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_eval.go",
+          "contains": "if !aceListRe.MatchString(rest[flagsEnd:]) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_eval.go",
+          "contains": "if len(fields) != 6 {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_eval.go",
+          "not_contains": "if strings.HasPrefix(rest, \"NO_ACCESS_CONTROL\") {"
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
+          "contains": "func TestEvalCredsSecurityRefusesNullDACLBehindFlags(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
+          "contains": "func TestEvalCredsSecurityChecksTheDACLSectionFraming(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "gravityzone-jsonrpc-transport",
+      "summary": "a client hook turns each /v1.x/jsonrpc/<area>#<method> call into a JSON-RPC 2.0 envelope and unwraps result/error",
+      "why": "GravityZone's Public API is JSON-RPC 2.0 with no OpenAPI. The authored spec writes one POST path per method with the method name in the URL fragment, which net/http never sends. jsonrpc_transport.go (registered through registerClientHook, so it wraps every CLI and MCP client) builds the envelope from the fragment plus the generated command's body and returns the result member, or the error member as an HTTP error status. Without it every call posts bare params to the area URL and Control Center rejects it. Handwritten file from the factory's handfix/internal/cli; re-apply ~/Documents/Dev/cli-factory/bitdefender/handfix/ after any regen. The transport also refuses plain http:// to any non-loopback host before sending, since every request carries the API key as HTTP Basic (Codex review 2026-10-19, P1). The client hook also rejects a plain-HTTP base URL as a config error (exit 10) so no command retries it as a network failure.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/jsonrpc_transport.go",
+          "contains": "func init() { registerClientHook(installJSONRPCTransport) }",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/jsonrpc_transport.go",
+          "contains": "env, err := json.Marshal(rpcRequest{JSONRPC: \"2.0\", Method: method, Params: params, ID: id})",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/jsonrpc_transport.go",
+          "contains": "return unwrapRPCResponse(resp, id)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/jsonrpc_transport.go",
+          "contains": "if err := refusePlainHTTP(req.URL.Scheme, req.URL.Hostname()); err != nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/jsonrpc_transport.go",
+          "contains": "if ip := net.ParseIP(host); ip != nil && ip.IsLoopback() {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/jsonrpc_transport.go",
+          "contains": "if !strings.EqualFold(scheme, \"http\") {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/jsonrpc_transport.go",
+          "contains": "return configErr(err)",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "remove-tail-command",
+      "summary": "the generated tail command is removed",
+      "why": "tail polls GET list endpoints. Every GravityZone method is a JSON-RPC POST, so the generator emits tail with an empty resource map that can only ever answer that there are no tail resources, and verify fails its resource-path check. handfix/patch_remove_tail.py deletes internal/cli/tail.go and its root.go registration; re-apply ~/Documents/Dev/cli-factory/bitdefender/handfix/ after any regen.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/root.go",
+          "not_contains": "rootCmd.AddCommand(newTailCmd(flags))"
+        }
+      ]
+    },
+    {
+      "id": "basic-auth-credentials-test",
+      "summary": "credential-precedence tests decode the HTTP Basic payload before asserting which key won",
+      "why": "The generated credentials_test.go asserts the raw secret appears in AuthHeader(), but GravityZone uses HTTP Basic with the API key as the username and an empty password, so the header is \"Basic \" + base64(\"<key>:\") and the substring check fails. handfix/patch_credentials_test.py decodes the payload first (same fix datto-bcdr and wordpress carry); re-apply ~/Documents/Dev/cli-factory/bitdefender/handfix/ after any regen.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cliutil/credentials_test.go",
+          "contains": "func basicAuthPayload(t *testing.T, header string) string {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/credentials_test.go",
+          "contains": "if got := basicAuthPayload(t, cfg.AuthHeader());",
+          "min_count": 2,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "generated-doc-corrections",
+      "summary": "SKILL.md, AGENTS.md and guide.md say writes run immediately (no prompt), the local store holds fleet snapshots (no sync/search), and fleet health --fail-on exits 1; --dry-run is described as printing the JSON-RPC method and params (not the wire request); the MCP surface and read-only switch are described as they behave",
+      "why": "The generator's boilerplate promised sync/search commands that do not exist and an explicit --yes confirmation that generated write commands never ask for. handfix/patch_docs.py corrects the press README (vendored here as guide.md), SKILL.md and AGENTS.md; onboard re-vendors all three, so re-apply ~/Documents/Dev/cli-factory/bitdefender/handfix/ after any regen and re-run onboard. The msp-skills onboard also corrected, in the re-vendored SKILL.md and guide.md: --dry-run prints the method in the URL fragment plus bare params, not the JSON-RPC body sent on the wire; the API methods are reached over MCP through bitdefender_search/bitdefender_execute, not one MCP tool each; meta.source now tracks the real source for fleet locate and fleet rmm-gap; and guide.md documents BITDEFENDER_MCP_READ_ONLY. Re-apply these after any re-vendor.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "SKILL.md",
+          "contains": "generated write commands (create, delete, isolate, quarantine, tasks) run as soon as they are invoked and do not prompt"
+        },
+        {
+          "file": "SKILL.md",
+          "contains": "the fleet commands save dated snapshots to a local SQLite store"
+        },
+        {
+          "file": "AGENTS.md",
+          "contains": "Write commands run as soon as they are invoked and do not prompt"
+        },
+        {
+          "file": "guide.md",
+          "contains": "`1` `fleet health --fail-on` found issues"
+        },
+        {
+          "file": "SKILL.md",
+          "contains": "`--dry-run` prints the JSON-RPC method (after the `#` in the URL) and the parameters it would send, without sending"
+        },
+        {
+          "file": "guide.md",
+          "contains": "`--dry-run` prints the JSON-RPC method (after the `#` in the URL) and the parameters it would send, without sending"
+        },
+        {
+          "file": "SKILL.md",
+          "not_contains": "read-only MCP annotations on reads"
+        },
+        {
+          "file": "guide.md",
+          "contains": "| `BITDEFENDER_MCP_READ_ONLY` | mcp | No |"
+        },
+        {
+          "file": "SKILL.md",
+          "contains": "companies.status,companies.issues"
+        },
+        {
+          "file": "SKILL.md",
+          "contains": "rows.flags,fetch_failures"
+        },
+        {
+          "file": "guide.md",
+          "contains": "rows.flags,fetch_failures"
+        }
+      ]
+    },
+    {
+      "id": "manifest-optional-base-url",
+      "summary": "the MCP bundle manifest declares BITDEFENDER_BASE_URL as an optional, non-secret field with the cloud default; server.json declares it optional and non-secret",
+      "why": "The generator ships only the API key in the .mcpb manifest, so Claude Desktop users on another region or an on-premises Control Center had no way to point the server at their Access URL. handfix/patch_manifest_base_url.py adds bitdefender_base_url (required false, default https://cloud.gravityzone.bitdefender.com/api) and maps it to BITDEFENDER_BASE_URL; re-apply ~/Documents/Dev/cli-factory/bitdefender/handfix/ after any regen.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "manifest.json",
+          "contains": "\"bitdefender_base_url\": {"
+        },
+        {
+          "file": "manifest.json",
+          "contains": "\"BITDEFENDER_BASE_URL\": \"${user_config.bitdefender_base_url}\""
+        },
+        {
+          "file": "manifest.json",
+          "contains": "\"default\": \"https://cloud.gravityzone.bitdefender.com/api\""
+        },
+        {
+          "file": "server.json",
+          "contains": "\"description\": \"Optional: Control Center Access URL (default https://cloud.gravityzone.bitdefender.com/api).\""
+        }
+      ]
+    },
+    {
+      "id": "mcp-read-only-allows-gravityzone-reads",
+      "summary": "BITDEFENDER_MCP_READ_ONLY=1 lets bitdefender_execute run an explicit list of GravityZone read methods; writes and credential-bearing reads stay refused",
+      "why": "The generated read-only switch refuses every non-GET execute call. Every GravityZone method is a JSON-RPC POST, so read-only mode refused reads too and an agent that should only read could not list a single endpoint. gz_readonly.go lists the get/find methods that only read (fail-closed: a method added by a later regeneration stays refused until listed) and leaves out the reads that return or take a credential: getPushEventSettings, getLicenseInfo, getCompanyDetailsByUser, getPackageDetails, getInstallationLinks, getIntegrationDetails, getPolicyDetails (password-protection and power-user password fields, per the vendor method page) and getNetworkInventoryItems (company items can carry license keys). The check reads the endpoint's registered path template, never the resolved path. A reprint restores the method-only check and silently re-breaks reads.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/code_orch.go",
+          "contains": "if codeOrchBlockedByMCPReadOnly(ep.Method) && !gravityZoneReadOnlyAllows(ep.Path) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/gz_readonly.go",
+          "contains": "func gravityZoneReadOnlyAllows(pathTemplate string) bool {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/code_orch_writebody_test.go",
+          "contains": "if gravityZoneReadOnlyAllows(ep.Path) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/gz_readonly_test.go",
+          "contains": "func TestCodeOrchExecuteReadOnlyRunsGravityZoneReads(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/gz_readonly_test.go",
+          "contains": "\"policies#getPolicyDetails\":",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "fleet-snapshot-answers-report-local",
+      "summary": "fleet locate and fleet rmm-gap set the agent envelope's meta.source to local when a saved snapshot answered",
+      "why": "Both commands carry pp:data-source auto, which the generated envelope reports as live, so a snapshot answer was labelled live in meta.source while results.source said snapshot. inventoryAgentSource maps the inventory's real source onto flags.agentSource before printing.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/gz_fleet.go",
+          "contains": "func inventoryAgentSource(inv inventoryResult) string {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/fleet_locate.go",
+          "contains": "flags.agentSource = inventoryAgentSource(inv)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/fleet_rmm_gap.go",
+          "contains": "flags.agentSource = inventoryAgentSource(inv)",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "env-base-url-never-persisted",
+      "summary": "an env-sourced BITDEFENDER_BASE_URL is marked as an env override in config.Load and configForSave writes the file's own value back, so config.toml never captures the override",
+      "why": "The generated configForSave restored only the env-sourced API key, so `auth set-token` run with BITDEFENDER_BASE_URL set wrote that one-run URL into config.toml. After that, unsetting the variable had no effect and every later call sent the saved API key to the old host. Reproduced 2026-10-16 (config.toml carried base_url = the env value after set-token). internal/config/env_base_url_test.go fails with the restore lines removed. Same generator defect threatdown carries as env-urls-never-persisted.",
+      "status": "active",
+      "spec_encode_followup": "Generator defect: configForSave should restore every env-overridden field, not only credentials.",
+      "asserts": [
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "cfg.markEnvOverride(\"BaseURL\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/config.go",
+          "contains": "out.BaseURL = c.fileConfig.BaseURL",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/config/env_base_url_test.go",
+          "contains": "func TestEnvBaseURLNeverPersisted(",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "fleet-health-row-status",
+      "summary": "each fleet health company row carries status ok or fetch_failed, a field --compact (--agent) keeps",
+      "why": "A company whose getEndpointsList failed was still a ranked row with zero counts, and --agent (--compact) strips the row's error field, so an agent read it as a clean customer. Found by the 2026-10-16 adversarial review (round 1, P1). status survives compaction; gz_fleet_test.go TestFleetHealthFailedRowStatus fails if the failed row is marked ok.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/fleet_health.go",
+          "contains": "h.Status = \"fetch_failed\"",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/fleet_health.go",
+          "contains": "Status string `json:\"status,omitempty\"`",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/gz_fleet_test.go",
+          "contains": "func TestFleetHealthFailedRowStatus(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-quarantine-service-path-param",
+      "summary": "bitdefender_execute substitutes the {service} path parameter for quarantine.list, quarantine.remove and quarantine.empty",
+      "why": "The generated code-orchestration registry gave the three quarantine/{service} methods an empty Positional list, so bitdefender_execute never substituted {service} and every call failed with 'unresolved path parameter {service}' (quarantine list could not run over MCP at all). The value is path-escaped, so a '#' cannot change the JSON-RPC method (verified: service='computers#createEmptyQuarantineTask' reached the server as quarantine/computers%23createEmptyQuarantineTask with method getQuarantineItemsList).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/code_orch.go",
+          "contains": "Positional:     []string{\"service\"},",
+          "min_count": 3,
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "generated-help-corrections",
+      "summary": "MCP sql tool names the fleet snapshot tables; workflow status says there is no sync command; policies help no longer claims create",
+      "why": "Generated text sent agents to an always-empty resources table (there is no sync command), claimed a policies create command that does not exist while hiding the set-modules write. Found by the 2026-10-16 adversarial review (round 1, P2).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "contains": "Snapshots live in gz_fleet_runs(run_id, taken_at, companies, endpoints, failures, tree_complete)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/channel_workflow.go",
+          "contains": "No synced resources: this CLI has no sync command.",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/policies.go",
+          "contains": "Short:       \"List and get policies, and enable or disable policy modules\",",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "doctor-verdict-tracks-reality",
+      "summary": "doctor probes general#getApiKeyDetails with the configured key and classifies the answer, instead of calling any response to GET / reachable and printing 'present, not verified'",
+      "why": "check_doctor_truth (issue #282) failed: the generated doctor printed the same verdict for a working key, a rejected key and a base_url aimed at the console's web UI. GravityZone has no GET endpoints, so doctor_verdict.go posts one JSON-RPC getApiKeyDetails call (no parameters, answered for any valid key) without a #method fragment, so the strict JSON-RPC transport passes it through and the raw status and envelope can be classified: a result is valid; a JSON-RPC error, 401, 404, 5xx or a non-envelope body is negative, and a 404 also marks the api row as not the Control Center API root. Only a JSON-RPC result counts: a 2xx list envelope is NOT accepted (Codex review 2026-10-16, P1: a wrong base answering {\"items\":[]} would read as valid); because GravityZone has no argument-free GET endpoint, that verdict says so, which is the honest negative check_doctor_truth allows for the healthy stub. doctor_verdict_test.go covers each case; check_doctor_truth --slug bitdefender fails without the wiring.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/doctor_verdict.go",
+          "contains": "func doctorProbeCredentials(ctx context.Context, c *client.Client, authHeader string, report map[string]any) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor_verdict.go",
+          "contains": "case ok2xx && isRPC && !bytes.Equal(bytes.TrimSpace(result), []byte(\"null\")):",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "doctorProbeCredentials(cmd.Context(), c, authHeader, report)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "not_contains": "present, not verified. Run `%s %s` to confirm the token works end-to-end."
+        },
+        {
+          "file": "cli/internal/cli/doctor_verdict_test.go",
+          "contains": "func TestDoctorProbeCredentials(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/doctor_verdict.go",
+          "not_contains": "doctorListEnvelope"
+        }
+      ]
+    },
+    {
+      "id": "mcp-http-token-placeholder",
+      "summary": "the MCP server's --transport http bearer token is read through cliutil.EnvOverride, so an unresolved ${user_config.bitdefender_mcp_http_token} placeholder refuses to start instead of becoming the secret",
+      "why": "The generated requireHTTPCallerToken read BITDEFENDER_MCP_HTTP_TOKEN with os.Getenv. The variable is declared as an optional MCPB user_config value, and a host that skips an optional prompt leaves the literal placeholder text in the environment; that text is public (it is in manifest.json), so anyone could authenticate to an HTTP-mode server started that way. Same fix as sophos-central. TestHTTPTokenPlaceholderRefused fails when the read goes back to os.Getenv.",
+      "status": "active",
+      "spec_encode_followup": "the press main_mcp.go.tmpl should read the HTTP token through cliutil.EnvOverride for every connector.",
+      "asserts": [
+        {
+          "file": "cli/cmd/bitdefender-mcp/main.go",
+          "contains": "token := strings.TrimSpace(cliutil.EnvOverride(httpTokenEnvVar))",
+          "code_only": true
+        },
+        {
+          "file": "cli/cmd/bitdefender-mcp/http_token_placeholder_test.go",
+          "contains": "func TestHTTPTokenPlaceholderRefused(",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "client-profile-inert",
+      "summary": "--client-profile is documented as inert on this connector and kept out of MCP tool schemas",
+      "why": "No tenant-gated client profile source is registered for GravityZone, so the flag changes nothing; the generated help promised tenant gating it does not provide, and an agent could believe it had scoped itself. The help now says so and the MCP schema no longer offers it. manifest.json and server.json describe PRINTING_PRESS_CLIENT_PROFILE the same way.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "Unused by this connector: no tenant-gated profile source is registered",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/cobratree/shellout.go",
+          "contains": "\"client-profile\":          true,",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "install-env-declared-on-every-channel",
+      "summary": "every variable the binaries read (API key, base URL, user agent, MCP read-only switch, MCP HTTP token, client profile) is declared identically in manifest.json, server.json and every mcp-install.md env block",
+      "why": "check_env_schema failed: the generated manifest declared only the API key and base URL, so the .mcpb install could not turn on BITDEFENDER_MCP_READ_ONLY (the adversarial review's P2) and server.json marked the optional base URL as a required secret with no default. A regenerated manifest drops the extra user_config prompts.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "manifest.json",
+          "contains": "\"BITDEFENDER_MCP_READ_ONLY\": \"${user_config.bitdefender_mcp_read_only}\""
+        },
+        {
+          "file": "manifest.json",
+          "contains": "\"BITDEFENDER_MCP_HTTP_TOKEN\": \"${user_config.bitdefender_mcp_http_token}\""
+        },
+        {
+          "file": "server.json",
+          "contains": "\"name\": \"BITDEFENDER_MCP_READ_ONLY\""
+        },
+        {
+          "file": "server.json",
+          "contains": "\"default\": \"https://cloud.gravityzone.bitdefender.com/api\""
+        },
+        {
+          "file": "mcp-install.md",
+          "contains": "\"BITDEFENDER_MCP_READ_ONLY\": \"\"",
+          "min_count": 3
+        }
+      ]
+    },
+    {
+      "id": "rmm-gap-incomplete-never-clean",
+      "summary": "fleet rmm-gap's human output says INCOMPLETE instead of 'No gaps' when any GravityZone fetch failed",
+      "why": "With a company fetch failed and the supplied devices matching the companies that were read, the human output printed 'No gaps: N devices and M endpoints line up.' - a clean verdict over an incomplete comparison (Codex review 2026-10-16, P1). The JSON output already carried inventory_complete:false and fetch_failures.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/fleet_rmm_gap.go",
+          "contains": "if len(rows) == 0 && !view.InventoryComplete {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "no-create-alias-on-non-create-commands",
+      "summary": "the generator's hidden 'create' alias is removed from the 17 non-create commands that carried it",
+      "why": "Every GravityZone method is a JSON-RPC POST, so the press gave each POST command it could not name a create alias. The aliases were hidden from agent-context, SKILL.md and the governance tier table, yet 'tasks create' ran network#deleteTask, 'isolation create' isolated machines and 'policies create' / 'push create' / 'inventory create' ran Credential-tier reads, so a human approving a 'create' could be approving a delete and a name-keyed agent deny rule was bypassable. Found by the 2026-10-19 adversarial review (round 4, P2). Same class td-synnex removed.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/aws_ec2_company-by-account.go",
+          "not_contains": "[]string{\"create\"}"
+        },
+        {
+          "file": "cli/internal/cli/blocklist_add.go",
+          "not_contains": "[]string{\"create\"}"
+        },
+        {
+          "file": "cli/internal/cli/endpoints_assign-policy.go",
+          "not_contains": "[]string{\"create\"}"
+        },
+        {
+          "file": "cli/internal/cli/incidents_assign.go",
+          "not_contains": "[]string{\"create\"}"
+        },
+        {
+          "file": "cli/internal/cli/integrators_add.go",
+          "not_contains": "[]string{\"create\"}"
+        },
+        {
+          "file": "cli/internal/cli/inventory_list.go",
+          "not_contains": "[]string{\"create\"}"
+        },
+        {
+          "file": "cli/internal/cli/investigation_collect-package.go",
+          "not_contains": "[]string{\"create\"}"
+        },
+        {
+          "file": "cli/internal/cli/isolation_isolate.go",
+          "not_contains": "[]string{\"create\"}"
+        },
+        {
+          "file": "cli/internal/cli/license_add-product-key.go",
+          "not_contains": "[]string{\"create\"}"
+        },
+        {
+          "file": "cli/internal/cli/notifications_configure.go",
+          "not_contains": "[]string{\"create\"}"
+        },
+        {
+          "file": "cli/internal/cli/patches_installed.go",
+          "not_contains": "[]string{\"create\"}"
+        },
+        {
+          "file": "cli/internal/cli/phasr_apply.go",
+          "not_contains": "[]string{\"create\"}"
+        },
+        {
+          "file": "cli/internal/cli/policies_get.go",
+          "not_contains": "[]string{\"create\"}"
+        },
+        {
+          "file": "cli/internal/cli/push_get.go",
+          "not_contains": "[]string{\"create\"}"
+        },
+        {
+          "file": "cli/internal/cli/quarantine_add-file.go",
+          "not_contains": "[]string{\"create\"}"
+        },
+        {
+          "file": "cli/internal/cli/tasks_delete.go",
+          "not_contains": "[]string{\"create\"}"
+        },
+        {
+          "file": "cli/internal/cli/usage_monthly.go",
+          "not_contains": "[]string{\"create\"}"
+        }
+      ]
+    },
+    {
+      "id": "mcp-context-describes-gravityzone",
+      "summary": "the MCP context tool describes the real surface (JSON-RPC POST via bitdefender_search/bitdefender_execute, page/perPage paging, no sync or search tool, no CRM playbook) and the sql tool reports the latest fleet snapshot as ready or partial",
+      "why": "The generated context tool, which tells agents to call it first, claimed cursor paging with after/limit (default 100), a sync command and a full-text search tool, and typed endpoint tools. None exist here: GravityZone pages with page/perPage (default 30) and the only API tool is the untyped bitdefender_execute, so an agent following the tips sent invalid params or trusted a 30-row first page as complete. The sql tool also returned store_status empty while gz_fleet_runs held snapshots. Found by the 2026-10-19 adversarial review (round 4, P1 + P2). Round 5 (2026-10-19) found two CRM playbook entries ('sync first', 'search for contacts') and archetype crm left in the same response, and Codex (round 2, P1) found any saved run reported ready even when that run had fetch failures; store_status now follows the latest run's failures/tree_complete. Round 6 (2026-10-19, P1): the sql tool's no-such-table and zero-row hints still sent agents to the never-populated resources table; both now name the gz_fleet_* tables, and tools_test.go asserts the corrected hint.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "contains": "\"tool_surface\": \"Every GravityZone method is a JSON-RPC POST: find its id with bitdefender_search, then call it with bitdefender_execute",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "contains": "\"Most list methods page with the page and perPage params",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "not_contains": "Pagination uses cursor-based paging"
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "not_contains": "sync first and query locally"
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "contains": "if snap, ok := gzFleetSnapshotStatus(db); ok {",
+          "min_count": 2,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "contains": "if failures > 0 || treeComplete == 0 {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "contains": "\"archetype\":   \"infrastructure\",",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "not_contains": "Synced records live in resources(resource_type, id, data)"
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "not_contains": "Check resource_type filters, json_extract paths."
+        },
+        {
+          "file": "cli/internal/mcp/tools_test.go",
+          "contains": "for _, want := range []string{\"gz_fleet_runs\", \"gz_fleet_endpoints\", \"fleet_health\", missingTable} {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "tabular-printers-scrub-terminal",
+      "summary": "--csv, --plain and --quiet output drops terminal control characters (ESC, BEL, C1) from values",
+      "why": "Company and endpoint names come from the tenant, and the generated printCSV/printPlain/printQuiet wrote them raw, so a name carrying an OSC 52 or CSI sequence could rewrite the terminal or the clipboard (Codex review 2026-10-19, P1; round 6 P2). scrubCell keeps tab/CR/LF for CSV quoting; quiet output (one value per line) uses cliutil.ScrubTerminal. Same template code in sibling connectors; fleet-wide follow-up.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "cell = scrubCell(cell)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "s := scrubCell(formatTabularCell(v))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "fmt.Fprintln(w, scrubCell(strings.Join(keys, \"\\t\")))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "return cliutil.ScrubTerminal(t)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "fmt.Fprintln(w, cliutil.ScrubTerminal(fmt.Sprint(v)))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "fmt.Fprintln(w, cliutil.ScrubTerminal(trimmed))",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "output-escapes-c1-controls",
+      "summary": "stdout and stderr are wrapped in c1EscapeWriter, which rewrites UTF-8 C1 controls (U+0080-U+009F) as \\u00XX; isTerminal unwraps it",
+      "why": "encoding/json escapes C0 controls but writes C1 raw, and xterm/VTE act on UTF-8 C1 (CSI, OSC, ST), so a tenant endpoint name or a quarantined file path in --json, --agent or the default pretty-JSON output could drive the terminal (adversarial review round 7, 2026-10-19, P1). The escape keeps JSON valid and lossless. c1_escape.go is hand-written; root.go wires it in Execute and in the --deliver multiwriter, and helpers.go isTerminal unwraps it so TTY detection is unchanged.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "rootCmd.SetOut(&c1EscapeWriter{w: os.Stdout})",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "rootCmd.SetErr(&c1EscapeWriter{w: os.Stderr})",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "cmd.SetOut(io.MultiWriter(&c1EscapeWriter{w: os.Stdout}, flags.deliverBuf))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "if u, ok := w.(interface{ Unwrap() io.Writer }); ok {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/c1_escape.go",
+          "contains": "func (c *c1EscapeWriter) Write(p []byte) (int, error) {",
+          "code_only": true
+        }
+      ]
+    }
+  ]
+}
