@@ -124,6 +124,9 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
 - IT Glue (Documentation) - ask "Which client owns this device, serial number, or contact?" - Find any device, audit stale passwords, and rank thin client docs by asking.
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/itglue/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/itglue/install.sh)
+- Jira Service Management (PSA) - ask "Which tickets breach SLA in the next two hours, across every queue?" - Triage queues, catch SLA breaches, and reconcile Assets (CMDB) by asking.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/jira-service-management/
+  Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/jira-service-management/install.sh)
 - Kaseya BMS (PSA) - ask "Which queues are underwater and what's going stale before standup?" - Run the Kaseya BMS service desk, contracts, and billing from your terminal - with offline analytics the web grid can't compute.
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/kaseya-bms/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/kaseya-bms/install.sh)

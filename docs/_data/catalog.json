@@ -1,5 +1,5 @@
 {
-  "count": 80,
+  "count": 81,
   "connectors": [
     {
       "slug": "abnormal",
@@ -418,6 +418,17 @@
       "source": null,
       "issue_url": null,
       "url": "/skills/itglue/"
+    },
+    {
+      "slug": "jira-service-management",
+      "display_name": "Jira Service Management",
+      "tagline": "Triage queues, catch SLA breaches, and reconcile Assets (CMDB) by asking.",
+      "category": "PSA",
+      "verification": "awaiting",
+      "verified_by": null,
+      "source": null,
+      "issue_url": null,
+      "url": "/skills/jira-service-management/"
     },
     {
       "slug": "kaseya-bms",

@@ -1292,6 +1292,22 @@
         "claude-code",
         "claude-mcp"
       ]
+    },
+    {
+      "name": "jira-service-management",
+      "source": "./skills/jira-service-management",
+      "description": "Every Jira Service Management Cloud request-API (servicedeskapi) and Assets endpoint in one binary, plus SLA breach radar, internal notes, ticket timelines, and CMDB-to-ticket joins.",
+      "version": "0.1.0",
+      "category": "psa",
+      "tags": [
+        "jira-service-management",
+        "jira service management",
+        "psa",
+        "msp",
+        "mcp",
+        "claude-code",
+        "claude-mcp"
+      ]
     }
   ]
 }

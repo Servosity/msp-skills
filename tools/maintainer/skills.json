@@ -378,6 +378,29 @@
         "issue_url": "https://compoundingteams.com/"
       }
     },
+    "cisco-duo": {
+      "system": "Cisco Duo multi-factor authentication: users, phones, bypass codes, authentication logs, and MSP subaccounts through the Duo Admin API",
+      "status": "beta",
+      "cli_binary": "cisco-duo-cli",
+      "mcp_binary": "cisco-duo-mcp",
+      "vendor": "Cisco Duo",
+      "vendor_trademark_owner": "Cisco Systems, Inc.",
+      "first_party": false,
+      "category": "Security",
+      "display_name": "Cisco Duo",
+      "tagline": "Fix Duo MFA lockouts in one command and see every MSP subaccount at once.",
+      "cli_hash": "sha256:c54543ef802ff97706c0681499ec7d45f637433020b811b2f667dcc13f2865aa",
+      "template_version": 3,
+      "version": "0.1.1",
+      "cli_hash_at_release": "sha256:af2b2893ab2c3a54a317dc720a1407e2d72a22a5f62b16e553516c6f89b85808",
+      "has_video": true,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "cisco-meraki": {
       "system": "Cisco Meraki Dashboard cloud-managed networking (MX security appliances, MS switches, MR access points, MV cameras) across every client organization",
       "status": "beta",
@@ -964,6 +987,29 @@
         "evidence": null,
         "verified_by": null,
         "issue_url": null
+      }
+    },
+    "jira-service-management": {
+      "system": "Jira Service Management Cloud: requests, queues, SLAs, customers, organizations, Assets (CMDB)",
+      "status": "beta",
+      "cli_binary": "jira-service-management-cli",
+      "mcp_binary": "jira-service-management-mcp",
+      "vendor": "Jira Service Management",
+      "vendor_trademark_owner": "Atlassian Pty Ltd",
+      "first_party": false,
+      "category": "PSA",
+      "display_name": "Jira Service Management",
+      "tagline": "Triage queues, catch SLA breaches, and reconcile Assets (CMDB) by asking.",
+      "has_video": true,
+      "cli_hash": "sha256:390564ee6691dc4b29d4ee62ea05f798eed8df30e0272cd05d03a6411d777729",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": null,
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
       }
     },
     "kaseya-bms": {
@@ -1689,6 +1735,29 @@
         "issue_url": null
       }
     },
+    "sonicwall": {
+      "system": "SonicWall firewalls via Network Security Manager (NSM SaaS) and MySonicWall",
+      "status": "beta",
+      "cli_binary": "sonicwall-cli",
+      "mcp_binary": "sonicwall-mcp",
+      "vendor": "SonicWall",
+      "vendor_trademark_owner": "SonicWall Inc",
+      "first_party": false,
+      "category": "Security",
+      "display_name": "SonicWall",
+      "tagline": "Audit every client SonicWall firewall for firmware, SSL-VPN exposure, MFA and licence expiry in one command.",
+      "has_video": true,
+      "cli_hash": "sha256:342f8166442c90ab1dbada2d633c238570fa337a106b893b393d321702c4d1a4",
+      "template_version": 3,
+      "version": "0.1.0",
+      "cli_hash_at_release": "sha256:342f8166442c90ab1dbada2d633c238570fa337a106b893b393d321702c4d1a4",
+      "live_verified": {
+        "status": "awaiting",
+        "date": null,
+        "source": null,
+        "evidence": null
+      }
+    },
     "sophos-central": {
       "system": "Sophos Central endpoint protection across every partner tenant: alerts, endpoints, isolation, tamper protection, account health, licences, billing and SIEM",
       "status": "beta",
@@ -1978,52 +2047,6 @@
         "evidence": "Damien: verified live (2026-08-16)",
         "verified_by": "Servosity (maintainer)",
         "issue_url": null
-      }
-    },
-    "cisco-duo": {
-      "system": "Cisco Duo multi-factor authentication: users, phones, bypass codes, authentication logs, and MSP subaccounts through the Duo Admin API",
-      "status": "beta",
-      "cli_binary": "cisco-duo-cli",
-      "mcp_binary": "cisco-duo-mcp",
-      "vendor": "Cisco Duo",
-      "vendor_trademark_owner": "Cisco Systems, Inc.",
-      "first_party": false,
-      "category": "Security",
-      "display_name": "Cisco Duo",
-      "tagline": "Fix Duo MFA lockouts in one command and see every MSP subaccount at once.",
-      "cli_hash": "sha256:c54543ef802ff97706c0681499ec7d45f637433020b811b2f667dcc13f2865aa",
-      "template_version": 3,
-      "version": "0.1.1",
-      "cli_hash_at_release": "sha256:af2b2893ab2c3a54a317dc720a1407e2d72a22a5f62b16e553516c6f89b85808",
-      "has_video": true,
-      "live_verified": {
-        "status": "awaiting",
-        "date": null,
-        "source": null,
-        "evidence": null
-      }
-    },
-    "sonicwall": {
-      "system": "SonicWall firewalls via Network Security Manager (NSM SaaS) and MySonicWall",
-      "status": "beta",
-      "cli_binary": "sonicwall-cli",
-      "mcp_binary": "sonicwall-mcp",
-      "vendor": "SonicWall",
-      "vendor_trademark_owner": "SonicWall Inc",
-      "first_party": false,
-      "category": "Security",
-      "display_name": "SonicWall",
-      "tagline": "Audit every client SonicWall firewall for firmware, SSL-VPN exposure, MFA and licence expiry in one command.",
-      "has_video": true,
-      "cli_hash": "sha256:342f8166442c90ab1dbada2d633c238570fa337a106b893b393d321702c4d1a4",
-      "template_version": 3,
-      "version": "0.1.0",
-      "cli_hash_at_release": "sha256:342f8166442c90ab1dbada2d633c238570fa337a106b893b393d321702c4d1a4",
-      "live_verified": {
-        "status": "awaiting",
-        "date": null,
-        "source": null,
-        "evidence": null
       }
     }
   }
