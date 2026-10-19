@@ -48,8 +48,11 @@ only its own requests.
 
 - **Assets calls are pinned to your site.** Every Assets request is refused unless its cloudId is
   the current site's cloudId (read once per run from `https://<site>.atlassian.net/_edge/tenant_info`,
-  which needs no credential). One Atlassian token can reach several client sites; this stops a
-  leftover cloudId from another client from reading or deleting that client's CMDB.
+  which needs no credential) and its workspaceId is one the site itself lists (read once per run
+  from `https://<site>.atlassian.net/rest/servicedeskapi/assets/workspace`, with the same
+  credential the request API already uses). One Atlassian token can reach several client sites;
+  this stops a leftover cloudId or workspaceId from another client from reading or deleting that
+  client's CMDB.
 - **Local files under MCP.** MCP tools never take a local path to read for `teach`, `teach-playbook`
   or `import`; `cmdb reconcile` reads an export only from inside the MCP server's working
   directory and refuses a working directory that is a filesystem root or the home folder.

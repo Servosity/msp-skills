@@ -583,8 +583,8 @@
     },
     {
       "id": "jsm-assets-ids-per-site",
-      "summary": "cmdb discover --save stores cloudId/workspaceId as cloudId@<site> / workspaceId@<site>, config load applies only the current site's ids, and sync --path-context site=... re-binds them; and every Assets request is refused unless its cloudId is the current site's (tenant_info, once per process)",
-      "why": "Saved Assets ids used to be global: after switching JIRA_SERVICE_MANAGEMENT_SITE to another client, every Assets command (reads, object delete/update, reconcile) and the Assets resources in sync went to the first client's CMDB, and those rows landed in the second site's store (adversarial review round 3, 2026-10-16; reproduced with object delete --dry-run). The binding lives in internal/config/jsm_config.go (hand-written) behind one hook in config.go and one in sync.go; jsm_config_test.go covers save, per-site load and the path-context rebind, and fails with the load hook removed. Round 4: an exported JIRA_SERVICE_MANAGEMENT_CLOUD_ID from another client still won over the per-site binding and sent object delete to that client's CMDB (adversarial review). jsmCheckAssetsCloud (internal/client/jsm_request_guard.go) now refuses any api.atlassian.com/ex/jira/<cloudId>/jsm/... request whose cloudId is not the site's, whatever set it; jsm_request_guard_test.go fails with the check disabled.",
+      "summary": "cmdb discover --save stores cloudId/workspaceId as cloudId@<site> / workspaceId@<site>, config load applies only the current site's ids, and sync --path-context site=... re-binds them; and every Assets request is refused unless its cloudId is the current site's (tenant_info) and its workspaceId is one the site lists (servicedeskapi/assets/workspace), each read once per process",
+      "why": "Saved Assets ids used to be global: after switching JIRA_SERVICE_MANAGEMENT_SITE to another client, every Assets command (reads, object delete/update, reconcile) and the Assets resources in sync went to the first client's CMDB, and those rows landed in the second site's store (adversarial review round 3, 2026-10-16; reproduced with object delete --dry-run). The binding lives in internal/config/jsm_config.go (hand-written) behind one hook in config.go and one in sync.go; jsm_config_test.go covers save, per-site load and the path-context rebind, and fails with the load hook removed. Round 4: an exported JIRA_SERVICE_MANAGEMENT_CLOUD_ID from another client still won over the per-site binding and sent object delete to that client's CMDB (adversarial review). jsmCheckAssetsCloud (internal/client/jsm_request_guard.go) now refuses any api.atlassian.com/ex/jira/<cloudId>/jsm/... request whose cloudId is not the site's, whatever set it; jsm_request_guard_test.go fails with the check disabled. Round 5 (adversarial review, 2026-10-19): a leftover JIRA_SERVICE_MANAGEMENT_WORKSPACE_ID was still unchecked (the code relied on an unproven claim that Atlassian rejects a workspaceId outside the cloud), and a trailing-dot host (api.atlassian.com.) skipped the guard. The guard now also requires the workspaceId to be one the site's own /rest/servicedeskapi/assets/workspace lists (fetched with the request's own Authorization header from the same <site>.atlassian.net host) and normalizes the host; jsm_request_guard_test.go fails with either check disabled (mutation-tested).",
       "status": "active",
       "asserts": [
         {
@@ -615,6 +615,105 @@
           "file": "cli/internal/client/jsm_request_guard.go",
           "contains": "if want != cloudID {",
           "code_only": true
+        },
+        {
+          "file": "cli/internal/client/jsm_request_guard.go",
+          "contains": "ids, err := jsmSiteWorkspaceIDs(ctx, c, site, req.Header.Get(\"Authorization\"))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/jsm_request_guard.go",
+          "contains": "strings.TrimSuffix(strings.ToLower(u.Hostname()), \".\") != \"api.atlassian.com\"",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "jsm-auth-hint-email-placeholder",
+      "summary": "every auth hint names an email for JIRA_SERVICE_MANAGEMENT_EMAIL (not a token placeholder), shows the PowerShell form beside the POSIX export, and the set-credentials example passes an email first",
+      "why": "The press rendered the composed Basic-auth hint with the token placeholder for both variables (export JIRA_SERVICE_MANAGEMENT_EMAIL=\"your-token-here\" ...), POSIX only, in doctor, auth, the 401/403/HTML error hints, the MCP error hints and the placeholder-credential error; the set-credentials example passed two tokens. Agents and Windows MSPs follow these runtime hints on every auth failure. Found by the adversarial review, round 5, 2026-10-19.",
+      "spec_encode_followup": "Press template defect for composed Basic auth (email + token); not spec-encodable.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "export JIRA_SERVICE_MANAGEMENT_EMAIL=\\\"you@example.com\\\" JIRA_SERVICE_MANAGEMENT_API_TOKEN=\\\"your-token-here\\\" (PowerShell: ",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "export JIRA_SERVICE_MANAGEMENT_EMAIL=\\\"you@example.com\\\" JIRA_SERVICE_MANAGEMENT_API_TOKEN=\\\"your-token-here\\\" (PowerShell: ",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "contains": "export JIRA_SERVICE_MANAGEMENT_EMAIL=\\\"you@example.com\\\" JIRA_SERVICE_MANAGEMENT_API_TOKEN=\\\"your-token-here\\\" (PowerShell: ",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth.go",
+          "contains": "export JIRA_SERVICE_MANAGEMENT_EMAIL=\\\"you@example.com\\\" JIRA_SERVICE_MANAGEMENT_API_TOKEN=\\\"your-token-here\\\" (PowerShell: ",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/auth.go",
+          "not_contains": "set-credentials your-token-here your-token-here"
+        },
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "not_contains": "EMAIL=\\\"your-token-here\\\""
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "export JIRA_SERVICE_MANAGEMENT_EMAIL=<you@example.com>",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "jsm-doctor-prefers-site",
+      "summary": "doctor's placeholder-base_url error tells the user to set JIRA_SERVICE_MANAGEMENT_SITE and warns that BASE_URL also moves Assets calls, instead of offering BASE_URL as an equal alternative",
+      "why": "Following the generated advice (set BASE_URL to the request-API root) moved every Assets call onto the site host, where it 404s and is reported as 'resource not found'. The guide and manifest already say to prefer SITE. Found by the adversarial review, round 5, 2026-10-19.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/doctor.go",
+          "contains": "Prefer it over \" + doctorBaseURLEnv + \", which also moves Assets (CMDB) calls onto that host and breaks them",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "jsm-archive-skips-removed-aql",
+      "summary": "workflow archive (and the MCP workflow_archive tool) syncs sync's default resource list, so it no longer walks the removed aql/iql endpoints",
+      "why": "jsm-sync-defaults-skip-removed-aql dropped aql/iql from sync's defaults, but the generated archive command hard-coded its own list with both, so every archive on an Assets site logged two resource errors hidden behind exit 0. Found by the adversarial review, round 5, 2026-10-19.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/channel_workflow.go",
+          "contains": "resources := defaultSyncResources()",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/channel_workflow.go",
+          "not_contains": "[]string{\"aql\", \"assets\""
+        }
+      ]
+    },
+    {
+      "id": "jsm-mcp-context-paging",
+      "summary": "the MCP context tool's query tips say paging is offset-based with JSM's 50-row cap, not cursor-based with a default of 100",
+      "why": "The generated tips told agents pagination was cursor-based with a default page of 100; JSM pages by start/startAt offsets and the connector clamps request-API pages to 50 (CHANGELOG). Found by the adversarial review, round 5, 2026-10-19.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "contains": "\"Pagination is offset-based: pass the offset parameter for later pages (sent to JSM as start/startAt).\"",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "not_contains": "Pagination uses cursor-based paging"
         }
       ]
     }

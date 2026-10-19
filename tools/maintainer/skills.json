@@ -1001,7 +1001,7 @@
       "display_name": "Jira Service Management",
       "tagline": "Triage queues, catch SLA breaches, and reconcile Assets (CMDB) by asking.",
       "has_video": true,
-      "cli_hash": "sha256:228fece5b6080cf15a548a4eff4b8fbc94fbac3333c3afdfb9a8f1a8f5e9186a",
+      "cli_hash": "sha256:b0e3e89dc56d8ccf0619423b19072659001b6ad682d748dff8754b6b6ad7358c",
       "template_version": 3,
       "version": "0.1.0",
       "cli_hash_at_release": null,

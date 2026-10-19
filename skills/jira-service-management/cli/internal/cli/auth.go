@@ -46,9 +46,9 @@ func newAuthSetupCmd(_ *rootFlags) *cobra.Command {
 			fmt.Fprintln(w, "  Create API token, then export JIRA_SERVICE_MANAGEMENT_SITE (your atlassian.net subdomain), _EMAIL and _API_TOKEN")
 			fmt.Fprintln(w, "")
 			fmt.Fprintln(w, "Then set:")
-			fmt.Fprintln(w, "  export JIRA_SERVICE_MANAGEMENT_EMAIL=\"your-token-here\"")
+			fmt.Fprintln(w, "  export JIRA_SERVICE_MANAGEMENT_EMAIL=\"you@example.com\"")
 			fmt.Fprintln(w, "  export JIRA_SERVICE_MANAGEMENT_API_TOKEN=\"your-token-here\"")
-			fmt.Fprintln(w, "  jira-service-management-cli auth set-credentials your-token-here your-token-here")
+			fmt.Fprintln(w, "  jira-service-management-cli auth set-credentials you@example.com your-token-here")
 			if !launch {
 				return nil
 			}
@@ -142,9 +142,9 @@ func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
 				fmt.Fprintln(w, red("Not authenticated"))
 				fmt.Fprintln(w, "")
 				fmt.Fprintln(w, "Set your credentials:")
-				fmt.Fprintln(w, "  export JIRA_SERVICE_MANAGEMENT_EMAIL=\"your-token-here\" # Atlassian account email (Basic auth username).")
+				fmt.Fprintln(w, "  export JIRA_SERVICE_MANAGEMENT_EMAIL=\"you@example.com\" # Atlassian account email (Basic auth username).")
 				fmt.Fprintln(w, "  export JIRA_SERVICE_MANAGEMENT_API_TOKEN=\"your-token-here\" # Atlassian API token from id.atlassian.com/manage-profile/security/api-tokens (Basic auth password).")
-				fmt.Fprintf(w, "  jira-service-management-cli auth set-credentials your-token-here your-token-here\n")
+				fmt.Fprintf(w, "  jira-service-management-cli auth set-credentials you@example.com your-token-here\n")
 				return authErr(fmt.Errorf("no credentials configured"))
 			}
 
@@ -154,7 +154,7 @@ func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
 			if _, line, expired, ok := jwtCredentialExpiry(jwtExpirySource(cfg)); ok {
 				fmt.Fprintf(w, "  Token expires: %s\n", line)
 				if expired {
-					fmt.Fprintf(w, "  %s\n", "Set Basic credentials with: export JIRA_SERVICE_MANAGEMENT_EMAIL=\"your-token-here\" JIRA_SERVICE_MANAGEMENT_API_TOKEN=\"your-token-here\"")
+					fmt.Fprintf(w, "  %s\n", "Set Basic credentials with: export JIRA_SERVICE_MANAGEMENT_EMAIL=\"you@example.com\" JIRA_SERVICE_MANAGEMENT_API_TOKEN=\"your-token-here\" (PowerShell: $env:JIRA_SERVICE_MANAGEMENT_EMAIL=\"you@example.com\"; $env:JIRA_SERVICE_MANAGEMENT_API_TOKEN=\"your-token-here\")")
 				}
 			}
 			return nil
@@ -166,7 +166,7 @@ func newAuthSetCredentialsCmd(flags *rootFlags) *cobra.Command {
 	return &cobra.Command{
 		Use:     "set-credentials <service_management_email> <service_management_api_token>",
 		Short:   "Save Basic auth credentials to the credentials file",
-		Example: "  jira-service-management-cli auth set-credentials your-token-here your-token-here",
+		Example: "  jira-service-management-cli auth set-credentials you@example.com your-token-here",
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 2 {
 				return fmt.Errorf("requires exactly 2 args: <service_management_email> <service_management_api_token>")

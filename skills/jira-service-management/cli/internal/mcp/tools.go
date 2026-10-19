@@ -573,21 +573,21 @@ func makeAPIHandler(method, pathTemplate string, readOnly bool, binaryResponse b
 			case strings.Contains(msg, "HTTP 400") && cliutil.LooksLikeAuthError(msg):
 				return mcpToolError("authentication error: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: the API rejected the request — this usually means auth is missing or invalid." +
-					"\n      Set Basic credentials with: export JIRA_SERVICE_MANAGEMENT_EMAIL=\"your-token-here\" JIRA_SERVICE_MANAGEMENT_API_TOKEN=\"your-token-here\"" +
+					"\n      Set Basic credentials with: export JIRA_SERVICE_MANAGEMENT_EMAIL=\"you@example.com\" JIRA_SERVICE_MANAGEMENT_API_TOKEN=\"your-token-here\" (PowerShell: $env:JIRA_SERVICE_MANAGEMENT_EMAIL=\"you@example.com\"; $env:JIRA_SERVICE_MANAGEMENT_API_TOKEN=\"your-token-here\")" +
 					"\n      Get a key at: https://id.atlassian.com/manage-profile/security/api-tokens" +
 					"\n      Create API token, then export JIRA_SERVICE_MANAGEMENT_SITE (your atlassian.net subdomain), _EMAIL and _API_TOKEN" +
 					"\n      Run 'jira-service-management-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 401"):
 				return mcpToolError("authentication failed: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: check your Basic credentials." +
-					"\n      Set Basic credentials with: export JIRA_SERVICE_MANAGEMENT_EMAIL=\"your-token-here\" JIRA_SERVICE_MANAGEMENT_API_TOKEN=\"your-token-here\"" +
+					"\n      Set Basic credentials with: export JIRA_SERVICE_MANAGEMENT_EMAIL=\"you@example.com\" JIRA_SERVICE_MANAGEMENT_API_TOKEN=\"your-token-here\" (PowerShell: $env:JIRA_SERVICE_MANAGEMENT_EMAIL=\"you@example.com\"; $env:JIRA_SERVICE_MANAGEMENT_API_TOKEN=\"your-token-here\")" +
 					"\n      Get a key at: https://id.atlassian.com/manage-profile/security/api-tokens" +
 					"\n      Create API token, then export JIRA_SERVICE_MANAGEMENT_SITE (your atlassian.net subdomain), _EMAIL and _API_TOKEN" +
 					"\n      Run 'jira-service-management-cli doctor' to check auth status."), nil
 			case strings.Contains(msg, "HTTP 403"):
 				return mcpToolError("permission denied: " + cliutil.SanitizeErrorBody(msg) +
 					"\nhint: your credentials are valid but lack access to this resource. Check that they have the required permissions and match the API's expected auth scheme." +
-					"\n      Set Basic credentials with: export JIRA_SERVICE_MANAGEMENT_EMAIL=\"your-token-here\" JIRA_SERVICE_MANAGEMENT_API_TOKEN=\"your-token-here\"" +
+					"\n      Set Basic credentials with: export JIRA_SERVICE_MANAGEMENT_EMAIL=\"you@example.com\" JIRA_SERVICE_MANAGEMENT_API_TOKEN=\"your-token-here\" (PowerShell: $env:JIRA_SERVICE_MANAGEMENT_EMAIL=\"you@example.com\"; $env:JIRA_SERVICE_MANAGEMENT_API_TOKEN=\"your-token-here\")" +
 					"\n      Get a key at: https://id.atlassian.com/manage-profile/security/api-tokens" +
 					"\n      Create API token, then export JIRA_SERVICE_MANAGEMENT_SITE (your atlassian.net subdomain), _EMAIL and _API_TOKEN" +
 					"\n      Run 'jira-service-management-cli doctor' to check auth status."), nil
@@ -1532,8 +1532,8 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 			},
 		},
 		"query_tips": []string{
-			"Pagination uses cursor-based paging. Pass offset parameter for subsequent pages.",
-			"Control page size with the limit parameter (default 100).",
+			"Pagination is offset-based: pass the offset parameter for later pages (sent to JSM as start/startAt).", // pp:handfix jsm-mcp-context-paging
+			"Control page size with the limit parameter; JSM caps request-API pages at 50.",
 			"Use the sql tool for ad-hoc analysis on synced data. Run sync first to populate the local database.",
 			"Use the search tool for full-text search across all synced resources. Faster than iterating list endpoints.",
 			"Prefer sql/search over repeated API calls when the data is already synced.",

@@ -93,7 +93,8 @@ and full resync. After archiving, use 'search' for instant full-text search.`,
 			}
 			defer s.Close()
 
-			resources := []string{"aql", "assets", "config", "config-statustype", "icon", "insight", "iql", "objectschema", "organization", "request", "requesttype", "servicedesk", "usage"}
+			// pp:handfix jsm-archive-skips-removed-aql: same list as sync's defaults, without the removed aql/iql endpoints.
+			resources := defaultSyncResources()
 			if cliutil.IsDogfoodEnv() {
 				if len(resources) > 3 {
 					resources = resources[:3]

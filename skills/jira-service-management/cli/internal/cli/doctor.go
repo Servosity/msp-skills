@@ -276,7 +276,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 					configured, authSource := doctorAuthConfiguredState(cfg)
 					if !configured {
 						report["auth"] = "not configured"
-						report["auth_hint"] = "Set Basic credentials with: export JIRA_SERVICE_MANAGEMENT_EMAIL=\"your-token-here\" JIRA_SERVICE_MANAGEMENT_API_TOKEN=\"your-token-here\""
+						report["auth_hint"] = "Set Basic credentials with: export JIRA_SERVICE_MANAGEMENT_EMAIL=\"you@example.com\" JIRA_SERVICE_MANAGEMENT_API_TOKEN=\"your-token-here\" (PowerShell: $env:JIRA_SERVICE_MANAGEMENT_EMAIL=\"you@example.com\"; $env:JIRA_SERVICE_MANAGEMENT_API_TOKEN=\"your-token-here\")"
 						report["auth_key_url"] = "https://id.atlassian.com/manage-profile/security/api-tokens"
 						report["auth_instructions"] = "Create API token, then export JIRA_SERVICE_MANAGEMENT_SITE (your atlassian.net subdomain), _EMAIL and _API_TOKEN"
 					} else {
@@ -285,7 +285,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 						report["auth_source"] = authSource
 						if expiresAt, _, expired, ok := jwtCredentialExpiry(jwtExpirySource(cfg)); ok && expired {
 							report["auth"] = "ERROR token expired at " + expiresAt
-							report["auth_hint"] = "Set Basic credentials with: export JIRA_SERVICE_MANAGEMENT_EMAIL=\"your-token-here\" JIRA_SERVICE_MANAGEMENT_API_TOKEN=\"your-token-here\""
+							report["auth_hint"] = "Set Basic credentials with: export JIRA_SERVICE_MANAGEMENT_EMAIL=\"you@example.com\" JIRA_SERVICE_MANAGEMENT_API_TOKEN=\"your-token-here\" (PowerShell: $env:JIRA_SERVICE_MANAGEMENT_EMAIL=\"you@example.com\"; $env:JIRA_SERVICE_MANAGEMENT_API_TOKEN=\"your-token-here\")"
 						}
 					}
 				}
@@ -354,7 +354,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 			}
 			if doctorBaseURLIsPlaceholder(doctorBase) {
 				// Refuse to dial a host the operator never set, and name the fix.
-				report["api"] = "ERROR base_url is still the placeholder \"" + doctorBase + "\"; set " + doctorSiteEnv + " to your site subdomain (acme for acme.atlassian.net), or " + doctorBaseURLEnv + " to the full request-API root"
+				report["api"] = "ERROR base_url is still the placeholder \"" + doctorBase + "\"; set " + doctorSiteEnv + " to your site subdomain (acme for acme.atlassian.net). Prefer it over " + doctorBaseURLEnv + ", which also moves Assets (CMDB) calls onto that host and breaks them" // pp:handfix jsm-doctor-prefers-site
 				if _, set := report["credentials"]; !set {
 					report["credentials"] = "ERROR not verified: base_url is still a placeholder; set " + doctorSiteEnv + " or " + doctorBaseURLEnv
 				}

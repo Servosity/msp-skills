@@ -1497,8 +1497,8 @@ Outcomes (question -> command your AI agent runs):
 - Which laptops are in our RMM export but missing from Assets? -> jira-service-management-cli cmdb reconcile --type Laptop --file rmm.csv --key Name --compare Serial,OS
 
 FAQ:
-Q: Is there an MCP server for Jira Service Management?
-A: Yes. This is a free, open source MCP server for Jira Service Management Cloud. It runs on your own machine and connects to Claude Desktop, Claude Code, and other MCP-capable agents.
+Q: How do I install the Jira Service Management MCP server?
+A: This is a free, open source MCP server for Jira Service Management Cloud. It runs on your own machine and connects to Claude Desktop, Claude Code, and other MCP-capable agents.
 
 1. Create an Atlassian API token at id.atlassian.com/manage-profile/security/api-tokens, signed in as an agent on your JSM site.
 2. **Claude Desktop:** download the Jira Service Management `.mcpb` from the [releases page](https://github.com/servosity/msp-skills/releases?q=jira-service-management), open **Claude Desktop > Settings > Extensions**, select the file, and enter your site subdomain, email and API token.
