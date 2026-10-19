@@ -983,13 +983,13 @@
     },
     {
       "id": "jsm-comment-public-help",
-      "summary": "request comment add --public help says that omitting the flag sends no public field (JSM's default then applies and can make the comment customer-visible) and routes internal notes to request note; SKILL.md says --yes gates only local confirmations and API writes send immediately.",
-      "why": "The generated help read 'public (true) or private/internal (false)', which suggests leaving the flag off gives an internal note; the command then sends {\"body\":...} with no public key and JSM picks visibility, the exact internal-note leak this connector headlines. SKILL.md (the file agents load) said only that --agent does not imply --yes, which reads as if writes wait for --yes. Found by adversarial review round 14 (Opus), 2026-10-19.",
+      "summary": "request comment add --public and request attachment add --public help say that omitting the flag sends no public field (JSM's default then applies and can make the comment customer-visible); comment add routes internal notes to request note. SKILL.md and guide.md say --yes gates only local confirmations and API writes send immediately.",
+      "why": "The generated help read 'public (true) or private/internal (false)', which suggests leaving the flag off gives an internal note; the command then sends {\"body\":...} with no public key and JSM picks visibility, the exact internal-note leak this connector headlines. SKILL.md (the file agents load) said only that --agent does not imply --yes, which reads as if writes wait for --yes. Found by adversarial review round 14 (Opus), 2026-10-19. Round 15 (Opus) found the sibling request attachment add --public (same omitted-field shape, help implied omitted = not visible) and the guide.md twin of the SKILL.md sentence.",
       "status": "active",
       "asserts": [
         {
           "file": "cli/internal/cli/request_comment_add.go",
-          "contains": "Omitted, no public field is sent and JSM applies its own default, which can make the comment customer-visible; for an internal note use request note or pass --public=false.",
+          "contains": "Omitted, no public field is sent and JSM applies its own default, which can make the comment customer-visible. For an internal note use request note instead, which checks the stored visibility.",
           "min_count": 1,
           "code_only": true
         },
@@ -999,6 +999,20 @@
         },
         {
           "file": "SKILL.md",
+          "contains": "API writes and deletes send immediately, so preview them with `--dry-run` first"
+        },
+        {
+          "file": "cli/internal/cli/request_attachment_add.go",
+          "contains": "Omitted, no public field is sent and JSM applies its own default, which can make them customer-visible.",
+          "min_count": 1,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/request_attachment_add.go",
+          "not_contains": "Controls whether the comment and its attachments are visible to customers\""
+        },
+        {
+          "file": "guide.md",
           "contains": "API writes and deletes send immediately, so preview them with `--dry-run` first"
         }
       ]

@@ -249,7 +249,7 @@ func newRequestAttachmentAddCmd(flags *rootFlags) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&bodyAdditionalCommentBody, "additional-comment-body", "", "Content of the comment.")
-	cmd.Flags().BoolVar(&bodyPublic, "public", false, "Controls whether the comment and its attachments are visible to customers")
+	cmd.Flags().BoolVar(&bodyPublic, "public", false, "true makes the comment and its attachments visible to customers, false keeps them internal. Omitted, no public field is sent and JSM applies its own default, which can make them customer-visible.") // pp:handfix jsm-comment-public-help
 	cmd.Flags().StringVar(&bodyTemporaryAttachmentIds, "temporary-attachment-ids", "", "List of IDs for the temporary attachments to be added to the customer request.")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")
 
