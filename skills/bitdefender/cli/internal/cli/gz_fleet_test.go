@@ -1327,3 +1327,18 @@ func TestFleetHealthHumanTableWithFailedCompany(t *testing.T) {
 		t.Fatalf("human table fell back to scrambled cards:\n%s", got)
 	}
 }
+
+// Notes can carry API-supplied company names; escape sequences must not
+// reach the terminal.
+func TestHumanNoteScrubsTerminalEscapes(t *testing.T) {
+	cmd := RootCmd()
+	var errOut bytes.Buffer
+	cmd.SetErr(&errOut)
+	humanNote(cmd, "skipped: Evil\x1b]52;c;cGF5bG9hZA==\x07Co\x1b[2J")
+	if strings.ContainsAny(errOut.String(), "\x1b\x07") {
+		t.Fatalf("note leaked a terminal escape: %q", errOut.String())
+	}
+	if !strings.Contains(errOut.String(), "Evil") {
+		t.Fatalf("note lost its text: %q", errOut.String())
+	}
+}

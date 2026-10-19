@@ -18,7 +18,7 @@ All notable changes to this skill are documented here. Format follows
   `fleet changes` (diffs saved snapshots), `companies tree` and `usage billing`
   (own share after the partner rollup, with PSA agreement checks).
 - `BITDEFENDER_MCP_READ_ONLY=1` lets the MCP server's generic execute tool run
-  GravityZone read methods only; writes and reads that return or take a
-  credential are refused.
+  GravityZone read methods only; writes and the Credential-tier reads are
+  refused (incident reads stay allowed).
 - An environment `BITDEFENDER_BASE_URL` is a per-run override and is never saved
   to config.toml.

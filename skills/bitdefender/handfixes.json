@@ -92,7 +92,7 @@
     {
       "id": "gravityzone-jsonrpc-transport",
       "summary": "a client hook turns each /v1.x/jsonrpc/<area>#<method> call into a JSON-RPC 2.0 envelope and unwraps result/error",
-      "why": "GravityZone's Public API is JSON-RPC 2.0 with no OpenAPI. The authored spec writes one POST path per method with the method name in the URL fragment, which net/http never sends. jsonrpc_transport.go (registered through registerClientHook, so it wraps every CLI and MCP client) builds the envelope from the fragment plus the generated command's body and returns the result member, or the error member as an HTTP error status. Without it every call posts bare params to the area URL and Control Center rejects it. Handwritten file from the factory's handfix/internal/cli; re-apply ~/Documents/Dev/cli-factory/bitdefender/handfix/ after any regen.",
+      "why": "GravityZone's Public API is JSON-RPC 2.0 with no OpenAPI. The authored spec writes one POST path per method with the method name in the URL fragment, which net/http never sends. jsonrpc_transport.go (registered through registerClientHook, so it wraps every CLI and MCP client) builds the envelope from the fragment plus the generated command's body and returns the result member, or the error member as an HTTP error status. Without it every call posts bare params to the area URL and Control Center rejects it. Handwritten file from the factory's handfix/internal/cli; re-apply ~/Documents/Dev/cli-factory/bitdefender/handfix/ after any regen. The transport also refuses plain http:// to any non-loopback host before sending, since every request carries the API key as HTTP Basic (Codex review 2026-10-19, P1).",
       "status": "active",
       "asserts": [
         {
@@ -108,6 +108,11 @@
         {
           "file": "cli/internal/cli/jsonrpc_transport.go",
           "contains": "return unwrapRPCResponse(resp, id)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/jsonrpc_transport.go",
+          "contains": "if err := refusePlainHTTP(req.URL.Scheme, req.URL.Hostname()); err != nil {",
           "code_only": true
         }
       ]
@@ -482,78 +487,78 @@
       "asserts": [
         {
           "file": "cli/internal/cli/aws_ec2_company-by-account.go",
-          "not_contains": "Aliases:     []string{\"create\"},"
+          "not_contains": "[]string{\"create\"}"
         },
         {
           "file": "cli/internal/cli/blocklist_add.go",
-          "not_contains": "Aliases:     []string{\"create\"},"
+          "not_contains": "[]string{\"create\"}"
         },
         {
           "file": "cli/internal/cli/endpoints_assign-policy.go",
-          "not_contains": "Aliases:     []string{\"create\"},"
+          "not_contains": "[]string{\"create\"}"
         },
         {
           "file": "cli/internal/cli/incidents_assign.go",
-          "not_contains": "Aliases:     []string{\"create\"},"
+          "not_contains": "[]string{\"create\"}"
         },
         {
           "file": "cli/internal/cli/integrators_add.go",
-          "not_contains": "Aliases:     []string{\"create\"},"
+          "not_contains": "[]string{\"create\"}"
         },
         {
           "file": "cli/internal/cli/inventory_list.go",
-          "not_contains": "Aliases:     []string{\"create\"},"
+          "not_contains": "[]string{\"create\"}"
         },
         {
           "file": "cli/internal/cli/investigation_collect-package.go",
-          "not_contains": "Aliases:     []string{\"create\"},"
+          "not_contains": "[]string{\"create\"}"
         },
         {
           "file": "cli/internal/cli/isolation_isolate.go",
-          "not_contains": "Aliases:     []string{\"create\"},"
+          "not_contains": "[]string{\"create\"}"
         },
         {
           "file": "cli/internal/cli/license_add-product-key.go",
-          "not_contains": "Aliases:     []string{\"create\"},"
+          "not_contains": "[]string{\"create\"}"
         },
         {
           "file": "cli/internal/cli/notifications_configure.go",
-          "not_contains": "Aliases:     []string{\"create\"},"
+          "not_contains": "[]string{\"create\"}"
         },
         {
           "file": "cli/internal/cli/patches_installed.go",
-          "not_contains": "Aliases:     []string{\"create\"},"
+          "not_contains": "[]string{\"create\"}"
         },
         {
           "file": "cli/internal/cli/phasr_apply.go",
-          "not_contains": "Aliases:     []string{\"create\"},"
+          "not_contains": "[]string{\"create\"}"
         },
         {
           "file": "cli/internal/cli/policies_get.go",
-          "not_contains": "Aliases:     []string{\"create\"},"
+          "not_contains": "[]string{\"create\"}"
         },
         {
           "file": "cli/internal/cli/push_get.go",
-          "not_contains": "Aliases:     []string{\"create\"},"
+          "not_contains": "[]string{\"create\"}"
         },
         {
           "file": "cli/internal/cli/quarantine_add-file.go",
-          "not_contains": "Aliases:     []string{\"create\"},"
+          "not_contains": "[]string{\"create\"}"
         },
         {
           "file": "cli/internal/cli/tasks_delete.go",
-          "not_contains": "Aliases:     []string{\"create\"},"
+          "not_contains": "[]string{\"create\"}"
         },
         {
           "file": "cli/internal/cli/usage_monthly.go",
-          "not_contains": "Aliases:     []string{\"create\"},"
+          "not_contains": "[]string{\"create\"}"
         }
       ]
     },
     {
       "id": "mcp-context-describes-gravityzone",
-      "summary": "the MCP context tool describes the real surface (JSON-RPC POST via bitdefender_search/bitdefender_execute, page/perPage paging, no sync or search tool) and the sql tool reports a saved fleet snapshot as ready",
-      "why": "The generated context tool, which tells agents to call it first, claimed cursor paging with after/limit (default 100), a sync command and a full-text search tool, and typed endpoint tools. None exist here: GravityZone pages with page/perPage (default 30) and the only API tool is the untyped bitdefender_execute, so an agent following the tips sent invalid params or trusted a 30-row first page as complete. The sql tool also returned store_status empty while gz_fleet_runs held snapshots. Found by the 2026-10-19 adversarial review (round 4, P1 + P2).",
+      "summary": "the MCP context tool describes the real surface (JSON-RPC POST via bitdefender_search/bitdefender_execute, page/perPage paging, no sync or search tool, no CRM playbook) and the sql tool reports the latest fleet snapshot as ready or partial",
+      "why": "The generated context tool, which tells agents to call it first, claimed cursor paging with after/limit (default 100), a sync command and a full-text search tool, and typed endpoint tools. None exist here: GravityZone pages with page/perPage (default 30) and the only API tool is the untyped bitdefender_execute, so an agent following the tips sent invalid params or trusted a 30-row first page as complete. The sql tool also returned store_status empty while gz_fleet_runs held snapshots. Found by the 2026-10-19 adversarial review (round 4, P1 + P2). Round 5 (2026-10-19) found two CRM playbook entries ('sync first', 'search for contacts') and archetype crm left in the same response, and Codex (round 2, P1) found any saved run reported ready even when that run had fetch failures; store_status now follows the latest run's failures/tree_complete.",
       "status": "active",
       "asserts": [
         {
@@ -563,7 +568,7 @@
         },
         {
           "file": "cli/internal/mcp/tools.go",
-          "contains": "\"List methods page with the page and perPage params",
+          "contains": "\"Most list methods page with the page and perPage params",
           "code_only": true
         },
         {
@@ -572,8 +577,21 @@
         },
         {
           "file": "cli/internal/mcp/tools.go",
-          "contains": "if len(status) > 0 || gzFleetSnapshotExists(db) {",
+          "not_contains": "sync first and query locally"
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "not_contains": "\"archetype\":   \"crm\""
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "contains": "if snap, ok := gzFleetSnapshotStatus(db); ok {",
           "min_count": 2,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "contains": "if failures > 0 || treeComplete == 0 {",
           "code_only": true
         }
       ]

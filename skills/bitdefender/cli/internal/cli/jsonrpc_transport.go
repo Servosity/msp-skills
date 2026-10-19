@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -58,6 +59,9 @@ type rpcError struct {
 }
 
 func (t *jsonrpcTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if err := refusePlainHTTP(req.URL.Scheme, req.URL.Hostname()); err != nil {
+		return nil, err
+	}
 	method := req.URL.Fragment
 	if method == "" || req.Method != http.MethodPost || !strings.Contains(req.URL.Path, "/jsonrpc/") {
 		return t.base.RoundTrip(req)
@@ -91,6 +95,22 @@ func (t *jsonrpcTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 		return resp, err
 	}
 	return unwrapRPCResponse(resp, id)
+}
+
+// refusePlainHTTP keeps the API key (sent as HTTP Basic on every call) off
+// the wire in clear text: a base URL that is http:// to anything but a
+// loopback test server is refused before the request leaves the machine.
+func refusePlainHTTP(scheme, host string) error {
+	if !strings.EqualFold(scheme, "http") {
+		return nil
+	}
+	if strings.EqualFold(host, "localhost") {
+		return nil
+	}
+	if ip := net.ParseIP(host); ip != nil && ip.IsLoopback() {
+		return nil
+	}
+	return fmt.Errorf("refusing to send the GravityZone API key over plain HTTP to %s: set BITDEFENDER_BASE_URL to an https:// URL (plain http is allowed only for a loopback test server)", host)
 }
 
 // maxRPCResponseBytes bounds one decoded JSON-RPC response. The largest

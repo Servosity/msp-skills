@@ -106,4 +106,12 @@ INSERT INTO gz_fleet_runs (taken_at, companies, endpoints, failures, tree_comple
 	if s, err := mcpStoreStatus(db); err != nil || s != mcpStoreStatusReady {
 		t.Fatalf("store with a fleet snapshot = %q, %v; want ready", s, err)
 	}
+	// A later run with a failed company omits that company's endpoints, so
+	// the latest snapshot is partial, not a clean fleet.
+	if _, err := db.DB().Exec(`INSERT INTO gz_fleet_runs (taken_at, companies, endpoints, failures, tree_complete) VALUES ('2026-10-19T01:00:00Z', 2, 3, 1, 1)`); err != nil {
+		t.Fatal(err)
+	}
+	if s, err := mcpStoreStatus(db); err != nil || s != mcpStoreStatusPartial {
+		t.Fatalf("store whose latest snapshot had a failure = %q, %v; want partial", s, err)
+	}
 }

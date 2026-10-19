@@ -574,13 +574,13 @@ func openMCPReadOnlyStore(path string) (*store.Store, *mcplib.CallToolResult) {
 	}
 	db, err := store.OpenReadOnly(path)
 	if err != nil {
-		return nil, mcplib.NewToolResultError(fmt.Sprintf("opening local data store %s: %v. Use live endpoint MCP tools for unsynced data, or populate the local store through a store-backed command.", path, err))
+		return nil, mcplib.NewToolResultError(fmt.Sprintf("opening local data store %s: %v. Use bitdefender_execute for live calls, or run fleet_health to populate the local store with a fleet snapshot.", path, err))
 	}
 	return db, nil
 }
 
 func mcpMissingStoreMessage(path string) string {
-	return fmt.Sprintf("No local data store found at %s. Use live endpoint MCP tools for unsynced data, or populate the local store through a store-backed command.", path)
+	return fmt.Sprintf("No local data store found at %s. Use bitdefender_execute for live calls, or run fleet_health to populate the local store with a fleet snapshot.", path)
 }
 
 func mcpStoreStatus(db *store.Store) (mcpStoreStatusKind, error) {
@@ -598,7 +598,10 @@ func mcpStoreStatus(db *store.Store) (mcpStoreStatusKind, error) {
 	if err != nil {
 		msg := strings.ToLower(err.Error())
 		if strings.Contains(msg, "no such table") || strings.Contains(msg, "no such column") {
-			if len(status) > 0 || gzFleetSnapshotExists(db) {
+			if snap, ok := gzFleetSnapshotStatus(db); ok {
+				return snap, nil
+			}
+			if len(status) > 0 {
 				return mcpStoreStatusReady, nil
 			}
 			return mcpStoreStatusEmpty, nil
@@ -611,18 +614,30 @@ func mcpStoreStatus(db *store.Store) (mcpStoreStatusKind, error) {
 		}
 		return mcpStoreStatusPartial, nil
 	}
-	if len(status) > 0 || gzFleetSnapshotExists(db) {
+	if snap, ok := gzFleetSnapshotStatus(db); ok {
+		return snap, nil
+	}
+	if len(status) > 0 {
 		return mcpStoreStatusReady, nil
 	}
 	return mcpStoreStatusEmpty, nil
 }
 
-// gzFleetSnapshotExists reports whether fleet health has saved a snapshot.
-// GravityZone has no sync command, so the generic resources table stays
-// empty and only the gz_fleet_* tables hold local data.
-func gzFleetSnapshotExists(db *store.Store) bool {
-	var n int
-	return db.DB().QueryRow(`SELECT COUNT(*) FROM gz_fleet_runs`).Scan(&n) == nil && n > 0
+// gzFleetSnapshotStatus reports the latest saved fleet health snapshot:
+// partial when that run had fetch failures or an incomplete company tree
+// (its endpoint rows omit the companies that failed), ready otherwise, and
+// ok=false when there is none. GravityZone has no sync command, so the
+// generic resources table stays empty and only the gz_fleet_* tables hold
+// local data.
+func gzFleetSnapshotStatus(db *store.Store) (mcpStoreStatusKind, bool) {
+	var failures, treeComplete int
+	if err := db.DB().QueryRow(`SELECT failures, tree_complete FROM gz_fleet_runs ORDER BY run_id DESC LIMIT 1`).Scan(&failures, &treeComplete); err != nil {
+		return "", false
+	}
+	if failures > 0 || treeComplete == 0 {
+		return mcpStoreStatusPartial, true
+	}
+	return mcpStoreStatusReady, true
 }
 
 func mcpEmptyStoreNextStep() string {
@@ -630,7 +645,7 @@ func mcpEmptyStoreNextStep() string {
 }
 
 func mcpPartialStoreNextStep() string {
-	return "The latest sync attempt is incomplete. Populate the store through a store-backed command before treating local search/sql results as a complete snapshot."
+	return "The latest fleet snapshot is incomplete. Re-run fleet_health (check its fetch_failures) before treating sql results as a complete fleet."
 }
 
 // validateReadOnlyQuery gates the MCP sql tool. The agent contract advertised
@@ -881,7 +896,7 @@ func mcpSQLEnvelope(rows []map[string]any, columns []string, storeStatus mcpStor
 		out["note"] = bound.SQLResultBoundNote
 	}
 	if storeStatus == mcpStoreStatusPartial {
-		out["warning"] = "Local data may be incomplete because the latest sync attempt did not finish."
+		out["warning"] = "Local data may be incomplete: the latest fleet snapshot had fetch failures or an incomplete company tree, so companies that failed have no endpoint rows."
 		out["next_step"] = mcpPartialStoreNextStep()
 	} else if len(rows) == 0 && !truncated {
 		if storeStatus == mcpStoreStatusEmpty {
@@ -962,7 +977,7 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 	ctx := map[string]any{
 		"api":         "bitdefender",
 		"description": "140 GravityZone Public API methods as commands, plus fleet health, billing and incident views across child companies.",
-		"archetype":   "crm",
+		"archetype":   "infrastructure",
 		"tool_count":  len(s.ListTools()),
 		"paths":       paths,
 		// tool_surface tells agents which surface a capability lives on.
@@ -1212,7 +1227,7 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 			},
 		},
 		"query_tips": []string{
-			"List methods page with the page and perPage params (perPage defaults to 30; the maximum varies by method, see bitdefender-cli <area> <method> --help). The result carries page, pagesCount and total: a first page is not the whole list unless pagesCount is 1.",
+			"Most list methods page with the page and perPage params (perPage defaults to 30; the maximum varies by method, see bitdefender-cli <area> <method> --help). A paged result carries page, pagesCount and total: a first page is not the whole list unless pagesCount is 1. A few (companies list, groups list) return one level as a plain array; companies_tree walks every level.",
 			"There is no sync command and no full-text search tool. The sql tool reads the local fleet snapshot tables (gz_fleet_runs and siblings) that fleet health writes.",
 			"Prefer the fleet_* tools over looping list methods per company: they walk every child company and report fetch failures.",
 		},
@@ -1237,8 +1252,6 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 			{"topic": "Fleet changes", "insight": "GravityZone keeps no history; only diffing local snapshots answers 'since last week'."},
 			{"topic": "Cross-tenant threat correlation", "insight": "Groups quarantine items across companies and joins the blocklist; each console view is per tenant."},
 			{"topic": "Fleet-wide endpoint locator", "insight": "Inventory is scoped per company, so finding one machine means searching every tenant; the snapshot or a live fan-out does it in one call."},
-			{"topic": "Contact lookup", "insight": "Use search for finding contacts by name/email. List endpoints return unsorted results and require pagination for large datasets."},
-			{"topic": "Activity tracking", "insight": "When checking deal activity, sync first and query locally. CRM APIs often throttle activity-log endpoints heavily."},
 		},
 	}
 	return toolResultJSON(ctx)

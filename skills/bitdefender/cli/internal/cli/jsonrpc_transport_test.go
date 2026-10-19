@@ -5,6 +5,7 @@ package cli
 import (
 	"compress/gzip"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -180,3 +181,34 @@ func TestJSONRPCTransportRejectsMalformedEnvelopes(t *testing.T) {
 		}
 	}
 }
+
+// The API key rides every request as HTTP Basic, so plain http is refused
+// before anything is sent unless the host is a loopback test server.
+func TestJSONRPCTransportRefusesPlainHTTPToRemoteHost(t *testing.T) {
+	called := false
+	hc := &http.Client{Transport: &jsonrpcTransport{base: roundTripperFunc(func(*http.Request) (*http.Response, error) {
+		called = true
+		return nil, errors.New("base transport reached")
+	})}}
+	for _, u := range []string{"http://gz.example.com/api/v1.0/jsonrpc/network#getEndpointsList", "http://10.0.0.5/api/v1.0/jsonrpc/general"} {
+		_, err := hc.Post(u, "application/json", strings.NewReader(`{}`))
+		if err == nil || !strings.Contains(err.Error(), "plain HTTP") {
+			t.Fatalf("%s: err = %v, want a plain-HTTP refusal", u, err)
+		}
+	}
+	if called {
+		t.Fatal("a plain-HTTP request to a remote host reached the network")
+	}
+	for _, h := range []string{"127.0.0.1", "localhost", "[::1]"} {
+		if err := refusePlainHTTP("http", strings.Trim(h, "[]")); err != nil {
+			t.Fatalf("loopback %s refused: %v", h, err)
+		}
+	}
+	if err := refusePlainHTTP("https", "gz.example.com"); err != nil {
+		t.Fatalf("https refused: %v", err)
+	}
+}
+
+type roundTripperFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripperFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }

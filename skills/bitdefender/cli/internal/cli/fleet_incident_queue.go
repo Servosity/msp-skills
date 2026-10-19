@@ -261,10 +261,10 @@ companies; use 'fleet threats' instead.`,
 			}
 			if flags.quiet {
 				if view.Note != "" {
-					fmt.Fprintln(cmd.ErrOrStderr(), "warning: "+view.Note) // ids stay clean on stdout
+					fmt.Fprintln(cmd.ErrOrStderr(), "warning: "+cliutil.ScrubTerminal(view.Note)) // ids stay clean on stdout
 				}
 				for _, r := range rows {
-					if _, err := fmt.Fprintln(cmd.OutOrStdout(), r.IncidentID); err != nil {
+					if _, err := fmt.Fprintln(cmd.OutOrStdout(), cliutil.ScrubTerminal(r.IncidentID)); err != nil {
 						return err
 					}
 				}

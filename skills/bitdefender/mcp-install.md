@@ -57,8 +57,9 @@ Quit Claude Desktop completely and reopen, then ask a question that needs the AP
 `"BITDEFENDER_MCP_READ_ONLY"` entry that is already in the `env` block to `"1"` (here or in
 any other agent's config below; do not add a second entry, because JSON keeps the last
 one): the generic `bitdefender_execute` tool then runs only
-GravityZone read methods and refuses writes and the reads that return or take a
-credential. The one-click `.mcpb` extension asks for the same switch as **Read-only MCP
+GravityZone read methods and refuses writes and the Credential-tier reads (incident
+reads stay allowed, and XDR evidence can hold connection headers captured on the
+endpoint, so treat incident output as sensitive). The one-click `.mcpb` extension asks for the same switch as **Read-only MCP
 server**: enter `1` there.
 
 ## GitHub Copilot (VS Code)

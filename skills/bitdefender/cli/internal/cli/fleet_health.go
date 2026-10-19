@@ -74,8 +74,8 @@ last-scan options) for every company, and returns one row per company ranked by 
 Each run is saved as a dated local snapshot that 'fleet changes', 'fleet locate' and
 'fleet rmm-gap' read. --details N adds getManagedEndpointDetails (last seen, signature
 outdated, infected) for the N managed endpoints with the oldest or missing scan.
---fail-on unmanaged,outdated exits 1 when any company has one of those issues, and 5 when
-any fetch failed (an incomplete fleet is never certified clean).
+--fail-on unmanaged,outdated exits 1 when any company has one of those issues, and 6 (partial
+failure) when any fetch failed (an incomplete fleet is never certified clean).
 
 Use this command for a per-company rollup of current endpoint protection status (unmanaged,
 outdated, unscanned, policy not applied, isolated). Do NOT use this command to see what

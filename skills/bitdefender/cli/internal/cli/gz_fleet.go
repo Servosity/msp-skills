@@ -774,7 +774,8 @@ func fleetUsageErr(cmd *cobra.Command, flags *rootFlags, err error) error {
 // humanNote prints a command's note to stderr in table mode so warnings stay
 // visible next to result rows; machine output carries it in the JSON note field.
 func humanNote(cmd *cobra.Command, note string) {
-	if note = strings.TrimSpace(note); note != "" {
+	// Notes can carry tenant-controlled company names: scrub terminal escapes.
+	if note = strings.TrimSpace(cliutil.ScrubTerminal(note)); note != "" {
 		fmt.Fprintln(cmd.ErrOrStderr(), "note: "+note)
 	}
 }
