@@ -3,6 +3,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"strconv"
 	"strings"
 )
@@ -69,4 +70,17 @@ func jsmClampAllLimit(path string, params map[string]string, limitParam string, 
 	if n, err := strconv.Atoi(params[limitParam]); err == nil && jsmPageCap(path, n) != n {
 		params[limitParam] = strconv.Itoa(jsmPageCap(path, n))
 	}
+}
+
+// jsmPageHasMore reports a JSM (isLastPage) or Assets (isLast) page that says
+// more pages follow.
+func jsmPageHasMore(data []byte) bool {
+	var p struct {
+		IsLastPage *bool `json:"isLastPage"`
+		IsLast     *bool `json:"isLast"`
+	}
+	if json.Unmarshal(data, &p) != nil {
+		return false
+	}
+	return (p.IsLastPage != nil && !*p.IsLastPage) || (p.IsLast != nil && !*p.IsLast)
 }

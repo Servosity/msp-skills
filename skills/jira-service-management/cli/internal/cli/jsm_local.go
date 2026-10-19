@@ -30,9 +30,15 @@ type localRequest struct {
 		StatusCategory string `json:"statusCategory"`
 	} `json:"currentStatus"`
 	SLA struct {
-		Values []jsmSLA `json:"values"`
+		Values     []jsmSLA `json:"values"`
+		IsLastPage *bool    `json:"isLastPage"`
 	} `json:"sla"`
 }
+
+// slaIncomplete reports a request whose stored SLA is only part of its metrics
+// (sync could not read the rest), so the reports can count it instead of
+// silently undercounting.
+func (r localRequest) slaIncomplete() bool { return r.SLA.IsLastPage != nil && !*r.SLA.IsLastPage }
 
 func (r localRequest) open() bool { return !strings.EqualFold(r.CurrentStatus.StatusCategory, "DONE") }
 
@@ -260,6 +266,7 @@ type clientPicture struct {
 	OldestOpenAgeH  int64          `json:"oldest_open_age_hours,omitempty"`
 	OngoingBreached int            `json:"ongoing_breached"`
 	BreachedKeys    []string       `json:"breached_keys"`
+	SLAIncomplete   int            `json:"sla_incomplete,omitempty"`
 }
 
 // clientRollup joins org members (accountIds) to request reporters.
@@ -271,6 +278,9 @@ func clientRollup(orgID, orgName string, members map[string]bool, reqs []localRe
 			continue
 		}
 		p.Requests++
+		if r.slaIncomplete() {
+			p.SLAIncomplete++
+		}
 		if !r.open() {
 			continue
 		}

@@ -801,6 +801,50 @@
           "code_only": true
         }
       ]
+    },
+    {
+      "id": "jsm-sync-complete-request-sla",
+      "summary": "sync fills in a request's embedded SLA when JSM marks that expand=sla page incomplete (isLastPage false), reading the rest from /request/{key}/sla; sla-report and client count any request still incomplete (sla_incomplete) instead of silently undercounting",
+      "why": "sla-report and client read only the SLA that sync stored, and expand=sla returns one page of metrics; an incomplete page was stored as if complete (Codex round 11 P1, 2026-10-19). The hook (jsmCompleteRequestSLA in the hand-written internal/cli/jsm_sync_sla.go) runs once per synced page beside hydrateScalarItems; TestSyncCompletesRequestSLA fails with it disabled.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "items = jsmCompleteRequestSLA(ctx, c, resource, items)",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "jsm-tail-says-first-page",
+      "summary": "tail reads one page per poll and now says so: its help states it, and it emits an {\"event\":\"more\"} NDJSON line when the API reports more pages (isLastPage or isLast false)",
+      "why": "The generated tail polls the first page with no paging and emitted it as if complete: tail request --follow=false returned 50 of 120 rows and exited 0 (Codex round 11 P1, 2026-10-19). Paging every row on every 10-second poll would hammer the API's rate limits, so tail keeps one page and makes the limit visible; export and sync read every row. Stub receipt: 50 data lines plus one more event.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/tail.go",
+          "contains": "if jsmPageHasMore(data) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/tail.go",
+          "contains": "API reports more pages, tail also emits an {\"event\":\"more\"} line",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "jsm-export-item-placeholder",
+      "summary": "a single-item export fills the item id into the path's LAST placeholder, so Assets exports (export objectschema 123) no longer write the id into {cloudId}",
+      "why": "resourceDetailPath replaced the first {...} in the path; every Assets detail path starts with {cloudId} and {workspaceId}, so export objectschema 123 put 123 in the cloudId slot and left {id} unresolved (Codex round 11 P2, 2026-10-19). Every detail path ends with its item placeholder. TestResourceDetailPathFillsItemID fails with the first-placeholder version.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/resource_paths.go",
+          "contains": "start := strings.LastIndex(path, \"{\")",
+          "code_only": true
+        }
+      ]
     }
   ]
 }

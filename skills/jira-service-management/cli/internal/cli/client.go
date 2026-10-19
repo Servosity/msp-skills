@@ -105,6 +105,9 @@ Do NOT use this command for live cross-queue SLA risk; use 'breaches' instead.`,
 			}
 			_, types := nameIndex(ctx, db)
 			p := clientRollup(orgID, orgName, members, reqs, types, time.Now().UnixMilli())
+			if p.SLAIncomplete > 0 {
+				fmt.Fprintf(cmd.ErrOrStderr(), "note: %d of this client's synced requests carry only part of their SLA metrics, so the breach count may undercount; re-run sync --resources request\n", p.SLAIncomplete)
+			}
 			if len(members) == 0 {
 				fmt.Fprintf(cmd.ErrOrStderr(), "note: no synced members for %s; run sync --resources organization to fetch organization members\n", termSafe(orgName))
 			}

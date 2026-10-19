@@ -19,6 +19,8 @@ type slaReportView struct {
 	Requests int        `json:"requests_scanned"`
 	Groups   []slaGroup `json:"groups"`
 	Note     string     `json:"note,omitempty"`
+	// SLAIncomplete counts synced requests that carry only part of their SLA.
+	SLAIncomplete int `json:"sla_incomplete,omitempty"`
 }
 
 func newNovelSlaReportCmd(flags *rootFlags) *cobra.Command {
@@ -83,6 +85,14 @@ Do NOT use this command for which open tickets are about to breach right now; us
 				names = types
 			}
 			view.Requests = len(reqs)
+			for _, r := range reqs {
+				if r.slaIncomplete() {
+					view.SLAIncomplete++
+				}
+			}
+			if view.SLAIncomplete > 0 {
+				fmt.Fprintf(cmd.ErrOrStderr(), "note: %d synced requests carry only part of their SLA metrics, so these numbers may undercount; re-run sync --resources request\n", view.SLAIncomplete)
+			}
 			view.Groups = slaRollup(reqs, time.Now().Add(-window).UnixMilli(), groupBy, names)
 			if len(view.Groups) == 0 {
 				view.Note = fmt.Sprintf("no completed SLA cycles in the last %s across %d synced requests", since, len(reqs))

@@ -94,8 +94,10 @@ func resourceDetailPath(resource, escapedID string) (string, error) {
 	if !ok {
 		return "", fmt.Errorf("resource %q does not declare a single-item read path", resource)
 	}
-	start := strings.Index(path, "{")
-	end := strings.Index(path, "}")
+	// pp:handfix jsm-export-item-placeholder: the item id is the LAST
+	// placeholder; Assets paths start with {cloudId} and {workspaceId}.
+	start := strings.LastIndex(path, "{")
+	end := strings.LastIndex(path, "}")
 	if start < 0 || end <= start {
 		return "", fmt.Errorf("resource %q has an invalid single-item read path", resource)
 	}

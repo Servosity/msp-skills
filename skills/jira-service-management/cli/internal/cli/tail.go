@@ -29,6 +29,9 @@ func newTailCmd(flags *rootFlags) *cobra.Command {
 		Annotations: map[string]string{"mcp:read-only": "true", "pp:no-error-path-probe": "true"},
 		Long: `Tail streams live data changes by polling the API at configurable intervals.
 Changes are emitted as NDJSON to stdout for piping to other tools.
+Each poll reads one page (the API's default order and page size); when the
+API reports more pages, tail also emits an {"event":"more"} line. Use export
+or sync to read every row.
 Gracefully shuts down on SIGTERM/SIGINT.
 
 Note: For APIs with WebSocket or SSE support, a future version will use
@@ -179,6 +182,14 @@ func fetchAndEmit(ctx context.Context, c interface {
 		if err := enc.Encode(event); err != nil {
 			return err
 		}
+	}
+	// pp:handfix jsm-tail-says-first-page: one page per poll; say when more exist.
+	if jsmPageHasMore(data) {
+		return enc.Encode(map[string]any{
+			"event":     "more",
+			"timestamp": time.Now().UTC().Format(time.RFC3339),
+			"note":      "tail reads only the first page of each poll; run export or sync to read every row",
+		})
 	}
 	return nil
 }

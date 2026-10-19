@@ -269,3 +269,53 @@ func TestResourceReadConfigWireNames(t *testing.T) {
 		t.Fatalf("objectschema read config = %+v, want startAt/maxResults", schema)
 	}
 }
+
+type slaPager struct{ paths []string }
+
+func (s *slaPager) GetWithHeadersNoCache(_ context.Context, path string, params map[string]string, _ map[string]string) (json.RawMessage, error) {
+	s.paths = append(s.paths, path)
+	if params["start"] != "" && params["start"] != "0" {
+		return json.RawMessage(`{"values":[]}`), nil
+	}
+	return json.RawMessage(`{"isLastPage":true,"values":[{"id":"1","name":"TTR"},{"id":"2","name":"TTFR"}]}`), nil
+}
+
+// A request whose embedded SLA page is incomplete gets its full SLA from
+// /request/{key}/sla before it is stored; complete pages are left alone, and
+// the reports count any request still incomplete.
+func TestSyncCompletesRequestSLA(t *testing.T) {
+	g := &slaPager{}
+	items := []json.RawMessage{
+		json.RawMessage(`{"issueKey":"SD-1","sla":{"isLastPage":false,"values":[{"id":"1","name":"TTR"}]}}`),
+		json.RawMessage(`{"issueKey":"SD-2","sla":{"isLastPage":true,"values":[{"id":"1","name":"TTR"}]}}`),
+	}
+	got := jsmCompleteRequestSLA(context.Background(), g, "request", items)
+	var r1, r2 localRequest
+	_ = json.Unmarshal(got[0], &r1)
+	_ = json.Unmarshal(got[1], &r2)
+	if len(r1.SLA.Values) != 2 || r1.slaIncomplete() {
+		t.Fatalf("SD-1 SLA not completed: %s", got[0])
+	}
+	if len(r2.SLA.Values) != 1 || len(g.paths) == 0 || g.paths[0] != "/request/SD-1/sla" {
+		t.Fatalf("complete page touched or wrong path: %s %v", got[1], g.paths)
+	}
+	if out := jsmCompleteRequestSLA(context.Background(), g, "organization", []json.RawMessage{items[0]}); string(out[0]) != string(items[0]) {
+		t.Fatal("non-request resource rewritten")
+	}
+	var partial localRequest
+	_ = json.Unmarshal([]byte(`{"issueKey":"SD-3","reporter":{"accountId":"a"},"sla":{"isLastPage":false,"values":[]}}`), &partial)
+	if p := clientRollup("1", "Acme", map[string]bool{"a": true}, []localRequest{partial}, nil, 0); p.SLAIncomplete != 1 {
+		t.Fatalf("client rollup did not count the incomplete SLA: %+v", p)
+	}
+}
+
+// A single-item export fills the item placeholder, not Assets' {cloudId}.
+func TestResourceDetailPathFillsItemID(t *testing.T) {
+	got, err := resourceDetailPath("objectschema", "123")
+	if err != nil || got != "https://api.atlassian.com/ex/jira/{cloudId}/jsm/assets/workspace/{workspaceId}/v1/objectschema/123" {
+		t.Fatalf("objectschema item path = %q, %v", got, err)
+	}
+	if got, _ := resourceDetailPath("request", "SD-1"); got != "/request/SD-1" {
+		t.Fatalf("request item path = %q", got)
+	}
+}

@@ -829,6 +829,7 @@ func syncResource(ctx context.Context, c interface {
 		fetchedThisPage := len(items)
 		_, hydrationEnabled := itemHydrationPaths[resource]
 		items, hydrateFailures := hydrateScalarItems(ctx, c, resource, items)
+		items = jsmCompleteRequestSLA(ctx, c, resource, items) // pp:handfix jsm-sync-complete-request-sla
 
 		// Keep page consumption separate from stored rows so integrity-loss
 		// outcomes are classified precisely: all items rejected by ID extraction,
