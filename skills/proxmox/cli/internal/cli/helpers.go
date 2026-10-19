@@ -4201,8 +4201,18 @@ func configureDefaultDBScope(configPath string) {
 // aimed at another host, or two hosts with no token loaded, never share rows.
 // proxmox shipped with this scope, so there is no legacy file to adopt.
 func envStoreScope(cfg *config.Config) string {
-	return strings.Join([]string{"proxmox-env", cfg.StoreScopeCredential(), cfg.BaseURL, cfg.TemplateVars["host"], cfg.TemplateVars["pbs_host"],
-		strings.TrimSpace(cliutil.EnvOverride("PROXMOX_TLS_FINGERPRINT")), strings.TrimSpace(cliutil.EnvOverride("PROXMOX_PBS_TLS_FINGERPRINT"))}, "\x00")
+	parts := []string{"proxmox-env", cfg.StoreScopeCredential(), cfg.BaseURL,
+		strings.TrimSpace(cliutil.EnvOverride("PROXMOX_TLS_FINGERPRINT")), strings.TrimSpace(cliutil.EnvOverride("PROXMOX_PBS_TLS_FINGERPRINT"))}
+	// Every template variable can fill a {placeholder} in the base URL.
+	keys := make([]string, 0, len(cfg.TemplateVars))
+	for k := range cfg.TemplateVars {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		parts = append(parts, k+"="+cfg.TemplateVars[k])
+	}
+	return strings.Join(parts, "\x00")
 }
 
 func setDefaultDBScopeIdentity(credential, legacyCredential, baseURL string) {

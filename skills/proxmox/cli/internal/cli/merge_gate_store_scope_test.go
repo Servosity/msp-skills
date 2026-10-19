@@ -423,3 +423,31 @@ func TestEnvStoreWithoutHomeAndExplicitDBSyntax(t *testing.T) {
 		t.Fatalf("no-home fallback reused a store across invocations: %q and %q", a, b)
 	}
 }
+
+// hand-fix (env-store-endpoint-scope, cluster-store-no-fallback): a template
+// variable that fills the base URL is part of the no-cluster identity, and a
+// clusters.toml address may not be a {placeholder} at all.
+func TestTemplateVarsAreStoreIdentity(t *testing.T) {
+	f := newFixture(t)
+	defer func() { selectedCluster = ""; configureDefaultDBScope("") }()
+	cfgPath := filepath.Join(t.TempDir(), "config.toml")
+	write := func(site string) {
+		body := "base_url = \"https://{site}:8006/api2/json\"\n[template_vars]\nsite = \"" + site + "\"\n"
+		if err := os.WriteFile(cfgPath, []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Setenv("PROXMOX_BASE_URL", "")
+	write("alpha.example")
+	configureDefaultDBScope(cfgPath)
+	a := defaultDBPath("proxmox-cli")
+	write("beta.example")
+	configureDefaultDBScope(cfgPath)
+	if b := defaultDBPath("proxmox-cli"); a == b {
+		t.Errorf("changing template_vars.site kept the store %q", a)
+	}
+	writeClustersFile(t, strings.Replace(acmeClusters(f, f.pbs.URL, ""), f.pve.URL+"/api2/json", "https://proxy.example/{tenant}/api2/json", 1))
+	if _, err := clusterByName("acme"); err == nil || !strings.Contains(err.Error(), "placeholder") {
+		t.Errorf("a {placeholder} pve_base_url was accepted: %v", err)
+	}
+}

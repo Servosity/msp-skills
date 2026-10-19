@@ -692,7 +692,7 @@
   {
    "id": "cluster-store-no-fallback",
    "summary": "With a cluster selected, every local store path derives from that cluster's scope: legacy data.db adoption and ownership markers are skipped, a missing HOME still yields a scoped file, any --db (including whitespace or a saved profile's db) is refused, a store path SQLite would truncate at '?' or '#' is refused, a namespace-only entry is unresolved, and flag-correction learning never runs when pre-run did not scope the store; and one process binds one read of the entry for both the API client and the store",
-   "why": "A Codex class sweep of every store open (2026-10-16) found four ways two clusters still resolved to one file: unproven .owner ownership fell back to the shared data.db, help and parse-failure paths opened the learn store before pre-run scoped it, HOME unset returned a bare data.db, and an explicit or profile-supplied --db named one shared file. Pinned by TestClusterStoreIgnoresLegacyUnscopedDB, TestClusterStoreWithoutPreRun, TestClusterStoreWithoutHome, TestDBFlagRefusedWithCluster. A second sweep found a profile's cluster unapplied on the help path, a whitespace --db, a '?' in the data directory truncating the SQLite DSN, and a namespace-only entry keeping a reusable identity; each now fails closed (TestDBFlagRefusedWithCluster, TestClusterStorePathWithQueryCharRefused, TestNamespaceOnlyEntryIsUnresolved). A third sweep found the store re-read clusters.toml per call, so a clusters add --force during a request moved the store to the new tenant while the client kept the old endpoint; entries are now snapshotted once per process (TestClusterEntryBoundForTheProcess). The fourth sweep also found '%' escapes decoded by the read-only file: URI; '%' and control characters are refused with '?' and '#'. A seventh sweep found the no-home fallback still returned a bare data.db without a cluster and an explicit --db escaped the URI-syntax rule; the fallback is always scoped and --db is checked (TestEnvStoreWithoutHomeAndExplicitDBSyntax).",
+   "why": "A Codex class sweep of every store open (2026-10-16) found four ways two clusters still resolved to one file: unproven .owner ownership fell back to the shared data.db, help and parse-failure paths opened the learn store before pre-run scoped it, HOME unset returned a bare data.db, and an explicit or profile-supplied --db named one shared file. Pinned by TestClusterStoreIgnoresLegacyUnscopedDB, TestClusterStoreWithoutPreRun, TestClusterStoreWithoutHome, TestDBFlagRefusedWithCluster. A second sweep found a profile's cluster unapplied on the help path, a whitespace --db, a '?' in the data directory truncating the SQLite DSN, and a namespace-only entry keeping a reusable identity; each now fails closed (TestDBFlagRefusedWithCluster, TestClusterStorePathWithQueryCharRefused, TestNamespaceOnlyEntryIsUnresolved). A third sweep found the store re-read clusters.toml per call, so a clusters add --force during a request moved the store to the new tenant while the client kept the old endpoint; entries are now snapshotted once per process (TestClusterEntryBoundForTheProcess). The fourth sweep also found '%' escapes decoded by the read-only file: URI; '%' and control characters are refused with '?' and '#'. A seventh sweep found the no-home fallback still returned a bare data.db without a cluster and an explicit --db escaped the URI-syntax rule; the fallback is always scoped and --db is checked (TestEnvStoreWithoutHomeAndExplicitDBSyntax). The eighth sweep also found a clusters.toml address could carry a {placeholder} filled from config.toml; such addresses are refused.",
    "status": "active",
    "asserts": [
     {
@@ -744,13 +744,18 @@
      "file": "cli/internal/cli/root.go",
      "contains": "if err := sqlitePathErr(f.Value.String()); err != nil {",
      "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/clusters.go",
+     "contains": "return fmt.Errorf(\"cluster %q: %s must be a literal address, not a {placeholder}\", name, field)",
+     "code_only": true
     }
    ]
   },
   {
    "id": "env-store-endpoint-scope",
    "summary": "Without a cluster, the target's store is always scoped by credentials plus effective endpoints and TLS pins (even with no token loaded), an unreadable config gets a per-process store, a client built from a different config read than pre-run's is refused, store paths with URI syntax are refused, and a scoped store never adopts data.db or a legacy file",
-   "why": "The generated store scope hashed the credential alone, so the same token aimed at another PROXMOX_HOST fell back to the first host's rows (auto fallback and --data-source local). proxmox shipped with endpoint-aware scoping, so legacy adoption has nothing to migrate and is ambiguous by construction. Found by the merge-gate Codex review (2026-10-19); TestEnvStoreFollowsEndpoint and TestEnvStoreIgnoresLegacyUnscopedDB pin it. The generated MCP test that expected adoption of an existing data.db now asserts the scoped path. A sixth sweep found the no-cluster path still shared stores when no token was loaded, on a config-load error, under a '?' data directory, and when the config was replaced between pre-run and client creation; each now fails closed (TestEnvStoreFailsClosed, TestClientRefusedWhenConfigChangedMidRun). Generated MCP path tests now expect the scoped data-<hash>.db.",
+   "why": "The generated store scope hashed the credential alone, so the same token aimed at another PROXMOX_HOST fell back to the first host's rows (auto fallback and --data-source local). proxmox shipped with endpoint-aware scoping, so legacy adoption has nothing to migrate and is ambiguous by construction. Found by the merge-gate Codex review (2026-10-19); TestEnvStoreFollowsEndpoint and TestEnvStoreIgnoresLegacyUnscopedDB pin it. The generated MCP test that expected adoption of an existing data.db now asserts the scoped path. A sixth sweep found the no-cluster path still shared stores when no token was loaded, on a config-load error, under a '?' data directory, and when the config was replaced between pre-run and client creation; each now fails closed (TestEnvStoreFailsClosed, TestClientRefusedWhenConfigChangedMidRun). Generated MCP path tests now expect the scoped data-<hash>.db. An eighth sweep found template variables that fill a base-URL placeholder missing from the identity; every template variable now counts (TestTemplateVarsAreStoreIdentity).",
    "status": "active",
    "asserts": [
     {
@@ -774,11 +779,6 @@
      "code_only": true
     },
     {
-     "file": "cli/internal/cli/helpers.go",
-     "contains": "return strings.Join([]string{\"proxmox-env\", cfg.StoreScopeCredential(), cfg.BaseURL,",
-     "code_only": true
-    },
-    {
      "file": "cli/internal/cli/root.go",
      "contains": "if preRunScoped && !buildingProfileClient && clusterStoreScope() == \"\" {",
      "code_only": true
@@ -792,6 +792,16 @@
      "file": "cli/internal/mcp/tools_test.go",
      "contains": "for _, want := range []string{\"No local data store found\", \"data-\"} {",
      "min_count": 2,
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "parts := []string{\"proxmox-env\", cfg.StoreScopeCredential(), cfg.BaseURL,",
+     "code_only": true
+    },
+    {
+     "file": "cli/internal/cli/helpers.go",
+     "contains": "parts = append(parts, k+\"=\"+cfg.TemplateVars[k])",
      "code_only": true
     }
    ]

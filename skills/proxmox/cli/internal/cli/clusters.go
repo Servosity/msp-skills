@@ -275,6 +275,14 @@ func (cl clusterProfile) validate(name string) error {
 	if cl.PVEHost == "" && cl.PVEBaseURL == "" && cl.PBSHost == "" {
 		return fmt.Errorf("cluster %q needs pve_host, pve_base_url, or pbs_host", name)
 	}
+	// proxmox hand-fix (cluster-store-no-fallback): a {placeholder} would be
+	// filled from config.toml, so the entry alone would not name its target
+	// (and its store identity would not either).
+	for field, v := range map[string]string{"pve_host": cl.PVEHost, "pve_base_url": cl.PVEBaseURL, "pbs_host": cl.PBSHost} {
+		if strings.ContainsAny(v, "{}") {
+			return fmt.Errorf("cluster %q: %s must be a literal address, not a {placeholder}", name, field)
+		}
+	}
 	for field, pins := range map[string]string{"pve_fingerprint": cl.PVEFingerprint, "pbs_fingerprint": cl.PBSFingerprint} {
 		if strings.TrimSpace(pins) != "" && len(splitPins(pins)) == 0 {
 			// A set pin that yields no pin must not fall back to system trust.
