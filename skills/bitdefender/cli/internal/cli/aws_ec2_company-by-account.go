@@ -19,7 +19,6 @@ func newAwsEc2CompanyByAccountCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "company-by-account",
-		Aliases:     []string{"create"},
 		Short:       "Retrieves information regarding the managed companies that have configured the Amazon EC2 integration with a specific",
 		Example:     "  bitdefender-cli aws-ec2 company-by-account --account-id 123456789012",
 		Args:        cobra.NoArgs,

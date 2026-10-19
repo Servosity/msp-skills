@@ -22,7 +22,6 @@ func newBlocklistAddCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "add",
-		Aliases:     []string{"create"},
 		Short:       "Set up one or more rules that you can use to add items to blocklists.",
 		Example:     "  bitdefender-cli blocklist add --rules '[{\"details\":{\"algorithm\":\"sha256\",\"hash\":\"1e0905327f443c54aa617e2ff323067c985428e5566886f2aa8296cddfe6ddf9\"},\"note\":\"test\"},{\"details\":{\"algorithm\":\"md5\",\"hash\":\"13f6331c638b68d4e7eab6ea60da5473\"}}]' --type hash",
 		Args:        cobra.NoArgs,

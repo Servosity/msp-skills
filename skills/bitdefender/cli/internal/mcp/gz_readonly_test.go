@@ -4,12 +4,14 @@ package mcp
 
 import (
 	"context"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	mcplib "github.com/mark3labs/mcp-go/mcp"
 
 	"bitdefender-pp-cli/internal/cliutil"
+	"bitdefender-pp-cli/internal/store"
 )
 
 // Every listed method must exist in the registry and be a read; every
@@ -83,5 +85,25 @@ func TestCodeOrchExecuteReadOnlyRunsGravityZoneReads(t *testing.T) {
 		if got := call(id); !strings.Contains(got, "refusing") {
 			t.Fatalf("%s was not refused under read-only: %s", id, got)
 		}
+	}
+}
+
+// A saved fleet snapshot is local data: the sql tool must not call the store
+// empty just because the generic resources table is (there is no sync).
+func TestStoreStatusReadyWithFleetSnapshot(t *testing.T) {
+	db, err := store.Open(filepath.Join(t.TempDir(), "data.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if s, err := mcpStoreStatus(db); err != nil || s != mcpStoreStatusEmpty {
+		t.Fatalf("fresh store = %q, %v; want empty", s, err)
+	}
+	if _, err := db.DB().Exec(`CREATE TABLE gz_fleet_runs (run_id INTEGER PRIMARY KEY, taken_at TEXT, companies INTEGER, endpoints INTEGER, failures INTEGER, tree_complete INTEGER);
+INSERT INTO gz_fleet_runs (taken_at, companies, endpoints, failures, tree_complete) VALUES ('2026-10-19T00:00:00Z', 2, 5, 0, 1)`); err != nil {
+		t.Fatal(err)
+	}
+	if s, err := mcpStoreStatus(db); err != nil || s != mcpStoreStatusReady {
+		t.Fatalf("store with a fleet snapshot = %q, %v; want ready", s, err)
 	}
 }

@@ -66,9 +66,11 @@ response cache only ever holds GET responses. So the reads that return a credent
   For an agent that should only read, set `BITDEFENDER_MCP_READ_ONLY=1` in the MCP
   server's environment (the value must be exactly `1`): `bitdefender_execute` then
   runs only an explicit list of GravityZone read methods and refuses every write
-  and every read that returns or takes a credential (the Credential and access
-  reads below), and the `import` tool and the tools that delete local learnings are
-  hidden. A method added by a later regeneration stays refused until it is
+  and every Credential and access read below. Incident reads stay allowed for
+  triage, and an XDR incident's evidence can include connection metadata captured
+  on the endpoint (for example a WinRM authorization header), so treat incident
+  output as sensitive. The `import` tool and the tools that delete local
+  learnings are hidden. A method added by a later regeneration stays refused until it is
   reviewed and listed.
 - **Agent mode is explicit.** `--agent` produces JSON for scripting but does not
   add any write gating - the preview-then-approve policy above still applies. See

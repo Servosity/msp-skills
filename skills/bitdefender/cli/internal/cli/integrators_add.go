@@ -21,7 +21,6 @@ func newIntegratorsAddCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "add",
-		Aliases:     []string{"create"},
 		Short:       "Assign an endpoint as an integrator for a specific integration.",
 		Example:     "  bitdefender-cli integrators add --integration-id 67fcfc578e750f6ea70a8ab2 --target-ids '[\"67fcfc57f021e56c3b9a0ee2\"]'",
 		Args:        cobra.NoArgs,

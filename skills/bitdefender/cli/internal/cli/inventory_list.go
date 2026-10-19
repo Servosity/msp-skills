@@ -23,7 +23,6 @@ func newInventoryListCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "list",
-		Aliases:     []string{"create"},
 		Short:       "Returns network inventory items.",
 		Example:     "  bitdefender-cli inventory list",
 		Args:        cobra.NoArgs,

@@ -473,6 +473,110 @@
           "code_only": true
         }
       ]
+    },
+    {
+      "id": "no-create-alias-on-non-create-commands",
+      "summary": "the generator's hidden 'create' alias is removed from the 17 non-create commands that carried it",
+      "why": "Every GravityZone method is a JSON-RPC POST, so the press gave each POST command it could not name a create alias. The aliases were hidden from agent-context, SKILL.md and the governance tier table, yet 'tasks create' ran network#deleteTask, 'isolation create' isolated machines and 'policies create' / 'push create' / 'inventory create' ran Credential-tier reads, so a human approving a 'create' could be approving a delete and a name-keyed agent deny rule was bypassable. Found by the 2026-10-19 adversarial review (round 4, P2). Same class td-synnex removed.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/aws_ec2_company-by-account.go",
+          "not_contains": "Aliases:     []string{\"create\"},"
+        },
+        {
+          "file": "cli/internal/cli/blocklist_add.go",
+          "not_contains": "Aliases:     []string{\"create\"},"
+        },
+        {
+          "file": "cli/internal/cli/endpoints_assign-policy.go",
+          "not_contains": "Aliases:     []string{\"create\"},"
+        },
+        {
+          "file": "cli/internal/cli/incidents_assign.go",
+          "not_contains": "Aliases:     []string{\"create\"},"
+        },
+        {
+          "file": "cli/internal/cli/integrators_add.go",
+          "not_contains": "Aliases:     []string{\"create\"},"
+        },
+        {
+          "file": "cli/internal/cli/inventory_list.go",
+          "not_contains": "Aliases:     []string{\"create\"},"
+        },
+        {
+          "file": "cli/internal/cli/investigation_collect-package.go",
+          "not_contains": "Aliases:     []string{\"create\"},"
+        },
+        {
+          "file": "cli/internal/cli/isolation_isolate.go",
+          "not_contains": "Aliases:     []string{\"create\"},"
+        },
+        {
+          "file": "cli/internal/cli/license_add-product-key.go",
+          "not_contains": "Aliases:     []string{\"create\"},"
+        },
+        {
+          "file": "cli/internal/cli/notifications_configure.go",
+          "not_contains": "Aliases:     []string{\"create\"},"
+        },
+        {
+          "file": "cli/internal/cli/patches_installed.go",
+          "not_contains": "Aliases:     []string{\"create\"},"
+        },
+        {
+          "file": "cli/internal/cli/phasr_apply.go",
+          "not_contains": "Aliases:     []string{\"create\"},"
+        },
+        {
+          "file": "cli/internal/cli/policies_get.go",
+          "not_contains": "Aliases:     []string{\"create\"},"
+        },
+        {
+          "file": "cli/internal/cli/push_get.go",
+          "not_contains": "Aliases:     []string{\"create\"},"
+        },
+        {
+          "file": "cli/internal/cli/quarantine_add-file.go",
+          "not_contains": "Aliases:     []string{\"create\"},"
+        },
+        {
+          "file": "cli/internal/cli/tasks_delete.go",
+          "not_contains": "Aliases:     []string{\"create\"},"
+        },
+        {
+          "file": "cli/internal/cli/usage_monthly.go",
+          "not_contains": "Aliases:     []string{\"create\"},"
+        }
+      ]
+    },
+    {
+      "id": "mcp-context-describes-gravityzone",
+      "summary": "the MCP context tool describes the real surface (JSON-RPC POST via bitdefender_search/bitdefender_execute, page/perPage paging, no sync or search tool) and the sql tool reports a saved fleet snapshot as ready",
+      "why": "The generated context tool, which tells agents to call it first, claimed cursor paging with after/limit (default 100), a sync command and a full-text search tool, and typed endpoint tools. None exist here: GravityZone pages with page/perPage (default 30) and the only API tool is the untyped bitdefender_execute, so an agent following the tips sent invalid params or trusted a 30-row first page as complete. The sql tool also returned store_status empty while gz_fleet_runs held snapshots. Found by the 2026-10-19 adversarial review (round 4, P1 + P2).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "contains": "\"tool_surface\": \"Every GravityZone method is a JSON-RPC POST: find its id with bitdefender_search, then call it with bitdefender_execute",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "contains": "\"List methods page with the page and perPage params",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "not_contains": "Pagination uses cursor-based paging"
+        },
+        {
+          "file": "cli/internal/mcp/tools.go",
+          "contains": "if len(status) > 0 || gzFleetSnapshotExists(db) {",
+          "min_count": 2,
+          "code_only": true
+        }
+      ]
     }
   ]
 }

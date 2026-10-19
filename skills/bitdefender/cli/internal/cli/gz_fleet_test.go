@@ -1039,6 +1039,8 @@ func TestFleetHealthFailOnCountsDetailFailures(t *testing.T) {
 	f.failDetail = true
 	if _, _, err := runGZ(t, "fleet", "health", "--details", "1", "--fail-on", "isolated"); err == nil || !strings.Contains(err.Error(), "cannot be certified") {
 		t.Fatalf("err = %v, want --fail-on to fail closed on a failed detail fetch", err)
+	} else if got := ExitCode(err); got != 6 {
+		t.Fatalf("exit code = %d, want 6 (partial failure) for an incomplete scan", got)
 	}
 }
 
@@ -1296,5 +1298,32 @@ func TestFleetHealthFailedRowStatus(t *testing.T) {
 	}
 	if !isCompactGravityField("status") {
 		t.Fatal("status no longer survives --compact")
+	}
+}
+
+// One failed company must not scramble the human table: every row keeps its
+// company name in the first column and the failure shows in ISSUES.
+func TestFleetHealthHumanTableWithFailedCompany(t *testing.T) {
+	view := buildFleetHealth([]fleetCompanyResult{
+		{Company: gzCompany{ID: "c1", Name: "Acme Corp"}},
+		{Company: gzCompany{ID: "c2", Name: "Northwind IT"}, Err: errors.New("boom")},
+	}, 7, time.Now())
+	cmd := RootCmd() // registers --human-friendly, which resets the global
+	prev := humanFriendly
+	humanFriendly = true
+	defer func() { humanFriendly = prev }()
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	if err := emitFleetHealth(cmd, &rootFlags{}, view); err != nil {
+		t.Fatal(err)
+	}
+	got := out.String()
+	for _, want := range []string{"COMPANY", "Acme Corp", "Northwind IT", "error: boom", "TOTAL"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("human table missing %q:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "UNMANAGED 0") {
+		t.Fatalf("human table fell back to scrambled cards:\n%s", got)
 	}
 }

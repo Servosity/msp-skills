@@ -26,7 +26,6 @@ func newNotificationsConfigureCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "configure",
-		Aliases:     []string{"create"},
 		Short:       "Configures the notification settings for a given user account.",
 		Example:     "  bitdefender-cli notifications configure",
 		Args:        cobra.NoArgs,

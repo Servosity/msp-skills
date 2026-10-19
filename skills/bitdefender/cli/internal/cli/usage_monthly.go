@@ -24,7 +24,6 @@ func newUsageMonthlyCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "monthly",
-		Aliases:     []string{"create"},
 		Short:       "Exposes the monthly usage for a company in a target month.",
 		Example:     "  bitdefender-cli usage monthly",
 		Args:        cobra.NoArgs,

@@ -18,7 +18,6 @@ func newPushGetCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "get",
-		Aliases:     []string{"create"},
 		Short:       "Gets the push event settings.",
 		Example:     "  bitdefender-cli push get",
 		Args:        cobra.NoArgs,

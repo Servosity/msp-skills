@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -147,7 +148,7 @@ machine by hostname, IP or MAC; use 'fleet locate' instead.`,
 			}
 			complete := err == nil && len(treeFailures) == 0 && len(results) == len(tree) && len(view.FetchFailures) == 0
 			if len(failMetrics) > 0 && !complete {
-				return apiErr(fmt.Errorf("--fail-on: the fleet scan was incomplete (%d fetch failures, %d of %d companies scanned), so it cannot be certified clean", len(view.FetchFailures), len(results), len(tree)))
+				return partialFailureErr(fmt.Errorf("--fail-on: the fleet scan was incomplete (%d fetch failures, %d of %d companies attempted), so it cannot be certified clean", len(view.FetchFailures), len(results), len(tree)))
 			}
 			if failing := companiesFailing(view.Companies, failMetrics); len(failing) > 0 {
 				return &cliError{code: 1, err: fmt.Errorf("--fail-on: %d companies have %s", len(failing), strings.Join(failMetrics, "/"))}
@@ -353,20 +354,23 @@ func enrichEndpoints(ctx context.Context, c *client.Client, results []fleetCompa
 func emitFleetHealth(cmd *cobra.Command, flags *rootFlags, view fleetHealthView) error {
 	if wantsHumanTable(cmd.OutOrStdout(), flags) {
 		humanNote(cmd, view.Note)
-		rows := make([]map[string]any, 0, len(view.Companies)+1)
-		for _, h := range append(view.Companies, view.Totals) {
-			row := map[string]any{"company": h.Name, "endpoints": h.Endpoints, "unmanaged": h.Unmanaged, "outdated": h.Outdated,
-				"policy_not_applied": h.PolicyNotApplied, "isolated": h.Isolated, "unscanned": h.Unscanned, "issues": h.Issues}
-			if h.Error != "" {
-				row["issues"] = "error: " + h.Error
-			}
-			rows = append(rows, row)
-		}
 		if len(view.Companies) == 0 {
 			fmt.Fprintln(cmd.OutOrStdout(), "No companies found under this API key.")
 			return nil
 		}
-		if err := printAutoTable(cmd.OutOrStdout(), rows); err != nil {
+		// Fixed columns: printAutoTable picks its layout from the first row,
+		// so a failed company (string issues) scrambled every card title.
+		tw := newTabWriter(cmd.OutOrStdout())
+		fmt.Fprintln(tw, "COMPANY\tENDPOINTS\tUNMANAGED\tOUTDATED\tPOLICY_NOT_APPLIED\tISOLATED\tUNSCANNED\tISSUES")
+		for _, h := range append(view.Companies, view.Totals) {
+			issues := strconv.Itoa(h.Issues)
+			if h.Error != "" {
+				issues = formatCellValue("error: " + h.Error)
+			}
+			fmt.Fprintf(tw, "%s\t%d\t%d\t%d\t%d\t%d\t%d\t%s\n", formatCellValue(h.Name), h.Endpoints, h.Unmanaged, h.Outdated,
+				h.PolicyNotApplied, h.Isolated, h.Unscanned, issues)
+		}
+		if err := tw.Flush(); err != nil {
 			return err
 		}
 		if len(view.Details) > 0 {

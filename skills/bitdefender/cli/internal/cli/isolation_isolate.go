@@ -20,7 +20,6 @@ func newIsolationIsolateCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "isolate",
-		Aliases:     []string{"create"},
 		Short:       "Creates one or more tasks to isolate the specified endpoint or endpoints.",
 		Example:     "  bitdefender-cli isolation isolate --endpoint-ids '[\"5b680f6fb1a43d860a7b23c1\",\"3c780f6fb1a43d860a7b23c1\"]'",
 		Args:        cobra.NoArgs,

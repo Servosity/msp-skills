@@ -21,7 +21,6 @@ func newPhasrApplyCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "apply",
-		Aliases:     []string{"create"},
 		Short:       "Applies recommendations by ID and returns success and failure details for each one requested.",
 		Example:     "  bitdefender-cli phasr apply --recommendation-ids '[\"68480f4e11e8dc005bb0f9e7\",\"6853e32b4783f7a2f15582c4\",\"6853e32b4783f7a2f15582cf\"]'",
 		Args:        cobra.NoArgs,

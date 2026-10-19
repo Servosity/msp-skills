@@ -85,7 +85,7 @@
     },
     {
       "q": "Can the AI isolate a machine or run a command on an endpoint by itself?",
-      "a": "Only if you let it. Generated commands run as soon as they are invoked and do not prompt, so preview with --dry-run first: it prints the JSON-RPC method and parameters it would send, without sending. Over MCP, the generic bitdefender_execute tool can call any GravityZone method, including isolation, kill process, remote command execution and deletes, gated only by your AI app's approval prompt. For an agent that should only read, set BITDEFENDER_MCP_READ_ONLY=1 in the MCP server's environment: bitdefender_execute then runs only GravityZone read methods, refuses every write and the reads that return or take a credential, and the import tool is hidden. Keep the approval prompt on."
+      "a": "Only if you let it. Generated commands run as soon as they are invoked and do not prompt, so preview with --dry-run first: it prints the JSON-RPC method and parameters it would send, without sending. Over MCP, the generic bitdefender_execute tool can call any GravityZone method, including isolation, kill process, remote command execution and deletes, gated only by your AI app's approval prompt. For an agent that should only read, set BITDEFENDER_MCP_READ_ONLY=1 in the MCP server's environment: bitdefender_execute then runs only GravityZone read methods, refuses every write and the Credential-tier reads, and the import tool is hidden. Incident reads stay allowed, and XDR evidence can hold connection headers captured on the endpoint, so treat incident output as sensitive. Keep the approval prompt on."
     },
     {
       "q": "Why does fleet changes say it has nothing to compare?",

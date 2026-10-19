@@ -19,7 +19,6 @@ func newInvestigationCollectPackageCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "collect-package",
-		Aliases:     []string{"create"},
 		Short:       "Initiate a forensic collection task on an endpoint.",
 		Example:     "  bitdefender-cli investigation collect-package --target-id 559bd17ab1a43d241b7b23c6",
 		Args:        cobra.NoArgs,

@@ -21,7 +21,6 @@ func newQuarantineAddFileCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "add-file",
-		Aliases:     []string{"create"},
 		Short:       "Creates a new task to add a file to quarantine.",
 		Example:     "  bitdefender-cli quarantine add-file --endpoint-ids '[\"63896b87b7894d0f367b23c6\",\"65896b87b7894d0f367b23c7\"]' --file-path 'Z:\\path\\to\\file'",
 		Args:        cobra.NoArgs,

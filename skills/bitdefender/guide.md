@@ -60,11 +60,11 @@ This CLI ships an [MCPB](https://github.com/modelcontextprotocol/mcpb) bundle  -
 
 To install:
 
-1. Download the `.mcpb` for your platform from the [latest release](https://github.com/Servosity/msp-skills/releases?q=bitdefender).
+1. Download `bitdefender-mcp.mcpb` from the [latest release](https://github.com/Servosity/msp-skills/releases?q=bitdefender). One bundle covers every supported platform.
 2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
 3. Fill in `BITDEFENDER_API_KEY` when Claude Desktop prompts you.
 
-Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
+Requires Claude Desktop 1.0.0 or later. The bundle carries the MCP server and its companion CLI for macOS (one universal binary for Intel and Apple Silicon), Linux x64 and Windows x64. Linux on ARM and Windows on ARM are released as standalone binaries but are not bundled, so use the manual config below there.
 
 <details>
 <summary>Manual JSON config (advanced)</summary>
@@ -677,7 +677,7 @@ This CLI is designed for AI agent consumption:
 - **Offline-friendly** - the fleet commands save dated snapshots to a local SQLite store; `fleet changes`, `fleet locate` and `fleet rmm-gap` can answer from them offline
 - **Agent-safe by default** - no colors or formatting unless `--human-friendly` is set
 
-Exit codes: `0` success, `1` `fleet health --fail-on` found issues, `2` usage error, `3` not found, `4` auth error, `5` API error, `6` partial failure, `7` rate limited, `10` config error.
+Exit codes: `0` success, `1` `fleet health --fail-on` found issues, `2` usage error, `3` not found, `4` auth error, `5` API error, `6` partial failure (`fleet health --fail-on` when any company fetch failed), `7` rate limited, `10` config error.
 
 ## Health Check
 
@@ -702,7 +702,7 @@ Environment variables:
 | `BITDEFENDER_CONFIG` | path | No | Path to the config file, instead of `config.toml` in the config directory. |
 | `BITDEFENDER_NO_LEARN` | per_call | No | Set to `true` to turn off the self-learning loop for deterministic runs. |
 | `BITDEFENDER_MCP_HTTP_TOKEN` | mcp | Only with `--transport http` | Bearer token the MCP server requires on every HTTP request. |
-| `BITDEFENDER_MCP_READ_ONLY` | mcp | No | Set to exactly `1` so the MCP server's `bitdefender_execute` runs only GravityZone read methods and refuses writes and the reads that return or take a credential. |
+| `BITDEFENDER_MCP_READ_ONLY` | mcp | No | Set to exactly `1` so the MCP server's `bitdefender_execute` runs only GravityZone read methods and refuses writes and the Credential-tier reads (incident reads stay allowed). |
 
 ### agentcookie (optional)
 

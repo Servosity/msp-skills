@@ -37,7 +37,7 @@ Add (or merge with your existing `mcpServers` block):
     "bitdefender": {
       "command": "bitdefender-mcp",
       "env": {
-        "BITDEFENDER_BASE_URL": "<your-bitdefender_base_url>",
+        "BITDEFENDER_BASE_URL": "",
         "BITDEFENDER_API_KEY": "<your-bitdefender_api_key>",
         "BITDEFENDER_USER_AGENT": "",
         "BITDEFENDER_MCP_READ_ONLY": "",
@@ -51,7 +51,7 @@ Add (or merge with your existing `mcpServers` block):
 
 Quit Claude Desktop completely and reopen, then ask a question that needs the API.
 
-`BITDEFENDER_BASE_URL` is optional: leave it out for the cloud console
+`BITDEFENDER_BASE_URL` is optional: leave it empty (or remove the line) for the cloud console
 (`https://cloud.gravityzone.bitdefender.com/api`), or set it to the Access URL from
 **My Account > Control Center API**. For an agent that should only read, set the
 `"BITDEFENDER_MCP_READ_ONLY"` entry that is already in the `env` block to `"1"` (here or in
@@ -77,7 +77,7 @@ Configuration**) and add:
       "type": "stdio",
       "command": "bitdefender-mcp",
       "env": {
-        "BITDEFENDER_BASE_URL": "<your-bitdefender_base_url>",
+        "BITDEFENDER_BASE_URL": "",
         "BITDEFENDER_API_KEY": "<your-bitdefender_api_key>",
         "BITDEFENDER_USER_AGENT": "",
         "BITDEFENDER_MCP_READ_ONLY": "",
@@ -94,7 +94,7 @@ invisible in Ask/Edit mode.
 
 ## Gemini CLI (Google)
 
-Edit `~/.gemini/settings.json` (Gemini CLI's config) and add the same shape as
+Edit `~/.gemini/settings.json` (Windows: `%USERPROFILE%\.gemini\settings.json`; Gemini CLI's config) and add the same shape as
 Claude Desktop:
 
 ```json
@@ -103,7 +103,7 @@ Claude Desktop:
     "bitdefender": {
       "command": "bitdefender-mcp",
       "env": {
-        "BITDEFENDER_BASE_URL": "<your-bitdefender_base_url>",
+        "BITDEFENDER_BASE_URL": "",
         "BITDEFENDER_API_KEY": "<your-bitdefender_api_key>",
         "BITDEFENDER_USER_AGENT": "",
         "BITDEFENDER_MCP_READ_ONLY": "",

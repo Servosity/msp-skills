@@ -24,7 +24,6 @@ func newPatchesInstalledCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "installed",
-		Aliases:     []string{"create"},
 		Short:       "Request a list of installed patches that are associated to specific endpoints or a specific company.",
 		Example:     "  bitdefender-cli patches installed",
 		Args:        cobra.NoArgs,

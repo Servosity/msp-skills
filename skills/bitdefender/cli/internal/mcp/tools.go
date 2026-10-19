@@ -598,7 +598,7 @@ func mcpStoreStatus(db *store.Store) (mcpStoreStatusKind, error) {
 	if err != nil {
 		msg := strings.ToLower(err.Error())
 		if strings.Contains(msg, "no such table") || strings.Contains(msg, "no such column") {
-			if len(status) > 0 {
+			if len(status) > 0 || gzFleetSnapshotExists(db) {
 				return mcpStoreStatusReady, nil
 			}
 			return mcpStoreStatusEmpty, nil
@@ -611,14 +611,22 @@ func mcpStoreStatus(db *store.Store) (mcpStoreStatusKind, error) {
 		}
 		return mcpStoreStatusPartial, nil
 	}
-	if len(status) > 0 {
+	if len(status) > 0 || gzFleetSnapshotExists(db) {
 		return mcpStoreStatusReady, nil
 	}
 	return mcpStoreStatusEmpty, nil
 }
 
+// gzFleetSnapshotExists reports whether fleet health has saved a snapshot.
+// GravityZone has no sync command, so the generic resources table stays
+// empty and only the gz_fleet_* tables hold local data.
+func gzFleetSnapshotExists(db *store.Store) bool {
+	var n int
+	return db.DB().QueryRow(`SELECT COUNT(*) FROM gz_fleet_runs`).Scan(&n) == nil && n > 0
+}
+
 func mcpEmptyStoreNextStep() string {
-	return "The local SQLite store is empty. Use live endpoint MCP tools or populate the store through a store-backed command before using MCP search/sql."
+	return "The local SQLite store is empty. Use bitdefender_execute for live calls, or run fleet_health to populate the store with a fleet snapshot before using sql."
 }
 
 func mcpPartialStoreNextStep() string {
@@ -958,7 +966,7 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 		"tool_count":  len(s.ListTools()),
 		"paths":       paths,
 		// tool_surface tells agents which surface a capability lives on.
-		"tool_surface": "MCP exposes typed endpoint tools plus a runtime mirror of user-facing CLI commands. Endpoint tools keep typed schemas; command-mirror tools shell out to the companion bitdefender-cli binary.",
+		"tool_surface": "Every GravityZone method is a JSON-RPC POST: find its id with bitdefender_search, then call it with bitdefender_execute (bitdefender_get refuses every method, since none is a GET). Method parameter names follow the GravityZone Public API reference; bitdefender-cli <area> <method> --help lists them as flags. Command-mirror tools (fleet_*, companies_tree, usage_billing) shell out to the companion bitdefender-cli binary.",
 		// learn_protocol is generated from the single shared source of
 		// truth (the exported constant internal/learn.RecallFirstProtocol)
 		// also consumed by the CLI agent-context command, so the MCP and
@@ -1204,11 +1212,9 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 			},
 		},
 		"query_tips": []string{
-			"Pagination uses cursor-based paging. Pass after parameter for subsequent pages.",
-			"Control page size with the limit parameter (default 100).",
-			"Use the sql tool for ad-hoc analysis on synced data. Run sync first to populate the local database.",
-			"Use the search tool for full-text search across all synced resources. Faster than iterating list endpoints.",
-			"Prefer sql/search over repeated API calls when the data is already synced.",
+			"List methods page with the page and perPage params (perPage defaults to 30; the maximum varies by method, see bitdefender-cli <area> <method> --help). The result carries page, pagesCount and total: a first page is not the whole list unless pagesCount is 1.",
+			"There is no sync command and no full-text search tool. The sql tool reads the local fleet snapshot tables (gz_fleet_runs and siblings) that fleet health writes.",
+			"Prefer the fleet_* tools over looping list methods per company: they walk every child company and report fetch failures.",
 		},
 		// Command-mirror capabilities are exposed through MCP by shelling out
 		// to the companion CLI binary.

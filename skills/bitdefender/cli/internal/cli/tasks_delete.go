@@ -19,7 +19,6 @@ func newTasksDeleteCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "delete",
-		Aliases:     []string{"create"},
 		Short:       "Delete a specific task, based on its ID.",
 		Example:     "  bitdefender-cli tasks delete --task-id 21a295eeb1a43d8b497b23b7",
 		Args:        cobra.NoArgs,

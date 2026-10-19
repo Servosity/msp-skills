@@ -772,7 +772,7 @@ Explicit flags always win over profile values; profile values win over defaults.
 | 3 | Resource not found |
 | 4 | Authentication required |
 | 5 | API error (upstream issue) |
-| 6 | Partial failure |
+| 6 | Partial failure (`fleet health --fail-on` when any company fetch failed; without `--fail-on` an incomplete scan exits 0 and lists `fetch_failures`) |
 | 7 | Rate limited (wait and retry) |
 | 10 | Config error |
 

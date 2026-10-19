@@ -19,7 +19,6 @@ func newPoliciesGetCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "get",
-		Aliases:     []string{"create"},
 		Short:       "Retrieves all information related to a security policy.",
 		Example:     "  bitdefender-cli policies get --policy-id 55828d66b1a43de92c712345",
 		Args:        cobra.NoArgs,

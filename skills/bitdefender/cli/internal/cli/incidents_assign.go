@@ -22,7 +22,6 @@ func newIncidentsAssignCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "assign",
-		Aliases:     []string{"create"},
 		Short:       "Enables bulk assignment and reassignment of EDR and XDR incidents to eligible GravityZone users.",
 		Example:     "  bitdefender-cli incidents assign --assignee-id 6a56324d89d2462496622cdb --incident-ids '[\"6a56324d89d2462496622cda\"]' --type incidents",
 		Args:        cobra.NoArgs,

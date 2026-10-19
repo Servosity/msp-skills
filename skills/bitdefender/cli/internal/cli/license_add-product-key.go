@@ -22,7 +22,6 @@ func newLicenseAddProductKeyCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "add-product-key",
-		Aliases:     []string{"create"},
 		Short:       "Adds a license or add-on key to the existing list of licenses and add-on keys.",
 		Example:     "  bitdefender-cli license add-product-key --license-key TNB3AAA",
 		Args:        cobra.NoArgs,

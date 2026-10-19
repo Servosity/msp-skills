@@ -23,7 +23,6 @@ func newEndpointsAssignPolicyCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "assign-policy",
-		Aliases:     []string{"create"},
 		Short:       "Assign a policy to one or more endpoints. This method works on all endpoint types, including containers.",
 		Example:     "  bitdefender-cli endpoints assign-policy --target-ids '[\"56728d66b1a43de92c7****\",\"69738d66b1a43de92c71****\"]'",
 		Args:        cobra.NoArgs,
