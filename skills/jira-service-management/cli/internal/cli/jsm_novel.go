@@ -64,10 +64,12 @@ type jsmPage struct {
 // cannot loop forever (500 pages x 50 rows).
 const jsmWalkCeiling = 500
 
-// jsmWalk pages a JSM PagedDTO endpoint (?start=&limit=) until an empty page or
-// a page shorter than the effective limit. It never trusts isLastPage, which
-// the customers endpoint once reported as true on every page (JSDCLOUD-8279,
-// since fixed by Atlassian), and it
+// jsmWalk pages a JSM PagedDTO endpoint (?start=&limit=), advancing by the rows
+// each page returned, until an empty page or a page shorter than the effective
+// limit that JSM does not mark isLastPage:false (a capped page can be short
+// without being the last). A full page always continues, so an isLastPage that
+// is wrongly true (the customers endpoint once reported it on every page,
+// JSDCLOUD-8279, since fixed) cannot end the walk early. It also
 // de-duplicates by key so rows shifting between pages (queues drift as tickets
 // arrive) are counted once. It also stops when a page adds nothing new (every
 // row already seen, or a byte-identical repeat of the previous page when no
