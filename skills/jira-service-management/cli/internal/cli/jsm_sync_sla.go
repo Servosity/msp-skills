@@ -5,6 +5,8 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"io"
 )
 
 // jsmCompleteRequestSLA fills in a synced request's embedded SLA when JSM
@@ -59,4 +61,22 @@ func slaPageIncomplete(sla *struct {
 	IsLastPage *bool `json:"isLastPage"`
 }) bool {
 	return sla != nil && sla.IsLastPage != nil && !*sla.IsLastPage
+}
+
+// jsmPruneUnfiltered turns off --full pruning for a resource whose walk a
+// --param, --global-param or --resource-param shaped (requestStatus=OPEN_REQUESTS,
+// say): rows the filter left out were never seen, so they must not be deleted.
+func jsmPruneUnfiltered(prune bool, userParams *syncUserParams, resource string, dependent bool, events io.Writer) bool {
+	if !prune {
+		return false
+	}
+	probe := map[string]string{}
+	userParams.applyTo(resource, probe, dependent)
+	if len(probe) == 0 {
+		return true
+	}
+	if events != nil {
+		fmt.Fprintf(events, `{"event":"reconcile_skipped","resource":%q,"scope":"*","reason":"user_params"}`+"\n", resource)
+	}
+	return false
 }

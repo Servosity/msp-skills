@@ -503,6 +503,7 @@ func syncResource(ctx context.Context, c interface {
 	if syncEvents == nil {
 		syncEvents = io.Discard
 	}
+	prune = jsmPruneUnfiltered(prune, userParams, resource, false, syncEvents) // pp:handfix jsm-no-prune-on-filtered-walk
 
 	if !humanFriendly {
 		fmt.Fprintf(syncEvents, `{"event":"sync_start","resource":"%s"}`+"\n", resource)
@@ -3387,6 +3388,7 @@ func syncDependentResource(ctx context.Context, c interface {
 	RateLimit() float64
 }, db *store.Store, dep dependentResourceDef, sinceTS string, full bool, maxPages int, latestOnly bool, prune bool, userParams *syncUserParams, syncEvents io.Writer, concurrency int) syncResult {
 	started := time.Now()
+	prune = jsmPruneUnfiltered(prune, userParams, dep.Name, true, syncEvents) // pp:handfix jsm-no-prune-on-filtered-walk
 	if preview, ok := c.(interface{ IsDryRun() bool }); !ok || !preview.IsDryRun() {
 		cursor, _, count, err := db.GetSyncState(dep.Name)
 		if err != nil {

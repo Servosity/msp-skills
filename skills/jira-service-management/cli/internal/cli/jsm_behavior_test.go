@@ -341,3 +341,15 @@ func TestJSMWalkFollowsCappedPages(t *testing.T) {
 		t.Fatalf("got %d rows (truncated=%v, err=%v), want 120", len(items), truncated, err)
 	}
 }
+
+// A walk a user param filtered never prunes; an unfiltered one still does.
+func TestPruneSkippedOnFilteredWalk(t *testing.T) {
+	p := &syncUserParams{perResource: map[string]map[string]string{"request": {"requestStatus": "OPEN_REQUESTS"}}}
+	var events strings.Builder
+	if jsmPruneUnfiltered(true, p, "request", false, &events) || !strings.Contains(events.String(), "user_params") {
+		t.Fatalf("filtered walk still prunes (events %q)", events.String())
+	}
+	if !jsmPruneUnfiltered(true, p, "organization", false, nil) || !jsmPruneUnfiltered(true, nil, "request", false, nil) {
+		t.Fatal("unfiltered walk lost its prune")
+	}
+}

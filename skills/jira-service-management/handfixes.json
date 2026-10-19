@@ -916,13 +916,27 @@
     {
       "id": "jsm-export-repeated-page-guard",
       "summary": "export stops with an error when the server returns the same page twice instead of advancing, rather than writing duplicates until the 100000-page guard or exiting 0 with a short file",
-      "why": "--all, sync and jsmWalk already detect a repeated page; export did not, so a server that ignores the paging key made export loop (and with --limit, finish 'successfully' with 50 unique rows) (Codex round 13 P1, 2026-10-19). Receipt: against a stub that ignores start, export request exits 1 with 'the server repeated a page instead of advancing' with and without --limit 120.",
+      "why": "--all, sync and jsmWalk already detect a repeated page; export did not, so a server that ignores the paging key made export loop (and with --limit, finish 'successfully' with 50 unique rows) (Codex round 13 P1, 2026-10-19). Receipt: against a stub that ignores start, export request exits 1 with 'the server repeated a page instead of advancing' with and without --limit 120. Round 14 (Codex P1): the first guard compared whole responses, so a server echoing the requested start while serving the same rows slipped past it (120 rows written, 20 unique); it now compares the page's rows. Receipt: exit 1 against that stub, with and without --limit 120.",
       "status": "active",
       "asserts": [
         {
           "file": "cli/internal/cli/export.go",
-          "contains": "if page > 0 && bytes.Equal(data, prevPage) {",
+          "contains": "if page > 0 && len(items) > 0 && paginatedItemsEqual(prevItems, items) {",
           "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "jsm-no-prune-on-filtered-walk",
+      "summary": "sync --full does not prune a resource whose walk a --param, --global-param or --resource-param shaped; it emits reconcile_skipped with reason user_params instead",
+      "why": "A filtered walk only sees the rows the filter lets through, but --full reconciled the whole table against it: `sync --full --resources request --resource-param request:requestStatus=OPEN_REQUESTS` deleted 100 of 120 local rows (Codex round 14 P1, 2026-10-19; reproduced 120 -> 20). Receipts after the fix: the filtered run keeps 120 and logs reconcile_skipped/user_params; an unfiltered --full against a server that really dropped 20 rows still prunes to 100.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "prune = jsmPruneUnfiltered(prune, userParams, ",
+          "code_only": true,
+          "min_count": 2
         }
       ]
     }
