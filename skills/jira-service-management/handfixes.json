@@ -848,8 +848,8 @@
     },
     {
       "id": "jsm-pages-by-rows-returned",
-      "summary": "every pager advances start by the rows a page actually returned and keeps going on a short page JSM marks isLastPage:false (or Assets isLast:false): export, --all (helpers.go), and sync's flat and dependent walks; jsmWalk (hand-written) follows the same rule",
-      "why": "Atlassian documents that a page can hold fewer items than limit without being the last ('size is less than limit and isLastPage is false') when the server caps it. The generated pagers stopped on any short page and strided by the requested size, so at a 20-row cap sync stored 20 of 120 rows per resource and export wrote 60 of 120, both exit 0 (Codex round 12 P1s; reproduced with a stub that caps pages at 20 and echoes the requested limit). After the fix: export, --all, --all --limit 50, and sync (flat and every dependent table) return 120 of 120 at caps 20, 50 and 100. A full page still continues whatever isLastPage says, so the old always-true isLastPage bug (JSDCLOUD-8279, since fixed) cannot cut a walk short. TestJSMWalkFollowsCappedPages fails with the old jsmWalk rule.",
+      "summary": "every pager advances start by the rows a page actually returned and keeps going on a short page JSM marks isLastPage:false (or Assets isLast:false): export, --all (helpers.go), and sync's flat and dependent walks; jsmWalk (hand-written) follows the same rule; every sync stop decision, including the --max-pages cap path that gates --full pruning, goes through jsmShortPageEnds",
+      "why": "Atlassian documents that a page can hold fewer items than limit without being the last ('size is less than limit and isLastPage is false') when the server caps it. The generated pagers stopped on any short page and strided by the requested size, so at a 20-row cap sync stored 20 of 120 rows per resource and export wrote 60 of 120, both exit 0 (Codex round 12 P1s; reproduced with a stub that caps pages at 20 and echoes the requested limit). After the fix: export, --all, --all --limit 50, and sync (flat and every dependent table) return 120 of 120 at caps 20, 50 and 100. A full page still continues whatever isLastPage says, so the old always-true isLastPage bug (JSDCLOUD-8279, since fixed) cannot cut a walk short. TestJSMWalkFollowsCappedPages fails with the old jsmWalk rule. Round 13 (Codex P1): the --max-pages cap path still used the raw short-page rule, so `sync --full --max-pages 1` treated a capped isLastPage:false page as the end and pruned 100 unseen rows from a 120-row mirror (reproduced: 120 -> 20). All four sync decisions now go through jsmShortPageEnds, and no offset stride by the requested size remains (receipt: 120 rows kept).",
       "status": "active",
       "asserts": [
         {
@@ -875,12 +875,6 @@
           "min_count": 2
         },
         {
-          "file": "cli/internal/cli/sync.go",
-          "contains": "pageSize.limit) && !jsmPageHasMore(data)) {",
-          "code_only": true,
-          "min_count": 2
-        },
-        {
           "file": "cli/internal/cli/export.go",
           "contains": "params[config.cursorParam] = strconv.Itoa(fetched)",
           "code_only": true
@@ -889,6 +883,20 @@
           "file": "cli/internal/cli/export.go",
           "contains": "len(items) < requested && !jsmPageHasMore(data) {",
           "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "not_contains": "shortPageEndsPagination(pageSize"
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "jsmShortPageEnds(pageSize.cursorType",
+          "code_only": true,
+          "min_count": 4
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "not_contains": "currentOffset + pageSize.limit"
         }
       ]
     },
@@ -901,6 +909,19 @@
         {
           "file": "cli/internal/mcp/cobratree/shellout.go",
           "contains": "finalArgs = jsmTailSinglePoll(finalArgs, len(prefixArgs))",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "jsm-export-repeated-page-guard",
+      "summary": "export stops with an error when the server returns the same page twice instead of advancing, rather than writing duplicates until the 100000-page guard or exiting 0 with a short file",
+      "why": "--all, sync and jsmWalk already detect a repeated page; export did not, so a server that ignores the paging key made export loop (and with --limit, finish 'successfully' with 50 unique rows) (Codex round 13 P1, 2026-10-19). Receipt: against a stub that ignores start, export request exits 1 with 'the server repeated a page instead of advancing' with and without --limit 120.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/export.go",
+          "contains": "if page > 0 && bytes.Equal(data, prevPage) {",
           "code_only": true
         }
       ]

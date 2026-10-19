@@ -6,6 +6,7 @@ package cli
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -129,6 +130,7 @@ large datasets as it has no memory pressure.`,
 			var singlePayload json.RawMessage
 			count, page, cursor := 0, 0, ""
 			fetched := 0 // pp:handfix jsm-pages-by-rows-returned: rows the API has returned so far
+			var prevPage []byte
 			for {
 				remaining := 0
 				if limit > 0 {
@@ -161,6 +163,12 @@ large datasets as it has no memory pressure.`,
 					items = []json.RawMessage{data}
 				}
 				fetched += len(items)
+				// pp:handfix jsm-export-repeated-page-guard: a server that ignores the
+				// paging key would otherwise be exported again and again.
+				if page > 0 && bytes.Equal(data, prevPage) {
+					return fmt.Errorf("export %s: the server repeated a page instead of advancing; results after %d rows are unreachable", resource, count)
+				}
+				prevPage = append(prevPage[:0], data...)
 				for _, item := range items {
 					if limit > 0 && count >= limit {
 						break

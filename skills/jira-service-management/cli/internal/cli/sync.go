@@ -946,7 +946,7 @@ func syncResource(ctx context.Context, c interface {
 		// sync_error output in the same stream.
 		if maxPages > 0 && pagesFetched >= maxPages {
 			truncatedByCap := resourceSupportsPagination(resource) && hasMore
-			truncatedByCap = truncatedByCap && !shortPageEndsPagination(pageSize.cursorType, fetchedThisPage, pageSize.limit)
+			truncatedByCap = truncatedByCap && !jsmShortPageEnds(pageSize.cursorType, fetchedThisPage, pageSize.limit, data)
 			capResumed := false
 			if truncatedByCap {
 				capExitCursor = nextCursor
@@ -954,7 +954,7 @@ func syncResource(ctx context.Context, c interface {
 			if truncatedByCap && capExitCursor == "" {
 				if pageSize.cursorParam != "" && pageSize.cursorType == "offset" {
 					currentOffset, _ := strconv.Atoi(cursor)
-					capExitCursor = strconv.Itoa(currentOffset + pageSize.limit)
+					capExitCursor = strconv.Itoa(currentOffset + fetchedThisPage) // pp:handfix jsm-pages-by-rows-returned
 				} else {
 					truncatedByCap = false
 				}
@@ -984,7 +984,7 @@ func syncResource(ctx context.Context, c interface {
 			} else if paginationEndUnprovable(resourceSupportsPagination(resource), nextCursor, fetchedThisPage, capPageLimit, data, responsePathForResource(resource, path)...) {
 				outcome.reason = "cursor_unavailable"
 			} else if !hasMore ||
-				shortPageEndsPagination(pageSize.cursorType, fetchedThisPage, capPageLimit) {
+				jsmShortPageEnds(pageSize.cursorType, fetchedThisPage, capPageLimit, data) {
 				outcome.complete = true
 			} else {
 				outcome.reason = "max_pages_cap"
@@ -1020,7 +1020,7 @@ func syncResource(ctx context.Context, c interface {
 			outcome.reason = "cursor_unavailable"
 			break
 		}
-		if !hasMore || (shortPageEndsPagination(pageSize.cursorType, fetchedThisPage, pageSize.limit) && !jsmPageHasMore(data)) {
+		if !hasMore || jsmShortPageEnds(pageSize.cursorType, fetchedThisPage, pageSize.limit, data) {
 			outcome.complete = true
 			break
 		}
@@ -1029,7 +1029,7 @@ func syncResource(ctx context.Context, c interface {
 				// Cursor-based APIs return the next cursor in the envelope.
 				// Offset-based APIs carry their pagination position client-side.
 				currentOffset, _ := strconv.Atoi(cursor)
-				nextCursor = strconv.Itoa(currentOffset + pageSize.limit)
+				nextCursor = strconv.Itoa(currentOffset + fetchedThisPage) // pp:handfix jsm-pages-by-rows-returned
 			} else {
 				// A cursor-based API reporting has_more without a next cursor
 				// cannot advance safely; stop instead of looping silently.
@@ -3221,7 +3221,7 @@ func syncOneParent(
 			outcome.reason = "cursor_unavailable"
 			break
 		}
-		if !hasMore || (shortPageEndsPagination(pageSize.cursorType, len(items), pageSize.limit) && !jsmPageHasMore(data)) {
+		if !hasMore || jsmShortPageEnds(pageSize.cursorType, len(items), pageSize.limit, data) {
 			outcome.complete = true
 			break
 		}
@@ -3230,7 +3230,7 @@ func syncOneParent(
 				// Cursor-based APIs return the next cursor in the envelope.
 				// Offset-based APIs carry their pagination position client-side.
 				currentOffset, _ := strconv.Atoi(cursor)
-				nextCursor = strconv.Itoa(currentOffset + pageSize.limit)
+				nextCursor = strconv.Itoa(currentOffset + len(items)) // pp:handfix jsm-pages-by-rows-returned
 			} else {
 				// A cursor-based API reporting has_more without a next cursor
 				// cannot advance safely; stop instead of looping silently.

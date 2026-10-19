@@ -84,3 +84,11 @@ func jsmPageHasMore(data []byte) bool {
 	}
 	return (p.IsLastPage != nil && !*p.IsLastPage) || (p.IsLast != nil && !*p.IsLast)
 }
+
+// jsmShortPageEnds is sync's short-page stop rule with JSM's capped pages in
+// mind: a page shorter than the limit ends the walk only when the server does
+// not say more follow (isLastPage/isLast false). Every sync stop decision,
+// including the --max-pages cap path that gates --full pruning, goes through it.
+func jsmShortPageEnds(cursorType string, fetched, limit int, data []byte) bool {
+	return shortPageEndsPagination(cursorType, fetched, limit) && !jsmPageHasMore(data)
+}
