@@ -124,6 +124,10 @@ needs a human, and the Destructive tier needs a human who has read the command t
 - **Keep the token files private.** `credentials.toml` (data directory) and
   `auth-context.json` (state directory) hold the tokens; do not sync either to a shared
   drive. The partner token reaches every customer.
+- **Local data is kept per CloudAlly user.** Each partner user, each `auth use-account`
+  customer and each company login has its own local store, so a restricted partner user
+  never reads the administrator's cached customer data. If `auth-context.json` cannot be
+  trusted, the restore commands stop instead of opening an empty store.
 - **Treat downloaded archives as customer data.** `download fetch` writes complete
   mailbox archives to the directory you name, readable only by your user on macOS and
   Linux; on Windows they inherit that folder's permissions, so pick a private folder.
