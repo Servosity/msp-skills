@@ -171,7 +171,7 @@ func TestRestoreGuardSameBackupWindow(t *testing.T) {
 	}
 	defer g.Close()
 	claim := func(resolved int64) error {
-		_, err := g.claim(ctx, newRestoreIdentity("64b0e9", "a@contoso.com", resolved), claimOwner{batchID: "b"}, false, false)
+		_, _, err := g.claim(ctx, newRestoreIdentity("64b0e9", "a@contoso.com", resolved), claimOwner{batchID: "b"}, false, false)
 		return err
 	}
 	if err := claim(20261001020000); err != nil {

@@ -477,9 +477,14 @@ func (g *restoreGuard) inFlight(ctx context.Context, id restoreIdentity, batchID
 // claim takes the identity for owner right before its POST. It returns the
 // claim id to settle afterwards, or errRestoreClaimed with the claim that
 // holds it. A SENDING claim whose owner is gone is first marked UNKNOWN.
-func (g *restoreGuard) claim(ctx context.Context, id restoreIdentity, owner claimOwner, retryUnknown, newBatch bool) (int64, error) {
-	var claimID int64
-	err := g.inTx(ctx, func(tx *sql.Tx) error {
+//
+// superseded lists the claims --new-batch superseded for this send; settle
+// puts them back if the send is refused before it ran.
+func (g *restoreGuard) claim(ctx context.Context, id restoreIdentity, owner claimOwner, retryUnknown, newBatch bool) (claimID int64, superseded []int64, err error) {
+	err = g.inTx(ctx, func(tx *sql.Tx) error {
+		// inTx retries the whole transaction on a busy database, so every
+		// result starts over with each attempt.
+		claimID, superseded = 0, nil
 		now := isoUTC(time.Now())
 		live, err := liveClaimNear(ctx, tx, id)
 		if err != nil {
@@ -505,6 +510,7 @@ func (g *restoreGuard) claim(ctx context.Context, id restoreIdentity, owner clai
 			if _, err := tx.ExecContext(ctx, `UPDATE restore_claims SET superseded = 1, superseded_by = ?, updated_at = ? WHERE id = ?`, owner.batchID, now, live.ID); err != nil {
 				return err
 			}
+			superseded = append(superseded, live.ID)
 			generation = live.Generation + 1
 		} else if err := tx.QueryRowContext(ctx, `SELECT COALESCE(MAX(generation), 1) FROM restore_claims WHERE task_id = ? AND entity = ? AND resolved_raw = ?`,
 			id.TaskID, id.Entity, id.Resolved).Scan(&generation); err != nil {
@@ -520,13 +526,24 @@ func (g *restoreGuard) claim(ctx context.Context, id restoreIdentity, owner clai
 		claimID, err = res.LastInsertId()
 		return err
 	})
-	return claimID, err
+	if err != nil {
+		claimID, superseded = 0, nil
+	}
+	return claimID, superseded, err
 }
 
 // settle records what the POST for a claim returned: SUBMITTED is
-// ACCEPTED, FAILED (refused before it ran) is REJECTED and frees the
-// identity, anything else stays UNKNOWN.
-func (g *restoreGuard) settle(ctx context.Context, claimID int64, ledgerStatus string) error {
+// ACCEPTED, FAILED (refused before it ran, or never sent because no
+// connection was made) is REJECTED and frees the identity, anything else
+// stays UNKNOWN.
+//
+// A REJECTED --new-batch send puts back, in the same transaction, the
+// claims it superseded (restore), exactly as they were: their state, batch
+// and generation were never changed, only the superseded mark. Otherwise
+// the restore the original batch made would be free, and a later run with
+// another entity list would send it a second time. An ACCEPTED or UNKNOWN
+// send holds the restore with its own claim, so nothing is put back.
+func (g *restoreGuard) settle(ctx context.Context, claimID int64, ledgerStatus string, restore []int64) error {
 	state := claimUnknown
 	switch ledgerStatus {
 	case jobSubmitted:
@@ -535,9 +552,26 @@ func (g *restoreGuard) settle(ctx context.Context, claimID int64, ledgerStatus s
 		state = claimRejected
 	}
 	return g.inTx(ctx, func(tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `UPDATE restore_claims SET state = ?, updated_at = ? WHERE id = ? AND owner_run = ?`,
-			state, isoUTC(time.Now()), claimID, g.run)
-		return err
+		now := isoUTC(time.Now())
+		res, err := tx.ExecContext(ctx, `UPDATE restore_claims SET state = ?, updated_at = ? WHERE id = ? AND owner_run = ?`,
+			state, now, claimID, g.run)
+		if err != nil {
+			return err
+		}
+		if n, err := res.RowsAffected(); err != nil || n != 1 {
+			return fmt.Errorf("the restore guard no longer holds claim %d for this run (%d rows); its answer was not recorded there", claimID, n)
+		}
+		if state != claimRejected {
+			return nil
+		}
+		for _, id := range restore {
+			if _, err := tx.ExecContext(ctx, `UPDATE restore_claims SET superseded = 0, superseded_by = '', updated_at = ?
+				WHERE id = ? AND superseded = 1 AND superseded_by = (SELECT batch_id FROM restore_claims WHERE id = ?)`,
+				now, id, claimID); err != nil {
+				return err
+			}
+		}
+		return nil
 	})
 }
 

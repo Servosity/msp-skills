@@ -167,7 +167,7 @@ func TestRestoreGuardClaimRace(t *testing.T) {
 		wg.Add(1)
 		go func(i int, g *restoreGuard) {
 			defer wg.Done()
-			_, err := g.claim(ctx, id, claimOwner{batchID: "batch-" + string(rune('a'+i))}, false, false)
+			_, _, err := g.claim(ctx, id, claimOwner{batchID: "batch-" + string(rune('a'+i))}, false, false)
 			mu.Lock()
 			defer mu.Unlock()
 			var held errRestoreClaimed
@@ -343,7 +343,7 @@ func TestRestoreRecoveryLeavesLiveClaimAlone(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := other.claim(context.Background(), newRestoreIdentity("64b0e9", "b@contoso.com", fakeBackupRaw), claimOwner{batchID: batchID}, true, false); err != nil {
+	if _, _, err := other.claim(context.Background(), newRestoreIdentity("64b0e9", "b@contoso.com", fakeBackupRaw), claimOwner{batchID: batchID}, true, false); err != nil {
 		t.Fatalf("other run's claim: %v", err)
 	}
 	ledgerExec(t, `UPDATE restore_jobs SET status = ?, submit_status = ? WHERE entity = ?`, jobSubmitting, jobSubmitting, "b@contoso.com")

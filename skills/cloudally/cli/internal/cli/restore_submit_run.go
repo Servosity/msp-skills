@@ -221,21 +221,27 @@ func runSubmit(ctx context.Context, cmd *cobra.Command, flags *rootFlags, c *cli
 	// ledger first and then in the machine-wide guard, the last step before
 	// its POST; a guard refusal puts the ledger row back unsent.
 	var ledgerMu sync.Mutex
-	claims := map[int64]int64{}
+	// claims maps a ledger row to its guard claim and the claims
+	// --new-batch superseded for it.
+	type sentClaim struct {
+		id         int64
+		superseded []int64
+	}
+	claims := map[int64]sentClaim{}
 	beforeSend := func(j restoreJob) error {
 		ledgerMu.Lock()
 		defer ledgerMu.Unlock()
 		if err := ledgerMarkSubmitting(sqlDB, j.ID, time.Now()); err != nil {
 			return err
 		}
-		claimID, err := guard.claim(ctx, newRestoreIdentity(batch.TaskID, j.Entity, j.ResolvedRaw), owner, req.retryUnknown, req.newBatch)
+		claimID, superseded, err := guard.claim(ctx, newRestoreIdentity(batch.TaskID, j.Entity, j.ResolvedRaw), owner, req.retryUnknown, req.newBatch)
 		if err != nil {
 			if rerr := ledgerRevertSubmitting(sqlDB, j); rerr != nil {
 				termf(stderr, "warning: %s was not sent, but its ledger row could not be put back (%v); the next run treats it as UNKNOWN\n", j.Entity, rerr)
 			}
 			return err
 		}
-		claims[j.ID] = claimID
+		claims[j.ID] = sentClaim{id: claimID, superseded: superseded}
 		return nil
 	}
 	runSubmitPool(ctx, c, req.restorePath, req.taskID, req.source, pending, req.opts, req.concurrency, req.rate, beforeSend, func(res submitResult) {
@@ -257,8 +263,8 @@ func runSubmit(ctx context.Context, cmd *cobra.Command, flags *rootFlags, c *cli
 		// The guard is settled first: if this process dies between the two
 		// writes, the guard already holds the outcome and the ledger row is
 		// recovered as UNKNOWN, which never sends it again on its own.
-		if claimID, ok := claims[res.job.ID]; ok {
-			if gerr := guard.settle(context.Background(), claimID, res.status); gerr != nil {
+		if sc, ok := claims[res.job.ID]; ok {
+			if gerr := guard.settle(context.Background(), sc.id, res.status, sc.superseded); gerr != nil {
 				termf(stderr, "warning: the restore guard could not record %s for %s (%v); it stays held and later runs treat it as unknown\n", res.status, res.job.Entity, gerr)
 			}
 		}
