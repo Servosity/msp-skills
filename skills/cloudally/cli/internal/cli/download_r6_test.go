@@ -679,7 +679,7 @@ func TestRefusedRerunPrintsNoSkippedNotice(t *testing.T) {
 	if _, stderr, err := runDL(t, s, downloadSubmitArgs("--entities", "a@contoso.com")...); err != nil {
 		t.Fatalf("pilot: %v\n%s", err, stderr)
 	}
-	if _, stderr, err := runDL(t, s, downloadSubmitArgs()...); err != nil || !strings.Contains(stderr, "left out (SKIPPED)") {
+	if _, stderr, err := runDL(t, s, downloadSubmitArgs()...); err != nil || !strings.Contains(stderr, "left out here (SKIPPED)") {
 		t.Fatalf("the whole task should say what it leaves out once it is recorded: %v\n%s", err, stderr)
 	}
 	_, stderr, err := runDL(t, s, downloadSubmitArgs()...)
@@ -1215,5 +1215,46 @@ func TestResumeWithNoReconcileStillLooksBeforeSending(t *testing.T) {
 	}
 	if r := mustLoadBatch(t, key).Rows[0]; r.Status != dlCreated || r.JobID != "job-late" {
 		t.Fatalf("the row should be CREATED with its job, got %+v", r)
+	}
+}
+
+// Round 7 runtime P2-2: the pilot's create of a@ was accepted but never
+// appeared (MISSING there). The whole task said the held archive was
+// "already created" and fetch then reported it NOT_READY (exit 8, run
+// again later), which a script polls forever. Both now say what the
+// holder's state is, and fetch exits 6 with the holder's resume.
+func TestHeldArchivesAreReportedByTheHoldersState(t *testing.T) {
+	testenv.Isolate(t)
+	s := newDLStub(t)
+	quickReconcile(t, s)
+	s.mu.Lock()
+	s.listCreated = false
+	s.taskEntities = []string{"a@contoso.com", "b@contoso.com"}
+	s.mu.Unlock()
+	_, _, _ = runDL(t, s, downloadSubmitArgs("--entities", "a@contoso.com", "--sub-sources", "O365MAIL")...)
+	pilot := ledgerKeys(t)[0]
+	if r := mustLoadBatch(t, pilot).Rows[0]; r.Status != dlMissing {
+		t.Fatalf("the pilot's row should be MISSING, got %s", r.Status)
+	}
+	s.mu.Lock()
+	s.listCreated = true
+	s.mu.Unlock()
+	_, stderr, err := runDL(t, s, downloadSubmitArgs("--sub-sources", "O365MAIL")...)
+	if err != nil {
+		t.Fatalf("whole task: %v\n%s", err, stderr)
+	}
+	if strings.Contains(stderr, "already created") || !strings.Contains(stderr, "were accepted by batch "+pilot+" but are not confirmed yet") {
+		t.Fatalf("the notice should say the pilot has not confirmed a@:\n%s", stderr)
+	}
+	var whole string
+	for _, k := range ledgerKeys(t) {
+		if k != pilot {
+			whole = k
+		}
+	}
+	readyAllJobs(s)
+	out, _, err := runDL(t, s, fetchArgs(t.TempDir(), "--batch", whole)...)
+	if err == nil || ExitCode(err) != 6 || !strings.Contains(out, "its create never appeared on the portal") || !strings.Contains(out, "--batch "+pilot+" --resume --yes") {
+		t.Fatalf("a holder-MISSING row is MISSING (exit 6) with the holder's resume, got %v\n%s", err, out)
 	}
 }

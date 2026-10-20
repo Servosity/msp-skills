@@ -294,11 +294,32 @@ func heldOutcome(r downloadRow, h heldArchive, matched map[string]bool, current 
 	case hr.Status == dlUnknown && hr.Ambiguous:
 		out.Status = fetchMissing
 		out.Detail = fmt.Sprintf("batch %s holds this archive, but a job of this snapshot cannot be proved to be its; collect every archive of that snapshot with: cloudally-cli download fetch --account %s --dest <folder> --year <year> --on-date %s --entities %s", h.key, account, snapshotDay(r.SnapshotRaw), r.Entity)
-	default:
+	case hr.Status == dlMissing || hr.Status == dlPlanned:
+		out.Status = fetchMissing
+		what := map[bool]string{true: "its create never appeared on the portal", false: "its create was never sent"}[hr.Status == dlMissing]
+		out.Detail = fmt.Sprintf("batch %s holds this archive but %s (ledger status %s); create it with: %s", h.key, what, hr.Status, resume)
+	case (hr.Status == dlRequested || hr.Status == dlUnknown) && stillSettling(hr):
 		out.Status = fetchNotReady
 		out.Detail = fmt.Sprintf("batch %s holds this archive and has not confirmed its job yet (ledger status %s); confirm it with: %s, then run this again", h.key, hr.Status, resume)
+	default:
+		out.Status = fetchMissing
+		out.Detail = fmt.Sprintf("batch %s holds this archive and has not confirmed its job for over an hour (ledger status %s); settle it with: %s", h.key, hr.Status, resume)
 	}
 	return out, true
+}
+
+// stillSettling reports whether a REQUESTED or UNKNOWN row's create is
+// recent enough (staleRequestedAge) that its job may still appear. Past
+// that, waiting changes nothing: only a resume of its batch settles it,
+// so fetch reports it MISSING (exit 6) rather than NOT_READY (exit 8,
+// "run again later"), which a script would poll forever.
+func stillSettling(r downloadRow) bool {
+	at := r.AcceptedAt
+	if at == "" {
+		at = r.RequestedAt
+	}
+	t, err := time.Parse(time.RFC3339, at)
+	return err == nil && time.Since(t) < staleRequestedAge
 }
 
 // snapshotOnDay reports whether a compact snapshot falls on day
@@ -471,9 +492,12 @@ asked for ends with an outcome; without --batch, a failed job that was created
 again is skipped as history. A row another batch holds (a pilot run's mailbox,
 say) is collected through that batch: its confirmed job, matched by job id, is
 downloaded here. When that batch's job failed or its create was refused the
-row is FAILED, when it is not confirmed or ready yet it is NOT_READY, and when
-that batch's ledger cannot be read it is MISSING, each naming that batch's
-resume command.
+row is FAILED; when its create never appeared on the portal, was never sent,
+or has gone unconfirmed for over an hour, or when that batch's ledger cannot
+be read, it is MISSING; it is NOT_READY only while that batch's create is
+under an hour old and unconfirmed, or its job is still being built. Each names
+that batch's resume command. The batch's own unconfirmed rows follow the same
+hour: NOT_READY while under an hour old, then MISSING.
 
 The portal lists jobs 100 to a page. If the listing stops at its cap of 50
 pages while more may exist, an archive whose job is not among those read is
@@ -848,6 +872,9 @@ is complete.
 					// way back, if one is wanted, is a person's decision.
 					out.Status = fetchMissing
 					out.Detail = expiredArchiveAdvice(batchLedger, r, scope.account)
+				case (r.Status == dlRequested || r.Status == dlUnknown) && !stillSettling(r):
+					out.Status = fetchMissing
+					out.Detail = fmt.Sprintf("the batch has not confirmed this job for over an hour (ledger status %s); settle it with: cloudally-cli download submit --batch %s --resume --yes", r.Status, batchKey)
 				case r.Status == dlRequested || r.Status == dlUnknown:
 					// Not confirmed yet. Confirming sends nothing that may
 					// already exist.

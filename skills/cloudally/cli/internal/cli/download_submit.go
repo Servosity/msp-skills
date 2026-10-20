@@ -1155,7 +1155,7 @@ prints the ledger's rows).
 				}
 				return unsettledDownloadErr(batch)
 			}
-			leftOut := 0
+			var leftOut map[heldBy]int
 			if !flagNewBatch {
 				if leftOut, err = refuseHeldArchives(ctx, cmd, guard, batch); err != nil {
 					return err
@@ -1347,19 +1347,24 @@ func (r submitRun) send(ctx context.Context, batch *downloadBatch) error {
 // It returns how many archives will be left out; the caller says so only
 // once the batch is recorded, so a run refused after this never reports
 // SKIPPED archives next to creates that never happened.
-func refuseHeldArchives(ctx context.Context, cmd *cobra.Command, guard *downloadGuard, batch *downloadBatch) (leftOut int, err error) {
+func refuseHeldArchives(ctx context.Context, cmd *cobra.Command, guard *downloadGuard, batch *downloadBatch) (leftOut map[heldBy]int, err error) {
 	unsettled := map[string]int{}
+	leftOut = map[heldBy]int{}
 	for i := range batch.Rows {
 		c, err := guard.conflict(ctx, rowIdentity(batch, &batch.Rows[i]), batch.BatchKey)
 		if err != nil {
-			return 0, fmt.Errorf("reading the download guard: %w", err)
+			return nil, fmt.Errorf("reading the download guard: %w", err)
 		}
 		switch {
 		case c == nil:
 		case c.State == dgUnknown || c.State == dgInFlight:
 			unsettled[c.BatchKey]++
+		case c.State == dgJobFailed:
+			leftOut[heldBy{c.BatchKey, heldFailed}]++
+		case c.JobID != "":
+			leftOut[heldBy{c.BatchKey, heldConfirmed}]++
 		default:
-			leftOut++
+			leftOut[heldBy{c.BatchKey, heldAccepted}]++
 		}
 	}
 	w := cmd.ErrOrStderr()
@@ -1377,14 +1382,48 @@ func refuseHeldArchives(ctx context.Context, cmd *cobra.Command, guard *download
 		fmt.Fprintf(w, "batch %s holds %d of these archives with an outcome not yet known, or is creating them now. Settle it first with: cloudally-cli download submit --batch %s --resume --yes\n",
 			k, unsettled[k], k)
 	}
-	return 0, usageErr(fmt.Errorf("%d archive(s) this run would create are held by other batches that have not settled whether they exist; nothing was sent (details above)", held))
+	return nil, usageErr(fmt.Errorf("%d archive(s) this run would create are held by other batches that have not settled whether they exist; nothing was sent (details above)", held))
 }
 
-// printLeftOut says how many archives of a recorded batch other batches
-// already created.
-func printLeftOut(w io.Writer, leftOut int) {
-	if leftOut > 0 {
-		fmt.Fprintf(w, "%d of these archive(s) are already created by other batches and will be left out (SKIPPED); the rest are created\n", leftOut)
+// heldBy is a batch holding archives of this run, and how it holds them
+// according to the download guard.
+type heldBy struct {
+	batch string
+	state int
+}
+
+const (
+	heldConfirmed = iota // created, and confirmed by a listed job
+	heldAccepted         // accepted, not confirmed: it may be missing
+	heldFailed           // its confirmed job failed
+)
+
+// printLeftOut says, per holding batch and by how it holds them, which
+// archives of a recorded batch are left out here, and what settles them.
+func printLeftOut(w io.Writer, leftOut map[heldBy]int) {
+	keys := make([]heldBy, 0, len(leftOut))
+	for k := range leftOut {
+		keys = append(keys, k)
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		if keys[i].batch != keys[j].batch {
+			return keys[i].batch < keys[j].batch
+		}
+		return keys[i].state < keys[j].state
+	})
+	for _, k := range keys {
+		n := leftOut[k]
+		switch k.state {
+		case heldConfirmed:
+			fmt.Fprintf(w, "%d of these archive(s) are created and confirmed by batch %s, so they are left out here (SKIPPED); this batch's fetch collects them\n", n, k.batch)
+		case heldAccepted:
+			fmt.Fprintf(w, "%d of these archive(s) were accepted by batch %s but are not confirmed yet (they may be missing), so they are left out here (SKIPPED); settle them with: cloudally-cli download submit --batch %s --resume --yes\n", n, k.batch, k.batch)
+		case heldFailed:
+			fmt.Fprintf(w, "%d of these archive(s) belong to batch %s, whose job for them failed, so they are left out here (SKIPPED); that batch creates them once more with: cloudally-cli download submit --batch %s --resume --yes\n", n, k.batch, k.batch)
+		}
+	}
+	if len(keys) > 0 {
+		fmt.Fprintln(w, "the rest are created")
 	}
 }
 
