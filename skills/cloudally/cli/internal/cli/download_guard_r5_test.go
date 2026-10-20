@@ -274,7 +274,7 @@ func TestDownloadPilotThenWholeTaskCreatesOnlyTheRest(t *testing.T) {
 func TestOpeningTheGuardRecoversAbandonedClaims(t *testing.T) {
 	testenv.Isolate(t)
 	g := testGuard(t)
-	insertClaim(t, g, "O365MAIL", dgInFlight, "20221231-000000-dead", "999-deadbeefdeadbeef", rowLabelPrefix+"dead")
+	insertClaim(t, g, "O365MAIL", dgInFlight, "20221231-000000-dead", "999-deadbeefdeadbeef", rowLabelPrefix+"00000000000000de")
 	g.Close()
 	g2 := testGuard(t)
 	if state, _, _, _, _ := guardClaimRow(t, g2, "O365MAIL"); state != dgUnknown {
@@ -316,13 +316,13 @@ func TestReconcileIgnoresTheRowsOwnEarlierFailedJob(t *testing.T) {
 	testenv.Isolate(t)
 	ctx := context.Background()
 	g := testGuard(t)
-	insertClaim(t, g, "O365MAIL", dgJobFailed, "20221231-000000-k", "", rowLabelPrefix+"first")
+	insertClaim(t, g, "O365MAIL", dgJobFailed, "20221231-000000-k", "", rowLabelPrefix+"00000000000000f1")
 	b := &downloadBatch{BatchKey: "20221231-000000-k", AccountID: "acct-1", TaskID: "task-1", Format: "zip",
 		IncludeDeleted: new(bool), IncludeLegalHold: new(bool),
 		Rows: []downloadRow{{Entity: "a@contoso.com", SubSource: "O365MAIL", SnapshotRaw: 20221231042000, Status: dlRequested,
-			Label: rowLabelPrefix + "second", RequestedAt: isoUTC(time.Now())}}}
+			Label: rowLabelPrefix + "00000000000000f2", RequestedAt: isoUTC(time.Now())}}}
 	old := portal.DownloadJob{JobID: "job-first", Account: "a@contoso.com", SubSource: "O365MAIL", SnapshotDate: 20221231042000,
-		Status: "FAILED", JobLabel: rowLabelPrefix + "first", InitDate: compactAt(time.Now().Add(-time.Hour))}
+		Status: "FAILED", JobLabel: rowLabelPrefix + "00000000000000f1", InitDate: compactAt(time.Now().Add(-time.Hour))}
 	res, err := reconcileRows(ctx, g, b, []portal.DownloadJob{old}, false, nil)
 	if err != nil {
 		t.Fatal(err)

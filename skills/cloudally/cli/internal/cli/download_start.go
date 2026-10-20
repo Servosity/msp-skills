@@ -238,7 +238,7 @@ is not used.
 			}
 			out.BatchKey = batch.BatchKey
 			out.Source = sourceForDownload(flagSource, task.Source)
-			out.JobLabel = flagLabel
+			out.JobLabel = batch.Rows[0].Label
 			return printDownloadStart(cmd, flags, out, scope)
 		},
 	}
@@ -250,7 +250,7 @@ is not used.
 		"Archive format: zip (default, one archive), pst (split into chunks), or single-pst (one PST file)")
 	cmd.Flags().StringVar(&flagSource, "source", "",
 		"Service to archive: the task's own source (a whole mailbox) by default, or one sub-source such as O365MAIL for mail only")
-	cmd.Flags().StringVar(&flagLabel, "label", "", "Free-text label stored on the download job")
+	cmd.Flags().StringVar(&flagLabel, "label", "", "Free text added to the job label, after the tool's unique label (cloudally-cli <id> <text>)")
 	cmd.Flags().BoolVar(&flagIncludeDeleted, "include-deleted", false, "Include deleted items in the archive")
 	cmd.Flags().BoolVar(&flagIncludeLegalHold, "include-legal-hold", false, "Include items under legal hold")
 	addResolveFlags(cmd, &flagResolve, &flagPortalURL, &flagLookback)
@@ -367,13 +367,35 @@ func startBatch(scope restoreScope, taskID, taskSource string, ent taskEntity, s
 		Rows: []downloadRow{{
 			Entity: ent.Entity, EntityStatus: ent.Status, ExtID: string(ent.ExtID), SubSource: source,
 			SnapshotRaw: row.ResolvedRaw, Snapshot: row.Resolved, BatchID: row.BatchID, Status: dlPlanned,
-			// An operator's --label is sent as the job label, and is what
-			// the job is recognised by afterwards.
-			Label: strings.TrimSpace(label),
+			// The job is recognised afterwards by the tool's unique label
+			// alone; an operator's --label only follows it.
+			Label: startLabel(label),
 		}},
 	}
 	b.RerunKey = rerunIdentity(b.Scope, b.AccountID, b.TaskID, b.OnDate, b.Format, b.EntityFilter, b.SubSourceFilter, incDel, incLH)
 	return b
+}
+
+// maxJobLabel bounds the label sent with a create.
+// ponytail: the portal's limit is not documented; 100 is a guess. Only the
+// operator's text is ever cut, so the unique part survives any limit above
+// it; lower this when the real limit is known.
+const maxJobLabel = 100
+
+// startLabel is the label download start sends: the same unique tool label
+// as submit (newRowLabel), then the operator's --label text, cut to fit.
+// Two starts with the same --label are still told apart.
+func startLabel(text string) string {
+	label := newRowLabel()
+	text = strings.Join(strings.Fields(text), " ")
+	if text == "" {
+		return label
+	}
+	label += " " + text
+	if r := []rune(label); len(r) > maxJobLabel {
+		label = string(r[:maxJobLabel])
+	}
+	return label
 }
 
 // startOutcome turns the one row's result into the command's answer.

@@ -344,7 +344,7 @@ func TestDownloadSubmitRetryUnknownChecksThePortalFirst(t *testing.T) {
 	testenv.Isolate(t)
 	s := newDLStub(t)
 	b := newSubmitBatch(t, "20221231-000000-retry", "a@contoso.com")
-	b.Rows[0].Status, b.Rows[0].Label = dlUnknown, rowLabelPrefix+"retry1"
+	b.Rows[0].Status, b.Rows[0].Label = dlUnknown, rowLabelPrefix+"00000000000000a1"
 	if err := saveBatch(b); err != nil {
 		t.Fatal(err)
 	}

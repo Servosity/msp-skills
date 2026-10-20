@@ -28,7 +28,7 @@ func compactAt(t time.Time) int64 {
 func TestMatchRowNeedsProofTheJobIsTheRows(t *testing.T) {
 	requested := time.Date(2026, 10, 19, 12, 0, 0, 0, time.UTC)
 	row := downloadRow{Entity: "a@contoso.com", SubSource: "O365MAIL", SnapshotRaw: 20221231042000,
-		Label: rowLabelPrefix + "mine", RequestedAt: isoUTC(requested)}
+		Label: rowLabelPrefix + "00000000000000aa", RequestedAt: isoUTC(requested)}
 	job := func(id, label string, created time.Time, files ...string) portal.DownloadJob {
 		j := portal.DownloadJob{JobID: id, Account: "a@contoso.com", SubSource: "O365MAIL", SnapshotDate: 20221231042000, JobLabel: label}
 		if !created.IsZero() {
@@ -41,7 +41,7 @@ func TestMatchRowNeedsProofTheJobIsTheRows(t *testing.T) {
 	}
 	older := requested.Add(-48 * time.Hour)
 	later := requested.Add(2 * time.Minute)
-	foreignLabel := rowLabelPrefix + "other-archive"
+	foreignLabel := rowLabelPrefix + "00000000000000bb"
 	cases := []struct {
 		name          string
 		jobs          []portal.DownloadJob
@@ -50,7 +50,7 @@ func TestMatchRowNeedsProofTheJobIsTheRows(t *testing.T) {
 		wantAmbiguous bool
 		labelsAreKept bool
 	}{
-		{name: "its own label", jobs: []portal.DownloadJob{job("old", "", older), job("mine", rowLabelPrefix+"mine", later)}, wantID: "mine"},
+		{name: "its own label", jobs: []portal.DownloadJob{job("old", "", older), job("mine", rowLabelPrefix+"00000000000000aa", later)}, wantID: "mine"},
 		{name: "a label the guard records for another archive is never it", jobs: []portal.DownloadJob{job("theirs", foreignLabel, later)}},
 		{name: "a different label could be its own, edited", jobs: []portal.DownloadJob{job("edited", "SRV#6840424", later)}, wantAmbiguous: true},
 		{name: "labels kept, its label lost: could be it", jobs: []portal.DownloadJob{job("lost", "", later)}, labelsAreKept: true, wantAmbiguous: true},
@@ -126,7 +126,7 @@ func TestRetryUnknownIgnoresAnOlderExportOfTheSameSnapshot(t *testing.T) {
 	b := newSubmitBatch(t, "20221231-000000-hold", jane)
 	yes := true
 	b.Format, b.IncludeLegalHold = downloadFormatPST, &yes
-	b.Rows[0].Status, b.Rows[0].Label, b.Rows[0].RequestedAt = dlUnknown, rowLabelPrefix+"hold1", isoUTC(time.Now().Add(-time.Hour))
+	b.Rows[0].Status, b.Rows[0].Label, b.Rows[0].RequestedAt = dlUnknown, rowLabelPrefix+"00000000000000b1", isoUTC(time.Now().Add(-time.Hour))
 	if err := saveBatch(b); err != nil {
 		t.Fatal(err)
 	}

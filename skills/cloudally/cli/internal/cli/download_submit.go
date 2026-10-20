@@ -393,6 +393,23 @@ const unrelatedAge = 24 * time.Hour
 
 // labelsKept reports whether the portal evidently stores job labels: some
 // job it lists carries one this tool sent.
+// rowLabelKey is the unique part of a tool label ("cloudally-cli " and 16
+// hex digits), the only part a job is matched by: download start appends
+// the operator's text after it, and the portal may cut or an operator edit
+// that text. A label without it (an operator's own, or one from an older
+// start) proves nothing and gives "".
+func rowLabelKey(label string) string {
+	label = strings.TrimSpace(label)
+	n := len(rowLabelPrefix) + 16
+	if !strings.HasPrefix(label, rowLabelPrefix) || len(label) < n {
+		return ""
+	}
+	if len(label) > n && label[n] != ' ' {
+		return ""
+	}
+	return label[:n]
+}
+
 func labelsKept(jobs []portal.DownloadJob) bool {
 	for _, j := range jobs {
 		if strings.HasPrefix(strings.TrimSpace(j.JobLabel), rowLabelPrefix) {
@@ -437,7 +454,7 @@ func matchRow(r *downloadRow, jobs []portal.DownloadJob, format string, keptLabe
 			continue
 		}
 		label := strings.TrimSpace(j.JobLabel)
-		if r.Label != "" && label == r.Label {
+		if k := rowLabelKey(r.Label); k != "" && rowLabelKey(label) == k {
 			return rowMatch{job: j, found: true}
 		}
 		if (label != "" && foreign != nil && foreign(label)) || !formatFits(j, format) {
@@ -530,9 +547,15 @@ func reconcileRows(ctx context.Context, guard *downloadGuard, batch *downloadBat
 	if err := guard.recoverAbandoned(ctx); err != nil {
 		return res, err
 	}
-	known, err := guard.labels(ctx)
+	labels, err := guard.labels(ctx)
 	if err != nil {
 		return res, err
+	}
+	known := map[string]bool{}
+	for l := range labels {
+		if k := rowLabelKey(l); k != "" {
+			known[k] = true
+		}
 	}
 	kept := labelsKept(jobs)
 	byID := map[string]portal.DownloadJob{}
@@ -565,8 +588,8 @@ func reconcileRows(ctx context.Context, guard *downloadGuard, batch *downloadBat
 		// A label the guard recorded for any other create, this row's own
 		// earlier (failed) create included, is provably not this row's job.
 		foreign := func(label string) bool {
-			_, ok := known[label]
-			return ok && label != r.Label
+			k := rowLabelKey(label)
+			return k != "" && known[k] && k != rowLabelKey(r.Label)
 		}
 		m := matchRow(r, jobs, batch.Format, kept, foreign)
 		switch {
@@ -772,11 +795,12 @@ A create whose outcome was never learned (a timeout, a dropped connection, a
 server error after the request left, or a run killed mid-call) is UNKNOWN.
 --resume first looks for UNKNOWN and MISSING jobs on the portal and marks the
 ones it finds CREATED, and never sends an UNKNOWN row again unless
---retry-unknown is given; even then it looks first. A resend of an UNKNOWN
-or MISSING row that is refused or never sent leaves the row UNKNOWN: the
-first create may still exist. FAILED rows of a ledger from the first build
-(which recorded no include flags) are held as UNKNOWN for the same reason. A resume sends every row
-with the batch's recorded --format, --include-deleted and --include-legal-hold.
+--retry-unknown is given; even then it looks first. A resend of an UNKNOWN or
+MISSING row that is refused or never sent leaves the row UNKNOWN: the first
+create may still exist. PLANNED and FAILED rows of a ledger from the first
+build (which recorded no include flags) are held as UNKNOWN for the same
+reason. A resume sends every row with the batch's recorded --format,
+--include-deleted and --include-legal-hold.
 
 Each create carries a unique job label, and a row is confirmed only by the
 portal job with its label (or, where the portal does not keep labels, the one

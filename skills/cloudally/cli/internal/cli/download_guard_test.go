@@ -256,7 +256,7 @@ func TestDownloadConfirmedRowIsNeverReMatched(t *testing.T) {
 	s := newDLStub(t)
 	quickReconcile(t, s)
 	b := newSubmitBatch(t, "20221231-000000-pinned", "a@contoso.com", "b@contoso.com")
-	b.Rows[0].Status, b.Rows[0].JobID, b.Rows[0].Label = dlCreated, "job-pinned", rowLabelPrefix+"pinned"
+	b.Rows[0].Status, b.Rows[0].JobID, b.Rows[0].Label = dlCreated, "job-pinned", rowLabelPrefix+"00000000000000c1"
 	b.Rows[0].RequestedAt = isoUTC(time.Now().Add(-time.Hour))
 	b.Rows[1].Status = dlFailed
 	if err := saveBatch(b); err != nil {

@@ -719,3 +719,42 @@ func TestLegacyPlannedRowsAreNeverTreatedAsUnsent(t *testing.T) {
 		t.Fatalf("a@'s mail has a listed job that cannot be proved its own: %+v", b.Rows[0])
 	}
 }
+
+// P1-h: download start sent the operator's --label as the job label, and
+// matchRow took that label as proof. Two starts of one mailbox and date
+// with the same --label but different include flags both pinned the first
+// labelled job, so the legal-hold batch was confirmed to the plain export.
+// Each start now sends a unique tool label with the text after it, and a
+// job is matched by the unique part alone.
+func TestTwoStartsWithTheSameLabelPinDifferentJobs(t *testing.T) {
+	ent := taskEntity{Entity: "a@contoso.com"}
+	row := planRow{ResolvedRaw: 20221231042000}
+	scope := restoreScope{account: "acct-1"}
+	plain := startBatch(scope, "task-1", "MS365", ent, "O365MAIL", "2022-12-31", row, "zip", "year end", false, false)
+	hold := startBatch(scope, "task-1", "MS365", ent, "O365MAIL", "2022-12-31", row, "zip", "year end", false, true)
+	p, h := &plain.Rows[0], &hold.Rows[0]
+	now := time.Now()
+	p.RequestedAt, h.RequestedAt = isoUTC(now), isoUTC(now)
+	job := func(id, label string) portal.DownloadJob {
+		return portal.DownloadJob{JobID: id, Account: "a@contoso.com", SubSource: "O365MAIL", SnapshotDate: 20221231042000,
+			JobLabel: label, InitDate: compactAt(now.Add(time.Minute))}
+	}
+	// The portal lists each job with the label its create sent.
+	jobs := []portal.DownloadJob{job("job-plain", p.Label), job("job-hold", h.Label)}
+	mp := matchRow(p, jobs, "zip", true, nil)
+	mh := matchRow(h, jobs, "zip", true, nil)
+	if !mp.found || !mh.found || mp.job.JobID != "job-plain" || mh.job.JobID != "job-hold" {
+		t.Fatalf("each start must pin its own job: plain=%+v hold=%+v", mp, mh)
+	}
+	if p.Label == h.Label || !strings.HasSuffix(p.Label, " year end") || rowLabelKey(p.Label) == "" {
+		t.Fatalf("labels %q and %q: want unique tool labels ending in the operator's text", p.Label, h.Label)
+	}
+	// The operator's text cut short (or edited) on the portal: still found.
+	cut := []portal.DownloadJob{job("job-hold", rowLabelKey(h.Label)+" year")}
+	if m := matchRow(h, cut, "zip", true, nil); !m.found {
+		t.Fatalf("the unique part alone must match: %+v", m)
+	}
+	if long := startLabel(strings.Repeat("x", 500)); len(long) != maxJobLabel || rowLabelKey(long) == "" {
+		t.Fatalf("a long --label is cut after the unique part: %q", long)
+	}
+}
