@@ -1380,7 +1380,7 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 			if ctxErr := ctx.Err(); ctxErr != nil {
 				return nil, 0, ctxErr
 			}
-			lastErr = fmt.Errorf("%s %s: %w", method, c.displayURL(path, authHeader), c.maskError(err, authHeader))
+			lastErr = fmt.Errorf("%s %s: %w", method, c.displayURL(path, authHeader), c.maskError(err, append(requestWebhookTokens(path, bodyBytes), authHeader)...)) // saas-alerts hand-fix: error-text-secret-funnel (a redirect Location is server text)
 			// Transient network failure (connection reset, DNS blip, request
 			// timeout). Back off before retrying — same exponential schedule as
 			// the 5xx path below — so a brief outage does not burn every attempt
@@ -1390,7 +1390,7 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 				if !retryWithinBudget(wait) {
 					return nil, 0, lastErr
 				}
-				fmt.Fprintf(os.Stderr, "network error (%v), retrying in %s (attempt %d/%d)\n", c.maskError(err, authHeader), wait, attempt+1, maxRetries)
+				fmt.Fprintf(os.Stderr, "network error (%v), retrying in %s (attempt %d/%d)\n", c.maskError(err, append(requestWebhookTokens(path, bodyBytes), authHeader)...), wait, attempt+1, maxRetries)
 				if serr := sleepContext(opCtx, wait); serr != nil {
 					return nil, 0, serr
 				}
@@ -1442,7 +1442,7 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 					if c.echoesCredential(respBody, append(requestWebhookTokens(path, bodyBytes), authHeader)...) { // saas-alerts hand-fix: error-text-secret-funnel
 						summary = echoWithheldText
 					}
-					return nil, resp.StatusCode, fmt.Errorf("%s %s: expected JSON, API returned HTML instead of JSON: %s", method, c.displayURL(path, authHeader), c.maskCredentialText(summary, append(requestWebhookTokens(path, bodyBytes), authHeader)...))
+					return nil, resp.StatusCode, fmt.Errorf("%s %s: expected JSON, API returned HTML instead of JSON: %s", method, c.displayURL(path, authHeader), c.funnelText(summary, append(requestWebhookTokens(path, bodyBytes), authHeader)...))
 				}
 			}
 			return withholdWebhookTokens(path, json.RawMessage(sanitizeJSONResponse(respBody))), resp.StatusCode, nil // saas-alerts hand-fix: webhook tokens never leave the client
@@ -1460,14 +1460,14 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 
 		bodyText := truncateBody(display)
 		if resp.StatusCode == http.StatusForbidden {
-			bodyText = cliutil.AnnotateTransportBlock(bodyText, resp.Header, display)
+			bodyText = cliutil.AnnotateTransportBlock(bodyText, resp.Header, respBody) // block markers are fixed strings; the shown text is still display
 		}
 
 		apiErr := &APIError{
 			Method:     method,
 			Path:       c.displayURL(path, authHeader),
 			StatusCode: resp.StatusCode,
-			Body:       c.maskCredentialText(bodyText, append(requestWebhookTokens(path, bodyBytes), authHeader)...), // saas-alerts hand-fix: URL-encoded and HTML-title echoes too
+			Body:       c.funnelText(bodyText, append(requestWebhookTokens(path, bodyBytes), authHeader)...), // saas-alerts hand-fix: error-text-secret-funnel (the shown text is checked too)
 		}
 
 		// Rate limited: classify before provider decoding. The server-driven

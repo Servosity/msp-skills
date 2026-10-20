@@ -315,18 +315,13 @@
     },
     {
       "id": "error-text-secret-funnel",
-      "summary": "one funnel for every response-to-error-text path (API errors, the Respond token mint failure, the 2xx 'expected JSON, API returned HTML' error): before any cut or summary, the whole answer is checked for every credential the client holds (partner API key, Respond access tokens, credentialSecrets) and the request's webhook tokens of 8+ characters, as written and through repeated JSON-escape, percent (either case) and HTML-entity decoding; on a match the whole answer text is replaced by a withheld notice; maskCredentialText still runs on the cut text; classification still reads the original body; maskError (transport, read and Content-Encoding decode errors, Respond mint transport errors) runs the same check after its raw mask",
-      "why": "Codex rounds 9-10 and adversarial rounds 12-14 (2026-10-20) kept finding new shapes of the same leak: JSON-escaped echoes, echoes straddling the 4096-byte body cut or the 160-rune HTML-title cut, entity- or lower-hex-encoded echoes, echoes after trailing JSON, the 2xx HTML path. Masking in place (patching each encoder and cut) never converged, so the class is closed with a decoded whole-body check and a whole-text withhold, and an oracle: TestErrorTextNeverCarriesASecret drives 3 secret kinds x 13 encodings x 5 answer shapes x 7 cut-adjacent positions (2730 cases) through the real client and fails with the funnel off, with decoding off, with percent-decoding off, with the 2xx path unguarded, or with the mint path unguarded (all proven 2026-10-20). Codex round 11 (2026-10-20, P1) added the response-decoding error, whose unsupported Content-Encoding value is server text; maskError now funnels too and the read/decode errors go through it. TestSecretInAResponseHeaderErrorIsWithheld fails with the decode error unwrapped or the maskError check off (proven 2026-10-20).",
+      "summary": "one funnel for every response-to-error-text path (API errors, the Respond token mint failure, the 2xx 'expected JSON, API returned HTML' error, maskError for transport/redirect/read/decode/mint errors): before any cut or summary the whole answer is checked for every credential the client holds (credentialSecrets: partner API key, Respond access tokens) and the request's webhook tokens of 8+ characters, as written and through up to 4 rounds of dropping control characters and invalid UTF-8 (as the display does), JSON-escape, percent (either case) and HTML-entity decoding; on a match the whole text is replaced by a withheld notice whose wording the auth-error classifier does not match; the text about to be shown is checked again (funnelText); classification and the 403 transport-block markers still read the original body. Known limits: base64 or case-changed echoes and more than 4 nested encodings are not detected; values under 8 characters are skipped",
+      "why": "Codex rounds 9-10 and adversarial rounds 12-14 (2026-10-20) kept finding new shapes of the same leak: JSON-escaped echoes, echoes straddling the 4096-byte body cut or the 160-rune HTML-title cut, entity- or lower-hex-encoded echoes, echoes after trailing JSON, the 2xx HTML path. Masking in place (patching each encoder and cut) never converged, so the class is closed with a decoded whole-body check and a whole-text withhold, and an oracle: TestErrorTextNeverCarriesASecret drives 3 secret kinds x 13 encodings x 5 answer shapes x 7 cut-adjacent positions (2730 cases) through the real client and fails with the funnel off, with decoding off, with percent-decoding off, with the 2xx path unguarded, or with the mint path unguarded (all proven 2026-10-20). Codex round 11 (2026-10-20, P1) added the response-decoding error, whose unsupported Content-Encoding value is server text; maskError now funnels too and the read/decode errors go through it. TestSecretInAResponseHeaderErrorIsWithheld fails with the decode error unwrapped or the maskError check off (proven 2026-10-20). Adversarial round 15 (2026-10-20, P1s): transport errors (a refused redirect's Location) were masked without the request's webhook tokens, and the funnel read the raw body while the display drops control characters and invalid bytes, so a split echo came out joined. Both closed; the oracle now has 16 encodings including control-character, invalid-UTF-8 and entity splits, built with a run-time backslash so no fixture escape is decoded before compilation (the round-15 review found two fixtures had silently lost theirs), and checks the shown text through an independent normaliser. It fails with dropUnprintable removed; TestWebhookTokenInARedirectLocationIsWithheld fails with the transport mask lacking webhook tokens; TestWithheldNoticeIsNotAnAuthError pins the notice wording (all proven 2026-10-20).",
       "status": "active",
       "asserts": [
         {
           "file": "cli/internal/client/saas_secret_funnel.go",
           "contains": "func (c *Client) echoesCredential(body []byte, extra ...string) bool {",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/client/saas_secret_funnel.go",
-          "contains": "[]func(string) string{jsonUnescape, percentDecode, html.UnescapeString}",
           "code_only": true
         },
         {
@@ -342,11 +337,6 @@
         {
           "file": "cli/internal/client/client.go",
           "contains": "display = []byte(echoWithheldText)",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/client/client.go",
-          "contains": "summary = echoWithheldText",
           "code_only": true
         },
         {
@@ -387,6 +377,41 @@
         {
           "file": "cli/internal/client/saas_secret_funnel_test.go",
           "contains": "func TestSecretInAResponseHeaderErrorIsWithheld(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_secret_funnel.go",
+          "contains": "[]func(string) string{dropUnprintable, jsonUnescape, percentDecode, html.UnescapeString}",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_secret_funnel.go",
+          "contains": "func (c *Client) funnelText(text string, extra ...string) string {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "Body:       c.funnelText(bodyText, append(requestWebhookTokens(path, bodyBytes), authHeader)...),",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "c.displayURL(path, authHeader), c.maskError(err, append(requestWebhookTokens(path, bodyBytes), authHeader)...))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "bodyText = cliutil.AnnotateTransportBlock(bodyText, resp.Header, respBody)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_secret_funnel_test.go",
+          "contains": "func TestWebhookTokenInARedirectLocationIsWithheld(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_secret_funnel_test.go",
+          "contains": "func TestWithheldNoticeIsNotAnAuthError(",
           "code_only": true
         }
       ]

@@ -12,7 +12,9 @@ import (
 )
 
 // echoWithheldText replaces the text of an answer that quotes back a credential.
-const echoWithheldText = "[response text withheld: it quoted back a credential this CLI sent]"
+// Its wording avoids the words the auth-error classifier looks for, so a
+// withheld 400 still classifies as the API error it was.
+const echoWithheldText = "[response text withheld: it repeated a secret value this CLI sent]"
 
 // echoesCredential reports whether body quotes back a credential this client
 // holds (the partner key, Respond access tokens) or one of extra (the request's
@@ -49,7 +51,7 @@ func (c *Client) echoesCredential(body []byte, extra ...string) bool {
 	// fifth level of encoding would slip through.
 	for round := 0; round < 4; round++ {
 		before := view
-		for _, decode := range []func(string) string{jsonUnescape, percentDecode, html.UnescapeString} {
+		for _, decode := range []func(string) string{dropUnprintable, jsonUnescape, percentDecode, html.UnescapeString} {
 			view = decode(view)
 			if contains(view) {
 				return true
@@ -60,6 +62,29 @@ func (c *Client) echoesCredential(body []byte, extra ...string) bool {
 		}
 	}
 	return false
+}
+
+// dropUnprintable deletes invalid UTF-8 and control characters, as the error
+// display does (ToValidUTF8 at the cut, control characters in HTML titles), so
+// an echo split by one of them is seen joined, as the user would see it.
+func dropUnprintable(s string) string {
+	return strings.Map(func(r rune) rune {
+		if r < 0x20 || (r >= 0x7f && r <= 0x9f) {
+			return -1
+		}
+		return r
+	}, strings.ToValidUTF8(s, ""))
+}
+
+// funnelText is the last step before text is shown: the raw mask, then the
+// echo check on what would be shown, which can differ from what was checked
+// before the cut (a control character or invalid byte the display dropped).
+func (c *Client) funnelText(text string, extra ...string) string {
+	text = c.maskCredentialText(text, extra...)
+	if c.echoesCredential([]byte(text), extra...) {
+		return echoWithheldText
+	}
+	return text
 }
 
 // jsonUnescape decodes JSON string escapes (\uXXXX, \/, \", \\) wherever they
