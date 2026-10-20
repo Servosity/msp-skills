@@ -1,7 +1,7 @@
 # Synology + AI - for ChatGPT, Claude, GitHub Copilot, Microsoft 365 Copilot, Gemini, and any agent that speaks MCP
 
 > Unofficial. Community-built Claude Code Skill and MCP server for the Synology
-> API. Not affiliated with, endorsed by, or sponsored by Synology Inc..
+> API. Not affiliated with, endorsed by, or sponsored by Synology Inc.
 
 <!-- media:start -->
 <p align="center">
@@ -138,36 +138,70 @@ OpenClaw isn't generally available yet; the frontmatter wiring is pre-shipped an
 
 ### Authenticate
 
-Set the credentials the CLI needs (from your Synology portal):
+DSM has no API keys: the CLI logs in with a DSM account that can open Active Backup for Business (an administrator, or an account granted the Active Backup for Business application). Passwords are read from environment variables and never written to disk.
+
+**One NAS** - macOS / Linux:
 
 ```bash
-SYNOLOGY_BASE_URL=<value> SYNOLOGY_ACCOUNT=<value> SYNOLOGY_PASSWORD=<value> SYNOLOGY_DEVICE_ID=<value> SYNOLOGY_OTP_CODE=<value> SYNOLOGY_TLS_FINGERPRINT=<value> SYNOLOGY_SKIP_TLS_VERIFY=<value> SYNOLOGY_MCP_READ_ONLY=<value> SYNOLOGY_MCP_HTTP_TOKEN=<value> synology-cli doctor
+export SYNOLOGY_BASE_URL=https://192.168.1.50:5001 SYNOLOGY_ACCOUNT=<account> SYNOLOGY_PASSWORD=<password>
+synology-cli auth login
 ```
 
-`doctor` checks config, paths, and API reachability, and reports whether credentials are loaded - it does not validate them. Run a read command to confirm the credential actually works end-to-end.
+Windows (PowerShell):
+
+```powershell
+$env:SYNOLOGY_BASE_URL = "https://192.168.1.50:5001"; $env:SYNOLOGY_ACCOUNT = "<account>"; $env:SYNOLOGY_PASSWORD = "<password>"
+synology-cli auth login
+```
+
+**Every client NAS** - register each one, then sync them all. The login for a NAS named `acme` comes from `SYNOLOGY_ACME_ACCOUNT` and `SYNOLOGY_ACME_PASSWORD` (or the prefix you pass with `--env-prefix`):
+
+```bash
+synology-cli fleet add acme --url https://nas.acme.example:5001 --client "Acme Corp" --pin-cert --check
+synology-cli fleet sync
+synology-cli fleet status
+```
+
+`--pin-cert` records the NAS certificate's SHA-256 fingerprint (most NAS units serve DSM's self-signed certificate) and trusts exactly that certificate afterwards; for a single NAS set `SYNOLOGY_TLS_FINGERPRINT` instead. `--check` logs in once and reports whether Active Backup for Business is installed.
+
+**Two-factor accounts:** add a fresh code to the first login only - `SYNOLOGY_OTP_CODE` for one NAS, `SYNOLOGY_ACME_OTP_CODE` for a fleet NAS (`$env:SYNOLOGY_OTP_CODE = "123456"` in PowerShell). DSM returns a trusted-device token, which the CLI keeps with that NAS's cached session and sends on later logins.
+
+`synology-cli doctor` checks config and paths, confirms `SYNOLOGY_BASE_URL` answers as a DSM WebAPI, then logs in and makes one authenticated read, so it reports the login as valid, rejected (wrong account or password) or needing a two-factor code; `fleet add --check` does the same for a fleet NAS.
 
 
 ## What this skill does
 
-<!-- TODO: outcome-first table mapping the 5-8 questions an MSP would ask to the single command that answers each. Source-of-truth is SKILL.md "Unique Capabilities" / "Command Reference" - extract the highest-leverage ones. Format:
-
 | Question your MSP keeps asking | Command |
 | --- | --- |
-| ... | `synology-cli ...` |
-
--->
+| Is every client NAS OK? One row per NAS: backups, stale devices, storage, sync age | `synology-cli fleet status` |
+| Which Active Backup jobs failed, partially failed or never ran in the last 24 hours? | `synology-cli abb failures --since 24h` |
+| Which PCs, servers and VMs have had no successful backup in 36 hours, or never had one? | `synology-cli abb stale --older-than 36h` |
+| Which volumes, pools or disks are degraded, failing, hot or nearly full? | `synology-cli fleet health --full-pct 85 --disk-temp 55` |
+| Which task protects BOB-LAPTOP, and when did it last back up? | `synology-cli abb device "BOB-LAPTOP"` |
+| Why did the Office PCs task fail? | `synology-cli abb triage "Office PCs" --nas acme` |
+| Which tasks have a falling success rate or ran far longer than usual? | `synology-cli abb trend --since 30d` |
+| Which Hyper Backup tasks does this NAS run, and to where? | `synology-cli hyperbackup tasks` |
+| Who is in the administrators group on this client's NAS? | `synology-cli group members --group administrators` |
 
 Full command reference: [guide.md](./guide.md). For the AI-agent operating contract (`--agent`, `--dry-run`, when to confirm before mutating), see [AGENTS.md](./AGENTS.md).
 
 ## What makes this different
 
-Most Synology integrations and MCP servers proxy each question into a live API call. That's fine for one record. It dies at scale, when you're asking <!-- TODO: vendor-specific QBR-time example: e.g. "how many backup-failure tickets across all 47 clients last quarter" -->.
+[rafalr100/synology-mcp](https://github.com/rafalr100/synology-mcp) is a general-purpose DSM server with 71 tools for one NAS, covering files, storage, users, packages and Hyper Backup, with power controls off unless you enable them. [cmeans/mcp-synology](https://github.com/cmeans/mcp-synology) focuses on files and system health and can hold several NAS connections. Neither covers Active Backup for Business.
 
-This skill syncs Synology into a **local SQLite mirror** with full-text search. Aggregate questions become one local SQL join: instant, offline, and the AI sees the answer, not the raw data. Compound commands like <!-- TODO: 2-3 highest-leverage compound commands from this skill --> join across <!-- TODO: which entities --> - work a stateless API wrapper can't do.
+This one is built for the question an MSP asks every morning: did last night's backups work, at every client? `fleet sync` logs in to every client NAS you register, each with its own login (two-factor accounts included), and mirrors Active Backup tasks, job results, per-device runs and a Storage Manager snapshot into one local SQLite database. `fleet status`, `abb failures`, `abb stale` and `fleet health` then answer across every client in one local query, and `abb device` finds a machine by host name without knowing which client's NAS protects it. A NAS that did not sync, or whose mirror is older than `--max-sync-age`, reads as not synced, never as OK, and the report commands exit 6 when anything needs attention, so an RMM script can alert on them.
+
+Synology's AI Console connects third-party AI models to Synology MailPlus and Office for drafting and summarising; it does not answer questions about backups. Active Insight, Synology's cloud monitoring service, offers MSP delegation and alerts on abnormal events per host. This adds the per-device Active Backup answers (failed runs, devices with no recent success, which task protects a machine) across every client NAS, in the AI agent you already use.
 
 ## The pain this closes
 
-<!-- TODO: fold pain-point.md content here. Cite a concrete community source (r/msp, MSPGeek, vendor survey). State the pain in MSP-owner vocabulary. Then list 3-5 of this skill's highest-leverage commands mapped to the pain. -->
+Active Backup for Business is free with the NAS, so it backs up a lot of small-business PCs and servers. At scale, every NAS is its own island. An MSP running "almost a hundred NAS in production at our clients" reported that per-NAS notification emails had become unmanageable, that nothing alerted on a backup that had not run for days, and that neither Active Insight nor CMS monitored these packages ([nas-forum.com, Nov 2021](https://www.nas-forum.com/forum/topic/73029-monitoring-multiple-active-backup-for-business)); the replies were SNMP (Synology's MIBs do not expose backup state) and SSH scripts reading Active Backup's internal SQLite files. Tom Lawrence's 2023 review said the same from the MSP side: "mostly because of their lack of central management" ([Lawrence Systems forum](https://forums.lawrencesystems.com/t/synology-active-backup-for-business-review-2023/16543)).
+
+- `synology-cli fleet status` - one row per client NAS, unknown (never OK) when a NAS did not sync, exit 6 for an RMM alert.
+- `synology-cli abb failures --since 24h` - every failed, partial or missed task, with the first error line.
+- `synology-cli abb stale --older-than 72h` - every machine with no good backup in three days, including ones that never had one.
+- `synology-cli fleet health` - degraded pools, bad SMART disks and nearly full volumes, with days to full.
+- `synology-cli abb triage "Office PCs"` - why one task failed: the failed run's detail lines and the log from that window.
 
 See [pain-point.md](./pain-point.md) for the longer narrative.
 
@@ -175,7 +209,7 @@ See [pain-point.md](./pain-point.md) for the longer narrative.
 
 ### Does this work with ChatGPT?
 
-Yes, on **Plus, Pro, Team, Business, Enterprise, and Education** plans (Free tier does not yet expose Developer Mode). ChatGPT connects to **remote** MCP servers over HTTPS, not local stdio binaries. The Synology MCP server runs locally, but it speaks HTTP natively: start it with `synology-mcp --transport http` (it serves `http://127.0.0.1:7777/mcp` by default) and put that endpoint behind an HTTPS tunnel or your own reverse proxy. No bridge package is involved. Step-by-step in [mcp-install.md](./mcp-install.md).
+Yes, on **Plus, Pro, Team, Business, Enterprise, and Education** plans (Free tier does not yet expose Developer Mode). ChatGPT connects to **remote** MCP servers over HTTPS, not local stdio binaries. The Synology MCP server runs locally, but it speaks HTTP natively: set `SYNOLOGY_MCP_HTTP_TOKEN` to a long random value, start it with `synology-mcp --transport http` (it serves `http://127.0.0.1:7777/mcp` by default and refuses to start without that token), and put that endpoint behind an HTTPS tunnel or your own reverse proxy. No bridge package is involved. Step-by-step in [mcp-install.md](./mcp-install.md).
 
 ### Does this work with Codex, Cursor, Windsurf, Cline, Copilot, or Gemini?
 
@@ -189,12 +223,25 @@ No. The recommended install is to paste one sentence into Claude Code or Codex -
 
 Your data stays on **your machine**. The CLI and MCP server are local binaries. The SQLite mirror sits in a directory under your user account. The AI agent only sees what the CLI returns - typically a query result, not raw bulk data. Credentials are read from your environment or your agent's config; never bundled into this repo or transmitted anywhere by MSP Skills.
 
-<!-- TODO: 2-4 vendor-specific FAQ entries - answer real searches MSP owners type. Examples:
-- "How is this different from <vendor>'s built-in AI integration?" (if the vendor has one)
-- "Will this hit my <vendor> API rate limits?"
-- "Do I need to be a <vendor> partner/customer?"
-- "Will this replace my <vendor> portal/UI?"
--->
+### How do I check 40 client NAS units, not just one?
+
+Register each one with `synology-cli fleet add <name> --url https://<nas>:5001 --client "<Client>" --pin-cert --check`. Its login comes from `SYNOLOGY_<NAME>_ACCOUNT` and `SYNOLOGY_<NAME>_PASSWORD` (or the prefix you pass with `--env-prefix`), so the registry holds no password. `synology-cli fleet sync` then logs in to every NAS, four at a time by default, and `synology-cli fleet list` shows which credential env vars are set for each. One unreachable NAS is recorded and does not stop the others; `fleet sync` exits 5 when any NAS failed.
+
+### Our NAS accounts use two-factor sign-in. Does that work?
+
+Yes. Run the first login with a fresh code in `SYNOLOGY_OTP_CODE` (one NAS, `synology-cli auth login`) or `SYNOLOGY_<NAME>_OTP_CODE` (a fleet NAS, `fleet add --check` or `fleet sync --nas <name>`). DSM returns a trusted-device token, which the CLI keeps with that NAS's cached session (owner-only on macOS and Linux) and sends on later logins, so the code is not needed again.
+
+### My NAS uses DSM's self-signed certificate. Will it connect?
+
+Yes, without turning verification off. `fleet add --pin-cert` records the NAS certificate's SHA-256 fingerprint and trusts exactly that certificate afterwards; for a single NAS set `SYNOLOGY_TLS_FINGERPRINT`. `SYNOLOGY_SKIP_TLS_VERIFY=1` trusts any certificate and is only for a network you control.
+
+### Can it change my clients' NAS units?
+
+Three commands act on a NAS: `abb backup` starts a backup, `abb cancel` cancels a running one, and `session logout` ends the CLI's own DSM session. Each sends immediately unless you add `--dry-run`. Everything else reads. Set `SYNOLOGY_MCP_READ_ONLY=1` and the MCP server drops every command that is not read-only.
+
+### Does it cover Hyper Backup and Synology C2?
+
+Hyper Backup, the NAS's own backup to another NAS, USB or cloud, is covered live per NAS: `synology-cli hyperbackup tasks` and `synology-cli hyperbackup task-status`. The fleet mirror and reports cover Active Backup for Business and storage health only.
 
 ### What does it cost?
 
@@ -202,24 +249,23 @@ Free. Apache-2.0 licensed. You pay only for whichever AI agent you use (Claude, 
 
 ## Safety model
 
-<!-- TODO: tier table (Read / Write-routine / Destructive / etc.) from governance.md. Format:
-
 | Tier | Examples | Recommended agent policy |
 | --- | --- | --- |
-| Read | ... | Allow |
-| Write (routine) | ... | Preview with `--dry-run`, then a reviewed write |
-| Destructive / config | ... | Human-in-the-loop only |
+| Read | `fleet status`, `fleet health`, `fleet list`, `abb failures`, `abb stale`, `abb device`, `abb trend`, `abb triage`, `abb tasks`, `abb results`, `abb logs`, `hyperbackup`, `storage`, `system`, `log`, `package`, `folder`, `user`, `group`, `sync`, `search`, `export` (`sync` fills the local mirror; `export --output` overwrites the file you name) | Allow |
+| Write (routine) | `abb backup`, `abb cancel`, `session logout` (act on a NAS); `fleet add`, `fleet remove` (local registry); `fleet sync` (logs in to every registered NAS) | Preview with `--dry-run`, then a reviewed write |
+| Credential | `auth login`, `auth logout` | Human-in-the-loop only |
+| Data egress | `--deliver webhook:<url>`, `feedback --send` | Human-in-the-loop |
 
--->
+No command deletes, reconfigures, restores or reboots anything on a NAS.
 
-The strongest control is the **scope you grant the Synology credentials** - the CLI can only do what the credentials are permitted to do. Full details, including how to lock it down, are in [governance.md](./governance.md).
+The strongest controls are the **DSM account you give each NAS** - the CLI can only do what that account may do - and `SYNOLOGY_MCP_READ_ONLY=1` for an agent that should only read. Full details, including how to lock it down, are in [governance.md](./governance.md).
 
 ## Status
 
-Beta. Validated against the Synology API surface and being validated with MSPs running it live against their own production tenant in our weekly Build Sessions. RSVP at [compoundingteams.com/build-sessions](https://compoundingteams.com/build-sessions).
+Beta, awaiting live verification. The command surface is built from Synology's public DSM WebAPI documentation and community-documented Active Backup for Business calls (Synology publishes no Active Backup API specification), and the fleet reports are covered by tests against simulated DSM responses, but no MSP has yet run it against production NAS units and reported back - so nothing here is proven against a real NAS. If you run it against your own, the it-works form is how that becomes a badge. MSPs put connectors like this through their paces in our weekly Build Sessions - RSVP at [compoundingteams.com/build-sessions](https://compoundingteams.com/build-sessions).
 
 ---
 
 **Standards.** Conforms to the open [Agent Skills spec](https://agentskills.io) (Anthropic, Dec 2025; 40+ agents). MCP-compatible - works with any MCP-capable agent including [Hermes](https://hermes-agent.nousresearch.com). OpenClaw-ready (frontmatter pre-wired, awaiting OpenClaw launch).
 
-Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: <!-- TODO: YYYY-MM-DD -->._
+Maintained by [Servosity](https://www.servosity.com). Apache-2.0 licensed. Built with [CLI Printing Press](https://github.com/mvanhorn/cli-printing-press). _Last updated: 2026-10-20._

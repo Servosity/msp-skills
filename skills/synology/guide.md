@@ -457,7 +457,7 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Run `synology-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/synology-cli/config.json`; `--home`, `SYNOLOGY_HOME`, and per-kind env vars can relocate it.
+Run `synology-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/synology-cli/config.json` (`%USERPROFILE%\.config\synology-cli\config.json` on Windows); `--home`, `SYNOLOGY_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
 

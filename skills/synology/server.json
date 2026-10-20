@@ -30,57 +30,69 @@
       "environmentVariables": [
         {
           "name": "SYNOLOGY_BASE_URL",
-          "description": "Set the SYNOLOGY_BASE_URL credential for the Synology MCP server.",
+          "description": "DSM address of the NAS with scheme and port, for example https://nas.acme.example:5001.",
           "isRequired": true,
-          "isSecret": true
+          "isSecret": false
         },
         {
           "name": "SYNOLOGY_ACCOUNT",
-          "description": "Set the SYNOLOGY_ACCOUNT credential for the Synology MCP server.",
+          "description": "DSM account name used for the SYNO.API.Auth login.",
           "isRequired": true,
-          "isSecret": true
+          "isSecret": false
         },
         {
           "name": "SYNOLOGY_PASSWORD",
-          "description": "Set the SYNOLOGY_PASSWORD credential for the Synology MCP server.",
+          "description": "DSM account password; sent only in the login request, never written to disk.",
           "isRequired": true,
           "isSecret": true
         },
         {
           "name": "SYNOLOGY_DEVICE_ID",
-          "description": "Set the SYNOLOGY_DEVICE_ID credential for the Synology MCP server.",
-          "isRequired": true,
+          "description": "Optional. Trusted-device token from an earlier two-factor login, used instead of a one-time code.",
+          "isRequired": false,
           "isSecret": true
         },
         {
           "name": "SYNOLOGY_OTP_CODE",
-          "description": "Set the SYNOLOGY_OTP_CODE credential for the Synology MCP server.",
-          "isRequired": true,
+          "description": "Optional. One-time code for the first login of a two-factor account.",
+          "isRequired": false,
           "isSecret": true
         },
         {
           "name": "SYNOLOGY_TLS_FINGERPRINT",
-          "description": "Set the SYNOLOGY_TLS_FINGERPRINT credential for the Synology MCP server.",
-          "isRequired": true,
-          "isSecret": true
+          "description": "Optional. SHA-256 fingerprint of the NAS certificate to pin (DSM ships a self-signed certificate).",
+          "isRequired": false,
+          "isSecret": false
         },
         {
           "name": "SYNOLOGY_SKIP_TLS_VERIFY",
-          "description": "Set the SYNOLOGY_SKIP_TLS_VERIFY credential for the Synology MCP server.",
-          "isRequired": true,
-          "isSecret": true
+          "description": "Optional. Set to 1 to skip certificate verification; prefer SYNOLOGY_TLS_FINGERPRINT.",
+          "isRequired": false,
+          "isSecret": false
         },
         {
           "name": "SYNOLOGY_MCP_READ_ONLY",
-          "description": "Set the SYNOLOGY_MCP_READ_ONLY credential for the Synology MCP server.",
-          "isRequired": true,
-          "isSecret": true
+          "description": "Optional. Blank, 0, false, no or off keeps every tool; any other value removes every write tool.",
+          "isRequired": false,
+          "isSecret": false
         },
         {
           "name": "SYNOLOGY_MCP_HTTP_TOKEN",
-          "description": "Set the SYNOLOGY_MCP_HTTP_TOKEN credential for the Synology MCP server.",
-          "isRequired": true,
+          "description": "Bearer token callers must present when the server runs with --transport http; not used by stdio.",
+          "isRequired": false,
           "isSecret": true
+        },
+        {
+          "name": "SYNOLOGY_USER_AGENT",
+          "description": "Optional. Overrides the User-Agent header the CLI sends to the NAS.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Not used by this connector (no tenant-gated client profiles); leave unset.",
+          "isRequired": false,
+          "isSecret": false
         }
       ]
     }

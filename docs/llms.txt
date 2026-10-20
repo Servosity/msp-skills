@@ -234,6 +234,9 @@ What this site calls an MCP server is what ChatGPT calls an app or connector, Cl
 - Syncro (PSA) - ask "Which customers have logged time we never invoiced?" - Run every Syncro PSA and RMM workflow from your terminal: tickets, billing, and patch gaps in one ask.
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/syncro/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/syncro/install.sh)
+- Synology (Backup/DR) - ask "Is every client NAS OK? One row per NAS with backup outcomes, stale devices, worst storage state and sync age." - Find every failed or stale Active Backup job and failing disk across every client NAS from one prompt.
+  Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/synology/
+  Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/synology/install.sh)
 - Tactical RMM (RMM) - ask "What's the overall health of my fleet right now?" - Triage every agent, sweep patch posture, and run a script across a filtered cohort by asking.
   Verification: Awaiting live verification. Page: https://msp-skills.compoundingteams.com/skills/tactical-rmm/
   Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/tactical-rmm/install.sh)

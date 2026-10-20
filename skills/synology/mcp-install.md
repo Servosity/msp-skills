@@ -37,22 +37,29 @@ Add (or merge with your existing `mcpServers` block):
     "synology": {
       "command": "synology-mcp",
       "env": {
-        "SYNOLOGY_BASE_URL": "<your-synology_base_url>",
-        "SYNOLOGY_ACCOUNT": "<your-synology_account>",
-        "SYNOLOGY_PASSWORD": "<your-synology_password>",
-        "SYNOLOGY_DEVICE_ID": "<your-synology_device_id>",
-        "SYNOLOGY_OTP_CODE": "<your-synology_otp_code>",
-        "SYNOLOGY_TLS_FINGERPRINT": "<your-synology_tls_fingerprint>",
-        "SYNOLOGY_SKIP_TLS_VERIFY": "<your-synology_skip_tls_verify>",
-        "SYNOLOGY_MCP_READ_ONLY": "<your-synology_mcp_read_only>",
-        "SYNOLOGY_MCP_HTTP_TOKEN": "<your-synology_mcp_http_token>"
+        "SYNOLOGY_BASE_URL": "https://<nas>:5001",
+        "SYNOLOGY_ACCOUNT": "<dsm-account>",
+        "SYNOLOGY_PASSWORD": "<dsm-password>",
+        "SYNOLOGY_DEVICE_ID": "",
+        "SYNOLOGY_OTP_CODE": "",
+        "SYNOLOGY_TLS_FINGERPRINT": "",
+        "SYNOLOGY_SKIP_TLS_VERIFY": "",
+        "SYNOLOGY_MCP_READ_ONLY": "",
+        "SYNOLOGY_MCP_HTTP_TOKEN": "",
+        "SYNOLOGY_USER_AGENT": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
 }
 ```
 
-Quit Claude Desktop completely and reopen, then ask a question that needs the API.
+Replace the three `<...>` values; leave the optional ones blank unless you need
+them (`SYNOLOGY_TLS_FINGERPRINT` pins a self-signed certificate,
+`SYNOLOGY_DEVICE_ID` or a one-time `SYNOLOGY_OTP_CODE` is for a two-factor
+account, and any `SYNOLOGY_MCP_READ_ONLY` value other than blank, 0, false, no
+or off removes every write tool). Quit Claude Desktop completely and reopen,
+then ask a question that needs the API.
 
 ## GitHub Copilot (VS Code)
 
@@ -70,15 +77,17 @@ Configuration**) and add:
       "type": "stdio",
       "command": "synology-mcp",
       "env": {
-        "SYNOLOGY_BASE_URL": "<your-synology_base_url>",
-        "SYNOLOGY_ACCOUNT": "<your-synology_account>",
-        "SYNOLOGY_PASSWORD": "<your-synology_password>",
-        "SYNOLOGY_DEVICE_ID": "<your-synology_device_id>",
-        "SYNOLOGY_OTP_CODE": "<your-synology_otp_code>",
-        "SYNOLOGY_TLS_FINGERPRINT": "<your-synology_tls_fingerprint>",
-        "SYNOLOGY_SKIP_TLS_VERIFY": "<your-synology_skip_tls_verify>",
-        "SYNOLOGY_MCP_READ_ONLY": "<your-synology_mcp_read_only>",
-        "SYNOLOGY_MCP_HTTP_TOKEN": "<your-synology_mcp_http_token>"
+        "SYNOLOGY_BASE_URL": "https://<nas>:5001",
+        "SYNOLOGY_ACCOUNT": "<dsm-account>",
+        "SYNOLOGY_PASSWORD": "<dsm-password>",
+        "SYNOLOGY_DEVICE_ID": "",
+        "SYNOLOGY_OTP_CODE": "",
+        "SYNOLOGY_TLS_FINGERPRINT": "",
+        "SYNOLOGY_SKIP_TLS_VERIFY": "",
+        "SYNOLOGY_MCP_READ_ONLY": "",
+        "SYNOLOGY_MCP_HTTP_TOKEN": "",
+        "SYNOLOGY_USER_AGENT": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
@@ -99,15 +108,17 @@ Claude Desktop:
     "synology": {
       "command": "synology-mcp",
       "env": {
-        "SYNOLOGY_BASE_URL": "<your-synology_base_url>",
-        "SYNOLOGY_ACCOUNT": "<your-synology_account>",
-        "SYNOLOGY_PASSWORD": "<your-synology_password>",
-        "SYNOLOGY_DEVICE_ID": "<your-synology_device_id>",
-        "SYNOLOGY_OTP_CODE": "<your-synology_otp_code>",
-        "SYNOLOGY_TLS_FINGERPRINT": "<your-synology_tls_fingerprint>",
-        "SYNOLOGY_SKIP_TLS_VERIFY": "<your-synology_skip_tls_verify>",
-        "SYNOLOGY_MCP_READ_ONLY": "<your-synology_mcp_read_only>",
-        "SYNOLOGY_MCP_HTTP_TOKEN": "<your-synology_mcp_http_token>"
+        "SYNOLOGY_BASE_URL": "https://<nas>:5001",
+        "SYNOLOGY_ACCOUNT": "<dsm-account>",
+        "SYNOLOGY_PASSWORD": "<dsm-password>",
+        "SYNOLOGY_DEVICE_ID": "",
+        "SYNOLOGY_OTP_CODE": "",
+        "SYNOLOGY_TLS_FINGERPRINT": "",
+        "SYNOLOGY_SKIP_TLS_VERIFY": "",
+        "SYNOLOGY_MCP_READ_ONLY": "",
+        "SYNOLOGY_MCP_HTTP_TOKEN": "",
+        "SYNOLOGY_USER_AGENT": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
@@ -125,9 +136,22 @@ All remote agents need `synology-mcp` reachable as a public **HTTPS** endpoint. 
 in HTTP mode with your credentials in the environment (it serves `http://127.0.0.1:7777/mcp` by
 default; press 4.32+ refuses a non-loopback bind without TLS, so do not pass `--addr :7777`):
 
+macOS/Linux:
+
 ```bash
-SYNOLOGY_BASE_URL=<value> SYNOLOGY_ACCOUNT=<value> SYNOLOGY_PASSWORD=<value> SYNOLOGY_DEVICE_ID=<value> SYNOLOGY_OTP_CODE=<value> SYNOLOGY_TLS_FINGERPRINT=<value> SYNOLOGY_SKIP_TLS_VERIFY=<value> SYNOLOGY_MCP_READ_ONLY=<value> SYNOLOGY_MCP_HTTP_TOKEN=<value> synology-mcp --transport http
+SYNOLOGY_BASE_URL=https://<nas>:5001 SYNOLOGY_ACCOUNT=<dsm-account> SYNOLOGY_PASSWORD=<dsm-password> SYNOLOGY_MCP_HTTP_TOKEN=<a long random value> synology-mcp --transport http
 ```
+
+Windows (PowerShell):
+
+```powershell
+$env:SYNOLOGY_BASE_URL="https://<nas>:5001"; $env:SYNOLOGY_ACCOUNT="<dsm-account>"; $env:SYNOLOGY_PASSWORD="<dsm-password>"; $env:SYNOLOGY_MCP_HTTP_TOKEN="<a long random value>"; synology-mcp --transport http
+```
+
+Add `SYNOLOGY_TLS_FINGERPRINT` for a self-signed certificate and
+`SYNOLOGY_DEVICE_ID` (or a one-time `SYNOLOGY_OTP_CODE`) for a two-factor
+account. Callers must send `Authorization: Bearer <the same token>`; the server
+refuses to start without `SYNOLOGY_MCP_HTTP_TOKEN`.
 
 Then expose `http://localhost:7777/mcp` as a public HTTPS URL via a secure tunnel
 (Cloudflare Tunnel, ngrok) or your own reverse proxy. The path is part of the

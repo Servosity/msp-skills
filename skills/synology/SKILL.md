@@ -1,6 +1,6 @@
 ---
 name: synology
-description: "Every client NAS's Active Backup jobs and storage health, mirrored into one local SQLite database and checked with one command. Trigger phrases: `did last night's synology backups succeed`, `active backup for business failures`, `which machines have not backed up`, `check synology nas disk health`, `use synology`, `run synology-cli`."
+description: "Use when the user asks whether client Synology NAS backups succeeded, which machines have not backed up, or how client NAS storage is doing: mirrors Synology Active Backup for Business jobs and storage health from every registered client NAS (one DSM login each, two-factor supported) into one local database, then answers failed and missed runs, stale devices, which task protects a machine, why a task failed, success-rate trends and degraded pools, bad disks or nearly full volumes across all of them. Also reads Hyper Backup, storage, system health, logs, users and groups per NAS. Trigger phrases: `did last night's synology backups succeed`, `active backup for business failures`, `which machines have not backed up`, `which client nas is running out of space`, `check synology nas disk health`, `why did the synology backup fail`, `use synology`, `run synology-cli`."
 author: "Damien Stevens"
 license: "Apache-2.0"
 vendor: "Synology"
@@ -18,7 +18,7 @@ metadata:
         ps1: https://raw.githubusercontent.com/Servosity/msp-skills/main/skills/synology/install.ps1
 ---
 
-# Synology DSM + Active Backup for Business  -  Printing Press CLI
+# Synology - Claude Code Skill
 
 ## Prerequisites: Install the CLI
 
@@ -560,6 +560,7 @@ When you (or the agent) notice something off about this CLI, record it:
 ```
 synology-cli feedback "the --since flag is inclusive but docs say exclusive"
 synology-cli feedback --stdin < notes.txt
+Get-Content notes.txt | synology-cli feedback --stdin   # PowerShell
 synology-cli feedback list --json --limit 10
 ```
 
@@ -569,7 +570,7 @@ Write what *surprised* you, not a bug report. Short, specific, one line: that is
 
 ## Output Delivery
 
-Every command accepts `--deliver <sink>`. The output goes to the named sink in addition to (or instead of) stdout, so agents can route command results without hand-piping. Three sinks are supported:
+Every command except `completion` accepts `--deliver <sink>` (redirect a completion script to a file instead; the `--help` and `--version` flags print to stdout only, while the `help` and `version` commands deliver). A command that fails still delivers what it printed, so `fleet status`, `fleet health` and the `abb` reports deliver their rows when they exit 6 with findings. `profile save` validates a `--deliver` sink and records it for later `--profile` runs rather than delivering its own confirmation. The output goes to the named sink in addition to (or instead of) stdout, so agents can route command results without hand-piping. Three sinks are supported:
 
 | Sink | Effect |
 |------|--------|

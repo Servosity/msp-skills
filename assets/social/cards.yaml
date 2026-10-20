@@ -324,6 +324,10 @@ syncro:
   vendor: "Syncro"
   example_command: "Which customers have logged time we never invoiced?"
 
+synology:
+  vendor: "Synology"
+  example_command: "Which client backups failed last night?"
+
 tactical-rmm:
   vendor: "Tactical RMM"
   example_command: "Where do patches and reboots stand across every client?"

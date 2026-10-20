@@ -2837,6 +2837,45 @@ A: No. It reads from your Syncro account and is for the cross-customer questions
 
 Governance: The skill is read-first: reporting, rollups, and cross-entity views can't change anything in Syncro. Mutating commands (create/update/delete tickets, invoices, customers, and the like) send immediately unless you pass `--dry-run` to preview first, so the safe agent policy is read plus previewed writes, with a human approving anything that creates, updates, or deletes. The CLI can only ever do what the API token you supply is scoped to do.
 
+### Synology (Backup/DR)
+
+Page: https://msp-skills.compoundingteams.com/skills/synology/
+Verification: Awaiting live verification
+Install: bash <(curl -fsSL https://raw.githubusercontent.com/servosity/msp-skills/main/skills/synology/install.sh)
+
+Ask your AI which client PCs and servers missed last night's Active Backup, which have not had a good backup in three days, and which NAS volumes are degraded or nearly full, and get one answer across every client NAS. DSM answers one NAS at a time in its own web UI. This logs in to each NAS you register, mirrors its Active Backup jobs and storage health into one local database, and answers from there.
+
+Outcomes (question -> command your AI agent runs):
+- Is every client NAS OK? One row per NAS with backup outcomes, stale devices, worst storage state and sync age. -> synology-cli fleet status
+- Which Active Backup jobs failed, partially failed or never ran in the last 24 hours? -> synology-cli abb failures --since 24h
+- Which PCs, servers and VMs have had no successful backup in 36 hours, or never had one? -> synology-cli abb stale --older-than 36h
+- Which volumes, pools or disks are degraded, failing, hot or nearly full, and how many days until full? -> synology-cli fleet health --full-pct 85 --disk-temp 55
+- Which task protects BOB-LAPTOP, when did it last back up, and what happened on its recent runs? -> synology-cli abb device "BOB-LAPTOP"
+- Why did the Office PCs task fail? Show the failed run's error lines and the log from that window. -> synology-cli abb triage "Office PCs" --nas acme
+- Which tasks have a falling success rate, or ran far longer than usual last time? -> synology-cli abb trend --since 30d
+- Which Hyper Backup tasks does this NAS run, and where do they send the NAS's own backup? -> synology-cli hyperbackup tasks
+- Who is in the administrators group on this client's NAS? -> synology-cli group members --group administrators
+
+FAQ:
+Q: Does this work with ChatGPT?
+A: Yes, on paid ChatGPT plans. ChatGPT connects to remote MCP servers over HTTPS, and synology-mcp speaks HTTP natively: set SYNOLOGY_MCP_HTTP_TOKEN to a long random value, run `synology-mcp --transport http`, and put its /mcp endpoint behind an HTTPS tunnel or your own reverse proxy. Step-by-step in the install guide.
+Q: Do I need to know how to code?
+A: No. Paste one sentence into Claude Code or Codex and your agent does the install, or run a one-line installer. You register each client NAS once with `synology-cli fleet add` and set its login in environment variables.
+Q: How do I check 40 client NAS units, not just one?
+A: Register each one: `synology-cli fleet add acme --url https://nas.acme.example:5001 --client "Acme Corp" --pin-cert --check`. Its login comes from SYNOLOGY_ACME_ACCOUNT and SYNOLOGY_ACME_PASSWORD (or the prefix you pass with --env-prefix), so no password is stored in the registry. `fleet sync` then logs in to every NAS, four at a time by default, and `fleet status` gives one row per client. One unreachable NAS is recorded and does not stop the others.
+Q: Our NAS accounts use two-factor sign-in. Does that work?
+A: Yes. Run the first login with a fresh code in SYNOLOGY_OTP_CODE (or SYNOLOGY_<NAME>_OTP_CODE for a fleet NAS). DSM returns a trusted-device token, which the CLI keeps with that NAS's cached session (owner-only on macOS and Linux) and sends on later logins, so the code is not needed again.
+Q: My NAS uses DSM's self-signed certificate. Will it connect?
+A: Yes, without turning verification off. `fleet add --pin-cert` records the NAS certificate's SHA-256 fingerprint and trusts exactly that certificate afterwards; for a single NAS set SYNOLOGY_TLS_FINGERPRINT. SYNOLOGY_SKIP_TLS_VERIFY=1 trusts any certificate and is only for a network you control.
+Q: Can it change my clients' NAS units?
+A: Three commands act on a NAS: `abb backup` starts a backup, `abb cancel` cancels a running one, and `session logout` ends the CLI's own DSM session. Each sends immediately unless you add --dry-run. Everything else reads. Set SYNOLOGY_MCP_READ_ONLY=1 and the MCP server drops every command that is not read-only.
+Q: Is my Synology data safe?
+A: Your data stays on your machine. The CLI, MCP server and the local mirror are all local. DSM passwords are read from environment variables and never written to disk; the fleet registry holds only each NAS's URL, client name, certificate setting and the names of its env vars. Credentials are never bundled or transmitted by MSP Skills.
+Q: What does it cost?
+A: Free. Apache-2.0 licensed. You pay only for whichever AI agent you already use.
+
+Governance: Almost everything here reads: Active Backup for Business tasks, results and logs, Hyper Backup tasks, storage and SMART state, system health, users and groups, and the local mirror built from them. Three commands act on a NAS (abb backup, abb cancel, session logout) and send immediately unless you add --dry-run, so preview them and have a human approve. The strongest controls are the DSM account you give each NAS and SYNOLOGY_MCP_READ_ONLY=1, which drops every non-read-only tool from the MCP server.
+
 ### Tactical RMM (RMM)
 
 Page: https://msp-skills.compoundingteams.com/skills/tactical-rmm/
