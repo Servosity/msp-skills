@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 
-	"cloudally-pp-cli/internal/cliutil"
 	"github.com/spf13/cobra"
 )
 
@@ -14,9 +13,10 @@ import (
 // job status, an error the portal wrote) safe to show on a terminal. Every
 // human-readable download printer goes through it, directly or through
 // tenantf and tenantCells, so a name like "\x1b]0;OWNED\x07" is shown as
-// text instead of being run by the terminal. JSON output is not passed
+// text instead of being run by the terminal. termSafe (restore.go) is the
+// one funnel: it also drops bidi controls the generated scrubber keeps. JSON output is not passed
 // through it: the encoder already escapes control characters there.
-func tenantText(s string) string { return cliutil.ScrubTerminal(s) }
+func tenantText(s string) string { return termSafe(s) }
 
 // tenantf is fmt.Fprintf with every string and error argument passed
 // through tenantText. The format string is this program's own text, so its
