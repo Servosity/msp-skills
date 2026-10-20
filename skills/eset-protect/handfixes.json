@@ -5587,6 +5587,11 @@
           "file": "cli/internal/cli/export.go",
           "contains": "if seenCursors[cursor] {",
           "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/export.go",
+          "contains": "return false, \"\", fmt.Errorf(\"%s is not a string\", config.nextCursorPath)",
+          "code_only": true
         }
       ]
     },
@@ -5950,18 +5955,23 @@
     },
     {
       "id": "sync-metadata-only-pages",
-      "summary": "sync treats a list page with no list field and only paging metadata as an empty page: its nextPageToken continues the walk, and without one it is the natural end; it is never stored as a resource row",
-      "why": "Protobuf JSON can omit an empty repeated field. The generated fallback stored `{}` (or `{\"nextPageToken\":\"B\"}`) as a bogus resource row with no UUID, lost the continuation token and marked the walk complete, so `sync --full` could prune mirrored devices on pages it never read (Codex round 19 P1). TestSyncMetadataOnlyPages (A, then a token-only page, then D) failed with the handling disabled (`a device after a metadata-only page was pruned`) and checks no metadata row is stored and a device ESET no longer returns is still pruned.",
+      "summary": "sync treats a list page with no list field and only paging metadata as an empty page: its nextPageToken continues the walk, and without one it is the natural end; it is never stored as a resource row; it applies only to list resources (a single-object resource's `{}` is its zero value and is stored), and a present non-string token leaves the walk incomplete instead of ending it",
+      "why": "Protobuf JSON can omit an empty repeated field. The generated fallback stored `{}` (or `{\"nextPageToken\":\"B\"}`) as a bogus resource row with no UUID, lost the continuation token and marked the walk complete, so `sync --full` could prune mirrored devices on pages it never read (Codex round 19 P1). TestSyncMetadataOnlyPages (A, then a token-only page, then D) failed with the handling disabled (`a device after a metadata-only page was pruned`) and checks no metadata row is stored and a device ESET no longer returns is still pruned. Adversarial round 12: the shortcut also caught quarantined-objects-count, so a count dropping to zero (`{}`) left the stale count mirrored; Codex round 20: `{\"nextPageToken\":42}` decoded to \"\", ended the walk as complete and let --full prune unread pages. TestSyncMalformedTokenAndSingleObject failed with each guard disabled.",
       "status": "active",
       "asserts": [
         {
           "file": "cli/internal/cli/sync.go",
-          "contains": "if meta, token := esetMetadataOnlyPage(data); meta {",
+          "contains": "if len(items) == 0 && len(responsePathForResource(resource, path)) > 0 {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "if meta, token, tokenOK := esetMetadataOnlyPage(data); meta {",
           "code_only": true
         },
         {
           "file": "cli/internal/cli/eset_sync_pages.go",
-          "contains": "func esetMetadataOnlyPage(data json.RawMessage) (bool, string) {",
+          "contains": "func esetMetadataOnlyPage(data json.RawMessage) (meta bool, token string, tokenOK bool) {",
           "code_only": true
         }
       ]

@@ -8,21 +8,24 @@ import "encoding/json"
 // metadata, and returns its next-page token. Protobuf JSON can omit an empty
 // repeated field, so ESET may answer an empty page as `{}` or
 // `{"nextPageToken":"B"}` (handfixes.json: sync-metadata-only-pages).
-func esetMetadataOnlyPage(data json.RawMessage) (bool, string) {
+// tokenOK is false when a token is present but is not a string (or null): the
+// caller must not read that as "no more pages".
+func esetMetadataOnlyPage(data json.RawMessage) (meta bool, token string, tokenOK bool) {
 	var obj map[string]json.RawMessage
 	if json.Unmarshal(data, &obj) != nil || obj == nil {
-		return false, ""
+		return false, "", true
 	}
 	for k := range obj {
 		switch k {
 		case "nextPageToken", "totalSize", "pageToken", "totalCount":
 		default:
-			return false, ""
+			return false, "", true
 		}
 	}
-	var token string
-	if raw, ok := obj["nextPageToken"]; ok {
-		_ = json.Unmarshal(raw, &token)
+	if raw, ok := obj["nextPageToken"]; ok && string(raw) != "null" {
+		if json.Unmarshal(raw, &token) != nil {
+			return true, "", false
+		}
 	}
-	return true, token
+	return true, token, true
 }

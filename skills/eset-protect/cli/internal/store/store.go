@@ -1398,9 +1398,10 @@ func isSQLiteBusy(err error) bool {
 		strings.Contains(msg, "database table is locked")
 }
 
-// A later list-shaped write must not shrink a richer cached blob. First
-// write is incoming as-is. Callers apply the result to both the generic
-// resources blob and the typed-table projection.
+// The incoming row replaces any stored one (hand-fix
+// sync-rows-replace-wholesale; the generated keep-richer merge is no longer
+// called). Callers apply the result to both the generic resources blob and
+// the typed-table projection.
 //
 // Hand-fix credential-tier-never-persisted: every row write (Upsert,
 // UpsertBatch, the typed Upsert* helpers) passes through here before the

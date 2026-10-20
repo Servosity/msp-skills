@@ -814,8 +814,19 @@ func syncResource(ctx context.Context, c interface {
 		// continues the walk; without one it is the natural end. The generated
 		// fallback stored `{}` as a row and, losing the token, ended the walk
 		// early and let --full prune devices on pages it never read.
-		if len(items) == 0 {
-			if meta, token := esetMetadataOnlyPage(data); meta {
+		// Only list resources: a single-object resource (quarantined-objects-
+		// count) answering {} is its zero value, stored by the fallback below.
+		if len(items) == 0 && len(responsePathForResource(resource, path)) > 0 {
+			if meta, token, tokenOK := esetMetadataOnlyPage(data); meta {
+				if !tokenOK {
+					// A non-string token is not "no more pages": leave the
+					// attempt incomplete so --full does not prune.
+					outcome.reason = "malformed_cursor"
+					if !humanFriendly {
+						fmt.Fprintf(syncEvents, `{"event":"sync_warning","resource":"%s","reason":"malformed_cursor","message":"nextPageToken is not a string; the walk stops and the mirror is not pruned"}`+"\n", resource)
+					}
+					break
+				}
 				if token == "" {
 					outcome.complete = true
 					break

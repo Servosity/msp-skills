@@ -312,8 +312,10 @@ func exportEmptyListPage(data json.RawMessage, config resourceReadConfig) (empty
 	}
 	if other == 0 {
 		// An empty page may still carry the next page's token.
-		if raw, ok := obj[config.nextCursorPath]; ok && config.nextCursorPath != "" {
-			_ = json.Unmarshal(raw, &next)
+		if raw, ok := obj[config.nextCursorPath]; ok && config.nextCursorPath != "" && string(raw) != "null" {
+			if json.Unmarshal(raw, &next) != nil {
+				return false, "", fmt.Errorf("%s is not a string", config.nextCursorPath)
+			}
 		}
 		return true, next, nil
 	}
