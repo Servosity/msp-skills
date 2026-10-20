@@ -5,14 +5,17 @@ package cli
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
 
 	"cloudally-pp-cli/internal/cadate"
 	"cloudally-pp-cli/internal/cliutil"
+	"cloudally-pp-cli/internal/store"
 	"github.com/spf13/cobra"
 )
 
@@ -70,18 +73,37 @@ func jobSubmittedForMatch(j restoreJob) bool {
 	return false
 }
 
-// matchRestoreTasks pairs ledger rows with RESTORE tasks: same entity
-// (case-insensitive), same source, created no earlier than submitted_at
-// minus the slack. A task that reports a snapshotDate only ever matches a
-// row whose resolved backup is the same backup (sameBackup: within
-// sameBackupWindow), so a task another batch created for another date of
-// the same mailbox is never taken for this row. Rows whose resolved backup
-// matches a task's snapshotDate claim it first; a confirmed row may then
-// take the earliest unclaimed task that reports no snapshotDate. An
+// matchRestoreTasks pairs ledger rows with RESTORE tasks; it is
+// matchRestoreTasksExcluding with no task pinned anywhere else.
+func matchRestoreTasks(jobs []restoreJob, tasks []restoreTaskView, source string) map[int64]*restoreTaskView {
+	return matchRestoreTasksExcluding(jobs, tasks, source, nil)
+}
+
+// matchRestoreTasksExcluding pairs ledger rows with RESTORE tasks: same
+// entity (case-insensitive), same source, created no earlier than
+// submitted_at minus the slack.
+//
+//   - A row that already recorded a task id (a pinned row) only ever takes
+//     that task again; it is never re-matched to another.
+//   - A task in pinnedElsewhere (recorded on a row of another batch, in
+//     any restore ledger in this data directory) is never a candidate: a
+//     deliberate --new-batch re-restore must not read the earlier batch's
+//     task, and the reverse.
+//   - A task that reports a snapshotDate only ever matches a row whose
+//     resolved backup is the same backup (sameBackup).
+//   - Among the remaining candidates, tasks created at or after the row's
+//     submitted_at are preferred; one created inside the slack before it
+//     counts only when none was created after. When more than one is still
+//     eligible the row is not matched at all, never a guess: it stays
+//     SUBMITTED and becomes UNMATCHED (or stays UNKNOWN), so watch exits 5
+//     rather than reporting another restore's result.
+//
+// Rows whose resolved backup matches a task's snapshotDate claim first; a
+// confirmed row may then take a task that reports no snapshotDate. An
 // UNKNOWN or SUBMITTING row settles only on a snapshotDate match: settling
 // it on a guess would stop --retry-unknown from ever sending a restore that
 // never happened.
-func matchRestoreTasks(jobs []restoreJob, tasks []restoreTaskView, source string) map[int64]*restoreTaskView {
+func matchRestoreTasksExcluding(jobs []restoreJob, tasks []restoreTaskView, source string, pinnedElsewhere map[string]bool) map[int64]*restoreTaskView {
 	type candidate struct {
 		task    *restoreTaskView
 		created time.Time
@@ -114,11 +136,39 @@ func matchRestoreTasks(jobs []restoreJob, tasks []restoreTaskView, source string
 	claimed := map[*restoreTaskView]bool{}
 	matched := map[int64]*restoreTaskView{}
 	eligible := func(j restoreJob, c candidate) bool {
+		if pinnedElsewhere[strings.TrimSpace(string(c.task.ID))] {
+			return false
+		}
 		if snap := int64(c.task.SnapshotDate); snap != 0 && !sameBackup(snap, j.ResolvedRaw) {
 			return false
 		}
 		return !claimed[c.task] && strings.EqualFold(strings.TrimSpace(c.task.Account), strings.TrimSpace(j.Entity)) &&
 			!c.created.Before(j.SubmittedAt.Add(-watchCreateSlack))
+	}
+	// pick returns the one task this row can be matched to, or nil when
+	// there is none or more than one (an ambiguous row is never guessed).
+	pick := func(j restoreJob, snapshotOnly bool) *restoreTaskView {
+		// createDate carries whole seconds, so the row's own task, created
+		// in the same second it was submitted, counts as at or after it.
+		submitted := j.SubmittedAt.Truncate(time.Second)
+		var atOrAfter, inSlack []*restoreTaskView
+		for _, c := range cands {
+			if !eligible(j, c) || (snapshotOnly && int64(c.task.SnapshotDate) == 0) {
+				continue
+			}
+			if c.created.Before(submitted) {
+				inSlack = append(inSlack, c.task)
+			} else {
+				atOrAfter = append(atOrAfter, c.task)
+			}
+		}
+		switch {
+		case len(atOrAfter) == 1:
+			return atOrAfter[0]
+		case len(atOrAfter) == 0 && len(inSlack) == 1:
+			return inSlack[0]
+		}
+		return nil
 	}
 	for _, j := range ordered {
 		if j.TaskID != "" {
@@ -130,25 +180,93 @@ func matchRestoreTasks(jobs []restoreJob, tasks []restoreTaskView, source string
 			}
 			continue
 		}
-		for _, c := range cands {
-			if eligible(j, c) && int64(c.task.SnapshotDate) != 0 {
-				claimed[c.task], matched[j.ID] = true, c.task
-				break
-			}
+		if t := pick(j, true); t != nil {
+			claimed[t], matched[j.ID] = true, t
 		}
 	}
 	for _, j := range ordered {
-		if _, ok := matched[j.ID]; ok || jobOutcomeUnknown(j) {
+		if _, ok := matched[j.ID]; ok || jobOutcomeUnknown(j) || j.TaskID != "" {
 			continue
 		}
-		for _, c := range cands {
-			if eligible(j, c) {
-				claimed[c.task], matched[j.ID] = true, c.task
-				break
-			}
+		if t := pick(j, false); t != nil {
+			claimed[t], matched[j.ID] = true, t
 		}
 	}
 	return matched
+}
+
+// restoreTasksPinnedElsewhere returns every RESTORE task id recorded on a
+// row of another batch: in this batch's own ledger (db), and in every other
+// restore ledger store in the data directory (other logins and tokens),
+// read without migrating them. A store that cannot be read fails the watch
+// closed, because a task it pins could otherwise be taken for this batch.
+func restoreTasksPinnedElsewhere(ctx context.Context, db *sql.DB, batchID string) (map[string]bool, error) {
+	pinned := map[string]bool{}
+	rows, err := db.QueryContext(ctx, `SELECT DISTINCT task_id FROM restore_jobs WHERE batch_id <> ? AND COALESCE(task_id, '') <> ''`, batchID)
+	if err != nil {
+		return nil, err
+	}
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			_ = rows.Close()
+			return nil, err
+		}
+		pinned[strings.TrimSpace(id)] = true
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	own, _ := filepath.Abs(defaultDBPath(restoreCLIName))
+	paths, err := listLedgerStores(ledgerDataDir())
+	if err != nil {
+		return nil, err
+	}
+	for _, path := range paths {
+		if abs, aerr := filepath.Abs(path); aerr == nil && abs == own {
+			continue
+		}
+		ids, err := pinnedTaskIDsInStore(ctx, path)
+		if err != nil {
+			return nil, fmt.Errorf("the restore ledger %s cannot be read, so a RESTORE task another batch already owns could be taken for this one (%w); fix or move that file, then watch again", path, err)
+		}
+		for _, id := range ids {
+			pinned[id] = true
+		}
+	}
+	return pinned, nil
+}
+
+// pinnedTaskIDsInStore reads the RESTORE task ids recorded in one ledger
+// store, read-only. A store without restore tables records none.
+func pinnedTaskIDsInStore(ctx context.Context, path string) ([]string, error) {
+	st, err := store.OpenReadOnlyContext(ctx, path)
+	if err != nil {
+		return nil, err
+	}
+	defer st.Close()
+	db := st.DB()
+	var tables int
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'restore_jobs'`).Scan(&tables); err != nil {
+		return nil, err
+	}
+	if tables == 0 || !ledgerHasColumn(db, "restore_jobs", "task_id") {
+		return nil, nil
+	}
+	q, err := db.QueryContext(ctx, `SELECT DISTINCT task_id FROM restore_jobs WHERE COALESCE(task_id, '') <> ''`)
+	if err != nil {
+		return nil, err
+	}
+	defer q.Close()
+	var out []string
+	for q.Next() {
+		var id string
+		if err := q.Scan(&id); err != nil {
+			return nil, err
+		}
+		out = append(out, strings.TrimSpace(id))
+	}
+	return out, q.Err()
 }
 
 // jobTerminal reports whether a row needs no further polling. A row whose
@@ -353,7 +471,11 @@ bounds the whole watch.
 					stopped = "interrupted: " + cause.Error()
 					break
 				}
-				matched := matchRestoreTasks(jobs, tasks, batch.Source)
+				pinned, err := restoreTasksPinnedElsewhere(ctx, sqlDB, batch.BatchID)
+				if err != nil {
+					return err
+				}
+				matched := matchRestoreTasksExcluding(jobs, tasks, batch.Source, pinned)
 				for i := range jobs {
 					j := &jobs[i]
 					if !jobSubmittedForMatch(*j) && j.Status != jobUnmatched {

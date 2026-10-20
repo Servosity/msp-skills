@@ -54,6 +54,11 @@ type fakeRestoreAPI struct {
 	// block it); listStatus, when set, answers that list with an error.
 	onList     func(r *http.Request)
 	listStatus int
+	// taskSeq numbers RESTORE tasks; like the live API, an id is never
+	// reused, even after a test clears the task list.
+	taskSeq int
+	// statusByID overrides taskStatus for single tasks.
+	statusByID map[string]string
 }
 
 func newFakeRestoreAPI(t *testing.T, restoreStatus int) *fakeRestoreAPI {
@@ -102,6 +107,9 @@ func newFakeRestoreAPI(t *testing.T, restoreStatus int) *fakeRestoreAPI {
 			f.mu.Lock()
 			for _, t := range f.tasks {
 				t["status"] = f.taskStatus
+				if st, ok := f.statusByID[fmt.Sprint(t["id"])]; ok {
+					t["status"] = st
+				}
 			}
 			raw, _ := json.Marshal(map[string]any{"data": f.tasks})
 			f.mu.Unlock()
@@ -123,8 +131,9 @@ func newFakeRestoreAPI(t *testing.T, restoreStatus int) *fakeRestoreAPI {
 				status = s
 			}
 			if status == 0 || status == http.StatusOK || f.acceptAnyway[entity] {
+				f.taskSeq++
 				f.tasks = append(f.tasks, map[string]any{
-					"id": fmt.Sprintf("rt-%d", len(f.tasks)+1), "account": entity, "type": "RESTORE", "source": body["source"],
+					"id": fmt.Sprintf("rt-%d", f.taskSeq), "account": entity, "type": "RESTORE", "source": body["source"],
 					"snapshotDate": body["date"], "createDate": time.Now().UTC().Format(time.RFC3339),
 				})
 			}
