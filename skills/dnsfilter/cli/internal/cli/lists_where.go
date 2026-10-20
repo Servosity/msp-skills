@@ -11,6 +11,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// whereCollections is every collection the lists where join reads: the
+// policies' lists, sites and roaming clients (impact counts) and org names.
+var whereCollections = []string{"organizations", "networks", "policies", "user-agents"}
+
 type listsWhereRow struct {
 	List           string `json:"list"` // allow or block
 	Entry          string `json:"entry"`
@@ -53,7 +57,7 @@ Reads the local mirror: run 'dnsfilter-cli sync --resources organizations,networ
 				_ = cmd.Usage()
 				return usageErr(fmt.Errorf("a domain argument is required, e.g. lists where example.com"))
 			}
-			db, ok, err := openLocalMirror(cmd, flags, dbPath, "organizations,networks,policies,user-agents", make([]listsWhereRow, 0))
+			db, ok, err := openLocalMirror(cmd, flags, dbPath, "organizations,networks,policies,user-agents", incompleteMirrorJSON(make([]listsWhereRow, 0), whereCollections))
 			if !ok {
 				return err
 			}
@@ -68,17 +72,29 @@ Reads the local mirror: run 'dnsfilter-cli sync --resources organizations,networ
 					return err
 				}
 			}
+			incomplete, err := incompleteCollections(ctx, db, whereCollections...)
+			if err != nil {
+				return err
+			}
 			rows := computeListsWhere(normalizeDomain(args[0]), loaded["policies"], loaded["organizations"], loaded["networks"], loaded["user-agents"])
 			if !wantsHumanTable(cmd.OutOrStdout(), flags) {
+				if len(incomplete) > 0 {
+					fmt.Fprintln(cmd.ErrOrStderr(), "hint: "+incompleteSyncNote(incomplete))
+					return printJSONFiltered(cmd.OutOrStdout(), incompleteMirrorJSON(rows, incomplete), flags)
+				}
 				return printJSONFiltered(cmd.OutOrStdout(), rows, flags)
 			}
 			w := cmd.OutOrStdout()
-			if len(rows) == 0 {
+			if len(rows) == 0 && len(incomplete) == 0 {
 				fmt.Fprintf(w, "No synced policy lists %s or a parent domain.\n", humanText(normalizeDomain(args[0])))
 				return nil
 			}
 			for _, r := range rows {
 				fmt.Fprintf(w, "%-5s %-28s %-24s policy %s %q sites=%d roaming=%d global=%v\n", humanText(r.List), humanText(r.Entry), humanText(r.OrgName), humanText(r.PolicyID), r.PolicyName, r.Sites, r.RoamingClients, r.IsGlobal)
+			}
+			if len(incomplete) > 0 {
+				// Unwalked sites or clients read as sites=0 roaming=0: no impact.
+				fmt.Fprintln(w, humanText(incompleteSyncNote(incomplete)))
 			}
 			return nil
 		},

@@ -6,7 +6,9 @@ package cli
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -402,6 +404,54 @@ func openLocalMirror(cmd *cobra.Command, flags *rootFlags, dbPath, syncHint stri
 		return nil, false, fmt.Errorf("opening local mirror: %w", err)
 	}
 	return db, true, nil
+}
+
+// incompleteCollections returns, in the order given, every collection a
+// local-mirror answer joins that the mirror cannot vouch for: never synced,
+// or its last sync attempt did not finish a full walk
+// (sync_state.last_attempt_complete is 1 only after one). A read-only store
+// that predates that column proves nothing, so every collection counts as
+// incomplete there, the same rule mcpStoreStatus applies.
+func incompleteCollections(ctx context.Context, db *store.Store, collections ...string) ([]string, error) {
+	out := make([]string, 0)
+	for _, c := range collections {
+		var complete int
+		err := db.DB().QueryRowContext(ctx, `SELECT last_attempt_complete FROM sync_state WHERE resource_type = ?`, c).Scan(&complete)
+		if err == nil && complete == 1 {
+			continue
+		}
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			if msg := strings.ToLower(err.Error()); !strings.Contains(msg, "no such table") && !strings.Contains(msg, "no such column") {
+				return nil, fmt.Errorf("reading sync state for %s: %w", c, err)
+			}
+		}
+		out = append(out, c)
+	}
+	return out, nil
+}
+
+// incompleteSyncNote is the note a local-mirror command prints, in place of
+// its all-clear, when incompleteCollections reported missing collections.
+func incompleteSyncNote(missing []string) string {
+	return fmt.Sprintf("Incomplete local mirror: no complete sync of %s, so this is not an all-clear (clients or rows may be missing, counts may be low). Run: dnsfilter-cli sync --resources %s", strings.Join(missing, ", "), strings.Join(missing, ","))
+}
+
+// incompleteMirrorResult replaces a list command's bare JSON rows when the
+// mirror is incomplete. It is the {meta, results} envelope --agent already
+// prints, so --agent keeps its results array and gains the fields in meta,
+// and plain --json can no longer read as a clean empty list.
+type incompleteMirrorResult struct {
+	Meta struct {
+		IncompleteCollections []string `json:"incomplete_collections"`
+		Note                  string   `json:"note"`
+	} `json:"meta"`
+	Results any `json:"results"`
+}
+
+func incompleteMirrorJSON(rows any, missing []string) incompleteMirrorResult {
+	var r incompleteMirrorResult
+	r.Meta.IncompleteCollections, r.Meta.Note, r.Results = missing, incompleteSyncNote(missing), rows
+	return r
 }
 
 // loadLocal returns every synced row of one resource type (drain-first).

@@ -38,7 +38,13 @@ type driftView struct {
 	AgentsScanned  int           `json:"agents_scanned"`
 	Orgs           []driftOrgRow `json:"orgs"`
 	Note           string        `json:"note,omitempty"`
+	// IncompleteCollections names joined collections the mirror has no
+	// complete sync of; set, the result is not an all-clear.
+	IncompleteCollections []string `json:"incomplete_collections,omitempty"`
 }
+
+// driftCollections is every collection the drift join reads from the mirror.
+var driftCollections = []string{"organizations", "networks", "user-agents"}
 
 func newNovelAgentsDriftCmd(flags *rootFlags) *cobra.Command {
 	var badVersion, agentType, channel, orgFilter, dbPath string
@@ -68,6 +74,7 @@ The roaming-client fleet comes from the local mirror (run 'dnsfilter-cli sync --
 			empty := computeDrift(nil, nil, nil, nil, opts)
 			empty.ReleasesSource = "unavailable"
 			empty.Note = "no local mirror; run: dnsfilter-cli sync --resources organizations,networks,user-agents"
+			empty.IncompleteCollections = driftCollections
 			db, ok, err := openLocalMirror(cmd, flags, dbPath, "organizations,networks,user-agents", empty)
 			if !ok {
 				return err
@@ -90,6 +97,10 @@ The roaming-client fleet comes from the local mirror (run 'dnsfilter-cli sync --
 			if err != nil {
 				return err
 			}
+			incomplete, err := incompleteCollections(ctx, db, driftCollections...)
+			if err != nil {
+				return err
+			}
 			view := computeDrift(agents, releases, networks, orgs, opts)
 			view.ReleasesSource = "live"
 			if feedErr != nil {
@@ -98,12 +109,28 @@ The roaming-client fleet comes from the local mirror (run 'dnsfilter-cli sync --
 				// listed nothing; it does not apply when the feed was never read.
 				view.Note = fmt.Sprintf("Release feed unavailable (%v); versions cannot be compared.", feedErr)
 			}
+			if len(incomplete) > 0 {
+				view.IncompleteCollections = incomplete
+			}
 			if !wantsHumanTable(cmd.OutOrStdout(), flags) {
+				if len(incomplete) > 0 {
+					note := incompleteSyncNote(incomplete)
+					fmt.Fprintln(cmd.ErrOrStderr(), "hint: "+note)
+					if view.Note != "" {
+						note = strings.TrimSuffix(view.Note, ".") + ". " + note
+					}
+					view.Note = note
+				}
 				return printJSONFiltered(cmd.OutOrStdout(), view, flags)
 			}
 			w := cmd.OutOrStdout()
 			fmt.Fprintf(w, "channel %s (%s), latest %s, %d roaming clients scanned\n", humanText(view.Channel), humanText(view.ChannelSource), humanText(formatDriftLatest(view.Latest)), view.AgentsScanned)
 			switch {
+			case len(incomplete) > 0 && view.AgentsScanned == 0:
+				// An unwalked site or org list empties --org; do not blame the filter.
+				fmt.Fprintln(w, humanText("No synced roaming clients matched; nothing was compared. "+incompleteSyncNote(incomplete)))
+			case len(incomplete) > 0:
+				fmt.Fprintln(w, humanText(incompleteSyncNote(incomplete)))
 			case view.AgentsScanned == 0:
 				// Zero scanned is not an all-clear: the mirror may be unsynced
 				// or --org / --agent-type matched nothing.

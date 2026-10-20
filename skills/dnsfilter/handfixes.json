@@ -1452,6 +1452,90 @@
           "code_only": true
         }
       ]
+    },
+    {
+      "id": "novel-readers-require-complete-sync",
+      "summary": "agents stale, agents drift and lists where check sync_state.last_attempt_complete for every collection their answer joins (stale and drift: organizations, networks, user-agents; lists where: organizations, networks, policies, user-agents) through incompleteCollections (internal/cli/dnsfilter_common.go). When any is never synced, cleared, or interrupted, the command prints no all-clear and no clean empty result: JSON carries incomplete_collections plus a note ending in the exact 'dnsfilter-cli sync --resources <list>' (stale and lists where switch their bare array to the {meta, results} envelope --agent already prints, so --agent keeps its results array and only meta gains the fields; drift adds incomplete_collections next to its existing note), machine modes add a stderr hint, and the human all-clear line is replaced by the same note while real findings still print. stale no longer blames --org when the sites or orgs were never walked. A read-only store that predates the column counts every collection incomplete. With every collection complete the output is byte-identical (exit 0 kept in all cases, the agents stale nothing-checked convention).",
+      "why": "The readers looked at the timestamp of ONE collection (user-agents for stale and drift, policies for lists where). So lists where with policies synced but sites, clients and orgs never walked returned rows with sites=0 roaming=0 and no hint (a false all-clear on impact); agents stale --org and agents drift --org over never-walked networks or organizations returned [] / agents_scanned=0 with exit 0 and blamed the filter; and a first-ever interrupted user-agents walk (or a --full cursor clear that never re-walked) still printed the stdout all-clear 'No roaming clients silent...' computed on partial data. Found by a prior reviewer after 19 Codex rounds. Proven 2026-10-20 by reverting each file: agents_stale.go fails TestStaleOrgOverUnwalkedSitesNamesTheSync and TestStalePartialClientWalkIsNotAnAllClear (partial, cleared); lists_where.go fails TestListsWhereIncompleteMirrorIsNotAnImpactAllClear; agents_drift.go wiring fails TestDriftIncompleteMirrorIsNotAnAllClear; an incompleteCollections that reports nothing fails all of them plus TestNovelReadersIncompleteCollectionsStates. TestNovelReadersCompleteMirrorOutputUnchanged (exact strings) passes on both the old and new code, and 35 command/mode pairs (human, --json, --agent, --select, --csv) were byte-identical between the old and new binary over a fully synced mirror.",
+      "status": "active",
+      "spec_encode_followup": "Press-side: generated local-data readers should gate on the sync_state completeness of every collection they join, not on one collection's last_synced_at (sync_hint.go readSyncHintState).",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "func incompleteCollections(ctx context.Context, db *store.Store, collections ...string) ([]string, error) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "if err == nil && complete == 1 {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "func incompleteMirrorJSON(rows any, missing []string) incompleteMirrorResult {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/agents_stale.go",
+          "contains": "var staleCollections = []string{\"organizations\", \"networks\", \"user-agents\"}",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/agents_stale.go",
+          "contains": "incomplete, err := incompleteCollections(ctx, db, staleCollections...)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/agents_stale.go",
+          "contains": "} else if scanned == 0 && len(agents) > 0 {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/agents_stale.go",
+          "contains": "return printJSONFiltered(cmd.OutOrStdout(), incompleteMirrorJSON(rows, incomplete), flags)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/agents_drift.go",
+          "contains": "IncompleteCollections []string `json:\"incomplete_collections,omitempty\"`",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/agents_drift.go",
+          "contains": "incomplete, err := incompleteCollections(ctx, db, driftCollections...)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/agents_drift.go",
+          "contains": "case len(incomplete) > 0 && view.AgentsScanned == 0:",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/lists_where.go",
+          "contains": "incomplete, err := incompleteCollections(ctx, db, whereCollections...)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/lists_where.go",
+          "contains": "return printJSONFiltered(cmd.OutOrStdout(), incompleteMirrorJSON(rows, incomplete), flags)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/lists_where.go",
+          "contains": "if len(rows) == 0 && len(incomplete) == 0 {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/agents_incomplete_mirror_test.go",
+          "contains": "func TestStalePartialClientWalkIsNotAnAllClear(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/agents_incomplete_mirror_test.go",
+          "contains": "func TestNovelReadersCompleteMirrorOutputUnchanged(t *testing.T) {",
+          "code_only": true
+        }
+      ]
     }
   ]
 }

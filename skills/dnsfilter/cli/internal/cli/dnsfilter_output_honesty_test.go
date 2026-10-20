@@ -74,6 +74,8 @@ func TestDriftAllClearOnlyAfterRealComparison(t *testing.T) {
 	run := runFleetFixture(t, f)
 	db := t.TempDir() + "/mirror.db"
 	run("sync", "--resources", "user-agents", "--db", db, "--json")
+	// The all-clear needs every collection the join reads, fully synced.
+	seedMirror(t, db, map[string][]string{"networks": {mirrorSite}, "organizations": {mirrorOrg}}, map[string]string{"networks": "complete", "organizations": "complete"})
 
 	human := run("agents", "drift", "--db", db, "--human-friendly")
 	if !strings.Contains(human, "latest windows 3.2.0") {

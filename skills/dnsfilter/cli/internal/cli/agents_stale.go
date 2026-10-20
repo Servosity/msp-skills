@@ -26,6 +26,10 @@ type staleAgent struct {
 	AgeBucket    string `json:"age_bucket"`
 }
 
+// staleCollections is every collection the stale scan joins: clients, their
+// sites (network -> org) and the orgs (--org by name, grouping).
+var staleCollections = []string{"organizations", "networks", "user-agents"}
+
 type staleOrgRow struct {
 	OrgID   string       `json:"org_id"`
 	OrgName string       `json:"org_name"`
@@ -58,7 +62,7 @@ Reads the local mirror: run 'dnsfilter-cli sync --resources organizations,networ
 			if err != nil {
 				return usageErr(fmt.Errorf("--older-than: %w", err))
 			}
-			db, ok, err := openLocalMirror(cmd, flags, dbPath, "organizations,networks,user-agents", make([]staleOrgRow, 0))
+			db, ok, err := openLocalMirror(cmd, flags, dbPath, "organizations,networks,user-agents", incompleteMirrorJSON(make([]staleOrgRow, 0), staleCollections))
 			if !ok {
 				return err
 			}
@@ -79,17 +83,44 @@ Reads the local mirror: run 'dnsfilter-cli sync --resources organizations,networ
 			if err != nil {
 				return err
 			}
+			incomplete, err := incompleteCollections(ctx, db, staleCollections...)
+			if err != nil {
+				return err
+			}
 			rows, scanned := computeStale(agents, networks, orgs, orgFilter, window, time.Now())
-			if scanned == 0 && len(agents) > 0 {
+			human := wantsHumanTable(cmd.OutOrStdout(), flags)
+			if len(incomplete) > 0 {
+				// An unwalked site or org list empties --org; do not blame the filter.
+				if !human {
+					fmt.Fprintln(cmd.ErrOrStderr(), "hint: "+incompleteSyncNote(incomplete))
+				}
+			} else if scanned == 0 && len(agents) > 0 {
 				fmt.Fprintf(cmd.ErrOrStderr(), "hint: no installed roaming client in the local mirror matches --org %q; nothing was checked\n", orgFilter)
 			}
-			if !wantsHumanTable(cmd.OutOrStdout(), flags) {
+			if !human {
+				if len(incomplete) > 0 {
+					return printJSONFiltered(cmd.OutOrStdout(), incompleteMirrorJSON(rows, incomplete), flags)
+				}
 				return printJSONFiltered(cmd.OutOrStdout(), rows, flags)
 			}
 			w := cmd.OutOrStdout()
+			printRows := func() {
+				for _, r := range rows {
+					fmt.Fprintf(w, "%s (%d)\n", humanText(r.OrgName), r.Count)
+					for _, a := range r.Agents {
+						fmt.Fprintf(w, "  %-12s %-10s %-24s %-10s last_sync=%s\n", humanText(a.Reason), humanText(a.AgeBucket), humanText(a.Hostname), humanText(a.AgentVersion), humanText(a.LastSync))
+					}
+				}
+			}
 			if len(agents) == 0 {
 				// An unsynced mirror is not a healthy fleet; never print the all-clear.
 				fmt.Fprintln(w, "No roaming clients in the local mirror; nothing was checked. Run: dnsfilter-cli sync --resources organizations,networks,user-agents")
+				return nil
+			}
+			if len(incomplete) > 0 {
+				// Findings stand; the rest of the fleet was not fully checked.
+				printRows()
+				fmt.Fprintln(w, humanText(incompleteSyncNote(incomplete)))
 				return nil
 			}
 			if scanned == 0 {
@@ -99,12 +130,7 @@ Reads the local mirror: run 'dnsfilter-cli sync --resources organizations,networ
 				fmt.Fprintf(w, "No roaming clients silent for more than %s or unprotected.\n", humanText(olderThan))
 				return nil
 			}
-			for _, r := range rows {
-				fmt.Fprintf(w, "%s (%d)\n", humanText(r.OrgName), r.Count)
-				for _, a := range r.Agents {
-					fmt.Fprintf(w, "  %-12s %-10s %-24s %-10s last_sync=%s\n", humanText(a.Reason), humanText(a.AgeBucket), humanText(a.Hostname), humanText(a.AgentVersion), humanText(a.LastSync))
-				}
-			}
+			printRows()
 			return nil
 		},
 	}
