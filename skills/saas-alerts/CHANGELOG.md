@@ -54,6 +54,9 @@ All notable changes to this skill are documented here. Format follows
   JSON output escapes C1 controls.
 - A Webhooks API write whose token is the `[withheld]` placeholder is refused, so copying a
   listed subscription into an update never overwrites the real token.
+- The partner API key and Respond access tokens are masked in error messages even when
+  the API's answer JSON-escapes them or they fall at the point where long error text is
+  cut.
 - An environment `SAAS_ALERTS_BASE_URL` is never saved to `config.toml`.
 
 ### Known limitations

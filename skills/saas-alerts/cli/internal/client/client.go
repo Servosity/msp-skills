@@ -1448,7 +1448,7 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 		if !binaryResponse {
 			respBody = withholdWebhookTokens(path, sanitizeJSONResponse(respBody)) // saas-alerts hand-fix: error bodies too
 		}
-		respBody = maskEchoedWebhookTokens(respBody, requestWebhookTokens(path, bodyBytes)) // saas-alerts hand-fix: before the cut, decoded
+		respBody = maskEchoedSecrets(respBody, c.credentialSecrets(append(requestWebhookTokens(path, bodyBytes), authHeader)...)) // saas-alerts hand-fix: every credential, decoded, before the cut
 
 		bodyText := truncateBody(respBody)
 		if resp.StatusCode == http.StatusForbidden {
@@ -1902,6 +1902,40 @@ func (c *Client) maskError(err error, extraCredentials ...string) error {
 	return maskedError{msg: msg}
 }
 
+// credentialSecrets lists every credential value this client masks (trimmed,
+// plus the token after an auth scheme). maskCredentialText and the decoded
+// pre-cut pass over error bodies (maskEchoedSecrets) share it.
+func (c *Client) credentialSecrets(extraCredentials ...string) []string {
+	var out []string
+	add := func(value string) {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			return
+		}
+		out = append(out, value)
+		if _, token, ok := strings.Cut(value, " "); ok {
+			if token = strings.TrimSpace(token); token != "" {
+				out = append(out, token)
+			}
+		}
+	}
+	for _, value := range extraCredentials {
+		add(value)
+	}
+	if c != nil && c.Config != nil {
+		add(c.Config.AuthHeaderVal)
+		add(c.Config.AuthHeader())
+		add(c.Config.AccessToken)
+		add(c.Config.RefreshToken)
+		add(c.Config.ClientSecret)
+		add(c.Config.SaasAlertsApiKey)
+	}
+	for _, tok := range respondTokensForMask() { // saas-alerts hand-fix
+		add(tok)
+	}
+	return out
+}
+
 func (c *Client) maskCredentialText(text string, extraCredentials ...string) string {
 	if text == "" {
 		return text
@@ -1936,26 +1970,8 @@ func (c *Client) maskCredentialText(text string, extraCredentials ...string) str
 			addMask(escaped)
 		}
 	}
-	addCredential := func(value string) {
-		value = strings.TrimSpace(value)
+	for _, value := range c.credentialSecrets(extraCredentials...) { // saas-alerts hand-fix: one credential list for every mask
 		addValue(value)
-		if _, token, ok := strings.Cut(value, " "); ok {
-			addValue(token)
-		}
-	}
-	for _, value := range extraCredentials {
-		addCredential(value)
-	}
-	if c != nil && c.Config != nil {
-		addCredential(c.Config.AuthHeaderVal)
-		addCredential(c.Config.AuthHeader())
-		addCredential(c.Config.AccessToken)
-		addCredential(c.Config.RefreshToken)
-		addCredential(c.Config.ClientSecret)
-		addCredential(c.Config.SaasAlertsApiKey)
-	}
-	for _, tok := range respondTokensForMask() { // saas-alerts hand-fix
-		addCredential(tok)
 	}
 	sort.SliceStable(masks, func(i, j int) bool {
 		return len(masks[i].needle) > len(masks[j].needle)

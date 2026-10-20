@@ -203,3 +203,34 @@ func TestWebhookTokenEchoedEncodedIsMasked(t *testing.T) {
 		t.Fatalf("raw echo or trailing content wrong: %s", msg)
 	}
 }
+
+// TestPartnerKeyEchoedEscapedOrAtTheCutIsMasked: the class, not one secret:
+// the partner key echoed JSON-escaped, or straddling the error-text cut, on a
+// non-webhook API is masked too.
+func TestPartnerKeyEchoedEscapedOrAtTheCutIsMasked(t *testing.T) {
+	answer := ""
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(answer))
+	}))
+	defer srv.Close()
+	key := "test-key/SECRET+0000"
+	c := New(&config.Config{BaseURL: srv.URL, AuthHeaderVal: key, SaasAlertsApiKey: key}, 5*time.Second, 0)
+	c.NoCache = true
+	get := func() string {
+		_, err := c.Get(context.Background(), "/reportApi/api/v1/customers", nil)
+		if err == nil {
+			t.Fatal("want an error")
+		}
+		return err.Error()
+	}
+	answer = `{"message":"key test-key\/SECRET\u002B0000 rejected"}`
+	if msg := get(); strings.Contains(msg, "SECRET") {
+		t.Fatalf("escaped key echo leaked: %s", msg)
+	}
+	answer = `{"message":"` + strings.Repeat("x", maxErrorBodyBytes-len(`{"message":"`)-12) + key + `"}`
+	if msg := get(); strings.Contains(msg, "test-key/SEC") {
+		t.Fatalf("key at the cut leaked a prefix: %s", msg[len(msg)-60:])
+	}
+}

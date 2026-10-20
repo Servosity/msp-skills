@@ -168,3 +168,31 @@ func TestRespondMintTransportErrorIsMasked(t *testing.T) {
 		t.Fatalf("mint error leaked a credential: %v", msg)
 	}
 }
+
+// TestRespondTokenAndKeyEchoedEscapedAreMasked: a Respond token echoed
+// JSON-escaped in an API error, and the partner key echoed JSON-escaped by a
+// failed mint, are masked like the plain forms.
+func TestRespondTokenAndKeyEchoedEscapedAreMasked(t *testing.T) {
+	c := newRespondTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == respondAuthPath {
+			w.Write([]byte(`{"accessToken":"secret/minted+token-456"}`))
+			return
+		}
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(`{"error":"token secret\/minted\u002Btoken-456 refused"}`))
+	})
+	if _, err := c.Get(context.Background(), "/respondApi/api/v1/states", nil); err == nil || strings.Contains(err.Error(), "minted") {
+		t.Fatalf("escaped Respond token echo leaked: %v", err)
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte(`{"error":"key partner\/key\u002B0000 is not valid"}`))
+	}))
+	t.Cleanup(srv.Close)
+	k := New(&config.Config{BaseURL: srv.URL, SaasAlertsApiKey: "partner/key+0000"}, 5*time.Second, 0)
+	k.NoCache = true
+	if _, err := k.Get(context.Background(), "/respondApi/api/v1/states", nil); err == nil || strings.Contains(err.Error(), "key+0000") || strings.Contains(err.Error(), `key\u002B0000`) {
+		t.Fatalf("escaped partner key echo in the mint error leaked: %v", err)
+	}
+}

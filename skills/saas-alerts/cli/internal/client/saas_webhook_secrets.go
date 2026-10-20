@@ -10,6 +10,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
+	"sort"
 	"strings"
 )
 
@@ -149,15 +151,24 @@ func requestWebhookTokens(path string, body []byte) []string {
 	return out
 }
 
-// maskEchoedWebhookTokens masks request tokens an error answer quotes back. A
-// JSON body is decoded first, so an escaped echo (\/, \u002B, \") is caught
-// in its string values; the raw text is then masked as a backstop. It runs
-// before the body is cut to its display length, so a token straddling the cut
-// cannot leave a prefix behind.
-func maskEchoedWebhookTokens(body []byte, tokens []string) []byte {
+// maskEchoedSecrets masks credentials (the partner key, Respond tokens, the
+// request's webhook tokens) that an error answer quotes back. A body that is
+// exactly one JSON value is decoded first, so an escaped echo (\/, \u002B,
+// \") is caught in its keys and string values; the raw text is then masked as
+// written, URL-encoded and path-encoded. It runs before the body is cut to its
+// display length, so a secret straddling the cut cannot leave a prefix behind.
+// Values under 8 characters are skipped, so a short one cannot garble the text.
+func maskEchoedSecrets(body []byte, secrets []string) []byte {
+	var tokens []string
+	for _, s := range secrets {
+		if len(s) >= 8 {
+			tokens = append(tokens, s)
+		}
+	}
 	if len(tokens) == 0 || len(body) == 0 {
 		return body
 	}
+	sort.SliceStable(tokens, func(i, j int) bool { return len(tokens[i]) > len(tokens[j]) })
 	dec := json.NewDecoder(bytes.NewReader(body))
 	dec.UseNumber()
 	var v any
@@ -176,6 +187,8 @@ func maskEchoedWebhookTokens(body []byte, tokens []string) []byte {
 	text := string(body)
 	for _, t := range tokens {
 		text = strings.ReplaceAll(text, t, "****")
+		text = strings.ReplaceAll(text, url.QueryEscape(t), "****")
+		text = strings.ReplaceAll(text, url.PathEscape(t), "****")
 	}
 	return []byte(text)
 }

@@ -247,7 +247,7 @@
     {
       "id": "webhook-subscription-token-withheld",
       "summary": "every Webhooks API (/outgoingWebhookApi/) response has its subscription `token` replaced with [withheld] in the client's JSON success path, before print, response cache, sync, tail and MCP; the --dry-run request preview of a Webhooks API write withholds the token too; a Webhooks API write whose token is the [withheld] placeholder is refused (dry-run included)",
-      "why": "GET /subscriptions and /subscriptions/disabled return each subscription's token, the string SaaS Alerts attaches to every delivery so the MSP's receiver can authenticate it (webhooks spec 0.9.0, schema Token). Before this fix a sentinel token reached `subscriptions list` output, the MCP saas-alerts_execute result, the HTTP cache files and the local SQLite store (mock receipt 2026-10-20). subscriptions health --reenable sends only enabled plus filter fields, so the blanked value is never written back. Delivery URLs are kept: domain checks need them and SaaS Alerts only delivers to verified domains. TestWebhookTokenNeverLeavesTheClient fails when the hook is removed (proven 2026-10-20). Error answers too: an API error body that echoed a subscription token reached stdout, stderr and MCP through APIError.Body (adversarial round 10, 2026-10-20, P2); the error path now withholds before masking. TestWebhookTokenWithheldFromErrorBodies fails with it reverted (proven 2026-10-20). An error answer that quotes the request's own token inside a message or a non-JSON body has that value masked as well (adversarial round 11, 2026-10-20, P2); TestWebhookTokenEchoedInErrorTextIsMasked fails with it reverted (proven 2026-10-20). Tokens under 8 characters are not echo-masked, so a one-letter token cannot garble the 'too short' error (adversarial round 12, 2026-10-20, P2; proven 2026-10-20). Codex round 9 (2026-10-20, P1): the echo mask matched only the raw token, so a JSON-escaped echo (\\\" \\/ \\u002B) or one straddling the 4096-byte error cut leaked; maskEchoedWebhookTokens now masks decoded JSON string values, then the raw text, before the cut. TestWebhookTokenEchoedEscapedOrAtTheCutIsMasked fails with decoding disabled or with masking moved after the cut (both proven 2026-10-20). Adversarial round 13 (2026-10-20, P1): moving the echo mask before the cut had dropped the request tokens from the final maskCredentialText, reopening URL-encoded and HTML-title echoes; both passes now run, JSON keys are masked too, and a body with trailing content after its JSON value is never re-encoded (so nothing is dropped). TestWebhookTokenEchoedEncodedIsMasked fails with the final mask, the key masking or the trailing check removed (proven 2026-10-20).",
+      "why": "GET /subscriptions and /subscriptions/disabled return each subscription's token, the string SaaS Alerts attaches to every delivery so the MSP's receiver can authenticate it (webhooks spec 0.9.0, schema Token). Before this fix a sentinel token reached `subscriptions list` output, the MCP saas-alerts_execute result, the HTTP cache files and the local SQLite store (mock receipt 2026-10-20). subscriptions health --reenable sends only enabled plus filter fields, so the blanked value is never written back. Delivery URLs are kept: domain checks need them and SaaS Alerts only delivers to verified domains. TestWebhookTokenNeverLeavesTheClient fails when the hook is removed (proven 2026-10-20). Error answers too: an API error body that echoed a subscription token reached stdout, stderr and MCP through APIError.Body (adversarial round 10, 2026-10-20, P2); the error path now withholds before masking. TestWebhookTokenWithheldFromErrorBodies fails with it reverted (proven 2026-10-20). An error answer that quotes the request's own token inside a message or a non-JSON body has that value masked as well (adversarial round 11, 2026-10-20, P2); TestWebhookTokenEchoedInErrorTextIsMasked fails with it reverted (proven 2026-10-20). Tokens under 8 characters are not echo-masked, so a one-letter token cannot garble the 'too short' error (adversarial round 12, 2026-10-20, P2; proven 2026-10-20). Codex round 9 (2026-10-20, P1): the echo mask matched only the raw token, so a JSON-escaped echo (\\\" \\/ \\u002B) or one straddling the 4096-byte error cut leaked; maskEchoedWebhookTokens now masks decoded JSON string values, then the raw text, before the cut. TestWebhookTokenEchoedEscapedOrAtTheCutIsMasked fails with decoding disabled or with masking moved after the cut (both proven 2026-10-20). Adversarial round 13 (2026-10-20, P1): moving the echo mask before the cut had dropped the request tokens from the final maskCredentialText, reopening URL-encoded and HTML-title echoes; both passes now run, JSON keys are masked too, and a body with trailing content after its JSON value is never re-encoded (so nothing is dropped). TestWebhookTokenEchoedEncodedIsMasked fails with the final mask, the key masking or the trailing check removed (proven 2026-10-20). The decoded pre-cut pass is now the class-wide maskEchoedSecrets (see error-body-secrets-masked-decoded-precut).",
       "status": "active",
       "spec_encode_followup": "Generator support for x-secret / writeOnly response fields that are blanked before print, cache and store.",
       "asserts": [
@@ -308,27 +308,45 @@
         },
         {
           "file": "cli/internal/client/client.go",
-          "contains": "respBody = maskEchoedWebhookTokens(respBody, requestWebhookTokens(path, bodyBytes))",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/client/saas_webhook_secrets.go",
-          "contains": "func maskEchoedWebhookTokens(body []byte, tokens []string) []byte {",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/client/saas_webhook_secrets_test.go",
-          "contains": "func TestWebhookTokenEchoedEscapedOrAtTheCutIsMasked(",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/client/client.go",
           "contains": "c.maskCredentialText(bodyText, append(requestWebhookTokens(path, bodyBytes), authHeader)...)",
           "code_only": true
         },
         {
+          "file": "cli/internal/client/saas_webhook_secrets_test.go",
+          "contains": "func TestWebhookTokenEchoedEncodedIsMasked(",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "error-body-secrets-masked-decoded-precut",
+      "summary": "every credential the client masks (partner API key, Respond access tokens, the request's webhook tokens of 8+ characters) is masked in API and Respond-mint error text before the 4096-byte cut, in the decoded keys and string values of a single-JSON-value body (catching \\\" \\/ \\u002B escapes) and then raw, URL-encoded and path-encoded; maskCredentialText still runs after the cut for HTML-title echoes; both passes share one credential list (credentialSecrets)",
+      "why": "maskCredentialText replaced raw and URL-encoded forms only, after the body was cut, so a JSON-escaped echo of the partner key or a Respond token, or one straddling the 4096-byte cut, leaked into CLI and MCP errors (Codex round 10, 2026-10-20, P1; the webhook-token instance was Codex round 9 and adversarial round 13). Fixed for the class, not per secret. TestPartnerKeyEchoedEscapedOrAtTheCutIsMasked fails with the pre-cut pass limited to webhook tokens, TestRespondTokenAndKeyEchoedEscapedAreMasked fails with the mint path's pre-cut pass removed, and TestWebhookTokenEchoedEscapedOrAtTheCutIsMasked fails with decoding disabled (all proven 2026-10-20).",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "respBody = maskEchoedSecrets(respBody, c.credentialSecrets(append(requestWebhookTokens(path, bodyBytes), authHeader)...))",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "func (c *Client) credentialSecrets(extraCredentials ...string) []string {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "for _, value := range c.credentialSecrets(extraCredentials...) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/respond_token.go",
+          "contains": "c.maskCredentialText(truncateBody(maskEchoedSecrets(body, c.credentialSecrets(apiKey))), apiKey)",
+          "code_only": true
+        },
+        {
           "file": "cli/internal/client/saas_webhook_secrets.go",
-          "contains": "nk, kc := maskTokenStrings(k, tokens)",
+          "contains": "func maskEchoedSecrets(body []byte, secrets []string) []byte {",
           "code_only": true
         },
         {
@@ -337,8 +355,23 @@
           "code_only": true
         },
         {
+          "file": "cli/internal/client/saas_webhook_secrets.go",
+          "contains": "nk, kc := maskTokenStrings(k, tokens)",
+          "code_only": true
+        },
+        {
           "file": "cli/internal/client/saas_webhook_secrets_test.go",
-          "contains": "func TestWebhookTokenEchoedEncodedIsMasked(",
+          "contains": "func TestPartnerKeyEchoedEscapedOrAtTheCutIsMasked(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_webhook_secrets_test.go",
+          "contains": "func TestWebhookTokenEchoedEscapedOrAtTheCutIsMasked(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/respond_token_test.go",
+          "contains": "func TestRespondTokenAndKeyEchoedEscapedAreMasked(",
           "code_only": true
         }
       ]
