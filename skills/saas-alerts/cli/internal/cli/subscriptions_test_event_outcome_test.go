@@ -34,10 +34,13 @@ func TestSubscriptionsTestEventSurfacesDeliveryErrors(t *testing.T) {
 		t.Fatalf("a test event answer was stored as a subscription:\n%s", out)
 	}
 
-	// The spec does not pin the delivered wording, so an unrecognized string warns.
-	api.testEventResp = "Test event sent successfully"
-	out, stderr, err = rqtRun(t, "subscriptions", "test-event", "--json")
-	if err != nil || !strings.Contains(stderr, "outcome unknown") {
-		t.Fatalf("an unrecognized string must warn, not fail: err=%v stderr=%q\n%s", err, stderr, out)
+	// Like subscriptions health, a string it does not recognize as delivered
+	// (a failure wording without a known failure word included) is not a success.
+	for _, answer := range []string{"Test event couldn't be delivered", "Success: false", "0 events sent"} {
+		api.testEventResp = answer
+		out, _, err = rqtRun(t, "subscriptions", "test-event", "--json")
+		if rqtExit(err) != 6 || !strings.Contains(out, `"success": false`) {
+			t.Fatalf("%q must fail the run: exit=%d\n%s", answer, rqtExit(err), out)
+		}
 	}
 }

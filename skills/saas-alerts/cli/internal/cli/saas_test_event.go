@@ -5,26 +5,19 @@
 
 package cli
 
-import (
-	"encoding/json"
-	"strings"
-)
+import "strings"
 
 // TestEventFailure reads a POST /misc/sendTestEvent 200 answer (anyOf boolean |
-// string | IWhError[]) for the CLI command and the MCP execute tool alike. It
-// returns why the test event was not delivered, or "" when it was; unknown is a
-// string answer whose wording is not recognized, which callers warn on rather
-// than fail, since the spec does not pin the delivered text.
-func TestEventFailure(path string, data []byte) (why string, unknown bool) {
+// string | IWhError[]) for the CLI command and the MCP execute tool alike, with
+// the same rule as subscriptions health: it returns why the test event was not
+// delivered (false, an error or unrecognized string, any IWhError), or "" when
+// it was (true, an empty list, a recognized success string).
+func TestEventFailure(path string, data []byte) string {
 	if !strings.HasSuffix(path, "/misc/sendTestEvent") {
-		return "", false
-	}
-	var answer string
-	if json.Unmarshal(data, &answer) == nil && shClassifyTestEventString(answer) == "unknown" {
-		return "", true
+		return ""
 	}
 	if ok, why, _ := shTestEventOutcome(data, nil); !ok {
-		return why, false
+		return why
 	}
-	return "", false
+	return ""
 }

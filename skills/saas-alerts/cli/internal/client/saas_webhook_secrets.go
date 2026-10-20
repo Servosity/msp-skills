@@ -129,8 +129,12 @@ func requestWebhookTokens(path string, body []byte) []string {
 		switch t := v.(type) {
 		case map[string]any:
 			for k, val := range t {
+				// A token under 8 characters is not masked: replacing every
+				// "a" would garble the very error that says it is too short.
 				if s, ok := val.(string); ok && strings.EqualFold(k, "token") {
-					out = append(out, s)
+					if len(strings.TrimSpace(s)) >= 8 {
+						out = append(out, s)
+					}
 					continue
 				}
 				walk(val)

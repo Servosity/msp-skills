@@ -74,10 +74,8 @@ func newSubscriptionsTestEventCmd(flags *rootFlags) *cobra.Command {
 			if !flags.dryRun && statusCode >= 200 && statusCode < 300 {
 				partialFailure = detectPartialFailure(data)
 				if partialFailure == nil { // saas-alerts hand-fix: a 200 that lists delivery errors is a failed test event
-					if why, unknown := TestEventFailure(path, data); why != "" {
+					if why := TestEventFailure(path, data); why != "" {
 						partialFailure = &partialFailureReport{Field: "delivery", Message: why}
-					} else if unknown {
-						fmt.Fprintln(cmd.ErrOrStderr(), "warning: test event outcome unknown (the API answered with a string this CLI does not recognize)")
 					}
 				}
 				if partialFailure != nil {

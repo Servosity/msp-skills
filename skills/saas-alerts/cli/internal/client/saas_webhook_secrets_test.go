@@ -133,4 +133,9 @@ func TestWebhookTokenEchoedInErrorTextIsMasked(t *testing.T) {
 	if err == nil || strings.Contains(err.Error(), "test-secret-echo") {
 		t.Fatalf("echoed request token reached the error: %v", err)
 	}
+	// A one-letter token is not masked, or every "a" in the error would be.
+	_, _, err = c.Post(context.Background(), "/outgoingWebhookApi/api/v1/subscriptions", map[string]any{"url": "https://hooks.example.com/x", "token": "a"})
+	if err == nil || !strings.Contains(err.Error(), `"message"`) {
+		t.Fatalf("a short token garbled the error: %v", err)
+	}
 }

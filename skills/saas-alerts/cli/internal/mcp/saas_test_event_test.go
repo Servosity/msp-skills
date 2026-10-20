@@ -43,8 +43,9 @@ func TestCodeOrchExecuteTestEventDeliveryErrorIsAnError(t *testing.T) {
 	if res := call(); res.IsError {
 		t.Fatalf("a delivered test event (true) is an error: %+v", res.Content)
 	}
-	answer = `[{"channelId":"CH_TEST","message":"delivery failed"}]`
-	if res := call(); !res.IsError {
-		t.Fatalf("a delivery-error list came back as success: %+v", res.Content)
+	for _, answer = range []string{`[{"channelId":"CH_TEST","message":"delivery failed"}]`, `"Success: false"`} {
+		if res := call(); !res.IsError {
+			t.Fatalf("%s came back as success: %+v", answer, res.Content)
+		}
 	}
 }
