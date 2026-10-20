@@ -96,3 +96,20 @@ func TestRuleTriggersDecideUnreadableAnswerIsVerifiedByReRead(t *testing.T) {
 		t.Fatalf("an unreadable answer whose re-read shows the decision: err=%v\n%s", err, out)
 	}
 }
+
+// TestRuleTriggersDecide5xxIsVerifiedByReRead: a 5xx may still have applied
+// the decision, so the re-read decides, not the status code.
+func TestRuleTriggersDecide5xxIsVerifiedByReRead(t *testing.T) {
+	api := newRQTAPI(t)
+	api.decisionRaw = map[string]func(w http.ResponseWriter){"RT_D": func(w http.ResponseWriter) {
+		w.WriteHeader(http.StatusBadGateway)
+		_, _ = w.Write([]byte(`{"message":"upstream timeout"}`))
+	}}
+	rqtEnv(t, api)
+	dbPath := filepath.Join(t.TempDir(), "receipts.db")
+	out, _, err := rqtRun(t, "rule-triggers", "decide", "--decision", "reject", "--remarks", "fp", "--ids", "RT_D", "--confirm", "--db", dbPath, "--json")
+	res := rqtDecode[rtDecideResult](t, out)
+	if err != nil || res.Summary.Failed != 0 || len(res.Results) != 1 || !res.Results[0].Verified {
+		t.Fatalf("a 502 whose re-read shows the decision: err=%v\n%s", err, out)
+	}
+}

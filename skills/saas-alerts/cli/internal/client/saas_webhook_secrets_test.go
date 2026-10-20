@@ -264,6 +264,9 @@ func TestWebhookTokenWithheldFromEveryJSONValue(t *testing.T) {
 	if strings.Contains(out, "test-secret-broken") {
 		t.Fatalf("broken JSON with a token key leaked: %s", out)
 	}
+	if out := string(withholdWebhookTokens(path, []byte(`"token" is required`))); out != `"token" is required` {
+		t.Fatalf("a validation message naming the token field was withheld: %s", out)
+	}
 	if out := string(withholdWebhookTokens(path, []byte("Invalid token"))); out != "Invalid token" {
 		t.Fatalf("plain text without a token key changed: %s", out)
 	}

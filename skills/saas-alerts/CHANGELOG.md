@@ -18,8 +18,10 @@ All notable changes to this skill are documented here. Format follows
   or auto-ignore; `rule-triggers decide` applies one decision to many triggers, previewed
   until `--confirm`.
 - `contain` blocks sign-in, expires sessions and resets the password for one Microsoft
-  365 account in order, previewed until `--confirm`. When Respond's answer to a step
-  cannot be read, the outcome is reported as unknown and no further step is sent.
+  365 account in order, previewed until `--confirm`. Unless a step provably never
+  reached Respond or was refused (4xx), its outcome is reported as unknown and no
+  further step is sent. `rule-triggers decide` and `subscriptions health --reenable`
+  check such an outcome by re-reading instead of reporting a failure.
 - `rule-triggers list --all` follows Respond's cursor across every page; Unify device syncs
   and the `devices` list commands page with `searchAfter`, and the `devices` commands read
   live only (their local copy cannot answer per-account questions).

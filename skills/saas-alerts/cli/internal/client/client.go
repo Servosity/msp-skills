@@ -21,6 +21,7 @@ import (
 	"math"
 	"net"
 	"net/http"
+	"net/http/httptrace"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -31,6 +32,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unicode"
 )
@@ -1252,7 +1254,7 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 	endpointClass := safeEndpointClass(method, path)
 	retryPolicy, err := c.platformRetryPolicy(endpointClass)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, notSent{err}
 	}
 	if retryPolicy.MaxAttempts > 0 && maxRetries > retryPolicy.MaxAttempts-1 {
 		maxRetries = retryPolicy.MaxAttempts - 1
@@ -1271,15 +1273,26 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 	}
 	var lastErr error
 	respondReminted := false // saas-alerts hand-fix
+	// saas-alerts hand-fix: write-outcome-from-wire. wrote records whether any
+	// attempt's request reached the wire; an error before that is provably a
+	// request the server never saw (notSent), anything after it may have been
+	// applied.
+	wrote := new(atomic.Bool)
+	sent := func(err error) error {
+		if wrote.Load() {
+			return err
+		}
+		return notSent{err}
+	}
 
 	for attempt := 0; ; attempt++ {
 		if err := c.waitForPlatformBudget(opCtx, endpointClass); err != nil {
-			return nil, 0, err
+			return nil, 0, sent(err)
 		}
 		// Proactive rate limiting — wait before sending
 		adaptiveStarted := time.Now()
 		if err := c.limiter.Wait(opCtx); err != nil {
-			return nil, 0, err
+			return nil, 0, sent(err)
 		}
 		if c.platformSession != nil {
 			c.platformSession.RecordRateLimitWait(time.Since(adaptiveStarted))
@@ -1289,9 +1302,11 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 			bodyReader = strings.NewReader(string(bodyBytes))
 		}
 
-		req, err := http.NewRequestWithContext(ctx, method, targetURL, bodyReader)
+		req, err := http.NewRequestWithContext(httptrace.WithClientTrace(ctx, &httptrace.ClientTrace{
+			WroteRequest: func(httptrace.WroteRequestInfo) { wrote.Store(true) },
+		}), method, targetURL, bodyReader)
 		if err != nil {
-			return nil, 0, fmt.Errorf("creating request: %w", err)
+			return nil, 0, sent(fmt.Errorf("creating request: %w", err))
 		}
 		if bodyBytes != nil {
 			req.Header.Set("Content-Type", "application/json")
@@ -1323,7 +1338,7 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 		if isRespondPath(path) && req.Header.Get("accesstoken") == "" {
 			tok, terr := c.respondAccessToken(ctx, authHeader, false)
 			if terr != nil {
-				return nil, 0, terr
+				return nil, 0, sent(terr)
 			}
 			req.Header.Set("accesstoken", tok)
 		}
@@ -1378,9 +1393,9 @@ func (c *Client) doInternal(ctx context.Context, method, path string, params map
 		resp, err := httpClient.Do(req)
 		if err != nil {
 			if ctxErr := ctx.Err(); ctxErr != nil {
-				return nil, 0, ctxErr
+				return nil, 0, sent(ctxErr)
 			}
-			lastErr = fmt.Errorf("%s %s: %w", method, c.displayURL(path, authHeader), c.maskError(err, append(requestWebhookTokens(path, bodyBytes), authHeader)...)) // saas-alerts hand-fix: error-text-secret-funnel (a redirect Location is server text)
+			lastErr = sent(fmt.Errorf("%s %s: %w", method, c.displayURL(path, authHeader), c.maskError(err, append(requestWebhookTokens(path, bodyBytes), authHeader)...))) // saas-alerts hand-fix: error-text-secret-funnel (a redirect Location is server text)
 			// Transient network failure (connection reset, DNS blip, request
 			// timeout). Back off before retrying — same exponential schedule as
 			// the 5xx path below — so a brief outage does not burn every attempt

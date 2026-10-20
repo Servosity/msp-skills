@@ -213,8 +213,8 @@
     },
     {
       "id": "unreadable-answer-is-unknown-outcome",
-      "summary": "an answer the server sent but the client could not read (a failed body read, an unsupported Content-Encoding, an HTML page where JSON was expected) is a typed client error (client.IsAnswerUnreadable): contain treats it as an unknown outcome and sends no further account change, and rule-triggers decide and subscriptions health --reenable verify it by re-reading, as for an off-contract answer, instead of reporting a refused write",
-      "why": "contain classified a response-decoding failure on the execute call as a known refusal and went on to the next account change, including the password reset, although Respond had answered and may have applied the action (Codex round 14, 2026-10-20, P1). decide and health had the same gap in a milder form (a possibly applied write reported as an error). TestContainUnreadableExecuteAnswerStopsLaterActions, TestRuleTriggersDecideUnreadableAnswerIsVerifiedByReRead and TestSubscriptionsHealthUnreadablePatchAnswerIsVerifiedByReRead each fail with their check removed (proven 2026-10-20).",
+      "summary": "whether a failed live write was applied is decided from the wire, not from error text: the client records (httptrace WroteRequest) whether the request was written; an error before that is a typed notSent, and client.WriteOutcomeUnknown is false only for notSent, a 4xx or a 429; a 5xx, an unreadable answer (failed body read, unsupported Content-Encoding, HTML where JSON was expected: client.IsAnswerUnreadable), a reset stream, a malformed answer or a timeout after sending is unknown. contain stops sending account changes on an unknown outcome; rule-triggers decide and subscriptions health --reenable verify it by re-reading",
+      "why": "contain classified a response-decoding failure on the execute call as a known refusal and went on to the next account change, including the password reset, although Respond had answered and may have applied the action (Codex round 14, 2026-10-20, P1). decide and health had the same gap in a milder form (a possibly applied write reported as an error). TestContainUnreadableExecuteAnswerStopsLaterActions, TestRuleTriggersDecideUnreadableAnswerIsVerifiedByReRead and TestSubscriptionsHealthUnreadablePatchAnswerIsVerifiedByReRead each fail with their check removed (proven 2026-10-20). Adversarial round 18 (2026-10-20, P1): contain still decided 'unknown' from an allowlist of error strings, so an HTTP/2 stream reset or a malformed answer after Respond read the execute call counted as a refusal and the password reset was sent; decide and health reported a 5xx as a failure without re-reading (P2). TestWriteOutcomeUnknownFollowsTheWire fails with the wire tracking removed or with the default flipped back to 'refused'; the contain test's malformed-answer case and TestRuleTriggersDecide5xxIsVerifiedByReRead fail likewise (all proven 2026-10-20).",
       "status": "active",
       "asserts": [
         {
@@ -225,21 +225,6 @@
         {
           "file": "cli/internal/client/client.go",
           "contains": "return nil, resp.StatusCode, unreadableAnswer{fmt.Errorf(\"%s %s: expected JSON, API returned HTML instead of JSON: %s\"",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/contain.go",
-          "contains": "if client.IsAnswerUnreadable(err) {",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/rule_triggers_decide.go",
-          "contains": "if err != nil && !client.IsAnswerUnreadable(err) {",
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/subscriptions_health.go",
-          "contains": "if err != nil && !client.IsAnswerUnreadable(err) {",
           "code_only": true
         },
         {
@@ -255,6 +240,51 @@
         {
           "file": "cli/internal/cli/subscriptions_health_test.go",
           "contains": "func TestSubscriptionsHealthUnreadablePatchAnswerIsVerifiedByReRead(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "WroteRequest: func(httptrace.WroteRequestInfo) { wrote.Store(true) },",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "return nil, 0, sent(ctxErr)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "return nil, 0, sent(terr)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_secret_funnel.go",
+          "contains": "func WriteOutcomeUnknown(err error) bool {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/contain.go",
+          "contains": "return client.WriteOutcomeUnknown(err)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/rule_triggers_decide.go",
+          "contains": "if err != nil && !client.WriteOutcomeUnknown(err) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/subscriptions_health.go",
+          "contains": "if err != nil && !client.WriteOutcomeUnknown(err) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_write_outcome_test.go",
+          "contains": "func TestWriteOutcomeUnknownFollowsTheWire(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/rule_triggers_decide_truncated_test.go",
+          "contains": "func TestRuleTriggersDecide5xxIsVerifiedByReRead(",
           "code_only": true
         }
       ]
@@ -295,7 +325,7 @@
     {
       "id": "webhook-subscription-token-withheld",
       "summary": "every Webhooks API (/outgoingWebhookApi/) response has its subscription `token` replaced with [withheld] in the client's JSON success path, before print, response cache, sync, tail and MCP; the --dry-run request preview of a Webhooks API write withholds the token too; a Webhooks API write whose token is the [withheld] placeholder is refused (dry-run included)",
-      "why": "GET /subscriptions and /subscriptions/disabled return each subscription's token, the string SaaS Alerts attaches to every delivery so the MSP's receiver can authenticate it (webhooks spec 0.9.0, schema Token). Before this fix a sentinel token reached `subscriptions list` output, the MCP saas-alerts_execute result, the HTTP cache files and the local SQLite store (mock receipt 2026-10-20). subscriptions health --reenable sends only enabled plus filter fields, so the blanked value is never written back. Delivery URLs are kept: domain checks need them and SaaS Alerts only delivers to verified domains. TestWebhookTokenNeverLeavesTheClient fails when the hook is removed (proven 2026-10-20). Error answers too: an API error body that echoed a subscription token reached stdout, stderr and MCP through APIError.Body (adversarial round 10, 2026-10-20, P2); the error path now withholds before masking. TestWebhookTokenWithheldFromErrorBodies fails with it reverted (proven 2026-10-20). An error answer that quotes the request's own token inside a message or a non-JSON body has that value masked as well (adversarial round 11, 2026-10-20, P2); TestWebhookTokenEchoedInErrorTextIsMasked fails with it reverted (proven 2026-10-20). Tokens under 8 characters are not echo-masked, so a one-letter token cannot garble the 'too short' error (adversarial round 12, 2026-10-20, P2; proven 2026-10-20). Codex round 9 (2026-10-20, P1): the echo mask matched only the raw token, so a JSON-escaped echo (\\\" \\/ \\u002B) or one straddling the 4096-byte error cut leaked; maskEchoedWebhookTokens now masks decoded JSON string values, then the raw text, before the cut. TestWebhookTokenEchoedEscapedOrAtTheCutIsMasked fails with decoding disabled or with masking moved after the cut (both proven 2026-10-20). Adversarial round 13 (2026-10-20, P1): moving the echo mask before the cut had dropped the request tokens from the final maskCredentialText, reopening URL-encoded and HTML-title echoes; both passes now run, JSON keys are masked too, and a body with trailing content after its JSON value is never re-encoded (so nothing is dropped). TestWebhookTokenEchoedEncodedIsMasked fails with the final mask, the key masking or the trailing check removed (proven 2026-10-20). Echoes in error text are now handled for every credential by error-text-secret-funnel. Every JSON value of an answer is walked (an answer holding several values kept a later record's token, adversarial round 17, 2026-10-20, P2), and text that does not parse but holds a \"token\" key is withheld whole. TestWebhookTokenWithheldFromEveryJSONValue fails with the single-value version (proven 2026-10-20).",
+      "why": "GET /subscriptions and /subscriptions/disabled return each subscription's token, the string SaaS Alerts attaches to every delivery so the MSP's receiver can authenticate it (webhooks spec 0.9.0, schema Token). Before this fix a sentinel token reached `subscriptions list` output, the MCP saas-alerts_execute result, the HTTP cache files and the local SQLite store (mock receipt 2026-10-20). subscriptions health --reenable sends only enabled plus filter fields, so the blanked value is never written back. Delivery URLs are kept: domain checks need them and SaaS Alerts only delivers to verified domains. TestWebhookTokenNeverLeavesTheClient fails when the hook is removed (proven 2026-10-20). Error answers too: an API error body that echoed a subscription token reached stdout, stderr and MCP through APIError.Body (adversarial round 10, 2026-10-20, P2); the error path now withholds before masking. TestWebhookTokenWithheldFromErrorBodies fails with it reverted (proven 2026-10-20). An error answer that quotes the request's own token inside a message or a non-JSON body has that value masked as well (adversarial round 11, 2026-10-20, P2); TestWebhookTokenEchoedInErrorTextIsMasked fails with it reverted (proven 2026-10-20). Tokens under 8 characters are not echo-masked, so a one-letter token cannot garble the 'too short' error (adversarial round 12, 2026-10-20, P2; proven 2026-10-20). Codex round 9 (2026-10-20, P1): the echo mask matched only the raw token, so a JSON-escaped echo (\\\" \\/ \\u002B) or one straddling the 4096-byte error cut leaked; maskEchoedWebhookTokens now masks decoded JSON string values, then the raw text, before the cut. TestWebhookTokenEchoedEscapedOrAtTheCutIsMasked fails with decoding disabled or with masking moved after the cut (both proven 2026-10-20). Adversarial round 13 (2026-10-20, P1): moving the echo mask before the cut had dropped the request tokens from the final maskCredentialText, reopening URL-encoded and HTML-title echoes; both passes now run, JSON keys are masked too, and a body with trailing content after its JSON value is never re-encoded (so nothing is dropped). TestWebhookTokenEchoedEncodedIsMasked fails with the final mask, the key masking or the trailing check removed (proven 2026-10-20). Echoes in error text are now handled for every credential by error-text-secret-funnel. Every JSON value of an answer is walked (an answer holding several values kept a later record's token, adversarial round 17, 2026-10-20, P2), and text that does not parse but holds a \"token\" key is withheld whole. TestWebhookTokenWithheldFromEveryJSONValue fails with the single-value version (proven 2026-10-20). Only a real \"token\": key triggers the whole-text withhold, so a validation message such as `\"token\" is required` stays readable (adversarial round 18, 2026-10-20, P2; proven).",
       "status": "active",
       "spec_encode_followup": "Generator support for x-secret / writeOnly response fields that are blanked before print, cache and store.",
       "asserts": [
@@ -361,7 +391,7 @@
         },
         {
           "file": "cli/internal/client/saas_webhook_secrets.go",
-          "contains": "if bytes.Contains(bytes.ToLower(body), []byte(`\"token\"`)) {",
+          "contains": "if webhookTokenKey.Match(body) {",
           "code_only": true
         },
         {

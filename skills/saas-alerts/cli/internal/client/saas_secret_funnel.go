@@ -14,6 +14,8 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf16"
+
+	"saas-alerts-pp-cli/internal/platform"
 )
 
 // echoWithheldText replaces the text of an answer that quotes back a credential.
@@ -157,6 +159,40 @@ func (e unreadableAnswer) Unwrap() error { return e.err }
 func IsAnswerUnreadable(err error) bool {
 	var u unreadableAnswer
 	return errors.As(err, &u)
+}
+
+// notSent marks an error from before the request reached the wire (a budget
+// or rate-limit wait, the Respond token mint, building the request, a dial
+// or TLS failure): the server never saw it, so a write was not applied.
+type notSent struct{ err error }
+
+func (e notSent) Error() string { return e.err.Error() }
+func (e notSent) Unwrap() error { return e.err }
+
+// IsNotSent reports whether err happened before the request reached the wire.
+func IsNotSent(err error) bool {
+	var n notSent
+	return errors.As(err, &n)
+}
+
+// WriteOutcomeUnknown reports whether a failed write may still have been
+// applied. Only a request that never reached the wire, or an answer that
+// refused it (a 4xx, including a 429), is a known "no"; a 5xx, an unreadable
+// answer, or any failure after the request was written (a reset stream, a
+// timeout waiting for the answer) leaves the server's state unknown.
+func WriteOutcomeUnknown(err error) bool {
+	if err == nil || IsNotSent(err) {
+		return false
+	}
+	var rl *platform.RateLimitedError
+	if errors.As(err, &rl) {
+		return false
+	}
+	var apiErr *APIError
+	if errors.As(err, &apiErr) {
+		return apiErr.StatusCode >= 500
+	}
+	return true
 }
 
 // funnelText is the last step before text is shown: the raw mask, then the

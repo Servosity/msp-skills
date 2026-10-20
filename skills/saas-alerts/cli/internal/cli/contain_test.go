@@ -1318,6 +1318,12 @@ func TestContainUnreadableExecuteAnswerStopsLaterActions(t *testing.T) {
 			w.WriteHeader(http.StatusAccepted)
 			_, _ = w.Write([]byte(`{"status":"PROCESSING"}`))
 		},
+		"malformed answer after the request": func(w http.ResponseWriter) {
+			if conn, _, err := w.(http.Hijacker).Hijack(); err == nil {
+				_, _ = conn.Write([]byte("garbage-not-http\r\n\r\n"))
+				_ = conn.Close()
+			}
+		},
 		"html page": func(w http.ResponseWriter) {
 			w.Header().Set("Content-Type", "text/html")
 			w.WriteHeader(http.StatusOK)

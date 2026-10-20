@@ -1160,23 +1160,12 @@ func containJSONEmpty(v json.RawMessage) bool {
 }
 
 // containOutcomeUnknown reports whether a failed execute call may still have
-// been applied: a server error from the execute endpoint itself, or a
-// transport failure after the request may have been sent. A 4xx (refused),
-// a failure before sending (auth mint, no route to host) is a known "no".
+// been applied. saas-alerts hand-fix: write-outcome-from-wire. The client
+// records whether the request reached the wire, so this is not a guess from
+// error text: only a request Respond never saw, or an answer refusing it (a
+// 4xx), is a known "no"; anything else stops the remaining actions.
 func containOutcomeUnknown(err error) bool {
-	if client.IsAnswerUnreadable(err) { // saas-alerts hand-fix: the server answered; only its answer is unreadable
-		return true
-	}
-	var apiErr *client.APIError
-	if errors.As(err, &apiErr) {
-		return apiErr.StatusCode >= 500 && strings.Contains(apiErr.Path, "/response-actions/execute")
-	}
-	msg := err.Error()
-	if strings.Contains(msg, "connection refused") || strings.Contains(msg, "no such host") {
-		return false
-	}
-	return isNetworkError(err) || errors.Is(err, context.DeadlineExceeded) ||
-		strings.Contains(msg, "timeout") || strings.Contains(msg, "EOF")
+	return client.WriteOutcomeUnknown(err)
 }
 
 // containMergeJob combines the vetted list entry with its matching detail

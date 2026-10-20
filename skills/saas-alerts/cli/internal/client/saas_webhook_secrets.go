@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"strings"
 )
 
@@ -26,6 +27,10 @@ const WebhookTokenWithheld = "[withheld]"
 // value carries a token. Every JSON value in the body is walked (an answer
 // may hold several, one per line); text that does not parse as JSON but holds
 // a "token" key is withheld whole, since its value cannot be found reliably.
+// webhookTokenKey finds a "token" key with a value in text that is not JSON;
+// a bare mention such as `"token" is required` is not one.
+var webhookTokenKey = regexp.MustCompile(`(?i)"token"\s*:`)
+
 func withholdWebhookTokens(path string, body json.RawMessage) json.RawMessage {
 	if !strings.Contains(path, "/outgoingWebhookApi/") {
 		return body
@@ -43,7 +48,7 @@ func withholdWebhookTokens(path string, body json.RawMessage) json.RawMessage {
 			break
 		}
 		if err != nil {
-			if bytes.Contains(bytes.ToLower(body), []byte(`"token"`)) {
+			if webhookTokenKey.Match(body) {
 				whole, _ := json.Marshal(WebhookTokenWithheld)
 				return whole
 			}
