@@ -48,8 +48,11 @@ All notable changes to this skill are documented here. Format follows
   override.
 - Downloads: owner-only files and folders, no write through a link or over an
   existing file, https links to public addresses only, size-checked bodies,
-  ambiguous creates recorded as UNKNOWN, an identical re-run refused, the
-  include flags recorded for `--resume`, and `--timeout` no longer cuts off a
-  long archive stream.
+  ambiguous creates recorded as UNKNOWN, a download guard (`download-guard.db`)
+  that creates each archive once across batches and runs, the include flags
+  recorded for `--resume`, and `--timeout` no longer cuts off a long archive
+  stream.
+- Interrupts: Ctrl-C or a tool timeout cancels the run at a safe point and
+  prints how to resume.
 - Thanks @sonofskywalker3 for the connector, and for the live CloudAlly behaviour
   it documents, in #400.
