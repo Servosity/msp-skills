@@ -14,7 +14,6 @@ import (
 	"os"
 	"os/signal"
 	"strings"
-	"syscall"
 	"text/tabwriter"
 	"time"
 
@@ -182,11 +181,12 @@ func Execute() (retErr error) {
 	rootCmd := newRootCmd(&flags)
 	defer finalizePlatformInvocation(&flags, &retErr)
 
-	// Ctrl-C or a tool timeout cancels the command's context, so a
-	// restore or download run stops at a safe point and prints how to
-	// resume. The first signal releases the handler, so a second Ctrl-C
-	// still kills a command that ignores its context.
-	sigCtx, stopSignals := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	// Ctrl-C, SIGTERM, a tool timeout or (on Unix) a closed terminal
+	// cancels the command's context (interruptSignals), so a restore or
+	// download run stops at a safe point and prints how to resume. The
+	// first signal releases the handler, so a second Ctrl-C still kills a
+	// command that ignores its context.
+	sigCtx, stopSignals := signal.NotifyContext(context.Background(), interruptSignals...)
 	defer stopSignals()
 	go func() { <-sigCtx.Done(); stopSignals() }()
 	executedCmd, err := rootCmd.ExecuteContextC(sigCtx)
