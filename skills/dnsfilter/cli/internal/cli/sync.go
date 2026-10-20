@@ -347,7 +347,11 @@ Resource scoping:
 					warnCount++
 				} else {
 					if humanFriendly {
-						fmt.Fprintf(stderrW(), "  %s: %d synced (done)\n", res.Resource, res.Count)
+						if res.Partial != "" {
+							fmt.Fprintf(stderrW(), "  %s: %d synced (not a complete snapshot: %s)\n", res.Resource, res.Count, res.Partial)
+						} else {
+							fmt.Fprintf(stderrW(), "  %s: %d synced (done)\n", res.Resource, res.Count)
+						}
 					}
 					totalSynced += res.Count
 					successCount++
@@ -1171,18 +1175,22 @@ func syncResource(ctx context.Context, c interface {
 	// instead of "(done)" and sync_complete. last_attempt_complete is 0 for
 	// all of them, so the report now says what the mirror records.
 	if !outcome.complete {
-		msg := syncIncompleteMessage(resource, outcome.reason)
-		if outcome.reason == "param_scoped" || outcome.reason == "incremental_window" {
+		reason := outcome.reason
+		if latestOnly && reason == "max_pages_cap" {
+			reason = "latest_only" // --latest-only asked for the head page only
+		}
+		msg := syncIncompleteMessage(resource, reason)
+		if syncScopedByRequest(reason) {
 			// The walk covered what was asked, so it succeeds, but it is
 			// never reported as a complete snapshot.
 			if !humanFriendly {
-				ev, _ := json.Marshal(map[string]any{"event": "sync_complete", "resource": resource, "total": cachedCount, "duration_ms": time.Since(started).Milliseconds(), "complete": false, "reason": outcome.reason, "message": msg})
+				ev, _ := json.Marshal(map[string]any{"event": "sync_complete", "resource": resource, "total": cachedCount, "duration_ms": time.Since(started).Milliseconds(), "complete": false, "reason": reason, "message": msg})
 				fmt.Fprintln(syncEvents, string(ev))
 			}
 			return syncResult{Resource: resource, Count: cachedCount, Partial: msg, Duration: time.Since(started)}
 		}
 		if !humanFriendly {
-			fmt.Fprintln(syncEvents, syncWarningJSON(resource, "", 0, outcome.reason, msg))
+			fmt.Fprintln(syncEvents, syncWarningJSON(resource, "", 0, reason, msg))
 		}
 		return syncResult{Resource: resource, Count: cachedCount, Warn: errors.New(msg), Duration: time.Since(started)}
 	}
@@ -1191,6 +1199,18 @@ func syncResource(ctx context.Context, c interface {
 		fmt.Fprintf(syncEvents, `{"event":"sync_complete","resource":"%s","total":%d,"duration_ms":%d}`+"\n", resource, cachedCount, time.Since(started).Milliseconds())
 	}
 	return syncResult{Resource: resource, Count: cachedCount, Duration: time.Since(started)}
+}
+
+// syncScopedByRequest reports the incomplete reasons where the walk covered
+// exactly what was asked (a --param scope, a --since window, --latest-only):
+// a success that is never reported as a complete snapshot.
+// HAND-FIX(sync-resumed-walk-warns)
+func syncScopedByRequest(reason string) bool {
+	switch reason {
+	case "param_scoped", "incremental_window", "latest_only":
+		return true
+	}
+	return false
 }
 
 // syncIncompleteMessage says why a flat walk is not a complete snapshot and
@@ -1205,6 +1225,8 @@ func syncIncompleteMessage(resource, reason string) string {
 		return "walk was scoped by --param, so the collection is not a complete snapshot; " + finish + " without --param"
 	case "incremental_window":
 		return "walk covered only the --since window and no complete walk is recorded, so the collection is not complete; " + finish
+	case "latest_only":
+		return "--latest-only walked the newest page only, so the collection is not a complete snapshot; " + finish
 	case "":
 		reason = "incomplete"
 	}
@@ -3594,14 +3616,28 @@ func syncDependentResource(ctx context.Context, c interface {
 	tenantUUID := resolveTenantID()
 	parentScopeColumn := parentTenantScopeColumns[dep.ParentTable]
 	parentRows, err := dependentParentRows(db, dep.ParentTable, pathParams, parentScopeColumn, tenantUUID)
-	if err != nil || len(parentRows) == 0 {
-		if len(parentRows) == 0 {
-			if humanFriendly {
-				fmt.Fprintf(stderrW(), "  %s: skipping (parent table %s is empty, sync it first)\n", dep.Name, dep.ParentTable)
+	if err != nil {
+		return syncResult{Resource: dep.Name, Err: fmt.Errorf("querying parent table %s: %w", dep.ParentTable, err), Duration: time.Since(started)}
+	}
+	// HAND-FIX(sync-dependent-needs-parent-rows): no parent rows is a
+	// complete, empty walk only when the parent collection's last sync was
+	// complete; otherwise nothing was walked, which is a warning, never
+	// "(done)".
+	if len(parentRows) == 0 {
+		if syncCollectionComplete(db, dep.ParentTable) {
+			if err := db.SaveSyncState(dep.Name, "", 0); err != nil {
+				return syncResult{Resource: dep.Name, Err: fmt.Errorf("saving sync state for %s: %w", dep.Name, err), Duration: time.Since(started)}
+			}
+			if !humanFriendly {
+				fmt.Fprintf(syncEvents, `{"event":"sync_complete","resource":"%s","total":0,"duration_ms":%d}`+"\n", dep.Name, time.Since(started).Milliseconds())
 			}
 			return syncResult{Resource: dep.Name, Duration: time.Since(started)}
 		}
-		return syncResult{Resource: dep.Name, Err: fmt.Errorf("querying parent table %s: %w", dep.ParentTable, err), Duration: time.Since(started)}
+		msg := fmt.Sprintf("parent collection %s has no complete sync, so %s was not walked; run 'dnsfilter-cli sync --full --resources %s,%s'", dep.ParentTable, dep.Name, dep.ParentTable, dep.Name)
+		if !humanFriendly {
+			fmt.Fprintln(syncEvents, syncWarningJSON(dep.Name, "", 0, "parent_collection_incomplete", msg))
+		}
+		return syncResult{Resource: dep.Name, Warn: errors.New(msg), Duration: time.Since(started)}
 	}
 	parentCoverageComplete := true
 	coverageReason := ""
@@ -3892,10 +3928,24 @@ func syncDependentResource(ctx context.Context, c interface {
 		}
 	}
 	if !attemptComplete {
+		if latestOnly && coverageReason == "max_pages_cap" {
+			coverageReason = "latest_only"
+		}
+		msg := fmt.Sprintf("%s sync incomplete (%s); completion watermark was not advanced", dep.Name, coverageReason)
+		if syncScopedByRequest(coverageReason) {
+			if !humanFriendly {
+				ev, _ := json.Marshal(map[string]any{"event": "sync_complete", "resource": dep.Name, "total": totalCount, "duration_ms": time.Since(started).Milliseconds(), "complete": false, "reason": coverageReason, "message": msg})
+				fmt.Fprintln(syncEvents, string(ev))
+			}
+			return syncResult{Resource: dep.Name, Count: totalCount, Partial: msg, Duration: time.Since(started)}
+		}
+		if !humanFriendly {
+			fmt.Fprintln(syncEvents, syncWarningJSON(dep.Name, "", 0, coverageReason, msg))
+		}
 		return syncResult{
 			Resource: dep.Name,
 			Count:    totalCount,
-			Warn:     fmt.Errorf("%s sync incomplete (%s); completion watermark was not advanced", dep.Name, coverageReason),
+			Warn:     errors.New(msg),
 			Duration: time.Since(started),
 		}
 	}

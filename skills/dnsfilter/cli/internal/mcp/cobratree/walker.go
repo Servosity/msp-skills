@@ -60,7 +60,13 @@ func RegisterAll(s *server.MCPServer, root *cobra.Command, cliPath func() (strin
 		if commandTakesArgs(cmd) && len(positionals) == 0 {
 			options = append(options, mcplib.WithString("args", mcplib.Description("Additional positional arguments to append to the command. Raw flags are rejected; use structured flag parameters instead.")))
 		}
-		if readOnly {
+		// Hand-wired (handfixes.json: mcp-credential-reads-never-hinted-read-only):
+		// outside the read-only switch nothing withholds credentials, so a
+		// command that can return one (it calls a credential endpoint, or
+		// fetches a caller-named resource live, like tail api-keys) is not
+		// advertised read-only: a host that auto-approves read-only tools
+		// would hand over the token unprompted.
+		if readOnly && (readOnlyMode || !mirrorCanReturnCredentials(cmd)) {
 			options = append(options, mcplib.WithReadOnlyHintAnnotation(true), mcplib.WithDestructiveHintAnnotation(false))
 		}
 		if !readOnly && isMCPLocalWrite(cmd) {

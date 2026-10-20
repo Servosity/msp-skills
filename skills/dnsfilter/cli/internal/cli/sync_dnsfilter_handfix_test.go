@@ -699,6 +699,18 @@ func TestSyncIncompleteWalksNeverReportDone(t *testing.T) {
 	if !strings.Contains(out, `"complete":false`) || !strings.Contains(out, `"reason":"param_scoped"`) {
 		t.Fatalf("a scoped walk did not say it is not a complete snapshot:\n%s", out)
 	}
+	// --latest-only asked for the head page: a success, never complete.
+	out = func() string {
+		o, err := syncHFRun("sync", "--latest-only", "--resources", "user-agents", "--db", dbPath)
+		if err != nil {
+			t.Fatalf("--latest-only sync: %v\n%s", err, o)
+		}
+		return o
+	}()
+	syncHFWantComplete(t, dbPath, "user-agents", 0, "--latest-only walk")
+	if !strings.Contains(out, `"complete":false`) || !strings.Contains(out, `"reason":"latest_only"`) {
+		t.Fatalf("a --latest-only walk did not say it is not a complete snapshot:\n%s", out)
+	}
 }
 
 // A plain sync stores the global (MSP-shared) policies: the policies list
@@ -770,6 +782,28 @@ func TestSyncDependentsNeedACompleteParent(t *testing.T) {
 	syncHFWantComplete(t, dbPath, "networks", 1, "networks walk with only a dependent param")
 	syncHFWantComplete(t, dbPath, "lan_ips", 0, "lan_ips narrowed by its own --resource-param")
 	syncHFWantComplete(t, dbPath, "subnets", 1, "subnets untouched by the lan_ips param")
+}
+
+// A dependent walk with no parent rows is done only when the parent
+// collection's last sync was complete: on a fresh mirror lan_ips was never
+// walked, which warns instead of "(done)".
+func TestSyncDependentWithNoParentRows(t *testing.T) {
+	testenv.Isolate(t)
+	syncFleetServer(t, func(path string, q url.Values) (string, bool) {
+		if path != "/v1/networks/all" {
+			return "", false
+		}
+		return `{"data":[]}`, true
+	})
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	out, err := syncHFRun("sync", "--resources", "lan_ips", "--db", dbPath)
+	if err == nil || strings.Contains(out, `{"event":"sync_complete","resource":"lan_ips"`) || !strings.Contains(out, `"reason":"parent_collection_incomplete"`) {
+		t.Fatalf("lan_ips with no synced parent reported done (err=%v):\n%s", err, out)
+	}
+	syncHFWantComplete(t, dbPath, "lan_ips", 0, "lan_ips with no synced parent")
+	syncHFRunOK(t, "sync", "--resources", "networks", "--db", dbPath)
+	syncHFWantComplete(t, dbPath, "networks", 1, "empty networks walk")
+	syncHFWantComplete(t, dbPath, "lan_ips", 1, "lan_ips under a complete, empty networks walk")
 }
 
 func TestSyncSinceCoveredByWatermark(t *testing.T) {

@@ -6,7 +6,9 @@
 package config
 
 import (
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"dnsfilter-pp-cli/internal/cliutil"
@@ -37,5 +39,25 @@ func TestEnvBaseURLNeverPersisted(t *testing.T) {
 	}
 	if cfg.BaseURL != "https://api.dnsfilter.com" {
 		t.Fatalf("a one-process base URL override was saved: %q", cfg.BaseURL)
+	}
+
+	// The agentcookie-managed save path writes the whole config: same rule.
+	path = filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(filepath.Join(filepath.Dir(path), ".agentcookie-managed"), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("DNSFILTER_BASE_URL", "http://127.0.0.1:9/evil")
+	if cfg, err = Load(path); err != nil {
+		t.Fatal(err)
+	}
+	if err := cfg.SaveCredential("test-token"); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "127.0.0.1:9") {
+		t.Fatalf("the agentcookie save path wrote the override:\n%s", data)
 	}
 }

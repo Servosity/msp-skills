@@ -238,6 +238,16 @@ func TestReadOnlyToolHints(t *testing.T) {
 		if ro == "" && (gotRO || !gotDestructive) {
 			t.Fatalf("default mode: dnsfilter_execute must stay destructive (it can DELETE): %+v", exec)
 		}
+		// tail fetches a caller-named resource live (tail api-keys returns
+		// tokens): read-only-hinted only where the switch withholds them.
+		tail := s.GetTool("tail").Tool.Annotations
+		tailRO := tail.ReadOnlyHint != nil && *tail.ReadOnlyHint
+		if ro == "1" && !tailRO {
+			t.Fatalf("read-only mode: tail should stay read-only-hinted: %+v", tail)
+		}
+		if ro == "" && (tailRO || (tail.DestructiveHint != nil && !*tail.DestructiveHint)) {
+			t.Fatalf("default mode: tail can return credentials and must not be hinted read-only: %+v", tail)
+		}
 	}
 }
 

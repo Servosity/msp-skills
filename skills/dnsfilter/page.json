@@ -105,13 +105,13 @@
     },
     {
       "tier": "Filtering policy and allow lists",
-      "examples": "allow --confirm; policies add-whitelist-domain; policies remove-whitelist-domain; policies add-blacklist-domain; policies remove-blacklist-domain; policies add-blacklist-category; policies remove-blacklist-category; policies bulk-actions-add-allowlist-domains; policies update; policies permissive-mode policies-update; policies add-allowed-application; scheduled-policies update; unblock-requests decision unblock-requests; block-pages update; networks update; networks bulk-update; networks subnets network-update; user-agents update; user-agent-bulk-updates create; agent-local-users update; mac-addresses update; policies application-update; policies bulk-actions-add-blocklist-domains; policies bulk-actions-remove-blocklist-domains; policies bulk-actions-remove-allowlist-domains",
-      "policy": "Preview (allow without --confirm, or --dry-run), then a human-approved write. One allow, a weaker policy, a bypass domain, or a site or roaming client moved to another policy or disabled opens filtering for everything it touches."
+      "examples": "allow --confirm; policies add-whitelist-domain; policies remove-whitelist-domain; policies add-blacklist-domain; policies remove-blacklist-domain; policies add-blacklist-category; policies remove-blacklist-category; policies bulk-actions-add-allowlist-domains; policies update; policies permissive-mode policies-update; policies add-allowed-application; scheduled-policies update; unblock-requests decision unblock-requests; block-pages update; networks update; networks bulk-update; networks subnets network-update; user-agents update; user-agent-bulk-updates create; agent-local-users update; mac-addresses update; policies application-update; policies bulk-actions-add-blocklist-domains; policies bulk-actions-remove-blocklist-domains; policies bulk-actions-remove-allowlist-domains; mac-addresses create; mac-addresses destroy; user-agents update-settings user-agents; networks subnets network-create; networks subnets network-destroy; ip-addresses update; policies add-blocked-application; policies remove-allowed-application; policies remove-blocked-application; scheduled-policies create; scheduled-policies destroy",
+      "policy": "Preview (allow without --confirm, or --dry-run), then a human-approved write. One allow, a weaker policy, a bypass domain, or a site or roaming client moved to another policy or disabled opens filtering for everything it touches. A write not named in any tier gets this treatment until you have checked what it changes."
     },
     {
       "tier": "Write (routine)",
-      "examples": "networks create; organizations create; ip-addresses create; mac-addresses create; scheduled-reports create; dashboards create; notes domain-update",
-      "policy": "Preview with --dry-run, then a reviewed write. These add things; none changes the filtering an existing site or roaming client gets."
+      "examples": "networks create; organizations create; ip-addresses create; scheduled-reports create; dashboards create; notes domain-update",
+      "policy": "Preview with --dry-run, then a reviewed write. These add sites, organizations, addresses, reports and notes; none changes the filtering an existing site, device or roaming client gets."
     },
     {
       "tier": "Credential and access",
@@ -120,7 +120,7 @@
     },
     {
       "tier": "Destructive and commercial",
-      "examples": "import (one create per JSONL line, so it can reach any tier above); policies destroy; networks destroy; networks bulk-destroy; organizations destroy; organizations cancel; organizations update (SKU, seat quantity, managing MSP); user-agents destroy; agent-local-user-bulk-deletes create; api-keys destroy; billing create; billing address-update; distributors organizations-cancel; distributors msps-update; trials",
+      "examples": "import (one create per JSONL line, so it can reach any tier above); policies destroy; networks destroy; networks bulk-destroy; organizations destroy; organizations cancel; organizations update and organizations bulk-update (SKU, seat quantity, managing MSP, auto-update); user-agents destroy; agent-local-user-bulk-deletes create; api-keys destroy; billing create; billing address-update; distributors organizations-cancel; distributors msps-update; trials",
       "policy": "Human-in-the-loop only, explicit confirmation"
     }
   ]

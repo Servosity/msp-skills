@@ -12,6 +12,7 @@ import (
 	"math/rand"
 	"strings"
 	"testing"
+	"time"
 )
 
 // secretGen builds small JSON documents by hand (so objects can repeat a
@@ -355,6 +356,10 @@ func TestSecretPairExemptionsAreExact(t *testing.T) {
 		"password=true!SECRET", "token: null-SECRET", "pin=falsey", "token=truex",
 		"secret_key=" + WithheldValuePlaceholder + "SECRET", "token=[withheld", "token=nul",
 		"token:\n  SECRET", `"token":"false.SECRET`, "token=" + bs + "SECRET", "tok" + bs + "u0065n=SECRET",
+		// A value that starts with a delimiter is a value unless nothing but
+		// delimiters follows (fail closed: an empty token followed by another
+		// pair is withheld too).
+		`{"meta":"password=;hunter2"}`, "password=,hunter2", "token=&hunter2", "pin=)4821", "token=,next=1", "token=&a=1",
 	}
 	for _, text := range carries {
 		if !TextNamesSecret(text) {
@@ -362,7 +367,7 @@ func TestSecretPairExemptionsAreExact(t *testing.T) {
 		}
 	}
 	empty := []string{
-		"token=", "token=,next=1", "token=&a=1", "token=true", "token=true,x=1", "token=null}",
+		"token=", "token=,", "token=)}", "token=true", "token=true,x=1", "token=null}",
 		`"token":"false"`, `"token": null,`, "pin:true", "token=" + WithheldValuePlaceholder,
 		"token=" + WithheldValuePlaceholder + "&a=1", "token=true next", "password=", `{"token":""}`,
 	}
@@ -420,6 +425,9 @@ func TestTextRuleKeepsPlaceholdersAndProse(t *testing.T) {
 		"export DNSFILTER_API_KEY=<token> on macOS / Linux, $env:DNSFILTER_API_KEY = \"<token>\" in PowerShell",
 		"authentication failed: HTTP 401\nhint: check your API key.\n      Set your API key with: export DNSFILTER_API_KEY=\"your-token-here\"\n      In PowerShell: $env:DNSFILTER_API_KEY = \"your-token-here\" (the bare token, no Bearer prefix)",
 		"Site,Notes\nCall support, reset password",
+		// A word after the secret word that is not a qualifier is another label.
+		"Password Policy: strict", "Password Policy 2: strict", "public key: ssh-ed25519", "Token Expiry Policy: 90 days",
+		"Set your API key with: export DNSFILTER_API_KEY=\"your-token-here\" (PowerShell: $env:DNSFILTER_API_KEY = \"your-token-here\")",
 	} {
 		if TextNamesSecret(text) {
 			t.Errorf("TextNamesSecret(%q) = true, want false", text)
@@ -435,11 +443,30 @@ func TestTextRuleKeepsPlaceholdersAndProse(t *testing.T) {
 		"\tpassword:\n\thunter2", "password:\n  correct horse battery staple", "API Key:\r\nsk-live-abc123",
 		"Network secret key:\nAbC123xyz789", `{"note":"password:\n  correct horse battery staple"}`,
 		"Credentials:\n  stored in IT Glue", "Uninstall PIN:\nask the NOC", "Rotate the token:\nnext quarter",
+		// A qualifier between the secret label and its separator.
+		"Uninstall PIN for Acme laptops: 482915", "Uninstall PIN (Acme): 482915", "PIN - HQ: 4821", "password #2: hunter2",
+		"admin password, HQ: hunter2", "Uninstall PIN(Acme)=4821", "wifi password for the guest network at HQ: hunter2",
+		// Semicolon tables and long spaced headers.
+		"Site;Network Secret Key;Address\nHQ;abc123;1 Main", "Site;secret_key;Address\nHQ;abc123;1 Main",
+		"Site,Roaming Client Uninstall PIN\nHQ,482915",
 		// A quoted comma in a CSV row adds cells; a spaced secret header still counts.
 		"Site,Network Secret Key,Address\nHQ,abc123,\"1 Main St, Springfield\"", "Site | Network Secret Key\nHQ | abc | extra",
 	} {
 		if !TextNamesSecret(text) {
 			t.Errorf("TextNamesSecret(%q) = false, want true", text)
 		}
+	}
+}
+
+// TestTextRuleStaysLinear: the label window is bounded before any scan, so a
+// large mirrored string is judged in linear time (a whole-prefix search per
+// separator took 100s on 1.2 MB).
+func TestTextRuleStaysLinear(t *testing.T) {
+	row := `{"name":"Acme Dental HQ","organization_id":12345,"policy_ids":[1,2,3],"address":"1 Main St, Springfield"},`
+	big := "[" + strings.Repeat(row, 12000) + "]"
+	start := time.Now()
+	TextNamesSecret(big)
+	if d := time.Since(start); d > 20*time.Second {
+		t.Fatalf("TextNamesSecret on %d bytes took %v", len(big), d)
 	}
 }

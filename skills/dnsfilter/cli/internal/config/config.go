@@ -724,6 +724,11 @@ func (c *Config) configForSave() Config {
 			out.DnsfilterApiKey = c.fileConfig.DnsfilterApiKey
 		}
 	}
+	// HAND-FIX(config-env-base-url-never-persisted): every save path (the
+	// plain file and the agentcookie-managed one) writes the file's base URL.
+	if c.baseURLOverridden {
+		out.BaseURL = c.fileBaseURL
+	}
 	out.envOverrides = nil
 	out.fileConfig = nil
 	return out
@@ -814,12 +819,8 @@ type persistedConfig struct {
 }
 
 func (c *Config) persisted() persistedConfig {
-	baseURL := c.BaseURL
-	if c.baseURLOverridden {
-		baseURL = c.fileBaseURL
-	}
 	return persistedConfig{
-		BaseURL: baseURL,
+		BaseURL: c.BaseURL,
 		Headers: c.Headers,
 	}
 }

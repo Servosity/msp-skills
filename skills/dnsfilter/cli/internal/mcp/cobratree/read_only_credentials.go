@@ -50,6 +50,17 @@ func commandCallsCredentialPath(cmd *cobra.Command) bool {
 	return ReadOnlyCredentialRefusal(method, path) != ""
 }
 
+// LiveResourceArgAnnotation marks a command that fetches a caller-named
+// resource live (tail <resource>); any resource it names may carry
+// credentials.
+const LiveResourceArgAnnotation = "mcp:live-resource-arg"
+
+// mirrorCanReturnCredentials reports whether a mirrored command can return a
+// credential when the read-only switch is off.
+func mirrorCanReturnCredentials(cmd *cobra.Command) bool {
+	return commandCallsCredentialPath(cmd) || (cmd != nil && cmd.Annotations[LiveResourceArgAnnotation] == "true")
+}
+
 // credentialResourceArg returns the first argument value of a mirrored call
 // that names a credential endpoint (api-keys, uninstall_pin, secret-key,
 // redirect_link, in any spelling IsCredentialRequestPath sees through), so

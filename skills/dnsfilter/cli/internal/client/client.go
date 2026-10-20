@@ -1747,6 +1747,11 @@ func authPlaceholderCredentialErrorWithSetup(cfg *config.Config, setup string) e
 	if cfg != nil && cfg.Path != "" {
 		location = cfg.Path
 	}
+	// Hand-wired (handfixes.json: placeholder-remedy-names-the-source): a
+	// placeholder from the environment is not in the config file.
+	if cfg != nil && strings.HasPrefix(cfg.AuthSource, "env:") {
+		location = "the " + strings.TrimPrefix(cfg.AuthSource, "env:") + " environment variable"
+	}
 	return fmt.Errorf("%w configured in %s; set a real token with: %s", ErrPlaceholderCredential, location, setup)
 }
 
