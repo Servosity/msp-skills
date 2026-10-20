@@ -476,6 +476,23 @@
           "code_only": true
         }
       ]
+    },
+    {
+      "id": "unowned-data-db-never-adopted",
+      "summary": "The generated store resolver never hands an unowned data.db to a credential with no recorded user (env token, set-token, raw header)",
+      "why": "The 4.33.5 resolver claimed an existing unowned data.db for the first credential that ran, so a raw-token run (and MCP sql/search) read another tenant's cached rows and restore history (PR #400 round-3 Codex review). unscopedStoreAdoptable gates the claim on an owner marker naming this credential's scope; the generated MCP test asserted the old adoption and was updated. A reprint drops both.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/helpers.go",
+          "contains": "if !unscopedStoreAdoptable(unscoped, scopeHash) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/mcp/tools_test.go",
+          "contains": "want the credential's own store %q, not the unowned unscoped %q"
+        }
+      ]
     }
   ]
 }
