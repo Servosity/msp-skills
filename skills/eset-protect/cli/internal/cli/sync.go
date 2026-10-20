@@ -41,7 +41,8 @@ var unresolvedPathKeyRE = regexp.MustCompile(`\{[a-zA-Z_][a-zA-Z0-9_]*\}`)
 
 const dogfoodMaxParentRows = 2
 
-// pathContextVarSet is the --path-context typo-warning set. Tenant vars are
+// pathContextVarSet is the set of --path-context keys sync accepts
+// (path-context-known-keys-only refuses every other key). Tenant vars are
 // also listed in endpointTemplateVarSet so the unresolved-key skip ignores them.
 var pathContextVarSet = map[string]bool{
 	"region":     true,
@@ -504,7 +505,7 @@ Resource scoping:
 	cmd.Flags().StringArrayVar(&paramFlags, "param", nil, "Extra query param to inject into flat-list sync requests (repeatable, key=value). Skipped on path-scoped dependent requests so a top-level scope like workspace=<id> does not double up on /parents/<id>/children calls. Use --global-param to inject everywhere. Avoid pagination keys (limit/since/cursor) — overriding them corrupts resume state.")
 	cmd.Flags().StringArrayVar(&resourceParamFlags, "resource-param", nil, "Per-resource extra query param (repeatable, resource:key=value). Wins over --param and --global-param when keys conflict.")
 	cmd.Flags().StringArrayVar(&globalParamFlags, "global-param", nil, "Extra query param to inject into every sync request including dependent path-scoped calls (repeatable, key=value). Use when an API requires a scope on every call regardless of path nesting.")
-	cmd.Flags().StringArrayVar(&pathContextFlags, "path-context", nil, "Fill a {key} placeholder in BaseURL or request paths from a supplied value (repeatable, key=value). Wins over env-resolved Config.TemplateVars values, so it doubles as a one-off override at the call site. Use it when an env variable already holds a different value, or when the spec did not annotate the placeholder with an env var.")
+	cmd.Flags().StringArrayVar(&pathContextFlags, "path-context", nil, "Fill an endpoint placeholder (repeatable, key=value). Accepted keys: policyUuid (the policy whose ip-sets to sync) and region (must equal the configured region; set ESET_PROTECT_REGION to change it). Any other key is refused.")
 
 	return cmd
 }

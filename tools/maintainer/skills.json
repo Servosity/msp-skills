@@ -2107,7 +2107,7 @@
       "display_name": "ESET PROTECT",
       "tagline": "Devices, detections, incidents and response actions across every ESET PROTECT client.",
       "has_video": true,
-      "cli_hash": "sha256:a4941601793a82cbcda14db5d0d322ce1a513aa303299e52fce0519153b6275d",
+      "cli_hash": "sha256:eab7de210a01fd5f13d60b04ac6c350df017140e88086cc5f2df7dd54b327f37",
       "template_version": 3,
       "version": "0.1.0",
       "cli_hash_at_release": null,

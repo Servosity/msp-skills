@@ -3987,7 +3987,7 @@
     },
     {
       "id": "path-context-known-keys-only",
-      "summary": "sync refuses any --path-context key outside pathContextVarSet (region, policyUuid) before a client is built, instead of warning and substituting it",
+      "summary": "sync refuses any --path-context key outside pathContextVarSet (region, policyUuid) before a client is built, instead of warning and substituting it; the flag help (also the MCP sync tool's path-context description) names the two accepted keys",
       "why": "replacePathParam substitutes \"{\"+key+\"}\" for ANY key, so `sync --path-context 'region}.network-access-protection.eset.systems/v1/policies/{policyUuid=<host>'` (also reachable from the MCP sync tool) spanned the host of the absolute ip-sets template and bypassed the region check; only the credential host pin kept the token on ESET, and an eu-minted token could still be steered to another ESET region. The generated warning also claimed the value 'will not be substituted into any request path', which was false. Found by the 2026-10-20 fresh-context security review. TestSyncPathContextRefusesUnknownKeys failed with sync.go reverted (the crafted key was not refused) and passes with the fix; a known key (policyUuid) is still accepted.",
       "status": "active",
       "asserts": [
@@ -3999,6 +3999,11 @@
         {
           "file": "cli/internal/cli/sync.go",
           "not_contains": "this value will not be substituted into any request path"
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "Accepted keys: policyUuid (the policy whose ip-sets to sync) and region (must equal the configured region; set ESET_PROTECT_REGION to change it). Any other key is refused.",
+          "code_only": true
         }
       ]
     },

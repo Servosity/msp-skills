@@ -60,9 +60,10 @@ Where the credentials live is your choice:
   (installer download links, GPO/SCCM deployment files, mobile enrollment links)
   are never persisted by the CLI: installer rows in the mirror and in `export`
   files carry `downloadUrl` set to `[redacted]`, those responses are never
-  cached, and installers are not in the default `sync`. Live `installers list`
-  and `installers get` still print the link, so redirecting their output, or
-  `--deliver file:<path>`, writes it. Device identity tokens (`deviceToken`) are replaced with `[redacted]` as
+  cached, and installers are not in the default `sync`. Live `installers list`,
+  `installers get`, `gpo-sccm-files-generate` and
+  `mobile-devices-batch-get-enrollment-links` still print them, so redirecting
+  their output, or `--deliver file:<path>`, writes them. Device identity tokens (`deviceToken`) are replaced with `[redacted]` as
   each response is read, so they are never stored or shown.
 - **Agent mode is explicit.** `--agent` produces JSON for scripting but does not
   add any write gating; the preview-then-approve policy still applies. See
