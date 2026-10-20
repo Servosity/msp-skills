@@ -36,9 +36,9 @@ func TestPostRetriesAfterThrottling(t *testing.T) {
 		return jsonResponse(http.StatusOK, `{"success":true,"data":{"ok":true}}`, ""), nil
 	})
 
-	raw, err := s.Call(context.Background(), "getLoggedUser", map[string]any{})
+	raw, err := s.CallRead(context.Background(), "getLoggedUser", map[string]any{})
 	if err != nil {
-		t.Fatalf("Call: %v", err)
+		t.Fatalf("CallRead: %v", err)
 	}
 	if string(raw) != `{"ok":true}` {
 		t.Fatalf("data = %s", raw)
@@ -62,7 +62,7 @@ func TestPostGivesUpAfterRepeatedThrottling(t *testing.T) {
 		return jsonResponse(http.StatusTooManyRequests, `{}`, "0"), nil
 	})
 
-	_, err = s.Call(context.Background(), "getLoggedUser", map[string]any{})
+	_, err = s.CallRead(context.Background(), "getLoggedUser", map[string]any{})
 	if !errors.Is(err, ErrThrottled) {
 		t.Fatalf("want ErrThrottled, got %v", err)
 	}

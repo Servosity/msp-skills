@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 
 	"cloudally-pp-cli/internal/client"
@@ -44,7 +45,7 @@ const (
 const resolveFlagHelp = "How to find each mailbox's backup: snapshots (read the portal's per-mailbox backup calendar; needed for any past date), last-backup (use only the latest backup date the documented API reports), or auto (snapshots when the scope allows it, otherwise last-backup)"
 
 // portalURLFlagHelp documents the override used for testing.
-const portalURLFlagHelp = "Customer portal origin to read backup calendars from"
+const portalURLFlagHelp = "Customer portal origin to read backup calendars from (default: CLOUDALLY_PORTAL_URL, else https://app.cloudally.com when the API is api.cloudally.com)"
 
 // errPortalNeedsAccount explains why snapshot resolution cannot run.
 var errPortalNeedsAccount = errors.New("reading the portal's backup calendar needs a partner login and a named customer: pass --account <id> (with --reseller for a reseller's customer)")
@@ -98,20 +99,85 @@ func mintPortalHandoff(ctx context.Context, c *client.Client, scope restoreScope
 // openPortalSession mints a handoff token and opens a customer portal
 // session with it. Everything it does is read-only, but it is still refused
 // under a Printing Press harness so a shipcheck or dogfood run never reaches
-// a real customer's portal.
+// a real customer's portal. The portal origin is settled before the token is
+// minted, so a refusal spends nothing.
 func openPortalSession(ctx context.Context, c *client.Client, scope restoreScope, portalURL string) (*portal.Session, error) {
 	if cliutil.IsAnyHarness() {
 		return nil, errPortalInHarness
+	}
+	resolved, err := resolvePortalURL(portalURL, c.BaseURL)
+	if err != nil {
+		return nil, err
 	}
 	token, err := mintPortalHandoff(ctx, c, scope)
 	if err != nil {
 		return nil, err
 	}
-	sess, err := portal.Open(ctx, portal.Config{BaseURL: portalURL}, token)
+	sess, err := openPortal(ctx, portal.Config{BaseURL: resolved}, token)
 	if err != nil {
 		return nil, err
 	}
 	return sess, nil
+}
+
+// openPortal is portal.Open, held in a variable so a test can see which
+// origin a handoff token would be sent to without any network.
+var openPortal = portal.Open
+
+// cloudallyPortalURLEnv overrides the customer portal origin. It is read
+// here, in internal/cli, and never in internal/config or internal/client.
+const cloudallyPortalURLEnv = "CLOUDALLY_PORTAL_URL"
+
+// cloudallyDefaultAPIHost is the documented API host. The production portal
+// (portal.DefaultBaseURL) is assumed only for this API.
+const cloudallyDefaultAPIHost = "api.cloudally.com"
+
+// resolvePortalURL picks the customer portal origin. An explicit --portal-url
+// wins, then CLOUDALLY_PORTAL_URL, then the production portal, but the last
+// only when the API itself is production. A handoff token minted by any other
+// API (CLOUDALLY_BASE_URL pointing at a test stub, a proxy or another
+// deployment) is never sent to the production portal by default: the run is
+// refused and names the variable to set. --portal-url at its default value
+// counts as unset, because the flag cannot tell "not passed" from "passed
+// the default".
+func resolvePortalURL(flagValue, apiBaseURL string) (string, error) {
+	if v := strings.TrimSpace(flagValue); v != "" && !strings.EqualFold(strings.TrimRight(v, "/"), portal.DefaultBaseURL) {
+		return v, nil
+	}
+	if v := strings.TrimSpace(cliutil.EnvOverride(cloudallyPortalURLEnv)); v != "" {
+		return v, nil
+	}
+	if isDefaultCloudallyAPI(apiBaseURL) {
+		return portal.DefaultBaseURL, nil
+	}
+	return "", usageErr(fmt.Errorf("the API base URL (CLOUDALLY_BASE_URL or base_url in the config) points at %s, not %s, so the customer portal cannot be assumed to be %s: the portal handoff token would be minted by one service and spent at another. Set %s (or --portal-url) to the portal that belongs to this API; set it to %s only if that really is the matching portal",
+		describeOrigin(apiBaseURL), cloudallyDefaultAPIHost, portal.DefaultBaseURL, cloudallyPortalURLEnv, portal.DefaultBaseURL))
+}
+
+// isDefaultCloudallyAPI reports whether baseURL is the production API over
+// https (any path). An empty value is the built-in default.
+func isDefaultCloudallyAPI(baseURL string) bool {
+	baseURL = strings.TrimSpace(baseURL)
+	if baseURL == "" {
+		return true
+	}
+	u, err := url.Parse(baseURL)
+	if err != nil {
+		return false
+	}
+	if !strings.EqualFold(u.Scheme, "https") || !strings.EqualFold(u.Hostname(), cloudallyDefaultAPIHost) {
+		return false
+	}
+	return u.Port() == "" || u.Port() == "443"
+}
+
+// describeOrigin renders scheme://host for a message, never a path or query.
+func describeOrigin(raw string) string {
+	u, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || u.Host == "" {
+		return "a non-default URL"
+	}
+	return strings.ToLower(u.Scheme) + "://" + strings.ToLower(u.Host)
 }
 
 // openPortalResolver opens a portal session and wraps it in a month-caching

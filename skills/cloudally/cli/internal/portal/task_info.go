@@ -49,7 +49,7 @@ func (s *Session) TaskEntityInfos(ctx context.Context, taskID string) (map[strin
 	if strings.TrimSpace(taskID) == "" {
 		return nil, fmt.Errorf("portal: task info needs a task id")
 	}
-	raw, err := s.Call(ctx, taskInfoOperation, map[string]any{
+	raw, err := s.CallRead(ctx, taskInfoOperation, map[string]any{
 		"taskId": taskID, "_search": false, "rows": 1000, "page": 1,
 	})
 	if err != nil {
@@ -90,7 +90,7 @@ type dashboardEnvelope struct {
 // nothing" from "never created at all": a job with no files is absent from
 // the chunked listing but still counted here.
 func (s *Session) JobCounts(ctx context.Context) (JobCounts, error) {
-	raw, err := s.Call(ctx, jobsDashboardOperation, map[string]any{
+	raw, err := s.CallRead(ctx, jobsDashboardOperation, map[string]any{
 		"_search": false, "rows": downloadInfoPageSize, "page": 1, "sord": "desc",
 	})
 	if err != nil {

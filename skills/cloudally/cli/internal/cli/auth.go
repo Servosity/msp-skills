@@ -189,6 +189,10 @@ func newAuthSetTokenCmd(flags *rootFlags) *cobra.Command {
 			// log line): a masked-tail variant could leak token bytes through
 			// scripted dogfood that captures stderr.
 			cfg.AuthHeaderVal = ""
+			// Hand-wired: the old auth-context.json no longer describes the active token.
+			if err := clearAuthContext(); err != nil {
+				return configErr(err)
+			}
 			if err := cfg.SaveTokens("", "", token, "", cfg.TokenExpiry); err != nil {
 				return configErr(fmt.Errorf("saving token: %w", err))
 			}
@@ -235,6 +239,10 @@ func newAuthLogoutCmd(flags *rootFlags) *cobra.Command {
 				return configErr(err)
 			}
 
+			// Hand-wired: auth-context.json keeps the partner tokens aside; drop it first.
+			if err := clearAuthContext(); err != nil {
+				return configErr(err)
+			}
 			if err := cfg.ClearTokens(); err != nil {
 				return configErr(fmt.Errorf("clearing tokens: %w", err))
 			}

@@ -89,7 +89,7 @@ func (s *Session) SnapshotsCalendar(ctx context.Context, ent Entity, year int, m
 	if month < time.January || month > time.December {
 		return nil, fmt.Errorf("portal: calendar month %d is out of range", int(month))
 	}
-	raw, err := s.Call(ctx, calendarOperation, calendarRequest{
+	raw, err := s.CallRead(ctx, calendarOperation, calendarRequest{
 		TaskID:    ent.TaskID,
 		AccountID: ent.AccountID,
 		ExtID:     ent.ExtID,

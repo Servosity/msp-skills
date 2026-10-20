@@ -230,14 +230,17 @@ func Open(ctx context.Context, cfg Config, handoffToken string) (*Session, error
 		timeout = defaultTimeout
 	}
 	hc := &http.Client{Jar: jar, Timeout: timeout}
+	var callerRedirect func(*http.Request, []*http.Request) error
 	if cfg.HTTPClient != nil {
 		// Copy so the caller's client keeps its own (absent) jar.
 		hc.Transport = cfg.HTTPClient.Transport
-		hc.CheckRedirect = cfg.HTTPClient.CheckRedirect
+		callerRedirect = cfg.HTTPClient.CheckRedirect
 		if cfg.HTTPClient.Timeout > 0 && cfg.Timeout <= 0 {
 			hc.Timeout = cfg.HTTPClient.Timeout
 		}
 	}
+	// The origin rule runs first, so a caller's own policy can only narrow it.
+	hc.CheckRedirect = redirectPolicy(base, callerRedirect)
 	rate := cfg.RatePerSec
 	if rate == 0 {
 		rate = defaultRatePerSec
@@ -314,9 +317,50 @@ func (s *Session) getPage(ctx context.Context, path string, query url.Values) ([
 	return body, nil
 }
 
+// ErrOutcomeUnknown marks a failed call that may still have been acted on:
+// a throttling or server-error answer, a transport failure, or a deferred
+// result that never resolved, on an operation that creates something. A
+// caller must reconcile (list the jobs) before sending such a request again,
+// and must never record it as a plain failure that a resume would resend.
+var ErrOutcomeUnknown = errors.New("portal: the request may have been acted on")
+
+// readOperations are the service operations known only to read. Call treats
+// them like CallRead (a throttling answer is retried), so a caller that still
+// uses Call for one of them keeps that resilience. Every other operation,
+// startRestoreOrDownload above all, is treated as one that creates something.
+var readOperations = map[string]bool{
+	"getBackupTaskInfo":        true,
+	"getDownloadInfo":          true,
+	"getDownloadUrl":           true,
+	"getJobsDasboard":          true,
+	"getLoggedUser":            true,
+	"getRestoreDownloadStatus": true,
+	"getSnapshotsCalendar":     true,
+}
+
 // Call invokes one service-layer operation and returns its data field.
 // Deferred responses are polled until they resolve.
+//
+// Unless the operation is a known read (readOperations), Call treats it as
+// one that creates something (startRestoreOrDownload creates a job): a
+// throttling answer is returned as an error rather than retried, because a
+// 503 does not say whether the server acted and a retry could create a
+// second job. Such failures wrap ErrOutcomeUnknown. Use CallRead for an
+// operation that only reads.
 func (s *Session) Call(ctx context.Context, operation string, body any) (json.RawMessage, error) {
+	return s.call(ctx, operation, body, readOperations[operation])
+}
+
+// CallRead invokes a service-layer operation that only reads, such as
+// getSnapshotsCalendar or getRestoreDownloadStatus. Because replaying a read
+// is harmless, a throttling answer is retried after Retry-After.
+func (s *Session) CallRead(ctx context.Context, operation string, body any) (json.RawMessage, error) {
+	return s.call(ctx, operation, body, true)
+}
+
+// call implements Call and CallRead. idempotent says whether the operation
+// may be sent again after a throttling answer.
+func (s *Session) call(ctx context.Context, operation string, body any, idempotent bool) (json.RawMessage, error) {
 	if !operationPattern.MatchString(operation) {
 		return nil, fmt.Errorf("portal: operation %q is not a bare identifier", operation)
 	}
@@ -324,25 +368,33 @@ func (s *Session) Call(ctx context.Context, operation string, body any) (json.Ra
 	if err != nil {
 		return nil, fmt.Errorf("portal: encoding %s body: %w", operation, err)
 	}
-	env, err := s.post(ctx, operation, payload, nil)
+	env, err := s.post(ctx, operation, payload, nil, idempotent)
 	if err != nil {
 		return nil, err
 	}
+	// Once a request is deferred the server has it, so for a create every
+	// failure from here on leaves the outcome unknown.
+	pending := func(err error) error {
+		if idempotent || errors.Is(err, ErrOutcomeUnknown) {
+			return err
+		}
+		return fmt.Errorf("%w: %w", ErrOutcomeUnknown, err)
+	}
 	for polls := 0; env.Result == deferredResult; polls++ {
 		if polls >= maxDeferredPolls {
-			return nil, fmt.Errorf("portal: %s still deferred after %d polls", operation, maxDeferredPolls)
+			return nil, pending(fmt.Errorf("portal: %s still deferred after %d polls", operation, maxDeferredPolls))
 		}
 		if env.ID == "" {
-			return nil, fmt.Errorf("portal: %s deferred without a request id", operation)
+			return nil, pending(fmt.Errorf("portal: %s deferred without a request id", operation))
 		}
 		select {
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			return nil, pending(ctx.Err())
 		case <-time.After(deferredPollInterval):
 		}
-		env, err = s.post(ctx, operation, payload, url.Values{"reqId": {env.ID}})
+		env, err = s.post(ctx, operation, payload, url.Values{"reqId": {env.ID}}, idempotent)
 		if err != nil {
-			return nil, err
+			return nil, pending(err)
 		}
 	}
 	if !env.Success {
@@ -358,7 +410,8 @@ func (s *Session) Get(ctx context.Context, operation string, params url.Values) 
 	if !operationPattern.MatchString(operation) {
 		return nil, fmt.Errorf("portal: operation %q is not a bare identifier", operation)
 	}
-	env, err := s.send(ctx, http.MethodGet, operation, nil, params)
+	// A GET only reads, so a throttling answer is retried.
+	env, err := s.send(ctx, http.MethodGet, operation, nil, params, true)
 	if err != nil {
 		return nil, err
 	}
@@ -369,14 +422,17 @@ func (s *Session) Get(ctx context.Context, operation string, params url.Values) 
 }
 
 // post sends one service request and decodes its envelope, pacing outbound
-// calls and backing off on a throttling response.
-func (s *Session) post(ctx context.Context, operation string, payload []byte, query url.Values) (*envelope, error) {
-	return s.send(ctx, http.MethodPost, operation, payload, query)
+// calls and, for an idempotent operation, backing off on a throttling
+// response.
+func (s *Session) post(ctx context.Context, operation string, payload []byte, query url.Values, idempotent bool) (*envelope, error) {
+	return s.send(ctx, http.MethodPost, operation, payload, query, idempotent)
 }
 
 // send issues one service request with the given method, pacing outbound
-// calls and backing off on a throttling response.
-func (s *Session) send(ctx context.Context, method, operation string, payload []byte, query url.Values) (*envelope, error) {
+// calls. A throttling response (429 or 503) is retried after Retry-After
+// only when idempotent is true; otherwise it is returned at once, because
+// the server may already have acted on the request.
+func (s *Session) send(ctx context.Context, method, operation string, payload []byte, query url.Values, idempotent bool) (*envelope, error) {
 	u := *s.base
 	u.Path = servicePath + operation
 	if len(query) > 0 {
@@ -402,14 +458,22 @@ func (s *Session) send(ctx context.Context, method, operation string, payload []
 		s.countCall()
 		resp, err := s.hc.Do(req)
 		if err != nil {
-			return nil, fmt.Errorf("portal: %s %s: %w", method, operation, scrubURLError(err))
+			// Even a refused redirect follows a request the server received,
+			// so for a create every transport failure leaves the outcome
+			// unknown.
+			return nil, unknownUnless(idempotent, fmt.Errorf("portal: %s %s: %w", method, operation, scrubURLError(err)))
 		}
-		// A throttling response is retried after Retry-After rather than
-		// surfaced as a failure, up to a bounded number of attempts.
+		// A throttling response to a read is retried after Retry-After
+		// rather than surfaced as a failure, up to a bounded number of
+		// attempts. One that may have created something is never re-sent.
 		if resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode == http.StatusServiceUnavailable {
 			s.limiter.OnRateLimit()
 			wait := retryAfter(resp)
 			_ = resp.Body.Close()
+			if !idempotent {
+				return nil, fmt.Errorf("portal: %s: %w (status %d); not retried because this call can create a job (%w): check the job list before sending it again",
+					operation, ErrThrottled, resp.StatusCode, ErrOutcomeUnknown)
+			}
 			if attempt >= maxThrottleRetries {
 				return nil, fmt.Errorf("portal: %s: %w (status %d after %d attempts)",
 					operation, ErrThrottled, resp.StatusCode, attempt+1)
@@ -424,24 +488,37 @@ func (s *Session) send(ctx context.Context, method, operation string, payload []
 		data, readErr := io.ReadAll(resp.Body)
 		closeErr := resp.Body.Close()
 		if readErr != nil {
-			return nil, fmt.Errorf("portal: reading %s response: %w", operation, readErr)
+			return nil, unknownUnless(idempotent, fmt.Errorf("portal: reading %s response: %w", operation, readErr))
 		}
 		if closeErr != nil {
-			return nil, fmt.Errorf("portal: closing %s response: %w", operation, closeErr)
+			return nil, unknownUnless(idempotent, fmt.Errorf("portal: closing %s response: %w", operation, closeErr))
 		}
 		switch {
 		case resp.StatusCode == http.StatusUnauthorized, resp.StatusCode == http.StatusForbidden:
 			return nil, fmt.Errorf("portal: %s: %w (status %d)", operation, ErrNoSession, resp.StatusCode)
+		case resp.StatusCode >= 500:
+			// A server error does not say whether the work was done.
+			return nil, unknownUnless(idempotent, fmt.Errorf("portal: %s: status %d", operation, resp.StatusCode))
 		case resp.StatusCode < 200 || resp.StatusCode > 299:
 			return nil, fmt.Errorf("portal: %s: status %d", operation, resp.StatusCode)
 		}
 		s.limiter.OnSuccess()
 		var env envelope
 		if err := json.Unmarshal(data, &env); err != nil {
-			return nil, fmt.Errorf("portal: decoding %s response: %w", operation, err)
+			// A 2xx the client cannot read may still mean the job exists.
+			return nil, unknownUnless(idempotent, fmt.Errorf("portal: decoding %s response: %w", operation, err))
 		}
 		return &env, nil
 	}
+}
+
+// unknownUnless wraps err in ErrOutcomeUnknown for an operation that may
+// create something.
+func unknownUnless(idempotent bool, err error) error {
+	if idempotent {
+		return err
+	}
+	return fmt.Errorf("%w: %w", ErrOutcomeUnknown, err)
 }
 
 // failureText picks the most useful message an envelope carries.
@@ -485,4 +562,82 @@ func scrubURLError(err error) error {
 		return ue.Err
 	}
 	return err
+}
+
+// ErrRedirectRefused is returned when a portal request is redirected off
+// the portal origin, or from https to plain http.
+var ErrRedirectRefused = errors.New("portal: redirect refused")
+
+// maxRedirects matches net/http's own limit.
+const maxRedirects = 10
+
+// redirectPolicy is the session client's CheckRedirect. Go re-sends custom
+// headers on every hop (it strips only Authorization, Cookie and the like
+// when the host changes) and replays the body on a 307 or 308, so following
+// a portal redirect to another host would hand that host the session's CSRF
+// token and the request body. The rules:
+//
+//   - a chain that starts on the portal origin must stay on it. The partner
+//     handoff (/newapp?accessToken= redirecting to /newapp) stays on one
+//     origin and keeps working;
+//   - no hop may go from https to plain http;
+//   - a chain that starts elsewhere (a presigned object-storage link fetched
+//     through a copy of this policy) may change host, because it carries no
+//     session header, but still may not downgrade.
+//
+// next, when set, is the caller's own policy and runs after these rules.
+func redirectPolicy(base *url.URL, next func(*http.Request, []*http.Request) error) func(*http.Request, []*http.Request) error {
+	return func(req *http.Request, via []*http.Request) error {
+		if len(via) == 0 {
+			return nil
+		}
+		if len(via) >= maxRedirects {
+			return fmt.Errorf("%w: stopped after %d redirects", ErrRedirectRefused, maxRedirects)
+		}
+		prev := via[len(via)-1].URL
+		if strings.EqualFold(prev.Scheme, "https") && !strings.EqualFold(req.URL.Scheme, "https") {
+			return fmt.Errorf("%w: %s redirected to %s, which drops https", ErrRedirectRefused, originOf(prev), originOf(req.URL))
+		}
+		if sameOrigin(via[0].URL, base) && !sameOrigin(req.URL, base) {
+			return fmt.Errorf("%w: the portal at %s redirected to %s; the session is never sent to another origin (if that host is the customer portal, set CLOUDALLY_PORTAL_URL to it)",
+				ErrRedirectRefused, originOf(base), originOf(req.URL))
+		}
+		if next != nil {
+			return next(req, via)
+		}
+		return nil
+	}
+}
+
+// originOf renders scheme://host[:port] and nothing else: a redirect target
+// can carry a token in its path or query.
+func originOf(u *url.URL) string {
+	if u == nil {
+		return ""
+	}
+	return strings.ToLower(u.Scheme) + "://" + strings.ToLower(u.Host)
+}
+
+// sameOrigin compares scheme, host and effective port.
+func sameOrigin(a, b *url.URL) bool {
+	if a == nil || b == nil {
+		return false
+	}
+	return strings.EqualFold(a.Scheme, b.Scheme) &&
+		strings.EqualFold(a.Hostname(), b.Hostname()) &&
+		effectivePort(a) == effectivePort(b)
+}
+
+// effectivePort fills in the scheme's default port.
+func effectivePort(u *url.URL) string {
+	if p := u.Port(); p != "" {
+		return p
+	}
+	switch strings.ToLower(u.Scheme) {
+	case "https":
+		return "443"
+	case "http":
+		return "80"
+	}
+	return ""
 }

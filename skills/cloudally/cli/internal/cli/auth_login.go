@@ -3,6 +3,8 @@
 package cli
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -38,7 +40,122 @@ type authContext struct {
 	PartnerRefreshToken string    `json:"partner_refresh_token,omitempty"`
 	PartnerTokenExpiry  time.Time `json:"partner_token_expiry,omitempty"`
 	RefreshExpiresAt    time.Time `json:"refresh_expires_at,omitempty"`
-	UpdatedAt           time.Time `json:"updated_at"`
+	// TokenFingerprint and RefreshFingerprint bind this record to the
+	// active credential it describes: truncated SHA-256 hashes, never the
+	// tokens, each taken over the API origin, the API client id and the
+	// token. Principal is who that credential acts as: "partner",
+	// "account:<id>" after use-account, or "company:<email hash>" after a
+	// company login. The local store is keyed by the principal only while
+	// the active access token, origin and client id match, so a token from
+	// the environment, from set-token or from another API client is never
+	// filed under a principal it was not issued for; and a refresh follows
+	// the binding only when the refresh token matches too.
+	TokenFingerprint   string `json:"token_fingerprint,omitempty"`
+	RefreshFingerprint string `json:"refresh_fingerprint,omitempty"`
+	Principal          string `json:"principal,omitempty"`
+	// PartnerFingerprint is set only when the kept partner session (access
+	// and refresh token together) is known to come from a partner login,
+	// directly or by refreshing one. A session kept without that provenance
+	// is still used to mint and restore, but is never filed as the partner.
+	PartnerFingerprint string    `json:"partner_fingerprint,omitempty"`
+	UpdatedAt          time.Time `json:"updated_at"`
+}
+
+// Store principals. principalPartner covers every partner login of one API
+// client: the key pair is created in one partner portal.
+const (
+	principalPartner       = "partner"
+	principalAccountPrefix = "account:"
+	principalCompanyPrefix = "company:"
+)
+
+// authBinding is what a binding fingerprint is taken over besides the
+// token: the API origin and the API client id the token was issued through.
+type authBinding struct {
+	origin   string
+	clientID string
+}
+
+// bindingFor reads the binding inputs from a loaded config.
+func bindingFor(cfg *config.Config) authBinding {
+	if cfg == nil {
+		return authBinding{}
+	}
+	return authBinding{origin: cloudallyStoreOrigin(cfg.BaseURL), clientID: strings.TrimSpace(cfg.ClientID)}
+}
+
+// fingerprint is a truncated SHA-256 over the binding and the given tokens.
+// An empty token list element is hashed as empty, so "no refresh token" is
+// itself a recorded fact.
+func (b authBinding) fingerprint(tokens ...string) string {
+	h := sha256.New()
+	h.Write([]byte("cloudally-auth-binding\x00" + b.origin + "\x00" + b.clientID))
+	for _, t := range tokens {
+		h.Write([]byte("\x00" + strings.TrimSpace(t)))
+	}
+	return hex.EncodeToString(h.Sum(nil)[:16])
+}
+
+// companyPrincipal names a company login by a hash of its login email, so
+// two companies signed in with the same API key pair never share a store.
+func companyPrincipal(email string) string {
+	sum := sha256.Sum256([]byte(strings.ToLower(strings.TrimSpace(email))))
+	return principalCompanyPrefix + hex.EncodeToString(sum[:8])
+}
+
+// bindTo records that access (with its refresh token) is the active
+// credential for binding b and acts as principal. An empty principal clears
+// the binding, so the token gets the per-token store.
+func (a *authContext) bindTo(b authBinding, access, refresh, principal string) {
+	if principal == "" || strings.TrimSpace(access) == "" || b.clientID == "" {
+		a.TokenFingerprint, a.RefreshFingerprint, a.Principal = "", "", ""
+		return
+	}
+	a.TokenFingerprint = b.fingerprint(access)
+	a.RefreshFingerprint = b.fingerprint(refresh)
+	a.Principal = principal
+}
+
+// activePrincipal returns the principal this record names for access under
+// binding b, or "" when the record does not describe it. A record without a
+// fingerprint, or one for another token, origin or client id, vouches for
+// nothing.
+func (a *authContext) activePrincipal(b authBinding, access string) string {
+	if a == nil || strings.TrimSpace(access) == "" || a.TokenFingerprint == "" || b.clientID == "" {
+		return ""
+	}
+	if a.TokenFingerprint != b.fingerprint(access) {
+		return ""
+	}
+	return a.Principal
+}
+
+// refreshPrincipal is activePrincipal for a credential about to be
+// refreshed: the refresh token has to be the one bound too, or a refresh
+// token from another session could mint a token filed under this principal.
+func (a *authContext) refreshPrincipal(b authBinding, access, refresh string) string {
+	p := a.activePrincipal(b, access)
+	if p == "" || a.RefreshFingerprint != b.fingerprint(refresh) {
+		return ""
+	}
+	return p
+}
+
+// stashPartner keeps a partner session aside. verified says the session is
+// known to come from a partner login; only then is it fingerprinted as one.
+func (a *authContext) stashPartner(b authBinding, access, refresh string, expiry time.Time, verified bool) {
+	a.PartnerAccessToken, a.PartnerRefreshToken, a.PartnerTokenExpiry = access, refresh, expiry
+	a.PartnerFingerprint = ""
+	if verified && strings.TrimSpace(access) != "" && b.clientID != "" {
+		a.PartnerFingerprint = b.fingerprint(access, refresh)
+	}
+}
+
+// stashIsPartner reports whether the kept session is a verified partner
+// session for binding b.
+func (a *authContext) stashIsPartner(b authBinding) bool {
+	return a != nil && strings.TrimSpace(a.PartnerAccessToken) != "" && b.clientID != "" &&
+		a.PartnerFingerprint == b.fingerprint(a.PartnerAccessToken, a.PartnerRefreshToken)
 }
 
 func authContextPath() (string, error) {
@@ -49,14 +166,37 @@ func authContextPath() (string, error) {
 	return filepath.Join(dir, authContextFileName), nil
 }
 
+// authContextVerifyPerms is the private-file guard the sidecar must pass on
+// every write and read: the same check credentials.toml gets (mode 0600 on
+// POSIX, owner and DACL on Windows). A variable only so a test can stand in
+// for a platform where the written file comes out unsafe.
+var authContextVerifyPerms = cliutil.VerifyCredsPerms
+
+// authContextSource names the sidecar in a refusal message.
+const authContextSource = "partner session file"
+
 // loadAuthContext reads the sidecar. A missing or unreadable file reports
-// ok=false; callers treat that as "partner scope, nothing stashed".
+// ok=false; callers treat that as "partner scope, nothing stashed". The file
+// holds partner tokens, so like credentials.toml it is refused (with a
+// message on stderr naming the path and the fix) when another user can read
+// it, rather than trusted.
 func loadAuthContext() (*authContext, bool) {
 	path, err := authContextPath()
 	if err != nil {
 		return nil, false
 	}
-	data, err := os.ReadFile(filepath.Clean(path))
+	real, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			cliutil.ReportCredentialRefusal(cliutil.CredentialRefusal{Source: authContextSource, Path: path, Err: err, CredentialsPresent: true})
+		}
+		return nil, false
+	}
+	if permErr := authContextVerifyPerms(real); permErr != nil {
+		cliutil.ReportCredentialRefusal(cliutil.CredentialRefusal{Source: authContextSource, Path: path, Err: permErr, CredentialsPresent: true})
+		return nil, false
+	}
+	data, err := os.ReadFile(filepath.Clean(real)) // #nosec G304 -- app-owned state path from cliutil.StateDir.
 	if err != nil {
 		return nil, false
 	}
@@ -67,6 +207,10 @@ func loadAuthContext() (*authContext, bool) {
 	return &actx, true
 }
 
+// saveAuthContext writes the sidecar the way SaveCredentials writes
+// credentials.toml: an atomic private write, then the platform guard on the
+// file that landed. A file that fails the guard is removed rather than left
+// holding partner tokens where another user can read them.
 func saveAuthContext(actx *authContext) error {
 	path, err := authContextPath()
 	if err != nil {
@@ -77,7 +221,36 @@ func saveAuthContext(actx *authContext) error {
 	if err != nil {
 		return err
 	}
-	return cliutil.AtomicWritePrivateFile(path, data, 0o600, 0o700)
+	if err := cliutil.AtomicWritePrivateFile(path, data, 0o600, 0o700); err != nil {
+		return err
+	}
+	real, err := filepath.EvalSymlinks(path)
+	if err == nil {
+		err = authContextVerifyPerms(real)
+	}
+	if err != nil {
+		if rmErr := os.Remove(path); rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
+			return fmt.Errorf("%s at %s failed the private-file check (%v) and could not be removed: %w; delete it by hand", authContextSource, path, err, rmErr)
+		}
+		return fmt.Errorf("%s at %s failed the private-file check and was removed: %w", authContextSource, path, err)
+	}
+	return nil
+}
+
+// clearAuthContext deletes the sidecar. Every command that clears or
+// replaces the stored credential calls it: the sidecar keeps a partner
+// access and refresh token aside, so leaving it behind would let
+// `auth use-account --partner` bring the partner session back after a
+// logout. A file that cannot be removed is an error the caller must surface.
+func clearAuthContext() error {
+	path, err := authContextPath()
+	if err != nil {
+		return fmt.Errorf("locating %s: %w", authContextFileName, err)
+	}
+	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("removing the %s %s (it holds the partner tokens): %w; delete it by hand", authContextSource, path, err)
+	}
+	return nil
 }
 
 // maskEmail keeps the first character and the domain: t***@example.com.
@@ -219,13 +392,20 @@ CLOUDALLY_CLIENT_SECRET.`,
 				return configErr(fmt.Errorf("saving tokens: %w", err))
 			}
 			actx := &authContext{Scope: scope, RefreshExpiresAt: refreshExpiry}
+			binding := bindingFor(cfg)
 			if scope == authScopePartner {
-				actx.PartnerAccessToken = accessToken
-				actx.PartnerRefreshToken = refreshToken
-				actx.PartnerTokenExpiry = expiry
+				actx.stashPartner(binding, accessToken, refreshToken, expiry, true)
+				actx.bindTo(binding, accessToken, refreshToken, principalPartner)
+			} else {
+				actx.bindTo(binding, accessToken, refreshToken, companyPrincipal(email))
 			}
 			if err := saveAuthContext(actx); err != nil {
 				fmt.Fprintf(cmd.ErrOrStderr(), "warning: could not write %s: %v\n", authContextFileName, err)
+				// A sidecar left from an earlier session would describe the
+				// wrong token (and could hold an older partner session).
+				if clearErr := clearAuthContext(); clearErr != nil {
+					fmt.Fprintf(cmd.ErrOrStderr(), "warning: %v\n", clearErr)
+				}
 			}
 
 			expiresAt := ""
