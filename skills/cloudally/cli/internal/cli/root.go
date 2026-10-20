@@ -6,12 +6,15 @@ package cli
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"text/tabwriter"
 	"time"
 
@@ -179,7 +182,14 @@ func Execute() (retErr error) {
 	rootCmd := newRootCmd(&flags)
 	defer finalizePlatformInvocation(&flags, &retErr)
 
-	executedCmd, err := rootCmd.ExecuteC()
+	// Ctrl-C or a tool timeout cancels the command's context, so a
+	// restore or download run stops at a safe point and prints how to
+	// resume. The first signal releases the handler, so a second Ctrl-C
+	// still kills a command that ignores its context.
+	sigCtx, stopSignals := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stopSignals()
+	go func() { <-sigCtx.Done(); stopSignals() }()
+	executedCmd, err := rootCmd.ExecuteContextC(sigCtx)
 	var journalFailedFlag, journalSuggestedFlag string
 	defer func() {
 		journalInvocation(&flags, rootCmd, executedCmd, retErr, journalFailedFlag, journalSuggestedFlag)

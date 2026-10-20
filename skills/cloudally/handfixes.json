@@ -493,6 +493,24 @@
           "contains": "want the credential's own store %q, not the unowned unscoped %q"
         }
       ]
+    },
+    {
+      "id": "execute-cancels-on-interrupt",
+      "summary": "Execute runs the command under signal.NotifyContext, so Ctrl-C or a tool timeout cancels the context and restore/download runs stop at a safe point and print how to resume",
+      "why": "The 4.33.5 Execute called ExecuteC with no context: a SIGINT killed restore submit at once with nothing printed although restores were already sent (PR #400 round-4 runtime review, rc=-2 with empty stderr). With the context, an interrupted run exits 5 and prints the exact --resume command (verified with a real SIGINT against a stub). root.go is generated, so a reprint drops it.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "sigCtx, stopSignals := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/root.go",
+          "contains": "executedCmd, err := rootCmd.ExecuteContextC(sigCtx)",
+          "code_only": true
+        }
+      ]
     }
   ]
 }
