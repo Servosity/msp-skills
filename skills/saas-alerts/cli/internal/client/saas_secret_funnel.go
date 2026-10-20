@@ -222,7 +222,7 @@ func (c *Client) funnelText(text string, extra ...string) string {
 // for display) is checked for a token too.
 func (c *Client) funnelShown(path, text string, extra ...string) string {
 	text = c.funnelText(text, extra...)
-	if strings.Contains(path, "/outgoingWebhookApi/") && webhookTokenValueLeft([]byte(text), webhookTokenLoose) {
+	if strings.Contains(path, "/outgoingWebhookApi/") && webhookTokenLeftInText([]byte(text)) {
 		return webhookWithheldText
 	}
 	return text

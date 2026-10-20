@@ -282,6 +282,8 @@ func TestWebhookTokenBackstopCatchesWhatTheWalkMisses(t *testing.T) {
 		`{"token":"test-secret-dup","token":null}`,
 		`{"items":[{"id":1,"` + bs + `u0074oken":"test-secret-escaped"`,
 		`{"id":1,"Token": "test-secret-cased"} trailing`,
+		`{"token":"'test-secret-quote","token":null}`,
+		`{"token":"'test-secret-quote2","token":null} trailing`,
 	} {
 		if out := string(withholdWebhookTokens(path, []byte(body))); strings.Contains(out, "test-secret") {
 			t.Fatalf("%s leaked: %s", body, out)

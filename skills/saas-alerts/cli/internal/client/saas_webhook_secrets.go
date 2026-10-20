@@ -58,7 +58,7 @@ func withholdWebhookTokens(path string, body json.RawMessage) json.RawMessage {
 			break
 		}
 		if err != nil {
-			if webhookTokenValueLeft(body, webhookTokenLoose) {
+			if webhookTokenLeftInText(body) {
 				whole, _ := json.Marshal(WebhookTokenWithheld)
 				return whole
 			}
@@ -83,6 +83,12 @@ func withholdWebhookTokens(path string, body json.RawMessage) json.RawMessage {
 		return whole
 	}
 	return out
+}
+
+// webhookTokenLeftInText checks text that is not (only) JSON with both the
+// strict and the loose pattern.
+func webhookTokenLeftInText(text []byte) bool {
+	return webhookTokenValueLeft(text, webhookTokenStrict) || webhookTokenValueLeft(text, webhookTokenLoose)
 }
 
 // webhookTokenValueLeft reports whether text, in any view the secret funnel's
