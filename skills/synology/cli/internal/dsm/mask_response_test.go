@@ -117,3 +117,14 @@ func TestMaskComparesEveryDecodingStage(t *testing.T) {
 		t.Fatalf("a value that is not a secret at any stage was masked: %s", out)
 	}
 }
+
+// TestMaskKeepsTheHeldSecretLength: a password held with surrounding spaces
+// (" abcdefg", 8 characters) is masked inside text by its held form; trimming
+// it first made it a 7-character secret and skipped inside-text masking.
+func TestMaskKeepsTheHeldSecretLength(t *testing.T) {
+	body := `{"success":true,"data":{"note":"prefix abcdefg suffix","whole":"abcdefg"}}`
+	out := string(MaskResponse([]byte(body), " abcdefg"))
+	if strings.Contains(out, "abcdefg") {
+		t.Fatalf("a held secret with a leading space survived masking: %s", out)
+	}
+}

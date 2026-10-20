@@ -224,16 +224,19 @@ type responseMasker struct {
 
 func newResponseMasker(secrets []string) *responseMasker {
 	m := &responseMasker{exact: map[string]bool{}}
-	for _, v := range secrets {
-		v = strings.TrimSpace(v)
-		if v == "" || m.exact[v] {
-			continue
-		}
-		m.exact[v] = true
-		if len(v) >= secretSubstringMin {
-			m.sub = append(m.sub, v)
-			m.forms = append(m.forms, v, url.QueryEscape(v), url.PathEscape(v), url.QueryEscape(url.QueryEscape(v)),
-				url.PathEscape(url.PathEscape(v)), html.EscapeString(v))
+	for _, raw := range secrets {
+		// The secret exactly as held and its trimmed form are both secrets:
+		// trimming must never drop a held value below secretSubstringMin.
+		for _, v := range []string{raw, strings.TrimSpace(raw)} {
+			if strings.TrimSpace(v) == "" || m.exact[v] {
+				continue
+			}
+			m.exact[v] = true
+			if len(v) >= secretSubstringMin {
+				m.sub = append(m.sub, v)
+				m.forms = append(m.forms, v, url.QueryEscape(v), url.PathEscape(v), url.QueryEscape(url.QueryEscape(v)),
+					url.PathEscape(url.PathEscape(v)), html.EscapeString(v))
+			}
 		}
 	}
 	if len(m.exact) == 0 {
