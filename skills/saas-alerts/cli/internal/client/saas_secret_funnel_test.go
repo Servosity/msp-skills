@@ -347,3 +347,25 @@ func TestBinaryLabelledAnswerNeverCarriesASecret(t *testing.T) {
 		t.Fatalf("binary-labelled webhook answer kept its token: %s err=%v", data, err)
 	}
 }
+
+// TestSecretHoldingDecodableTextIsStillCaught: a secret that itself contains
+// a literal %41 (or an entity), echoed HTML-escaped, is caught although the
+// decoders transform the secret's own text.
+func TestSecretHoldingDecodableTextIsStillCaught(t *testing.T) {
+	const tok = "Q7zXwTok-pct%41-amp&amp;-0000"
+	answer := ""
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(answer))
+	}))
+	defer srv.Close()
+	c := New(&config.Config{BaseURL: srv.URL, AuthHeaderVal: "test-key-0000", SaasAlertsApiKey: "test-key-0000"}, 5*time.Second, 0)
+	for _, enc := range []string{html.EscapeString(tok), strings.ReplaceAll(html.EscapeString(tok), "%", "&#37;")} {
+		answer = `{"message":"bad token ` + enc + `"}`
+		_, _, err := c.Post(context.Background(), "/outgoingWebhookApi/api/v1/subscriptions", map[string]any{"url": "https://hooks.example.com/x", "token": tok})
+		if err == nil || strings.Contains(err.Error(), "Q7zX") {
+			t.Fatalf("%s leaked: %v", enc, err)
+		}
+	}
+}

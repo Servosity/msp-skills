@@ -35,9 +35,30 @@ func (c *Client) funnelSecrets(extra ...string) []string {
 	for _, s := range c.credentialSecrets(extra...) {
 		if len(s) >= 8 {
 			secrets = append(secrets, s)
+			// A secret that itself holds decodable text (a literal %41,
+			// &amp; or \u0041) is also looked for fully decoded, since the
+			// answer's views are decoded the same way before matching.
+			if d := fullyDecoded(s); d != s && len(d) >= 8 {
+				secrets = append(secrets, d)
+			}
 		}
 	}
 	return secrets
+}
+
+// fullyDecoded applies the funnel decoders until nothing changes (capped at
+// 32 rounds, as anyDecodedView is).
+func fullyDecoded(s string) string {
+	for round := 0; round < 32; round++ {
+		before := s
+		for _, decode := range funnelDecoders {
+			s = decode(s)
+		}
+		if s == before {
+			break
+		}
+	}
+	return s
 }
 
 // echoesCredential reports whether body quotes back a funnel secret. It reads
