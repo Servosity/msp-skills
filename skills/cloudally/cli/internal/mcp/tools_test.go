@@ -112,12 +112,15 @@ func TestMCPDBPathUsesCredentialScopedStore(t *testing.T) {
 	if err := os.WriteFile(legacy, []byte{}, 0o600); err != nil {
 		t.Fatalf("write legacy data.db: %v", err)
 	}
+	// Hand-wired (cloudally): an unowned data.db may hold another tenant's
+	// rows, so a credential never adopts it; the scoped store stays.
+	scoped := got
 	got, err = mcpDBPath()
 	if err != nil {
 		t.Fatalf("mcpDBPath() after legacy file error = %v", err)
 	}
-	if got != legacy {
-		t.Fatalf("MCP db path = %q, want existing unscoped %q", got, legacy)
+	if got != scoped {
+		t.Fatalf("MCP db path = %q, want the credential's own store %q, not the unowned unscoped %q", got, scoped, legacy)
 	}
 }
 

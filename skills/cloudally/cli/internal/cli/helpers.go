@@ -4662,6 +4662,10 @@ func defaultDBPathInDir(dir string) string {
 			}
 			return scoped
 		}
+		// Hand-wired (cloudally): never adopt an unowned data.db; see unscopedStoreAdoptable.
+		if !unscopedStoreAdoptable(unscoped, scopeHash) {
+			return scoped
+		}
 		if owned, decided := claimLegacyUnscopedDB(dir, unscoped, scopeHash, label); !decided || owned {
 			return unscoped
 		}

@@ -331,9 +331,10 @@ func TestUnwritableUnclaimedMarkerFailsClosed(t *testing.T) {
 	isolateAuthState(t)
 	resetStoreScope(t)
 	userAuthStub(t)
+	mustRun(t, "auth", "login", "--partner", "--email", "restricted@msp.example", "--password", "pw")
+	// data.db appears after the login (which already marks an existing one).
 	unscoped := currentStorePathUnscoped(t)
 	writeStoreMarker(t, unscoped, "an earlier user's rows")
-	mustRun(t, "auth", "login", "--partner", "--email", "restricted@msp.example", "--password", "pw")
 
 	dir := filepath.Dir(unscoped)
 	if err := os.Chmod(dir, 0o555); err != nil {

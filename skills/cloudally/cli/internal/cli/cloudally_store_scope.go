@@ -77,9 +77,21 @@ func cloudallyStoreScopeIdentity(c *config.Config) string {
 var errStoreScopeUnbound = errors.New("the local restore history cannot be matched to the signed-in CloudAlly user")
 
 // resolveStoreScope decides the store identity. err is non-nil when the
-// per-token fallback would be wrong: an auth record exists but cannot be
-// used for the active credential.
+// per-token fallback would be wrong (an auth record exists but cannot be
+// used for the active credential), or when an unowned data.db could not be
+// marked as belonging to no one. The marker is published on every path,
+// the per-token ones included: any credential, not only a per-user one,
+// must keep out of a data.db another tenant may have filled.
 func resolveStoreScope(c *config.Config) (string, error) {
+	id, err := decideStoreScope(c)
+	if markErr := markUnscopedStoreUnclaimed(); markErr != nil && err == nil {
+		err = fmt.Errorf("%w: %v", errStoreScopeUnbound, markErr)
+	}
+	return id, err
+}
+
+// decideStoreScope is resolveStoreScope without the data.db marker.
+func decideStoreScope(c *config.Config) (string, error) {
 	if c == nil {
 		return "", nil
 	}
@@ -111,17 +123,29 @@ func resolveStoreScope(c *config.Config) (string, error) {
 		return "", nil
 	}
 	id := "cloudally:origin=" + binding.origin + "|principal=" + principal
-	if err := markUnscopedStoreUnclaimed(); err != nil {
-		return id, fmt.Errorf("%w: %v", errStoreScopeUnbound, err)
-	}
 	return id, nil
+}
+
+// unscopedStoreAdoptable reports whether data.db already belongs to the
+// scope with this hash, because its owner marker names it. The generated
+// store logic (helpers.go defaultDBPathInDir) calls it before its own claim,
+// so an unowned data.db (no marker, an empty one, or the unclaimed marker)
+// is never adopted by any credential: a per-user login, a token from the
+// environment, a raw auth header, or a token whose user is not known. A
+// data.db an earlier run already claimed stays with that owner.
+func unscopedStoreAdoptable(unscoped, scopeHash string) bool {
+	if strings.TrimSpace(scopeHash) == "" {
+		return false
+	}
+	data, err := os.ReadFile(unscoped + ".owner") // #nosec G304 -- app-owned data path from cliutil.DataDir.
+	return err == nil && strings.TrimSpace(string(data)) == scopeHash
 }
 
 // unclaimedMarker is the owner marker written for an unscoped data.db.
 const unclaimedMarker = "unclaimed: data.db predates per-user stores and is never adopted into one"
 
 // markUnscopedStoreUnclaimed keeps an old unscoped data.db out of every
-// per-user store. The generated store logic hands an unowned data.db to the
+// store, including an older binary's (which would otherwise still claim it). The generated store logic hands an unowned data.db to the
 // first scope that runs; with per-user stores that would give a store of
 // unknown origin (perhaps filled by another user) to whichever user signs
 // in first. A non-empty owner marker that names no scope makes that claim
