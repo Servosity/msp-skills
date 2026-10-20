@@ -455,6 +455,13 @@ func TestTextRuleKeepsPlaceholdersAndProse(t *testing.T) {
 		"Uninstall PIN [Acme]: 482915", "Uninstall PIN \u2013 HQ: 482915", "Uninstall PIN \u2014 HQ: 4821", "Uninstall PIN @ HQ: 4821",
 		"Uninstall PIN {Acme}: 4821", "Uninstall PIN <Acme>: 4821", "secret_key#1: abc", "Uninstall PIN#2: 482915",
 		"password for " + strings.Repeat("A", 130) + ": hunter2", `{"note":"password for ` + strings.Repeat("A ", 300) + `: hunter2"}`,
+		// Quoted names inside a qualifier, and Windows UNC paths, do not end it.
+		"Admin password for 'Main Office', HQ: hunter2", `Admin password for "Main Office", backup: hunter2`,
+		"Uninstall PIN for ['HQ', 'Branch'] laptops: 482915", "Wi-Fi password for 'Guest', staff: hunter2",
+		`{"note":"Admin password for \"Main Office\", HQ: hunter2"}`, "Uninstall PIN 'HQ' laptops: 482915",
+		`Local admin password for \\dc01\netlogon: hunter2`, `svc_backup password on \\nas\records: hunter2`,
+		`Uninstall PIN for \\srv\new-hires laptops: 482923`, `{"note":"Admin password for \\\\dc01\\netlogon: hunter2"}`,
+		`PIN "Acme" (laptops): 482915`, `Admin password "Main Office" backup: hunter2`, `{"note":"PIN \"Acme\" (laptops): 482915"}`,
 		// Semicolon tables and long spaced headers.
 		"Site;Network Secret Key;Address\nHQ;abc123;1 Main", "Site;secret_key;Address\nHQ;abc123;1 Main",
 		"Site,Roaming Client Uninstall PIN\nHQ,482915",
@@ -477,6 +484,7 @@ func TestTextRuleStaysLinear(t *testing.T) {
 		strings.Repeat("(:", 500000),
 		strings.Repeat("(:", 500000) + strings.Repeat("\\", 64),
 		strings.Repeat("PIN (a): ", 100000),
+		strings.Repeat("API Key, ", 60000) + strings.Repeat("\n", 500000) + "x",
 	} {
 		start := time.Now()
 		TextNamesSecret(big)

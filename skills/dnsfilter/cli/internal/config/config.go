@@ -818,6 +818,10 @@ type persistedConfig struct {
 	Headers map[string]string `toml:"headers,omitempty"`
 }
 
+// LegacyConfigPath is the legacy config file credentials were read from, if
+// any. HAND-FIX(placeholder-remedy-names-the-source)
+func (c *Config) LegacyConfigPath() string { return c.legacySourcePath }
+
 func (c *Config) persisted() persistedConfig {
 	return persistedConfig{
 		BaseURL: c.BaseURL,

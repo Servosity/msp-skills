@@ -26,11 +26,11 @@ func TestPlaceholderRemedyNamesTheSource(t *testing.T) {
 		t.Fatalf("config placeholder: %q", got)
 	}
 	cfg.CredentialSource = "credentials file"
-	if got := authPlaceholderCredentialErrorWithSetup(cfg, "fix").Error(); !strings.Contains(got, "saved credentials file") || strings.Contains(got, "config.toml") {
+	if got := authPlaceholderCredentialErrorWithSetup(cfg, "fix").Error(); !strings.Contains(got, "saved credentials file (auth set-token writes it and prints its path)") || strings.Contains(got, "config.toml") {
 		t.Fatalf("credentials-file placeholder: %q", got)
 	}
 	setup := `export DNSFILTER_API_KEY="your-token-here" (PowerShell: $env:DNSFILTER_API_KEY = "your-token-here")`
-	for _, src := range [][2]string{{"env:DNSFILTER_API_KEY", ""}, {"config", "credentials file"}, {"config", "config file"}} {
+	for _, src := range [][2]string{{"env:DNSFILTER_API_KEY", ""}, {"config", "credentials file"}, {"config", "config file"}, {"config", "legacy config path"}} {
 		c := &config.Config{Path: "/home/x/config.toml", AuthSource: src[0], CredentialSource: src[1]}
 		if msg := authPlaceholderCredentialErrorWithSetup(c, setup).Error(); store.TextNamesSecret(msg) {
 			t.Fatalf("read-only MCP would withhold the remedy: %q", msg)

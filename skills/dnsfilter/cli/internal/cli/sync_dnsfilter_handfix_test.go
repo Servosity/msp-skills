@@ -813,8 +813,7 @@ func TestSyncDependentWithNoParentRows(t *testing.T) {
 func TestSyncDependentParentGenerationIsCaptured(t *testing.T) {
 	testenv.Isolate(t)
 	dbPath := filepath.Join(t.TempDir(), "data.db")
-	var once sync.Once
-	var racing atomic.Bool
+	var fired, racing atomic.Bool
 	syncFleetServer(t, func(path string, q url.Values) (string, bool) {
 		switch {
 		case path == "/v1/networks/all":
@@ -823,27 +822,44 @@ func TestSyncDependentParentGenerationIsCaptured(t *testing.T) {
 			}
 			return `{"data":[{"id":"50","type":"networks","attributes":{"name":"HQ"}}]}`, true
 		case strings.HasPrefix(path, "/v1/networks/") && racing.Load():
-			once.Do(func() {
-				db, err := store.Open(dbPath)
-				if err != nil {
-					t.Error(err)
-					return
-				}
-				defer db.Close()
-				if err := db.SaveSyncState("networks", "", 2); err != nil {
-					t.Error(err)
-				}
-			})
+			if fired.CompareAndSwap(false, true) {
+				func() {
+					db, err := store.Open(dbPath)
+					if err != nil {
+						t.Error(err)
+						return
+					}
+					defer db.Close()
+					if err := db.SaveSyncStateAt("networks", "", 2, time.Now().Add(time.Hour)); err != nil {
+						t.Error(err)
+					}
+				}()
+			}
 			return `{"data":[]}`, true
 		}
 		return "", false
 	})
 	syncHFRunOK(t, "sync", "--resources", "networks", "--resource-param", "networks:organization_id=1", "--db", dbPath)
 	syncHFWantComplete(t, dbPath, "networks", 0, "narrowed networks walk")
+	// A requested scope does not hide an uncertified parent collection.
+	out, err := syncHFRun("sync", "--resources", "lan_ips", "--global-param", "foo=1", "--db", dbPath)
+	if err == nil || !strings.Contains(out, "parent_collection_incomplete") {
+		t.Fatalf("a scoped lan_ips walk under an incomplete parent succeeded (err=%v):\n%s", err, out)
+	}
 	racing.Store(true)
 	syncHFRun("sync", "--resources", "lan_ips", "--db", dbPath)
 	syncHFWantComplete(t, dbPath, "networks", 1, "networks completed by the concurrent writer")
 	syncHFWantComplete(t, dbPath, "lan_ips", 0, "lan_ips enumerated while networks was incomplete")
+
+	// A new parent generation completed during a child walk that started
+	// from a complete parent is not certified either.
+	racing.Store(false)
+	syncHFRunOK(t, "sync", "--resources", "networks", "--db", dbPath)
+	syncHFWantComplete(t, dbPath, "lan_ips", 1, "lan_ips under a complete networks walk")
+	fired.Store(false)
+	racing.Store(true)
+	syncHFRun("sync", "--resources", "lan_ips", "--db", dbPath)
+	syncHFWantComplete(t, dbPath, "lan_ips", 0, "lan_ips while a new networks generation completed")
 }
 
 func TestSyncCollectionGeneration(t *testing.T) {

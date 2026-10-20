@@ -382,11 +382,21 @@ func TextNamesSecret(text string) bool {
 	if len(lines) < 2 {
 		return false
 	}
+	// nextRow[i] is the first non-empty line after line i (-1: none), found
+	// in one backward pass so the header check stays linear.
+	nextRow := make([]int, len(lines))
+	for i, next := len(lines)-1, -1; i >= 0; i-- {
+		nextRow[i] = next
+		if strings.TrimSpace(lines[i]) != "" {
+			next = i
+		}
+	}
 	for i, line := range lines {
 		cells := tableSplitRE.Split(strings.TrimSpace(line), -1)
 		if len(cells) < 2 {
 			continue
 		}
+		nextIsRow := -1 // unknown until a spaced label needs it
 		for _, c := range cells {
 			c = strings.Trim(c, `"' `)
 			if len(c) > 64 {
@@ -398,22 +408,20 @@ func TextNamesSecret(text string) bool {
 			// A spaced label (API Key) heads a column only in a table: the
 			// next non-empty line is a delimited row too. Its cell count is
 			// not compared, since a quoted comma in a CSV row adds cells.
-			if tableLabelRE.MatchString(c) && labelNamesSecret(c) && nextRowCells(lines[i+1:]) >= 2 {
-				return true
+			if tableLabelRE.MatchString(c) && labelNamesSecret(c) {
+				if nextIsRow < 0 {
+					nextIsRow = 0
+					if j := nextRow[i]; j >= 0 && len(tableSplitRE.Split(strings.TrimSpace(lines[j]), -1)) >= 2 {
+						nextIsRow = 1
+					}
+				}
+				if nextIsRow == 1 {
+					return true
+				}
 			}
 		}
 	}
 	return false
-}
-
-// nextRowCells counts the cells of the first non-empty line in lines.
-func nextRowCells(lines []string) int {
-	for _, l := range lines {
-		if l = strings.TrimSpace(l); l != "" {
-			return len(tableSplitRE.Split(l, -1))
-		}
-	}
-	return 0
 }
 
 // labelNamesSecret reports whether a label of one to three space-separated
@@ -449,11 +457,16 @@ func labelNamesSecret(label string) bool {
 // earlier in the same segment a secret label was followed by a qualifier,
 // however long: punctuation or a digit (PIN (Acme), password #2, PIN - HQ,
 // PIN, HQ, PIN [Acme], password#2) or a preposition (PIN for Acme laptops).
-// A segment ends at a line break (real or escaped as \n / \r) or at the end
-// of a JSON string (a quote followed by , } or ]), so an org named "Office of
-// the Secretary of State" arms nothing past its own string. A secret word
-// followed by another word is a different label (Password Policy: strict is
-// kept). It reads text at one escape level, as given, and never unescapes;
+// Real double quotes (an even backslash run before them) are tracked as JSON
+// strings: a qualifier armed inside a string ends where that string closes,
+// so an org named "Office of the Secretary of State" arms nothing past its
+// own value, while a quoted name inside a plain-text qualifier ("HQ") does
+// not end it. A double quote arms only when it opens a string after a space
+// (a key's quote sits right against its label), an escaped one is a literal
+// character, and a single quote is punctuation ('Main Office' arms). A segment also ends at a real line break; an
+// escaped one (\n) is text at this level (UNC paths such as \\dc01\netlogon),
+// and the unescape rounds supply the real breaks. A secret word followed by
+// another word is a different label (Password Policy: strict is kept). It reads text at one escape level, as given, and never unescapes;
 // TextNamesSecret runs it on every level of raw text.
 func SecretPairInText(text string) bool {
 	if !strings.ContainsAny(text, ":=") {
@@ -465,6 +478,14 @@ func SecretPairInText(text string) bool {
 	// clean: only whitespace, quotes and backslashes since the last word.
 	// joined: the next word continues the run (only spaces since a word).
 	runSecret, pending, armed, clean, joined := false, false, false, false, false
+	// inString: inside a double-quoted string; armedInString: the qualifier
+	// was armed inside the string that is open.
+	inString, armedInString := false, false
+	arm := func() {
+		if pending {
+			armed, armedInString = true, inString
+		}
+	}
 	for i := 0; i < len(text); {
 		c := text[i]
 		switch {
@@ -478,8 +499,8 @@ func SecretPairInText(text string) bool {
 				j++
 			}
 			w := text[i:j]
-			if pending && labelPrepositions[strings.ToLower(w)] {
-				armed = true
+			if labelPrepositions[strings.ToLower(w)] {
+				arm()
 			}
 			if !joined {
 				run = run[:0]
@@ -494,17 +515,50 @@ func SecretPairInText(text string) bool {
 		case c == ' ' || c == '\t':
 		case c == '\n' || c == '\r':
 			armed, pending, joined = false, false, false
-		case c == '\\' && i+1 < len(text) && (text[i+1] == 'n' || text[i+1] == 'r'):
-			armed, pending, joined = false, false, false
-			i += 2
+		case c == '\\':
+			k := 1
+			for i+k < len(text) && text[i+k] == '\\' {
+				k++
+			}
+			switch {
+			case i+k < len(text) && text[i+k] == '"' && k%2 == 1:
+				// An escaped quote is a literal character at this level: it
+				// neither opens nor closes a string. After a space it is a
+				// quoted qualifier one level down (PIN \"Acme\" (laptops)).
+				if i > 0 && (text[i-1] == ' ' || text[i-1] == '\t') {
+					arm()
+				}
+				pending, joined = false, false
+				k++
+			case i+k < len(text) && text[i+k] == '"':
+				// An even run escapes itself; the quote case handles the
+				// real quote that follows.
+			case k%2 == 1 && i+k < len(text) && text[i+k] == 't':
+				k++ // an escaped tab is whitespace
+			default:
+				// Literal backslashes (a path, an escaped line break read
+				// as text): punctuation.
+				arm()
+				pending, clean, joined = false, false, false
+			}
+			i += k
 			continue
-		case c == '\\' && i+1 < len(text) && text[i+1] == 't':
-			i += 2
-			continue
-		case c == '"' || c == '\'' || c == '\\':
-			if c != '\\' && i+1 < len(text) && (text[i+1] == ',' || text[i+1] == '}' || text[i+1] == ']') {
+		case c == '"':
+			// A real double quote opens or closes a JSON string. An opening
+			// quote after a secret label and a space is a quoted qualifier
+			// (PIN "Acme" (laptops): x); a key's quote sits right against its
+			// label ("password":), so it never arms, whatever the string
+			// phase.
+			if inString && armed && armedInString {
 				armed = false
 			}
+			if !inString && i > 0 && (text[i-1] == ' ' || text[i-1] == '\t') {
+				arm()
+			}
+			inString = !inString
+			pending, joined = false, false
+		case c == '\'':
+			arm()
 			pending, joined = false, false
 		case c == ':' || c == '=':
 			labelled := armed || clean && runSecret
@@ -519,9 +573,7 @@ func SecretPairInText(text string) bool {
 				continue
 			}
 		default:
-			if pending {
-				armed = true
-			}
+			arm()
 			pending, clean, joined = false, false, false
 		}
 		i++

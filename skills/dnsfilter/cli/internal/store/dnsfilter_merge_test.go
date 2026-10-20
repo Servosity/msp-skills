@@ -34,8 +34,8 @@ func TestMergeClearedScalarListIsAuthoritative(t *testing.T) {
 }
 
 func TestMergeExplicitNullTimestampClears(t *testing.T) {
-	existing := json.RawMessage(`{"id":"a1","attributes":{"hostname":"PC-1","uninstalled_at":"2026-01-01","last_sync":"2026-10-01","friendly_name":"Front"}}`)
-	incoming := json.RawMessage(`{"id":"a1","attributes":{"hostname":"PC-1","uninstalled_at":null,"last_sync":null,"friendly_name":null}}`)
+	existing := json.RawMessage(`{"id":"a1","attributes":{"hostname":"PC-1","uninstalled_at":"2026-01-01","last_sync":"2026-10-01","friendly_name":"Front","agent_version":"2.4.1","site":"HQ"}}`)
+	incoming := json.RawMessage(`{"id":"a1","attributes":{"hostname":"PC-1","uninstalled_at":null,"last_sync":null,"friendly_name":null,"agent_version":""}}`)
 	merged, ok := mergeKeepRicherJSON("user-agents", existing, incoming)
 	if !ok {
 		t.Fatal("mergeKeepRicherJSON returned !ok")
@@ -46,13 +46,19 @@ func TestMergeExplicitNullTimestampClears(t *testing.T) {
 	if err := json.Unmarshal(merged, &got); err != nil {
 		t.Fatal(err)
 	}
-	for _, k := range []string{"uninstalled_at", "last_sync"} {
+	// An explicit null or "" is the API's current value (an empty
+	// agent_version is unknown telemetry, not the last version seen); only an
+	// omitted key keeps the stored one.
+	for _, k := range []string{"uninstalled_at", "last_sync", "friendly_name"} {
 		if v, present := got.Attributes[k]; !present || v != nil {
 			t.Fatalf("%s must be present and null after an explicit clear: %s", k, merged)
 		}
 	}
-	if got.Attributes["friendly_name"] != "Front" {
-		t.Fatalf("non-timestamp null should keep the richer value: %s", merged)
+	if got.Attributes["agent_version"] != "" {
+		t.Fatalf("an explicit empty agent_version kept the stale one: %s", merged)
+	}
+	if got.Attributes["site"] != "HQ" {
+		t.Fatalf("an omitted key lost the stored value: %s", merged)
 	}
 }
 

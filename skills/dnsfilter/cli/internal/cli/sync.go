@@ -3923,7 +3923,15 @@ func syncDependentResource(ctx context.Context, c interface {
 	attemptComplete := parentCoverageComplete && reportedParents == len(parentRows) && completeParents == len(parentRows)
 	// HAND-FIX(sync-complete-means-whole-fleet): children of an incomplete
 	// parent collection cover only the parents it holds.
-	if attemptComplete && !parentCertified {
+	// HAND-FIX(sync-dependent-needs-parent-rows): the parent generation is
+	// checked again right before saving, so a parent sync that started or
+	// finished during the child walk (new parents never visited) is not
+	// certified either; an uncertified parent outranks a requested scope.
+	if parentCertified {
+		done, gen := syncCollectionGeneration(db, dep.ParentTable)
+		parentCertified = done && gen == parentGenBefore
+	}
+	if !parentCertified && (attemptComplete || coverageReason == "" || syncScopedByRequest(coverageReason)) {
 		attemptComplete = false
 		coverageReason = "parent_collection_incomplete"
 	}

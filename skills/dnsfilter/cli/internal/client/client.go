@@ -1752,7 +1752,9 @@ func authPlaceholderCredentialErrorWithSetup(cfg *config.Config, setup string) e
 	if cfg != nil && strings.HasPrefix(cfg.AuthSource, "env:") {
 		location = "the " + strings.TrimPrefix(cfg.AuthSource, "env:") + " environment variable"
 	} else if cfg != nil && cfg.CredentialSource == "credentials file" {
-		location = "the saved credentials file (dnsfilter-cli doctor shows its path)"
+		location = "the saved credentials file (auth set-token writes it and prints its path)"
+	} else if cfg != nil && cfg.CredentialSource == "legacy config path" && cfg.LegacyConfigPath() != "" {
+		location = cfg.LegacyConfigPath()
 	}
 	return fmt.Errorf("%w configured in %s; set a real token with: %s", ErrPlaceholderCredential, location, setup)
 }

@@ -5904,8 +5904,12 @@ func mergeKeepRicherObject(resourceType string, existing, incoming map[string]an
 				continue
 			}
 		}
-		if incomingVal == nil && (strings.HasSuffix(key, "_at") || key == "last_sync") {
-			out[key] = nil
+		// Hand-fix (dnsfilter, handfixes.json: merge-explicit-empty-scalar-is-authoritative):
+		// a key the API sends as null or "" is the current value (an empty
+		// agent_version is unknown telemetry, not the last version seen);
+		// only an omitted key keeps the stored one.
+		if incomingVal == nil || incomingVal == "" {
+			out[key] = incomingVal
 			continue
 		}
 		if existingVal, ok := out[key]; ok {
