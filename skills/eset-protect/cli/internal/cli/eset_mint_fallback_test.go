@@ -254,9 +254,11 @@ func TestTokenOutageNeverServesTheResponseCache(t *testing.T) {
 	if strings.Contains(out, `"source": "live"`) || !strings.Contains(out, `"source": "local"`) || !strings.Contains(out, "KIOSK-03") || !strings.Contains(out, `"api_unreachable"`) {
 		t.Fatalf("the cached live answer was served without a token (or no mirror fallback): %s", out)
 	}
-	_, errOut, err := mintFallbackRun(t, home, "search", "KIOSK", "--json")
-	if err != nil || !strings.Contains(errOut, "falling back to local search") {
-		t.Fatalf("search with the token service down: %v\n%s", err, errOut)
+	// search-is-local-only: search never calls ESET, so a token outage
+	// cannot affect it; it answers from the mirror.
+	out, errOut, err := mintFallbackRun(t, home, "search", "KIOSK", "--json")
+	if err != nil || !strings.Contains(out, "KIOSK") {
+		t.Fatalf("search with the token service down: %v\n%s%s", err, out, errOut)
 	}
 	if n := atomic.LoadInt32(&apiHits); n != 0 {
 		t.Fatalf("%d request(s) reached ESET without a token", n)

@@ -3451,7 +3451,7 @@
     {
       "id": "auto-falls-back-when-token-service-is-down",
       "summary": "for a generated GET command (and the root search) built through newClient, a token mint that fails because the token service is down (no answer, a request kept pending, HTTP 5xx or 429: esetTokenError.outage) is recorded on the ESET transport instead of failing the constructor: every request then fails at once with the same error and exit 5, unsent, uncached and unretried, and --data-source auto treats it like an unreachable API (isNetworkError), answers from the local mirror with meta source local, reason api_unreachable, and prints one stderr line naming the token failure in every output mode; --data-source local never needed the token; any other failed answer (another 4xx, a 200 without a token, an HTML page, a redirect, a 202 without response-id) fails at construction with exit 5 and never falls back; a credential rejection still fails at construction (exit 4) and never falls back; every other command (sync, live novel views, writes, doctor, MCP) still fails at construction",
-      "why": "Adversarial round 5 (P2): the token is minted in the client hook while the client is built, before the data-source auto logic runs, so with the documented username/password auth an expired token plus an ESET token service outage (5xx, 429, network) failed every auto read with exit 5 instead of answering from the mirror; round 4 had proved the fallback only with ESET_PROTECT_TOKEN, which never mints. Same classification as mint-exit-code-tracks-rejection (esetTokenError.rejected). Scope is opt-in and fail-safe: newClient marks the client (esetAllowMintDeferral, keyed by client in a sync.Map) only when the running command (rootFlags.runningCmd, set in PersistentPreRunE) is a pp:method GET command or the root search; a blanket deferral was tried and broke sync (exit 1, \"1 resource(s) failed to sync\") and doctor's credentials row, which TestTokenOutageKeepsEveryOtherExitStatus and TestDoctorMintFailureIsNotARejection now catch. client.do and validateCachedRequestAuth (before the response cache) return the recorded TokenUnavailableError, whose text and exit status are exactly the mint failure's. TestAutoReadsFallBackWhenTheTokenServiceIsDown runs every mint answer of mint-exit-code-tracks-rejection plus connection refused: non-rejections answer devices list from the mirror with api_unreachable (and --data-source local answers too), live stays exit 5 with nothing on stdout, no mirror gives exit 5 naming both the missing local data and the token failure; rejections exit 4 in auto and local mode with no rows; ESET receives no request. TestTokenOutageNeverServesTheResponseCache (search falls back to local search too) and TestTokenUnavailableRefusesEveryRequest (client level: no request, no cached entry served, the recorded error itself, no retry). Failing without: `auto read with the token service down: ... (exit 5)` (isNetworkError, the hook deferral, the newClient marker or runningCmd removed), `TestTokenUnavailableRefusesEveryRequest` (the cache or do() check removed), `TestDoctorMintFailureIsNotARejection` / sync exit 1 (the GET scope widened to every command). Round 6 (adversarial P2): the deferral fired for every answer that was not a rejection (400 invalid_client / invalid_request / access_denied, an HTML page, a 200 without a token, a redirect), so those auto reads exited 0 from the mirror with no stderr line. It now needs positive outage evidence (esetTokenError.outage: no answer at all, a request kept pending, HTTP 5xx or 429; a 202 without response-id is an answer, PendingWithoutIDError); anything else exits 5 at construction as before round 5. Every fallback prints one stderr line naming the token failure, in every output mode, through the command's escaped writer (esetNoteTokenFallback in both data_source.go fallbacks and the root search). TestAutoReadsFallBackWhenTheTokenServiceIsDown now also runs 202 without response-id, 200 HTML, 400 access_denied and 400 invalid_client (exit 5, no rows) and checks the stderr line under --json, --csv, --plain, --quiet and --agent. Failing without: `400 invalid_request is not an outage: want exit 5 and no mirror rows` (o01, o02, o03), `auto fallback must print one stderr line naming the token failure` (o04).",
+      "why": "Adversarial round 5 (P2): the token is minted in the client hook while the client is built, before the data-source auto logic runs, so with the documented username/password auth an expired token plus an ESET token service outage (5xx, 429, network) failed every auto read with exit 5 instead of answering from the mirror; round 4 had proved the fallback only with ESET_PROTECT_TOKEN, which never mints. Same classification as mint-exit-code-tracks-rejection (esetTokenError.rejected). Scope is opt-in and fail-safe: newClient marks the client (esetAllowMintDeferral, keyed by client in a sync.Map) only when the running command (rootFlags.runningCmd, set in PersistentPreRunE) is a pp:method GET command or the root search; a blanket deferral was tried and broke sync (exit 1, \"1 resource(s) failed to sync\") and doctor's credentials row, which TestTokenOutageKeepsEveryOtherExitStatus and TestDoctorMintFailureIsNotARejection now catch. client.do and validateCachedRequestAuth (before the response cache) return the recorded TokenUnavailableError, whose text and exit status are exactly the mint failure's. TestAutoReadsFallBackWhenTheTokenServiceIsDown runs every mint answer of mint-exit-code-tracks-rejection plus connection refused: non-rejections answer devices list from the mirror with api_unreachable (and --data-source local answers too), live stays exit 5 with nothing on stdout, no mirror gives exit 5 naming both the missing local data and the token failure; rejections exit 4 in auto and local mode with no rows; ESET receives no request. TestTokenOutageNeverServesTheResponseCache (search falls back to local search too) and TestTokenUnavailableRefusesEveryRequest (client level: no request, no cached entry served, the recorded error itself, no retry). Failing without: `auto read with the token service down: ... (exit 5)` (isNetworkError, the hook deferral, the newClient marker or runningCmd removed), `TestTokenUnavailableRefusesEveryRequest` (the cache or do() check removed), `TestDoctorMintFailureIsNotARejection` / sync exit 1 (the GET scope widened to every command). Round 6 (adversarial P2): the deferral fired for every answer that was not a rejection (400 invalid_client / invalid_request / access_denied, an HTML page, a 200 without a token, a redirect), so those auto reads exited 0 from the mirror with no stderr line. It now needs positive outage evidence (esetTokenError.outage: no answer at all, a request kept pending, HTTP 5xx or 429; a 202 without response-id is an answer, PendingWithoutIDError); anything else exits 5 at construction as before round 5. Every fallback prints one stderr line naming the token failure, in every output mode, through the command's escaped writer (esetNoteTokenFallback in both data_source.go fallbacks and the root search). TestAutoReadsFallBackWhenTheTokenServiceIsDown now also runs 202 without response-id, 200 HTML, 400 access_denied and 400 invalid_client (exit 5, no rows) and checks the stderr line under --json, --csv, --plain, --quiet and --agent. Failing without: `400 invalid_request is not an outage: want exit 5 and no mirror rows` (o01, o02, o03), `auto fallback must print one stderr line naming the token failure` (o04). search no longer has a live path (search-is-local-only), so its fallback assert was retired.",
       "status": "active",
       "asserts": [
         {
@@ -3559,11 +3559,6 @@
           "file": "cli/internal/cli/data_source.go",
           "contains": "esetNoteTokenFallback(flags, err)",
           "min_count": 2,
-          "code_only": true
-        },
-        {
-          "file": "cli/internal/cli/search.go",
-          "contains": "esetNoteTokenFallback(flags, getErr)",
           "code_only": true
         },
         {
@@ -5086,11 +5081,6 @@
           "code_only": true
         },
         {
-          "file": "cli/internal/cli/search.go",
-          "contains": "esetDecodeExact(data, &wrapped)",
-          "code_only": true
-        },
-        {
           "file": "cli/internal/cli/users_get.go",
           "contains": "esetDecodeExact(outputData, &items)",
           "code_only": true
@@ -5577,6 +5567,23 @@
           "file": "cli/internal/cli/export.go",
           "contains": "func exportEmptyListPage(data json.RawMessage, config resourceReadConfig) (bool, error) {",
           "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "search-is-local-only",
+      "summary": "generic `search` runs only on the local mirror (FTS5); --data-source live is refused with a pointer to detection-groups-search",
+      "why": "The generated default (auto) search posted the query as `q` with `filter: \"\"` to POST /v2/detection-groups:search, whose request schema accepts only filter and returnTotalSize, and ignored --type, so `search \"ransomware\" --type devices` could return unrelated detection groups as matches (Codex round 14 P1). ESET has no general search endpoint. TestSearchIsLocalOnly failed with search.go reverted (`default search reached the API`) and checks live mode is refused without a request. The now-unused extractSearchResults helper was removed.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/search.go",
+          "contains": "if flags.dataSource == \"live\" {\n\t\t\t\treturn usageErr(fmt.Errorf(\"search runs on the local mirror",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/search.go",
+          "not_contains": "/v2/detection-groups:search\", map[string]any{"
         }
       ]
     }

@@ -49,54 +49,18 @@ func hasAnyNonEmptySearchValue(v any) bool {
 	return false
 }
 
-// extractSearchResults unwraps API search responses by checking common envelope paths.
-func extractSearchResults(data json.RawMessage, responsePaths ...string) []json.RawMessage {
-	// Try direct array first
-	var items []json.RawMessage
-	if json.Unmarshal(data, &items) == nil {
-		return items
-	}
-	for _, responsePath := range responsePaths {
-		if pathData, ok := responsePayloadAtPath(data, responsePath); ok {
-			if json.Unmarshal(pathData, &items) == nil {
-				return items
-			}
-		}
-	}
-	// Try common wrapper paths: data, results, items
-	var wrapped map[string]json.RawMessage
-	if esetDecodeExact(data, &wrapped) == nil {
-		for _, key := range []string{"data", "results", "items", "records", "entries"} {
-			if inner, ok := wrapped[key]; ok {
-				if json.Unmarshal(inner, &items) == nil {
-					return items
-				}
-			}
-		}
-	}
-	// Return as single-item array
-	return []json.RawMessage{data}
-}
-
 func newSearchCmd(flags *rootFlags) *cobra.Command {
 	var resourceType string
 	var limit int
 	var dbPath string
-	searchResponsePaths := []string{
-		"detectionGroups",
-	}
 
 	cmd := &cobra.Command{
 		Use:   "search <query>",
-		Short: "Full-text search across synced data or live API",
-		Long: `Search data using FTS5 full-text search on locally synced data,
-or hit the API's search endpoint when available.
-
-In auto mode (default): uses the API search endpoint if the API has one,
-otherwise searches local data. Falls back to local on network failure.
-In live mode: uses the API search endpoint only.
-In local mode: searches locally synced data only.`,
-		Example: `  # Search (uses API endpoint if available, local FTS otherwise)
+		Short: "Full-text search across the locally synced mirror",
+		Long: `Search locally synced data with FTS5 full-text search. Run 'sync'
+first. ESET has no general search endpoint, so --data-source live is
+refused; for live detection groups use 'detection-groups-search --filter'.`,
+		Example: `  # Search the local mirror
   eset-protect-cli search "error timeout"
 
   # Force local search only
@@ -111,30 +75,12 @@ In local mode: searches locally synced data only.`,
 				return cmd.Help()
 			}
 			query := args[0]
-			// This API has a search endpoint: POST https://{region}.incident-management.eset.systems/v2/detection-groups:search
-			if flags.dataSource != "local" {
-				c, err := flags.newClient()
-				if err != nil {
-					return err
-				}
-				data, _, getErr := c.Post(cmd.Context(), "https://{region}.incident-management.eset.systems/v2/detection-groups:search", map[string]any{
-					"q":               query,
-					"filter":          "",
-					"returnTotalSize": nil,
-				})
-				if getErr == nil {
-					// Live search succeeded
-					results := extractSearchResults(data, searchResponsePaths...)
-					prov := DataProvenance{Source: "live"}
-					return outputSearchResults(cmd, flags, results, limit, prov)
-				}
-				// Check if it's a network error for auto-mode fallback
-				if flags.dataSource == "live" || !isNetworkError(getErr) {
-					return classifyAPIError(cmd.OutOrStdout(), getErr, flags)
-				}
-				// auto mode + network error: fall through to local FTS
-				fmt.Fprintf(cmd.ErrOrStderr(), "API unreachable, falling back to local search.\n")
-				esetNoteTokenFallback(flags, getErr)
+			// Hand-fix search-is-local-only: ESET has no general search
+			// endpoint. The generated live path posted the query as `q` to
+			// detection-groups:search, which accepts only `filter`, and
+			// ignored --type, so it returned unrelated detection groups.
+			if flags.dataSource == "live" {
+				return usageErr(fmt.Errorf("search runs on the local mirror (run 'eset-protect-cli sync' first); ESET has no general search endpoint. For live detection groups use 'eset-protect-cli detection-groups-search --filter ...'"))
 			}
 
 			// Local FTS search
