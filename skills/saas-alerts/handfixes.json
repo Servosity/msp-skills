@@ -401,6 +401,42 @@
           "code_only": true
         }
       ]
+    },
+    {
+      "id": "generated-doc-corrections",
+      "summary": "the re-vendored SKILL.md, guide.md and AGENTS.md carry the msp-skills corrections: SKILL.md description leads with 'Use when the user asks about', the H1 drops the press brand, the unpublished EU host is not presented as a known base URL, guide.md gives the Windows step for a pre-built binary, and AGENTS.md has no TODO marker",
+      "why": "onboard.py --resume re-vendors SKILL.md, guide.md and AGENTS.md from the press source on every run, silently reverting these edits. The press research (cli-factory saas-alerts research) found only a release-note hint of a Germany instance and no published EU base URL, so 'EU-instance partners can point SAAS_ALERTS_BASE_URL at their host' overstated it. Re-apply after any re-vendor; the build-pane doc fixes live in ~/Documents/Dev/cli-factory/saas-alerts/handfixes/apply_doc_patch.py.",
+      "status": "active",
+      "asserts": [
+        {
+          "file": "SKILL.md",
+          "contains": "description: \"Use when the user asks about SaaS Alerts across their customers"
+        },
+        {
+          "file": "SKILL.md",
+          "contains": "# SaaS Alerts CLI\n"
+        },
+        {
+          "file": "SKILL.md",
+          "contains": "SaaS Alerts publishes only the US API host"
+        },
+        {
+          "file": "SKILL.md",
+          "not_contains": "EU-instance partners can point"
+        },
+        {
+          "file": "guide.md",
+          "contains": "SaaS Alerts publishes only the US API host"
+        },
+        {
+          "file": "guide.md",
+          "contains": "run `Unblock-File <binary>.exe`"
+        },
+        {
+          "file": "AGENTS.md",
+          "not_contains": "TODO stubs"
+        }
+      ]
     }
   ]
 }
