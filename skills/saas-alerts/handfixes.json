@@ -247,7 +247,7 @@
     {
       "id": "webhook-subscription-token-withheld",
       "summary": "every Webhooks API (/outgoingWebhookApi/) response has its subscription `token` replaced with [withheld] in the client's JSON success path, before print, response cache, sync, tail and MCP; the --dry-run request preview of a Webhooks API write withholds the token too; a Webhooks API write whose token is the [withheld] placeholder is refused (dry-run included)",
-      "why": "GET /subscriptions and /subscriptions/disabled return each subscription's token, the string SaaS Alerts attaches to every delivery so the MSP's receiver can authenticate it (webhooks spec 0.9.0, schema Token). Before this fix a sentinel token reached `subscriptions list` output, the MCP saas-alerts_execute result, the HTTP cache files and the local SQLite store (mock receipt 2026-10-20). subscriptions health --reenable sends only enabled plus filter fields, so the blanked value is never written back. Delivery URLs are kept: domain checks need them and SaaS Alerts only delivers to verified domains. TestWebhookTokenNeverLeavesTheClient fails when the hook is removed (proven 2026-10-20). Error answers too: an API error body that echoed a subscription token reached stdout, stderr and MCP through APIError.Body (adversarial round 10, 2026-10-20, P2); the error path now withholds before masking. TestWebhookTokenWithheldFromErrorBodies fails with it reverted (proven 2026-10-20). An error answer that quotes the request's own token inside a message or a non-JSON body has that value masked as well (adversarial round 11, 2026-10-20, P2); TestWebhookTokenEchoedInErrorTextIsMasked fails with it reverted (proven 2026-10-20). Tokens under 8 characters are not echo-masked, so a one-letter token cannot garble the 'too short' error (adversarial round 12, 2026-10-20, P2; proven 2026-10-20). Codex round 9 (2026-10-20, P1): the echo mask matched only the raw token, so a JSON-escaped echo (\\\" \\/ \\u002B) or one straddling the 4096-byte error cut leaked; maskEchoedWebhookTokens now masks decoded JSON string values, then the raw text, before the cut. TestWebhookTokenEchoedEscapedOrAtTheCutIsMasked fails with decoding disabled or with masking moved after the cut (both proven 2026-10-20).",
+      "why": "GET /subscriptions and /subscriptions/disabled return each subscription's token, the string SaaS Alerts attaches to every delivery so the MSP's receiver can authenticate it (webhooks spec 0.9.0, schema Token). Before this fix a sentinel token reached `subscriptions list` output, the MCP saas-alerts_execute result, the HTTP cache files and the local SQLite store (mock receipt 2026-10-20). subscriptions health --reenable sends only enabled plus filter fields, so the blanked value is never written back. Delivery URLs are kept: domain checks need them and SaaS Alerts only delivers to verified domains. TestWebhookTokenNeverLeavesTheClient fails when the hook is removed (proven 2026-10-20). Error answers too: an API error body that echoed a subscription token reached stdout, stderr and MCP through APIError.Body (adversarial round 10, 2026-10-20, P2); the error path now withholds before masking. TestWebhookTokenWithheldFromErrorBodies fails with it reverted (proven 2026-10-20). An error answer that quotes the request's own token inside a message or a non-JSON body has that value masked as well (adversarial round 11, 2026-10-20, P2); TestWebhookTokenEchoedInErrorTextIsMasked fails with it reverted (proven 2026-10-20). Tokens under 8 characters are not echo-masked, so a one-letter token cannot garble the 'too short' error (adversarial round 12, 2026-10-20, P2; proven 2026-10-20). Codex round 9 (2026-10-20, P1): the echo mask matched only the raw token, so a JSON-escaped echo (\\\" \\/ \\u002B) or one straddling the 4096-byte error cut leaked; maskEchoedWebhookTokens now masks decoded JSON string values, then the raw text, before the cut. TestWebhookTokenEchoedEscapedOrAtTheCutIsMasked fails with decoding disabled or with masking moved after the cut (both proven 2026-10-20). Adversarial round 13 (2026-10-20, P1): moving the echo mask before the cut had dropped the request tokens from the final maskCredentialText, reopening URL-encoded and HTML-title echoes; both passes now run, JSON keys are masked too, and a body with trailing content after its JSON value is never re-encoded (so nothing is dropped). TestWebhookTokenEchoedEncodedIsMasked fails with the final mask, the key masking or the trailing check removed (proven 2026-10-20).",
       "status": "active",
       "spec_encode_followup": "Generator support for x-secret / writeOnly response fields that are blanked before print, cache and store.",
       "asserts": [
@@ -319,6 +319,26 @@
         {
           "file": "cli/internal/client/saas_webhook_secrets_test.go",
           "contains": "func TestWebhookTokenEchoedEscapedOrAtTheCutIsMasked(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "c.maskCredentialText(bodyText, append(requestWebhookTokens(path, bodyBytes), authHeader)...)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_webhook_secrets.go",
+          "contains": "nk, kc := maskTokenStrings(k, tokens)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_webhook_secrets.go",
+          "contains": "len(bytes.TrimSpace(body[dec.InputOffset():])) == 0",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/saas_webhook_secrets_test.go",
+          "contains": "func TestWebhookTokenEchoedEncodedIsMasked(",
           "code_only": true
         }
       ]
@@ -1171,7 +1191,7 @@
     {
       "id": "test-event-delivery-failure-surfaced",
       "summary": "subscriptions test-event and the MCP saas-alerts_execute call of subscriptions.test-event read the sendTestEvent 200 body with the same rule as subscriptions health (anyOf boolean | string | IWhError[]): false, an error-looking or unrecognised string, or any delivery error makes the CLI run a partial failure (success:false, stderr warning, exit 6) and the MCP result an error (its answer bounded like any MCP result); true, an empty list or a recognised success string succeed; the answer is never written to the subscriptions mirror",
-      "why": "The generated command only ran the generic partial-failure detector, which does not recognise the documented IWhError list, so a failed webhook delivery printed success:true and exited 0 (Codex round 7, 2026-10-20, P1). TestSubscriptionsTestEventSurfacesDeliveryErrors fails with the check disabled (proven 2026-10-20). Adversarial round 11 (2026-10-20, P2s): an unrecognised success wording exited 6, and with --allow-partial-failure the delivery-error list was upserted into the local subscriptions table as fake channels. TestSubscriptionsTestEventSurfacesDeliveryErrors fails with the unknown-string warning removed or the store write restored (both proven 2026-10-20). Codex round 8 (2026-10-20, P1): the MCP execute tool returned the same delivery-error list as a successful result; both surfaces now share cli.TestEventFailure, and TestCodeOrchExecuteTestEventDeliveryErrorIsAnError fails with the MCP check disabled (proven 2026-10-20). Adversarial round 12 (2026-10-20, P1): briefly treating an unrecognised string as success let 'Test event couldn't be delivered' and 'Success: false' exit 0; unrecognised is a failure again, as in subscriptions health. TestSubscriptionsTestEventSurfacesDeliveryErrors and TestCodeOrchExecuteTestEventDeliveryErrorIsAnError fail with unknown answers passed as success (proven 2026-10-20).",
+      "why": "The generated command only ran the generic partial-failure detector, which does not recognise the documented IWhError list, so a failed webhook delivery printed success:true and exited 0 (Codex round 7, 2026-10-20, P1). TestSubscriptionsTestEventSurfacesDeliveryErrors fails with the check disabled (proven 2026-10-20). Adversarial round 11 (2026-10-20, P2s): an unrecognised success wording exited 6, and with --allow-partial-failure the delivery-error list was upserted into the local subscriptions table as fake channels. TestSubscriptionsTestEventSurfacesDeliveryErrors fails with the unknown-string warning removed or the store write restored (both proven 2026-10-20). Codex round 8 (2026-10-20, P1): the MCP execute tool returned the same delivery-error list as a successful result; both surfaces now share cli.TestEventFailure, and TestCodeOrchExecuteTestEventDeliveryErrorIsAnError fails with the MCP check disabled (proven 2026-10-20). Adversarial round 12 (2026-10-20, P1): briefly treating an unrecognised string as success let 'Test event couldn't be delivered' and 'Success: false' exit 0; unrecognised is a failure again, as in subscriptions health. TestSubscriptionsTestEventSurfacesDeliveryErrors and TestCodeOrchExecuteTestEventDeliveryErrorIsAnError fail with unknown answers passed as success (proven 2026-10-20). The failure reason names each channel once and at most 10, so a long delivery-error list cannot blow past the MCP result budget (adversarial round 13, 2026-10-20, P2); TestTestEventFailureReasonIsBounded fails with the de-duplication removed (proven 2026-10-20).",
       "status": "active",
       "asserts": [
         {
@@ -1206,6 +1226,16 @@
         {
           "file": "cli/internal/mcp/saas_test_event_test.go",
           "contains": "func TestCodeOrchExecuteTestEventDeliveryErrorIsAnError(",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/subscriptions_health.go",
+          "contains": "if len(channels) > 10 {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/subscriptions_test_event_outcome_test.go",
+          "contains": "func TestTestEventFailureReasonIsBounded(",
           "code_only": true
         }
       ]

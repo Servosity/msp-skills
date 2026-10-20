@@ -161,7 +161,9 @@ func maskEchoedWebhookTokens(body []byte, tokens []string) []byte {
 	dec := json.NewDecoder(bytes.NewReader(body))
 	dec.UseNumber()
 	var v any
-	if dec.Decode(&v) == nil {
+	// Only a body that is exactly one JSON value is re-encoded, so trailing
+	// content is never dropped from the error text.
+	if dec.Decode(&v) == nil && len(bytes.TrimSpace(body[dec.InputOffset():])) == 0 {
 		if masked, changed := maskTokenStrings(v, tokens); changed {
 			var buf bytes.Buffer
 			enc := json.NewEncoder(&buf)
@@ -187,13 +189,15 @@ func maskTokenStrings(v any, tokens []string) (any, bool) {
 		}
 		return out, out != t
 	case map[string]any:
+		out := make(map[string]any, len(t))
 		changed := false
 		for k, val := range t {
-			if nv, c := maskTokenStrings(val, tokens); c {
-				t[k], changed = nv, true
-			}
+			nk, kc := maskTokenStrings(k, tokens)
+			nv, vc := maskTokenStrings(val, tokens)
+			out[nk.(string)] = nv
+			changed = changed || kc || vc
 		}
-		return t, changed
+		return out, changed
 	case []any:
 		changed := false
 		for i, val := range t {

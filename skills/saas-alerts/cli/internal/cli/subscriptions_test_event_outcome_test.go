@@ -6,6 +6,8 @@
 package cli
 
 import (
+	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -42,5 +44,19 @@ func TestSubscriptionsTestEventSurfacesDeliveryErrors(t *testing.T) {
 		if rqtExit(err) != 6 || !strings.Contains(out, `"success": false`) {
 			t.Fatalf("%q must fail the run: exit=%d\n%s", answer, rqtExit(err), out)
 		}
+	}
+}
+
+// TestTestEventFailureReasonIsBounded: a long delivery-error list names each
+// channel once and at most 10, so the reason stays short.
+func TestTestEventFailureReasonIsBounded(t *testing.T) {
+	list := make([]map[string]any, 0, 5000)
+	for i := 0; i < 5000; i++ {
+		list = append(list, map[string]any{"channelId": fmt.Sprintf("CH_%d", i), "message": "boom"})
+	}
+	data, _ := json.Marshal(list)
+	why := TestEventFailure("/outgoingWebhookApi/api/v1/misc/sendTestEvent", data)
+	if why == "" || len(why) > 300 {
+		t.Fatalf("reason is %d bytes: %.200s", len(why), why)
 	}
 }

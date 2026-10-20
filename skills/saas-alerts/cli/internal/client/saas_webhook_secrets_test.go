@@ -168,3 +168,38 @@ func TestWebhookTokenEchoedEscapedOrAtTheCutIsMasked(t *testing.T) {
 		t.Fatalf("token at the cut leaked a prefix: %s", msg[len(msg)-80:])
 	}
 }
+
+// TestWebhookTokenEchoedEncodedIsMasked: a token echoed URL-encoded, inside an
+// HTML error title, or in a JSON key is masked; trailing content after a JSON
+// answer survives the rewrite.
+func TestWebhookTokenEchoedEncodedIsMasked(t *testing.T) {
+	answer, ctype := "", "application/json"
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", ctype)
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(answer))
+	}))
+	defer srv.Close()
+	c := New(&config.Config{BaseURL: srv.URL, AuthHeaderVal: "test-key"}, 5*time.Second, 0)
+	post := func() string {
+		_, _, err := c.Post(context.Background(), "/outgoingWebhookApi/api/v1/subscriptions", map[string]any{"url": "https://hooks.example.com/x", "token": "abcd+efgh/ijkl"})
+		if err == nil {
+			t.Fatal("want an error")
+		}
+		return err.Error()
+	}
+	for _, tc := range []struct{ ctype, answer string }{
+		{"application/json", `{"message":"bad url https://h/x?token=abcd%2Befgh%2Fijkl"}`},
+		{"text/html", `<html><head><title>Invalid token abcd&#43;efgh&#47;ijkl</title></head><body>x</body></html>`},
+		{"application/json", `{"abcd\u002Befgh\/ijkl":"x"}`},
+	} {
+		ctype, answer = tc.ctype, tc.answer
+		if msg := post(); strings.Contains(msg, "efgh") {
+			t.Fatalf("%s echo leaked: %s", tc.ctype, msg)
+		}
+	}
+	ctype, answer = "application/json", `{"message":"abcd+efgh/ijkl is invalid"} {"second":"error"}`
+	if msg := post(); strings.Contains(msg, "efgh") || !strings.Contains(msg, "second") {
+		t.Fatalf("raw echo or trailing content wrong: %s", msg)
+	}
+}

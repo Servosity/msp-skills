@@ -892,11 +892,20 @@ func shTestEventOutcome(data json.RawMessage, knownChannels map[string]bool) (bo
 		if len(whErrors) == 0 {
 			return true, "", nil
 		}
+		// Each channel is named once, and at most 10 are listed, so the reason
+		// stays short however long the error list is.
 		channels := make([]string, 0, len(whErrors))
+		seen := map[string]bool{}
 		for _, e := range whErrors {
-			channels = append(channels, e.ChannelID)
+			if !seen[e.ChannelID] {
+				seen[e.ChannelID] = true
+				channels = append(channels, e.ChannelID)
+			}
 		}
-		return false, "test event delivery failed for channel(s) " + strings.Join(channels, ", "), whErrors
+		if len(channels) > 10 {
+			channels = append(channels[:10], fmt.Sprintf("and %d more", len(channels)-10))
+		}
+		return false, fmt.Sprintf("test event delivery failed for channel(s) %s (%d error(s))", strings.Join(channels, ", "), len(whErrors)), whErrors
 	}
 	return false, "unexpected test event response: " + rqDescribeJSON(data), nil
 }
