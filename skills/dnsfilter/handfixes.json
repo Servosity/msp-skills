@@ -4004,7 +4004,7 @@
     {
       "id": "unblocks-triage-unknown-domain-not-dropped",
       "summary": "unblocks triage groups a pending request with no usable domain under the empty domain (hint review, '(unknown domain)' in the table) instead of dropping it",
-      "why": "Codex round 14 (P1, 2026-10-20): groupUnblockRequests skipped a request whose domain was null, empty or blank, so a queue of such requests printed 'No pending unblock requests.' with success. TestGroupUnblockRequests fails against the skip. Adversarial round 16 (P2): the empty-domain group pooled unrelated requests, so one threat flag set hint deny for every org's domain-less request; that group's hint is now always review.",
+      "why": "Codex round 14 (P1, 2026-10-20): groupUnblockRequests skipped a request whose domain was null, empty or blank, so a queue of such requests printed 'No pending unblock requests.' with success. TestGroupUnblockRequests fails against the skip. Adversarial round 16 (P2): the empty-domain group pooled unrelated requests, so one threat flag set hint deny for every org's domain-less request; that group's hint is now always review. Round 18 (Codex P1): str() reads only a JSON string, so a numeric domain (4821) joins the unknown-domain group (hint review) instead of becoming \"4821\".",
       "asserts": [
         {
           "file": "cli/internal/cli/unblocks_triage.go",
@@ -4278,7 +4278,7 @@
     {
       "id": "novel-presence-aware-attributes",
       "summary": "jaRes gains boolKnown/strsKnown/strKnown, presence-aware variants of boolean()/strs()/str() that report ok=false for an absent, null, mistyped or partly unreadable attribute; every novel verdict that rules something out reads them",
-      "why": "Codex round 17 (P1, 2026-10-20): boolean() turned an unknown attribute into false and strs() turned it into [], so policy evaluation, policy-audit, lists where and allow planned or certified on data they never read. TestR17EvaluatePolicyUnknownAttributes, TestR17PolicyAuditUnknownAttributesNotClean and TestR17ListsWhereUnreadablePolicyListsNotAllClear fail without it.",
+      "why": "Codex round 17 (P1, 2026-10-20): boolean() turned an unknown attribute into false and strs() turned it into [], so policy evaluation, policy-audit, lists where and allow planned or certified on data they never read. TestR17EvaluatePolicyUnknownAttributes, TestR17PolicyAuditUnknownAttributesNotClean and TestR17ListsWhereUnreadablePolicyListsNotAllClear fail without it. Round 18 (Codex P1, 2026-10-20): strsKnown now accepts only non-empty JSON strings (a number in a domain list is unreadable) and id lists read through idsKnown; see novel-strict-ids.",
       "asserts": [
         {
           "file": "cli/internal/cli/dnsfilter_common.go",
@@ -4327,7 +4327,7 @@
     {
       "id": "evaluate-policy-unknown-attributes",
       "summary": "evaluateLists returns unknown (rule policy_attribute_unavailable) once the precedence chain reaches an absent, null or unreadable whitelist_domains, allow_list_only, blacklist_domains, allow_unknown_domains or blacklist_categories; a match in the readable part of a list still decides",
-      "why": "Codex round 17 (P1, 2026-10-20): allow_list_only:null, blacklist_domains:null and blacklist_categories:null reached allowed/no_matching_rule, so why-blocked said allowed and allow treated the policy as not blocking. TestR17EvaluatePolicyUnknownAttributes fails without it.",
+      "why": "Codex round 17 (P1, 2026-10-20): allow_list_only:null, blacklist_domains:null and blacklist_categories:null reached allowed/no_matching_rule, so why-blocked said allowed and allow treated the policy as not blocking. TestR17EvaluatePolicyUnknownAttributes fails without it. Round 18 (adversarial r19 P2): an unreadable attribute no longer forces unknown when every value of it gives the same verdict (evaluate-policy-unknown-attribute-agreement); blacklist_categories is read with idsKnown.",
       "asserts": [
         {
           "file": "cli/internal/cli/dnsfilter_common.go",
@@ -4359,7 +4359,7 @@
     {
       "id": "why-blocked-aggregate-unknown",
       "summary": "why-blocked's top-level verdict is decision blocked / not_blocked / unknown with blocked true / false / null; not_blocked needs every deployment allowed, a complete query-log scan with no hit and no gap in the site set (capped site scan, sites with no organization link); the human output prints an overall line",
-      "why": "Codex round 17 (P1, 2026-10-20): blocked was a bool that stayed false when every deployment's decision was unknown (unreadable scheduled policy) and the query log returned an error, an all-clear on no evidence. TestR17WhyBlockedAggregateUnknown and TestR17WhyBlockedUnlinkedSiteIsAGap fail without it.",
+      "why": "Codex round 17 (P1, 2026-10-20): blocked was a bool that stayed false when every deployment's decision was unknown (unreadable scheduled policy) and the query log returned an error, an all-clear on no evidence. TestR17WhyBlockedAggregateUnknown and TestR17WhyBlockedUnlinkedSiteIsAGap fail without it. Round 18: the deployment set now includes the org's roaming clients with their own assignment, and a failed or capped roaming-client scan is a gap (why-blocked-org-roaming-clients); fetchBlockedHits returns a gap string, so an unreadable-fqdn entry or a capped scan leaves the log incomplete (query-log-unreadable-fqdn). TestR17WhyBlockedAggregateUnknown's routes gained /v1/user_agents/all.",
       "asserts": [
         {
           "file": "cli/internal/cli/why_blocked.go",
@@ -4395,6 +4395,11 @@
           "file": "cli/internal/cli/dnsfilter_novel_r17_test.go",
           "contains": "func TestR17WhyBlockedUnlinkedSiteIsAGap(t *testing.T) {",
           "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/why_blocked.go",
+          "contains": "if hits, gap, err := fetchBlockedHits(ctx, c, bc.Org.ID, bc.FQDN, agentIDs, since, now); err != nil {",
+          "code_only": true
         }
       ]
     },
@@ -4428,7 +4433,7 @@
     {
       "id": "allow-assignment-targets-blocking-policies",
       "summary": "allow's assignment fallback (no query-log hit) evaluates each assigned policy: only one that blocks the domain is a write candidate; one that allows it is a noop and one whose verdict is unknown gets action review and is never written",
-      "why": "Codex round 17 (P1, 2026-10-20): with an empty query log, allow added the domain to every editable non-global policy assigned to the org, including policies that already allow it. TestR17AllowAssignmentTargetsOnlyBlockingPolicies fails without it.",
+      "why": "Codex round 17 (P1, 2026-10-20): with an empty query log, allow added the domain to every editable non-global policy assigned to the org, including policies that already allow it. TestR17AllowAssignmentTargetsOnlyBlockingPolicies fails without it. Round 18: without --host the fallback also evaluates the org's roaming clients that carry their own assignment (why-blocked-org-roaming-clients), and every add target must belong to the org (allow-target-belongs-to-org).",
       "asserts": [
         {
           "file": "cli/internal/cli/allow.go",
@@ -4567,7 +4572,7 @@
     {
       "id": "lists-where-unreadable-policy-lists",
       "summary": "lists where withholds its all-clear when a synced policy's whitelist_domains or blacklist_domains is absent, null or unreadable (meta.unreadable_policies) or when a roaming client inherits from a site the mirror lacks (meta.unplaced_roaming_clients)",
-      "why": "Codex round 17 (P1, 2026-10-20): collection completeness was taken as proof each policy's lists were readable, so a policy with null or omitted lists counted toward \"No synced policy lists <domain> or a parent domain.\". TestR17ListsWhereUnreadablePolicyListsNotAllClear and TestR17ListsWhereUnplacedClientNotAllClear fail without it.",
+      "why": "Codex round 17 (P1, 2026-10-20): collection completeness was taken as proof each policy's lists were readable, so a policy with null or omitted lists counted toward \"No synced policy lists <domain> or a parent domain.\". TestR17ListsWhereUnreadablePolicyListsNotAllClear and TestR17ListsWhereUnplacedClientNotAllClear fail without it. Round 18: strsKnown accepts only JSON strings, so a number in a domain list makes it unreadable; missing referenced policies and unreadable assignment links withhold the all-clear too (lists-where-missing-referenced-policies).",
       "asserts": [
         {
           "file": "cli/internal/cli/lists_where.go",
@@ -4697,7 +4702,7 @@
     {
       "id": "agents-org-membership-unknown",
       "summary": "agents stale and agents drift apply --org through orgMembership: a client whose site is missing from the mirror, names no organization, or whose org name is unreadable is reported (stale reason membership_unknown, drift membership_unknown count) under (org membership unknown) instead of being filtered away",
-      "why": "Codex round 17 (P1, 2026-10-20): --org silently dropped clients whose org membership could not be resolved (e.g. a client referencing a missing site), which could produce an all-clear for the org. TestR17StaleOrgMembershipUnknownReported and TestR17DriftOrgMembershipUnknownReported fail without it.",
+      "why": "Codex round 17 (P1, 2026-10-20): --org silently dropped clients whose org membership could not be resolved (e.g. a client referencing a missing site), which could produce an all-clear for the org. TestR17StaleOrgMembershipUnknownReported and TestR17DriftOrgMembershipUnknownReported fail without it. Round 18: orgMembership reads the site link with relRef, so an unreadable network relationship is unknown membership, not \"no site\" (novel-relationship-linkage-unknown).",
       "asserts": [
         {
           "file": "cli/internal/cli/dnsfilter_common.go",
@@ -4733,13 +4738,18 @@
           "file": "cli/internal/cli/dnsfilter_novel_r17_test.go",
           "contains": "func TestR17DriftOrgMembershipUnknownReported(t *testing.T) {",
           "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "netID, netKnown := a.relRef(\"network\")",
+          "code_only": true
         }
       ]
     },
     {
       "id": "agents-drift-incomparable-version-unknown",
       "summary": "agents drift counts a client version compareSemver cannot order (isComparableVersion false, e.g. 999unknown) as version_unknown, treats an in-channel release with such a version as making that type's latest unknown, and rejects such a --bad-version",
-      "why": "Codex round 17 (P2, 2026-10-20): compareCore reads leading digits only, so \"999unknown\" compared as 999 and read as current/ahead. TestR17DriftIncomparableVersionIsUnknown and TestR17DriftRejectsIncomparableBadVersion fail without it.",
+      "why": "Codex round 17 (P2, 2026-10-20): compareCore reads leading digits only, so \"999unknown\" compared as 999 and read as current/ahead. TestR17DriftIncomparableVersionIsUnknown and TestR17DriftRejectsIncomparableBadVersion fail without it. Round 18 (Codex P1): str() no longer coerces a numeric agent_version (999) into \"999\", so a non-string version is version_unknown too (novel-strict-ids).",
       "asserts": [
         {
           "file": "cli/internal/cli/dnsfilter_common.go",
@@ -4793,7 +4803,7 @@
     {
       "id": "export-output-atomic-replace",
       "summary": "export --output writes to a private os.CreateTemp file in the destination directory, closes it, and renames it over the destination only on success; any failure closes and removes the temp file and leaves an existing file untouched",
-      "why": "Codex round 17 (P1, 2026-10-20): openExportOutput truncated an existing --output file before the first request succeeded, so a failed export destroyed the previous backup. TestR17ExportFailureKeepsPreviousOutput fails without it.",
+      "why": "Codex round 17 (P1, 2026-10-20): openExportOutput truncated an existing --output file before the first request succeeded, so a failed export destroyed the previous backup. TestR17ExportFailureKeepsPreviousOutput fails without it. Round 18 (adversarial r19 P1): the temp file must also pass the private-file check before data is written and before the rename (export-output-private-file-check), and an unreadable collection or an unfollowable continuation fails the export, so the previous file is kept.",
       "asserts": [
         {
           "file": "cli/internal/cli/export.go",
@@ -5479,6 +5489,543 @@
         {
           "file": "cli/internal/cli/deliver_redirect_test.go",
           "contains": "func TestDeliverWebhookNeverFollowsARedirect(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "novel-strict-ids",
+      "summary": "idString reads an id only from a string or a whole non-negative number; str() returns only JSON strings (integer ids are read with idAttr); strsKnown accepts only non-empty JSON strings and idsKnown is its id-list twin (blacklist_categories)",
+      "why": "Codex round 18 (P1, 2026-10-20): idString truncated 60.9 into category \"60\", so policy-audit certified security category 60 blocked; str() coerced agent_version 999 into \"999\" (read as current by agents drift) and an unblock request's domain 4821 into \"4821\" (hint resolve-already-allowed). TestR18FractionalIDsUnreadable, TestR18DriftNumericAgentVersionUnknown and TestR18TriageNumericDomainIsUnknown fail without it.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "if t < 0 || t != math.Trunc(t) || math.IsInf(t, 0) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "s, _ := r.Attrs[k].(string)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "func (r jaRes) idAttr(k string) string { return idString(r.Attrs[k]) }",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "if s, isStr := it.(string); isStr && s != \"\" {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "func (r jaRes) idsKnown(k string) ([]string, bool) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "blockedCats, catsKnown := policy.idsKnown(\"blacklist_categories\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/policy_audit.go",
+          "contains": "blockedList, blockedKnown := p.idsKnown(\"blacklist_categories\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/why_blocked.go",
+          "contains": "PolicyID: r.idAttr(\"policy_id\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/lists_where.go",
+          "contains": "orgID := p.idAttr(\"organization_id\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_novel_r18_test.go",
+          "contains": "func TestR18FractionalIDsUnreadable(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_novel_r18_test.go",
+          "contains": "func TestR18DriftNumericAgentVersionUnknown(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_novel_r18_test.go",
+          "contains": "func TestR18TriageNumericDomainIsUnknown(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "novel-relationship-linkage-unknown",
+      "summary": "relRef reads relationships.<name>.data.id with presence: a relationship that is present but whose linkage is unreadable (no data member, data not an object, id null or not an id) is unknown, never \"no assignment\"; assignmentOf leaves such a deployment with no policy (verdict unknown) instead of falling back, and lists where counts such links in meta.unreadable_assignments",
+      "why": "Codex round 18 (P1, 2026-10-20): relID returned \"\" for scheduled_policy.data {\"id\":null}, so a site kept its retained direct policy (why-blocked not_blocked; allow could write it) and a roaming client with an unreadable own policy fell back to its site. TestR18UnreadableRelationshipIsUnknown fails without it.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "func (r jaRes) relRef(name string) (id string, known bool) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "return id, id != \"\"",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "func assignmentOf(r jaRes, d *deployment, whose string) assignmentKind {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "own := assignmentOf(a, &d, \"roaming client's\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "if own == assignmentNone {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "assignmentOf(n, &d, \"site's\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "if !netKnown || !linked || orgID == \"\" {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/lists_where.go",
+          "contains": "func unreadableAssignments(networks, agents []jaRes) int {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_novel_r18_test.go",
+          "contains": "func TestR18UnreadableRelationshipIsUnknown(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "novel-walk-follows-continuation",
+      "summary": "fetchAllPages and the query-log scan follow an explicit continuation (links.next, a next cursor, has_more true, meta.current_page < total_pages, data.page.next or data.page.cursor) on a short page; a short page ends a walk only when none is present, and a continuation the walk cannot follow (an opaque cursor, a link naming no page or another page) is an error, never an exhausted list",
+      "why": "Codex round 18 and adversarial round 19 (P1, 2026-10-20): a short page ended every novel walk even with links.next set, so policy-audit audited clean without page 2, why-blocked returned not_blocked without the blocking site on page 2, and the query-log scan certified the log complete without the exact block behind a cursor. TestR18FetchPagesFollowsContinuation and TestR18QueryLogFollowsContinuation fail without it.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "func listPageContinuation(raw json.RawMessage, page int) (next int, more bool, err error) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "next, more, err := listPageContinuation(raw, page)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "case !more && len(batch) < dnsfilterPageSize:",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "func queryLogContinuation(raw json.RawMessage, page int) (next map[string]string, more bool, err error) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "next, more, err := queryLogContinuation(raw, page)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "func linkNextPage(env map[string]json.RawMessage) string {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "func metaPagesRemain(env map[string]json.RawMessage) bool {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_novel_r18_test.go",
+          "contains": "func TestR18FetchPagesFollowsContinuation(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_novel_r18_test.go",
+          "contains": "func TestR18QueryLogFollowsContinuation(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "resolve-org-identity",
+      "summary": "resolveOrg accepts a numeric /v1/organizations/<id> response only when it identifies that organization (sameID); a response naming another or no organization is an error",
+      "why": "Codex round 18 (P1, 2026-10-20): /v1/organizations/1 answering {\"data\":{\"id\":\"2\"}} made allow --org 1 --confirm resolve deployments and write policies for org 2. TestR18ResolveOrgVerifiesIdentity fails without it.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "if len(orgs) != 1 || !sameID(orgs[0].ID, ref) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "func sameID(a, b string) bool {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_novel_r18_test.go",
+          "contains": "func TestR18ResolveOrgVerifiesIdentity(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "uninstalled-at-must-parse",
+      "summary": "uninstallState: a client is uninstalled only for status uninstalled / uninstalled_from_client, agent_state uninstalled, or an uninstalled_at that parses as a timestamp; a present but unreadable uninstalled_at keeps the client (checked as installed) and agents stale flags it uninstall_unknown",
+      "why": "Codex round 18 (P1, 2026-10-20): any non-empty uninstalled_at (\"not-a-date\", 0) excluded a client, so agents stale printed its all-clear over an unprotected client and the same exclusion hid an outdated client from agents drift and its impact from lists where. TestR18UnreadableUninstalledAtNotExcluded fails without it.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "func uninstallState(a jaRes) (uninstalled, known bool) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "if _, ok := parseSyncTime(v); ok {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/agents_stale.go",
+          "contains": "uninstalled, uninstallKnown := uninstallState(a)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/agents_stale.go",
+          "contains": "UninstallUnknown: !uninstallKnown",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_novel_r18_test.go",
+          "contains": "func TestR18UnreadableUninstalledAtNotExcluded(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "why-blocked-org-roaming-clients",
+      "summary": "without --host, why-blocked and allow's assignment fallback list the org's roaming clients (bounded by --max-scan-pages) and evaluate those on the org's sites that carry a policy or scheduled policy of their own, one roaming_clients deployment per distinct assignment; a failed or capped roaming-client scan, or clients with no readable site, are gaps",
+      "why": "Adversarial round 19 (P1, 2026-10-20): org mode evaluated sites only, so a roaming client whose own policy blocks the domain was never examined and not_blocked was certified (allow likewise never targeted that policy). TestR18WhyBlockedOrgModeEvaluatesRoamingClients and TestR18AllowAssignmentIncludesRoamingClientPolicies fail without it.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "func addOrgRoamingClients(ctx context.Context, c *client.Client, bc *blockContext, orgID string, sites map[string]jaRes, maxPages int) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "addOrgRoamingClients(ctx, c, bc, org.ID, sites, maxPages)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "bc.Gaps = append(bc.Gaps, \"roaming clients not listed\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "bc.Gaps = append(bc.Gaps, \"roaming-client scan capped\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_novel_r18_test.go",
+          "contains": "func TestR18WhyBlockedOrgModeEvaluatesRoamingClients(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_novel_r18_test.go",
+          "contains": "func TestR18AllowAssignmentIncludesRoamingClientPolicies(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "query-log-unreadable-fqdn",
+      "summary": "a query-log entry whose fqdn is null, missing or not a non-empty string is counted as unreadable; fetchBlockedHits then returns a gap, so the log is not complete and why-blocked cannot certify not_blocked",
+      "why": "Codex round 18 and adversarial round 19 (P1, 2026-10-20): {\"fqdn\":null,\"result\":\"blocked\"} was discarded as a non-matching hit and the short page certified the log complete, so why-blocked said blocked:false. TestR18QueryLogUnreadableFQDNNotComplete fails without it.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/why_blocked.go",
+          "contains": "fqdn, fqdnOK := r.strKnown(\"fqdn\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/why_blocked.go",
+          "contains": "fqdnUnreadable: !fqdnOK",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "case h.fqdnUnreadable:",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/why_blocked.go",
+          "contains": "hitCount, logComplete = len(hits), gap == \"\"",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_novel_r18_test.go",
+          "contains": "func TestR18QueryLogUnreadableFQDNNotComplete(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "evaluate-policy-unknown-attribute-agreement",
+      "summary": "evaluateLists keeps a verdict when an unreadable attribute cannot change it: the rest of the chain is evaluated, and when it gives the same decision the attribute would (a block-list entry blocks whether or not allow_list_only is set), that verdict stands with a note",
+      "why": "Adversarial round 19 (P2, 2026-10-20): a policy whose block list holds the domain but whose allow_list_only is null was unknown, so why-blocked said unknown and allow marked a provably blocking policy review. TestR18EvaluateUnknownAttributeAgreement fails without it.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "either := func(attr string, decided verdict, rest func() verdict) verdict {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "if v.Decision == decided.Decision && v.Decision != \"unknown\" {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "return either(\"allow_list_only\", onlyAllowList, blockListRules)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_novel_r18_test.go",
+          "contains": "func TestR18EvaluateUnknownAttributeAgreement(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "agents-drift-unknown-release-channel",
+      "summary": "releaseChannels reports known=false for a release_channels entry that is null or names no channel; such a release that could be newer than the type's in-channel latest makes that type's latest unknown, with a note",
+      "why": "Codex round 18 and adversarial round 19 (P1, 2026-10-20): release_channels:[null] read as outside the channel, so a newer release was ignored and a fleet on the older one got the all-clear. TestR18DriftUnreadableReleaseChannel fails without it.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/agents_drift.go",
+          "contains": "func releaseChannels(r jaRes) (channels []string, known bool) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/agents_drift.go",
+          "contains": "if !inChannel && !channelsKnown && t != \"\" {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/agents_drift.go",
+          "contains": "if !isComparableVersion(v) || view.Latest[t] == \"\" || compareSemver(v, view.Latest[t]) > 0 {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_novel_r18_test.go",
+          "contains": "func TestR18DriftUnreadableReleaseChannel(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "agents-drift-unknown-agent-type",
+      "summary": "with --agent-type, a client whose agent_type is absent, null or not a string is counted as type_unknown (and not compared) instead of being dropped",
+      "why": "Codex round 18 (P1, 2026-10-20): --agent-type windows silently excluded a client with agent_type null on version 1.0.0, so drift printed its all-clear. TestR18DriftAgentTypeUnknownReported fails without it.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/agents_drift.go",
+          "contains": "t, typeKnown := a.strKnown(\"agent_type\")",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/agents_drift.go",
+          "contains": "if o.AgentType != \"\" && typeKnown && t != strings.ToLower(o.AgentType) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/agents_drift.go",
+          "contains": "row.TypeUnknown++",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_novel_r18_test.go",
+          "contains": "func TestR18DriftAgentTypeUnknownReported(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "allow-target-belongs-to-org",
+      "summary": "allow never writes a non-global policy that does not belong to the org: its organization_id (or organization relationship) must be the org, or, when it names none readable, the org-scoped policy list must have returned it; otherwise the target is skipped with the reason",
+      "why": "Codex round 18 (P1, 2026-10-20): a policy named by an historical org-1 query-log hit that had since moved to org 2 (organization_id 2, can_edit true) was written without --include-global. TestR18AllowQueryLogTargetMustBelongToOrg fails without it.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/allow.go",
+          "contains": "func foreignPolicyReason(bc *blockContext, id string) string {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/allow.go",
+          "contains": "if reason := foreignPolicyReason(bc, t.PolicyID); reason != \"\" {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/allow.go",
+          "contains": "case known && !sameID(org, bc.Org.ID):",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "bc.Listed[p.ID] = true",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_novel_r18_test.go",
+          "contains": "func TestR18AllowQueryLogTargetMustBelongToOrg(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "allow-all-review-exits-nonzero",
+      "summary": "allow --confirm exits 6 when nothing was written because every candidate policy was left for review",
+      "why": "Adversarial round 19 (P2, 2026-10-20): allow --confirm exited 0 with applied:false when every target was review, so automation read success while the domain stayed blocked. TestR18AllowAllReviewExitsNonZero fails without it.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/allow.go",
+          "contains": "if flagConfirm && len(toAdd) == 0 && review > 0 {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_novel_r18_test.go",
+          "contains": "func TestR18AllowAllReviewExitsNonZero(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "lists-where-missing-referenced-policies",
+      "summary": "lists where withholds its all-clear when a policy that a site, an installed roaming client or a usable schedule slot puts in effect is missing from the mirror's policies (meta.missing_policies), or a site or client's policy, scheduled-policy or site link is unreadable (meta.unreadable_assignments)",
+      "why": "Codex round 18 (P1, 2026-10-20): with every collection complete, a site on policy 20 (or a schedule naming 20 in all 672 slots) with policy 20 absent from the mirror still printed the all-clear. TestR18ListsWhereMissingReferencedPolicy fails without it.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/lists_where.go",
+          "contains": "func missingReferencedPolicies(policies, networks, agents, schedules []jaRes) []string {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/lists_where.go",
+          "contains": "withheld = withheld || len(missing) > 0 || unreadableLinks > 0",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/lists_where.go",
+          "contains": "res.Meta.MissingPolicies, res.Meta.UnreadableAssignments = missing, unreadableLinks",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_common.go",
+          "contains": "MissingPolicies []string `json:\"missing_policies,omitempty\"`",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_novel_r18_test.go",
+          "contains": "func TestR18ListsWhereMissingReferencedPolicy(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "export-unreadable-collection-refused",
+      "summary": "export (and tail) refuse a list response whose collection is null, missing or a scalar (or whose declared responsePath is not a list) instead of exporting the envelope as one record; with --output the previous file is kept",
+      "why": "Codex round 18 and adversarial round 19 (P1, 2026-10-20): {\"data\":null} was exported as one record, replaced a good backup and printed Exported 1 records. TestR18ExportRefusesUnreadableCollection fails without it.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/export.go",
+          "contains": "func exportCollectionUnreadable(data json.RawMessage, config resourceReadConfig) error {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/export.go",
+          "contains": "if err := exportCollectionUnreadable(data, config); err != nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/tail.go",
+          "contains": "if err := exportCollectionUnreadable(data, config); err != nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_novel_r18_test.go",
+          "contains": "func TestR18ExportRefusesUnreadableCollection(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "export-follows-continuation",
+      "summary": "export follows an explicit continuation (links.next and the signals listPageContinuation reads) on a short page of a page-numbered list, and refuses an export whose continuation it cannot follow (or that a non-paginated resource names) unless --limit is already satisfied",
+      "why": "Codex round 18 (P1, 2026-10-20): resourcePagination never read links.next, so export stopped on a short first page and replaced the destination with an incomplete backup. TestR18ExportFollowsContinuation fails without it.",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/export.go",
+          "contains": "_, m, cerr := listPageContinuation(data, page+1)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/export.go",
+          "contains": "if config.limitParam != \"\" && !hasMore && !more {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_novel_r18_test.go",
+          "contains": "func TestR18ExportFollowsContinuation(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "export-output-private-file-check",
+      "summary": "export --output runs cliutil.SavedCredentialsPermsCheck (the credentials writer's private-file guard) on the empty temp file before writing and again before the rename; a refusal removes the temp file and keeps the previous destination",
+      "why": "Adversarial round 19 (P1, 2026-10-20): on Windows an inherited BUILTIN\\Users ACE made the export temp file (site secret keys for networks) broadly readable, and the rename replaced an owner-only backup with it. TestR18ExportPrivateFileCheck fails without it (it injects a refusing guard, so it runs on every OS).",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/export.go",
+          "contains": "func exportPrivateFileCheck(tmp string) error {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/export.go",
+          "contains": "if err := cliutil.SavedCredentialsPermsCheck(tmp); err != nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/export.go",
+          "contains": "if err := exportPrivateFileCheck(f.Name()); err != nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/export.go",
+          "contains": "if err := exportPrivateFileCheck(tmp); err != nil {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/dnsfilter_novel_r18_test.go",
+          "contains": "func TestR18ExportPrivateFileCheck(t *testing.T) {",
           "code_only": true
         }
       ]
