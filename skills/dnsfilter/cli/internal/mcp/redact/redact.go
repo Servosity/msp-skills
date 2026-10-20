@@ -302,6 +302,25 @@ func redactJSONSegments(text string) (string, string) {
 		dec.UseNumber()
 		var v any
 		if err := dec.Decode(&v); err != nil {
+			// Hand-wired (handfixes.json: secrets-never-persisted): a CSV cell
+			// holding one JSON value with its quotes doubled (agents_stale
+			// csv=true writes each nested value so) is decoded and redacted by
+			// the key rule like any segment and never spends the decode
+			// budget, so a long ordinary CSV is not withheld whole for its
+			// size. The store scrub reads cells the same way (store.CSVJSONCell).
+			if cell, end, ok := store.CSVJSONCell(text, start); ok {
+				if inner, ok := decodeExactlyOne(cell); ok {
+					plain.WriteByte(text[start])
+					plain.WriteByte(' ')
+					if cleaned, changed := redactValue(inner); changed || !rawJSONClean(cell) {
+						out.WriteString(strings.ReplaceAll(encodeJSONCompact(cleaned), `"`, `""`))
+					} else {
+						out.WriteString(text[start:end])
+					}
+					i = end
+					continue
+				}
+			}
 			failures++
 			out.WriteByte(text[start])
 			plain.WriteByte(text[start])
@@ -529,6 +548,13 @@ func rawJSONClean(raw string) bool {
 // string VALUE gets the store's full rule over the whole string first (see
 // redactValue).
 func textNamesCredential(whole, plain string) bool {
+	// Hand-wired (handfixes.json: secrets-never-persisted): JSON that did not
+	// decode (an error body cut to its size limit, a preview cut mid-record)
+	// still gets the key rule on the quoted keys left in it, so a truncated
+	// {"pass word":"x", ... is judged like the whole object.
+	if store.CutOffKeyNamesSecret(plain) {
+		return true
+	}
 	return store.TextNamesSecret(plain) || store.SecretPairInJSONText(whole) || store.SecretLabelPairInText(store.UnescapeForTextRule(whole))
 }
 

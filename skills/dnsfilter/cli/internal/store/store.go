@@ -2731,6 +2731,12 @@ func flattenMapKeyedCollection(raw json.RawMessage, depth int) ([]json.RawMessag
 			}
 		}
 		if isEmptyJSONObject(entry.value) {
+			// HAND-FIX(sync-non-object-item-is-incomplete): the
+			// response names this record but carries nothing for it, so it
+			// goes on as a non-object item, which the batch writer counts as
+			// an extract failure: a walk that did not store it is never
+			// certified complete, and --full never prunes the stored row.
+			items = append(items, json.RawMessage("null"))
 			continue
 		}
 		items = append(items, stampMapKeyID(entry.value, entry.key))
@@ -5855,9 +5861,12 @@ func fingerprintScalar(value any) (any, bool) {
 //   - Object keys present only on existing are kept.
 //   - Objects merge recursively; incoming keys go through the same policy
 //     rather than wholesale replacement.
-//   - A container (object/array) is never replaced by a scalar or null.
-//   - An incoming empty array does not replace a non-empty existing array
-//     (list omitted the collection vs sent a new one).
+//   - A key the incoming object sends replaces the stored value whatever its
+//     type (dnsfilter hand-fix: a container is replaced by a scalar or null
+//     the API sends); only an omitted key keeps the stored value.
+//   - An incoming empty array of objects does not replace a non-empty
+//     existing one (list omitted the collection vs sent a new one); an empty
+//     array of scalars does (dnsfilter hand-fix).
 //   - Object arrays match by the same identity stack as ExtractResourceID
 //     (configured / dotted override, generic id, resource-scoped suffix)
 //     plus item-local suffix keys (currency_code, accountId) and sku.
@@ -5921,12 +5930,11 @@ func mergeKeepRicherValue(resourceType string, existing, incoming any) any {
 	if existingIsArr && incomingIsArr {
 		return mergeKeepRicherArray(resourceType, existingArr, incomingArr)
 	}
-	if isJSONContainer(existing) && !isJSONContainer(incoming) {
-		return existing
-	}
-	if isJSONEmpty(incoming) && !isJSONEmpty(existing) {
-		return existing
-	}
+	// Hand-fix (dnsfilter, handfixes.json: merge-explicit-empty-scalar-is-authoritative):
+	// a key the API sends is its current value whatever its type, so a
+	// mistyped value (blacklist_domains:false where a list was stored) replaces
+	// the stored container instead of hiding behind it; only an omitted key
+	// keeps the stored value (the object merge never visits one).
 	return incoming
 }
 
@@ -6651,6 +6659,17 @@ func (s *Store) upsertBatchDetailed(resourceType string, items []json.RawMessage
 			}
 			if _, relErr := tx.Exec("RELEASE SAVEPOINT " + savepoint); relErr != nil {
 				return 0, extractFailures, typedFailures, fmt.Errorf("release savepoint after rollback for %s/%s: %w", resourceType, storageID, relErr)
+			}
+			// HAND-FIX(typed-failure-drops-stale-projection): the generic row
+			// now holds the new value, so a typed row left from an earlier
+			// write is stale. Dropping it leaves the typed table short of the
+			// generic partition, which TypedPartitionComplete reports as
+			// incomplete, so typed reads fall back to the generic rows until a
+			// later write projects this row again.
+			if table, ok := TypedListTable(resourceType); ok {
+				if _, delErr := tx.Exec(fmt.Sprintf(`DELETE FROM "%s" WHERE "id" = ?`, table), storageID); delErr != nil {
+					return 0, extractFailures, typedFailures, fmt.Errorf("dropping the stale typed row for %s/%s after a failed projection: %w", resourceType, storageID, delErr)
+				}
 			}
 			typedFailures++
 			continue

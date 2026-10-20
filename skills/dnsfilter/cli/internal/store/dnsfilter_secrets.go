@@ -12,6 +12,7 @@ import (
 	"io"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 )
 
 // withheldRow is what reaches the store when a row cannot be decoded, so its
@@ -252,6 +253,13 @@ func scrubSecretString(s string, depth int) (any, bool) {
 				return WithheldValuePlaceholder, true
 			}
 		}
+		// HAND-FIX(secrets-never-persisted): JSON embedded after prose
+		// ('prefix {"p a s s w o r d":"x"}') is never decoded at the bound
+		// either, so any '{' or '[' left (placeholders aside) withholds the
+		// string: its keys were never judged.
+		if strings.ContainsAny(strings.ReplaceAll(s, WithheldValuePlaceholder, ""), "{[") {
+			return WithheldValuePlaceholder, true
+		}
 		return s, false
 	}
 	trimmed := strings.TrimSpace(s)
@@ -276,6 +284,11 @@ func scrubSecretString(s string, depth int) (any, bool) {
 	}
 	text, plain, changed := scrubEmbeddedJSON(s, depth)
 	if textNamesSecret(plain) {
+		return WithheldValuePlaceholder, true
+	}
+	// HAND-FIX(secrets-never-persisted): an object cut off mid-record never
+	// decoded, so its keys get the key rule here ({"pass word":"x", ...).
+	if CutOffKeyNamesSecret(plain) {
 		return WithheldValuePlaceholder, true
 	}
 	if changed {
@@ -323,6 +336,27 @@ func scrubEmbeddedJSON(text string, depth int) (string, string, bool) {
 		dec.UseNumber()
 		var v any
 		if err := dec.Decode(&v); err != nil {
+			// HAND-FIX(secrets-never-persisted): a CSV cell holding one JSON
+			// value with its quotes doubled ("[{""id"":1}]", a --csv nested
+			// value) is decoded and judged by the key rule like any segment,
+			// never counted against the decode budget.
+			if cell, end, ok := CSVJSONCell(text, start); ok {
+				if inner, ok := decodeSingleJSON([]byte(cell)); ok {
+					if rawJSONNeedsNoScrub([]byte(cell), depth+1) {
+						out.WriteString(text[start:end])
+					} else {
+						cleaned, _ := scrubSecretValueDepth(inner, depth+1)
+						enc, ok := encodeCompactJSON(cleaned)
+						if !ok {
+							enc = `"` + WithheldValuePlaceholder + `"`
+						}
+						out.WriteString(strings.ReplaceAll(enc, `"`, `""`))
+						changed = true
+					}
+					i = end
+					continue
+				}
+			}
 			failures++
 			out.WriteByte(text[start])
 			plain.WriteByte(text[start])
@@ -344,6 +378,39 @@ func scrubEmbeddedJSON(text string, depth int) (string, string, bool) {
 		i = end
 	}
 	return out.String(), plain.String(), changed
+}
+
+// CSVJSONCell reports whether the '{' or '[' at text[start] opens the content
+// of a CSV cell quoted with its inner quotes doubled, as a --csv writer emits
+// a nested value ("[{""id"":1}]"): the byte before start is the cell's
+// opening quote, at the start of the text or right after a field or record
+// separator (, ; tab or a line break), and a quote that is not doubled closes
+// the cell. It returns the content with "" read as " and the offset of the
+// closing quote; an unclosed cell is not one. The caller decodes the content.
+// Linear: a scan ends at the first quote that is not doubled, which any later
+// cell opening (separator, quote, bracket) would be, so scans never overlap.
+// HAND-FIX(secrets-never-persisted), shared with the read-only redactor.
+func CSVJSONCell(text string, start int) (string, int, bool) {
+	if start < 1 || start >= len(text) || text[start-1] != '"' {
+		return "", 0, false
+	}
+	if q := start - 1; q > 0 && strings.IndexByte(",;\t\r\n", text[q-1]) < 0 {
+		return "", 0, false
+	}
+	var b strings.Builder
+	for i := start; i < len(text); i++ {
+		if text[i] != '"' {
+			b.WriteByte(text[i])
+			continue
+		}
+		if i+1 < len(text) && text[i+1] == '"' {
+			b.WriteByte('"')
+			i++
+			continue
+		}
+		return b.String(), i, true
+	}
+	return "", 0, false
 }
 
 func encodeCompactJSON(v any) (string, bool) {
@@ -393,45 +460,275 @@ func plistNamesSecret(text string) bool {
 	if !strings.Contains(text, "<") {
 		return false
 	}
-	for _, m := range plistEntryRE.FindAllStringSubmatch(text, -1) {
-		if KeyNamesSecret(strings.TrimSpace(m[1])) && !exemptPairValue(strings.TrimSpace(m[2])) {
-			return true
+	// HAND-FIX(secrets-never-persisted): a CDATA value
+	// (<string><![CDATA[x]]></string>) is read as its text.
+	for _, t := range cdataVariants(text) {
+		for _, m := range plistEntryRE.FindAllStringSubmatch(t, -1) {
+			if KeyNamesSecret(strings.TrimSpace(m[1])) && !exemptPairValue(strings.TrimSpace(m[2])) {
+				return true
+			}
 		}
 	}
 	return false
 }
 
 // markupElementRE matches an XML/HTML element's opening tag and the text
-// right after it (<password>hunter2</password>, <secret_key a="b">X), and
-// flagValueRE a command-line flag and the token after it (--password X,
-// -nkey X): two more shapes, besides the plist entry, that carry a value with
-// no separator for the pair rule to see.
-var (
-	markupElementRE = regexp.MustCompile(`<([A-Za-z_][\w.\-]*)(?:\s[^<>]*)?>\s*([^<\s][^<]*)`)
-	flagValueRE     = regexp.MustCompile(`(?:^|\s)--?([A-Za-z][\w.\-]*)[ \t]+([^\s\-][^\s]*)`)
-)
+// right after it (<password>hunter2</password>, <secret_key a="b">X): one more
+// shape, besides the plist entry, the attribute pair and the command-line
+// flag, that carries a value with no separator for the pair rule to see.
+var markupElementRE = regexp.MustCompile(`<([A-Za-z_][\w.\-]*)(?:\s[^<>]*)?>\s*([^<\s][^<]*)`)
 
-// markupNamesSecret reports an element or a flag whose name names a secret
-// (KeyNamesSecret) followed by a value that is not exempt (exemptPairValue).
-// An unclosed tag that is a documentation placeholder (<token>) is prose,
-// not an element.
+// markupNamesSecret reports an element, a name/value attribute pair or a
+// command-line flag that names a secret (KeyNamesSecret) and carries a value
+// that is not exempt (exemptPairValue). An unclosed tag that is a
+// documentation placeholder (<token>) is prose, not an element. A CDATA
+// section is read as the text it holds (<password><![CDATA[x]]></password>).
+// Linear: whether a placeholder name is ever closed is looked up once per
+// name, never once per element.
 func markupNamesSecret(text string) bool {
-	lower := strings.ToLower(text)
+	if strings.Contains(text, "<") {
+		for _, t := range cdataVariants(text) {
+			if markupElementNamesSecret(t) || markupAttributeNamesSecret(t) {
+				return true
+			}
+		}
+	}
+	return flagNamesSecret(text)
+}
+
+// markupElementNamesSecret is the element half of markupNamesSecret.
+func markupElementNamesSecret(text string) bool {
+	lower := ""
+	closed := map[string]bool{}
+	closes := func(name string) bool {
+		v, ok := closed[name]
+		if !ok {
+			if lower == "" {
+				lower = strings.ToLower(text)
+			}
+			v = strings.Contains(lower, "</"+name)
+			closed[name] = v
+		}
+		return v
+	}
 	for _, m := range markupElementRE.FindAllStringSubmatch(text, -1) {
 		name := strings.ToLower(m[1])
-		if documentationPlaceholders["<"+name+">"] && !strings.Contains(lower, "</"+name) {
+		if documentationPlaceholders["<"+name+">"] && !closes(name) {
 			continue
 		}
 		if KeyNamesSecret(m[1]) && !exemptPairValue(strings.TrimSpace(m[2])) {
 			return true
 		}
 	}
-	for _, m := range flagValueRE.FindAllStringSubmatch(text, -1) {
-		if KeyNamesSecret(m[1]) && !exemptPairValue(strings.TrimSpace(m[2])) {
+	return false
+}
+
+// cdataVariants is text as written and, when it holds a CDATA section, text
+// with each section unwrapped (unwrapCDATA): the markup rules judge both, so
+// reading a section as its text never hides a tag the raw text shows.
+func cdataVariants(text string) []string {
+	if u := unwrapCDATA(text); u != text {
+		return []string{text, u}
+	}
+	return []string{text}
+}
+
+// unwrapCDATA returns text with every XML CDATA section (<![CDATA[...]]>,
+// any case) replaced by the text it holds, each '<' in it read as a space
+// (CDATA content is text by definition, never a tag); an unclosed section (a
+// cut preview) runs to the end. One pass.
+func unwrapCDATA(text string) string {
+	const open = "<![cdata["
+	if !strings.Contains(text, "<!") {
+		return text
+	}
+	var b strings.Builder
+	b.Grow(len(text))
+	i := 0
+	for i < len(text) {
+		j := strings.Index(text[i:], "<!")
+		if j < 0 {
+			b.WriteString(text[i:])
+			break
+		}
+		at := i + j
+		if len(text)-at < len(open) || !strings.EqualFold(text[at:at+len(open)], open) {
+			b.WriteString(text[i : at+2])
+			i = at + 2
+			continue
+		}
+		b.WriteString(text[i:at])
+		body := at + len(open)
+		end := strings.Index(text[body:], "]]>")
+		content, next := text[body:], len(text)
+		if end >= 0 {
+			content, next = text[body:body+end], body+end+len("]]>")
+		}
+		b.WriteString(strings.ReplaceAll(content, "<", " "))
+		i = next
+	}
+	return b.String()
+}
+
+// htmlVoidElements have no content, so the text after one is never its value.
+var htmlVoidElements = map[string]bool{"area": true, "base": true, "br": true, "col": true, "embed": true, "hr": true, "img": true, "input": true, "link": true, "meta": true, "param": true, "source": true, "track": true, "wbr": true}
+
+// markupAttributeNamesSecret reports a tag whose attributes split a secret's
+// name from its value: one attribute's value names a secret (a label such as
+// NKEY, password or Uninstall PIN, judged by KeyNamesSecret) and a value
+// attribute carries a value that is not exempt (<Property Id="NKEY"
+// Value="x"/>, <add key="NKEY" value="x"/>, <input type="password"
+// value="x">, <meta name="csrf-token" content="x">), or a key or name
+// attribute names the secret and the element's own text is its value
+// (<entry key="password">x</entry>; never after a self-closing or void tag,
+// and never for an id, which HTML puts on every label). Attribute values are quoted or bare; an
+// unclosed quote runs to the end (a cut preview). One pass: the scan resumes
+// where each tag's attributes end.
+func markupAttributeNamesSecret(text string) bool {
+	isSpace := func(c byte) bool { return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f' }
+	isNameByte := func(c byte) bool { return isLabelWordByte(c) || c == ':' }
+	n := len(text)
+	for i := 0; i < n; i++ {
+		if text[i] != '<' || i+1 >= n || !(isASCIILetter(text[i+1]) || text[i+1] == '_') {
+			continue
+		}
+		j := i + 1
+		for j < n && isNameByte(text[j]) {
+			j++
+		}
+		tag := strings.ToLower(text[i+1 : j])
+		named, keyNamed, valued, selfClosed := false, false, false, false
+		for j < n && text[j] != '>' && text[j] != '<' {
+			if isSpace(text[j]) || text[j] == '/' {
+				selfClosed = text[j] == '/'
+				j++
+				continue
+			}
+			selfClosed = false
+			a := j
+			for j < n && isNameByte(text[j]) {
+				j++
+			}
+			if a == j {
+				j++ // a stray byte inside the tag
+				continue
+			}
+			attr := strings.ToLower(text[a:j])
+			k := j
+			for k < n && isSpace(text[k]) {
+				k++
+			}
+			if k >= n || text[k] != '=' {
+				continue
+			}
+			k++
+			for k < n && isSpace(text[k]) {
+				k++
+			}
+			var v string
+			switch {
+			case k < n && (text[k] == '"' || text[k] == '\''):
+				if e := strings.IndexByte(text[k+1:], text[k]); e >= 0 {
+					v, j = text[k+1:k+1+e], k+1+e+1
+				} else {
+					v, j = text[k+1:], n
+				}
+			default:
+				e := k
+				for e < n && !isSpace(text[e]) && text[e] != '>' && text[e] != '<' {
+					e++
+				}
+				v, j = text[k:e], e
+			}
+			v = strings.TrimSpace(v)
+			if attr == "value" || attr == "content" {
+				valued = valued || !exemptPairValue(v)
+				continue
+			}
+			if (tableCellRE.MatchString(v) || tableLabelRE.MatchString(v)) && KeyNamesSecret(v) {
+				named = true
+				keyNamed = keyNamed || attr == "key" || attr == "name"
+			}
+		}
+		if named && valued {
 			return true
 		}
+		if keyNamed && !selfClosed && !htmlVoidElements[tag] && j < n && text[j] == '>' {
+			content := text[j+1:]
+			if e := strings.IndexByte(content, '<'); e >= 0 {
+				content = content[:e]
+			}
+			if !exemptPairValue(strings.TrimSpace(content)) {
+				return true
+			}
+		}
+		i = j - 1
 	}
 	return false
+}
+
+// flagNamesSecret reports a command-line flag (-name or --name, a whole
+// whitespace-separated token) that names a secret (KeyNamesSecret) followed
+// on its line by a token that is not exempt. It fails closed: after a
+// secret-named flag any next token is its value (--password -hunter2,
+// --pin -), unless it is a long flag (--verbose); only the end of the line
+// carries nothing. One pass over the tokens.
+func flagNamesSecret(text string) bool {
+	if !strings.Contains(text, "-") {
+		return false
+	}
+	isSpace := func(c byte) bool { return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f' }
+	n := len(text)
+	for i := 0; i < n; {
+		if isSpace(text[i]) {
+			i++
+			continue
+		}
+		j := i
+		for j < n && !isSpace(text[j]) {
+			j++
+		}
+		if name, ok := flagTokenName(text[i:j]); ok && j < n && (text[j] == ' ' || text[j] == '\t') {
+			k := j
+			for k < n && (text[k] == ' ' || text[k] == '\t') {
+				k++
+			}
+			e := k
+			for e < n && !isSpace(text[e]) {
+				e++
+			}
+			if v := text[k:e]; v != "" && !isLongFlag(v) && !exemptPairValue(v) && KeyNamesSecret(name) {
+				return true
+			}
+		}
+		i = j
+	}
+	return false
+}
+
+// flagTokenName returns the name of a whole token that is a flag: one or two
+// dashes, a letter, then letters, digits, '_', '.' or '-'.
+func flagTokenName(tok string) (string, bool) {
+	name := strings.TrimPrefix(tok, "-")
+	if name == tok {
+		return "", false
+	}
+	name = strings.TrimPrefix(name, "-")
+	if name == "" || !isASCIILetter(name[0]) {
+		return "", false
+	}
+	for k := 1; k < len(name); k++ {
+		if c := name[k]; !(isLabelWordByte(c) || c == '_') {
+			return "", false
+		}
+	}
+	return name, true
+}
+
+// isLongFlag reports a token that is a long flag (--verbose), which never
+// stands as the value of the flag before it.
+func isLongFlag(v string) bool {
+	return len(v) > 2 && v[0] == '-' && v[1] == '-' && isASCIILetter(v[2])
 }
 
 // textNamesSecret is the store's text rule on a raw string value; see
@@ -459,6 +756,13 @@ func TextNamesSecret(text string) bool {
 		if SecretPairInText(text) || plistNamesSecret(text) || markupNamesSecret(text) {
 			return true
 		}
+		// HAND-FIX(secrets-never-persisted): a separator or bracket written
+		// in a fullwidth or small form (PIN：4821, secret_key＝x) is read
+		// again as ASCII. Both readings count, so folding never narrows the
+		// rule (a fullwidth letter read as punctuation still arms).
+		if folded := foldWideForms(text); folded != text && (SecretPairInText(folded) || plistNamesSecret(folded) || markupNamesSecret(folded)) {
+			return true
+		}
 		if !strings.Contains(text, "\\") {
 			break
 		}
@@ -471,6 +775,15 @@ func TextNamesSecret(text string) bool {
 		}
 		text = next
 	}
+	if folded := foldWideForms(text); folded != text && tableNamesSecret(folded) {
+		return true
+	}
+	return tableNamesSecret(text)
+}
+
+// tableNamesSecret is TextNamesSecret's table rule on fully unescaped text: a
+// header row naming a secret column, with at least one more line.
+func tableNamesSecret(text string) bool {
 	lines := strings.Split(strings.TrimSpace(text), "\n")
 	if len(lines) < 2 {
 		return false
@@ -523,6 +836,184 @@ func TextNamesSecret(text string) bool {
 	return false
 }
 
+// CutOffKeyNamesSecret applies the key rule to JSON that no longer decodes (a
+// body or preview cut mid-record, so its closing brace is lost): it is run on
+// the remainder an embedded-JSON scan could not decode (the store scrub's and
+// the read-only redactor's plain text), so a truncated object is judged like
+// a whole one. It reads text at every level of JSON string escaping, as
+// TextNamesSecret does. HAND-FIX(secrets-never-persisted)
+func CutOffKeyNamesSecret(text string) bool {
+	for round := 0; ; round++ {
+		text = foldWideForms(text)
+		if quotedKeyNamesSecret(text) {
+			return true
+		}
+		if round >= maxUnescapeRounds || !strings.Contains(text, "\\") {
+			return false
+		}
+		next := unescapeOneLevel(text)
+		if next == text {
+			return false
+		}
+		text = next
+	}
+}
+
+// quotedKeyNamesSecret is CutOffKeyNamesSecret at one escape level: a quoted
+// key where a JSON key stands (right after '{' or ',', whitespace between
+// allowed; a CSV cell's doubled quotes too) that KeyNamesSecret names ("pass
+// word", which no text label reads), then ':' and a value that is not exempt
+// (pairCarriesValue). A key holds no quote, backslash or line break at this
+// level. One pass: a key scan ends at the next quote, where the next
+// candidate starts.
+func quotedKeyNamesSecret(text string) bool {
+	if !strings.Contains(text, `"`) || !strings.Contains(text, ":") {
+		return false
+	}
+	isSpace := func(c byte) bool { return c == ' ' || c == '\t' || c == '\n' || c == '\r' }
+	for i := 0; i < len(text); i++ {
+		if text[i] != '"' {
+			continue
+		}
+		p := i - 1
+		if p >= 0 && text[p] == '"' {
+			p-- // a doubled opening quote (CSV)
+		}
+		for p >= 0 && isSpace(text[p]) {
+			p--
+		}
+		if p < 0 || (text[p] != '{' && text[p] != ',') {
+			continue
+		}
+		j := i + 1
+		for j < len(text) && text[j] != '"' && text[j] != '\\' && text[j] != '\n' && text[j] != '\r' {
+			j++
+		}
+		if j >= len(text) || text[j] != '"' {
+			i = j - 1
+			continue
+		}
+		k := j + 1
+		if k < len(text) && text[k] == '"' {
+			k++ // a doubled closing quote (CSV)
+		}
+		for k < len(text) && (text[k] == ' ' || text[k] == '\t') {
+			k++
+		}
+		if k < len(text) && text[k] == ':' && KeyNamesSecret(text[i+1:j]) && pairCarriesValue(text[k+1:]) {
+			return true
+		}
+		i = j - 1 // the closing quote may open the next candidate
+	}
+	return false
+}
+
+// foldWideForms reads each fullwidth ASCII form (U+FF01..FF5E, ideographic
+// space), small form (U+FE50..FE6B) and colon or equals look-alike as the
+// ASCII character it stands for, as NFKC would for most of them, and each
+// HTML character reference for a printable ASCII character (&#58;, &#x3D;,
+// &colon;, &lt;, &quot;, ...), so the text rule sees PIN：4821, secret_key＝x
+// and token&#58; x as the pairs they are. A backslash form is left alone (it
+// is never a JSON escape). Text with neither is returned as is. One pass.
+func foldWideForms(s string) string {
+	wide := false
+	for i := 0; i < len(s); i++ {
+		if s[i] >= 0x80 || s[i] == '&' {
+			wide = true
+			break
+		}
+	}
+	if !wide {
+		return s
+	}
+	var b strings.Builder
+	b.Grow(len(s))
+	for i := 0; i < len(s); {
+		if s[i] == '&' {
+			if c, n := htmlCharRef(s[i:]); n > 0 {
+				b.WriteByte(c)
+				i += n
+				continue
+			}
+		}
+		r, size := utf8.DecodeRuneInString(s[i:])
+		if c, ok := wideFormASCII(r); ok {
+			b.WriteByte(c)
+		} else {
+			b.WriteString(s[i : i+size])
+		}
+		i += size
+	}
+	return b.String()
+}
+
+// htmlNamedRefs are the named character references for the separators,
+// quotes and brackets the text rule reads.
+var htmlNamedRefs = map[string]byte{"colon": ':', "equals": '=', "lt": '<', "gt": '>', "quot": '"', "apos": '\'', "lpar": '(', "rpar": ')', "lsqb": '[', "rsqb": ']', "lbrack": '[', "rbrack": ']', "lcub": '{', "rcub": '}', "lbrace": '{', "rbrace": '}', "comma": ',', "semi": ';', "num": '#', "commat": '@', "sol": '/', "nbsp": ' '}
+
+// htmlCharRef decodes the HTML character reference at the start of s (&#58;,
+// &#x3a;, &colon;) when it stands for a printable ASCII character other than
+// the backslash, returning the character and the reference's length (0: not
+// one). At most 12 bytes are read.
+func htmlCharRef(s string) (byte, int) {
+	end := strings.IndexByte(s, ';')
+	if end < 2 || end > 12 {
+		return 0, 0
+	}
+	body := s[1:end]
+	if body[0] != '#' {
+		c, ok := htmlNamedRefs[strings.ToLower(body)]
+		if !ok {
+			return 0, 0
+		}
+		return c, end + 1
+	}
+	digits, base := body[1:], 10
+	if len(digits) > 0 && (digits[0] == 'x' || digits[0] == 'X') {
+		digits, base = digits[1:], 16
+	}
+	if digits == "" {
+		return 0, 0
+	}
+	v := 0
+	for k := 0; k < len(digits); k++ {
+		d := int(hexByteVal(digits[k]))
+		if !isHexByte(digits[k]) || d >= base {
+			return 0, 0
+		}
+		v = v*base + d
+	}
+	if v < 0x20 || v > 0x7e || v == '\\' {
+		return 0, 0
+	}
+	return byte(v), end + 1
+}
+
+// smallFormASCII maps the small forms U+FE50..FE6B that stand for ASCII.
+var smallFormASCII = map[rune]byte{
+	0xFE50: ',', 0xFE52: '.', 0xFE54: ';', 0xFE55: ':', 0xFE56: '?', 0xFE57: '!',
+	0xFE59: '(', 0xFE5A: ')', 0xFE5B: '{', 0xFE5C: '}', 0xFE5F: '#', 0xFE60: '&',
+	0xFE61: '*', 0xFE62: '+', 0xFE63: '-', 0xFE64: '<', 0xFE65: '>', 0xFE66: '=',
+	0xFE69: '$', 0xFE6A: '%', 0xFE6B: '@',
+}
+
+func wideFormASCII(r rune) (byte, bool) {
+	switch {
+	case r >= 0xFF01 && r <= 0xFF5E && r != 0xFF3C: // fullwidth ASCII, not the backslash
+		return byte(r - 0xFEE0), true
+	case r == 0x3000: // ideographic space
+		return ' ', true
+	}
+	switch r {
+	case 0xFE13, 0x2236, 0xA789, 0x02F8, 0x0589, 0x05C3: // vertical, ratio, modifier and other colons
+		return ':', true
+	case 0xA78A, 0x2E40, 0x30A0, 0x1400: // modifier short equals and double hyphens
+		return '=', true
+	}
+	c, ok := smallFormASCII[r]
+	return c, ok
+}
+
 // KeyNamesSecret reports whether a JSON object key names a secret: by the
 // key rule (IsSecretKey), or read as a text label by the label rule, since a
 // key can carry a qualified label ("Uninstall PIN (HQ)", "Admin password for
@@ -569,7 +1060,7 @@ func labelNamesSecret(label string) bool {
 		return false
 	}
 	last := words[len(words)-1]
-	if IsSecretKey(last) {
+	if isSecretKeyIn(last, false) { // the scan's first-pass vocabulary
 		return true
 	}
 	if lw := keyWords(last); len(lw) == 0 || (lw[len(lw)-1] != "key" && lw[len(lw)-1] != "keys") {
@@ -809,6 +1300,59 @@ func secretPairScan(text string, mode int) bool {
 	if !strings.ContainsAny(text, ":=") {
 		return false
 	}
+	if secretPairScanIn(text, mode, false) {
+		return true
+	}
+	// HAND-FIX(secrets-never-persisted): a second pass reads Authorization
+	// labels too (Authorization: KEY, Proxy-Authorization: Basic KEY). The
+	// first pass is the earlier vocabulary unchanged, so a new label (whose
+	// exempt value is skipped, for one) never lifts a pair it withheld.
+	return containsFoldASCII(text, authorizationSuffix) && secretPairScanIn(text, mode, true)
+}
+
+// containsFoldASCII reports whether text holds sub (lower-case ASCII) in any
+// ASCII case. Linear in len(text) times len(sub).
+func containsFoldASCII(text, sub string) bool {
+	for i := 0; i+len(sub) <= len(text); i++ {
+		if c := text[i] | 0x20; c == sub[0] && strings.EqualFold(text[i:i+len(sub)], sub) {
+			return true
+		}
+	}
+	return false
+}
+
+// authorizationLabel reports a label word that names the Authorization
+// header (Authorization, Proxy-Authorization, HTTP_AUTHORIZATION), as read by
+// the scan's second pass.
+func authorizationLabel(w string) bool {
+	return strings.HasSuffix(strings.Join(keyWords(w), ""), authorizationSuffix)
+}
+
+// gluedAuthorizationLabel is gluedSecretLabel for the Authorization suffix
+// (Authorization2, Authorization. then a qualifier): a glued boundary after a
+// prefix whose folded letters end in authorization. Linear in len(w).
+func gluedAuthorizationLabel(w string) bool {
+	if lw := keyWords(w); len(lw) == 0 || identifierWords[lw[len(lw)-1]] {
+		return false
+	}
+	folded := make([]byte, 0, len(w))
+	for p := 0; p < len(w); p++ {
+		if p > 0 && isASCIILetter(w[p-1]) && gluedBoundary(w, p) && bytes.HasSuffix(folded, []byte(authorizationSuffix)) {
+			return true
+		}
+		switch c := w[p]; {
+		case c >= 'A' && c <= 'Z':
+			folded = append(folded, c+('a'-'A'))
+		case c >= 'a' && c <= 'z' || c >= '0' && c <= '9':
+			folded = append(folded, c)
+		}
+	}
+	return false
+}
+
+// secretPairScanIn is secretPairScan's pass; authorization adds the
+// Authorization labels to the vocabulary.
+func secretPairScanIn(text string, mode int, authorization bool) bool {
 	var run []string // the last one to three words of the current run
 	// runSecret: the run names a secret. pending: it does and nothing has
 	// followed yet. armed: a secret label then a qualifier in this segment.
@@ -842,6 +1386,17 @@ func secretPairScan(text string, mode int) bool {
 		armedIn |= 1 << uint(armedDepth+1)
 	}
 	arm := func() { armAt(false) }
+	// HAND-FIX(secrets-never-persisted): in JSON text a glued arming
+	// (LAPTOP-SPIN1, TOKEN2-LAPTOP: a hostname, not a label) ends at a quote
+	// or a comma, the end of the value or CSV cell it was read in, so with
+	// CSV-doubled quotes ("",""last_sync"":) it never labels a later key's
+	// separator. A secret label still pending there re-arms as punctuation
+	// does ("PIN2", (HQ): x), and plain text keeps the glued arming whole.
+	endGlue := func() {
+		if mode == scanJSON && armedByGlue {
+			armed, armedByGlue, armedIn = false, false, 0
+		}
+	}
 	for i := 0; i < len(text); {
 		c := text[i]
 		switch {
@@ -866,10 +1421,13 @@ func secretPairScan(text string, mode int) bool {
 			// a qualifier) names the secret and arms the segment, as the same
 			// punctuation would after a space.
 			glued := gluedSecretLabel(run, w)
+			if authorization && !glued {
+				glued = gluedAuthorizationLabel(w)
+			}
 			if run = append(run, w); len(run) > 3 {
 				run = append(run[:0], run[1:]...)
 			}
-			runSecret = glued || labelNamesSecret(strings.Join(run, " "))
+			runSecret = glued || labelNamesSecret(strings.Join(run, " ")) || authorization && authorizationLabel(w)
 			pending, clean, joined = runSecret, true, true
 			if glued {
 				armAt(true)
@@ -885,6 +1443,7 @@ func secretPairScan(text string, mode int) bool {
 				k++
 			}
 			if i+k < len(text) && text[i+k] == '"' {
+				endGlue()
 				// A quote after a secret label and a space opens a quoted
 				// qualifier (PIN "Acme" (laptops): x); a key's quote sits
 				// right against its label ("password":), so it never arms.
@@ -931,6 +1490,10 @@ func secretPairScan(text string, mode int) bool {
 		case c == '\'':
 			arm()
 			pending, joined = false, false
+		case c == ',':
+			endGlue()
+			arm()
+			pending, clean, joined = false, false, false
 		case c == ':' || c == '=':
 			if clean && (!armed || armedByGlue) && secretInstructionRun(run) {
 				// "Set your API key with: export ..." says how to set the
@@ -1266,6 +1829,15 @@ var secretKeySuffixes = []string{
 	"pins",
 }
 
+// authorizationSuffix ends a key or label that names the header DNSFilter's
+// API key travels in (Authorization: KEY, Proxy-Authorization,
+// HTTP_AUTHORIZATION); no DNSFilter spec property ends in it
+// (authorized_domains does not). The key rule matches it like a
+// secretKeySuffixes entry; the text pair scan reads it in a second pass (see
+// secretPairScan), so adding it never changes how the first pass reads.
+// HAND-FIX(secrets-never-persisted)
+const authorizationSuffix = "authorization"
+
 // secretKeyWords match only as a whole key word (keyWords): nkey is
 // DNSFilter's roaming-client deployment property for the site secret key
 // (msiexec ... NKEY="...", a macOS plist <key>NKEY</key>), and as a fragment it
@@ -1301,7 +1873,11 @@ var identifierWords = map[string]bool{"id": true, "ids": true, "uuid": true, "uu
 // word is id, ids, uuid or uuids is an identifier, not a secret. A key
 // matches a fragment anywhere, a suffix at its end, or a whole secret word
 // (NKEY, site_nkey; not monkey).
-func IsSecretKey(key string) bool {
+func IsSecretKey(key string) bool { return isSecretKeyIn(key, true) }
+
+// isSecretKeyIn is IsSecretKey with the authorization suffix on or off: the
+// text pair scan's first pass reads labels without it.
+func isSecretKeyIn(key string, authorization bool) bool {
 	words := keyWords(key)
 	if len(words) == 0 || identifierWords[words[len(words)-1]] {
 		return false
@@ -1316,6 +1892,9 @@ func IsSecretKey(key string) bool {
 		if strings.HasSuffix(folded, s) {
 			return true
 		}
+	}
+	if authorization && strings.HasSuffix(folded, authorizationSuffix) {
+		return true
 	}
 	return hasSecretWord(words)
 }

@@ -710,6 +710,9 @@ func syncResource(ctx context.Context, c interface {
 		// Try to extract items from the response.
 		// Strategy: try array first, then common wrapper keys.
 		items, nextCursor, hasMore := extractPageItemsWithPagination(data, pageSize.cursorParam, pageSize.nextCursorPath, responsePathForResource(resource, path)...)
+		// The continuation the response itself carries, before the page/offset
+		// fallback below adds a synthetic one for a full page.
+		explicitNextCursor, explicitHasMore := nextCursor, hasMore
 		if responseDeclaresFailure(data) {
 			err := fmt.Errorf("%s response declared failure", resource)
 			if !humanFriendly {
@@ -782,9 +785,21 @@ func syncResource(ctx context.Context, c interface {
 		}
 
 		if len(items) == 0 && !cursorPageHasContinuation(pageSize.cursorType, hasMore, nextCursor) {
+			if syncUnpaginatedContinuation(resource, explicitHasMore, explicitNextCursor) {
+				outcome.reason = "unfollowed_continuation"
+				break
+			}
 			if isEmptyPageResponse(data, responsePathForResource(resource, path)...) {
 				// Natural end: the API legitimately returned an empty page.
 				outcome.complete = true
+				break
+			}
+			// HAND-FIX(sync-empty-proof-is-the-response-path): a collection
+			// with nothing readable at its declared path ({"data":null},
+			// data missing beside "included":[]) is unknown: neither an empty
+			// collection nor one record to keep while pruning the rest.
+			if collectionPayloadUnknown(data, responsePathForResource(resource, path)...) {
+				outcome.reason = "collection_unreadable"
 				break
 			}
 			// Single object response - try to store as-is
@@ -911,6 +926,15 @@ func syncResource(ctx context.Context, c interface {
 		}
 
 		pagesFetched++
+
+		// HAND-FIX(sync-unpaginated-continuation-is-incomplete): a resource
+		// fetched as one page whose response still carries a continuation
+		// (links.next, a next cursor, has_more true) has rows this walk never
+		// fetched: incomplete with a warning, never complete and pruned.
+		if syncUnpaginatedContinuation(resource, explicitHasMore, explicitNextCursor) {
+			outcome.reason = "unfollowed_continuation"
+			break
+		}
 
 		// Enforce page ceiling to prevent runaway syncs on large-catalog APIs.
 		// Suppress the cap-hit warning when --latest-only is the cap source:
@@ -1230,6 +1254,10 @@ func syncIncompleteMessage(resource, reason string) string {
 		return "walk covered only the --since window and no complete walk is recorded, so the collection is not complete; " + finish
 	case "latest_only":
 		return "--latest-only walked the newest page only, so the collection is not a complete snapshot; " + finish
+	case "unfollowed_continuation":
+		return "the API returned a continuation (a next link, a next cursor or has_more true) for a resource this CLI reads as one page, so rows on later pages were not fetched and nothing was pruned; the collection is not complete"
+	case "collection_unreadable":
+		return "the response held no readable collection where this resource's rows are listed (null or missing), so the collection is unknown, not empty, and nothing was pruned; " + finish + " once the API returns the list"
 	case "":
 		reason = "incomplete"
 	}
@@ -1341,6 +1369,46 @@ type paginationDefaults struct {
 // hasMore false). HAND-FIX(sync-short-page-follows-continuation)
 func syncPageEndsWalk(hasMore bool, nextCursor string) bool {
 	return !hasMore && nextCursor == ""
+}
+
+// syncUnpaginatedContinuation reports a resource this CLI reads as one page
+// (resourceSupportsPagination false) whose response carries an explicit
+// continuation (hasMore and nextCursor as the response gave them, before any
+// synthetic page/offset fallback): the walk cannot follow it, so it is
+// incomplete and never prunes. HAND-FIX(sync-unpaginated-continuation-is-incomplete)
+func syncUnpaginatedContinuation(resource string, explicitHasMore bool, explicitNextCursor string) bool {
+	return !resourceSupportsPagination(resource) && !syncPageEndsWalk(explicitHasMore, explicitNextCursor)
+}
+
+// warnSyncUnfollowedContinuation reports an unfollowed continuation for one
+// parent of a dependent resource (the flat walk reports it with its outcome).
+func warnSyncUnfollowedContinuation(syncEvents io.Writer, humanFriendly bool, resource, parent string) {
+	msg := syncIncompleteMessage(resource, "unfollowed_continuation")
+	if humanFriendly {
+		fmt.Fprintf(stderrW(), "\nwarning: %s parent %s: %s\n", resource, parent, msg)
+		return
+	}
+	fmt.Fprintln(syncEvents, syncWarningJSON(resource, parent, 0, "unfollowed_continuation", msg))
+}
+
+// collectionPayloadUnknown reports a response for a resource that declares
+// where its rows are listed (responsePaths) holding nothing usable there: the
+// path is missing, null or a scalar. Such a page proves neither an empty
+// collection nor a single record. HAND-FIX(sync-empty-proof-is-the-response-path)
+func collectionPayloadUnknown(data json.RawMessage, responsePaths ...string) bool {
+	if len(responsePaths) == 0 {
+		return false
+	}
+	for _, responsePath := range responsePaths {
+		payload, ok := responsePayloadAtPath(data, responsePath)
+		if !ok || isJSONNull(payload) {
+			continue
+		}
+		if trimmed := bytes.TrimSpace(payload); len(trimmed) > 0 && (trimmed[0] == '[' || trimmed[0] == '{') {
+			return false
+		}
+	}
+	return true
 }
 
 // explicitJSONBool reads raw as a JSON boolean literal only: a has_more of
@@ -2131,6 +2199,30 @@ func isEmptyPageResponse(data json.RawMessage, responsePaths ...string) bool {
 		return false
 	}
 
+	// HAND-FIX(sync-empty-proof-is-the-response-path): a resource that
+	// declares where its rows are listed proves an empty collection only by
+	// an empty array there ({"data":[]}, or {"data":{"items":[]}}). A
+	// metadata array beside it ("included":[]), a null or missing path, or a
+	// null list with a zero count is unknown, never an empty collection a
+	// --full sync may prune to.
+	if len(responsePaths) > 0 {
+		for _, responsePath := range responsePaths {
+			pathData, ok := responsePayloadAtPath(data, responsePath)
+			if !ok || isJSONNull(pathData) {
+				continue
+			}
+			var direct []json.RawMessage
+			if json.Unmarshal(pathData, &direct) == nil {
+				return len(direct) == 0
+			}
+			var inner map[string]json.RawMessage
+			if json.Unmarshal(pathData, &inner) == nil && isEmptyItemKeyArray(inner) {
+				return true
+			}
+		}
+		return false
+	}
+
 	if isEmptyPageEnvelope(envelope) {
 		return true
 	}
@@ -2223,6 +2315,23 @@ func isEmptyPageEnvelope(envelope map[string]json.RawMessage) bool {
 		return true
 	}
 	return hasExactlyOneEmptyArray(envelope)
+}
+
+// isEmptyItemKeyArray reports an envelope whose list wrapper key (data,
+// items, results, ...) holds an empty array: the only shape inside a declared
+// response path that proves no rows. HAND-FIX(sync-empty-proof-is-the-response-path)
+func isEmptyItemKeyArray(envelope map[string]json.RawMessage) bool {
+	for _, key := range pageItemKeys {
+		raw, ok := envelope[key]
+		if !ok || isJSONNull(raw) {
+			continue
+		}
+		var items []json.RawMessage
+		if json.Unmarshal(raw, &items) == nil {
+			return len(items) == 0
+		}
+	}
+	return false
 }
 
 func hasExactlyOneNullArrayWithZeroCount(envelope map[string]json.RawMessage) bool {
@@ -2337,7 +2446,6 @@ func extractPaginationFromEnvelope(envelope map[string]json.RawMessage, cursorPa
 	// runs when the top-level scan returned empty — and uses the same
 	// cursorKeys set so wrapper contents go through the same name match.
 	if nextCursor == "" {
-		paginationWrapperKeys := []string{"response_metadata", "additional_data", "pagination", "meta", "paging"}
 		for _, wrapperKey := range paginationWrapperKeys {
 			rawWrapper, ok := envelope[wrapperKey]
 			if !ok {
@@ -2367,6 +2475,12 @@ func extractPaginationFromEnvelope(envelope map[string]json.RawMessage, cursorPa
 				break
 			}
 		}
+	}
+	// HAND-FIX(sync-has-more-null-is-unknown): has_more is read in every
+	// pagination wrapper the cursor search reads ({"meta":{"has_more":true}}),
+	// so a short page that says there is more is never certified complete.
+	if more, ok := envelopeExplicitHasMore(envelope); ok && more {
+		hasMore = true
 	}
 
 	// If we found a cursor, assume there are more pages even without explicit has_more
@@ -2421,18 +2535,40 @@ func pageExplicitHasMore(data json.RawMessage, responsePaths ...string) (bool, b
 	return false, false
 }
 
+// envelopeExplicitHasMore reads an explicit has_more (true or false only) in
+// the envelope and in each pagination wrapper object in it (meta, pagination,
+// paging, ...), the places the next-cursor search reads. Any explicit true
+// wins over a false elsewhere: there is more.
+// HAND-FIX(sync-has-more-null-is-unknown)
 func envelopeExplicitHasMore(envelope map[string]json.RawMessage) (bool, bool) {
-	for _, key := range []string{"has_more", "hasMore", "has_next", "hasNext", "next_page"} {
-		raw, ok := envelope[key]
-		if !ok {
-			continue
-		}
-		if hasMore, ok := explicitJSONBool(raw); ok {
-			return hasMore, true
+	levels := []map[string]json.RawMessage{envelope}
+	for _, wrapperKey := range paginationWrapperKeys {
+		var inner map[string]json.RawMessage
+		if raw, ok := envelope[wrapperKey]; ok && json.Unmarshal(raw, &inner) == nil && inner != nil {
+			levels = append(levels, inner)
 		}
 	}
-	return false, false
+	more, parsed := false, false
+	for _, level := range levels {
+		for _, key := range []string{"has_more", "hasMore", "has_next", "hasNext", "next_page"} {
+			raw, ok := level[key]
+			if !ok {
+				continue
+			}
+			if hasMore, ok := explicitJSONBool(raw); ok {
+				more, parsed = more || hasMore, true
+				break
+			}
+		}
+	}
+	return more, parsed
 }
+
+// paginationWrapperKeys are the well-known objects a response files its
+// pagination in (Slack response_metadata, Pipedrive additional_data, MongoDB
+// Atlas pagination, JSON:API meta, paging): the next-cursor search and the
+// has_more read both look inside them, so the two cannot drift.
+var paginationWrapperKeys = []string{"response_metadata", "additional_data", "pagination", "meta", "paging"}
 
 // findCursorInMap returns the first non-empty scalar value in m
 // whose key matches one of cursorKeys. Used by extractPaginationFromEnvelope
@@ -3320,6 +3456,7 @@ func syncOneParent(
 		}
 
 		items, nextCursor, hasMore := extractPageItemsWithPagination(data, pageSize.cursorParam, pageSize.nextCursorPath, responsePathForResource(dep.Name, path)...)
+		explicitNextCursor, explicitHasMore := nextCursor, hasMore
 		if responseDeclaresFailure(data) {
 			outcome.reason = "response_declared_failure"
 			rep.integrityFailure = true
@@ -3370,7 +3507,10 @@ func syncOneParent(
 		}
 
 		if len(items) == 0 && !cursorPageHasContinuation(pageSize.cursorType, hasMore, nextCursor) {
-			if isEmptyPageResponse(data, responsePathForResource(dep.Name, path)...) {
+			if syncUnpaginatedContinuation(dep.Name, explicitHasMore, explicitNextCursor) {
+				outcome.reason = "unfollowed_continuation"
+				warnSyncUnfollowedContinuation(syncEvents, humanFriendly, dep.Name, parentID)
+			} else if isEmptyPageResponse(data, responsePathForResource(dep.Name, path)...) {
 				outcome.complete = true // parent legitimately has zero children
 			} else {
 				outcome.reason = "empty_non_list_response"
@@ -3461,6 +3601,14 @@ func syncOneParent(
 			emitSyncMissingPaginationCursorWarning(syncEvents, humanFriendly, dep.Name, parentID)
 		}
 		pagesFetched++
+
+		// HAND-FIX(sync-unpaginated-continuation-is-incomplete): as in the
+		// flat walk, for this parent.
+		if syncUnpaginatedContinuation(dep.Name, explicitHasMore, explicitNextCursor) {
+			outcome.reason = "unfollowed_continuation"
+			warnSyncUnfollowedContinuation(syncEvents, humanFriendly, dep.Name, parentID)
+			break
+		}
 
 		if maxPages > 0 && pagesFetched >= maxPages {
 			// HAND-FIX(sync-resumed-walk-warns): a page that already ends the
