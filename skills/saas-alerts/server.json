@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.Servosity/saas-alerts-mcp",
   "title": "SaaS Alerts MCP",
-  "description": "Every SaaS Alerts API in one CLI, plus cross-tenant triage, a Respond approval queue with",
+  "description": "SaaS Alerts alerts, Respond rule triggers and response across every customer tenant.",
   "version": "0.1.0",
   "icons": [
     {
@@ -29,10 +29,41 @@
       },
       "environmentVariables": [
         {
+          "name": "SAAS_ALERTS_BASE_URL",
+          "description": "Optional: API host (default https://us-central1-the-byway-248217.cloudfunctions.net).",
+          "isRequired": false,
+          "isSecret": false,
+          "default": "https://us-central1-the-byway-248217.cloudfunctions.net"
+        },
+        {
           "name": "SAAS_ALERTS_API_KEY",
-          "description": "Set the SAAS_ALERTS_API_KEY credential for the SaaS Alerts MCP server.",
+          "description": "SaaS Alerts partner API key (Settings in the SaaS Alerts console).",
           "isRequired": true,
           "isSecret": true
+        },
+        {
+          "name": "SAAS_ALERTS_USER_AGENT",
+          "description": "Optional: override the User-Agent the CLI sends.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "SAAS_ALERTS_MCP_READ_ONLY",
+          "description": "Optional: set to 1 so the MCP server only reads and previews.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "SAAS_ALERTS_MCP_HTTP_TOKEN",
+          "description": "Bearer token callers must present when the server runs with --transport http; not used by stdio.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "PRINTING_PRESS_CLIENT_PROFILE",
+          "description": "Not enforced by this connector (no tenant-gated profiles); leave unset. It does not limit access.",
+          "isRequired": false,
+          "isSecret": false
         }
       ]
     }

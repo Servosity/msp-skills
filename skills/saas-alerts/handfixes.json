@@ -1,0 +1,248 @@
+{
+  "slug": "saas-alerts",
+  "doc": "docs/reprint-survival.md",
+  "_comment": "Connector-specific edits a cli-printing-press reprint must NOT clobber. check_handfixes.py asserts every marker below is still present (and every banned anti-pattern still absent) and fails CI if a reprint dropped one. Schema and rationale: docs/reprint-survival.md. Regen steps: cli-factory/saas-alerts/handfixes/regen.sh (re-applies apply_client_patch.py + apply_doc_patch.py).",
+  "handfixes": [
+    {
+      "id": "windows-sddl-alias-sid-compare",
+      "summary": "the Windows token-file guard compares trustees by SID, resolving SDDL aliases through the OS, so the built-in Administrator (RID 500, rendered as LA) can save and load credentials",
+      "why": "Press 4.30.2+ creds_perms_eval.go compared the SDDL text of the token file's owner and ACE trustees against the process's SID string. The SDDL converter renders the built-in local Administrator (RID 500) as the alias LA, so that account's own ACE never matched: `auth set-token` exited 1 with `token file DACL grants access to a non-owner principal (LA)` and every read refused the file. Reproduced 2026-10-15 on the published fortinet-cli 0.1.0, installed with the README one-liner on a windows-latest runner (whoami S-1-5-21-...-500). The fix resolves each trustee to its SID (fixed aliases from a table, machine-relative ones like LA through ConvertStringSidToSid, kept only when the converter renders that SID back to the same alias) and compares SIDs. The allow-list is unchanged (current user, BUILTIN\\Administrators, SYSTEM): an owner or allow-ACE trustee that is any other principal, a broad group, or unresolvable is still refused. A reprint from an unfixed press silently restores the string compare while unit tests stay green on every non-Windows host.",
+      "status": "active",
+      "spec_encode_followup": "Press defect in internal/generator/templates/cliutil_creds_perms_eval.go.tmpl and cliutil_creds_perms_windows.go.tmpl (unfixed on press main as of 4.33.5). Reported upstream: https://github.com/mvanhorn/cli-printing-press/issues/5029",
+      "asserts": [
+        {
+          "file": "cli/internal/cliutil/creds_perms_eval.go",
+          "contains": "func trusteeSID(trustee string, resolveAlias sddlAliasResolver) string {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_eval.go",
+          "contains": "if om == nil || !sidAllowed(trusteeSID(om[1], resolveAlias), currentUserSID) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_eval.go",
+          "contains": "if !sidAllowed(trusteeSID(trustee, resolveAlias), currentUserSID) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_windows.go",
+          "contains": "return evalCredsSecurityResolved(sd.String(), me, resolveSDDLAlias)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_windows.go",
+          "contains": "sid, err := windows.StringToSid(alias)",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_windows.go",
+          "not_contains": "return evalCredsSecurity(sd.String(), me)"
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
+          "contains": "func TestEvalCredsSecurityResolvesSDDLAliases(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "windows-null-dacl-behind-flags",
+      "summary": "the Windows token-file guard checks the DACL section's framing, so a NULL DACL is refused in the form Windows actually renders it, flags first (D:PAINO_ACCESS_CONTROL), and DACL text that does not frame as flags plus complete six-field ACEs is refused rather than skipped",
+      "why": "Press creds_perms_eval.go refused a NULL DACL only when the DACL section began with NO_ACCESS_CONTROL. SDDL puts DACL flags (P, AI, AR) first, and a real NULL DACL on Windows Server 2025 renders as O:<owner>D:PAINO_ACCESS_CONTROL (measured on a windows-latest runner, 2026-10-15), so the guard found no ACEs to inspect and accepted a world-accessible token file. That was already a hole for every ordinary account; for the built-in Administrator the owner-alias mismatch happened to refuse it, so resolving LA (windows-sddl-alias-sid-compare) without this fix would have widened the hole. The DACL section's framing is now checked: its flags must be drawn from P/AI/AR/NO_ACCESS_CONTROL, an empty DACL followed by a SACL section ends at that section, and the ACE list must be complete, un-nested (...) groups of exactly six fields. Unknown flags, an unclosed or nested group, stray text, or a wrong field count is refused (fail-closed). ACE flags and rights are not validated; they do not change which principal an allow ACE names.",
+      "status": "active",
+      "spec_encode_followup": "Same press templates as windows-sddl-alias-sid-compare; reported in the same upstream issue: https://github.com/mvanhorn/cli-printing-press/issues/5029",
+      "asserts": [
+        {
+          "file": "cli/internal/cliutil/creds_perms_eval.go",
+          "contains": "if strings.Contains(daclFlags, \"NO_ACCESS_CONTROL\") {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_eval.go",
+          "contains": "if !daclFlagsRe.MatchString(daclFlags) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_eval.go",
+          "contains": "if !aceListRe.MatchString(rest[flagsEnd:]) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_eval.go",
+          "contains": "if len(fields) != 6 {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_eval.go",
+          "not_contains": "if strings.HasPrefix(rest, \"NO_ACCESS_CONTROL\") {"
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
+          "contains": "func TestEvalCredsSecurityRefusesNullDACLBehindFlags(t *testing.T) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cliutil/creds_perms_sddl_test.go",
+          "contains": "func TestEvalCredsSecurityChecksTheDACLSectionFraming(t *testing.T) {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "respond-access-token-exchange",
+      "summary": "Respond API calls mint an accesstoken from the partner api_key (POST /respondApi/api/v1/auth), attach it, re-mint once on rejection, and mask every token in output",
+      "why": "The Respond API (spec 2.0.0) requires an accesstoken header minted from the partner api_key; without it every call answers 400 'Only secure origins are allowed' (live receipt 2026-10-14). Press 4.33.5 has no api-key-to-token exchange auth mode, so client.go is hand-patched to call respond_token.go. A reprint re-emits client.go without the hook and every Respond command (rule-triggers, rules, response-actions, contain) silently fails.",
+      "status": "active",
+      "spec_encode_followup": "Generator auth mode for an api_key -> access-token exchange scoped to a path prefix (cli-factory/saas-alerts/handfixes/patches/saas-alerts-respond-access-token.json)",
+      "asserts": [
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "if isRespondPath(path) && req.Header.Get(\"accesstoken\") == \"\" {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "if isRespondPath(path) && !respondReminted && respondTokenRejected(resp.StatusCode, respBody) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/client.go",
+          "contains": "for _, tok := range respondTokensForMask() {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/client/respond_token.go",
+          "contains": "func (c *Client) respondAccessToken(",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "events-scoped-storage-identity",
+      "summary": "synced events are keyed by _id, else a customer/product/account-scoped eventId, else a content hash",
+      "why": "Reports eventId is the source product's raw id and collides across customers, products and users; the press id override cannot express a prefer-_id fallback chain, so distinct events overwrote each other at sync and triage/cross-tenant undercounted. A reprint restores the generic id extraction.",
+      "status": "active",
+      "spec_encode_followup": "Ordered id fallback chains (x-resource-id with alternatives) in the generator",
+      "asserts": [
+        {
+          "file": "cli/internal/store/store.go",
+          "contains": "if id := saasEventStorageID(obj); id != \"\" || !saasVerifyFixtures() {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/store/saas_events_id.go",
+          "contains": "func saasEventStorageID(",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "sync-events-start-and-respond-array-cursor",
+      "summary": "events sync maps --since to the documented `start` param; rule-trigger sync follows Respond's [ts, id] array cursor as repeated startAfter keys and treats only a literal pagination.hasNextPage:false as the end",
+      "why": "GET /reports/events filters by `start` (date-time), which the press since-detector misses, so incremental sync re-pulled everything. GET /rule-triggers pages with pagination.cursor = [ts, id] passed back as repeated startAfter keys and a nested pagination.hasNextPage flag; generic sync handles only scalar cursors and top-level has_more names, so it stopped after page 1 or pruned rows on an unproven end.",
+      "status": "active",
+      "spec_encode_followup": "Since detection for `start` date-time params; array cursors and nested has-more flags in generic sync",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "case \"events\":",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "if resource == \"rule-triggers\" && params[\"startAfter\"] != \"\" {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "if raw, ok := rawAtPath(envelope, \"pagination.hasNextPage\"); ok {",
+          "min_count": 2,
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/sync.go",
+          "contains": "if saasRespondEndUnproven(resource, data) {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/saas_sync_respond.go",
+          "contains": "func saasRespondEndUnproven(",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "live-writers-preview-unless-confirm",
+      "summary": "rule-triggers decide, contain and subscriptions health --reenable only preview without --confirm, and the MCP read-only mode treats them as reads only while --confirm is absent",
+      "why": "These three commands change live Respond triggers, Microsoft 365 accounts (block sign-in, expire sessions, reset password) and webhook subscriptions. The preview default and the mcp:read-only-unless-flags annotation are what keep an agent from acting on a customer tenant by accident; governance.md tiers them as writes on that basis. A reprint that loses either turns a preview into a live write.",
+      "status": "active",
+      "spec_encode_followup": "Novel commands; re-author with the same --confirm contract on any reprint",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/contain.go",
+          "contains": "\"mcp:read-only-unless-flags\": \"confirm\",",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/contain.go",
+          "contains": "if !flagConfirm {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/rule_triggers_decide.go",
+          "contains": "\"mcp:read-only-unless-flags\": \"confirm\",",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/rule_triggers_decide.go",
+          "contains": "if flagConfirm {",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/subscriptions_health.go",
+          "contains": "\"mcp:read-only-unless-flags\": \"confirm\",",
+          "code_only": true
+        },
+        {
+          "file": "cli/internal/cli/subscriptions_health.go",
+          "contains": "if flagReenable && flagConfirm {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "contain-microsoft-only-refusal",
+      "summary": "contain refuses a non-Microsoft 365 account and an email that maps to more than one Microsoft 365 account instead of guessing",
+      "why": "Respond response actions run against application MS only. Acting on the wrong account, or on a Google Workspace user that happens to share an email, would block or reset a real person. contain exits non-zero on any unclear case and asks for --org-id/--account-id.",
+      "status": "active",
+      "spec_encode_followup": "Novel command; re-author with the same refusal on any reprint",
+      "asserts": [
+        {
+          "file": "cli/internal/cli/contain.go",
+          "contains": "if a.product != containProductMicrosoft {",
+          "code_only": true
+        }
+      ]
+    },
+    {
+      "id": "mcp-http-token-placeholder",
+      "summary": "the MCP server's --transport http bearer token is read through cliutil.EnvOverride, so an unresolved ${user_config.saas_alerts_mcp_http_token} placeholder refuses to start instead of becoming the secret",
+      "why": "The generated requireHTTPCallerToken read SAAS_ALERTS_MCP_HTTP_TOKEN with os.Getenv. The variable is declared as an optional MCPB user_config value, and a host that skips an optional prompt leaves the literal placeholder text in the environment; that text is public (it is in manifest.json), so anyone could authenticate to an HTTP-mode server started that way. Same fix as bitdefender and sophos-central. TestHTTPTokenPlaceholderRefused fails when the read goes back to os.Getenv (proven 2026-10-20).",
+      "status": "active",
+      "spec_encode_followup": "the press main_mcp.go.tmpl should read the HTTP token through cliutil.EnvOverride for every connector.",
+      "asserts": [
+        {
+          "file": "cli/cmd/saas-alerts-mcp/main.go",
+          "contains": "token := strings.TrimSpace(cliutil.EnvOverride(httpTokenEnvVar))",
+          "code_only": true
+        },
+        {
+          "file": "cli/cmd/saas-alerts-mcp/http_token_placeholder_test.go",
+          "contains": "func TestHTTPTokenPlaceholderRefused(",
+          "code_only": true
+        }
+      ]
+    }
+  ]
+}

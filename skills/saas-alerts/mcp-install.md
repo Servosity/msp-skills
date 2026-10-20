@@ -37,7 +37,12 @@ Add (or merge with your existing `mcpServers` block):
     "saas-alerts": {
       "command": "saas-alerts-mcp",
       "env": {
-        "SAAS_ALERTS_API_KEY": "<your-saas_alerts_api_key>"
+        "SAAS_ALERTS_BASE_URL": "",
+        "SAAS_ALERTS_API_KEY": "<your-saas_alerts_api_key>",
+        "SAAS_ALERTS_USER_AGENT": "",
+        "SAAS_ALERTS_MCP_READ_ONLY": "",
+        "SAAS_ALERTS_MCP_HTTP_TOKEN": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
@@ -45,6 +50,18 @@ Add (or merge with your existing `mcpServers` block):
 ```
 
 Quit Claude Desktop completely and reopen, then ask a question that needs the API.
+
+`SAAS_ALERTS_API_KEY` is the partner API key from **Settings** in the SaaS Alerts
+console. The server sends it as the `api_key` header to the Reports, Manage and
+Webhooks APIs and exchanges it for the Respond access token itself, so there is no
+second credential to paste. `SAAS_ALERTS_BASE_URL` is optional: leave it empty (or
+remove the line) to use the SaaS Alerts API host. For an agent that should only read,
+set the `"SAAS_ALERTS_MCP_READ_ONLY"` entry that is already in the `env` block to `"1"`
+(here or in any other agent's config below; do not add a second entry, because JSON
+keeps the last one): `saas-alerts_execute` then runs GET endpoints only, `contain`,
+`rule_triggers_decide` and `subscriptions_health` can only preview (their `confirm`
+parameter is refused), and `sync`, `import` and `export` are not offered. The one-click
+`.mcpb` extension asks for the same switch as **Read-only MCP server**: enter `1` there.
 
 ## GitHub Copilot (VS Code)
 
@@ -62,7 +79,12 @@ Configuration**) and add:
       "type": "stdio",
       "command": "saas-alerts-mcp",
       "env": {
-        "SAAS_ALERTS_API_KEY": "<your-saas_alerts_api_key>"
+        "SAAS_ALERTS_BASE_URL": "",
+        "SAAS_ALERTS_API_KEY": "<your-saas_alerts_api_key>",
+        "SAAS_ALERTS_USER_AGENT": "",
+        "SAAS_ALERTS_MCP_READ_ONLY": "",
+        "SAAS_ALERTS_MCP_HTTP_TOKEN": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
@@ -74,7 +96,7 @@ invisible in Ask/Edit mode.
 
 ## Gemini CLI (Google)
 
-Edit `~/.gemini/settings.json` (Gemini CLI's config) and add the same shape as
+Edit `~/.gemini/settings.json` (Windows: `%USERPROFILE%\.gemini\settings.json`; Gemini CLI's config) and add the same shape as
 Claude Desktop:
 
 ```json
@@ -83,7 +105,12 @@ Claude Desktop:
     "saas-alerts": {
       "command": "saas-alerts-mcp",
       "env": {
-        "SAAS_ALERTS_API_KEY": "<your-saas_alerts_api_key>"
+        "SAAS_ALERTS_BASE_URL": "",
+        "SAAS_ALERTS_API_KEY": "<your-saas_alerts_api_key>",
+        "SAAS_ALERTS_USER_AGENT": "",
+        "SAAS_ALERTS_MCP_READ_ONLY": "",
+        "SAAS_ALERTS_MCP_HTTP_TOKEN": "",
+        "PRINTING_PRESS_CLIENT_PROFILE": ""
       }
     }
   }
@@ -99,24 +126,42 @@ web** is remote-only - see the remote section below.)
 
 All remote agents need `saas-alerts-mcp` reachable as a public **HTTPS** endpoint. Run it
 in HTTP mode with your credentials in the environment (it serves `http://127.0.0.1:7777/mcp` by
-default; press 4.32+ refuses a non-loopback bind without TLS, so do not pass `--addr :7777`):
+default; the server refuses a non-loopback bind without `--tls-cert`/`--tls-key`, so do not
+pass `--addr :7777`):
 
 ```bash
-SAAS_ALERTS_API_KEY=<value> saas-alerts-mcp --transport http
+SAAS_ALERTS_API_KEY=<value> SAAS_ALERTS_MCP_HTTP_TOKEN=<long-random-value> saas-alerts-mcp --transport http
 ```
+
+On Windows (PowerShell):
+
+```powershell
+$env:SAAS_ALERTS_API_KEY="<value>"; $env:SAAS_ALERTS_MCP_HTTP_TOKEN="<long-random-value>"; saas-alerts-mcp --transport http
+```
+
+`SAAS_ALERTS_MCP_HTTP_TOKEN` is required: the server refuses to start in HTTP mode
+without it, and rejects any request that does not carry `Authorization: Bearer <that value>`.
+If your remote client cannot send that header, have your reverse proxy add it to the
+requests it forwards, and put your own sign-in in front of the proxy.
 
 Then expose `http://localhost:7777/mcp` as a public HTTPS URL via a secure tunnel
 (Cloudflare Tunnel, ngrok) or your own reverse proxy. The path is part of the
-endpoint: the server answers Streamable HTTP at `/mcp` and returns 404 at the
-bare root, so a connector pointed at the root URL never handshakes. **Treat that
-URL as sensitive** - it's a key to your MCP server. Never expose it bare on the
-internet; gate it behind SSO / Cloudflare Access for team use.
+endpoint: put `/mcp` in the connector URL, which is the Streamable HTTP endpoint this
+server documents. **Treat the token and the URL as sensitive.** Never expose the
+endpoint bare on the internet; gate it behind SSO / Cloudflare Access for team use.
 
 ## ChatGPT (Developer Mode)
 
 In ChatGPT (Pro, Plus, Team, Business, Enterprise, or Education - **not** Free):
 Settings > Apps > Advanced > **Developer mode**, then create a custom connector
 pointing at your tunnel's HTTPS URL.
+
+At the time of writing, ChatGPT's custom connectors sign in with OAuth or use no
+authentication; they do not send a fixed bearer header. So `saas-alerts-mcp` answers a
+direct ChatGPT connector with 401. Put a gateway in front that ChatGPT can authenticate to
+with OAuth and that adds `Authorization: Bearer <your SAAS_ALERTS_MCP_HTTP_TOKEN>` to the
+requests it forwards. Never expose the endpoint without authentication, and run it with
+`SAAS_ALERTS_MCP_READ_ONLY=1` unless ChatGPT must act on Respond triggers or accounts.
 
 Official OpenAI guidance (beta, plan-dependent): https://help.openai.com/en/articles/12584461-developer-mode-and-mcp-apps-in-chatgpt-beta
 

@@ -3,7 +3,7 @@
   "name": "saas-alerts-mcp",
   "display_name": "SaaS Alerts",
   "version": "0.1.0",
-  "description": "Every SaaS Alerts API in one CLI, plus cross-tenant triage, a Respond approval queue with deadlines, and the access-token handshake that breaks other integrations.",
+  "description": "All four SaaS Alerts APIs, plus cross-customer alert triage, the Respond approval queue and account containment.",
   "author": {
     "name": "Servosity Inc."
   },
@@ -15,17 +15,55 @@
       "command": "${__dirname}/bin/saas-alerts-mcp",
       "args": [],
       "env": {
-        "SAAS_ALERTS_API_KEY": "${user_config.saas_alerts_api_key}"
+        "SAAS_ALERTS_BASE_URL": "${user_config.saas_alerts_base_url}",
+        "SAAS_ALERTS_API_KEY": "${user_config.saas_alerts_api_key}",
+        "SAAS_ALERTS_USER_AGENT": "${user_config.saas_alerts_user_agent}",
+        "SAAS_ALERTS_MCP_READ_ONLY": "${user_config.saas_alerts_mcp_read_only}",
+        "SAAS_ALERTS_MCP_HTTP_TOKEN": "${user_config.saas_alerts_mcp_http_token}",
+        "PRINTING_PRESS_CLIENT_PROFILE": "${user_config.printing_press_client_profile}"
       }
     }
   },
   "user_config": {
+    "saas_alerts_base_url": {
+      "type": "string",
+      "title": "SaaS Alerts API host",
+      "description": "Sets SAAS_ALERTS_BASE_URL. Leave blank for the SaaS Alerts API host (https://us-central1-the-byway-248217.cloudfunctions.net); set it only to send requests through your own proxy or a test server.",
+      "sensitive": false,
+      "required": false,
+      "default": "https://us-central1-the-byway-248217.cloudfunctions.net"
+    },
     "saas_alerts_api_key": {
       "type": "string",
       "title": "SaaS Alerts partner API key",
-      "description": "Partner API key sent as the api_key header to the Reports, Manage, and Webhooks APIs; the CLI exchanges it for the Respond access token.",
+      "description": "Sets SAAS_ALERTS_API_KEY, the partner API key from SaaS Alerts Settings. It is sent as the api_key header to the Reports, Manage and Webhooks APIs, and the server exchanges it for the Respond access token.",
       "sensitive": true,
       "required": true
+    },
+    "saas_alerts_user_agent": {
+      "type": "string",
+      "title": "User-Agent header",
+      "description": "Overrides the User-Agent the CLI sends. Leave blank to use the CLI's own.",
+      "required": false
+    },
+    "saas_alerts_mcp_read_only": {
+      "type": "string",
+      "title": "Read-only MCP server",
+      "description": "Set to exactly 1 so saas-alerts_execute runs GET endpoints only, contain, rule-triggers decide and subscriptions health can only preview (--confirm is refused), and sync, import and export are not offered. Leave blank for full access.",
+      "required": false
+    },
+    "saas_alerts_mcp_http_token": {
+      "type": "string",
+      "title": "MCP HTTP transport bearer token",
+      "description": "Required only when running the MCP server with --transport http (a remote/hosted deployment). Callers must send a matching Authorization: Bearer header. Not needed for the default local stdio transport that Claude Desktop uses.",
+      "sensitive": true,
+      "required": false
+    },
+    "printing_press_client_profile": {
+      "type": "string",
+      "title": "Client profile",
+      "description": "Not enforced by this connector: there are no tenant-gated client profiles, so a value here does not limit which customers a call can reach. Leave blank. To limit what an agent can do, turn on the read-only MCP server.",
+      "required": false
     }
   },
   "compatibility": {
