@@ -758,3 +758,72 @@ func TestTwoStartsWithTheSameLabelPinDifferentJobs(t *testing.T) {
 		t.Fatalf("a long --label is cut after the unique part: %q", long)
 	}
 }
+
+// P2-f: after --no-reconcile (or an interrupted wait, or download start) a
+// resume with nothing to send ran only the confirming pass, so a dropped
+// create stayed REQUESTED for good. A REQUESTED row accepted over an hour
+// ago that a fresh listing still does not show is MISSING (never EMPTY),
+// and that resume sends it again. The clock is moved by writing the
+// accepted times into the ledger.
+func TestStaleRequestedRowsBecomeMissing(t *testing.T) {
+	testenv.Isolate(t)
+	s := newDLStub(t)
+	quickReconcile(t, s)
+	s.mu.Lock()
+	s.listCreated = false
+	s.taskEntities = []string{"a@contoso.com", "b@contoso.com"}
+	s.mu.Unlock()
+	_, _, _ = runDL(t, s, downloadSubmitArgs("--sub-sources", "O365MAIL", "--no-reconcile")...)
+	key := ledgerKeys(t)[0]
+	b := mustLoadBatch(t, key)
+	for i := range b.Rows {
+		age := 30 * time.Minute
+		if b.Rows[i].Entity == "a@contoso.com" {
+			age = 2 * time.Hour
+		}
+		b.Rows[i].AcceptedAt = isoUTC(time.Now().Add(-age))
+	}
+	if err := saveBatch(b); err != nil {
+		t.Fatal(err)
+	}
+	s.mu.Lock()
+	s.listCreated = true
+	s.mu.Unlock()
+	_, stderr, _ := runDL(t, s, "download", "submit", "--batch", key, "--resume", "--yes")
+	if got := s.createdAccounts(); len(got) != 3 || got[2] != "a@contoso.com" {
+		t.Fatalf("creates = %v, want a@ sent again once (its create was dropped an hour ago)\n%s", got, stderr)
+	}
+	if r := rowByEntity(mustLoadBatch(t, key), "a@contoso.com"); r.Status != dlCreated {
+		t.Fatalf("the stale row was sent again and found: %+v", r)
+	}
+
+	// The confirming pass alone, with no job listed: only the row
+	// accepted over an hour ago is MISSING.
+	b.Rows[0].Status, b.Rows[1].Status = dlRequested, dlRequested
+	if _, err := reconcileRows(context.Background(), testGuard(t), b, nil, false, nil); err != nil {
+		t.Fatal(err)
+	}
+	if a, bb := rowByEntity(b, "a@contoso.com"), rowByEntity(b, "b@contoso.com"); a.Status != dlMissing || bb.Status != dlRequested {
+		t.Fatalf("want a@ MISSING (2h) and b@ REQUESTED (30m), got %s and %s", a.Status, bb.Status)
+	}
+}
+
+// P2-h: a run that sent nothing waited the whole reconcile delay for jobs
+// that cannot exist.
+func TestARunThatSentNothingDoesNotWait(t *testing.T) {
+	testenv.Isolate(t)
+	s := newDLStub(t)
+	prev := reconcileDelay
+	reconcileDelay = 3 * time.Second
+	t.Cleanup(func() { reconcileDelay = prev })
+	s.taskEntities = []string{"a@contoso.com"}
+	s.createCode["a@contoso.com"] = http.StatusForbidden
+	start := time.Now()
+	_, stderr, err := runDL(t, s, downloadSubmitArgs("--sub-sources", "O365MAIL")...)
+	if took := time.Since(start); took > 2*time.Second {
+		t.Fatalf("a run whose only create was refused took %s: it waited to reconcile\n%s", took, stderr)
+	}
+	if err == nil || ExitCode(err) != 6 {
+		t.Fatalf("a refused create leaves the row FAILED: want exit 6, got %v", err)
+	}
+}

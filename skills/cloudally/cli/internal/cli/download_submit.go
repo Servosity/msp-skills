@@ -614,6 +614,14 @@ func reconcileRows(ctx context.Context, guard *downloadGuard, batch *downloadBat
 				return res, err
 			}
 			res.ambiguous++
+		case r.Status == dlRequested && acceptedBefore(*r, time.Now().Add(-staleRequestedAge)):
+			// Accepted long ago and still not listed on a fresh listing:
+			// a dropped (or empty) create. MISSING, never EMPTY, so a
+			// resume sends it again; without this a run that never
+			// reconciled (--no-reconcile, an interrupted wait, download
+			// start) left it REQUESTED for good.
+			r.Status = dlMissing
+			r.Detail = "accepted over an hour ago, but no job that could be this row's is on the portal"
 		case !final, r.Status == dlUnknown, r.Status == dlCreated:
 			// Absence proves nothing for these: a job takes minutes to
 			// appear and an empty one never appears at all.
@@ -626,6 +634,16 @@ func reconcileRows(ctx context.Context, guard *downloadGuard, batch *downloadBat
 		}
 	}
 	return res, nil
+}
+
+// staleRequestedAge is how long after its create was accepted a row's job
+// must have appeared on the portal. A new job is listed within minutes.
+const staleRequestedAge = time.Hour
+
+// acceptedBefore reports whether the portal accepted r's create before t.
+func acceptedBefore(r downloadRow, t time.Time) bool {
+	at, err := time.Parse(time.RFC3339, r.AcceptedAt)
+	return err == nil && at.Before(t)
 }
 
 // reconcileBatch lists the portal after a run and settles each row it
@@ -795,12 +813,14 @@ A create whose outcome was never learned (a timeout, a dropped connection, a
 server error after the request left, or a run killed mid-call) is UNKNOWN.
 --resume first looks for UNKNOWN and MISSING jobs on the portal and marks the
 ones it finds CREATED, and never sends an UNKNOWN row again unless
---retry-unknown is given; even then it looks first. A resend of an UNKNOWN or
-MISSING row that is refused or never sent leaves the row UNKNOWN: the first
-create may still exist. PLANNED and FAILED rows of a ledger from the first
-build (which recorded no include flags) are held as UNKNOWN for the same
-reason. A resume sends every row with the batch's recorded --format,
---include-deleted and --include-legal-hold.
+--retry-unknown is given; even then it looks first. A REQUESTED row accepted
+over an hour ago that the resume still does not find is MISSING, and that
+resume sends it again; a resume that sends nothing does not wait to reconcile.
+A resend of an UNKNOWN or MISSING row that is refused or never sent leaves the
+row UNKNOWN: the first create may still exist. PLANNED and FAILED rows of a
+ledger from the first build (which recorded no include flags) are held as
+UNKNOWN for the same reason. A resume sends every row with the batch's
+recorded --format, --include-deleted and --include-legal-hold.
 
 Each create carries a unique job label, and a row is confirmed only by the
 portal job with its label (or, where the portal does not keep labels, the one
@@ -1222,7 +1242,9 @@ func (r submitRun) send(ctx context.Context, batch *downloadBatch) error {
 			sentCount++
 		}
 	}
-	if !r.noReconcile {
+	// Nothing sent (every row held elsewhere, refused, or not sent): there is
+	// no new job to wait for, and a resume already looked before sending.
+	if !r.noReconcile && sentCount > 0 {
 		fmt.Fprintf(stderr, "waiting %s before reconciling, because a new job takes minutes to appear (batch %s)\n", reconcileDelay, batch.BatchKey)
 		select {
 		case <-ctx.Done():
