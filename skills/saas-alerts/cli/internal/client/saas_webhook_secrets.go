@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 )
@@ -21,25 +22,41 @@ const WebhookTokenWithheld = "[withheld]"
 // attaches that token to each delivery so the MSP's receiver can tell a real
 // delivery from a forged one, which makes it a credential: it must not reach
 // command output, the response cache, the local store or an MCP client. The
-// body is returned unchanged when the path is not a Webhooks API path, the
-// body is not JSON, or it carries no token.
+// body is returned unchanged when the path is not a Webhooks API path or no
+// value carries a token. Every JSON value in the body is walked (an answer
+// may hold several, one per line); text that does not parse as JSON but holds
+// a "token" key is withheld whole, since its value cannot be found reliably.
 func withholdWebhookTokens(path string, body json.RawMessage) json.RawMessage {
 	if !strings.Contains(path, "/outgoingWebhookApi/") {
 		return body
 	}
 	dec := json.NewDecoder(bytes.NewReader(body))
 	dec.UseNumber()
-	var v any
-	if err := dec.Decode(&v); err != nil {
-		return body
-	}
-	if !withholdTokenKeys(v) {
-		return body
-	}
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
 	enc.SetEscapeHTML(false)
-	if err := enc.Encode(v); err != nil {
+	changed := false
+	for {
+		var v any
+		err := dec.Decode(&v)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			if bytes.Contains(bytes.ToLower(body), []byte(`"token"`)) {
+				whole, _ := json.Marshal(WebhookTokenWithheld)
+				return whole
+			}
+			return body
+		}
+		if withholdTokenKeys(v) {
+			changed = true
+		}
+		if err := enc.Encode(v); err != nil {
+			return body
+		}
+	}
+	if !changed {
 		return body
 	}
 	return json.RawMessage(bytes.TrimRight(buf.Bytes(), "\n"))

@@ -250,3 +250,21 @@ func TestPartnerKeyInA200HTMLTitleIsMasked(t *testing.T) {
 		t.Fatalf("key in an HTML title leaked: %v", err)
 	}
 }
+
+// TestWebhookTokenWithheldFromEveryJSONValue: an answer holding several JSON
+// values has every token withheld and no record dropped; text that is not
+// JSON but carries a token key is withheld whole.
+func TestWebhookTokenWithheldFromEveryJSONValue(t *testing.T) {
+	const path = "/outgoingWebhookApi/api/v1/subscriptions"
+	out := string(withholdWebhookTokens(path, []byte("{\"id\":1}\n{\"id\":2,\"token\":\"test-secret-second\"}")))
+	if strings.Contains(out, "test-secret-second") || !strings.Contains(out, `"id":1`) || !strings.Contains(out, `"id":2`) {
+		t.Fatalf("multi-value answer: %s", out)
+	}
+	out = string(withholdWebhookTokens(path, []byte(`{"id":1} {"token":"test-secret-broken"`)))
+	if strings.Contains(out, "test-secret-broken") {
+		t.Fatalf("broken JSON with a token key leaked: %s", out)
+	}
+	if out := string(withholdWebhookTokens(path, []byte("Invalid token"))); out != "Invalid token" {
+		t.Fatalf("plain text without a token key changed: %s", out)
+	}
+}
